@@ -646,6 +646,7 @@ const App = () => {
         name: d.name || d.$id,
         ownerId: String(d?.ownerId || ''),
         teamId: String(d?.teamId || ''),
+        email: String(d?.email || '').trim(),
       }));
       setAcademyList(mappedAcademies);
       try {
@@ -719,6 +720,7 @@ const App = () => {
               name: doc.name || academyId,
               ownerId: String(doc.ownerId || u.$id || ''),
               teamId: String(doc.teamId || ''),
+              email: String(doc.email || '').trim(),
             },
           ];
           setAcademyList(single);

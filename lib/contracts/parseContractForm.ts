@@ -34,8 +34,16 @@ function parseSignersJson(raw: FormDataEntryValue | null): SignerInput[] {
   return parsed as SignerInput[];
 }
 
+export type ParseContractFormOptions = {
+  /** Quando true, validação de signatários fica a cargo do handler (ex.: após enrich da academia). */
+  skipSignerValidation?: boolean;
+};
+
 /** Converte FormData (Next.js / Web API) para payload de signContract. */
-export async function parseContractFormData(formData: FormData): Promise<ParsedContractForm> {
+export async function parseContractFormData(
+  formData: FormData,
+  opts: ParseContractFormOptions = {}
+): Promise<ParsedContractForm> {
   const nameRaw = formData.get('name');
   let name = nameRaw != null ? String(nameRaw).trim() : '';
   if (!name) {
@@ -43,7 +51,9 @@ export async function parseContractFormData(formData: FormData): Promise<ParsedC
   }
 
   const signers = parseSignersJson(formData.get('signers'));
-  validateContractSigners(signers);
+  if (!opts.skipSignerValidation) {
+    validateContractSigners(signers);
+  }
 
   const templateRaw = formData.get('template_id');
   const template_id = templateRaw != null ? String(templateRaw).trim() : '';

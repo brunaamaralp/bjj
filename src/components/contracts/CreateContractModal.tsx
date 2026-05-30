@@ -30,6 +30,12 @@ import { useUserRole } from '../../lib/useUserRole.js';
 import { isInactiveStudent } from '../../lib/studentStatus.js';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import FieldError from '../shared/FieldError.jsx';
+import {
+  resolveAcademyContactEmail,
+  patchAcademyEmailInList,
+} from '../../lib/academyContactEmail.js';
+import { saveAcademySettingsApi } from '../../lib/academySettingsApi.js';
+import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
 
 type Step = 'template' | 'signers' | 'send';
 
@@ -73,6 +79,11 @@ export default function CreateContractModal({
   const academyList = useLeadStore((s) => s.academyList);
   const academyDoc = academyList.find((a) => a.id === academyId) || null;
   const navRole = useUserRole(academyDoc);
+  const canEditAcademyEmail = navRole === 'owner' || navRole === 'admin';
+
+  const [academyContactEmail, setAcademyContactEmail] = useState('');
+  const [inlineAcademyEmail, setInlineAcademyEmail] = useState('');
+  const [savingAcademyEmail, setSavingAcademyEmail] = useState(false);
 
   const lead = leadId ? (leads || []).find((l) => String(l.id) === String(leadId)) : null;
   const studentInactive = lead ? isInactiveStudent(lead) : false;
@@ -139,7 +150,7 @@ export default function CreateContractModal({
         name: secondaryLabel.toLowerCase().includes('contratada')
           ? String(academyDoc?.name || 'Academia').trim()
           : '',
-        email: String(academyDoc?.email || '').trim(),
+        email: String(academyContactEmail || academyDoc?.email || '').trim(),
         phone: '',
         action: 'SIGN' as const,
         delivery_method: 'DELIVERY_METHOD_EMAIL' as const,
@@ -147,8 +158,59 @@ export default function CreateContractModal({
 
       return [primary, { ...secondary, name: secondary.name || secondaryLabel }];
     },
-    [academyDoc?.email, academyDoc?.name, lead]
+    [academyContactEmail, academyDoc?.email, academyDoc?.name, lead]
   );
+
+  const isContratadaSignerIndex = useCallback(
+    (index: number) => {
+      const label = String(selectedTemplate?.signerLayout?.slots?.[index]?.label || '').toLowerCase();
+      if (label.includes('contratada')) return true;
+      if (requiredSignerCount >= 2 && index === 1) return true;
+      return false;
+    },
+    [requiredSignerCount, selectedTemplate?.signerLayout?.slots]
+  );
+
+  const saveInlineAcademyEmail = async () => {
+    const email = String(inlineAcademyEmail || '').trim();
+    if (!email) {
+      addToast({ type: 'error', message: 'Informe o e-mail da academia.' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addToast({ type: 'error', message: 'E-mail inválido.' });
+      return;
+    }
+    if (!academyId) return;
+
+    setSavingAcademyEmail(true);
+    try {
+      if (canEditAcademyEmail) {
+        await saveAcademySettingsApi(academyId, { email });
+        invalidateAcademyDocumentCache(academyId);
+        useLeadStore.getState().setAcademyList(patchAcademyEmailInList(academyList, academyId, email));
+      }
+      setAcademyContactEmail(email);
+      (signers || []).forEach((s, index) => {
+        if (!isContratadaSignerIndex(index)) return;
+        if (!isEmailDelivery(s?.delivery_method)) return;
+        setValue(`signers.${index}.email`, email, { shouldDirty: true, shouldValidate: true });
+      });
+      addToast({
+        type: 'success',
+        message: canEditAcademyEmail
+          ? 'E-mail da academia salvo e aplicado à contratada.'
+          : 'E-mail aplicado à contratada neste envio.',
+      });
+    } catch (e) {
+      addToast({
+        type: 'error',
+        message: e instanceof Error ? e.message : 'Não foi possível salvar o e-mail.',
+      });
+    } finally {
+      setSavingAcademyEmail(false);
+    }
+  };
 
   const applyTemplateSelection = useCallback(
     (nextTemplateId: string) => {
@@ -202,7 +264,29 @@ export default function CreateContractModal({
     setStep('template');
     setShowOptionalName(false);
     setPreviewUrl(null);
+    setInlineAcademyEmail('');
   }, [open, leadId, purpose, isRescission, lead?.name, reset, buildSignersForTemplate]);
+
+  useEffect(() => {
+    if (!open || !academyId) return;
+    let cancelled = false;
+    void resolveAcademyContactEmail(academyId, academyList).then((email) => {
+      if (cancelled) return;
+      setAcademyContactEmail(email);
+      setInlineAcademyEmail(email);
+      if (!email) return;
+      const currentSigners = getValues('signers') || [];
+      currentSigners.forEach((s, index) => {
+        if (!isContratadaSignerIndex(index)) return;
+        if (!isEmailDelivery(s?.delivery_method)) return;
+        if (String(s?.email || '').trim()) return;
+        setValue(`signers.${index}.email`, email, { shouldDirty: false, shouldValidate: true });
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, academyId, academyList, getValues, setValue, isContratadaSignerIndex]);
 
   useEffect(() => {
     if (!open || templatesLoading) return;
@@ -543,6 +627,42 @@ export default function CreateContractModal({
                               A Autentique envia o link para esta caixa de entrada.
                             </p>
                           )}
+                          {isContratadaSignerIndex(index) &&
+                          !String(signers?.[index]?.email || '').trim() &&
+                          !academyContactEmail ? (
+                            <div className="contracts-academy-email-inline card">
+                              <p className="text-small contracts-academy-email-inline__text">
+                                O e-mail da contratada (academia) ainda não está no cadastro. Informe abaixo
+                                {canEditAcademyEmail
+                                  ? ' para salvar na academia e usar nos próximos contratos.'
+                                  : ' para este envio.'}
+                              </p>
+                              <div className="contracts-academy-email-inline__row">
+                                <input
+                                  className="form-input"
+                                  type="email"
+                                  value={inlineAcademyEmail}
+                                  onChange={(e) => setInlineAcademyEmail(e.target.value)}
+                                  placeholder="contato@academia.com"
+                                  disabled={savingAcademyEmail}
+                                />
+                                <button
+                                  type="button"
+                                  className="btn-outline"
+                                  onClick={() => void saveInlineAcademyEmail()}
+                                  disabled={savingAcademyEmail}
+                                >
+                                  {savingAcademyEmail ? 'Salvando…' : 'Aplicar'}
+                                </button>
+                              </div>
+                              {canEditAcademyEmail ? null : (
+                                <p className="text-small text-muted">
+                                  Apenas o titular ou administrador pode alterar o cadastro da academia em{' '}
+                                  <Link to="/empresa?tab=estudio">Configurações</Link>.
+                                </p>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
 

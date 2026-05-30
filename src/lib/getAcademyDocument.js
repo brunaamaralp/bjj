@@ -1,6 +1,7 @@
 import { databases, DB_ID, ACADEMIES_COL } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
 import { parseOnboardingChecklist } from './onboardingChecklist.js';
+import { patchAcademyEmailInList } from './academyContactEmail.js';
 
 const TTL_MS = 60_000;
 
@@ -106,6 +107,19 @@ export function applyAcademyDocToLeadStore(doc, setters = {}) {
 
   try {
     useLeadStore.getState().setTeamId(String(doc?.teamId || '').trim() || null);
+  } catch {
+    void 0;
+  }
+
+  try {
+    const academyId = String(doc?.$id || '').trim();
+    const email = String(doc?.email || '').trim();
+    if (academyId) {
+      const list = useLeadStore.getState().academyList || [];
+      if (list.some((a) => String(a.id) === academyId)) {
+        useLeadStore.getState().setAcademyList(patchAcademyEmailInList(list, academyId, email));
+      }
+    }
   } catch {
     void 0;
   }

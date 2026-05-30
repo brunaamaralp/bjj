@@ -1,6 +1,7 @@
 import type { CreateDocumentParams, AutentiqueDocument } from './types.js';
 import type { AutentiquePosition, SignerInput } from '../contracts/types.js';
 import { normalizePhoneForAutentique } from '../contracts/normalizePhone.js';
+import { humanizeAutentiqueError } from './humanizeAutentiqueError.js';
 
 const GRAPHQL_URL = 'https://api.autentique.com.br/v2/graphql';
 
@@ -132,18 +133,26 @@ export async function createDocument({
   }
 
   if (!res.ok) {
-    const err = new Error(data?.errors?.[0]?.message || `Autentique HTTP ${res.status}`) as Error & {
+    const raw = data?.errors?.[0]?.message || `Autentique HTTP ${res.status}`;
+    const err = new Error(humanizeAutentiqueError(raw)) as Error & {
       status?: number;
       autentique?: unknown;
+      autentiqueCode?: string;
     };
     err.status = res.status;
     err.autentique = data;
+    err.autentiqueCode = raw;
     throw err;
   }
 
   if (data?.errors?.length) {
-    const err = new Error(data.errors[0]?.message || 'autentique_graphql_error') as Error & { autentique?: unknown };
+    const raw = data.errors[0]?.message || 'autentique_graphql_error';
+    const err = new Error(humanizeAutentiqueError(raw)) as Error & {
+      autentique?: unknown;
+      autentiqueCode?: string;
+    };
     err.autentique = data;
+    err.autentiqueCode = raw;
     throw err;
   }
 

@@ -6,7 +6,11 @@ import {
   isContractStoreConfigured,
   cancelContractById,
 } from './contractService.js';
-import { ContractFormError, parseContractFormData } from './parseContractForm.js';
+import {
+  ContractFormError,
+  parseContractFormData,
+} from './parseContractForm.js';
+import { validateContractSigners } from './validateContractSigners.js';
 import { resolveContractPdfBuffer } from './resolveContractPdf.js';
 import { applyLayoutToSigners, countEnabledSignerSlots } from './contractSignerLayout.js';
 import { syncContractFromAutentique } from './contractAutentiqueSync.js';
@@ -16,6 +20,11 @@ import {
   computeContractExpiresAt,
 } from './contractSignaturePolicy.js';
 import { logContractStructured } from './contractStructuredLog.js';
+import { enrichContractSignersFromAcademy } from './enrichContractSigners.js';
+import {
+  humanizeAutentiqueError,
+  isAutentiqueClientError,
+} from '../autentique/humanizeAutentiqueError.js';
 
 export interface HttpErrorBody {
   ok: false;
@@ -59,7 +68,7 @@ export async function handlePreviewContract(
   }
 
   try {
-    const parsed = await parseContractFormData(formData);
+    const parsed = await parseContractFormData(formData, { skipSignerValidation: true });
     const { buffer } = await resolveContractPdfBuffer({
       academyId: auth.academyId,
       templateId: parsed.template_id,
@@ -99,7 +108,7 @@ export async function handlePostContract(
   }
 
   try {
-    const parsed = await parseContractFormData(formData);
+    const parsed = await parseContractFormData(formData, { skipSignerValidation: true });
     const sandbox = auth.isOwner ? parsed.sandbox : false;
 
     if (parsed.lead_id) {
@@ -136,8 +145,15 @@ export async function handlePostContract(
       );
     }
 
-    const signersWithPositions = applyLayoutToSigners(
+    const signersEnriched = await enrichContractSignersFromAcademy(
       parsed.signers,
+      template.signerLayout,
+      auth.academyId
+    );
+    validateContractSigners(signersEnriched);
+
+    const signersWithPositions = applyLayoutToSigners(
+      signersEnriched,
       template.signerLayout,
       pageCount
     );
@@ -192,15 +208,19 @@ export async function handlePostContract(
     }
 
     const message = err instanceof Error ? err.message : String(err);
-    const status =
-      message === 'autentique_not_configured' || message === 'signers_required' ? 400 : 500;
+    const autentiqueCode =
+      err && typeof err === 'object' && 'autentiqueCode' in err
+        ? String((err as { autentiqueCode?: string }).autentiqueCode || '')
+        : '';
+    const friendly = autentiqueCode ? message : humanizeAutentiqueError(message);
+    const status = isAutentiqueClientError(autentiqueCode || message) ? 400 : 500;
 
     logContractStructured('contract_create_fail', {
       academy_id: auth.academyId,
       error: message,
       status: 'error',
     });
-    return jsonResponse({ ok: false, error: message }, status);
+    return jsonResponse({ ok: false, error: friendly }, status);
   }
 }
 
