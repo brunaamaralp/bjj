@@ -40,7 +40,7 @@ const TABS_ALL = [
     { id: 'funil', label: 'Funil', subtitle: 'Perguntas e etiquetas' },
     { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e desligamento' },
     { id: 'tarefas', label: 'Tarefas', subtitle: 'Pós-matrícula' },
-    { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas e contabilidade' },
+    { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas, régua e plano de contas' },
     { id: 'contratos', label: 'Contratos', subtitle: 'Modelos para assinatura' },
     { id: 'vendas', label: 'Vendas', subtitle: 'PDV e comissões' },
 ];

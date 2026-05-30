@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, Suspense } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -13,16 +13,11 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
-  Sparkles,
-  FileSignature,
 } from 'lucide-react';
 import CollectionRulesSection from './CollectionRulesSection.jsx';
-import RouteFallback from '../shared/RouteFallback.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
-import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 import './finance.css';
 
-const ContractTemplatesPage = lazyWithRetry(() => import('../contracts/ContractTemplatesPage'));
 import ExceptionStatusLabelsSection from './ExceptionStatusLabelsSection.jsx';
 import {
   readExceptionStatusLabels,
@@ -49,19 +44,16 @@ import { filterBankAccountsWithBank } from '../../lib/bankAccounts.js';
 const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 const FINANCE_SECTIONS = [
-  { id: 'finance-plans', label: 'Planos de mensalidade' },
+  { id: 'finance-plans', label: 'Planos' },
   { id: 'finance-fees', label: 'Taxas' },
-  { id: 'finance-accounts', label: 'Bancos' },
+  { id: 'finance-accounts', label: 'Recebimento' },
   { id: 'finance-collection', label: 'Régua' },
   { id: 'finance-exceptions', label: 'Exceções' },
-  { id: 'finance-contracts', label: 'Contratos' },
 ];
 
 const FINANCE_HUB_JUMP_SECTIONS = [
   ...FINANCE_SECTIONS,
   { id: 'finance-plano-contas', label: 'Plano de contas' },
-  { id: 'finance-extrato', label: 'Extrato por conta' },
-  { id: 'finance-dre', label: 'DRE / DFC' },
 ];
 
 function isSectionOpen(sectionId, layout, activeSection) {
@@ -229,7 +221,7 @@ function PlanRow({ pl, idx, onUpdate, onRemove }) {
 }
 
 
-export default function ConfigTab({ academyId, layout = 'picker', contractsMode = 'embedded', isOwner = true }) {
+export default function ConfigTab({ academyId, layout = 'picker', isOwner = true }) {
   const isStacked = layout === 'stacked';
   const addToast = useUiStore((s) => s.addToast);
   const { data: contractTemplatesData } = useContractTemplates(true);
@@ -500,7 +492,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
   const jumpSectionsBase = isStacked ? FINANCE_HUB_JUMP_SECTIONS : FINANCE_SECTIONS;
   const jumpSections = jumpSectionsBase.filter((s) => {
     if (isOwner) return true;
-    return !['finance-plans', 'finance-collection', 'finance-contracts', 'finance-plano-contas', 'finance-dre'].includes(s.id);
+    return !['finance-plans', 'finance-collection', 'finance-plano-contas'].includes(s.id);
   });
 
   const scrollToSection = (sectionId) => {
@@ -606,18 +598,6 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
                 Ver em Mensalidades →
               </Link>
             ) : null}
-          </div>
-          <div className="finance-nave-subscription">
-            <h4 className="navi-section-heading finance-nave-subscription__heading">
-              <Sparkles size={16} color="var(--v500)" aria-hidden />
-              Assinatura Nave
-            </h4>
-            <p className="text-small text-muted finance-nave-subscription__text">
-              Plano do sistema (IA, limites e faturamento) — independente das mensalidades dos alunos.
-            </p>
-            <Link to="/conta" className="edit-link finance-nave-subscription__link">
-              Gerenciar em Conta → Assinatura
-            </Link>
           </div>
           <hr className="finance-config-section__divider" aria-hidden />
         </section>
@@ -747,7 +727,7 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
 
       {isSectionOpen('finance-accounts', layout, activeSection) ? (
         <section id="finance-accounts" className="finance-config-section animate-in">
-          <FinanceSectionHeading icon={Banknote}>Contas bancárias</FinanceSectionHeading>
+          <FinanceSectionHeading icon={Banknote}>Contas para recebimento</FinanceSectionHeading>
           {lastSaved.accounts ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.accounts)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint">
             Contas usadas em recebimentos e comprovantes. Cadastre banco, agência, conta e PIX.
@@ -874,25 +854,6 @@ export default function ConfigTab({ academyId, layout = 'picker', contractsMode 
           ) : null}
           <hr className="finance-config-section__divider" aria-hidden />
         </div>
-      ) : null}
-
-      {isOwner && isSectionOpen('finance-contracts', layout, activeSection) ? (
-        <section id="finance-contracts" className="finance-config-section animate-in finance-config-contracts">
-          <FinanceSectionHeading icon={FileSignature}>Modelos de contrato</FinanceSectionHeading>
-          <p className="text-small text-muted finance-config-section__hint">
-            Modelos usados na matrícula e assinatura digital dos alunos.
-          </p>
-          {contractsMode === 'link' ? (
-            <Link to="/empresa?tab=contratos" className="btn-outline" style={{ display: 'inline-flex' }}>
-              Abrir modelos de contrato em Empresa
-            </Link>
-          ) : (
-            <Suspense fallback={<RouteFallback />}>
-              <ContractTemplatesPage embedded />
-            </Suspense>
-          )}
-          <hr className="finance-config-section__divider" aria-hidden />
-        </section>
       ) : null}
       <ConfirmDialog
         open={typeof pendingRemovePlan === 'number'}

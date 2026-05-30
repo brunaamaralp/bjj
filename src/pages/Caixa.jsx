@@ -26,7 +26,11 @@ import {
 
   isFinanceiroConfigTabSlug,
 
+  isFinanceiroDreLegacyTab,
+
   EMPRESA_FINANCE_CONFIG_PATH,
+
+  FINANCEIRO_EXTRATO_TAB,
 
 } from '../lib/financeiroHubTabs.js';
 
@@ -43,6 +47,7 @@ import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
 import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
+import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
 
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -86,6 +91,8 @@ const TAB_SUBTITLES = {
   fechamento: 'Painel de conferência — não trava lançamentos nem gera documento de fechamento',
 
   conciliacao: 'Conciliação de extratos bancários com lançamentos do Nave',
+
+  [FINANCEIRO_EXTRATO_TAB]: 'Lançamentos contábeis e extrato por conta',
 
 };
 
@@ -138,6 +145,8 @@ export default function Caixa() {
 
   const isOwner = navRole === 'owner';
 
+  const isAdmin = navRole === 'admin';
+
   const financeModule = modules?.finance === true;
 
 
@@ -151,6 +160,10 @@ export default function Caixa() {
 
   if (isFinanceiroConfigTabSlug(rawTab)) {
     return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
+  }
+
+  if (isFinanceiroDreLegacyTab(rawTab)) {
+    return <Navigate to="/reports?tab=financeiro" replace />;
   }
 
   const activeTab = resolveHubTab(rawTab, allowedLeafTabs, FINANCEIRO_SECTIONS.OVERVIEW);
@@ -479,6 +492,10 @@ export default function Caixa() {
 
           />
 
+        ) : null}
+
+        {academyId && activeTab === FINANCEIRO_EXTRATO_TAB && isOwner && financeModule ? (
+          <CaixaAccountingPanel scope="operational" isOwner={isOwner} />
         ) : null}
 
       </div>

@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Scale,
   SlidersHorizontal,
+  BookOpen,
   ChevronDown,
   ShoppingCart,
 } from 'lucide-react';
@@ -58,6 +59,7 @@ const ICONS = {
   previsao: TrendingUp,
   fechamento: Lock,
   conciliacao: Scale,
+  extratoContabil: BookOpen,
   configuracaoFinanceira: SlidersHorizontal,
   contabilidade: Calculator,
   vendas: Receipt,

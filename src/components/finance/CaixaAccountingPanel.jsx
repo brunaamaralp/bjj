@@ -6,7 +6,6 @@ import { useUiStore } from '../../store/useUiStore';
 import { databases, DB_ID, ACCOUNTS_COL, ACADEMIES_COL } from '../../lib/appwrite';
 import AccountsTab from './AccountsTab.jsx';
 import JournalTab from './JournalTab.jsx';
-import ReportsTab from './ReportsTab.jsx';
 import ImportFinanceModal from './ImportFinanceModal.jsx';
 import { useTerms } from '../../lib/terminology.js';
 import { exportAccountsCsv } from '../../lib/exportAccountsCsv.js';
@@ -34,9 +33,11 @@ const mapAccountDoc = (d) => ({
   cash: Boolean(d.cash),
 });
 
-/** Painel owner do Caixa: plano de contas, extrato e DRE/DFC (ex-/finance). */
-export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 'tabs', isOwner = true }) {
-  const isStacked = mode === 'stacked';
+/**
+ * Painel contábil owner.
+ * @param {'settings' | 'operational'} scope — plano de contas vs extrato/lançamentos
+ */
+export default function CaixaAccountingPanel({ scope = 'settings', isOwner = true }) {
   const terms = useTerms();
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
@@ -187,17 +188,8 @@ export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 't
     );
   }
 
-  const scrollToExtrato = () => {
-    if (isStacked) {
-      document.getElementById('finance-extrato')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-    onGoToRazao?.();
-  };
-
-  const showPlano = isOwner && (isStacked || activeTab === 'plano');
-  const showExtrato = isStacked || activeTab === 'razao';
-  const showDre = isOwner && (isStacked || activeTab === 'dre');
+  const showPlano = isOwner && scope === 'settings';
+  const showExtrato = scope === 'operational';
 
   return (
     <>
@@ -240,22 +232,18 @@ export default function CaixaAccountingPanel({ activeTab, onGoToRazao, mode = 't
             deleteEntry={deleteEntry}
             sectionTitle="Extrato por conta"
           />
-          <hr className="finance-config-section__divider" aria-hidden />
         </section>
       ) : null}
-      {showDre ? (
-        <section id="finance-dre" className="finance-config-section finance-config-section--accounting">
-          <ReportsTab academyId={academyId} embedded onGoToLancamentos={scrollToExtrato} />
-        </section>
+      {showPlano ? (
+        <ImportFinanceModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onConfirm={handleImportFinance}
+          academyId={academyId}
+          academyName={academyName}
+          hasExistingData={hasExistingData}
+        />
       ) : null}
-      <ImportFinanceModal
-        open={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onConfirm={handleImportFinance}
-        academyId={academyId}
-        academyName={academyName}
-        hasExistingData={hasExistingData}
-      />
     </>
   );
 }

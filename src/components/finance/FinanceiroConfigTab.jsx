@@ -2,9 +2,7 @@ import React from 'react';
 import ConfigTab from './ConfigTab.jsx';
 import CaixaAccountingPanel from './CaixaAccountingPanel.jsx';
 
-/**
- * Aba Configuração do hub Financeiro — planos, taxas, contabilidade owner em uma página.
- */
+/** Minha academia → Financeiro: parâmetros e plano de contas (sem operação/histórico). */
 export default function FinanceiroConfigTab({ academyId, isOwner }) {
   if (!academyId) {
     return <p className="text-small text-muted">Selecione uma academia para configurar o financeiro.</p>;
@@ -12,8 +10,8 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
 
   return (
     <div className="financeiro-config-tab">
-      <ConfigTab academyId={academyId} layout="stacked" contractsMode="link" isOwner={isOwner} />
-      <CaixaAccountingPanel mode="stacked" isOwner={isOwner} />
+      <ConfigTab academyId={academyId} layout="stacked" isOwner={isOwner} />
+      {isOwner ? <CaixaAccountingPanel scope="settings" isOwner={isOwner} /> : null}
     </div>
   );
 }

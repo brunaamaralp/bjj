@@ -18,15 +18,14 @@ export const EMPRESA_FINANCE_CONFIG_PATH = `/empresa?tab=${EMPRESA_FINANCE_TAB}`
 /** Abas folha sob a seção Operações (legado; hub usa abas planas). */
 export const FINANCEIRO_CAIXA_LEAF_TABS = ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'];
 
-/** Abas contábeis owner — conteúdo em Configuração (não mais abas soltas). */
-export const FINANCEIRO_CONTABILIDADE_LEAF_TABS = ['plano', 'razao', 'dre'];
+/** Aba operacional do hub — extrato / lançamentos contábeis (legado: razao). */
+export const FINANCEIRO_EXTRATO_TAB = 'extrato';
 
-const REDIRECT_TO_CONFIG_TABS = new Set([
+/** Slugs legados redirecionados para Minha academia → Financeiro. */
+const REDIRECT_TO_EMPRESA_CONFIG = new Set([
+  FINANCEIRO_SECTIONS.CONFIG,
   'plano',
-  'razao',
-  'dre',
   'contabilidade',
-  ...FINANCEIRO_CONTABILIDADE_LEAF_TABS,
 ]);
 
 const TAB_TO_SECTION = {
@@ -37,10 +36,11 @@ const TAB_TO_SECTION = {
   previsao: 'previsao',
   fechamento: 'fechamento',
   conciliacao: 'conciliacao',
+  [FINANCEIRO_EXTRATO_TAB]: FINANCEIRO_EXTRATO_TAB,
+  razao: FINANCEIRO_EXTRATO_TAB,
   plano: FINANCEIRO_SECTIONS.CONFIG,
-  razao: FINANCEIRO_SECTIONS.CONFIG,
-  dre: FINANCEIRO_SECTIONS.CONFIG,
   contabilidade: FINANCEIRO_SECTIONS.CONFIG,
+  dre: 'dre',
 };
 
 /** Mapeia ?tab= legado do hub (ex-/caixa) para slug folha. */
@@ -48,14 +48,20 @@ export function financeiroLegacyTabToSlug(raw) {
   const t = String(raw || '').trim().toLowerCase();
   if (t === 'transactions') return 'movimentacoes';
   if (t === 'closing') return 'fechamento';
-  if (REDIRECT_TO_CONFIG_TABS.has(t)) return FINANCEIRO_SECTIONS.CONFIG;
+  if (t === 'razao') return FINANCEIRO_EXTRATO_TAB;
+  if (REDIRECT_TO_EMPRESA_CONFIG.has(t)) return FINANCEIRO_SECTIONS.CONFIG;
   return t;
 }
 
-/** Slugs de ?tab= que pertencem às configurações (agora em Minha academia). */
+/** Slugs de ?tab= que pertencem às configurações (Minha academia). */
 export function isFinanceiroConfigTabSlug(tab) {
   const t = String(tab || '').trim().toLowerCase();
-  return t === FINANCEIRO_SECTIONS.CONFIG || REDIRECT_TO_CONFIG_TABS.has(t);
+  return REDIRECT_TO_EMPRESA_CONFIG.has(t);
+}
+
+/** DRE legado — redirecionado para Relatórios → Financeiro. */
+export function isFinanceiroDreLegacyTab(tab) {
+  return String(tab || '').trim().toLowerCase() === 'dre';
 }
 
 /** Mapeia /finance legado — redirecionado para Minha academia → Financeiro. */
@@ -76,7 +82,9 @@ export function buildFinanceiroMemberLeafTabs({ financeModule }) {
 
 export function buildFinanceiroOwnerLeafTabs({ financeModule }) {
   const tabs = buildFinanceiroMemberLeafTabs({ financeModule });
-  if (financeModule) tabs.push('conciliacao');
+  if (financeModule) {
+    tabs.push('conciliacao', FINANCEIRO_EXTRATO_TAB);
+  }
   return tabs;
 }
 

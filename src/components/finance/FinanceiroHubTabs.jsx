@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import HubTabBar from '../shared/HubTabBar.jsx';
-import { FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
+import { FINANCEIRO_SECTIONS, FINANCEIRO_EXTRATO_TAB } from '../../lib/financeiroHubTabs.js';
 
 /**
  * Abas de primeiro nível do hub Financeiro (sem Contabilidade / plano / razão / DRE soltos).
@@ -21,6 +21,7 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
     }
     if (access?.isOwner && access?.financeModule) {
       tabs.push({ id: 'conciliacao', label: 'Conciliação' });
+      tabs.push({ id: FINANCEIRO_EXTRATO_TAB, label: 'Extrato contábil' });
     }
     return tabs;
   }, [access?.financeModule, access?.isOwner]);

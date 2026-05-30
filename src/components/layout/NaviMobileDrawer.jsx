@@ -18,6 +18,7 @@ import {
   Lock,
   Scale,
   SlidersHorizontal,
+  BookOpen,
   Users,
   X,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const ICONS = {
   previsao: TrendingUp,
   fechamento: Lock,
   conciliacao: Scale,
+  extratoContabil: BookOpen,
   configuracaoFinanceira: SlidersHorizontal,
   loja: ShoppingBag,
   reports: BarChart3,

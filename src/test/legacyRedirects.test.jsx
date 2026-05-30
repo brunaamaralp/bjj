@@ -43,19 +43,19 @@ describe('legacy route redirects', () => {
     });
   });
 
-  it('/finance → /financeiro?tab=configuracao', async () => {
+  it('/finance → /empresa?tab=financeiro', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/finance']}>
         <Routes>
           <Route path="/finance" element={<FinanceRedirect />} />
-          <Route path="/financeiro" element={<LocationProbe />} />
+          <Route path="/empresa" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     );
     await waitFor(() => {
       const el = container.querySelector('[data-testid="location"]');
-      expect(el?.getAttribute('data-pathname')).toBe('/financeiro');
-      expect(el?.getAttribute('data-search')).toBe('?tab=configuracao');
+      expect(el?.getAttribute('data-pathname')).toBe('/empresa');
+      expect(el?.getAttribute('data-search')).toBe('?tab=financeiro');
     });
   });
 

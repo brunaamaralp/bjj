@@ -136,6 +136,7 @@ export function isAccordionChildActive(child, location) {
     const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
     if (child.id === 'visao-geral') return tab === FINANCEIRO_SECTIONS.OVERVIEW || !tab;
     if (child.id === 'mensalidades') return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
+    if (child.id === 'extrato') return tab === 'extrato' || tab === 'razao';
     if (child.group === 'Contabilidade') return child.id === tab;
     if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) return child.id === tab;
   }
@@ -244,13 +245,22 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
   }
 
   if (isOwner && financeModule) {
-    children.push({
-      id: 'conciliacao',
-      label: 'Conciliação',
-      to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
-      iconKey: 'conciliacao',
-      group: FINANCEIRO_NAV_GROUP_OPERACOES,
-    });
+    children.push(
+      {
+        id: 'conciliacao',
+        label: 'Conciliação',
+        to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
+        iconKey: 'conciliacao',
+        group: FINANCEIRO_NAV_GROUP_OPERACOES,
+      },
+      {
+        id: 'extrato',
+        label: 'Extrato contábil',
+        to: `${FINANCEIRO_HUB_PATH}?tab=extrato`,
+        iconKey: 'extratoContabil',
+        group: FINANCEIRO_NAV_GROUP_OPERACOES,
+      }
+    );
   }
 
   return {
