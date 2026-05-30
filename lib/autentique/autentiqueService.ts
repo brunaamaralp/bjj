@@ -1,4 +1,4 @@
-import type { CreateDocumentParams, AutentiqueDocument } from './types.js';
+import type { CreateDocumentParams, AutentiqueDocument, SignDocumentResult } from './types.js';
 import type { AutentiquePosition, SignerInput } from '../contracts/types.js';
 import { normalizePhoneForAutentique } from '../contracts/normalizePhone.js';
 import { humanizeAutentiqueError } from './humanizeAutentiqueError.js';
@@ -193,6 +193,61 @@ export async function createDocument({
   const doc = data?.data?.createDocument;
   if (!doc?.id) throw new Error('autentique_empty_response');
   return doc;
+}
+
+const SIGN_DOCUMENT_MUTATION = `mutation SignDocument($id: UUID!) {
+  signDocument(id: $id) {
+    id
+    name
+    signatures {
+      public_id
+      email
+      signed { created_at }
+    }
+  }
+}`;
+
+/** Assina com a conta do titular do token (deve constar como signatário). */
+export async function signDocument(documentId: string): Promise<SignDocumentResult> {
+  const id = String(documentId || '').trim();
+  if (!id) throw new Error('document_id_required');
+
+  const res = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getApiToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: SIGN_DOCUMENT_MUTATION,
+      variables: { id },
+    }),
+  });
+
+  const text = await res.text();
+  let data: {
+    data?: { signDocument?: SignDocumentResult };
+    errors?: AutentiqueGraphQLError[];
+  } | null = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Autentique HTTP ${res.status}`);
+  }
+
+  const graphQLErrors = data?.errors || [];
+  if (!res.ok) {
+    const raw = graphQLErrors[0]?.message || `Autentique HTTP ${res.status}`;
+    throw new Error(humanizeAutentiqueError(raw, graphQLErrors));
+  }
+  if (graphQLErrors.length) {
+    const raw = graphQLErrors[0]?.message || 'autentique_graphql_error';
+    throw new Error(humanizeAutentiqueError(raw, graphQLErrors));
+  }
+
+  const signed = data?.data?.signDocument;
+  if (!signed?.id) throw new Error('autentique_sign_empty_response');
+  return signed;
 }
 
 const DELETE_DOCUMENT_MUTATION = `mutation DeleteDocument($id: UUID!) {

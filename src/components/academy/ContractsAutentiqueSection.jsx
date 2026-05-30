@@ -34,6 +34,11 @@ export default function ContractsAutentiqueSection() {
         Quando um contrato é assinado ou atualizado no Autentique, o Nave recebe a notificação automaticamente
         pelo webhook e atualiza o status em Alunos → Contratos.
       </p>
+      <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+        <strong>Auto-assinatura da academia:</strong> defina <code>AUTENTIQUE_ACCOUNT_EMAIL</code> na Vercel
+        com o e-mail da conta do token. No envio do contrato, o e-mail da <strong>Contratada</strong> deve ser
+        o mesmo — assim a academia assina automaticamente e só o aluno recebe o link.
+      </p>
       <p className="text-small" style={{ margin: '0 0 8px', lineHeight: 1.45 }}>
         No painel Autentique, em <strong>Webhooks</strong>, informe esta URL:
       </p>

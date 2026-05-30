@@ -8,6 +8,7 @@ Referência oficial: [Webhooks – Autentique](https://docs.autentique.com.br/ap
 |----------|-----------|
 | `AUTENTIQUE_TOKEN` ou `AUTENTIQUE_API_TOKEN` | Bearer da API Autentique |
 | `AUTENTIQUE_WEBHOOK_SECRET` | Segredo para validar HMAC do webhook (`x-autentique-signature`) |
+| `AUTENTIQUE_ACCOUNT_EMAIL` | E-mail da conta Autentique (titular do token). Necessário para **auto-assinatura da contratada** no envio |
 | `CHROMIUM_LOCAL` | `1` para forçar PDF via Chromium em dev local (opcional; em produção `VERCEL=1` já ativa) |
 | `APPWRITE_CONTRACTS_COLLECTION_ID` | Coleção `contracts` |
 | `APPWRITE_CONTRACT_SIGNERS_COLLECTION_ID` | Coleção `contract_signers` |
@@ -99,7 +100,8 @@ Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores v�
    - **Mensagem customizada** (`message` na API): texto informando que a academia enviou o contrato/termo para assinatura
 4. O texto *“fulano enviou via Autentique”* e **Criador do documento** continuam vinculados à **conta Autentique** (titular do token). Para aparecer só a marca da academia, use organização/modelo corporativo no painel Autentique.
 5. Assinatura na interface Autentique (campos nas posições configuradas).
-6. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
+6. **Auto-assinatura da academia (opcional):** no passo Enviar, marque *Assinar pela academia agora* quando o e-mail da **Contratada** for igual a `AUTENTIQUE_ACCOUNT_EMAIL`. O Nave chama `signDocument` após criar o documento; só o aluno recebe link pendente.
+7. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
 
 ## Teste em sandbox
 

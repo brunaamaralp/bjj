@@ -8,6 +8,7 @@ export interface AutentiqueSignature {
   action?: { name?: string } | null;
   link?: { short_link?: string } | null;
   user?: { id?: string; name?: string; email?: string } | null;
+  signed?: { created_at?: string } | null;
 }
 
 export interface AutentiqueDocument {
@@ -28,4 +29,8 @@ export interface CreateDocumentParams {
   sandbox?: boolean;
   refusable?: boolean;
   sortable?: boolean;
+}
+
+export interface SignDocumentResult {
+  id: string;
 }

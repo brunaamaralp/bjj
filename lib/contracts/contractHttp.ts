@@ -26,6 +26,11 @@ import {
   buildAutentiqueSignerMessage,
 } from './buildAutentiqueDocumentMeta.js';
 import {
+  maskEmailForDisplay,
+  resolveAutentiqueAccountEmail,
+  validateAcademyAutoSign,
+} from './autentiqueAutoSign.js';
+import {
   resolveSignatureDeadlineDays,
   computeContractExpiresAt,
 } from './contractSignaturePolicy.js';
@@ -192,6 +197,21 @@ export async function handlePostContract(
 
     const academyDoc = await fetchAcademyDoc(auth.academyId);
     const academyName = String(academyDoc?.name || academyDoc?.academy_name || '').trim();
+    const autentiqueAccountEmail = resolveAutentiqueAccountEmail(
+      academyDoc as Record<string, unknown> | null
+    );
+
+    if (parsed.auto_sign_academy) {
+      const autoCheck = validateAcademyAutoSign({
+        signers: signersEnriched,
+        layout: template.signerLayout,
+        accountEmail: autentiqueAccountEmail,
+      });
+      if (!autoCheck.ok) {
+        throw new ContractFormError(autoCheck.message);
+      }
+    }
+
     const autentiqueDocumentName = buildAutentiqueDocumentName({
       academyName,
       baseName: parsed.name,
@@ -211,6 +231,7 @@ export async function handlePostContract(
         lead_id: parsed.lead_id,
         template_id: template.$id,
         expires_at: expiresAt || undefined,
+        autoSignAcademy: parsed.auto_sign_academy,
       },
       buffer
     );
@@ -245,6 +266,8 @@ export async function handlePostContract(
       contract: result.contract,
       signers: result.signers,
       autentiqueDocument: result.autentiqueDocument,
+      autoSign: result.autoSign,
+      warning: result.autoSign?.warning,
     });
   } catch (err) {
     if (err instanceof ContractFormError) {
@@ -331,6 +354,21 @@ export async function handlePatchContract(
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
   }
+}
+
+export async function handleGetContractAutentiqueMeta(
+  auth: ContractAuthContext
+): Promise<Response> {
+  const academyDoc = await fetchAcademyDoc(auth.academyId);
+  const accountEmail = resolveAutentiqueAccountEmail(
+    (academyDoc as Record<string, unknown> | null) || null
+  );
+  return jsonResponse({
+    ok: true,
+    configured: Boolean(accountEmail),
+    accountEmail: accountEmail || null,
+    accountEmailMasked: accountEmail ? maskEmailForDisplay(accountEmail) : null,
+  });
 }
 
 export async function handleGetContracts(

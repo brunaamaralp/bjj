@@ -32,6 +32,9 @@ export function humanizeAutentiqueError(
   if (lower === 'signer_phone_required_for_whatsapp_sms') {
     return 'Informe um WhatsApp válido para o signatário que receberá o link por WhatsApp.';
   }
+  if (lower.includes('signature_not_found')) {
+    return 'A conta Autentique do token não está na lista de signatários. Use o e-mail da contratada igual ao da conta Autentique.';
+  }
   if (lower === 'unavailable_credits') {
     return 'Sua conta Autentique não tem créditos para criar documentos. Verifique o plano ou use modo sandbox (teste).';
   }

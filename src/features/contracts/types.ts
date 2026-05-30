@@ -30,8 +30,18 @@ export interface CreateContractResponse {
   contract?: ContractRecord;
   signers?: unknown[];
   autentiqueDocument?: { id: string };
+  autoSign?: { applied: boolean; warning?: string };
+  warning?: string;
   error?: string;
   detail?: string;
+}
+
+export interface ContractAutentiqueMetaResponse {
+  ok: boolean;
+  configured?: boolean;
+  accountEmail?: string | null;
+  accountEmailMasked?: string | null;
+  error?: string;
 }
 
 export type { ContractWithSigners, SignerInput };

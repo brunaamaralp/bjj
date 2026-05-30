@@ -1,8 +1,4 @@
-import type {
-  ContractsListResponse,
-  ContractDetailResponse,
-  CreateContractResponse,
-} from './types.js';
+import type { CreateContractResponse, ContractAutentiqueMetaResponse } from './types.js';
 import type { SignerInput } from '../../../lib/contracts/types.js';
 import type { ContractTemplatePurpose } from '../../../lib/contracts/contractTemplatePurpose.js';
 import { createSessionJwt } from '../../lib/appwrite.js';
@@ -96,6 +92,15 @@ export async function cancelContractRequest(id: string): Promise<void> {
   }
 }
 
+export async function fetchContractAutentiqueMeta(): Promise<ContractAutentiqueMetaResponse> {
+  const res = await contractsFetch('/api/contracts?action=autentique-meta');
+  const data = (await res.json()) as ContractAutentiqueMetaResponse;
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Erro HTTP ${res.status}`);
+  }
+  return data;
+}
+
 export async function createContractRequest(input: {
   name: string;
   signers: SignerInput[];
@@ -103,6 +108,7 @@ export async function createContractRequest(input: {
   sandbox: boolean;
   leadId?: string;
   contractPurpose?: ContractTemplatePurpose;
+  autoSignAcademy?: boolean;
 }): Promise<CreateContractResponse> {
   const formData = new FormData();
   formData.append('name', input.name);
@@ -110,6 +116,7 @@ export async function createContractRequest(input: {
   formData.append('template_id', input.templateId);
   formData.append('sandbox', input.sandbox ? 'true' : 'false');
   if (input.contractPurpose) formData.append('contract_purpose', input.contractPurpose);
+  if (input.autoSignAcademy) formData.append('auto_sign_academy', '1');
   if (input.leadId) formData.append('lead_id', input.leadId);
 
   const res = await contractsFetch('/api/contracts', { method: 'POST', body: formData });
@@ -118,7 +125,7 @@ export async function createContractRequest(input: {
     hints?: string[];
   };
   if (!res.ok || !data.ok) {
-    const parts = [data.error, data.detail, ...(data.hints || [])].filter(Boolean);
+    const parts = [data.error, data.detail, ...(data.hints || []), data.warning].filter(Boolean);
     throw new Error(parts.join('\n') || `Erro HTTP ${res.status}`);
   }
   return data;

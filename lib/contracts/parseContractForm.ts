@@ -5,6 +5,12 @@ import { validateContractSigners, ContractFormError } from './validateContractSi
 export { ContractFormError };
 export const MAX_CONTRACT_PDF_BYTES = 10 * 1024 * 1024;
 
+function parseAutoSignAcademy(value: FormDataEntryValue | null): boolean {
+  if (value == null) return false;
+  const s = String(value).trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes';
+}
+
 export interface ParsedContractForm {
   name: string;
   signers: SignerInput[];
@@ -12,6 +18,7 @@ export interface ParsedContractForm {
   sandbox: boolean;
   lead_id?: string;
   contract_purpose: ContractTemplatePurpose;
+  auto_sign_academy: boolean;
 }
 
 function parseSandbox(value: FormDataEntryValue | null): boolean {
@@ -70,6 +77,7 @@ export async function parseContractFormData(
     leadRaw != null && String(leadRaw).trim() ? String(leadRaw).trim() : undefined;
 
   const contract_purpose = parseContractTemplatePurpose(formData.get('contract_purpose'));
+  const auto_sign_academy = parseAutoSignAcademy(formData.get('auto_sign_academy'));
 
-  return { name, signers, template_id, sandbox, lead_id, contract_purpose };
+  return { name, signers, template_id, sandbox, lead_id, contract_purpose, auto_sign_academy };
 }

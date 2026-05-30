@@ -13,7 +13,7 @@ import {
   ACTION_OPTIONS,
   type CreateContractFormValues,
 } from './contractsSchema.js';
-import { useCreateContract, useContractTemplates } from '../../features/contracts/queries.js';
+import { useCreateContract, useContractTemplates, useContractAutentiqueMeta } from '../../features/contracts/queries.js';
 import { previewContractRequest } from '../../features/contracts/api.js';
 import {
   resolveTemplateIdForPlan,
@@ -49,6 +49,10 @@ import {
 import { saveAcademySettingsApi } from '../../lib/academySettingsApi.js';
 import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
 import { buildAutentiqueDocumentName } from '../../../lib/contracts/buildAutentiqueDocumentMeta.js';
+import {
+  contratadaSlotEnabled,
+  signerEmailsMatchContratadaForAutoSign,
+} from '../../../lib/contracts/autentiqueAutoSign.js';
 
 type Step = 'template' | 'signers' | 'send';
 
@@ -102,6 +106,8 @@ export default function CreateContractModal({
   const [academyContactEmail, setAcademyContactEmail] = useState('');
   const [inlineAcademyEmail, setInlineAcademyEmail] = useState('');
   const [savingAcademyEmail, setSavingAcademyEmail] = useState(false);
+  const [autoSignAcademy, setAutoSignAcademy] = useState(false);
+  const { data: autentiqueMeta } = useContractAutentiqueMeta(open);
 
   const lead = useMemo(() => {
     const id = String(leadId || '');
@@ -147,6 +153,37 @@ export default function CreateContractModal({
     () => templates.find((t) => t.$id === templateId) || null,
     [templates, templateId]
   );
+
+  const layoutForAutoSign = selectedTemplate?.signerLayout as ContractSignerLayout | undefined;
+  const showAutoSignOption = contratadaSlotEnabled(layoutForAutoSign);
+  const canAutoSignAcademy = useMemo(
+    () =>
+      Boolean(
+        autentiqueMeta?.configured &&
+          autentiqueMeta.accountEmail &&
+          showAutoSignOption &&
+          signerEmailsMatchContratadaForAutoSign(
+            (signers || []).map((s) => ({
+              name: s?.name,
+              email: s?.email,
+              phone: s?.phone,
+              action: s?.action,
+              delivery_method: s?.delivery_method,
+            })),
+            layoutForAutoSign,
+            autentiqueMeta.accountEmail || ''
+          )
+      ),
+    [autentiqueMeta, showAutoSignOption, signers, layoutForAutoSign]
+  );
+
+  useEffect(() => {
+    if (!open) {
+      setAutoSignAcademy(false);
+      return;
+    }
+    if (canAutoSignAcademy) setAutoSignAcademy(true);
+  }, [open, canAutoSignAcademy]);
 
   const requiredSignerCount = useMemo(() => {
     const layout = selectedTemplate?.signerLayout as ContractSignerLayout | undefined;
@@ -479,7 +516,7 @@ export default function CreateContractModal({
     const contractName = buildAutentiqueDocumentName({ academyName, baseName: baseTitle });
 
     try {
-      await createMutation.mutateAsync({
+      const result = await createMutation.mutateAsync({
         name: contractName,
         signers: parsed.data.signers.map((s) => ({
           name: s.name,
@@ -492,13 +529,20 @@ export default function CreateContractModal({
         sandbox: navRole === 'owner' ? parsed.data.sandbox : false,
         leadId,
         contractPurpose: purpose,
+        autoSignAcademy: autoSignAcademy && canAutoSignAcademy,
       });
-      addToast({
-        type: 'success',
-        message: isRescission
-          ? 'Termo de rescisão enviado para assinatura.'
-          : 'Contrato enviado para assinatura.',
-      });
+      const appliedAutoSign = Boolean(autoSignAcademy && canAutoSignAcademy && result.autoSign?.applied);
+      const successMsg = isRescission
+        ? appliedAutoSign
+          ? 'Termo enviado. Academia assinou automaticamente; aguardando o aluno.'
+          : 'Termo de rescisão enviado para assinatura.'
+        : appliedAutoSign
+          ? 'Contrato enviado. Academia assinou automaticamente; aguardando o aluno.'
+          : 'Contrato enviado para assinatura.';
+      addToast({ type: 'success', message: successMsg });
+      if (result.warning) {
+        addToast({ type: 'warning', message: result.warning });
+      }
       onSuccess?.();
       close();
     } catch (e) {
@@ -911,6 +955,28 @@ export default function CreateContractModal({
                     , com mensagem informando que o envio é da academia. O criador no painel
                     Autentique segue sendo a conta vinculada à integração.
                   </p>
+                ) : null}
+                {showAutoSignOption ? (
+                  <div className="contracts-auto-sign-option">
+                    <label className="contracts-auto-sign-option__label">
+                      <input
+                        type="checkbox"
+                        checked={autoSignAcademy && canAutoSignAcademy}
+                        disabled={!canAutoSignAcademy || createMutation.isPending}
+                        onChange={(e) => setAutoSignAcademy(e.target.checked)}
+                      />
+                      <span>
+                        <strong>Assinar pela academia agora</strong>
+                        <span className="text-small text-muted contracts-auto-sign-option__hint">
+                          {canAutoSignAcademy
+                            ? 'A contratada será assinada automaticamente pela conta Autentique. Só o aluno receberá o link.'
+                            : autentiqueMeta?.configured
+                              ? `Use o e-mail ${autentiqueMeta.accountEmailMasked || 'da conta Autentique'} no signatário Contratada (ou configure AUTENTIQUE_ACCOUNT_EMAIL no servidor).`
+                              : 'Configure AUTENTIQUE_ACCOUNT_EMAIL no servidor com o e-mail da conta Autentique do token.'}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
                 ) : null}
                 {sendDiagnostics.warnings.length > 0 ? (
                   <p className="text-small contracts-send-summary__warn">

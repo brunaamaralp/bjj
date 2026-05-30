@@ -38,6 +38,7 @@ export interface SignerSaveInput {
   action?: string | null;
   delivery_method?: string | null;
   status?: string;
+  signed_at?: string | null;
 }
 
 export interface ContractRecord {
@@ -113,11 +114,19 @@ export interface SignContractData {
   lead_id?: string;
   template_id?: string;
   expires_at?: string;
+  /** Assina a contratada (conta do token) logo após criar o documento. */
+  autoSignAcademy?: boolean;
 }
+
+export type SignContractAutoSignResult = {
+  applied: boolean;
+  warning?: string;
+};
 
 export interface SignContractResult {
   contract: ContractRecord | null;
   autentiqueDocument: import('../autentique/types.js').AutentiqueDocument;
   signers: SignerRecord[];
   appwriteError?: string;
+  autoSign?: SignContractAutoSignResult;
 }

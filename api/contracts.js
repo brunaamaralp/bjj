@@ -2,6 +2,7 @@ import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js'
 import {
   handleGetContracts,
   handleGetContractById,
+  handleGetContractAutentiqueMeta,
   handlePostContract,
   handlePreviewContract,
   handlePatchContract,
@@ -158,6 +159,9 @@ export default async function handler(req, res) {
 
   if (!id && req.method === 'GET') {
     const url = new URL(req.url || '/api/contracts', `https://${req.headers.host || 'localhost'}`);
+    if (url.searchParams.get('action') === 'autentique-meta') {
+      return responseToVercel(res, await handleGetContractAutentiqueMeta(auth));
+    }
     return responseToVercel(res, await handleGetContracts(url.searchParams, auth));
   }
 

@@ -1,4 +1,4 @@
-import { createDocument, deleteDocument } from './autentique/autentiqueService.js';
+import { createDocument, deleteDocument, getDocument, signDocument } from './autentique/autentiqueService.js';
 import { createContract, saveSigners } from './contracts/contractService.js';
 import { buildSignersLinks } from './contracts/signersLinks.js';
 import { matchInputSignerToAutentiqueSignature } from './contracts/contractAutentiqueSync.js';
@@ -27,6 +27,10 @@ function mapAutentiqueSignersToSave(
       });
     }
 
+    const signedAt = sig?.signed?.created_at || null;
+    let status = 'pending';
+    if (signedAt) status = 'signed';
+
     return {
       autentique_public_id: sig?.public_id,
       autentique_document_id: autentiqueDoc.id,
@@ -35,9 +39,37 @@ function mapAutentiqueSignersToSave(
       phone: input.phone ?? null,
       action: sig?.action?.name ?? input.action ?? 'SIGN',
       delivery_method: input.delivery_method ?? null,
-      status: 'pending',
+      status,
+      signed_at: signedAt,
     };
   });
+}
+
+function resolveInitialContractStatus(autentiqueDoc: AutentiqueDocument): string {
+  const signatures = autentiqueDoc.signatures || [];
+  if (!signatures.length) return 'pending';
+  const allSigned = signatures.every((s) => Boolean(s.signed?.created_at));
+  if (allSigned) return 'finished';
+  const anySigned = signatures.some((s) => Boolean(s.signed?.created_at));
+  if (anySigned) return 'in_progress';
+  return 'pending';
+}
+
+async function refreshAutentiqueDocument(documentId: string): Promise<AutentiqueDocument | null> {
+  const remote = await getDocument(documentId);
+  if (!remote) return null;
+  return {
+    id: remote.id,
+    name: remote.name || '',
+    signatures: (remote.signatures || []).map((s) => ({
+      public_id: s.public_id,
+      name: s.name,
+      email: s.email,
+      action: s.action,
+      link: s.link,
+      signed: s.signed,
+    })),
+  };
 }
 
 /**
@@ -49,22 +81,47 @@ export async function signContract(
   contractData: SignContractData,
   fileBuffer: Buffer | Blob
 ): Promise<SignContractResult> {
-  const autentiqueDocument = await createDocument({
+  const multiSigner = contractData.signers.length > 1;
+  const useSortable = contractData.autoSignAcademy ? false : multiSigner;
+
+  let autentiqueDocument = await createDocument({
     name: contractData.name,
     message: contractData.message,
     signers: contractData.signers,
     file: fileBuffer,
     sandbox: Boolean(contractData.sandbox),
-    sortable: contractData.signers.length > 1,
+    sortable: useSortable,
   });
+
+  let autoSign: SignContractResult['autoSign'];
+
+  if (contractData.autoSignAcademy) {
+    try {
+      await signDocument(autentiqueDocument.id);
+      const refreshed = await refreshAutentiqueDocument(autentiqueDocument.id);
+      if (refreshed) autentiqueDocument = refreshed;
+      autoSign = { applied: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[contracts] academy_auto_sign_failed', {
+        autentiqueId: autentiqueDocument.id,
+        error: message,
+      });
+      autoSign = {
+        applied: false,
+        warning: `Contrato enviado, mas a auto-assinatura da academia falhou: ${message}`,
+      };
+    }
+  }
 
   try {
     const signersLinks = buildSignersLinks(autentiqueDocument, contractData.signers);
+    const initialStatus = resolveInitialContractStatus(autentiqueDocument);
 
     const contract = await createContract({
       name: contractData.name,
       autentique_id: autentiqueDocument.id,
-      status: 'pending',
+      status: initialStatus,
       sandbox: Boolean(contractData.sandbox),
       academy_id: contractData.academy_id,
       lead_id: contractData.lead_id,
@@ -78,7 +135,7 @@ export async function signContract(
       mapAutentiqueSignersToSave(autentiqueDocument, contractData.signers)
     );
 
-    return { contract, autentiqueDocument, signers };
+    return { contract, autentiqueDocument, signers, autoSign };
   } catch (appwriteErr) {
     const message = appwriteErr instanceof Error ? appwriteErr.message : String(appwriteErr);
     try {
@@ -109,6 +166,7 @@ export async function signContract(
       autentiqueDocument,
       signers: [],
       appwriteError: message,
+      autoSign,
     };
   }
 }

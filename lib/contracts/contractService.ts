@@ -148,6 +148,7 @@ export async function saveSigners(contractId: string, signers: SignerSaveInput[]
     if (s.phone) payload.phone = String(s.phone);
     if (s.action) payload.action = String(s.action);
     if (s.delivery_method) payload.delivery_method = String(s.delivery_method);
+    if (s.signed_at) payload.signed_at = String(s.signed_at);
 
     const doc = await databases.createDocument(DB_ID, SIGNERS_COL(), ID.unique(), payload, docPerms());
     const mapped = mapSignerDoc(doc);

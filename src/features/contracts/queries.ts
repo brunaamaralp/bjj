@@ -4,6 +4,7 @@ import {
   fetchContractById,
   createContractRequest,
   cancelContractRequest,
+  fetchContractAutentiqueMeta,
 } from './api.js';
 import {
   fetchContractTemplates,
@@ -21,7 +22,17 @@ export const contractKeys = {
   list: (params: FetchContractsParams) => [...contractKeys.all, 'list', params] as const,
   detail: (id: string) => [...contractKeys.all, 'detail', id] as const,
   templates: (activeOnly?: boolean) => [...contractKeys.all, 'templates', { activeOnly }] as const,
+  autentiqueMeta: () => [...contractKeys.all, 'autentique-meta'] as const,
 };
+
+export function useContractAutentiqueMeta(enabled = true) {
+  return useQuery({
+    queryKey: contractKeys.autentiqueMeta(),
+    queryFn: () => fetchContractAutentiqueMeta(),
+    enabled,
+    staleTime: 60_000,
+  });
+}
 
 export function useContractsList(params: FetchContractsParams) {
   return useQuery({
@@ -59,6 +70,7 @@ export function useCreateContract() {
       sandbox: boolean;
       leadId?: string;
       contractPurpose?: ContractTemplatePurpose;
+      autoSignAcademy?: boolean;
     }) => createContractRequest(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contractKeys.all });

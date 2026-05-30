@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../lib/autentique/autentiqueService.js', () => ({
   createDocument: vi.fn(),
   deleteDocument: vi.fn().mockResolvedValue(true),
+  signDocument: vi.fn(),
+  getDocument: vi.fn(),
 }));
 
 vi.mock('../../lib/contracts/contractService.js', () => ({
@@ -10,7 +12,7 @@ vi.mock('../../lib/contracts/contractService.js', () => ({
   saveSigners: vi.fn(),
 }));
 
-import { createDocument } from '../../lib/autentique/autentiqueService.js';
+import { createDocument, signDocument, getDocument } from '../../lib/autentique/autentiqueService.js';
 import { createContract, saveSigners } from '../../lib/contracts/contractService.js';
 import { signContract } from '../../lib/signContract.js';
 
@@ -87,5 +89,42 @@ describe('signContract', () => {
         ]),
       })
     );
+  });
+
+  it('auto-assina academia e desliga sortable quando autoSignAcademy', async () => {
+    vi.mocked(createDocument).mockResolvedValue({
+      id: 'aut-3',
+      name: 'Test',
+      signatures: [
+        { public_id: 'sig-a', email: 'acad@x.com' },
+        { public_id: 'sig-b', email: 'aluno@x.com' },
+      ],
+    });
+    vi.mocked(signDocument).mockResolvedValue({ id: 'aut-3' });
+    vi.mocked(getDocument).mockResolvedValue({
+      id: 'aut-3',
+      signatures: [
+        { public_id: 'sig-a', email: 'acad@x.com', signed: { created_at: '2026-01-01T00:00:00Z' } },
+        { public_id: 'sig-b', email: 'aluno@x.com' },
+      ],
+    });
+    vi.mocked(createContract).mockResolvedValue({ $id: 'c2' } as never);
+    vi.mocked(saveSigners).mockResolvedValue([] as never);
+
+    await signContract(
+      {
+        name: 'Test',
+        autoSignAcademy: true,
+        signers: [
+          { email: 'aluno@x.com', action: 'SIGN' },
+          { email: 'acad@x.com', action: 'SIGN' },
+        ],
+      },
+      Buffer.from('pdf')
+    );
+
+    expect(createDocument).toHaveBeenCalledWith(expect.objectContaining({ sortable: false }));
+    expect(signDocument).toHaveBeenCalledWith('aut-3');
+    expect(createContract).toHaveBeenCalledWith(expect.objectContaining({ status: 'in_progress' }));
   });
 });
