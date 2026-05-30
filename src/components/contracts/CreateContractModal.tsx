@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { X, Plus, Trash2, FileText, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -85,6 +86,7 @@ export default function CreateContractModal({
     watch,
     reset,
     trigger,
+    getValues,
     formState: { errors },
   } = useForm<CreateContractFormValues>({
     defaultValues: {
@@ -95,7 +97,7 @@ export default function CreateContractModal({
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'signers' });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: 'signers' });
   const sandbox = watch('sandbox');
   const templateId = watch('templateId');
   const signers = watch('signers');
@@ -111,36 +113,53 @@ export default function CreateContractModal({
     return count > 0 ? count : 1;
   }, [selectedTemplate]);
 
-  const buildInitialSigners = useCallback(() => {
-    const slots = selectedTemplate?.signerLayout?.slots || [];
-    const primary = lead
-      ? {
-          name: String(lead.name || '').trim(),
-          email: String(lead.email || '').trim(),
-          phone: String(lead.phone || '').trim(),
-          action: 'SIGN' as const,
-          delivery_method:
-            String(lead.phone || '').replace(/\D/g, '').length >= 10
-              ? ('DELIVERY_METHOD_WHATSAPP' as const)
-              : ('DELIVERY_METHOD_EMAIL' as const),
-        }
-      : defaultSigner();
+  const buildSignersForTemplate = useCallback(
+    (template: (typeof templates)[number] | null | undefined) => {
+      const layout = template?.signerLayout as ContractSignerLayout | undefined;
+      const slots = layout?.slots || [];
+      const signerCount = countEnabledSignerSlots(layout) || 1;
 
-    if (requiredSignerCount < 2) return [primary];
+      const primary = lead
+        ? {
+            name: String(lead.name || '').trim(),
+            email: String(lead.email || '').trim(),
+            phone: String(lead.phone || '').trim(),
+            action: 'SIGN' as const,
+            delivery_method:
+              String(lead.phone || '').replace(/\D/g, '').length >= 10
+                ? ('DELIVERY_METHOD_WHATSAPP' as const)
+                : ('DELIVERY_METHOD_EMAIL' as const),
+          }
+        : defaultSigner();
 
-    const secondaryLabel = slots[1]?.label || 'Contratada';
-    const secondary = {
-      name: secondaryLabel.toLowerCase().includes('contratada')
-        ? String(academyDoc?.name || 'Academia').trim()
-        : '',
-      email: String(academyDoc?.email || '').trim(),
-      phone: '',
-      action: 'SIGN' as const,
-      delivery_method: 'DELIVERY_METHOD_EMAIL' as const,
-    };
+      if (signerCount < 2) return [primary];
 
-    return [primary, { ...secondary, name: secondary.name || secondaryLabel }];
-  }, [academyDoc?.email, academyDoc?.name, lead, requiredSignerCount, selectedTemplate?.signerLayout?.slots]);
+      const secondaryLabel = slots[1]?.label || 'Contratada';
+      const secondary = {
+        name: secondaryLabel.toLowerCase().includes('contratada')
+          ? String(academyDoc?.name || 'Academia').trim()
+          : '',
+        email: String(academyDoc?.email || '').trim(),
+        phone: '',
+        action: 'SIGN' as const,
+        delivery_method: 'DELIVERY_METHOD_EMAIL' as const,
+      };
+
+      return [primary, { ...secondary, name: secondary.name || secondaryLabel }];
+    },
+    [academyDoc?.email, academyDoc?.name, lead]
+  );
+
+  const applyTemplateSelection = useCallback(
+    (nextTemplateId: string) => {
+      const id = String(nextTemplateId || '').trim();
+      setValue('templateId', id, { shouldValidate: true, shouldDirty: true });
+      if (!id) return;
+      const template = templates.find((t) => t.$id === id) || null;
+      replace(buildSignersForTemplate(template));
+    },
+    [buildSignersForTemplate, replace, setValue, templates]
+  );
 
   const deliveryWarnings = useMemo(() => {
     const warnings: string[] = [];
@@ -160,37 +179,52 @@ export default function CreateContractModal({
     return warnings;
   }, [signers]);
 
+  const openSessionRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      openSessionRef.current = null;
+      return;
+    }
+
+    const session = `${leadId || ''}:${purpose}`;
+    if (openSessionRef.current === session) return;
+    openSessionRef.current = session;
+
+    const titlePrefix = isRescission ? 'Termo de rescisão' : 'Contrato';
+    reset({
+      name: lead?.name ? `${titlePrefix} — ${String(lead.name).trim()}` : '',
+      sandbox: false,
+      signers: buildSignersForTemplate(null),
+      templateId: '',
+    });
+    setFormError('');
+    setStep('template');
+    setShowOptionalName(false);
+    setPreviewUrl(null);
+  }, [open, leadId, purpose, isRescission, lead?.name, reset, buildSignersForTemplate]);
+
+  useEffect(() => {
+    if (!open || templatesLoading) return;
+    if (String(getValues('templateId') || '').trim()) return;
 
     const planName = lead?.plan ? String(lead.plan) : '';
     const suggestedTemplateId =
       templates.length > 0
         ? resolveTemplateIdForPlan(planName, templates, financeConfig?.plans || [], purpose) || ''
         : '';
+    if (!suggestedTemplateId) return;
 
-    const titlePrefix = isRescission ? 'Termo de rescisão' : 'Contrato';
-    reset({
-      name: lead?.name ? `${titlePrefix} — ${String(lead.name).trim()}` : '',
-      sandbox: false,
-      signers: buildInitialSigners(),
-      templateId: suggestedTemplateId,
-    });
-    setFormError('');
-    setStep('template');
-    setShowOptionalName(false);
-    setPreviewUrl(null);
+    applyTemplateSelection(suggestedTemplateId);
   }, [
     open,
-    leadId,
-    leads,
-    reset,
+    templatesLoading,
     templates,
     financeConfig?.plans,
-    lead,
-    buildInitialSigners,
+    lead?.plan,
     purpose,
-    isRescission,
+    getValues,
+    applyTemplateSelection,
   ]);
 
   const close = useCallback(() => {
@@ -295,7 +329,7 @@ export default function CreateContractModal({
     }
   });
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   const stepLabels: Record<Step, string> = {
     template: '1. Modelo',
@@ -303,7 +337,7 @@ export default function CreateContractModal({
     send: '3. Enviar',
   };
 
-  return (
+  return createPortal(
     <div className="contracts-modal-backdrop" role="presentation" onClick={close}>
       <div
         className="contracts-modal card"
@@ -364,7 +398,7 @@ export default function CreateContractModal({
                   <select
                     className="form-input"
                     value={templateId || ''}
-                    onChange={(e) => setValue('templateId', e.target.value, { shouldValidate: true })}
+                    onChange={(e) => applyTemplateSelection(e.target.value)}
                   >
                     <option value="">Selecione um modelo…</option>
                     {templates.map((t) => (
@@ -653,6 +687,7 @@ export default function CreateContractModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
