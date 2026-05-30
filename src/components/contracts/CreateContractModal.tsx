@@ -24,6 +24,17 @@ import {
   countEnabledSignerSlots,
   type ContractSignerLayout,
 } from '../../../lib/contracts/contractSignerLayout.js';
+import {
+  describeSignerDelivery,
+  diagnoseContractSend,
+} from '../../../lib/contracts/contractSendDiagnostics.js';
+import {
+  buildPrimarySignerFromLead,
+  formatEmailForSignerField,
+  formatPhoneForSignerField,
+  phoneAutentiquePreview,
+} from '../../lib/contractSignerContact.js';
+import { maskPhone } from '../../lib/masks.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
@@ -131,16 +142,7 @@ export default function CreateContractModal({
       const signerCount = countEnabledSignerSlots(layout) || 1;
 
       const primary = lead
-        ? {
-            name: String(lead.name || '').trim(),
-            email: String(lead.email || '').trim(),
-            phone: String(lead.phone || '').trim(),
-            action: 'SIGN' as const,
-            delivery_method:
-              String(lead.phone || '').replace(/\D/g, '').length >= 10
-                ? ('DELIVERY_METHOD_WHATSAPP' as const)
-                : ('DELIVERY_METHOD_EMAIL' as const),
-          }
+        ? (buildPrimarySignerFromLead(lead) as CreateContractFormValues['signers'][number])
         : defaultSigner();
 
       if (signerCount < 2) return [primary];
@@ -223,29 +225,33 @@ export default function CreateContractModal({
     [buildSignersForTemplate, replace, setValue, templates]
   );
 
-  const deliveryWarnings = useMemo(() => {
-    const warnings: string[] = [];
-    (signers || []).forEach((s, index) => {
-      const label = `Signatário ${index + 1}`;
-      if (isWhatsAppDelivery(s?.delivery_method)) {
-        const digits = String(s?.phone || '').replace(/\D/g, '');
-        if (digits.length < 10) {
-          warnings.push(`${label}: informe o WhatsApp antes de enviar.`);
-        }
-        return;
-      }
-      if (!String(s?.email || '').trim()) {
-        warnings.push(`${label}: informe o e-mail antes de enviar.`);
-      }
-    });
-    return warnings;
-  }, [signers]);
+  const sendDiagnostics = useMemo(
+    () =>
+      diagnoseContractSend({
+        signers: (signers || []).map((s) => ({
+          name: s?.name,
+          email: s?.email,
+          phone: s?.phone,
+          action: s?.action,
+          delivery_method: s?.delivery_method,
+        })),
+        layout: selectedTemplate?.signerLayout as ContractSignerLayout | undefined,
+      }),
+    [signers, selectedTemplate?.signerLayout]
+  );
+
+  const deliveryWarnings = useMemo(
+    () => [...sendDiagnostics.blockers, ...sendDiagnostics.warnings],
+    [sendDiagnostics]
+  );
 
   const openSessionRef = useRef<string | null>(null);
+  const leadContactSyncedRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
       openSessionRef.current = null;
+      leadContactSyncedRef.current = false;
       return;
     }
 
@@ -265,7 +271,25 @@ export default function CreateContractModal({
     setShowOptionalName(false);
     setPreviewUrl(null);
     setInlineAcademyEmail('');
-  }, [open, leadId, purpose, isRescission, lead?.name, reset, buildSignersForTemplate]);
+  }, [open, leadId, purpose, isRescission, lead?.name, lead?.email, lead?.phone, reset, buildSignersForTemplate]);
+
+  /** Preenche signatário 1 com e-mail/telefone do cadastro (formatados) quando o lead estiver disponível. */
+  useEffect(() => {
+    if (!open || !leadId || !lead || leadContactSyncedRef.current) return;
+    leadContactSyncedRef.current = true;
+    const primary = buildPrimarySignerFromLead(lead);
+    setValue('signers.0.name', primary.name, { shouldDirty: false, shouldValidate: true });
+    if (primary.email) {
+      setValue('signers.0.email', primary.email, { shouldDirty: false, shouldValidate: true });
+    }
+    if (primary.phone) {
+      setValue('signers.0.phone', primary.phone, { shouldDirty: false, shouldValidate: true });
+    }
+    setValue('signers.0.delivery_method', primary.delivery_method, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [open, leadId, lead, setValue]);
 
   useEffect(() => {
     if (!open || !academyId) return;
@@ -331,6 +355,10 @@ export default function CreateContractModal({
   const goNextFromSigners = async () => {
     const ok = await trigger('signers');
     if (!ok) return;
+    if (sendDiagnostics.blockers.length) {
+      setFormError(sendDiagnostics.blockers.join('\n'));
+      return;
+    }
     if ((signers || []).length !== requiredSignerCount) {
       setFormError(
         `Este modelo exige ${requiredSignerCount} signatário(s). Ajuste a lista antes de continuar.`
@@ -377,6 +405,21 @@ export default function CreateContractModal({
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError('');
+    const preSubmit = diagnoseContractSend({
+      signers: (values.signers || []).map((s) => ({
+        name: s.name,
+        email: s.email,
+        phone: s.phone,
+        action: s.action,
+        delivery_method: s.delivery_method,
+      })),
+      layout: selectedTemplate?.signerLayout as ContractSignerLayout | undefined,
+    });
+    if (preSubmit.blockers.length) {
+      setFormError(preSubmit.blockers.join('\n'));
+      return;
+    }
+
     const parsed = createContractSchema.safeParse(values);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
@@ -511,7 +554,9 @@ export default function CreateContractModal({
                 <p className="text-small contracts-autentique-help-text">
                   <strong>Como funciona:</strong> escolha <strong>E-mail</strong> ou <strong>WhatsApp</strong> para
                   cada signatário. A Autentique envia o link automaticamente — a pessoa assina na plataforma deles,
-                  não dentro do Nave.
+                  não dentro do Nave.{' '}
+                  <strong>Cada signatário por e-mail precisa de um endereço diferente</strong> (ex.: e-mail do aluno e
+                  e-mail da academia — não use o mesmo nos dois).
                 </p>
               </div>
 
@@ -587,6 +632,32 @@ export default function CreateContractModal({
                               shouldDirty: true,
                               shouldValidate: true,
                             });
+                            if (index === 0 && lead) {
+                              if (
+                                isWhatsAppDelivery(method) &&
+                                !String(getValues(`signers.${index}.phone`) || '').trim()
+                              ) {
+                                const fromLead = formatPhoneForSignerField(lead.phone);
+                                if (fromLead) {
+                                  setValue(`signers.${index}.phone`, fromLead, {
+                                    shouldDirty: false,
+                                    shouldValidate: true,
+                                  });
+                                }
+                              }
+                              if (
+                                isEmailDelivery(method) &&
+                                !String(getValues(`signers.${index}.email`) || '').trim()
+                              ) {
+                                const fromLead = formatEmailForSignerField(lead.email);
+                                if (fromLead) {
+                                  setValue(`signers.${index}.email`, fromLead, {
+                                    shouldDirty: false,
+                                    shouldValidate: true,
+                                  });
+                                }
+                              }
+                            }
                             void trigger(`signers.${index}`);
                           }}
                         />
@@ -597,15 +668,30 @@ export default function CreateContractModal({
                           <label className="task-field-label">WhatsApp</label>
                           <input
                             className="form-input"
-                            {...register(`signers.${index}.phone`)}
-                            placeholder="(11) 99999-9999"
+                            {...register(`signers.${index}.phone`, {
+                              onChange: (e) => {
+                                setValue(`signers.${index}.phone`, maskPhone(e.target.value), {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                });
+                              },
+                            })}
+                            placeholder="(19) 99999-9999"
                             inputMode="tel"
                           />
                           {errors.signers?.[index]?.phone ? (
                             <FieldError>{errors.signers[index]?.phone?.message}</FieldError>
                           ) : (
                             <p className="text-small text-muted contracts-signer-field-hint">
-                              A Autentique envia o link neste número. Use o celular do aluno ou responsável.
+                              A Autentique envia o link só neste número — não usa o e-mail abaixo. Celular com DDD
+                              e 9 na frente (11 dígitos).
+                              {phoneAutentiquePreview(watch(`signers.${index}.phone`)) ? (
+                                <>
+                                  {' '}
+                                  Será enviado como{' '}
+                                  <strong>{phoneAutentiquePreview(watch(`signers.${index}.phone`))}</strong>.
+                                </>
+                              ) : null}
                             </p>
                           )}
                         </div>
@@ -617,7 +703,15 @@ export default function CreateContractModal({
                           <input
                             className="form-input"
                             type="email"
-                            {...register(`signers.${index}.email`)}
+                            {...register(`signers.${index}.email`, {
+                              onChange: (e) => {
+                                setValue(
+                                  `signers.${index}.email`,
+                                  formatEmailForSignerField(e.target.value),
+                                  { shouldDirty: true, shouldValidate: true }
+                                );
+                              },
+                            })}
                             placeholder="nome@email.com"
                           />
                           {errors.signers?.[index]?.email ? (
@@ -625,6 +719,7 @@ export default function CreateContractModal({
                           ) : (
                             <p className="text-small text-muted contracts-signer-field-hint">
                               A Autentique envia o link para esta caixa de entrada.
+                              {index === 0 && lead?.email ? ' Preenchido do cadastro do aluno.' : ''}
                             </p>
                           )}
                           {isContratadaSignerIndex(index) &&
@@ -672,7 +767,15 @@ export default function CreateContractModal({
                           <input
                             className="form-input"
                             type="email"
-                            {...register(`signers.${index}.email`)}
+                            {...register(`signers.${index}.email`, {
+                              onChange: (e) => {
+                                setValue(
+                                  `signers.${index}.email`,
+                                  formatEmailForSignerField(e.target.value),
+                                  { shouldDirty: true, shouldValidate: true }
+                                );
+                              },
+                            })}
                             placeholder="Opcional"
                           />
                         </div>
@@ -683,10 +786,23 @@ export default function CreateContractModal({
                           <label className="task-field-label">Telefone (opcional)</label>
                           <input
                             className="form-input"
-                            {...register(`signers.${index}.phone`)}
-                            placeholder="+55..."
+                            {...register(`signers.${index}.phone`, {
+                              onChange: (e) => {
+                                setValue(`signers.${index}.phone`, maskPhone(e.target.value), {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                });
+                              },
+                            })}
+                            placeholder="(19) 99999-9999"
                             inputMode="tel"
                           />
+                          {index === 0 && phoneAutentiquePreview(watch(`signers.${index}.phone`)) ? (
+                            <p className="text-small text-muted contracts-signer-field-hint">
+                              Se trocar para WhatsApp depois, será enviado como{' '}
+                              <strong>{phoneAutentiquePreview(watch(`signers.${index}.phone`))}</strong>.
+                            </p>
+                          ) : null}
                         </div>
                       ) : null}
 
@@ -710,6 +826,34 @@ export default function CreateContractModal({
 
           {step === 'send' ? (
             <>
+              <div className="contracts-send-summary card">
+                <p className="task-field-label contracts-send-summary__title">Resumo do envio</p>
+                <ul className="contracts-send-summary__list text-small">
+                  {(signers || []).map((s, index) => {
+                    const slotLabel =
+                      selectedTemplate?.signerLayout?.slots?.[index]?.label ||
+                      `Signatário ${index + 1}`;
+                    return (
+                      <li key={`summary-${index}`}>
+                        <strong>{slotLabel}</strong> — {String(s?.name || 'Sem nome').trim()} ·{' '}
+                        {describeSignerDelivery({
+                          name: s?.name,
+                          email: s?.email,
+                          phone: s?.phone,
+                          delivery_method: s?.delivery_method,
+                          action: s?.action,
+                        })}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {sendDiagnostics.warnings.length > 0 ? (
+                  <p className="text-small contracts-send-summary__warn">
+                    {sendDiagnostics.warnings.join(' ')}
+                  </p>
+                ) : null}
+              </div>
+
               <details
                 className="contracts-optional-name"
                 open={showOptionalName}

@@ -11,6 +11,12 @@ import {
   parseContractFormData,
 } from './parseContractForm.js';
 import { validateContractSigners } from './validateContractSigners.js';
+import { validateSignersForAutentique } from './validateSignersForAutentique.js';
+import { formatAutentiqueValidationDetail } from '../autentique/parseAutentiqueErrors.js';
+import {
+  autentiqueValidationFallbackHints,
+  diagnoseContractSend,
+} from './contractSendDiagnostics.js';
 import { resolveContractPdfBuffer } from './resolveContractPdf.js';
 import { applyLayoutToSigners, countEnabledSignerSlots } from './contractSignerLayout.js';
 import { syncContractFromAutentique } from './contractAutentiqueSync.js';
@@ -107,6 +113,8 @@ export async function handlePostContract(
     return jsonResponse({ ok: false, error: 'contract_store_not_configured' }, 500);
   }
 
+  let signersForHints: import('./types.js').SignerInput[] = [];
+
   try {
     const parsed = await parseContractFormData(formData, { skipSignerValidation: true });
     const sandbox = auth.isOwner ? parsed.sandbox : false;
@@ -150,7 +158,19 @@ export async function handlePostContract(
       template.signerLayout,
       auth.academyId
     );
+    signersForHints = signersEnriched;
     validateContractSigners(signersEnriched);
+    validateSignersForAutentique(signersEnriched);
+
+    const preflight = diagnoseContractSend({
+      signers: signersEnriched,
+      layout: template.signerLayout,
+      pageCount,
+      pdfByteLength: buffer.length,
+    });
+    if (preflight.blockers.length) {
+      throw new ContractFormError(preflight.blockers.join('\n'));
+    }
 
     const signersWithPositions = applyLayoutToSigners(
       signersEnriched,
@@ -208,19 +228,41 @@ export async function handlePostContract(
     }
 
     const message = err instanceof Error ? err.message : String(err);
+    const autentiquePayload =
+      err && typeof err === 'object' && 'autentique' in err
+        ? (err as { autentique?: { errors?: unknown[] } }).autentique
+        : null;
+    const autentiqueErrors = Array.isArray(autentiquePayload?.errors)
+      ? autentiquePayload.errors
+      : [];
     const autentiqueCode =
       err && typeof err === 'object' && 'autentiqueCode' in err
         ? String((err as { autentiqueCode?: string }).autentiqueCode || '')
         : '';
-    const friendly = autentiqueCode ? message : humanizeAutentiqueError(message);
+    const validationDetail = formatAutentiqueValidationDetail(
+      autentiqueErrors as Parameters<typeof formatAutentiqueValidationDetail>[0]
+    );
+    const friendly = humanizeAutentiqueError(autentiqueCode || message, autentiqueErrors as never);
     const status = isAutentiqueClientError(autentiqueCode || message) ? 400 : 500;
 
     logContractStructured('contract_create_fail', {
       academy_id: auth.academyId,
       error: message,
+      autentique_validation: validationDetail || null,
       status: 'error',
     });
-    return jsonResponse({ ok: false, error: friendly }, status);
+    const hints =
+      validationDetail.length > 0 ? [] : autentiqueValidationFallbackHints(signersForHints);
+
+    return jsonResponse(
+      {
+        ok: false,
+        error: friendly,
+        detail: validationDetail || undefined,
+        hints: hints.length ? hints : undefined,
+      },
+      status
+    );
   }
 }
 

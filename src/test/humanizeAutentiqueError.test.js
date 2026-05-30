@@ -5,9 +5,14 @@ import {
 } from '../../lib/autentique/humanizeAutentiqueError.ts';
 
 describe('humanizeAutentiqueError', () => {
-  it('traduz validation', () => {
-    const msg = humanizeAutentiqueError('validation');
-    expect(msg).toMatch(/signatários/i);
+  it('traduz validation com detalhe', () => {
+    const msg = humanizeAutentiqueError('validation', [
+      {
+        message: 'validation',
+        extensions: { validation: { 'signers.1.email': ['field_required'] } },
+      },
+    ]);
+    expect(msg).toMatch(/Signatário 2/i);
     expect(isAutentiqueClientError('validation')).toBe(true);
   });
 });

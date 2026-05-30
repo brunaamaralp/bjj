@@ -349,6 +349,30 @@
   min-width: 0;
 }
 
+.contracts-send-summary {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+}
+
+.contracts-send-summary__title {
+  margin: 0 0 8px;
+}
+
+.contracts-send-summary__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+}
+
+.contracts-send-summary__list li + li {
+  margin-top: 6px;
+}
+
+.contracts-send-summary__warn {
+  margin: 10px 0 0;
+  color: #92400e;
+}
+
 .contracts-optional-name {
   margin-bottom: 12px;
 }
@@ -1124,6 +1148,7 @@
 }
 
 .contracts-form-error {
+  white-space: pre-wrap;
   padding: 10px 12px;
   background: #fef2f2;
   border-radius: 8px;

@@ -2,6 +2,7 @@ import type { CreateDocumentParams, AutentiqueDocument } from './types.js';
 import type { AutentiquePosition, SignerInput } from '../contracts/types.js';
 import { normalizePhoneForAutentique } from '../contracts/normalizePhone.js';
 import { humanizeAutentiqueError } from './humanizeAutentiqueError.js';
+import type { AutentiqueGraphQLError } from './parseAutentiqueErrors.js';
 
 const GRAPHQL_URL = 'https://api.autentique.com.br/v2/graphql';
 
@@ -65,19 +66,38 @@ function normalizePositions(positions: AutentiquePosition[] | undefined): Autent
   return out.length ? out : undefined;
 }
 
+function usesPhoneDelivery(method: string | undefined): boolean {
+  const m = String(method || '').trim();
+  return m === 'DELIVERY_METHOD_WHATSAPP' || m === 'DELIVERY_METHOD_SMS';
+}
+
 function normalizeSigners(signers: SignerInput[]): SignerInput[] {
   if (!Array.isArray(signers) || signers.length === 0) {
     throw new Error('signers_required');
   }
   return signers.map((s) => {
+    const deliveryMethod = String(s.delivery_method || '').trim();
+    const wantsPhoneChannel = usesPhoneDelivery(deliveryMethod);
+
     const row: SignerInput = { action: String(s.action || 'SIGN').toUpperCase() };
-    if (s.email) row.email = String(s.email).trim();
     if (s.name) row.name = String(s.name).trim();
-    if (s.phone) {
+
+    if (wantsPhoneChannel) {
+      const normalized = normalizePhoneForAutentique(s.phone);
+      if (!normalized) {
+        throw new Error('signer_phone_required_for_whatsapp_sms');
+      }
+      row.phone = normalized;
+      row.delivery_method = deliveryMethod;
+      if (s.email) row.email = String(s.email).trim();
+    } else if (s.email) {
+      // Autentique: e-mail no campo `email` já dispara envio por e-mail — não enviar delivery_method EMAIL.
+      row.email = String(s.email).trim();
+    } else if (s.phone) {
       const normalized = normalizePhoneForAutentique(s.phone);
       if (normalized) row.phone = normalized;
     }
-    if (s.delivery_method) row.delivery_method = String(s.delivery_method).trim();
+
     const positions = normalizePositions(s.positions);
     if (positions) row.positions = positions;
     if (!row.email && !row.name && !row.phone) {
@@ -124,17 +144,22 @@ export async function createDocument({
   });
 
   const text = await res.text();
-  let data: { data?: { createDocument?: AutentiqueDocument }; errors?: Array<{ message?: string }>; raw?: string } | null =
-    null;
+  let data: {
+    data?: { createDocument?: AutentiqueDocument };
+    errors?: AutentiqueGraphQLError[];
+    raw?: string;
+  } | null = null;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
     data = { raw: text };
   }
 
+  const graphQLErrors = data?.errors || [];
+
   if (!res.ok) {
-    const raw = data?.errors?.[0]?.message || `Autentique HTTP ${res.status}`;
-    const err = new Error(humanizeAutentiqueError(raw)) as Error & {
+    const raw = graphQLErrors[0]?.message || `Autentique HTTP ${res.status}`;
+    const err = new Error(humanizeAutentiqueError(raw, graphQLErrors)) as Error & {
       status?: number;
       autentique?: unknown;
       autentiqueCode?: string;
@@ -145,9 +170,9 @@ export async function createDocument({
     throw err;
   }
 
-  if (data?.errors?.length) {
-    const raw = data.errors[0]?.message || 'autentique_graphql_error';
-    const err = new Error(humanizeAutentiqueError(raw)) as Error & {
+  if (graphQLErrors.length) {
+    const raw = graphQLErrors[0]?.message || 'autentique_graphql_error';
+    const err = new Error(humanizeAutentiqueError(raw, graphQLErrors)) as Error & {
       autentique?: unknown;
       autentiqueCode?: string;
     };

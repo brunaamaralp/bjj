@@ -64,6 +64,6 @@ export function isWhatsAppDelivery(method: string | undefined): boolean {
 }
 
 export function isEmailDelivery(method: string | undefined): boolean {
-  const m = String(method || 'DELIVERY_METHOD_EMAIL');
-  return m === 'DELIVERY_METHOD_EMAIL' || m === 'DELIVERY_METHOD_SMS';
+  const m = String(method || 'DELIVERY_METHOD_EMAIL').trim();
+  return m === 'DELIVERY_METHOD_EMAIL' || !m;
 }

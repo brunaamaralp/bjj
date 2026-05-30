@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidBrazilMobilePhone } from '../../../lib/contracts/contractSendDiagnostics.js';
 
 const deliveryMethodEnum = z.enum([
   'DELIVERY_METHOD_EMAIL',
@@ -19,11 +20,11 @@ export const signerSchema = z
       data.delivery_method === 'DELIVERY_METHOD_WHATSAPP' ||
       data.delivery_method === 'DELIVERY_METHOD_SMS';
     if (needsPhone) {
-      const digits = String(data.phone || '').replace(/\D/g, '');
-      if (digits.length < 10) {
+      if (!isValidBrazilMobilePhone(data.phone)) {
         ctx.addIssue({
           code: 'custom',
-          message: 'Telefone obrigatório para WhatsApp',
+          message:
+            'Celular inválido para WhatsApp (DDD + 9 dígitos). Ou troque o envio para E-mail — o link não vai para o e-mail se estiver em WhatsApp.',
           path: ['phone'],
         });
       }
@@ -39,12 +40,35 @@ export const signerSchema = z
     }
   });
 
-export const createContractSchema = z.object({
-  name: z.string().optional(),
-  sandbox: z.boolean(),
-  signers: z.array(signerSchema).min(1, 'Adicione pelo menos um signatário'),
-  templateId: z.string().min(1, 'Selecione um modelo de contrato'),
-});
+export const createContractSchema = z
+  .object({
+    name: z.string().optional(),
+    sandbox: z.boolean(),
+    signers: z.array(signerSchema).min(1, 'Adicione pelo menos um signatário'),
+    templateId: z.string().min(1, 'Selecione um modelo de contrato'),
+  })
+  .superRefine((data, ctx) => {
+    const emails = new Map<string, number>();
+    (data.signers || []).forEach((s, index) => {
+      const needsPhone =
+        s.delivery_method === 'DELIVERY_METHOD_WHATSAPP' ||
+        s.delivery_method === 'DELIVERY_METHOD_SMS';
+      if (needsPhone) return;
+      const email = String(s.email || '').trim().toLowerCase();
+      if (!email) return;
+      const prev = emails.get(email);
+      if (prev != null) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'Cada signatário precisa de um e-mail diferente (aluno e academia não podem ser o mesmo).',
+          path: ['signers', index, 'email'],
+        });
+      } else {
+        emails.set(email, index);
+      }
+    });
+  });
 
 export type CreateContractFormValues = z.infer<typeof createContractSchema>;
 
@@ -67,4 +91,4 @@ export const defaultSigner = (): CreateContractFormValues['signers'][number] => 
   action: 'SIGN',
   delivery_method: 'DELIVERY_METHOD_EMAIL',
 });
-
+

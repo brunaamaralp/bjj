@@ -110,9 +110,13 @@ export async function createContractRequest(input: {
   if (input.leadId) formData.append('lead_id', input.leadId);
 
   const res = await contractsFetch('/api/contracts', { method: 'POST', body: formData });
-  const data = (await res.json()) as CreateContractResponse;
+  const data = (await res.json()) as CreateContractResponse & {
+    detail?: string;
+    hints?: string[];
+  };
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || data.detail || `Erro HTTP ${res.status}`);
+    const parts = [data.error, data.detail, ...(data.hints || [])].filter(Boolean);
+    throw new Error(parts.join('\n') || `Erro HTTP ${res.status}`);
   }
   return data;
 }
