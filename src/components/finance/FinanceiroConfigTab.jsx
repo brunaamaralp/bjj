@@ -19,7 +19,11 @@ import FinanceSettingsCollectionSection from './settings/FinanceSettingsCollecti
 import FinanceSettingsExceptionsSection from './settings/FinanceSettingsExceptionsSection.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
+import RouteFallback from '../shared/RouteFallback.jsx';
 import './finance.css';
+
+const ContractTemplatesPage = lazyWithRetry(() => import('../contracts/ContractTemplatesPage'));
 
 const SECTION_META = Object.fromEntries(
   FINANCE_SETTINGS_GROUPS.flatMap((g) => g.items.map((item) => [item.id, item]))
@@ -88,6 +92,73 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
 
   const meta = section ? SECTION_META[section] : null;
 
+  const allNavItems = FINANCE_SETTINGS_GROUPS.flatMap((g) =>
+    g.items.filter((item) => !(item.ownerOnly && !isOwner))
+  );
+
+  const sectionBody = section ? (
+    <>
+      {section === FINANCE_SETTINGS_SECTIONS.PLANOS && isOwner ? (
+        <FinanceSettingsPlansSection
+          financeConfig={state.financeConfig}
+          contractTemplates={state.contractTemplates}
+          contractTemplatesConfigured={state.contractTemplatesConfigured}
+          rescissionTemplates={rescissionTemplates}
+          runEnsureContractSetup={state.runEnsureContractSetup}
+          ensureContractSetup={state.ensureContractSetup}
+          onUpdate={state.updatePlan}
+          onAdd={state.addPlan}
+          onRemoveRequest={state.setPendingRemovePlan}
+        />
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.TAXAS ? (
+        <FinanceSettingsFeesSection
+          financeConfig={state.financeConfig}
+          setFinanceConfig={state.setFinanceConfig}
+        />
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.RECEBIMENTO ? (
+        <FinanceSettingsBanksSection
+          financeConfig={state.financeConfig}
+          onSaveBank={saveBank}
+          onRemoveRequest={state.setPendingRemoveBank}
+        />
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.REGUA && isOwner ? (
+        <FinanceSettingsCollectionSection
+          collectionRules={state.collectionRules}
+          overdueLabel={state.overdueLabel}
+          onRulesChange={state.setCollectionRules}
+          onOverdueLabelChange={state.setOverdueLabel}
+        />
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.EXCECOES ? (
+        <FinanceSettingsExceptionsSection
+          labels={state.exceptionLabels}
+          onChange={state.setExceptionLabels}
+        />
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS && isOwner ? (
+        <div className="finance-settings-section-body finance-settings-section-body--flush">
+          <CaixaAccountingPanel scope="settings" isOwner={isOwner} />
+        </div>
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.CONTRATOS && isOwner ? (
+        <div className="finance-settings-section-body finance-settings-section-body--flush">
+          <React.Suspense fallback={<RouteFallback />}>
+            <ContractTemplatesPage embedded embeddedFinance />
+          </React.Suspense>
+        </div>
+      ) : null}
+    </>
+  ) : null;
+
   return (
     <div className={`financeiro-config-tab${state.hasDirty ? ' financeiro-config-tab--dirty' : ''}`}>
       {!section ? (
@@ -95,64 +166,29 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
           financeConfig={state.financeConfig}
           collectionRules={state.collectionRules}
           accountsCount={accountsCount}
+          contractTemplatesCount={(state.contractTemplates || []).length}
           isOwner={isOwner}
           onSelectSection={goSection}
         />
       ) : (
-        <>
-          <FinanceSettingsDetailHeader title={meta?.label || 'Financeiro'} subtitle={meta?.hint} onBack={goHub} />
-
-          {section === FINANCE_SETTINGS_SECTIONS.PLANOS && isOwner ? (
-            <FinanceSettingsPlansSection
-              financeConfig={state.financeConfig}
-              contractTemplates={state.contractTemplates}
-              contractTemplatesConfigured={state.contractTemplatesConfigured}
-              rescissionTemplates={rescissionTemplates}
-              runEnsureContractSetup={state.runEnsureContractSetup}
-              ensureContractSetup={state.ensureContractSetup}
-              onUpdate={state.updatePlan}
-              onAdd={state.addPlan}
-              onRemoveRequest={state.setPendingRemovePlan}
-            />
-          ) : null}
-
-          {section === FINANCE_SETTINGS_SECTIONS.TAXAS ? (
-            <FinanceSettingsFeesSection
-              financeConfig={state.financeConfig}
-              setFinanceConfig={state.setFinanceConfig}
-            />
-          ) : null}
-
-          {section === FINANCE_SETTINGS_SECTIONS.RECEBIMENTO ? (
-            <FinanceSettingsBanksSection
-              financeConfig={state.financeConfig}
-              onSaveBank={saveBank}
-              onRemoveRequest={state.setPendingRemoveBank}
-            />
-          ) : null}
-
-          {section === FINANCE_SETTINGS_SECTIONS.REGUA && isOwner ? (
-            <FinanceSettingsCollectionSection
-              collectionRules={state.collectionRules}
-              overdueLabel={state.overdueLabel}
-              onRulesChange={state.setCollectionRules}
-              onOverdueLabelChange={state.setOverdueLabel}
-            />
-          ) : null}
-
-          {section === FINANCE_SETTINGS_SECTIONS.EXCECOES ? (
-            <FinanceSettingsExceptionsSection
-              labels={state.exceptionLabels}
-              onChange={state.setExceptionLabels}
-            />
-          ) : null}
-
-          {section === FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS && isOwner ? (
-            <div className="finance-settings-section-body finance-settings-section-body--flush">
-              <CaixaAccountingPanel scope="settings" isOwner={isOwner} />
-            </div>
-          ) : null}
-        </>
+        <div className="finance-settings-layout">
+          <nav className="finance-settings-sidenav" aria-label="Seções do financeiro">
+            {allNavItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`finance-settings-sidenav__item${section === item.id ? ' finance-settings-sidenav__item--active' : ''}`}
+                onClick={() => goSection(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+          <div className="finance-settings-layout__content">
+            <FinanceSettingsDetailHeader title={meta?.label || 'Financeiro'} subtitle={meta?.hint} onBack={goHub} />
+            {sectionBody}
+          </div>
+        </div>
       )}
 
       <FinanceSettingsStickySave

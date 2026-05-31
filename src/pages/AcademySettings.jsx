@@ -13,11 +13,9 @@ import {
 import {
     ChevronLeft,
 } from 'lucide-react';
-import { lazyWithRetry } from '../lib/lazyWithRetry.js';
-import RouteFallback from '../components/shared/RouteFallback.jsx';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
-const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
 import StudentsSection from '../components/academy/StudentsSection.jsx';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
@@ -29,14 +27,12 @@ import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms } from '../lib/terminology.js';
-import HubTabBar from '../components/shared/HubTabBar.jsx';
 
 const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio', subtitle: 'Dados e identidade' },
     { id: 'funil', label: 'Funil', subtitle: 'Perguntas e etiquetas' },
-    { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e desligamento' },
-    { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas, régua e plano de contas' },
-    { id: 'contratos', label: 'Contratos', subtitle: 'Modelos para assinatura' },
+    { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e matrícula' },
+    { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas e contratos' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -46,20 +42,11 @@ const TAB_SKELETON_HEIGHT = {
     funil: 480,
     alunos: 400,
     financeiro: 520,
-    contratos: 480,
 };
 
-function getTabDisabledState(tabId, { role, modules }) {
+function getTabDisabledState(tabId, { role }) {
     if (tabId === 'financeiro' && role !== 'owner') {
         return { disabled: true, title: 'Disponível para titulares' };
-    }
-    if (tabId === 'contratos') {
-        if (role !== 'owner') {
-            return { disabled: true, title: 'Disponível para titulares' };
-        }
-        if (modules?.finance !== true) {
-            return { disabled: true, title: 'Módulo financeiro inativo — ative em Configurações de módulos' };
-        }
     }
     return { disabled: false, title: undefined };
 }
@@ -405,21 +392,26 @@ const AcademySettings = () => {
     }
 
     return (
-        <div className="container academy-settings-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+        <div className="container navi-hub-page academy-settings-page">
             <PageHeader
                 title={terms.myWorkspace}
                 subtitle="Dados da academia, funil, alunos e financeiro."
                 meta={
-                    academy.name ? (
-                        <span className="academy-settings-page-name">{academy.name}</span>
-                    ) : contentLoading ? (
+                    contentLoading ? (
                         <span
                             className="empresa-skeleton-block academy-settings-page-name-skeleton"
                             style={{ display: 'block', height: 18, maxWidth: 220 }}
                             aria-hidden
                         />
                     ) : (
-                        `${activeTabMeta.label} · ${activeTabMeta.subtitle}`
+                        <>
+                            {academy.name ? (
+                                <span className="academy-settings-page-name">{academy.name}</span>
+                            ) : null}
+                            <span className="academy-settings-page-subtitle">
+                                {activeTabMeta.label} · {activeTabMeta.subtitle}
+                            </span>
+                        </>
                     )
                 }
                 prefix={
@@ -484,6 +476,7 @@ const AcademySettings = () => {
                         setTaxDocumentInput={setTaxDocumentInput}
                         taxInputRef={taxInputRef}
                         autoEditTax={autoEditTax}
+                        academyDataVersion={academyDataVersion}
                     />
                 </>
             )}
@@ -509,14 +502,6 @@ const AcademySettings = () => {
             {!contentLoading && !tabDisabledState.disabled && activeTab === 'financeiro' && academyId && (
                 <div className="empresa-section">
                     <FinanceiroConfigTab academyId={academyId} isOwner={role === 'owner'} />
-                </div>
-            )}
-
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'contratos' && (
-                <div className="empresa-section" style={{ marginTop: 8 }}>
-                    <React.Suspense fallback={<RouteFallback />}>
-                        <ContractTemplatesPage embedded />
-                    </React.Suspense>
                 </div>
             )}
 
@@ -602,7 +587,7 @@ const AcademySettings = () => {
         }
         .info-row {
           display: flex; align-items: center; gap: 12px;
-          padding: 10px 0; border-bottom: 1px solid var(--border-light);
+          padding: 10px 0; border-bottom: 0.5px solid var(--border-light);
         }
         .info-row:last-child { border-bottom: none; }
         .info-row-icon { color: var(--text-muted); flex-shrink: 0; }
@@ -626,16 +611,16 @@ const AcademySettings = () => {
           text-transform: none;
           font-family: var(--ff-ui, inherit);
         }
-        .info-row-label { font-size: 0.75rem; color: var(--text-muted); text-transform: none; letter-spacing: 0.02em; min-width: 70px; font-weight: 600; }
-        .info-row-value { font-size: 0.9rem; color: var(--text); font-weight: 500; }
-        .info-row-empty { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
+        .info-row-label { font-size: 13px; color: var(--text-secondary); min-width: 80px; font-weight: 500; }
+        .info-row-value { font-size: 14px; color: var(--text); font-weight: 500; }
+        .info-row-empty { font-size: 13px; color: var(--text-muted); }
         .action-row {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 16px; border-bottom: 1px solid var(--border-light);
-          transition: var(--transition);
+          padding: 14px 16px; border-bottom: 0.5px solid var(--border-light);
+          transition: background var(--motion-fast) var(--ease-standard);
         }
         .action-row:last-child { border-bottom: none; }
-        .action-row:hover { background: var(--surface-hover); }
+        .action-row:hover { background: rgba(91, 63, 191, 0.03); }
         .action-icon {
           width: 40px; height: 40px; border-radius: var(--radius-sm);
           display: flex; align-items: center; justify-content: center;

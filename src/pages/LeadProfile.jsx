@@ -1194,6 +1194,16 @@ const LeadProfile = () => {
                     {/* Lead Header */}
                     <div className="profile-main-header">
                         {!editing ? (
+                            <>
+                            <div className="profile-avatar" aria-hidden>
+                                {String(lead.name || '')
+                                    .trim()
+                                    .split(' ')
+                                    .filter(Boolean)
+                                    .slice(0, 2)
+                                    .map((w) => w[0].toUpperCase())
+                                    .join('') || '?'}
+                            </div>
                             <div className="profile-id-info">
                                 <h1 className="profile-name">{lead.name}</h1>
                                 {lead.phone && (
@@ -1203,6 +1213,7 @@ const LeadProfile = () => {
                                     </div>
                                 )}
                             </div>
+                            </>
                         ) : (
                             <>
                                 <div className="flex-col gap-2 w-full mt-2 lead-profile-edit-fields">
@@ -2025,18 +2036,38 @@ const LeadProfile = () => {
                 /* Seções do Perfil */
                 .profile-main-header {
                     display: flex;
-                    flex-direction: column;
+                    flex-direction: row;
                     align-items: flex-start;
-                    text-align: left;
-                    gap: 12px;
+                    gap: 14px;
                 }
 
+                .profile-avatar {
+                    width: 52px;
+                    height: 52px;
+                    border-radius: 50%;
+                    background: var(--v100);
+                    border: 0.5px solid var(--border-violet);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: var(--v700);
+                    letter-spacing: -0.02em;
+                    overflow: hidden;
+                }
+
+                .profile-id-info {
+                    flex: 1;
+                    min-width: 0;
+                }
 
                 .profile-name {
                     font-size: 1.125rem;
                     font-weight: 700;
                     color: var(--text);
-                    margin: 0;
+                    margin: 0 0 4px;
                 }
 
                 .profile-phone {
@@ -2726,8 +2757,9 @@ const LeadProfile = () => {
                     position: fixed;
                     inset: 0;
                     z-index: 1000;
-                    background: rgba(0,0,0,0.5);
-                    backdrop-filter: blur(4px);
+                    background: rgba(18, 16, 42, 0.35);
+                    backdrop-filter: blur(12px) saturate(1.4);
+                    -webkit-backdrop-filter: blur(12px) saturate(1.4);
                     display: flex;
                     align-items: center;
                     justify-content: center;

@@ -12,15 +12,6 @@ import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
-const labelStyle = {
-  display: 'block',
-  fontSize: 11,
-  fontWeight: 700,
-  color: 'var(--text-muted)',
-  marginBottom: 6,
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-};
 
 export function paymentFormFromDoc(payment, student) {
   const base = buildDefaultPayForm(student);
@@ -190,9 +181,9 @@ export default function StudentPaymentModal({
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="form-section">
               <fieldset style={{ border: 'none', margin: 0, padding: 0 }} disabled={Boolean(editingPaymentId)}>
-                <legend style={labelStyle}>Tipo de pagamento</legend>
+                <legend className="form-label">Tipo de pagamento</legend>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {typeOptions.map((opt) => (
                     <label
@@ -253,8 +244,8 @@ export default function StudentPaymentModal({
 
               {isBundle ? (
                 <>
-                  <div>
-                    <label style={labelStyle}>Duração</label>
+                  <div className="form-group">
+                    <label className="form-label">Duração</label>
                     <select
                       className="form-input"
                       style={{ ...inputStyle, width: '100%' }}
@@ -287,8 +278,8 @@ export default function StudentPaymentModal({
               ) : null}
 
               {isFee || isOther ? (
-                <div>
-                  <label style={labelStyle}>Descrição{isFee ? ' *' : ''}</label>
+                <div className="form-group">
+                  <label className="form-label">Descrição{isFee ? ' *' : ''}</label>
                   <input
                     type="text"
                     className="form-input"
@@ -305,8 +296,8 @@ export default function StudentPaymentModal({
               ) : null}
 
               {isPlan ? (
-                <div>
-                  <label style={labelStyle}>Status</label>
+                <div className="form-group">
+                  <label className="form-label">Status</label>
                   <select
                     className="form-input"
                     style={{ ...inputStyle, width: '100%' }}
@@ -319,8 +310,8 @@ export default function StudentPaymentModal({
                 </div>
               ) : null}
 
-              <div>
-                <label style={labelStyle}>Valor (R$)</label>
+              <div className="form-group">
+                <label className="form-label">Valor (R$)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -365,8 +356,8 @@ export default function StudentPaymentModal({
                 </div>
               ) : null}
 
-              <div>
-                <label style={labelStyle}>Forma de pagamento</label>
+              <div className="form-group">
+                <label className="form-label">Forma de pagamento</label>
                 <select
                   className="form-input"
                   style={{ ...inputStyle, width: '100%' }}
@@ -390,13 +381,12 @@ export default function StudentPaymentModal({
                 label="Conta"
                 required
                 className="form-input"
-                style={{ ...inputStyle, width: '100%' }}
-                labelStyle={labelStyle}
+                style={{ width: '100%' }}
               />
 
               {showPlanFields ? (
-                <div>
-                  <label style={labelStyle}>Plano</label>
+                <div className="form-group">
+                  <label className="form-label">Plano</label>
                   <PlanSelect
                     id="student-pay-plan"
                     financeConfig={financeConfig}
@@ -415,8 +405,8 @@ export default function StudentPaymentModal({
               ) : null}
 
               {showPlanFields ? (
-                <div>
-                  <label style={labelStyle}>Observação</label>
+                <div className="form-group">
+                  <label className="form-label">Observação</label>
                   <textarea
                     rows={2}
                     className="form-input"
@@ -427,22 +417,13 @@ export default function StudentPaymentModal({
                 </div>
               ) : null}
             </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
               <button
                 type="button"
                 disabled={saving}
                 onClick={handleClose}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  fontWeight: 700,
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit',
-                  color: 'var(--text-secondary)',
-                }}
+                className="btn-outline"
+                style={{ flex: 1 }}
               >
                 Cancelar
               </button>
@@ -450,17 +431,8 @@ export default function StudentPaymentModal({
                 type="button"
                 disabled={saving}
                 onClick={() => void onSave()}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: 'none',
-                  background: '#5B3FBF',
-                  color: '#fff',
-                  fontWeight: 700,
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit',
-                }}
+                className="btn-primary"
+                style={{ flex: 1 }}
               >
                 {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
               </button>

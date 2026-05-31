@@ -156,7 +156,6 @@ export const DateInput = forwardRef(function DateInput(
     placeholder,
     style,
     className,
-    labelStyle,
     id,
     name,
     min,
@@ -169,22 +168,12 @@ export const DateInput = forwardRef(function DateInput(
   const inputClass = [className, typable ? 'navi-typable-date' : ''].filter(Boolean).join(' ');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="form-group">
       {label ? (
-        <label
-          htmlFor={id}
-          style={{
-            fontSize: '11px',
-            fontWeight: 500,
-            color: 'var(--text-secondary)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            ...labelStyle,
-          }}
-        >
+        <label htmlFor={id} className="form-label">
           {label}
           {!required ? (
-            <span style={{ fontWeight: 400, textTransform: 'none', marginLeft: 4 }}>(opcional)</span>
+            <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 4 }}>(opcional)</span>
           ) : null}
         </label>
       ) : null}

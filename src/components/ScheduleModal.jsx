@@ -70,27 +70,22 @@ export default function ScheduleModal({
     <div
       role="presentation"
       onClick={handleOverlayClick}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-      }}
+      className="navi-modal-overlay"
+      style={{ zIndex: 9999, padding: 16 }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="schedule-modal-title"
         onClick={(e) => e.stopPropagation()}
+        className="card"
         style={{
-          background: 'var(--surface)',
           borderRadius: 'var(--radius-sm, 12px)',
           width: 'min(400px, calc(100vw - 32px))',
           overflow: 'hidden',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+          padding: 0,
+          boxShadow: 'var(--shadow-lg)',
+          animation: 'navi-modal-in 220ms cubic-bezier(0, 0, 0.2, 1) both',
         }}
       >
         <div
@@ -178,19 +173,9 @@ export default function ScheduleModal({
             />
           </div>
 
-          <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: 'var(--text-muted)',
-                marginBottom: 8,
-              }}
-            >
-              Observação <span style={{ textTransform: 'none', fontWeight: 500 }}>(opcional)</span>
+          <div className="form-group">
+            <label className="form-label">
+              Observação <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opcional)</span>
             </label>
             <textarea
               value={note}

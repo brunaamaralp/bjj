@@ -341,7 +341,7 @@
 }
 
 .pipeline-container .kanban-column {
-  --kanban-col-w: min(236px, calc(100vw - 40px));
+  --kanban-col-w: min(264px, calc(100vw - 40px));
   position: relative;
   z-index: 1;
   flex: 0 0 var(--kanban-col-w);
@@ -475,7 +475,6 @@
 .pipeline-container .card.lead-card {
   cursor: grab;
   padding: 10px 11px;
-  border-left: 3px solid var(--border);
   transition: var(--transition);
   position: relative;
   min-width: 0;
@@ -492,16 +491,28 @@
 }
 
 .lead-card:hover {
-  border-left-color: var(--accent);
   box-shadow: var(--shadow);
 }
 
-.lead-card--sla-warning {
-  border-left: 3px solid var(--color-background-warning, #f59e0b);
+/* Dot colorido por estágio (substituí o border-left) */
+.lead-card-stage-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
-.lead-card--sla-critical {
-  border-left: 3px solid var(--color-background-danger, #ef4444);
+/* Ações visíveis apenas no hover — libera espaço visual */
+.lead-card-actions {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.lead-card:hover .lead-card-actions,
+.lead-card:focus-within .lead-card-actions,
+.lead-card--menu-open .lead-card-actions {
+  opacity: 1;
 }
 
 .lead-sla-badge {

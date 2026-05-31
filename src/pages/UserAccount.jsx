@@ -124,7 +124,7 @@ const UserAccount = ({ user }) => {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 40 }}>
+    <div className="container navi-hub-page">
       <PageHeader
         className="navi-page-header--flush"
         title="Minha conta"
@@ -136,55 +136,39 @@ const UserAccount = ({ user }) => {
 
       <div style={{ marginTop: 20 }}>
         {activeTab === 'perfil' && (
-          <section className="animate-in">
-            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <User size={18} style={{ color: 'var(--accent)' }} aria-hidden />
-              <div>
-                <strong className="text-small">{displayName}</strong>
-                <p className="navi-subtitle" style={{ margin: '4px 0 0' }}>{email || '—'}</p>
+          <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Card de perfil com avatar de iniciais */}
+            <div className="account-profile-card">
+              <div className="account-profile-card__avatar" aria-hidden>
+                {displayName
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((w) => w[0].toUpperCase())
+                  .join('') || <User size={20} />}
+              </div>
+              <div className="account-profile-card__info">
+                <p className="account-profile-card__name">{displayName}</p>
+                <p className="account-profile-card__email">{email || '—'}</p>
               </div>
             </div>
-            <h3 className="navi-section-heading mb-2">Primeiros passos</h3>
-            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-              <p className="navi-subtitle" style={{ margin: 0, flex: '1 1 200px' }}>
-                Fechou o checklist de configuração? Você pode exibi-lo novamente quando quiser.
-              </p>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={showOnboardingChecklistAgain}
-                disabled={!academyId}
-                title={!academyId ? `Selecione uma ${terms.workspaceNoun} primeiro` : undefined}
-              >
-                Mostrar checklist
-              </button>
-            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--accent-light)',
-                    color: 'var(--accent)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Shield size={18} />
+
+            {/* Settings card — linha de senha */}
+            <div className="settings-card">
+              <div className="settings-row">
+                <div className="settings-row__icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+                  <Shield size={16} />
                 </div>
-                <div>
-                  <strong className="text-small">Senha da conta</strong>
-                  <p className="navi-subtitle" style={{ marginTop: 2 }}>
-                    Altere sua senha de acesso (mínimo {MIN_PWD} caracteres).
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="settings-row__label" style={{ marginBottom: 2 }}>Senha da conta</p>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+                    Mínimo {MIN_PWD} caracteres
                   </p>
                 </div>
+                <button type="button" className="btn-outline navi-btn--toolbar" onClick={openPasswordModal}>
+                  Alterar
+                </button>
               </div>
-              <button type="button" className="btn btn-secondary" onClick={openPasswordModal}>
-                Alterar senha
-              </button>
             </div>
           </section>
         )}
@@ -192,7 +176,21 @@ const UserAccount = ({ user }) => {
         {activeTab === 'assinatura' && <PlansTabContent />}
 
         {activeTab === 'dados' && (
-          <section className="animate-in">
+          <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="settings-card">
+              <div className="settings-row" style={{ flexWrap: 'wrap' }}>
+                <p className="settings-row__label">Reexibir checklist de configuração</p>
+                <button
+                  type="button"
+                  className="btn-outline navi-btn--toolbar"
+                  onClick={showOnboardingChecklistAgain}
+                  disabled={!academyId}
+                  title={!academyId ? `Selecione uma ${terms.workspaceNoun} primeiro` : undefined}
+                >
+                  Mostrar checklist
+                </button>
+              </div>
+            </div>
             <AvancadoSection academy={academyForRole} leads={leads} showAutentique={false} />
           </section>
         )}
@@ -203,8 +201,8 @@ const UserAccount = ({ user }) => {
         onClose={closePasswordModal}
         maxWidth={420}
       >
-        <form className="flex-col gap-3" onSubmit={submitPassword}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+        <form className="settings-form" onSubmit={submitPassword}>
+          <div className="form-group">
             <label htmlFor="acc-old-pwd">Senha atual</label>
             <input
               id="acc-old-pwd"
@@ -216,7 +214,7 @@ const UserAccount = ({ user }) => {
               disabled={pwdSaving}
             />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+          <div className="form-group">
             <label htmlFor="acc-new-pwd">Nova senha</label>
             <input
               id="acc-new-pwd"
@@ -228,7 +226,7 @@ const UserAccount = ({ user }) => {
               disabled={pwdSaving}
             />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+          <div className="form-group">
             <label htmlFor="acc-confirm-pwd">Confirmar nova senha</label>
             <input
               id="acc-confirm-pwd"

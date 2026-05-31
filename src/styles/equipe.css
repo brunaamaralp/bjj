@@ -582,3 +582,13 @@
   letter-spacing: 0.04em;
   font-family: var(--ff-mono);
 }
+
+/* Row hover sutil */
+.equipe-table tbody tr:hover td {
+  background: rgba(91, 63, 191, 0.03);
+}
+
+/* Panel border alinhado com o design system */
+.equipe-panel {
+  border-color: var(--border-violet);
+}

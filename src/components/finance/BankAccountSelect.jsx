@@ -22,7 +22,6 @@ export default function BankAccountSelect({
   style,
   allowEmpty = false,
   emptyLabel = 'Selecione a conta…',
-  labelStyle,
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
@@ -53,18 +52,10 @@ export default function BankAccountSelect({
     }
   };
 
-  const defaultLabelStyle = {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 600,
-    color: 'var(--text-secondary)',
-    marginBottom: 6,
-  };
-
   return (
-    <div className="bank-account-select">
+    <div className="bank-account-select form-group">
       {label ? (
-        <label htmlFor={id} style={labelStyle || defaultLabelStyle}>
+        <label htmlFor={id} className="form-label">
           {label}
           {required ? ' *' : null}
         </label>

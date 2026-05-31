@@ -1190,13 +1190,6 @@ export default function MensalidadesPanel({ embedded = false }) {
                         onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
                         required
                         className="mensal-modal-in"
-                        labelStyle={{
-                          fontSize: 12,
-                          fontWeight: 500,
-                          color: 'var(--color-text-secondary, var(--text-secondary))',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                        }}
                       />
                     </div>
                   </div>
@@ -1250,13 +1243,6 @@ export default function MensalidadesPanel({ embedded = false }) {
                     label="Conta"
                     required
                     className="mensal-modal-in mensal-modal-account"
-                    labelStyle={{
-                      display: 'block',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--text-secondary, var(--text-muted))',
-                      marginBottom: 6,
-                    }}
                   />
                   <label className="mensal-modal-checkbox-row">
                     <input

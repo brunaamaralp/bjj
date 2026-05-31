@@ -1516,6 +1516,12 @@ export default function StudentProfile() {
     const studentDisplayName = editingData
         ? String(dataForm.name || '').trim() || 'Sem nome'
         : student.name || 'Sem nome';
+    const studentInitials = studentDisplayName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('');
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
@@ -2008,22 +2014,9 @@ export default function StudentProfile() {
             </div>
 
             <div style={{ padding: '16px 14px', flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 20 }}>
-                    <div
-                        style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: '50%',
-                            background: BG_SECONDARY,
-                            border: '0.5px solid var(--border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginBottom: 10,
-                            overflow: 'hidden',
-                            flexShrink: 0,
-                        }}
-                    >
+                <div className="student-profile-hd">
+                    {/* Avatar com iniciais */}
+                    <div className="student-profile-hd__avatar">
                         {studentPhotoUrl ? (
                             <img
                                 src={studentPhotoUrl}
@@ -2031,11 +2024,12 @@ export default function StudentProfile() {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                         ) : (
-                            <User size={24} style={{ opacity: 0.4, color: 'var(--text-muted)' }} strokeWidth={1.75} />
+                            <span className="student-profile-hd__initials">{studentInitials}</span>
                         )}
                     </div>
-                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{studentDisplayName}</h2>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+                    <div className="student-profile-hd__body">
+                    <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, paymentStatus)}
                         />
@@ -2049,49 +2043,41 @@ export default function StudentProfile() {
                             />
                         ) : null}
                     </div>
-                    {String(student.plan || '').trim() ? (
-                        <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                            {terms.plan}: {student.plan}
-                        </p>
-                    ) : null}
-                    {student.dueDay ? (
-                        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-                            Próximo vencimento: dia {student.dueDay}
-                        </p>
-                    ) : null}
+                    {/* Plano + vencimento */}
+                    <div className="student-profile-hd__meta">
+                        {String(student.plan || '').trim() ? (
+                            <span className="student-profile-hd__plan">{student.plan}</span>
+                        ) : null}
+                        {student.dueDay ? (
+                            <span className="student-profile-hd__due">Vence dia {student.dueDay}</span>
+                        ) : null}
+                    </div>
 
-                    <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{formatPhone(student.phone) || '—'}</p>
-                    {String(student.email || '').trim() ? (
-                        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-                            {String(student.email).trim()}
-                        </p>
-                    ) : null}
+                    {/* Contato */}
+                    <div className="student-profile-hd__contact">
+                        {formatPhone(student.phone) || '—'}
+                        {String(student.email || '').trim() ? (
+                            <span> · {String(student.email).trim()}</span>
+                        ) : null}
+                    </div>
+
+                    {/* Turma */}
                     {String(student.turma || student.className || '').trim() ? (
-                        <span
-                            style={{
-                                display: 'inline-block',
-                                marginTop: 8,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                padding: '4px 10px',
-                                borderRadius: 8,
-                                background: 'var(--v50, #f3f0ff)',
-                                color: 'var(--v700, #5B3FBF)',
-                                border: '1px solid var(--v200, #ddd6fe)',
-                            }}
-                        >
+                        <span className="student-profile-hd__turma">
                             Turma: {String(student.turma || student.className).trim()}
                         </span>
                     ) : null}
+
+                    {/* Saída ou trancamento */}
                     {isInactiveStudent(student) && (student.exitReason || student.exitDate) ? (
-                        <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                        <p className="student-profile-hd__exit">
                             {student.exitReason ? <>Motivo: {student.exitReason}</> : null}
                             {student.exitReason && student.exitDate ? ' · ' : null}
                             {student.exitDate ? <>Saída: {formatDateBR(student.exitDate)}</> : null}
                         </p>
                     ) : null}
                     {isActiveStudent(student) && isFreezeActive(student) ? (
-                        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#b45309', lineHeight: 1.45 }}>
+                        <p className="student-profile-hd__freeze">
                             Matrícula trancada
                             {String(student.freeze_end || '').slice(0, 10)
                                 ? ` até ${formatFreezeDateBr(String(student.freeze_end).slice(0, 10))}`
@@ -2106,16 +2092,9 @@ export default function StudentProfile() {
                             {student.type}
                         </span>
                     ) : null}
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: 6,
-                            justifyContent: 'center',
-                            marginTop: 12,
-                            width: '100%',
-                        }}
-                    >
+
+                    {/* Etiquetas */}
+                    <div className="student-profile-hd__labels">
                         {(student.labelIds || []).map((labelId) => {
                             const label = allLabels.find((l) => l.$id === labelId);
                             if (!label) return null;
@@ -2135,7 +2114,8 @@ export default function StudentProfile() {
                             onChange={handleLabelsChange}
                         />
                     </div>
-                </div>
+                    </div>{/* fecha student-profile-hd__body */}
+                </div>{/* fecha student-profile-hd */}
 
                 <div
                     style={{

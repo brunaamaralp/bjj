@@ -8,6 +8,7 @@ export const FINANCE_SETTINGS_SECTIONS = {
   REGUA: 'regua',
   EXCECOES: 'excecoes',
   PLANO_CONTAS: 'plano-contas',
+  CONTRATOS: 'contratos',
 };
 
 const VALID = new Set(Object.values(FINANCE_SETTINGS_SECTIONS));
@@ -48,6 +49,12 @@ export const FINANCE_SETTINGS_GROUPS = [
         label: 'Régua de cobrança',
         hint: 'Lembretes e etiquetas após vencimento',
       },
+      {
+        id: FINANCE_SETTINGS_SECTIONS.CONTRATOS,
+        label: 'Modelos de contrato',
+        hint: 'Templates para matrícula e rescisão',
+        ownerOnly: true,
+      },
     ],
   },
   {
@@ -87,7 +94,7 @@ function feesSummary(cardFees) {
   return parts.join(' · ');
 }
 
-export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, accountsCount, isOwner }) {
+export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, accountsCount, isOwner, contractTemplatesCount = 0 }) {
   const plans = financeConfig?.plans || [];
   const namedPlans = plans.filter((p) => String(p?.name || '').trim());
   const banks = filterBankAccountsWithBank(financeConfig?.bankAccounts);
@@ -136,6 +143,14 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS]: {
       done: (accountsCount || 0) > 0,
       summary: accountsCount > 0 ? `${accountsCount} conta${accountsCount === 1 ? '' : 's'}` : 'Não configurado',
+      hidden: !isOwner,
+    },
+    [FINANCE_SETTINGS_SECTIONS.CONTRATOS]: {
+      done: contractTemplatesCount > 0,
+      summary:
+        contractTemplatesCount === 0
+          ? 'Nenhum modelo'
+          : `${contractTemplatesCount} modelo${contractTemplatesCount === 1 ? '' : 's'}`,
       hidden: !isOwner,
     },
   };

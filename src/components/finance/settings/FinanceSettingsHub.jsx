@@ -30,6 +30,7 @@ export default function FinanceSettingsHub({
   financeConfig,
   collectionRules,
   accountsCount,
+  contractTemplatesCount = 0,
   isOwner,
   onSelectSection,
 }) {
@@ -41,9 +42,10 @@ export default function FinanceSettingsHub({
         financeConfig,
         collectionRules,
         accountsCount,
+        contractTemplatesCount,
         isOwner,
       }),
-    [financeConfig, collectionRules, accountsCount, isOwner]
+    [financeConfig, collectionRules, accountsCount, contractTemplatesCount, isOwner]
   );
 
   const progress = financeSettingsProgress(summaries);

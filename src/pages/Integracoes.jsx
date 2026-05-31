@@ -29,7 +29,7 @@ export default function Integracoes() {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+    <div className="container navi-hub-page">
       <PageHeader
         title="Integrações"
         subtitle="Conecte catraca Control iD e assinatura digital Autentique."

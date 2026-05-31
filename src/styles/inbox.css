@@ -449,11 +449,12 @@
 }
 
 .inbox-thread-composer {
-  padding: var(--space-3, 12px);
-  border-top: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  border-top: 0.5px solid var(--border-light);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 10px);
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -669,24 +670,50 @@
   max-width: 72%;
   width: fit-content;
   padding: var(--space-2, 10px) var(--space-3, 12px);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--surface);
 }
 
 .inbox-bubble--human {
   background: var(--inbox-bubble-human-bg);
-  border: 1px solid var(--inbox-bubble-human-border);
+  border: none;
+  border-radius: 18px 18px 18px 4px; /* canto inferior esquerdo cortado */
 }
 
 .inbox-bubble--ai {
-  background: var(--inbox-accent-bg, var(--inbox-bubble-ai-bg));
-  border: 1px solid var(--inbox-bubble-ai-border);
-  border-left: 3px solid var(--v400);
+  background: var(--inbox-bubble-ai-bg);
+  border: 0.5px solid var(--inbox-bubble-ai-border);
+  border-radius: 4px 18px 18px 18px; /* canto superior esquerdo cortado */
 }
 
 .inbox-bubble--user {
   background: var(--inbox-bubble-user-bg);
-  border: 1px solid var(--inbox-bubble-user-border);
+  border: none;
+  color: var(--inbox-bubble-user-text);
+  border-radius: 18px 18px 4px 18px; /* canto inferior direito cortado */
+}
+
+/* Textos dentro do bubble enviado (roxo) ficam brancos */
+.inbox-bubble--user .inbox-msg-text {
+  color: inherit;
+}
+.inbox-bubble--user .inbox-msg-meta {
+  color: rgba(255, 255, 255, 0.65);
+}
+.inbox-bubble--user .inbox-bubble-expand {
+  color: rgba(255, 255, 255, 0.85);
+}
+.inbox-bubble--user .inbox-msg-sender-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+.inbox-bubble--user .inbox-mini-btn {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.12);
+}
+.inbox-bubble--user .inbox-mini-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .inbox-bubble .inbox-msg + .inbox-msg {
@@ -721,12 +748,11 @@
   text-align: left;
   padding: 10px 12px;
   border: none;
-  border-bottom: 1px solid var(--border);
-  border-left: 4px solid transparent;
+  border-bottom: 0.5px solid var(--border-light);
   background: transparent;
   cursor: pointer;
   overflow: hidden;
-  transition: background 0.16s ease, border-color 0.16s ease;
+  transition: background var(--motion-fast) var(--ease-standard);
   appearance: none;
   -webkit-appearance: none;
   border-radius: 0;
@@ -745,14 +771,21 @@
 }
 
 .inbox-conversation-item.active {
-  background: rgba(91, 63, 191, 0.06);
-  border-left-color: var(--v500);
+  background: rgba(91, 63, 191, 0.09);
   box-shadow: none;
 }
 
+.inbox-conversation-item.active .inbox-conversation-item__title {
+  color: var(--v700);
+}
+
+/* Handoff: indicator via background ao invés de border-left */
 .inbox-conversation-item--handoff {
-  border-left-width: 3px;
-  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warn-bg) 60%, transparent);
+}
+
+.inbox-conversation-item--handoff:hover {
+  background: color-mix(in srgb, var(--warn-bg) 80%, transparent) !important;
 }
 
 .inbox-conversation-item--highlighted {
@@ -954,7 +987,7 @@
 }
 
 .inbox-conversation-item__unread {
-  background: var(--danger);
+  background: var(--v500);
   color: #fff;
   padding: 1px 7px;
   border-radius: 999px;
@@ -1898,4 +1931,57 @@
     min-width: 44px;
     min-height: 44px;
   }
+}
+
+/* —— Polimentos Apple-style —— */
+
+/* Textarea do compositor: mais arredondada, feel iOS */
+.inbox-thread-composer .form-input[rows] {
+  border-radius: 12px;
+  resize: none;
+  line-height: 1.5;
+  font-size: var(--inbox-font-body);
+}
+
+/* Timestamps mais discretos — só aparecem por completo no hover do bubble */
+.inbox-msg-meta {
+  opacity: 0.55;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.inbox-bubble:hover .inbox-msg-meta,
+.inbox-msg.selected .inbox-msg-meta {
+  opacity: 1;
+}
+
+/* Separador de datas na thread */
+.inbox-thread-date-sep {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 12px 0 8px;
+  letter-spacing: 0.02em;
+}
+
+/* Avatar sem foto: iniciais com fundo roxo suave */
+.inbox-conversation-item__avatar {
+  background: var(--v50);
+  color: var(--v700);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Resize handle do layout mais sutil */
+.inbox-layout-resize-handle__bar {
+  background: var(--border-violet);
+  opacity: 0.5;
+}
+.inbox-layout-resize-handle:hover .inbox-layout-resize-handle__bar {
+  background: var(--v400);
+  opacity: 1;
+}
+
+/* Thread header — linha separadora mais sutil */
+.inbox-thread-header {
+  border-bottom: 0.5px solid var(--border-light);
 }

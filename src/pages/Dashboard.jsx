@@ -609,7 +609,7 @@ const Dashboard = () => {
 
             <div className="agenda-kpi-grid reception-kpi-grid animate-in" style={{ animationDelay: '0.05s' }} aria-busy={loading}>
                 {loading ? (
-                    [1, 2, 3, 4].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 148 }} />)
+                    [1, 2, 3, 4].map((i) => <div key={i} className="agenda-kpi-card agenda-kpi-skeleton" style={{ minHeight: 56, flex: '1 1 140px' }} />)
                 ) : (
                     [
                         {
@@ -1621,26 +1621,14 @@ const Dashboard = () => {
           }
         }
         .agenda-kpi-value--attention {
-          font-size: 2.35rem !important;
-          line-height: 1;
+          font-size: 1.55rem !important;
+          line-height: 1.1;
         }
         .agenda-kpi-context {
-          margin: 0;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          line-height: 1.3;
-        }
-        .agenda-kpi-context--info {
-          font-weight: 500;
-          color: var(--text-muted);
-        }
-        .agenda-kpi-card--followup {
-          border-left: 3px solid var(--status-danger-text, #e24b4a);
-          border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+          display: none;
         }
         .agenda-kpi-card--followup::before {
-          border-radius: 0 var(--border-radius-lg) 0 0;
+          background: linear-gradient(180deg, var(--status-danger-text, #e24b4a), #e24b4a);
         }
         .agenda-kpi-value--followup {
           color: var(--status-danger-text, #a32d2d) !important;
@@ -1717,17 +1705,21 @@ const Dashboard = () => {
           flex: 0 0 auto;
         }
         .agenda-page-stack {
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          gap: 22px;
+          display: grid;
+          grid-template-columns: 1fr 360px;
+          gap: 20px;
+          align-items: start;
           width: 100%;
           margin-top: 18px;
         }
+        @media (max-width: 1023px) {
+          .agenda-page-stack {
+            grid-template-columns: 1fr;
+            gap: 22px;
+          }
+        }
         .agenda-section-divider {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, var(--border-mid), transparent);
-          margin: 4px 0 2px;
+          display: none;
         }
         .agenda-top-row {
           display: grid;
@@ -1742,38 +1734,36 @@ const Dashboard = () => {
           }
         }
         .agenda-kpi-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 12px;
+          display: flex;
+          flex-direction: row;
+          gap: 8px;
           align-items: stretch;
-        }
-        @media (max-width: 1100px) {
-          .agenda-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 700px) {
-          .agenda-kpi-grid { grid-template-columns: 1fr; }
+          flex-wrap: wrap;
         }
         .agenda-kpi-card {
           position: relative;
           display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          justify-content: space-between;
-          min-height: 152px;
-          padding: 20px 18px 16px;
+          flex-direction: row;
+          align-items: center;
+          gap: 12px;
+          flex: 1 1 140px;
+          min-height: 56px;
+          padding: 12px 16px;
           border-radius: var(--radius-sm);
           background: var(--surface);
-          border: 1px solid var(--border-mid);
+          border: 0.5px solid var(--border-violet);
           box-shadow: var(--shadow-sm);
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
           overflow: hidden;
+          text-align: left;
         }
         .agenda-kpi-card-stack {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          gap: 6px;
-          width: 100%;
+          gap: 2px;
+          min-width: 0;
+          flex: 1;
         }
         .agenda-kpi-card--clickable {
           text-align: left;
@@ -1787,57 +1777,55 @@ const Dashboard = () => {
           position: absolute;
           top: 0;
           left: 0;
-          right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, var(--v500), var(--v400));
-          border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-          opacity: 0.92;
+          bottom: 0;
+          width: 3px;
+          background: linear-gradient(180deg, var(--v500), var(--v400));
+          border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+          opacity: 0.7;
         }
         .agenda-kpi-card:hover {
-          transform: translateY(-3px);
           border-color: rgba(91, 63, 191, 0.22);
-          box-shadow: 0 4px 12px rgba(18, 16, 42, 0.06), 0 16px 40px rgba(91, 63, 191, 0.12);
+          box-shadow: 0 4px 12px rgba(18, 16, 42, 0.06), 0 8px 24px rgba(91, 63, 191, 0.10);
         }
         @media (prefers-reduced-motion: reduce) {
           .agenda-kpi-card { transition: none; }
-          .agenda-kpi-card:hover { transform: none; }
         }
         .agenda-kpi-label {
-          font-size: 0.62rem;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          font-size: 0.72rem;
+          font-weight: 600;
           color: var(--text-secondary);
           margin-bottom: 0;
           line-height: 1.3;
-          padding-right: 0;
-          width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .agenda-kpi-value {
-          font-size: clamp(1.55rem, 2.6vw, 2.05rem);
+          font-size: 1.55rem;
           font-weight: 800;
           font-variant-numeric: tabular-nums;
           line-height: 1.1;
           color: var(--v500);
           letter-spacing: -0.03em;
-          width: 100%;
         }
         .agenda-kpi-trend.agenda-kpi-cta {
-          margin-top: auto;
-          padding-top: 12px;
+          margin-top: 0;
+          padding-top: 0;
+          margin-left: auto;
+          flex-shrink: 0;
         }
         .agenda-kpi-trend {
           display: flex;
           flex-wrap: nowrap;
           align-items: center;
-          gap: 6px;
-          margin-top: 8px;
-          font-size: 0.76rem;
-          font-weight: 700;
+          gap: 4px;
+          font-size: 0.72rem;
+          font-weight: 600;
           font-variant-numeric: tabular-nums;
         }
         .agenda-kpi-trend--cta {
-          color: var(--v500);
+          color: var(--v400);
+          opacity: 0.7;
         }
         .agenda-kpi-trend--cta svg {
           color: var(--v400);

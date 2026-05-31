@@ -26,11 +26,11 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
 
   return (
     <ModalShell open={true} title="Mover para Perdidos" onClose={onCancel} maxWidth={400}>
-        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
           Qual o motivo da perda de <strong>{leadName}</strong>?
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {LOST_REASONS.map((reason) => (
             <label
               key={reason}
@@ -41,9 +41,9 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
                 padding: '10px 12px',
                 borderRadius: 8,
                 cursor: 'pointer',
-                border: `1px solid ${selected === reason ? 'var(--purple)' : 'var(--border)'}`,
-                background: selected === reason ? 'var(--purple-light)' : 'transparent',
-                transition: 'var(--transition)',
+                border: `0.5px solid ${selected === reason ? 'var(--v500)' : 'var(--border-violet)'}`,
+                background: selected === reason ? 'var(--v50)' : 'var(--surface)',
+                transition: 'background 150ms ease, border-color 150ms ease',
               }}
             >
               <input
@@ -52,9 +52,9 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
                 value={reason}
                 checked={selected === reason}
                 onChange={() => setSelected(reason)}
-                style={{ accentColor: 'var(--purple)' }}
+                style={{ accentColor: 'var(--v500)' }}
               />
-              <span style={{ fontSize: 14, color: 'var(--text)' }}>{reason}</span>
+              <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: selected === reason ? 500 : 400 }}>{reason}</span>
             </label>
           ))}
         </div>
@@ -67,13 +67,6 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
             onChange={(e) => setOutro(e.target.value)}
             autoFocus
             className="form-input"
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: 8,
-              marginBottom: 16,
-              boxSizing: 'border-box',
-            }}
           />
         )}
 
@@ -86,13 +79,6 @@ export function LostReasonModal({ leadName, onConfirm, onCancel }) {
             className="btn-primary"
             onClick={() => canConfirm && onConfirm(motivo)}
             disabled={!canConfirm}
-            style={{
-              background: canConfirm ? 'var(--purple)' : 'var(--border)',
-              color: canConfirm ? '#fff' : 'var(--text-muted)',
-              border: 'none',
-              opacity: canConfirm ? 1 : 0.7,
-              cursor: canConfirm ? 'pointer' : 'not-allowed',
-            }}
           >
             Confirmar perda
           </button>

@@ -1319,7 +1319,9 @@ const Students = ({ embedded = false }) => {
         .students-create-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.45);
+          background: rgba(18, 16, 42, 0.35);
+          backdrop-filter: blur(12px) saturate(1.4);
+          -webkit-backdrop-filter: blur(12px) saturate(1.4);
           display: flex;
           align-items: center;
           justify-content: center;

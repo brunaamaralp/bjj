@@ -706,10 +706,10 @@
 .finance-table-wrap { width: 100%; max-height: calc(100vh - 320px); overflow: auto; -webkit-overflow-scrolling: touch; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
 .finance-table-wrap--modal { max-height: 60vh; overflow: auto; -webkit-overflow-scrolling: touch; }
 .finance-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.finance-table thead th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 10px 12px; background: var(--surface-hover); border-bottom: 1px solid var(--border-light); font-weight: 600; color: var(--mid); white-space: nowrap; }
+.finance-table thead th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 10px 12px; background: var(--surface); border-bottom: 0.5px solid var(--border-light); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); white-space: nowrap; }
 .finance-table thead th.finance-num { text-align: right; }
 .finance-table td { padding: 10px 12px; border-bottom: 0.5px solid var(--border-light); vertical-align: middle; }
-.finance-table tbody tr:hover { background: var(--surface-hover); }
+.finance-table tbody tr:hover td { background: rgba(91, 63, 191, 0.03); }
 .finance-table .finance-num { text-align: right; font-variant-numeric: tabular-nums; }
 .accounts-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .accounts-header-title { margin: 0; }
@@ -1517,11 +1517,9 @@
 .mensalidades-modal-scope .mensal-modal-field-label {
   display: block;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text-secondary, var(--text-secondary));
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .mensalidades-page--embedded {
@@ -2527,10 +2525,11 @@
   z-index: var(--z-sticky);
   padding: var(--space-3) var(--space-4);
   padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border-light);
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  border-top: 0.5px solid var(--border-light);
+  box-shadow: 0 -2px 16px rgba(91, 63, 191, 0.06);
 }
 
 .finance-settings-sticky-save__inner {
@@ -2557,5 +2556,83 @@
 @media (min-width: 901px) {
   .finance-settings-sticky-save {
     left: var(--sidebar-width, 240px);
+  }
+}
+
+/* —— Finance Settings: layout sidebar estilo System Preferences —— */
+.finance-settings-layout {
+  display: grid;
+  grid-template-columns: 192px 1fr;
+  gap: 0;
+  border: 0.5px solid var(--border-violet);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: var(--space-3);
+}
+
+.finance-settings-sidenav {
+  background: var(--v50);
+  border-right: 0.5px solid var(--border-violet);
+  padding: var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finance-settings-sidenav__item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  font-family: var(--ff-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.finance-settings-sidenav__item:hover {
+  background: rgba(91, 63, 191, 0.06);
+  color: var(--v700);
+}
+
+.finance-settings-sidenav__item--active {
+  background: var(--white);
+  color: var(--v700);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.finance-settings-layout__content {
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .finance-settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-settings-sidenav {
+    border-right: none;
+    border-bottom: 0.5px solid var(--border-violet);
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    background: var(--v50);
+    padding: var(--space-2);
+  }
+
+  .finance-settings-sidenav__item {
+    flex: 0 1 auto;
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }

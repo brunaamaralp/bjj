@@ -88,7 +88,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     const automationBadges = useMemo(
         () => getLeadAutomationBadges(lead, automationConfig),
@@ -129,7 +129,8 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     {`${slaAlert.daysInStage}d`}
                 </span>
             ) : null}
-            <div className="lead-card-title-row lead-card-title-row--name-only">
+            <div className="lead-card-title-row lead-card-title-row--name-only flex items-center gap-2">
+                {stageColor ? <span className="lead-card-stage-dot" style={{ background: stageColor }} aria-hidden /> : null}
                 <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
                     {lead.name}
                 </span>
@@ -194,7 +195,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     </span>
                 </div>
             ) : null}
-            <div className="action-bar action-bar--reorganized mt-3">
+            <div className="action-bar action-bar--reorganized lead-card-actions mt-3">
                 <div className="wa-split-btn" data-no-dnd="true">
                     <button
                         type="button"
@@ -378,7 +379,7 @@ const SortableLeadCard = ({ lead, ...props }) => {
 
 const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
-function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts }) {
+function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, stageColor }) {
     const shouldVirtualize = leads.length > PIPELINE_VIRTUAL_THRESHOLD;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
@@ -394,6 +395,7 @@ function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movin
             lead={lead}
             isMoving={savingLeadIds.has(lead.id) || movingLeadIds.has(lead.id)}
             slaAlert={slaAlerts[lead.id]}
+            stageColor={stageColor}
             {...cardProps}
         />
     );
@@ -2245,6 +2247,7 @@ const Pipeline = () => {
                                         movingLeadIds={movingLeadIds}
                                         slaAlerts={slaAlerts}
                                         cardProps={cardProps}
+                                        stageColor={color.color}
                                     />
                                 </SortableContext>
 

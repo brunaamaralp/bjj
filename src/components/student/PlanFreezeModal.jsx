@@ -112,15 +112,8 @@ export default function PlanFreezeModal({
   return (
     <div
       role="presentation"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-      }}
+      className="navi-modal-overlay"
+      style={{ zIndex: 9999, padding: 16 }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}

@@ -85,7 +85,6 @@ function SidebarSection({ title, children, collapsed, footer = false, showDivide
         .join(' ')}
     >
       {showDivider && collapsed ? <hr className="navi-sidebar-section-rule" aria-hidden /> : null}
-      {title && !collapsed ? <span className="navi-sidebar-section-title">{title}</span> : null}
       {children}
     </div>
   );

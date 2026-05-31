@@ -45,16 +45,8 @@ export default function MatriculaModal({
   }, [isOpen]);
 
   const planField = (
-    <div style={{ marginBottom: 16 }}>
-      <label
-        style={{
-          display: 'block',
-          fontSize: 13,
-          fontWeight: 600,
-          color: 'var(--text-secondary)',
-          marginBottom: 6,
-        }}
-      >
+    <div className="form-group">
+      <label className="form-label">
         Plano <span style={{ color: 'var(--danger)' }}>*</span>
       </label>
       <PlanSelect
@@ -131,15 +123,8 @@ export default function MatriculaModal({
   return (
     <div
       role="presentation"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-      }}
+      className="navi-modal-overlay"
+      style={{ zIndex: 9999, padding: 16 }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !submitting) onClose();
       }}

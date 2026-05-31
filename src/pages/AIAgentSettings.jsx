@@ -13,7 +13,7 @@ export default function AIAgentSettings() {
   const role = useUserRole(academyDoc);
 
   return (
-    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+    <div className="container navi-hub-page">
       <AgenteIASection academyId={academyId} role={role} academyDoc={academyDoc} showPageHeader />
     </div>
   );
