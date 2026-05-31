@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(powershell -Command \"Get-ChildItem -Path src/components -Recurse -Filter '*Modal*' -File | Select-Object FullName\")",
+      "Bash(xargs grep -l \"extrato\\\\|Extrato\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Usuario\\\\Desktop\\\\JIU JITSU\" -Recurse -Include *.css, *.module.css, *.scss, *.module.scss)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

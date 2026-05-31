@@ -141,21 +141,32 @@ async function shouldOverrideConnectedStatusAfterQrProbe(academyId, jwt, instanc
 
   if (res.ok) {
     const ct = String(res.headers.get('content-type') || '');
-    try {
-      await res.arrayBuffer();
-    } catch {
-      void 0;
+    // Backend retorna 200 + JSON { codigo: 'INSTANCE_CONNECTED' } quando a instância já está conectada.
+    // Isso significa QR indisponível (instância conectada) — não forçar override do status.
+    if (ct.includes('application/json')) {
+      let jsonPayload = null;
+      try {
+        jsonPayload = await res.json();
+      } catch {
+        void 0;
+      }
+      if (jsonPayload?.codigo === 'INSTANCE_CONNECTED' || jsonPayload?.status === 'connected') {
+        return false; // Confirma que está conectado — não precisa override.
+      }
+      return false; // JSON inesperado — sem QR, não sobrescrever.
     }
-    if (ct.includes('image/png') || ct.includes('image/')) return true;
+    // PNG recebido: há QR disponível, o que contradiz o status "connected".
+    if (ct.includes('image/png') || ct.includes('image/')) {
+      try { await res.arrayBuffer(); } catch { void 0; }
+      return true;
+    }
+    try { await res.arrayBuffer(); } catch { void 0; }
     return false;
   }
 
+  // Zapster 406 legado (caso o backend não tenha sido atualizado ainda).
   if (res.status === 406) {
-    try {
-      await res.arrayBuffer();
-    } catch {
-      void 0;
-    }
+    try { await res.arrayBuffer(); } catch { void 0; }
     return false;
   }
 
@@ -166,6 +177,7 @@ async function shouldOverrideConnectedStatusAfterQrProbe(academyId, jwt, instanc
   }
   return true;
 }
+
 
 function inboxDebugEnabled() {
   const envEnabled =
@@ -598,6 +610,26 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (blocked || !resp) return null;
 
         if (resp.ok) {
+          const ct = String(resp.headers.get('content-type') || '');
+          // Backend retorna HTTP 200 + JSON quando a instância já está conectada (Zapster 406 → connected).
+          if (ct.includes('application/json')) {
+            let jsonPayload = null;
+            try {
+              jsonPayload = await resp.json();
+            } catch {
+              void 0;
+            }
+            if (jsonPayload?.codigo === 'INSTANCE_CONNECTED' || jsonPayload?.status === 'connected') {
+              // Dispositivo conectado — atualiza status e encerra (sem QR para exibir).
+              setWaInfo((prev) => ({ ...prev, status: 'connected' }));
+              setWaQrShown(false);
+              setWaQrError(false);
+              setWaQrLoadFailedOnce(false);
+              return null;
+            }
+            // Outro JSON inesperado com 200 — sem QR disponível.
+            return null;
+          }
           const blob = await resp.blob();
           return URL.createObjectURL(blob);
         }
