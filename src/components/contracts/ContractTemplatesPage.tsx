@@ -47,7 +47,7 @@ import { friendlyError } from '../../lib/errorMessages.js';
 
 type EditorMode = 'create' | 'edit' | null;
 
-type ContractTemplatesPageProps = { embedded?: boolean };
+type ContractTemplatesPageProps = { embedded?: boolean; embeddedFinance?: boolean };
 
 type TemplateRow = {
   $id: string;
@@ -61,7 +61,7 @@ type TemplateRow = {
   signerLayout?: ContractSignerLayout;
 };
 
-export default function ContractTemplatesPage({ embedded = false }: ContractTemplatesPageProps) {
+export default function ContractTemplatesPage({ embedded = false, embeddedFinance = false }: ContractTemplatesPageProps) {
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -187,7 +187,14 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          if (embedded) next.set('tab', 'contratos');
+          if (embedded) {
+            if (embeddedFinance) {
+              next.set('tab', 'financeiro');
+              next.set('section', 'contratos');
+            } else {
+              next.set('tab', 'contratos');
+            }
+          }
           if (mode === 'create') {
             next.set('new', '1');
             next.delete('edit');
@@ -203,7 +210,7 @@ export default function ContractTemplatesPage({ embedded = false }: ContractTemp
         { replace: true }
       );
     },
-    [embedded, setSearchParams]
+    [embedded, embeddedFinance, setSearchParams]
   );
 
   const applyEditorState = useCallback((state: {

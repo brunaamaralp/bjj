@@ -75,7 +75,7 @@ describe('legacy route redirects', () => {
     });
   });
 
-  it('/contratos?tab=modelos → /empresa?tab=contratos', async () => {
+  it('/contratos?tab=modelos → /empresa?tab=financeiro&section=contratos', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/contratos?tab=modelos']}>
         <Routes>
@@ -87,11 +87,11 @@ describe('legacy route redirects', () => {
     await waitFor(() => {
       const el = container.querySelector('[data-testid="location"]');
       expect(el?.getAttribute('data-pathname')).toBe('/empresa');
-      expect(el?.getAttribute('data-search')).toBe('?tab=contratos');
+      expect(el?.getAttribute('data-search')).toBe('?tab=financeiro&section=contratos');
     });
   });
 
-  it('/contratos/modelos → /empresa?tab=contratos', async () => {
+  it('/contratos/modelos → /empresa?tab=financeiro&section=contratos', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/contratos/modelos']}>
         <Routes>
@@ -102,7 +102,7 @@ describe('legacy route redirects', () => {
     );
     await waitFor(() => {
       const el = container.querySelector('[data-testid="location"]');
-      expect(el?.getAttribute('data-search')).toBe('?tab=contratos');
+      expect(el?.getAttribute('data-search')).toBe('?tab=financeiro&section=contratos');
     });
   });
 

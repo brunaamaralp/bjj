@@ -7,6 +7,7 @@ describe('empresaLegacyRedirects', () => {
     expect(resolveEmpresaLegacyTabRedirect('vendas')).toBe('/loja?tab=vendas&config=1');
     expect(resolveEmpresaLegacyTabRedirect('estoque')).toBe('/loja?tab=estoque');
     expect(resolveEmpresaLegacyTabRedirect('automacoes')).toBe('/automacoes?tab=configuracoes');
+    expect(resolveEmpresaLegacyTabRedirect('contratos')).toBe('/empresa?tab=financeiro&section=contratos');
   });
 
   it('retorna null para abas atuais', () => {

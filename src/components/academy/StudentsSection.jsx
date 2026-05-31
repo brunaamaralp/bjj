@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
@@ -17,23 +17,19 @@ import {
   parseStudentFreezeReasons,
   serializeStudentFreezeReasons,
 } from '../../lib/studentFreezeConfig.js';
+import { readAcademyTurmas } from '../../lib/academyTurmas.js';
+import {
+  STUDENT_SETTINGS_ITEMS,
+  STUDENT_SETTINGS_SECTIONS,
+  isStudentSettingsSection,
+} from '../../lib/studentSettingsSections.js';
 import AcademyTurmasSection from './AcademyTurmasSection.jsx';
 import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
+import StudentsSettingsHub from './settings/StudentsSettingsHub.jsx';
+import FinanceSettingsDetailHeader from '../finance/settings/FinanceSettingsDetailHeader.jsx';
+import '../../finance/finance.css';
 
-function ListSubsectionHeader({ title, hasUnsaved }) {
-  return (
-    <div className="flex justify-between items-center" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-      <p className="funil-section-subheading" style={{ margin: 0 }}>
-        {title}
-      </p>
-      {hasUnsaved ? (
-        <span className="funil-unsaved-pill" role="status">
-          Alterações não salvas
-        </span>
-      ) : null}
-    </div>
-  );
-}
+const SECTION_META = Object.fromEntries(STUDENT_SETTINGS_ITEMS.map((item) => [item.id, item]));
 
 function EditableStringList({
   hint,
@@ -50,37 +46,26 @@ function EditableStringList({
   placeholder,
   saveLabel,
   resetLabel,
+  footerNote,
 }) {
   return (
-    <div>
+    <div className="finance-settings-section-body">
       {hint ? (
-        <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.45 }}>
+        <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
           {hint}
         </p>
       ) : null}
+      {footerNote ? (
+        <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
+          {footerNote}
+        </p>
+      ) : null}
 
-      <ol
-        style={{
-          listStyle: 'none',
-          padding: 0,
-          margin: '0 0 12px',
-          counterReset: 'checklist-item',
-        }}
-      >
+      <ol className="students-settings-list">
         {items.map((item, idx) => (
-          <li
-            key={`${item}-${idx}`}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 8,
-              padding: '8px 10px',
-              borderBottom: '1px solid var(--border-light)',
-            }}
-          >
-            <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>
-              <span style={{ color: 'var(--text-muted)', marginRight: 6 }}>{idx + 1}.</span>
+          <li key={`${item}-${idx}`} className="students-settings-list__item">
+            <span className="students-settings-list__text">
+              <span className="students-settings-list__index">{idx + 1}.</span>
               {item}
             </span>
             {canEdit ? (
@@ -89,7 +74,6 @@ function EditableStringList({
                 className="btn-action-ghost"
                 aria-label={`Remover item ${idx + 1}`}
                 onClick={() => onRemove(idx)}
-                style={{ padding: 4, color: 'var(--text-muted)', flexShrink: 0 }}
               >
                 <X size={16} />
               </button>
@@ -118,7 +102,12 @@ function EditableStringList({
               <Plus size={16} /> Adicionar
             </button>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            {hasUnsaved ? (
+              <span className="funil-unsaved-pill" role="status">
+                Alterações não salvas
+              </span>
+            ) : null}
             <button type="button" className="btn-primary" disabled={saving || !hasUnsaved} onClick={onSave}>
               {saving ? 'Salvando…' : saveLabel}
             </button>
@@ -135,10 +124,14 @@ function EditableStringList({
 }
 
 const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const section = isStudentSettingsSection(searchParams.get('section'));
   const addToast = useUiStore((s) => s.addToast);
   const role = useUserRole(academy);
   const canEdit = role === 'owner' || role === 'admin';
 
+  const [turmasCount, setTurmasCount] = useState(null);
+  const [academySettingsRaw, setAcademySettingsRaw] = useState('');
   const [newReason, setNewReason] = useState('');
   const [savingReasons, setSavingReasons] = useState(false);
   const [savedReasonsDigest, setSavedReasonsDigest] = useState('');
@@ -156,6 +149,24 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
   );
 
   useEffect(() => {
+    if (!academyId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        if (cancelled) return;
+        setTurmasCount(readAcademyTurmas(doc.settings).length);
+        setAcademySettingsRaw(doc.settings || '');
+      } catch {
+        if (!cancelled) setTurmasCount(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId, academyDataVersion]);
+
+  useEffect(() => {
     if (!academyId) return;
     setSavedReasonsDigest(serializeStudentExitReasons(academy.studentExitReasons));
     setSavedFreezeReasonsDigest(serializeStudentFreezeReasons(academy.studentFreezeReasons));
@@ -169,6 +180,30 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     () => serializeStudentFreezeReasons(academy.studentFreezeReasons) !== savedFreezeReasonsDigest,
     [academy.studentFreezeReasons, savedFreezeReasonsDigest]
   );
+
+  const goHub = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', 'alunos');
+        next.delete('section');
+        return next;
+      },
+      { replace: false }
+    );
+  };
+
+  const goSection = (id) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', 'alunos');
+        next.set('section', id);
+        return next;
+      },
+      { replace: false }
+    );
+  };
 
   const notifyRestoreDefaults = () => {
     addToast({
@@ -265,83 +300,127 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     setAcademy((a) => ({ ...a, studentFreezeReasons: next }));
   };
 
+  const meta = section ? SECTION_META[section] : null;
+  const automationsFootnote = (
+    <>
+      Para tarefas automáticas ao desligar ou matricular, configure em{' '}
+      <Link to="/automacoes?tab=processos" className="edit-link">
+        Automações → Processos
+      </Link>
+      .
+    </>
+  );
+
   return (
-    <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
-      <h3 className="navi-section-heading mb-2">Motivos de saída e trancamento</h3>
-      <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
-        Defina as opções que a equipe vê ao encerrar ou pausar uma matrícula. Para tarefas automáticas ao
-        desligar ou matricular, use a{' '}
-        <Link to="/automacoes?tab=processos" className="edit-link">
-          Automações → Processos
-        </Link>
-        .
-      </p>
-
-      <div className="card">
-        <ListSubsectionHeader title="Motivos de desligamento" hasUnsaved={canEdit && hasUnsavedReasons} />
-        <EditableStringList
-          hint="Motivos exibidos ao encerrar matrícula de um aluno."
-          items={reasons}
-          canEdit={canEdit}
-          saving={savingReasons}
-          hasUnsaved={hasUnsavedReasons}
-          newValue={newReason}
-          onNewValueChange={setNewReason}
-          onAdd={handleAddReason}
-          onRemove={removeReason}
-          onSave={() => void saveReasons(reasons)}
-          onResetDefaults={() => {
-            setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }));
-            notifyRestoreDefaults();
-          }}
-          placeholder="Novo motivo de desligamento"
-          saveLabel="Salvar motivos de desligamento"
-          resetLabel="Restaurar motivos padrão"
+    <section className={`empresa-section animate-in students-settings${section ? ' students-settings--detail' : ''}`}>
+      {!section ? (
+        <StudentsSettingsHub
+          academy={{ ...academy, settings: academySettingsRaw }}
+          turmasCount={turmasCount}
+          onSelectSection={goSection}
         />
+      ) : (
+        <>
+          <FinanceSettingsDetailHeader
+            title={meta?.label || 'Alunos'}
+            subtitle={meta?.hint}
+            onBack={goHub}
+            backLabel="Alunos"
+          />
 
-        <div
-          className="alunos-inner-divider"
-          role="separator"
-          aria-hidden="true"
-          style={{
-            margin: '32px 0 0',
-            borderTop: '1px solid var(--border-light)',
-            paddingTop: 24,
-          }}
-        />
+          {section === STUDENT_SETTINGS_SECTIONS.DESLIGAMENTO ? (
+            <div className="card" style={{ padding: 16 }}>
+              <EditableStringList
+                hint="Motivos exibidos ao encerrar matrícula de um aluno."
+                footerNote={automationsFootnote}
+                items={reasons}
+                canEdit={canEdit}
+                saving={savingReasons}
+                hasUnsaved={hasUnsavedReasons}
+                newValue={newReason}
+                onNewValueChange={setNewReason}
+                onAdd={handleAddReason}
+                onRemove={removeReason}
+                onSave={() => void saveReasons(reasons)}
+                onResetDefaults={() => {
+                  setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }));
+                  notifyRestoreDefaults();
+                }}
+                placeholder="Novo motivo de desligamento"
+                saveLabel="Salvar"
+                resetLabel="Restaurar padrões"
+              />
+            </div>
+          ) : null}
 
-        <ListSubsectionHeader title="Motivos de trancamento" hasUnsaved={canEdit && hasUnsavedFreezeReasons} />
-        <EditableStringList
-          hint="Motivos exibidos ao pausar uma matrícula temporariamente."
-          items={freezeReasons}
-          canEdit={canEdit}
-          saving={savingFreezeReasons}
-          hasUnsaved={hasUnsavedFreezeReasons}
-          newValue={newFreezeReason}
-          onNewValueChange={setNewFreezeReason}
-          onAdd={handleAddFreezeReason}
-          onRemove={removeFreezeReason}
-          onSave={() => void saveFreezeReasons(freezeReasons)}
-          onResetDefaults={() => {
-            setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }));
-            notifyRestoreDefaults();
-          }}
-          placeholder="Novo motivo de trancamento"
-          saveLabel="Salvar motivos de trancamento"
-          resetLabel="Restaurar motivos padrão"
-        />
-      </div>
+          {section === STUDENT_SETTINGS_SECTIONS.TRANCAMENTO ? (
+            <div className="card" style={{ padding: 16 }}>
+              <EditableStringList
+                hint="Motivos exibidos ao pausar uma matrícula temporariamente."
+                items={freezeReasons}
+                canEdit={canEdit}
+                saving={savingFreezeReasons}
+                hasUnsaved={hasUnsavedFreezeReasons}
+                newValue={newFreezeReason}
+                onNewValueChange={setNewFreezeReason}
+                onAdd={handleAddFreezeReason}
+                onRemove={removeFreezeReason}
+                onSave={() => void saveFreezeReasons(freezeReasons)}
+                onResetDefaults={() => {
+                  setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }));
+                  notifyRestoreDefaults();
+                }}
+                placeholder="Novo motivo de trancamento"
+                saveLabel="Salvar"
+                resetLabel="Restaurar padrões"
+              />
+            </div>
+          ) : null}
 
-      <PublicEnrollmentSection
-        academyId={academyId}
-        academy={academy}
-        setAcademy={setAcademy}
-        canEdit={canEdit}
+          {section === STUDENT_SETTINGS_SECTIONS.MATRICULA ? (
+            <PublicEnrollmentSection
+              academyId={academyId}
+              academy={academy}
+              setAcademy={setAcademy}
+              canEdit={canEdit}
+              embedded
+            />
+          ) : null}
+
+          {section === STUDENT_SETTINGS_SECTIONS.TURMAS ? (
+            <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} embedded />
+          ) : null}
+        </>
+      )}
+
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .students-settings-list {
+          list-style: none;
+          padding: 0;
+          margin: 0 0 12px;
+        }
+        .students-settings-list__item {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 8px 10px;
+          border-bottom: 1px solid var(--border-light);
+        }
+        .students-settings-list__text {
+          font-size: 14px;
+          line-height: 1.4;
+          flex: 1;
+        }
+        .students-settings-list__index {
+          color: var(--text-muted);
+          margin-right: 6px;
+        }
+      `,
+        }}
       />
-
-      <div className="funil-section-divider" role="separator" aria-hidden="true" />
-
-      <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} />
     </section>
   );
 };

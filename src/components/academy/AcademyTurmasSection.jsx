@@ -10,7 +10,7 @@ import {
   readAcademyTurmas,
 } from '../../lib/academyTurmas.js';
 
-export default function AcademyTurmasSection({ academyId, academyDataVersion = 0 }) {
+export default function AcademyTurmasSection({ academyId, academyDataVersion = 0, embedded = false }) {
   const addToast = useUiStore((s) => s.addToast);
   const [academyDoc, setAcademyDoc] = useState(null);
   const [turmas, setTurmas] = useState([...DEFAULT_ACADEMY_TURMAS]);
@@ -93,21 +93,30 @@ export default function AcademyTurmasSection({ academyId, academyDataVersion = 0
 
   return (
     <>
-      <div className="flex justify-between items-center mb-2" style={{ gap: 10, flexWrap: 'wrap' }}>
-        <h3 className="navi-section-heading" style={{ margin: 0 }}>
-          Turmas
-        </h3>
-        {canEdit && hasUnsaved ? (
-          <span className="funil-unsaved-pill" role="status">
-            Alterações não salvas
-          </span>
-        ) : null}
-      </div>
-      <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
-        Opções do campo Turma em cadastros, perfis e filtros.
-      </p>
+      {!embedded ? (
+        <>
+          <div className="flex justify-between items-center mb-2" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <h3 className="navi-section-heading" style={{ margin: 0 }}>
+              Turmas
+            </h3>
+            {canEdit && hasUnsaved ? (
+              <span className="funil-unsaved-pill" role="status">
+                Alterações não salvas
+              </span>
+            ) : null}
+          </div>
+          <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
+            Opções do campo Turma em cadastros, perfis e filtros.
+          </p>
+        </>
+      ) : null}
 
-      <div className="card">
+      <div className="card" style={embedded ? { padding: 16 } : undefined}>
+        {embedded ? (
+          <p className="text-small text-muted" style={{ lineHeight: 1.45, margin: '0 0 12px' }}>
+            Opções do campo Turma em cadastros, perfis e filtros.
+          </p>
+        ) : null}
         <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 12px' }}>
           {turmas.map((item, idx) => (
             <li

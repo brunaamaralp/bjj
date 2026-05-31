@@ -535,7 +535,7 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
           {lastSaved.plans ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.plans)}</p> : null}
           <p className="text-small text-muted finance-config-section__hint mensal-finance-plans-hint">
             Mensalidades dos alunos — usados em Mensalidades e matrícula. Vincule contratos por plano em{' '}
-            <Link to="/empresa?tab=contratos" className="edit-link">
+            <Link to="/empresa?tab=financeiro&section=contratos" className="edit-link">
               Empresa → Contratos
             </Link>
             .

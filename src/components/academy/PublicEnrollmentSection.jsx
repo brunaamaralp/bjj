@@ -31,7 +31,7 @@ async function postEnrollmentConfig(academyId, body) {
   return data;
 }
 
-export default function PublicEnrollmentSection({ academyId, academy, setAcademy, canEdit }) {
+export default function PublicEnrollmentSection({ academyId, academy, setAcademy, canEdit, embedded = false }) {
   const addToast = useUiStore((s) => s.addToast);
   const cfg = readPublicEnrollment(academy?.settings);
   const [enabled, setEnabled] = useState(cfg.enabled);
@@ -106,7 +106,8 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
   };
 
   return (
-    <div className="card" style={{ marginTop: 24 }}>
+    <div className="card" style={{ marginTop: embedded ? 0 : 24, padding: embedded ? 16 : undefined }}>
+      {!embedded ? (
       <div className="flex justify-between items-center flex-wrap gap-2" style={{ marginBottom: 8 }}>
         <h4 className="navi-section-heading" style={{ margin: 0, fontSize: 15 }}>
           Link de matrícula para alunos
@@ -119,6 +120,17 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
           <span className="funil-unsaved-pill">Inativo</span>
         )}
       </div>
+      ) : (
+        <div className="flex justify-end" style={{ marginBottom: 8 }}>
+          {enabled ? (
+            <span className="funil-unsaved-pill" style={{ background: 'rgba(34, 197, 94, 0.12)', color: 'var(--success)' }}>
+              Ativo
+            </span>
+          ) : (
+            <span className="funil-unsaved-pill">Inativo</span>
+          )}
+        </div>
+      )}
       <p className="text-small text-muted" style={{ lineHeight: 1.45, marginBottom: 14 }}>
         Compartilhe o link para o aluno (ou responsável) preencher a matrícula. Se já existir lead com o mesmo
         telefone, ele é convertido em aluno; caso contrário, um novo aluno ativo é criado na lista de alunos.

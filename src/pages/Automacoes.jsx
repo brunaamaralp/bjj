@@ -18,7 +18,7 @@ const ALLOWED = new Set(TABS.map((t) => t.id));
 export default function Automacoes() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, 'configuracoes');
+  const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, 'processos');
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();

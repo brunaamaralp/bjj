@@ -13,13 +13,13 @@ export function ContratosRedirect() {
   const [searchParams] = useSearchParams();
   const raw = String(searchParams.get('tab') || '').trim().toLowerCase();
   if (raw === 'modelos') {
-    return <Navigate to="/empresa?tab=contratos" replace />;
+    return <Navigate to="/empresa?tab=financeiro&section=contratos" replace />;
   }
   return <Navigate to="/alunos?tab=contratos" replace />;
 }
 
 export function ContratosModelosRedirect() {
-  return <Navigate to="/empresa?tab=contratos" replace />;
+  return <Navigate to="/empresa?tab=financeiro&section=contratos" replace />;
 }
 
 const SALES_LEAF_TABS = new Set(['new', 'history', 'historico']);

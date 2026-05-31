@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
@@ -18,6 +18,7 @@ const Sales = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
+  const configRef = useRef(null);
   const [nlOpen, setNlOpen] = useState(false);
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
@@ -35,7 +36,14 @@ const Sales = () => {
   const [salesConfigOpen, setSalesConfigOpen] = useState(wantsConfig);
 
   useEffect(() => {
-    if (wantsConfig) setSalesConfigOpen(true);
+    if (wantsConfig) {
+      setSalesConfigOpen(true);
+      const t = window.setTimeout(() => {
+        configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+      return () => window.clearTimeout(t);
+    }
+    return undefined;
   }, [wantsConfig]);
 
   useEffect(() => {
@@ -44,8 +52,16 @@ const Sales = () => {
       replace: true,
     });
   }, [searchParams, setSearchParams]);
+
   const setSubtab = (id) => {
     setSearchParams(lojaVendasTabParams(id, searchParams), { replace: false });
+  };
+
+  const openConfig = () => {
+    setSalesConfigOpen(true);
+    window.setTimeout(() => {
+      configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   };
 
   return (
@@ -54,6 +70,22 @@ const Sales = () => {
         title="Vendas"
         subtitle="Registre vendas e consulte comprovantes."
         meta={subtab === 'history' ? 'Histórico e cancelamentos' : null}
+        actions={
+          academyId ? (
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={openConfig}
+              aria-expanded={salesConfigOpen}
+              aria-controls="sales-config-panel"
+              title="Configurações de vendas"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              <Settings size={16} aria-hidden />
+              Configurações
+            </button>
+          ) : null
+        }
         toolbar={<NlCommandBarTrigger onClick={() => setNlOpen(true)} />}
       />
 
@@ -67,35 +99,13 @@ const Sales = () => {
         className="mt-4"
       />
 
-      {subtab === 'new' ? (
-        <SalesNewSaleTab />
-      ) : (
-        <SalesHistoryTab onSwitchTab={setSubtab} />
-      )}
-      <NlCommandBar
-        open={nlOpen}
-        onOpenChange={setNlOpen}
-        academyName={academyName}
-        context="vendas"
-      />
+      {subtab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab onSwitchTab={setSubtab} />}
 
-      {academyId ? (
-        <div className="mt-4" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={() => setSalesConfigOpen((v) => !v)}
-            aria-expanded={salesConfigOpen}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-          >
-            Configurações de vendas
-            {salesConfigOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
-          </button>
-          {salesConfigOpen ? (
-            <div className="mt-3 animate-in">
-              <SalesSettingsSection academyId={academyId} />
-            </div>
-          ) : null}
+      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} context="vendas" />
+
+      {academyId && salesConfigOpen ? (
+        <div id="sales-config-panel" ref={configRef} className="mt-4 animate-in">
+          <SalesSettingsSection academyId={academyId} />
         </div>
       ) : null}
     </div>

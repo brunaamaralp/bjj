@@ -137,7 +137,7 @@ export default function FinanceSettingsPlansSection({
     <div className="finance-settings-section-body">
       <p className="text-small text-muted">
         Usados em Mensalidades e matrícula. Vincule contratos em{' '}
-        <Link to="/empresa?tab=contratos" className="edit-link">
+        <Link to="/empresa?tab=financeiro&section=contratos" className="edit-link">
           Contratos
         </Link>
         .

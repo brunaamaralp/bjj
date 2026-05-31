@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import { Upload, Settings } from 'lucide-react';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
@@ -23,6 +23,7 @@ const Inventory = () => {
   const modules = useLeadStore((s) => s.modules);
   const academyId = useLeadStore((s) => s.academyId);
   const [stockConfigOpen, setStockConfigOpen] = useState(false);
+  const stockConfigRef = useRef(null);
   const items = useInventoryStore((s) => s.items);
   const loadItems = useInventoryStore((s) => s.loadItems);
   const inventoryMove = useInventoryStore((s) => s.inventoryMove);
@@ -158,10 +159,28 @@ const Inventory = () => {
         title="Estoque"
         subtitle="Ajuste saldos e movimentações por item."
         actions={
-          <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
-            <Upload size={14} aria-hidden />
-            Importar em lote
-          </Link>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => {
+                setStockConfigOpen(true);
+                window.setTimeout(() => {
+                  stockConfigRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 80);
+              }}
+              aria-expanded={stockConfigOpen}
+              aria-controls="stock-config-panel"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              <Settings size={14} aria-hidden />
+              Configurações
+            </button>
+            <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
+              <Upload size={14} aria-hidden />
+              Importar em lote
+            </Link>
+          </div>
         }
       />
 
@@ -243,23 +262,9 @@ const Inventory = () => {
         onSubmit={submitAdjust}
       />
 
-      {academyId ? (
-        <div className="mt-4" style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={() => setStockConfigOpen((v) => !v)}
-            aria-expanded={stockConfigOpen}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-          >
-            Configurações de estoque
-            {stockConfigOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
-          </button>
-          {stockConfigOpen ? (
-            <div className="mt-3 animate-in">
-              <StockSettingsSection academyId={academyId} modules={modules} />
-            </div>
-          ) : null}
+      {academyId && stockConfigOpen ? (
+        <div id="stock-config-panel" ref={stockConfigRef} className="mt-4 animate-in">
+          <StockSettingsSection academyId={academyId} modules={modules} />
         </div>
       ) : null}
     </div>
