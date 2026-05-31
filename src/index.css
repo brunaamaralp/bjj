@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
 @import './styles/tokens/core.css';
 @import './styles/tokens/menu.css';
 @import './styles/tokens/inbox.css';
@@ -82,7 +82,7 @@
   /* Controles — barras, inputs e botões (ver docs/controls-toolbar.md) */
   --control-radius: var(--radius-sm);
   --control-radius-sm: 8px;
-  --control-font-size: 13px;
+  --control-font-size: var(--font-base);
   --control-font-weight: 500;
   --control-gap: 8px;
   --control-border: 1px solid var(--v100);
@@ -165,7 +165,7 @@ body {
   input,
   select,
   textarea {
-    font-size: 16px !important;
+    font-size: var(--font-xl) !important;
   }
 }
 
@@ -209,22 +209,22 @@ h3 {
 }
 
 h1 {
-  font-size: 1.6rem;
+  font-size: var(--font-4xl);
 }
 
 h2 {
-  font-size: 1.35rem;
+  font-size: var(--font-3xl);
 }
 
 h3 {
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
 }
 
 /* Wordmark: componente NaviWordmark (Plus Jakarta, “e” itálico — marca Nave) */
 
 .navi-eyebrow {
   font-family: var(--ff-mono);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--faint);
@@ -439,7 +439,7 @@ button:focus-visible {
 
 .filter-group select,
 .filter-field select {
-  font-size: 12px;
+  font-size: var(--font-sm);
   padding: 6px 10px;
   border: none;
   border-right: 0.5px solid var(--border-light);
@@ -455,7 +455,7 @@ button:focus-visible {
 }
 
 .filter-chip {
-  font-size: 11px;
+  font-size: var(--font-xs);
   padding: 5px 10px;
   border-radius: 20px;
   border: 0.5px solid var(--border-light);
@@ -486,7 +486,7 @@ button:focus-visible {
 }
 
 .filter-count {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 700;
   min-width: 18px;
   padding: 0 5px;
@@ -519,7 +519,7 @@ button:focus-visible {
 }
 
 .date-chip {
-  font-size: 11px;
+  font-size: var(--font-xs);
   padding: 5px 10px;
   border-radius: 20px;
   border: 0.5px solid var(--border-light);
@@ -626,7 +626,7 @@ button:focus-visible {
   color: var(--white);
   border-radius: var(--control-radius);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: var(--font-base);
   min-height: var(--control-height-form);
 }
 
@@ -682,7 +682,7 @@ button:focus-visible {
 
 .btn-large {
   width: 100%;
-  font-size: 1rem;
+  font-size: var(--font-xl);
   padding: 16px;
   border-radius: 14px;
   font-weight: 500;
@@ -971,7 +971,7 @@ button:focus-visible {
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   border-radius: 20px;
   border: 1px dashed var(--border);
   background: transparent;
@@ -1016,7 +1016,7 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
   min-width: auto;
   min-height: auto;
 }
@@ -1054,7 +1054,7 @@ button:focus-visible {
   right: 2px;
   background: #ef4444;
   color: white;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 800;
   min-width: 16px;
   height: 16px;
@@ -1085,7 +1085,7 @@ button:focus-visible {
 
 .notification-dropdown__title {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 700;
   color: var(--text);
 }
@@ -1094,7 +1094,7 @@ button:focus-visible {
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -1142,7 +1142,7 @@ button:focus-visible {
 
 .notification-dropdown__row-text {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text);
   line-height: 1.4;
   font-weight: 600;
@@ -1182,7 +1182,7 @@ button:focus-visible {
   border-radius: 50%;
   background: var(--v500);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -1191,7 +1191,7 @@ button:focus-visible {
 }
 
 .navi-user-menu-name {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -1221,7 +1221,7 @@ button:focus-visible {
 
 .navi-user-menu-header-name {
   display: block;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 700;
   color: var(--ink);
 }
@@ -1229,7 +1229,7 @@ button:focus-visible {
 .navi-user-menu-header-email {
   display: block;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--mid);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1242,7 +1242,7 @@ button:focus-visible {
 
 .navi-user-menu-academy-label {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1252,13 +1252,13 @@ button:focus-visible {
 
 .navi-user-menu-academy-select {
   width: 100%;
-  font-size: 13px;
+  font-size: var(--font-base);
   color-scheme: light;
 }
 
 .navi-user-menu-academy-name {
   display: block;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--ink);
 }
@@ -1273,7 +1273,7 @@ button:focus-visible {
   border: none;
   cursor: pointer;
   font-family: var(--ff-ui);
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: rgba(255, 255, 255, 0.92);
   font-weight: 600;
   padding: 4px 10px;
@@ -1313,7 +1313,7 @@ button:focus-visible {
 }
 
 .navi-topbar-brand .navi-wordmark {
-  font-size: 1.35rem;
+  font-size: var(--font-3xl);
   color: var(--white);
 }
 
@@ -1471,7 +1471,7 @@ button:focus-visible {
 .navi-mobile-drawer__head-title {
   font-family: var(--ff-ui);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
   letter-spacing: -0.02em;
   color: var(--ink);
 }
@@ -1517,7 +1517,7 @@ button:focus-visible {
   display: block;
   padding: 8px 16px;
   font-family: var(--ff-ui);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1537,7 +1537,7 @@ button:focus-visible {
   border-radius: 0;
   text-decoration: none;
   font-family: var(--ff-ui);
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   line-height: 1.35;
   color: var(--text-secondary);
@@ -1600,7 +1600,7 @@ button:focus-visible {
   padding: 9px 16px;
   border-radius: 8px;
   font-family: var(--ff-ui);
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -1704,7 +1704,7 @@ button:focus-visible {
 .navi-mobile-more-sheet__head-title {
   font-family: var(--ff-ui);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
   letter-spacing: -0.02em;
   color: var(--ink);
 }
@@ -1754,7 +1754,7 @@ button:focus-visible {
   background: var(--white);
   color: var(--mid);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--font-base);
   text-align: center;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
@@ -1896,13 +1896,13 @@ button:focus-visible {
 }
 
 .text-small {
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   color: var(--text-secondary);
   line-height: 1.4;
 }
 
 .text-xs {
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
 }
 
 .text-light {
@@ -1921,7 +1921,7 @@ button:focus-visible {
   min-width: 26px;
   height: 26px;
   border-radius: 99px;
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 500;
   padding: 0 8px;
 }
@@ -1967,7 +1967,7 @@ button:focus-visible {
 .form-group label,
 .form-label {
   font-family: var(--ff-ui);
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   color: var(--text-secondary);
   line-height: 1.2;
@@ -1991,7 +1991,7 @@ button:focus-visible {
 
 /* Texto auxiliar abaixo de um campo */
 .form-hint {
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-muted);
   line-height: 1.4;
   margin-top: 2px;
@@ -2009,7 +2009,7 @@ button:focus-visible {
   margin-top: var(--space-2);
 }
 .form-section-title {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -2180,7 +2180,7 @@ select.task-select option {
 
 .error {
   color: var(--c500);
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 500;
 }
 
@@ -2237,7 +2237,7 @@ select.task-select option {
 }
 
 .funil-section-subheading {
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2246,7 +2246,7 @@ select.task-select option {
 }
 
 .funil-unsaved-pill {
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 999px;
@@ -2279,7 +2279,7 @@ select.task-select option {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
 }
 
 .automacoes-readiness-steps {
@@ -2289,7 +2289,7 @@ select.task-select option {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   color: var(--text-secondary);
 }
 
@@ -2316,7 +2316,7 @@ select.task-select option {
   border-radius: 8px;
   background: var(--surface-hover);
   border: 1px solid var(--border-light);
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
@@ -2326,7 +2326,7 @@ select.task-select option {
 }
 
 .lead-automation-badge {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 999px;
@@ -2366,7 +2366,7 @@ select.task-select option {
 }
 
 .funil-question-type-pill {
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 999px;
@@ -2410,7 +2410,7 @@ select.task-select option {
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   color: var(--text-muted);
   pointer-events: none;
   line-height: 1;
@@ -2465,13 +2465,13 @@ button.funil-color-swatch {
 }
 
 .funil-color-picker__label {
-  font-size: 0.875rem;
+  font-size: var(--font-md);
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .funil-color-hint {
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   color: var(--text-muted);
   margin: 8px 0 0;
   line-height: 1.35;
@@ -2532,7 +2532,7 @@ button.funil-color-swatch {
   border: 1px dashed var(--v200);
   background: var(--v50);
   border-radius: 16px;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
 }
 
 /* Estados vazios padronizados (EmptyState.jsx) — Fase A */
@@ -2595,7 +2595,7 @@ button.funil-color-swatch {
 .navi-empty--column {
   padding: 16px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  font-size: var(--font-base);
 }
 
 .navi-empty--dashed {
@@ -2620,7 +2620,7 @@ button.funil-color-swatch {
 
 .navi-empty__title {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: var(--font-xl);
   font-weight: 700;
   color: var(--text);
   line-height: 1.35;
@@ -2655,14 +2655,14 @@ button.funil-color-swatch {
 
 .navi-empty--bare .navi-empty__title {
   margin-bottom: 0;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .navi-empty__link-btn {
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 500;
   color: var(--v500, #5b3fbf);
   text-decoration: underline;
@@ -2711,7 +2711,7 @@ button.funil-color-swatch {
   display: block;
   padding: 8px 16px;
   font-family: var(--ff-ui);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2767,7 +2767,7 @@ button.funil-color-swatch {
   background: transparent;
   text-decoration: none;
   font-family: var(--ff-ui);
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   line-height: 1.35;
   color: var(--text-secondary);
@@ -2828,7 +2828,7 @@ button.funil-color-swatch {
   box-sizing: border-box;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   line-height: 1.35;
   color: var(--text-secondary);
@@ -2929,7 +2929,7 @@ button.funil-color-swatch {
   display: block;
   padding: 4px 0 2px;
   font-family: var(--ff-ui);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2998,7 +2998,7 @@ button.funil-color-swatch {
   display: block;
   padding: 4px 0 2px;
   font-family: var(--ff-ui);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3027,7 +3027,7 @@ button.funil-color-swatch {
   box-sizing: border-box;
   border-radius: 8px !important;
   font-family: var(--ff-ui);
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 600;
   line-height: 1;
   text-align: center;
@@ -3138,7 +3138,7 @@ button.funil-color-swatch {
   display: block;
   padding: 8px 16px;
   font-family: var(--ff-ui);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3158,7 +3158,7 @@ button.funil-color-swatch {
   background: transparent;
   text-decoration: none;
   font-family: var(--ff-ui);
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   line-height: 1.35;
   color: var(--text-secondary);
@@ -3303,7 +3303,7 @@ button.funil-color-swatch {
   display: block;
   padding: 4px 0 2px;
   font-family: var(--ff-ui);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3467,7 +3467,7 @@ button.funil-color-swatch {
   align-items: center;
   text-decoration: none;
   color: var(--faint);
-  font-size: 0.68rem;
+  font-size: var(--font-xs);
   font-weight: 500;
   gap: 3px;
   padding: 6px 10px;
@@ -3586,7 +3586,7 @@ button.funil-color-swatch {
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: navi-toast-in 0.2s ease both;
-  font-size: 14px;
+  font-size: var(--font-md);
   line-height: 1.4;
   color: var(--ink);
 }
@@ -3600,7 +3600,7 @@ button.funil-color-swatch {
   flex-shrink: 0;
   margin-right: 6px;
   padding: 4px 10px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   border: 1px solid currentColor;
   border-radius: 8px;
@@ -3635,7 +3635,7 @@ button.funil-color-swatch {
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 20px;
+  font-size: var(--font-3xl);
   line-height: 1;
   color: inherit;
   opacity: 0.55;
@@ -3747,7 +3747,7 @@ button.funil-color-swatch {
 .navi-section-heading {
   font-family: var(--ff-ui);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--font-xl);
   color: var(--ink);
   margin: 0;
   display: flex;
@@ -3758,7 +3758,7 @@ button.funil-color-swatch {
 /* Subtítulo de página ou bloco (Plus Jakarta Sans, cor secundária) */
 .navi-subtitle {
   font-family: var(--ff-ui);
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   color: var(--mid);
   line-height: 1.45;
@@ -3797,7 +3797,7 @@ button.funil-color-swatch {
   text-transform: none;
   letter-spacing: normal;
   font-family: var(--ff-ui);
-  font-size: 12px;
+  font-size: var(--font-sm);
   line-height: 1.45;
 }
 
@@ -3846,17 +3846,17 @@ button.funil-color-swatch {
 }
 
 .navi-mono-date {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--faint);
 }
 
 .navi-mono-time {
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--v700);
 }
 
 .navi-mono-num {
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--mid);
 }
 
@@ -3865,7 +3865,7 @@ button.funil-color-swatch {
   font-family: var(--ff-ui);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--v700);
 }
 
@@ -3873,7 +3873,7 @@ button.funil-color-swatch {
   font-family: var(--ff-ui);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--faint);
 }
 
@@ -3881,7 +3881,7 @@ button.funil-color-swatch {
   font-family: var(--ff-ui);
   font-variant-numeric: tabular-nums;
   font-weight: 800;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--mid);
 }
 
@@ -3906,7 +3906,7 @@ button.funil-color-swatch {
   text-align: center;
   padding: 6px 12px;
   border-radius: 7px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
   font-family: var(--ff-ui);
   color: var(--mid);
@@ -3928,7 +3928,7 @@ button.funil-color-swatch {
 }
 
 .filter-pill .tab-count {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   min-width: 18px;
   height: 18px;
@@ -3957,7 +3957,7 @@ button.funil-color-swatch {
   --tabs-item-pad-y: 8px;
   --tabs-item-pad-x: 16px;
   --tabs-item-min-h: var(--control-height-toolbar);
-  --tabs-item-font-size: 13px;
+  --tabs-item-font-size: var(--font-base);
   --tabs-item-font-weight: 600;
   --tabs-item-color: var(--mid);
   --tabs-item-hover-bg: rgba(255, 255, 255, 0.55);
@@ -3987,7 +3987,7 @@ button.funil-color-swatch {
   --tabs-item-pad-y: 6px;
   --tabs-item-pad-x: 12px;
   --tabs-item-min-h: 32px; /* denso — exceção documentada */
-  --tabs-item-font-size: 12px;
+  --tabs-item-font-size: var(--font-sm);
 }
 
 .navi-hub-tabs--full {
@@ -4110,7 +4110,7 @@ button.funil-color-swatch {
 
 .ctx-label {
   font-family: var(--ff-mono);
-  font-size: 9px;
+  font-size: var(--font-2xs);
   letter-spacing: 0.14em;
   color: var(--faint);
   text-transform: uppercase;
@@ -4118,7 +4118,7 @@ button.funil-color-swatch {
 }
 
 .ctx-value {
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 500;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -4130,7 +4130,7 @@ button.funil-color-swatch {
 
 .ctx-meta {
   font-family: var(--ff-mono);
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--mid);
   margin-top: 6px;
   display: inline-flex;
@@ -4262,7 +4262,7 @@ button.funil-color-swatch {
 }
 
 .products-table thead th {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4372,10 +4372,10 @@ button.funil-color-swatch {
 .navi-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--font-base);
 }
 .navi-table thead th {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -4424,7 +4424,7 @@ button.funil-color-swatch {
 
 .products-table__variant-label {
   padding-left: 48px;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--color-neutral-600);
   white-space: nowrap;
   overflow: hidden;
@@ -4454,13 +4454,13 @@ button.funil-color-swatch {
 
 .products-status {
   display: inline-block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   line-height: 1.2;
   white-space: nowrap;
 }
 
 .products-status--ativo {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   color: var(--color-neutral-400);
   background: none;
@@ -4543,7 +4543,7 @@ button.funil-color-swatch {
   display: inline-block;
   padding: 2px 7px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -4564,7 +4564,7 @@ button.funil-color-swatch {
   display: inline-block;
   padding: 3px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
 }
 
@@ -4611,13 +4611,13 @@ button.funil-color-swatch {
 
 .products-mobile-card__title {
   font-weight: 400;
-  font-size: 14px;
+  font-size: var(--font-md);
   line-height: 1.35;
   color: var(--text);
 }
 
 .products-mobile-card__variation {
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 400;
   color: var(--text-muted, #6b6880);
   white-space: nowrap;
@@ -4803,7 +4803,7 @@ button.funil-color-swatch {
   align-items: center;
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -4896,7 +4896,7 @@ button.funil-color-swatch {
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   background: var(--border-light, #e8e6f0);
   color: var(--text-muted);
@@ -4920,7 +4920,7 @@ button.funil-color-swatch {
 }
 
 .product-form-stepper__label {
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .product-form-variants-section {
@@ -4938,7 +4938,7 @@ button.funil-color-swatch {
 
 .product-form-variants-section__title {
   margin: 0 0 6px;
-  font-size: 0.95rem;
+  font-size: var(--font-lg);
   font-weight: 600;
 }
 
@@ -5073,7 +5073,7 @@ button.funil-color-swatch {
 .product-variant-card__identity-label {
   display: block;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   line-height: 1.25;
 }
 
@@ -5082,7 +5082,7 @@ button.funil-color-swatch {
   flex-wrap: wrap;
   gap: 8px 16px;
   margin-top: 4px;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   color: var(--text-muted);
 }
 
@@ -5090,7 +5090,7 @@ button.funil-color-swatch {
   flex-shrink: 0;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
 }
 
@@ -5112,7 +5112,7 @@ button.funil-color-swatch {
 .product-variant-card__expand-hint {
   margin: 0;
   padding: 6px 12px 0;
-  font-size: 11px;
+  font-size: var(--font-xs);
   line-height: 1.35;
 }
 
@@ -5139,7 +5139,7 @@ button.funil-color-swatch {
 
 .product-variant-card__field-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 3px;
@@ -5147,7 +5147,7 @@ button.funil-color-swatch {
 
 .product-variant-card__fields--compact .form-input {
   padding: 6px 8px;
-  font-size: 14px;
+  font-size: var(--font-md);
 }
 
 .product-variant-card__foot {
@@ -5164,7 +5164,7 @@ button.funil-color-swatch {
 }
 
 .product-variant-card__foot .product-form-toggle-row label {
-  font-size: 13px;
+  font-size: var(--font-base);
 }
 
 .product-variant-card__remove {
@@ -5194,7 +5194,7 @@ button.funil-color-swatch {
 .product-variant-card__err {
   margin: 0;
   padding: 0 14px 12px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: #f04040;
 }
 
@@ -5227,7 +5227,7 @@ button.funil-color-swatch {
   justify-self: start;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
@@ -5243,7 +5243,7 @@ button.funil-color-swatch {
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: var(--font-md);
   background: rgba(201, 162, 39, 0.12);
   color: #9a7b0a;
   border: 1px solid rgba(201, 162, 39, 0.35);
@@ -5268,7 +5268,7 @@ button.funil-color-swatch {
 .product-variant-card__saved-badge {
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
@@ -5288,21 +5288,21 @@ button.funil-color-swatch {
 
 .product-variant-card__readonly-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   margin-bottom: 2px;
 }
 
 .product-variant-card__readonly-value {
   display: block;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   color: var(--text-muted);
   opacity: 0.92;
 }
 
 .product-variant-card__readonly-hint {
   margin: 4px 0 0;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   line-height: 1.35;
 }
@@ -5317,7 +5317,7 @@ button.funil-color-swatch {
 
 .product-variants-editor__inline-err {
   grid-column: 1 / -1;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: #f04040;
 }
 
@@ -5345,7 +5345,7 @@ button.funil-color-swatch {
 
   .product-variants-editor__field-label {
     display: block;
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 600;
     color: var(--text-muted);
     margin-bottom: 4px;
@@ -5434,7 +5434,7 @@ button.funil-color-swatch {
 .product-import-title {
   margin: 0 0 6px;
   font-family: var(--ff-serif, 'Fraunces', Georgia, serif);
-  font-size: 1.35rem;
+  font-size: var(--font-3xl);
   font-weight: 700;
   line-height: 1.25;
   color: var(--text-primary, #12102a);
@@ -5442,7 +5442,7 @@ button.funil-color-swatch {
 
 .product-import-subtitle {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   line-height: 1.45;
   color: var(--text-secondary, #5c5870);
 }
@@ -5472,7 +5472,7 @@ button.funil-color-swatch {
   gap: 8px 16px;
   padding: 12px 24px 16px;
   border-bottom: 1px solid var(--border-light, #e8e6f0);
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
 }
 
 .product-import-step {
@@ -5536,14 +5536,14 @@ button.funil-color-swatch {
 
 .product-import-drop-title {
   margin: 0 0 6px;
-  font-size: 1rem;
+  font-size: var(--font-xl);
   font-weight: 600;
   color: var(--text-primary, #12102a);
 }
 
 .product-import-drop-hint {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   color: var(--text-secondary, #5c5870);
 }
 
@@ -5554,7 +5554,7 @@ button.funil-color-swatch {
   border: none;
   background: none;
   color: #5b3fbf;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -5582,7 +5582,7 @@ button.funil-color-swatch {
 
 .product-import-file-name {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
 }
 
 .product-import-edit-grid {
@@ -5615,7 +5615,7 @@ button.funil-color-swatch {
   border: none;
   background: none;
   color: #5b3fbf;
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -5626,12 +5626,12 @@ button.funil-color-swatch {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   line-height: 1.4;
 }
 
 .product-import-file-change {
-  font-size: 0.8rem;
+  font-size: var(--font-base);
 }
 
 .product-import-error-banner {
@@ -5664,7 +5664,7 @@ button.funil-color-swatch {
 
 .product-import-processing-text {
   margin: 12px 0 0;
-  font-size: 0.95rem;
+  font-size: var(--font-lg);
   color: var(--text-secondary);
 }
 
@@ -5694,7 +5694,7 @@ button.funil-color-swatch {
 .product-import-map-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
 }
 
 .product-import-map-table th,
@@ -5714,7 +5714,7 @@ button.funil-color-swatch {
 .product-import-data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--font-md);
 }
 
 .product-import-data-table thead th {
@@ -5724,7 +5724,7 @@ button.funil-color-swatch {
   background: #fff;
   padding: 10px 12px;
   text-align: left;
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -5760,7 +5760,7 @@ button.funil-color-swatch {
   gap: 12px;
   margin-bottom: 12px;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
 }
 
 .product-import-summary-ready { color: #15803d; }
@@ -5783,12 +5783,12 @@ button.funil-color-swatch {
 .product-import-empty-title {
   margin: 0 0 8px;
   font-family: var(--ff-serif, 'Fraunces', Georgia, serif);
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
 }
 
 .product-import-empty-desc {
   margin: 0 0 16px;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   color: var(--text-secondary);
   max-width: 360px;
 }
@@ -5813,7 +5813,7 @@ button.funil-color-swatch {
   background: transparent;
   color: var(--text-secondary);
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -5830,7 +5830,7 @@ button.funil-color-swatch {
   background: #5b3fbf;
   color: #fff;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   cursor: pointer;
 }
 
@@ -5843,7 +5843,7 @@ button.funil-color-swatch {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: var(--font-base);
 }
 
 .product-import-conf-dot {
@@ -5867,7 +5867,7 @@ button.funil-color-swatch {
 .product-import-ai-tip {
   padding: 10px 12px;
   border-radius: 10px;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   margin-bottom: 10px;
   display: flex;
   gap: 8px;
@@ -5899,7 +5899,7 @@ button.funil-color-swatch {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   padding: 4px 0;
 }
 
@@ -5966,7 +5966,7 @@ button.funil-color-swatch {
 
 .navi-side-drawer-heading {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-xl);
   font-weight: 700;
   line-height: 1.35;
   flex: 1;
@@ -6029,12 +6029,12 @@ button.funil-color-swatch {
 }
 
 .product-moves-list__date {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
 }
 
 .product-moves-list__kind {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -6113,7 +6113,7 @@ button.funil-color-swatch {
 }
 
 .navi-inline-toggle__label {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   color: var(--mid);
 }
@@ -6282,7 +6282,7 @@ button.funil-color-swatch {
 }
 
 .inventory-table thead th {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -6398,7 +6398,7 @@ button.funil-color-swatch {
 
 .inventory-table__variant-label {
   padding-left: 48px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 400;
   color: var(--color-neutral-600);
   white-space: nowrap;
@@ -6453,7 +6453,7 @@ button.funil-color-swatch {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   line-height: 1.25;
   font-weight: 500;
   white-space: nowrap;
@@ -6530,7 +6530,7 @@ button.funil-color-swatch {
   align-items: center;
   gap: 6px;
   margin: 0 0 16px;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
 }
 
@@ -6546,7 +6546,7 @@ button.funil-color-swatch {
 
 .inventory-adjust-form__label {
   display: block;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   margin-bottom: 8px;
   color: var(--text);
@@ -6564,7 +6564,7 @@ button.funil-color-swatch {
   border-radius: 8px;
   background: var(--surface);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
@@ -6598,7 +6598,7 @@ button.funil-color-swatch {
   border-radius: 8px;
   background: var(--surface);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
@@ -6721,7 +6721,7 @@ button.funil-color-swatch {
 }
 
 .inventory-mobile-variant__label {
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--color-neutral-600, var(--text-muted));
   margin-bottom: 4px;
 }
@@ -6748,12 +6748,12 @@ button.funil-color-swatch {
 
 .inventory-mobile-card__title {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
   line-height: 1.35;
 }
 
 .inventory-mobile-card__variation {
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 400;
   color: var(--text-muted);
 }
@@ -6860,12 +6860,12 @@ button.funil-color-swatch {
 
 .agent-chat-title {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
   color: white;
 }
 
 .agent-chat-subtitle {
-  font-size: 11px;
+  font-size: var(--font-xs);
   opacity: 0.6;
   color: white;
 }
@@ -6930,7 +6930,7 @@ button.funil-color-swatch {
   background: var(--v50);
   border-radius: 4px 12px 12px 12px;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: var(--font-md);
   line-height: 1.5;
   color: var(--ink);
   white-space: pre-line;
@@ -7026,7 +7026,7 @@ button.funil-color-swatch {
   padding: 6px 14px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: 13px;
+  font-size: var(--font-base);
   cursor: pointer;
   background: var(--surface);
   color: var(--ink);
@@ -7059,7 +7059,7 @@ button.funil-color-swatch {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: var(--font-md);
   font-family: inherit;
   resize: none;
   outline: none;
@@ -7078,7 +7078,7 @@ button.funil-color-swatch {
   border: none;
   border-radius: 10px;
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -7099,7 +7099,7 @@ button.funil-color-swatch {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--font-sm);
   cursor: pointer;
   text-decoration: underline;
   align-self: flex-end;
@@ -7174,7 +7174,7 @@ button.funil-color-swatch {
 }
 
 .agent-status-label {
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -7188,7 +7188,7 @@ button.funil-color-swatch {
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
-  font-size: 0.85rem;
+  font-size: var(--font-md);
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -7220,7 +7220,7 @@ button.funil-color-swatch {
 
 .agent-prompt-editor__title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: var(--font-2xl);
   font-weight: 700;
   font-family: var(--ff-ui);
   color: var(--text);
@@ -7242,7 +7242,7 @@ button.funil-color-swatch {
 
 .agent-prompt-field__label {
   margin: 0 0 6px;
-  font-size: 0.95rem;
+  font-size: var(--font-lg);
   font-weight: 700;
   font-family: var(--ff-ui);
   color: var(--text);
@@ -7250,7 +7250,7 @@ button.funil-color-swatch {
 
 .agent-prompt-field__hint {
   margin: 0 0 14px;
-  font-size: 13px;
+  font-size: var(--font-base);
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -7263,7 +7263,7 @@ button.funil-color-swatch {
   padding: 14px 16px;
   min-height: 140px;
   font-family: var(--ff-ui);
-  font-size: 15px;
+  font-size: var(--font-lg);
   line-height: 1.55;
   color: var(--text);
   background: linear-gradient(180deg, var(--paper) 0%, #faf9ff 100%);
@@ -7299,7 +7299,7 @@ button.funil-color-swatch {
 
 .agent-prompt-textarea--sm {
   min-height: 104px;
-  font-size: 14px;
+  font-size: var(--font-md);
   line-height: 1.5;
 }
 
@@ -7317,7 +7317,7 @@ button.funil-color-swatch {
   align-items: center;
   gap: 8px;
   margin-top: 10px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 500;
   color: var(--text-secondary);
   font-family: var(--ff-ui);
@@ -7329,7 +7329,7 @@ button.funil-color-swatch {
   overflow: auto;
   padding: 14px 16px;
   font-family: var(--ff-mono);
-  font-size: 12px;
+  font-size: var(--font-sm);
   line-height: 1.5;
   color: var(--ink2);
   white-space: pre-wrap;
@@ -7449,7 +7449,7 @@ input.navi-typable-date[data-date-type='datetime-local'].form-input {
   input[type='time'],
   input[type='month'],
   input[type='datetime-local'] {
-    font-size: 16px;
+    font-size: var(--font-xl);
     padding: 0 var(--control-pad-x);
     min-height: var(--control-height-touch);
   }
@@ -7513,7 +7513,7 @@ input.navi-typable-date.form-input:focus {
   input[type='month'].form-input,
   input[type='datetime-local'].form-input,
   input.navi-typable-date.form-input {
-    font-size: 16px;
+    font-size: var(--font-xl);
     padding: 10px 12px;
     min-height: 44px;
   }
@@ -7556,7 +7556,7 @@ input.navi-typable-date.form-input:focus {
 
 .sales-cart-card__id {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   color: var(--ink);
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -7597,7 +7597,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .sales-cart-card__label {
-  font-size: 0.65rem;
+  font-size: var(--font-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -7605,7 +7605,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .sales-cart-card__readonly {
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -7759,7 +7759,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .attendance-card__name {
-  font-size: 1rem;
+  font-size: var(--font-xl);
   line-height: 1.35;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -7852,7 +7852,7 @@ input.navi-typable-date.form-input:focus {
 
 .nova-venda-modal__title {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--font-2xl);
   font-weight: 700;
   color: var(--text);
 }
@@ -7934,13 +7934,13 @@ input.navi-typable-date.form-input:focus {
 }
 
 .nova-venda-type-picker__label {
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 600;
   color: var(--text);
 }
 
 .nova-venda-type-picker__desc {
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
 }
 
@@ -7972,7 +7972,7 @@ input.navi-typable-date.form-input:focus {
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -7998,7 +7998,7 @@ input.navi-typable-date.form-input:focus {
   border-radius: 999px;
   background: var(--v500);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
 }
 
@@ -8023,7 +8023,7 @@ input.navi-typable-date.form-input:focus {
 
 .sales-checkout__title {
   margin: 0 0 4px;
-  font-size: 1rem;
+  font-size: var(--font-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -8042,7 +8042,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .sales-payment-block__add {
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 600;
   padding: 4px 0;
 }
@@ -8121,7 +8121,7 @@ input.navi-typable-date.form-input:focus {
   border-radius: var(--radius-sm);
   background: var(--v50);
   border: 1px solid var(--border-light);
-  font-size: 13px;
+  font-size: var(--font-base);
 }
 
 .sales-aluno-pill__clear {
@@ -8168,7 +8168,7 @@ input.navi-typable-date.form-input:focus {
   background: var(--surface);
   border-radius: 999px;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
@@ -8186,7 +8186,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .sales-catalog__group-title {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 700;
   margin: 0 0 10px;
   color: var(--text-secondary);
@@ -8258,26 +8258,26 @@ input.navi-typable-date.form-input:focus {
 
 .sales-catalog__card-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
   line-height: 1.3;
 }
 
 .sales-catalog__card-var {
   display: block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .sales-catalog__card-price {
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
 .sales-stock-badge {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 999px;
@@ -8314,13 +8314,13 @@ input.navi-typable-date.form-input:focus {
 
 .sales-catalog-empty__title {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: var(--font-xl);
   font-weight: 700;
 }
 
 .sales-catalog-empty__hint {
   margin: 0 0 16px;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
   line-height: 1.45;
   max-width: 320px;
@@ -8339,7 +8339,7 @@ input.navi-typable-date.form-input:focus {
 
 .sales-cart__heading {
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 700;
 }
 
@@ -8351,7 +8351,7 @@ input.navi-typable-date.form-input:focus {
   padding: 20px 12px;
   text-align: center;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-base);
   border: 1px dashed var(--border-light);
   border-radius: var(--radius-sm);
   background: var(--surface-hover);
@@ -8404,12 +8404,12 @@ input.navi-typable-date.form-input:focus {
 
 .sales-cart-row__name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--font-base);
 }
 
 .sales-cart-row__var {
   display: block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
 }
 
@@ -8488,7 +8488,7 @@ input.navi-typable-date.form-input:focus {
 .sales-cart-footer__row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--font-base);
   padding: 3px 0;
 }
 
@@ -8500,12 +8500,12 @@ input.navi-typable-date.form-input:focus {
   margin-top: 6px;
   padding-top: 8px;
   border-top: 1px dashed var(--border-light);
-  font-size: 15px;
+  font-size: var(--font-lg);
 }
 
 .sales-cart-footer__total strong {
   color: var(--v500);
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
 }
 
 .sales-collab-toggle {
@@ -8519,7 +8519,7 @@ input.navi-typable-date.form-input:focus {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   cursor: pointer;
   margin: 0;
@@ -8565,7 +8565,7 @@ input.navi-typable-date.form-input:focus {
 
 .sales-collab-toggle__hint {
   margin: 8px 0 0 46px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -8650,7 +8650,7 @@ input.navi-typable-date.form-input:focus {
 
 .sales-variant-picker__chip-label {
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--font-md);
   color: var(--ink);
 }
 
@@ -8682,7 +8682,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .sales-cart-row__variant-select {
-  font-size: 13px;
+  font-size: var(--font-base);
   padding-top: 6px;
   padding-bottom: 6px;
 }
@@ -8759,7 +8759,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .mensal-month-picker__label {
-  font-size: 17px;
+  font-size: var(--font-2xl);
   font-weight: 700;
   color: var(--v500);
   min-width: 150px;
@@ -8804,7 +8804,7 @@ input.navi-typable-date.form-input:focus {
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -8820,7 +8820,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .mensal-page-tab__badge {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 999px;
@@ -8862,7 +8862,7 @@ input.navi-typable-date.form-input:focus {
   border: none;
   background: none;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -8874,7 +8874,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .mensal-chip {
-  font-size: 11px;
+  font-size: var(--font-xs);
   padding: 6px 12px;
   border-radius: 20px;
   border: 1px solid var(--border-mid);
@@ -8913,7 +8913,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .mensal-summary-card__value {
-  font-size: 24px;
+  font-size: var(--font-4xl);
   font-weight: 700;
   line-height: 1.1;
 }
@@ -8945,13 +8945,13 @@ input.navi-typable-date.form-input:focus {
 }
 
 .mensal-summary-card__label {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   margin-top: 4px;
 }
 
 .mensal-summary-card__sub {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   margin-top: 6px;
 }
@@ -8981,7 +8981,7 @@ input.navi-typable-date.form-input:focus {
 
 .mensal-reception-hint {
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: var(--font-sm);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -8993,7 +8993,7 @@ input.navi-typable-date.form-input:focus {
 
 .mensal-tab-subtitle {
   margin: 0 0 10px;
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
 }
 
@@ -9014,13 +9014,13 @@ input.navi-typable-date.form-input:focus {
 
 .mensal-progress__label {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text);
 }
 
 .mensal-progress__label-sub {
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 400;
   color: var(--text-secondary);
 }
@@ -9037,7 +9037,7 @@ input.navi-typable-date.form-input:focus {
   background: #fcebeb;
   border: 1px solid #f7c1c1;
   color: #a32d2d;
-  font-size: 13px;
+  font-size: var(--font-base);
 }
 
 .mensal-error-banner button {
@@ -9113,7 +9113,7 @@ input.navi-typable-date.form-input:focus {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   padding: 4px 9px;
   border-radius: 20px;
@@ -9169,7 +9169,7 @@ input.navi-typable-date.form-input:focus {
   border: 1px dashed var(--border-mid);
   color: var(--faint);
   font-weight: 400;
-  font-size: 9px;
+  font-size: var(--font-2xs);
   padding: 3px 8px;
 }
 
@@ -9245,7 +9245,7 @@ input.navi-typable-date.form-input:focus {
   background: none;
   font: inherit;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
   cursor: pointer;
   text-transform: uppercase;
@@ -9270,7 +9270,7 @@ input.navi-typable-date.form-input:focus {
   font: inherit;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -9315,18 +9315,18 @@ input.navi-typable-date.form-input:focus {
 
 .mensal-mobile-card__name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
 }
 
 .mensal-mobile-card__meta {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
 }
 
 .mensal-mobile-card__row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--font-base);
   margin-bottom: 10px;
 }
 
@@ -9344,7 +9344,7 @@ input.navi-typable-date.form-input:focus {
 
 .mensal-tab-subtitle {
   margin: -4px 0 12px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
 }
 
@@ -9381,7 +9381,7 @@ input.navi-typable-date.form-input:focus {
 .mensal-mobile-card__name.mensal-cell-name__btn {
   display: block;
   width: 100%;
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 700;
   line-height: 1.25;
 }
@@ -9490,7 +9490,7 @@ input.navi-typable-date.form-input:focus {
 
 .mensal-status-filter__section-label {
   padding: 6px 12px 4px;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -9636,7 +9636,7 @@ input.navi-typable-date.form-input:focus {
   border: none;
   border-radius: 20px;
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   font-family: inherit;
   white-space: nowrap;
@@ -9673,7 +9673,7 @@ input.navi-typable-date.form-input:focus {
   border: 1px dashed var(--border-mid);
   color: var(--faint);
   font-weight: 400;
-  font-size: 10px;
+  font-size: var(--font-2xs);
 }
 
 .grid-note-icon-btn {
@@ -9735,12 +9735,12 @@ input.navi-typable-date.form-input:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
 }
 
 .mensal-mobile-card__platform {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
 }
 
@@ -9758,7 +9758,7 @@ input.navi-typable-date.form-input:focus {
 .mensal-mobile-group-label {
   margin: 12px 0 6px;
   padding-bottom: 6px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -9819,7 +9819,7 @@ input.navi-typable-date.form-input:focus {
   border-top: 0.5px solid var(--border-light);
   background: var(--surface-hover, #f4f4f8);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -9840,7 +9840,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .mensal-mobile-grid__history-chip {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   padding: 4px 8px;
   border-radius: 4px;
   background: var(--surface);
@@ -9993,7 +9993,7 @@ input.navi-typable-date.form-input:focus {
   padding: 12px 14px;
   margin: 12px 0 16px;
   border-radius: 10px;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   color: var(--text);
 }
 
@@ -10062,7 +10062,7 @@ input.navi-typable-date.form-input:focus {
 /* FieldError */
 .navi-field-error {
   margin: 6px 0 0;
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 600;
   color: var(--danger);
   line-height: 1.35;
@@ -10077,7 +10077,7 @@ input.navi-typable-date.form-input:focus {
   z-index: 11000;
   padding: 8px 16px;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--font-md);
   background: var(--warning);
   color: var(--white);
   border-bottom: 1px solid var(--status-warning-border);
@@ -10169,7 +10169,7 @@ input.navi-typable-date.form-input:focus {
 
 .navi-confirm-title {
   margin: 0 0 8px;
-  font-size: 1.1rem;
+  font-size: var(--font-2xl);
   font-weight: 700;
   color: var(--text);
 }
@@ -10205,7 +10205,7 @@ input.navi-typable-date.form-input:focus {
   border: none;
   border-radius: 9px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--font-base);
   min-height: 40px;
 }
 
@@ -10236,14 +10236,14 @@ input.navi-typable-date.form-input:focus {
 
 .navi-error-fallback__title {
   margin: 8px 0 0;
-  font-size: 1.25rem;
+  font-size: var(--font-3xl);
   font-weight: 700;
 }
 
 .navi-error-fallback__sub {
   margin: 0;
   max-width: 360px;
-  font-size: 0.9rem;
+  font-size: var(--font-md);
   color: rgba(255, 255, 255, 0.72);
 }
 
@@ -10315,7 +10315,7 @@ input.navi-typable-date.form-input:focus {
   width: max-content;
   max-width: min(240px, 70vw);
   padding: 8px 10px;
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   font-weight: 600;
   line-height: 1.35;
   color: var(--ink);
@@ -10377,14 +10377,14 @@ input.navi-typable-date.form-input:focus {
 }
 .dashboard-zero-welcome__title {
   margin: 0 0 8px;
-  font-size: 1.35rem;
+  font-size: var(--font-3xl);
   font-weight: 800;
   color: var(--text);
 }
 .dashboard-zero-welcome__text {
   margin: 0 auto 20px;
   max-width: 420px;
-  font-size: 0.92rem;
+  font-size: var(--font-md);
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -10396,7 +10396,7 @@ input.navi-typable-date.form-input:focus {
   align-items: center;
 }
 .dashboard-zero-welcome__link {
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   font-weight: 600;
   color: var(--v500);
   text-decoration: none;
@@ -10431,7 +10431,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .public-enrollment-title {
-  font-size: 1.35rem;
+  font-size: var(--font-3xl);
   margin: 0 0 8px;
 }
 
@@ -10459,7 +10459,7 @@ input.navi-typable-date.form-input:focus {
 .public-enrollment-submit {
   width: 100%;
   min-height: 44px;
-  font-size: 15px;
+  font-size: var(--font-lg);
 }
 
 /* —— Student Profile Header —— */
@@ -10484,7 +10484,7 @@ input.navi-typable-date.form-input:focus {
 }
 
 .student-profile-hd__initials {
-  font-size: 22px;
+  font-size: var(--font-4xl);
   font-weight: 700;
   color: var(--v700);
   letter-spacing: -0.02em;
@@ -10501,7 +10501,7 @@ input.navi-typable-date.form-input:focus {
 
 .student-profile-hd__name {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-2xl);
   font-weight: 800;
   color: var(--text);
   line-height: 1.2;
@@ -10513,7 +10513,7 @@ input.navi-typable-date.form-input:focus {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .student-profile-hd__plan {
@@ -10531,13 +10531,13 @@ input.navi-typable-date.form-input:focus {
 }
 
 .student-profile-hd__contact {
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
 }
 
 .student-profile-hd__turma {
   display: inline-block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 8px;
@@ -10584,14 +10584,14 @@ input.navi-typable-date.form-input:focus {
   background: rgba(91, 63, 191, 0.03);
 }
 .settings-row__label {
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 500;
   color: var(--text);
   flex: 1;
   min-width: 0;
 }
 .settings-row__value {
-  font-size: 14px;
+  font-size: var(--font-md);
   color: var(--text-secondary);
   text-align: right;
 }
@@ -10625,7 +10625,7 @@ input.navi-typable-date.form-input:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: var(--font-3xl);
   font-weight: 700;
   color: var(--v700);
   letter-spacing: -0.02em;
@@ -10636,7 +10636,7 @@ input.navi-typable-date.form-input:focus {
   flex: 1;
 }
 .account-profile-card__name {
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 700;
   color: var(--text);
   margin: 0;
@@ -10645,7 +10645,7 @@ input.navi-typable-date.form-input:focus {
   text-overflow: ellipsis;
 }
 .account-profile-card__email {
-  font-size: 13px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
   margin: 3px 0 0;
   white-space: nowrap;
@@ -10655,7 +10655,7 @@ input.navi-typable-date.form-input:focus {
 
 /* Section label no estilo System Preferences */
 .settings-group-label {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -10682,14 +10682,14 @@ input.navi-typable-date.form-input:focus {
 
 .student-profile-hd__exit {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-muted);
   line-height: 1.45;
 }
 
 .student-profile-hd__freeze {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--warn-text);
   line-height: 1.45;
 }

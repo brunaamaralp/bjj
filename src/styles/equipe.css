@@ -1,4 +1,4 @@
-/* Equipe — página /equipe (tokens globais em core.css) */
+﻿/* Equipe — página /equipe (tokens globais em core.css) */
 
 .equipe-page {
   padding-bottom: var(--space-8, 32px);
@@ -34,7 +34,7 @@
 
 .equipe-field label {
   display: block;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -130,7 +130,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 700;
   color: var(--v700);
   background: color-mix(in srgb, var(--v100) 85%, var(--surface));
@@ -153,12 +153,12 @@
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
   color: var(--ink);
 }
 
 .equipe-owner-card__you {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -179,7 +179,7 @@
   align-items: center;
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   line-height: 1.3;
   white-space: nowrap;
@@ -224,7 +224,7 @@
 }
 
 .equipe-table thead th {
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -287,7 +287,7 @@
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
   min-width: 0;
   line-height: 1.35;
 }
@@ -403,7 +403,7 @@
 
 .equipe-mobile-card__name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
 }
 
 .equipe-mobile-card__email {
@@ -413,7 +413,7 @@
 
 .equipe-mobile-card__meta {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .equipe-mobile-card__badges {
@@ -457,7 +457,7 @@
   justify-content: space-between;
   gap: var(--space-3, 12px);
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-md);
   color: var(--ink);
   user-select: none;
 }
@@ -485,7 +485,7 @@
 
 .equipe-audit-details__subtitle {
   display: block;
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 400;
   color: var(--text-muted);
   margin-top: 2px;
@@ -547,7 +547,7 @@
 }
 
 .equipe-audit-timeline__desc {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   line-height: 1.45;
   color: var(--ink);
@@ -555,7 +555,7 @@
 
 .equipe-audit-timeline__time {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   font-family: var(--ff-mono);
   font-variant-numeric: tabular-nums;
@@ -577,7 +577,7 @@
 }
 
 .equipe-temp-password-box code {
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 600;
   letter-spacing: 0.04em;
   font-family: var(--ff-mono);

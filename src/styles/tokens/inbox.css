@@ -29,13 +29,13 @@
   --inbox-row-highlight-bg: rgba(91, 63, 191, 0.06);
 
   /* Atendimento (Inbox) — escala tipográfica */
-  --inbox-font-meta: 0.6875rem;
-  --inbox-font-caption: 0.75rem;
-  --inbox-font-secondary: 0.8125rem;
-  --inbox-font-list-title-sm: 0.8125rem;
-  --inbox-font-list-title: 0.875rem;
-  --inbox-font-body: 0.9375rem;
-  --inbox-font-thread-title: 1rem;
-  --inbox-font-group-label: 0.75rem;
+  --inbox-font-meta: var(--font-xs);
+  --inbox-font-caption: var(--font-sm);
+  --inbox-font-secondary: var(--font-base);
+  --inbox-font-list-title-sm: var(--font-base);
+  --inbox-font-list-title: var(--font-md);
+  --inbox-font-body: var(--font-lg);
+  --inbox-font-thread-title: var(--font-xl);
+  --inbox-font-group-label: var(--font-sm);
   --inbox-line-body: 1.47;
 }

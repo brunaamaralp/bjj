@@ -1,4 +1,4 @@
-.agent-ia-card {
+﻿.agent-ia-card {
   border-radius: var(--radius-sm, 12px);
   padding: 20px;
   box-shadow: none;
@@ -22,14 +22,14 @@
   border-radius: var(--radius-sm);
   background: rgba(91, 63, 191, 0.08);
   border: 0.5px solid rgba(91, 63, 191, 0.2);
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--ink2, var(--text-secondary));
 }
 
 .agent-ia-limits-note {
   margin: 0 0 12px;
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
   line-height: 1.45;
 }
@@ -44,7 +44,7 @@
 
 .agent-chat-sandbox__banner {
   padding: 8px 12px;
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   font-weight: 700;
   color: #92400e;
   background: rgba(251, 191, 36, 0.25);
@@ -95,7 +95,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-hover);
   border: 0.5px solid var(--border-light);
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   white-space: pre-wrap;
   max-height: 160px;
   overflow: auto;
@@ -119,7 +119,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -140,7 +140,7 @@
   height: 22px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   font-weight: 700;
   background: var(--surface);
 }
@@ -159,7 +159,7 @@
 .agent-ia-setup-panel__meta,
 .agent-ia-setup-panel__status {
   margin: 12px 0 0;
-  font-size: 0.8rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -175,7 +175,7 @@
   border-radius: var(--radius-sm);
   background: rgba(91, 63, 191, 0.06);
   border: 0.5px solid rgba(91, 63, 191, 0.18);
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -191,7 +191,7 @@
 .agent-ia-maintenance__summary {
   cursor: pointer;
   padding: 12px 0;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-secondary);
   list-style: none;
@@ -210,7 +210,7 @@
 
 .agent-ia-maintenance__group-title {
   margin: 0 0 8px;
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -257,7 +257,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-hover);
   border: 0.5px solid var(--border-light);
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -280,14 +280,14 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   font-weight: 600;
   color: #15803d;
 }
 
 .agent-ia-connected-summary__meta {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -303,7 +303,7 @@
 
 .agent-ia-activate-cta__hint {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -316,14 +316,14 @@
 .agent-ia-wa-steps-compact {
   margin: 0;
   padding-left: 18px;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.6;
   color: var(--text-secondary);
 }
 
 .agent-ia-setup-panel__subtitle {
   margin: 0 0 10px;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   font-weight: 600;
   line-height: 1.4;
   color: var(--text);
@@ -378,7 +378,7 @@
 
 .agent-ia-sheet-heading {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--font-xl);
   font-weight: 700;
   color: var(--text);
   line-height: 1.3;
@@ -386,7 +386,7 @@
 
 .agent-ia-sheet-subtitle {
   margin: 6px 0 0;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -432,7 +432,7 @@
 
 .agent-ia-sheet-inline-hint p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -459,14 +459,14 @@
 
 .agent-ia-personalization-card__title {
   margin: 0 0 6px;
-  font-size: 0.88rem;
+  font-size: var(--font-md);
   font-weight: 700;
   color: var(--text);
 }
 
 .agent-ia-personalization-card__hint {
   margin: 0 0 10px;
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   line-height: 1.45;
   color: var(--text-secondary);
 }

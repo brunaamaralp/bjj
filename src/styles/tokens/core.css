@@ -1,4 +1,17 @@
 :root {
+  /* Tipografia — escala rem (base 16px) */
+  --font-2xs:  0.625rem;   /* 10px */
+  --font-xs:   0.6875rem;  /* 11px */
+  --font-sm:   0.75rem;    /* 12px */
+  --font-base: 0.8125rem;  /* 13px */
+  --font-md:   0.875rem;   /* 14px */
+  --font-lg:   0.9375rem;  /* 15px */
+  --font-xl:   1rem;       /* 16px */
+  --font-2xl:  1.125rem;   /* 18px */
+  --font-3xl:  1.25rem;    /* 20px */
+  --font-4xl:  1.5rem;     /* 24px */
+  --font-5xl:  2rem;       /* 32px */
+
   /* Espaçamento global */
   --space-0: 0;
   --space-1: 4px;

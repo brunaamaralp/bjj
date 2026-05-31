@@ -13,13 +13,13 @@
   --menu-item-radius: 8px;
   --menu-item-padding-y: 9px;
   --menu-item-padding-x: 12px;
-  --menu-item-font-size: 13px;
+  --menu-item-font-size: var(--font-base);
   --menu-item-font-weight: 500;
   --menu-item-hover-bg: var(--v50);
   --menu-item-active-bg: var(--v50);
   --menu-item-active-color: var(--v700);
   --menu-item-danger-color: var(--danger);
   --menu-item-danger-hover-bg: var(--danger-light);
-  --menu-header-font-size: 10px;
+  --menu-header-font-size: var(--font-2xs);
   --menu-divider-color: var(--border-light);
 }

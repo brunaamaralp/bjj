@@ -1,4 +1,4 @@
-/* Funil (/pipeline) — layout, kanban, cards e toolbar */
+﻿/* Funil (/pipeline) — layout, kanban, cards e toolbar */
 
 .main-content.pipeline-active {
   overflow-x: hidden !important;
@@ -32,7 +32,7 @@
 }
 
 .pipeline-search-status {
-  font-size: 0.68rem;
+  font-size: var(--font-xs);
   color: var(--accent);
   font-weight: 700;
   white-space: nowrap;
@@ -60,7 +60,7 @@
 }
 
 .pipeline-filters-panel__label {
-  font-size: 0.68rem;
+  font-size: var(--font-xs);
   font-weight: 800;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -70,7 +70,7 @@
 .pipeline-filters-panel__select {
   width: 100%;
   min-height: 36px;
-  font-size: 0.82rem;
+  font-size: var(--font-base);
 }
 
 .pipeline-filters-panel__date-row {
@@ -86,7 +86,7 @@
 }
 
 .pipeline-filters-panel__date-sep {
-  font-size: 0.68rem;
+  font-size: var(--font-xs);
   color: var(--text-muted);
 }
 
@@ -96,7 +96,7 @@
   background: none;
   padding: 0;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   font-weight: 700;
   color: var(--accent);
   cursor: pointer;
@@ -118,7 +118,7 @@
 
 .pipeline-kanban-loading-hint {
   padding: 8px 16px 0;
-  font-size: 0.8rem;
+  font-size: var(--font-base);
   font-weight: 700;
   color: var(--text-secondary);
 }
@@ -161,7 +161,7 @@
   background: var(--surface-hover);
   border-radius: 8px;
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   color: var(--v500);
   cursor: pointer;
@@ -194,7 +194,7 @@
 }
 
 .pipeline-mobile-schedule-badge {
-  font-size: 10px;
+  font-size: var(--font-2xs);
   background: var(--warn-bg);
   color: var(--warn-text);
   padding: 2px 6px;
@@ -240,7 +240,7 @@
 }
 
 .pipeline-mobile-stage-name {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   color: var(--text);
   overflow: hidden;
@@ -257,7 +257,7 @@
 
 .pipeline-mobile-stage-count {
   background: var(--surface-hover);
-  font-size: 11px;
+  font-size: var(--font-xs);
   padding: 2px 8px;
   border-radius: 20px;
   font-weight: 700;
@@ -283,7 +283,7 @@
 }
 
 .pipeline-mobile-lead-name {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 500;
   color: var(--text);
   overflow: hidden;
@@ -292,7 +292,7 @@
 }
 
 .pipeline-mobile-lead-phone {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -316,7 +316,7 @@
   flex: 1 1 140px;
   min-width: 0;
   min-height: 36px;
-  font-size: 13px;
+  font-size: var(--font-base);
 }
 
 @media (max-width: 1023px) {
@@ -453,7 +453,7 @@
 }
 
 .col-header .pipeline-col-heading {
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   font-weight: 600;
   line-height: 1.2;
 }
@@ -468,7 +468,7 @@
   flex-shrink: 0;
   padding: 2px 10px;
   border-radius: var(--radius-full);
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 800;
 }
 
@@ -519,7 +519,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
   padding: 2px 6px;
   border-radius: 4px;
@@ -544,13 +544,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.84rem;
+  font-size: var(--font-base);
   font-weight: 700;
   color: var(--text);
 }
 
 .type-pill {
-  font-size: 0.62rem;
+  font-size: var(--font-2xs);
   background: var(--border-light);
   padding: 2px 6px;
   border-radius: var(--radius-full);
@@ -567,12 +567,12 @@
 }
 
 .lead-meta {
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
 }
 
 .lead-inbox-link {
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   font-weight: 700;
   color: var(--accent);
   text-decoration: none;
@@ -593,7 +593,7 @@
   grid-template-columns: 1fr 90px;
   gap: 8px;
   margin-bottom: 6px;
-  font-size: 0.72rem;
+  font-size: var(--font-xs);
   font-weight: 800;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -718,7 +718,7 @@
 
 .action-menu-panel .navi-menu__item {
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: var(--font-base);
   font-weight: 600;
   border-radius: 0;
 }
@@ -793,7 +793,7 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   font-weight: 600;
   cursor: pointer;
   text-align: center;
