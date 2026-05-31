@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bold, ChevronDown, ChevronUp, Italic, Loader2, Paperclip, Smile, Sparkles, Strikethrough, X } from 'lucide-react';
+import { Bold, ChevronDown, ChevronUp, Italic, Loader2, Paperclip, Smile, Sparkles, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import { DateInputField } from '../DateInput';
 import { applyWhatsappTemplatePlaceholders } from '../../../lib/whatsappTemplateDefaults.js';
@@ -498,25 +498,7 @@ export default function InboxComposer(props) {
                 <Italic size={13} strokeWidth={2.5} aria-hidden />
                 <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Itálico</span>
               </button>
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{
-                  padding: '4px 8px',
-                  height: '28px',
-                  minHeight: '28px',
-                  fontSize: 'var(--inbox-font-secondary)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  borderRadius: '6px'
-                }}
-                onClick={() => applyWrapToDraft('~')}
-                title="Tachado (~)"
-              >
-                <Strikethrough size={13} strokeWidth={2.5} aria-hidden />
-                <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Tachado</span>
-              </button>
+
               
               <div style={{ position: 'relative' }}>
                 <button
