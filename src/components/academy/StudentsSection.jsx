@@ -27,7 +27,7 @@ import AcademyTurmasSection from './AcademyTurmasSection.jsx';
 import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
 import StudentsSettingsHub from './settings/StudentsSettingsHub.jsx';
 import FinanceSettingsDetailHeader from '../finance/settings/FinanceSettingsDetailHeader.jsx';
-import '../../finance/finance.css';
+import '../finance/finance.css';
 
 const SECTION_META = Object.fromEntries(STUDENT_SETTINGS_ITEMS.map((item) => [item.id, item]));
 
