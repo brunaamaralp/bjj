@@ -4,6 +4,8 @@ import {
   isBundleAnchorPayment,
 } from './paymentCategories.js';
 
+export { enumerateCoverageMonths } from './paymentCategories.js';
+
 function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
 }

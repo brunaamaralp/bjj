@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2, Paperclip, Sparkles, X } from 'lucide-react';
+import { Bold, ChevronDown, ChevronUp, Italic, Loader2, Paperclip, Smile, Sparkles, Strikethrough, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import { DateInputField } from '../DateInput';
 import { applyWhatsappTemplatePlaceholders } from '../../../lib/whatsappTemplateDefaults.js';
@@ -448,6 +448,145 @@ export default function InboxComposer(props) {
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
         <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+          {selectedPhone && (
+            <div
+              className="inbox-composer-format-toolbar"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '6px',
+                padding: '2px 4px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{
+                  padding: '4px 8px',
+                  height: '28px',
+                  minHeight: '28px',
+                  fontSize: 'var(--inbox-font-secondary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  borderRadius: '6px'
+                }}
+                onClick={() => applyWrapToDraft('*')}
+                title="Negrito (*)"
+              >
+                <Bold size={13} strokeWidth={2.5} aria-hidden />
+                <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Negrito</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{
+                  padding: '4px 8px',
+                  height: '28px',
+                  minHeight: '28px',
+                  fontSize: 'var(--inbox-font-secondary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  borderRadius: '6px'
+                }}
+                onClick={() => applyWrapToDraft('_')}
+                title="Itálico (_)"
+              >
+                <Italic size={13} strokeWidth={2.5} aria-hidden />
+                <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Itálico</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{
+                  padding: '4px 8px',
+                  height: '28px',
+                  minHeight: '28px',
+                  fontSize: 'var(--inbox-font-secondary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  borderRadius: '6px'
+                }}
+                onClick={() => applyWrapToDraft('~')}
+                title="Tachado (~)"
+              >
+                <Strikethrough size={13} strokeWidth={2.5} aria-hidden />
+                <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Tachado</span>
+              </button>
+              
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className={`btn ${emojiOpen ? 'btn-secondary' : 'btn-outline'}`}
+                  style={{
+                    padding: '4px 8px',
+                    height: '28px',
+                    minHeight: '28px',
+                    fontSize: 'var(--inbox-font-secondary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    borderRadius: '6px'
+                  }}
+                  onClick={() => {
+                    setEmojiOpen((v) => !v);
+                    setTemplatesOpen(false);
+                  }}
+                  aria-expanded={emojiOpen}
+                  title="Emoji"
+                >
+                  <Smile size={13} strokeWidth={2.5} aria-hidden />
+                  <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Emoji</span>
+                </button>
+                {emojiOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '34px',
+                      left: 0,
+                      width: '260px',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '12px',
+                      boxShadow: 'var(--shadow)',
+                      padding: '10px',
+                      zIndex: 100
+                    }}
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '6px' }}>
+                      {emojis.map((em) => (
+                        <button
+                          key={em}
+                          type="button"
+                          className="inbox-composer-emoji-grid-btn"
+                          onClick={() => {
+                            insertAtCursor(em);
+                            setEmojiOpen(false);
+                          }}
+                          style={{
+                            padding: 0,
+                            borderRadius: '8px',
+                            background: 'transparent',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: '24px'
+                          }}
+                        >
+                          <span style={{ fontSize: '1rem', lineHeight: 1 }}>{em}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {slashOpen && selectedPhone && (
             <div ref={slashPopupRef} className="inbox-slash-templates" style={{ maxHeight: inboxSlashMaxHeight }} role="listbox" aria-label="Templates rápidos">
               {slashFilteredTemplates.length === 0 ? (
