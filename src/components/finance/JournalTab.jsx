@@ -147,13 +147,13 @@ export default function JournalTab({
   const hasActiveFilters = Boolean(search || fromDate || toDate || direction !== 'all');
 
   return (
-    <section className="mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+    <section className="mt-4 animate-in">
       <div className="finance-journal-head">
         <div className="finance-journal-head-icon" aria-hidden>
-          <Receipt size={20} strokeWidth={1.75} />
+          <Receipt size={22} strokeWidth={1.75} />
         </div>
-        <div style={{ minWidth: 0 }}>
-          <h3 className="navi-section-heading mb-1" style={{ marginBottom: 6 }}>{sectionTitle}</h3>
+        <div className="finance-journal-head-content">
+          <h3 className="navi-section-heading finance-journal-head-title">{sectionTitle}</h3>
           <p className="finance-journal-lead">
             Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
           </p>
@@ -277,11 +277,11 @@ export default function JournalTab({
             </span>
           </div>
           <div className="finance-journal-actions">
-            <button type="button" className="finance-journal-btn-ghost" onClick={addLine}>
-              <PlusCircle size={18} aria-hidden />
+            <button type="button" className="btn-outline navi-btn--toolbar finance-journal-add-line-btn" onClick={addLine}>
+              <PlusCircle size={16} aria-hidden />
               Adicionar linha
             </button>
-            <button type="button" className="finance-journal-btn-primary" disabled={!balanced || !date} onClick={submit}>
+            <button type="button" className="btn-primary navi-btn--toolbar" disabled={!balanced || !date} onClick={submit}>
               Lançar
             </button>
           </div>
@@ -290,9 +290,9 @@ export default function JournalTab({
 
       <div className="finance-journal-history">
         <p className="finance-journal-history-title">Histórico</p>
-        <div className="finance-tx-filters" style={{ marginBottom: 10 }}>
+        <div className="finance-tx-filters">
           <input
-            className="form-input"
+            className="form-input finance-tx-filter-group--search"
             type="search"
             placeholder="Buscar por conta ou descrição"
             value={search}
@@ -321,20 +321,20 @@ export default function JournalTab({
           ) : null}
         </div>
         <div className="finance-table-wrap">
-          <table className="finance-table">
+          <table className="finance-table finance-journal-table">
             <thead>
               <tr>
-                <th style={{ width: 112 }}>Data</th>
+                <th className="finance-journal-col-date">Data</th>
                 <th>Histórico</th>
-                <th className="finance-num" style={{ width: 120 }}>Débitos</th>
-                <th className="finance-num" style={{ width: 120 }}>Créditos</th>
-                <th className="finance-num" style={{ width: 72 }} aria-label="Excluir" />
+                <th className="finance-num finance-journal-col-amount">Débitos</th>
+                <th className="finance-num finance-journal-col-amount">Créditos</th>
+                <th className="finance-num finance-journal-col-action" aria-label="Excluir" />
               </tr>
             </thead>
             <tbody>
               {filteredJournal.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: 16, verticalAlign: 'middle' }}>
+                  <td colSpan={5} className="finance-journal-empty-cell">
                     <EmptyState
                       variant="table-cell"
                       tone="solid"
@@ -368,7 +368,7 @@ export default function JournalTab({
                           {formatMemoForDisplay(e.memo)}
                         </div>
                         {detail ? (
-                          <div className="text-small" style={{ marginTop: 4, color: 'var(--text-secondary)', lineHeight: 1.35, whiteSpace: 'normal' }}>
+                          <div className="finance-journal-detail">
                             {detail}
                           </div>
                         ) : null}
