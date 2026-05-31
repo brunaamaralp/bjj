@@ -1,4 +1,5 @@
-import { parseStudentExitReasons, parseStudentFreezeReasons } from './studentExitConfig.js';
+import { parseStudentExitReasons } from './studentExitConfig.js';
+import { parseStudentFreezeReasons } from './studentFreezeConfig.js';
 import { readPublicEnrollment } from './publicEnrollmentSettings.js';
 import { readAcademyTurmas } from './academyTurmas.js';
 
