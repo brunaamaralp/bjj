@@ -30,6 +30,7 @@ import {
   controlidReleaseHandler,
   controlidMonitorHandler,
   controlidTestImageHandler,
+  controlidSyncAllHandler,
 } from '../lib/server/controlidHandlers.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -260,6 +261,7 @@ export default async function handler(req, res) {
   if (req.query.route === 'controlid_release') return controlidReleaseHandler(req, res);
   if (req.query.route === 'controlid_monitor') return controlidMonitorHandler(req, res);
   if (req.query.route === 'controlid_test_image') return controlidTestImageHandler(req, res);
+  if (req.query.route === 'controlid_sync_all') return controlidSyncAllHandler(req, res);
 
   // Rota de presença Control iD (rewrite de /api/control-id/attendance)
   if (req.query.route === 'control-id-attendance') {

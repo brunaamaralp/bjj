@@ -27,6 +27,7 @@ import {
   BookOpen,
   ChevronDown,
   ShoppingCart,
+  DoorOpen,
 } from 'lucide-react';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 import {
@@ -68,6 +69,8 @@ const ICONS = {
   estoque: Boxes,
   relatorios: BarChart3,
   reports: BarChart3,
+  catraca: DoorOpen,
+  presenca: DoorOpen,
 };
 
 function SidebarSection({ title, children, collapsed, footer = false, showDivider = false }) {

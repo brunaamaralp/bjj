@@ -1,305 +1,388 @@
-import React, { useState, useEffect } from 'react';
-import { useControlIdStore } from '../store/useControlIdStore';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, Clock, DoorOpen, ExternalLink, Filter, RefreshCw, Users } from 'lucide-react';
+import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { Wifi, WifiOff, RefreshCw, Settings, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
+import { fetchControlIdAttendance, syncAllControlId, releaseControlIdGate } from '../lib/controlidApi';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
-import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 
-function formatDate(iso) {
+const DATE_RANGES = [
+  { id: 'today', label: 'Hoje' },
+  { id: '7d', label: '7 dias' },
+  { id: '30d', label: '30 dias' },
+  { id: 'all', label: 'Todos' },
+];
+
+function rangeToIso(rangeId) {
+  const now = new Date();
+  if (rangeId === 'today') return { start: startOfDay(now).toISOString(), end: null };
+  if (rangeId === '7d') return { start: subDays(now, 7).toISOString(), end: null };
+  if (rangeId === '30d') return { start: subDays(now, 30).toISOString(), end: null };
+  return { start: null, end: null };
+}
+
+function formatDateTime(iso) {
   try {
-    return format(parseISO(iso), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    return format(parseISO(iso), "dd/MM 'às' HH:mm", { locale: ptBR });
   } catch {
-    return iso || '-';
+    return iso || '—';
   }
+}
+
+function formatTime(iso) {
+  try {
+    return format(parseISO(iso), 'HH:mm', { locale: ptBR });
+  } catch {
+    return '—';
+  }
+}
+
+function formatDateLabel(iso) {
+  try {
+    return format(parseISO(iso), "EEEE, dd 'de' MMMM", { locale: ptBR });
+  } catch {
+    return '';
+  }
+}
+
+function avatarInitial(name) {
+  return String(name || '?')[0].toUpperCase();
+}
+
+function groupByDate(records) {
+  const groups = [];
+  let currentDate = null;
+  for (const rec of records) {
+    const dateKey = String(rec.checked_in_at || '').slice(0, 10);
+    if (dateKey !== currentDate) {
+      currentDate = dateKey;
+      groups.push({ date: dateKey, label: formatDateLabel(rec.checked_in_at), records: [] });
+    }
+    groups[groups.length - 1].records.push(rec);
+  }
+  return groups;
 }
 
 export default function Attendance() {
   const { academyId } = useLeadStore();
   const addToast = useUiStore((s) => s.addToast);
   const terms = useTerms();
+  const controlId = useAcademyControlId(academyId);
 
-  const {
-    deviceIp, deviceUsername, devicePassword,
-    connected, connecting, syncing, lastSync, error, attendance,
-    setConfig, testConnection, syncAttendance, fetchAttendance,
-  } = useControlIdStore();
-
-  const [showSettings, setShowSettings] = useState(!deviceIp);
-  const [form, setForm] = useState({ ip: deviceIp, username: deviceUsername, password: devicePassword });
+  const [records, setRecords] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [attendanceError, setAttendanceError] = useState(null);
+  const [range, setRange] = useState('today');
+  const [syncing, setSyncing] = useState(false);
+  const [releasing, setReleasing] = useState(false);
+  const hasFetched = useRef(false);
+
+  const load = useCallback(async (rangeId = range) => {
+    if (!academyId) return;
+    setLoading(true);
+    try {
+      const { start, end } = rangeToIso(rangeId);
+      const data = await fetchControlIdAttendance(academyId, { start, end, limit: 200 });
+      setRecords(data.records || []);
+      setTotal(data.total ?? data.records?.length ?? 0);
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Erro ao carregar presenças' });
+    } finally {
+      setLoading(false);
+    }
+  }, [academyId, range, addToast]);
 
   useEffect(() => {
-    if (academyId && deviceIp) {
-      setLoading(true);
-      setAttendanceError(null);
-      fetchAttendance(academyId)
-        .catch((err) => {
-          console.error('Erro ao carregar presença:', err);
-          setAttendanceError(
-            'Não foi possível carregar os registros de presença. Tente recarregar a página.'
-          );
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [academyId, deviceIp]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!academyId || hasFetched.current) return;
+    hasFetched.current = true;
+    void load('today');
+  }, [academyId, load]);
 
-  async function handleSaveConfig(e) {
-    e.preventDefault();
-    if (!form.ip.trim()) return;
-    setConfig(form.ip.trim(), form.username.trim() || 'admin', form.password || 'admin');
-    setShowSettings(false);
-  }
+  const changeRange = (r) => {
+    setRange(r);
+    void load(r);
+  };
 
-  async function handleConnect() {
-    const ok = await testConnection();
-    if (ok) {
-      addToast({ type: 'success', message: 'Equipamento conectado com sucesso' });
-    } else {
-      addToast({ type: 'error', message: error || 'Falha ao conectar com o equipamento' });
-    }
-  }
-
-  async function handleSync() {
+  const handleSyncAll = async () => {
     if (!academyId) return;
+    setSyncing(true);
     try {
-      const result = await syncAttendance(academyId);
-      addToast({
-        type: 'success',
-        message: result.synced > 0
-          ? `${result.synced} registro(s) de ${terms.attendance.toLowerCase()} importado(s)`
-          : 'Nenhum registro novo encontrado',
-      });
-      await fetchAttendance(academyId);
-    } catch (err) {
-      addToast({ type: 'error', message: err.message || 'Erro ao sincronizar' });
+      const data = await syncAllControlId(academyId);
+      if (!data.sucesso) throw new Error(data.erro || 'Erro ao sincronizar');
+      const msg = data.synced > 0
+        ? `${data.synced} aluno(s) sincronizado(s)${data.failed > 0 ? `, ${data.failed} com erro` : ''}.`
+        : data.failed > 0
+        ? `${data.failed} erro(s) de sincronização.`
+        : 'Nenhum aluno precisava de sincronização.';
+      addToast({ type: data.failed > 0 ? 'warning' : 'success', message: msg });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Falha ao sincronizar alunos' });
+    } finally {
+      setSyncing(false);
     }
-  }
+  };
 
-  const statusColor = connected ? 'text-green-600' : 'text-gray-400';
-  const StatusIcon = connected ? Wifi : WifiOff;
+  const handleRelease = async () => {
+    if (!academyId) return;
+    setReleasing(true);
+    try {
+      const data = await releaseControlIdGate(academyId);
+      if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar');
+      addToast({ type: 'success', message: 'Catraca liberada.' });
+    } catch (e) {
+      addToast({ type: 'error', message: e?.message || 'Falha ao liberar catraca' });
+    } finally {
+      setReleasing(false);
+    }
+  };
+
+  const groups = groupByDate(records);
+  const isConfigured = controlId.configured && controlId.enabled;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6 attendance-page">
+    <div className="page-container animate-in">
       {/* Header */}
-      <div className="attendance-toolbar">
-        <div className="attendance-toolbar__title">
-          <h1 className="text-2xl font-bold text-gray-900">{terms.attendance}</h1>
-          <p className="text-sm text-gray-500 mt-1">Registros importados do equipamento Control iD</p>
+      <div className="page-header" style={{ marginBottom: 20 }}>
+        <div>
+          <h1 className="page-title">{terms.attendance}</h1>
+          <p className="text-small text-muted" style={{ marginTop: 2 }}>
+            Registros da catraca Control iD
+          </p>
         </div>
-        <div className="attendance-toolbar__actions">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {isConfigured && (
+            <>
+              <Link to="/recepcao" className="btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                <DoorOpen size={14} />
+                Modo recepção
+                <ExternalLink size={12} />
+              </Link>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => void handleRelease()}
+                disabled={releasing}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+              >
+                <DoorOpen size={14} />
+                {releasing ? 'Liberando…' : 'Liberar catraca'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => void handleSyncAll()}
+                disabled={syncing}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+              >
+                <Users size={14} className={syncing ? 'animate-spin' : ''} />
+                {syncing ? 'Sincronizando…' : 'Sincronizar todos'}
+              </button>
+            </>
+          )}
           <button
             type="button"
-            onClick={() => setShowSettings(true)}
-            className="attendance-toolbar__btn p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
-            title="Configurações do equipamento"
+            className="btn-secondary"
+            onClick={() => void load()}
+            disabled={loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
           >
-            <Settings size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={handleConnect}
-            disabled={!deviceIp || connecting}
-            className="attendance-toolbar__btn flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700 disabled:opacity-50"
-          >
-            <StatusIcon size={16} className={statusColor} />
-            {connecting ? 'Conectando...' : connected ? 'Conectado' : 'Testar conexão'}
-          </button>
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={!connected || syncing || !academyId}
-            className="attendance-toolbar__btn flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Carregando…' : 'Atualizar'}
           </button>
         </div>
       </div>
 
-      {/* Device info bar */}
-      {deviceIp && (
-        <div className="attendance-device-bar flex flex-wrap items-center gap-4 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-600">
-          <span>Equipamento: <strong className="text-gray-900">{deviceIp}</strong></span>
-          {lastSync && (
-            <span>Última sync: <strong className="text-gray-900">{formatDate(lastSync)}</strong></span>
-          )}
-          {error && (
-            <span className="flex items-center gap-1 text-red-600">
-              <AlertCircle size={14} /> {error}
-            </span>
-          )}
+      {/* Status bar */}
+      {isConfigured ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 14px',
+            borderRadius: 8,
+            background: 'var(--success-light)',
+            border: '1px solid var(--success)',
+            marginBottom: 16,
+            fontSize: 13,
+            color: 'var(--success)',
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+          Catraca configurada — {controlId.device_ip || controlId.ip}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 14px',
+            borderRadius: 8,
+            background: 'var(--warning-light)',
+            border: '1px solid var(--warning)',
+            marginBottom: 16,
+            fontSize: 13,
+            color: 'var(--warning)',
+          }}
+        >
+          <DoorOpen size={14} />
+          Catraca não configurada. Configure em{' '}
+          <Link to="/empresa" style={{ color: 'var(--warning)', fontWeight: 600, textDecoration: 'underline' }}>
+            Configurações da academia
+          </Link>
+          .
         </div>
       )}
 
-      {/* Attendance table */}
-      {attendanceError ? (
-        <ErrorBanner
-          message={attendanceError}
-          onRetry={() => {
-            if (!academyId) return;
-            setLoading(true);
-            setAttendanceError(null);
-            fetchAttendance(academyId)
-              .catch((err) => {
-                console.error('Erro ao carregar presença:', err);
-                setAttendanceError(
-                  'Não foi possível carregar os registros de presença. Tente recarregar a página.'
-                );
-              })
-              .finally(() => setLoading(false));
-          }}
-        />
-      ) : loading ? (
-        <PageSkeleton variant="table" rows={8} columns={6} />
-      ) : attendance.length === 0 ? (
+      {/* Filtro por período */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Filter size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+        {DATE_RANGES.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => changeRange(r.id)}
+            style={{
+              padding: '4px 12px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              border: `1px solid ${range === r.id ? 'var(--purple)' : 'var(--border)'}`,
+              background: range === r.id ? 'var(--purple-light)' : 'transparent',
+              color: range === r.id ? 'var(--purple)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            {r.label}
+          </button>
+        ))}
+        {records.length > 0 && (
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+            {records.length} registro{records.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <PageSkeleton variant="table" rows={8} columns={4} />
+      ) : records.length === 0 ? (
         <EmptyState
           variant="default"
           tone="dashed"
           icon={CheckCircle2}
-          title={
-            deviceIp
-              ? `Nenhum registro de ${terms.attendance.toLowerCase()}`
-              : 'Configure o IP do equipamento'
-          }
+          title={isConfigured ? 'Nenhum registro neste período' : 'Catraca não configurada'}
           description={
-            deviceIp
-              ? 'Clique em "Sincronizar agora" para importar.'
-              : 'Informe o IP do equipamento para começar.'
+            isConfigured
+              ? 'Os registros aparecem aqui automaticamente quando alunos passam pela catraca.'
+              : 'Configure a integração Control iD nas configurações da academia.'
           }
           role="status"
-          className="attendance-page-empty"
         />
       ) : (
-        <div className="border border-gray-200 rounded-xl attendance-table-panel">
-          <div className="attendance-table-wrap">
-            <table className="w-full text-sm attendance-table">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">{terms.student}</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Data / Horário</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Portal</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Evento</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {attendance.map((record) => (
-                  <tr key={record.$id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
-                          {(record.student_name || '?')[0].toUpperCase()}
-                        </div>
-                        <span className="font-medium text-gray-900">{record.student_name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      <div className="flex items-center gap-1">
-                        <Clock size={13} className="text-gray-400 shrink-0" />
-                        {formatDate(record.checked_in_at)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{record.portal_id || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
-                        {record.event_type === 3 ? 'Acesso liberado' : `Evento ${record.event_type ?? '-'}`}
-                      </span>
-                    </td>
-                  </tr>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {groups.map((group) => (
+            <div key={group.date}>
+              <h3
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--text-muted)',
+                  marginBottom: 8,
+                  paddingBottom: 6,
+                  borderBottom: '1px solid var(--border-light)',
+                }}
+              >
+                {group.label || group.date}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {group.records.map((rec) => (
+                  <AttendanceRow key={rec.$id} rec={rec} />
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="attendance-cards" aria-label={`Registros de ${terms.attendance.toLowerCase()}`}>
-            {attendance.map((record) => (
-              <div key={`card-${record.$id}`} className="attendance-card">
-                <div className="attendance-card__head">
-                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shrink-0">
-                    {(record.student_name || '?')[0].toUpperCase()}
-                  </div>
-                  <span className="attendance-card__name font-medium text-gray-900">{record.student_name}</span>
-                </div>
-                <div className="attendance-card__row text-gray-700 text-sm">
-                  <Clock size={14} className="text-gray-400 shrink-0" aria-hidden />
-                  <span>{formatDate(record.checked_in_at)}</span>
-                </div>
-                <div className="attendance-card__row text-sm text-gray-500">
-                  <span className="font-medium text-gray-600">Portal</span>
-                  <span>{record.portal_id || '—'}</span>
-                </div>
-                <div className="attendance-card__footer">
-                  <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
-                    {record.event_type === 3 ? 'Acesso liberado' : `Evento ${record.event_type ?? '-'}`}
-                  </span>
-                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Settings modal */}
-      {showSettings && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={(e) => e.target === e.currentTarget && setShowSettings(false)}
-        >
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">Configuração do Equipamento</h2>
-            <form onSubmit={handleSaveConfig} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP do equipamento</label>
-                <input
-                  type="text"
-                  placeholder="192.168.0.100"
-                  value={form.ip}
-                  onChange={(e) => setForm(f => ({ ...f, ip: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
-                <input
-                  type="text"
-                  value={form.username}
-                  onChange={(e) => setForm(f => ({ ...f, username: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(false)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
-                >
-                  Salvar
-                </button>
-              </div>
-            </form>
-          </div>
+function AttendanceRow({ rec }) {
+  const name = rec.student_name || '—';
+  const initial = avatarInitial(name);
+  const source = rec.source === 'manual' ? 'Manual' : 'Catraca';
+  const sourceColor = rec.source === 'manual' ? 'var(--text-muted)' : 'var(--success)';
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '8px 10px',
+        borderRadius: 8,
+        transition: 'background 0.1s',
+        cursor: 'default',
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+    >
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: '50%',
+          background: 'var(--purple-light)',
+          color: 'var(--purple)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 700,
+          fontSize: 14,
+          flexShrink: 0,
+        }}
+      >
+        {initial}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {name}
         </div>
-      )}
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+          {rec.student_id ? (
+            <Link to={`/student/${rec.student_id}`} style={{ color: 'inherit', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+              ver perfil →
+            </Link>
+          ) : null}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text-secondary)', flexShrink: 0 }}>
+        <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+        {formatDateTime(rec.checked_in_at)}
+      </div>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '2px 8px',
+          borderRadius: 999,
+          background: rec.source === 'manual' ? 'var(--surface-hover)' : 'var(--success-light)',
+          color: sourceColor,
+          flexShrink: 0,
+        }}
+      >
+        {source}
+      </span>
     </div>
   );
 }

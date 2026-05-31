@@ -11,6 +11,8 @@ const ROUTE_PATH = {
   controlid_release: 'release',
   controlid_monitor: 'monitor',
   controlid_test_image: 'test-image',
+  controlid_attendance: 'attendance',
+  controlid_sync_all: 'sync-all',
 };
 
 function routeUrl(route) {
@@ -90,4 +92,41 @@ export function syncControlIdStudentBackground(academyId, leadId, { photoUrl } =
   void syncControlIdStudent(academyId, { leadId, photoUrl }).catch((e) => {
     console.warn('[controlid] sync background:', e?.message || e);
   });
+}
+
+/** Sincroniza todos os alunos ativos com foto. */
+export function syncAllControlId(academyId) {
+  return controlIdFetch('controlid_sync_all', { academyId, body: {} });
+}
+
+/**
+ * Busca registros de presença da academia.
+ * @param {string} academyId
+ * @param {{ since?: string, start?: string, end?: string, limit?: number, studentId?: string }} opts
+ */
+export async function fetchControlIdAttendance(academyId, { since, start, end, limit = 50, studentId } = {}) {
+  const jwt = await createSessionJwt();
+  const params = new URLSearchParams();
+  if (since) params.set('since', since);
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  if (limit) params.set('limit', String(limit));
+  if (studentId) params.set('student_id', studentId);
+
+  // server-side handler usa `start`, não `since` — normalizar aqui
+  if (since && !params.has('start')) { params.set('start', since); params.delete('since'); }
+
+  const base = LOCAL_BASE ? `${LOCAL_BASE}/controlid/attendance` : '/api/control-id/attendance';
+  const url = params.toString() ? `${base}?${params}` : base;
+
+  const res = await authedFetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': academyId,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.sucesso === false) throw new Error(data?.erro || `HTTP ${res.status}`);
+  return data;
 }

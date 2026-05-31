@@ -62,6 +62,8 @@ const Sales = lazyWithRetry(() => import('./pages/Sales'));
 const Loja = lazyWithRetry(() => import('./pages/Loja'));
 const Equipe = lazyWithRetry(() => import('./pages/Equipe'));
 const Integracoes = lazyWithRetry(() => import('./pages/Integracoes'));
+const Attendance = lazyWithRetry(() => import('./pages/Attendance'));
+const Recepcao = lazyWithRetry(() => import('./pages/Recepcao'));
 const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
 const PublicStudentEnrollment = lazyWithRetry(() => import('./pages/PublicStudentEnrollment'));
 import NaviLogo from './components/NaviLogo.jsx';
@@ -1084,11 +1086,6 @@ const App = () => {
               }
               return (
               <Suspense fallback={<RouteFallback />}>
-                {/*
-                  TODO: Attendance — src/pages/Attendance.jsx (Control iD /presenca) sem rota.
-                  Adicionar <Route path="/presenca" element={<Attendance />} /> e item no menu
-                  quando o time confirmar o lançamento da feature.
-                */}
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/login" element={<Navigate to="/" replace />} />
@@ -1139,6 +1136,8 @@ const App = () => {
                   <Route path="/empresa" element={<AcademySettings />} />
                   <Route path="/equipe" element={<Equipe />} />
                   <Route path="/integracoes" element={<Integracoes />} />
+                  <Route path="/presenca" element={<Attendance />} />
+                  <Route path="/recepcao" element={<Recepcao />} />
                   <Route path="/profile" element={<Navigate to="/conta" replace />} />
                   <Route path="/automacoes" element={<Automacoes />} />
                   <Route path="/templates" element={<TemplatesRedirect />} />

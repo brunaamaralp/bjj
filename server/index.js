@@ -9,6 +9,8 @@ import {
   controlidReleaseHandler,
   controlidMonitorHandler,
   controlidTestImageHandler,
+  controlidAttendanceHandler,
+  controlidSyncAllHandler,
 } from '../lib/server/controlidHandlers.js';
 
 const app = express();
@@ -101,6 +103,8 @@ app.post('/controlid/release', (req, res) => controlidReleaseHandler(req, res));
 app.get('/controlid/monitor', (req, res) => controlidMonitorHandler(req, res));
 app.post('/controlid/monitor', (req, res) => controlidMonitorHandler(req, res));
 app.post('/controlid/test-image', (req, res) => controlidTestImageHandler(req, res));
+app.get('/controlid/attendance', (req, res) => controlidAttendanceHandler(req, res));
+app.post('/controlid/sync-all', (req, res) => controlidSyncAllHandler(req, res));
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';

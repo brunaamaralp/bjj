@@ -96,6 +96,8 @@ const DIRECT_NAV_PATHS = new Set([
   '/new-lead',
   '/lead',
   '/student',
+  '/presenca',
+  '/recepcao',
 ]);
 
 export function isDirectNavPath(pathname) {
@@ -342,6 +344,7 @@ export function buildSidebarNavModel({
       { to: '/pipeline', label: pipelineLabel, iconKey: 'pipeline' },
       { to: '/students', label: navStudentsLabel, iconKey: 'students' },
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
+      { to: '/presenca', label: 'Presença', iconKey: 'catraca' },
     ],
     atendimento: [{ to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
     financeDirect: [],
