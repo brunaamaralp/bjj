@@ -3,7 +3,11 @@ import { useLayoutEffect, useState } from 'react';
 /**
  * Posiciona painel fixed abaixo (ou acima) do trigger, escapando de overflow:hidden dos pais.
  */
-export function useAnchoredMenuPosition(triggerRef, open, { align = 'end', gap = 8, maxHeight = 520 } = {}) {
+export function useAnchoredMenuPosition(
+  triggerRef,
+  open,
+  { align = 'end', gap = 8, maxHeight = 520, zIndex = 'var(--menu-z-elevated, 9000)' } = {},
+) {
   const [style, setStyle] = useState(null);
 
   useLayoutEffect(() => {
@@ -32,7 +36,7 @@ export function useAnchoredMenuPosition(triggerRef, open, { align = 'end', gap =
         maxHeight: panelMaxH,
         overflowY: 'auto',
         overflowX: 'hidden',
-        zIndex: 'var(--menu-z-elevated, 9000)',
+        zIndex,
       };
 
       const minWidth = 280;
@@ -59,7 +63,7 @@ export function useAnchoredMenuPosition(triggerRef, open, { align = 'end', gap =
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [open, align, gap, maxHeight, triggerRef]);
+  }, [open, align, gap, maxHeight, zIndex, triggerRef]);
 
   return style;
 }

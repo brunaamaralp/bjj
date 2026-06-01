@@ -13,8 +13,9 @@ export function DropdownMenu({
   className = '',
   align = 'end',
   elevated = false,
+  dismissExtraSelector,
 }) {
-  const rootRef = useDismissibleMenu(open, onOpenChange);
+  const rootRef = useDismissibleMenu(open, onOpenChange, { dismissExtraSelector });
   return (
     <div
       ref={rootRef}
@@ -35,6 +36,7 @@ export function DropdownMenuPanel({
   elevated = false,
   onClick,
   'aria-label': ariaLabel,
+  ...rest
 }) {
   return (
     <div
@@ -49,6 +51,7 @@ export function DropdownMenuPanel({
       style={style}
       onClick={onClick}
       onMouseDown={(e) => e.stopPropagation()}
+      {...rest}
     >
       {children}
     </div>

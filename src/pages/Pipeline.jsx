@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
@@ -83,6 +84,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+/** Acima de colunas kanban com overlay (--z-elevated). */
+const PIPELINE_MENU_Z = 'var(--z-elevated, 13000)';
+
 const dropAnimationConfig = {
     sideEffects: defaultDropAnimationSideEffects({
         styles: {
@@ -97,8 +101,28 @@ const dropAnimationConfig = {
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
 const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+    const menuTriggerRef = useRef(null);
+    const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
-    const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
+    const isActionMenuOpen = openMenuId === lead.id;
+    const isWaMenuOpen = waDropdownOpenId === lead.id;
+    const isMoverOpen = moverOpenId === lead.id;
+    const isCardOverlayOpen = isActionMenuOpen || scheduleModalLeadId === lead.id || isMoverOpen || isWaMenuOpen;
+    const actionMenuStyle = useAnchoredMenuPosition(menuTriggerRef, isActionMenuOpen, {
+        align: 'end',
+        maxHeight: 420,
+        zIndex: PIPELINE_MENU_Z,
+    });
+    const waMenuStyle = useAnchoredMenuPosition(waToggleRef, isWaMenuOpen, {
+        align: 'start',
+        maxHeight: 320,
+        zIndex: PIPELINE_MENU_Z,
+    });
+    const moverMenuStyle = useAnchoredMenuPosition(menuTriggerRef, isMoverOpen, {
+        align: 'end',
+        maxHeight: 360,
+        zIndex: PIPELINE_MENU_Z,
+    });
     const automationBadges = useMemo(
         () => getLeadAutomationBadges(lead, automationConfig),
         [lead, automationConfig]
@@ -203,48 +227,75 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                         <MessageCircle size={16} aria-hidden />
                     </button>
                     <button
+                        ref={waToggleRef}
                         type="button"
                         className="wa-drop-toggle"
                         onClick={(e) => toggleWaDropdown(e, lead.id)}
                         title="Templates"
+                        aria-expanded={isWaMenuOpen}
+                        aria-haspopup="menu"
                     >
                         <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
                     </button>
-                    {waDropdownOpenId === lead.id && (
-                        <div className="navi-menu__panel wa-templates-dropdown" onClick={(e) => e.stopPropagation()}>
-                            <div className="navi-menu__label">Templates</div>
-                            {templateSendKeys.length === 0 && (
-                                <div className="navi-menu__item navi-menu__item--static navi-menu__item--disabled">Sem templates</div>
-                            )}
-                            {templateSendKeys.map((key) => (
-                                <button
-                                    key={`${lead.id}-tpl-${key}`}
-                                    type="button"
-                                    className="navi-menu__item"
-                                    onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
-                                >
-                                    {WHATSAPP_TEMPLATE_LABELS[key] || key}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    {isWaMenuOpen && waMenuStyle
+                        ? createPortal(
+                            <div
+                                className="navi-menu__panel navi-menu--elevated wa-templates-dropdown pipeline-card-wa-menu"
+                                style={waMenuStyle}
+                                data-pipeline-card-menu
+                                role="menu"
+                                aria-label="Templates WhatsApp"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                            >
+                                <div className="navi-menu__label">Templates</div>
+                                {templateSendKeys.length === 0 && (
+                                    <div className="navi-menu__item navi-menu__item--static navi-menu__item--disabled">Sem templates</div>
+                                )}
+                                {templateSendKeys.map((key) => (
+                                    <button
+                                        key={`${lead.id}-tpl-${key}`}
+                                        type="button"
+                                        className="navi-menu__item"
+                                        onClick={(e) => void sendTemplateFromPipeline(e, lead, key)}
+                                    >
+                                        {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                    </button>
+                                ))}
+                            </div>,
+                            document.body,
+                        )
+                        : null}
                 </div>
 
-                <div style={{ position: 'relative', zIndex: openMenuId === lead.id ? 5100 : 1 }} data-no-dnd="true">
+                <div className="pipeline-card-menu-trigger" data-no-dnd="true" data-pipeline-card-menu>
                     <button
+                        ref={menuTriggerRef}
+                        type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            setOpenMenuId(openMenuId === lead.id ? null : lead.id);
+                            setOpenMenuId(isActionMenuOpen ? null : lead.id);
                             setWaDropdownOpenId(null);
                         }}
                         title="Mais ações"
                         aria-label="Mais ações"
+                        aria-expanded={isActionMenuOpen}
+                        aria-haspopup="menu"
                         className="action-btn navi-menu-trigger--icon"
                     >
                         <MoreHorizontal size={16} aria-hidden />
                     </button>
-                    {openMenuId === lead.id && (
-                        <div className="navi-menu__panel navi-menu--elevated action-menu-panel" onClick={(e) => e.stopPropagation()}>
+                    {isActionMenuOpen && actionMenuStyle
+                        ? createPortal(
+                        <div
+                            className="navi-menu__panel navi-menu--elevated action-menu-panel pipeline-card-action-menu"
+                            style={actionMenuStyle}
+                            data-pipeline-card-menu
+                            role="menu"
+                            aria-label="Ações do lead"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                        >
                             <div className="menu-group">
                                 {canShowPipelineCloseSale(lead) && !isEnrolledCard ? (
                                     <button
@@ -317,27 +368,41 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                     </button>
                                 ) : null}
                             </div>
-                        </div>
-                    )}
+                        </div>,
+                        document.body,
+                        )
+                        : null}
                 </div>
             </div>
-            {moverOpenId === lead.id && (
-                <div className="navi-menu__panel dropdown-panel navi-menu--elevated" onClick={(e) => e.stopPropagation()} data-no-dnd="true">
-                    {stages.map(s => {
-                        const active = (mapLeadToStageId(lead) === s.id);
-                        return (
-                            <button
-                                key={`${lead.id}-${s.id}`}
-                                type="button"
-                                className={`navi-menu__item${active ? ' navi-menu__item--active' : ''}`}
-                                onClick={(e) => moveToStatus(e, lead.id, s.id)}
-                            >
-                                {s.label}
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
+            {isMoverOpen && moverMenuStyle
+                ? createPortal(
+                    <div
+                        className="navi-menu__panel dropdown-panel navi-menu--elevated pipeline-card-mover-menu"
+                        style={moverMenuStyle}
+                        data-pipeline-card-menu
+                        role="menu"
+                        aria-label="Mover para etapa"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        data-no-dnd="true"
+                    >
+                        {stages.map((s) => {
+                            const active = mapLeadToStageId(lead) === s.id;
+                            return (
+                                <button
+                                    key={`${lead.id}-${s.id}`}
+                                    type="button"
+                                    className={`navi-menu__item${active ? ' navi-menu__item--active' : ''}`}
+                                    onClick={(e) => moveToStatus(e, lead.id, s.id)}
+                                >
+                                    {s.label}
+                                </button>
+                            );
+                        })}
+                    </div>,
+                    document.body,
+                )
+                : null}
         </div>
     );
 });
@@ -887,8 +952,17 @@ const Pipeline = () => {
     const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
     const [pageActionsMenuOpen, setPageActionsMenuOpen] = useState(false);
     const filterTriggerRef = useRef(null);
+    const pageActionsTriggerRef = useRef(null);
     const hiddenAtRef = useRef(null);
-    const filterPanelStyle = useAnchoredMenuPosition(filterTriggerRef, filtersMenuOpen, { align: 'end' });
+    const filterPanelStyle = useAnchoredMenuPosition(filterTriggerRef, filtersMenuOpen, {
+        align: 'end',
+        zIndex: PIPELINE_MENU_Z,
+    });
+    const pageActionsPanelStyle = useAnchoredMenuPosition(pageActionsTriggerRef, pageActionsMenuOpen, {
+        align: 'end',
+        maxHeight: 400,
+        zIndex: PIPELINE_MENU_Z,
+    });
 
     useEffect(() => {
         if (!waTemplatesFromHook) return;
@@ -932,12 +1006,14 @@ const Pipeline = () => {
     }, [stages]);
 
     useEffect(() => {
-        const handleClickOutside = () => {
+        const handlePointerDown = (e) => {
+            if (e.target.closest?.('[data-pipeline-card-menu]')) return;
             setOpenMenuId(null);
             setWaDropdownOpenId(null);
+            setMoverOpenId(null);
         };
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+        document.addEventListener('mousedown', handlePointerDown);
+        return () => document.removeEventListener('mousedown', handlePointerDown);
     }, []);
 
     useEffect(() => {
@@ -1658,21 +1734,26 @@ const Pipeline = () => {
     );
 
     const renderFiltersMenuPanel = () =>
-        filtersMenuOpen ? (
-            <DropdownMenuPanel
-                className="pipeline-filters-menu__panel navi-menu__panel--overlay"
-                fixed
-                elevated
-                style={filterPanelStyle || undefined}
-                aria-label="Filtros do funil"
-            >
-                {renderAdvancedFiltersPanel()}
-            </DropdownMenuPanel>
-        ) : null;
+        filtersMenuOpen && filterPanelStyle
+            ? createPortal(
+                <DropdownMenuPanel
+                    className="pipeline-filters-menu__panel navi-menu__panel--overlay"
+                    fixed
+                    elevated
+                    style={filterPanelStyle}
+                    aria-label="Filtros do funil"
+                    data-pipeline-filter-menu
+                >
+                    {renderAdvancedFiltersPanel()}
+                </DropdownMenuPanel>,
+                document.body,
+            )
+            : null;
 
     const renderPageActionsMenu = (panelClassName = 'pipeline-page-actions-menu__panel') => (
         <>
             <button
+                ref={pageActionsTriggerRef}
                 type="button"
                 className="btn-action-ghost"
                 aria-haspopup="menu"
@@ -1682,8 +1763,16 @@ const Pipeline = () => {
             >
                 <MoreHorizontal size={18} aria-hidden />
             </button>
-            {pageActionsMenuOpen ? (
-                <DropdownMenuPanel className={panelClassName} aria-label="Ações do funil">
+            {pageActionsMenuOpen && pageActionsPanelStyle
+                ? createPortal(
+                <DropdownMenuPanel
+                    className={panelClassName}
+                    fixed
+                    elevated
+                    style={pageActionsPanelStyle}
+                    aria-label="Ações do funil"
+                    data-pipeline-page-actions-menu
+                >
                     <DropdownMenuItem
                         icon={<Upload size={16} aria-hidden />}
                         onClick={() => {
@@ -1728,8 +1817,10 @@ const Pipeline = () => {
                             </DropdownMenuItem>
                         </>
                     ) : null}
-                </DropdownMenuPanel>
-            ) : null}
+                </DropdownMenuPanel>,
+                document.body,
+            )
+                : null}
         </>
     );
 
@@ -2105,6 +2196,7 @@ const Pipeline = () => {
                                     onOpenChange={setFiltersMenuOpen}
                                     className="pipeline-filters-menu"
                                     elevated
+                                    dismissExtraSelector="[data-pipeline-filter-menu]"
                                 >
                                     <button
                                         ref={filterTriggerRef}
@@ -2123,6 +2215,7 @@ const Pipeline = () => {
                                     onOpenChange={setPageActionsMenuOpen}
                                     className="pipeline-page-actions-menu"
                                     align="end"
+                                    dismissExtraSelector="[data-pipeline-page-actions-menu]"
                                 >
                                     {renderPageActionsMenu()}
                                 </DropdownMenu>
@@ -2165,6 +2258,7 @@ const Pipeline = () => {
                                 onOpenChange={setFiltersMenuOpen}
                                 className="pipeline-filters-menu"
                                 elevated
+                                dismissExtraSelector="[data-pipeline-filter-menu]"
                             >
                                 <button
                                     ref={filterTriggerRef}
@@ -2184,6 +2278,7 @@ const Pipeline = () => {
                                 onOpenChange={setPageActionsMenuOpen}
                                 className="pipeline-page-actions-menu"
                                 align="end"
+                                dismissExtraSelector="[data-pipeline-page-actions-menu]"
                             >
                                 {renderPageActionsMenu()}
                             </DropdownMenu>
