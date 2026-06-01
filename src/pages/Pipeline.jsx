@@ -26,7 +26,13 @@ import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
-import { contactEnrolledInYmdRange, enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
+import { enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
+import {
+  enrolledContactMatchesPeriod,
+  resolveEnrollmentPeriodRange,
+  resolveLeadPeriodRange,
+} from '../lib/pipelineEnrollmentFilter.js';
+import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
@@ -51,7 +57,7 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
 import { getPipelineStageColor } from '../lib/pipelineStageColors.js';
 import { partitionLeadAttributePills } from '../lib/pipelineLeadPills.js';
-import PipelineAdvancedFilters from '../components/pipeline/PipelineAdvancedFilters.jsx';
+import PipelineAdvancedFilters, { currentMonthYm } from '../components/pipeline/PipelineAdvancedFilters.jsx';
 import {
     DropdownMenu,
     DropdownMenuPanel,
@@ -510,31 +516,6 @@ const sortBoardContactsByRecentEnrollment = (a, b) => {
     return tb - ta;
 };
 
-function resolvePipelinePeriodRange({ filterDateFrom, filterDateTo, quickFilter }) {
-    let from = filterDateFrom;
-    let to = filterDateTo;
-
-    if (quickFilter === 'today') {
-        const today = formatLocalYmd(new Date());
-        from = today;
-        to = today;
-    } else if (quickFilter === 'week') {
-        const now = new Date();
-        const start = new Date(now);
-        start.setDate(now.getDate() - now.getDay());
-        const end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        from = formatLocalYmd(start);
-        to = formatLocalYmd(end);
-    } else if (quickFilter === 'month') {
-        const now = new Date();
-        from = formatLocalYmd(new Date(now.getFullYear(), now.getMonth(), 1));
-        to = formatLocalYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    }
-
-    return { from: from || '', to: to || '' };
-}
-
 function mobileListToDateTime(lead) {
     const base = lead.scheduledDate || lead.createdAt || '';
     if (!base) return new Date(8640000000000000);
@@ -878,6 +859,7 @@ const Pipeline = () => {
     const [lostModalLead, setLostModalLead] = useState(null);
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
+    const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState('');
     const [quickFilter, setQuickFilter] = useState(null);
     const [waOutbound, setWaOutbound] = useState(() => ({
         name: '',
@@ -903,7 +885,9 @@ const Pipeline = () => {
     const [nlOpen, setNlOpen] = useState(false);
     const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
     const [pageActionsMenuOpen, setPageActionsMenuOpen] = useState(false);
+    const filterTriggerRef = useRef(null);
     const hiddenAtRef = useRef(null);
+    const filterPanelStyle = useAnchoredMenuPosition(filterTriggerRef, filtersMenuOpen, { align: 'end' });
 
     useEffect(() => {
         if (!waTemplatesFromHook) return;
@@ -1467,7 +1451,7 @@ const Pipeline = () => {
     }, [stages]);
 
     const filterByDate = useCallback((lead) => {
-        const { from, to } = resolvePipelinePeriodRange({ filterDateFrom, filterDateTo, quickFilter });
+        const { from, to } = resolveLeadPeriodRange({ filterDateFrom, filterDateTo, quickFilter, formatLocalYmd });
         if (!from && !to) return true;
 
         const dateRef = lead.scheduledDate || lead.createdAt?.split('T')[0];
@@ -1477,10 +1461,22 @@ const Pipeline = () => {
         return true;
     }, [filterDateFrom, filterDateTo, quickFilter]);
 
-    const filterEnrolledByDate = useCallback((contact) => {
-        const { from, to } = resolvePipelinePeriodRange({ filterDateFrom, filterDateTo, quickFilter });
-        return contactEnrolledInYmdRange(contact, from, to);
-    }, [filterDateFrom, filterDateTo, quickFilter]);
+    const enrollmentPeriodRange = useMemo(
+        () =>
+            resolveEnrollmentPeriodRange({
+                enrollmentMonthFilter,
+                filterDateFrom,
+                filterDateTo,
+                quickFilter,
+                formatLocalYmd,
+            }),
+        [enrollmentMonthFilter, filterDateFrom, filterDateTo, quickFilter]
+    );
+
+    const filterEnrolledByDate = useCallback(
+        (contact) => enrolledContactMatchesPeriod(contact, enrollmentPeriodRange),
+        [enrollmentPeriodRange]
+    );
 
     const applyBoardSearchFilter = useCallback((list) => {
         const q = String(kanbanSearch || '').trim().toLowerCase();
@@ -1570,7 +1566,7 @@ const Pipeline = () => {
     const advancedFiltersActive =
         profileFilter !== 'all' ||
         originFilter !== 'all' ||
-        Boolean(filterDateFrom || filterDateTo) ||
+        Boolean(quickFilter || filterDateFrom || filterDateTo || enrollmentMonthFilter) ||
         searchStageScope !== 'all';
 
     const clearAdvancedFilters = useCallback(() => {
@@ -1578,17 +1574,19 @@ const Pipeline = () => {
         setOriginFilter('all');
         setFilterDateFrom('');
         setFilterDateTo('');
+        setEnrollmentMonthFilter('');
+        setQuickFilter(null);
         setSearchStageScope('all');
     }, []);
 
-    const applyAdvancedFilters = useCallback((draft) => {
-        setProfileFilter(draft.profileFilter ?? 'all');
-        setOriginFilter(draft.originFilter ?? 'all');
-        setFilterDateFrom(draft.filterDateFrom ?? '');
-        setFilterDateTo(draft.filterDateTo ?? '');
-        setSearchStageScope(draft.searchStageScope ?? 'all');
-        if (draft.filterDateFrom || draft.filterDateTo) setQuickFilter(null);
-        setFiltersMenuOpen(false);
+    const handleAdvancedFilterChange = useCallback((patch) => {
+        if (patch.profileFilter !== undefined) setProfileFilter(patch.profileFilter);
+        if (patch.originFilter !== undefined) setOriginFilter(patch.originFilter);
+        if (patch.searchStageScope !== undefined) setSearchStageScope(patch.searchStageScope);
+        if (patch.enrollmentMonthFilter !== undefined) setEnrollmentMonthFilter(patch.enrollmentMonthFilter);
+        if (patch.filterDateFrom !== undefined) setFilterDateFrom(patch.filterDateFrom);
+        if (patch.filterDateTo !== undefined) setFilterDateTo(patch.filterDateTo);
+        if (patch.quickFilter !== undefined) setQuickFilter(patch.quickFilter);
     }, []);
 
     const handleClearAdvancedFilters = useCallback(() => {
@@ -1617,19 +1615,59 @@ const Pipeline = () => {
         </>
     );
 
+    const isCurrentEnrollmentMonth = enrollmentMonthFilter === currentMonthYm();
+
+    const applyPeriodChip = useCallback((chip) => {
+        if (chip === 'today') {
+            setQuickFilter('today');
+            setEnrollmentMonthFilter('');
+            setFilterDateFrom('');
+            setFilterDateTo('');
+            return;
+        }
+        if (chip === 'week') {
+            setQuickFilter('week');
+            setEnrollmentMonthFilter('');
+            setFilterDateFrom('');
+            setFilterDateTo('');
+            return;
+        }
+        if (chip === 'month') {
+            setQuickFilter('month');
+            setEnrollmentMonthFilter(currentMonthYm());
+            setFilterDateFrom('');
+            setFilterDateTo('');
+            return;
+        }
+        clearAdvancedFilters();
+    }, [clearAdvancedFilters]);
+
     const renderAdvancedFiltersPanel = () => (
         <PipelineAdvancedFilters
-            open={filtersMenuOpen}
             profileFilter={profileFilter}
             originFilter={originFilter}
             filterDateFrom={filterDateFrom}
             filterDateTo={filterDateTo}
+            enrollmentMonthFilter={enrollmentMonthFilter}
             searchStageScope={searchStageScope}
             searchStageScopeOptions={searchStageScopeOptions}
-            onApply={applyAdvancedFilters}
+            onChange={handleAdvancedFilterChange}
             onClear={handleClearAdvancedFilters}
         />
     );
+
+    const renderFiltersMenuPanel = () =>
+        filtersMenuOpen ? (
+            <DropdownMenuPanel
+                className="pipeline-filters-menu__panel navi-menu__panel--overlay"
+                fixed
+                elevated
+                style={filterPanelStyle || undefined}
+                aria-label="Filtros do funil"
+            >
+                {renderAdvancedFiltersPanel()}
+            </DropdownMenuPanel>
+        ) : null;
 
     const renderPageActionsMenu = (panelClassName = 'pipeline-page-actions-menu__panel') => (
         <>
@@ -2065,8 +2103,10 @@ const Pipeline = () => {
                                     open={filtersMenuOpen}
                                     onOpenChange={setFiltersMenuOpen}
                                     className="pipeline-filters-menu"
+                                    elevated
                                 >
                                     <button
+                                        ref={filterTriggerRef}
                                         type="button"
                                         className={`btn-action-ghost pipeline-filters-trigger${advancedFiltersActive ? ' is-active' : ''}`}
                                         aria-haspopup="dialog"
@@ -2075,11 +2115,7 @@ const Pipeline = () => {
                                     >
                                         <SlidersHorizontal size={14} aria-hidden /> Filtros
                                     </button>
-                                    {filtersMenuOpen ? (
-                                        <DropdownMenuPanel className="pipeline-filters-menu__panel" aria-label="Filtros do funil">
-                                            {renderAdvancedFiltersPanel()}
-                                        </DropdownMenuPanel>
-                                    ) : null}
+                                    {renderFiltersMenuPanel()}
                                 </DropdownMenu>
                                 <DropdownMenu
                                     open={pageActionsMenuOpen}
@@ -2098,10 +2134,10 @@ const Pipeline = () => {
                                 </button>
                             </div>
                             <FilterBar className="page-header-row">
-                                <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
-                                <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
-                                <button type="button" className={`filter-chip${quickFilter === 'month' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
-                                <button type="button" className={`filter-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' is-active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
+                                <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
+                                <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
+                                <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
+                                <button type="button" className={`filter-chip${!quickFilter && !filterDateFrom && !filterDateTo && !enrollmentMonthFilter ? ' is-active' : ''}`} onClick={() => applyPeriodChip('all')}>Todos</button>
                             </FilterBar>
                             </>
                             }
@@ -2127,8 +2163,10 @@ const Pipeline = () => {
                                 open={filtersMenuOpen}
                                 onOpenChange={setFiltersMenuOpen}
                                 className="pipeline-filters-menu"
+                                elevated
                             >
                                 <button
+                                    ref={filterTriggerRef}
                                     type="button"
                                     className={`btn-action-ghost pipeline-mobile-filters-trigger${advancedFiltersActive ? ' is-active' : ''}`}
                                     aria-haspopup="dialog"
@@ -2138,11 +2176,7 @@ const Pipeline = () => {
                                 >
                                     <SlidersHorizontal size={16} aria-hidden />
                                 </button>
-                                {filtersMenuOpen ? (
-                                    <DropdownMenuPanel className="pipeline-filters-menu__panel" aria-label="Filtros do funil">
-                                        {renderAdvancedFiltersPanel()}
-                                    </DropdownMenuPanel>
-                                ) : null}
+                                {renderFiltersMenuPanel()}
                             </DropdownMenu>
                             <DropdownMenu
                                 open={pageActionsMenuOpen}
@@ -2161,10 +2195,10 @@ const Pipeline = () => {
                             </button>
                         </div>
                         <FilterBar className="page-header-row" style={{ paddingBottom: 8 }}>
-                            <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('today'); setFilterDateFrom(''); setFilterDateTo(''); }}>Hoje</button>
-                            <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('week'); setFilterDateFrom(''); setFilterDateTo(''); }}>Esta sem.</button>
-                            <button type="button" className={`filter-chip${quickFilter === 'month' ? ' is-active' : ''}`} onClick={() => { setQuickFilter('month'); setFilterDateFrom(''); setFilterDateTo(''); }}>Este mês</button>
-                            <button type="button" className={`filter-chip${quickFilter === null && !filterDateFrom && !filterDateTo ? ' is-active' : ''}`} onClick={() => { setQuickFilter(null); setFilterDateFrom(''); setFilterDateTo(''); }}>Todos</button>
+                            <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
+                            <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
+                            <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
+                            <button type="button" className={`filter-chip${!quickFilter && !filterDateFrom && !filterDateTo && !enrollmentMonthFilter ? ' is-active' : ''}`} onClick={() => applyPeriodChip('all')}>Todos</button>
                         </FilterBar>
                     </div>
                 )}

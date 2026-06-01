@@ -1,90 +1,66 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import React from 'react';
 import { LEAD_ORIGIN } from '../../store/useLeadStore';
 import { DateInputField } from '../DateInput';
 
-const EMPTY_DRAFT = {
-  profileFilter: 'all',
-  originFilter: 'all',
-  filterDateFrom: '',
-  filterDateTo: '',
-  searchStageScope: 'all',
-};
-
-function draftFromApplied(applied) {
-  return {
-    profileFilter: applied.profileFilter ?? 'all',
-    originFilter: applied.originFilter ?? 'all',
-    filterDateFrom: applied.filterDateFrom ?? '',
-    filterDateTo: applied.filterDateTo ?? '',
-    searchStageScope: applied.searchStageScope ?? 'all',
-  };
-}
-
-function draftIsActive(draft) {
-  return (
-    draft.profileFilter !== 'all' ||
-    draft.originFilter !== 'all' ||
-    Boolean(draft.filterDateFrom || draft.filterDateTo) ||
-    draft.searchStageScope !== 'all'
-  );
+function currentMonthYm() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /**
- * Painel de filtros avançados do funil (perfil, origem, período, etapa).
- * Alterações ficam em rascunho até o usuário clicar em Buscar.
+ * Filtros avançados do funil — aplicam imediatamente ao alterar (sem rascunho).
  */
 export default function PipelineAdvancedFilters({
-  open,
   profileFilter,
   originFilter,
   filterDateFrom,
   filterDateTo,
+  enrollmentMonthFilter,
   searchStageScope,
   searchStageScopeOptions,
-  onApply,
+  onChange,
   onClear,
 }) {
-  const [draft, setDraft] = useState(() =>
-    draftFromApplied({ profileFilter, originFilter, filterDateFrom, filterDateTo, searchStageScope })
-  );
+  const hasActive =
+    profileFilter !== 'all' ||
+    originFilter !== 'all' ||
+    Boolean(filterDateFrom || filterDateTo || enrollmentMonthFilter) ||
+    searchStageScope !== 'all';
 
-  useEffect(() => {
-    if (open) {
-      setDraft(
-        draftFromApplied({ profileFilter, originFilter, filterDateFrom, filterDateTo, searchStageScope })
-      );
+  const patch = (updates) => onChange?.(updates);
+
+  const handleEnrollmentMonthChange = (value) => {
+    const ym = String(value || '').trim();
+    if (ym) {
+      patch({
+        enrollmentMonthFilter: ym,
+        filterDateFrom: '',
+        filterDateTo: '',
+        quickFilter: null,
+      });
+      return;
     }
-  }, [open, profileFilter, originFilter, filterDateFrom, filterDateTo, searchStageScope]);
-
-  const hasDraftActive = useMemo(() => draftIsActive(draft), [draft]);
-
-  const patchDraft = (patch) => setDraft((prev) => ({ ...prev, ...patch }));
-
-  const handleApply = () => {
-    onApply?.({ ...draft });
+    patch({ enrollmentMonthFilter: '' });
   };
 
-  const handleClear = () => {
-    setDraft({ ...EMPTY_DRAFT });
-    onClear?.();
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleApply();
-    }
+  const handleCustomDateChange = (key, value) => {
+    const nextFrom = key === 'filterDateFrom' ? value : filterDateFrom;
+    const nextTo = key === 'filterDateTo' ? value : filterDateTo;
+    patch({
+      [key]: value,
+      enrollmentMonthFilter: '',
+      quickFilter: nextFrom || nextTo ? null : undefined,
+    });
   };
 
   return (
-    <div className="pipeline-filters-panel" onKeyDown={handleKeyDown}>
+    <div className="pipeline-filters-panel">
       <div className="pipeline-filters-panel__section">
         <span className="pipeline-filters-panel__label">Etapa</span>
         <select
           className="form-input pipeline-filters-panel__select"
-          value={draft.searchStageScope}
-          onChange={(e) => patchDraft({ searchStageScope: e.target.value })}
+          value={searchStageScope}
+          onChange={(e) => patch({ searchStageScope: e.target.value })}
           aria-label="Limitar resultados a uma etapa"
         >
           {searchStageScopeOptions.map((o) => (
@@ -96,11 +72,25 @@ export default function PipelineAdvancedFilters({
       </div>
 
       <div className="pipeline-filters-panel__section">
+        <span className="pipeline-filters-panel__label">Mês de matrícula</span>
+        <input
+          type="month"
+          className="form-input pipeline-filters-panel__select"
+          value={enrollmentMonthFilter || ''}
+          onChange={(e) => handleEnrollmentMonthChange(e.target.value)}
+          aria-label="Filtrar matrículas por mês"
+        />
+        <p className="pipeline-filters-panel__hint">
+          Filtra só a coluna Matrícula pela data de ingresso do aluno.
+        </p>
+      </div>
+
+      <div className="pipeline-filters-panel__section">
         <span className="pipeline-filters-panel__label">Perfil</span>
         <select
           className="form-input pipeline-filters-panel__select"
-          value={draft.profileFilter}
-          onChange={(e) => patchDraft({ profileFilter: e.target.value })}
+          value={profileFilter}
+          onChange={(e) => patch({ profileFilter: e.target.value })}
           aria-label="Filtrar por perfil"
         >
           <option value="all">Todos os perfis</option>
@@ -114,8 +104,8 @@ export default function PipelineAdvancedFilters({
         <span className="pipeline-filters-panel__label">Origem</span>
         <select
           className="form-input pipeline-filters-panel__select"
-          value={draft.originFilter}
-          onChange={(e) => patchDraft({ originFilter: e.target.value })}
+          value={originFilter}
+          onChange={(e) => patch({ originFilter: e.target.value })}
           aria-label="Filtrar por origem"
         >
           <option value="all">Todas as origens</option>
@@ -128,17 +118,17 @@ export default function PipelineAdvancedFilters({
       </div>
 
       <div className="pipeline-filters-panel__section">
-        <span className="pipeline-filters-panel__label">Período customizado</span>
+        <span className="pipeline-filters-panel__label">Período do funil</span>
         <p className="pipeline-filters-panel__hint">
-          Na coluna Matrícula, filtra pela data de ingresso do aluno.
+          Demais colunas usam data de agendamento ou cadastro do lead.
         </p>
         <div className="pipeline-filters-panel__date-row">
           <DateInputField
             type="date"
             className="navi-date-filter pipeline-filters-panel__date"
-            value={draft.filterDateFrom}
-            onChange={(e) => patchDraft({ filterDateFrom: e.target.value })}
-            aria-label="Data inicial"
+            value={filterDateFrom}
+            onChange={(e) => handleCustomDateChange('filterDateFrom', e.target.value)}
+            aria-label="Data inicial do funil"
           />
           <span className="pipeline-filters-panel__date-sep" aria-hidden>
             —
@@ -146,24 +136,22 @@ export default function PipelineAdvancedFilters({
           <DateInputField
             type="date"
             className="navi-date-filter pipeline-filters-panel__date"
-            value={draft.filterDateTo}
-            onChange={(e) => patchDraft({ filterDateTo: e.target.value })}
-            aria-label="Data final"
+            value={filterDateTo}
+            onChange={(e) => handleCustomDateChange('filterDateTo', e.target.value)}
+            aria-label="Data final do funil"
           />
         </div>
       </div>
 
-      <div className="pipeline-filters-panel__actions">
-        <button type="button" className="btn-primary btn-sm pipeline-filters-panel__apply" onClick={handleApply}>
-          <Search size={14} aria-hidden />
-          Buscar
-        </button>
-        {hasDraftActive ? (
-          <button type="button" className="btn-outline btn-sm" onClick={handleClear}>
-            Limpar
+      {hasActive ? (
+        <div className="pipeline-filters-panel__actions">
+          <button type="button" className="btn-outline btn-sm pipeline-filters-panel__clear-all" onClick={onClear}>
+            Limpar filtros
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+export { currentMonthYm };
