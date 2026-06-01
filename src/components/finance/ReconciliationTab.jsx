@@ -14,6 +14,7 @@ import {
 } from '../../lib/bankReconciliationApi.js';
 import { friendlyError } from '../../lib/errorMessages';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 
 function fmtMoney(v) {
   try {
@@ -198,10 +199,11 @@ export default function ReconciliationTab({ academyId }) {
   if (!selectedId) {
     return (
       <section className="mt-4 bank-recon">
+        <StatusBanner variant="info" className="finance-tab-intro">
+          Importe o extrato do banco (OFX ou CSV), confira sugestões automáticas e vincule cada linha a um lançamento
+          do Caixa. Itens sem correspondência podem gerar um novo lançamento ou ser ignorados.
+        </StatusBanner>
         <div className="flex justify-between items-center gap-2 mb-3 bank-recon-list-head">
-          <p className="text-small text-muted bank-recon-list-head__hint">
-            Importe extratos OFX/CSV e concilie com os lançamentos do Nave. Disponível apenas para o titular.
-          </p>
           <button type="button" className="btn-primary" onClick={() => setShowImport(true)}>
             <Upload size={16} className="bank-recon-btn-icon" />
             Importar extrato

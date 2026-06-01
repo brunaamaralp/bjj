@@ -48,6 +48,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import SearchField from '../shared/SearchField.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 
@@ -583,67 +584,80 @@ export default function TransacoesTab({
   return (
     <>
       <section className="mt-4 animate-in finance-tx-section">
-        <h3 className="navi-section-heading mb-2">Lançamentos</h3>
+        <h3 className="navi-section-heading mb-2">Caixa</h3>
+        <p className="finance-tx-section__lead">
+          Despesas, entradas avulsas e recorrências. Mensalidades pagas entram aqui automaticamente ao registrar em
+          Mensalidades.
+        </p>
         <div className="card">
           {academyId ? (
             <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-3" />
           ) : null}
-          <div className="finance-tx-toolbar">
-            <div className="flex gap-2 finance-tx-date-filters">
-              <div className="form-group finance-tx-date-group">
-                <label>De</label>
-                <DateInputField className="form-input navi-date-filter" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <div className="finance-tx-toolbar navi-toolbar">
+            <div className="finance-tx-toolbar__filters">
+              <div className="flex gap-2 finance-tx-date-filters">
+                <div className="form-group finance-tx-date-group">
+                  <label>De</label>
+                  <DateInputField
+                    className="form-input navi-date-filter navi-control--toolbar"
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                </div>
+                <div className="form-group finance-tx-date-group">
+                  <label>Até</label>
+                  <DateInputField
+                    className="form-input navi-date-filter navi-control--toolbar"
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="form-group finance-tx-date-group">
-                <label>Até</label>
-                <DateInputField className="form-input navi-date-filter" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-              </div>
-            </div>
-            <div className="filter-bar finance-tx-filters">
-              <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--status">
-                <label>Status</label>
-                <select
-                  className="form-input"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">Todos</option>
-                  <option value="pending">Pendente</option>
-                  <option value="settled">Liquidado</option>
-                  <option value="cancelled">Cancelado</option>
-                </select>
-              </div>
-              <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--nature">
-                <label>Natureza</label>
-                <select
-                  className="form-input"
-                  value={directionFilter}
-                  onChange={(e) => setDirectionFilter(e.target.value)}
-                >
-                  <option value="all">Todos</option>
-                  <option value="in">Entrada</option>
-                  <option value="out">Saída</option>
-                </select>
-              </div>
-              <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--search">
-                <label className="sr-only">Busca</label>
-                <input
-                  type="search"
-                  className="form-input"
-                  placeholder="Buscar por aluno, categoria ou nota"
+              <div className="filter-bar finance-tx-filters navi-toolbar">
+                <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--status">
+                  <label>Status</label>
+                  <select
+                    className="form-input navi-control--toolbar"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    <option value="pending">Pendente</option>
+                    <option value="settled">Liquidado</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+                <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--nature">
+                  <label>Natureza</label>
+                  <select
+                    className="form-input navi-control--toolbar"
+                    value={directionFilter}
+                    onChange={(e) => setDirectionFilter(e.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    <option value="in">Entrada</option>
+                    <option value="out">Saída</option>
+                  </select>
+                </div>
+                <SearchField
+                  className="finance-tx-toolbar__search"
                   value={txSearch}
                   onChange={(e) => setTxSearch(e.target.value)}
+                  placeholder="Buscar aluno, categoria ou nota"
+                  aria-label="Buscar lançamentos"
                 />
+                {hasActiveTxFilters ? (
+                  <button type="button" className="btn-outline btn-sm filter-clear navi-btn--toolbar" onClick={clearTxFilters}>
+                    Limpar filtros
+                  </button>
+                ) : null}
               </div>
-              {hasActiveTxFilters ? (
-                <button type="button" className="btn-outline btn-sm filter-clear" onClick={clearTxFilters}>
-                  Limpar filtros
-                </button>
-              ) : null}
             </div>
             <button
               type="button"
-              className="btn-primary"
+              className="btn-primary finance-tx-toolbar__cta"
               onClick={() => {
                 setEditingTxId('');
                 setEditPreservedSaleId('');

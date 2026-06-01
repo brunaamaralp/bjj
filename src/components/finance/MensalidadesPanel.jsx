@@ -41,6 +41,7 @@ import { validateBankAccountForPayment } from '../../lib/bankAccounts.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import SearchField from '../shared/SearchField.jsx';
 import { formatPaymentDateLabel, isPaymentDateInFuture } from '../../lib/validations.js';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 
@@ -836,6 +837,10 @@ export default function MensalidadesPanel({ embedded = false }) {
                   <ChevronRight size={18} strokeWidth={2} />
                 </button>
               </div>
+              <p className="finance-guide__note mensalidades-embedded-hint">
+                Cobrança de alunos nesta aba. Despesas e entradas avulsas em{' '}
+                <Link to="/financeiro?tab=movimentacoes">Caixa</Link>.
+              </p>
             </>
           )}
         </div>
@@ -880,12 +885,12 @@ export default function MensalidadesPanel({ embedded = false }) {
 
         <div className="mensal-toolbar navi-toolbar">
           <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-          <input
-            type="search"
-            className="form-input mensal-search navi-control--toolbar"
-            placeholder={`Buscar ${terms.student.toLowerCase()}...`}
+          <SearchField
+            className="mensal-search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Buscar ${terms.student.toLowerCase()}...`}
+            aria-label={`Buscar ${terms.student.toLowerCase()}`}
           />
           {viewMode === 'list' ? (
             <MensalidadesStatusFilter

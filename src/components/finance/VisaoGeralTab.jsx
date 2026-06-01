@@ -15,7 +15,7 @@ import { useStudentStore } from '../../store/useStudentStore';
 import { fetchFinanceSummary, fetchFinanceForecast, fetchMonthlyClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
-import { FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
+import { EMPRESA_FINANCE_CONFIG_PATH, FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
 import {
   computeMensalidadesMonthKpis,
   countClosingDivergences,
@@ -349,6 +349,27 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
           </button>
         </div>
       </header>
+
+      <aside className="finance-guide" aria-label="Onde lançar no financeiro">
+        <p className="finance-guide__title">Onde lançar</p>
+        <ul className="finance-guide__list">
+          <li>
+            <span>Cobrança de alunos (mensalidade):</span>
+            <Link to={`/financeiro?tab=${FINANCEIRO_SECTIONS.MENSALIDADES}`}>Mensalidades</Link>
+          </li>
+          <li>
+            <span>Despesas, entradas avulsas e recorrências:</span>
+            <Link to="/financeiro?tab=movimentacoes">Caixa</Link>
+          </li>
+        </ul>
+        <p className="finance-guide__note">
+          Mensalidade paga gera entrada automática no Caixa. Mensalidade pendente não aparece como lançamento
+          pendente no Caixa — use Mensalidades para cobrar e registrar pagamentos.
+        </p>
+        <p className="finance-guide__footer">
+          <Link to={EMPRESA_FINANCE_CONFIG_PATH}>Configurar planos, taxas e contas bancárias</Link>
+        </p>
+      </aside>
 
       <div className="financeiro-overview-grid">
         <OverviewCard title="Saldo e movimentações" eyebrow="Caixa · mês atual">

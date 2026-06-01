@@ -6,6 +6,13 @@ import {
   setFinanceRegime,
 } from '../../lib/financeCompetence.js';
 
+const REGIME_HINTS = {
+  [FINANCE_REGIME.CASH]:
+    'Mostra valores na data em que o dinheiro entrou ou saiu (liquidação). Ideal para conferir o saldo real.',
+  [FINANCE_REGIME.COMPETENCE]:
+    'Mostra valores no mês em que a receita ou despesa ocorreu, mesmo sem liquidação. Útil para DRE e fechamento.',
+};
+
 /**
  * Toggle caixa / competência persistido por academia.
  */
@@ -17,16 +24,11 @@ export default function FinanceRegimeToggle({ academyId, value, onChange, classN
     onChange?.(next);
   };
 
+  const rootClass = ['finance-regime-toggle', className].filter(Boolean).join(' ');
+
   return (
-    <div
-      className={className}
-      style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}
-      role="group"
-      aria-label="Regime de visualização financeira"
-    >
-      <span className="text-xs text-muted" style={{ fontWeight: 500 }}>
-        Regime:
-      </span>
+    <div className={rootClass} role="group" aria-label="Regime de visualização financeira">
+      <span className="finance-regime-toggle__label">Regime:</span>
       <button
         type="button"
         className={`btn-outline btn-sm${regime === FINANCE_REGIME.CASH ? ' finance-regime-active' : ''}`}
@@ -43,9 +45,9 @@ export default function FinanceRegimeToggle({ academyId, value, onChange, classN
       >
         Competência
       </button>
-      <span className="text-xs text-muted" style={{ marginLeft: 4 }}>
-        Visualizando por {financeRegimeLabel(regime).toLowerCase()}
-      </span>
+      <p className="finance-regime-toggle__hint" id="finance-regime-hint">
+        <strong>{financeRegimeLabel(regime)}:</strong> {REGIME_HINTS[regime] || REGIME_HINTS[FINANCE_REGIME.CASH]}
+      </p>
     </div>
   );
 }
