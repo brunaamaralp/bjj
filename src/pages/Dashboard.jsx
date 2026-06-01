@@ -83,6 +83,12 @@ const Dashboard = () => {
     const [isDashboardMobile, setIsDashboardMobile] = useState(
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
+    const [isAgendaStacked, setIsAgendaStacked] = useState(
+        () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1099px)').matches
+    );
+    const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(
+        () => typeof window === 'undefined' || !window.matchMedia('(max-width: 1099px)').matches
+    );
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
 
@@ -90,6 +96,18 @@ const Dashboard = () => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
         const mq = window.matchMedia('(max-width: 767px)');
         const onChange = () => setIsDashboardMobile(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.matchMedia) return;
+        const mq = window.matchMedia('(max-width: 1099px)');
+        const onChange = () => {
+            setIsAgendaStacked(mq.matches);
+            if (!mq.matches) setFollowUpsPanelOpen(true);
+        };
         onChange();
         mq.addEventListener('change', onChange);
         return () => mq.removeEventListener('change', onChange);
@@ -325,7 +343,10 @@ const Dashboard = () => {
     );
 
     const scrollToFollowUps = () => {
-        followUpsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setFollowUpsPanelOpen(true);
+        requestAnimationFrame(() => {
+            followUpsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
     };
 
     const handleKpiClick = (cardKey) => {
@@ -696,8 +717,8 @@ const Dashboard = () => {
 
             <div className="agenda-page-stack">
             <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.15s' }}>
-                <div className="reception-week-panel__head flex flex-wrap justify-between items-center gap-3">
-                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <div className="reception-week-panel__head">
+                    <div className="reception-week-panel__title-row">
                         <h3 className="navi-section-heading reception-section-heading reception-week-panel__title">
                             <Calendar size={18} color="var(--petroleo)" strokeWidth={2} /> Agenda da semana
                         </h3>
@@ -756,15 +777,50 @@ const Dashboard = () => {
             </section>
 
             <div className="agenda-section-divider" aria-hidden />
-            <section id="follow-ups" ref={followUpsSectionRef} className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
-                <div className="reception-section-head flex justify-between items-center">
-                    <div className="flex items-center gap-2 flex-wrap min-w-0">
-                        <h3 className="navi-section-heading reception-section-heading">
-                            <List size={18} color="var(--v500)" strokeWidth={2} /> Follow-ups pendentes
-                        </h3>
-                        <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
-                    </div>
+            <section
+                id="follow-ups"
+                ref={followUpsSectionRef}
+                className={`animate-in agenda-followups-section reception-section${
+                    isAgendaStacked && !followUpsPanelOpen ? ' agenda-followups-section--collapsed' : ''
+                }`}
+                style={{ animationDelay: '0.2s' }}
+            >
+                <div className="reception-section-head agenda-followups-section__head">
+                    {isAgendaStacked ? (
+                        <button
+                            type="button"
+                            className="agenda-followups-section__toggle"
+                            onClick={() => setFollowUpsPanelOpen((open) => !open)}
+                            aria-expanded={followUpsPanelOpen}
+                            aria-controls="follow-ups-panel-body"
+                        >
+                            <span className="agenda-followups-section__toggle-label flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="navi-section-heading reception-section-heading">
+                                    <List size={18} color="var(--v500)" strokeWidth={2} /> Follow-ups pendentes
+                                </span>
+                                <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
+                            </span>
+                            <ChevronDown
+                                size={18}
+                                strokeWidth={2}
+                                className={`agenda-followups-section__chevron${
+                                    followUpsPanelOpen ? ' agenda-followups-section__chevron--open' : ''
+                                }`}
+                                aria-hidden
+                            />
+                        </button>
+                    ) : (
+                        <div className="agenda-followups-section__toggle agenda-followups-section__toggle--static">
+                            <span className="agenda-followups-section__toggle-label flex items-center gap-2 flex-wrap min-w-0">
+                                <h3 className="navi-section-heading reception-section-heading">
+                                    <List size={18} color="var(--v500)" strokeWidth={2} /> Follow-ups pendentes
+                                </h3>
+                                <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
+                            </span>
+                        </div>
+                    )}
                 </div>
+                <div id="follow-ups-panel-body" className="agenda-followups-section__body">
                 <p className="reception-hint">
                     Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da{' '}
                     {vertical === 'physio' ? 'avaliação' : 'aula'}, o follow-up sai desta lista e fica só no Kanban.
@@ -883,6 +939,7 @@ const Dashboard = () => {
                         </span>
                     </p>
                 )}
+                </div>
             </section>
             </div>
 
@@ -1085,11 +1142,37 @@ const Dashboard = () => {
         .reception-week-panel__title {
           color: var(--cosmos);
         }
+        .reception-week-panel__head {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+        .reception-week-panel__title-row {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          min-width: 0;
+        }
         .badge.reception-week-count-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          margin: 0;
+          line-height: 1;
+          font-size: 11px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
           background: var(--petroleo);
           color: #fff;
           border: none;
-          font-weight: 700;
+          flex-shrink: 0;
         }
         .reception-agenda-inner .agenda-dash-week-nav {
           background: #fff;
@@ -1108,9 +1191,17 @@ const Dashboard = () => {
           max-width: 100%;
           overflow-x: auto;
           overflow-y: visible;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
         }
-        .reception-week-panel__head {
-          margin-bottom: 14px;
+        .reception-week-embed .agenda-week-scroll {
+          overflow-x: visible;
+        }
+        .reception-week-panel__nav {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
         }
         .reception-week-range {
           font-size: 13px;
@@ -1126,9 +1217,13 @@ const Dashboard = () => {
           min-height: 38px;
         }
         .reception-calendar-hint {
-          margin: 14px 0 0;
-          font-size: 11px;
+          margin: 12px 0 0;
+          font-family: var(--ff-mono);
+          font-size: 0.625rem;
+          font-weight: 400;
           color: var(--ameixa);
+          opacity: 0.72;
+          letter-spacing: 0.03em;
           line-height: 1.45;
           text-align: center;
         }
@@ -1137,7 +1232,7 @@ const Dashboard = () => {
           border: 0.5px solid var(--v200);
           background: #fff;
           box-shadow: none;
-          min-width: 120px;
+          min-width: 0;
           min-height: 140px;
           padding: 10px 8px;
           overflow: hidden;
@@ -1215,7 +1310,7 @@ const Dashboard = () => {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          min-height: 120px;
+          min-height: 104px;
           min-width: 0;
           width: 100%;
           box-sizing: border-box;
@@ -1262,20 +1357,27 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-presence {
           margin-top: auto;
-          padding-top: 8px;
+          padding-top: 4px;
           flex-shrink: 0;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 3px;
+          align-items: center;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn {
+          flex: 0 1 calc(50% - 2px);
+          min-width: 0;
           background: #fff;
           border-color: var(--v200);
           color: var(--cosmos);
-          min-height: 24px !important;
-          height: auto;
-          padding: 2px 4px !important;
-          font-size: 0.625rem !important;
+          min-height: 18px !important;
+          height: 18px;
+          padding: 0 5px !important;
+          border-radius: 999px;
+          font-size: 0.5625rem !important;
           font-weight: 600;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
+          line-height: 1;
+          letter-spacing: -0.02em;
           gap: 0;
           transform: none;
           box-shadow: none;
@@ -1302,7 +1404,7 @@ const Dashboard = () => {
           gap: 5px;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-card {
-          min-height: 120px;
+          min-height: 104px;
           padding: 8px 10px 8px 8px !important;
           border-radius: 0 6px 6px 0 !important;
         }
@@ -1379,14 +1481,15 @@ const Dashboard = () => {
           border: none;
           padding: 0;
           font: inherit;
-          font-weight: 700;
-          color: var(--v500);
+          font-weight: 600;
+          color: #000435;
           cursor: pointer;
           text-decoration: underline;
           text-underline-offset: 2px;
         }
         .fu-kanban-link:hover {
-          color: var(--v700);
+          color: #000435;
+          opacity: 0.82;
         }
         .fu-kanban-more-hint {
           font-weight: 400;
@@ -1439,14 +1542,14 @@ const Dashboard = () => {
           white-space: nowrap;
         }
         .fu-type-badge--recover {
-          background: #FCEBEB;
-          color: #8B1E1E;
-          border: 1px solid rgba(163, 45, 45, 0.35);
+          background: rgba(226, 75, 74, 0.15);
+          color: #A32D2D;
+          border: 1px solid rgba(226, 75, 74, 0.28);
         }
         .fu-type-badge--post {
-          background: #E8F5E0;
-          color: #2D5A0A;
-          border: 1px solid rgba(59, 109, 17, 0.35);
+          background: rgba(22, 163, 74, 0.15);
+          color: #15803d;
+          border: 1px solid rgba(22, 163, 74, 0.28);
         }
         .fu-actions {
           display: flex;
@@ -1544,6 +1647,10 @@ const Dashboard = () => {
         }
         .agenda-kpi-value--tasks {
           color: #E4B55D !important;
+          font-family: var(--ff-serif) !important;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: -0.03em;
         }
         @media (max-width: 767px) {
           .reception-header-ai-mobile {
@@ -1652,58 +1759,119 @@ const Dashboard = () => {
           min-width: 0;
         }
         .agenda-week-section {
-          overflow: hidden;
+          min-width: 0;
+          overflow: visible;
         }
         .agenda-page-stack {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-          gap: 2rem;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 22px;
           align-items: start;
           width: 100%;
           margin-top: 18px;
         }
-        .agenda-page-stack > .agenda-week-section {
-          grid-column: 1;
-          grid-row: 1;
-        }
-        .agenda-page-stack > .agenda-followups-section {
-          grid-column: 2;
-          grid-row: 1;
-          position: sticky;
-          top: 1rem;
-          align-self: start;
-          max-height: calc(100vh - 2rem);
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-        }
-        .agenda-page-stack > .agenda-followups-section .fu-list-card {
-          flex: 1 1 auto;
-          min-height: 0;
-          max-height: none;
-        }
-        @media (min-width: 1024px) {
+        @media (min-width: 1100px) {
+          .agenda-page-stack {
+            grid-template-columns: 1fr 340px;
+            gap: 2rem;
+          }
+          .agenda-page-stack > .agenda-week-section {
+            grid-column: 1;
+            grid-row: 1;
+            min-width: 0;
+          }
+          .agenda-page-stack > .agenda-followups-section {
+            grid-column: 2;
+            grid-row: 1;
+            width: 340px;
+            max-width: 340px;
+            position: sticky;
+            top: 1rem;
+            align-self: start;
+            max-height: calc(100vh - 2rem);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            box-sizing: border-box;
+          }
           .agenda-page-stack > .agenda-followups-section .fu-list-card {
+            flex: 1 1 auto;
+            min-height: 0;
             max-height: min(52vh, 480px);
           }
         }
-        @media (max-width: 1023px) {
-          .agenda-page-stack {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 22px;
-          }
+        .agenda-followups-section__head {
+          margin-bottom: 0;
+        }
+        .agenda-followups-section__toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          width: 100%;
+          padding: 0;
+          margin: 0;
+          border: none;
+          background: none;
+          cursor: default;
+          font: inherit;
+          text-align: left;
+          color: inherit;
+        }
+        .agenda-followups-section__toggle--static {
+          cursor: default;
+        }
+        .agenda-followups-section__toggle:not(.agenda-followups-section__toggle--static) {
+          cursor: pointer;
+        }
+        .agenda-followups-section__toggle:not(.agenda-followups-section__toggle--static):hover .reception-section-heading {
+          color: var(--petroleo);
+        }
+        .agenda-followups-section__toggle-label {
+          flex: 1;
+          min-width: 0;
+        }
+        .agenda-followups-section__chevron {
+          flex-shrink: 0;
+          color: var(--ameixa);
+          transition: transform 0.2s ease;
+        }
+        .agenda-followups-section__chevron--open {
+          transform: rotate(180deg);
+        }
+        .agenda-followups-section__body {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          flex: 1 1 auto;
+        }
+        @media (max-width: 1099px) {
           .agenda-page-stack > .agenda-week-section,
           .agenda-page-stack > .agenda-followups-section {
             grid-column: 1;
             grid-row: auto;
             position: static;
             max-height: none;
-          }
-          .agenda-page-stack > .agenda-followups-section {
-            order: -1;
+            width: 100%;
+            max-width: 100%;
           }
           .agenda-page-stack > .agenda-week-section {
             order: 0;
+          }
+          .agenda-page-stack > .agenda-followups-section {
+            order: 1;
+          }
+          .agenda-page-stack > .agenda-followups-section .fu-list-card {
+            max-height: min(60vh, 520px);
+          }
+          .agenda-followups-section--collapsed .agenda-followups-section__body {
+            display: none;
+          }
+          .agenda-followups-section--collapsed .agenda-followups-section__head {
+            margin-bottom: 0;
+          }
+          .agenda-followups-section:not(.agenda-followups-section--collapsed) .agenda-followups-section__head {
+            margin-bottom: 0.5rem;
           }
         }
         .agenda-section-divider {
@@ -1943,6 +2111,8 @@ const Dashboard = () => {
         }
         .agenda-week-fullwidth {
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
         }
         .agenda-experimental-cards {
           margin-top: 2px;

@@ -341,23 +341,20 @@ export default function AgendaCalendarWeek({
         .agenda-week-scroll {
           width: 100%;
           max-width: 100%;
-          overflow-x: auto;
-          overscroll-behavior-x: contain;
-          -webkit-overflow-scrolling: touch;
           margin-bottom: 4px;
         }
         .agenda-week-grid {
           display: grid;
-          grid-template-columns: repeat(7, minmax(120px, 1fr));
+          grid-template-columns: repeat(7, minmax(72px, 1fr));
           gap: 10px;
           padding-inline: 0;
           padding-bottom: 4px;
           align-items: stretch;
-          width: max-content;
+          width: 100%;
           min-width: 100%;
         }
         .agenda-week-grid--six {
-          grid-template-columns: repeat(6, minmax(120px, 1fr));
+          grid-template-columns: repeat(6, minmax(72px, 1fr));
         }
         @media (max-width: 980px) {
           .agenda-week-nav { position: static; }
@@ -365,7 +362,7 @@ export default function AgendaCalendarWeek({
         .agenda-week-col {
           flex: 0 0 auto;
           width: 100%;
-          min-width: 120px;
+          min-width: 0;
           max-width: 100%;
           border-radius: var(--radius-sm);
           border: 1px solid var(--border-mid);
@@ -463,7 +460,7 @@ export default function AgendaCalendarWeek({
           flex-direction: column;
           justify-content: space-between;
           gap: 0;
-          min-height: 120px;
+          min-height: 104px;
           min-width: 0;
           width: 100%;
           box-sizing: border-box;
@@ -501,7 +498,7 @@ export default function AgendaCalendarWeek({
           gap: 10px;
         }
         .agenda-week-col--dense .agenda-week-card {
-          min-height: 120px;
+          min-height: 104px;
           padding: 10px 10px 12px !important;
           border-radius: 12px !important;
         }
@@ -585,24 +582,26 @@ export default function AgendaCalendarWeek({
         .agenda-week-presence {
           display: flex;
           flex-shrink: 0;
-          gap: 4px;
+          flex-wrap: wrap;
+          gap: 3px;
           margin-top: auto;
-          padding-top: 8px;
+          padding-top: 4px;
           width: 100%;
           min-width: 0;
+          align-items: center;
         }
         .agenda-week-presence-btn {
-          flex: 1 1 0;
+          flex: 0 1 calc(50% - 2px);
           min-width: 0;
-          min-height: 24px !important;
-          height: auto;
-          padding: 2px 4px !important;
-          border-radius: 6px;
-          font-size: 0.625rem !important;
+          min-height: 18px !important;
+          height: 18px;
+          padding: 0 5px !important;
+          border-radius: 999px;
+          font-size: 0.5625rem !important;
           font-weight: 600;
           font-family: inherit;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
+          line-height: 1;
+          letter-spacing: -0.02em;
           cursor: pointer;
           border: 1px solid var(--border-mid);
           background: var(--surface);
