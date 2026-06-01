@@ -1104,6 +1104,10 @@ const Dashboard = () => {
         }
         .reception-week-embed {
           margin-top: 2px;
+          min-width: 0;
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: visible;
         }
         .reception-week-panel__head {
           margin-bottom: 14px;
@@ -1265,7 +1269,16 @@ const Dashboard = () => {
           background: #fff;
           border-color: var(--v200);
           color: var(--cosmos);
-          font-size: 10px;
+          min-height: 24px !important;
+          height: auto;
+          padding: 2px 4px !important;
+          font-size: 0.625rem !important;
+          font-weight: 600;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
+          gap: 0;
+          transform: none;
+          box-shadow: none;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn--yes:hover:not(:disabled) {
           border-color: rgba(22, 163, 74, 0.45);
@@ -1308,14 +1321,10 @@ const Dashboard = () => {
         }
         #follow-ups .reception-section-head,
         #follow-ups .reception-hint {
-          position: sticky;
-          top: 0;
-          background: #FFFFFF;
-          z-index: 1;
-          padding-bottom: 0.75rem;
+          flex-shrink: 0;
         }
         #follow-ups .reception-hint {
-          margin-bottom: 0;
+          margin-bottom: 0.75rem;
         }
         .fu-list-card {
           background: var(--surface);
@@ -1638,22 +1647,63 @@ const Dashboard = () => {
           display: block;
           clear: both;
           float: none !important;
-          position: static !important;
           max-width: 100%;
           flex: 0 0 auto;
+          min-width: 0;
+        }
+        .agenda-week-section {
+          overflow: hidden;
         }
         .agenda-page-stack {
           display: grid;
-          grid-template-columns: 1fr 360px;
-          gap: 20px;
+          grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+          gap: 2rem;
           align-items: start;
           width: 100%;
           margin-top: 18px;
         }
+        .agenda-page-stack > .agenda-week-section {
+          grid-column: 1;
+          grid-row: 1;
+        }
+        .agenda-page-stack > .agenda-followups-section {
+          grid-column: 2;
+          grid-row: 1;
+          position: sticky;
+          top: 1rem;
+          align-self: start;
+          max-height: calc(100vh - 2rem);
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .agenda-page-stack > .agenda-followups-section .fu-list-card {
+          flex: 1 1 auto;
+          min-height: 0;
+          max-height: none;
+        }
+        @media (min-width: 1024px) {
+          .agenda-page-stack > .agenda-followups-section .fu-list-card {
+            max-height: min(52vh, 480px);
+          }
+        }
         @media (max-width: 1023px) {
           .agenda-page-stack {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             gap: 22px;
+          }
+          .agenda-page-stack > .agenda-week-section,
+          .agenda-page-stack > .agenda-followups-section {
+            grid-column: 1;
+            grid-row: auto;
+            position: static;
+            max-height: none;
+          }
+          .agenda-page-stack > .agenda-followups-section {
+            order: -1;
+          }
+          .agenda-page-stack > .agenda-week-section {
+            order: 0;
           }
         }
         .agenda-section-divider {

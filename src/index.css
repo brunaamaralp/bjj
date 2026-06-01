@@ -798,13 +798,22 @@ button:focus-visible {
 }
 
 .navi-sidebar-header {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   flex-shrink: 0;
   margin-bottom: 12px;
   min-height: 0;
+  padding: 1.25rem 0.875rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.navi-sidebar:not(.navi-sidebar--collapsed) .navi-sidebar-toggle {
+  position: absolute;
+  top: 1.125rem;
+  right: 0.625rem;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-header {
@@ -812,6 +821,7 @@ button:focus-visible {
   justify-content: flex-start;
   gap: 10px;
   margin-bottom: 14px;
+  padding: 1rem 0.5rem 0.75rem;
 }
 
 .navi-sidebar-brand {
@@ -819,17 +829,21 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex: 1;
-  padding: 1.25rem 1.5rem;
+  flex: 1 1 auto;
+  width: 100%;
+  padding: 0;
+  padding-right: 42px;
   box-sizing: border-box;
 }
 
-.navi-sidebar-brand .navi-brand-lockup {
+.navi-sidebar-brand .navi-brand-lockup,
+.navi-sidebar-brand .navi-brand-lockup--sidebar {
   display: block;
-  width: auto;
-  height: 32px;
-  max-width: 100%;
+  width: auto !important;
+  height: 44px !important;
+  max-width: none !important;
   object-fit: contain;
+  object-position: left center;
 }
 
 .navi-brand-lockup,
@@ -850,12 +864,12 @@ button:focus-visible {
 .navi-sidebar-brand--collapsed {
   justify-content: center;
   width: 100%;
-  padding: 1.25rem 0.75rem;
+  padding: 0;
 }
 
 .navi-sidebar-brand--collapsed .navi-logo {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
 }
 
 .navi-sidebar-toggle {

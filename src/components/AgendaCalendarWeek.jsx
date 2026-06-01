@@ -594,12 +594,15 @@ export default function AgendaCalendarWeek({
         .agenda-week-presence-btn {
           flex: 1 1 0;
           min-width: 0;
-          min-height: 28px;
-          padding: 4px 4px;
+          min-height: 24px !important;
+          height: auto;
+          padding: 2px 4px !important;
           border-radius: 6px;
-          font-size: 10px;
+          font-size: 0.625rem !important;
           font-weight: 600;
           font-family: inherit;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
           cursor: pointer;
           border: 1px solid var(--border-mid);
           background: var(--surface);
@@ -608,6 +611,8 @@ export default function AgendaCalendarWeek({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          transform: none;
+          box-shadow: none;
         }
         .agenda-week-presence-btn:hover:not(:disabled) {
           border-color: var(--border-strong);
