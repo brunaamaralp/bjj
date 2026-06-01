@@ -407,6 +407,7 @@ const SALE_ITEMS_ATTRS = [
 ];
 
 const SALES_ATTRS = [
+  { key: 'academy_id', type: 'string', size: 64 },
   { key: 'academyId', type: 'string', size: 64 },
   { key: 'aluno_id', type: 'string', size: 64 },
   { key: 'total', type: 'float' },

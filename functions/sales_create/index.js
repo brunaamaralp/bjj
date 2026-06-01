@@ -327,13 +327,15 @@ export default async function (req, res) {
     }
 
     const vendaId = sdk.ID.unique();
+    const idemKey = String(idempotency_key || sdk.ID.unique()).trim();
     const salePayload = {
-      academyId: academy_id || null,
+      academy_id: academy_id || "",
+      academyId: academy_id || "",
       aluno_id: aluno_id || null,
       total: totalRounded,
       forma_pagamento: formaFinal,
       status: "rascunho",
-      idempotency_key: idempotency_key || null,
+      idempotency_key: idemKey,
       canal: String(canal || "presencial").slice(0, 32),
     };
     if (pagamentosJson) salePayload.pagamentos_json = pagamentosJson;
