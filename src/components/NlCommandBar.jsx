@@ -47,8 +47,12 @@ function formatNlPaymentMethod(method) {
 
 export function NlCommandBarTrigger({ onClick, mode = 'ask' }) {
   const label = mode === 'ask' ? 'Faça uma pergunta…' : 'O que você quer fazer?';
+  const title =
+    mode === 'ask'
+      ? 'Pergunte sobre matrículas, mensalidades, funil, caixa ou estoque (⌘K)'
+      : 'Descreva uma ação em português (⌘K)';
   return (
-    <button type="button" className="nl-command-bar-trigger" onClick={onClick}>
+    <button type="button" className="nl-command-bar-trigger" onClick={onClick} title={title}>
       <span className="nl-command-bar-trigger__icon" aria-hidden>
         ✦
       </span>
@@ -62,9 +66,31 @@ const ASK_SUGGESTIONS = [
   'Quem fez matrícula esse mês?',
   'Quem ainda não pagou?',
   'Quantos leads novos essa semana?',
-  'Quem compareceu à experimental?',
-  'Quem tem experimental agendada?',
+  'Quem faltou na experimental?',
+  'Quanto entrou esse mês?',
   'O que mais vendeu esse mês?',
+];
+
+const ASK_HELP_SECTIONS = [
+  {
+    title: 'Alunos e mensalidades',
+    examples: ['Quem fez matrícula esse mês?', 'Quem ainda não pagou?', 'Quem está inadimplente?'],
+  },
+  {
+    title: 'Funil',
+    examples: [
+      'Quantos leads novos essa semana?',
+      'Quem compareceu à experimental?',
+      'Quem tem experimental agendada?',
+      'Quem faltou na experimental?',
+      'Quem perdemos esse mês?',
+      'Quem está em aguardando decisão?',
+    ],
+  },
+  {
+    title: 'Caixa e estoque',
+    examples: ['Quanto entrou esse mês?', 'O que mais vendeu esse mês?', 'Quais produtos estão parados?'],
+  },
 ];
 
 function isReadOnlyQueryAction(action) {
@@ -89,6 +115,7 @@ export default function NlCommandBar({
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showAskHelp, setShowAskHelp] = useState(false);
   const { interpret, execute, academyName: academyNameFromHook } = useNlAction();
   const terms = useTerms();
   const academyName = String(academyNameProp || academyNameFromHook || '').trim();
@@ -338,21 +365,71 @@ export default function NlCommandBar({
           {state === 'idle' ? (
             <div style={{ padding: 20 }}>
               {mode === 'ask' ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                  {ASK_SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className="filter-chip"
-                      onClick={() => {
-                        setText(s);
-                        inputRef.current?.focus();
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                    {ASK_SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="filter-chip"
+                        onClick={() => {
+                          setText(s);
+                          inputRef.current?.focus();
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAskHelp((v) => !v)}
+                    style={{
+                      marginBottom: showAskHelp ? 12 : 14,
+                      padding: 0,
+                      border: 'none',
+                      background: 'none',
+                      color: 'var(--petroleo)',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {showAskHelp ? 'Ocultar exemplos' : 'O que posso perguntar?'}
+                  </button>
+                  {showAskHelp ? (
+                    <div
+                      style={{
+                        marginBottom: 14,
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        border: '1px solid var(--border-light)',
+                        background: 'var(--surface-hover, #fafafa)',
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        color: 'var(--text-secondary)',
                       }}
                     >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+                      {ASK_HELP_SECTIONS.map((section) => (
+                        <div key={section.title} style={{ marginBottom: 10 }}>
+                          <div style={{ fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+                            {section.title}
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {section.examples.map((ex) => (
+                              <li key={ex}>{ex}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 11, marginTop: 4 }}>
+                        Comandos (registrar pagamento, matricular lead, etc.) exigem confirmação. Consulta
+                        detalhada: docs/assistive-queries.md
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               <button
                 type="button"
@@ -437,9 +514,18 @@ export default function NlCommandBar({
                             )}
                           </td>
                           <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
-                            {row.pending != null
-                              ? formatBrl(row.pending)
-                              : row.plan || row.origin || row.scheduledDate || row.phone || row.attendedAt || '—'}
+                            {row.line ||
+                              (row.pending != null
+                                ? formatBrl(row.pending)
+                                : row.plan ||
+                                  row.origin ||
+                                  row.lostReason ||
+                                  row.pipelineStage ||
+                                  row.scheduledDate ||
+                                  row.phone ||
+                                  row.attendedAt ||
+                                  row.missedAt ||
+                                  '—')}
                           </td>
                         </tr>
                       ))}

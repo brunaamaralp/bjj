@@ -90,3 +90,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog';
 - `src/components/shared/FieldError.jsx`
 - `src/components/shared/ConfirmDialog.jsx`
 - `src/lib/errorMessages.js`
+
+## Referências
+
+- Barra de perguntas (⌘K): [assistive-queries.md](assistive-queries.md)
