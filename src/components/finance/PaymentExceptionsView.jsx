@@ -11,7 +11,8 @@ import {
   isPaymentExceptionResolved,
   readExceptionStatusLabels,
   labelForExceptionStatus,
-  colorsForExceptionStatus,
+  exceptionStatusBadgeClass,
+  exceptionDiffClass,
   formatExceptionDueLabel,
   studentTurma,
   studentPaymentPlatform,
@@ -328,9 +329,9 @@ export default function PaymentExceptionsView({
   const renderMobileList = () => (
     <div className="mensal-mobile-grid mensal-mobile-grid--exceptions">
       {loading ? (
-        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando…</div>
+        <div className="payment-exceptions-mobile-loading">Carregando…</div>
       ) : displayRows.length === 0 ? (
-        <div style={{ padding: 24 }}>
+        <div className="payment-exceptions-mobile-empty">
           <EmptyState
             variant="table-cell"
             icon={AlertCircle}
@@ -373,15 +374,7 @@ export default function PaymentExceptionsView({
 
   return (
     <div className="payment-exceptions-view">
-      <div
-        className="mensal-summary-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
+      <div className="mensal-summary-grid payment-exceptions-summary">
         <div className="card mensal-summary-metric-card">
           <div className="mensal-summary-metric-card__value mensal-summary-metric-card__value--lg finance-data">{totals.count}</div>
           <div className="text-xs text-muted">Total de casos</div>
@@ -390,27 +383,14 @@ export default function PaymentExceptionsView({
           <div className="mensal-summary-metric-card__value mensal-summary-metric-card__value--lg finance-amount-negative">{fmtMoney(totals.openValue)}</div>
           <div className="text-xs text-muted">Valor em aberto</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px', gridColumn: 'span 2' }}>
-          <div className="text-xs text-muted" style={{ marginBottom: 8 }}>
-            Por status
-          </div>
-          <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+        <div className="card payment-exceptions-summary__status-card">
+          <div className="text-xs text-muted payment-exceptions-summary__status-label">Por status</div>
+          <div className="flex gap-2 payment-exceptions-summary__chips">
             {EXCEPTION_STATUS_KEYS.map((key) => {
               const n = totals.byStatus[key] || 0;
               if (!n) return null;
-              const colors = colorsForExceptionStatus(key);
               return (
-                <span
-                  key={key}
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: 20,
-                    background: colors.bg,
-                    color: colors.color,
-                  }}
-                >
+                <span key={key} className={exceptionStatusBadgeClass(key)}>
                   {n} {labelForExceptionStatus(key, statusLabels)}
                 </span>
               );
@@ -419,8 +399,8 @@ export default function PaymentExceptionsView({
         </div>
       </div>
 
-      <div className="filter-bar mb-2" style={{ alignItems: 'flex-end' }}>
-        <div className="form-group filter-field" style={{ margin: 0, minWidth: 200 }}>
+      <div className="filter-bar mb-2 payment-exceptions-filters">
+        <div className="form-group filter-field payment-exceptions-filters__type">
           <label className="text-xs">Tipo</label>
           <CompactStatusFilter
             value={statusFilter}
@@ -431,7 +411,7 @@ export default function PaymentExceptionsView({
           />
         </div>
         {turmas.length > 0 ? (
-          <div className="form-group filter-field" style={{ margin: 0, minWidth: 130 }}>
+          <div className="form-group filter-field payment-exceptions-filters__turma">
             <label className="text-xs">Turma</label>
             <select className="form-input" value={turmaFilter} onChange={(e) => setTurmaFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -442,7 +422,7 @@ export default function PaymentExceptionsView({
           </div>
         ) : null}
         {platforms.length > 0 ? (
-          <div className="form-group filter-field" style={{ margin: 0, minWidth: 140 }}>
+          <div className="form-group filter-field payment-exceptions-filters__platform">
             <label className="text-xs">Plataforma</label>
             <select className="form-input" value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -452,11 +432,11 @@ export default function PaymentExceptionsView({
             </select>
           </div>
         ) : null}
-        <label className="flex items-center gap-2 text-small" style={{ marginBottom: 8, cursor: 'pointer' }}>
+        <label className="flex items-center gap-2 text-small payment-exceptions-filters__diff-check">
           <input type="checkbox" checked={onlyWithDiff} onChange={(e) => setOnlyWithDiff(e.target.checked)} />
           Só com diferença &gt; 0
         </label>
-          <div className="form-group filter-field" style={{ margin: 0, minWidth: 160 }}>
+        <div className="form-group filter-field payment-exceptions-filters__sort">
           <label className="text-xs">Ordenar por</label>
           <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="difference">Diferença (maior)</option>
@@ -470,9 +450,9 @@ export default function PaymentExceptionsView({
       {isMobile ? (
         renderMobileList()
       ) : (
-      <div className="mensal-table-wrap" style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
-        <table className="mensal-table" style={{ minWidth: 980 }}>
-          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover)' }}>
+      <div className="mensal-table-wrap payment-exceptions-table-wrap">
+        <table className="mensal-table payment-exceptions-table">
+          <thead>
             <tr>
               <th>Nome</th>
               <th>Plano</th>
@@ -497,13 +477,13 @@ export default function PaymentExceptionsView({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={10} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <td colSpan={10} className="payment-exceptions-loading-cell">
                   Carregando…
                 </td>
               </tr>
             ) : displayRows.length === 0 ? (
               <tr>
-                <td colSpan={10} style={{ padding: 24 }}>
+                <td colSpan={10} className="payment-exceptions-empty-cell">
                   <EmptyState
                     variant="table-cell"
                     icon={AlertCircle}
@@ -518,56 +498,31 @@ export default function PaymentExceptionsView({
               </tr>
             ) : (
               displayRows.map((row) => {
-                const colors = colorsForExceptionStatus(row.primaryStatus);
                 const flash = resolvedFlash.has(row.student.id);
-                const diffColor =
-                  row.primaryStatus === 'awaiting'
-                    ? 'var(--finance-color-pending)'
-                    : row.primaryStatus === 'partial'
-                      ? 'var(--finance-color-pending)'
-                      : row.difference < -0.009
-                        ? 'var(--finance-color-neutral)'
-                        : row.difference > 0.009
-                          ? 'var(--finance-color-negative)'
-                          : 'var(--text-secondary)';
+                const rowClass = [
+                  flash ? 'payment-exception-row--flash' : '',
+                  savingId === row.student.id ? 'payment-exception-row--saving' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
                 return (
-                  <tr
-                    key={row.student.id}
-                    style={{
-                      background: flash ? 'var(--success-bg)' : undefined,
-                      transition: 'background 0.3s ease',
-                      opacity: savingId === row.student.id ? 0.6 : 1,
-                    }}
-                  >
-                    <td style={{ fontWeight: 600, fontSize: 13 }}>{row.student.name || '—'}</td>
+                  <tr key={row.student.id} className={rowClass || undefined}>
+                    <td className="payment-exception-name">{row.student.name || '—'}</td>
                     <td className="text-small">{row.plan}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(row.expected)}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(row.received)}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: diffColor }}>
-                      {fmtMoney(row.difference)}
-                    </td>
+                    <td className="payment-exception-num">{fmtMoney(row.expected)}</td>
+                    <td className="payment-exception-num">{fmtMoney(row.received)}</td>
+                    <td className={exceptionDiffClass(row)}>{fmtMoney(row.difference)}</td>
                     <td className="text-small">{formatExceptionDueLabel(row.student, row.row, currentMonth)}</td>
                     <td className="text-small">{row.platform}</td>
                     <td>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '4px 10px',
-                          borderRadius: 20,
-                          background: colors.bg,
-                          color: colors.color,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
+                      <span className={exceptionStatusBadgeClass(row.primaryStatus)}>
                         {labelForExceptionStatus(row.primaryStatus, statusLabels)}
                       </span>
                     </td>
-                    <td style={{ maxWidth: 220, minWidth: 140 }}>
+                    <td className="payment-exception-note-cell">
                       {editingNoteId === row.student.id ? (
                         <input
-                          className="form-input"
-                          style={{ fontSize: 12, padding: '6px 8px', width: '100%' }}
+                          className="form-input payment-exception-note-input--table"
                           value={noteDraft}
                           onChange={(e) => setNoteDraft(e.target.value)}
                           onBlur={() => void saveNoteInline(row)}
@@ -587,19 +542,9 @@ export default function PaymentExceptionsView({
                             setEditingNoteId(row.student.id);
                             setNoteDraft(row.note);
                           }}
-                          style={{
-                            border: 'none',
-                            background: 'none',
-                            padding: 0,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            fontSize: 12,
-                            fontWeight: row.note ? 500 : 400,
-                            color: row.note ? 'var(--text)' : 'var(--text-secondary)',
-                            fontStyle: row.note ? 'normal' : 'italic',
-                            lineHeight: 1.35,
-                            maxWidth: '100%',
-                          }}
+                          className={`payment-exception-note-btn ${
+                            row.note ? 'payment-exception-note-btn--filled' : 'payment-exception-note-btn--empty'
+                          }`}
                           title={row.note || 'Clique para adicionar observação'}
                         >
                           {row.note ? displayNote(row.note, 80) : 'Clique para anotar…'}

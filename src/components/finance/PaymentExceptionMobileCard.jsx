@@ -1,8 +1,9 @@
 import React from 'react';
 import {
   labelForExceptionStatus,
-  colorsForExceptionStatus,
   formatExceptionDueLabel,
+  exceptionStatusBadgeClass,
+  exceptionDiffClass,
 } from '../../lib/paymentExceptions';
 
 function displayNote(note, max = 80) {
@@ -27,27 +28,18 @@ export default function PaymentExceptionMobileCard({
   onNoteSave,
   onNoteCancel,
 }) {
-  const colors = colorsForExceptionStatus(row.primaryStatus);
-  const diffColor =
-    row.primaryStatus === 'awaiting'
-      ? '#B45309'
-      : row.primaryStatus === 'partial'
-        ? '#C2410C'
-        : row.difference < -0.009
-          ? 'var(--dourado)'
-          : row.difference > 0.009
-            ? '#A32D2D'
-            : 'var(--text-secondary)';
+  const cardClass = [
+    'navi-mobile-card',
+    'mensal-mobile-card',
+    'mensal-mobile-card--exception',
+    flash ? 'payment-exception-mobile-card--flash' : '',
+    isSaving ? 'payment-exception-mobile-card--saving' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <article
-      className="navi-mobile-card mensal-mobile-card mensal-mobile-card--exception"
-      style={{
-        background: flash ? '#EAF3DE' : undefined,
-        transition: 'background 0.3s ease',
-        opacity: isSaving ? 0.6 : 1,
-      }}
-    >
+    <article className={cardClass}>
       <div className="mensal-mobile-card__head">
         <div className="mensal-mobile-card__head-text">
           <div className="mensal-mobile-card__name">{row.student.name || '—'}</div>
@@ -55,7 +47,7 @@ export default function PaymentExceptionMobileCard({
           <div className="mensal-mobile-card__meta">
             Esperado {fmtMoney(row.expected)} · Recebido {fmtMoney(row.received)}
           </div>
-          <div className="mensal-mobile-card__meta" style={{ fontWeight: 600, color: diffColor }}>
+          <div className={`mensal-mobile-card__meta ${exceptionDiffClass(row)}`}>
             Diferença {fmtMoney(row.difference)}
           </div>
           <div className="mensal-mobile-card__platform text-small text-muted">
@@ -63,27 +55,15 @@ export default function PaymentExceptionMobileCard({
             {row.platform && row.platform !== '—' ? ` · ${row.platform}` : ''}
           </div>
         </div>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '4px 10px',
-            borderRadius: 20,
-            background: colors.bg,
-            color: colors.color,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
+        <span className={`${exceptionStatusBadgeClass(row.primaryStatus)} payment-exception-status-badge--mobile`}>
           {labelForExceptionStatus(row.primaryStatus, statusLabels)}
         </span>
       </div>
 
-      <div className="mensal-mobile-card__row text-small" style={{ padding: '0 14px 8px' }}>
+      <div className="mensal-mobile-card__row text-small payment-exception-note-row">
         {editingNoteId === row.student.id ? (
           <input
-            className="form-input"
-            style={{ fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+            className="form-input payment-exception-note-input--mobile"
             value={noteDraft}
             onChange={(e) => onNoteDraftChange(e.target.value)}
             onBlur={onNoteSave}
@@ -101,20 +81,9 @@ export default function PaymentExceptionMobileCard({
           <button
             type="button"
             onClick={onNoteOpen}
-            style={{
-              border: 'none',
-              background: 'none',
-              padding: '8px 0',
-              minHeight: 44,
-              width: '100%',
-              cursor: 'pointer',
-              textAlign: 'left',
-              fontSize: 13,
-              fontWeight: row.note ? 500 : 400,
-              color: row.note ? 'var(--text)' : 'var(--text-secondary)',
-              fontStyle: row.note ? 'normal' : 'italic',
-              boxSizing: 'border-box',
-            }}
+            className={`payment-exception-note-btn payment-exception-note-btn--mobile ${
+              row.note ? 'payment-exception-note-btn--filled' : 'payment-exception-note-btn--empty'
+            }`}
           >
             {row.note ? displayNote(row.note, 120) : 'Toque para anotar…'}
           </button>
@@ -122,7 +91,7 @@ export default function PaymentExceptionMobileCard({
       </div>
 
       <div className="mensal-mobile-card__actions">
-        <button type="button" className="btn-primary mensal-mobile-pay" style={{ minHeight: 44 }} onClick={onUpdate}>
+        <button type="button" className="btn-primary mensal-mobile-pay mensal-mobile-pay--touch" onClick={onUpdate}>
           Atualizar pagamento
         </button>
       </div>

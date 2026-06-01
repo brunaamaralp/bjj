@@ -10,7 +10,7 @@ import {
 import { createSessionJwt } from '../../lib/appwrite';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
-const VIOLET = 'var(--petroleo)';
+const VIOLET = 'var(--color-primary)';
 const CORAL = '#F04040';
 
 const PREVIEW_TABS = [

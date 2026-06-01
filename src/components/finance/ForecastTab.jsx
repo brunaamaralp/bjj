@@ -136,17 +136,13 @@ export default function ForecastTab({ academyId }) {
 
   return (
     <section className="mt-4 animate-in finance-forecast">
-      <div
-        className="card mb-3"
-        style={{ padding: '10px 14px', background: 'var(--surface-hover)', borderStyle: 'dashed' }}
-        role="note"
-      >
-        <p className="text-small text-muted" style={{ margin: 0, lineHeight: 1.5 }}>
+      <div className="card mb-3 finance-forecast-note" role="note">
+        <p className="text-small text-muted finance-forecast-note__text">
           Previsão baseada em lançamentos pendentes e mensalidades em aberto. Valores reais podem variar.
         </p>
       </div>
 
-      <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="flex gap-2 mb-3 finance-forecast-toolbar">
         <span className="text-small text-muted">Período:</span>
         {PRESETS.map((p) => (
           <button
@@ -159,7 +155,7 @@ export default function ForecastTab({ academyId }) {
             {p.label}
           </button>
         ))}
-        <span className="text-xs text-muted" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span className="text-xs text-muted finance-forecast-toolbar__meta">
           {isRefreshing ? 'Atualizando…' : cachedAtLabel ? `Atualizado às ${cachedAtLabel}` : '—'}
           <button
             type="button"
@@ -188,196 +184,217 @@ export default function ForecastTab({ academyId }) {
       ) : null}
 
       {data ? (
-        <div style={{ position: 'relative' }}>
+        <div className={`finance-forecast-body${contentBusy ? ' finance-forecast-body--busy' : ''}`}>
           {contentBusy ? (
-            <div
-              className="text-small text-muted"
-              style={{ position: 'absolute', right: 8, top: -6, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
+            <div className="text-small text-muted finance-forecast-refresh-overlay">
               <RefreshCw size={14} className="navi-async-btn__spin" />
               Atualizando…
             </div>
           ) : null}
-          <div style={contentBusy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
-          <div className="finance-forecast-summary">
-            <div className="card finance-forecast-summary__card">
-              <Wallet size={18} style={{ color: 'var(--v500)' }} aria-hidden />
-              <div>
-                <p className="text-xs text-muted">Saldo atual</p>
-                <p className="finance-forecast-summary__value">{fmtMoney(data.opening_balance)}</p>
-              </div>
-            </div>
-            <div className="card finance-forecast-summary__card">
-              <TrendingUp size={18} style={{ color: '#3B6D11' }} aria-hidden />
-              <div>
-                <p className="text-xs text-muted">Entradas previstas</p>
-                <p className="finance-forecast-summary__value" style={{ color: '#3B6D11' }}>
-                  {fmtMoney(summary.expected_inflow)}
-                </p>
-              </div>
-            </div>
-            <div className="card finance-forecast-summary__card">
-              <TrendingDown size={18} style={{ color: '#A32D2D' }} aria-hidden />
-              <div>
-                <p className="text-xs text-muted">Saídas previstas</p>
-                <p className="finance-forecast-summary__value" style={{ color: '#A32D2D' }}>
-                  {fmtMoney(summary.expected_outflow)}
-                </p>
-              </div>
-            </div>
-            <div className="card finance-forecast-summary__card">
-              <Wallet size={18} aria-hidden />
-              <div>
-                <p className="text-xs text-muted">Saldo projetado</p>
-                <p
-                  className="finance-forecast-summary__value"
-                  style={{ color: projectedPositive ? '#3B6D11' : '#A32D2D' }}
-                >
-                  {fmtMoney(projected)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card finance-forecast-chart-card mb-3">
-            <h4 className="funil-section-subheading" style={{ margin: '0 0 12px' }}>
-              Fluxo semanal
-            </h4>
-            {chartRows.length === 0 ? (
-              <p className="text-small text-muted">Nenhuma movimentação prevista no período.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={chartRows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                  <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis
-                    yAxisId="amount"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) =>
-                      Number(v).toLocaleString('pt-BR', { notation: 'compact', maximumFractionDigits: 1 })
-                    }
-                  />
-                  <YAxis yAxisId="balance" orientation="right" hide />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      const labels = {
-                        inflow: 'Entradas',
-                        outflow: 'Saídas',
-                        balance: 'Saldo acumulado',
-                      };
-                      return [fmtMoney(value), labels[name] || name];
-                    }}
-                    labelFormatter={(_, payload) => {
-                      const p = payload?.[0]?.payload;
-                      if (!p) return '';
-                      return `${fmtDateBr(p.week_start)} — ${fmtDateBr(p.week_end)}`;
-                    }}
-                  />
-                  <Bar yAxisId="amount" dataKey="inflow" name="inflow" fill="#3B6D11" radius={[3, 3, 0, 0]} barSize={18} />
-                  <Bar yAxisId="amount" dataKey="outflow" name="outflow" fill="#C2410C" radius={[3, 3, 0, 0]} barSize={18} />
-                  <Line
-                    yAxisId="balance"
-                    type="monotone"
-                    dataKey="balance"
-                    name="balance"
-                    stroke="var(--petroleo)"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-            <div className="flex gap-3 mt-2 text-xs text-muted" style={{ flexWrap: 'wrap' }}>
-              <span>
-                <i style={{ display: 'inline-block', width: 10, height: 10, background: '#3B6D11', borderRadius: 2, marginRight: 4 }} />
-                Entradas
-              </span>
-              <span>
-                <i style={{ display: 'inline-block', width: 10, height: 10, background: '#C2410C', borderRadius: 2, marginRight: 4 }} />
-                Saídas
-              </span>
-              <span>
-                <i style={{ display: 'inline-block', width: 14, height: 2, background: 'var(--petroleo)', marginRight: 4, verticalAlign: 'middle' }} />
-                Saldo acumulado
-              </span>
-            </div>
-          </div>
-
-          <div className="finance-forecast-weeks">
-            {(data.weeks || []).map((week) => (
-              <div key={week.week_start} className="card finance-forecast-week">
-                <div className="finance-forecast-week__head">
-                  <div>
-                    <p className="funil-section-subheading" style={{ margin: 0 }}>
-                      {fmtDateBr(week.week_start)} — {fmtDateBr(week.week_end)}
-                    </p>
-                    <p className="text-xs text-muted" style={{ margin: '4px 0 0' }}>
-                      {week.items.length} item(ns)
-                    </p>
-                  </div>
-                  <div className="text-small" style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    <div>
-                      <span style={{ color: '#3B6D11' }}>+{fmtMoney(week.expected_inflow)}</span>
-                      {' · '}
-                      <span style={{ color: '#A32D2D' }}>-{fmtMoney(week.expected_outflow)}</span>
-                    </div>
-                    <strong style={{ color: week.net >= 0 ? '#3B6D11' : '#A32D2D' }}>
-                      = {fmtMoney(week.net)}
-                    </strong>
-                  </div>
+          <div className="finance-forecast-body__content">
+            <div className="finance-forecast-summary">
+              <div className="card finance-forecast-summary__card">
+                <Wallet size={18} className="finance-forecast-summary__icon--primary" aria-hidden />
+                <div>
+                  <p className="text-xs text-muted">Saldo atual</p>
+                  <p className="finance-forecast-summary__value">{fmtMoney(data.opening_balance)}</p>
                 </div>
-                {week.items.length === 0 ? (
-                  <p className="text-small text-muted" style={{ margin: '12px 0 0' }}>
-                    Sem movimentações previstas nesta semana.
-                  </p>
-                ) : (
-                  <ul className="finance-forecast-week__list">
-                    {week.items.map((item, idx) => (
-                      <li key={`${week.week_start}-${idx}`} className="finance-forecast-week__item">
-                        <span className="finance-forecast-week__icon" aria-hidden>
-                          <TypeIcon type={item.type} />
-                        </span>
-                        <div className="finance-forecast-week__body">
-                          {item.type === 'mensalidade' ? (
-                            <Link
-                              to={`/financeiro?tab=mensalidades&search=${encodeURIComponent(item.student_name || item.label || '')}`}
-                              className="finance-forecast-week__link"
-                            >
-                              {item.label}
-                            </Link>
-                          ) : (
-                            <span className="finance-forecast-week__label">{item.label}</span>
-                          )}
-                          <span className="text-xs text-muted">
-                            {fmtDateBr(item.due_date)}
-                            {' · '}
-                            {statusLabel(item.status)}
-                            {item.type === 'pendente' ? (
-                              <>
-                                {' · '}
-                                <Link to="/financeiro?tab=movimentacoes" className="finance-forecast-week__link">
-                                  Ver no Caixa
-                                </Link>
-                              </>
-                            ) : null}
-                          </span>
-                        </div>
-                        <span
-                          className="finance-forecast-week__amount"
-                          style={{ color: item.flow === 'out' ? '#A32D2D' : '#3B6D11' }}
-                        >
-                          {item.flow === 'out' ? '−' : '+'}
-                          {fmtMoney(item.amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
-            ))}
-          </div>
+              <div className="card finance-forecast-summary__card">
+                <TrendingUp size={18} className="finance-forecast-summary__value--positive" aria-hidden />
+                <div>
+                  <p className="text-xs text-muted">Entradas previstas</p>
+                  <p className="finance-forecast-summary__value finance-forecast-summary__value--positive">
+                    {fmtMoney(summary.expected_inflow)}
+                  </p>
+                </div>
+              </div>
+              <div className="card finance-forecast-summary__card">
+                <TrendingDown size={18} className="finance-forecast-summary__value--negative" aria-hidden />
+                <div>
+                  <p className="text-xs text-muted">Saídas previstas</p>
+                  <p className="finance-forecast-summary__value finance-forecast-summary__value--negative">
+                    {fmtMoney(summary.expected_outflow)}
+                  </p>
+                </div>
+              </div>
+              <div className="card finance-forecast-summary__card">
+                <Wallet size={18} aria-hidden />
+                <div>
+                  <p className="text-xs text-muted">Saldo projetado</p>
+                  <p
+                    className={`finance-forecast-summary__value ${
+                      projectedPositive
+                        ? 'finance-forecast-summary__value--positive'
+                        : 'finance-forecast-summary__value--negative'
+                    }`}
+                  >
+                    {fmtMoney(projected)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card finance-forecast-chart-card mb-3">
+              <h4 className="funil-section-subheading finance-forecast-chart-title">Fluxo semanal</h4>
+              {chartRows.length === 0 ? (
+                <p className="text-small text-muted">Nenhuma movimentação prevista no período.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={chartRows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis
+                      yAxisId="amount"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) =>
+                        Number(v).toLocaleString('pt-BR', { notation: 'compact', maximumFractionDigits: 1 })
+                      }
+                    />
+                    <YAxis yAxisId="balance" orientation="right" hide />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        const labels = {
+                          inflow: 'Entradas',
+                          outflow: 'Saídas',
+                          balance: 'Saldo acumulado',
+                        };
+                        return [fmtMoney(value), labels[name] || name];
+                      }}
+                      labelFormatter={(_, payload) => {
+                        const p = payload?.[0]?.payload;
+                        if (!p) return '';
+                        return `${fmtDateBr(p.week_start)} — ${fmtDateBr(p.week_end)}`;
+                      }}
+                    />
+                    <Bar
+                      yAxisId="amount"
+                      dataKey="inflow"
+                      name="inflow"
+                      fill="var(--finance-chart-inflow)"
+                      radius={[3, 3, 0, 0]}
+                      barSize={18}
+                    />
+                    <Bar
+                      yAxisId="amount"
+                      dataKey="outflow"
+                      name="outflow"
+                      fill="var(--finance-chart-outflow)"
+                      radius={[3, 3, 0, 0]}
+                      barSize={18}
+                    />
+                    <Line
+                      yAxisId="balance"
+                      type="monotone"
+                      dataKey="balance"
+                      name="balance"
+                      stroke="var(--finance-chart-balance)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+              <div className="flex gap-3 mt-2 text-xs text-muted finance-forecast-legend">
+                <span>
+                  <i className="finance-forecast-legend__swatch finance-forecast-legend__swatch--inflow" />
+                  Entradas
+                </span>
+                <span>
+                  <i className="finance-forecast-legend__swatch finance-forecast-legend__swatch--outflow" />
+                  Saídas
+                </span>
+                <span>
+                  <i className="finance-forecast-legend__swatch finance-forecast-legend__swatch--balance" />
+                  Saldo acumulado
+                </span>
+              </div>
+            </div>
+
+            <div className="finance-forecast-weeks">
+              {(data.weeks || []).map((week) => (
+                <div key={week.week_start} className="card finance-forecast-week">
+                  <div className="finance-forecast-week__head">
+                    <div>
+                      <p className="funil-section-subheading finance-forecast-week__title">
+                        {fmtDateBr(week.week_start)} — {fmtDateBr(week.week_end)}
+                      </p>
+                      <p className="text-xs text-muted finance-forecast-week__subtitle">
+                        {week.items.length} item(ns)
+                      </p>
+                    </div>
+                    <div className="text-small finance-forecast-week__totals">
+                      <div>
+                        <span className="finance-forecast-week__inflow">+{fmtMoney(week.expected_inflow)}</span>
+                        {' · '}
+                        <span className="finance-forecast-week__outflow">-{fmtMoney(week.expected_outflow)}</span>
+                      </div>
+                      <strong
+                        className={
+                          week.net >= 0
+                            ? 'finance-forecast-week__net--positive'
+                            : 'finance-forecast-week__net--negative'
+                        }
+                      >
+                        = {fmtMoney(week.net)}
+                      </strong>
+                    </div>
+                  </div>
+                  {week.items.length === 0 ? (
+                    <p className="text-small text-muted finance-forecast-week__empty">
+                      Sem movimentações previstas nesta semana.
+                    </p>
+                  ) : (
+                    <ul className="finance-forecast-week__list">
+                      {week.items.map((item, idx) => (
+                        <li key={`${week.week_start}-${idx}`} className="finance-forecast-week__item">
+                          <span className="finance-forecast-week__icon" aria-hidden>
+                            <TypeIcon type={item.type} />
+                          </span>
+                          <div className="finance-forecast-week__body">
+                            {item.type === 'mensalidade' ? (
+                              <Link
+                                to={`/financeiro?tab=mensalidades&search=${encodeURIComponent(item.student_name || item.label || '')}`}
+                                className="finance-forecast-week__link"
+                              >
+                                {item.label}
+                              </Link>
+                            ) : (
+                              <span className="finance-forecast-week__label">{item.label}</span>
+                            )}
+                            <span className="text-xs text-muted">
+                              {fmtDateBr(item.due_date)}
+                              {' · '}
+                              {statusLabel(item.status)}
+                              {item.type === 'pendente' ? (
+                                <>
+                                  {' · '}
+                                  <Link to="/financeiro?tab=movimentacoes" className="finance-forecast-week__link">
+                                    Ver no Caixa
+                                  </Link>
+                                </>
+                              ) : null}
+                            </span>
+                          </div>
+                          <span
+                            className={`finance-forecast-week__amount ${
+                              item.flow === 'out'
+                                ? 'finance-forecast-week__amount--out'
+                                : 'finance-forecast-week__amount--in'
+                            }`}
+                          >
+                            {item.flow === 'out' ? '−' : '+'}
+                            {fmtMoney(item.amount)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

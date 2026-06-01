@@ -188,6 +188,25 @@ export function colorsForExceptionStatus(statusKey) {
   return EXCEPTION_STATUS_COLORS[statusKey] || EXCEPTION_STATUS_COLORS.none;
 }
 
+/** Classe CSS do badge de status (preferir em vez de style inline). */
+export function exceptionStatusBadgeClass(statusKey) {
+  const k = String(statusKey || 'none').trim() || 'none';
+  return `payment-exception-status-badge payment-exception-status-badge--${k}`;
+}
+
+/** Classe CSS para valor de diferença na tabela/cards. */
+export function exceptionDiffClass(row) {
+  if (row.primaryStatus === 'awaiting') {
+    return 'payment-exception-diff payment-exception-diff--awaiting';
+  }
+  if (row.primaryStatus === 'partial') {
+    return 'payment-exception-diff payment-exception-diff--partial';
+  }
+  if (row.difference < -0.009) return 'payment-exception-diff payment-exception-diff--under';
+  if (row.difference > 0.009) return 'payment-exception-diff payment-exception-diff--over';
+  return 'payment-exception-diff payment-exception-diff--neutral';
+}
+
 export function formatExceptionDueLabel(student, row, currentMonth) {
   const day = studentDueDay(student);
   const due = row?.dueDate || (currentMonth && day ? dueDateInMonth(currentMonth, day) : null);

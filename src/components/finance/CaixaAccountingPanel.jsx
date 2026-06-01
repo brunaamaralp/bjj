@@ -183,7 +183,7 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
 
   if (!String(academyId || '').trim()) {
     return (
-      <div style={{ padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>
+      <div className="finance-accounting-empty">
         Selecione uma {terms.workspaceNoun} para visualizar os dados.
       </div>
     );

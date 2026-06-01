@@ -30,6 +30,9 @@
   --finance-space-8: 32px;
   --finance-space-10: 40px;
   --finance-space-12: 48px;
+  --finance-chart-inflow: var(--finance-color-positive);
+  --finance-chart-outflow: var(--warning, #c2410c);
+  --finance-chart-balance: var(--color-primary);
 }
 
 /* === Utilitários de cor financeira === */
@@ -703,7 +706,7 @@
 }
 .finance-tx-badge--plan {
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
-  color: var(--v700);
+  color: var(--color-primary-dark);
 }
 .finance-tx-badge--product {
   background: var(--surface-hover);
@@ -783,6 +786,316 @@
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
+.finance-forecast-week__amount--in {
+  color: var(--finance-color-positive);
+}
+.finance-forecast-week__amount--out {
+  color: var(--finance-color-negative);
+}
+.finance-forecast-note {
+  padding: 10px 14px;
+  background: var(--color-background-secondary, var(--surface-hover));
+  border-style: dashed;
+}
+.finance-forecast-note__text {
+  margin: 0;
+  line-height: 1.5;
+}
+.finance-forecast-toolbar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.finance-forecast-toolbar__meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--finance-space-2);
+}
+.finance-forecast-body {
+  position: relative;
+}
+.finance-forecast-body--busy .finance-forecast-body__content {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.finance-forecast-refresh-overlay {
+  position: absolute;
+  right: 8px;
+  top: -6px;
+  z-index: var(--z-sticky, 2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.finance-forecast-summary__icon--primary {
+  color: var(--color-primary);
+}
+.finance-forecast-summary__value--positive {
+  color: var(--finance-color-positive);
+}
+.finance-forecast-summary__value--negative {
+  color: var(--finance-color-negative);
+}
+.finance-forecast-chart-title {
+  margin: 0 0 var(--finance-space-3);
+}
+.finance-forecast-legend {
+  flex-wrap: wrap;
+}
+.finance-forecast-legend__swatch {
+  display: inline-block;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.finance-forecast-legend__swatch--inflow {
+  width: 10px;
+  height: 10px;
+  background: var(--finance-chart-inflow);
+  border-radius: 2px;
+}
+.finance-forecast-legend__swatch--outflow {
+  width: 10px;
+  height: 10px;
+  background: var(--finance-chart-outflow);
+  border-radius: 2px;
+}
+.finance-forecast-legend__swatch--balance {
+  width: 14px;
+  height: 2px;
+  background: var(--finance-chart-balance);
+}
+.finance-forecast-week__title {
+  margin: 0;
+}
+.finance-forecast-week__subtitle {
+  margin: 4px 0 0;
+}
+.finance-forecast-week__totals {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.finance-forecast-week__inflow {
+  color: var(--finance-color-positive);
+}
+.finance-forecast-week__outflow {
+  color: var(--finance-color-negative);
+}
+.finance-forecast-week__net--positive {
+  color: var(--finance-color-positive);
+}
+.finance-forecast-week__net--negative {
+  color: var(--finance-color-negative);
+}
+.finance-forecast-week__empty {
+  margin: var(--finance-space-3) 0 0;
+}
+
+.financeiro-overview__empty-academy {
+  margin-top: var(--finance-space-2);
+}
+.financeiro-overview-trend {
+  margin: 4px 0 0;
+}
+.financeiro-overview-trend__icon {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.payment-exceptions-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--finance-space-3);
+  margin-bottom: var(--finance-space-4);
+}
+.payment-exceptions-summary__status-card {
+  padding: var(--finance-space-3) var(--finance-space-4);
+  grid-column: span 2;
+}
+.payment-exceptions-summary__status-label {
+  margin-bottom: var(--finance-space-2);
+}
+.payment-exceptions-summary__chips {
+  flex-wrap: wrap;
+}
+.payment-exceptions-filters {
+  align-items: flex-end;
+}
+.payment-exceptions-filters__type {
+  margin: 0;
+  min-width: 200px;
+}
+.payment-exceptions-filters__turma,
+.payment-exceptions-filters__platform {
+  margin: 0;
+  min-width: 130px;
+}
+.payment-exceptions-filters__platform {
+  min-width: 140px;
+}
+.payment-exceptions-filters__sort {
+  margin: 0;
+  min-width: 160px;
+}
+.payment-exceptions-filters__diff-check {
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.payment-exceptions-table-wrap {
+  max-height: calc(100vh - 340px);
+  overflow: auto;
+}
+.payment-exceptions-table {
+  min-width: 980px;
+}
+.payment-exceptions-table thead {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky, 2);
+  background: var(--color-background-secondary, var(--surface-hover));
+}
+.payment-exceptions-loading-cell {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.payment-exceptions-empty-cell {
+  padding: var(--finance-space-6);
+}
+.payment-exception-row--flash {
+  background: var(--color-accent-surface, var(--success-bg)) !important;
+  transition: background 0.3s ease;
+}
+.payment-exception-row--saving {
+  opacity: 0.6;
+}
+.payment-exception-name {
+  font-weight: 600;
+  font-size: var(--font-md);
+}
+.payment-exception-num {
+  font-variant-numeric: tabular-nums;
+}
+.payment-exception-diff {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.payment-exception-diff--awaiting,
+.payment-exception-diff--partial {
+  color: var(--finance-color-pending);
+}
+.payment-exception-diff--under {
+  color: var(--finance-color-neutral);
+}
+.payment-exception-diff--over {
+  color: var(--finance-color-negative);
+}
+.payment-exception-diff--neutral {
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.payment-exception-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.payment-exception-status-badge--pending {
+  background: color-mix(in srgb, var(--finance-color-negative) 12%, var(--surface));
+  color: var(--finance-color-negative);
+}
+.payment-exception-status-badge--awaiting {
+  background: var(--status-warning-bg, var(--warning-light, #fef3c7));
+  color: var(--finance-color-pending);
+}
+.payment-exception-status-badge--partial {
+  background: var(--warning-light, #ffedd5);
+  color: var(--warning, #c2410c);
+}
+.payment-exception-status-badge--divergence {
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: var(--warning, #e4b55d);
+}
+.payment-exception-status-badge--none {
+  background: var(--color-background-secondary, var(--surface-hover));
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.payment-exception-mobile-card--flash {
+  background: var(--color-accent-surface, #eaf3de);
+  transition: background 0.3s ease;
+}
+.payment-exception-mobile-card--saving {
+  opacity: 0.6;
+}
+.payment-exception-status-badge--mobile {
+  flex-shrink: 0;
+}
+.payment-exception-note-row {
+  padding: 0 14px 8px;
+}
+.payment-exception-note-input--mobile {
+  font-size: var(--font-md);
+  width: 100%;
+  box-sizing: border-box;
+}
+.payment-exception-note-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--font-sm);
+  line-height: 1.35;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.payment-exception-note-btn--empty {
+  font-weight: 400;
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-style: italic;
+}
+.payment-exception-note-btn--filled {
+  font-weight: 500;
+  color: var(--color-text-primary, var(--text));
+  font-style: normal;
+}
+.payment-exception-note-btn--mobile {
+  padding: 8px 0;
+  min-height: 44px;
+  width: 100%;
+  font-size: 13px;
+}
+.payment-exception-note-cell {
+  max-width: 220px;
+  min-width: 140px;
+}
+.payment-exception-note-input--table {
+  font-size: var(--font-sm);
+  padding: 6px 8px;
+  width: 100%;
+}
+.mensal-mobile-pay--touch {
+  min-height: 44px;
+}
+.payment-exceptions-mobile-loading,
+.payment-exceptions-mobile-empty {
+  padding: var(--finance-space-6);
+  text-align: center;
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.payment-exceptions-mobile-empty {
+  text-align: left;
+}
+.finance-accounting-empty {
+  padding: var(--finance-space-6);
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: var(--font-md);
+}
+@media (max-width: 640px) {
+  .payment-exceptions-summary__status-card {
+    grid-column: span 1;
+  }
+}
+
 .bank-recon-summary__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

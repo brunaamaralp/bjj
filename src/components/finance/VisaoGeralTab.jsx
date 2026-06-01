@@ -288,7 +288,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
 
   if (!academyId) {
     return (
-      <p className="text-small text-muted" style={{ marginTop: 8 }}>
+      <p className="text-small text-muted financeiro-overview__empty-academy">
         Selecione uma academia para ver o resumo.
       </p>
     );
@@ -384,13 +384,13 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
                 {fmtMoneyOrUnavailable(summary?.periodBalance, summaryFailed)}
               </p>
               {!summaryFailed ? (
-                <p className="text-small text-muted" style={{ margin: '4px 0 0' }}>
+                <p className="text-small text-muted financeiro-overview-trend">
                   {balanceDelta.type === 'pct' ? (
                     <>
                       {balanceDelta.pct >= 0 ? (
-                        <TrendingUp size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                        <TrendingUp size={14} className="financeiro-overview-trend__icon" aria-hidden />
                       ) : (
-                        <TrendingDown size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                        <TrendingDown size={14} className="financeiro-overview-trend__icon" aria-hidden />
                       )}
                       {balanceDelta.pct >= 0 ? '+' : ''}
                       {balanceDelta.pct}% vs mês anterior
