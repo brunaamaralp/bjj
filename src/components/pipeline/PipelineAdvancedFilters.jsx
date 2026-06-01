@@ -81,7 +81,7 @@ export default function PipelineAdvancedFilters({
           aria-label="Filtrar matrículas por mês"
         />
         <p className="pipeline-filters-panel__hint">
-          Filtra só a coluna Matrícula pela data de ingresso do aluno.
+          Só entram alunos com data de ingresso preenchida no cadastro.
         </p>
       </div>
 

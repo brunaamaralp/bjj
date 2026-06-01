@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   defaultEnrollmentDateIso,
   enrollmentDateYmd,
+  enrollmentIngressYmd,
   contactEnrolledInYmdRange,
   formatLocalYmd,
 } from '../lib/studentEnrollmentDate.js';
@@ -23,7 +24,7 @@ describe('enrollmentDateYmd', () => {
     ).toBe('2023-05-10');
   });
 
-  it('usa convertedAt quando ingresso ausente', () => {
+  it('usa convertedAt quando ingresso ausente (ordenação)', () => {
     expect(enrollmentDateYmd({ convertedAt: '2026-06-01T12:00:00.000Z' })).toBe('2026-06-01');
   });
 
@@ -38,6 +39,13 @@ describe('enrollmentDateYmd', () => {
   });
 });
 
+describe('enrollmentIngressYmd', () => {
+  it('só retorna data de ingresso explícita', () => {
+    expect(enrollmentIngressYmd({ enrollmentDate: '2024-01-15' })).toBe('2024-01-15');
+    expect(enrollmentIngressYmd({ convertedAt: '2026-06-01T12:00:00.000Z' })).toBe('');
+  });
+});
+
 describe('contactEnrolledInYmdRange', () => {
   it('inclui matrícula dentro do intervalo', () => {
     expect(
@@ -48,6 +56,16 @@ describe('contactEnrolledInYmdRange', () => {
   it('exclui matrícula fora do intervalo', () => {
     expect(
       contactEnrolledInYmdRange({ enrollmentDate: '2023-01-10' }, '2026-05-01', '2026-05-31')
+    ).toBe(false);
+  });
+
+  it('exclui quando não há ingresso, mesmo com convertedAt', () => {
+    expect(
+      contactEnrolledInYmdRange(
+        { convertedAt: '2026-06-01T00:00:00.000Z' },
+        '2026-06-01',
+        '2026-06-30'
+      )
     ).toBe(false);
   });
 

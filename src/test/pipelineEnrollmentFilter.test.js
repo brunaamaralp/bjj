@@ -34,10 +34,16 @@ describe('pipelineEnrollmentFilter', () => {
     expect(range).toEqual({ from: '2026-06-01', to: '2026-06-15' });
   });
 
-  it('enrolledContactMatchesPeriod usa data de ingresso', () => {
+  it('enrolledContactMatchesPeriod usa data de ingresso, não convertedAt', () => {
     expect(
       enrolledContactMatchesPeriod(
         { enrollmentDate: '2023-08-12', convertedAt: '2026-06-01T00:00:00.000Z' },
+        { from: '2026-06-01', to: '2026-06-30' }
+      )
+    ).toBe(false);
+    expect(
+      enrolledContactMatchesPeriod(
+        { convertedAt: '2026-06-10T00:00:00.000Z' },
         { from: '2026-06-01', to: '2026-06-30' }
       )
     ).toBe(false);

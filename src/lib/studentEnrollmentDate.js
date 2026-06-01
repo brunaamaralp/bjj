@@ -11,13 +11,20 @@ export function formatLocalYmd(date) {
 }
 
 /**
- * Data de matrícula/ingresso para filtros e relatórios.
- * Prioriza enrollmentDate; convertedAt como fallback.
- * Não usa $createdAt — evita falsos positivos após migração lead→student.
+ * Data de ingresso explícita (campo «Ingresso» no perfil do aluno).
+ * Não usa convertedAt — evita incluir alunos só com data de conversão automática.
+ */
+export function enrollmentIngressYmd(contact) {
+  const en = String(contact?.enrollmentDate || contact?.enrollment_date || '').trim().slice(0, 10);
+  return YMD_RE.test(en) ? en : '';
+}
+
+/**
+ * Data de matrícula/ingresso para ordenação e telas (ingresso → conversão).
  */
 export function enrollmentDateYmd(contact) {
-  const en = String(contact?.enrollmentDate || contact?.enrollment_date || '').trim().slice(0, 10);
-  if (YMD_RE.test(en)) return en;
+  const ingress = enrollmentIngressYmd(contact);
+  if (ingress) return ingress;
 
   const conv = String(contact?.convertedAt || contact?.converted_at || '').trim().slice(0, 10);
   if (YMD_RE.test(conv)) return conv;
@@ -25,10 +32,10 @@ export function enrollmentDateYmd(contact) {
   return '';
 }
 
-/** Verifica se a matrícula cai no intervalo [from, to] (YYYY-MM-DD). Sem datas = passa. */
+/** Verifica se a matrícula cai no intervalo [from, to] (YYYY-MM-DD). Sem período = todos. */
 export function contactEnrolledInYmdRange(contact, from, to) {
   if (!from && !to) return true;
-  const ymd = enrollmentDateYmd(contact);
+  const ymd = enrollmentIngressYmd(contact);
   if (!ymd) return false;
   if (from && ymd < from) return false;
   if (to && ymd > to) return false;
