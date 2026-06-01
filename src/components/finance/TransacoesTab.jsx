@@ -13,7 +13,7 @@ import {
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
-import { Receipt, Repeat, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Receipt, Repeat, ChevronDown, MoreHorizontal, Upload } from 'lucide-react';
 import { DateInputField } from '../DateInput';
 import {
   RECURRENCE_TYPES,
@@ -51,6 +51,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
+import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
 
 function formatTxDateStr(iso) {
   const dt = new Date(iso);
@@ -158,6 +159,7 @@ export default function TransacoesTab({
   const [pendingCancelId, setPendingCancelId] = useState('');
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
   const [pendingCancelRecId, setPendingCancelRecId] = useState('');
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
@@ -655,21 +657,33 @@ export default function TransacoesTab({
                 ) : null}
               </div>
             </div>
-            <button
-              type="button"
-              className="btn-primary finance-tx-toolbar__cta"
-              onClick={() => {
-                setEditingTxId('');
-                setEditPreservedSaleId('');
-                setReceiveNow(false);
-                setTxForm(initialTxForm());
-                setStudentQuery('');
-                setStudentPickerOpen(false);
-                setShowTxModal(true);
-              }}
-            >
-              + Nova transação
-            </button>
+            <div className="finance-tx-toolbar__actions flex gap-2">
+              {canManageAdvanced ? (
+                <button
+                  type="button"
+                  className="btn-outline finance-tx-toolbar__cta"
+                  onClick={() => setShowImportModal(true)}
+                >
+                  <Upload size={16} aria-hidden />
+                  Importar planilha
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="btn-primary finance-tx-toolbar__cta"
+                onClick={() => {
+                  setEditingTxId('');
+                  setEditPreservedSaleId('');
+                  setReceiveNow(false);
+                  setTxForm(initialTxForm());
+                  setStudentQuery('');
+                  setStudentPickerOpen(false);
+                  setShowTxModal(true);
+                }}
+              >
+                + Nova transação
+              </button>
+            </div>
           </div>
           {loadError ? (
             <ErrorBanner
@@ -1371,6 +1385,23 @@ export default function TransacoesTab({
             setShowCancelRecDialog(false);
             setPendingCancelRecId('');
           }
+        }}
+      />
+      <ImportFinanceTxModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        academyId={academyId}
+        onImported={({ ok, fail }) => {
+          toast.show({
+            type: fail ? 'warning' : 'success',
+            message:
+              fail > 0
+                ? `${ok} lançamento(s) importado(s), ${fail} falha(s).`
+                : `${ok} lançamento(s) importado(s) com sucesso.`,
+          });
+          if (typeof onTxMutated === 'function') onTxMutated();
+          window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+          void loadTransactions();
         }}
       />
     </>

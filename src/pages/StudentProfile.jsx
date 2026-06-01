@@ -499,7 +499,7 @@ export default function StudentProfile() {
         const onNlPaymentPrefill = (ev) => {
             const d = ev?.detail || {};
             if (!student || String(d.student_id || '').trim() !== String(student.id || '').trim()) return;
-            const base = buildDefaultPayForm(student);
+            const base = buildDefaultPayForm(student, financeConfig);
             const amountNum = Number(d.amount);
             setPayForm({
                 ...base,
@@ -518,7 +518,7 @@ export default function StudentProfile() {
         };
         window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
         return () => window.removeEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
-    }, [student]);
+    }, [student, financeConfig]);
 
     useEffect(() => {
         if (!student) return;
@@ -1289,19 +1289,19 @@ export default function StudentProfile() {
         if (!student) return;
         setEditingPaymentId(null);
         setPayFormError('');
-        setPayForm({ ...buildDefaultPayForm(student), payment_type: presetType });
+        setPayForm({ ...buildDefaultPayForm(student, financeConfig), payment_type: presetType });
         setShowPaymentModal(true);
-    }, [student]);
+    }, [student, financeConfig]);
 
     const openEditPaymentModal = useCallback(
         (payment) => {
             if (!student || !payment?.$id) return;
             setEditingPaymentId(payment.$id);
             setPayFormError('');
-            setPayForm(paymentFormFromDoc(payment, student));
+            setPayForm(paymentFormFromDoc(payment, student, financeConfig));
             setShowPaymentModal(true);
         },
-        [student]
+        [student, financeConfig]
     );
 
     const saveStudentPayment = useCallback(async () => {
@@ -1332,6 +1332,7 @@ export default function StudentProfile() {
             toast.show({ type: 'error', message: accountCheck.message });
             return;
         }
+        const paymentAccount = accountCheck.account || payForm.account || '';
 
         const paidAtIso =
             (payForm.status === 'paid' || paymentType === PAYMENT_CATEGORY.FEE || paymentType === PAYMENT_CATEGORY.OTHER) &&
@@ -1352,7 +1353,7 @@ export default function StudentProfile() {
             amount: amountNum,
             paid_amount: amountNum,
             method: payForm.method,
-            account: payForm.account || '',
+            account: paymentAccount,
             plan_name: payForm.plan_name || student.plan || '',
             status: payForm.status,
             payment_category: paymentType,

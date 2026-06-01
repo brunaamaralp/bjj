@@ -37,7 +37,7 @@ import {
 } from '../../lib/collectionRules.js';
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
 import { useAcademyLabels } from '../../hooks/useAcademyLabels.js';
-import { validateBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { validateBankAccountForPayment, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
@@ -580,7 +580,7 @@ export default function MensalidadesPanel({ embedded = false }) {
           ? maskCurrency(String(Math.round(amountNum * 100)))
           : '',
       method: preset.method || student.preferredPaymentMethod || 'pix',
-      account: student.preferredPaymentAccount || '',
+      account: resolveBankAccountForPayment(student.preferredPaymentAccount || '', financeConfig),
       status: 'paid',
       paid_at: new Date().toISOString().slice(0, 10),
       due_date: dueDate ? dueDate.toISOString().slice(0, 10) : '',
@@ -634,6 +634,7 @@ export default function MensalidadesPanel({ embedded = false }) {
       toast.show({ type: 'error', message: accountCheck.message });
       return;
     }
+    const paymentAccount = accountCheck.account || payForm.account || '';
 
     const paidAtYmd = String(payForm.paid_at || '').trim();
     if (!skipFuturePaidDateRef.current && isPaymentDateInFuture(paidAtYmd)) {
@@ -655,7 +656,7 @@ export default function MensalidadesPanel({ embedded = false }) {
       amount: amountNum,
       paid_amount: amountNum,
       method: payForm.method,
-      account: payForm.account || '',
+      account: paymentAccount,
       status: 'paid',
       reference_month: currentMonth,
       paid_at: paidAtIso,
@@ -680,7 +681,7 @@ export default function MensalidadesPanel({ embedded = false }) {
         team_id: teamIdForPayments,
         amount: amountNum,
         method: payForm.method,
-        account: payForm.account || '',
+        account: paymentAccount,
         status: 'paid',
         reference_month: currentMonth,
         paid_at: paidAtIso,
@@ -701,7 +702,7 @@ export default function MensalidadesPanel({ embedded = false }) {
         if (payForm.saveAsPreferred) {
           await updateStudent(student.id, {
             preferredPaymentMethod: payForm.method,
-            preferredPaymentAccount: payForm.account || '',
+            preferredPaymentAccount: paymentAccount,
             dueDay: dueDayValid ? dueDayNum : null,
           });
         } else if (dueDayValid || String(student?.dueDay || '').trim()) {

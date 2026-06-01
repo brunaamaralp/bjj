@@ -7,19 +7,21 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
+import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
 
-export function paymentFormFromDoc(payment, student) {
-  const base = buildDefaultPayForm(student);
+export function paymentFormFromDoc(payment, student, financeConfig = null) {
+  const base = buildDefaultPayForm(student, financeConfig);
   if (!payment) return base;
   const cat = normalizePaymentCategory(payment);
   const cents = numberToCents(payment.amount ?? payment.paid_amount);
   const paidSlice = payment.paid_at ? String(payment.paid_at).slice(0, 10) : base.paid_at;
   const dueSlice = payment.due_date ? String(payment.due_date).slice(0, 10) : '';
+  const rawAccount = payment.account || base.account;
   return {
     ...base,
     payment_type: cat,
@@ -28,7 +30,9 @@ export function paymentFormFromDoc(payment, student) {
     bundle_months: Number(payment.bundle_months) || base.bundle_months,
     amount: cents != null ? formatBRLFromCents(cents) : base.amount,
     method: payment.method || base.method,
-    account: payment.account || base.account,
+    account: financeConfig
+      ? resolveBankAccountForPayment(rawAccount, financeConfig)
+      : rawAccount,
     status: payment.status || base.status,
     paid_at: paidSlice,
     due_date: dueSlice,
@@ -37,8 +41,9 @@ export function paymentFormFromDoc(payment, student) {
   };
 }
 
-export function buildDefaultPayForm(student) {
+export function buildDefaultPayForm(student, financeConfig = null) {
   const ym = new Date().toISOString().slice(0, 7);
+  const preferredAccount = student?.preferredPaymentAccount || '';
   return {
     payment_type: PAYMENT_CATEGORY.PLAN,
     reference_month: ym,
@@ -49,7 +54,9 @@ export function buildDefaultPayForm(student) {
         ? formatBRLFromCents(numberToCents(student.plan_price) ?? 0)
         : '',
     method: student?.preferredPaymentMethod || 'pix',
-    account: student?.preferredPaymentAccount || '',
+    account: financeConfig
+      ? resolveBankAccountForPayment(preferredAccount, financeConfig)
+      : preferredAccount,
     status: 'paid',
     paid_at: new Date().toISOString().slice(0, 10),
     due_date: '',

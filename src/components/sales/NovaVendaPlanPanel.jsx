@@ -27,8 +27,8 @@ function mapStudentDoc(doc) {
   };
 }
 
-function buildPayFormForContact(contact) {
-  return { ...buildDefaultPayForm(contact), payment_type: PAYMENT_CATEGORY.PLAN };
+function buildPayFormForContact(contact, financeConfig) {
+  return { ...buildDefaultPayForm(contact, financeConfig), payment_type: PAYMENT_CATEGORY.PLAN };
 }
 
 export default function NovaVendaPlanPanel({
@@ -47,7 +47,7 @@ export default function NovaVendaPlanPanel({
   const [busy, setBusy] = useState(false);
   const [student, setStudent] = useState(() => prefilledStudent || null);
   const [payForm, setPayForm] = useState(() =>
-    prefilledStudent ? buildPayFormForContact(prefilledStudent) : null
+    prefilledStudent ? buildPayFormForContact(prefilledStudent, financeConfig) : null
   );
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -59,9 +59,9 @@ export default function NovaVendaPlanPanel({
   useEffect(() => {
     if (!prefilledStudent) return;
     setStudent(prefilledStudent);
-    setPayForm(buildPayFormForContact(prefilledStudent));
+    setPayForm(buildPayFormForContact(prefilledStudent, financeConfig));
     setFormError('');
-  }, [prefilledStudent?.id]);
+  }, [prefilledStudent?.id, financeConfig]);
 
   useEffect(() => {
     if (prefilledStudent) return undefined;
@@ -97,9 +97,9 @@ export default function NovaVendaPlanPanel({
     setStudent(s);
     setSearchText(s.name);
     setSuggestions([]);
-    setPayForm(buildPayFormForContact(s));
+    setPayForm(buildPayFormForContact(s, financeConfig));
     setFormError('');
-  }, []);
+  }, [financeConfig]);
 
   const clearStudent = useCallback(() => {
     setStudent(null);
@@ -126,6 +126,7 @@ export default function NovaVendaPlanPanel({
       addToast({ type: 'error', message: accountCheck.message });
       return;
     }
+    const paymentAccount = accountCheck.account || payForm.account || '';
 
     const paidAtIso =
       (payForm.status === 'paid' || paymentType === PAYMENT_CATEGORY.BUNDLE) && payForm.paid_at
@@ -138,7 +139,7 @@ export default function NovaVendaPlanPanel({
       amount: amountNum,
       paid_amount: amountNum,
       method: payForm.method,
-      account: payForm.account || '',
+      account: paymentAccount,
       plan_name: payForm.plan_name || student.plan || '',
       status: payForm.status,
       payment_category: paymentType,

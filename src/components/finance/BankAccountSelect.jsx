@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { friendlyError } from '../../lib/errorMessages';
-import { listBankAccountLabels } from '../../lib/bankAccounts.js';
+import { listBankAccountLabels, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
 import { appendBankAccountToAcademy } from '../../lib/academyBankAccounts.js';
 
 /**
@@ -30,6 +30,14 @@ export default function BankAccountSelect({
   const [showInline, setShowInline] = useState(false);
 
   const options = useMemo(() => listBankAccountLabels(financeConfig), [financeConfig]);
+
+  useEffect(() => {
+    if (allowEmpty || saving || !options.length) return;
+    const resolved = resolveBankAccountForPayment(value, financeConfig);
+    if (resolved && resolved !== String(value || '').trim()) {
+      onChange(resolved);
+    }
+  }, [allowEmpty, saving, options, value, financeConfig, onChange]);
 
   const handleAdd = async () => {
     if (saving || !academyId) return;

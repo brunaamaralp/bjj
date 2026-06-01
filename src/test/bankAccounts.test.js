@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatBankAccountLabel,
   validateBankAccountForPayment,
+  resolveBankAccountForPayment,
   listBankAccountLabels,
   filterBankAccountsWithBank,
 } from '../lib/bankAccounts.js';
@@ -23,8 +24,16 @@ describe('bankAccounts', () => {
 
   it('exige conta cadastrada quando há opções', () => {
     const cfg = { bankAccounts: [{ bankName: 'Sicoob', account: '1' }] };
-    expect(validateBankAccountForPayment('', cfg).ok).toBe(false);
     expect(validateBankAccountForPayment('Sicoob · 1', cfg).ok).toBe(true);
     expect(listBankAccountLabels(cfg)).toEqual(['Sicoob · 1']);
+  });
+
+  it('resolve conta vazia ou legada para a primeira cadastrada', () => {
+    const cfg = { bankAccounts: [{ bankName: 'Sicoob', account: '1' }] };
+    expect(resolveBankAccountForPayment('', cfg)).toBe('Sicoob · 1');
+    expect(resolveBankAccountForPayment('Conta antiga', cfg)).toBe('Sicoob · 1');
+    const check = validateBankAccountForPayment('', cfg);
+    expect(check.ok).toBe(true);
+    expect(check.account).toBe('Sicoob · 1');
   });
 });

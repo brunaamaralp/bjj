@@ -18,6 +18,15 @@ export function listBankAccountLabels(financeConfig) {
   return list.map((acc) => formatBankAccountLabel(acc)).filter(Boolean);
 }
 
+/** Conta efetiva do lançamento: valor válido, ou primeira cadastrada se vazio/legado. */
+export function resolveBankAccountForPayment(account, financeConfig) {
+  const labels = listBankAccountLabels(financeConfig);
+  if (!labels.length) return String(account || '').trim();
+  const v = String(account || '').trim();
+  if (v && labels.includes(v)) return v;
+  return labels[0] || '';
+}
+
 /** Valor salvo no lead/pagamento bate com alguma conta cadastrada (ou legado vazio). */
 export function bankAccountValueMatchesOptions(value, financeConfig) {
   const v = String(value || '').trim();
@@ -45,12 +54,12 @@ export function validateBankAccountForPayment(account, financeConfig) {
   if (!labels.length) {
     return { ok: false, message: 'Cadastre pelo menos uma conta bancária antes do lançamento.' };
   }
-  const v = String(account || '').trim();
+  const v = resolveBankAccountForPayment(account, financeConfig);
   if (!v) {
     return { ok: false, message: 'Selecione a conta bancária do lançamento.' };
   }
   if (!labels.includes(v)) {
     return { ok: false, message: 'Selecione uma conta cadastrada na academia.' };
   }
-  return { ok: true };
+  return { ok: true, account: v };
 }
