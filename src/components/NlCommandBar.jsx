@@ -10,6 +10,8 @@ import {
   dispatchNlSalePrefill,
 } from '../lib/nlCorrect.js';
 import { paymentFormLabel } from '../lib/salePayments.js';
+import NlResponseMarkdown from './NlResponseMarkdown.jsx';
+import { buildNlQuerySummary, nlQueryMarkdownBody } from '../lib/nlQuerySummary.js';
 
 function formatRefMonth(ym) {
   if (!ym) return '—';
@@ -297,6 +299,9 @@ export default function NlCommandBar({
             background: 'var(--surface)',
             borderRadius: 16,
             width: 'min(560px, calc(100vw - 32px))',
+            maxHeight: 'min(85vh, 720px)',
+            display: 'flex',
+            flexDirection: 'column',
             boxShadow: '0 24px 64px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06)',
             transform: open ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.98)',
             transition: 'transform 0.2s',
@@ -305,6 +310,7 @@ export default function NlCommandBar({
         >
           <div
             style={{
+              flexShrink: 0,
               borderBottom: '0.5px solid var(--border-light)',
               padding: '16px 20px',
               display: 'flex',
@@ -361,6 +367,15 @@ export default function NlCommandBar({
               </button>
             ) : null}
           </div>
+
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
 
           {state === 'idle' ? (
             <div style={{ padding: 20 }}>
@@ -474,104 +489,119 @@ export default function NlCommandBar({
           ) : null}
 
           {state === 'result' && parsed ? (
-            <div style={{ padding: 20 }}>
+            <div style={{ padding: '20px 20px 0' }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--petroleo)', letterSpacing: '0.08em', marginBottom: 8 }}>
                 ✦ RESPOSTA
               </div>
-              <div
-                style={{
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  color: 'var(--text)',
-                  whiteSpace: 'pre-wrap',
-                  marginBottom: 16,
-                }}
-              >
-                {parsed.data?.resposta || parsed.summary || '—'}
-              </div>
-              {Array.isArray(parsed.data?.rows) && parsed.data.rows.length > 0 ? (
-                <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid var(--border-light)', borderRadius: 10 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--surface-hover, #fafafa)' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 10px' }}>Nome</th>
-                        <th style={{ textAlign: 'left', padding: '8px 10px' }}>Detalhe</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {parsed.data.rows.slice(0, 25).map((row) => (
-                        <tr key={row.id} style={{ borderTop: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '8px 10px' }}>
-                            {row.id ? (
-                              <Link
-                                to={row.linkKind === 'lead' ? `/lead/${row.id}` : `/student/${row.id}`}
-                                style={{ color: 'var(--petroleo)', fontWeight: 600 }}
+              {(() => {
+                const rows = Array.isArray(parsed.data?.rows) ? parsed.data.rows : [];
+                const hasRows = rows.length > 0;
+                const summary = buildNlQuerySummary(parsed.data || {});
+                if (hasRows) {
+                  return (
+                    <>
+                      <p
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          lineHeight: 1.5,
+                          color: 'var(--text)',
+                          margin: '0 0 12px',
+                        }}
+                      >
+                        {summary}
+                      </p>
+                      <div
+                        style={{
+                          maxHeight: 'min(48vh, 360px)',
+                          overflowY: 'auto',
+                          WebkitOverflowScrolling: 'touch',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: 10,
+                        }}
+                      >
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--surface-hover, #fafafa)' }}>
+                              <th
+                                style={{
+                                  textAlign: 'left',
+                                  padding: '8px 10px',
+                                  position: 'sticky',
+                                  top: 0,
+                                  background: 'var(--surface-hover, #fafafa)',
+                                  zIndex: 1,
+                                }}
                               >
-                                {row.name || '—'}
-                              </Link>
-                            ) : (
-                              row.name || '—'
-                            )}
-                          </td>
-                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
-                            {row.line ||
-                              (row.pending != null
-                                ? formatBrl(row.pending)
-                                : row.plan ||
-                                  row.origin ||
-                                  row.lostReason ||
-                                  row.pipelineStage ||
-                                  row.scheduledDate ||
-                                  row.phone ||
-                                  row.attendedAt ||
-                                  row.missedAt ||
-                                  '—')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setState('idle');
-                    setParsed(null);
-                    setText('');
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  Nova pergunta
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenChange(false)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: 'none',
-                    background: 'var(--petroleo)',
-                    color: '#fff',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  Fechar
-                </button>
-              </div>
+                                Nome
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: 'left',
+                                  padding: '8px 10px',
+                                  position: 'sticky',
+                                  top: 0,
+                                  background: 'var(--surface-hover, #fafafa)',
+                                  zIndex: 1,
+                                }}
+                              >
+                                Detalhe
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row) => (
+                              <tr key={row.id} style={{ borderTop: '1px solid var(--border-light)' }}>
+                                <td style={{ padding: '8px 10px' }}>
+                                  {row.id ? (
+                                    <Link
+                                      to={row.linkKind === 'lead' ? `/lead/${row.id}` : `/student/${row.id}`}
+                                      style={{ color: 'var(--petroleo)', fontWeight: 600 }}
+                                    >
+                                      {row.name || '—'}
+                                    </Link>
+                                  ) : (
+                                    row.name || '—'
+                                  )}
+                                </td>
+                                <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
+                                  {row.line ||
+                                    (row.pending != null
+                                      ? formatBrl(row.pending)
+                                      : row.plan ||
+                                        row.origin ||
+                                        row.lostReason ||
+                                        row.pipelineStage ||
+                                        row.scheduledDate ||
+                                        row.phone ||
+                                        row.attendedAt ||
+                                        row.missedAt ||
+                                        '—')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                }
+                return (
+                  <div
+                    style={{
+                      maxHeight: 'min(52vh, 400px)',
+                      overflowY: 'auto',
+                      WebkitOverflowScrolling: 'touch',
+                      fontSize: 14,
+                      color: 'var(--text)',
+                    }}
+                  >
+                    <NlResponseMarkdown
+                      text={nlQueryMarkdownBody(parsed.data || {}) || parsed.summary || parsed.data?.resposta || '—'}
+                    />
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
 
@@ -1003,8 +1033,61 @@ export default function NlCommandBar({
             </div>
           ) : null}
 
+          </div>
+
+          {state === 'result' && parsed ? (
+            <div
+              style={{
+                flexShrink: 0,
+                display: 'flex',
+                gap: 10,
+                padding: '16px 20px',
+                borderTop: '0.5px solid var(--border-light)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setState('idle');
+                  setParsed(null);
+                  setText('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Nova pergunta
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: 'var(--petroleo)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+          ) : null}
+
           <div
             style={{
+              flexShrink: 0,
               padding: '10px 20px',
               background: 'var(--surface-hover, #fafafa)',
               borderTop: '0.5px solid var(--border-light)',
