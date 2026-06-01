@@ -37,6 +37,14 @@ import {
 } from '../../lib/financeCompetence.js';
 import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
 import { useUserRole } from '../../lib/useUserRole.js';
+import {
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  Plus,
+} from 'lucide-react';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
