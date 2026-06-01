@@ -1,0 +1,262 @@
+/**
+ * Paleta da área de conteúdo (coluna principal, à direita da sidebar).
+ * Escopo: .navi-main-stack .main-content — não afeta sidebar/topbar.
+ */
+
+:root {
+  --color-primary: #6C47D8;
+  --color-primary-light: #AFA9EC;
+  --color-primary-surface: #EDE9FB;
+  --color-accent: #1FAA5E;
+  --color-accent-light: #9FE1CB;
+  --color-accent-surface: #E1F5EE;
+  --color-content-bg: #FAFAFA;
+  --color-card-bg: #FFFFFF;
+  --color-card-border: #E8E5F5;
+  --color-text-primary: #18162A;
+  --color-text-secondary: #9896A8;
+  --color-badge-primary-text: #4A2FA3;
+  --color-status-positive-text: #085041;
+  --color-agenda-today-bg: #FAFAFE;
+}
+
+.navi-main-stack .main-content {
+  --bg-page: var(--color-content-bg);
+  --bg: var(--color-content-bg);
+  --paper: var(--color-content-bg);
+  --azul-gelo: var(--color-content-bg);
+  --surface: var(--color-card-bg);
+  --surface-hover: color-mix(in srgb, var(--color-primary-surface) 45%, var(--color-card-bg));
+  --ink: var(--color-text-primary);
+  --cosmos: var(--color-text-primary);
+  --text: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --mid: var(--color-text-secondary);
+  --faint: color-mix(in srgb, var(--color-text-secondary) 72%, white);
+  --petroleo: var(--color-primary);
+  --v500: var(--color-primary);
+  --v700: color-mix(in srgb, var(--color-primary) 88%, var(--color-text-primary));
+  --v400: var(--color-primary-light);
+  --v300: var(--color-primary-light);
+  --v200: var(--color-card-border);
+  --v100: var(--color-card-border);
+  --v50: var(--color-primary-surface);
+  --border-mid: var(--color-card-border);
+  --border-violet: var(--color-card-border);
+  --border: var(--color-card-border);
+  --border-light: var(--color-card-border);
+  --accent-light: var(--color-primary-surface);
+  --primary: var(--color-primary);
+  --primary-light: var(--color-primary-light);
+  --accent: var(--color-accent);
+  --control-bg: var(--color-card-bg);
+
+  background: var(--color-content-bg);
+  color: var(--color-text-primary);
+}
+
+/* Cards */
+.navi-main-stack .main-content .card {
+  background: var(--color-card-bg);
+  border-color: var(--color-card-border);
+}
+
+/* Botões primários */
+.navi-main-stack .main-content .btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(108, 71, 216, 0.22);
+}
+
+.navi-main-stack .main-content .btn-primary:hover {
+  background: color-mix(in srgb, var(--color-primary) 88%, #18162A);
+  box-shadow: 0 4px 14px rgba(108, 71, 216, 0.28);
+}
+
+/* Botões secundários */
+.navi-main-stack .main-content .btn-secondary {
+  background: var(--color-primary-surface);
+  color: var(--color-primary);
+  border: 0.5px solid var(--color-card-border);
+  box-shadow: none;
+}
+
+.navi-main-stack .main-content .btn-secondary:hover {
+  background: color-mix(in srgb, var(--color-primary-surface) 70%, var(--color-primary-light));
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .btn-outline,
+.navi-main-stack .main-content .btn-ghost {
+  color: var(--color-primary);
+  border-color: var(--color-card-border);
+}
+
+.navi-main-stack .main-content .btn-outline:hover,
+.navi-main-stack .main-content .btn-ghost:hover {
+  background: var(--color-primary-surface);
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary-light) 55%, var(--color-card-border));
+}
+
+/* Badges & pills genéricos */
+.navi-main-stack .main-content .badge-primary,
+.navi-main-stack .main-content .badge-purple {
+  background: var(--color-primary-surface);
+  color: var(--color-badge-primary-text);
+}
+
+.navi-main-stack .main-content .badge-secondary {
+  background: var(--color-primary-surface);
+  color: var(--color-badge-primary-text);
+}
+
+.navi-main-stack .main-content .badge-success {
+  background: var(--color-accent-surface);
+  color: var(--color-status-positive-text);
+}
+
+/* Links e destaque */
+.navi-main-stack .main-content a:not([class]),
+.navi-main-stack .main-content .fu-kanban-link,
+.navi-main-stack .main-content .fu-name:hover {
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .navi-section-heading svg,
+.navi-main-stack .main-content .reception-section-heading svg {
+  color: var(--color-primary);
+}
+
+/* Stat cards — Hoje */
+.navi-main-stack .main-content .agenda-kpi-value {
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .agenda-kpi-value--followup,
+.navi-main-stack .main-content .agenda-kpi-value--attention,
+.navi-main-stack .main-content .agenda-kpi-value--tasks {
+  color: var(--color-primary) !important;
+}
+
+.navi-main-stack .main-content .agenda-kpi-card {
+  background: var(--color-card-bg);
+  border-color: var(--color-card-border);
+}
+
+.navi-main-stack .main-content .agenda-kpi-trend--followup,
+.navi-main-stack .main-content .agenda-kpi-trend--followup svg,
+.navi-main-stack .main-content .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup,
+.navi-main-stack .main-content .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup svg {
+  color: var(--color-primary) !important;
+}
+
+.navi-main-stack .main-content .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup {
+  border-color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .badge.reception-week-count-badge,
+.navi-main-stack .main-content .reception-section-badge {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* WhatsApp */
+.navi-main-stack .main-content .fu-btn-wa {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.navi-main-stack .main-content .fu-btn-wa:hover {
+  background: color-mix(in srgb, var(--color-accent) 90%, #085041);
+  filter: none;
+}
+
+/* Follow-ups — status positivo */
+.navi-main-stack .main-content .fu-type-badge--post {
+  background: var(--color-accent-surface);
+  color: var(--color-status-positive-text);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+.navi-main-stack .main-content .fu-dot--post {
+  background: var(--color-accent);
+}
+
+/* Agenda semanal */
+.navi-main-stack .main-content .reception-agenda-inner .agenda-week-section.reception-week-panel.reception-section {
+  background: var(--color-content-bg);
+  border-color: var(--color-card-border);
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .agenda-dash-week-nav {
+  background: var(--color-primary-surface);
+  border-color: var(--color-card-border);
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .agenda-dash-week-nav:hover {
+  background: color-mix(in srgb, var(--color-primary-surface) 65%, var(--color-primary-light));
+  border-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-card.agenda-week-card--lead {
+  background: var(--color-primary-surface) !important;
+  border-left-color: var(--color-primary-light) !important;
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-time {
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--confirmed {
+  background: var(--color-accent);
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
+  border-color: var(--color-primary) !important;
+  background: var(--color-agenda-today-bg) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-col--today:hover {
+  border-color: var(--color-primary) !important;
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-day-num--today {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-col:hover {
+  border-color: color-mix(in srgb, var(--color-primary-light) 65%, var(--color-card-border));
+}
+
+/* AgendaCalendarWeek (genérico dentro do conteúdo) */
+.navi-main-stack .main-content .agenda-week-card--lead {
+  background: var(--color-primary-surface) !important;
+  border-color: color-mix(in srgb, var(--color-primary-light) 45%, var(--color-card-border)) !important;
+}
+
+.navi-main-stack .main-content .agenda-week-col--today {
+  background: var(--color-agenda-today-bg) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.navi-main-stack .main-content .agenda-week-day-num--today {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.navi-main-stack .main-content .agenda-week-time {
+  color: var(--color-primary);
+}
+
+.navi-main-stack .main-content .agenda-week-status-dot--confirmed {
+  background: var(--color-accent);
+}
+
+.navi-main-stack .main-content .agenda-week-card-head:hover .agenda-week-name {
+  color: var(--color-primary);
+}

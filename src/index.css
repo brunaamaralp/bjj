@@ -1,5 +1,6 @@
 ﻿@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
 @import './styles/tokens/core.css';
+@import './styles/tokens/content.css';
 @import './styles/tokens/menu.css';
 @import './styles/tokens/inbox.css';
 @import './styles/inbox.css';
@@ -21,6 +22,18 @@
   /* Fundo embutido nos PNGs de marca — usar nos containers onde o logo é aplicado */
   --navi-brand-img-bg-dark: #040B27;
   --navi-brand-img-bg-light: #F9F9F9;
+
+  /* Sidebar & topbar chrome */
+  --color-sidebar-bg: #13111F;
+  --color-topbar-bg: #13111F;
+  --color-sidebar-text: #7A7595;
+  --color-sidebar-active-bg: rgba(108, 71, 216, 0.18);
+  --color-sidebar-active-text: #C4B4F5;
+  --color-sidebar-active-icon: #AFA9EC;
+  --color-sidebar-section: #3A3458;
+  --color-sidebar-border: rgba(255, 255, 255, 0.06);
+  --color-sidebar-avatar-bg: #2A2640;
+  --color-sidebar-avatar-text: #AFA9EC;
 
   /* Escala legado (mapeada à paleta) */
   --v900: var(--cosmos);
@@ -779,8 +792,8 @@ button:focus-visible {
   flex-direction: column;
   width: 280px;
   max-width: 280px;
-  background: var(--navi-brand-img-bg-dark);
-  border-right: 0.5px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-sidebar-bg);
+  border-right: 0.5px solid var(--color-sidebar-border);
   padding: 16px 14px 20px;
   animation: navi-fade-up 0.35s 0.05s ease both;
   transition: width 0.2s ease, max-width 0.2s ease, padding 0.2s ease;
@@ -881,9 +894,9 @@ button:focus-visible {
   padding: 0;
   gap: 0;
   border-radius: 10px;
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border: 0.5px solid var(--color-sidebar-border);
   background: rgba(255, 255, 255, 0.06);
-  color: var(--azul-gelo);
+  color: var(--color-sidebar-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -897,9 +910,9 @@ button:focus-visible {
 }
 
 .navi-sidebar-toggle:hover {
-  background: var(--petroleo);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: var(--branco);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--color-sidebar-active-text);
 }
 
 .navi-sidebar-nav {
@@ -959,8 +972,8 @@ button:focus-visible {
   z-index: 2;
   margin-top: auto;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(to top, var(--navi-brand-img-bg-dark) 82%, transparent);
+  border-top: 1px solid var(--color-sidebar-border);
+  background: linear-gradient(to top, var(--color-sidebar-bg) 82%, transparent);
 }
 
 .navi-main-stack {
@@ -988,7 +1001,7 @@ button:focus-visible {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  background: var(--navi-brand-img-bg-dark);
+  background: var(--color-topbar-bg);
   color: var(--white);
   /* 12px lateral/baixo; topo soma notch / Dynamic Island (env=0 fora de iOS PWA) */
   padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 12px 20px;
@@ -996,7 +1009,7 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid var(--color-sidebar-border);
   box-shadow: 0 1px 4px rgba(0, 4, 53, 0.12);
 }
 
@@ -1250,8 +1263,8 @@ button:focus-visible {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--lima);
-  color: var(--cosmos);
+  background: var(--color-sidebar-avatar-bg);
+  color: var(--color-sidebar-avatar-text);
   font-size: var(--font-xs);
   font-weight: 700;
   display: inline-flex;
@@ -2757,11 +2770,12 @@ button.funil-color-swatch {
 /* —— Sidebar nav: padrão unificado (.navi-sidebar-*) —— */
 .navi-sidebar-nav {
   --navi-sidebar-primary: var(--lima);
-  --navi-sidebar-text-idle: rgba(255, 255, 255, 0.55);
-  --navi-sidebar-text-hover: rgba(255, 255, 255, 0.85);
+  --navi-sidebar-active-text: var(--color-sidebar-active-text);
+  --navi-sidebar-active-icon: var(--color-sidebar-active-icon);
+  --navi-sidebar-text-idle: var(--color-sidebar-text);
+  --navi-sidebar-text-hover: color-mix(in srgb, var(--color-sidebar-text) 72%, white);
   --navi-sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-  --navi-sidebar-active-bg: #004466;
-  --navi-sidebar-icon-idle: rgba(255, 255, 255, 0.45);
+  --navi-sidebar-active-bg: var(--color-sidebar-active-bg);
 }
 
 .navi-sidebar-section {
@@ -2779,12 +2793,12 @@ button.funil-color-swatch {
 .navi-sidebar-section--titled .navi-sidebar-section-title {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-sidebar-border);
 }
 
 .navi-sidebar-section-rule {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-sidebar-border);
   margin: 10px 8px 6px;
   width: calc(100% - 16px);
 }
@@ -2798,11 +2812,10 @@ button.funil-color-swatch {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--color-sidebar-section);
   opacity: 1;
 }
 
-/* Reset de button global (DS) dentro da sidebar */
 .navi-sidebar-nav button {
   min-height: unset;
   margin: 0;
@@ -2868,7 +2881,7 @@ button.funil-color-swatch {
   width: 20px;
   min-width: 20px;
   height: 20px;
-  color: var(--navi-sidebar-icon-idle);
+  color: inherit;
   transition: color 100ms ease;
 }
 
@@ -2892,14 +2905,14 @@ button.funil-color-swatch {
 .navi-sidebar-link.active,
 .navi-sidebar-link--active {
   background: var(--navi-sidebar-active-bg);
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-text);
   font-weight: 600;
   box-shadow: none;
 }
 
 .navi-sidebar-link.active .navi-sidebar-link__icon,
 .navi-sidebar-link--active .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-icon);
 }
 
 /* Nova venda (e ações na seção): mesma métrica dos links + contorno (não rota) */
@@ -2924,7 +2937,7 @@ button.funil-color-swatch {
   width: 20px;
   min-width: 20px;
   height: 20px;
-  color: var(--navi-sidebar-icon-idle);
+  color: inherit;
 }
 
 .navi-sidebar-nav button.navi-sidebar-link.navi-sidebar-link--section-action:hover {
@@ -2951,14 +2964,14 @@ button.funil-color-swatch {
 }
 
 .navi-sidebar-link--partial {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-text);
   font-weight: 500;
   background: transparent;
   box-shadow: none;
 }
 
 .navi-sidebar-link--partial .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-icon);
 }
 
 /* Accordion */
@@ -3021,7 +3034,7 @@ button.funil-color-swatch {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--color-sidebar-section);
 }
 
 .navi-sidebar-accordion__chevron {
@@ -3034,7 +3047,7 @@ button.funil-color-swatch {
   height: 20px;
   min-width: 20px;
   padding: 0;
-  color: var(--navi-sidebar-icon-idle);
+  color: inherit;
   cursor: pointer;
   transition: color 100ms ease;
 }
@@ -3044,7 +3057,7 @@ button.funil-color-swatch {
 }
 
 .navi-sidebar-accordion__chevron:hover {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-text-hover);
 }
 
 .navi-sidebar-accordion--open .navi-sidebar-accordion__chevron svg {
@@ -3220,12 +3233,12 @@ button.funil-color-swatch {
 .navi-sidebar-section--titled .navi-sidebar-section-title {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-sidebar-border);
 }
 .navi-side-section-rule,
 .navi-sidebar-section-rule {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-sidebar-border);
   margin: 10px 8px 6px;
   width: calc(100% - 16px);
 }
@@ -3238,7 +3251,7 @@ button.funil-color-swatch {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--color-sidebar-section);
   opacity: 1;
 }
 .navi-side-link,
@@ -3316,14 +3329,14 @@ button.funil-color-swatch {
 .navi-sidebar-nav .navi-sidebar-link.navi-side-link.active,
 .navi-sidebar-nav .navi-sidebar-link.navi-side-link--active {
   background: var(--navi-sidebar-active-bg);
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-text);
   font-weight: 600;
   box-shadow: none;
 }
 
 .navi-sidebar-nav .navi-sidebar-link.active .navi-sidebar-link__icon,
 .navi-sidebar-nav .navi-sidebar-link--active .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-icon);
 }
 .navi-side-link--child,
 .navi-sidebar-link--child {
@@ -3341,14 +3354,14 @@ button.funil-color-swatch {
 }
 
 .navi-sidebar-nav .navi-sidebar-link--partial {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-text);
   font-weight: 500;
   background: transparent;
   box-shadow: none;
 }
 
 .navi-sidebar-nav .navi-sidebar-link--partial .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-icon);
 }
 .navi-side-accordion,
 .navi-sidebar-accordion {
@@ -3393,6 +3406,11 @@ button.funil-color-swatch {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
+}
+
+.navi-sidebar-nav .navi-sidebar-accordion__chevron,
+.navi-sidebar-nav .navi-side-accordion-chevron {
+  color: inherit;
 }
 .navi-side-accordion-chevron svg,
 .navi-sidebar-accordion__chevron svg {
@@ -3503,7 +3521,7 @@ button.funil-color-swatch {
 .navi-sidebar--collapsed .navi-sidebar-link.active .navi-sidebar-link__icon,
 .navi-sidebar--collapsed .navi-sidebar-link--active .navi-sidebar-link__icon,
 .navi-sidebar--collapsed .navi-side-link.active .navi-side-link-icon {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-active-icon);
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link--accordion {
