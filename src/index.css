@@ -802,8 +802,8 @@ button:focus-visible {
   justify-content: space-between;
   gap: 8px;
   flex-shrink: 0;
-  margin-bottom: 18px;
-  min-height: 40px;
+  margin-bottom: 12px;
+  min-height: 0;
 }
 
 .navi-sidebar--collapsed .navi-sidebar-header {
@@ -819,11 +819,14 @@ button:focus-visible {
   gap: 8px;
   min-width: 0;
   flex: 1;
+  padding: 1.25rem 1.5rem;
+  box-sizing: border-box;
 }
 
 .navi-sidebar-brand .navi-brand-lockup {
   display: block;
   width: auto;
+  height: 32px;
   max-width: 100%;
   object-fit: contain;
 }
@@ -846,6 +849,12 @@ button:focus-visible {
 .navi-sidebar-brand--collapsed {
   justify-content: center;
   width: 100%;
+  padding: 1.25rem 0.75rem;
+}
+
+.navi-sidebar-brand--collapsed .navi-logo {
+  width: 32px;
+  height: 32px;
 }
 
 .navi-sidebar-toggle {
@@ -2724,8 +2733,10 @@ button.funil-color-swatch {
 /* —— Sidebar nav: padrão unificado (.navi-sidebar-*) —— */
 .navi-sidebar-nav {
   --navi-sidebar-primary: var(--lima);
-  --navi-sidebar-hover-bg: var(--petroleo);
-  --navi-sidebar-active-bg: var(--petroleo);
+  --navi-sidebar-text-idle: rgba(255, 255, 255, 0.55);
+  --navi-sidebar-text-hover: rgba(255, 255, 255, 0.85);
+  --navi-sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --navi-sidebar-active-bg: #004466;
   --navi-sidebar-icon-idle: rgba(255, 255, 255, 0.45);
 }
 
@@ -2818,13 +2829,14 @@ button.funil-color-swatch {
   font-size: var(--font-base);
   font-weight: 400;
   line-height: 1.35;
-  color: color-mix(in srgb, var(--azul-gelo) 75%, transparent);
+  color: var(--navi-sidebar-text-idle);
   cursor: pointer;
   transition: background 100ms ease, color 100ms ease;
   box-shadow: none;
 }
 
 .navi-sidebar-link__icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2846,18 +2858,18 @@ button.funil-color-swatch {
 
 .navi-sidebar-link:hover {
   background: var(--navi-sidebar-hover-bg);
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-text-hover);
 }
 
 .navi-sidebar-link:hover .navi-sidebar-link__icon {
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-text-hover);
 }
 
 .navi-sidebar-link.active,
 .navi-sidebar-link--active {
   background: var(--navi-sidebar-active-bg);
   color: var(--navi-sidebar-primary);
-  font-weight: 500;
+  font-weight: 600;
   box-shadow: none;
 }
 
@@ -2952,7 +2964,11 @@ button.funil-color-swatch {
 
 .navi-sidebar-link--accordion:hover {
   background: var(--navi-sidebar-hover-bg);
-  color: var(--navi-sidebar-primary);
+  color: var(--navi-sidebar-text-hover);
+}
+
+.navi-sidebar-link--accordion:hover .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-text-hover);
 }
 
 .navi-sidebar-nav button.navi-sidebar-accordion__trigger {
@@ -3248,17 +3264,42 @@ button.funil-color-swatch {
   color: var(--v500);
 }
 .navi-side-link:hover .navi-side-link-icon,
-.navi-sidebar-link:hover .navi-sidebar-link__icon {
+.navi-sidebar-link.navi-side-link:hover .navi-sidebar-link__icon {
   color: var(--v500);
 }
 .navi-side-link.active,
-.navi-side-link--active,
-.navi-sidebar-link.active,
-.navi-sidebar-link--active {
+.navi-side-link--active {
   background: var(--navi-sidebar-active-bg, rgba(0, 68, 102, 0.1));
   color: var(--v500);
   font-weight: 500;
   box-shadow: inset 2px 0 0 var(--v500);
+}
+
+/* Sidebar escura: estados próprios (evita petróleo sobre petróleo) */
+.navi-sidebar-nav .navi-sidebar-link:hover,
+.navi-sidebar-nav .navi-sidebar-link.navi-side-link:hover {
+  background: var(--navi-sidebar-hover-bg);
+  color: var(--navi-sidebar-text-hover);
+}
+
+.navi-sidebar-nav .navi-sidebar-link:hover .navi-sidebar-link__icon,
+.navi-sidebar-nav .navi-sidebar-link.navi-side-link:hover .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-text-hover);
+}
+
+.navi-sidebar-nav .navi-sidebar-link.active,
+.navi-sidebar-nav .navi-sidebar-link--active,
+.navi-sidebar-nav .navi-sidebar-link.navi-side-link.active,
+.navi-sidebar-nav .navi-sidebar-link.navi-side-link--active {
+  background: var(--navi-sidebar-active-bg);
+  color: var(--navi-sidebar-primary);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.navi-sidebar-nav .navi-sidebar-link.active .navi-sidebar-link__icon,
+.navi-sidebar-nav .navi-sidebar-link--active .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-primary);
 }
 .navi-side-link--child,
 .navi-sidebar-link--child {
@@ -3268,12 +3309,22 @@ button.funil-color-swatch {
 .navi-side-link-icon--child-spacer {
   display: none;
 }
-.navi-side-link--partial,
-.navi-sidebar-link--partial {
+.navi-side-link--partial {
   color: var(--v500);
   font-weight: 500;
   background: transparent;
   box-shadow: none;
+}
+
+.navi-sidebar-nav .navi-sidebar-link--partial {
+  color: var(--navi-sidebar-primary);
+  font-weight: 500;
+  background: transparent;
+  box-shadow: none;
+}
+
+.navi-sidebar-nav .navi-sidebar-link--partial .navi-sidebar-link__icon {
+  color: var(--navi-sidebar-primary);
 }
 .navi-side-accordion,
 .navi-sidebar-accordion {
@@ -3422,12 +3473,13 @@ button.funil-color-swatch {
 .navi-sidebar--collapsed .navi-side-link--active {
   box-shadow: none;
   border-radius: 8px;
-  background: var(--v100);
+  background: var(--navi-sidebar-active-bg);
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link.active .navi-sidebar-link__icon,
+.navi-sidebar--collapsed .navi-sidebar-link--active .navi-sidebar-link__icon,
 .navi-sidebar--collapsed .navi-side-link.active .navi-side-link-icon {
-  color: var(--v500);
+  color: var(--navi-sidebar-primary);
 }
 
 .navi-sidebar--collapsed .navi-sidebar-link--accordion {
@@ -3560,19 +3612,25 @@ button.funil-color-swatch {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--c500);
+  background: var(--lima);
+  border: 2px solid var(--cosmos);
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+  box-sizing: border-box;
+  pointer-events: none;
 }
-.navi-sidebar-link .navi-inbox-unread-dot,
-.navi-side-link .navi-inbox-unread-dot {
-  box-shadow: 0 0 0 2px var(--v50);
+
+.navi-sidebar-link__icon .navi-inbox-unread-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
 }
+
 .navi-bottom-nav .navi-nav-item .navi-inbox-unread-dot {
   position: absolute;
   top: 2px;
   right: 6px;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+  border: 2px solid var(--cosmos);
+  box-shadow: none;
 }
 
 .navi-nav-fab {

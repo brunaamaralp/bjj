@@ -460,15 +460,15 @@ export default function NaviSidebarNav({
         >
           <span className="navi-sidebar-link__icon">
             <MessageCircle size={20} strokeWidth={1.75} />
+            {inboxUnread > 0 ? (
+              <span
+                className="navi-inbox-unread-dot"
+                title={`${inboxUnread} conversa(s) com mensagens não lidas`}
+                aria-hidden
+              />
+            ) : null}
           </span>
           <span className="navi-sidebar-link__label">Conversas</span>
-          {inboxUnread > 0 && (
-            <span
-              className="navi-inbox-unread-dot"
-              title={`${inboxUnread} conversa(s) com mensagens não lidas`}
-              aria-hidden
-            />
-          )}
         </Link>
         {!modulesReady ? (
           <NavModulesSkeleton collapsed={collapsed} />

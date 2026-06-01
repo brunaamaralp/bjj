@@ -119,11 +119,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
         >
             {slaAlert ? (
                 <span
-                    className="lead-sla-badge"
-                    style={{
-                        background: slaAlert.urgency === 'critical' ? 'var(--danger-light)' : 'var(--warning-light)',
-                        color: slaAlert.urgency === 'critical' ? 'var(--danger)' : '#b45309',
-                    }}
+                    className={`lead-sla-badge${slaAlert.urgency === 'critical' ? ' lead-sla-badge--critical' : ' lead-sla-badge--warning'}`}
                     title={`Há ${slaAlert.daysInStage} dia(s) nesta etapa (SLA ${slaAlert.slaDays}d)`}
                 >
                     {`${slaAlert.daysInStage}d`}
@@ -181,16 +177,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
             ) : null}
             {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
                 <div className="lead-meta mt-1">
-                    <span
-                        style={{
-                            fontSize: 11,
-                            color: 'var(--text-muted)',
-                            background: 'var(--surface-hover)',
-                            borderRadius: 4,
-                            padding: '2px 6px',
-                            display: 'inline-block',
-                        }}
-                    >
+                    <span className="lead-lost-reason-badge">
                         {lead.lostReason}
                     </span>
                 </div>
