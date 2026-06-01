@@ -3890,6 +3890,13 @@ button.funil-color-swatch {
   }
 }
 
+@keyframes ripple-anim {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
 @media (min-width: 1024px) {
   .navi-toast-container {
     bottom: 28px;

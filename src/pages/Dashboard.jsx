@@ -8,7 +8,9 @@ import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, DoorOpen } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, CheckCircle2, DoorOpen, Loader2 } from 'lucide-react';
+import { addRipple } from '../lib/addRipple.js';
+import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import { useControlIdMonitor } from '../hooks/useControlIdMonitor.js';
 import { releaseControlIdGate } from '../lib/controlidApi.js';
@@ -79,6 +81,10 @@ const Dashboard = () => {
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds, setRemovingFollowupIds] = useState({});
+    const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
+    const [leavingFollowupIds, setLeavingFollowupIds] = useState({});
+    const [waStateByLead, setWaStateByLead] = useState({});
+    const [followUpMicroToastOpen, setFollowUpMicroToastOpen] = useState(false);
     const [dashboardWeekOffset, setDashboardWeekOffset] = useState(0);
     const [isDashboardMobile, setIsDashboardMobile] = useState(
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -375,8 +381,8 @@ const Dashboard = () => {
                 ? 'Próximas tarefas'
                 : '';
 
-    const sendDashboardTemplate = async (lead, templateKey) => {
-        await sendWhatsappTemplateOutbound({
+    const sendDashboardTemplate = async (lead, templateKey) =>
+        sendWhatsappTemplateOutbound({
             lead,
             academyId,
             academyName: academyWa.name,
@@ -385,11 +391,33 @@ const Dashboard = () => {
             zapsterInstanceId: academyWa.zapster_instance_id,
             onToast: (t) => addToast(t)
         });
-    };
 
-    const handleWhatsApp = (lead) => {
+    const handleFollowUpWhatsApp = (lead, e) => {
+        const leadId = String(lead?.id || '').trim();
+        if (!leadId) return;
+        const waState = waStateByLead[leadId];
+        if (waState === 'loading' || waState === 'sent') return;
+        if (e?.currentTarget) addRipple(e.currentTarget, e);
+
+        const startedAt = Date.now();
+        setWaStateByLead((prev) => ({ ...prev, [leadId]: 'loading' }));
         const key = lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'post_class';
-        void sendDashboardTemplate(lead, key);
+
+        void (async () => {
+            const result = await sendDashboardTemplate(lead, key);
+            if (!result?.ok) {
+                setWaStateByLead((prev) => {
+                    const next = { ...prev };
+                    delete next[leadId];
+                    return next;
+                });
+                return;
+            }
+            const delay = Math.max(0, 1200 - (Date.now() - startedAt));
+            window.setTimeout(() => {
+                setWaStateByLead((prev) => ({ ...prev, [leadId]: 'sent' }));
+            }, delay);
+        })();
     };
 
     const markLeadAttended = async (lead) => {
@@ -458,12 +486,50 @@ const Dashboard = () => {
         }
     };
 
-    const markFollowupDone = async (lead) => {
+    const markFollowupDone = async (lead, e) => {
         const leadId = String(lead?.id || '').trim();
-        if (!leadId || savingFollowupDone[leadId] || removingFollowupIds[leadId]) return;
-        setRemovingFollowupIds((prev) => ({ ...prev, [leadId]: true }));
-        await new Promise((resolve) => setTimeout(resolve, 320));
+        if (
+            !leadId ||
+            savingFollowupDone[leadId] ||
+            flashingFollowupIds[leadId] ||
+            leavingFollowupIds[leadId]
+        ) {
+            return;
+        }
+        if (e?.currentTarget) addRipple(e.currentTarget, e);
+
+        const startedAt = Date.now();
+        setFlashingFollowupIds((prev) => ({ ...prev, [leadId]: true }));
         setSavingFollowupDone((prev) => ({ ...prev, [leadId]: true }));
+
+        const flashTimer = window.setTimeout(() => {
+            setFlashingFollowupIds((prev) => {
+                const next = { ...prev };
+                delete next[leadId];
+                return next;
+            });
+            setLeavingFollowupIds((prev) => ({ ...prev, [leadId]: true }));
+        }, 700);
+
+        const clearFollowupVisuals = () => {
+            window.clearTimeout(flashTimer);
+            setFlashingFollowupIds((prev) => {
+                const next = { ...prev };
+                delete next[leadId];
+                return next;
+            });
+            setLeavingFollowupIds((prev) => {
+                const next = { ...prev };
+                delete next[leadId];
+                return next;
+            });
+            setRemovingFollowupIds((prev) => {
+                const next = { ...prev };
+                delete next[leadId];
+                return next;
+            });
+        };
+
         try {
             const st = useLeadStore.getState();
             const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
@@ -478,15 +544,18 @@ const Dashboard = () => {
                 permissionContext: permCtx,
                 payloadJson: { source: 'dashboard', status: lead.status || '', scheduledDate: lead.scheduledDate || '' },
             });
-            setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
-            addToast({ type: 'success', message: 'Follow-up marcado como feito.' });
+
+            const applySuccess = () => {
+                setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
+                setFollowUpMicroToastOpen(true);
+                clearFollowupVisuals();
+            };
+
+            const elapsed = Date.now() - startedAt;
+            window.setTimeout(applySuccess, Math.max(0, 1050 - elapsed));
         } catch {
+            clearFollowupVisuals();
             addToast({ type: 'error', message: 'Erro ao marcar follow-up como feito.' });
-            setRemovingFollowupIds((prev) => {
-                const next = { ...prev };
-                delete next[leadId];
-                return next;
-            });
         } finally {
             setSavingFollowupDone((prev) => {
                 const next = { ...prev };
@@ -829,6 +898,8 @@ const Dashboard = () => {
                 <div className="fu-list-card">
                     {followUps.length > 0 ? followUps.map((lead, i) => {
                         const isPost = lead.status === LEAD_STATUS.COMPLETED;
+                        const leadId = String(lead.id || '').trim();
+                        const waState = waStateByLead[leadId] || 'idle';
                         const elapsedLabel =
                             lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
                         const elapsedClass =
@@ -837,6 +908,8 @@ const Dashboard = () => {
                             <div
                                 key={lead.id}
                                 className={`fu-row animate-in${lead.daysAgo === 0 ? ' fu-row--today' : ''}${
+                                    flashingFollowupIds[leadId] ? ' fu-row--flashing' : ''
+                                }${leavingFollowupIds[leadId] ? ' fu-row--leaving' : ''}${
                                     removingFollowupIds[lead.id] ? ' fu-row--removing' : ''
                                 }${i === followUps.length - 1 ? ' fu-row--last' : ''}`}
                                 style={{ animationDelay: `${0.04 * i}s` }}
@@ -871,11 +944,15 @@ const Dashboard = () => {
                                 <div className="fu-actions">
                                     <button
                                         type="button"
-                                        className="fu-btn-wa"
-                                        onClick={() => handleWhatsApp(lead)}
+                                        className={`fu-btn-wa wa-btn${waState === 'loading' ? ' wa-btn--loading' : ''}${
+                                            waState === 'sent' ? ' wa-btn--sent' : ''
+                                        }`}
+                                        disabled={waState === 'sent'}
+                                        aria-busy={waState === 'loading'}
+                                        onClick={(e) => handleFollowUpWhatsApp(lead, e)}
                                     >
                                         <span className="dashboard-wa-btn-inner">
-                                            {academyWaLoadFailed && (
+                                            {academyWaLoadFailed && waState === 'idle' && (
                                                 <span
                                                     className="dashboard-wa-warning-badge"
                                                     title={`Não foi possível carregar a configuração da ${terms.workspaceNoun}. O WhatsApp pode não funcionar.`}
@@ -884,42 +961,54 @@ const Dashboard = () => {
                                                     ⚠️
                                                 </span>
                                             )}
-                                            <MessageCircle size={14} color="#fff" /> WhatsApp
+                                            {waState === 'loading' ? (
+                                                <>
+                                                    <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
+                                                    Abrindo…
+                                                </>
+                                            ) : waState === 'sent' ? (
+                                                <>
+                                                    <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
+                                                    Enviado
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
+                                                    WhatsApp
+                                                </>
+                                            )}
                                         </span>
                                     </button>
                                     <button
                                         type="button"
-                                        className="fu-btn-done"
-                                        disabled={Boolean(savingFollowupDone[lead.id])}
-                                        onClick={() => void markFollowupDone(lead)}
+                                        className="fu-btn-done mk-btn"
+                                        disabled={Boolean(
+                                            savingFollowupDone[leadId] ||
+                                            flashingFollowupIds[leadId] ||
+                                            leavingFollowupIds[leadId]
+                                        )}
+                                        onClick={(e) => void markFollowupDone(lead, e)}
                                     >
-                                        {savingFollowupDone[lead.id] ? 'Salvando…' : 'Marcar feito'}
+                                        {savingFollowupDone[leadId] ? 'Salvando…' : 'Marcar feito'}
                                     </button>
                                 </div>
                             </div>
                         );
                     }) : (
-                        <div className="fu-list-empty">
-                            <EmptyState
-                                variant="compact"
-                                tone="dashed"
-                                title="Ótimo trabalho — nenhum follow-up pendente."
-                                description={
-                                    followUpsKanbanOnlyCount > 0 ? (
-                                        <>
-                                            Quando alguém comparecer ou faltar, os retornos aparecem aqui.{' '}
-                                            <span className="text-xs text-light" style={{ display: 'block', lineHeight: 1.35, marginTop: 6 }}>
-                                                {followUpsKanbanOnlyCount}{' '}
-                                                {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
-                                                {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
-                                            </span>
-                                        </>
-                                    ) : (
-                                        'Quando alguém comparecer ou faltar, os retornos aparecem aqui.'
-                                    )
-                                }
-                                role="status"
-                            />
+                        <div className="fu-list-empty fu-list-empty--all-done" role="status">
+                            <CheckCircle2 className="fu-list-empty__icon" size={28} strokeWidth={2} aria-hidden />
+                            <p className="fu-list-empty__title">Todos os follow-ups concluídos!</p>
+                            {followUpsKanbanOnlyCount > 0 ? (
+                                <p className="fu-list-empty__hint">
+                                    {followUpsKanbanOnlyCount}{' '}
+                                    {followUpsKanbanOnlyCount === 1 ? 'interessado está' : 'interessados estão'} só no Kanban (
+                                    {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
+                                </p>
+                            ) : (
+                                <p className="fu-list-empty__hint">
+                                    Quando alguém comparecer ou faltar, os retornos aparecem aqui.
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1031,6 +1120,11 @@ const Dashboard = () => {
                     </div>
                 )}
             </ModalShell>
+
+            <FollowUpMicroToast
+                open={followUpMicroToastOpen}
+                onClose={() => setFollowUpMicroToastOpen(false)}
+            />
 
             <ConfirmDialog
                 open={gateReleaseOpen}
@@ -1442,8 +1536,26 @@ const Dashboard = () => {
           align-items: center;
           gap: 12px;
           padding: 9px 0;
+          border: 1px solid transparent;
           border-bottom: 1px solid #D4DCE8;
           flex-wrap: wrap;
+          transition: all 0.25s ease;
+        }
+        .fu-row:hover {
+          border-color: #AFA9EC;
+          background: #FAFAFE;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(108, 71, 216, 0.08);
+        }
+        .fu-row--flashing {
+          background: #E1F5EE !important;
+          border-color: #9FE1CB !important;
+        }
+        .fu-row--leaving {
+          opacity: 0;
+          transform: translateX(40px) scale(0.97);
+          transition: opacity 0.35s ease, transform 0.35s ease;
+          pointer-events: none;
         }
         .fu-row--last {
           border-bottom: none;
@@ -1557,8 +1669,9 @@ const Dashboard = () => {
           align-items: center;
           flex-shrink: 0;
         }
-        .fu-btn-wa {
-          background: #25D366;
+        .fu-btn-wa,
+        .wa-btn {
+          background: #1FAA5E;
           color: #fff;
           border: none;
           padding: 5px 10px;
@@ -1567,9 +1680,48 @@ const Dashboard = () => {
           font-weight: 600;
           cursor: pointer;
           font-family: inherit;
+          transition: all 0.18s ease;
         }
-        .fu-btn-wa:hover { filter: brightness(0.96); }
-        .fu-btn-done {
+        .wa-btn:hover:not(:disabled) {
+          background: #178A4C;
+          transform: scale(1.04);
+        }
+        .wa-btn:active:not(:disabled) {
+          transform: scale(0.97);
+        }
+        .wa-btn--loading,
+        .wa-btn--sent {
+          background: #0F6E40;
+        }
+        .wa-btn--sent {
+          cursor: default;
+          opacity: 1;
+        }
+        .wa-btn .wa-icon {
+          display: inline-block;
+          vertical-align: middle;
+          margin-right: 4px;
+          transition: transform 0.2s ease;
+        }
+        .wa-btn:hover:not(:disabled) .wa-icon {
+          transform: rotate(-8deg) scale(1.15);
+        }
+        .wa-btn--loading:hover:not(:disabled),
+        .wa-btn--sent:hover {
+          transform: none;
+        }
+        .wa-btn--loading:hover:not(:disabled) .wa-icon,
+        .wa-btn--sent .wa-icon {
+          transform: none;
+        }
+        .wa-icon--spin {
+          animation: fu-wa-spin 0.8s linear infinite;
+        }
+        @keyframes fu-wa-spin {
+          to { transform: rotate(360deg); }
+        }
+        .fu-btn-done,
+        .mk-btn {
           background: transparent;
           color: var(--text-secondary);
           border: 1px solid var(--border-mid);
@@ -1579,16 +1731,67 @@ const Dashboard = () => {
           font-weight: 500;
           cursor: pointer;
           font-family: inherit;
+          transition: all 0.18s ease;
         }
-        .fu-btn-done:hover:not(:disabled) {
-          border-color: var(--border-strong);
-          color: var(--ink);
+        .mk-btn:hover:not(:disabled) {
+          border-color: #AFA9EC;
+          color: #4A2FA3;
+          background: #EDE9FB;
         }
-        .fu-btn-done:disabled { opacity: 0.5; cursor: not-allowed; }
+        .mk-btn:active:not(:disabled) {
+          transform: scale(0.97);
+        }
+        .fu-btn-done:disabled,
+        .mk-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         .fu-list-empty {
           padding: 16px 0;
           text-align: center;
           color: var(--text-secondary);
+        }
+        .fu-list-empty--all-done {
+          padding: 24px 0;
+          color: #9896A8;
+        }
+        .fu-list-empty__icon {
+          color: #9FE1CB;
+          margin: 0 auto 8px;
+          display: block;
+        }
+        .fu-list-empty__title {
+          margin: 0 0 6px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #9896A8;
+        }
+        .fu-list-empty__hint {
+          margin: 0;
+          font-size: 12px;
+          line-height: 1.45;
+          color: var(--text-secondary);
+        }
+        .fu-micro-toast {
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%) translateY(60px);
+          background: #1A1530;
+          color: #fff;
+          font-size: 12px;
+          padding: 8px 16px;
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          z-index: 999;
+          transition: transform 0.3s ease;
+          pointer-events: none;
+          box-shadow: 0 4px 20px rgba(26, 21, 48, 0.35);
+        }
+        .fu-micro-toast--visible {
+          transform: translateX(-50%) translateY(0);
         }
         @media (max-width: 720px) {
           .fu-row .fu-actions {
