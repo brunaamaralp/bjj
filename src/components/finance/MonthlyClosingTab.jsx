@@ -44,6 +44,7 @@ import {
   Clock,
   Download,
   Plus,
+  Receipt,
 } from 'lucide-react';
 
 const PAY_METHODS = [
