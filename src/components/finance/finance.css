@@ -77,7 +77,7 @@
 
 .finance-card--primary {
   background: var(--finance-card-bg-primary);
-  border: 1px solid var(--color-primary, var(--v500, var(--petroleo)));
+  border: 1px solid var(--color-primary);
   border-radius: 12px;
   padding: var(--finance-space-5) var(--finance-space-6);
 }
@@ -114,7 +114,7 @@
 .finance-month-picker__label {
   font-size: var(--font-2xl);
   font-weight: 700;
-  color: var(--v500);
+  color: var(--color-primary);
   min-width: 150px;
   text-align: center;
   letter-spacing: -0.02em;
@@ -129,7 +129,7 @@
   min-height: var(--control-height-toolbar, 36px);
   height: var(--control-height-toolbar, 36px);
   cursor: pointer;
-  color: var(--v500);
+  color: var(--color-primary);
   border-radius: var(--control-radius-sm, 8px);
   display: inline-flex;
   align-items: center;
@@ -255,7 +255,7 @@
   text-decoration: none;
 }
 .financeiro-overview-export-link:hover {
-  color: var(--v500, var(--petroleo));
+  color: var(--color-primary);
   text-decoration: underline;
 }
 .financeiro-overview-grid {
@@ -301,7 +301,7 @@
   display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
   font-size: var(--font-base);
 }
-.financeiro-overview-alerts li a { font-weight: 600; color: var(--color-primary, var(--v500)); text-decoration: none; white-space: nowrap; }
+.financeiro-overview-alerts li a { font-weight: 600; color: var(--color-primary); text-decoration: none; white-space: nowrap; }
 .financeiro-overview-alerts li a:hover { text-decoration: underline; }
 .financeiro-overview-alerts--ok { color: var(--text-secondary); grid-template-columns: 1fr; }
 
@@ -337,7 +337,7 @@
 }
 .finance-guide__list a {
   font-weight: 600;
-  color: var(--color-primary, var(--v500));
+  color: var(--color-primary);
   text-decoration: none;
 }
 .finance-guide__list a:hover { text-decoration: underline; }
@@ -355,7 +355,7 @@
 }
 .finance-guide__footer a {
   font-weight: 600;
-  color: var(--color-primary, var(--v500));
+  color: var(--color-primary);
   text-decoration: none;
 }
 .finance-guide__footer a:hover { text-decoration: underline; }
@@ -401,9 +401,9 @@
   }
 }
 .finance-regime-active {
-  background: var(--color-primary-surface, var(--v100)) !important;
-  border-color: var(--color-primary, var(--v500)) !important;
-  color: var(--color-primary-dark, var(--v500)) !important;
+  background: var(--color-primary-surface) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary-dark) !important;
 }
 .finance-tx-section__lead {
   margin: 0 0 var(--finance-space-4);
@@ -702,7 +702,7 @@
   text-transform: uppercase;
 }
 .finance-tx-badge--plan {
-  background: color-mix(in srgb, var(--v500) 14%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
   color: var(--v700);
 }
 .finance-tx-badge--product {
@@ -761,7 +761,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--v500);
+  color: var(--color-primary);
 }
 .finance-forecast-week__body {
   flex: 1;
@@ -776,7 +776,7 @@
   font-size: var(--font-base);
   color: var(--text);
 }
-.finance-forecast-week__link:hover { color: var(--v500); text-decoration: underline; }
+.finance-forecast-week__link:hover { color: var(--color-primary); text-decoration: underline; }
 .finance-forecast-week__amount {
   font-weight: 600;
   font-size: var(--font-base);
@@ -856,9 +856,15 @@
 .accounts-type-badge { font-size: var(--font-xs); padding: 2px 8px; border-radius: 10px; font-weight: 500; white-space: nowrap; display: inline-block; }
 .accounts-type-badge--receita { background: var(--success-light, #dcfce7); color: var(--success, #166534); }
 .accounts-type-badge--despesa { background: var(--danger-light, #fee2e2); color: var(--danger, #991b1b); }
-.accounts-type-badge--ativo { background: rgba(59, 130, 246, 0.12); color: #1e40af; }
-.accounts-type-badge--passivo { background: var(--warning-light, #fef3c7); color: #92400e; }
-.accounts-type-badge--custo { background: rgba(107, 33, 168, 0.1); color: #6b21a8; }
+.accounts-type-badge--ativo {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--surface));
+  color: var(--color-primary-dark);
+}
+.accounts-type-badge--passivo { background: var(--warning-light, #fef3c7); color: var(--warning, #92400e); }
+.accounts-type-badge--custo {
+  background: color-mix(in srgb, var(--color-primary-dark) 10%, var(--surface));
+  color: var(--color-primary-dark);
+}
 .accounts-type-badge--pl { background: var(--surface-hover); color: var(--text-secondary); }
 .accounts-menu-btn { opacity: 0; transition: opacity 0.15s; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; color: var(--text-secondary); min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .accounts-table-row:hover .accounts-menu-btn,
@@ -944,7 +950,7 @@
 .finance-journal-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
 .finance-journal-head-content { min-width: 0; flex: 1; }
 .finance-journal-head-title { margin: 0 0 5px; }
-.finance-journal-head-icon { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, rgba(108, 71, 216, 0.12), rgba(108, 71, 216, 0.04)); border: 0.5px solid var(--border-violet); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--v500, var(--petroleo)); }
+.finance-journal-head-icon { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, rgba(108, 71, 216, 0.12), rgba(108, 71, 216, 0.04)); border: 0.5px solid var(--border-violet); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--color-primary); }
 .finance-journal-lead { font-size: var(--font-base); color: var(--text-secondary); line-height: 1.5; margin: 0; max-width: 640px; }
 
 /* Painel de novo lançamento — white card limpo */
@@ -1616,24 +1622,234 @@
   font-size: var(--font-md);
 }
 
+/* === Fechamento mensal (MonthlyClosingTab) === */
+.monthly-closing-tab__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--finance-space-3);
+  margin-bottom: var(--finance-space-3);
+}
+.monthly-closing-tab__head-title {
+  margin: 0;
+}
+.monthly-closing-tab__head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--finance-space-2);
+}
+.monthly-closing-month-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap, 8px);
+  background: var(--color-background-secondary, var(--surface-hover));
+  border-radius: var(--radius-sm, 8px);
+  padding: 4px 10px;
+}
+.monthly-closing-month-picker__label {
+  font-size: var(--font-md);
+  font-weight: 500;
+  min-width: 140px;
+  text-align: center;
+}
+.monthly-closing-btn-icon {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.monthly-closing-btn-icon--sm {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.monthly-closing-tab__lead {
+  margin: 0 0 var(--finance-space-2);
+  line-height: 1.5;
+}
+.monthly-closing-regime-note {
+  margin: 0 0 var(--finance-space-2);
+}
+.monthly-closing-alert {
+  padding: var(--finance-space-3) var(--finance-space-4);
+  border-left: 4px solid var(--finance-color-pending);
+  background: var(--status-warning-bg, var(--warning-light, #fef3c7));
+}
+.monthly-closing-alert__text {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+.monthly-closing-manual {
+  padding: var(--finance-space-4);
+}
+.monthly-closing-manual__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--finance-space-2);
+}
+.monthly-closing-manual__field {
+  margin: 0;
+}
+.monthly-closing-manual__field--student {
+  min-width: 180px;
+  flex: 1;
+  position: relative;
+}
+.monthly-closing-manual__field--desc {
+  min-width: 160px;
+  flex: 1;
+}
+.monthly-closing-manual__field--amount {
+  width: 120px;
+}
+.monthly-closing-manual__field--method,
+.monthly-closing-manual__field--origin {
+  min-width: 130px;
+}
+.monthly-closing-manual__field--date {
+  width: 130px;
+}
+.monthly-closing-student-picker {
+  position: absolute;
+  z-index: var(--z-dropdown, 20);
+  margin-top: 4px;
+  padding: 4px;
+  max-height: 160px;
+  overflow: auto;
+}
+.monthly-closing-student-picker__option {
+  width: 100%;
+  justify-content: flex-start;
+  font-size: var(--font-sm);
+}
+.monthly-closing-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--finance-space-3);
+  margin-bottom: var(--finance-space-4);
+}
+.monthly-closing-kpi {
+  padding: var(--finance-space-3) var(--finance-space-4);
+}
+.monthly-closing-kpi__value {
+  font-size: var(--font-2xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.monthly-closing-kpi__value--positive {
+  color: var(--finance-color-positive);
+}
+.monthly-closing-kpi__value--negative {
+  color: var(--finance-color-negative);
+}
+.monthly-closing-kpi--wide {
+  grid-column: span 2;
+}
+@media (max-width: 640px) {
+  .monthly-closing-kpi--wide {
+    grid-column: span 1;
+  }
+}
+.monthly-closing-kpi__methods-label {
+  margin-bottom: 6px;
+}
+.monthly-closing-kpi__methods {
+  line-height: 1.5;
+}
+.monthly-closing-filters {
+  align-items: flex-end;
+}
+.monthly-closing-filters__search {
+  margin: 0;
+  min-width: 220px;
+  flex: 1;
+}
+.monthly-closing-filters__group {
+  margin: 0;
+}
+.monthly-closing-filters__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.monthly-closing-filters__method {
+  min-width: 160px;
+}
+.monthly-closing-filters__sort {
+  min-width: 140px;
+}
 .monthly-closing-status-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: 6px;
   font-size: var(--font-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
 }
-
 .monthly-closing-wrap {
+  position: relative;
   min-height: 120px;
+}
+.monthly-closing-table {
+  min-width: 960px;
+}
+.monthly-closing-empty-cell {
+  padding: var(--finance-space-5);
+}
+.monthly-closing-empty-wrap {
+  padding: var(--finance-space-5);
+}
+.monthly-closing-name-cell {
+  font-weight: 500;
+  font-size: var(--font-md);
+}
+.monthly-closing-unclassified-badge {
+  margin-left: 6px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+.monthly-closing-pending-value {
+  color: var(--finance-color-negative);
+  font-weight: 600;
+}
+.monthly-closing-comp-hint {
+  display: block;
+  color: var(--finance-color-pending);
+}
+.monthly-closing-mobile-card__meta {
+  margin: 2px 0 var(--finance-space-2);
+}
+.monthly-closing-mobile-card__method {
+  margin: var(--finance-space-2) 0 0;
+}
+.monthly-closing-sit-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.monthly-closing-sit-badge--table {
+  padding: 4px 10px;
+}
+.monthly-closing-sit-badge--recebido {
+  background: var(--color-accent-surface, #eaf3de);
+  color: var(--color-accent-dark, var(--finance-color-positive));
+}
+.monthly-closing-sit-badge--parcial {
+  background: var(--warning-light, #ffedd5);
+  color: var(--warning, #c2410c);
+}
+.monthly-closing-sit-badge--pendente {
+  background: color-mix(in srgb, var(--finance-color-negative) 12%, var(--surface));
+  color: var(--finance-color-negative);
 }
 
 .monthly-closing-loading-overlay {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  background: rgba(255, 255, 255, 0.45);
+  z-index: var(--z-sticky, 2);
+  background: color-mix(in srgb, var(--color-content-bg, #fff) 55%, transparent);
   pointer-events: none;
   display: flex;
   justify-content: center;
@@ -1824,8 +2040,8 @@
 }
 
 .mensal-modal-method-btn--active {
-  background: color-mix(in srgb, var(--v500) 12%, var(--surface));
-  border-color: var(--v500);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--surface));
+  border-color: var(--color-primary);
   color: var(--v700);
 }
 
@@ -1915,18 +2131,18 @@
 }
 
 .mensalidades-page .mensal-chip--active {
-  background: var(--v500);
+  background: var(--color-primary);
   color: #fff;
-  border-color: var(--v500);
+  border-color: var(--color-primary);
 }
 
 .mensalidades-page .mensal-search:focus {
-  border-color: var(--v500) !important;
+  border-color: var(--color-primary) !important;
   outline: none;
 }
 
 .mensalidades-page .mensal-btn-pay {
-  background: var(--v500);
+  background: var(--color-primary);
   color: #fff;
   border: none;
   font-size: var(--font-xs);
@@ -2043,7 +2259,7 @@
 .mensalidades-modal-scope .mensal-modal-in:focus,
 .mensalidades-modal-scope .mensal-modal-account:focus,
 .mensalidades-modal-scope .mensal-modal-textarea:focus {
-  border-color: var(--v500);
+  border-color: var(--color-primary);
   background: var(--color-background-primary, var(--surface, #fff));
   outline: none;
 }
@@ -2068,7 +2284,7 @@
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  accent-color: var(--v500);
+  accent-color: var(--color-primary);
   cursor: pointer;
   margin-top: 2px;
 }
@@ -2273,7 +2489,7 @@
 }
 
 .mensalidades-page .mensal-th-sort--active .mensal-th-sort__icon {
-  color: var(--v500);
+  color: var(--color-primary);
 }
 
 .mensal-estorno-caixa-banner {
@@ -2296,7 +2512,7 @@
 
 .mensal-estorno-caixa-banner__link {
   font-weight: 600;
-  color: var(--v500);
+  color: var(--color-primary);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -2413,7 +2629,7 @@
 .finance-settings-progress__fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--v500);
+  background: var(--color-primary);
   transition: width 0.25s var(--ease-standard);
 }
 

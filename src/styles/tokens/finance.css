@@ -7,7 +7,7 @@
 
   --finance-card-bg: var(--surface);
   --finance-card-bg-alert: var(--warning-bg, var(--warn-bg));
-  --finance-card-bg-primary: var(--azul-gelo);
+  --finance-card-bg-primary: var(--color-primary-surface, var(--azul-gelo));
   --finance-card-border: var(--border-light);
   --finance-card-border-alert: color-mix(in srgb, var(--finance-color-pending) 35%, transparent);
 

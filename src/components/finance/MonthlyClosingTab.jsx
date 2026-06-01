@@ -16,6 +16,7 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import { DateInputField } from '../DateInput';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import SearchField from '../shared/SearchField.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
 import {
   buildClosingRows,
@@ -30,11 +31,7 @@ import {
   mapOriginToTxType,
 } from '../../lib/monthlyClosing.js';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
-import {
-  FINANCE_REGIME,
-  financeRegimeLabel,
-  getFinanceRegime,
-} from '../../lib/financeCompetence.js';
+import { FINANCE_REGIME, getFinanceRegime } from '../../lib/financeCompetence.js';
 import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import {
@@ -69,6 +66,23 @@ function formatMonthTitle(ym) {
 function currentYm() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function ClosingSituationBadge({ situation, table = false }) {
+  const sit = String(situation || 'pendente');
+  return (
+    <span
+      className={[
+        'monthly-closing-sit-badge',
+        `monthly-closing-sit-badge--${sit}`,
+        table ? 'monthly-closing-sit-badge--table' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {CLOSING_SITUATION_LABELS[sit] || sit}
+    </span>
+  );
 }
 
 export default function MonthlyClosingTab({ academyId, academyName, financeConfig, modules }) {
@@ -390,11 +404,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
 
   return (
     <section className="mt-4 animate-in monthly-closing-tab">
-      <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="monthly-closing-tab__head">
         <div>
-          <h3 className="navi-section-heading" style={{ margin: 0 }}>
-            Conferência do mês
-          </h3>
+          <h3 className="navi-section-heading monthly-closing-tab__head-title">Conferência do mês</h3>
           <div className="monthly-closing-status-badge">
             {cashClosing ? (
               <>
@@ -409,23 +421,12 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             )}
           </div>
         </div>
-        <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'var(--surface-hover)',
-              borderRadius: 8,
-              padding: '4px 10px',
-            }}
-          >
+        <div className="monthly-closing-tab__head-actions">
+          <div className="monthly-closing-month-picker">
             <button type="button" className="btn-action-ghost" onClick={prevMonth} aria-label="Mês anterior">
               <ChevronLeft size={16} />
             </button>
-            <span style={{ fontSize: 14, fontWeight: 500, minWidth: 140, textAlign: 'center' }}>
-              {formatMonthTitle(referenceMonth)}
-            </span>
+            <span className="monthly-closing-month-picker__label">{formatMonthTitle(referenceMonth)}</span>
             <button
               type="button"
               className="btn-action-ghost"
@@ -437,7 +438,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             </button>
           </div>
           <button type="button" className="btn-outline btn-sm" onClick={handleExport} disabled={!sortedRows.length}>
-            <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            <Download size={14} className="monthly-closing-btn-icon" aria-hidden />
             Exportar CSV
           </button>
           {canRegisterClosing ? (
@@ -451,23 +452,22 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             </button>
           ) : null}
           <button type="button" className="btn-secondary btn-sm" onClick={() => setShowManual((v) => !v)}>
-            <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+            <Plus size={14} className="monthly-closing-btn-icon--sm" aria-hidden />
             Lançar recebimento
           </button>
         </div>
       </div>
 
-      <p className="text-small text-muted mb-2" style={{ lineHeight: 1.5 }}>
+      <p className="text-small text-muted monthly-closing-tab__lead">
         Painel de conferência — não trava lançamentos nem gera documento de fechamento.
       </p>
       {academyId ? (
         <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
       ) : null}
-      <p className="text-xs text-muted mb-2" role="status">
-        Visualizando por {financeRegimeLabel(regime).toLowerCase()}
+      <p className="text-xs text-muted monthly-closing-regime-note" role="status">
         {regime === FINANCE_REGIME.COMPETENCE
-          ? ' · mensalidades pelo mês de referência; demais lançamentos por competência (fallback: data de pagamento)'
-          : ' · transações pelo mês de liquidação (settledAt)'}
+          ? 'Na conferência: mensalidades pelo mês de referência; demais lançamentos por competência (fallback: data de pagamento).'
+          : 'Na conferência: transações pelo mês de liquidação (data de recebimento no Caixa).'}
       </p>
       {closingPartialWarning ? (
         <ErrorBanner
@@ -477,17 +477,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         />
       ) : null}
       {totalsDiverge ? (
-        <div
-          className="card mb-3"
-          style={{
-            padding: '12px 14px',
-            borderLeft: '4px solid var(--warning, #B45309)',
-            background: '#FEF3C7',
-          }}
-          role="alert"
-        >
+        <div className="card mb-3 monthly-closing-alert" role="alert">
           <strong>Divergência — verifique o regime de visualização</strong>
-          <p className="text-small" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
+          <p className="text-small monthly-closing-alert__text">
             Conferência: {fmtMoney(totals.received)} · Relatório operacional: {fmtMoney(operationalReceived)}.
             Use o mesmo regime (caixa ou competência) nos dois painéis ou confira lançamentos sem competência
             definida.
@@ -495,54 +487,30 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         </div>
       ) : null}
       {unclassifiedCount > 0 ? (
-        <div
-          className="card mb-3"
-          style={{
-            padding: '12px 14px',
-            borderLeft: '4px solid var(--warning, #B45309)',
-            background: '#FEF3C7',
-          }}
-          role="alert"
-        >
+        <div className="card mb-3 monthly-closing-alert" role="alert">
           <strong>{unclassifiedCount}</strong> lançamento(s) com categoria não mapeada no plano fixo. Revise em
           Movimentações ou ajuste o diário contábil.{' '}
           <Link to={EMPRESA_FINANCE_CONFIG_PATH}>Ver Configuração →</Link>
         </div>
       ) : null}
       {pendingInMonth > 0 ? (
-        <div
-          className="card mb-3"
-          style={{
-            padding: '12px 14px',
-            borderLeft: '4px solid var(--warning, #B45309)',
-            background: '#FEF3C7',
-          }}
-          role="alert"
-        >
-          <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou
-          cancele em Movimentações antes de considerar o mês fechado.{' '}
+        <div className="card mb-3 monthly-closing-alert" role="alert">
+          <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou cancele em
+          Movimentações antes de considerar o mês fechado.{' '}
           <Link to="/financeiro?tab=movimentacoes">Ver no Caixa →</Link>
         </div>
       ) : null}
       {totals.pending > 0 ? (
-        <div
-          className="card mb-3"
-          style={{
-            padding: '12px 14px',
-            borderLeft: '4px solid var(--warning, #B45309)',
-            background: '#FEF3C7',
-          }}
-          role="alert"
-        >
+        <div className="card mb-3 monthly-closing-alert" role="alert">
           Existem mensalidades pendentes na conferência.{' '}
           <Link to="/financeiro?tab=mensalidades&filtro=pending">Ver Mensalidades →</Link>
         </div>
       ) : null}
 
       {showManual ? (
-        <div className="card mb-3" style={{ padding: 14 }}>
-          <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ margin: 0, minWidth: 180, flex: 1, position: 'relative' }}>
+        <div className="card mb-3 monthly-closing-manual">
+          <div className="monthly-closing-manual__row">
+            <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--student">
               <label className="text-xs">Aluno (opcional)</label>
               <input
                 className="form-input"
@@ -553,23 +521,12 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 placeholder="Buscar por nome…"
               />
               {studentMatches.length > 0 && !manualForm.lead_id ? (
-                <div
-                  className="card"
-                  style={{
-                    position: 'absolute',
-                    zIndex: 5,
-                    marginTop: 4,
-                    padding: 4,
-                    maxHeight: 160,
-                    overflow: 'auto',
-                  }}
-                >
+                <div className="card monthly-closing-student-picker">
                   {studentMatches.map((s) => (
                     <button
                       key={s.id}
                       type="button"
-                      className="btn-action-ghost"
-                      style={{ width: '100%', justifyContent: 'flex-start', fontSize: 12 }}
+                      className="btn-action-ghost monthly-closing-student-picker__option"
                       onClick={() =>
                         setManualForm((f) => ({
                           ...f,
@@ -584,7 +541,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 </div>
               ) : null}
             </div>
-            <div className="form-group" style={{ margin: 0, minWidth: 160, flex: 1 }}>
+            <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--desc">
               <label className="text-xs">Descrição</label>
               <input
                 className="form-input"
@@ -592,7 +549,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 onChange={(e) => setManualForm((f) => ({ ...f, description: e.target.value }))}
               />
             </div>
-            <div className="form-group" style={{ margin: 0, width: 120 }}>
+            <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--amount">
               <label className="text-xs">Valor</label>
               <input
                 className="form-input"
@@ -600,7 +557,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 onChange={(e) => setManualForm((f) => ({ ...f, gross: maskCurrency(e.target.value) }))}
               />
             </div>
-            <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
+            <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--method">
               <label className="text-xs">Forma</label>
               <select
                 className="form-input"
@@ -614,7 +571,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ margin: 0, width: 130 }}>
+            <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--date">
               <label className="text-xs">Data</label>
               <DateInputField
                 type="date"
@@ -623,7 +580,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 onChange={(e) => setManualForm((f) => ({ ...f, date: e.target.value }))}
               />
             </div>
-            <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
+            <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--origin">
               <label className="text-xs">Origem</label>
               <select
                 className="form-input"
@@ -652,31 +609,26 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>{fmtMoney(totals.expected)}</div>
+      <div className="monthly-closing-kpis">
+        <div className="card monthly-closing-kpi">
+          <div className="monthly-closing-kpi__value">{fmtMoney(totals.expected)}</div>
           <div className="text-xs text-muted">Total esperado</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 22, fontWeight: 600, color: '#3B6D11' }}>{fmtMoney(totals.received)}</div>
+        <div className="card monthly-closing-kpi">
+          <div className="monthly-closing-kpi__value monthly-closing-kpi__value--positive">
+            {fmtMoney(totals.received)}
+          </div>
           <div className="text-xs text-muted">Total recebido</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 22, fontWeight: 600, color: '#A32D2D' }}>{fmtMoney(totals.pending)}</div>
+        <div className="card monthly-closing-kpi">
+          <div className="monthly-closing-kpi__value monthly-closing-kpi__value--negative">
+            {fmtMoney(totals.pending)}
+          </div>
           <div className="text-xs text-muted">Total pendente</div>
         </div>
-        <div className="card" style={{ padding: '12px 14px', gridColumn: 'span 2' }}>
-          <div className="text-xs text-muted" style={{ marginBottom: 6 }}>
-            Por forma de pagamento
-          </div>
-          <div className="text-small" style={{ lineHeight: 1.5 }}>
+        <div className="card monthly-closing-kpi monthly-closing-kpi--wide">
+          <div className="text-xs text-muted monthly-closing-kpi__methods-label">Por forma de pagamento</div>
+          <div className="text-small monthly-closing-kpi__methods">
             {totals.byMethod.length === 0
               ? '—'
               : totals.byMethod.map((m, i) => (
@@ -689,19 +641,19 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         </div>
       </div>
 
-      <div className="filter-bar mb-2" style={{ alignItems: 'flex-end' }}>
-        <div className="form-group filter-field" style={{ margin: 0, minWidth: 220, flex: 1 }}>
+      <div className="filter-bar mb-2 monthly-closing-filters navi-toolbar">
+        <div className="form-group filter-field monthly-closing-filters__search">
           <label className="text-xs">Buscar</label>
-          <input
-            className="form-input"
-            placeholder="Buscar por nome"
+          <SearchField
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome"
+            aria-label="Buscar na conferência"
           />
         </div>
-        <div className="form-group filter-field" style={{ margin: 0 }}>
+        <div className="form-group filter-field monthly-closing-filters__group">
           <label className="text-xs">Origem</label>
-          <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+          <div className="monthly-closing-filters__chips">
             {availableOrigins.map((key) => (
               <button
                 key={key}
@@ -714,9 +666,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             ))}
           </div>
         </div>
-        <div className="form-group filter-field" style={{ margin: 0 }}>
+        <div className="form-group filter-field monthly-closing-filters__group">
           <label className="text-xs">Situação</label>
-          <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+          <div className="monthly-closing-filters__chips">
             {CLOSING_SITUATIONS.map((key) => (
               <button
                 key={key}
@@ -730,9 +682,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           </div>
         </div>
         {methodOptions.length > 0 ? (
-          <div className="form-group filter-field" style={{ margin: 0, minWidth: 160 }}>
+          <div className="form-group filter-field monthly-closing-filters__method">
             <label className="text-xs">Forma de pagamento</label>
-            <select className="form-input" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
+            <select className="form-input navi-control--toolbar" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
               <option value="all">Todas</option>
               {methodOptions.map((k) => {
                 const methodKey = k.split('|')[0] || k;
@@ -745,9 +697,9 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
             </select>
           </div>
         ) : null}
-        <div className="form-group filter-field" style={{ margin: 0, minWidth: 140 }}>
+        <div className="form-group filter-field monthly-closing-filters__sort">
           <label className="text-xs">Ordenar</label>
-          <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <select className="form-input navi-control--toolbar" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="date">Data (recente)</option>
             <option value="name">Nome</option>
             <option value="received">Valor recebido</option>
@@ -756,7 +708,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         </div>
       </div>
 
-      <div className="finance-table-wrap monthly-closing-wrap" style={{ position: 'relative' }}>
+      <div className="finance-table-wrap monthly-closing-wrap">
         {loading && sortedRows.length > 0 ? (
           <div className="monthly-closing-loading-overlay" aria-live="polite">
             Atualizando…
@@ -767,7 +719,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
         ) : isMobile ? (
           <div className="monthly-closing-mobile-list">
             {sortedRows.length === 0 ? (
-              <div style={{ padding: 20 }}>
+              <div className="monthly-closing-empty-wrap">
                 <EmptyState
                   variant="compact"
                   icon={Receipt}
@@ -776,46 +728,27 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                 />
               </div>
             ) : (
-              sortedRows.map((row) => {
-                const sitColor =
-                  row.situation === 'recebido'
-                    ? { bg: '#EAF3DE', color: '#3B6D11' }
-                    : row.situation === 'parcial'
-                      ? { bg: '#FFEDD5', color: '#C2410C' }
-                      : { bg: '#FCEBEB', color: '#A32D2D' };
-                return (
-                  <article key={row.id} className="monthly-closing-mobile-card">
-                    <div className="monthly-closing-mobile-card__head">
-                      <strong>{row.guardian ? `${row.name} (${row.guardian})` : row.name}</strong>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '3px 8px',
-                          borderRadius: 20,
-                          background: sitColor.bg,
-                          color: sitColor.color,
-                        }}
-                      >
-                        {CLOSING_SITUATION_LABELS[row.situation]}
-                      </span>
-                    </div>
-                    <p className="text-small text-muted" style={{ margin: '2px 0 8px' }}>
-                      {CLOSING_ORIGIN_LABELS[row.origin]}
-                    </p>
-                    <div className="monthly-closing-mobile-card__grid">
-                      <span>Esperado: {fmtMoney(row.expected)}</span>
-                      <span>Recebido: {fmtMoney(row.received)}</span>
-                      <span>Pendente: {row.pending > 0.009 ? fmtMoney(row.pending) : '—'}</span>
-                    </div>
-                    <p className="text-small" style={{ margin: '8px 0 0' }}>{row.paymentMethod}</p>
-                  </article>
-                );
-              })
+              sortedRows.map((row) => (
+                <article key={row.id} className="monthly-closing-mobile-card">
+                  <div className="monthly-closing-mobile-card__head">
+                    <strong>{row.guardian ? `${row.name} (${row.guardian})` : row.name}</strong>
+                    <ClosingSituationBadge situation={row.situation} />
+                  </div>
+                  <p className="text-small text-muted monthly-closing-mobile-card__meta">
+                    {CLOSING_ORIGIN_LABELS[row.origin]}
+                  </p>
+                  <div className="monthly-closing-mobile-card__grid">
+                    <span>Esperado: {fmtMoney(row.expected)}</span>
+                    <span>Recebido: {fmtMoney(row.received)}</span>
+                    <span>Pendente: {row.pending > 0.009 ? fmtMoney(row.pending) : '—'}</span>
+                  </div>
+                  <p className="text-small monthly-closing-mobile-card__method">{row.paymentMethod}</p>
+                </article>
+              ))
             )}
           </div>
         ) : (
-        <table className="finance-table" style={{ minWidth: 960 }}>
+        <table className="finance-table monthly-closing-table">
           <thead>
             <tr>
               <th>Nome</th>
@@ -832,7 +765,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           <tbody>
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ padding: 20 }}>
+                <td colSpan={9} className="monthly-closing-empty-cell">
                   <EmptyState
                     variant="table-cell"
                     icon={Receipt}
@@ -852,21 +785,14 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                     ? ' · sem competência definida'
                     : '';
                 const nameCell = row.guardian ? `${row.name} (${row.guardian})` : row.name;
-                const sitColor =
-                  row.situation === 'recebido'
-                    ? { bg: '#EAF3DE', color: '#3B6D11' }
-                    : row.situation === 'parcial'
-                      ? { bg: '#FFEDD5', color: '#C2410C' }
-                      : { bg: '#FCEBEB', color: '#A32D2D' };
                 return (
                   <tr key={row.id}>
-                    <td style={{ fontWeight: 500, fontSize: 13 }}>{nameCell}</td>
+                    <td className="monthly-closing-name-cell">{nameCell}</td>
                     <td className="text-small">
                       {row.description}
                       {row.categoryUnclassified ? (
                         <span
-                          className="badge badge-warning"
-                          style={{ marginLeft: 6, fontSize: 10, verticalAlign: 'middle' }}
+                          className="badge badge-warning monthly-closing-unclassified-badge"
                           title="Categoria não mapeada no plano fixo de categorias"
                         >
                           não classificado
@@ -877,7 +803,7 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                     <td className="finance-num">{fmtMoney(row.received)}</td>
                     <td className="finance-num">
                       {row.pending > 0.009 ? (
-                        <span style={{ color: '#A32D2D', fontWeight: 600 }}>{fmtMoney(row.pending)}</span>
+                        <span className="monthly-closing-pending-value">{fmtMoney(row.pending)}</span>
                       ) : (
                         '—'
                       )}
@@ -885,25 +811,10 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
                     <td className="text-small">{row.paymentMethod}</td>
                     <td>
                       {dateStr}
-                      {compHint ? (
-                        <span className="text-xs" style={{ display: 'block', color: '#B45309' }}>
-                          {compHint.trim()}
-                        </span>
-                      ) : null}
+                      {compHint ? <span className="text-xs monthly-closing-comp-hint">{compHint.trim()}</span> : null}
                     </td>
                     <td>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '4px 10px',
-                          borderRadius: 20,
-                          background: sitColor.bg,
-                          color: sitColor.color,
-                        }}
-                      >
-                        {CLOSING_SITUATION_LABELS[row.situation]}
-                      </span>
+                      <ClosingSituationBadge situation={row.situation} table />
                     </td>
                     <td className="text-small">{CLOSING_ORIGIN_LABELS[row.origin]}</td>
                   </tr>
