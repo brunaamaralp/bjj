@@ -40,7 +40,7 @@ export default function LeadCloseSaleModal({
   if (!open || !lead || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="sales-modal-backdrop" role="presentation" onClick={requestClose}>
+    <div className="sales-modal-backdrop" role="presentation">
       <div
         className="sales-modal card sales-modal--wide"
         role="dialog"

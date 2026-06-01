@@ -18,11 +18,7 @@ export default function NovaVendaModal({ open, onClose }) {
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div
-      className="nova-venda-modal-backdrop"
-      role="presentation"
-      onClick={requestClose}
-    >
+    <div className="nova-venda-modal-backdrop" role="presentation">
       <div
         className="sales-modal card nova-venda-modal"
         role="dialog"

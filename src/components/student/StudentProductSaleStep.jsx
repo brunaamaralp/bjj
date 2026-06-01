@@ -23,6 +23,7 @@ import {
   paymentsUiValid,
   rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
+import { friendlySaleError } from '../../lib/errorMessages.js';
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
@@ -375,7 +376,7 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       return;
     }
     if (st.error) {
-      addToast({ type: 'error', message: 'Não foi possível registrar a venda.' });
+      addToast({ type: 'error', message: friendlySaleError(st.error) || 'Não foi possível registrar a venda.' });
       return;
     }
 

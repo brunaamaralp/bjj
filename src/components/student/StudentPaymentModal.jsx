@@ -108,11 +108,13 @@ export default function StudentPaymentModal({
     { value: PAYMENT_CATEGORY.OTHER, label: 'Outro' },
   ];
 
+  const dismissOnOverlayClick = !isProduct && !saving;
+
   return createPortal(
     <div
       className="navi-modal-overlay"
       role="presentation"
-      onClick={() => (saving ? undefined : handleClose())}
+      onClick={dismissOnOverlayClick ? requestClose : undefined}
     >
       <div
         className="card navi-modal-dialog"
