@@ -182,7 +182,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     </span>
                 </div>
             ) : null}
-            <div className="action-bar action-bar--reorganized lead-card-actions mt-3">
+            <div className="action-bar action-bar--reorganized lead-card-actions">
                 <div className="wa-split-btn" data-no-dnd="true">
                     <button
                         type="button"
