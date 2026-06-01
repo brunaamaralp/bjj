@@ -624,7 +624,7 @@
 }
 
 .pipeline-container .col-content {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 40px;
   display: flex;
@@ -632,6 +632,10 @@
   gap: var(--pipeline-element-gap);
   padding: 0 0.625rem 0.625rem;
   overflow: visible;
+}
+
+.pipeline-container .pipeline-col-leads-virtual {
+  flex-shrink: 0;
 }
 
 .col-header .pipeline-col-heading {
@@ -665,6 +669,7 @@
   cursor: grab;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: var(--pipeline-element-gap);
   padding: var(--pipeline-card-pad);
   margin: 0;
@@ -1046,6 +1051,7 @@
 }
 
 .lead-card--placeholder {
+  flex-shrink: 0;
   height: 64px;
   opacity: 0.5;
   margin-bottom: 8px;

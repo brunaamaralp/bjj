@@ -387,7 +387,7 @@ function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movin
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
         getScrollElement: () => scrollRef?.current ?? null,
-        estimateSize: () => 112,
+        estimateSize: () => 140,
         gap: 8,
         overscan: 4,
     });
@@ -409,6 +409,7 @@ function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movin
 
     return (
         <div
+            className="pipeline-col-leads-virtual"
             style={{
                 height: virtualizer.getTotalSize(),
                 width: '100%',
