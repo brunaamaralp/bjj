@@ -7,6 +7,8 @@ Levantamento inicial para a Fase 3 de limpeza do design system.
 - Regras de menu dropdown foram extraídas para `src/components/shared/menu/menu.css`.
 - `DropdownMenu.jsx` agora importa o CSS local do primitivo de menu.
 - Tokens de domínio foram segregados para:
+  - `src/styles/tokens/core.css` (paleta `--color-*` global)
+  - `src/styles/tokens/content.css` (coluna principal)
   - `src/styles/tokens/menu.css`
   - `src/styles/tokens/inbox.css`
   - `src/styles/tokens/finance.css`
