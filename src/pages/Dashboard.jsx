@@ -5,7 +5,6 @@ import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
 import { Query } from 'appwrite';
 import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
-import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
@@ -19,17 +18,19 @@ import Hint from '../components/shared/Hint.jsx';
 import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
-import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
-import ScheduleModal from '../components/ScheduleModal.jsx';
-import AgendaCalendarWeek, { formatWeekRangeLabel, getWeekStart } from '../components/AgendaCalendarWeek.jsx';
-import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
+import AgendaCalendarWeek, {
+    formatWeekRangeLabel,
+    filterLeadsInCivilWeek,
+} from '../components/AgendaCalendarWeek.jsx';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import ModalShell from '../components/shared/ModalShell.jsx';
+import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
@@ -60,9 +61,6 @@ const Dashboard = () => {
     const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
     const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [scheduleModalLead, setScheduleModalLead] = useState(null);
-    const [dashboardQuickTimes, setDashboardQuickTimes] = useState([]);
-
     const [academyWa, setAcademyWa] = useState({
         name: '',
         zapster_instance_id: '',
@@ -86,6 +84,7 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const hiddenAtRef = useRef(null);
+    const followUpsSectionRef = useRef(null);
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -195,22 +194,6 @@ const Dashboard = () => {
     }, [dashWaTemplates, dashWaName, dashWaZap, dashWaError]);
 
     useEffect(() => {
-        if (!academyId) return;
-        let cancelled = false;
-        getAcademyDocument(academyId)
-            .then((doc) => {
-                if (cancelled) return;
-                setDashboardQuickTimes(getAcademyQuickTimeChipValues(doc));
-            })
-            .catch(() => {
-                if (!cancelled) setDashboardQuickTimes(getAcademyQuickTimeChipValues(null));
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [academyId]);
-
-    useEffect(() => {
         if (!academyId || !LEAD_EVENTS_COL) {
             setFollowupDoneAtByLead({});
             return;
@@ -264,41 +247,8 @@ const Dashboard = () => {
         }
     };
 
-    const onConfirmScheduleDashboard = async ({ date, time, note }) => {
-        if (!scheduleModalLead) return;
-        const st = useLeadStore.getState();
-        const modalLead = scheduleModalLead;
-        const patch = buildSchedulePatch(modalLead, { date, time });
-        const textBody = String(note || '').trim() || `${terms.trial} agendada`;
-        const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
-        const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
-        try {
-            try {
-                await addLeadEvent({
-                    academyId: st.academyId,
-                    leadId: modalLead.id,
-                    type: 'schedule',
-                    to: date,
-                    text: textBody,
-                    createdBy: st.userId || 'user',
-                    permissionContext: permCtx,
-                    payloadJson: { date, time },
-                });
-                await st.updateLead(modalLead.id, patch);
-            } catch {
-                await st.updateLead(modalLead.id, patch);
-            }
-            addToast({ type: 'success', message: `${terms.trial} agendada com sucesso.` });
-        } catch (e) {
-            addToast({ type: 'error', message: 'Erro ao atualizar agendamento.' });
-            throw e;
-        }
-    };
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(today);
-    weekEnd.setDate(today.getDate() + 7);
 
     // Agenda with date filter
     const toDateTime = (lead) => {
@@ -328,12 +278,10 @@ const Dashboard = () => {
         return leadDate.toDateString() === today.toDateString();
     });
 
-    const weekScheduled = allScheduled.filter((lead) => {
-        if (!lead.scheduledDate) return false;
-        const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-        const leadDate = new Date(y, m - 1, d);
-        return leadDate >= today && leadDate < weekEnd;
-    });
+    const weekScheduled = useMemo(
+        () => filterLeadsInCivilWeek(allScheduled, 0),
+        [allScheduled]
+    );
 
     // Follow-ups: dias desde a data da aula experimental; na agenda, só os primeiros 7 dias; mais recentes no topo
     const followUpsAll = leads
@@ -371,32 +319,30 @@ const Dashboard = () => {
             return ta.localeCompare(tb);
         });
 
-    const scheduledInVisibleWeekCount = useMemo(() => {
-        const mon = getWeekStart(dashboardWeekOffset);
-        const satEnd = new Date(mon);
-        satEnd.setDate(mon.getDate() + 5);
-        satEnd.setHours(23, 59, 59, 999);
-        const a = mon.getTime();
-        const b = satEnd.getTime();
-        return allScheduled.filter((lead) => {
-            const raw = String(lead?.scheduledDate || '').trim();
-            if (!raw) return false;
-            const [y, m, d] = raw.split('T')[0].split('-').map(Number);
-            if (!Number.isFinite(y)) return false;
-            const t = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0).getTime();
-            return t >= a && t <= b;
-        }).length;
-    }, [allScheduled, dashboardWeekOffset]);
+    const scheduledInVisibleWeekCount = useMemo(
+        () => filterLeadsInCivilWeek(allScheduled, dashboardWeekOffset).length,
+        [allScheduled, dashboardWeekOffset]
+    );
+
+    const scrollToFollowUps = () => {
+        followUpsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const handleKpiClick = (cardKey) => {
+        if (cardKey === 'followup') {
+            scrollToFollowUps();
+            return;
+        }
+        setListModalType(cardKey);
+    };
 
     const modalListItems =
         listModalType === 'today'
             ? todayScheduled
             : listModalType === 'week'
               ? weekScheduled
-              : listModalType === 'followup'
-                ? followUps
-                : listModalType === 'tasks'
-                  ? pendingTasks
+              : listModalType === 'tasks'
+                ? pendingTasks
                 : [];
 
     const modalTitle =
@@ -404,10 +350,8 @@ const Dashboard = () => {
             ? `${trialSeriesPlural} hoje`
             : listModalType === 'week'
               ? `${trialSeriesPlural} esta semana`
-              : listModalType === 'followup'
-                ? 'Follow-ups pendentes'
-                : listModalType === 'tasks'
-                  ? 'Próximas tarefas'
+              : listModalType === 'tasks'
+                ? 'Próximas tarefas'
                 : '';
 
     const sendDashboardTemplate = async (lead, templateKey) => {
@@ -565,7 +509,7 @@ const Dashboard = () => {
             <div className="reception-agenda-inner reception-agenda-inner--wide">
             <PageHeader
                 className="reception-page-header reception-dashboard-page-header"
-                title="Agenda da Recepção"
+                title="Hoje"
                 subtitle={receptionSubtitle}
                 actions={
                     <>
@@ -665,7 +609,7 @@ const Dashboard = () => {
                             key={card.key}
                             type="button"
                             className={kpiClass}
-                            onClick={() => setListModalType(card.key)}
+                            onClick={() => handleKpiClick(card.key)}
                         >
                             <div className="agenda-kpi-card-stack">
                                 <div className="agenda-kpi-label">
@@ -703,7 +647,7 @@ const Dashboard = () => {
                                         <p className="agenda-kpi-context agenda-kpi-context--info">
                                             {card.key === 'today'
                                                 ? 'agendadas para hoje'
-                                                : 'nos próximos 7 dias'}
+                                                : 'seg–sáb desta semana'}
                                         </p>
                                     ) : null}
                             </div>
@@ -803,15 +747,16 @@ const Dashboard = () => {
                         weekOffset={dashboardWeekOffset}
                         onWeekOffsetChange={setDashboardWeekOffset}
                         hideNav
+                        prioritizeTodayOnMobile={isDashboardMobile}
                     />
                 </div>
                 {scheduledInVisibleWeekCount > 0 ? (
-                    <p className="reception-calendar-hint">Clique em um horário para abrir o contato</p>
+                    <p className="reception-calendar-hint">Toque no nome para abrir o contato · use os botões para registrar presença</p>
                 ) : null}
             </section>
 
             <div className="agenda-section-divider" aria-hidden />
-            <section id="follow-ups" className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
+            <section id="follow-ups" ref={followUpsSectionRef} className="animate-in agenda-followups-section reception-section" style={{ animationDelay: '0.2s' }}>
                 <div className="reception-section-head flex justify-between items-center">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <h3 className="navi-section-heading reception-section-heading">
@@ -941,171 +886,104 @@ const Dashboard = () => {
             </section>
             </div>
 
-            {listModalType ? (
-                <div className="navi-modal-overlay" role="dialog" aria-modal="true" onClick={closeListModal}>
-                    <div
-                        className="card reception-list-modal"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="reception-list-modal__head flex justify-between items-center gap-3">
-                            <h3 className="navi-section-heading reception-list-modal__title" style={{ margin: 0 }}>{modalTitle}</h3>
-                            <span className="badge badge-secondary flex-shrink-0">{modalListItems.length}</span>
-                        </div>
-                        <div className="reception-list-modal__scroll">
-                        {modalListItems.length === 0 ? (
-                            <div className="reception-list-modal__empty">
-                                <EmptyState variant="compact" tone="dashed" title="Nenhum item nessa lista." role="status" />
-                            </div>
-                        ) : (
-                            <div className="flex-col agenda-followups-list">
-                                {modalListItems.map((lead, i) => {
-                                    const isFollowup = listModalType === 'followup';
-                                    const isTasks = listModalType === 'tasks';
-                                    const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
-                                    const followupBusy = Boolean(savingFollowupDone[lead.id]);
-                                    const taskBusy = isUpdatingTask(String(lead?.id || '').trim());
-                                    return (
-                                        <div key={`${lead.id || lead.$id || i}-${i}`} className="card follow-card">
-                                            <div
-                                                className="flex justify-between items-center"
-                                                onClick={() => {
-                                                    if (isTasks) {
-                                                        const leadId = String(lead?.lead_id || '').trim();
-                                                        if (leadId) navigate(`/lead/${leadId}`);
-                                                        return;
-                                                    }
-                                                    navigate(`/lead/${lead.id}`);
-                                                }}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <strong className="agenda-followup-name">
-                                                    {isTasks ? String(lead?.title || 'Tarefa') : lead.name}
-                                                </strong>
-                                                {isTasks ? (
-                                                    <span className="status-pill">
-                                                        {lead?.due_date ? new Date(`${lead.due_date}T00:00:00`).toLocaleDateString('pt-BR') : 'Sem prazo'}
-                                                    </span>
-                                                ) : isFollowup ? (
-                                                    <span className={`status-pill ${lead.status === LEAD_STATUS.COMPLETED ? 'pill-success' : 'pill-danger'}`}>
-                                                        {lead.status === LEAD_STATUS.COMPLETED
-                                                            ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-Aula')
-                                                            : 'Recuperar'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
-                                                )}
-                                            </div>
-                                            <div className="flex gap-2 agenda-followup-actions border-t">
-                                                {isTasks ? (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            className="followup-action-btn flex-1"
-                                                            disabled={taskBusy}
-                                                            onClick={() => void markTaskAsDone(lead)}
-                                                        >
-                                                            {taskBusy ? 'Salvando…' : 'Marcar concluída'}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="followup-action-btn flex-1"
-                                                            onClick={() => navigate('/tarefas')}
-                                                        >
-                                                            <ChevronRight size={14} /> Abrir tarefas
-                                                        </button>
-                                                    </>
-                                                ) : !isFollowup ? (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            className="followup-action-btn flex-1"
-                                                            disabled={busy}
-                                                            onClick={() => void markLeadAttended(lead)}
-                                                        >
-                                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="followup-action-btn flex-1"
-                                                            disabled={busy}
-                                                            onClick={() => void markLeadMissed(lead)}
-                                                        >
-                                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            className="followup-action-btn flex-1"
-                                                            onClick={() => handleWhatsApp(lead)}
-                                                        >
-                                                            <MessageCircle size={14} color="#25D366" /> WhatsApp
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="followup-action-btn flex-1"
-                                                            disabled={followupBusy}
-                                                            onClick={() => void markFollowupDone(lead)}
-                                                        >
-                                                            {followupBusy ? 'Salvando…' : 'Marcar feito'}
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        </div>
+            <ModalShell
+                open={Boolean(listModalType)}
+                title={modalTitle ? `${modalTitle} (${modalListItems.length})` : ''}
+                onClose={closeListModal}
+                maxWidth={760}
+                dialogClassName="reception-list-modal"
+            >
+                {modalListItems.length === 0 ? (
+                    <div className="reception-list-modal__empty">
+                        <EmptyState variant="compact" tone="dashed" title="Nenhum item nessa lista." role="status" />
                     </div>
-                </div>
-            ) : null}
-
-            {gateReleaseOpen ? (
-                <div
-                    className="confirm-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    onMouseDown={(e) => e.target === e.currentTarget && !gateReleasing && setGateReleaseOpen(false)}
-                >
-                    <div className="confirm-modal" style={{ textAlign: 'left' }}>
-                        <h3 style={{ margin: '0 0 8px', fontSize: 17 }}>Liberar passagem?</h3>
-                        <p className="text-small text-muted" style={{ marginBottom: 16 }}>
-                            A catraca será liberada remotamente para entrada manual na recepção.
-                        </p>
-                        <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
-                            <button
-                                type="button"
-                                className="btn-secondary"
-                                disabled={gateReleasing}
-                                onClick={() => setGateReleaseOpen(false)}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-primary"
-                                disabled={gateReleasing}
-                                onClick={() => void confirmGateRelease()}
-                            >
-                                {gateReleasing ? 'Liberando…' : 'Liberar'}
-                            </button>
-                        </div>
+                ) : (
+                    <div className="flex-col agenda-followups-list">
+                        {modalListItems.map((lead, i) => {
+                            const isTasks = listModalType === 'tasks';
+                            const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
+                            const taskBusy = isUpdatingTask(String(lead?.id || '').trim());
+                            return (
+                                <div key={`${lead.id || lead.$id || i}-${i}`} className="card follow-card">
+                                    <div
+                                        className="flex justify-between items-center"
+                                        onClick={() => {
+                                            if (isTasks) {
+                                                const leadId = String(lead?.lead_id || '').trim();
+                                                if (leadId) navigate(`/lead/${leadId}`);
+                                                return;
+                                            }
+                                            navigate(`/lead/${lead.id}`);
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <strong className="agenda-followup-name">
+                                            {isTasks ? String(lead?.title || 'Tarefa') : lead.name}
+                                        </strong>
+                                        {isTasks ? (
+                                            <span className="status-pill">
+                                                {lead?.due_date ? new Date(`${lead.due_date}T00:00:00`).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                                            </span>
+                                        ) : (
+                                            <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 agenda-followup-actions border-t">
+                                        {isTasks ? (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    className="followup-action-btn flex-1"
+                                                    disabled={taskBusy}
+                                                    onClick={() => void markTaskAsDone(lead)}
+                                                >
+                                                    {taskBusy ? 'Salvando…' : 'Marcar concluída'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="followup-action-btn flex-1"
+                                                    onClick={() => navigate('/tarefas')}
+                                                >
+                                                    <ChevronRight size={14} /> Abrir tarefas
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    className="followup-action-btn flex-1"
+                                                    disabled={busy}
+                                                    onClick={() => void markLeadAttended(lead)}
+                                                >
+                                                    {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="followup-action-btn flex-1"
+                                                    disabled={busy}
+                                                    onClick={() => void markLeadMissed(lead)}
+                                                >
+                                                    {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
-            ) : null}
+                )}
+            </ModalShell>
 
-            <ScheduleModal
-                open={scheduleModalLead !== null}
-                onClose={() => setScheduleModalLead(null)}
-                onConfirm={onConfirmScheduleDashboard}
-                lead={scheduleModalLead}
-                quickTimes={dashboardQuickTimes}
-                initialDate={scheduleModalLead?.scheduledDate || ''}
-                initialTime={scheduleModalLead?.scheduledTime || ''}
-                title="Editar agendamento"
+            <ConfirmDialog
+                open={gateReleaseOpen}
+                title="Liberar passagem?"
+                description="A catraca será liberada remotamente para entrada manual na recepção."
+                confirmLabel="Liberar"
+                confirmVariant="primary"
+                loading={gateReleasing}
+                onConfirm={() => void confirmGateRelease()}
+                onClose={() => !gateReleasing && setGateReleaseOpen(false)}
             />
 
             <style dangerouslySetInnerHTML={{
@@ -1371,6 +1249,25 @@ const Dashboard = () => {
           color: #7F77DD;
           margin-top: 2px;
         }
+        .reception-agenda-inner .reception-week-embed .agenda-week-presence {
+          margin-top: 6px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn {
+          background: #fff;
+          border-color: #CECBF6;
+          color: #534AB7;
+          font-size: 10px;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn--yes:hover:not(:disabled) {
+          border-color: rgba(22, 163, 74, 0.45);
+          color: #15803d;
+          background: rgba(16, 185, 129, 0.1);
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn--no:hover:not(:disabled) {
+          border-color: rgba(226, 75, 74, 0.45);
+          color: #b91c1c;
+          background: rgba(239, 68, 68, 0.08);
+        }
         .reception-agenda-inner .reception-week-embed .agenda-week-card--attended {
           border-left-color: #16a34a !important;
           background: rgba(16, 185, 129, 0.14) !important;
@@ -1625,7 +1522,15 @@ const Dashboard = () => {
           line-height: 1.1;
         }
         .agenda-kpi-context {
-          display: none;
+          margin: 0;
+          font-size: 0.65rem;
+          font-weight: 600;
+          line-height: 1.25;
+          color: var(--text-secondary);
+          opacity: 0.85;
+        }
+        .agenda-kpi-context--info {
+          color: var(--v400);
         }
         .agenda-kpi-card--followup::before {
           background: linear-gradient(180deg, var(--status-danger-text, #e24b4a), #e24b4a);
@@ -1646,7 +1551,7 @@ const Dashboard = () => {
         .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup svg {
           color: #8f2e2e !important;
         }
-        .reception-list-modal {
+        .reception-list-modal.navi-modal-shell {
           width: min(760px, calc(100vw - 24px));
           max-height: min(85vh, 900px);
           display: flex;
@@ -1658,19 +1563,19 @@ const Dashboard = () => {
           box-shadow: var(--shadow-lg) !important;
           background: var(--surface) !important;
         }
-        .reception-list-modal__head {
+        .reception-list-modal .navi-modal-shell__header {
           flex-shrink: 0;
           padding: 16px 20px;
           border-bottom: 1px solid var(--border);
           background: linear-gradient(180deg, var(--v50) 0%, var(--surface) 100%);
         }
-        .reception-list-modal__title {
+        .reception-list-modal .navi-modal-shell__title {
           font-size: 1.05rem;
           font-weight: 700;
           letter-spacing: -0.02em;
           min-width: 0;
         }
-        .reception-list-modal__scroll {
+        .reception-list-modal .navi-modal-shell__body {
           flex: 1;
           min-height: 0;
           overflow-y: auto;

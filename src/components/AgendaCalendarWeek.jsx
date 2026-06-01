@@ -57,6 +57,28 @@ export function formatWeekRangeLabel(offset = 0, options = {}) {
     return `${short(mon)} – ${short(end)} ${y}`;
 }
 
+/** Intervalo seg–sáb (ou seg–dom) da semana civil com offset, em ms inclusivo. */
+export function getCivilWeekBounds(offset = 0, endOnSaturday = true) {
+    const mon = getWeekStart(offset);
+    const end = new Date(mon);
+    end.setDate(mon.getDate() + (endOnSaturday ? 5 : 6));
+    end.setHours(23, 59, 59, 999);
+    return { startMs: mon.getTime(), endMs: end.getTime() };
+}
+
+/** Leads com scheduledDate dentro da semana civil (padrão seg–sáb). */
+export function filterLeadsInCivilWeek(leads, weekOffset = 0, endOnSaturday = true) {
+    const { startMs, endMs } = getCivilWeekBounds(weekOffset, endOnSaturday);
+    return (leads || []).filter((lead) => {
+        const raw = String(lead?.scheduledDate || '').trim();
+        if (!raw) return false;
+        const [y, m, d] = raw.split('T')[0].split('-').map(Number);
+        if (!Number.isFinite(y)) return false;
+        const t = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0).getTime();
+        return t >= startMs && t <= endMs;
+    });
+}
+
 function timeSortMinutes(lead) {
     const t = lead?.scheduledTime;
     if (t && /^\d{2}:\d{2}$/.test(String(t))) {
@@ -76,14 +98,20 @@ function timeSortMinutes(lead) {
  * @param {(n: number) => void} [props.onWeekOffsetChange]
  * @param {boolean} [props.hideNav] — oculta Anterior/Próxima internos (navegação no pai)
  * @param {boolean} [props.hideSunday] — se true, exibe só seg–sáb (padrão: true)
+ * @param {Record<string, boolean>} [props.savingPresence]
+ * @param {boolean} [props.prioritizeTodayOnMobile] — no mobile, coluna de hoje primeiro
  */
 export default function AgendaCalendarWeek({
     leads,
     onOpenLead,
+    onCompareceu,
+    onNaoCompareceu,
+    savingPresence = {},
     weekOffset: weekOffsetProp,
     onWeekOffsetChange,
     hideNav = false,
     hideSunday = true,
+    prioritizeTodayOnMobile = false,
 }) {
     const [weekOffsetInternal, setWeekOffsetInternal] = useState(0);
     const controlled =
@@ -150,6 +178,13 @@ export default function AgendaCalendarWeek({
         [hideSunday, dayDates]
     );
 
+    const orderedDayDates = useMemo(() => {
+        if (!prioritizeTodayOnMobile || weekOffset !== 0) return displayDayDates;
+        const todayIdx = displayDayDates.findIndex((dayDate) => ymdOf(dayDate) === todayYmd);
+        if (todayIdx <= 0) return displayDayDates;
+        return [...displayDayDates.slice(todayIdx), ...displayDayDates.slice(0, todayIdx)];
+    }, [displayDayDates, prioritizeTodayOnMobile, weekOffset, todayYmd]);
+
     const weekHasAny = useMemo(
         () => displayDayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0),
         [displayDayDates, weekLeadsByYmd]
@@ -180,7 +215,7 @@ export default function AgendaCalendarWeek({
                     />
                 ) : (
                     <div className={`agenda-week-grid${hideSunday ? ' agenda-week-grid--six' : ''}`}>
-                        {displayDayDates.map((dayDate) => {
+                        {orderedDayDates.map((dayDate) => {
                             const key = ymdOf(dayDate);
                             const colLeads = weekLeadsByYmd[key] || [];
                             const isToday = key === todayYmd;
@@ -217,6 +252,12 @@ export default function AgendaCalendarWeek({
                                             const missedSelected = lead?.status === LEAD_STATUS.MISSED;
                                             const slotStatus = getSlotStatusKey(lead);
                                             const tooltip = buildSlotTooltip(lead, modality);
+                                            const busyAttended = Boolean(savingPresence[`${lead.id}:attended`]);
+                                            const busyMissed = Boolean(savingPresence[`${lead.id}:missed`]);
+                                            const showPresence =
+                                                !attendedSelected &&
+                                                !missedSelected &&
+                                                (typeof onCompareceu === 'function' || typeof onNaoCompareceu === 'function');
                                             return (
                                                 <div
                                                     key={lead.id}
@@ -245,6 +286,30 @@ export default function AgendaCalendarWeek({
                                                             <span className="agenda-week-mod">{modality}</span>
                                                         ) : null}
                                                     </button>
+                                                    {showPresence ? (
+                                                        <div className="agenda-week-presence">
+                                                            {typeof onCompareceu === 'function' ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="agenda-week-presence-btn agenda-week-presence-btn--yes"
+                                                                    disabled={busyAttended || busyMissed}
+                                                                    onClick={() => onCompareceu(lead)}
+                                                                >
+                                                                    {busyAttended ? 'Salvando…' : 'Compareceu'}
+                                                                </button>
+                                                            ) : null}
+                                                            {typeof onNaoCompareceu === 'function' ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="agenda-week-presence-btn agenda-week-presence-btn--no"
+                                                                    disabled={busyAttended || busyMissed}
+                                                                    onClick={() => onNaoCompareceu(lead)}
+                                                                >
+                                                                    {busyMissed ? 'Salvando…' : 'Não veio'}
+                                                                </button>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             );
                                         })}
@@ -508,6 +573,46 @@ export default function AgendaCalendarWeek({
           line-height: 1.2;
           font-weight: 400;
           color: var(--text-secondary);
+        }
+        .agenda-week-presence {
+          display: flex;
+          gap: 4px;
+          margin-top: 6px;
+          width: 100%;
+        }
+        .agenda-week-presence-btn {
+          flex: 1;
+          min-width: 0;
+          min-height: 28px;
+          padding: 4px 6px;
+          border-radius: 6px;
+          font-size: 10px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          border: 1px solid var(--border-mid);
+          background: var(--surface);
+          color: var(--text-secondary);
+          transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+          white-space: nowrap;
+        }
+        .agenda-week-presence-btn:hover:not(:disabled) {
+          border-color: var(--border-strong);
+          color: var(--ink);
+        }
+        .agenda-week-presence-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .agenda-week-presence-btn--yes:hover:not(:disabled) {
+          border-color: rgba(22, 163, 74, 0.45);
+          color: #15803d;
+          background: rgba(16, 185, 129, 0.08);
+        }
+        .agenda-week-presence-btn--no:hover:not(:disabled) {
+          border-color: rgba(226, 75, 74, 0.45);
+          color: #b91c1c;
+          background: rgba(239, 68, 68, 0.06);
         }
         @media (max-width: 980px) {
           .agenda-week-nav { position: static; }
