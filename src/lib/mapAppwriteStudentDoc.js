@@ -46,7 +46,7 @@ export function mapAppwriteDocToStudent(doc) {
     convertedAt: doc.converted_at || doc.convertedAt || null,
     plan: doc.plan || '',
     dueDay,
-    enrollmentDate: doc.enrollmentDate || '',
+    enrollmentDate: doc.enrollmentDate || doc.enrollment_date || '',
     emergencyContact: doc.emergencyContact || '',
     emergencyPhone: doc.emergencyPhone || '',
     cpf: doc.cpf || '',

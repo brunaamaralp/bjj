@@ -175,6 +175,13 @@
   letter-spacing: 0.08em;
 }
 
+.pipeline-filters-panel__hint {
+  margin: 0;
+  font-size: var(--font-sm, 0.8125rem);
+  color: var(--pipeline-text-muted);
+  line-height: 1.35;
+}
+
 .pipeline-filters-panel__select {
   width: 100%;
   min-height: 36px;

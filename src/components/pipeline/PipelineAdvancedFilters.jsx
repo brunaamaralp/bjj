@@ -129,6 +129,9 @@ export default function PipelineAdvancedFilters({
 
       <div className="pipeline-filters-panel__section">
         <span className="pipeline-filters-panel__label">Período customizado</span>
+        <p className="pipeline-filters-panel__hint">
+          Na coluna Matrícula, filtra pela data de ingresso do aluno.
+        </p>
         <div className="pipeline-filters-panel__date-row">
           <DateInputField
             type="date"

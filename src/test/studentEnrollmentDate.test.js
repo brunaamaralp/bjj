@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
+import {
+  defaultEnrollmentDateIso,
+  enrollmentDateYmd,
+  contactEnrolledInYmdRange,
+  formatLocalYmd,
+} from '../lib/studentEnrollmentDate.js';
 
 describe('defaultEnrollmentDateIso', () => {
   it('usa enrollmentDate existente', () => {
@@ -8,5 +13,54 @@ describe('defaultEnrollmentDateIso', () => {
 
   it('usa createdAt quando ingresso vazio', () => {
     expect(defaultEnrollmentDateIso({ createdAt: '2025-01-20T10:00:00.000Z' })).toBe('2025-01-20');
+  });
+});
+
+describe('enrollmentDateYmd', () => {
+  it('prioriza enrollmentDate sobre convertedAt', () => {
+    expect(
+      enrollmentDateYmd({ enrollmentDate: '2023-05-10', convertedAt: '2026-06-01T12:00:00.000Z' })
+    ).toBe('2023-05-10');
+  });
+
+  it('usa convertedAt quando ingresso ausente', () => {
+    expect(enrollmentDateYmd({ convertedAt: '2026-06-01T12:00:00.000Z' })).toBe('2026-06-01');
+  });
+
+  it('não usa createdAt do documento', () => {
+    expect(
+      enrollmentDateYmd({ createdAt: '2026-06-01T12:00:00.000Z', enrollmentDate: '', convertedAt: null })
+    ).toBe('');
+  });
+
+  it('lê enrollment_date snake_case', () => {
+    expect(enrollmentDateYmd({ enrollment_date: '2024-11-20' })).toBe('2024-11-20');
+  });
+});
+
+describe('contactEnrolledInYmdRange', () => {
+  it('inclui matrícula dentro do intervalo', () => {
+    expect(
+      contactEnrolledInYmdRange({ enrollmentDate: '2026-05-15' }, '2026-05-01', '2026-05-31')
+    ).toBe(true);
+  });
+
+  it('exclui matrícula fora do intervalo', () => {
+    expect(
+      contactEnrolledInYmdRange({ enrollmentDate: '2023-01-10' }, '2026-05-01', '2026-05-31')
+    ).toBe(false);
+  });
+
+  it('exclui quando não há data de matrícula conhecida', () => {
+    expect(
+      contactEnrolledInYmdRange({ createdAt: '2026-06-01T00:00:00.000Z' }, '2026-06-01', '2026-06-30')
+    ).toBe(false);
+  });
+});
+
+describe('formatLocalYmd', () => {
+  it('formata data local sem deslocamento UTC', () => {
+    const d = new Date(2026, 5, 1);
+    expect(formatLocalYmd(d)).toBe('2026-06-01');
   });
 });

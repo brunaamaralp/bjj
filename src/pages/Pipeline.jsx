@@ -26,6 +26,7 @@ import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
+import { contactEnrolledInYmdRange, enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import ScheduleModal from '../components/ScheduleModal.jsx';
@@ -501,16 +502,38 @@ const ENROLLED_PIPELINE_STAGE_ID = 'Matriculado';
 const boardContactOrigin = (contact) =>
     String(contact?.origin || contact?.sourceOrigin || '').trim();
 
-const enrolledContactDateRef = (contact) =>
-    contact?.convertedAt || contact?.enrollmentDate || contact?.createdAt?.split?.('T')?.[0] || contact?.createdAt || '';
-
 const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Planilha';
 
 const sortBoardContactsByRecentEnrollment = (a, b) => {
-    const ta = new Date(enrolledContactDateRef(a) || 0).getTime();
-    const tb = new Date(enrolledContactDateRef(b) || 0).getTime();
+    const ta = new Date(enrollmentDateYmd(a) || 0).getTime();
+    const tb = new Date(enrollmentDateYmd(b) || 0).getTime();
     return tb - ta;
 };
+
+function resolvePipelinePeriodRange({ filterDateFrom, filterDateTo, quickFilter }) {
+    let from = filterDateFrom;
+    let to = filterDateTo;
+
+    if (quickFilter === 'today') {
+        const today = formatLocalYmd(new Date());
+        from = today;
+        to = today;
+    } else if (quickFilter === 'week') {
+        const now = new Date();
+        const start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        from = formatLocalYmd(start);
+        to = formatLocalYmd(end);
+    } else if (quickFilter === 'month') {
+        const now = new Date();
+        from = formatLocalYmd(new Date(now.getFullYear(), now.getMonth(), 1));
+        to = formatLocalYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    }
+
+    return { from: from || '', to: to || '' };
+}
 
 function mobileListToDateTime(lead) {
     const base = lead.scheduledDate || lead.createdAt || '';
@@ -1444,26 +1467,7 @@ const Pipeline = () => {
     }, [stages]);
 
     const filterByDate = useCallback((lead) => {
-        let from = filterDateFrom;
-        let to = filterDateTo;
-
-        if (quickFilter === 'today') {
-            const today = new Date().toISOString().split('T')[0];
-            from = today; to = today;
-        } else if (quickFilter === 'week') {
-            const now = new Date();
-            from = new Date(now.setDate(now.getDate() - now.getDay()))
-                .toISOString().split('T')[0];
-            to = new Date(now.setDate(now.getDate() + 6))
-                .toISOString().split('T')[0];
-        } else if (quickFilter === 'month') {
-            const now = new Date();
-            from = new Date(now.getFullYear(), now.getMonth(), 1)
-                .toISOString().split('T')[0];
-            to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-                .toISOString().split('T')[0];
-        }
-
+        const { from, to } = resolvePipelinePeriodRange({ filterDateFrom, filterDateTo, quickFilter });
         if (!from && !to) return true;
 
         const dateRef = lead.scheduledDate || lead.createdAt?.split('T')[0];
@@ -1474,33 +1478,8 @@ const Pipeline = () => {
     }, [filterDateFrom, filterDateTo, quickFilter]);
 
     const filterEnrolledByDate = useCallback((contact) => {
-        let from = filterDateFrom;
-        let to = filterDateTo;
-
-        if (quickFilter === 'today') {
-            const today = new Date().toISOString().split('T')[0];
-            from = today; to = today;
-        } else if (quickFilter === 'week') {
-            const now = new Date();
-            from = new Date(now.setDate(now.getDate() - now.getDay()))
-                .toISOString().split('T')[0];
-            to = new Date(now.setDate(now.getDate() + 6))
-                .toISOString().split('T')[0];
-        } else if (quickFilter === 'month') {
-            const now = new Date();
-            from = new Date(now.getFullYear(), now.getMonth(), 1)
-                .toISOString().split('T')[0];
-            to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-                .toISOString().split('T')[0];
-        }
-
-        if (!from && !to) return true;
-
-        const dateRef = String(enrolledContactDateRef(contact)).slice(0, 10);
-        if (!dateRef) return false;
-        if (from && dateRef < from) return false;
-        if (to && dateRef > to) return false;
-        return true;
+        const { from, to } = resolvePipelinePeriodRange({ filterDateFrom, filterDateTo, quickFilter });
+        return contactEnrolledInYmdRange(contact, from, to);
     }, [filterDateFrom, filterDateTo, quickFilter]);
 
     const applyBoardSearchFilter = useCallback((list) => {
