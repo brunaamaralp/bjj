@@ -63,7 +63,7 @@ export function NlCommandBarTrigger({ onClick }) {
         transition: 'all 0.15s'
       }}
     >
-      <span style={{ color: '#5B3FBF', fontSize: 16 }}>✦</span>
+      <span style={{ color: 'var(--petroleo)', fontSize: 16 }}>✦</span>
       <span style={{ flex: 1, textAlign: 'left' }}>O que você quer fazer?</span>
       <kbd
         style={{
@@ -288,7 +288,7 @@ export default function NlCommandBar({
               gap: 12
             }}
           >
-            <span style={{ color: '#5B3FBF', fontSize: 18 }} aria-hidden>
+            <span style={{ color: 'var(--petroleo)', fontSize: 18 }} aria-hidden>
               ✦
             </span>
             <input
@@ -339,7 +339,7 @@ export default function NlCommandBar({
                   padding: '12px 16px',
                   borderRadius: 10,
                   border: 'none',
-                  background: '#5B3FBF',
+                  background: 'var(--petroleo)',
                   color: '#fff',
                   fontWeight: 700,
                   fontSize: 14,
@@ -361,7 +361,7 @@ export default function NlCommandBar({
                   height: 20,
                   margin: '0 auto 14px',
                   border: '2px solid #EEEDFE',
-                  borderTopColor: '#5B3FBF',
+                  borderTopColor: 'var(--petroleo)',
                   borderRadius: '50%',
                   animation: 'nl-cmd-spin 0.7s linear infinite'
                 }}
@@ -378,7 +378,7 @@ export default function NlCommandBar({
                   height: 20,
                   margin: '0 auto 14px',
                   border: '2px solid #EEEDFE',
-                  borderTopColor: '#5B3FBF',
+                  borderTopColor: 'var(--petroleo)',
                   borderRadius: '50%',
                   animation: 'nl-cmd-spin 0.7s linear infinite'
                 }}
@@ -430,7 +430,7 @@ export default function NlCommandBar({
                 </div>
               ) : null}
               <div style={{ background: '#EEEDFE', borderRadius: 10, padding: 16 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#5B3FBF', letterSpacing: '0.08em', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--petroleo)', letterSpacing: '0.08em', marginBottom: 8 }}>
                   ✦ CONFIRMAR
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>{parsed.summary}</div>
@@ -702,12 +702,12 @@ export default function NlCommandBar({
                       flex: '1 1 90px',
                       padding: '10px 12px',
                       borderRadius: 10,
-                      border: '1px solid #5B3FBF',
+                      border: '1px solid var(--petroleo)',
                       background: 'var(--surface)',
                       fontWeight: 700,
                       cursor: 'pointer',
                       fontFamily: 'inherit',
-                      color: '#5B3FBF',
+                      color: 'var(--petroleo)',
                     }}
                   >
                     Corrigir
@@ -722,7 +722,7 @@ export default function NlCommandBar({
                     padding: '10px 12px',
                     borderRadius: 10,
                     border: 'none',
-                    background: '#5B3FBF',
+                    background: 'var(--petroleo)',
                     color: '#fff',
                     fontWeight: 700,
                     cursor: canConfirm ? 'pointer' : 'not-allowed',

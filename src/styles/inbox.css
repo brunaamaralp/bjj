@@ -137,7 +137,7 @@
 
 .inbox-page-header .inbox-toolbar-search input:focus {
   border-color: var(--v500);
-  box-shadow: 0 0 0 2px rgba(91, 63, 191, 0.15);
+  box-shadow: 0 0 0 2px rgba(0, 68, 102, 0.15);
   background: var(--surface);
 }
 
@@ -776,7 +776,7 @@
 }
 
 .inbox-conversation-item.active {
-  background: rgba(91, 63, 191, 0.09);
+  background: rgba(0, 68, 102, 0.09);
   box-shadow: none;
 }
 
@@ -1072,7 +1072,7 @@
   position: fixed;
   z-index: var(--z-overlay);
   inset: 0;
-  background: rgba(18, 16, 42, 0.5);
+  background: rgba(0, 4, 53, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1104,7 +1104,7 @@
   position: fixed;
   z-index: var(--z-sheet);
   inset: 0;
-  background: rgba(18, 16, 42, 0.45);
+  background: rgba(0, 4, 53, 0.45);
   display: flex;
   align-items: flex-end;
   justify-content: center;

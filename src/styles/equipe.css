@@ -585,7 +585,7 @@
 
 /* Row hover sutil */
 .equipe-table tbody tr:hover td {
-  background: rgba(91, 63, 191, 0.03);
+  background: rgba(0, 68, 102, 0.03);
 }
 
 /* Panel border alinhado com o design system */

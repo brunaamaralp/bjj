@@ -699,7 +699,7 @@ const Dashboard = () => {
                 <div className="reception-week-panel__head flex flex-wrap justify-between items-center gap-3">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <h3 className="navi-section-heading reception-section-heading reception-week-panel__title">
-                            <Calendar size={18} color="#5B3FBF" strokeWidth={2} /> Agenda da semana
+                            <Calendar size={18} color="var(--petroleo)" strokeWidth={2} /> Agenda da semana
                         </h3>
                         <span
                             className="badge reception-week-count-badge"
@@ -1095,7 +1095,7 @@ const Dashboard = () => {
           color: #26215C;
         }
         .badge.reception-week-count-badge {
-          background: #5B3FBF;
+          background: var(--petroleo);
           color: #fff;
           border: none;
           font-weight: 700;
@@ -1147,9 +1147,9 @@ const Dashboard = () => {
           overflow: visible;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
-          border: 1.5px solid #5B3FBF;
+          border: 1.5px solid var(--petroleo);
           background: #EEEDFE !important;
-          box-shadow: 0 2px 10px rgba(91, 63, 191, 0.12);
+          box-shadow: 0 2px 10px rgba(0, 68, 102, 0.12);
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--empty {
           opacity: 0.72;
@@ -1163,7 +1163,7 @@ const Dashboard = () => {
           border-color: #AFA9EC;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--today:hover {
-          border-color: #5B3FBF;
+          border-color: var(--petroleo);
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col-head {
           padding: 0 0 8px;
@@ -1191,7 +1191,7 @@ const Dashboard = () => {
           height: 30px;
           font-size: 13px;
           font-weight: 600;
-          background: #5B3FBF !important;
+          background: var(--petroleo) !important;
           color: #fff !important;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col-body {
@@ -1214,14 +1214,14 @@ const Dashboard = () => {
           padding: 8px 10px 8px 8px !important;
           border-radius: 0 6px 6px 0 !important;
           border: none !important;
-          border-left: 2px solid #5B3FBF !important;
+          border-left: 2px solid var(--petroleo) !important;
           background: #EEEDFE !important;
           box-shadow: none !important;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-card:hover {
           transform: none;
           filter: none;
-          box-shadow: 0 1px 4px rgba(91, 63, 191, 0.15) !important;
+          box-shadow: 0 1px 4px rgba(0, 68, 102, 0.15) !important;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-time {
           font-size: 11px;
@@ -1234,7 +1234,7 @@ const Dashboard = () => {
           border-radius: 50%;
           margin-bottom: 4px;
         }
-        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--confirmed { background: #5B3FBF; }
+        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--confirmed { background: var(--lima); }
         .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--pending { background: #d97706; }
         .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--attended { background: #16a34a; }
         .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--missed { background: #e24b4a; }
@@ -1689,8 +1689,8 @@ const Dashboard = () => {
           opacity: 0.7;
         }
         .agenda-kpi-card:hover {
-          border-color: rgba(91, 63, 191, 0.22);
-          box-shadow: 0 4px 12px rgba(18, 16, 42, 0.06), 0 8px 24px rgba(91, 63, 191, 0.10);
+          border-color: rgba(0, 68, 102, 0.22);
+          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 8px 24px rgba(0, 68, 102, 0.10);
         }
         @media (prefers-reduced-motion: reduce) {
           .agenda-kpi-card { transition: none; }
@@ -1779,7 +1779,7 @@ const Dashboard = () => {
         }
         .dashboard-confirm-overlay {
           position: fixed; inset: 0; z-index: 400;
-          background: rgba(18, 16, 42, 0.5);
+          background: rgba(0, 4, 53, 0.5);
           backdrop-filter: blur(4px);
           display: flex; align-items: center; justify-content: center;
           padding: 20px;
@@ -1888,7 +1888,7 @@ const Dashboard = () => {
         }
         .agenda-time-line {
           height: 1px;
-          background: rgba(91, 63, 191, 0.22);
+          background: rgba(0, 68, 102, 0.22);
           flex: 1 1 auto;
         }
         .reception-agenda-inner .agenda-experimental-cards .agenda-card.card {
@@ -1911,7 +1911,7 @@ const Dashboard = () => {
           width: 32px;
           height: 32px;
           border-radius: 10px;
-          border: 1px solid rgba(18, 16, 42, 0.12);
+          border: 1px solid rgba(0, 4, 53, 0.12);
           background: var(--surface);
           color: var(--text-secondary);
           display: inline-flex;
@@ -1923,7 +1923,7 @@ const Dashboard = () => {
           padding: 0;
         }
         .agenda-card-more-btn:hover {
-          border-color: rgba(91, 63, 191, 0.22);
+          border-color: rgba(0, 68, 102, 0.22);
           color: var(--v500);
         }
         .agenda-experimental-main {
@@ -2029,15 +2029,15 @@ const Dashboard = () => {
           gap: 8px;
           margin-top: 10px;
           padding-top: 10px;
-          border-top: 1px solid rgba(91, 63, 191, 0.09);
+          border-top: 1px solid rgba(0, 68, 102, 0.09);
         }
         .agenda-card--attended {
           opacity: 0.5;
-          background: rgba(18, 16, 42, 0.02);
+          background: rgba(0, 4, 53, 0.02);
         }
         .agenda-card--attended .agenda-experimental-name {
           text-decoration: line-through;
-          text-decoration-color: rgba(18, 16, 42, 0.22);
+          text-decoration-color: rgba(0, 4, 53, 0.22);
         }
         .reception-agenda-inner .agenda-card.card {
           position: relative;
@@ -2064,10 +2064,10 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .agenda-card.card:hover {
           transform: translateY(-2px);
-          border-color: rgba(91, 63, 191, 0.22);
+          border-color: rgba(0, 68, 102, 0.22);
           box-shadow:
-            0 4px 14px rgba(18, 16, 42, 0.07),
-            0 16px 40px rgba(91, 63, 191, 0.12);
+            0 4px 14px rgba(0, 4, 53, 0.07),
+            0 16px 40px rgba(0, 68, 102, 0.12);
         }
         @media (prefers-reduced-motion: reduce) {
           .reception-agenda-inner .agenda-card.card { transition: none; }
@@ -2106,7 +2106,7 @@ const Dashboard = () => {
         .followup-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         .followup-action-btn:disabled:hover { border-color: var(--border-light); color: var(--text-secondary); }
         .reception-agenda-inner .agenda-card.card .border-t {
-          border-top: 1px solid rgba(91, 63, 191, 0.09);
+          border-top: 1px solid rgba(0, 68, 102, 0.09);
         }
         .reception-agenda-inner .followup-action-btn {
           border-radius: 10px;
@@ -2195,13 +2195,13 @@ const Dashboard = () => {
           border: none; cursor: pointer;
           padding: 0;
           flex: 0 0 44px;
-          box-shadow: 0 4px 14px rgba(91, 63, 191, 0.28);
+          box-shadow: 0 4px 14px rgba(0, 68, 102, 0.28);
           transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
         .edit-time-btn svg { display: block; color: #fff; stroke: currentColor; fill: none; }
         .edit-time-btn:hover { filter: brightness(0.96); }
         .edit-time-btn:active { transform: translateY(1px); }
-        .edit-time-btn:focus-visible { outline: 2px solid var(--v500); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(91, 63, 191, 0.2); }
+        .edit-time-btn:focus-visible { outline: 2px solid var(--focus-ring-color); box-shadow: 0 0 0 3px var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(0, 68, 102, 0.2); }
         .agenda-mini-btn {
           width: 32px; height: 32px; border-radius: 50%;
           display: inline-flex; align-items: center; justify-content: center;

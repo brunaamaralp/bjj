@@ -53,7 +53,7 @@ export default function CollectionResultModal({ open, stageLabel, onCancel, onCo
                 borderRadius: 8,
                 border: '0.5px solid var(--border-light)',
                 cursor: 'pointer',
-                background: result === opt.value ? 'var(--purple-light, #f3f0ff)' : 'transparent',
+                background: result === opt.value ? 'var(--purple-light, var(--azul-gelo))' : 'transparent',
               }}
             >
               <input

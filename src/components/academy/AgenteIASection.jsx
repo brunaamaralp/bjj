@@ -61,7 +61,7 @@ function waAgentStatusVisual(status) {
     const k = String(status || '').trim().toLowerCase();
     if (k === 'offline') return { Icon: Power, accent: '#c2410c', bg: 'rgba(194, 65, 12, 0.08)' };
     if (k === 'open' || k === 'scanning' || k === 'qrcode') return { Icon: QrCode, accent: '#128C7E', bg: 'rgba(18, 140, 126, 0.08)' };
-    if (k === 'connecting' || k === 'syncing') return { Icon: RefreshCw, accent: '#5b3fbf', bg: 'rgba(91, 63, 191, 0.08)' };
+    if (k === 'connecting' || k === 'syncing') return { Icon: RefreshCw, accent: 'var(--petroleo)', bg: 'rgba(0, 68, 102, 0.08)' };
     if (k === 'disconnected') return { Icon: Unplug, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
     return { Icon: HelpCircle, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
 }
@@ -1749,7 +1749,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     </p>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                    <Bot size={22} strokeWidth={1.75} color={card2Active ? 'var(--accent, #5b3fbf)' : 'var(--text-secondary)'} aria-hidden />
+                    <Bot size={22} strokeWidth={1.75} color={card2Active ? 'var(--accent, var(--petroleo))' : 'var(--text-secondary)'} aria-hidden />
                     <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
                         Agente de Atendimento
                     </span>
@@ -1895,7 +1895,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                                     <div>
-                                        <span className="text-small" style={{ display: 'inline-block', background: 'rgba(91, 63, 191, 0.12)', color: 'var(--accent, #5b3fbf)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
+                                        <span className="text-small" style={{ display: 'inline-block', background: 'rgba(0, 68, 102, 0.12)', color: 'var(--accent, var(--petroleo))', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
                                             ● Ativo
                                         </span>
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>

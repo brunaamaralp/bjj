@@ -1,6 +1,6 @@
 :root {
   /* Menus dropdown — domínio menu (ver docs/dropdown-menus.md) */
-  --overlay-menu: rgba(18, 16, 42, 0.15);
+  --overlay-menu: rgba(0, 4, 53, 0.15);
   --menu-radius: var(--radius-panel);
   --menu-shadow: var(--shadow-lg);
   --menu-border: 1px solid var(--border);
@@ -15,9 +15,9 @@
   --menu-item-padding-x: 12px;
   --menu-item-font-size: var(--font-base);
   --menu-item-font-weight: 500;
-  --menu-item-hover-bg: var(--v50);
-  --menu-item-active-bg: var(--v50);
-  --menu-item-active-color: var(--v700);
+  --menu-item-hover-bg: var(--azul-gelo);
+  --menu-item-active-bg: color-mix(in srgb, var(--lima) 18%, var(--branco));
+  --menu-item-active-color: var(--cosmos);
   --menu-item-danger-color: var(--danger);
   --menu-item-danger-hover-bg: var(--danger-light);
   --menu-header-font-size: var(--font-2xs);

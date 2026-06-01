@@ -366,8 +366,8 @@
 }
 
 .kanban-col--drag-over {
-  background: rgba(91, 63, 191, 0.04);
-  border-color: rgba(91, 63, 191, 0.3);
+  background: rgba(0, 68, 102, 0.04);
+  border-color: rgba(0, 68, 102, 0.3);
 }
 
 .pipeline-kanban-skeleton-col {

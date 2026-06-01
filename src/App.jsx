@@ -67,7 +67,7 @@ const Recepcao = lazyWithRetry(() => import('./pages/Recepcao'));
 const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
 const PublicStudentEnrollment = lazyWithRetry(() => import('./pages/PublicStudentEnrollment'));
 import NaviLogo from './components/NaviLogo.jsx';
-import NaviWordmark from './components/NaviWordmark.jsx';
+import NaviBrandLockup from './components/NaviBrandLockup.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
 import OnboardingBanner from './components/OnboardingBanner.jsx';
 import { useUserRole } from './lib/useUserRole';
@@ -870,8 +870,7 @@ const App = () => {
         <OfflineBanner />
         <div className="navi-bootstrap-loader" role="status" aria-live="polite" aria-label="Iniciando">
         <div className="navi-bootstrap-loader__brand">
-          <NaviLogo size={48} variant="white" />
-          <NaviWordmark fontSize={20} variant="light" />
+          <NaviBrandLockup height={36} variant="dark" />
         </div>
         <div className="navi-bootstrap-loader__track" aria-hidden>
           <div className="navi-bootstrap-loader__bar" />
@@ -886,7 +885,7 @@ const App = () => {
             justify-content: center;
             gap: 24px;
             padding: 32px 24px;
-            background: var(--v900);
+            background: var(--navi-brand-img-bg-dark);
           }
           .navi-bootstrap-loader__brand {
             display: flex;
@@ -974,8 +973,7 @@ const App = () => {
             {!sidebarCollapsed ? (
               <>
                 <div className="navi-sidebar-brand">
-                  <NaviLogo size={24} />
-                  <NaviWordmark fontSize={17} />
+                  <NaviBrandLockup height={22} variant="dark" />
                 </div>
                 <button
                   type="button"
@@ -991,7 +989,7 @@ const App = () => {
             ) : (
               <>
                 <div className="navi-sidebar-brand navi-sidebar-brand--collapsed">
-                  <NaviLogo size={26} />
+                  <NaviLogo size={26} variant="white" />
                 </div>
                 <button
                   type="button"

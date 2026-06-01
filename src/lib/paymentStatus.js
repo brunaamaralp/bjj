@@ -19,7 +19,7 @@ export const GRID_STATUS_LABELS = {
 
 export const GRID_STATUS_COLORS = {
   paid: { bg: '#EAF3DE', color: '#3B6D11' },
-  covered: { bg: 'var(--v50, #f3f0ff)', color: 'var(--v700, #5B3FBF)' },
+  covered: { bg: 'var(--v50, var(--azul-gelo))', color: 'var(--v700, var(--petroleo))' },
   awaiting: { bg: '#FEF3C7', color: '#B45309' },
   partial: { bg: '#FFEDD5', color: '#C2410C' },
   pending: { bg: '#FCEBEB', color: '#A32D2D' },

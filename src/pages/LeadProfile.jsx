@@ -1815,11 +1815,11 @@ const LeadProfile = () => {
                                     type === 'converted' ? terms.convertedStatusUi : TIMELINE_EVENT_LABELS[type] ?? type;
                                 
                                 let dotColor = '#8E8E8E';
-                                if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
+                                if (type === 'note' || type === 'inbox_note') dotColor = 'var(--petroleo)';
                                 else if (type === 'message' || type === 'whatsapp_template_sent') dotColor = '#25D366';
                                 else if (type === 'schedule') dotColor = '#0088CC';
                                 else if (type === 'followup_done') dotColor = '#2E7D32';
-                                else if (type === 'task_created') dotColor = '#5B3FBF';
+                                else if (type === 'task_created') dotColor = 'var(--petroleo)';
                                 else if (type === 'task_done') dotColor = '#2E7D32';
                                 else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
                                 else if (type === 'pipeline_change') dotColor = '#F5A623';
@@ -2529,7 +2529,7 @@ const LeadProfile = () => {
                     width: 36px;
                     height: 36px;
                     border-radius: var(--border-radius-md, 10px);
-                    background: #5B3FBF;
+                    background: var(--petroleo);
                     color: white;
                     border: none;
                     display: flex;
@@ -2757,7 +2757,7 @@ const LeadProfile = () => {
                     position: fixed;
                     inset: 0;
                     z-index: 1000;
-                    background: rgba(18, 16, 42, 0.35);
+                    background: rgba(0, 4, 53, 0.35);
                     backdrop-filter: blur(12px) saturate(1.4);
                     -webkit-backdrop-filter: blur(12px) saturate(1.4);
                     display: flex;

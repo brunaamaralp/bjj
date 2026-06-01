@@ -78,7 +78,7 @@
     { "source": "/api/students/:id/profile", "destination": "/api/leads.js?route=students&action=profile&student_id=$1" },
     { "source": "/api/academy/whatsapp-templates", "destination": "/api/agent.js?route=whatsapp-templates" },
 
-    { "source": "/((?!api/|assets/|sw\\.js|workbox-|manifest\\.webmanifest|navi-icon\\.png|pwa-).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|sw\\.js|workbox-|manifest\\.webmanifest|favicon-|apple-touch-icon|navi-icon|pwa-).*)", "destination": "/index.html" }
   ],
   "crons": [
     {

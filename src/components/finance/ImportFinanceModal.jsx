@@ -10,7 +10,7 @@ import {
 import { createSessionJwt } from '../../lib/appwrite';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
-const VIOLET = '#5B3FBF';
+const VIOLET = 'var(--petroleo)';
 const CORAL = '#F04040';
 
 const PREVIEW_TABS = [
@@ -658,7 +658,7 @@ const FINANCE_IMPORT_STYLES = `
     align-items: center;
     justify-content: center;
     padding: 16px;
-    background: rgba(18, 16, 42, 0.45);
+    background: rgba(0, 4, 53, 0.45);
     backdrop-filter: blur(4px);
     font-family: var(--ff-ui, 'Plus Jakarta Sans', system-ui, sans-serif);
   }
@@ -672,7 +672,7 @@ const FINANCE_IMPORT_STYLES = `
     flex-direction: column;
     background: var(--surface, #fff);
     border-radius: 16px;
-    box-shadow: 0 24px 48px rgba(18, 16, 42, 0.14), 0 4px 12px rgba(18, 16, 42, 0.08);
+    box-shadow: 0 24px 48px rgba(0, 4, 53, 0.14), 0 4px 12px rgba(0, 4, 53, 0.08);
     overflow: hidden;
   }
 
@@ -682,7 +682,7 @@ const FINANCE_IMPORT_STYLES = `
     left: 0;
     right: 0;
     height: 3px;
-    background: rgba(91, 63, 191, 0.12);
+    background: rgba(0, 68, 102, 0.12);
     z-index: 2;
     overflow: hidden;
   }
@@ -715,7 +715,7 @@ const FINANCE_IMPORT_STYLES = `
     font-size: 1.35rem;
     font-weight: 700;
     line-height: 1.25;
-    color: var(--text-primary, #12102a);
+    color: var(--text-primary, var(--cosmos));
   }
 
   .finance-import-subtitle {
@@ -741,7 +741,7 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-icon-btn:hover {
-    background: rgba(91, 63, 191, 0.08);
+    background: rgba(0, 68, 102, 0.08);
     color: ${VIOLET};
   }
 
@@ -758,9 +758,9 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-dropzone {
-    border: 2px dashed rgba(91, 63, 191, 0.4);
+    border: 2px dashed rgba(0, 68, 102, 0.4);
     border-radius: 14px;
-    background: rgba(91, 63, 191, 0.04);
+    background: rgba(0, 68, 102, 0.04);
     padding: 36px 24px;
     text-align: center;
     cursor: pointer;
@@ -770,7 +770,7 @@ const FINANCE_IMPORT_STYLES = `
   .finance-import-dropzone:hover {
     border-color: ${VIOLET};
     border-style: solid;
-    background: rgba(91, 63, 191, 0.08);
+    background: rgba(0, 68, 102, 0.08);
   }
 
   .finance-import-dropzone:focus-visible {
@@ -782,7 +782,7 @@ const FINANCE_IMPORT_STYLES = `
     border-width: 3px;
     border-style: solid;
     border-color: ${VIOLET};
-    background: rgba(91, 63, 191, 0.12);
+    background: rgba(0, 68, 102, 0.12);
   }
 
   .finance-import-dropzone--error {
@@ -797,7 +797,7 @@ const FINANCE_IMPORT_STYLES = `
     height: 72px;
     margin: 0 auto 14px;
     border-radius: 50%;
-    background: rgba(91, 63, 191, 0.1);
+    background: rgba(0, 68, 102, 0.1);
     color: ${VIOLET};
   }
 
@@ -805,7 +805,7 @@ const FINANCE_IMPORT_STYLES = `
     margin: 0 0 6px;
     font-size: 1rem;
     font-weight: 600;
-    color: var(--text-primary, #12102a);
+    color: var(--text-primary, var(--cosmos));
   }
 
   .finance-import-drop-hint {
@@ -887,7 +887,7 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-error-banner-text strong {
-    color: #12102a;
+    color: var(--cosmos);
     font-weight: 700;
   }
 
@@ -899,7 +899,7 @@ const FINANCE_IMPORT_STYLES = `
     justify-content: center;
     padding: 10px 14px;
     border-radius: 10px;
-    background: rgba(91, 63, 191, 0.08);
+    background: rgba(0, 68, 102, 0.08);
     color: ${VIOLET};
   }
 
@@ -910,7 +910,7 @@ const FINANCE_IMPORT_STYLES = `
   .finance-import-file-name {
     font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary, #12102a);
+    color: var(--text-primary, var(--cosmos));
     word-break: break-all;
   }
 
@@ -980,8 +980,8 @@ const FINANCE_IMPORT_STYLES = `
     margin: 0 0 14px;
     padding: 12px 14px;
     border-radius: 10px;
-    background: rgba(91, 63, 191, 0.08);
-    border: 1px solid rgba(91, 63, 191, 0.2);
+    background: rgba(0, 68, 102, 0.08);
+    border: 1px solid rgba(0, 68, 102, 0.2);
     font-size: 0.875rem;
     color: #3d2f93;
     line-height: 1.4;
@@ -1036,7 +1036,7 @@ const FINANCE_IMPORT_STYLES = `
     height: 22px;
     padding: 0 7px;
     border-radius: 999px;
-    background: rgba(91, 63, 191, 0.12);
+    background: rgba(0, 68, 102, 0.12);
     font-size: 0.75rem;
     font-weight: 700;
     color: ${VIOLET};
@@ -1086,12 +1086,12 @@ const FINANCE_IMPORT_STYLES = `
   .finance-import-data-table td {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border-light, #e8e8ef);
-    color: var(--text-primary, #12102a);
+    color: var(--text-primary, var(--cosmos));
     vertical-align: middle;
   }
 
   .finance-import-data-table tbody tr:nth-child(even) {
-    background: rgba(91, 63, 191, 0.03);
+    background: rgba(0, 68, 102, 0.03);
   }
 
   .finance-import-data-table tbody tr:last-child td {
@@ -1126,7 +1126,7 @@ const FINANCE_IMPORT_STYLES = `
     height: 88px;
     margin-bottom: 16px;
     border-radius: 50%;
-    background: rgba(91, 63, 191, 0.08);
+    background: rgba(0, 68, 102, 0.08);
     color: ${VIOLET};
   }
 
@@ -1135,7 +1135,7 @@ const FINANCE_IMPORT_STYLES = `
     font-family: var(--ff-serif, 'Fraunces', Georgia, serif);
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--text-primary, #12102a);
+    color: var(--text-primary, var(--cosmos));
   }
 
   .finance-import-empty-desc {
@@ -1186,7 +1186,7 @@ const FINANCE_IMPORT_STYLES = `
 
   .finance-import-mode--active {
     border-color: ${VIOLET};
-    box-shadow: 0 0 0 2px rgba(91, 63, 191, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 68, 102, 0.15);
   }
 
   .finance-import-mode--danger.finance-import-mode--active {
@@ -1200,7 +1200,7 @@ const FINANCE_IMPORT_STYLES = `
     gap: 8px;
     font-weight: 700;
     font-size: 0.9rem;
-    color: var(--text-primary, #12102a);
+    color: var(--text-primary, var(--cosmos));
     margin-bottom: 6px;
   }
 
@@ -1236,7 +1236,7 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-btn-ghost:hover {
-    background: rgba(91, 63, 191, 0.08);
+    background: rgba(0, 68, 102, 0.08);
     color: ${VIOLET};
   }
 

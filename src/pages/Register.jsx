@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { authService } from '../lib/auth';
 import { Eye, EyeOff, UserPlus, X, LogIn } from 'lucide-react';
-import NaviLogo from '../components/NaviLogo.jsx';
-import NaviWordmark from '../components/NaviWordmark.jsx';
+import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { TERMS } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
@@ -43,7 +42,7 @@ const Register = ({ onLogin }) => {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, position: 'relative' }}>
+        <div className="login-logo">
           <button
             type="button"
             aria-label="Sair"
@@ -53,11 +52,9 @@ const Register = ({ onLogin }) => {
           >
             <X size={18} />
           </button>
-          <NaviLogo size={52} />
+          <NaviBrandLockup height={44} variant="light" />
         </div>
-        <h1 className="login-title">
-          <NaviWordmark fontSize={28} />
-        </h1>
+        <h1 className="login-title" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Criar conta na nave</h1>
         <p className="login-subtitle">Crie sua conta</p>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -137,20 +134,36 @@ const Register = ({ onLogin }) => {
       <style dangerouslySetInnerHTML={{ __html: `
         .login-page {
           min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(180deg, var(--v50) 0%, var(--paper) 55%, var(--white) 100%); padding: 20px;
+          background: linear-gradient(180deg, var(--creme) 0%, var(--azul-gelo) 55%, var(--azul-gelo) 100%); padding: 20px;
         }
         .login-card {
-          width: 100%; max-width: 400px; background: var(--surface);
+          width: 100%; max-width: 400px;
+          background: #F9F9F9;
           border-radius: 16px; padding: 40px 30px;
           border: 0.5px solid var(--border-violet);
-          box-shadow: 0 8px 32px rgba(91, 63, 191, 0.16); text-align: center;
+          box-shadow: 0 8px 32px rgba(0, 4, 53, 0.1); text-align: center;
           animation: fadeInUp 0.5s ease;
+          overflow: hidden;
         }
         .btn-exit {
           position: absolute; right: 0; top: 0; transform: translate(30%, -30%);
-          background: white; border: 1px solid var(--border); color: var(--text);
+          background: #F9F9F9; border: 1px solid var(--border); color: var(--text);
           border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
           box-shadow: var(--shadow-sm);
+        }
+        .login-logo {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 16px;
+          position: relative;
+          background: #F9F9F9;
+        }
+        .login-card .form-input {
+          background: #F9F9F9;
+          border-color: var(--border-mid);
+        }
+        .login-card .form-input:focus {
+          background: #F9F9F9;
         }
         .login-title { margin: 0 0 4px; display: flex; align-items: center; justify-content: center; }
         .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }

@@ -392,13 +392,13 @@ export default function AgendaCalendarWeek({
           transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
         .agenda-week-col:hover {
-          border-color: rgba(91, 63, 191, 0.28);
-          box-shadow: 0 2px 8px rgba(91, 63, 191, 0.08);
+          border-color: rgba(0, 68, 102, 0.28);
+          box-shadow: 0 2px 8px rgba(0, 68, 102, 0.08);
         }
         .agenda-week-col--today {
-          background: rgba(91, 63, 191, 0.1);
-          border-color: rgba(91, 63, 191, 0.35);
-          box-shadow: inset 0 0 0 1px rgba(91, 63, 191, 0.08);
+          background: rgba(0, 68, 102, 0.1);
+          border-color: rgba(0, 68, 102, 0.35);
+          box-shadow: inset 0 0 0 1px rgba(0, 68, 102, 0.08);
         }
         .agenda-week-col--empty {
           opacity: 0.78;
@@ -436,7 +436,7 @@ export default function AgendaCalendarWeek({
           font-variant-numeric: tabular-nums;
         }
         .agenda-week-day-num--today {
-          background: #5b3fbf;
+          background: var(--petroleo);
           color: #fff;
           width: 32px;
           height: 32px;
@@ -447,7 +447,7 @@ export default function AgendaCalendarWeek({
           font-size: 14px;
         }
         .agenda-week-col--today .agenda-week-col-head {
-          background: rgba(91, 63, 191, 0.06);
+          background: rgba(0, 68, 102, 0.06);
         }
         .agenda-week-col-body {
           padding: 10px 8px 12px;
@@ -473,7 +473,7 @@ export default function AgendaCalendarWeek({
         .agenda-week-card {
           padding: 8px 10px !important;
           border-radius: 10px !important;
-          border: 1px solid rgba(91, 63, 191, 0.14) !important;
+          border: 1px solid rgba(0, 68, 102, 0.14) !important;
           box-shadow: none;
           transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.15s ease;
         }
@@ -482,8 +482,8 @@ export default function AgendaCalendarWeek({
         }
         .agenda-week-card:hover {
           transform: translateY(-1px);
-          border-color: rgba(91, 63, 191, 0.28) !important;
-          box-shadow: 0 2px 8px rgba(91, 63, 191, 0.12);
+          border-color: rgba(0, 68, 102, 0.28) !important;
+          box-shadow: 0 2px 8px rgba(0, 68, 102, 0.12);
           filter: brightness(0.99);
         }
         .agenda-week-card--attended {

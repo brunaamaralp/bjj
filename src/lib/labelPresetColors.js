@@ -4,12 +4,12 @@
  * Valores alinhados a :root em index.css.
  */
 export const LABEL_PRESET_COLORS = [
-  { hex: '#5b3fbf', cssVar: '--v500' },
+  { hex: '#004466', cssVar: '--petroleo' },
   { hex: '#f04040', cssVar: '--c500' },
-  { hex: '#d4a017', cssVar: '--warning' },
+  { hex: '#E4B55D', cssVar: '--dourado' },
   { hex: '#25d366', cssVar: null },
   { hex: '#0088cc', cssVar: null },
-  { hex: '#6b6b88', cssVar: '--mid' },
+  { hex: '#755468', cssVar: '--ameixa' },
 ];
 
 /** Cinza legado em etiquetas antigas (não está mais no preset). */

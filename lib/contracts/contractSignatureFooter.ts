@@ -19,7 +19,7 @@ export const CONTRACT_SIGNATURE_FOOTER_CSS = `
 .contract-sig-footer__box {
   min-height: 56px;
   margin-bottom: 8px;
-  border-bottom: 1px solid #12102a;
+  border-bottom: 1px solid var(--cosmos);
 }
 .contract-sig-footer__label {
   margin: 0;
@@ -54,7 +54,7 @@ export const CONTRACT_SIGNATURE_FOOTER_CSS = `
 }
 @media print {
   .contract-sig-footer__box {
-    border-bottom: 1px solid #12102a;
+    border-bottom: 1px solid var(--cosmos);
     border-top: none;
     border-left: none;
     border-right: none;

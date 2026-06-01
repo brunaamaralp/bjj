@@ -153,7 +153,7 @@ export default function ScheduleModal({
                         fontWeight: 700,
                         cursor: 'pointer',
                         fontFamily: 'inherit',
-                        background: active ? '#5B3FBF' : '#EEEDFE',
+                        background: active ? 'var(--petroleo)' : '#EEEDFE',
                         color: active ? '#fff' : '#3C3489',
                       }}
                     >
@@ -223,7 +223,7 @@ export default function ScheduleModal({
             style={{
               flex: 2,
               fontWeight: 700,
-              background: '#5B3FBF',
+              background: 'var(--petroleo)',
               color: '#fff',
               border: 'none',
             }}

@@ -60,7 +60,7 @@ function formatDd(iso) {
 
 const BADGE_STYLES = {
   success: { bg: '#EAF3DE', color: '#3B6D11' },
-  covered: { bg: 'var(--v50, #f3f0ff)', color: 'var(--v700, #5B3FBF)', border: '1px solid var(--v200, #ddd6fe)' },
+  covered: { bg: 'var(--v50, var(--azul-gelo))', color: 'var(--v700, var(--petroleo))', border: '1px solid var(--v200, #ddd6fe)' },
   danger: { bg: '#FCEBEB', color: '#A32D2D' },
   warning: { bg: '#FFEDD5', color: '#C2410C' },
   muted: { bg: '#f1f5f9', color: '#64748b' },
@@ -213,7 +213,7 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
   return (
     <TimelineRow
       icon={CalendarRange}
-      iconColor="#5B3FBF"
+      iconColor="var(--petroleo)"
       item={item}
       expanded={expanded}
       onToggle={() => setExpanded((v) => !v)}
@@ -228,7 +228,7 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
               style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}
             >
               <span>{formatReferenceMonthLong(p.reference_month)}</span>
-              <span style={{ fontWeight: 600, color: 'var(--v700, #5B3FBF)' }}>✓ Coberto</span>
+              <span style={{ fontWeight: 600, color: 'var(--v700, var(--petroleo))' }}>✓ Coberto</span>
             </div>
           ))}
       </div>
@@ -366,7 +366,7 @@ function ExtratoTotalsCard({ totals }) {
 
 function UnifiedExtratoRow({ row }) {
   const Icon = row.type === 'product_sale' ? ShoppingBag : Calendar;
-  const iconColor = row.type === 'product_sale' ? '#3B6D11' : '#5B3FBF';
+  const iconColor = row.type === 'product_sale' ? '#3B6D11' : 'var(--petroleo)';
   const badge =
     row.status === 'paid'
       ? { label: 'Pago', tone: 'success' }
@@ -630,7 +630,7 @@ export default function StudentFinancialTimeline({
               return <TimelineRow key={item.id} icon={Lock} iconColor="#64748b" item={item} />;
             }
             const Icon = item.kind === 'fee' ? Receipt : Calendar;
-            const iconColor = item.kind === 'fee' ? '#B45309' : '#5B3FBF';
+            const iconColor = item.kind === 'fee' ? '#B45309' : 'var(--petroleo)';
             const payment = item.payment;
             const receiptPdf =
               payment && canDownloadPaymentReceipt(payment)
@@ -675,7 +675,7 @@ export default function StudentFinancialTimeline({
               padding: '12px 14px',
               borderRadius: 10,
               border: 'none',
-              background: '#5B3FBF',
+              background: 'var(--petroleo)',
               color: '#fff',
               fontSize: 13,
               fontWeight: 700,

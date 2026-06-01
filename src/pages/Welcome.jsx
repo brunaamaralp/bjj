@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check } from 'lucide-react';
+import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import NaviLogo from '../components/NaviLogo.jsx';
-import NaviWordmark from '../components/NaviWordmark.jsx';
 
 /* ── WhatsApp Mockup ──────────────────────────────────────────────── */
 
@@ -64,7 +64,7 @@ function WhatsAppMockup() {
     <div className="wapp-mockup">
       {/* Header */}
       <div className="wapp-header">
-        <div className="wapp-avatar">N</div>
+        <NaviLogo size={34} variant="white" className="wapp-avatar" />
         <div className="wapp-header-info">
           <div className="wapp-name">Nave — Academia</div>
           <div className="wapp-status">
@@ -163,8 +163,7 @@ const Welcome = () => {
     <nav className="navi-lp-nav" aria-label="Principal">
       <div className="navi-lp-nav-inner">
         <Link to="/" className="navi-lp-nav-brand">
-          <NaviLogo size={26} />
-          <NaviWordmark fontSize={20} />
+          <NaviBrandLockup height={28} variant="light" />
         </Link>
         <div className="navi-lp-nav-cta">
           <Link to="/login" className="navi-lp-btn-nav-ghost">Entrar</Link>
@@ -381,7 +380,7 @@ const Welcome = () => {
           <ul className="navi-lp-checklist">
             {POSICIONAMENTO_ITENS.map((text) => (
               <li key={text}>
-                <Check size={16} strokeWidth={2.5} color="#5B3FBF" aria-hidden="true" />
+                <Check size={16} strokeWidth={2.5} color="var(--petroleo)" aria-hidden="true" />
                 {text}
               </li>
             ))}
@@ -425,8 +424,7 @@ const Welcome = () => {
     <footer className="navi-lp-footer">
       <div className="navi-lp-footer-inner">
         <div className="navi-lp-footer-brand">
-          <NaviLogo size={20} variant="white" />
-          <NaviWordmark fontSize={16} variant="light" />
+          <NaviBrandLockup height={22} variant="dark" />
         </div>
         <p className="navi-lp-footer-copy">
           <span>© 2026 Nave</span>
@@ -454,14 +452,14 @@ const Welcome = () => {
         --nl-pad: clamp(20px, 4vw, 48px);
         --lp-max: 1100px;
         --lp-prose: 42rem;
-        --lp-dark: #0f0a1e;
-        --lp-light: #f8f7ff;
-        --lp-violet: #5B3FBF;
-        --lp-violet-dark: #4a32a0;
-        --lp-pill-bg: #f0ebff;
-        --lp-neon: #B14EFF;
+        --lp-dark: var(--navi-brand-img-bg-dark);
+        --lp-light: var(--azul-gelo);
+        --lp-violet: var(--petroleo);
+        --lp-violet-dark: var(--cosmos);
+        --lp-pill-bg: color-mix(in srgb, var(--petroleo) 8%, var(--azul-gelo));
+        --lp-neon: #25D366;
         min-height: 100vh;
-        background: #ffffff;
+        background: var(--azul-gelo);
         color: var(--ink);
         font-family: var(--ff-ui);
       }
@@ -474,7 +472,7 @@ const Welcome = () => {
       .navi-lp-skip:focus {
         position: fixed; left: 12px; top: 12px; z-index: 200;
         width: auto; height: auto; padding: 10px 16px;
-        background: var(--v500); color: white;
+        background: var(--lima); color: var(--cosmos);
         font-weight: 700; font-size: 14px;
         border-radius: 8px; text-decoration: none;
       }
@@ -487,7 +485,7 @@ const Welcome = () => {
       /* ── Focus ── */
       .navi-lp a:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--v500);
+        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--lima);
       }
       .navi-lp-nav-brand:focus-visible { border-radius: 12px; }
       .navi-lp-btn-nav-primary:focus-visible,
@@ -495,7 +493,7 @@ const Welcome = () => {
       .navi-lp-btn-mid:focus-visible,
       .navi-lp-btn-final:focus-visible {
         border-radius: 100px;
-        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--v500);
+        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--lima);
       }
 
       /* ── Reveal ── */
@@ -510,9 +508,7 @@ const Welcome = () => {
         position: sticky; top: 0; z-index: 100;
         min-height: 56px; display: flex; align-items: center;
         padding: 8px var(--nl-pad);
-        background: rgba(255,255,255,0.92);
-        backdrop-filter: saturate(180%) blur(16px);
-        -webkit-backdrop-filter: saturate(180%) blur(16px);
+        background: #F9F9F9;
         border-bottom: 0.5px solid rgba(0,0,0,0.06);
       }
       .navi-lp-nav-inner {
@@ -546,7 +542,7 @@ const Welcome = () => {
       }
 
       /* ── Hero ── */
-      .navi-lp-hero { position: relative; overflow: hidden; background: #fff; }
+      .navi-lp-hero { position: relative; overflow: hidden; background: var(--creme); }
       .navi-lp-hero-mesh {
         position: absolute; inset: 0;
         pointer-events: none; z-index: 0; overflow: hidden;
@@ -557,7 +553,7 @@ const Welcome = () => {
       }
       .navi-lp-blob--a {
         width: min(420px,80vw); height: min(420px,80vw);
-        background: radial-gradient(circle, rgba(189,176,238,0.65) 0%, rgba(123,99,212,0.18) 55%, transparent 72%);
+        background: radial-gradient(circle, rgba(0, 68, 102, 0.22) 0%, rgba(0, 4, 53, 0.08) 55%, transparent 72%);
         top: -15%; right: -8%; opacity: 0.4;
       }
       .navi-lp-blob--b {
@@ -567,13 +563,13 @@ const Welcome = () => {
       }
       .navi-lp-blob--c {
         width: min(240px,55vw); height: min(240px,55vw);
-        background: radial-gradient(circle, rgba(91,63,191,0.3) 0%, transparent 65%);
+        background: radial-gradient(circle, rgba(0, 68, 102,0.3) 0%, transparent 65%);
         top: 40%; right: 24%; opacity: 0.22;
       }
       .navi-lp-blob--g1 {
         width: 70%; height: 140%; left: -20%; top: -35%;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(189,176,238,0.35) 0%, transparent 68%);
+        background: radial-gradient(circle, rgba(0, 68, 102, 0.14) 0%, transparent 68%);
         filter: blur(56px); opacity: 0.55;
       }
       .navi-lp-blob--g2 {
@@ -627,16 +623,16 @@ const Welcome = () => {
         gap: 10px; width: 100%; max-width: 280px;
         min-height: 48px; padding: 12px 24px;
         border-radius: 100px; font-size: 15px; font-weight: 700;
-        text-decoration: none; color: white;
-        background: var(--lp-violet);
-        box-shadow: 0 6px 22px rgba(91,63,191,0.28);
+        text-decoration: none; color: var(--cosmos);
+        background: var(--lima);
+        box-shadow: 0 6px 22px rgba(196, 241, 53, 0.35);
         transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.2s ease;
         animation: navi-lp-fade-up 0.45s 0.1s ease both;
       }
       .navi-lp-btn-hero:hover {
-        background: var(--lp-violet-dark);
+        background: color-mix(in srgb, var(--lima) 88%, var(--cosmos));
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(91,63,191,0.3), 0 0 32px rgba(177,78,255,0.2);
+        box-shadow: 0 8px 24px rgba(196, 241, 53, 0.4);
       }
       .navi-lp-btn-hero:active { transform: scale(0.98); }
       .navi-lp-hero-hint {
@@ -658,8 +654,8 @@ const Welcome = () => {
         border-radius: 45% 55% 48% 52% / 52% 48% 54% 46%;
         background: radial-gradient(
           ellipse 80% 70% at 35% 30%,
-          rgba(189,176,238,0.4) 0%,
-          rgba(91,63,191,0.12) 70%,
+          rgba(0, 68, 102, 0.18) 0%,
+          rgba(0, 4, 53, 0.08) 70%,
           transparent 100%
         );
         filter: blur(36px); z-index: 0; pointer-events: none;
@@ -667,10 +663,10 @@ const Welcome = () => {
       .navi-lp-mock-wrap {
         position: relative; z-index: 1;
         border-radius: 24px; padding: 1.5px;
-        background: linear-gradient(135deg, rgba(189,176,238,0.8) 0%, rgba(91,63,191,0.3) 50%, rgba(123,99,212,0.55) 100%);
+        background: linear-gradient(135deg, rgba(0, 68, 102, 0.35) 0%, rgba(0, 4, 53, 0.12) 50%, rgba(196, 241, 53, 0.18) 100%);
         box-shadow:
-          0 0 0 1px rgba(177,78,255,0.2),
-          0 0 24px rgba(177,78,255,0.08),
+          0 0 0 1px rgba(0, 68, 102, 0.15),
+          0 0 24px rgba(0, 68, 102, 0.08),
           0 20px 56px rgba(0,0,0,0.14);
       }
 
@@ -690,12 +686,14 @@ const Welcome = () => {
         padding: 10px 14px;
         display: flex; align-items: center; gap: 10px;
       }
-      .wapp-avatar {
-        width: 34px; height: 34px; border-radius: 50%;
-        background: var(--lp-violet);
-        color: white; font-size: 14px; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
+      .wapp-avatar.navi-logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        overflow: hidden;
         flex-shrink: 0;
+        object-fit: cover;
+        background: var(--navi-brand-img-bg-dark, #040B27);
       }
       .wapp-header-info { flex: 1; min-width: 0; }
       .wapp-name {
@@ -705,14 +703,14 @@ const Welcome = () => {
       .wapp-online-dot {
         width: 6px; height: 6px; border-radius: 50%;
         background: var(--lp-neon);
-        box-shadow: 0 0 6px var(--lp-neon), 0 0 12px rgba(177,78,255,0.4);
+        box-shadow: 0 0 6px var(--lp-neon), 0 0 12px rgba(37, 211, 102, 0.4);
         flex-shrink: 0; display: inline-block;
       }
       .wapp-online-text { font-size: 10px; color: var(--lp-neon); }
       .wapp-ai-badge {
-        background: rgba(177,78,255,0.15);
+        background: rgba(37, 211, 102, 0.15);
         color: var(--lp-neon);
-        border: 0.5px solid rgba(177,78,255,0.3);
+        border: 0.5px solid rgba(37, 211, 102, 0.3);
         border-radius: 4px;
         font-size: 9px; font-weight: 700;
         padding: 2px 6px; letter-spacing: 0.05em;
@@ -856,8 +854,8 @@ const Welcome = () => {
       }
       .navi-lp-gallery-item {
         margin: 0; border-radius: 20px; overflow: hidden;
-        border: 0.5px solid rgba(91,63,191,0.12);
-        box-shadow: 0 6px 32px rgba(91,63,191,0.09), 0 1px 4px rgba(0,0,0,0.06);
+        border: 0.5px solid rgba(0, 68, 102,0.12);
+        box-shadow: 0 6px 32px rgba(0, 68, 102,0.09), 0 1px 4px rgba(0,0,0,0.06);
         background: #fff;
       }
       .navi-lp-gallery-item img {
@@ -879,7 +877,7 @@ const Welcome = () => {
       }
       .navi-lp-band--dark::before {
         content: ''; position: absolute; inset: 0;
-        background: radial-gradient(ellipse 80% 50% at 90% 10%, rgba(91,63,191,0.22), transparent 58%);
+        background: radial-gradient(ellipse 80% 50% at 90% 10%, rgba(0, 68, 102,0.22), transparent 58%);
         pointer-events: none;
       }
       .navi-lp-band--dark .navi-lp-inner { position: relative; z-index: 1; }
@@ -896,9 +894,9 @@ const Welcome = () => {
       .navi-lp-card {
         background: #fff; border: 0.5px solid rgba(0,0,0,0.08);
         border-radius: 16px; padding: clamp(28px,4vw,44px);
-        box-shadow: 0 2px 16px rgba(18,16,42,0.04);
+        box-shadow: 0 2px 16px rgba(0, 4, 53,0.04);
       }
-      .navi-lp-band--soft .navi-lp-card { box-shadow: 0 4px 24px rgba(91,63,191,0.06); }
+      .navi-lp-band--soft .navi-lp-card { box-shadow: 0 4px 24px rgba(0, 68, 102,0.06); }
       .navi-lp-card .navi-lp-h2 { max-width: min(var(--lp-prose),100%); margin: 0 0 20px; }
       .navi-lp-card .navi-lp-p,
       .navi-lp-card .navi-lp-list,
@@ -959,13 +957,13 @@ const Welcome = () => {
       .navi-lp-social-quote {
         margin: 0; padding: clamp(28px,4vw,44px);
         background: #fff; border: 0.5px solid rgba(0,0,0,0.08);
-        border-radius: 16px; box-shadow: 0 2px 16px rgba(18,16,42,0.04);
+        border-radius: 16px; box-shadow: 0 2px 16px rgba(0, 4, 53,0.04);
         display: flex; flex-direction: column; justify-content: center;
       }
       .navi-lp-social-photo {
         margin: 0; border-radius: 16px; overflow: hidden;
         border: 0.5px solid rgba(0,0,0,0.08);
-        box-shadow: 0 2px 16px rgba(18,16,42,0.04);
+        box-shadow: 0 2px 16px rgba(0, 4, 53,0.04);
         display: flex; min-height: 260px;
       }
       .navi-lp-social-photo img {
@@ -996,11 +994,11 @@ const Welcome = () => {
         display: inline-flex; align-items: center; justify-content: center;
         gap: 10px; min-height: 52px; padding: 13px 30px;
         border-radius: 100px; font-size: 15px; font-weight: 700;
-        text-decoration: none; color: white; background: var(--lp-violet);
-        box-shadow: 0 6px 22px rgba(91,63,191,0.28);
+        text-decoration: none; color: var(--cosmos); background: var(--lima);
+        box-shadow: 0 6px 22px rgba(196, 241, 53, 0.35);
         transition: background 0.15s ease, transform 0.15s ease;
       }
-      .navi-lp-btn-mid:hover { background: var(--lp-violet-dark); transform: translateY(-2px); }
+      .navi-lp-btn-mid:hover { background: color-mix(in srgb, var(--lima) 88%, var(--cosmos)); transform: translateY(-2px); }
       .navi-lp-mid-cta-hint { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: #9ca3af; }
 
       /* ── Funnel ── */
@@ -1011,7 +1009,7 @@ const Welcome = () => {
       .navi-lp-funnel-chip {
         display: inline-flex; align-items: center;
         padding: 7px 12px; border-radius: 100px;
-        background: var(--lp-pill-bg); border: 0.5px solid rgba(91,63,191,0.15);
+        background: var(--lp-pill-bg); border: 0.5px solid rgba(0, 68, 102,0.15);
         font-size: 12px; font-weight: 600; color: var(--v700); white-space: nowrap;
       }
       .navi-lp-funnel-arrow { color: var(--faint); font-size: 13px; font-weight: 600; }
@@ -1038,7 +1036,7 @@ const Welcome = () => {
 
       /* ── Final CTA ── */
       .navi-lp-final-cta {
-        background: var(--lp-violet);
+        background: var(--cosmos);
         padding: clamp(64px,9vw,104px) var(--nl-pad);
         position: relative; overflow: hidden; text-align: center;
       }
@@ -1058,11 +1056,11 @@ const Welcome = () => {
         gap: 10px; width: 100%; max-width: 420px; min-height: 56px;
         padding: 15px 36px; border-radius: 100px;
         font-size: 16px; font-weight: 700; text-decoration: none;
-        color: var(--lp-violet); background: #fff;
-        box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        color: var(--cosmos); background: var(--lima);
+        box-shadow: 0 8px 28px rgba(196, 241, 53, 0.35);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      .navi-lp-btn-final:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,0.24); }
+      .navi-lp-btn-final:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(196, 241, 53, 0.42); }
       .navi-lp-final-hint { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: rgba(255,255,255,0.5); }
 
       /* ── Footer ── */

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import NaviLogo from '../NaviLogo.jsx';
+import NaviBrandLockup from '../NaviBrandLockup.jsx';
 import { isChunkLoadError } from '../../lib/lazyWithRetry.js';
 
 function ErrorFallback({ onReset, isStaleBundle = false }) {
@@ -8,7 +8,7 @@ function ErrorFallback({ onReset, isStaleBundle = false }) {
 
   return (
     <div className="navi-error-fallback">
-      <NaviLogo size={48} variant="white" />
+      <NaviBrandLockup height={40} variant="dark" />
       <h1 className="navi-error-fallback__title">Algo inesperado aconteceu.</h1>
       <p className="navi-error-fallback__sub">
         {isStaleBundle

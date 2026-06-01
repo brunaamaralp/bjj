@@ -282,7 +282,7 @@ export default function ForecastTab({ academyId }) {
                     type="monotone"
                     dataKey="balance"
                     name="balance"
-                    stroke="#5B3FBF"
+                    stroke="var(--petroleo)"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />
@@ -299,7 +299,7 @@ export default function ForecastTab({ academyId }) {
                 Saídas
               </span>
               <span>
-                <i style={{ display: 'inline-block', width: 14, height: 2, background: '#5B3FBF', marginRight: 4, verticalAlign: 'middle' }} />
+                <i style={{ display: 'inline-block', width: 14, height: 2, background: 'var(--petroleo)', marginRight: 4, verticalAlign: 'middle' }} />
                 Saldo acumulado
               </span>
             </div>

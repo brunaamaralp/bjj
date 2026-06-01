@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 import { useTerms } from '../../lib/terminology.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import NaviLogo from '../NaviLogo.jsx';
 
 export const SYSTEM_RULES = `
 REGRAS OBRIGATÓRIAS DO SISTEMA:
@@ -985,7 +986,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
     <div className="agent-chat-container">
       <div className="agent-chat-header">
         <div className="agent-chat-header-brand">
-          <img src="/navi-icon.png" alt="Nave" className="agent-chat-logo" />
+          <NaviLogo size={28} variant="white" className="agent-chat-logo" />
           <div>
             <div className="agent-chat-title">Configuração do assistente</div>
             <div className="agent-chat-subtitle">
@@ -1005,7 +1006,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       <div ref={messagesScrollRef} className="agent-chat-messages" style={{ overscrollBehavior: 'contain' }}>
         {loading ? (
           <div className="agent-chat-bubble nave">
-            <img src="/navi-icon.png" className="agent-chat-avatar" alt="" />
+            <NaviLogo size={32} variant="white" className="agent-chat-avatar" />
             <div className="agent-chat-content">
               <div className="agent-chat-text">Carregando…</div>
             </div>
@@ -1013,7 +1014,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         ) : null}
         {messages.map((msg, i) => (
           <div key={i} className={`agent-chat-bubble ${msg.role}`}>
-            {msg.role === 'nave' && <img src="/navi-icon.png" className="agent-chat-avatar" alt="" />}
+            {msg.role === 'nave' && <NaviLogo size={32} variant="white" className="agent-chat-avatar" />}
             <div className="agent-chat-content">
               <div className="agent-chat-text">{msg.content}</div>
               {msg.actions && (
@@ -1030,7 +1031,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         ))}
         {generating ? (
           <div className="agent-chat-bubble nave">
-            <img src="/navi-icon.png" className="agent-chat-avatar" alt="" />
+            <NaviLogo size={32} variant="white" className="agent-chat-avatar" />
             <div className="agent-chat-typing">
               <span />
               <span />

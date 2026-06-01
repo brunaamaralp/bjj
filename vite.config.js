@@ -66,13 +66,23 @@ export default defineConfig(({ mode }) => {
             }
           ]
         },
-        includeAssets: ['navi-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: [
+          'favicon-16x16.png',
+          'favicon-32x32.png',
+          'apple-touch-icon.png',
+          'navi-icon-on-dark.png',
+          'navi-icon-on-light.png',
+          'navi-logo-on-dark.png',
+          'navi-logo-on-light.png',
+          'pwa-192x192.png',
+          'pwa-512x512.png',
+        ],
         manifest: {
           name: 'Nave',
           short_name: 'Nave',
           description: 'CRM para estúdios de luta, dança, yoga e atividades físicas',
-          theme_color: '#12102A',
-          background_color: '#ffffff',
+          theme_color: '#040B27',
+          background_color: '#040B27',
           display: 'standalone',
           icons: [
             {

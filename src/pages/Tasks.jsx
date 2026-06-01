@@ -1692,7 +1692,7 @@ export default function Tasks() {
         /* ── Modal ── */
         .task-modal-overlay {
           position: fixed; inset: 0;
-          background: rgba(18, 16, 42, 0.55);
+          background: rgba(0, 4, 53, 0.55);
           backdrop-filter: blur(4px);
           display: flex; align-items: center; justify-content: center;
           z-index: 9999; padding: 16px;
@@ -1705,7 +1705,7 @@ export default function Tasks() {
           width: 100%; max-width: 480px;
           margin: auto;
           flex-shrink: 0;
-          box-shadow: 0 24px 60px rgba(18, 16, 42, 0.18), 0 2px 8px rgba(91,63,191,0.08);
+          box-shadow: 0 24px 60px rgba(0, 4, 53, 0.18), 0 2px 8px rgba(0, 68, 102,0.08);
           border: 0.5px solid var(--border-light);
           max-height: min(92vh, calc(100dvh - 32px)); overflow-y: auto;
         }
@@ -1783,7 +1783,7 @@ export default function Tasks() {
           background: var(--white);
           border: 0.5px solid var(--border-light);
           border-radius: 12px;
-          box-shadow: 0 8px 28px rgba(18, 16, 42, 0.12);
+          box-shadow: 0 8px 28px rgba(0, 4, 53, 0.12);
           max-height: 220px; overflow-y: auto;
           padding: 6px;
         }
@@ -1826,7 +1826,7 @@ export default function Tasks() {
           padding: 12px 14px; border-bottom: 1px solid var(--border);
         }
         .tasks-kanban-col--late .tasks-kanban-col-head { background: rgba(220, 38, 38, 0.08); }
-        .tasks-kanban-col--todo .tasks-kanban-col-head { background: rgba(91, 63, 191, 0.08); }
+        .tasks-kanban-col--todo .tasks-kanban-col-head { background: rgba(0, 68, 102, 0.08); }
         .tasks-kanban-col--done .tasks-kanban-col-head { background: rgba(22, 163, 74, 0.1); }
         .tasks-kanban-col-title { font-size: 13px; font-weight: 700; color: var(--ink); }
         .tasks-quick-create {
@@ -1885,14 +1885,14 @@ export default function Tasks() {
         }
         .tasks-cal-cell--empty { background: transparent; border: none; min-height: 0; }
         .tasks-cal-cell--today {
-          border-color: var(--v500); box-shadow: 0 0 0 1px rgba(91, 63, 191, 0.25);
-          background: rgba(91, 63, 191, 0.04);
+          border-color: var(--v500); box-shadow: 0 0 0 1px rgba(0, 68, 102, 0.25);
+          background: rgba(0, 68, 102, 0.04);
         }
         .tasks-cal-day-num {
           font-size: 12px; font-weight: 800; color: var(--text-secondary); margin-bottom: 6px;
         }
         .tasks-cal-cell--today .tasks-cal-day-num {
-          width: 26px; height: 26px; border-radius: 50%; background: #5b3fbf; color: #fff;
+          width: 26px; height: 26px; border-radius: 50%; background: var(--petroleo); color: #fff;
           display: flex; align-items: center; justify-content: center;
         }
         .tasks-cal-day-tasks {
@@ -1989,7 +1989,7 @@ export default function Tasks() {
           border-radius: var(--radius-sm);
           background: var(--surface);
           overflow: hidden;
-          box-shadow: 0 1px 3px rgba(18, 16, 42, 0.04);
+          box-shadow: 0 1px 3px rgba(0, 4, 53, 0.04);
         }
         .tasks-student-card__head {
           display: flex;
@@ -1997,7 +1997,7 @@ export default function Tasks() {
           gap: 10px;
           padding: 12px 14px;
           border-bottom: 1px solid var(--border);
-          background: linear-gradient(180deg, rgba(91, 63, 191, 0.05) 0%, transparent 100%);
+          background: linear-gradient(180deg, rgba(0, 68, 102, 0.05) 0%, transparent 100%);
         }
         .tasks-student-card__profile {
           display: flex;
@@ -2027,7 +2027,7 @@ export default function Tasks() {
           letter-spacing: 0.02em;
           color: var(--v700);
           background: var(--v50);
-          border: 1px solid rgba(91, 63, 191, 0.18);
+          border: 1px solid rgba(0, 68, 102, 0.18);
         }
         .tasks-student-card__identity {
           flex: 1;
@@ -2070,7 +2070,7 @@ export default function Tasks() {
           font-weight: 700;
           color: var(--v700);
           background: var(--v50);
-          border: 1px solid rgba(91, 63, 191, 0.15);
+          border: 1px solid rgba(0, 68, 102, 0.15);
           border-radius: 999px;
           padding: 3px 10px;
           line-height: 1.2;
@@ -2134,12 +2134,12 @@ export default function Tasks() {
 
         .task-drawer-backdrop {
           position: fixed; inset: 0; z-index: 9500;
-          background: rgba(18, 16, 42, 0.35);
+          background: rgba(0, 4, 53, 0.35);
         }
         .task-drawer-panel {
           position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw);
           z-index: 9600; background: var(--surface);
-          box-shadow: -8px 0 40px rgba(18, 16, 42, 0.12);
+          box-shadow: -8px 0 40px rgba(0, 4, 53, 0.12);
           border-left: 1px solid var(--border-mid);
           display: flex; flex-direction: column;
           animation: taskDrawerIn 0.22s ease-out;

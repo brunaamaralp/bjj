@@ -63,7 +63,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
-          <Calendar size={20} color="#5B3FBF" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
+          <Calendar size={20} color="var(--petroleo)" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
               Plano {planLabel.charAt(0).toUpperCase() + planLabel.slice(1)} — pago em {paidLabel}
@@ -85,7 +85,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
           marginTop: 10,
           border: 'none',
           background: 'none',
-          color: '#5B3FBF',
+          color: 'var(--petroleo)',
           fontWeight: 700,
           fontSize: 12,
           cursor: 'pointer',
@@ -111,7 +111,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
                 style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}
               >
                 <span>{formatReferenceMonthLong(p.reference_month)}</span>
-                <span style={{ color: 'var(--v700, #5B3FBF)', fontWeight: 600 }}>
+                <span style={{ color: 'var(--v700, var(--petroleo))', fontWeight: 600 }}>
                   ✓ {statusLabel(p.status)}
                 </span>
               </div>

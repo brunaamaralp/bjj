@@ -1,42 +1,26 @@
+import { NAVI_BRAND_ASSETS } from './brandAssets.js';
+
 /**
- * Marca Nave — ícone raster (planeta / órbita / lua) em /public/navi-icon.png
+ * Ícone Nave (símbolo n + estrela) — PNG quadrado com fundo embutido.
+ * O container pai deve usar NAVI_BRAND_IMAGE_BG da mesma variante.
  * @param {number} [size=26]
- * @param {'default' | 'white'} [variant='default'] — no escuro: mosaico claro para o PNG com fundo branco
+ * @param {'default' | 'on-dark' | 'on-light' | 'white'} [variant='default']
+ * @param {string} [className]
  */
-export default function NaviLogo({ size = 26, variant = 'default' }) {
-  const onDark = variant === 'white';
+export default function NaviLogo({ size = 26, variant = 'default', className = '' }) {
+  const onDark = variant === 'on-dark' || variant === 'white';
+  const src = onDark ? NAVI_BRAND_ASSETS.iconDark : NAVI_BRAND_ASSETS.iconLight;
 
   return (
-    <span
-      className="navi-logo-wrap"
-      style={{
-        width: size,
-        height: size,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        borderRadius: onDark ? 9 : 8,
-        overflow: 'hidden',
-        background: onDark ? 'rgba(255,255,255,0.96)' : 'transparent',
-        boxShadow: onDark ? '0 1px 3px rgba(0,0,0,0.2)' : undefined,
-      }}
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      className={`navi-logo${onDark ? ' navi-logo--on-dark' : ' navi-logo--on-light'}${className ? ` ${className}` : ''}`}
+      style={{ display: 'block', width: size, height: size, flexShrink: 0, objectFit: 'contain' }}
+      decoding="async"
       aria-hidden
-    >
-      <img
-        src="/navi-icon.png?v=1"
-        alt=""
-        width={onDark ? Math.round(size - 4) : size}
-        height={onDark ? Math.round(size - 4) : size}
-        className="navi-logo-img"
-        style={{
-          display: 'block',
-          objectFit: 'contain',
-          width: onDark ? Math.round(size - 4) : size,
-          height: onDark ? Math.round(size - 4) : size,
-        }}
-        decoding="async"
-      />
-    </span>
+    />
   );
 }

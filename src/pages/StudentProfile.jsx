@@ -1830,7 +1830,7 @@ export default function StudentProfile() {
                                 marginBottom: 8,
                                 borderRadius: 10,
                                 border: '1px solid var(--purple)',
-                                background: 'var(--v50, #f3f0ff)',
+                                background: 'var(--v50, var(--azul-gelo))',
                                 color: 'var(--purple)',
                                 fontWeight: 700,
                                 fontSize: 13,
@@ -2247,7 +2247,7 @@ export default function StudentProfile() {
                         marginBottom: 22,
                         padding: '12px 14px',
                         borderRadius: 10,
-                        background: '#5B3FBF',
+                        background: 'var(--petroleo)',
                         border: 'none',
                         color: '#fff',
                         fontSize: 13,
@@ -2750,7 +2750,7 @@ export default function StudentProfile() {
                                                 textAlign: 'center',
                                             }}
                                         >
-                                            <div style={{ fontSize: 18, fontWeight: 500, color: '#5B3FBF' }}>{cell.value}</div>
+                                            <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--petroleo)' }}>{cell.value}</div>
                                             <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{cell.label}</div>
                                         </div>
                                     ))}
@@ -2963,7 +2963,7 @@ export default function StudentProfile() {
                                         const tag =
                                             type === 'converted' ? terms.convertedStatusUi : TIMELINE_EVENT_LABELS[type] ?? type;
                                         let dotColor = '#8E8E8E';
-                                        if (type === 'note' || type === 'inbox_note') dotColor = '#5B3FBF';
+                                        if (type === 'note' || type === 'inbox_note') dotColor = 'var(--petroleo)';
                                         else if (type === 'message') dotColor = '#25D366';
                                         else if (type === 'schedule') dotColor = '#0088CC';
                                         else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
@@ -3046,7 +3046,7 @@ export default function StudentProfile() {
             }
             .student-profile-data-input:focus {
               outline: none;
-              border: 1px solid #5B3FBF !important;
+              border: 1px solid var(--petroleo) !important;
             }
             @media (max-width: 1023px) {
               .student-profile--panel-open .student-panel-right-col {

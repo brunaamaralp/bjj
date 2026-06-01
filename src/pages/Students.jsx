@@ -1319,7 +1319,7 @@ const Students = ({ embedded = false }) => {
         .students-create-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(18, 16, 42, 0.35);
+          background: rgba(0, 4, 53, 0.35);
           backdrop-filter: blur(12px) saturate(1.4);
           -webkit-backdrop-filter: blur(12px) saturate(1.4);
           display: flex;
@@ -1454,10 +1454,10 @@ const Students = ({ embedded = false }) => {
         }
         .students-register-btn {
           font-weight: 600;
-          box-shadow: 0 1px 4px rgba(91, 63, 191, 0.28);
+          box-shadow: 0 1px 4px rgba(0, 68, 102, 0.28);
         }
         .students-register-btn:hover {
-          box-shadow: 0 2px 8px rgba(91, 63, 191, 0.32);
+          box-shadow: 0 2px 8px rgba(0, 68, 102, 0.32);
         }
         @media (max-width: 640px) {
           .students-create-grid {

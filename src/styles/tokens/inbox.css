@@ -1,32 +1,32 @@
 :root {
-  /* Badges tipo “Transferido” / info azul no Inbox */
-  --inbox-info-badge-bg: rgba(59, 130, 246, 0.12);
-  --inbox-info-badge-fg: #1d4ed8;
+  /* Badges tipo “Transferido” / info no Inbox */
+  --inbox-info-badge-bg: color-mix(in srgb, var(--petroleo) 12%, var(--branco));
+  --inbox-info-badge-fg: var(--petroleo);
 
   /* Chips de status na lista */
-  --inbox-chip-handoff-bg: #fff1eb;
-  --inbox-chip-handoff-fg: #c2410c;
-  --inbox-chip-unlinked-bg: var(--v50, #eeedfe);
-  --inbox-chip-unlinked-fg: var(--v700, #534ab7);
-  --inbox-chip-ia-bg: var(--v50);
-  --inbox-chip-ia-fg: var(--v700);
-  --inbox-chip-hot-bg: rgba(245, 158, 11, 0.18);
-  --inbox-chip-hot-fg: #b45309;
+  --inbox-chip-handoff-bg: color-mix(in srgb, var(--dourado) 15%, var(--branco));
+  --inbox-chip-handoff-fg: color-mix(in srgb, var(--dourado) 70%, var(--cosmos));
+  --inbox-chip-unlinked-bg: var(--azul-gelo);
+  --inbox-chip-unlinked-fg: var(--petroleo);
+  --inbox-chip-ia-bg: var(--azul-gelo);
+  --inbox-chip-ia-fg: var(--petroleo);
+  --inbox-chip-hot-bg: color-mix(in srgb, var(--dourado) 18%, var(--branco));
+  --inbox-chip-hot-fg: color-mix(in srgb, var(--dourado) 65%, var(--cosmos));
 
-  /* Bubbles de mensagem */
-  --inbox-bubble-human-bg: #ebebee;          /* recebida — cinza neutro */
+  /* Bubbles de mensagem — WhatsApp green (#25D366) preservado onde aplicável */
+  --inbox-bubble-human-bg: #ebebee;
   --inbox-bubble-human-border: transparent;
-  --inbox-bubble-ai-bg: var(--v50);          /* IA — roxo bem suave */
+  --inbox-bubble-ai-bg: var(--azul-gelo);
   --inbox-bubble-ai-border: var(--border-violet);
-  --inbox-bubble-user-bg: var(--v500);       /* enviada — roxo sólido (iMessage-style) */
+  --inbox-bubble-user-bg: var(--petroleo);
   --inbox-bubble-user-border: transparent;
-  --inbox-bubble-user-text: #fff;
-  --inbox-section-bg: #f3f3f6;
-  --inbox-accent-bg: #f6f5ff;               /* fundo do thread — levemente violeta */
-  --inbox-bubble-human-label: #9a3412;
-  --inbox-msg-selected-outline: rgba(91, 63, 191, 0.25);
-  --inbox-row-hover-bg: rgba(15, 23, 42, 0.04);
-  --inbox-row-highlight-bg: rgba(91, 63, 191, 0.06);
+  --inbox-bubble-user-text: var(--branco);
+  --inbox-section-bg: var(--azul-gelo);
+  --inbox-accent-bg: var(--creme);
+  --inbox-bubble-human-label: color-mix(in srgb, var(--dourado) 55%, var(--cosmos));
+  --inbox-msg-selected-outline: rgba(196, 241, 53, 0.35);
+  --inbox-row-hover-bg: rgba(0, 68, 102, 0.04);
+  --inbox-row-highlight-bg: rgba(196, 241, 53, 0.08);
 
   /* Atendimento (Inbox) — escala tipográfica */
   --inbox-font-meta: var(--font-xs);

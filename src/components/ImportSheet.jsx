@@ -287,7 +287,7 @@ const ImportSheet = ({ isOpen, onClose, onImport, defaultStatus, title, importin
             <style dangerouslySetInnerHTML={{
                 __html: `
         .import-overlay {
-          position: fixed; inset: 0; background: rgba(18,16,42,0.5); backdrop-filter: blur(4px);
+          position: fixed; inset: 0; background: rgba(0, 4, 53,0.5); backdrop-filter: blur(4px);
           z-index: 10000; display: flex; align-items: flex-end; justify-content: center;
           animation: fadeIn 0.2s ease;
         }

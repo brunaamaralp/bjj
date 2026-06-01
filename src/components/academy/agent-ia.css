@@ -12,16 +12,16 @@
 }
 
 .agent-ia-card--assistant-active {
-  border-color: rgba(91, 63, 191, 0.3);
-  background: rgba(91, 63, 191, 0.04);
+  border-color: rgba(0, 68, 102, 0.3);
+  background: rgba(0, 68, 102, 0.04);
 }
 
 .agent-ia-config-banner {
   margin: 0 0 14px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(91, 63, 191, 0.08);
-  border: 0.5px solid rgba(91, 63, 191, 0.2);
+  background: rgba(0, 68, 102, 0.08);
+  border: 0.5px solid rgba(0, 68, 102, 0.2);
   font-size: var(--font-base);
   line-height: 1.45;
   color: var(--ink2, var(--text-secondary));
@@ -125,7 +125,7 @@
 }
 
 .agent-ia-setup-step--current {
-  color: var(--v500, #5b3fbf);
+  color: var(--v500, var(--petroleo));
 }
 
 .agent-ia-setup-step--done {
@@ -152,8 +152,8 @@
 }
 
 .agent-ia-setup-step--current .agent-ia-setup-step__icon {
-  border-color: var(--v500, #5b3fbf);
-  color: var(--v500, #5b3fbf);
+  border-color: var(--v500, var(--petroleo));
+  color: var(--v500, var(--petroleo));
 }
 
 .agent-ia-setup-panel__meta,
@@ -173,8 +173,8 @@
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(91, 63, 191, 0.06);
-  border: 0.5px solid rgba(91, 63, 191, 0.18);
+  background: rgba(0, 68, 102, 0.06);
+  border: 0.5px solid rgba(0, 68, 102, 0.18);
   font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);
@@ -230,7 +230,7 @@
 
 /* Foco no passo atual da configuração */
 .agent-ia-card--focus {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--v500, #5b3fbf) 35%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--v500, var(--petroleo)) 35%, transparent);
 }
 
 .agent-ia-card--deferred {
@@ -341,7 +341,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-sheet, 1100);
-  background: rgba(18, 16, 42, 0.35);
+  background: rgba(0, 4, 53, 0.35);
 }
 
 .agent-ia-sheet-panel {
@@ -353,7 +353,7 @@
   height: 100vh;
   max-height: 100dvh;
   background: var(--surface);
-  box-shadow: -8px 0 32px rgba(18, 16, 42, 0.12);
+  box-shadow: -8px 0 32px rgba(0, 4, 53, 0.12);
   display: flex;
   flex-direction: column;
 }

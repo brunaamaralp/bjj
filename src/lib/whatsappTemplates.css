@@ -26,7 +26,7 @@
   box-sizing: border-box;
 }
 .tpl-card-header:focus-visible {
-  outline: 2px solid var(--v500, #5b3fbF);
+  outline: 2px solid var(--v500, var(--petroleo));
   outline-offset: -2px;
 }
 .tpl-card-header-left {
@@ -90,8 +90,8 @@
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 20px;
-  background: rgba(91, 63, 191, 0.12);
-  color: var(--v700, #2e2272);
+  background: rgba(0, 68, 102, 0.12);
+  color: var(--v700, var(--petroleo));
 }
 .tpl-char-count {
   font-size: var(--font-2xs);
@@ -120,7 +120,7 @@
   border-color: var(--border-violet) !important;
 }
 .tpl-template-textarea:focus {
-  border: 1px solid #5b3fbf !important;
+  border: 1px solid var(--petroleo) !important;
   outline: none;
   background: var(--surface);
 }
@@ -155,7 +155,7 @@
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(18, 16, 42, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 4, 53, 0.12);
   font-size: var(--font-base);
   line-height: 1.45;
 }
@@ -165,7 +165,7 @@
   margin-bottom: 10px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  background: rgba(91, 63, 191, 0.06);
+  background: rgba(0, 68, 102, 0.06);
   font-size: var(--font-base);
   line-height: 1.45;
 }
@@ -177,7 +177,7 @@
 .tpl-preview { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .tpl-preview-box {
   border: 1px solid var(--border);
-  background: rgba(91, 63, 191, 0.04);
+  background: rgba(0, 68, 102, 0.04);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   white-space: pre-wrap;

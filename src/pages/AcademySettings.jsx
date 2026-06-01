@@ -620,7 +620,7 @@ const AcademySettings = () => {
           transition: background var(--motion-fast) var(--ease-standard);
         }
         .action-row:last-child { border-bottom: none; }
-        .action-row:hover { background: rgba(91, 63, 191, 0.03); }
+        .action-row:hover { background: rgba(0, 68, 102, 0.03); }
         .action-icon {
           width: 40px; height: 40px; border-radius: var(--radius-sm);
           display: flex; align-items: center; justify-content: center;

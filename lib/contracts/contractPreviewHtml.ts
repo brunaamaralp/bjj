@@ -22,7 +22,7 @@ const PREVIEW_RESPONSIVE_CSS = `
     font-family: Georgia, 'Times New Roman', Times, serif;
     font-size: 14px;
     line-height: 1.6;
-    color: #12102a;
+    color: var(--cosmos);
     overflow-x: hidden;
     word-wrap: break-word;
     overflow-wrap: anywhere;

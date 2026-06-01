@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Baby, Users, Dumbbell, CheckCircle2, AlertTriangle } from 'lucide-react';
-import NaviLogo from '../components/NaviLogo.jsx';
-import NaviWordmark from '../components/NaviWordmark.jsx';
+import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx';
@@ -135,8 +134,7 @@ export default function PublicStudentEnrollment() {
   return (
     <div className="public-enrollment-page">
       <header className="public-enrollment-page__header">
-        <NaviLogo size={28} />
-        <NaviWordmark fontSize={18} />
+        <NaviBrandLockup height={26} variant="light" />
       </header>
 
       <main className="public-enrollment-page__main">

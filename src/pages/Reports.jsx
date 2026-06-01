@@ -464,11 +464,11 @@ const Reports = () => {
         const convertedPrev = Number(m.converted?.previous || 0);
         const conversionPrev = Number(m.conversionRate?.previous || 0);
         const stageRows = [
-            { key: 'newLeads', label: 'Novos leads', current: newLeadsCurrent, previous: Number(m.newLeads?.previous || 0), drillKey: 'newLeads', prevBase: newLeadsCurrent, color: '#5B3FBF' },
-            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#5142A9' },
-            { key: 'completed', label: 'Compareceram', current: completedCurrent, previous: completedPrev, drillKey: 'completed', prevBase: scheduledCurrent, color: '#4A3D98' },
-            { key: 'converted', label: terms.reportsMetricConvertedShort, current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: '#433888' },
-            { key: 'conversionRate', label: 'Conversão total', current: conversionCurrent, previous: conversionPrev, drillKey: null, prevBase: 100, color: '#3C3489', isPercent: true },
+            { key: 'newLeads', label: 'Novos leads', current: newLeadsCurrent, previous: Number(m.newLeads?.previous || 0), drillKey: 'newLeads', prevBase: newLeadsCurrent, color: 'var(--petroleo)' },
+            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#004466' },
+            { key: 'completed', label: 'Compareceram', current: completedCurrent, previous: completedPrev, drillKey: 'completed', prevBase: scheduledCurrent, color: '#003654' },
+            { key: 'converted', label: terms.reportsMetricConvertedShort, current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: 'var(--petroleo)' },
+            { key: 'conversionRate', label: 'Conversão total', current: conversionCurrent, previous: conversionPrev, drillKey: null, prevBase: 100, color: '#000435', isPercent: true },
         ];
         return stageRows.map((s, index) => {
             const variation = pctVar(s.current, s.previous);
@@ -952,8 +952,8 @@ const Reports = () => {
                             <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} tickFormatter={formatChartTickPt} />
                             <YAxis hide />
                             <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                            <Bar dataKey="current" name="Este período" fill="#5B3FBF" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="previous" name="Período anterior" fill="#CECBF6" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="current" name="Este período" fill="var(--petroleo)" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="previous" name="Período anterior" fill="#B8C9D9" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 )}
@@ -983,9 +983,9 @@ const Reports = () => {
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
                                 <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
                                 <YAxis hide />
-                                <Tooltip cursor={{ stroke: '#5B3FBF', strokeOpacity: 0.2 }} formatter={(value) => `${Number(value || 0).toFixed(1)}%`} />
-                                <Line type="monotone" dataKey="rate" name="Este período" stroke="#5B3FBF" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                                <Line type="monotone" dataKey="previousRate" name="Período anterior" stroke="#9A95D9" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2 }} />
+                                <Tooltip cursor={{ stroke: 'var(--petroleo)', strokeOpacity: 0.2 }} formatter={(value) => `${Number(value || 0).toFixed(1)}%`} />
+                                <Line type="monotone" dataKey="rate" name="Este período" stroke="var(--petroleo)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                                <Line type="monotone" dataKey="previousRate" name="Período anterior" stroke="#755468" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </>
@@ -1225,7 +1225,7 @@ const Reports = () => {
           border-radius: 16px;
           background: var(--surface);
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(0, 68, 102, 0.07);
           overflow: hidden;
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
         }
@@ -1244,7 +1244,7 @@ const Reports = () => {
           background: linear-gradient(90deg, #c9a227, #e8b84a);
         }
         .reports-kpi-card--success::before {
-          background: linear-gradient(90deg, var(--success-dot), #5cbf8a);
+          background: linear-gradient(90deg, var(--lima), color-mix(in srgb, var(--lima) 70%, var(--petroleo)));
         }
         .reports-kpi-card--danger::before {
           background: linear-gradient(90deg, var(--danger), var(--c300));
@@ -1329,8 +1329,8 @@ const Reports = () => {
         .reports-kpi-card--clickable { cursor: pointer; }
         .reports-kpi-card--clickable:hover {
           transform: translateY(-3px);
-          border-color: rgba(91, 63, 191, 0.22);
-          box-shadow: 0 4px 12px rgba(18, 16, 42, 0.06), 0 16px 40px rgba(91, 63, 191, 0.12);
+          border-color: rgba(0, 68, 102, 0.22);
+          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 16px 40px rgba(0, 68, 102, 0.12);
         }
         .reports-kpi-card--clickable:focus {
           outline: 2px solid var(--accent);
@@ -1343,7 +1343,7 @@ const Reports = () => {
         .reports-filters-card,
         .reports-evo-card {
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(0, 68, 102, 0.07);
           border-radius: 16px;
         }
         .reports-evo-card {
@@ -1380,7 +1380,7 @@ const Reports = () => {
           padding: 40px 24px; min-height: 200px; justify-content: center;
           border-radius: 16px;
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 28px rgba(91, 63, 191, 0.07);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(0, 68, 102, 0.07);
         }
         .reports-loading-spinner { color: var(--accent); }
         .reports-partial-banner {
@@ -1396,7 +1396,7 @@ const Reports = () => {
           padding: 0; overflow: hidden;
           border-radius: 16px;
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 24px rgba(91, 63, 191, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(0, 68, 102, 0.06);
         }
         .reports-methodology-summary {
           display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer;
@@ -1410,7 +1410,7 @@ const Reports = () => {
           padding: 32px 22px; text-align: center;
           border-radius: 16px;
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 24px rgba(91, 63, 191, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(0, 68, 102, 0.06);
         }
         .reports-export-wrap { position: relative; }
         .reports-export-btn {
@@ -1434,7 +1434,7 @@ const Reports = () => {
           border-radius: 16px;
           padding: 14px;
           background: var(--surface);
-          box-shadow: 0 1px 2px rgba(18, 16, 42, 0.04), 0 8px 24px rgba(91, 63, 191, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(0, 68, 102, 0.06);
         }
         .reports-funnel-row {
           display: flex;
@@ -1498,8 +1498,8 @@ const Reports = () => {
         .reports-chart-legend { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
         .reports-chart-legend-item { font-size: 11px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
         .reports-chart-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-        .reports-chart-dot.is-current { background: #5B3FBF; }
-        .reports-chart-dot.is-previous { background: #CECBF6; }
+        .reports-chart-dot.is-current { background: var(--petroleo); }
+        .reports-chart-dot.is-previous { background: #B8C9D9; }
         .reports-aux-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -1608,7 +1608,7 @@ const Reports = () => {
         .reports-chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
         .reports-drill-overlay {
           position: fixed; inset: 0; z-index: 60;
-          background: rgba(18, 16, 42, 0.48);
+          background: rgba(0, 4, 53, 0.48);
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);
           display: flex; align-items: flex-end; justify-content: center; padding: 16px;
@@ -1629,9 +1629,9 @@ const Reports = () => {
           background: var(--surface);
           border: 1px solid var(--border);
           box-shadow:
-            0 1px 2px rgba(18, 16, 42, 0.05),
-            0 16px 48px rgba(91, 63, 191, 0.14),
-            0 32px 80px rgba(18, 16, 42, 0.12);
+            0 1px 2px rgba(0, 4, 53, 0.05),
+            0 16px 48px rgba(0, 68, 102, 0.14),
+            0 32px 80px rgba(0, 4, 53, 0.12);
           animation: reportsDrillUp 0.28s ease;
         }
         .reports-drill-panel::before {

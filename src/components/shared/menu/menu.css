@@ -92,7 +92,7 @@
 
 .navi-menu__item:focus-visible,
 .dropdown-item:focus-visible {
-  outline: 2px solid var(--v500);
+  outline: 2px solid var(--focus-ring-color); box-shadow: 0 0 0 3px var(--focus-ring);
   outline-offset: 1px;
 }
 

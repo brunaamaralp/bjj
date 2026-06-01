@@ -19,8 +19,8 @@ const VARIANT_STYLES = {
     color: '#C2410C',
   },
   pago: {
-    background: 'var(--v50, #f3f0ff)',
-    color: 'var(--v700, #5B3FBF)',
+    background: 'var(--v50, var(--azul-gelo))',
+    color: 'var(--v700, var(--petroleo))',
   },
 };
 
