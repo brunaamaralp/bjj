@@ -465,7 +465,7 @@ const Reports = () => {
         const conversionPrev = Number(m.conversionRate?.previous || 0);
         const stageRows = [
             { key: 'newLeads', label: 'Novos leads', current: newLeadsCurrent, previous: Number(m.newLeads?.previous || 0), drillKey: 'newLeads', prevBase: newLeadsCurrent, color: 'var(--petroleo)' },
-            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#004466' },
+            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#6C47D8' },
             { key: 'completed', label: 'Compareceram', current: completedCurrent, previous: completedPrev, drillKey: 'completed', prevBase: scheduledCurrent, color: '#003654' },
             { key: 'converted', label: terms.reportsMetricConvertedShort, current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: 'var(--petroleo)' },
             { key: 'conversionRate', label: 'Conversão total', current: conversionCurrent, previous: conversionPrev, drillKey: null, prevBase: 100, color: '#000435', isPercent: true },
@@ -1225,7 +1225,7 @@ const Reports = () => {
           border-radius: 16px;
           background: var(--surface);
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(0, 68, 102, 0.07);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(108, 71, 216, 0.07);
           overflow: hidden;
           transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
         }
@@ -1244,7 +1244,7 @@ const Reports = () => {
           background: linear-gradient(90deg, #c9a227, #e8b84a);
         }
         .reports-kpi-card--success::before {
-          background: linear-gradient(90deg, var(--lima), color-mix(in srgb, var(--lima) 70%, var(--petroleo)));
+          background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, var(--color-primary)));
         }
         .reports-kpi-card--danger::before {
           background: linear-gradient(90deg, var(--danger), var(--c300));
@@ -1329,8 +1329,8 @@ const Reports = () => {
         .reports-kpi-card--clickable { cursor: pointer; }
         .reports-kpi-card--clickable:hover {
           transform: translateY(-3px);
-          border-color: rgba(0, 68, 102, 0.22);
-          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 16px 40px rgba(0, 68, 102, 0.12);
+          border-color: rgba(108, 71, 216, 0.22);
+          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 16px 40px rgba(108, 71, 216, 0.12);
         }
         .reports-kpi-card--clickable:focus {
           outline: 2px solid var(--accent);
@@ -1343,7 +1343,7 @@ const Reports = () => {
         .reports-filters-card,
         .reports-evo-card {
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(0, 68, 102, 0.07);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(108, 71, 216, 0.07);
           border-radius: 16px;
         }
         .reports-evo-card {
@@ -1380,7 +1380,7 @@ const Reports = () => {
           padding: 40px 24px; min-height: 200px; justify-content: center;
           border-radius: 16px;
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(0, 68, 102, 0.07);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(108, 71, 216, 0.07);
         }
         .reports-loading-spinner { color: var(--accent); }
         .reports-partial-banner {
@@ -1396,7 +1396,7 @@ const Reports = () => {
           padding: 0; overflow: hidden;
           border-radius: 16px;
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(0, 68, 102, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(108, 71, 216, 0.06);
         }
         .reports-methodology-summary {
           display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer;
@@ -1410,7 +1410,7 @@ const Reports = () => {
           padding: 32px 22px; text-align: center;
           border-radius: 16px;
           border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(0, 68, 102, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(108, 71, 216, 0.06);
         }
         .reports-export-wrap { position: relative; }
         .reports-export-btn {
@@ -1434,7 +1434,7 @@ const Reports = () => {
           border-radius: 16px;
           padding: 14px;
           background: var(--surface);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(0, 68, 102, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(108, 71, 216, 0.06);
         }
         .reports-funnel-row {
           display: flex;
@@ -1630,7 +1630,7 @@ const Reports = () => {
           border: 1px solid var(--border);
           box-shadow:
             0 1px 2px rgba(0, 4, 53, 0.05),
-            0 16px 48px rgba(0, 68, 102, 0.14),
+            0 16px 48px rgba(108, 71, 216, 0.14),
             0 32px 80px rgba(0, 4, 53, 0.12);
           animation: reportsDrillUp 0.28s ease;
         }

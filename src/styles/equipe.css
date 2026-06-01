@@ -1,4 +1,4 @@
-﻿/* Equipe — página /equipe (tokens globais em core.css) */
+/* Equipe — página /equipe (tokens globais em core.css) */
 
 .equipe-page {
   padding-bottom: var(--space-8, 32px);
@@ -585,7 +585,7 @@
 
 /* Row hover sutil */
 .equipe-table tbody tr:hover td {
-  background: rgba(0, 68, 102, 0.03);
+  background: rgba(108, 71, 216, 0.03);
 }
 
 /* Panel border alinhado com o design system */

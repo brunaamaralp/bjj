@@ -81,8 +81,8 @@ export default defineConfig(({ mode }) => {
           name: 'Nave',
           short_name: 'Nave',
           description: 'CRM para estúdios de luta, dança, yoga e atividades físicas',
-          theme_color: '#040B27',
-          background_color: '#040B27',
+          theme_color: '#13111F',
+          background_color: '#13111F',
           display: 'standalone',
           icons: [
             {

@@ -4,7 +4,8 @@
  * Valores alinhados a :root em index.css.
  */
 export const LABEL_PRESET_COLORS = [
-  { hex: '#004466', cssVar: '--petroleo' },
+  { hex: '#6C47D8', cssVar: '--color-primary' },
+  { hex: '#1FAA5E', cssVar: '--color-accent' },
   { hex: '#f04040', cssVar: '--c500' },
   { hex: '#E4B55D', cssVar: '--dourado' },
   { hex: '#25d366', cssVar: null },

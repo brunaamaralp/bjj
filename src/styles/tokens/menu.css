@@ -16,8 +16,8 @@
   --menu-item-font-size: var(--font-base);
   --menu-item-font-weight: 500;
   --menu-item-hover-bg: var(--azul-gelo);
-  --menu-item-active-bg: color-mix(in srgb, var(--lima) 18%, var(--branco));
-  --menu-item-active-color: var(--cosmos);
+  --menu-item-active-bg: var(--color-primary-surface);
+  --menu-item-active-color: var(--color-primary-dark);
   --menu-item-danger-color: var(--danger);
   --menu-item-danger-hover-bg: var(--danger-light);
   --menu-header-font-size: var(--font-2xs);

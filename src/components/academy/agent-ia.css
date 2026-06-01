@@ -12,16 +12,16 @@
 }
 
 .agent-ia-card--assistant-active {
-  border-color: rgba(0, 68, 102, 0.3);
-  background: rgba(0, 68, 102, 0.04);
+  border-color: rgba(108, 71, 216, 0.3);
+  background: rgba(108, 71, 216, 0.04);
 }
 
 .agent-ia-config-banner {
   margin: 0 0 14px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 68, 102, 0.08);
-  border: 0.5px solid rgba(0, 68, 102, 0.2);
+  background: rgba(108, 71, 216, 0.08);
+  border: 0.5px solid rgba(108, 71, 216, 0.2);
   font-size: var(--font-base);
   line-height: 1.45;
   color: var(--ink2, var(--text-secondary));
@@ -173,8 +173,8 @@
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 68, 102, 0.06);
-  border: 0.5px solid rgba(0, 68, 102, 0.18);
+  background: rgba(108, 71, 216, 0.06);
+  border: 0.5px solid rgba(108, 71, 216, 0.18);
   font-size: var(--font-base);
   line-height: 1.45;
   color: var(--text-secondary);

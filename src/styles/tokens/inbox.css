@@ -24,9 +24,9 @@
   --inbox-section-bg: var(--azul-gelo);
   --inbox-accent-bg: var(--creme);
   --inbox-bubble-human-label: color-mix(in srgb, var(--dourado) 55%, var(--cosmos));
-  --inbox-msg-selected-outline: rgba(196, 241, 53, 0.35);
-  --inbox-row-hover-bg: rgba(0, 68, 102, 0.04);
-  --inbox-row-highlight-bg: rgba(196, 241, 53, 0.08);
+  --inbox-msg-selected-outline: rgba(108, 71, 216, 0.35);
+  --inbox-row-hover-bg: rgba(108, 71, 216, 0.04);
+  --inbox-row-highlight-bg: rgba(108, 71, 216, 0.08);
 
   /* Atendimento (Inbox) — escala tipográfica */
   --inbox-font-meta: var(--font-xs);

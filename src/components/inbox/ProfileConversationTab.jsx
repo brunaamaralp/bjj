@@ -267,7 +267,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
           minHeight: 0,
           overflowY: 'auto',
           padding: 16,
-          background: 'rgba(0, 68, 102,0.04)',
+          background: 'rgba(108, 71, 216,0.04)',
         }}
       >
         {loading ? <ThreadSkeleton /> : null}

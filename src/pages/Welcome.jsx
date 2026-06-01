@@ -472,7 +472,7 @@ const Welcome = () => {
       .navi-lp-skip:focus {
         position: fixed; left: 12px; top: 12px; z-index: 200;
         width: auto; height: auto; padding: 10px 16px;
-        background: var(--lima); color: var(--cosmos);
+        background: var(--color-accent); color: #fff;
         font-weight: 700; font-size: 14px;
         border-radius: 8px; text-decoration: none;
       }
@@ -485,7 +485,7 @@ const Welcome = () => {
       /* ── Focus ── */
       .navi-lp a:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--lima);
+        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-accent);
       }
       .navi-lp-nav-brand:focus-visible { border-radius: 12px; }
       .navi-lp-btn-nav-primary:focus-visible,
@@ -493,7 +493,7 @@ const Welcome = () => {
       .navi-lp-btn-mid:focus-visible,
       .navi-lp-btn-final:focus-visible {
         border-radius: 100px;
-        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--lima);
+        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-accent);
       }
 
       /* ── Reveal ── */
@@ -553,7 +553,7 @@ const Welcome = () => {
       }
       .navi-lp-blob--a {
         width: min(420px,80vw); height: min(420px,80vw);
-        background: radial-gradient(circle, rgba(0, 68, 102, 0.22) 0%, rgba(0, 4, 53, 0.08) 55%, transparent 72%);
+        background: radial-gradient(circle, rgba(108, 71, 216, 0.22) 0%, rgba(0, 4, 53, 0.08) 55%, transparent 72%);
         top: -15%; right: -8%; opacity: 0.4;
       }
       .navi-lp-blob--b {
@@ -563,13 +563,13 @@ const Welcome = () => {
       }
       .navi-lp-blob--c {
         width: min(240px,55vw); height: min(240px,55vw);
-        background: radial-gradient(circle, rgba(0, 68, 102,0.3) 0%, transparent 65%);
+        background: radial-gradient(circle, rgba(108, 71, 216,0.3) 0%, transparent 65%);
         top: 40%; right: 24%; opacity: 0.22;
       }
       .navi-lp-blob--g1 {
         width: 70%; height: 140%; left: -20%; top: -35%;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(0, 68, 102, 0.14) 0%, transparent 68%);
+        background: radial-gradient(circle, rgba(108, 71, 216, 0.14) 0%, transparent 68%);
         filter: blur(56px); opacity: 0.55;
       }
       .navi-lp-blob--g2 {
@@ -623,16 +623,16 @@ const Welcome = () => {
         gap: 10px; width: 100%; max-width: 280px;
         min-height: 48px; padding: 12px 24px;
         border-radius: 100px; font-size: 15px; font-weight: 700;
-        text-decoration: none; color: var(--cosmos);
-        background: var(--lima);
-        box-shadow: 0 6px 22px rgba(196, 241, 53, 0.35);
+        text-decoration: none; color: #fff;
+        background: var(--color-accent);
+        box-shadow: 0 6px 22px rgba(31, 170, 94, 0.35);
         transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.2s ease;
         animation: navi-lp-fade-up 0.45s 0.1s ease both;
       }
       .navi-lp-btn-hero:hover {
-        background: color-mix(in srgb, var(--lima) 88%, var(--cosmos));
+        background: color-mix(in srgb, var(--color-accent) 90%, var(--color-accent-dark));
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(196, 241, 53, 0.4);
+        box-shadow: 0 8px 24px rgba(31, 170, 94, 0.4);
       }
       .navi-lp-btn-hero:active { transform: scale(0.98); }
       .navi-lp-hero-hint {
@@ -654,7 +654,7 @@ const Welcome = () => {
         border-radius: 45% 55% 48% 52% / 52% 48% 54% 46%;
         background: radial-gradient(
           ellipse 80% 70% at 35% 30%,
-          rgba(0, 68, 102, 0.18) 0%,
+          rgba(108, 71, 216, 0.18) 0%,
           rgba(0, 4, 53, 0.08) 70%,
           transparent 100%
         );
@@ -663,10 +663,10 @@ const Welcome = () => {
       .navi-lp-mock-wrap {
         position: relative; z-index: 1;
         border-radius: 24px; padding: 1.5px;
-        background: linear-gradient(135deg, rgba(0, 68, 102, 0.35) 0%, rgba(0, 4, 53, 0.12) 50%, rgba(196, 241, 53, 0.18) 100%);
+        background: linear-gradient(135deg, rgba(108, 71, 216, 0.35) 0%, rgba(19, 17, 31, 0.12) 50%, rgba(31, 170, 94, 0.18) 100%);
         box-shadow:
-          0 0 0 1px rgba(0, 68, 102, 0.15),
-          0 0 24px rgba(0, 68, 102, 0.08),
+          0 0 0 1px rgba(108, 71, 216, 0.15),
+          0 0 24px rgba(108, 71, 216, 0.08),
           0 20px 56px rgba(0,0,0,0.14);
       }
 
@@ -854,8 +854,8 @@ const Welcome = () => {
       }
       .navi-lp-gallery-item {
         margin: 0; border-radius: 20px; overflow: hidden;
-        border: 0.5px solid rgba(0, 68, 102,0.12);
-        box-shadow: 0 6px 32px rgba(0, 68, 102,0.09), 0 1px 4px rgba(0,0,0,0.06);
+        border: 0.5px solid rgba(108, 71, 216,0.12);
+        box-shadow: 0 6px 32px rgba(108, 71, 216,0.09), 0 1px 4px rgba(0,0,0,0.06);
         background: #fff;
       }
       .navi-lp-gallery-item img {
@@ -877,7 +877,7 @@ const Welcome = () => {
       }
       .navi-lp-band--dark::before {
         content: ''; position: absolute; inset: 0;
-        background: radial-gradient(ellipse 80% 50% at 90% 10%, rgba(0, 68, 102,0.22), transparent 58%);
+        background: radial-gradient(ellipse 80% 50% at 90% 10%, rgba(108, 71, 216,0.22), transparent 58%);
         pointer-events: none;
       }
       .navi-lp-band--dark .navi-lp-inner { position: relative; z-index: 1; }
@@ -896,7 +896,7 @@ const Welcome = () => {
         border-radius: 16px; padding: clamp(28px,4vw,44px);
         box-shadow: 0 2px 16px rgba(0, 4, 53,0.04);
       }
-      .navi-lp-band--soft .navi-lp-card { box-shadow: 0 4px 24px rgba(0, 68, 102,0.06); }
+      .navi-lp-band--soft .navi-lp-card { box-shadow: 0 4px 24px rgba(108, 71, 216,0.06); }
       .navi-lp-card .navi-lp-h2 { max-width: min(var(--lp-prose),100%); margin: 0 0 20px; }
       .navi-lp-card .navi-lp-p,
       .navi-lp-card .navi-lp-list,
@@ -994,11 +994,11 @@ const Welcome = () => {
         display: inline-flex; align-items: center; justify-content: center;
         gap: 10px; min-height: 52px; padding: 13px 30px;
         border-radius: 100px; font-size: 15px; font-weight: 700;
-        text-decoration: none; color: var(--cosmos); background: var(--lima);
-        box-shadow: 0 6px 22px rgba(196, 241, 53, 0.35);
+        text-decoration: none; color: #fff; background: var(--color-accent);
+        box-shadow: 0 6px 22px rgba(31, 170, 94, 0.35);
         transition: background 0.15s ease, transform 0.15s ease;
       }
-      .navi-lp-btn-mid:hover { background: color-mix(in srgb, var(--lima) 88%, var(--cosmos)); transform: translateY(-2px); }
+      .navi-lp-btn-mid:hover { background: color-mix(in srgb, var(--color-accent) 90%, var(--color-accent-dark)); transform: translateY(-2px); }
       .navi-lp-mid-cta-hint { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: #9ca3af; }
 
       /* ── Funnel ── */
@@ -1009,7 +1009,7 @@ const Welcome = () => {
       .navi-lp-funnel-chip {
         display: inline-flex; align-items: center;
         padding: 7px 12px; border-radius: 100px;
-        background: var(--lp-pill-bg); border: 0.5px solid rgba(0, 68, 102,0.15);
+        background: var(--lp-pill-bg); border: 0.5px solid rgba(108, 71, 216,0.15);
         font-size: 12px; font-weight: 600; color: var(--v700); white-space: nowrap;
       }
       .navi-lp-funnel-arrow { color: var(--faint); font-size: 13px; font-weight: 600; }
@@ -1056,11 +1056,11 @@ const Welcome = () => {
         gap: 10px; width: 100%; max-width: 420px; min-height: 56px;
         padding: 15px 36px; border-radius: 100px;
         font-size: 16px; font-weight: 700; text-decoration: none;
-        color: var(--cosmos); background: var(--lima);
-        box-shadow: 0 8px 28px rgba(196, 241, 53, 0.35);
+        color: #fff; background: var(--color-accent);
+        box-shadow: 0 8px 28px rgba(31, 170, 94, 0.35);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      .navi-lp-btn-final:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(196, 241, 53, 0.42); }
+      .navi-lp-btn-final:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(31, 170, 94, 0.42); }
       .navi-lp-final-hint { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: rgba(255,255,255,0.5); }
 
       /* ── Footer ── */

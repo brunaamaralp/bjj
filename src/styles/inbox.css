@@ -137,7 +137,7 @@
 
 .inbox-page-header .inbox-toolbar-search input:focus {
   border-color: var(--v500);
-  box-shadow: 0 0 0 2px rgba(0, 68, 102, 0.15);
+  box-shadow: 0 0 0 2px rgba(108, 71, 216, 0.15);
   background: var(--surface);
 }
 
@@ -776,7 +776,7 @@
 }
 
 .inbox-conversation-item.active {
-  background: rgba(0, 68, 102, 0.09);
+  background: rgba(108, 71, 216, 0.09);
   box-shadow: none;
 }
 

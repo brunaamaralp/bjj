@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useTaskStore } from '../store/useTaskStore';
+import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
 import { Query } from 'appwrite';
@@ -8,7 +9,7 @@ import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, CheckCircle2, DoorOpen, Loader2 } from 'lucide-react';
+import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, CheckCircle2, DoorOpen, Loader2, Cake } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
@@ -33,6 +34,9 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
+import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
+import { STUDENT_STATUS } from '../lib/studentStatus.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
@@ -57,6 +61,10 @@ const Dashboard = () => {
     const updateTask = useTaskStore((s) => s.updateTask);
     const patchTaskLocal = useTaskStore((s) => s.patchTaskLocal);
     const isUpdatingTask = useTaskStore((s) => s.isUpdating);
+    const students = useStudentStore((s) => s.students);
+    const fetchStudents = useStudentStore((s) => s.fetchStudents);
+    const studentsLoading = useStudentStore((s) => s.loading);
+    const studentsLastFetchedAt = useStudentStore((s) => s.lastFetchedAt);
     const addToast = useUiStore((s) => s.addToast);
     const controlIdCfg = useAcademyControlId(academyId);
     useControlIdMonitor(academyId, controlIdCfg.enabled);
@@ -160,6 +168,15 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (!academyId) return;
+        const STALE_MS = 5 * 60 * 1000;
+        if (students.length > 0 && studentsLastFetchedAt && Date.now() - studentsLastFetchedAt < STALE_MS) {
+            return;
+        }
+        void fetchStudents({ reset: true });
+    }, [academyId, students.length, studentsLastFetchedAt, fetchStudents]);
+
+    useEffect(() => {
+        if (!academyId) return;
         const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
@@ -247,6 +264,7 @@ const Dashboard = () => {
         try {
             await Promise.all([
                 fetchLeads(),
+                fetchStudents({ reset: true }),
                 fetchTasks(academyId, { silent: true, filters: { status: 'pending' } }),
             ]);
         } finally {
@@ -312,6 +330,16 @@ const Dashboard = () => {
             const tb = new Date(b.statusChangedAt || b.pipelineStageChangedAt || b.createdAt || 0).getTime();
             return tb - ta;
         });
+
+    const todayBirthdays = useMemo(() => {
+        const mesEDia = getTodayMonthDay();
+        return (students || [])
+            .filter((s) => {
+                if (String(s?.studentStatus || '').trim() === STUDENT_STATUS.INACTIVE) return false;
+                return getBirthMonthDay(s.birthDate) === mesEDia;
+            })
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
+    }, [students]);
 
     const isZeroState = !loading && leads.length === 0 && (tasks || []).length === 0;
 
@@ -830,7 +858,7 @@ const Dashboard = () => {
                 ) : null}
             </section>
 
-            <div className="agenda-section-divider" aria-hidden />
+            <div className="agenda-bottom-row">
             <section
                 id="follow-ups"
                 ref={followUpsSectionRef}
@@ -1022,6 +1050,77 @@ const Dashboard = () => {
                 )}
                 </div>
             </section>
+
+            <section
+                id="birthdays"
+                className="animate-in agenda-birthdays-section reception-section"
+                style={{ animationDelay: '0.22s' }}
+            >
+                <div className="reception-section-head agenda-birthdays-section__head">
+                    <div className="agenda-birthdays-section__title-row flex items-center gap-2 flex-wrap min-w-0">
+                        <h3 className="navi-section-heading reception-section-heading">
+                            <Cake size={18} color="#C47A00" strokeWidth={2} aria-hidden /> Aniversariantes hoje
+                        </h3>
+                        <span className="badge agenda-birthdays-badge">{todayBirthdays.length}</span>
+                    </div>
+                </div>
+                <div className="agenda-birthdays-section__body">
+                    <p className="reception-hint agenda-birthdays-hint">
+                        {terms.students} com aniversário nesta data. Toque no nome para abrir o perfil.
+                    </p>
+                    <div className="bd-list-card">
+                        {studentsLoading && students.length === 0 ? (
+                            <div className="bd-list-loading" aria-busy="true">
+                                {[1, 2].map((i) => (
+                                    <div key={i} className="bd-row bd-row--skeleton" aria-hidden />
+                                ))}
+                            </div>
+                        ) : todayBirthdays.length > 0 ? (
+                            todayBirthdays.map((student, i) => (
+                                <div
+                                    key={student.id}
+                                    className={`bd-row animate-in${i === todayBirthdays.length - 1 ? ' bd-row--last' : ''}`}
+                                    style={{ animationDelay: `${0.04 * i}s` }}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => navigate(`/student/${student.id}`)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            navigate(`/student/${student.id}`);
+                                        }
+                                    }}
+                                >
+                                    <span className="bd-emoji" aria-hidden>
+                                        🎂
+                                    </span>
+                                    <div className="bd-info">
+                                        <div className="bd-name">{student.name}</div>
+                                        <div className="bd-sub">
+                                            {normalizeLeadProfileType(student.type) || student.type || '—'}
+                                            {student.turma ? (
+                                                <>
+                                                    <span className="bd-sep">·</span>
+                                                    <span className="bd-turma">{student.turma}</span>
+                                                </>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="bd-list-empty" role="status">
+                                <Cake className="bd-list-empty__icon" size={26} strokeWidth={2} aria-hidden />
+                                <p className="bd-list-empty__title">Nenhum aniversariante hoje</p>
+                                <p className="bd-list-empty__hint">
+                                    Quando algum {terms.student.toLowerCase()} fizer aniversário, aparece aqui.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+            </div>
             </div>
 
             <ModalShell
@@ -1782,6 +1881,7 @@ const Dashboard = () => {
         }
         .agenda-today-week-section,
         .agenda-followups-section,
+        .agenda-birthdays-section,
         .agenda-week-section {
           width: 100%;
           display: block;
@@ -1809,8 +1909,16 @@ const Dashboard = () => {
           max-width: 100%;
           min-width: 0;
         }
-        .agenda-page-stack > .agenda-followups-section {
+        .agenda-bottom-row {
           order: 1;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+          gap: 22px;
+          align-items: start;
+          width: 100%;
+        }
+        .agenda-bottom-row > .agenda-followups-section,
+        .agenda-bottom-row > .agenda-birthdays-section {
           width: 100%;
           max-width: 100%;
           position: static;
@@ -1818,10 +1926,132 @@ const Dashboard = () => {
           display: flex;
           flex-direction: column;
           min-height: 0;
+          min-width: 0;
           box-sizing: border-box;
         }
-        .agenda-page-stack > .agenda-followups-section .fu-list-card {
+        .agenda-bottom-row > .agenda-followups-section .fu-list-card {
           max-height: none;
+        }
+        .agenda-birthdays-section.reception-section {
+          background: linear-gradient(180deg, #FFFBF5 0%, var(--color-bg-primary) 100%);
+          border-color: #FED7AA;
+        }
+        .agenda-birthdays-section__head {
+          margin-bottom: 0;
+        }
+        .agenda-birthdays-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          line-height: 1;
+          font-size: 11px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          background: #FDBA74;
+          color: #7C2D12;
+          border: none;
+          flex-shrink: 0;
+        }
+        .agenda-birthdays-hint {
+          border-left-color: #FDBA74 !important;
+          background: #FFF7ED !important;
+          border-color: #FED7AA !important;
+        }
+        .bd-list-card {
+          background: transparent;
+          border: none;
+          padding: 0;
+          box-shadow: none;
+        }
+        .bd-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 8px;
+          border-radius: 9px;
+          border: 0.5px solid #FED7AA;
+          margin-bottom: 7px;
+          background: var(--color-bg-primary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .bd-row:hover {
+          border-color: #FDBA74;
+          background: #FFF7ED;
+          box-shadow: 0 2px 6px rgba(194, 122, 0, 0.08);
+        }
+        .bd-row--last {
+          margin-bottom: 0;
+        }
+        .bd-row--skeleton {
+          min-height: 52px;
+          cursor: default;
+          background: linear-gradient(90deg, #FFF7ED 25%, #FFEDD5 50%, #FFF7ED 75%);
+          background-size: 200% 100%;
+          animation: bd-skeleton 1.2s ease-in-out infinite;
+          border-color: #FED7AA;
+        }
+        @keyframes bd-skeleton {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .bd-emoji {
+          flex-shrink: 0;
+          font-size: 16px;
+          line-height: 1;
+        }
+        .bd-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .bd-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #7C2D12;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .bd-sub {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          margin-top: 2px;
+          font-size: 12px;
+          color: #9A3412;
+          opacity: 0.85;
+        }
+        .bd-sep {
+          opacity: 0.5;
+        }
+        .bd-turma {
+          font-weight: 500;
+        }
+        .bd-list-empty {
+          padding: 20px 0;
+          text-align: center;
+          color: #9A3412;
+        }
+        .bd-list-empty__icon {
+          color: #FDBA74;
+          margin: 0 auto 8px;
+          display: block;
+        }
+        .bd-list-empty__title {
+          margin: 0 0 6px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #9A3412;
+        }
+        .bd-list-empty__hint {
+          margin: 0;
+          font-size: 12px;
+          line-height: 1.45;
+          color: var(--text-secondary);
         }
         .agenda-followups-section__head {
           margin-bottom: 0;
@@ -1868,8 +2098,13 @@ const Dashboard = () => {
           min-height: 0;
           flex: 1 1 auto;
         }
+        @media (max-width: 960px) {
+          .agenda-bottom-row {
+            grid-template-columns: 1fr;
+          }
+        }
         @media (max-width: 767px) {
-          .agenda-page-stack > .agenda-followups-section .fu-list-card {
+          .agenda-bottom-row > .agenda-followups-section .fu-list-card {
             max-height: min(60vh, 520px);
             overflow-y: auto;
           }
@@ -1942,8 +2177,8 @@ const Dashboard = () => {
           display: none;
         }
         .agenda-kpi-card:hover {
-          border-color: rgba(0, 68, 102, 0.22);
-          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 8px 24px rgba(0, 68, 102, 0.10);
+          border-color: rgba(108, 71, 216, 0.22);
+          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 8px 24px rgba(108, 71, 216, 0.10);
         }
         @media (prefers-reduced-motion: reduce) {
           .agenda-kpi-card { transition: none; }
@@ -2157,7 +2392,7 @@ const Dashboard = () => {
         }
         .agenda-time-line {
           height: 1px;
-          background: rgba(0, 68, 102, 0.22);
+          background: rgba(108, 71, 216, 0.22);
           flex: 1 1 auto;
         }
         .reception-agenda-inner .agenda-experimental-cards .agenda-card.card {
@@ -2192,7 +2427,7 @@ const Dashboard = () => {
           padding: 0;
         }
         .agenda-card-more-btn:hover {
-          border-color: rgba(0, 68, 102, 0.22);
+          border-color: rgba(108, 71, 216, 0.22);
           color: var(--v500);
         }
         .agenda-experimental-main {
@@ -2298,7 +2533,7 @@ const Dashboard = () => {
           gap: 8px;
           margin-top: 10px;
           padding-top: 10px;
-          border-top: 1px solid rgba(0, 68, 102, 0.09);
+          border-top: 1px solid rgba(108, 71, 216, 0.09);
         }
         .agenda-card--attended {
           opacity: 0.5;
@@ -2326,17 +2561,17 @@ const Dashboard = () => {
           left: 0;
           right: 0;
           height: 2px;
-          background: linear-gradient(90deg, var(--petroleo), rgba(0, 68, 102, 0.75));
+          background: linear-gradient(90deg, var(--petroleo), rgba(108, 71, 216, 0.75));
           opacity: 0.7;
           pointer-events: none;
           border-radius: 16px 16px 0 0;
         }
         .reception-agenda-inner .agenda-card.card:hover {
           transform: translateY(-2px);
-          border-color: rgba(0, 68, 102, 0.22);
+          border-color: rgba(108, 71, 216, 0.22);
           box-shadow:
             0 4px 14px rgba(0, 4, 53, 0.07),
-            0 16px 40px rgba(0, 68, 102, 0.12);
+            0 16px 40px rgba(108, 71, 216, 0.12);
         }
         @media (prefers-reduced-motion: reduce) {
           .reception-agenda-inner .agenda-card.card { transition: none; }
@@ -2375,7 +2610,7 @@ const Dashboard = () => {
         .followup-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         .followup-action-btn:disabled:hover { border-color: var(--border-light); color: var(--text-secondary); }
         .reception-agenda-inner .agenda-card.card .border-t {
-          border-top: 1px solid rgba(0, 68, 102, 0.09);
+          border-top: 1px solid rgba(108, 71, 216, 0.09);
         }
         .reception-agenda-inner .followup-action-btn {
           border-radius: 10px;
@@ -2464,13 +2699,13 @@ const Dashboard = () => {
           border: none; cursor: pointer;
           padding: 0;
           flex: 0 0 44px;
-          box-shadow: 0 4px 14px rgba(0, 68, 102, 0.28);
+          box-shadow: 0 4px 14px rgba(108, 71, 216, 0.28);
           transition: transform .12s ease, filter .12s ease, box-shadow .2s ease;
         }
         .edit-time-btn svg { display: block; color: #fff; stroke: currentColor; fill: none; }
         .edit-time-btn:hover { filter: brightness(0.96); }
         .edit-time-btn:active { transform: translateY(1px); }
-        .edit-time-btn:focus-visible { outline: 2px solid var(--focus-ring-color); box-shadow: 0 0 0 3px var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(0, 68, 102, 0.2); }
+        .edit-time-btn:focus-visible { outline: 2px solid var(--focus-ring-color); box-shadow: 0 0 0 3px var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(108, 71, 216, 0.2); }
         .agenda-mini-btn {
           width: 32px; height: 32px; border-radius: 50%;
           display: inline-flex; align-items: center; justify-content: center;

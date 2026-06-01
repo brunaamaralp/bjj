@@ -682,7 +682,7 @@ const FINANCE_IMPORT_STYLES = `
     left: 0;
     right: 0;
     height: 3px;
-    background: rgba(0, 68, 102, 0.12);
+    background: rgba(108, 71, 216, 0.12);
     z-index: 2;
     overflow: hidden;
   }
@@ -741,7 +741,7 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-icon-btn:hover {
-    background: rgba(0, 68, 102, 0.08);
+    background: rgba(108, 71, 216, 0.08);
     color: ${VIOLET};
   }
 
@@ -758,9 +758,9 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-dropzone {
-    border: 2px dashed rgba(0, 68, 102, 0.4);
+    border: 2px dashed rgba(108, 71, 216, 0.4);
     border-radius: 14px;
-    background: rgba(0, 68, 102, 0.04);
+    background: rgba(108, 71, 216, 0.04);
     padding: 36px 24px;
     text-align: center;
     cursor: pointer;
@@ -770,7 +770,7 @@ const FINANCE_IMPORT_STYLES = `
   .finance-import-dropzone:hover {
     border-color: ${VIOLET};
     border-style: solid;
-    background: rgba(0, 68, 102, 0.08);
+    background: rgba(108, 71, 216, 0.08);
   }
 
   .finance-import-dropzone:focus-visible {
@@ -782,7 +782,7 @@ const FINANCE_IMPORT_STYLES = `
     border-width: 3px;
     border-style: solid;
     border-color: ${VIOLET};
-    background: rgba(0, 68, 102, 0.12);
+    background: rgba(108, 71, 216, 0.12);
   }
 
   .finance-import-dropzone--error {
@@ -797,7 +797,7 @@ const FINANCE_IMPORT_STYLES = `
     height: 72px;
     margin: 0 auto 14px;
     border-radius: 50%;
-    background: rgba(0, 68, 102, 0.1);
+    background: rgba(108, 71, 216, 0.1);
     color: ${VIOLET};
   }
 
@@ -899,7 +899,7 @@ const FINANCE_IMPORT_STYLES = `
     justify-content: center;
     padding: 10px 14px;
     border-radius: 10px;
-    background: rgba(0, 68, 102, 0.08);
+    background: rgba(108, 71, 216, 0.08);
     color: ${VIOLET};
   }
 
@@ -980,8 +980,8 @@ const FINANCE_IMPORT_STYLES = `
     margin: 0 0 14px;
     padding: 12px 14px;
     border-radius: 10px;
-    background: rgba(0, 68, 102, 0.08);
-    border: 1px solid rgba(0, 68, 102, 0.2);
+    background: rgba(108, 71, 216, 0.08);
+    border: 1px solid rgba(108, 71, 216, 0.2);
     font-size: 0.875rem;
     color: #3d2f93;
     line-height: 1.4;
@@ -1036,7 +1036,7 @@ const FINANCE_IMPORT_STYLES = `
     height: 22px;
     padding: 0 7px;
     border-radius: 999px;
-    background: rgba(0, 68, 102, 0.12);
+    background: rgba(108, 71, 216, 0.12);
     font-size: 0.75rem;
     font-weight: 700;
     color: ${VIOLET};
@@ -1091,7 +1091,7 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-data-table tbody tr:nth-child(even) {
-    background: rgba(0, 68, 102, 0.03);
+    background: rgba(108, 71, 216, 0.03);
   }
 
   .finance-import-data-table tbody tr:last-child td {
@@ -1126,7 +1126,7 @@ const FINANCE_IMPORT_STYLES = `
     height: 88px;
     margin-bottom: 16px;
     border-radius: 50%;
-    background: rgba(0, 68, 102, 0.08);
+    background: rgba(108, 71, 216, 0.08);
     color: ${VIOLET};
   }
 
@@ -1186,7 +1186,7 @@ const FINANCE_IMPORT_STYLES = `
 
   .finance-import-mode--active {
     border-color: ${VIOLET};
-    box-shadow: 0 0 0 2px rgba(0, 68, 102, 0.15);
+    box-shadow: 0 0 0 2px rgba(108, 71, 216, 0.15);
   }
 
   .finance-import-mode--danger.finance-import-mode--active {
@@ -1236,7 +1236,7 @@ const FINANCE_IMPORT_STYLES = `
   }
 
   .finance-import-btn-ghost:hover {
-    background: rgba(0, 68, 102, 0.08);
+    background: rgba(108, 71, 216, 0.08);
     color: ${VIOLET};
   }
 

@@ -1,4 +1,4 @@
-﻿/* Funil (/pipeline) — layout, kanban, cards e toolbar (design system Nave) */
+/* Funil (/pipeline) — layout, kanban, cards e toolbar (design system Nave) */
 
 .pipeline-container {
   --pipeline-border: #D4DCE8;
@@ -6,8 +6,8 @@
   --pipeline-text-secondary: #4A5568;
   --pipeline-text-muted: #755468;
   --pipeline-highlight: #E4B55D;
-  --pipeline-badge-success-bg: rgba(196, 241, 53, 0.12);
-  --pipeline-badge-success-text: #4A7A00;
+  --pipeline-badge-success-bg: rgba(31, 170, 94, 0.12);
+  --pipeline-badge-success-text: #085041;
   --pipeline-badge-warning-bg: rgba(228, 181, 93, 0.15);
   --pipeline-badge-warning-text: #8A6020;
   --pipeline-badge-muted-bg: rgba(117, 84, 104, 0.12);
@@ -88,21 +88,21 @@
 }
 
 .pipeline-container .filter-chip.is-active {
-  background: var(--lima);
-  color: var(--cosmos);
-  border-color: var(--lima);
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
 }
 
 .pipeline-container .btn-action-primary {
   border-radius: 10px;
-  background: var(--lima);
-  color: var(--cosmos);
+  background: var(--color-accent);
+  color: #fff;
   font-weight: 600;
 }
 
 .pipeline-container .btn-action-primary:hover {
-  background: color-mix(in srgb, var(--lima) 88%, var(--cosmos));
-  color: var(--cosmos);
+  background: color-mix(in srgb, var(--color-accent) 90%, var(--color-accent-dark));
+  color: #fff;
 }
 
 .pipeline-container .btn-action-ghost {
@@ -230,7 +230,7 @@
 .pipeline-container .stage-input:focus,
 .pipeline-container .stage-sla:focus {
   border-color: var(--cosmos);
-  box-shadow: 0 0 0 3px rgba(196, 241, 53, 0.3);
+  box-shadow: 0 0 0 3px rgba(108, 71, 216, 0.28);
   outline: none;
 }
 
@@ -512,7 +512,7 @@
 }
 
 .kanban-col--drag-over {
-  background: rgba(0, 68, 102, 0.04);
+  background: rgba(108, 71, 216, 0.04);
   border-color: var(--petroleo);
 }
 
@@ -1072,16 +1072,16 @@
 }
 
 .pipeline-container .btn-primary {
-  background: var(--lima);
-  color: var(--cosmos);
+  background: var(--color-primary);
+  color: #fff;
   border: none;
   border-radius: 10px;
   font-weight: 600;
 }
 
 .pipeline-container .btn-primary:hover {
-  background: color-mix(in srgb, var(--lima) 88%, var(--cosmos));
-  color: var(--cosmos);
+  background: color-mix(in srgb, var(--color-primary) 88%, var(--color-primary-dark));
+  color: #fff;
 }
 
 .pipeline-container .btn-outline,

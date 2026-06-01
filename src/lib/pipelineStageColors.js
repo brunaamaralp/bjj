@@ -7,14 +7,14 @@ const STAGE_COLOR_BY_ID = {
   'Aula experimental': { color: '#8A6020', bg: 'rgba(228, 181, 93, 0.15)' },
   [LEAD_STATUS.MISSED]: { color: '#CC4444', bg: 'rgba(255, 128, 128, 0.12)' },
   [PIPELINE_WAITING_DECISION_STAGE]: { color: '#8A6020', bg: 'rgba(228, 181, 93, 0.15)' },
-  Matriculado: { color: '#4A7A00', bg: 'rgba(196, 241, 53, 0.12)' },
+  Matriculado: { color: '#085041', bg: 'rgba(31, 170, 94, 0.12)' },
   [LEAD_STATUS.LOST]: { color: '#4A3040', bg: 'rgba(117, 84, 104, 0.12)' },
 };
 
 const STAGE_COLOR_FALLBACK = [
   { color: '#000435', bg: 'rgba(117, 84, 104, 0.12)' },
   { color: '#8A6020', bg: 'rgba(228, 181, 93, 0.15)' },
-  { color: '#4A7A00', bg: 'rgba(196, 241, 53, 0.12)' },
+  { color: '#085041', bg: 'rgba(31, 170, 94, 0.12)' },
   { color: '#4A3040', bg: 'rgba(117, 84, 104, 0.12)' },
 ];
 

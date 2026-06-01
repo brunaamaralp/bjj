@@ -27,24 +27,10 @@ import { maskCpfForExport } from '../lib/maskCpf.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { getBirthMonthDay } from '../lib/birthDate.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
-}
-
-function getBirthMonthDay(birthDate) {
-    if (!birthDate) return null;
-    const str = String(birthDate).trim();
-
-    // Formato YYYY-MM-DD ou ISO timestamp
-    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (isoMatch) return `${isoMatch[2]}-${isoMatch[3]}`; // MM-DD
-
-    // Formato DD/MM/YYYY
-    const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    if (brMatch) return `${brMatch[2]}-${brMatch[1]}`; // MM-DD
-
-    return null;
 }
 
 function formatDate(dateStr) {
@@ -1454,10 +1440,10 @@ const Students = ({ embedded = false }) => {
         }
         .students-register-btn {
           font-weight: 600;
-          box-shadow: 0 1px 4px rgba(0, 68, 102, 0.28);
+          box-shadow: 0 1px 4px rgba(108, 71, 216, 0.28);
         }
         .students-register-btn:hover {
-          box-shadow: 0 2px 8px rgba(0, 68, 102, 0.32);
+          box-shadow: 0 2px 8px rgba(108, 71, 216, 0.32);
         }
         @media (max-width: 640px) {
           .students-create-grid {

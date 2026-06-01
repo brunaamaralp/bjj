@@ -1705,7 +1705,7 @@ export default function Tasks() {
           width: 100%; max-width: 480px;
           margin: auto;
           flex-shrink: 0;
-          box-shadow: 0 24px 60px rgba(0, 4, 53, 0.18), 0 2px 8px rgba(0, 68, 102,0.08);
+          box-shadow: 0 24px 60px rgba(0, 4, 53, 0.18), 0 2px 8px rgba(108, 71, 216,0.08);
           border: 0.5px solid var(--border-light);
           max-height: min(92vh, calc(100dvh - 32px)); overflow-y: auto;
         }
@@ -1826,7 +1826,7 @@ export default function Tasks() {
           padding: 12px 14px; border-bottom: 1px solid var(--border);
         }
         .tasks-kanban-col--late .tasks-kanban-col-head { background: rgba(220, 38, 38, 0.08); }
-        .tasks-kanban-col--todo .tasks-kanban-col-head { background: rgba(0, 68, 102, 0.08); }
+        .tasks-kanban-col--todo .tasks-kanban-col-head { background: rgba(108, 71, 216, 0.08); }
         .tasks-kanban-col--done .tasks-kanban-col-head { background: rgba(22, 163, 74, 0.1); }
         .tasks-kanban-col-title { font-size: 13px; font-weight: 700; color: var(--ink); }
         .tasks-quick-create {
@@ -1885,8 +1885,8 @@ export default function Tasks() {
         }
         .tasks-cal-cell--empty { background: transparent; border: none; min-height: 0; }
         .tasks-cal-cell--today {
-          border-color: var(--v500); box-shadow: 0 0 0 1px rgba(0, 68, 102, 0.25);
-          background: rgba(0, 68, 102, 0.04);
+          border-color: var(--v500); box-shadow: 0 0 0 1px rgba(108, 71, 216, 0.25);
+          background: rgba(108, 71, 216, 0.04);
         }
         .tasks-cal-day-num {
           font-size: 12px; font-weight: 800; color: var(--text-secondary); margin-bottom: 6px;
@@ -1997,7 +1997,7 @@ export default function Tasks() {
           gap: 10px;
           padding: 12px 14px;
           border-bottom: 1px solid var(--border);
-          background: linear-gradient(180deg, rgba(0, 68, 102, 0.05) 0%, transparent 100%);
+          background: linear-gradient(180deg, rgba(108, 71, 216, 0.05) 0%, transparent 100%);
         }
         .tasks-student-card__profile {
           display: flex;
@@ -2027,7 +2027,7 @@ export default function Tasks() {
           letter-spacing: 0.02em;
           color: var(--v700);
           background: var(--v50);
-          border: 1px solid rgba(0, 68, 102, 0.18);
+          border: 1px solid rgba(108, 71, 216, 0.18);
         }
         .tasks-student-card__identity {
           flex: 1;
@@ -2070,7 +2070,7 @@ export default function Tasks() {
           font-weight: 700;
           color: var(--v700);
           background: var(--v50);
-          border: 1px solid rgba(0, 68, 102, 0.15);
+          border: 1px solid rgba(108, 71, 216, 0.15);
           border-radius: 999px;
           padding: 3px 10px;
           line-height: 1.2;

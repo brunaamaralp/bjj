@@ -1,4 +1,33 @@
 :root {
+  /* Primária */
+  --color-primary: #6C47D8;
+  --color-primary-light: #AFA9EC;
+  --color-primary-surface: #EDE9FB;
+  --color-primary-dark: #4A2FA3;
+
+  /* Accent (verde sóbrio) */
+  --color-accent: #1FAA5E;
+  --color-accent-light: #9FE1CB;
+  --color-accent-surface: #E1F5EE;
+  --color-accent-dark: #085041;
+
+  /* Sidebar / Topbar */
+  --color-sidebar-bg: #13111F;
+  --color-topbar-bg: #13111F;
+  --color-sidebar-text: #7A7595;
+  --color-sidebar-active-bg: rgba(108, 71, 216, 0.18);
+  --color-sidebar-active-text: #C4B4F5;
+  --color-sidebar-active-icon: #AFA9EC;
+  --color-sidebar-section: #3A3458;
+  --color-sidebar-border: rgba(255, 255, 255, 0.06);
+  --color-sidebar-avatar-bg: #2A2640;
+  --color-sidebar-avatar-text: #AFA9EC;
+
+  /* Conteúdo */
+  --color-content-bg: #FFFFFF;
+  --color-card-bg: #FFFFFF;
+  --color-card-border: #E8E5F5;
+
   /* Tipografia — escala rem (base 16px) */
   --font-2xs:  0.625rem;   /* 10px */
   --font-xs:   0.6875rem;  /* 11px */

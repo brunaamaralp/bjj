@@ -60,8 +60,8 @@ function formatWaAgentStatus(status) {
 function waAgentStatusVisual(status) {
     const k = String(status || '').trim().toLowerCase();
     if (k === 'offline') return { Icon: Power, accent: '#c2410c', bg: 'rgba(194, 65, 12, 0.08)' };
-    if (k === 'open' || k === 'scanning' || k === 'qrcode') return { Icon: QrCode, accent: '#128C7E', bg: 'rgba(18, 140, 126, 0.08)' };
-    if (k === 'connecting' || k === 'syncing') return { Icon: RefreshCw, accent: 'var(--petroleo)', bg: 'rgba(0, 68, 102, 0.08)' };
+    if (k === 'open' || k === 'scanning' || k === 'qrcode') return { Icon: QrCode, accent: '#25D366', bg: 'rgba(37, 211, 102, 0.08)' };
+    if (k === 'connecting' || k === 'syncing') return { Icon: RefreshCw, accent: 'var(--color-primary)', bg: 'rgba(108, 71, 216, 0.08)' };
     if (k === 'disconnected') return { Icon: Unplug, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
     return { Icon: HelpCircle, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
 }
@@ -1895,7 +1895,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                                     <div>
-                                        <span className="text-small" style={{ display: 'inline-block', background: 'rgba(0, 68, 102, 0.12)', color: 'var(--accent, var(--petroleo))', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
+                                        <span className="text-small" style={{ display: 'inline-block', background: 'var(--color-primary-surface)', color: 'var(--color-primary-dark)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
                                             ● Ativo
                                         </span>
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
