@@ -82,6 +82,7 @@ import { NAV_PUSH_EVENT } from './lib/navPush.js';
 import { OPEN_NOVA_VENDA_MODAL_EVENT } from './lib/novaVendaModal.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 import NovaVendaModal from './components/sales/NovaVendaModal.jsx';
+import NlCommandBar, { NlCommandBarTrigger } from './components/NlCommandBar.jsx';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
 import RouteFallback from './components/shared/RouteFallback.jsx';
 import PageSkeleton from './components/shared/PageSkeleton.jsx';
@@ -130,6 +131,7 @@ const App = () => {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [mobileNavDrawerOpen, setMobileNavDrawerOpen] = useState(false);
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
+  const [nlOpen, setNlOpen] = useState(false);
   const isActive = (path) => {
     if (path === '/students' || path === '/alunos') {
       return (
@@ -1037,6 +1039,9 @@ const App = () => {
             <div className="navi-topbar-spacer" aria-hidden="true" />
             <div className="navi-topbar-actions">
               {topbarTrialChip}
+              {academyReady && academyIdStore ? (
+                <NlCommandBarTrigger onClick={() => setNlOpen(true)} mode="ask" />
+              ) : null}
               <NotificationBell academyId={academyIdStore} userId={user?.$id} />
               <NaviUserMenu
                 user={user}
@@ -1161,6 +1166,15 @@ const App = () => {
       ) : null}
 
       <NovaVendaModal open={novaVendaOpen} onClose={() => setNovaVendaOpen(false)} />
+      {academyReady && academyIdStore ? (
+        <NlCommandBar
+          open={nlOpen}
+          onOpenChange={setNlOpen}
+          academyName={academyName}
+          context="perfil"
+          mode="ask"
+        />
+      ) : null}
 
       <nav className="navi-bottom-nav" aria-label="Navegação">
         <Link to="/" className={`navi-nav-item${isActive('/') ? ' active' : ''}`}>

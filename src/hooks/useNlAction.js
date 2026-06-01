@@ -303,6 +303,12 @@ export function useNlAction() {
         return { resposta };
       }
 
+      if (parsed.action === 'academy_query') {
+        const resposta = String(parsed.data?.resposta || parsed.summary || '').trim();
+        if (!resposta) throw new Error('Consulta sem resposta.');
+        return { resposta, rows: parsed.data?.rows || [] };
+      }
+
       if (parsed.action === 'adjust_stock') {
         const d = parsed.data || {};
         const variantId = String(d.variant_id || d.stock_item_id || '').trim();

@@ -214,6 +214,23 @@
   text-decoration: underline;
 }
 
+.pipeline-filters-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--pipeline-border);
+}
+
+.pipeline-filters-panel__apply {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .pipeline-container .form-input,
 .pipeline-container .pipeline-filters-panel__select,
 .pipeline-container .stage-input,

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { useNlAction } from '../hooks/useNlAction';
 import { useTerms } from '../lib/terminology.js';
@@ -44,16 +45,30 @@ function formatNlPaymentMethod(method) {
   return PAYMENT_METHOD_LABELS[k] || (k ? k : '—');
 }
 
-export function NlCommandBarTrigger({ onClick }) {
+export function NlCommandBarTrigger({ onClick, mode = 'ask' }) {
+  const label = mode === 'ask' ? 'Faça uma pergunta…' : 'O que você quer fazer?';
   return (
     <button type="button" className="nl-command-bar-trigger" onClick={onClick}>
       <span className="nl-command-bar-trigger__icon" aria-hidden>
         ✦
       </span>
-      <span className="nl-command-bar-trigger__label">O que você quer fazer?</span>
+      <span className="nl-command-bar-trigger__label">{label}</span>
       <kbd className="nl-command-bar-trigger__kbd">⌘K</kbd>
     </button>
   );
+}
+
+const ASK_SUGGESTIONS = [
+  'Quem fez matrícula esse mês?',
+  'Quem ainda não pagou?',
+  'Quantos leads novos essa semana?',
+  'Quem compareceu à experimental?',
+  'Quem tem experimental agendada?',
+  'O que mais vendeu esse mês?',
+];
+
+function isReadOnlyQueryAction(action) {
+  return action === 'inventory_query' || action === 'academy_query';
 }
 
 /**
@@ -64,6 +79,7 @@ export default function NlCommandBar({
   onOpenChange,
   academyName: academyNameProp,
   context = 'financeiro',
+  mode = 'ask',
   pipelineStages = [],
   pendingTransactions = [],
   recentPayments = [],
@@ -131,7 +147,13 @@ export default function NlCommandBar({
     try {
       const result = await interpret(text.trim(), context, { pipelineStages, pendingTransactions, recentPayments });
       setParsed(result);
-      setState('confirm');
+      if (isReadOnlyQueryAction(result?.action)) {
+        setState('result');
+      } else if (result?.action == null) {
+        setState('confirm');
+      } else {
+        setState('confirm');
+      }
     } catch (err) {
       setErrorMsg(err?.message || 'Erro ao conectar. Tente novamente.');
       setState('error');
@@ -207,7 +229,8 @@ export default function NlCommandBar({
       parsed.action === 'settle_transaction' ||
       parsed.action === 'update_payment' ||
       parsed.action === 'adjust_stock' ||
-      parsed.action === 'inventory_query'
+      parsed.action === 'inventory_query' ||
+      parsed.action === 'academy_query'
     );
 
   return (
@@ -241,7 +264,7 @@ export default function NlCommandBar({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Assistente de comandos"
+          aria-label={mode === 'ask' ? 'Assistente de perguntas' : 'Assistente de comandos'}
           onClick={(e) => e.stopPropagation()}
           style={{
             background: 'var(--surface)',
@@ -270,8 +293,18 @@ export default function NlCommandBar({
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && text.trim() && state === 'idle') {
+                  e.preventDefault();
+                  void handleInterpret();
+                }
+              }}
               disabled={inputDisabled}
-              placeholder="Descreva o que deseja fazer…"
+              placeholder={
+                mode === 'ask'
+                  ? 'Ex.: Quem fez matrícula esse mês? Quem ainda não pagou?'
+                  : 'Descreva o que deseja fazer…'
+              }
               style={{
                 flex: 1,
                 border: 'none',
@@ -304,6 +337,23 @@ export default function NlCommandBar({
 
           {state === 'idle' ? (
             <div style={{ padding: 20 }}>
+              {mode === 'ask' ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {ASK_SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="filter-chip"
+                      onClick={() => {
+                        setText(s);
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <button
                 type="button"
                 disabled={!text.trim()}
@@ -322,7 +372,7 @@ export default function NlCommandBar({
                   fontFamily: 'inherit'
                 }}
               >
-                Interpretar comando
+                {mode === 'ask' ? 'Buscar resposta' : 'Interpretar comando'}
               </button>
             </div>
           ) : null}
@@ -340,7 +390,102 @@ export default function NlCommandBar({
                   animation: 'nl-cmd-spin 0.7s linear infinite'
                 }}
               />
-              <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Interpretando seu comando…</div>
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                {mode === 'ask' ? 'Consultando seus dados…' : 'Interpretando seu comando…'}
+              </div>
+            </div>
+          ) : null}
+
+          {state === 'result' && parsed ? (
+            <div style={{ padding: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--petroleo)', letterSpacing: '0.08em', marginBottom: 8 }}>
+                ✦ RESPOSTA
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: 'var(--text)',
+                  whiteSpace: 'pre-wrap',
+                  marginBottom: 16,
+                }}
+              >
+                {parsed.data?.resposta || parsed.summary || '—'}
+              </div>
+              {Array.isArray(parsed.data?.rows) && parsed.data.rows.length > 0 ? (
+                <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid var(--border-light)', borderRadius: 10 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface-hover, #fafafa)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 10px' }}>Nome</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px' }}>Detalhe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsed.data.rows.slice(0, 25).map((row) => (
+                        <tr key={row.id} style={{ borderTop: '1px solid var(--border-light)' }}>
+                          <td style={{ padding: '8px 10px' }}>
+                            {row.id ? (
+                              <Link
+                                to={row.linkKind === 'lead' ? `/lead/${row.id}` : `/student/${row.id}`}
+                                style={{ color: 'var(--petroleo)', fontWeight: 600 }}
+                              >
+                                {row.name || '—'}
+                              </Link>
+                            ) : (
+                              row.name || '—'
+                            )}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
+                            {row.pending != null
+                              ? formatBrl(row.pending)
+                              : row.plan || row.origin || row.scheduledDate || row.phone || row.attendedAt || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setState('idle');
+                    setParsed(null);
+                    setText('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Nova pergunta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: 'var(--petroleo)',
+                    color: '#fff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -785,13 +930,15 @@ export default function NlCommandBar({
             }}
           >
             <span>
-              {context === 'funil'
-                ? 'Funil de Vendas'
-                : context === 'perfil'
-                  ? 'Perfil (finanças + funil)'
-                  : context === 'vendas'
-                    ? 'Vendas'
-                    : 'Módulo Financeiro'}
+              {mode === 'ask'
+                ? 'Perguntas · alunos, mensalidades e estoque'
+                : context === 'funil'
+                  ? 'Funil de Vendas'
+                  : context === 'perfil'
+                    ? 'Perfil (finanças + funil)'
+                    : context === 'vendas'
+                      ? 'Vendas'
+                      : 'Módulo Financeiro'}
               {academyName ? ` · ${academyName}` : ''}
             </span>
             <kbd

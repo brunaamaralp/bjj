@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
@@ -20,7 +21,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
-import { isInactiveStudent } from '../lib/studentStatus.js';
+import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
@@ -89,6 +90,7 @@ const dropAnimationConfig = {
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
 const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+    const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
     const isCardOverlayOpen = openMenuId === lead.id || scheduleModalLeadId === lead.id || moverOpenId === lead.id;
     const automationBadges = useMemo(
         () => getLeadAutomationBadges(lead, automationConfig),
@@ -113,8 +115,8 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                 cursor: isMoving ? 'wait' : undefined,
                 ...props.style
             }}
-            onMouseEnter={() => { void preloadLeadProfile(); }}
-            onClick={() => !isOverlay && navigate(`/lead/${lead.id}`)}
+            onMouseEnter={() => { if (!isEnrolledCard) void preloadLeadProfile(); }}
+            onClick={() => !isOverlay && navigate(isEnrolledCard ? `/student/${lead.id}` : `/lead/${lead.id}`)}
             {...props}
         >
             {slaAlert ? (
@@ -237,7 +239,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     {openMenuId === lead.id && (
                         <div className="navi-menu__panel navi-menu--elevated action-menu-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="menu-group">
-                                {canShowPipelineCloseSale(lead) ? (
+                                {canShowPipelineCloseSale(lead) && !isEnrolledCard ? (
                                     <button
                                         type="button"
                                         className="navi-menu__item navi-menu__item--primary"
@@ -251,6 +253,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                         <BadgeCheck size={16} /> Fechar venda
                                     </button>
                                 ) : null}
+                                {!isEnrolledCard ? (
                                 <button
                                     type="button"
                                     className="navi-menu__item"
@@ -263,24 +266,27 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                 >
                                     <Calendar size={16} /> Agendar {pipelineMenuTrialLc}
                                 </button>
-                                {lead.pipelineStage === 'Aula experimental' && (
+                                ) : null}
+                                {!isEnrolledCard && lead.pipelineStage === 'Aula experimental' && (
                                     <button type="button" className="navi-menu__item navi-menu__item--success" onClick={(e) => handleConfirmPresence(e, lead)}>
                                         <PlusCircle size={16} /> Confirmar {pipelineMenuAttendanceLc}
                                     </button>
                                 )}
-                                {lead.pipelineStage === 'Aula experimental' && (
+                                {!isEnrolledCard && lead.pipelineStage === 'Aula experimental' && (
                                     <button type="button" className="navi-menu__item navi-menu__item--warning" onClick={(e) => { e.stopPropagation(); setMissedModalLead(lead); setOpenMenuId(null); }}>
                                         <Calendar size={16} /> Não compareceu
                                     </button>
                                 )}
-                                {['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
+                                {!isEnrolledCard && ['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
                                     <button type="button" className="navi-menu__item navi-menu__item--primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
                                         <GraduationCap size={16} /> {pipelineMenuEnrollment}
                                     </button>
                                 )}
+                                {!isEnrolledCard ? (
                                 <button type="button" className="navi-menu__item" onClick={(e) => openMover(e, lead.id)}>
                                     <ChevronRight size={16} /> Mover para etapa
                                 </button>
+                                ) : null}
                             </div>
                             <hr className="navi-menu__divider" aria-hidden />
                             <div className="menu-group">
@@ -293,10 +299,12 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                             </div>
                             <hr className="navi-menu__divider" aria-hidden />
                             <div className="menu-group">
+                                {!isEnrolledCard ? (
                                 <button type="button" className="navi-menu__item navi-menu__item--danger" onClick={(e) => handleMarkAsLost(e, lead)}>
                                     <MessageCircle size={16} /> Marcar como perdido
                                 </button>
-                                {canDeleteLead ? (
+                                ) : null}
+                                {canDeleteLead && !isEnrolledCard ? (
                                     <button type="button" className="navi-menu__item navi-menu__item--danger" onClick={(e) => handleDeleteLead(e, lead.id)}>
                                         <Trash2 size={16} className="text-danger" /> Excluir lead
                                     </button>
@@ -328,6 +336,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
 });
 
 const SortableLeadCard = ({ lead, ...props }) => {
+    const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
     const {
         attributes,
         listeners,
@@ -335,7 +344,7 @@ const SortableLeadCard = ({ lead, ...props }) => {
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: lead.id, data: { lead } });
+    } = useSortable({ id: lead.id, data: { lead }, disabled: isEnrolledCard });
 
     const style = {
         transform: CSS.Translate.toString(transform),
@@ -357,8 +366,8 @@ const SortableLeadCard = ({ lead, ...props }) => {
             ref={setNodeRef}
             lead={lead}
             style={style}
-            {...attributes}
-            {...listeners}
+            {...(isEnrolledCard ? {} : attributes)}
+            {...(isEnrolledCard ? {} : listeners)}
             {...props}
         />
     );
@@ -487,7 +496,21 @@ const leadMatchesContactType = (lead) => {
     return true;
 };
 
+const ENROLLED_PIPELINE_STAGE_ID = 'Matriculado';
+
+const boardContactOrigin = (contact) =>
+    String(contact?.origin || contact?.sourceOrigin || '').trim();
+
+const enrolledContactDateRef = (contact) =>
+    contact?.convertedAt || contact?.enrollmentDate || contact?.createdAt?.split?.('T')?.[0] || contact?.createdAt || '';
+
 const leadIsPipelineFunnel = (lead) => String(lead?.origin || '').trim() !== 'Planilha';
+
+const sortBoardContactsByRecentEnrollment = (a, b) => {
+    const ta = new Date(enrolledContactDateRef(a) || 0).getTime();
+    const tb = new Date(enrolledContactDateRef(b) || 0).getTime();
+    return tb - ta;
+};
 
 function mobileListToDateTime(lead) {
     const base = lead.scheduledDate || lead.createdAt || '';
@@ -520,6 +543,7 @@ function formatMobileListScheduleDate(ymd) {
 const MobileLeadList = React.memo(function MobileLeadList({
     stages,
     leadsForBoard,
+    enrolledForBoard,
     originFilter,
     navigate,
     mapLeadToStageId,
@@ -553,10 +577,14 @@ const MobileLeadList = React.memo(function MobileLeadList({
                 </div>
             ) : null}
             {stages.map((stage, idx) => {
-                const stageLeads = leadsForBoard
-                    .filter((l) => mapLeadToStageId(l) === stage.id)
-                    .filter((l) => (originFilter === 'all' ? true : (l.origin || '') === originFilter))
-                    .sort((a, b) => mobileListToDateTime(a) - mobileListToDateTime(b));
+                const isEnrolledStage = String(stage?.id || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
+                const stageLeads = (isEnrolledStage ? enrolledForBoard : leadsForBoard.filter((l) => mapLeadToStageId(l) === stage.id))
+                    .filter((l) => (originFilter === 'all' ? true : boardContactOrigin(l) === originFilter))
+                    .sort((a, b) =>
+                        isEnrolledStage
+                            ? sortBoardContactsByRecentEnrollment(a, b)
+                            : mobileListToDateTime(a) - mobileListToDateTime(b)
+                    );
                 const color = getPipelineStageColor(stage.id, idx);
                 const isOpen = Object.prototype.hasOwnProperty.call(expanded, stage.id)
                     ? Boolean(expanded[stage.id])
@@ -723,6 +751,8 @@ const MobileLeadList = React.memo(function MobileLeadList({
 const Pipeline = () => {
     const navigate = useNavigate();
     const leads = useLeadStore((s) => s.leads);
+    const students = useStudentStore((s) => s.students);
+    const fetchStudents = useStudentStore((s) => s.fetchStudents);
     const importLeads = useLeadStore((s) => s.importLeads);
     const updateLead = useLeadStore((s) => s.updateLead);
     const fetchMoreLeads = useLeadStore((s) => s.fetchMoreLeads);
@@ -907,6 +937,13 @@ const Pipeline = () => {
         window.addEventListener('resize', handler);
         return () => window.removeEventListener('resize', handler);
     }, []);
+
+    useEffect(() => {
+        if (!academyId) return;
+        if (!students.length && !useStudentStore.getState().loading) {
+            void fetchStudents({ reset: true });
+        }
+    }, [academyId, students.length, fetchStudents]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -1436,6 +1473,49 @@ const Pipeline = () => {
         return true;
     }, [filterDateFrom, filterDateTo, quickFilter]);
 
+    const filterEnrolledByDate = useCallback((contact) => {
+        let from = filterDateFrom;
+        let to = filterDateTo;
+
+        if (quickFilter === 'today') {
+            const today = new Date().toISOString().split('T')[0];
+            from = today; to = today;
+        } else if (quickFilter === 'week') {
+            const now = new Date();
+            from = new Date(now.setDate(now.getDate() - now.getDay()))
+                .toISOString().split('T')[0];
+            to = new Date(now.setDate(now.getDate() + 6))
+                .toISOString().split('T')[0];
+        } else if (quickFilter === 'month') {
+            const now = new Date();
+            from = new Date(now.getFullYear(), now.getMonth(), 1)
+                .toISOString().split('T')[0];
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                .toISOString().split('T')[0];
+        }
+
+        if (!from && !to) return true;
+
+        const dateRef = String(enrolledContactDateRef(contact)).slice(0, 10);
+        if (!dateRef) return false;
+        if (from && dateRef < from) return false;
+        if (to && dateRef > to) return false;
+        return true;
+    }, [filterDateFrom, filterDateTo, quickFilter]);
+
+    const applyBoardSearchFilter = useCallback((list) => {
+        const q = String(kanbanSearch || '').trim().toLowerCase();
+        const qPhone = normalizeKanbanPhone(kanbanSearch);
+        if (!q && !qPhone) return list;
+        return list.filter((l) => {
+            const name = String(l?.name || '').toLowerCase();
+            const phoneNorm = normalizeKanbanPhone(l?.phone);
+            if (qPhone && phoneNorm.includes(qPhone)) return true;
+            if (q && name.includes(q)) return true;
+            return false;
+        });
+    }, [kanbanSearch]);
+
     /** Primeira carga: evita colunas vazias sem feedback até o fetch do Appwrite. */
     const showKanbanInitialLoading = Boolean(leadsLoading && (!Array.isArray(leads) || leads.length === 0));
 
@@ -1444,19 +1524,10 @@ const Pipeline = () => {
             .filter((l) => leadIsPipelineFunnel(l))
             .filter((l) => leadMatchesContactType(l))
             .filter((l) => leadMatchesProfileFilter(l, profileFilter))
+            .filter((l) => (originFilter === 'all' ? true : (l.origin || '') === originFilter))
             .filter(filterByDate);
 
-        const q = String(kanbanSearch || '').trim().toLowerCase();
-        const qPhone = normalizeKanbanPhone(kanbanSearch);
-        if (q || qPhone) {
-            list = list.filter((l) => {
-                const name = String(l?.name || '').toLowerCase();
-                const phoneNorm = normalizeKanbanPhone(l?.phone);
-                if (qPhone && phoneNorm.includes(qPhone)) return true;
-                if (q && name.includes(q)) return true;
-                return false;
-            });
-        }
+        list = applyBoardSearchFilter(list);
 
         if (searchStageScope !== 'all') {
             list = list.filter((l) => mapLeadToStageId(l) === searchStageScope);
@@ -1469,7 +1540,45 @@ const Pipeline = () => {
         }
 
         return list;
-    }, [leads, kanbanSearch, profileFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter]);
+    }, [leads, profileFilter, originFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter, applyBoardSearchFilter]);
+
+    /** Alunos matriculados (coleção students) + legado ainda em leads com status Matriculado. */
+    const enrolledForBoard = useMemo(() => {
+        const studentIds = new Set();
+        let list = (students || [])
+            .filter((s) => isActiveStudent(s))
+            .filter((s) => leadMatchesProfileFilter(s, profileFilter))
+            .filter((s) => (originFilter === 'all' ? true : boardContactOrigin(s) === originFilter))
+            .filter(filterEnrolledByDate);
+
+        for (const s of list) studentIds.add(s.id);
+
+        const legacyEnrolled = (leads || [])
+            .filter((l) => !studentIds.has(l.id))
+            .filter((l) => !isInactiveStudent(l))
+            .filter((l) => mapLeadToStageId(l) === ENROLLED_PIPELINE_STAGE_ID || l.status === LEAD_STATUS.CONVERTED)
+            .filter((l) => leadMatchesProfileFilter(l, profileFilter))
+            .filter((l) => (originFilter === 'all' ? true : boardContactOrigin(l) === originFilter))
+            .filter(filterEnrolledByDate);
+
+        list = [...list, ...legacyEnrolled];
+        list = applyBoardSearchFilter(list);
+
+        if (searchStageScope !== 'all' && searchStageScope !== ENROLLED_PIPELINE_STAGE_ID) {
+            return [];
+        }
+
+        return list.sort(sortBoardContactsByRecentEnrollment);
+    }, [
+        students,
+        leads,
+        profileFilter,
+        originFilter,
+        searchStageScope,
+        mapLeadToStageId,
+        filterEnrolledByDate,
+        applyBoardSearchFilter,
+    ]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
     const pipelineHeaderMeta = useMemo(() => {
@@ -1492,6 +1601,21 @@ const Pipeline = () => {
         setFilterDateTo('');
         setSearchStageScope('all');
     }, []);
+
+    const applyAdvancedFilters = useCallback((draft) => {
+        setProfileFilter(draft.profileFilter ?? 'all');
+        setOriginFilter(draft.originFilter ?? 'all');
+        setFilterDateFrom(draft.filterDateFrom ?? '');
+        setFilterDateTo(draft.filterDateTo ?? '');
+        setSearchStageScope(draft.searchStageScope ?? 'all');
+        if (draft.filterDateFrom || draft.filterDateTo) setQuickFilter(null);
+        setFiltersMenuOpen(false);
+    }, []);
+
+    const handleClearAdvancedFilters = useCallback(() => {
+        clearAdvancedFilters();
+        setFiltersMenuOpen(false);
+    }, [clearAdvancedFilters]);
 
     const pipelineHeaderMetaNode = showKanbanInitialLoading ? (
         'Carregando…'
@@ -1516,19 +1640,15 @@ const Pipeline = () => {
 
     const renderAdvancedFiltersPanel = () => (
         <PipelineAdvancedFilters
+            open={filtersMenuOpen}
             profileFilter={profileFilter}
-            setProfileFilter={setProfileFilter}
             originFilter={originFilter}
-            setOriginFilter={setOriginFilter}
             filterDateFrom={filterDateFrom}
-            setFilterDateFrom={setFilterDateFrom}
             filterDateTo={filterDateTo}
-            setFilterDateTo={setFilterDateTo}
-            setQuickFilter={setQuickFilter}
             searchStageScope={searchStageScope}
-            setSearchStageScope={setSearchStageScope}
             searchStageScopeOptions={searchStageScopeOptions}
-            onClear={clearAdvancedFilters}
+            onApply={applyAdvancedFilters}
+            onClear={handleClearAdvancedFilters}
         />
     );
 
@@ -1614,11 +1734,15 @@ const Pipeline = () => {
             if (hasStageId(leadStage)) return String(leadStage);
         }
 
+        if (enrolledForBoard.some((l) => String(l.id) === overId)) {
+            return ENROLLED_PIPELINE_STAGE_ID;
+        }
+
         const containerId = String(over?.data?.current?.sortable?.containerId || '');
         if (hasStageId(containerId)) return containerId;
 
         return null;
-    }, [stages, leadsForBoard, mapLeadToStageId]);
+    }, [stages, leadsForBoard, enrolledForBoard, mapLeadToStageId]);
 
     const handleDragEnd = async (event) => {
         const { active, over } = event;
@@ -2147,6 +2271,7 @@ const Pipeline = () => {
                 <MobileLeadList
                     stages={displayStages}
                     leadsForBoard={leadsForBoard}
+                    enrolledForBoard={enrolledForBoard}
                     originFilter={originFilter}
                     navigate={navigate}
                     mapLeadToStageId={mapLeadToStageId}
@@ -2194,10 +2319,12 @@ const Pipeline = () => {
                             );
                         }
 
-                        const colLeads = leadsForBoard
-                            .filter(l => mapLeadToStageId(l) === col.id)
-                            .filter(l => originFilter === 'all' ? true : (l.origin || '') === originFilter)
+                        const isEnrolledCol = String(col.id || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
+                        const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoard
+                            .filter(l => mapLeadToStageId(l) === col.id))
+                            .filter(l => originFilter === 'all' ? true : boardContactOrigin(l) === originFilter)
                             .sort((a, b) => {
+                                if (isEnrolledCol) return sortBoardContactsByRecentEnrollment(a, b);
                                 const toDateTime = (lead) => {
                                     const base = lead.scheduledDate || lead.createdAt || '';
                                     if (!base) return new Date(8640000000000000);
@@ -2242,13 +2369,13 @@ const Pipeline = () => {
                                     const scopeLabel = searchStageScopeOptions.find((o) => o.value === searchStageScope)?.label || '';
                                     const hasSearchQuery = Boolean(String(kanbanSearch || '').trim() || normalizeKanbanPhone(kanbanSearch));
                                     const inStageScope = searchStageScope === 'all' || col.id === searchStageScope;
-                                    const isEnrollmentDropCol = String(col.id || '').trim() === 'Matriculado';
+                                    const isEnrollmentDropCol = isEnrolledCol;
                                     let hint = 'Arraste um card de outra coluna ou use “Novo” no menu para cadastrar.';
                                     let emptyTitle = `Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`;
                                     if (isEnrollmentDropCol && searchStageScope === 'all' && !hasSearchQuery) {
-                                        emptyTitle = 'Arraste aqui para matricular';
+                                        emptyTitle = 'Nenhuma matrícula ainda';
                                         hint =
-                                            'Esta coluna não guarda cards: ao confirmar a matrícula, o contato vira aluno e some do funil. Use o arraste para abrir o cadastro.';
+                                            'Arraste um contato de outra coluna para matricular. Os alunos matriculados aparecem aqui após a confirmação.';
                                     } else if (searchStageScope !== 'all' && col.id !== searchStageScope) {
                                         hint = `“Buscar em” está em “${scopeLabel}”. Troque para “Todas as etapas” para ver todas as colunas.`;
                                     } else if (hasSearchQuery && inStageScope) {
