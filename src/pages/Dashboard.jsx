@@ -798,32 +798,34 @@ const Dashboard = () => {
                             {scheduledInVisibleWeekCount}
                         </span>
                     </div>
-                    <div className="reception-week-panel__nav flex flex-wrap items-center gap-2">
+                    <div className="week-nav-pill">
                         <button
                             type="button"
-                            className="btn-secondary agenda-dash-week-nav"
+                            className="week-nav-pill__btn"
                             onClick={() => setDashboardWeekOffset((o) => o - 1)}
+                            aria-label="Semana anterior"
                         >
-                            &lt; Anterior
+                            ‹
                         </button>
-                        <span className="reception-week-range" aria-live="polite">
+                        <span className="week-nav-pill__range" aria-live="polite">
                             {formatWeekRangeLabel(dashboardWeekOffset, { endOnSaturday: true })}
                         </span>
                         <button
                             type="button"
-                            className="btn-secondary agenda-dash-week-nav"
+                            className="week-nav-pill__btn"
                             onClick={() => setDashboardWeekOffset((o) => o + 1)}
+                            aria-label="Próxima semana"
                         >
-                            Próxima &gt;
+                            ›
                         </button>
                         <button
                             type="button"
-                            className="refresh-btn reception-week-refresh"
+                            className="week-nav-pill__refresh"
                             onClick={handleRefresh}
                             disabled={loading || isRefreshing}
                             aria-label="Atualizar agenda"
                         >
-                            <RefreshCcw size={18} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
+                            <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
                         </button>
                     </div>
                 </div>
@@ -902,86 +904,93 @@ const Dashboard = () => {
                         const waState = waStateByLead[leadId] || 'idle';
                         const elapsedLabel =
                             lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
-                        const elapsedClass =
-                            lead.daysAgo === 0 ? 'fu-elapsed fu-elapsed--today' : lead.daysAgo === 1 ? 'fu-elapsed fu-elapsed--1' : 'fu-elapsed fu-elapsed--2plus';
+                        const diasColor =
+                            lead.daysAgo <= 3 ? '#9896A8' : lead.daysAgo <= 5 ? '#C47A00' : '#E24B4A';
+                        const tagLabel = isPost
+                            ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula')
+                            : 'Recuperar';
                         return (
                             <div
                                 key={lead.id}
-                                className={`fu-row animate-in${lead.daysAgo === 0 ? ' fu-row--today' : ''}${
+                                className={`fu-row animate-in${
                                     flashingFollowupIds[leadId] ? ' fu-row--flashing' : ''
                                 }${leavingFollowupIds[leadId] ? ' fu-row--leaving' : ''}${
                                     removingFollowupIds[lead.id] ? ' fu-row--removing' : ''
                                 }${i === followUps.length - 1 ? ' fu-row--last' : ''}`}
                                 style={{ animationDelay: `${0.04 * i}s` }}
                             >
-                                <span
-                                    className={`fu-dot ${isPost ? 'fu-dot--post' : 'fu-dot--recover'}`}
+                                <div
+                                    className="fu-dot"
+                                    style={{ background: isPost ? '#1FAA5E' : '#E24B4A' }}
                                     aria-hidden
                                 />
-                                <button
-                                    type="button"
-                                    className="fu-name"
-                                    onClick={() => navigate(`/lead/${lead.id}`)}
-                                >
-                                    {lead.name}
-                                </button>
-                                <span className="fu-phone">
-                                    {lead.phone || '—'}
-                                </span>
-                                <span
-                                    className={elapsedClass}
-                                    title={
-                                        lead.daysAgo === 0
-                                            ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
-                                            : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`
-                                    }
-                                >
-                                    {elapsedLabel}
-                                </span>
-                                <span className={`fu-type-badge ${isPost ? 'fu-type-badge--post' : 'fu-type-badge--recover'}`}>
-                                    {isPost ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula') : 'Recuperar'}
-                                </span>
-                                <div className="fu-actions">
+                                <div className="fu-info">
                                     <button
                                         type="button"
-                                        className={`fu-btn-wa wa-btn${waState === 'loading' ? ' wa-btn--loading' : ''}${
+                                        className="fu-name"
+                                        onClick={() => navigate(`/lead/${lead.id}`)}
+                                    >
+                                        {lead.name}
+                                    </button>
+                                    <div className="fu-sub">
+                                        <span className="fu-phone">{lead.phone || '—'}</span>
+                                        <span
+                                            className="fu-time"
+                                            style={{ color: diasColor }}
+                                            title={
+                                                lead.daysAgo === 0
+                                                    ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
+                                                    : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`
+                                            }
+                                        >
+                                            {elapsedLabel}
+                                        </span>
+                                        <span
+                                            className={`fu-tag ${isPost ? 'fu-tag--post' : 'fu-tag--recover'}`}
+                                        >
+                                            {tagLabel}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="fu-btns">
+                                    <button
+                                        type="button"
+                                        className={`wa-btn${waState === 'loading' ? ' wa-btn--loading' : ''}${
                                             waState === 'sent' ? ' wa-btn--sent' : ''
                                         }`}
                                         disabled={waState === 'sent'}
                                         aria-busy={waState === 'loading'}
                                         onClick={(e) => handleFollowUpWhatsApp(lead, e)}
                                     >
-                                        <span className="dashboard-wa-btn-inner">
-                                            {academyWaLoadFailed && waState === 'idle' && (
-                                                <span
-                                                    className="dashboard-wa-warning-badge"
-                                                    title={`Não foi possível carregar a configuração da ${terms.workspaceNoun}. O WhatsApp pode não funcionar.`}
-                                                    aria-hidden
-                                                >
-                                                    ⚠️
-                                                </span>
-                                            )}
-                                            {waState === 'loading' ? (
-                                                <>
-                                                    <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
-                                                    Abrindo…
-                                                </>
-                                            ) : waState === 'sent' ? (
-                                                <>
-                                                    <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
-                                                    Enviado
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
-                                                    WhatsApp
-                                                </>
-                                            )}
-                                        </span>
+                                        {waState === 'loading' ? (
+                                            <>
+                                                <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
+                                                …
+                                            </>
+                                        ) : waState === 'sent' ? (
+                                            <>
+                                                <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
+                                                OK
+                                            </>
+                                        ) : (
+                                            <>
+                                                {academyWaLoadFailed && (
+                                                    <span
+                                                        className="dashboard-wa-warning-badge"
+                                                        title={`Não foi possível carregar a configuração da ${terms.workspaceNoun}. O WhatsApp pode não funcionar.`}
+                                                        aria-hidden
+                                                    >
+                                                        ⚠️
+                                                    </span>
+                                                )}
+                                                <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
+                                                WA
+                                            </>
+                                        )}
                                     </button>
                                     <button
                                         type="button"
-                                        className="fu-btn-done mk-btn"
+                                        className="mk-btn"
                                         disabled={Boolean(
                                             savingFollowupDone[leadId] ||
                                             flashingFollowupIds[leadId] ||
@@ -989,7 +998,7 @@ const Dashboard = () => {
                                         )}
                                         onClick={(e) => void markFollowupDone(lead, e)}
                                     >
-                                        {savingFollowupDone[leadId] ? 'Salvando…' : 'Marcar feito'}
+                                        {savingFollowupDone[leadId] ? 'Salvando…' : '✓ Feito'}
                                     </button>
                                 </div>
                             </div>
@@ -1142,6 +1151,10 @@ const Dashboard = () => {
         .reception-dashboard {
           --reception-section-pad: clamp(16px, 2.5vw, 22px);
           --border-radius-lg: 16px;
+          --color-bg-primary: #FFFFFF;
+          --color-bg-secondary: #F3F1FA;
+          --color-border: #E8E5F5;
+          --color-text-secondary: #9896A8;
         }
         .reception-dashboard-page-header {
           padding-bottom: 20px;
@@ -1229,20 +1242,90 @@ const Dashboard = () => {
           border-left: 3px solid var(--v200);
         }
         .reception-agenda-inner .agenda-week-section.reception-week-panel.reception-section {
-          background: var(--azul-gelo);
-          border: 0.5px solid var(--border-mid);
-        }
-        .reception-week-panel__title.navi-section-heading,
-        .reception-week-panel__title {
-          color: var(--cosmos);
+          background: var(--color-bg-primary);
+          border: 0.5px solid var(--color-border);
         }
         .reception-week-panel__head {
           display: flex;
-          flex-wrap: wrap;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 14px;
+          margin-bottom: 0;
+        }
+        .week-nav-pill {
+          display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 14px;
+          gap: 6px;
+          background: var(--color-bg-secondary);
+          border-radius: 9px;
+          padding: 4px;
+          margin-bottom: 20px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .week-nav-pill__btn,
+        .week-nav-pill__refresh {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 32px;
+          min-height: 32px;
+          padding: 0 8px;
+          border: none;
+          border-radius: 7px;
+          background: transparent;
+          color: #18162A;
+          font-size: 18px;
+          font-weight: 500;
+          line-height: 1;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.15s ease, color 0.15s ease;
+          flex-shrink: 0;
+        }
+        .week-nav-pill__refresh {
+          margin-left: auto;
+          font-size: inherit;
+        }
+        .week-nav-pill__btn:hover:not(:disabled),
+        .week-nav-pill__refresh:hover:not(:disabled) {
+          background: rgba(108, 71, 216, 0.1);
+          color: #6C47D8;
+        }
+        .week-nav-pill__btn:disabled,
+        .week-nav-pill__refresh:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .week-nav-pill__range {
+          flex: 1;
+          text-align: center;
+          font-size: 13px;
+          font-weight: 600;
+          color: #18162A;
+          white-space: nowrap;
+          min-width: 0;
+          padding: 0 4px;
+        }
+        .reception-week-embed {
+          margin-top: 0;
+          min-width: 0;
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: visible;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+        }
+        .reception-calendar-hint {
+          margin: 12px 0 0;
+          font-family: var(--ff-mono);
+          font-size: 0.625rem;
+          font-weight: 400;
+          color: var(--ameixa);
+          opacity: 0.72;
+          letter-spacing: 0.03em;
+          line-height: 1.45;
+          text-align: center;
         }
         .reception-week-panel__title-row {
           display: inline-flex;
@@ -1250,6 +1333,10 @@ const Dashboard = () => {
           gap: 8px;
           flex-wrap: wrap;
           min-width: 0;
+        }
+        .reception-week-panel__title.navi-section-heading,
+        .reception-week-panel__title {
+          color: #18162A;
         }
         .badge.reception-week-count-badge {
           display: inline-flex;
@@ -1263,257 +1350,10 @@ const Dashboard = () => {
           font-size: 11px;
           font-weight: 700;
           font-variant-numeric: tabular-nums;
-          background: var(--petroleo);
+          background: #6C47D8;
           color: #fff;
           border: none;
           flex-shrink: 0;
-        }
-        .reception-agenda-inner .agenda-dash-week-nav {
-          background: #fff;
-          border: 0.5px solid var(--border-mid);
-          color: var(--cosmos);
-          font-weight: 600;
-        }
-        .reception-agenda-inner .agenda-dash-week-nav:hover {
-          background: var(--azul-gelo);
-          border-color: var(--petroleo);
-          color: var(--petroleo);
-        }
-        .reception-week-embed {
-          margin-top: 2px;
-          min-width: 0;
-          max-width: 100%;
-          overflow-x: auto;
-          overflow-y: visible;
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior-x: contain;
-        }
-        .reception-week-embed .agenda-week-scroll {
-          overflow-x: visible;
-        }
-        .reception-week-panel__nav {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px;
-        }
-        .reception-week-range {
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--cosmos);
-          padding: 0 8px;
-          white-space: nowrap;
-        }
-        .reception-week-refresh { margin-left: 2px; }
-        .agenda-dash-week-nav {
-          font-size: 12px;
-          padding: 8px 14px;
-          min-height: 38px;
-        }
-        .reception-calendar-hint {
-          margin: 12px 0 0;
-          font-family: var(--ff-mono);
-          font-size: 0.625rem;
-          font-weight: 400;
-          color: var(--ameixa);
-          opacity: 0.72;
-          letter-spacing: 0.03em;
-          line-height: 1.45;
-          text-align: center;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col {
-          border-radius: 10px;
-          border: 0.5px solid var(--v200);
-          background: #fff;
-          box-shadow: none;
-          min-width: 0;
-          min-height: 140px;
-          padding: 10px 8px;
-          overflow: hidden;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
-          border: 1.5px solid var(--petroleo);
-          background: var(--accent-light) !important;
-          box-shadow: 0 2px 10px rgba(0, 68, 102, 0.12);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--empty {
-          opacity: 0.72;
-          background: rgba(255, 255, 255, 0.55);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--empty .agenda-week-col-empty {
-          font-size: 11px;
-          opacity: 0.5;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col:hover {
-          border-color: var(--petroleo);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--today:hover {
-          border-color: var(--petroleo);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col-head {
-          padding: 0 0 8px;
-          margin: 0 0 8px;
-          border-bottom: none;
-          gap: 6px;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--today .agenda-week-col-head {
-          background: transparent !important;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-dow {
-          font-size: 10px;
-          font-weight: 500;
-          color: var(--ameixa);
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-day-num {
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--cosmos);
-          width: 30px;
-          height: 30px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-day-num--today {
-          font-size: 13px;
-          font-weight: 600;
-          background: var(--petroleo) !important;
-          color: #fff !important;
-          border-radius: 50%;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col-body {
-          padding: 0;
-          gap: 5px;
-          min-height: 0;
-          flex: 1;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col-empty {
-          color: var(--ameixa);
-          opacity: 1;
-          font-weight: 500;
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-card.agenda-week-card--lead {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          min-height: 104px;
-          min-width: 0;
-          width: 100%;
-          box-sizing: border-box;
-          overflow: hidden;
-          padding: 8px 10px 8px 8px !important;
-          border-radius: 0 6px 6px 0 !important;
-          border: none !important;
-          border-left: 2px solid var(--petroleo) !important;
-          background: var(--accent-light) !important;
-          box-shadow: none !important;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-card:hover {
-          transform: none;
-          filter: none;
-          box-shadow: 0 1px 4px rgba(0, 68, 102, 0.15) !important;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-time {
-          font-size: 11px;
-          font-weight: 500;
-          color: var(--petroleo);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          margin-bottom: 4px;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--confirmed { background: var(--lima); }
-        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--pending { background: #d97706; }
-        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--attended { background: #16a34a; }
-        .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--missed { background: #e24b4a; }
-        .reception-agenda-inner .reception-week-embed .agenda-week-name {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--cosmos);
-          max-width: 100%;
-          min-width: 0;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-mod {
-          font-size: 10px;
-          font-weight: 500;
-          color: var(--ameixa);
-          margin-top: 2px;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-presence {
-          margin-top: auto;
-          padding-top: 4px;
-          flex-shrink: 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 3px;
-          align-items: center;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn {
-          flex: 0 1 calc(50% - 2px);
-          min-width: 0;
-          background: #fff;
-          border-color: var(--v200);
-          color: var(--cosmos);
-          min-height: 18px !important;
-          height: 18px;
-          padding: 0 5px !important;
-          border-radius: 999px;
-          font-size: 0.5625rem !important;
-          font-weight: 600;
-          line-height: 1;
-          letter-spacing: -0.02em;
-          gap: 0;
-          transform: none;
-          box-shadow: none;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn--yes:hover:not(:disabled) {
-          border-color: rgba(22, 163, 74, 0.45);
-          color: #15803d;
-          background: rgba(16, 185, 129, 0.1);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn--no:hover:not(:disabled) {
-          border-color: rgba(226, 75, 74, 0.45);
-          color: #b91c1c;
-          background: rgba(239, 68, 68, 0.08);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-card--attended {
-          border-left-color: #16a34a !important;
-          background: rgba(16, 185, 129, 0.14) !important;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-card--missed {
-          border-left-color: #e24b4a !important;
-          background: rgba(239, 68, 68, 0.12) !important;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-col-body {
-          gap: 5px;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-card {
-          min-height: 104px;
-          padding: 8px 10px 8px 8px !important;
-          border-radius: 0 6px 6px 0 !important;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-name {
-          font-size: 12px;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-mod {
-          font-size: 10px;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-week-empty.navi-empty {
-          background: rgba(255, 255, 255, 0.65);
-          border-color: var(--v200);
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-week-empty.navi-empty .navi-empty__title {
-          color: var(--ameixa);
         }
         #follow-ups .reception-section-head,
         #follow-ups .reception-hint {
@@ -1523,29 +1363,30 @@ const Dashboard = () => {
           margin-bottom: 0.75rem;
         }
         .fu-list-card {
-          background: var(--surface);
-          border: 1px solid var(--border-mid);
-          border-radius: var(--radius);
-          padding: 0 16px;
-          box-shadow: var(--shadow-sm);
+          background: transparent;
+          border: none;
+          border-radius: 0;
+          padding: 0;
+          box-shadow: none;
           max-height: min(70vh, 640px);
           overflow-y: auto;
         }
         .fu-row {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 9px 0;
-          border: 1px solid transparent;
-          border-bottom: 1px solid #D4DCE8;
-          flex-wrap: wrap;
-          transition: all 0.25s ease;
+          gap: 10px;
+          padding: 10px 8px;
+          border-radius: 9px;
+          border: 0.5px solid var(--color-border);
+          margin-bottom: 7px;
+          background: var(--color-bg-primary);
+          transition: all 0.2s ease;
         }
         .fu-row:hover {
           border-color: #AFA9EC;
           background: #FAFAFE;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(108, 71, 216, 0.08);
+          box-shadow: 0 2px 6px rgba(108, 71, 216, 0.07);
+          transform: none;
         }
         .fu-row--flashing {
           background: #E1F5EE !important;
@@ -1558,14 +1399,7 @@ const Dashboard = () => {
           pointer-events: none;
         }
         .fu-row--last {
-          border-bottom: none;
-        }
-        .fu-row--today {
-          margin: 0 -12px;
-          padding: 9px 12px;
-          background: rgba(133, 79, 11, 0.06);
-          border-radius: var(--radius-sm);
-          border-bottom-color: transparent;
+          margin-bottom: 0;
         }
         .fu-row--removing {
           animation: fu-row-out 0.32s ease forwards;
@@ -1582,6 +1416,75 @@ const Dashboard = () => {
             margin-top: 0;
             margin-bottom: 0;
           }
+        }
+        .fu-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .fu-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .fu-name {
+          display: block;
+          width: 100%;
+          font-size: 13px;
+          font-weight: 600;
+          text-align: left;
+          background: none;
+          border: none;
+          padding: 0;
+          margin: 0 0 3px;
+          cursor: pointer;
+          color: #18162A;
+          font-family: inherit;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .fu-name:hover {
+          color: #6C47D8;
+          text-decoration: underline;
+        }
+        .fu-sub {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+        .fu-phone {
+          font-size: 12px;
+          color: var(--color-text-secondary);
+        }
+        .fu-time {
+          font-size: 12px;
+          font-weight: 500;
+          flex-shrink: 0;
+        }
+        .fu-tag {
+          font-size: 10px;
+          font-weight: 600;
+          border-radius: 20px;
+          padding: 2px 8px;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .fu-tag--post {
+          background: #E1F5EE;
+          color: #085041;
+        }
+        .fu-tag--recover {
+          background: #FDE8D8;
+          color: #7A3010;
+        }
+        .fu-btns {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          flex-shrink: 0;
         }
         .fu-kanban-more {
           font-size: 12px;
@@ -1606,70 +1509,6 @@ const Dashboard = () => {
         .fu-kanban-more-hint {
           font-weight: 400;
         }
-        .fu-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-        .fu-dot--recover { background: #E24B4A; }
-        .fu-dot--post { background: #639922; }
-        .fu-name {
-          flex: 1;
-          min-width: 120px;
-          font-size: 13px;
-          font-weight: 500;
-          text-align: left;
-          background: none;
-          border: none;
-          padding: 0;
-          cursor: pointer;
-          color: inherit;
-          font-family: inherit;
-        }
-        .fu-name:hover {
-          color: var(--v500);
-          text-decoration: underline;
-        }
-        .fu-phone {
-          flex: 1;
-          min-width: 100px;
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-        .fu-elapsed {
-          font-size: 12px;
-          min-width: 60px;
-          flex-shrink: 0;
-        }
-        .fu-elapsed--today { color: #854F0B; }
-        .fu-elapsed--1 { color: var(--text-secondary); }
-        .fu-elapsed--2plus { color: #A32D2D; }
-        .fu-type-badge {
-          font-size: 10px;
-          border-radius: 20px;
-          padding: 2px 8px;
-          font-weight: 600;
-          flex-shrink: 0;
-          white-space: nowrap;
-        }
-        .fu-type-badge--recover {
-          background: rgba(226, 75, 74, 0.15);
-          color: #A32D2D;
-          border: 1px solid rgba(226, 75, 74, 0.28);
-        }
-        .fu-type-badge--post {
-          background: rgba(22, 163, 74, 0.15);
-          color: #15803d;
-          border: 1px solid rgba(22, 163, 74, 0.28);
-        }
-        .fu-actions {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-          flex-shrink: 0;
-        }
-        .fu-btn-wa,
         .wa-btn {
           background: #1FAA5E;
           color: #fff;
@@ -1677,10 +1516,14 @@ const Dashboard = () => {
           padding: 5px 10px;
           font-size: 11px;
           border-radius: 6px;
-          font-weight: 600;
+          font-weight: 500;
           cursor: pointer;
           font-family: inherit;
-          transition: all 0.18s ease;
+          transition: all 0.15s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          min-height: unset;
         }
         .wa-btn:hover:not(:disabled) {
           background: #178A4C;
@@ -1722,16 +1565,17 @@ const Dashboard = () => {
         }
         .fu-btn-done,
         .mk-btn {
-          background: transparent;
-          color: var(--text-secondary);
-          border: 1px solid var(--border-mid);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          border: 0.5px solid var(--color-border);
           padding: 5px 10px;
           font-size: 11px;
           border-radius: 6px;
           font-weight: 500;
           cursor: pointer;
           font-family: inherit;
-          transition: all 0.18s ease;
+          transition: all 0.15s ease;
+          min-height: unset;
         }
         .mk-btn:hover:not(:disabled) {
           border-color: #AFA9EC;
@@ -1794,7 +1638,11 @@ const Dashboard = () => {
           transform: translateX(-50%) translateY(0);
         }
         @media (max-width: 720px) {
-          .fu-row .fu-actions {
+          .fu-row {
+            flex-wrap: wrap;
+            align-items: flex-start;
+          }
+          .fu-btns {
             width: 100%;
             justify-content: flex-end;
           }

@@ -162,101 +162,122 @@
 }
 
 /* WhatsApp */
-.navi-main-stack .main-content .fu-btn-wa {
-  background: var(--color-accent);
-  color: #fff;
-}
-
-.navi-main-stack .main-content .fu-btn-wa:hover {
-  background: color-mix(in srgb, var(--color-accent) 90%, #085041);
-  filter: none;
-}
-
 /* Follow-ups — status positivo */
+.navi-main-stack .main-content .fu-tag--post,
 .navi-main-stack .main-content .fu-type-badge--post {
   background: var(--color-accent-surface);
   color: var(--color-status-positive-text);
   border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
 }
 
-.navi-main-stack .main-content .fu-dot--post {
-  background: var(--color-accent);
+.navi-main-stack .main-content .fu-tag--recover {
+  background: #FDE8D8;
+  color: #7A3010;
 }
 
-/* Agenda semanal */
+.navi-main-stack .main-content .wa-btn,
+.navi-main-stack .main-content .fu-btn-wa {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.navi-main-stack .main-content .wa-btn:hover:not(:disabled),
+.navi-main-stack .main-content .fu-btn-wa:hover {
+  background: color-mix(in srgb, var(--color-accent) 90%, #085041);
+  filter: none;
+}
+
+/* Agenda semanal — Hoje */
 .navi-main-stack .main-content .reception-agenda-inner .agenda-week-section.reception-week-panel.reception-section {
   background: var(--color-content-bg);
   border-color: var(--color-card-border);
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .week-nav-pill,
 .navi-main-stack .main-content .reception-agenda-inner .agenda-dash-week-nav {
   background: var(--color-primary-surface);
   border-color: var(--color-card-border);
   color: var(--color-primary);
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .week-nav-pill__btn:hover:not(:disabled),
+.navi-main-stack .main-content .reception-agenda-inner .week-nav-pill__refresh:hover:not(:disabled),
 .navi-main-stack .main-content .reception-agenda-inner .agenda-dash-week-nav:hover {
   background: color-mix(in srgb, var(--color-primary-surface) 65%, var(--color-primary-light));
   border-color: var(--color-primary-light);
   color: var(--color-primary);
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .aula-card,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-card.agenda-week-card--lead {
   background: var(--color-primary-surface) !important;
-  border-left-color: var(--color-primary-light) !important;
+  border-color: color-mix(in srgb, var(--color-primary-light) 45%, var(--color-card-border)) !important;
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .aula-time,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-time {
   color: var(--color-primary);
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .dot-green,
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .aula-dot--confirmed,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-status-dot--confirmed {
   background: var(--color-accent);
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .day-col.today,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
   border-color: var(--color-primary) !important;
   background: var(--color-agenda-today-bg) !important;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .day-col.today:hover,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-col--today:hover {
   border-color: var(--color-primary) !important;
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .day-num.active,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-day-num--today {
   background: var(--color-primary) !important;
   color: #fff !important;
 }
 
+.navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .day-col:hover,
 .navi-main-stack .main-content .reception-agenda-inner .reception-week-embed .agenda-week-col:hover {
   border-color: color-mix(in srgb, var(--color-primary-light) 65%, var(--color-card-border));
 }
 
 /* AgendaCalendarWeek (genérico dentro do conteúdo) */
+.navi-main-stack .main-content .aula-card,
 .navi-main-stack .main-content .agenda-week-card--lead {
   background: var(--color-primary-surface) !important;
   border-color: color-mix(in srgb, var(--color-primary-light) 45%, var(--color-card-border)) !important;
 }
 
+.navi-main-stack .main-content .day-col.today,
 .navi-main-stack .main-content .agenda-week-col--today {
   background: var(--color-agenda-today-bg) !important;
   border-color: var(--color-primary) !important;
 }
 
+.navi-main-stack .main-content .day-num.active,
 .navi-main-stack .main-content .agenda-week-day-num--today {
   background: var(--color-primary) !important;
   color: #fff !important;
 }
 
+.navi-main-stack .main-content .aula-time,
 .navi-main-stack .main-content .agenda-week-time {
   color: var(--color-primary);
 }
 
+.navi-main-stack .main-content .dot-green,
 .navi-main-stack .main-content .agenda-week-status-dot--confirmed {
   background: var(--color-accent);
 }
 
+.navi-main-stack .main-content .aula-card:hover .aula-name,
 .navi-main-stack .main-content .agenda-week-card-head:hover .agenda-week-name {
   color: var(--color-primary);
 }
