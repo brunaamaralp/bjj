@@ -60,7 +60,7 @@ function formatDd(iso) {
 
 const BADGE_STYLES = {
   success: { bg: '#EAF3DE', color: '#3B6D11' },
-  covered: { bg: 'var(--v50, var(--azul-gelo))', color: 'var(--v700, var(--petroleo))', border: '1px solid var(--v200, #ddd6fe)' },
+  covered: { bg: 'var(--v50, var(--azul-gelo))', color: 'var(--v700, var(--petroleo))', border: '1px solid var(--v200)' },
   danger: { bg: '#FCEBEB', color: '#A32D2D' },
   warning: { bg: '#FFEDD5', color: '#C2410C' },
   muted: { bg: '#f1f5f9', color: '#64748b' },

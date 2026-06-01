@@ -55,7 +55,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
   return (
     <div
       style={{
-        border: '1px solid var(--v200, #ddd6fe)',
+        border: '1px solid var(--v200)',
         borderRadius: 10,
         background: 'var(--v50, #f9f7ff)',
         padding: '12px 14px',

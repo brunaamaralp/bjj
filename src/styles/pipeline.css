@@ -3,7 +3,6 @@
 .main-content.pipeline-active {
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  padding: 0 !important;
 }
 
 .pipeline-container {
@@ -28,7 +27,7 @@
 .pipeline-header .container {
   max-width: none;
   margin: 0;
-  padding: 0 16px;
+  padding: 0;
 }
 
 .pipeline-search-status {
@@ -117,7 +116,7 @@
 }
 
 .pipeline-kanban-loading-hint {
-  padding: 8px 16px 0;
+  padding: 8px 0 0;
   font-size: var(--font-base);
   font-weight: 700;
   color: var(--text-secondary);
@@ -134,7 +133,7 @@
   gap: 10px;
   overflow-x: scroll;
   overflow-y: hidden;
-  padding: 10px 12px 8px 20px;
+  padding: 10px 0 8px;
   flex: 1 1 0;
   min-height: 0;
   align-items: stretch;
@@ -806,7 +805,7 @@
 }
 
 .pipeline-mobile-list-root {
-  padding: 0 16px 80px;
+  padding: 0 0 80px;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -360,7 +360,7 @@ export default function NlCommandBar({
                   width: 20,
                   height: 20,
                   margin: '0 auto 14px',
-                  border: '2px solid #EEEDFE',
+                  border: '2px solid var(--v200)',
                   borderTopColor: 'var(--petroleo)',
                   borderRadius: '50%',
                   animation: 'nl-cmd-spin 0.7s linear infinite'
@@ -377,7 +377,7 @@ export default function NlCommandBar({
                   width: 20,
                   height: 20,
                   margin: '0 auto 14px',
-                  border: '2px solid #EEEDFE',
+                  border: '2px solid var(--v200)',
                   borderTopColor: 'var(--petroleo)',
                   borderRadius: '50%',
                   animation: 'nl-cmd-spin 0.7s linear infinite'
@@ -429,7 +429,7 @@ export default function NlCommandBar({
                   ))}
                 </div>
               ) : null}
-              <div style={{ background: '#EEEDFE', borderRadius: 10, padding: 16 }}>
+              <div style={{ background: 'var(--accent-light)', borderRadius: 10, padding: 16 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--petroleo)', letterSpacing: '0.08em', marginBottom: 8 }}>
                   ✦ CONFIRMAR
                 </div>

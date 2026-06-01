@@ -444,7 +444,7 @@
   overflow: auto;
   overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
-  background: var(--inbox-accent-bg, #f5f7fb);
+  background: var(--inbox-accent-bg, var(--azul-gelo));
   padding: 14px;
 }
 
@@ -1167,7 +1167,7 @@
   max-width: 100%;
   padding: 14px 16px;
   border-radius: 8px;
-  background: var(--surface-hover, var(--sectionBg, #f4f4f8));
+  background: var(--surface-hover, var(--sectionBg, var(--azul-gelo)));
   border: 1px solid var(--border-mid, var(--border));
   box-sizing: border-box;
 }
@@ -1243,7 +1243,7 @@
 }
 
 .inbox-media-placeholder {
-  background: var(--surface-hover, var(--sectionBg, #f4f4f8));
+  background: var(--surface-hover, var(--sectionBg, var(--azul-gelo)));
   border: 1px solid var(--border-mid, var(--border));
   border-radius: 8px;
   padding: 10px 14px;
@@ -1407,7 +1407,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-mid, var(--border));
-  background: var(--surface-hover, var(--sectionBg, #f4f4f8));
+  background: var(--surface-hover, var(--sectionBg, var(--azul-gelo)));
   box-sizing: border-box;
   max-width: 100%;
 }
@@ -1627,7 +1627,7 @@
 }
 
 .inbox-thread-header__btn-context.is-active {
-  background: var(--inbox-accent-bg, #f5f7fb);
+  background: var(--inbox-accent-bg, var(--azul-gelo));
   border-color: var(--v500);
   color: var(--v700);
 }

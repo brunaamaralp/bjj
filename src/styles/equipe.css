@@ -191,7 +191,7 @@
 }
 
 .equipe-pill--admin {
-  background: color-mix(in srgb, var(--v200, #c4b5fd) 35%, var(--surface));
+  background: color-mix(in srgb, var(--v200) 35%, var(--surface));
   color: var(--v700);
 }
 

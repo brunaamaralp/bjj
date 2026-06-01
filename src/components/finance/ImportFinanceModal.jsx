@@ -1068,7 +1068,7 @@ const FINANCE_IMPORT_STYLES = `
     position: sticky;
     top: 0;
     z-index: 1;
-    background: var(--surface-hover, #f6f5fa);
+    background: var(--surface-hover, var(--azul-gelo));
   }
 
   .finance-import-data-table th {

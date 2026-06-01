@@ -25,7 +25,7 @@ export default function PlanFreezePanel({
         borderRadius: 12,
         padding: '14px 16px',
         marginBottom: 12,
-        background: 'linear-gradient(135deg, #f8f7fc 0%, #eef2f7 100%)',
+        background: 'linear-gradient(135deg, var(--azul-gelo) 0%, color-mix(in srgb, var(--petroleo) 8%, var(--azul-gelo)) 100%)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>

@@ -82,7 +82,7 @@
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 20px;
-  background: #eeedfe;
+  background: var(--accent-light);
   color: #3c3489;
 }
 .tpl-badge-in-use {

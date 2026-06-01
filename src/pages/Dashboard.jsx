@@ -1087,12 +1087,12 @@ const Dashboard = () => {
           border-left: 3px solid var(--v200);
         }
         .reception-agenda-inner .agenda-week-section.reception-week-panel.reception-section {
-          background: #F4F2FF;
-          border: 0.5px solid #AFA9EC;
+          background: var(--azul-gelo);
+          border: 0.5px solid var(--border-mid);
         }
         .reception-week-panel__title.navi-section-heading,
         .reception-week-panel__title {
-          color: #26215C;
+          color: var(--cosmos);
         }
         .badge.reception-week-count-badge {
           background: var(--petroleo);
@@ -1102,14 +1102,14 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .agenda-dash-week-nav {
           background: #fff;
-          border: 0.5px solid #AFA9EC;
-          color: #534AB7;
+          border: 0.5px solid var(--border-mid);
+          color: var(--cosmos);
           font-weight: 600;
         }
         .reception-agenda-inner .agenda-dash-week-nav:hover {
-          background: #faf9ff;
-          border-color: #CECBF6;
-          color: #43389a;
+          background: var(--azul-gelo);
+          border-color: var(--petroleo);
+          color: var(--petroleo);
         }
         .reception-week-embed {
           margin-top: 2px;
@@ -1120,7 +1120,7 @@ const Dashboard = () => {
         .reception-week-range {
           font-size: 13px;
           font-weight: 700;
-          color: #534AB7;
+          color: var(--cosmos);
           padding: 0 8px;
           white-space: nowrap;
         }
@@ -1133,22 +1133,23 @@ const Dashboard = () => {
         .reception-calendar-hint {
           margin: 14px 0 0;
           font-size: 11px;
-          color: #7F77DD;
+          color: var(--ameixa);
           line-height: 1.45;
           text-align: center;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col {
           border-radius: 10px;
-          border: 0.5px solid #CECBF6;
+          border: 0.5px solid var(--v200);
           background: #fff;
           box-shadow: none;
+          min-width: 120px;
           min-height: 140px;
           padding: 10px 8px;
-          overflow: visible;
+          overflow: hidden;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--today {
           border: 1.5px solid var(--petroleo);
-          background: #EEEDFE !important;
+          background: var(--accent-light) !important;
           box-shadow: 0 2px 10px rgba(0, 68, 102, 0.12);
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--empty {
@@ -1160,7 +1161,7 @@ const Dashboard = () => {
           opacity: 0.5;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col:hover {
-          border-color: #AFA9EC;
+          border-color: var(--petroleo);
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--today:hover {
           border-color: var(--petroleo);
@@ -1177,22 +1178,27 @@ const Dashboard = () => {
         .reception-agenda-inner .reception-week-embed .agenda-week-dow {
           font-size: 10px;
           font-weight: 500;
-          color: #7F77DD;
+          color: var(--ameixa);
           letter-spacing: 0.06em;
           text-transform: uppercase;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-day-num {
           font-size: 15px;
           font-weight: 700;
-          color: #3C3489;
-        }
-        .reception-agenda-inner .reception-week-embed .agenda-week-day-num--today {
+          color: var(--cosmos);
           width: 30px;
           height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .reception-agenda-inner .reception-week-embed .agenda-week-day-num--today {
           font-size: 13px;
           font-weight: 600;
           background: var(--petroleo) !important;
           color: #fff !important;
+          border-radius: 50%;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col-body {
           padding: 0;
@@ -1201,7 +1207,7 @@ const Dashboard = () => {
           flex: 1;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col-empty {
-          color: #AFA9EC;
+          color: var(--ameixa);
           opacity: 1;
           font-weight: 500;
           flex: 1;
@@ -1211,11 +1217,19 @@ const Dashboard = () => {
           margin: 0;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-card.agenda-week-card--lead {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 120px;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+          overflow: hidden;
           padding: 8px 10px 8px 8px !important;
           border-radius: 0 6px 6px 0 !important;
           border: none !important;
           border-left: 2px solid var(--petroleo) !important;
-          background: #EEEDFE !important;
+          background: var(--accent-light) !important;
           box-shadow: none !important;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-card:hover {
@@ -1226,7 +1240,7 @@ const Dashboard = () => {
         .reception-agenda-inner .reception-week-embed .agenda-week-time {
           font-size: 11px;
           font-weight: 500;
-          color: #534AB7;
+          color: var(--petroleo);
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-status-dot {
           width: 6px;
@@ -1241,21 +1255,25 @@ const Dashboard = () => {
         .reception-agenda-inner .reception-week-embed .agenda-week-name {
           font-size: 12px;
           font-weight: 500;
-          color: #3C3489;
+          color: var(--cosmos);
+          max-width: 100%;
+          min-width: 0;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-mod {
           font-size: 10px;
           font-weight: 500;
-          color: #7F77DD;
+          color: var(--ameixa);
           margin-top: 2px;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-presence {
-          margin-top: 6px;
+          margin-top: auto;
+          padding-top: 8px;
+          flex-shrink: 0;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn {
           background: #fff;
-          border-color: #CECBF6;
-          color: #534AB7;
+          border-color: var(--v200);
+          color: var(--cosmos);
           font-size: 10px;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-presence-btn--yes:hover:not(:disabled) {
@@ -1280,6 +1298,7 @@ const Dashboard = () => {
           gap: 5px;
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-col--dense .agenda-week-card {
+          min-height: 120px;
           padding: 8px 10px 8px 8px !important;
           border-radius: 0 6px 6px 0 !important;
         }
@@ -1291,10 +1310,10 @@ const Dashboard = () => {
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-week-empty.navi-empty {
           background: rgba(255, 255, 255, 0.65);
-          border-color: #CECBF6;
+          border-color: var(--v200);
         }
         .reception-agenda-inner .reception-week-embed .agenda-week-week-empty.navi-empty .navi-empty__title {
-          color: #534AB7;
+          color: var(--ameixa);
         }
         .fu-list-card {
           background: var(--surface);
@@ -2057,7 +2076,7 @@ const Dashboard = () => {
           left: 0;
           right: 0;
           height: 2px;
-          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.75));
+          background: linear-gradient(90deg, var(--petroleo), rgba(0, 68, 102, 0.75));
           opacity: 0.7;
           pointer-events: none;
           border-radius: 16px 16px 0 0;

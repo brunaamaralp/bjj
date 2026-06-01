@@ -106,12 +106,12 @@ function SideNavLink({
   onClick,
 }) {
   const location = useLocation();
-  const iconSize = 20;
+  const iconSize = action ? (collapsed ? 22 : 24) : 20;
   const IconComponent = action && collapsed ? Plus : Icon;
   const inner = (
     <>
       <span className={`navi-sidebar-link__icon${action ? ' navi-sidebar-link__icon--action' : ''}`}>
-        <IconComponent size={iconSize} strokeWidth={action && collapsed ? 2.25 : 1.75} />
+        <IconComponent size={iconSize} strokeWidth={action ? 2.25 : 1.75} />
       </span>
       <span className="navi-sidebar-link__label">{label}</span>
       {badge}

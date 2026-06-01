@@ -341,45 +341,31 @@ export default function AgendaCalendarWeek({
         .agenda-week-scroll {
           width: 100%;
           max-width: 100%;
-          overflow: visible;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
           margin-bottom: 4px;
         }
         .agenda-week-grid {
           display: grid;
-          grid-template-columns: repeat(7, minmax(0, 1fr));
+          grid-template-columns: repeat(7, minmax(120px, 1fr));
           gap: 10px;
           padding-inline: 0;
+          padding-bottom: 4px;
           align-items: stretch;
+          width: max-content;
+          min-width: 100%;
         }
         .agenda-week-grid--six {
-          grid-template-columns: repeat(6, minmax(0, 1fr));
+          grid-template-columns: repeat(6, minmax(120px, 1fr));
         }
-        @media (max-width: 1100px) {
-          .agenda-week-grid {
-            grid-template-columns: repeat(7, minmax(92px, 1fr));
-            overflow-x: auto;
-            overscroll-behavior-x: contain;
-            padding-bottom: 8px;
-            -webkit-overflow-scrolling: touch;
-          }
-          .agenda-week-grid--six {
-            grid-template-columns: repeat(6, minmax(92px, 1fr));
-          }
-          .agenda-week-col { min-width: 92px; }
-        }
-        @media (max-width: 640px) {
-          .agenda-week-grid {
-            grid-template-columns: 1fr;
-            overflow-x: visible;
-          }
-          .agenda-week-grid--six {
-            grid-template-columns: 1fr;
-          }
-          .agenda-week-col { min-width: 0; }
+        @media (max-width: 980px) {
+          .agenda-week-nav { position: static; }
         }
         .agenda-week-col {
           flex: 0 0 auto;
           width: 100%;
+          min-width: 120px;
           max-width: 100%;
           border-radius: var(--radius-sm);
           border: 1px solid var(--border-mid);
@@ -434,17 +420,19 @@ export default function AgendaCalendarWeek({
           color: var(--ink);
           line-height: 1;
           font-variant-numeric: tabular-nums;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
         .agenda-week-day-num--today {
           background: var(--petroleo);
           color: #fff;
-          width: 32px;
-          height: 32px;
           border-radius: 50%;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
           font-size: 14px;
+          font-weight: 700;
         }
         .agenda-week-col--today .agenda-week-col-head {
           background: rgba(0, 68, 102, 0.06);
@@ -471,6 +459,15 @@ export default function AgendaCalendarWeek({
           max-width: none;
         }
         .agenda-week-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 0;
+          min-height: 120px;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+          overflow: hidden;
           padding: 8px 10px !important;
           border-radius: 10px !important;
           border: 1px solid rgba(0, 68, 102, 0.14) !important;
@@ -478,7 +475,7 @@ export default function AgendaCalendarWeek({
           transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.15s ease;
         }
         .agenda-week-card--lead {
-          background: #eeedfe !important;
+          background: var(--accent-light) !important;
         }
         .agenda-week-card:hover {
           transform: translateY(-1px);
@@ -504,12 +501,13 @@ export default function AgendaCalendarWeek({
           gap: 10px;
         }
         .agenda-week-col--dense .agenda-week-card {
+          min-height: 120px;
           padding: 10px 10px 12px !important;
           border-radius: 12px !important;
         }
         .agenda-week-col--dense .agenda-week-card-head {
-          padding: 2px 1px 10px;
-          gap: 3px;
+          padding: 0;
+          gap: 4px;
         }
         .agenda-week-col--dense .agenda-week-name {
           font-size: 0.82rem;
@@ -533,12 +531,13 @@ export default function AgendaCalendarWeek({
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          gap: 5px;
+          gap: 4px;
           width: 100%;
+          flex: 1 1 auto;
+          min-height: 0;
           background: none;
           border: none;
           padding: 0;
-          min-height: 0;
           box-sizing: border-box;
           cursor: pointer;
           text-align: left;
@@ -561,30 +560,42 @@ export default function AgendaCalendarWeek({
           font-size: 13px;
           font-weight: 500;
           line-height: 1.3;
+          display: block;
           width: 100%;
+          max-width: 100%;
           min-width: 0;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .agenda-week-mod {
-          margin-top: 1px;
+          display: block;
+          margin-top: 0;
           font-size: 11px;
           line-height: 1.2;
           font-weight: 400;
           color: var(--text-secondary);
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .agenda-week-presence {
           display: flex;
+          flex-shrink: 0;
           gap: 4px;
-          margin-top: 6px;
+          margin-top: auto;
+          padding-top: 8px;
           width: 100%;
+          min-width: 0;
         }
         .agenda-week-presence-btn {
-          flex: 1;
+          flex: 1 1 0;
           min-width: 0;
           min-height: 28px;
-          padding: 4px 6px;
+          padding: 4px 4px;
           border-radius: 6px;
           font-size: 10px;
           font-weight: 600;
@@ -594,6 +605,8 @@ export default function AgendaCalendarWeek({
           background: var(--surface);
           color: var(--text-secondary);
           transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+          overflow: hidden;
+          text-overflow: ellipsis;
           white-space: nowrap;
         }
         .agenda-week-presence-btn:hover:not(:disabled) {
@@ -613,9 +626,6 @@ export default function AgendaCalendarWeek({
           border-color: rgba(226, 75, 74, 0.45);
           color: #b91c1c;
           background: rgba(239, 68, 68, 0.06);
-        }
-        @media (max-width: 980px) {
-          .agenda-week-nav { position: static; }
         }
       `}</style>
         </div>

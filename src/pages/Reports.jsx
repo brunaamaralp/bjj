@@ -1238,7 +1238,7 @@ const Reports = () => {
           opacity: 0.95;
         }
         .reports-kpi-card--accent::before {
-          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.95));
+          background: linear-gradient(90deg, var(--petroleo), color-mix(in srgb, var(--petroleo) 75%, var(--cosmos)));
         }
         .reports-kpi-card--warning::before {
           background: linear-gradient(90deg, #c9a227, #e8b84a);
@@ -1250,7 +1250,7 @@ const Reports = () => {
           background: linear-gradient(90deg, var(--danger), var(--c300));
         }
         .reports-kpi-card--purple::before {
-          background: linear-gradient(90deg, var(--v700), var(--v500));
+          background: linear-gradient(90deg, var(--dourado), color-mix(in srgb, var(--dourado) 70%, var(--cosmos)));
         }
         .reports-kpi-card-head {
           display: flex;
@@ -1281,7 +1281,7 @@ const Reports = () => {
         .reports-kpi-card--warning .reports-kpi-icon-wrap { background: var(--warn-bg); }
         .reports-kpi-card--success .reports-kpi-icon-wrap { background: var(--success-bg); }
         .reports-kpi-card--danger .reports-kpi-icon-wrap { background: var(--danger-light); }
-        .reports-kpi-card--purple .reports-kpi-icon-wrap { background: var(--purple-light); }
+        .reports-kpi-card--purple .reports-kpi-icon-wrap { background: rgba(228, 181, 93, 0.12); }
         .reports-kpi-value {
           font-size: clamp(1.65rem, 4vw, 2rem);
           font-weight: 800;
@@ -1293,7 +1293,7 @@ const Reports = () => {
         .reports-kpi-card--warning .reports-kpi-value { color: var(--warn-text); }
         .reports-kpi-card--success .reports-kpi-value { color: var(--success-text); }
         .reports-kpi-card--danger .reports-kpi-value { color: var(--danger); }
-        .reports-kpi-card--purple .reports-kpi-value { color: var(--v700); }
+        .reports-kpi-card--purple .reports-kpi-value { color: var(--dourado); }
         .reports-kpi-trend {
           display: flex;
           flex-wrap: wrap;
@@ -1357,7 +1357,7 @@ const Reports = () => {
           left: 0;
           right: 0;
           height: 3px;
-          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.95));
+          background: linear-gradient(90deg, var(--petroleo), color-mix(in srgb, var(--petroleo) 75%, var(--cosmos)));
           border-radius: 16px 16px 0 0;
           opacity: 0.95;
         }
@@ -1643,7 +1643,7 @@ const Reports = () => {
           opacity: 0.95;
         }
         .reports-drill-panel--accent::before {
-          background: linear-gradient(90deg, var(--v500), rgba(124, 99, 214, 0.95));
+          background: linear-gradient(90deg, var(--petroleo), color-mix(in srgb, var(--petroleo) 75%, var(--cosmos)));
         }
         .reports-drill-panel--warning::before {
           background: linear-gradient(90deg, #c9a227, #e8b84a);
@@ -1655,7 +1655,7 @@ const Reports = () => {
           background: linear-gradient(90deg, var(--danger), var(--c300));
         }
         .reports-drill-panel--purple::before {
-          background: linear-gradient(90deg, var(--v700), var(--v500));
+          background: linear-gradient(90deg, var(--dourado), color-mix(in srgb, var(--dourado) 70%, var(--cosmos)));
         }
         .reports-drill-head {
           display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;

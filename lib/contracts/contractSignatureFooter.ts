@@ -33,9 +33,9 @@ export const CONTRACT_SIGNATURE_FOOTER_CSS = `
 }
 @media screen {
   .contract-sig-footer__box {
-    border: 2px dashed #8b5cf6;
+    border: 2px dashed var(--petroleo);
     border-radius: 6px;
-    background: rgba(139, 92, 246, 0.07);
+    background: rgba(0, 68, 102, 0.07);
     position: relative;
   }
   .contract-sig-footer__box::after {
@@ -47,7 +47,7 @@ export const CONTRACT_SIGNATURE_FOOTER_CSS = `
     justify-content: center;
     font-size: 11px;
     font-weight: 600;
-    color: #6d28d9;
+    color: var(--petroleo);
     font-family: system-ui, sans-serif;
     pointer-events: none;
   }

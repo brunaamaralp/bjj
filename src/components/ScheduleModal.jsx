@@ -153,8 +153,8 @@ export default function ScheduleModal({
                         fontWeight: 700,
                         cursor: 'pointer',
                         fontFamily: 'inherit',
-                        background: active ? 'var(--petroleo)' : '#EEEDFE',
-                        color: active ? '#fff' : '#3C3489',
+                        background: active ? 'var(--petroleo)' : 'var(--accent-light)',
+                        color: active ? '#fff' : 'var(--cosmos)',
                       }}
                     >
                       {chip}

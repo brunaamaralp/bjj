@@ -21,7 +21,7 @@ export const EXCEPTION_STATUS_COLORS = {
   pending: { bg: '#FCEBEB', color: '#A32D2D' },
   awaiting: { bg: '#FEF3C7', color: '#B45309' },
   partial: { bg: '#FFEDD5', color: '#C2410C' },
-  divergence: { bg: '#EDE9FE', color: '#6D28D9' },
+  divergence: { bg: 'rgba(228, 181, 93, 0.12)', color: '#E4B55D' },
   none: { bg: '#f0f0f8', color: 'var(--text-secondary)' },
 };
 

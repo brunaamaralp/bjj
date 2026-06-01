@@ -88,7 +88,7 @@ const STATUS_CONFIG = {
     [LEAD_STATUS.SCHEDULED]: { bg: 'var(--warning-light)', color: 'var(--warning)' },
     [LEAD_STATUS.COMPLETED]: { bg: 'var(--success-light)', color: 'var(--success)' },
     [LEAD_STATUS.MISSED]: { bg: 'var(--danger-light)', color: 'var(--danger)' },
-    [LEAD_STATUS.CONVERTED]: { bg: 'var(--purple-light)', color: 'var(--purple)' },
+    [LEAD_STATUS.CONVERTED]: { bg: 'rgba(228, 181, 93, 0.12)', color: 'var(--dourado)' },
     [LEAD_STATUS.LOST]: { bg: '#f1f5f9', color: '#64748b' },
 };
 
@@ -2450,8 +2450,8 @@ const LeadProfile = () => {
                     width: 100%;
                     padding: 12px;
                     border-radius: 12px;
-                    background: #EEEDFE;
-                    color: #534AB7;
+                    background: var(--accent-light);
+                    color: var(--cosmos);
                     border: none;
                     font-weight: 700;
                     font-size: 13px;

@@ -34,7 +34,7 @@ export default function PaymentExceptionMobileCard({
       : row.primaryStatus === 'partial'
         ? '#C2410C'
         : row.difference < -0.009
-          ? '#6D28D9'
+          ? 'var(--dourado)'
           : row.difference > 0.009
             ? '#A32D2D'
             : 'var(--text-secondary)';
