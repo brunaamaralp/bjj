@@ -91,4 +91,3 @@ export const defaultSigner = (): CreateContractFormValues['signers'][number] => 
   action: 'SIGN',
   delivery_method: 'DELIVERY_METHOD_EMAIL',
 });
-

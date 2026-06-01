@@ -15,6 +15,8 @@ import {
 } from './templatesApi.js';
 import type { FetchContractsParams } from './api.js';
 import type { SignerInput } from './types.js';
+import { mapContractDisplayStatusForRecord } from './status.js';
+import type { ContractRecord } from '../../../lib/contracts/types.js';
 import type { ContractTemplatePurpose } from '../../../lib/contracts/contractTemplatePurpose.js';
 
 export const contractKeys = {
@@ -34,10 +36,20 @@ export function useContractAutentiqueMeta(enabled = true) {
   });
 }
 
+function contractListNeedsPolling(rows: ContractRecord[] | undefined): number | false {
+  const list = rows || [];
+  const pending = list.some((c) => {
+    const d = mapContractDisplayStatusForRecord(c);
+    return d === 'sent' || d === 'viewed';
+  });
+  return pending ? 30_000 : false;
+}
+
 export function useContractsList(params: FetchContractsParams) {
   return useQuery({
     queryKey: contractKeys.list(params),
     queryFn: () => fetchContracts(params),
+    refetchInterval: (query) => contractListNeedsPolling(query.state.data?.data),
   });
 }
 

@@ -3,14 +3,12 @@ import {
   getContractById,
   updateContractStatus,
   updateSignerStatus,
+  recomputeContractStatusFromSigners,
 } from './contractService.js';
+import { getBrazilMobileNational } from './normalizePhone.js';
 
 function normalizeEmail(value: string | null | undefined): string {
   return String(value || '').trim().toLowerCase();
-}
-
-function normalizePhone(value: string | null | undefined): string {
-  return String(value || '').replace(/\D/g, '');
 }
 
 export async function syncContractFromAutentique(
@@ -52,13 +50,16 @@ export async function syncContractFromAutentique(
     await updateSignerStatus(publicId, signerStatus, sig.signed?.created_at || null);
   }
 
+  await recomputeContractStatusFromSigners(contractId);
+
   return { ok: true, contractId };
 }
 
 export function matchInputSignerToAutentiqueSignature(
   input: { email?: string; phone?: string; name?: string },
-  signatures: Array<{ public_id: string; email?: string | null; name?: string | null }>,
-  usedIds: Set<string>
+  signatures: Array<{ public_id: string; email?: string | null; name?: string | null; phone?: string | null }>,
+  usedIds: Set<string>,
+  signerIndex = 0
 ): { public_id: string; email?: string | null; name?: string | null } | null {
   const email = normalizeEmail(input.email);
   if (email) {
@@ -68,12 +69,27 @@ export function matchInputSignerToAutentiqueSignature(
     if (hit) return hit;
   }
 
+  const phone = getBrazilMobileNational(input.phone);
+  if (phone) {
+    const hit = signatures.find((s) => {
+      if (usedIds.has(s.public_id)) return false;
+      const sigPhone = getBrazilMobileNational(s.phone);
+      return sigPhone === phone;
+    });
+    if (hit) return hit;
+  }
+
   const name = String(input.name || '').trim().toLowerCase();
   if (name) {
     const hit = signatures.find(
       (s) => !usedIds.has(s.public_id) && String(s.name || '').trim().toLowerCase() === name
     );
     if (hit) return hit;
+  }
+
+  if (signerIndex >= 0 && signerIndex < signatures.length) {
+    const at = signatures[signerIndex];
+    if (at && !usedIds.has(at.public_id)) return at;
   }
 
   const unused = signatures.find((s) => !usedIds.has(s.public_id));

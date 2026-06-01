@@ -50,6 +50,7 @@ import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js'
 import { buildAutentiqueDocumentName } from '../../../lib/contracts/buildAutentiqueDocumentMeta.js';
 import {
   contratadaSlotEnabled,
+  findContratadaSignerIndex,
   signerEmailsMatchContratadaForAutoSign,
 } from '../../../lib/contracts/autentiqueAutoSign.js';
 
@@ -155,6 +156,50 @@ export default function CreateContractModal({
 
   const layoutForAutoSign = selectedTemplate?.signerLayout as ContractSignerLayout | undefined;
   const showAutoSignOption = contratadaSlotEnabled(layoutForAutoSign);
+  const contratadaSignerIndex = useMemo(
+    () => findContratadaSignerIndex(layoutForAutoSign),
+    [layoutForAutoSign]
+  );
+
+  const applyAutentiqueEmailToContratada = useCallback(async () => {
+    const accountEmail = String(autentiqueMeta?.accountEmail || '').trim();
+    if (!accountEmail || contratadaSignerIndex == null) {
+      addToast({
+        type: 'error',
+        message:
+          'Configure AUTENTIQUE_ACCOUNT_EMAIL na Vercel (e-mail da conta Autentique do token) ou peça ao suporte.',
+      });
+      return;
+    }
+    setValue(`signers.${contratadaSignerIndex}.email`, accountEmail, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue(`signers.${contratadaSignerIndex}.delivery_method`, 'DELIVERY_METHOD_EMAIL', {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    if (canEditAcademyEmail && academyId) {
+      try {
+        await saveAcademySettingsApi(academyId, { autentique_account_email: accountEmail });
+        invalidateAcademyDocumentCache(academyId);
+      } catch {
+        /* e-mail do signatário já foi aplicado para este envio */
+      }
+    }
+    addToast({
+      type: 'success',
+      message: 'E-mail da Contratada alinhado à conta Autentique. Agora você pode marcar a auto-assinatura.',
+    });
+  }, [
+    academyId,
+    addToast,
+    autentiqueMeta?.accountEmail,
+    canEditAcademyEmail,
+    contratadaSignerIndex,
+    setValue,
+  ]);
+
   const canAutoSignAcademy = useMemo(
     () =>
       Boolean(
@@ -688,8 +733,9 @@ export default function CreateContractModal({
 
                 {fields.map((field, index) => {
                   const deliveryMethod = watch(`signers.${index}.delivery_method`);
-                  const whatsapp = isWhatsAppDelivery(deliveryMethod);
-                  const email = isEmailDelivery(deliveryMethod);
+                  const isContratada = isContratadaSignerIndex(index);
+                  const whatsapp = !isContratada && isWhatsAppDelivery(deliveryMethod);
+                  const email = isContratada || isEmailDelivery(deliveryMethod);
 
                   return (
                   <div key={field.id} className="contracts-signer-card">
@@ -722,42 +768,48 @@ export default function CreateContractModal({
                       </div>
 
                       <div className="contracts-signer-grid__full">
-                        <ContractSignerDeliveryPicker
-                          value={deliveryMethod}
-                          onChange={(method) => {
-                            setValue(`signers.${index}.delivery_method`, method, {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            });
-                            if (index === 0 && lead) {
-                              if (
-                                isWhatsAppDelivery(method) &&
-                                !String(getValues(`signers.${index}.phone`) || '').trim()
-                              ) {
-                                const fromLead = formatPhoneForSignerField(lead.phone);
-                                if (fromLead) {
-                                  setValue(`signers.${index}.phone`, fromLead, {
-                                    shouldDirty: false,
-                                    shouldValidate: true,
-                                  });
+                        {isContratada ? (
+                          <p className="text-small text-muted contracts-signer-delivery-badge">
+                            Envio: <strong>E-mail</strong> (contratada / academia)
+                          </p>
+                        ) : (
+                          <ContractSignerDeliveryPicker
+                            value={deliveryMethod}
+                            onChange={(method) => {
+                              setValue(`signers.${index}.delivery_method`, method, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              });
+                              if (index === 0 && lead) {
+                                if (
+                                  isWhatsAppDelivery(method) &&
+                                  !String(getValues(`signers.${index}.phone`) || '').trim()
+                                ) {
+                                  const fromLead = formatPhoneForSignerField(lead.phone);
+                                  if (fromLead) {
+                                    setValue(`signers.${index}.phone`, fromLead, {
+                                      shouldDirty: false,
+                                      shouldValidate: true,
+                                    });
+                                  }
+                                }
+                                if (
+                                  isEmailDelivery(method) &&
+                                  !String(getValues(`signers.${index}.email`) || '').trim()
+                                ) {
+                                  const fromLead = formatEmailForSignerField(lead.email);
+                                  if (fromLead) {
+                                    setValue(`signers.${index}.email`, fromLead, {
+                                      shouldDirty: false,
+                                      shouldValidate: true,
+                                    });
+                                  }
                                 }
                               }
-                              if (
-                                isEmailDelivery(method) &&
-                                !String(getValues(`signers.${index}.email`) || '').trim()
-                              ) {
-                                const fromLead = formatEmailForSignerField(lead.email);
-                                if (fromLead) {
-                                  setValue(`signers.${index}.email`, fromLead, {
-                                    shouldDirty: false,
-                                    shouldValidate: true,
-                                  });
-                                }
-                              }
-                            }
-                            void trigger(`signers.${index}`);
-                          }}
-                        />
+                              void trigger(`signers.${index}`);
+                            }}
+                          />
+                        )}
                       </div>
 
                       {whatsapp ? (
@@ -819,7 +871,7 @@ export default function CreateContractModal({
                               {index === 0 && lead?.email ? ' Preenchido do cadastro do aluno.' : ''}
                             </p>
                           )}
-                          {isContratadaSignerIndex(index) &&
+                          {isContratada &&
                           !String(signers?.[index]?.email || '').trim() &&
                           !academyContactEmail ? (
                             <div className="contracts-academy-email-inline card">
@@ -878,7 +930,7 @@ export default function CreateContractModal({
                         </div>
                       ) : null}
 
-                      {email ? (
+                      {email && !isContratada ? (
                         <div>
                           <label className="task-field-label">Telefone (opcional)</label>
                           <input
@@ -969,12 +1021,22 @@ export default function CreateContractModal({
                         <span className="text-small text-muted contracts-auto-sign-option__hint">
                           {canAutoSignAcademy
                             ? 'A contratada será assinada automaticamente pela conta Autentique. Só o aluno receberá o link.'
-                            : autentiqueMeta?.configured
-                              ? `Use o e-mail ${autentiqueMeta.accountEmailMasked || 'da conta Autentique'} no signatário Contratada (ou configure AUTENTIQUE_ACCOUNT_EMAIL no servidor).`
-                              : 'Configure AUTENTIQUE_ACCOUNT_EMAIL no servidor com o e-mail da conta Autentique do token.'}
+                            : autentiqueMeta?.accountEmail
+                              ? `O e-mail da Contratada deve ser o da conta Autentique (${autentiqueMeta.accountEmailMasked || 'ver abaixo'}).`
+                              : 'Configure AUTENTIQUE_ACCOUNT_EMAIL na Vercel com o e-mail da conta Autentique do token.'}
                         </span>
                       </span>
                     </label>
+                    {!canAutoSignAcademy && autentiqueMeta?.accountEmail && contratadaSignerIndex != null ? (
+                      <button
+                        type="button"
+                        className="btn-outline contracts-auto-sign-apply-email"
+                        disabled={createMutation.isPending}
+                        onClick={() => void applyAutentiqueEmailToContratada()}
+                      >
+                        Usar e-mail da conta Autentique na Contratada
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
                 {sendDiagnostics.warnings.length > 0 ? (

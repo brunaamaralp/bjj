@@ -39,6 +39,10 @@ export function mapContractDisplayStatus(
     return 'expired';
   }
 
+  if (signersTotal > 0 && signersSigned > 0 && signersSigned < signersTotal) {
+    return 'viewed';
+  }
+
   const viewed = Number(ctx.signersViewed) || 0;
   if (viewed > 0 || s === 'viewed') return 'viewed';
 

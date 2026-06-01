@@ -5,6 +5,7 @@ import { syncContractById } from '../../features/contracts/api.js';
 import ContractStatusBadge, { SignerStatusBadge } from './ContractStatusBadge.js';
 import {
   mapContractDisplayStatusForRecord,
+  contractListStatusLabel,
   eventTypeLabel,
   autentiqueSignedDocumentUrl,
 } from '../../features/contracts/status.js';
@@ -149,7 +150,10 @@ export default function ContractDetailsDrawer({
               <div className="contracts-drawer-section">
                 <h3 className="contracts-drawer-name">{contract.name}</h3>
                 <div className="contracts-drawer-meta">
-                  <ContractStatusBadge status={displayStatus} />
+                  <ContractStatusBadge
+                    status={displayStatus}
+                    label={contract ? contractListStatusLabel(contract) : undefined}
+                  />
                   <span className="text-small text-muted">Criado em {formatDateTime(contract.createdAt)}</span>
                 </div>
                 {contract.expiresAt ? (

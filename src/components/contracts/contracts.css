@@ -410,6 +410,18 @@
   line-height: 1.45;
 }
 
+.contracts-auto-sign-apply-email {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.contracts-signer-delivery-badge {
+  margin: 0 0 4px;
+  padding: 8px 10px;
+  background: var(--bg-subtle, #f4f6f8);
+  border-radius: 8px;
+}
+
 .contracts-optional-name {
   margin-bottom: 12px;
 }

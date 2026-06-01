@@ -18,6 +18,8 @@ import {
 import { logContractStructured } from './contractStructuredLog.js';
 import { isPastIso } from './contractSignaturePolicy.js';
 import { mapContractDisplayStatus } from './displayStatus.js';
+import { syncContractFromAutentique } from './contractAutentiqueSync.js';
+import { recomputeContractStatusFromSigners } from './contractService.js';
 
 export function verifyAutentiqueSignature(
   rawBody: string,
@@ -138,14 +140,31 @@ export function extractSignerPublicId(body: { event?: { data?: Record<string, un
   return data.public_id ? String(data.public_id).trim() || null : null;
 }
 
+function signedAtFromPayload(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const s = value.trim();
+    return s || null;
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const created = (value as Record<string, unknown>).created_at;
+    if (created != null) {
+      const s = String(created).trim();
+      return s || null;
+    }
+  }
+  return null;
+}
+
 export function extractSignerSignedAt(body: { event?: { data?: Record<string, unknown> } }): string | null {
   const data = body?.event?.data;
   if (!data) return null;
 
-  if (data.signed) return String(data.signed);
+  const direct = signedAtFromPayload(data.signed);
+  if (direct) return direct;
 
   const nestedObject = asDataRecord(data.object);
-  if (nestedObject?.signed) return String(nestedObject.signed);
+  if (nestedObject) return signedAtFromPayload(nestedObject.signed);
 
   return null;
 }
@@ -244,10 +263,26 @@ export async function processAutentiqueWebhook(
     if (signerStatus && publicId) {
       const signedAt = extractSignerSignedAt(parsedBody);
       await updateSignerStatus(publicId, signerStatus, signedAt);
+    } else if (
+      eventType.startsWith('signature.') &&
+      signerStatus &&
+      contract.academyId &&
+      (eventType === 'signature.accepted' ||
+        eventType === 'signature.viewed' ||
+        eventType === 'signature.rejected')
+    ) {
+      await syncContractFromAutentique(contract.$id, contract.academyId);
     }
 
     if (eventType.startsWith('signature.') && signerStatus && !publicId) {
-      console.warn('[autentique webhook] evento de assinatura sem public_id', { eventType, autentiqueId });
+      console.warn('[autentique webhook] evento de assinatura sem public_id — sync pela API', {
+        eventType,
+        autentiqueId,
+      });
+    }
+
+    if (eventType.startsWith('signature.')) {
+      await recomputeContractStatusFromSigners(contract.$id);
     }
 
     const metaStatus = await maybeMarkSignedAfterOffboarding(contract, eventType);

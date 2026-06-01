@@ -169,6 +169,39 @@ export async function updateContractStatus(autentiqueId: string, status: string)
   return mapContractDoc(doc);
 }
 
+/** Atualiza status do contrato conforme signatários gravados no Appwrite. */
+export async function recomputeContractStatusFromSigners(
+  contractId: string
+): Promise<ContractRecord | null> {
+  const id = String(contractId || '').trim();
+  if (!id) return null;
+
+  const databases = requireDb();
+  let contract: ContractRecord | null = null;
+  try {
+    const doc = await databases.getDocument(DB_ID, CONTRACTS_COL(), id);
+    contract = mapContractDoc(doc);
+  } catch {
+    return null;
+  }
+  if (!contract?.autentiqueId) return contract;
+
+  const signers = await listSignersByContractId(id);
+  const total = signers.length;
+  const signed = signers.filter((s) => {
+    const st = String(s.status || '').toLowerCase();
+    return st === 'signed' || st === 'accepted';
+  }).length;
+
+  let next = contract.status;
+  if (total > 0 && signed >= total) next = 'finished';
+  else if (signed > 0) next = 'in_progress';
+
+  if (next === contract.status) return contract;
+
+  return updateContractStatus(contract.autentiqueId, next);
+}
+
 export async function updateSignerStatus(
   publicId: string,
   status: string,

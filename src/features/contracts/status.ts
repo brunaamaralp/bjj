@@ -39,6 +39,17 @@ export function mapContractDisplayStatusForRecord(c: ContractRecord): ContractDi
   );
 }
 
+/** Rótulo do badge na lista (inclui assinatura parcial). */
+export function contractListStatusLabel(c: ContractRecord): string {
+  const display = mapContractDisplayStatusForRecord(c);
+  const signed = Number(c.signersSigned) || 0;
+  const total = Number(c.signersTotal) || 0;
+  if (display === 'viewed' && total > 0 && signed > 0 && signed < total) {
+    return `${signed} de ${total} assinaram`;
+  }
+  return CONTRACT_STATUS_LABELS[display] || display;
+}
+
 export function signerStatusLabel(status: string): string {
   const s = String(status || '').toLowerCase();
   const map: Record<string, string> = {

@@ -72,6 +72,14 @@ describe('event mapping', () => {
     );
     expect(extractSignerPublicId(SIGNATURE_ACCEPTED_OFFICIAL)).toBe('f8911dcd-dfcd-11ef-9465-42010a2b610e');
     expect(extractSignerSignedAt(SIGNATURE_ACCEPTED_OFFICIAL)).toBe('2025-01-31T12:22:30.000000Z');
+    expect(
+      extractSignerSignedAt({
+        event: {
+          type: 'signature.accepted',
+          data: { signed: { created_at: '2025-02-01T10:00:00.000000Z' } },
+        },
+      })
+    ).toBe('2025-02-01T10:00:00.000000Z');
   });
 
   it('extrai autentique_id do payload legado achatado', () => {
@@ -106,5 +114,6 @@ describe('event mapping', () => {
     ).toBe('expired');
     expect(mapContractDisplayStatus('pending', 0, 1, { signersViewed: 1 })).toBe('viewed');
     expect(mapContractDisplayStatus('finished', 1, 1, {})).toBe('signed');
+    expect(mapContractDisplayStatus('in_progress', 1, 2, {})).toBe('viewed');
   });
 });

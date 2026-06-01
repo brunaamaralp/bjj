@@ -127,6 +127,10 @@ export async function createDocument({
     name: docName,
     refusable: Boolean(refusable),
     sortable: useSortable,
+    configs: {
+      notification_signed: true,
+      notification_finished: true,
+    },
   };
   const customMessage = String(message || '').trim();
   if (customMessage) documentInput.message = customMessage;

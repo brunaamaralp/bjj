@@ -10,10 +10,16 @@ const CLASS_MAP: Record<ContractDisplayStatus, string> = {
   cancelled: 'contract-badge contract-badge--cancelled',
 };
 
-export default function ContractStatusBadge({ status }: { status: ContractDisplayStatus }) {
+export default function ContractStatusBadge({
+  status,
+  label,
+}: {
+  status: ContractDisplayStatus;
+  label?: string;
+}) {
   return (
     <span className={CLASS_MAP[status] || CLASS_MAP.sent}>
-      {CONTRACT_STATUS_LABELS[status] || status}
+      {label || CONTRACT_STATUS_LABELS[status] || status}
     </span>
   );
 }

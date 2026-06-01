@@ -1,7 +1,6 @@
 import type { SignerInput } from './types.js';
 import type { ContractSignerLayout } from './contractSignerLayout.js';
 import { fetchAcademyDoc } from './contractLeadAccess.js';
-
 function needsPhone(method: string | undefined): boolean {
   const m = String(method || '').trim();
   return m === 'DELIVERY_METHOD_WHATSAPP' || m === 'DELIVERY_METHOD_SMS';
@@ -37,7 +36,7 @@ export async function enrichContractSignersFromAcademy(
     if (!String(next.name || '').trim() && academyName) {
       next.name = academyName;
     }
-    if (needsPhone(next.delivery_method)) return next;
+    if (usesPhoneDelivery(next.delivery_method)) return next;
 
     if (!String(next.email || '').trim() && academyEmail) {
       next.email = academyEmail;

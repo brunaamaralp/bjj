@@ -2,7 +2,10 @@ import React, { useMemo, useState } from 'react';
 import '../contracts/contracts.css';
 import { Plus, Eye, FileSignature } from 'lucide-react';
 import { useContractsList } from '../../features/contracts/queries.js';
-import { mapContractDisplayStatusForRecord } from '../../features/contracts/status.js';
+import {
+  mapContractDisplayStatusForRecord,
+  contractListStatusLabel,
+} from '../../features/contracts/status.js';
 import { isInactiveStudent } from '../../lib/studentStatus.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
@@ -144,7 +147,10 @@ export default function StudentContractsSection({ leadId }) {
                 ) : null}
               </div>
               <div className="student-contracts-item-actions">
-                <ContractStatusBadge status={row.displayStatus} />
+                <ContractStatusBadge
+                  status={row.displayStatus}
+                  label={contractListStatusLabel(row)}
+                />
                 <button type="button" className="btn-outline" onClick={() => setSelectedId(row.$id)}>
                   <Eye size={14} />
                   Ver detalhes

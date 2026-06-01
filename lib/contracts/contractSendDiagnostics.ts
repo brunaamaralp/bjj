@@ -2,7 +2,6 @@ import type { SignerInput } from './types.js';
 import type { ContractSignerLayout } from './contractSignerLayout.js';
 import { resolveSlotPositions } from './contractSignerLayout.js';
 import { isValidBrazilMobilePhone } from './normalizePhone.js';
-
 export { isValidBrazilMobilePhone } from './normalizePhone.js';
 
 function usesPhoneDelivery(method: string | undefined): boolean {

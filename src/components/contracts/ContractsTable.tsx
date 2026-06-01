@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye } from 'lucide-react';
 import type { ContractListItem } from '../../features/contracts/types.js';
 import ContractStatusBadge from './ContractStatusBadge.js';
+import { contractListStatusLabel } from '../../features/contracts/status.js';
 import EmptyState from '../shared/EmptyState.jsx';
 
 interface ContractsTableProps {
@@ -56,7 +57,10 @@ export default function ContractsTable({ rows, onOpen, filtered = false }: Contr
                 </td>
                 <td data-label="Aluno">{row.studentName || '—'}</td>
                 <td data-label="Status">
-                  <ContractStatusBadge status={row.displayStatus} />
+                  <ContractStatusBadge
+                    status={row.displayStatus}
+                    label={contractListStatusLabel(row)}
+                  />
                 </td>
                 <td data-label="Signatários">
                   <span className="contracts-signers-pill">

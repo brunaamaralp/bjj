@@ -94,7 +94,7 @@ Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores v�
 
 ## Fluxo de assinatura
 
-1. Nave: modelo, signatários (quantidade = slots ativos), **como enviar o link** (e-mail ou WhatsApp por signatário).
+1. Nave: modelo, signatários (quantidade = slots ativos) e **como enviar o link** (e-mail ou WhatsApp por signatário; a contratada usa e-mail).
 2. **Autentique** envia o link no canal escolhido (não é o WhatsApp da academia — é mensagem da Autentique).
 3. No envio, o Nave define automaticamente:
    - **Nome do documento:** `{nome da academia} — {título}` (ex.: `Gracie Barra Lagoa da Prata — Contrato — Bruna`)

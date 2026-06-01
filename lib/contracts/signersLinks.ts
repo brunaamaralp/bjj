@@ -17,8 +17,8 @@ export function buildSignersLinks(
   const signatures = autentiqueDoc.signatures || [];
   const usedIds = new Set<string>();
 
-  return inputSigners.map((input) => {
-    const matched = matchInputSignerToAutentiqueSignature(input, signatures, usedIds);
+  return inputSigners.map((input, signerIndex) => {
+    const matched = matchInputSignerToAutentiqueSignature(input, signatures, usedIds, signerIndex);
     const sig = matched ? signatures.find((s) => s.public_id === matched.public_id) : undefined;
     if (sig?.public_id) usedIds.add(sig.public_id);
 

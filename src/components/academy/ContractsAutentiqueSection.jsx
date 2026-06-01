@@ -36,8 +36,14 @@ export default function ContractsAutentiqueSection() {
       </p>
       <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
         <strong>Auto-assinatura da academia:</strong> defina <code>AUTENTIQUE_ACCOUNT_EMAIL</code> na Vercel
-        com o e-mail da conta do token. No envio do contrato, o e-mail da <strong>Contratada</strong> deve ser
-        o mesmo — assim a academia assina automaticamente e só o aluno recebe o link.
+        com o e-mail da conta do token. No envio, use o botão &quot;Usar e-mail da conta Autentique na Contratada&quot;
+        ou iguale manualmente o e-mail da <strong>Contratada</strong> ao da conta — assim a academia assina
+        automaticamente e só o aluno recebe o link.
+      </p>
+      <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+        No webhook Autentique, inclua eventos de <strong>assinatura</strong> (ex.:{' '}
+        <code>signature.accepted</code>, <code>signature.viewed</code>) e de <strong>documento</strong> (
+        <code>document.finished</code>).
       </p>
       <p className="text-small" style={{ margin: '0 0 8px', lineHeight: 1.45 }}>
         No painel Autentique, em <strong>Webhooks</strong>, informe esta URL:

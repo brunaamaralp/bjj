@@ -12,8 +12,8 @@ function mapAutentiqueSignersToSave(
   const signatures = autentiqueDoc.signatures || [];
   const usedIds = new Set<string>();
 
-  return inputSigners.map((input) => {
-    const matched = matchInputSignerToAutentiqueSignature(input, signatures, usedIds);
+  return inputSigners.map((input, signerIndex) => {
+    const matched = matchInputSignerToAutentiqueSignature(input, signatures, usedIds, signerIndex);
     const sig: AutentiqueSignature | undefined = matched
       ? signatures.find((s) => s.public_id === matched.public_id)
       : undefined;
