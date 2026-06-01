@@ -46,38 +46,12 @@ function formatNlPaymentMethod(method) {
 
 export function NlCommandBarTrigger({ onClick }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        background: 'var(--surface)',
-        border: '0.5px solid var(--border-light)',
-        borderRadius: 10,
-        padding: '8px 14px',
-        cursor: 'pointer',
-        fontSize: 13,
-        color: '#aaa',
-        transition: 'all 0.15s'
-      }}
-    >
-      <span style={{ color: 'var(--petroleo)', fontSize: 16 }}>✦</span>
-      <span style={{ flex: 1, textAlign: 'left' }}>O que você quer fazer?</span>
-      <kbd
-        style={{
-          fontSize: 10,
-          color: '#bbb',
-          background: '#f5f5f5',
-          border: '0.5px solid #ddd',
-          borderRadius: 4,
-          padding: '2px 6px',
-          fontFamily: 'inherit'
-        }}
-      >
-        ⌘K
-      </kbd>
+    <button type="button" className="nl-command-bar-trigger" onClick={onClick}>
+      <span className="nl-command-bar-trigger__icon" aria-hidden>
+        ✦
+      </span>
+      <span className="nl-command-bar-trigger__label">O que você quer fazer?</span>
+      <kbd className="nl-command-bar-trigger__kbd">⌘K</kbd>
     </button>
   );
 }
