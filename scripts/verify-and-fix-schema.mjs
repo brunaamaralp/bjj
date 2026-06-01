@@ -424,6 +424,8 @@ const SALES_ATTRS = [
   { key: 'cancelada_em', type: 'string', size: 64 },
   { key: 'cancel_motivo', type: 'string', size: 256 },
   { key: 'origin_detail', type: 'string', size: 128 },
+  { key: 'deferred', type: 'boolean' },
+  { key: 'due_date', type: 'string', size: 16 },
 ];
 
 function printLineSummary(name, s) {

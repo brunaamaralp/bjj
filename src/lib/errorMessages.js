@@ -63,6 +63,7 @@ const DEFAULT_ERRORS = {
   delete:  'Não foi possível excluir. Tente novamente.',
   send:    'Não foi possível enviar. Tente novamente.',
   action:  'Ação não concluída. Tente novamente.',
+  sale:    'Não foi possível registrar a venda. Tente novamente.',
   network: 'Problema de conexão. Verifique sua internet.',
 };
 
@@ -97,9 +98,13 @@ const SALE_ERROR_CODES = {
   session_required: 'Sessão expirada. Faça login novamente.',
   academy_required: 'Academia não selecionada. Recarregue a página.',
   invalid_items: 'Um ou mais itens estão inválidos.',
+  item_not_found: 'Produto não encontrado. Atualize o catálogo e tente de novo.',
+  parent_not_variant: 'Selecione o tamanho do produto antes de concluir a venda.',
   duplicate_sale: 'Esta venda já foi registrada.',
   create_failed: 'Não foi possível registrar a venda. Revise as informações e tente novamente.',
   server_error: 'Não foi possível registrar a venda. Tente novamente.',
+  error_500: 'Não foi possível registrar a venda. Tente novamente em instantes.',
+  sales_not_configured: 'Vendas não configuradas no servidor. Contate o suporte.',
 };
 
 /**
@@ -112,5 +117,7 @@ export function friendlySaleError(err) {
       ? err.trim()
       : String(err?.code || err?.message || '').trim();
   if (code && SALE_ERROR_CODES[code]) return SALE_ERROR_CODES[code];
-  return friendlyError(err, 'action');
+  const bodyCode = String(err?.body?.error || err?.body?.erro || '').trim();
+  if (bodyCode && SALE_ERROR_CODES[bodyCode]) return SALE_ERROR_CODES[bodyCode];
+  return friendlyError(err, 'sale');
 }
