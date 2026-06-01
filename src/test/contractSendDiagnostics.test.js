@@ -14,6 +14,10 @@ describe('isValidBrazilMobilePhone', () => {
     expect(isValidBrazilMobilePhone('1933334444')).toBe(false);
     expect(isValidBrazilMobilePhone('99999')).toBe(false);
   });
+
+  it('aceita celular antigo de 10 dígitos', () => {
+    expect(isValidBrazilMobilePhone('1987654321')).toBe(true);
+  });
 });
 
 describe('diagnoseContractSend', () => {
@@ -40,7 +44,22 @@ describe('diagnoseContractSend', () => {
         ],
       },
     });
-    expect(blockers.some((b) => /WhatsApp|celular inválido/i.test(b))).toBe(true);
+    expect(blockers.some((b) => /WhatsApp|celular|E-mail/i.test(b))).toBe(true);
+  });
+
+  it('sugere trocar para e-mail quando há e-mail válido em modo WhatsApp', () => {
+    const { blockers } = diagnoseContractSend({
+      signers: [
+        {
+          name: 'Aluno',
+          email: 'aluno@test.com',
+          phone: '1933334444',
+          delivery_method: 'DELIVERY_METHOD_WHATSAPP',
+        },
+      ],
+      layout: { version: 1, slots: [{ label: 'Contratante', enabled: true }] },
+    });
+    expect(blockers.some((b) => /selecione E-mail/i.test(b))).toBe(true);
   });
 
   it('não bloqueia dois e-mails distintos por e-mail', () => {

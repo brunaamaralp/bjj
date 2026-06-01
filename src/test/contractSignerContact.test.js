@@ -16,6 +16,13 @@ describe('contractSignerContact', () => {
     expect(phoneAutentiquePreview('(19) 99999-9999')).toBe('+5519999999999');
   });
 
+  it('prefere WhatsApp só com celular válido e sem e-mail', () => {
+    const wa = buildPrimarySignerFromLead({ name: 'Ana', phone: '19999999999' });
+    expect(wa.delivery_method).toBe('DELIVERY_METHOD_WHATSAPP');
+    const fixo = buildPrimarySignerFromLead({ name: 'Ana', phone: '1933334444' });
+    expect(fixo.delivery_method).toBe('DELIVERY_METHOD_EMAIL');
+  });
+
   it('monta signatário do lead com e-mail e telefone', () => {
     const s = buildPrimarySignerFromLead({
       name: 'João',

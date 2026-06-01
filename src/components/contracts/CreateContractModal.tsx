@@ -34,7 +34,6 @@ import {
   formatPhoneForSignerField,
   phoneAutentiquePreview,
 } from '../../lib/contractSignerContact.js';
-import { maskPhone } from '../../lib/masks.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
@@ -768,7 +767,7 @@ export default function CreateContractModal({
                             className="form-input"
                             {...register(`signers.${index}.phone`, {
                               onChange: (e) => {
-                                setValue(`signers.${index}.phone`, maskPhone(e.target.value), {
+                                setValue(`signers.${index}.phone`, formatPhoneForSignerField(e.target.value), {
                                   shouldDirty: true,
                                   shouldValidate: true,
                                 });
@@ -886,7 +885,7 @@ export default function CreateContractModal({
                             className="form-input"
                             {...register(`signers.${index}.phone`, {
                               onChange: (e) => {
-                                setValue(`signers.${index}.phone`, maskPhone(e.target.value), {
+                                setValue(`signers.${index}.phone`, formatPhoneForSignerField(e.target.value), {
                                   shouldDirty: true,
                                   shouldValidate: true,
                                 });

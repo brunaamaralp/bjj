@@ -1,6 +1,6 @@
 import type { SignerInput } from './types.js';
 import { ContractFormError } from './validateContractSigners.js';
-import { isValidBrazilMobilePhone } from './contractSendDiagnostics.js';
+import { isValidBrazilMobilePhone } from './normalizePhone.js';
 
 function usesPhoneDelivery(method: string | undefined): boolean {
   const m = String(method || '').trim();

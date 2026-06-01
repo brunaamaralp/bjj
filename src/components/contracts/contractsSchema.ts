@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isValidBrazilMobilePhone } from '../../../lib/contracts/contractSendDiagnostics.js';
+import { isValidBrazilMobilePhone } from '../../../lib/contracts/normalizePhone.js';
 
 const deliveryMethodEnum = z.enum([
   'DELIVERY_METHOD_EMAIL',

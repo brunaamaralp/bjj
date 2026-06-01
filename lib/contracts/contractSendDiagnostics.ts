@@ -1,19 +1,18 @@
 import type { SignerInput } from './types.js';
 import type { ContractSignerLayout } from './contractSignerLayout.js';
 import { resolveSlotPositions } from './contractSignerLayout.js';
+import { isValidBrazilMobilePhone } from './normalizePhone.js';
+
+export { isValidBrazilMobilePhone } from './normalizePhone.js';
 
 function usesPhoneDelivery(method: string | undefined): boolean {
   const m = String(method || '').trim();
   return m === 'DELIVERY_METHOD_WHATSAPP' || m === 'DELIVERY_METHOD_SMS';
 }
 
-/** Celular BR: DDD + 9 + 8 dígitos (11 no total, sem contar 55). */
-export function isValidBrazilMobilePhone(phone: string | undefined | null): boolean {
-  const raw = String(phone || '').replace(/\D/g, '');
-  if (!raw) return false;
-  const national = raw.startsWith('55') && raw.length >= 12 ? raw.slice(2) : raw;
-  if (national.length !== 11) return false;
-  return national[2] === '9';
+function isValidEmailForDelivery(email: string): boolean {
+  const e = String(email || '').trim();
+  return e.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
 export function maskEmail(email: string): string {
@@ -74,9 +73,16 @@ export function diagnoseContractSend(input: {
           `${label}: você escolheu ${method === 'DELIVERY_METHOD_SMS' ? 'SMS' : 'WhatsApp'}, mas não há telefone. Troque para E-mail ou informe o celular com DDD.`
         );
       } else if (!isValidBrazilMobilePhone(signer.phone)) {
-        blockers.push(
-          `${label}: telefone inválido para ${method === 'DELIVERY_METHOD_SMS' ? 'SMS' : 'WhatsApp'} na Autentique (use celular com DDD, 11 dígitos, começando com 9 após o DDD). O e-mail preenchido não é usado quando o envio é por WhatsApp.`
-        );
+        const channel = method === 'DELIVERY_METHOD_SMS' ? 'SMS' : 'WhatsApp';
+        if (isValidEmailForDelivery(email)) {
+          blockers.push(
+            `${label}: você escolheu ${channel}, mas o celular não está no formato que a Autentique aceita (DDD + 9 dígitos, ex.: (19) 99999-9999). Para enviar pelo e-mail (${maskEmail(email)}), selecione E-mail em "Como enviar o link".`
+          );
+        } else {
+          blockers.push(
+            `${label}: telefone inválido para ${channel} na Autentique (use celular com DDD, 11 dígitos, começando com 9 após o DDD). Selecione E-mail acima ou corrija o número.`
+          );
+        }
       } else if (email) {
         warnings.push(
           `${label}: envio por ${method === 'DELIVERY_METHOD_SMS' ? 'SMS' : 'WhatsApp'} — o link vai para o telefone, não para ${maskEmail(email)}.`
