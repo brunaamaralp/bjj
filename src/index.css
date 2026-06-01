@@ -1006,13 +1006,52 @@ button:focus-visible {
   min-width: 0;
 }
 
+.navi-topbar-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.navi-topbar .nl-command-bar-trigger {
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
 .navi-topbar-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   gap: 10px;
   min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .navi-topbar {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .navi-topbar-spacer {
+    flex: 1 1 auto;
+  }
+
+  .navi-topbar-search {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    justify-content: stretch;
+  }
+
+  .navi-topbar .nl-command-bar-trigger {
+    max-width: none;
+  }
 }
 
 /* —— Menus dropdown (primitivo navi-menu) —— */
@@ -3927,8 +3966,9 @@ button.funil-color-swatch {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  width: auto;
   max-width: 380px;
+  min-width: 0;
   box-sizing: border-box;
   background: #ffffff;
   border: 1.5px solid #d4dce8;

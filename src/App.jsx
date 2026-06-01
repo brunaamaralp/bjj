@@ -1037,11 +1037,13 @@ const App = () => {
               </button>
             ) : null}
             <div className="navi-topbar-spacer" aria-hidden="true" />
+            {academyReady && academyIdStore ? (
+              <div className="navi-topbar-search">
+                <NlCommandBarTrigger onClick={() => setNlOpen(true)} mode="ask" />
+              </div>
+            ) : null}
             <div className="navi-topbar-actions">
               {topbarTrialChip}
-              {academyReady && academyIdStore ? (
-                <NlCommandBarTrigger onClick={() => setNlOpen(true)} mode="ask" />
-              ) : null}
               <NotificationBell academyId={academyIdStore} userId={user?.$id} />
               <NaviUserMenu
                 user={user}
@@ -1234,7 +1236,8 @@ const App = () => {
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
             gap: 10px;
             min-width: 0;
           }
