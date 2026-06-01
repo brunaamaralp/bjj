@@ -1466,6 +1466,22 @@ export default function StudentProfile() {
         [student, academyId, cancellingCoverage, payments, userId, sessionUserName, loadPayments, toast]
     );
 
+    const setProfileTab = useCallback(
+        (tabId) => {
+            setActiveTab(tabId);
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (tabId === 'frequency') next.delete('tab');
+                    else next.set('tab', tabId);
+                    return next;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
+
     const inputStyle = {
         padding: '9px 12px',
         borderRadius: 8,
@@ -1933,22 +1949,6 @@ export default function StudentProfile() {
                 <Trash2 size={16} /> Excluir {terms.student.toLowerCase()}
             </button>
         </div>
-    );
-
-    const setProfileTab = useCallback(
-        (tabId) => {
-            setActiveTab(tabId);
-            setSearchParams(
-                (prev) => {
-                    const next = new URLSearchParams(prev);
-                    if (tabId === 'frequency') next.delete('tab');
-                    else next.set('tab', tabId);
-                    return next;
-                },
-                { replace: true }
-            );
-        },
-        [setSearchParams]
     );
 
     const leftColumn = (

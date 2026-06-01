@@ -3,18 +3,24 @@ import { useSalesStore } from '../../store/useSalesStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
-import { suggestUnitPrice } from '../../lib/salesCatalog';
+import {
+  suggestUnitPrice,
+  cartVariantOptions,
+  parentNeedsVariantPicker,
+  variantOptionLabel,
+} from '../../lib/salesCatalog';
 import { readSalesSettings } from '../../lib/salesSettings';
+import { formatBRL } from '../../lib/moneyBr';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { DateInput } from '../DateInput';
 import SalesCatalogPicker from '../sales/SalesCatalogPicker';
+import SalesVariantPicker from '../sales/SalesVariantPicker';
+import SalesCart from '../sales/SalesCart';
 import SalesPaymentBlock from '../sales/SalesPaymentBlock';
-import SalesReceiptPanel from '../sales/SalesReceiptPanel';
 import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
   paymentsUiValid,
-  buildFormaPagamentoResumo,
   rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
 
@@ -23,16 +29,19 @@ const round2 = (n) => Math.round(Number(n) * 100) / 100;
 export default function StudentProductSaleStep({ student, onBack, onComplete }) {
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
-  const { createSale, creating } = useSalesStore();
-  const { products, loading: catalogLoading } = useSalesCatalog(academyId);
+  const createSale = useSalesStore((s) => s.createSale);
+  const creating = useSalesStore((s) => s.creating);
+  const { products, loading: catalogLoading, reload: reloadCatalog } = useSalesCatalog(academyId);
+
+  const studentId = String(student?.id || student?.$id || '').trim();
+  const studentName = String(student?.name || 'Aluno').trim();
 
   const [salesSettings, setSalesSettings] = useState(() => readSalesSettings(null));
-  const [academyName, setAcademyName] = useState('');
   const [cart, setCart] = useState([]);
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
-  const [receipt, setReceipt] = useState(null);
   const [localError, setLocalError] = useState('');
   const [flashProductId, setFlashProductId] = useState(null);
+  const [variantPickerParent, setVariantPickerParent] = useState(null);
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
 
@@ -42,6 +51,19 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`
   );
 
+  const resetSaleSession = useCallback(() => {
+    idempotencyKeyRef.current =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+    setCart([]);
+    setPayments([createEmptyPaymentRow(0)]);
+    setReceiveLater(false);
+    setDueDate('');
+    setLocalError('');
+    setVariantPickerParent(null);
+  }, []);
+
   useEffect(() => {
     if (!academyId) return;
     let cancelled = false;
@@ -49,7 +71,6 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       try {
         const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
         if (cancelled) return;
-        setAcademyName(String(doc.name || '').trim());
         setSalesSettings(readSalesSettings(doc.settings));
       } catch {
         /* ignore */
@@ -59,6 +80,37 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       cancelled = true;
     };
   }, [academyId]);
+
+  useEffect(() => {
+    if (!products?.length) return;
+    setCart((prev) => {
+      let changed = false;
+      const next = prev.map((line) => {
+        if (!line.parent_id) return line;
+        const parent = products.find((p) => String(p.id) === String(line.parent_id));
+        if (!parent) return line;
+        const variant_options = cartVariantOptions(parent);
+        const variant = (parent.variants || []).find(
+          (v) => String(v.id) === String(line.item_estoque_id)
+        );
+        const patch = {
+          variant_options,
+          disponivel: variant?.current_quantity ?? line.disponivel,
+          expected_quantity: variant?.current_quantity ?? line.expected_quantity,
+        };
+        if (
+          patch.variant_options === line.variant_options &&
+          patch.disponivel === line.disponivel &&
+          patch.expected_quantity === line.expected_quantity
+        ) {
+          return line;
+        }
+        changed = true;
+        return { ...line, ...patch };
+      });
+      return changed ? next : prev;
+    });
+  }, [products]);
 
   const totalCart = useMemo(
     () => cart.reduce((acc, it) => acc + Number(it.quantidade) * Number(it.preco_unitario || 0), 0),
@@ -72,17 +124,47 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     [payments, totalFinalCents, receiveLater]
   );
 
+  const totalMasked = useMemo(() => formatBRL(round2(totalCart)), [totalCart]);
+
   useEffect(() => {
     setPayments((prev) => {
       if (prev.length === 1) {
-        return [{ ...prev[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents }];
+        const nextRow = { ...prev[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents };
+        if (
+          prev[0].valorCents === nextRow.valorCents &&
+          prev[0].recebidoCents === nextRow.recebidoCents
+        ) {
+          return prev;
+        }
+        return [nextRow];
       }
       return rebalancePaymentsForTotal(prev, totalFinalCents);
     });
   }, [totalFinalCents]);
 
+  const buildCartLine = useCallback((product, parent = null) => {
+    const { price } = suggestUnitPrice(product, { collaborator: false });
+    const unit = price != null ? price : null;
+    const multi = cartVariantOptions(parent);
+    return {
+      item_estoque_id: product.id,
+      product_variant_id: product.id,
+      display_label: multi ? parent.nome || parent.display_label : product.display_label,
+      variacao: variantOptionLabel(product),
+      image_url: product.image_url || parent?.image_url || '',
+      parent_id: parent?.id || product.product_id || null,
+      variant_options: cartVariantOptions(parent),
+      quantidade: 1,
+      preco_unitario: unit,
+      sale_price: product.sale_price,
+      cost_price: product.cost_price,
+      disponivel: product.current_quantity,
+      expected_quantity: product.current_quantity,
+    };
+  }, []);
+
   const pickProduct = useCallback(
-    (product) => {
+    (product, parentId = null, parent = null) => {
       setLocalError('');
       const { price, warning } = suggestUnitPrice(product, { collaborator: false });
       if (warning) addToast({ type: 'warning', message: warning });
@@ -93,39 +175,145 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
         });
         return;
       }
-      const unit = price != null ? price : null;
-      const idx = cart.findIndex((c) => c.item_estoque_id === product.id);
+
+      const stockId = product.id;
+      const idx = cart.findIndex(
+        (c) => c.product_variant_id === stockId || c.item_estoque_id === stockId
+      );
       if (idx >= 0) {
-        const next = [...cart];
-        const newQ = Number(next[idx].quantidade) + 1;
-        if (product.current_quantity > 0 && newQ > product.current_quantity) {
-          addToast({ type: 'error', message: 'Quantidade acima do estoque disponível' });
-          return;
-        }
-        next[idx] = { ...next[idx], quantidade: newQ };
-        setCart(next);
+        setCart((prev) => {
+          const next = [...prev];
+          const newQ = Number(next[idx].quantidade) + 1;
+          if (product.current_quantity > 0 && newQ > product.current_quantity) {
+            addToast({ type: 'error', message: 'Quantidade acima do estoque disponível' });
+            return prev;
+          }
+          next[idx] = {
+            ...next[idx],
+            quantidade: newQ,
+            expected_quantity: product.current_quantity,
+          };
+          return next;
+        });
       } else {
-        setCart((prev) => [
-          ...prev,
-          {
-            item_estoque_id: product.id,
-            display_label: product.display_label,
-            quantidade: 1,
-            preco_unitario: unit,
-            sale_price: product.sale_price,
-            cost_price: product.cost_price,
-            disponivel: product.current_quantity,
-          },
-        ]);
+        setCart((prev) => [...prev, buildCartLine(product, parent)]);
       }
-      setFlashProductId(product.id);
+
+      const flashId = parentId || stockId;
+      setFlashProductId(flashId);
       window.setTimeout(() => setFlashProductId(null), 420);
     },
-    [cart, salesSettings.lockPriceEdit, addToast]
+    [salesSettings.lockPriceEdit, addToast, buildCartLine]
   );
+
+  const handleCatalogPick = useCallback(
+    (parent) => {
+      if (parentNeedsVariantPicker(parent)) {
+        setVariantPickerParent(parent);
+        return;
+      }
+      const variant = parent._singleVariant || parent.variants?.[0];
+      if (variant) {
+        pickProduct(
+          { ...variant, image_url: variant.image_url || parent.image_url || '' },
+          parent.id,
+          parent
+        );
+      }
+    },
+    [pickProduct]
+  );
+
+  const changeCartVariant = useCallback(
+    (idx, variantId) => {
+      setCart((prev) => {
+        const line = prev[idx];
+        if (!line?.variant_options?.length) return prev;
+
+        const variant = line.variant_options.find((v) => String(v.id) === String(variantId));
+        if (!variant || String(variant.id) === String(line.item_estoque_id)) return prev;
+
+        const dupIdx = prev.findIndex(
+          (c, i) => i !== idx && String(c.item_estoque_id) === String(variant.id)
+        );
+        if (dupIdx >= 0) {
+          addToast({ type: 'warning', message: 'Este tamanho já está no carrinho' });
+          return prev;
+        }
+
+        if (!variant.canAdd) {
+          addToast({ type: 'error', message: 'Tamanho esgotado' });
+          return prev;
+        }
+
+        const { price, warning } = suggestUnitPrice(variant, { collaborator: false });
+        if (warning) addToast({ type: 'warning', message: warning });
+
+        const next = [...prev];
+        const maxQty =
+          variant.current_quantity > 0
+            ? Math.min(Number(line.quantidade), variant.current_quantity)
+            : Number(line.quantidade);
+
+        next[idx] = {
+          ...line,
+          item_estoque_id: variant.id,
+          product_variant_id: variant.id,
+          variacao: variantOptionLabel(variant),
+          image_url: variant.image_url || line.image_url || '',
+          preco_unitario: price != null ? price : line.preco_unitario,
+          sale_price: variant.sale_price,
+          cost_price: variant.cost_price,
+          disponivel: variant.current_quantity,
+          expected_quantity: variant.current_quantity,
+          quantidade: Math.max(1, maxQty),
+        };
+        return next;
+      });
+    },
+    [addToast]
+  );
+
+  const updateCartQty = useCallback(
+    (idx, val) => {
+      const q = Math.max(1, parseInt(String(val || '').replace(/\D/g, ''), 10) || 1);
+      setCart((prev) => {
+        const line = prev[idx];
+        if (line?.disponivel > 0 && q > line.disponivel) {
+          addToast({ type: 'error', message: 'Quantidade acima do estoque disponível' });
+          return prev;
+        }
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantidade: q };
+        return next;
+      });
+    },
+    [addToast]
+  );
+
+  const updateCartPrice = useCallback((idx, cents) => {
+    setCart((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], preco_unitario: cents > 0 ? cents / 100 : null };
+      return next;
+    });
+  }, []);
+
+  const removeFromCart = useCallback((idx) => {
+    setCart((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const cartLineLabel = (it) => {
+    const base = it.display_label || 'Produto';
+    return it.variacao && it.variant_options?.length > 1 ? `${base} · ${it.variacao}` : base;
+  };
 
   const submitSale = async () => {
     setLocalError('');
+    if (!studentId) {
+      setLocalError('Aluno inválido para esta venda.');
+      return;
+    }
     if (cart.length === 0) {
       setLocalError('Adicione pelo menos um produto');
       return;
@@ -142,22 +330,28 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     for (const it of cart) {
       const unit = Number(it.preco_unitario);
       if (!Number.isFinite(unit) || unit <= 0) {
-        setLocalError(`Informe o preço de "${it.display_label}"`);
+        setLocalError(`Informe o preço de "${cartLineLabel(it)}"`);
+        return;
+      }
+      if (salesSettings.lockPriceEdit && unit <= 0) {
+        setLocalError(`Preço obrigatório para "${cartLineLabel(it)}"`);
         return;
       }
     }
 
     const itens = cart.map((it) => ({
-      item_estoque_id: it.item_estoque_id,
+      item_estoque_id: it.product_variant_id || it.item_estoque_id,
+      product_variant_id: it.product_variant_id || it.item_estoque_id,
       quantidade: Number(it.quantidade),
       preco_unitario: round2(Number(it.preco_unitario)),
+      expected_quantity:
+        it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
     }));
 
     const pagamentos = receiveLater ? [] : serializePagamentosForApi(payments);
-    const now = new Date();
 
     const salePayload = {
-      aluno_id: student.id,
+      aluno_id: studentId,
       itens,
       idempotency_key: idempotencyKeyRef.current,
     };
@@ -172,6 +366,14 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     await createSale(salePayload);
 
     const st = useSalesStore.getState();
+    if (st.error === 'no_stock' || st.error === 'stock_stale') {
+      addToast({
+        type: 'warning',
+        message: 'Estoque insuficiente — o catálogo foi atualizado. Revise os itens.',
+      });
+      void reloadCatalog();
+      return;
+    }
     if (st.error) {
       addToast({ type: 'error', message: 'Não foi possível registrar a venda.' });
       return;
@@ -181,64 +383,17 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       type: 'success',
       message: receiveLater ? 'Venda registrada — pagamento pendente.' : 'Venda registrada.',
     });
-    const vendaId = st.lastSale?.venda_id || '';
-    const totalFinal = round2(totalCart);
-    setReceipt({
-      vendaId,
-      date: now.toLocaleDateString('pt-BR'),
-      time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      canal: 'presencial',
-      clientName: student.name || 'Aluno',
-      forma: receiveLater ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
-      pagamentos,
-      trocoWarnings: Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [],
-      items: cart.map((it) => ({
-        display_label: it.display_label,
-        quantidade: Number(it.quantidade),
-        preco_unitario: round2(Number(it.preco_unitario)),
-        subtotal: round2(Number(it.quantidade) * Number(it.preco_unitario)),
-      })),
-      total: totalFinal,
-    });
+    resetSaleSession();
+    onComplete?.();
   };
-
-  const copyReceipt = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      addToast({ type: 'success', message: 'Comprovante copiado' });
-    } catch {
-      addToast({ type: 'error', message: 'Não foi possível copiar' });
-    }
-  };
-
-  if (receipt) {
-    return (
-      <div>
-        <SalesReceiptPanel
-          receipt={receipt}
-          settings={salesSettings}
-          academyName={academyName}
-          onCopy={copyReceipt}
-        />
-        <button
-          type="button"
-          className="btn-primary"
-          style={{ width: '100%', marginTop: 16 }}
-          onClick={() => onComplete?.(receipt)}
-        >
-          Concluir
-        </button>
-      </div>
-    );
-  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="student-product-sale" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={onBack}>
         ← Voltar aos tipos
       </button>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
-        Venda para <strong>{student.name}</strong>
+        Venda para <strong>{studentName}</strong>
       </p>
       {localError ? (
         <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)' }} role="alert">
@@ -248,34 +403,21 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       <SalesCatalogPicker
         products={products}
         loading={catalogLoading}
-        onPick={pickProduct}
+        onPick={handleCatalogPick}
         flashProductId={flashProductId}
       />
       {cart.length > 0 ? (
-        <div style={{ border: '1px solid var(--border-light)', borderRadius: 10, padding: 10 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Carrinho</p>
-          {cart.map((it) => (
-            <div
-              key={it.item_estoque_id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 13,
-                padding: '4px 0',
-              }}
-            >
-              <span>
-                {it.display_label} × {it.quantidade}
-              </span>
-              <span>
-                {round2(it.quantidade * it.preco_unitario).toLocaleString('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL',
-                })}
-              </span>
-            </div>
-          ))}
-        </div>
+        <SalesCart
+          cart={cart}
+          lockPriceEdit={salesSettings.lockPriceEdit}
+          onQtyChange={updateCartQty}
+          onPriceChange={updateCartPrice}
+          onVariantChange={changeCartVariant}
+          onRemove={removeFromCart}
+          subtotalMasked={totalMasked}
+          descGeralMasked={formatBRL(0)}
+          totalMasked={totalMasked}
+        />
       ) : null}
       <label
         style={{
@@ -327,6 +469,21 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       >
         {creating ? 'Registrando…' : 'Confirmar venda'}
       </button>
+
+      {variantPickerParent ? (
+        <SalesVariantPicker
+          parent={variantPickerParent}
+          onClose={() => setVariantPickerParent(null)}
+          onSelect={(variant) => {
+            setVariantPickerParent(null);
+            pickProduct(
+              { ...variant, image_url: variant.image_url || variantPickerParent.image_url || '' },
+              variantPickerParent.id,
+              variantPickerParent
+            );
+          }}
+        />
+      ) : null}
     </div>
   );
 }
