@@ -578,7 +578,12 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       return;
     }
     if (st.error) {
-      addToast({ type: 'error', message: 'Não foi possível registrar a venda. Revise as informações e tente novamente.' });
+      addToast({
+        type: 'error',
+        message:
+          friendlySaleError(st.error, { detail: st.errorDetail }) ||
+          'Não foi possível registrar a venda. Revise as informações e tente novamente.',
+      });
       return;
     }
 

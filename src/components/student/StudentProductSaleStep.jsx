@@ -376,7 +376,12 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       return;
     }
     if (st.error) {
-      addToast({ type: 'error', message: friendlySaleError(st.error) || 'Não foi possível registrar a venda.' });
+      addToast({
+        type: 'error',
+        message:
+          friendlySaleError(st.error, { detail: st.errorDetail }) ||
+          'Não foi possível registrar a venda.',
+      });
       return;
     }
 

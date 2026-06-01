@@ -8,6 +8,7 @@ export const useSalesStore = create((set) => ({
   cancelling: false,
   lastSale: null,
   error: null,
+  errorDetail: null,
 
   createSale: async ({
     aluno_id = null,
@@ -21,7 +22,7 @@ export const useSalesStore = create((set) => ({
     itens,
     idempotency_key = undefined,
   }) => {
-    set({ creating: true, error: null });
+    set({ creating: true, error: null, errorDetail: null });
     try {
       const academyId = useLeadStore.getState().academyId || null;
       const payload = {
@@ -46,11 +47,13 @@ export const useSalesStore = create((set) => ({
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      set({ lastSale: body, creating: false, error: null });
+      set({ lastSale: body, creating: false, error: null, errorDetail: null });
       return body;
     } catch (e) {
       const code = e instanceof SalesApiError ? e.code : String(e?.message || e);
-      set({ error: code, creating: false, lastSale: null });
+      const detail =
+        e instanceof SalesApiError ? String(e.body?.detail || e.body?.erro || '').trim() : '';
+      set({ error: code, errorDetail: detail || null, creating: false, lastSale: null });
       return null;
     }
   },
@@ -76,7 +79,7 @@ export const useSalesStore = create((set) => ({
   },
 
   liquidateSale: async ({ venda_id, pagamentos }) => {
-    set({ creating: true, error: null });
+    set({ creating: true, error: null, errorDetail: null });
     try {
       const academyId = useLeadStore.getState().academyId || null;
       const body = await salesFetch('/api/sales', {

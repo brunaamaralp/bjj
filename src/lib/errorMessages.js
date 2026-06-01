@@ -110,13 +110,21 @@ const SALE_ERROR_CODES = {
 /**
  * Mensagens amigáveis para erros de venda (códigos da API / SalesApiError).
  */
-export function friendlySaleError(err) {
+export function friendlySaleError(err, { detail } = {}) {
   if (!err) return null;
   const code =
     typeof err === 'string'
       ? err.trim()
       : String(err?.code || err?.message || '').trim();
-  if (code && SALE_ERROR_CODES[code]) return SALE_ERROR_CODES[code];
+  if (code && SALE_ERROR_CODES[code]) {
+    const base = SALE_ERROR_CODES[code];
+    const extra = String(detail || err?.errorDetail || err?.body?.detail || '').trim();
+    if (extra && (code === 'create_failed' || code === 'error_500')) {
+      const short = extra.length > 120 ? `${extra.slice(0, 117)}…` : extra;
+      return `${base} (${short})`;
+    }
+    return base;
+  }
   const bodyCode = String(err?.body?.error || err?.body?.erro || '').trim();
   if (bodyCode && SALE_ERROR_CODES[bodyCode]) return SALE_ERROR_CODES[bodyCode];
   return friendlyError(err, 'sale');
