@@ -220,7 +220,7 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
     },
     {
       id: 'movimentacoes',
-      label: 'Caixa',
+      label: 'Lançamentos',
       to: `${FINANCEIRO_HUB_PATH}?tab=movimentacoes`,
       iconKey: 'movimentacoes',
       group: FINANCEIRO_NAV_GROUP_OPERACOES,

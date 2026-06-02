@@ -15,6 +15,8 @@ import FinanceSettingsStickySave from './settings/FinanceSettingsStickySave.jsx'
 import FinanceSettingsPlansSection from './settings/FinanceSettingsPlansSection.jsx';
 import FinanceSettingsFeesSection from './settings/FinanceSettingsFeesSection.jsx';
 import FinanceSettingsBanksSection from './settings/FinanceSettingsBanksSection.jsx';
+import { normalizeBankAccountEntry } from '../../lib/bankAccounts.js';
+import { parseCurrencyBRL } from '../../lib/masks.js';
 import FinanceSettingsCollectionSection from './settings/FinanceSettingsCollectionSection.jsx';
 import FinanceSettingsExceptionsSection from './settings/FinanceSettingsExceptionsSection.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
@@ -72,14 +74,23 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
   };
 
   const saveBank = (idx, data) => {
+    const openingRaw = data.openingBalance;
+    const openingParsed =
+      typeof openingRaw === 'number'
+        ? openingRaw
+        : parseCurrencyBRL(String(openingRaw ?? ''));
+    const normalized = normalizeBankAccountEntry({
+      ...data,
+      openingBalance: Number.isFinite(openingParsed) ? openingParsed : 0,
+    });
     if (idx === 'new') {
       state.setFinanceConfig((prev) => ({
         ...prev,
-        bankAccounts: [...(prev.bankAccounts || []), data],
+        bankAccounts: [...(prev.bankAccounts || []), normalized],
       }));
       return;
     }
-    state.updateBankAccount(idx, data);
+    state.updateBankAccount(idx, normalized);
   };
 
   if (!academyId) {

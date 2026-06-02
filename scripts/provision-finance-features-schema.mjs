@@ -1,7 +1,7 @@
 /**
  * Provisiona Appwrite para: previsão de caixa, conciliação bancária e recorrência.
  * - Coleções bank_statements + bank_statement_items
- * - Atributos em FINANCIAL_TX (competência, categoria, conciliação, recorrência)
+ * - Atributos em FINANCIAL_TX (competência, categoria, conciliação, recorrência, bank_account)
  *
  * Uso: node scripts/provision-finance-features-schema.mjs
  * Requer: APPWRITE_API_KEY, VITE_APPWRITE_DATABASE_ID, VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID

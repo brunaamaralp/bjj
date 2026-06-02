@@ -86,7 +86,7 @@ const TAB_SUBTITLES = {
 
   [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Cobrança e controle de mensalidades',
 
-  movimentacoes: 'Movimentações e lançamentos do dia a dia',
+  movimentacoes: 'Lançamentos do caixa — entradas, saídas e recorrências',
 
   previsao: 'Previsão de caixa com base em mensalidades em aberto e lançamentos pendentes',
 
@@ -455,7 +455,7 @@ export default function Caixa() {
                 </p>
               </div>
               <p className="text-small text-muted finance-period-balance__hint">
-                Atualiza conforme o filtro de datas em Movimentações.
+                Atualiza conforme o período De/Até em Lançamentos (o mês do cabeçalho define o intervalo inicial).
               </p>
             </div>
           </div>
@@ -467,25 +467,16 @@ export default function Caixa() {
         {academyId && activeTab === 'movimentacoes' ? (
 
           <TransacoesTab
-
             academyId={academyId}
-
             financeConfig={financeConfig}
-
             isOwner={isOwner}
-
             isAdmin={isAdmin}
-
+            highlightTxId={String(searchParams.get('tx') || '').trim()}
             onTransactionsChange={handleTransactionsChange}
-
             periodFrom={periodFrom}
-
             periodTo={periodTo}
-
             onPeriodFiltersChange={handlePeriodFiltersChange}
-
             onTxMutated={loadPeriodSummary}
-
           />
 
         ) : null}

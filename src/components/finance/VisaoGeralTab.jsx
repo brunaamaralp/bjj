@@ -29,6 +29,7 @@ import { fetchContracts } from '../../features/contracts/api.js';
 import { mapContractDisplayStatusForRecord } from '../../features/contracts/status.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import BankBalancesOverview from './BankBalancesOverview.jsx';
 
 function fmtMoney(v) {
   try {
@@ -350,8 +351,12 @@ export default function VisaoGeralTab({
             />
           </div>
           <Link to="/financeiro?tab=movimentacoes" className="btn-outline btn-sm financeiro-overview-cta">
-            Ver movimentações <ArrowRight size={14} />
+            Ver lançamentos <ArrowRight size={14} />
           </Link>
+        </OverviewCard>
+
+        <OverviewCard title="Saldos por conta" eyebrow="Caixa · liquidado" className="financeiro-overview-card--wide">
+          <BankBalancesOverview academyId={academyId} />
         </OverviewCard>
 
         <OverviewCard title="Mensalidades" eyebrow={`Referência ${monthLabel}`}>

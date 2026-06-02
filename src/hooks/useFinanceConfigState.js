@@ -366,7 +366,15 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       ...prev,
       bankAccounts: [
         ...(prev.bankAccounts || []),
-        { bankName: '', branch: '', account: '', accountName: '', pixKey: '' },
+        {
+          bankName: '',
+          branch: '',
+          account: '',
+          accountName: '',
+          pixKey: '',
+          openingBalance: 0,
+          openingBalanceDate: '',
+        },
       ],
     }));
   }, []);

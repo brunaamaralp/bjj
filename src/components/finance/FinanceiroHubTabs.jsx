@@ -13,7 +13,7 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
     const tabs = [
       { id: FINANCEIRO_SECTIONS.OVERVIEW, label: 'Visão Geral' },
       { id: FINANCEIRO_SECTIONS.MENSALIDADES, label: 'Mensalidades' },
-      { id: 'movimentacoes', label: 'Caixa' },
+      { id: 'movimentacoes', label: 'Lançamentos' },
     ];
     if (access?.financeModule) {
       tabs.push({ id: 'previsao', label: 'Previsão' });

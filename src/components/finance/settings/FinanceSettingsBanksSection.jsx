@@ -3,8 +3,18 @@ import { Link } from 'react-router-dom';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import ModalShell from '../../shared/ModalShell.jsx';
 import EmptyState from '../../shared/EmptyState.jsx';
+import { DateInputField } from '../../DateInput';
+import { maskCurrency } from '../../../lib/masks.js';
 
-const EMPTY_BANK = { bankName: '', branch: '', account: '', accountName: '', pixKey: '' };
+const EMPTY_BANK = {
+  bankName: '',
+  branch: '',
+  account: '',
+  accountName: '',
+  pixKey: '',
+  openingBalance: '',
+  openingBalanceDate: '',
+};
 
 function bankCardLabel(acc) {
   const bank = String(acc?.bankName || '').trim();
@@ -34,7 +44,18 @@ export default function FinanceSettingsBanksSection({
 
   const openEdit = (idx) => {
     setEditIdx(idx);
-    setDraft({ ...EMPTY_BANK, ...(accounts[idx] || {}) });
+    const acc = accounts[idx] || {};
+    const ob = Number(acc.openingBalance);
+    setDraft({
+      ...EMPTY_BANK,
+      ...acc,
+      openingBalance:
+        Number.isFinite(ob) && ob > 0
+          ? maskCurrency(String(Math.round(ob * 100)))
+          : ob === 0
+            ? ''
+            : String(acc.openingBalance ?? ''),
+    });
   };
 
   const openNew = () => {
@@ -56,7 +77,7 @@ export default function FinanceSettingsBanksSection({
   return (
     <div className="finance-settings-section-body">
       <p className="text-small text-muted">
-        Dados exibidos em comprovantes e orientações de pagamento.
+        Dados exibidos em comprovantes e no cálculo de saldo do Caixa (saldo inicial + movimentações liquidadas).
       </p>
 
       {accounts.length === 0 ? (
@@ -99,7 +120,7 @@ export default function FinanceSettingsBanksSection({
       ) : null}
 
       <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
-        Ver no Caixa →
+        Ver lançamentos →
       </Link>
 
       <ModalShell
@@ -158,6 +179,39 @@ export default function FinanceSettingsBanksSection({
               value={draft.pixKey || ''}
               onChange={(e) => setDraft((d) => ({ ...d, pixKey: e.target.value }))}
             />
+          </div>
+          <div className="form-group">
+            <label>Saldo inicial (R$)</label>
+            <input
+              className="form-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="0,00"
+              value={draft.openingBalance ?? ''}
+              onChange={(e) => {
+                const d = e.target.value.replace(/\D/g, '');
+                if (!d) {
+                  setDraft((prev) => ({ ...prev, openingBalance: '' }));
+                  return;
+                }
+                const n = parseInt(d, 10) / 100;
+                setDraft((prev) => ({
+                  ...prev,
+                  openingBalance: maskCurrency(String(Math.round(n * 100))),
+                }));
+              }}
+            />
+          </div>
+          <div className="form-group">
+            <label>Válido a partir de</label>
+            <DateInputField
+              value={draft.openingBalanceDate || ''}
+              onChange={(ymd) => setDraft((prev) => ({ ...prev, openingBalanceDate: ymd }))}
+              placeholder="Opcional"
+            />
+            <p className="text-small text-muted" style={{ marginTop: 6 }}>
+              Se vazio, o saldo inicial vale para todo o histórico no Caixa.
+            </p>
           </div>
         </div>
       </ModalShell>

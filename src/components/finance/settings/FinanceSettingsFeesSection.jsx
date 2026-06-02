@@ -120,7 +120,7 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
       ) : null}
 
       <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
-        Ver no Caixa →
+        Ver lançamentos →
       </Link>
     </div>
   );

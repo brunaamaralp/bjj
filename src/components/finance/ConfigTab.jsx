@@ -717,7 +717,7 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
             />
             {lastSavedSection === 'fees' ? (
               <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
-                Ver no Caixa →
+                Ver lançamentos →
               </Link>
             ) : null}
           </div>
@@ -807,7 +807,7 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
             />
             {lastSavedSection === 'accounts' ? (
               <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
-                Ver no Caixa →
+                Ver lançamentos →
               </Link>
             ) : null}
           </div>

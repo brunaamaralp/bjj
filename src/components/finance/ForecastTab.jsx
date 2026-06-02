@@ -373,7 +373,7 @@ export default function ForecastTab({ academyId }) {
                                 <>
                                   {' · '}
                                   <Link to="/financeiro?tab=movimentacoes" className="finance-forecast-week__link">
-                                    Ver no Caixa
+                                    Ver lançamentos
                                   </Link>
                                 </>
                               ) : null}

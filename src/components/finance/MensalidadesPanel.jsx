@@ -1142,7 +1142,7 @@ export default function MensalidadesPanel({ embedded = false }) {
         <div className="mensal-estorno-caixa-banner" role="alert">
           <span className="mensal-estorno-caixa-banner__message">{estornoCaixaWarning}</span>
           <Link to="/financeiro?tab=movimentacoes" className="mensal-estorno-caixa-banner__link">
-            Caixa → Movimentações
+            Ver lançamentos →
           </Link>
           <button
             type="button"

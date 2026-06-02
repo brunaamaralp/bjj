@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { createSessionJwt } from '../../lib/appwrite';
+import { Link } from 'react-router-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
 import {
   txDirection,
@@ -15,7 +15,7 @@ import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
-import { Receipt, Repeat, ChevronDown, MoreHorizontal, Upload } from 'lucide-react';
+import { Receipt, Repeat, ChevronDown, Upload } from 'lucide-react';
 import { DateInputField } from '../DateInput';
 import {
   RECURRENCE_TYPES,
@@ -49,12 +49,24 @@ import {
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import BankBalancesOverview from './BankBalancesOverview.jsx';
+import FinanceTxRowActions, { EXPENSE_EDIT_TITLE } from './FinanceTxRowActions.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
+import BankAccountSelect from './BankAccountSelect.jsx';
+import {
+  listBankAccountLabels,
+  resolveBankAccountForPayment,
+  validateBankAccountForPayment,
+} from '../../lib/bankAccounts.js';
+import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
+
+const BANK_FILTER_UNALLOCATED = '__unallocated__';
 
 function formatTxDateStr(iso) {
   const dt = new Date(iso);
@@ -110,6 +122,7 @@ export default function TransacoesTab({
   onTransactionsChange,
   isOwner = false,
   isAdmin = false,
+  highlightTxId = '',
   periodFrom = '',
   periodTo = '',
   onPeriodFiltersChange,
@@ -136,6 +149,7 @@ export default function TransacoesTab({
     lead_id: '',
     competence_month: currentCompetenceMonth(),
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
+    bankAccount: '',
     ...defaultRecurrenceForm(),
   }));
   const [savingTx, setSavingTx] = useState(false);
@@ -154,6 +168,7 @@ export default function TransacoesTab({
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
   const [txSearch, setTxSearch] = useState('');
+  const [bankAccountFilter, setBankAccountFilter] = useState('all');
   const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState('');
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
@@ -161,6 +176,7 @@ export default function TransacoesTab({
   const [showImportModal, setShowImportModal] = useState(false);
   const loadReqRef = useRef(0);
   const lastNotifiedTxRef = useRef('');
+  const highlightRowRef = useRef(null);
 
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
@@ -178,6 +194,7 @@ export default function TransacoesTab({
     lead_id: '',
     competence_month: currentCompetenceMonth(),
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
+    bankAccount: '',
     ...defaultRecurrenceForm(),
   });
 
@@ -197,6 +214,11 @@ export default function TransacoesTab({
     return map;
   }, [leads]);
 
+  const bankAccountLabels = useMemo(
+    () => listBankAccountLabels(financeConfig),
+    [financeConfig]
+  );
+
   const filteredTransactions = useMemo(() => {
     let rows = transactions;
     if (statusFilter !== 'all') {
@@ -205,24 +227,36 @@ export default function TransacoesTab({
     if (directionFilter !== 'all') {
       rows = rows.filter((tx) => txDirection(tx) === directionFilter);
     }
+    if (bankAccountFilter !== 'all') {
+      rows = rows.filter((tx) => {
+        const label = String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim();
+        if (bankAccountFilter === BANK_FILTER_UNALLOCATED) return !label;
+        return label === bankAccountFilter;
+      });
+    }
     const q = txSearch.trim().toLowerCase();
     if (q) {
       rows = rows.filter((tx) => {
         const name = (leadNameById.get(tx.lead_id) || '').toLowerCase();
         const cat = String(tx.category || '').toLowerCase();
         const note = String(tx.note || '').toLowerCase();
-        return name.includes(q) || cat.includes(q) || note.includes(q);
+        const bank = String(tx.bankAccount || resolveTxBankAccount(tx) || '').toLowerCase();
+        return name.includes(q) || cat.includes(q) || note.includes(q) || bank.includes(q);
       });
     }
     return rows;
-  }, [transactions, statusFilter, directionFilter, txSearch, leadNameById]);
+  }, [transactions, statusFilter, directionFilter, bankAccountFilter, txSearch, leadNameById]);
 
   const hasActiveTxFilters =
-    statusFilter !== 'all' || directionFilter !== 'all' || txSearch.trim().length > 0;
+    statusFilter !== 'all' ||
+    directionFilter !== 'all' ||
+    bankAccountFilter !== 'all' ||
+    txSearch.trim().length > 0;
 
   const clearTxFilters = useCallback(() => {
     setStatusFilter('all');
     setDirectionFilter('all');
+    setBankAccountFilter('all');
     setTxSearch('');
   }, []);
 
@@ -343,6 +377,9 @@ export default function TransacoesTab({
       lead_id: tx.lead_id || '',
       competence_month: tx.competence_month || currentCompetenceMonth(),
       category: catLabel,
+      bankAccount:
+        String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
+        resolveBankAccountForPayment('', financeConfig),
     });
     const lead = (leads || []).find((l) => l.id === tx.lead_id);
     setStudentQuery(lead?.name ? String(lead.name) : '');
@@ -404,6 +441,16 @@ export default function TransacoesTab({
   }, [periodFrom, periodTo]);
 
   useEffect(() => {
+    if (!highlightTxId || txLoading) return;
+    const exists = transactions.some((t) => String(t.id) === highlightTxId);
+    if (!exists) return;
+    const t = window.setTimeout(() => {
+      highlightRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [highlightTxId, txLoading, transactions]);
+
+  useEffect(() => {
     if (typeof onTransactionsChange !== 'function') return;
     const pending = (transactions || []).filter(
       (tx) => String(tx.status || '').toLowerCase() === 'pending'
@@ -438,40 +485,22 @@ export default function TransacoesTab({
 
   const settle = async (id) => {
     try {
-      const jwt = await createSessionJwt();
-      const response = await fetch('/api/agent?route=settle-finance-tx', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': academyId,
-        },
-        body: JSON.stringify({ transactionId: id }),
-      });
-      if (!response.ok) {
-        let errMsg = 'Erro ao liquidar';
-        try {
-          const errBody = await response.json();
-          errMsg = financeTxErrorMessage(errBody.error) || errBody.error || errMsg;
-        } catch {
-          void 0;
-        }
-        throw new Error(errMsg);
-      }
-      const { settledAt: settledAtServer } = await response.json();
-      const nowIso = settledAtServer || new Date().toISOString();
-      const tx = transactions.find((t) => t.id === id);
-      setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'settled', settledAt: nowIso } : t)));
+      const row = await patchFinanceTx({ academyId, id, payload: { action: 'settle' } });
+      const nowIso = row.settledAt || new Date().toISOString();
+      setTransactions((prev) => prev.map((t) => (t.id === id ? { ...row, status: 'settled', settledAt: nowIso } : t)));
       toast.success('Transação liquidada com sucesso');
-      if (tx && academyId) {
-        applySettleAccountingSideEffects(tx, academyId);
+      if (row && academyId) {
+        applySettleAccountingSideEffects(row, academyId);
       }
       if (typeof onTxMutated === 'function') onTxMutated();
       window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
     } catch (e) {
       console.error(e);
-      const msg = String(e?.message || '').trim();
-      toast.show({ type: 'error', message: msg || friendlyError(e, 'action') });
+      const code = String(e?.message || '').trim();
+      toast.show({
+        type: 'error',
+        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+      });
     }
   };
 
@@ -489,35 +518,17 @@ export default function TransacoesTab({
     setShowCancelTxDialog(false);
     setPendingCancelId('');
     try {
-      const jwt = await createSessionJwt();
-      const response = await fetch('/api/agent?route=cancel-finance-tx', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': academyId,
-        },
-        body: JSON.stringify({ transactionId: tid }),
-      });
-      if (!response.ok) {
-        let errMsg = 'Erro ao cancelar';
-        try {
-          const errBody = await response.json();
-          errMsg = financeTxErrorMessage(errBody.error) || errBody.error || errMsg;
-        } catch {
-          void 0;
-        }
-        throw new Error(errMsg);
-      }
-      setTransactions((prev) =>
-        prev.map((t) => (String(t.id) === tid ? { ...t, status: 'cancelled', settledAt: '' } : t))
-      );
+      const row = await patchFinanceTx({ academyId, id: tid, payload: { action: 'cancel' } });
+      setTransactions((prev) => prev.map((t) => (String(t.id) === tid ? row : t)));
       toast.success('Lançamento cancelado.');
       if (typeof onTxMutated === 'function') onTxMutated();
     } catch (e) {
       console.error(e);
-      const msg = String(e?.message || '').trim();
-      toast.show({ type: 'error', message: msg || friendlyError(e, 'action') });
+      const code = String(e?.message || '').trim();
+      toast.show({
+        type: 'error',
+        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+      });
     } finally {
       setCancelLoadingId('');
     }
@@ -541,6 +552,15 @@ export default function TransacoesTab({
       toast.show({ type: 'error', message: 'Selecione uma categoria válida.' });
       return;
     }
+    let bankAccount = '';
+    if (bankAccountLabels.length > 0) {
+      const accountCheck = validateBankAccountForPayment(txForm.bankAccount, financeConfig);
+      if (!accountCheck.ok) {
+        toast.show({ type: 'error', message: accountCheck.message });
+        return;
+      }
+      bankAccount = accountCheck.account || txForm.bankAccount || '';
+    }
     const feePct =
       txForm.direction === 'out' ? 0 : parseFloat(String(txForm.fee || '').replace(',', '.')) || 0;
     const installments =
@@ -559,6 +579,7 @@ export default function TransacoesTab({
         gross: grossNum,
         fee: feePct > 0 ? grossNum * (feePct / 100) : 0,
         note: txForm.note || '',
+        bank_account: bankAccount,
         receive_now: !editingTxId && receiveNow,
         settledAt: receiveNow ? new Date().toISOString() : undefined,
       };
@@ -615,15 +636,45 @@ export default function TransacoesTab({
   return (
     <>
       <section className="mt-4 animate-in finance-tx-section">
-        <h3 className="navi-section-heading mb-2">Caixa</h3>
-        <p className="finance-tx-section__lead">
-          Despesas, entradas avulsas e recorrências. Mensalidades pagas entram aqui automaticamente ao registrar em
-          Mensalidades.
-        </p>
+        <h3 className="navi-section-heading mb-2">Lançamentos</h3>
+        <StatusBanner variant="info" className="finance-tx-info-banner mb-3">
+          <p className="finance-tx-info-banner__text">
+            Mensalidades <strong>pagas</strong> geram lançamento aqui automaticamente. Cobranças em aberto ficam em{' '}
+            <Link to="/financeiro?tab=mensalidades">Mensalidades</Link>. Só lançamentos <strong>pendentes</strong> podem
+            ser editados; liquidados exigem cancelamento e novo registro, se necessário.
+          </p>
+        </StatusBanner>
+        {academyId ? (
+          <div className="mb-3">
+            <BankBalancesOverview
+              academyId={academyId}
+              onSelectAccount={(label) => {
+                if (!label) {
+                  setBankAccountFilter('all');
+                  return;
+                }
+                setBankAccountFilter(
+                  label === UNALLOCATED_BANK_LABEL ? BANK_FILTER_UNALLOCATED : label
+                );
+              }}
+              selectedAccountLabel={
+                bankAccountFilter === 'all'
+                  ? ''
+                  : bankAccountFilter === BANK_FILTER_UNALLOCATED
+                    ? UNALLOCATED_BANK_LABEL
+                    : bankAccountFilter
+              }
+            />
+          </div>
+        ) : null}
         <div className="card">
           {academyId ? (
             <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-3" />
           ) : null}
+          <p className="text-small text-muted finance-tx-period-hint mb-3">
+            O mês no cabeçalho da página define o período inicial. Ajuste <strong>De</strong> e <strong>Até</strong> para
+            refinar a lista e o saldo do período acima.
+          </p>
           <FinanceFiltersBar className="finance-tx-toolbar">
             <div className="finance-tx-toolbar__row">
               <div className="finance-filters-bar__field finance-tx-date-group">
@@ -675,6 +726,23 @@ export default function TransacoesTab({
                 <option value="in">Entrada</option>
                 <option value="out">Saída</option>
               </FinanceToolbarSelect>
+              {bankAccountLabels.length > 0 ? (
+                <FinanceToolbarSelect
+                  id="finance-tx-bank"
+                  label="Conta"
+                  className="finance-tx-filter-group--bank"
+                  value={bankAccountFilter}
+                  onChange={(e) => setBankAccountFilter(e.target.value)}
+                >
+                  <option value="all">Todas as contas</option>
+                  {bankAccountLabels.map((lbl) => (
+                    <option key={lbl} value={lbl}>
+                      {lbl}
+                    </option>
+                  ))}
+                  <option value={BANK_FILTER_UNALLOCATED}>{UNALLOCATED_BANK_LABEL}</option>
+                </FinanceToolbarSelect>
+              ) : null}
               <SearchField
                 className="finance-filters-bar__search finance-tx-toolbar__search"
                 value={txSearch}
@@ -710,7 +778,10 @@ export default function TransacoesTab({
                   setEditingTxId('');
                   setEditPreservedSaleId('');
                   setReceiveNow(false);
-                  setTxForm(initialTxForm());
+                  setTxForm({
+                    ...initialTxForm(),
+                    bankAccount: resolveBankAccountForPayment('', financeConfig),
+                  });
                   setStudentQuery('');
                   setStudentPickerOpen(false);
                   setShowTxModal(true);
@@ -765,7 +836,11 @@ export default function TransacoesTab({
                 const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
                 const rec = isRecurrenceTx(tx);
                 return (
-                  <article key={tx.id} className="navi-mobile-card finance-mobile-card">
+                  <article
+                    key={tx.id}
+                    ref={highlightTxId && String(tx.id) === highlightTxId ? highlightRowRef : undefined}
+                    className={`navi-mobile-card finance-mobile-card${highlightTxId && String(tx.id) === highlightTxId ? ' finance-tx-row--highlight' : ''}`}
+                  >
                     <div className="finance-mobile-card__head">
                       <span className="finance-mobile-card__date finance-mobile-card__date--with-icon">
                         {formatTxDateStr(txTemporalIso(tx))}
@@ -796,7 +871,21 @@ export default function TransacoesTab({
                     {st === 'pending' ? (
                       <div className="finance-mobile-card__actions">
                         {(canManageAdvanced || txDirection(tx) !== 'out') ? (
-                          <button type="button" className="btn-outline btn-sm" onClick={() => openEditModal(tx)} disabled={rowBusy}>
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            onClick={() => openEditModal(tx)}
+                            disabled={rowBusy}
+                          >
+                            Editar
+                          </button>
+                        ) : txDirection(tx) === 'out' ? (
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            disabled
+                            title={EXPENSE_EDIT_TITLE}
+                          >
                             Editar
                           </button>
                         ) : null}
@@ -829,6 +918,7 @@ export default function TransacoesTab({
                   <th>Natureza</th>
                   <th>Categoria</th>
                   <th>Venda</th>
+                  <th>Conta</th>
                   <th>Aluno</th>
                   <th>Tipo</th>
                   <th>Método</th>
@@ -842,7 +932,7 @@ export default function TransacoesTab({
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="finance-tx-empty-cell">
+                    <td colSpan={13} className="finance-tx-empty-cell">
                       <EmptyState
                         variant="table-cell"
                         tone="solid"
@@ -895,8 +985,13 @@ export default function TransacoesTab({
                   const rec = isRecurrenceTx(tx);
                   const recTip = recurrenceTooltip(tx);
                   const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
+                  const isHighlighted = highlightTxId && String(tx.id) === highlightTxId;
                   return (
-                    <tr key={tx.id}>
+                    <tr
+                      key={tx.id}
+                      ref={isHighlighted ? highlightRowRef : undefined}
+                      className={isHighlighted ? 'finance-tx-row--highlight' : undefined}
+                    >
                       <td>
                         <span className="finance-tx-date-cell">
                           {dateStr}
@@ -920,6 +1015,9 @@ export default function TransacoesTab({
                       </td>
                       <td>{catBadge ? <span className={catBadge.className}>{catBadge.label}</span> : '—'}</td>
                       <td>{tx.saleId ? formatSaleIdShort(tx.saleId) : '—'}</td>
+                      <td title={tx.bankAccount || resolveTxBankAccount(tx) || undefined}>
+                        {tx.bankAccount || resolveTxBankAccount(tx) || '—'}
+                      </td>
                       <td title={rawName || undefined}>{alumStr}</td>
                       <td>{typeLabel}</td>
                       <td>{methodLabel}</td>
@@ -928,74 +1026,22 @@ export default function TransacoesTab({
                       <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{netFmt}</td>
                       <td>{statusBadge}</td>
                       <td className="finance-num">
-                        <div className="finance-tx-actions-cell">
-                          {showRecMenu ? (
-                            <div className="finance-tx-menu-wrap">
-                              <button
-                                type="button"
-                                className="btn-outline"
-                                aria-label="Mais opções de recorrência"
-                                disabled={rowBusy}
-                                onClick={() => setMenuOpenId((prev) => (prev === tx.id ? '' : tx.id))}
-                              >
-                                <MoreHorizontal size={16} aria-hidden />
-                              </button>
-                              {menuOpenId === tx.id ? (
-                                <div className="card finance-tx-menu-panel">
-                                  <button
-                                    type="button"
-                                    className="btn-ghost finance-tx-menu-btn"
-                                    onClick={() => openEditRecurrenceModal(tx)}
-                                  >
-                                    Editar recorrência
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-ghost finance-tx-menu-btn finance-tx-menu-btn--danger"
-                                    disabled={rowBusy}
-                                    onClick={() => requestCancelRecurrence(tx.id)}
-                                  >
-                                    {recurrenceCancelLoadingId === tx.id ? 'Cancelando…' : 'Cancelar recorrência'}
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          {st === 'pending' ? (
-                            <>
-                              {(canManageAdvanced || txDirection(tx) !== 'out') ? (
-                                <button
-                                  type="button"
-                                  className="btn-outline"
-                                  onClick={() => openEditModal(tx)}
-                                  disabled={rowBusy}
-                                >
-                                  Editar
-                                </button>
-                              ) : null}
-                              <button
-                                type="button"
-                                className="btn-outline"
-                                onClick={() => void settle(tx.id)}
-                                disabled={rowBusy}
-                              >
-                                Liquidar
-                              </button>
-                              {canManageAdvanced ? (
-                                <button
-                                  type="button"
-                                  className="btn-outline finance-btn-danger-outline"
-                                  onClick={() => requestCancelTx(tx.id)}
-                                  disabled={rowBusy}
-                                >
-                                  {rowBusy ? 'Cancelando…' : 'Cancelar'}
-                                </button>
-                              ) : null}
-                            </>
-                          ) : !showRecMenu ? (
-                            <span className="text-small finance-tx-no-actions">—</span>
-                          ) : null}
-                        </div>
+                        <FinanceTxRowActions
+                          txId={tx.id}
+                          status={st}
+                          direction={dir}
+                          canManageAdvanced={canManageAdvanced}
+                          showRecMenu={showRecMenu}
+                          rowBusy={rowBusy}
+                          menuOpen={menuOpenId}
+                          onMenuOpenChange={setMenuOpenId}
+                          onEdit={() => openEditModal(tx)}
+                          onSettle={() => void settle(tx.id)}
+                          onCancel={() => requestCancelTx(tx.id)}
+                          onEditRecurrence={() => openEditRecurrenceModal(tx)}
+                          onCancelRecurrence={() => requestCancelRecurrence(tx.id)}
+                          recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
+                        />
                       </td>
                     </tr>
                   );
@@ -1157,6 +1203,17 @@ export default function TransacoesTab({
                     onChange={(e) => setTxForm({ ...txForm, fee: e.target.value })}
                   />
                 </div>
+              ) : null}
+              {bankAccountLabels.length > 0 ? (
+                <BankAccountSelect
+                  academyId={academyId}
+                  financeConfig={financeConfig}
+                  id="finance-tx-bank-account"
+                  label="Conta bancária"
+                  required
+                  value={txForm.bankAccount || ''}
+                  onChange={(v) => setTxForm((f) => ({ ...f, bankAccount: v }))}
+                />
               ) : null}
               <div className="form-group">
                 <label>Método</label>

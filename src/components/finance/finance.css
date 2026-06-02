@@ -408,6 +408,51 @@
   border-color: var(--color-primary) !important;
   color: var(--color-primary-dark) !important;
 }
+.finance-tx-info-banner__text {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.finance-tx-info-banner__text a {
+  font-weight: 600;
+}
+
+.finance-tx-period-hint {
+  margin: 0;
+}
+
+.finance-tx-row--highlight {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--primary, #2563eb) 8%, transparent);
+}
+
+.finance-bank-balances__card--selectable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border, #e5e7eb);
+  font: inherit;
+  color: inherit;
+}
+
+.finance-bank-balances__card--selectable:hover {
+  border-color: var(--primary, #2563eb);
+}
+
+.finance-bank-balances__card--selected {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 1px var(--primary, #2563eb);
+}
+
+.finance-bank-balances__filter-hint {
+  margin: 0.5rem 0 0;
+}
+
+.finance-tx-actions-menu {
+  display: inline-flex;
+}
+
 .finance-tx-section__lead {
   margin: 0 0 var(--finance-space-4);
   font-size: var(--font-sm);
@@ -1970,6 +2015,53 @@
 .finance-period-balance__hint {
   margin: 0;
   max-width: 280px;
+}
+
+.finance-bank-balances__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.finance-bank-balances__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.finance-bank-balances__card {
+  padding: 14px 16px;
+}
+
+.finance-bank-balances__card--muted {
+  border-style: dashed;
+}
+
+.finance-bank-balances__card-title {
+  margin: 0 0 6px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.finance-bank-balances__card-balance {
+  margin: 0;
+  font-size: var(--font-xl);
+  font-weight: 700;
+}
+
+.finance-bank-balances__card-meta {
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
+.finance-bank-balances__total {
+  margin: 14px 0 8px;
+}
+
+.financeiro-overview-card--wide {
+  grid-column: 1 / -1;
 }
 
 .academy-finance-config--hub {

@@ -466,7 +466,7 @@ export default function MonthlyClosingTab({
         <div className="card mb-3 monthly-closing-alert" role="alert">
           <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou cancele em
           Movimentações antes de considerar o mês fechado.{' '}
-          <Link to="/financeiro?tab=movimentacoes">Ver no Caixa →</Link>
+          <Link to="/financeiro?tab=movimentacoes">Ver lançamentos →</Link>
         </div>
       ) : null}
       {totals.pending > 0 ? (
