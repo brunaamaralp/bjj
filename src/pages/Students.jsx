@@ -1220,7 +1220,7 @@ const Students = ({ embedded = false }) => {
           color: #fff;
         }
         .students-page {
-          padding-top: 20px;
+          padding-top: 0;
           padding-bottom: 16px;
           flex: 1 1 0%;
           min-height: 0;

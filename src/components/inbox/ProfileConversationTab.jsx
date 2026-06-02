@@ -150,11 +150,11 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
     refresh,
   } = useInboxConversation({ phone: rawPhone, academyId, enabled: Boolean(phoneDigits && academyId) });
 
-  const { waStatus } = useZapsterWhatsAppConnection(academyId, {
+  const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
     statusPollWhileMounted: true,
     watchAcademyStatus: true,
   });
-  const waConnected = String(waStatus || '').trim() === 'connected';
+  const waConnected = !waStatusChecked || String(waStatus || '').trim() === 'connected';
 
   const [draft, setDraft] = useState('');
   const [handoffBannerDismissed, setHandoffBannerDismissed] = useState(false);

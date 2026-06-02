@@ -1,4 +1,4 @@
-import { account, client } from './appwrite';
+import { account, client, clearSessionJwtCache } from './appwrite';
 import { ID } from 'appwrite';
 
 export const authService = {
@@ -10,6 +10,7 @@ export const authService = {
                 project: client.config.project
             });
         }
+        clearSessionJwtCache();
         const session = await account.createEmailPasswordSession(email, password);
         if (import.meta.env.DEV) {
             console.log('[Auth] Login successful');
@@ -31,6 +32,7 @@ export const authService = {
     },
 
     async logout() {
+        clearSessionJwtCache();
         try {
             await account.deleteSession('current');
         } catch (e) {

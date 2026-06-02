@@ -35,7 +35,7 @@ export default function Loja() {
 
   if (tabs.length === 0) {
     return (
-      <div className="container navi-hub-page" style={{ paddingTop: 20 }}>
+      <div className="container navi-hub-page">
         <PageHeader
           className="navi-page-header--flush"
           title="Loja"

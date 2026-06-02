@@ -207,7 +207,7 @@ const NewLead = () => {
     };
     const leadLabelSingular = singular(useLeadStore.getState().labels?.leads || 'Leads');
     return (
-        <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+        <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
             <PageHeader
                 title={`Novo ${leadLabelSingular}`}
                 subtitle="Cadastre um contato para o funil."

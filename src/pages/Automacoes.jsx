@@ -34,7 +34,7 @@ export default function Automacoes() {
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
-    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+    <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
       <PageHeader
         title="Automações"
         subtitle="Configure processos, modelos de mensagem e gatilhos do funil."

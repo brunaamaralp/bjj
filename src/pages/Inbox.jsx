@@ -236,7 +236,7 @@ export default function Inbox() {
   }, [academyDoc?.teamId]);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
-  const { waInfo, waStatus, waSyncing, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, {
+  const { waInfo, waStatus, waSyncing, waStatusChecked, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, {
     statusPollWhileMounted: true,
     watchAcademyStatus: true
   });
@@ -3047,8 +3047,11 @@ export default function Inbox() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [extraFiltersMenuOpen]);
 
-  const waChatConnected = useMemo(() => String(waStatus || '').trim() === 'connected', [waStatus]);
-  const showWaDisconnectBanner = String(waStatus || '').trim() !== 'connected';
+  const waChatConnected = useMemo(
+    () => !waStatusChecked || String(waStatus || '').trim() === 'connected',
+    [waStatus, waStatusChecked]
+  );
+  const showWaDisconnectBanner = waStatusChecked && String(waStatus || '').trim() !== 'connected';
 
   const [inboxVvInset, setInboxVvInset] = useState(0);
   const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);

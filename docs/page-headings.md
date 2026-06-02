@@ -45,6 +45,7 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 - [ ] Seções com `SectionHeader` e hierarquia `h2` → `h3`
 - [ ] Toolbar em `toolbar` do `PageHeader` ou `page-header-card` (controles 36px — [controls-toolbar.md](./controls-toolbar.md))
 - [ ] Sem margens inline duplicadas no cabeçalho
+- [ ] Sem `padding-top` extra no container da página (o topo vem de `.main-content` / `--page-gutter`, como em Hoje e Funil)
 
 ## Migração
 

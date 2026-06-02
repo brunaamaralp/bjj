@@ -19,6 +19,38 @@ function waInfoSnapshotEqual(a, b) {
   );
 }
 
+const WA_CONNECTION_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** @type {Map<string, { academyWaStatus: string, waInfo: { instance_id: string|null, status: string, qrcode: string|null, phone: string|null }, ts: number }>} */
+const waConnectionCache = new Map();
+
+function readWaConnectionCache(academyId) {
+  const id = String(academyId || '').trim();
+  if (!id) return null;
+  const entry = waConnectionCache.get(id);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > WA_CONNECTION_CACHE_TTL_MS) {
+    waConnectionCache.delete(id);
+    return null;
+  }
+  return entry;
+}
+
+function writeWaConnectionCache(academyId, academyWaStatus, waInfo) {
+  const id = String(academyId || '').trim();
+  if (!id) return;
+  waConnectionCache.set(id, {
+    academyWaStatus: String(academyWaStatus || '').trim(),
+    waInfo: {
+      instance_id: waInfo?.instance_id ?? null,
+      status: String(waInfo?.status || 'disconnected').trim() || 'disconnected',
+      qrcode: waInfo?.qrcode ?? null,
+      phone: waInfo?.phone ?? null,
+    },
+    ts: Date.now(),
+  });
+}
+
 async function getJwt() {
   const jwt = await account.createJWT();
   return String(jwt?.jwt || '').trim();
@@ -228,6 +260,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const [waPersistFailed, setWaPersistFailed] = useState(false);
   const [connectionError, setConnectionError] = useState('');
   const [academyWaStatus, setAcademyWaStatus] = useState('');
+  const [waStatusChecked, setWaStatusChecked] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -244,9 +277,12 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
 
   /** Instância órfã (Zapster sem o id): limpa UI sem toast nem connectionError. */
   const resetWaToNoInstanceSilently = useCallback(() => {
+    const empty = { instance_id: null, status: 'disconnected', qrcode: null, phone: null };
     setWaPersistFailed(false);
-    setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
+    setWaInfo(empty);
     setAcademyWaStatus('disconnected');
+    setWaStatusChecked(true);
+    writeWaConnectionCache(academyIdRef.current, 'disconnected', empty);
     setWaTokenMissing(false);
     setWaQrError(false);
     setWaQrShown(false);
@@ -451,6 +487,27 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       if (incomingId && String(finalStatus || '').trim().toLowerCase() === 'connected') {
         void registerWebhooks(incomingId);
       }
+
+      const cachedWaInfo = incomingId
+        ? {
+            instance_id: incomingId,
+            status: finalStatus,
+            qrcode: finalQrcode,
+            phone: waPhoneForStatus(finalStatus, waPhoneFromApi, waInfoRef.current.phone),
+          }
+        : waPersistFailedRef.current && waInfoRef.current.instance_id
+          ? {
+              ...waInfoRef.current,
+              status: finalStatus,
+              qrcode: finalQrcode,
+              phone: waPhoneForStatus(finalStatus, waPhoneFromApi, waInfoRef.current.phone),
+            }
+          : { instance_id: null, status: 'disconnected', qrcode: null, phone: null };
+      writeWaConnectionCache(
+        academyIdRef.current,
+        zapsterStatusFromApi || finalStatus,
+        cachedWaInfo
+      );
     } catch (e) {
       if (debugOn) {
         console.error('[WA Debug] fetchWaInfo exception', e);
@@ -467,6 +524,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     } finally {
       isFetchingWaInfoRef.current = false;
       if (!quiet) setWaLoading(false);
+      if (hookMountedRef.current) setWaStatusChecked(true);
     }
   }, [resetWaToNoInstanceSilently, registerWebhooks]);
 
@@ -1008,10 +1066,23 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   }, []);
 
   useEffect(() => {
-    if (!academyId) return;
+    if (!academyId) {
+      setWaStatusChecked(false);
+      return;
+    }
+    const cached = readWaConnectionCache(academyId);
     setWaQrShown(false);
     setWaQrLoadFailedOnce(false);
+    if (cached) {
+      setAcademyWaStatus(cached.academyWaStatus);
+      setWaInfo(cached.waInfo);
+      setWaStatusChecked(true);
+      void fetchWaInfo({ silent: true, quiet: true });
+      return;
+    }
     setAcademyWaStatus('');
+    setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
+    setWaStatusChecked(false);
     void fetchWaInfo({ silent: true });
   }, [academyId, fetchWaInfo]);
 
@@ -1151,6 +1222,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     waInfo,
     waStatus,
     waLoading,
+    waStatusChecked,
     waTokenMissing,
     waQrError,
     waQrShown,

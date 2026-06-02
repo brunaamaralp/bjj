@@ -58,7 +58,7 @@ const Sales = () => {
   };
 
   return (
-    <div className="container sales-page navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
+    <div className="container sales-page navi-hub-page" style={{ paddingBottom: 20 }}>
       <PageHeader
         title="Vendas"
         subtitle="Registre vendas e consulte comprovantes."

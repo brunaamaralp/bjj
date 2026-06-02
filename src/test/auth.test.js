@@ -17,7 +17,8 @@ vi.mock('../lib/appwrite.js', () => ({
     createEmailPasswordSession: authMocks.createEmailPasswordSession,
     deleteSession: authMocks.deleteSession
   },
-  client: { config: { endpoint: 'x', project: 'y' } }
+  client: { config: { endpoint: 'x', project: 'y' } },
+  clearSessionJwtCache: vi.fn()
 }));
 
 vi.mock('../store/useLeadStore.js', () => ({

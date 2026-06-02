@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 const inboxMocks = vi.hoisted(() => {
   let waStatus = 'disconnected';
+  let waStatusChecked = true;
   const subscribe = vi.fn(() => Promise.resolve({ close: vi.fn() }));
   const setInboxUnreadConversations = vi.fn();
   return {
@@ -13,6 +14,12 @@ const inboxMocks = vi.hoisted(() => {
     },
     setWaStatus(v) {
       waStatus = v;
+    },
+    get waStatusChecked() {
+      return waStatusChecked;
+    },
+    setWaStatusChecked(v) {
+      waStatusChecked = v;
     },
     subscribe,
     navigate: vi.fn(),
@@ -24,6 +31,7 @@ vi.mock('../hooks/useZapsterWhatsAppConnection.js', () => ({
   useZapsterWhatsAppConnection: () => ({
     waInfo: { instance_id: 'inst-1', status: inboxMocks.waStatus },
     waStatus: inboxMocks.waStatus,
+    waStatusChecked: inboxMocks.waStatusChecked,
     waSyncing: false,
     waConnected: inboxMocks.waStatus === 'connected',
     reconcileWhatsAppHistory: vi.fn()
@@ -124,22 +132,41 @@ vi.mock('../components/shared/EmptyState.jsx', () => ({
 }));
 
 describe('Inbox — banner WhatsApp', () => {
+  /** @type {typeof import('../pages/Inbox.jsx').default} */
+  let Inbox;
+
+  beforeAll(async () => {
+    Inbox = (await import('../pages/Inbox.jsx')).default;
+  }, 30000);
+
   beforeEach(() => {
     inboxMocks.setWaStatus('disconnected');
+    inboxMocks.setWaStatusChecked(true);
     inboxMocks.subscribe.mockClear();
     inboxMocks.navigate.mockClear();
   });
 
-  it('exibe banner desconectado e some ao reconectar', async () => {
-    const Inbox = (await import('../pages/Inbox.jsx')).default;
+  it('não exibe banner enquanto o status ainda não foi verificado', () => {
+    inboxMocks.setWaStatus('disconnected');
+    inboxMocks.setWaStatusChecked(false);
 
+    render(
+      <MemoryRouter initialEntries={['/inbox']}>
+        <Inbox />
+      </MemoryRouter>
+    );
+
+    expect(document.querySelector('.inbox-global-error')).not.toBeInTheDocument();
+  });
+
+  it('exibe banner desconectado e some ao reconectar', async () => {
     const { rerender } = render(
       <MemoryRouter initialEntries={['/inbox']}>
         <Inbox />
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/WhatsApp desconectado/i)).toBeInTheDocument();
+    expect(document.querySelector('.inbox-global-error')).toBeInTheDocument();
     const link = screen.getByRole('button', { name: /Reconectar/i });
     link.click();
     expect(inboxMocks.navigate).toHaveBeenCalledWith('/agente-ia');
@@ -151,7 +178,7 @@ describe('Inbox — banner WhatsApp', () => {
       </MemoryRouter>
     );
 
-    expect(screen.queryByText(/WhatsApp desconectado/i)).not.toBeInTheDocument();
+    expect(document.querySelector('.inbox-global-error')).not.toBeInTheDocument();
   }, 15000);
 });
 

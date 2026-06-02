@@ -81,14 +81,63 @@ export { APPWRITE_PROJECT as PROJECT_ID };
 export const ENDPOINT_FALLBACK = endpointFallback;
 export function setClientEndpoint(ep) { client.setEndpoint(ep); }
 
+/** Appwrite JWTs expire in ~15 min; refresh slightly before. */
+const SESSION_JWT_CACHE_MS = 14 * 60 * 1000;
+
+let cachedSessionJwt = '';
+let cachedSessionJwtExpiresAt = 0;
+/** @type {Promise<string> | null} */
+let sessionJwtInFlight = null;
+let sessionJwtCooldownUntil = 0;
+
+/** Limpa JWT em memória (logout / troca de sessão). */
+export function clearSessionJwtCache() {
+  cachedSessionJwt = '';
+  cachedSessionJwtExpiresAt = 0;
+  sessionJwtInFlight = null;
+  sessionJwtCooldownUntil = 0;
+}
+
+function isJwtRateLimitedError(err) {
+  const status = Number(err?.code ?? err?.status ?? err?.response?.status);
+  if (status === 429) return true;
+  const msg = String(err?.message || err || '').toLowerCase();
+  return msg.includes('429') || msg.includes('too many requests') || msg.includes('rate limit');
+}
+
 /** JWT de curta duração para rotas /api (ex.: billing, academies/create). */
 export async function createSessionJwt() {
-  try {
-    const jwt = await account.createJWT();
-    return String(jwt?.jwt || '').trim();
-  } catch {
-    return '';
+  const now = Date.now();
+  if (cachedSessionJwt && now < cachedSessionJwtExpiresAt) {
+    return cachedSessionJwt;
   }
+  if (now < sessionJwtCooldownUntil) {
+    return cachedSessionJwt;
+  }
+  if (sessionJwtInFlight) {
+    return sessionJwtInFlight;
+  }
+
+  sessionJwtInFlight = (async () => {
+    try {
+      const jwt = await account.createJWT();
+      const token = String(jwt?.jwt || '').trim();
+      if (token) {
+        cachedSessionJwt = token;
+        cachedSessionJwtExpiresAt = Date.now() + SESSION_JWT_CACHE_MS;
+      }
+      return token;
+    } catch (err) {
+      if (isJwtRateLimitedError(err)) {
+        sessionJwtCooldownUntil = Date.now() + 30_000;
+      }
+      return cachedSessionJwt || '';
+    } finally {
+      sessionJwtInFlight = null;
+    }
+  })();
+
+  return sessionJwtInFlight;
 }
 
 export { client, account, databases, functions, teams, realtime };

@@ -53,7 +53,7 @@ export default function Alunos() {
       : `Lista de ${studentPlural.toLowerCase()} matriculados`;
 
   return (
-    <div className="container navi-hub-page students-hub-page" style={{ paddingTop: 20, paddingBottom: 40 }}>
+    <div className="container navi-hub-page students-hub-page" style={{ paddingBottom: 40 }}>
       <PageHeader
         className="navi-hub-page__head"
         title={studentPlural}

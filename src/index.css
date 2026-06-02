@@ -4923,7 +4923,7 @@ button.funil-color-swatch {
 
 .loja-hub__tabs {
   flex-shrink: 0;
-  padding-top: 12px;
+  padding-top: 0;
   padding-bottom: 0;
 }
 
@@ -4933,7 +4933,7 @@ button.funil-color-swatch {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding-top: 16px;
+  padding-top: 0;
   padding-bottom: 8px;
 }
 
@@ -10760,9 +10760,9 @@ input.navi-typable-date.form-input:focus {
 
 /* ─── Settings pages — padrão global ─────────────────────────────── */
 
-/* Padding padrão para todas as páginas de configuração */
+/* Espaço superior vem de .main-content (--page-gutter), igual a Hoje e Funil */
 .navi-hub-page {
-  padding-top: 20px;
+  padding-top: 0;
   padding-bottom: 40px;
 }
 

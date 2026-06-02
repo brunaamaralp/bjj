@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { account } from '../lib/appwrite';
+import { createSessionJwt } from '../lib/appwrite';
 
 /**
  * Lista etiquetas da academia via GET /api/labels.
@@ -21,8 +21,7 @@ export function useAcademyLabels(academyId, options = {}) {
 
     (async () => {
       try {
-        const jwt = await account.createJWT();
-        const token = String(jwt?.jwt || '').trim();
+        const token = await createSessionJwt();
         const res = await fetch('/api/labels', {
           headers: {
             Authorization: `Bearer ${token}`,

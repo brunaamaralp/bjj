@@ -891,7 +891,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 30 }}>
+    <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
       <header className="animate-in">
         <PageHeader
           className="navi-page-header--flush"

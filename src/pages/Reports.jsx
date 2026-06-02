@@ -577,7 +577,7 @@ const Reports = () => {
     }, [reportData, heatmapDays, heatmapSlots]);
 
     return (
-        <div className="container navi-hub-page" style={{ paddingTop: 20, paddingBottom: 20 }}>
+        <div className="container navi-hub-page" style={{ paddingBottom: 20 }}>
             <div>
                 <PageHeader
                     className="navi-page-header--flush"
