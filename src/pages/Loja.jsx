@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
+import { resolveSalesSubtab } from '../lib/lojaSalesTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import Sales from './Sales';
@@ -48,13 +49,28 @@ export default function Loja() {
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
+  const hubSubtitle =
+    activeTab === 'vendas'
+      ? 'Registre vendas e consulte comprovantes.'
+      : activeTab === 'produtos'
+        ? 'Cadastre itens, variantes e preços para estoque e vendas.'
+        : activeTab === 'estoque'
+          ? 'Ajuste saldos e movimentações por item.'
+          : 'Gerencie vendas, produtos e estoque.';
+
+  const hubMeta =
+    activeTab === 'vendas' && resolveSalesSubtab(searchParams) === 'history'
+      ? 'Histórico e cancelamentos'
+      : null;
+
   return (
     <div className="loja-hub">
       <div className="container loja-hub__tabs navi-hub-page__head">
         <PageHeader
           className="navi-page-header--flush"
           title="Loja"
-          subtitle="Gerencie vendas, produtos e estoque."
+          subtitle={hubSubtitle}
+          meta={hubMeta}
         />
         <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" fullWidth />
       </div>

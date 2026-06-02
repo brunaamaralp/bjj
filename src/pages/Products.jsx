@@ -18,7 +18,6 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import { friendlyError } from '../lib/errorMessages';
 import { createSessionJwt } from '../lib/appwrite';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
-import PageHeader from '../components/layout/PageHeader.jsx';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 
 function isRealCatalogParent(product, catalogMode) {
@@ -583,23 +582,18 @@ export default function Products() {
 
   return (
     <div className="container products-page navi-hub-page">
-      <PageHeader
-        className="products-page-header"
-        title="Produtos"
-        subtitle="Cadastre itens, variantes e preços para estoque e vendas."
-        actions={
-          <>
-            <button type="button" className="btn-action-primary" onClick={() => setImportOpen(true)}>
-              <Upload size={14} aria-hidden />
-              Importar em lote
-            </button>
-            <button type="button" className="btn-action-ghost" onClick={openCreate}>
-              <Plus size={14} aria-hidden />
-              Novo produto
-            </button>
-          </>
-        }
-      />
+      <div className="loja-subnav loja-subnav--actions-only products-subnav">
+        <div className="loja-subnav__actions products-page-actions">
+          <button type="button" className="btn-action-primary" onClick={() => setImportOpen(true)}>
+            <Upload size={14} aria-hidden />
+            Importar em lote
+          </button>
+          <button type="button" className="btn-action-ghost" onClick={openCreate}>
+            <Plus size={14} aria-hidden />
+            Novo produto
+          </button>
+        </div>
+      </div>
 
       {error ? (
         <ErrorBanner

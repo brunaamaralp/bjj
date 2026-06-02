@@ -11,7 +11,6 @@ import {
   salesSubtabNeedsNormalize,
 } from '../lib/lojaSalesTabs';
 import HubTabBar from '../components/shared/HubTabBar';
-import PageHeader from '../components/layout/PageHeader.jsx';
 
 const Sales = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,12 +58,18 @@ const Sales = () => {
 
   return (
     <div className="container sales-page navi-hub-page" style={{ paddingBottom: 20 }}>
-      <PageHeader
-        title="Vendas"
-        subtitle="Registre vendas e consulte comprovantes."
-        meta={subtab === 'history' ? 'Histórico e cancelamentos' : null}
-        actions={
-          academyId ? (
+      <div className="loja-subnav sales-subnav">
+        <HubTabBar
+          tabs={tabs}
+          activeId={subtab}
+          onChange={setSubtab}
+          ariaLabel="Vendas"
+          variant="secondary"
+          fullWidth
+          className="loja-subnav__tabs"
+        />
+        {academyId ? (
+          <div className="loja-subnav__actions">
             <button
               type="button"
               className="btn-outline"
@@ -77,19 +82,9 @@ const Sales = () => {
               <Settings size={16} aria-hidden />
               Configurações
             </button>
-          ) : null
-        }
-      />
-
-      <HubTabBar
-        tabs={tabs}
-        activeId={subtab}
-        onChange={setSubtab}
-        ariaLabel="Vendas"
-        variant="secondary"
-        fullWidth
-        className="mt-4"
-      />
+          </div>
+        ) : null}
+      </div>
 
       {subtab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab onSwitchTab={setSubtab} />}
 

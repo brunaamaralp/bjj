@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom';
 import { Upload, Settings } from 'lucide-react';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
-import PageHeader from '../components/layout/PageHeader.jsx';
 import StockSettingsSection from '../components/academy/StockSettingsSection.jsx';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useProductsStore } from '../store/useProductsStore';
@@ -152,54 +151,55 @@ const Inventory = () => {
     return null;
   }
 
+  const inventoryTabs = useMemo(
+    () => [
+      { id: 'saldo', label: 'Inventário' },
+      { id: 'movimentos', label: 'Movimentações' },
+    ],
+    []
+  );
+
+  const openStockConfig = () => {
+    setStockConfigOpen(true);
+    window.setTimeout(() => {
+      stockConfigRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
   return (
     <div className="container inventory-page navi-hub-page">
-      <PageHeader
-        className="inventory-page__head inventory-page-header"
-        title="Estoque"
-        subtitle="Ajuste saldos e movimentações por item."
-        actions={
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={() => {
-                setStockConfigOpen(true);
-                window.setTimeout(() => {
-                  stockConfigRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 80);
-              }}
-              aria-expanded={stockConfigOpen}
-              aria-controls="stock-config-panel"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-            >
-              <Settings size={14} aria-hidden />
-              Configurações
-            </button>
-            <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
-              <Upload size={14} aria-hidden />
-              Importar em lote
-            </Link>
-          </div>
-        }
-      />
-
-      <HubTabBar
-        tabs={[
-          { id: 'saldo', label: 'Inventário' },
-          { id: 'movimentos', label: 'Movimentações' },
-        ]}
-        activeId={tab}
-        onChange={(id) => {
-          const next = new URLSearchParams(searchParams);
-          next.set('subtab', id);
-          setSearchParams(next, { replace: false });
-        }}
-        ariaLabel="Estoque"
-        variant="secondary"
-        fullWidth
-        className="inventory-page__tabs"
-      />
+      <div className="loja-subnav inventory-subnav">
+        <HubTabBar
+          tabs={inventoryTabs}
+          activeId={tab}
+          onChange={(id) => {
+            const next = new URLSearchParams(searchParams);
+            next.set('subtab', id);
+            setSearchParams(next, { replace: false });
+          }}
+          ariaLabel="Estoque"
+          variant="secondary"
+          fullWidth
+          className="loja-subnav__tabs inventory-page__tabs"
+        />
+        <div className="loja-subnav__actions inventory-page-actions">
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={openStockConfig}
+            aria-expanded={stockConfigOpen}
+            aria-controls="stock-config-panel"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <Settings size={14} aria-hidden />
+            Configurações
+          </button>
+          <Link to="/loja?tab=produtos&import=1" className="btn-action-primary">
+            <Upload size={14} aria-hidden />
+            Importar em lote
+          </Link>
+        </div>
+      </div>
 
       <div className="inventory-page__body">
       {tab === 'saldo' ? (
