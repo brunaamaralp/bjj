@@ -1,0 +1,236 @@
+/**
+ * Botões de ação unificados — CRM (Dashboard, Perfil, Pipeline).
+ */
+
+:root {
+  --color-accent-hover: color-mix(in srgb, var(--color-accent) 88%, #085041);
+  --color-success: var(--color-accent);
+  --color-success-surface: var(--color-accent-surface);
+  --color-danger-surface: var(--danger-light, rgba(220, 38, 38, 0.08));
+  --color-warning-surface: var(--warning-light, var(--warn-bg));
+}
+
+/* WhatsApp */
+.btn-wa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #25d366;
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast, 0.15s) ease,
+    transform var(--motion-fast, 0.15s) ease,
+    opacity var(--motion-fast, 0.15s) ease;
+}
+
+.btn-wa:hover:not(:disabled) {
+  background: color-mix(in srgb, #25d366 92%, #000);
+}
+
+.btn-wa:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-wa:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Perfil — barra principal WA */
+.comm-btn-primary.btn-wa {
+  flex: 1;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Dashboard — follow-up WA */
+.wa-btn.btn-wa {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  min-height: unset;
+}
+
+.wa-btn.btn-wa--loading,
+.wa-btn.btn-wa--sent {
+  background: color-mix(in srgb, #25d366 85%, #0f6e40);
+}
+
+/* Pipeline — ícone no split (sem alterar pipeline.css) */
+.pipeline-container .wa-main-btn.btn-wa {
+  background: #25d366;
+  color: #fff;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.pipeline-container .wa-main-btn.btn-wa:hover:not(:disabled) {
+  background: color-mix(in srgb, #25d366 92%, #000);
+  color: #fff;
+}
+
+.pipeline-mobile-wa-btn.btn-wa {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+/* Ação principal do funil */
+.btn-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 10px;
+  transition:
+    background var(--motion-fast, 0.15s) ease,
+    filter var(--motion-fast, 0.15s) ease;
+}
+
+.btn-primary-action:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn-primary-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pipeline-container .btn-action-primary.btn-primary-action {
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+}
+
+/* Presença / sucesso */
+.btn-success-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-success-surface);
+  color: var(--color-success, var(--color-accent-dark));
+  border: 1px solid var(--color-success, var(--color-accent));
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px;
+  transition:
+    background var(--motion-fast, 0.15s) ease,
+    color var(--motion-fast, 0.15s) ease;
+}
+
+.btn-success-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-success-surface) 70%, var(--color-success));
+  color: var(--color-accent-dark);
+}
+
+.btn-success-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-state-attended.btn-success-action {
+  flex: 1;
+  padding: 8px;
+  font-size: 12px;
+}
+
+/* Perda / perigo */
+.btn-danger-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-danger-surface);
+  color: var(--danger, #dc2626);
+  border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, transparent);
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color var(--motion-fast, 0.15s) ease;
+}
+
+.btn-danger-action:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--danger) 85%, #000);
+}
+
+/* Próximos passos — secundário e perda link */
+.btn-next-step {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  font-family: inherit;
+  transition: background var(--motion-fast, 0.15s) ease;
+}
+
+.btn-next-step:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.btn-next-step.btn-primary-action {
+  width: 100%;
+  margin-bottom: 8px;
+  border: none;
+  color: #fff;
+}
+
+.btn-next-step.btn-danger-action {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  margin-bottom: 0;
+  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.btn-next-step.btn-danger-action:hover:not(:disabled) {
+  color: var(--danger);
+  background: transparent;
+}
+
+/* Não compareceu — neutro */
+.btn-state-missed {
+  flex: 1;
+  padding: 8px;
+  background: var(--color-background-secondary, var(--surface-hover));
+  color: var(--color-text-secondary, var(--text-secondary));
+  border: 0.5px solid var(--color-border-secondary, var(--border));
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-state-missed:hover:not(:disabled) {
+  background: var(--surface-hover);
+}

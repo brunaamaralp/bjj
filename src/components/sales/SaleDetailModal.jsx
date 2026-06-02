@@ -230,26 +230,7 @@ export default function SaleDetailModal({
           </>
         )}
       </div>
-      <style>{`
-        @keyframes saleDetailSk {
-          from { background-position: 200% 0; }
-          to { background-position: -200% 0; }
-        }
-        .sale-detail-skeleton-bar {
-          border-radius: 10px;
-          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
-          background-size: 200% 100%;
-          animation: saleDetailSk 1.2s ease-in-out infinite;
-        }
-        .sale-detail-skeleton-bar--client { width: 200px; max-width: 100%; height: 18px; }
-        .sale-detail-skeleton-bar--meta { width: 120px; max-width: 100%; height: 14px; margin-top: 12px; }
-        .sale-detail-skeleton-items { display: flex; flex-direction: column; gap: 10px; }
-        .sale-detail-skeleton-bar--item { width: 100%; height: 14px; }
-        .sale-detail-skeleton-bar--badge { width: 80px; height: 22px; border-radius: 999px; }
-        @media (prefers-reduced-motion: reduce) {
-          .sale-detail-skeleton-bar { animation: none; background: rgba(148,163,184,0.18); }
-        }
-      `}</style>
+      
     </div>
   );
 }

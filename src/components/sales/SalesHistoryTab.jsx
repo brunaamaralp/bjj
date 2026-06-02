@@ -421,45 +421,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         onCopy={copyReceipt}
       />
 
-      <style>{`
-        .sales-history-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-        .sales-history-total { padding: 10px 12px; border-radius: 8px; background: var(--surface-2); }
-        .sales-history-total__label { display: block; font-size: 12px; opacity: 0.75; margin-bottom: 4px; }
-        .sales-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .sales-table th, .sales-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-light); }
-        .sales-table th { font-weight: 600; font-size: 12px; opacity: 0.8; }
-        .sales-history-table-wrap .sales-table thead th {
-          position: sticky;
-          top: 0;
-          z-index: 1;
-          background: var(--surface, #fff);
-          opacity: 1;
-        }
-        .sales-table__row-clickable { cursor: pointer; }
-        .sales-table__row-clickable:hover { background: var(--bg-hover); }
-        .sales-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-        .sales-badge--ok { background: rgba(34, 197, 94, 0.15); color: var(--success, #16a34a); }
-        .sales-badge--danger { background: rgba(239, 68, 68, 0.15); color: var(--danger, #dc2626); }
-        .sales-badge--pending { background: rgba(245, 158, 11, 0.15); color: #b45309; }
-        .sales-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
-        .sales-detail-span-2 { grid-column: 1 / -1; }
-        .btn-danger { background: var(--danger, #dc2626); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
-        .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
-        .sales-history-mobile-list { display: flex; flex-direction: column; }
-        .sales-history-mobile-card { margin: 0; border-radius: 0; border-left: none; border-right: none; }
-        .sales-history-mobile-card:first-child { border-top: none; }
-        .sales-history-mobile-card__head {
-          display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-          padding: 12px 14px;
-        }
-        .sales-history-mobile-card__main { flex: 1; min-width: 0; }
-        .sales-history-mobile-card__title { font-weight: 600; font-size: 14px; }
-        .sales-history-mobile-card__id { font-weight: 500; color: var(--text-muted); font-size: 12px; }
-        .sales-history-mobile-card__client { font-weight: 600; font-size: 14px; margin-top: 4px; }
-        .sales-history-mobile-card__meta { margin-top: 2px; }
-        .sales-history-mobile-card__amount { margin-top: 6px; font-variant-numeric: tabular-nums; }
-        .sales-history-mobile-card__actions { padding: 0 14px 12px; border-top: 0.5px solid var(--border-light); }
-      `}</style>
+      
     </>
   );
 }

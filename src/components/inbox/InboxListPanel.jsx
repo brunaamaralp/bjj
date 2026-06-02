@@ -30,6 +30,7 @@ export default function InboxListPanel({
   agentIaActive = false,
 }) {
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
+  const needsMeBacklog = Number(stats?.needsMeBacklog || 0);
   const listScrollRef = useRef(null);
 
   return (
@@ -55,9 +56,18 @@ export default function InboxListPanel({
           aria-selected={listFilter === 'needs_me'}
           className={`inbox-list-filters-segments__btn${listFilter === 'needs_me' ? ' is-active' : ''}`}
           onClick={() => setListFilter('needs_me')}
-          title="Handoff ativo com mensagens não lidas"
+          title="Handoff ativo ou mensagens não lidas"
         >
-          Precisa de mim
+          <span>Precisa de mim</span>
+          {needsMeBacklog > 0 ? (
+            <span
+              className={`text-small inbox-unread-badge ${
+                listFilter === 'needs_me' ? 'inbox-unread-badge--active-chip' : 'inbox-unread-badge--inactive'
+              }`}
+            >
+              {needsMeBacklog}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"
@@ -106,7 +116,7 @@ export default function InboxListPanel({
                     setExtraFiltersMenuOpen(false);
                   }}
                 >
-                  Com você agora
+                  Só handoff
                 </button>
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
+import { CASH_CLOSING_UPDATED_EVENT } from '../../lib/financeTermHints.js';
 import { fetchMonthlyClosing, createFinanceTx, recordCashClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -362,7 +363,14 @@ export default function MonthlyClosingTab({
         totals: computeClosingTotals(sortedRows),
       };
       await recordCashClosing({ academyId, referenceMonth, snapshot });
-      addToast({ type: 'success', message: 'Fechamento registrado com sucesso.' });
+      addToast({ type: 'success', message: 'Mês marcado como conferido.' });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent(CASH_CLOSING_UPDATED_EVENT, {
+            detail: { referenceMonth, academyId },
+          })
+        );
+      }
       setShowRegisterDialog(false);
       await loadData();
     } catch (e) {
@@ -389,18 +397,21 @@ export default function MonthlyClosingTab({
   return (
     <section className="mt-4 animate-in monthly-closing-tab">
       <div className="monthly-closing-tab__head">
-        <div>
+        <div className="monthly-closing-tab__head-main">
           <h3 className="navi-section-heading monthly-closing-tab__head-title">Conferência do mês</h3>
+          <p className="text-small text-muted monthly-closing-tab__lead">
+            Painel de conferência — não trava lançamentos nem gera documento de fechamento.
+          </p>
           <div className="monthly-closing-status-badge">
             {cashClosing ? (
               <>
                 <CheckCircle size={14} aria-hidden />
-                <span>Mês fechado em {cashClosingLabel}</span>
+                <span>Conferido em {cashClosingLabel}</span>
               </>
             ) : (
               <>
                 <Clock size={14} aria-hidden />
-                <span>Não fechado</span>
+                <span>Não conferido</span>
               </>
             )}
           </div>
@@ -417,7 +428,7 @@ export default function MonthlyClosingTab({
               onClick={() => setShowRegisterDialog(true)}
               disabled={Boolean(cashClosing) || savingClosing}
             >
-              Registrar fechamento do mês
+              Marcar mês como conferido
             </button>
           ) : null}
           <button type="button" className="btn-secondary btn-sm" onClick={() => setShowManual((v) => !v)}>
@@ -427,9 +438,12 @@ export default function MonthlyClosingTab({
         </div>
       </div>
 
-      <p className="text-small text-muted monthly-closing-tab__lead">
-        Painel de conferência — não trava lançamentos nem gera documento de fechamento.
-      </p>
+      {cashClosing ? (
+        <p className="text-small monthly-closing-dre-hint" role="status">
+          Confira o DRE do mês em{' '}
+          <Link to="/reports?tab=financeiro">Relatórios →</Link>
+        </p>
+      ) : null}
       {academyId ? (
         <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
       ) : null}
@@ -805,9 +819,9 @@ export default function MonthlyClosingTab({
 
       <ConfirmDialog
         open={showRegisterDialog}
-        title="Registrar fechamento do mês"
+        title="Marcar mês como conferido"
         description="Isso registra um snapshot dos totais do mês. Não trava lançamentos nem impede edições futuras."
-        confirmLabel="Registrar fechamento"
+        confirmLabel="Marcar como conferido"
         confirmVariant="primary"
         loading={savingClosing}
         onConfirm={() => void registerClosing()}

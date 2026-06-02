@@ -214,6 +214,112 @@
   border: 1px solid var(--border-light);
 }
 
+.financeiro-overview-accounts-alert {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: var(--font-sm);
+}
+.financeiro-overview-accounts-alert a {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+}
+.mensal-modal-no-accounts {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+.mensal-modal-no-accounts a {
+  font-weight: 600;
+  color: inherit;
+}
+
+.finance-label-with-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.navi-hint--info {
+  margin-left: 2px;
+}
+
+.financeiro-overview-reports-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.financeiro-overview-reports-card:hover {
+  border-color: var(--border-mid);
+  box-shadow: 0 4px 16px rgba(0, 4, 53, 0.06);
+}
+.financeiro-overview-reports-card__icon {
+  flex-shrink: 0;
+  color: var(--petroleo, var(--v700));
+}
+.financeiro-overview-reports-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.financeiro-overview-reports-card__title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: var(--font-md);
+}
+.financeiro-overview-reports-card__desc {
+  margin: 0;
+}
+.financeiro-overview-reports-card__arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.finance-month-picker__label-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.finance-month-picker__conferred {
+  font-size: 10px;
+  font-weight: 700;
+  color: #3b6d11;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.monthly-closing-tab__head-main {
+  flex: 1;
+  min-width: 0;
+}
+.monthly-closing-tab__lead {
+  margin: 6px 0 10px;
+  max-width: 52rem;
+}
+.monthly-closing-dre-hint {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--v50, var(--azul-gelo));
+  border: 1px solid var(--border-light);
+}
+.monthly-closing-dre-hint a {
+  font-weight: 600;
+}
+
 .financeiro-overview { margin-top: 8px; }
 .financeiro-overview__head {
   display: flex;
@@ -2130,7 +2236,7 @@
 .monthly-closing-tab__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--finance-space-3);
   margin-bottom: var(--finance-space-3);

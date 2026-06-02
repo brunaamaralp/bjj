@@ -35,7 +35,14 @@ import ReportsMovimentacoesPanel from '../components/reports/ReportsMovimentacoe
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ReportsOperadorPanel from '../components/reports/ReportsOperadorPanel.jsx';
 import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
+import ReportsVisaoGeralSection from '../components/reports/ReportsVisaoGeralSection.jsx';
+import ReportKpiCard, { ReportKpiCardSkeleton } from '../components/reports/shared/ReportKpiCard.jsx';
+import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
+import { fetchReportsFinanceLightResult } from '../lib/reportsLightApi.js';
+import { previousPeriodRange } from '../lib/reportsPeriod.js';
+import { getFinanceRegime } from '../lib/financeCompetence.js';
 import { downloadCsv, leadToCsvRow } from '../lib/reportsExport.js';
+import '../components/reports/reports.css';
 
 const presets = [
     { key: 'today', label: 'Hoje' },
@@ -104,52 +111,13 @@ const formatChartTickPt = (rawLabel) => {
 };
 
 
-const Card = ({ title, value, variation, icon, color, onClick, disabled, trendHint }) => {
-    const isUp = typeof variation === 'number' ? variation >= 0 : true;
-    const clickable = Boolean(onClick) && !disabled;
-    const safeColor = ['accent', 'warning', 'success', 'danger', 'purple'].includes(color) ? color : 'accent';
-    return (
-        <div
-            className={`reports-kpi-card reports-kpi-card--${safeColor}${clickable ? ' reports-kpi-card--clickable' : ''}`}
-            role={clickable ? 'button' : undefined}
-            tabIndex={clickable ? 0 : undefined}
-            onClick={clickable ? onClick : undefined}
-            onKeyDown={
-                clickable
-                    ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              onClick();
-                          }
-                      }
-                    : undefined
-            }
-        >
-            <div className="reports-kpi-card-head">
-                <span className="reports-kpi-label">{title}</span>
-                <span className="reports-kpi-icon-wrap" aria-hidden>
-                    {icon}
-                </span>
-            </div>
-            <div className="reports-kpi-value">{value}</div>
-            {typeof variation === 'number' && (
-                <div className={`reports-kpi-trend ${isUp ? 'is-up' : 'is-down'}`}>
-                    {isUp ? <TrendingUp size={16} strokeWidth={2.25} aria-hidden /> : <TrendingDown size={16} strokeWidth={2.25} aria-hidden />}
-                    <span>
-                        {isUp && variation > 0 ? '+' : ''}
-                        {variation}%
-                    </span>
-                    <span className="reports-kpi-trend-hint" title={trendHint || undefined}>
-                        vs. período anterior
-                    </span>
-                </div>
-            )}
-            {clickable ? <span className="reports-kpi-cta">Ver detalhes →</span> : null}
-        </div>
-    );
+const HIGHLIGHT_BY_COLOR = {
+    accent: 'default',
+    warning: 'warning',
+    success: 'success',
+    danger: 'danger',
+    purple: 'default',
 };
-
-
 
 const DRILL_LABELS = {
     newLeads: 'Novos leads no período',
@@ -241,6 +209,9 @@ const Reports = () => {
     const reportAbortRef = useRef(null);
     const filterDebounceSkip = useRef(true);
     const [heatmapTableView, setHeatmapTableView] = useState(false);
+    const [financeKpi, setFinanceKpi] = useState(null);
+    const [financeKpiPrev, setFinanceKpiPrev] = useState(null);
+    const [financeKpiLoading, setFinanceKpiLoading] = useState(false);
 
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -262,6 +233,7 @@ const Reports = () => {
     }, [academyList, academyId]);
     const navRole = useUserRole(academyDoc);
     const isOwner = navRole === 'owner';
+    const canViewFinance = useCanViewStudentFinance(academyDoc);
     const hasFinance = modules?.finance === true;
     const hasSales = modules?.sales === true;
     const hasInventory = modules?.inventory === true;
@@ -421,6 +393,46 @@ const Reports = () => {
         if (!needsFunnelReport) return;
         void fetchReport(false);
     }, [range, chartMode, academyId, preset, needsFunnelReport]);
+
+    const prevRangeYmd = useMemo(() => previousPeriodRange(preset, range), [preset, range]);
+
+    useEffect(() => {
+        let active = true;
+        if (activeTab !== 'visao-geral' || !academyId || !hasFinance || !canViewFinance) {
+            setFinanceKpi(null);
+            setFinanceKpiPrev(null);
+            setFinanceKpiLoading(false);
+            return undefined;
+        }
+        const regime = getFinanceRegime(academyId);
+        setFinanceKpiLoading(true);
+        Promise.all([
+            fetchReportsFinanceLightResult({ academyId, from: range.from, to: range.to, regime }),
+            fetchReportsFinanceLightResult({
+                academyId,
+                from: prevRangeYmd.from,
+                to: prevRangeYmd.to,
+                regime,
+            }),
+        ])
+            .then(([cur, prev]) => {
+                if (!active) return;
+                setFinanceKpi(cur.ok && !cur.permissionDenied ? cur.data : null);
+                setFinanceKpiPrev(prev.ok && !prev.permissionDenied ? prev.data : null);
+            })
+            .catch(() => {
+                if (active) {
+                    setFinanceKpi(null);
+                    setFinanceKpiPrev(null);
+                }
+            })
+            .finally(() => {
+                if (active) setFinanceKpiLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [activeTab, academyId, hasFinance, canViewFinance, range.from, range.to, prevRangeYmd.from, prevRangeYmd.to]);
 
     useEffect(() => {
         if (!needsFunnelReport) return;
@@ -641,7 +653,7 @@ const Reports = () => {
             {showInitialLoad && needsFunnelReport ? (
                 <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="reports-kpi-card reports-kpi-skeleton" style={{ minHeight: 100 }} />
+                        <ReportKpiCardSkeleton key={i} />
                     ))}
                 </div>
             ) : null}
@@ -783,110 +795,93 @@ const Reports = () => {
             ) : null}
 
             {activeTab === 'visao-geral' && !error && !showInitialLoad && reportData?.metrics ? (
-            <div className="reports-funnel-card mt-4 animate-in">
-                <div className="reports-funnel-row">
-                    {funnelStages.map((stage) => (
-                        <React.Fragment key={stage.key}>
-                            <button
-                                type="button"
-                                className={`reports-funnel-stage${stage.drillKey ? ' is-clickable' : ''}`}
-                                onClick={() => stage.drillKey && setDrillKey(stage.drillKey)}
-                                disabled={!stage.drillKey}
-                            >
-                                <div className="reports-funnel-track">
-                                    <span className="reports-funnel-fill" style={{ width: `${stage.barPct}%`, background: stage.color }} />
-                                </div>
-                                <div className="reports-funnel-value">{stage.isPercent ? `${stage.current}%` : stage.current}</div>
-                                <div className="reports-funnel-label">{stage.label}</div>
-                                <div className={`reports-funnel-variation ${stage.variation >= 0 ? 'is-up' : 'is-down'}`}>
-                                    {stage.variation >= 0 ? '+' : ''}{stage.variation}% vs período anterior
-                                </div>
-                                <span className="reports-funnel-relative">{stage.relativePct}% da etapa anterior</span>
-                            </button>
-                            {!stage.isLast ? (
-                                <span className="reports-funnel-arrow" aria-hidden>
-                                    <span className="ti ti-chevron-right" />
-                                </span>
-                            ) : null}
-                        </React.Fragment>
-                    ))}
-                </div>
-                <div className="reports-rates-grid">
-                    {ratesCards.map((item) => (
-                        <div key={item.key} className="reports-rate-card">
-                            <span className={item.icon} aria-hidden style={{ color: item.accent }} />
-                            <div className="reports-rate-value">{item.pct}%</div>
-                            <div className="reports-rate-label">{item.label}</div>
-                            <div className="reports-rate-insight">{item.insight}</div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+                <ReportsVisaoGeralSection
+                    reportData={reportData}
+                    funnelStages={funnelStages}
+                    ratesCards={ratesCards}
+                    terms={terms}
+                    hasFinance={hasFinance}
+                    canViewFinance={canViewFinance}
+                    financeSummary={financeKpi}
+                    financeSummaryPrev={financeKpiPrev}
+                    financeLoading={financeKpiLoading}
+                    onFunnelDrill={setDrillKey}
+                />
             ) : null}
 
             {activeTab === 'funil' && !error && !showInitialLoad && reportData?.metrics ? (
             <div className="reports-kpi-grid mt-4">
-                <Card
-                    title={`Novos ${contactsPlural.toLowerCase()}`}
+                <ReportKpiCard
+                    label={`Novos ${contactsPlural.toLowerCase()}`}
                     value={reportData.metrics.newLeads?.current ?? 0}
-                    variation={pctVar(reportData.metrics.newLeads?.current ?? 0, reportData.metrics.newLeads?.previous ?? 0)}
+                    trend={pctVar(reportData.metrics.newLeads?.current ?? 0, reportData.metrics.newLeads?.previous ?? 0)}
+                    trendLabel="vs. período anterior"
+                    tooltip={trendHintFor('newLeads', preset)}
                     icon={<UserPlus size={20} strokeWidth={2.25} />}
-                    color="accent"
+                    highlight={HIGHLIGHT_BY_COLOR.accent}
                     onClick={() => setDrillKey('newLeads')}
-                    trendHint={trendHintFor('newLeads', preset)}
                 />
-                <Card
-                    title="Agendados"
+                <ReportKpiCard
+                    label="Agendados"
                     value={reportData.metrics.scheduled?.current ?? 0}
-                    variation={pctVar(reportData.metrics.scheduled?.current ?? 0, reportData.metrics.scheduled?.previous ?? 0)}
+                    trend={pctVar(reportData.metrics.scheduled?.current ?? 0, reportData.metrics.scheduled?.previous ?? 0)}
+                    trendLabel="vs. período anterior"
+                    tooltip={trendHintFor('scheduled', preset)}
                     icon={<Calendar size={20} strokeWidth={2.25} />}
-                    color="warning"
+                    highlight={HIGHLIGHT_BY_COLOR.warning}
                     onClick={() => setDrillKey('scheduled')}
-                    trendHint={trendHintFor('scheduled', preset)}
                 />
-                <Card
-                    title="Compareceram"
+                <ReportKpiCard
+                    label="Compareceram"
                     value={reportData.metrics.completed?.current ?? reportData.metrics.showed?.current ?? 0}
-                    variation={pctVar(
+                    trend={pctVar(
                         reportData.metrics.completed?.current ?? reportData.metrics.showed?.current ?? 0,
                         reportData.metrics.completed?.previous ?? reportData.metrics.showed?.previous ?? 0
                     )}
+                    trendLabel="vs. período anterior"
+                    tooltip={trendHintFor('completed', preset)}
                     icon={<CheckCircle2 size={20} strokeWidth={2.25} />}
-                    color="success"
+                    highlight={HIGHLIGHT_BY_COLOR.success}
                     onClick={() => setDrillKey('completed')}
-                    trendHint={trendHintFor('completed', preset)}
                 />
-                <Card
-                    title={terms.reportsMetricConvertedShort}
+                <ReportKpiCard
+                    label={terms.reportsMetricConvertedShort}
                     value={reportData.metrics.converted?.current ?? 0}
-                    variation={pctVar(reportData.metrics.converted?.current ?? 0, reportData.metrics.converted?.previous ?? 0)}
+                    trend={pctVar(reportData.metrics.converted?.current ?? 0, reportData.metrics.converted?.previous ?? 0)}
+                    trendLabel="vs. período anterior"
+                    tooltip={trendHintFor('converted', preset)}
                     icon={<Users size={20} strokeWidth={2.25} />}
-                    color="purple"
+                    highlight={HIGHLIGHT_BY_COLOR.purple}
                     onClick={() => setDrillKey('converted')}
-                    trendHint={trendHintFor('converted', preset)}
                 />
-                <Card
-                    title="Não compareceram"
+                <ReportKpiCard
+                    label="Não compareceram"
                     value={reportData.metrics.missed?.current ?? 0}
-                    variation={pctVar(reportData.metrics.missed?.current ?? 0, reportData.metrics.missed?.previous ?? 0)}
+                    trend={pctVar(reportData.metrics.missed?.current ?? 0, reportData.metrics.missed?.previous ?? 0)}
+                    trendLabel="vs. período anterior"
+                    tooltip={trendHintFor('missed', preset)}
                     icon={<XCircle size={20} strokeWidth={2.25} />}
-                    color="danger"
+                    highlight={HIGHLIGHT_BY_COLOR.danger}
                     onClick={() => setDrillKey('missed')}
-                    trendHint={trendHintFor('missed', preset)}
                 />
-                <Card
-                    title="Taxa de conversão"
+                <ReportKpiCard
+                    label="Taxa de conversão"
                     value={`${reportData.metrics.conversionRate?.current ?? 0}%`}
-                    variation={pctVar(reportData.metrics.conversionRate?.current ?? 0, reportData.metrics.conversionRate?.previous ?? 0)}
+                    trend={pctVar(reportData.metrics.conversionRate?.current ?? 0, reportData.metrics.conversionRate?.previous ?? 0)}
+                    trendLabel="vs. período anterior"
+                    tooltip={trendHintFor('conversionRate', preset)}
                     icon={<TrendingUp size={20} strokeWidth={2.25} />}
-                    color="accent"
-                    trendHint={trendHintFor('conversionRate', preset)}
+                    highlight={HIGHLIGHT_BY_COLOR.accent}
                 />
             </div>
             ) : null}
 
             {activeTab === 'alunos' ? (
                 <ReportsStudentsPanel
+                    academyId={academyId}
+                    rangeFrom={range.from}
+                    rangeTo={range.to}
+                    preset={preset}
                     studentMetrics={reportData?.studentMetrics}
                     loading={showInitialLoad || (loading && !reportData)}
                 />
@@ -1204,520 +1199,6 @@ const Reports = () => {
                     </div>
                 </div>
             ) : null}
-
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-        .reports-kpi-grid {
-          display: grid;
-          gap: 14px;
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 520px) {
-          .reports-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (min-width: 960px) {
-          .reports-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-        .reports-kpi-card {
-          position: relative;
-          padding: 18px 18px 16px;
-          border-radius: 16px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(108, 71, 216, 0.07);
-          overflow: hidden;
-          transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.2s ease;
-        }
-        .reports-kpi-card::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 3px;
-          border-radius: 16px 16px 0 0;
-          opacity: 0.95;
-        }
-        .reports-kpi-card--accent::before {
-          background: linear-gradient(90deg, var(--petroleo), color-mix(in srgb, var(--petroleo) 75%, var(--cosmos)));
-        }
-        .reports-kpi-card--warning::before {
-          background: linear-gradient(90deg, #c9a227, #e8b84a);
-        }
-        .reports-kpi-card--success::before {
-          background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, var(--color-primary)));
-        }
-        .reports-kpi-card--danger::before {
-          background: linear-gradient(90deg, var(--danger), var(--c300));
-        }
-        .reports-kpi-card--purple::before {
-          background: linear-gradient(90deg, var(--dourado), color-mix(in srgb, var(--dourado) 70%, var(--cosmos)));
-        }
-        .reports-kpi-card-head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-        .reports-kpi-label {
-          font-size: 0.68rem;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          color: var(--text-secondary);
-          line-height: 1.35;
-          padding-right: 4px;
-        }
-        .reports-kpi-icon-wrap {
-          width: 36px;
-          height: 36px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .reports-kpi-card--accent .reports-kpi-icon-wrap { background: var(--accent-light); }
-        .reports-kpi-card--warning .reports-kpi-icon-wrap { background: var(--warn-bg); }
-        .reports-kpi-card--success .reports-kpi-icon-wrap { background: var(--success-bg); }
-        .reports-kpi-card--danger .reports-kpi-icon-wrap { background: var(--danger-light); }
-        .reports-kpi-card--purple .reports-kpi-icon-wrap { background: rgba(228, 181, 93, 0.12); }
-        .reports-kpi-value {
-          font-size: clamp(1.65rem, 4vw, 2rem);
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          line-height: 1.05;
-          letter-spacing: -0.03em;
-        }
-        .reports-kpi-card--accent .reports-kpi-value { color: var(--v500); }
-        .reports-kpi-card--warning .reports-kpi-value { color: var(--warn-text); }
-        .reports-kpi-card--success .reports-kpi-value { color: var(--success-text); }
-        .reports-kpi-card--danger .reports-kpi-value { color: var(--danger); }
-        .reports-kpi-card--purple .reports-kpi-value { color: var(--dourado); }
-        .reports-kpi-trend {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 6px 8px;
-          margin-top: 12px;
-          font-size: 0.8125rem;
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-        }
-        .reports-kpi-trend.is-up { color: var(--success-text); }
-        .reports-kpi-trend.is-down { color: var(--danger); }
-        .reports-kpi-trend-hint {
-          width: 100%;
-          flex-basis: 100%;
-          font-size: 0.65rem;
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-          color: var(--text-secondary);
-          opacity: 0.75;
-          margin-top: 2px;
-        }
-        .reports-kpi-cta {
-          display: block;
-          font-size: 0.76rem;
-          font-weight: 700;
-          color: var(--accent);
-          margin-top: 10px;
-          text-transform: none;
-          letter-spacing: 0;
-        }
-        .reports-kpi-card--clickable { cursor: pointer; }
-        .reports-kpi-card--clickable:hover {
-          transform: translateY(-3px);
-          border-color: rgba(108, 71, 216, 0.22);
-          box-shadow: 0 4px 12px rgba(0, 4, 53, 0.06), 0 16px 40px rgba(108, 71, 216, 0.12);
-        }
-        .reports-kpi-card--clickable:focus {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .reports-kpi-card { transition: none; }
-          .reports-kpi-card--clickable:hover { transform: none; }
-        }
-        .reports-filters-card,
-        .reports-evo-card {
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(108, 71, 216, 0.07);
-          border-radius: 16px;
-        }
-        .reports-evo-card {
-          position: relative;
-          overflow: hidden;
-        }
-        .reports-evo-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, var(--petroleo), color-mix(in srgb, var(--petroleo) 75%, var(--cosmos)));
-          border-radius: 16px 16px 0 0;
-          opacity: 0.95;
-        }
-        .reports-filters-card { margin-top: 12px; }
-        .reports-filters-row { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow-x: auto; }
-        .reports-period-block { display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-        .reports-filters-divider { width: 1px; height: 30px; background: var(--color-border-tertiary, var(--border-light)); flex: 0 0 1px; }
-        .reports-selects-inline { display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-        .filters-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .custom-range { display: inline-flex; align-items: center; gap: 8px; }
-        .reports-secondary-filters { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light); }
-        .reports-select-label { display: flex; flex-direction: column; gap: 4px; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .reports-select { min-width: 160px; max-width: 100%; padding: 8px 10px; font-size: 0.875rem; }
-        .reports-sync-bar {
-          display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm);
-          background: var(--accent-light); color: var(--accent); font-size: 0.85rem; font-weight: 600;
-        }
-        .reports-loading-card {
-          display: flex; flex-direction: column; align-items: center; text-align: center;
-          padding: 40px 24px; min-height: 200px; justify-content: center;
-          border-radius: 16px;
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 28px rgba(108, 71, 216, 0.07);
-        }
-        .reports-loading-spinner { color: var(--accent); }
-        .reports-partial-banner {
-          margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm);
-          background: var(--warn-bg); color: var(--warn-text); font-size: 0.85rem; line-height: 1.45;
-        }
-        .reports-partial-banner p { margin: 0 0 10px; }
-        .reports-partial-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-        .reports-refresh-mini { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; padding: 6px 12px; min-height: 34px; }
-        .reports-spin { animation: reportsSpin 0.7s linear infinite; }
-        @keyframes reportsSpin { to { transform: rotate(360deg); } }
-        .reports-methodology {
-          padding: 0; overflow: hidden;
-          border-radius: 16px;
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(108, 71, 216, 0.06);
-        }
-        .reports-methodology-summary {
-          display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer;
-          font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); list-style: none;
-        }
-        .reports-methodology-summary::-webkit-details-marker { display: none; }
-        .reports-methodology-body { padding: 0 14px 14px; color: var(--text-secondary); }
-        .reports-methodology-body p { margin: 0 0 8px; }
-        .reports-methodology-body code { font-size: 0.8em; background: var(--surface-hover); padding: 1px 4px; border-radius: 4px; }
-        .reports-empty {
-          padding: 32px 22px; text-align: center;
-          border-radius: 16px;
-          border: 1px solid var(--border);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(108, 71, 216, 0.06);
-        }
-        .reports-export-wrap { position: relative; }
-        .reports-export-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: transparent;
-          border: 1px solid var(--accent);
-          color: var(--accent);
-        }
-        .reports-export-btn:hover {
-          background: var(--accent-light);
-          border-color: var(--accent);
-          color: var(--accent);
-        }
-        .reports-export-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-        .reports-chevron-open { transform: rotate(180deg); transition: transform 0.15s ease; }
-        .reports-export-menu { z-index: 20; min-width: 220px; }
-        .reports-export-menu .navi-menu__item { font-size: 0.85rem; font-weight: 600; }
-        .reports-export-menu .navi-menu__item:hover { background: var(--accent-light); color: var(--accent); }
-        .reports-funnel-card {
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 14px;
-          background: var(--surface);
-          box-shadow: 0 1px 2px rgba(0, 4, 53, 0.04), 0 8px 24px rgba(108, 71, 216, 0.06);
-        }
-        .reports-funnel-row {
-          display: flex;
-          align-items: stretch;
-          gap: 8px;
-          overflow-x: auto;
-          padding-bottom: 2px;
-        }
-        .reports-funnel-stage {
-          min-width: 170px;
-          border: 1px solid var(--border-light);
-          border-radius: 12px;
-          background: var(--surface);
-          padding: 10px;
-          text-align: left;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          font-family: inherit;
-        }
-        .reports-funnel-stage.is-clickable { cursor: pointer; }
-        .reports-funnel-stage:not(.is-clickable) { cursor: default; }
-        .reports-funnel-track { width: 100%; height: 6px; border-radius: 999px; background: var(--surface-hover); overflow: hidden; }
-        .reports-funnel-fill { display: block; height: 100%; border-radius: 999px; }
-        .reports-funnel-value { font-size: 26px; font-weight: 500; color: var(--text); line-height: 1; }
-        .reports-funnel-label { font-size: 11px; color: var(--text-secondary); }
-        .reports-funnel-variation { font-size: 11px; }
-        .reports-funnel-variation.is-up { color: var(--success); }
-        .reports-funnel-variation.is-down { color: var(--danger); }
-        .reports-funnel-relative {
-          display: inline-flex; align-self: flex-start;
-          font-size: 10px; color: var(--text-secondary);
-          background: var(--surface-hover); border: 1px solid var(--border-light);
-          border-radius: 999px; padding: 2px 7px;
-        }
-        .reports-funnel-arrow {
-          display: inline-flex;
-          align-items: center;
-          color: var(--text-muted);
-          font-size: 16px;
-        }
-        .reports-rates-grid {
-          margin-top: 12px;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-        }
-        .reports-rate-card {
-          background: var(--color-background-secondary, var(--surface-hover));
-          border: 1px solid var(--border-light);
-          border-radius: 12px;
-          padding: 10px 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .reports-rate-card .ti { font-size: 16px; line-height: 1; }
-        .reports-rate-value { font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.1; }
-        .reports-rate-label { font-size: 11px; color: var(--text-secondary); }
-        .reports-rate-insight { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
-        .reports-chart-legend { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
-        .reports-chart-legend-item { font-size: 11px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
-        .reports-chart-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-        .reports-chart-dot.is-current { background: var(--petroleo); }
-        .reports-chart-dot.is-previous { background: #B8C9D9; }
-        .reports-aux-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-        }
-        .reports-heatmap {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .reports-heatmap-head,
-        .reports-heatmap-row {
-          display: grid;
-          grid-template-columns: 38px repeat(7, minmax(18px, 1fr));
-          gap: 6px;
-          align-items: center;
-        }
-        .reports-heatmap-day {
-          font-size: 10px;
-          color: var(--text-secondary);
-          text-align: center;
-          font-weight: 600;
-        }
-        .reports-heatmap-hour {
-          font-size: 10px;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-        .reports-heatmap-cell {
-          height: 20px;
-          border-radius: 6px;
-          border: 0.5px solid color-mix(in srgb, var(--v500) 14%, transparent);
-        }
-        .reports-heatmap-cell--0 { background: var(--v50); }
-        .reports-heatmap-cell--1 { background: color-mix(in srgb, var(--v200) 35%, var(--v50)); }
-        .reports-heatmap-cell--2 { background: color-mix(in srgb, var(--v200) 65%, var(--v50)); }
-        .reports-heatmap-cell--3 { background: var(--v200); }
-        .reports-heatmap-cell--4 { background: color-mix(in srgb, var(--v500) 55%, var(--v200)); }
-        .reports-heatmap-cell--5 { background: var(--v500); }
-        .reports-heatmap-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-        .reports-heatmap-table th,
-        .reports-heatmap-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-light); text-align: left; }
-        .reports-chart-skeleton {
-          background: linear-gradient(90deg, var(--surface-hover) 25%, var(--v50) 50%, var(--surface-hover) 75%);
-          background-size: 200% 100%;
-          animation: reports-shimmer 1.2s ease-in-out infinite;
-          border-radius: 12px;
-        }
-        @keyframes reports-shimmer {
-          0% { background-position: 100% 0; }
-          100% { background-position: -100% 0; }
-        }
-        .reports-kpi-info {
-          margin-left: 4px;
-          padding: 0;
-          border: none;
-          background: none;
-          color: var(--text-muted);
-          cursor: help;
-          vertical-align: middle;
-        }
-        .reports-snapshot-meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-left: 8px; }
-        .navi-mobile-only { display: none; }
-        @media (max-width: 640px) {
-          .navi-mobile-only { display: inline-flex; }
-        }
-        .reports-heatmap-legend {
-          margin-top: 4px;
-          font-size: 11px;
-          color: var(--text-secondary);
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .reports-timing-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 0;
-          border: 1px solid var(--border-light);
-          border-radius: 12px;
-          overflow: hidden;
-        }
-        .reports-timing-col {
-          padding: 12px 10px;
-          border-right: 1px solid var(--border-light);
-          background: var(--surface);
-        }
-        .reports-timing-col:last-child { border-right: none; }
-        .reports-timing-col.is-total { background: var(--accent-light); }
-        .reports-timing-value {
-          font-size: 24px;
-          font-weight: 600;
-          color: var(--text);
-          line-height: 1.1;
-        }
-        .reports-timing-col.is-total .reports-timing-value { color: var(--accent); }
-        .reports-timing-label {
-          margin-top: 6px;
-          font-size: 11px;
-          color: var(--text-secondary);
-        }
-        .evo-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
-        .evo-title { margin: 0; margin-right: 12px; }
-        .evo-controls { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
-        .evo-group { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .reports-chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
-        .reports-drill-overlay {
-          position: fixed; inset: 0; z-index: 60;
-          background: rgba(0, 4, 53, 0.48);
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
-          display: flex; align-items: flex-end; justify-content: center; padding: 16px;
-          animation: reportsDrillFade 0.2s ease;
-        }
-        @keyframes reportsDrillFade { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes reportsDrillUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        @media (min-width: 640px) {
-          .reports-drill-overlay { align-items: center; }
-        }
-        .reports-drill-panel {
-          position: relative;
-          width: 100%; max-width: 28rem; max-height: min(72vh, 540px);
-          overflow: hidden;
-          display: flex; flex-direction: column;
-          padding: 18px 18px 16px;
-          border-radius: 16px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          box-shadow:
-            0 1px 2px rgba(0, 4, 53, 0.05),
-            0 16px 48px rgba(108, 71, 216, 0.14),
-            0 32px 80px rgba(0, 4, 53, 0.12);
-          animation: reportsDrillUp 0.28s ease;
-        }
-        .reports-drill-panel::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 3px;
-          border-radius: 16px 16px 0 0;
-          opacity: 0.95;
-        }
-        .reports-drill-panel--accent::before {
-          background: linear-gradient(90deg, var(--petroleo), color-mix(in srgb, var(--petroleo) 75%, var(--cosmos)));
-        }
-        .reports-drill-panel--warning::before {
-          background: linear-gradient(90deg, #c9a227, #e8b84a);
-        }
-        .reports-drill-panel--success::before {
-          background: linear-gradient(90deg, var(--success-dot), #5cbf8a);
-        }
-        .reports-drill-panel--danger::before {
-          background: linear-gradient(90deg, var(--danger), var(--c300));
-        }
-        .reports-drill-panel--purple::before {
-          background: linear-gradient(90deg, var(--dourado), color-mix(in srgb, var(--dourado) 70%, var(--cosmos)));
-        }
-        .reports-drill-head {
-          display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-          margin-bottom: 6px;
-        }
-        .reports-drill-title {
-          margin: 0;
-          font-size: 1.05rem;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-          color: var(--text);
-          line-height: 1.25;
-          padding-right: 8px;
-        }
-        .reports-drill-close {
-          flex-shrink: 0;
-          width: 40px; height: 40px;
-          display: flex; align-items: center; justify-content: center;
-          border: none; border-radius: 12px;
-          background: var(--accent-light);
-          color: var(--accent);
-          cursor: pointer;
-          transition: background 0.15s ease, transform 0.12s ease;
-        }
-        .reports-drill-close:hover { background: var(--v100); transform: scale(1.03); }
-        .reports-drill-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .reports-drill-list {
-          list-style: none; margin: 0; padding: 4px 0 0;
-          overflow-y: auto; flex: 1; min-height: 0;
-          border-top: 1px solid var(--border-light);
-        }
-        .reports-drill-list li { border-bottom: 1px solid var(--border-light); }
-        .reports-drill-list li:last-child { border-bottom: none; }
-        .reports-drill-link {
-          display: flex; flex-direction: column; gap: 3px;
-          padding: 12px 6px; margin: 0 -6px;
-          text-decoration: none; color: inherit;
-          border-radius: 10px;
-          transition: background 0.12s ease;
-        }
-        .reports-drill-link:hover { background: var(--surface-hover); }
-        .reports-drill-name { font-weight: 700; font-size: 0.9rem; color: var(--text); }
-        .reports-drill-meta { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
-        @media (max-width: 959px) {
-          .reports-filters-row { flex-wrap: wrap; overflow-x: visible; }
-          .reports-filters-divider { display: none; }
-          .reports-rates-grid { grid-template-columns: 1fr; }
-          .reports-aux-grid { grid-template-columns: 1fr; }
-          .reports-timing-grid { grid-template-columns: 1fr 1fr; }
-        }
-        @media (max-width: 520px) {
-          .reports-timing-grid { grid-template-columns: 1fr; }
-          .reports-timing-col { border-right: none; border-bottom: 1px solid var(--border-light); }
-          .reports-timing-col:last-child { border-bottom: none; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .reports-drill-overlay, .reports-drill-panel { animation: none; }
-          .reports-drill-close:hover { transform: none; }
-        }
-      `,
-                }}
-            />
         </div>
     );
 };

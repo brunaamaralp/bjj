@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { account, realtime, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
@@ -291,8 +291,16 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
 
+  const [searchParams] = useSearchParams();
   const [listFilter, setListFilter] = useState(() => readInitialInboxListFilter());
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
+
+  useEffect(() => {
+    const f = String(searchParams.get('filter') || '').trim().toLowerCase();
+    if (f === 'pending' || f === 'need_human') {
+      setListFilter('need_human');
+    }
+  }, [searchParams]);
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const listFilterRef = useRef(DEFAULT_INBOX_LIST_FILTER);
   const prevListFilterForReloadRef = useRef(null);
@@ -301,7 +309,8 @@ export default function Inbox() {
   const [agentIaActive, setAgentIaActive] = useState(false);
   const [stats, setStats] = useState({
     resolvedCount: 0,
-    transferredCount: 0
+    transferredCount: 0,
+    needsMeBacklog: 0,
   });
   const [listWidth, setListWidth] = useState(() => {
     if (typeof window === 'undefined') return 360;
@@ -657,10 +666,14 @@ export default function Inbox() {
 
   useEffect(() => {
     if (listFilter === 'archived') return;
-    const unreadBacklog = (Array.isArray(items) ? items : []).reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
-    const resolvedCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'resolved').length;
-    const transferredCount = (Array.isArray(items) ? items : []).filter((it) => String(it?.ticket_status || '') === 'transferred').length;
-    setStats((prev) => ({ ...prev, unreadBacklog, resolvedCount, transferredCount }));
+    const arr = Array.isArray(items) ? items : [];
+    const unreadBacklog = arr.reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
+    const needsMeBacklog = arr.filter(
+      (it) => Boolean(it?.need_human) || Number(it?.unread_count || 0) > 0
+    ).length;
+    const resolvedCount = arr.filter((it) => String(it?.ticket_status || '') === 'resolved').length;
+    const transferredCount = arr.filter((it) => String(it?.ticket_status || '') === 'transferred').length;
+    setStats((prev) => ({ ...prev, unreadBacklog, needsMeBacklog, resolvedCount, transferredCount }));
     useLeadStore.getState().setInboxUnreadConversations(unreadBacklog);
   }, [items, listFilter]);
 
@@ -1839,6 +1852,188 @@ export default function Inbox() {
     return dt.toISOString();
   }
 
+  function buildOutboundDisplayContent({ caption, text, mediaType }) {
+    return (
+      caption ||
+      text ||
+      (mediaType === 'image'
+        ? '[imagem]'
+        : mediaType === 'audio'
+          ? '🎵 [Áudio enviado]'
+          : mediaType === 'document'
+            ? '📄 [Documento enviado]'
+            : '')
+    );
+  }
+
+  function patchOutboundMessage(phone, tempId, updater) {
+    const p = String(phone || '').trim();
+    const tid = String(tempId || '').trim();
+    if (!p || !tid || typeof updater !== 'function') return;
+    setSelected((prev) => {
+      if (!prev || String(prev.phone || '').trim() !== p) return prev;
+      const msgs = Array.isArray(prev.messages) ? prev.messages : [];
+      let changed = false;
+      const next = msgs.map((m) => {
+        if (String(m?.message_id || '').trim() !== tid) return m;
+        changed = true;
+        return updater(m);
+      });
+      if (!changed) return prev;
+      return { ...prev, messages: next };
+    });
+  }
+
+  function markOutboundMessageFailed(phone, tempId) {
+    patchOutboundMessage(phone, tempId, (m) => ({ ...m, _optimistic: false, _sendFailed: true }));
+  }
+
+  async function postWhatsappOutbound({ phone, apiBody, tempId }) {
+    const jwt = await getJwt();
+    const resp = await fetch('/api/whatsapp?action=send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        'x-academy-id': String(academyIdRef.current || ''),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(apiBody),
+    });
+    const raw = await resp.text();
+    if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao enviar'));
+    const data = safeParseJson(raw) || {};
+    const waUrl = typeof data?.wa_me_url === 'string' ? data.wa_me_url.trim() : '';
+    if (String(data?.channel || '').trim() === 'wa_me' && waUrl) {
+      try {
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+      } catch {
+        void 0;
+      }
+    }
+    const status = String(data?.status || '').trim();
+    const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
+    const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
+    const mime = String(apiBody?.mimeType || '').trim();
+    const mediaUrl = String(apiBody?.mediaUrl || '').trim();
+    const mediaType = mime.startsWith('image/')
+      ? 'image'
+      : mime.startsWith('audio/')
+        ? 'audio'
+        : mediaUrl
+          ? 'document'
+          : '';
+    patchOutboundMessage(phone, tempId, (m) => {
+      const { _optimistic, _sendFailed, _retryPayload, ...rest } = m;
+      return {
+        ...rest,
+        message_id: msgId || tempId,
+        ...(status ? { status } : {}),
+        ...(sendAt ? { send_at: sendAt } : {}),
+        ...(mediaUrl
+          ? {
+              type: mediaType,
+              mediaUrl,
+              mimeType: mime || null,
+              media_stored: true,
+              ...(mediaType === 'document' && apiBody?.fileName ? { fileName: apiBody.fileName } : {}),
+            }
+          : {}),
+      };
+    });
+    return { data, status, mediaUrl };
+  }
+
+  function outboundSuccessMessage({ data, status, mediaUrl }) {
+    if (String(data?.channel || '').trim() === 'wa_me') {
+      return 'Sem instância API: abrimos o WhatsApp para você concluir o envio.';
+    }
+    if (status === 'scheduled') return 'Agendado';
+    if (mediaUrl) return 'Mídia enviada';
+    return 'Enviado';
+  }
+
+  async function deliverOutboundMessage({
+    phone,
+    tempId,
+    apiBody,
+    displayContent,
+    mediaFields,
+  }) {
+    const nowIso = new Date().toISOString();
+    setSelected((prev) => {
+      if (!prev || String(prev.phone || '').trim() !== phone) return prev;
+      const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
+      msgs.push({
+        role: 'assistant',
+        content: displayContent,
+        timestamp: nowIso,
+        sender: 'human',
+        message_id: tempId,
+        _optimistic: true,
+        _retryPayload: { apiBody, displayContent, mediaFields },
+        ...mediaFields,
+      });
+      return { ...prev, messages: msgs.slice(-AGENT_HISTORY_WINDOW) };
+    });
+    setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
+
+    const shouldAssume = !selected?.need_human;
+    if (shouldAssume) {
+      await setHandoffActive(true);
+    }
+
+    try {
+      const { data, status, mediaUrl } = await postWhatsappOutbound({ phone, apiBody, tempId });
+      markSeen(phone);
+      toast.show({ type: 'success', message: outboundSuccessMessage({ data, status, mediaUrl }) });
+      await loadList({ reset: true, silent: true });
+      setTimeout(() => {
+        const el = threadScrollRef.current;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+        lastAutoScrollPhoneRef.current = phone;
+      }, 0);
+      return true;
+    } catch {
+      markOutboundMessageFailed(phone, tempId);
+      return false;
+    }
+  }
+
+  const retryFailedMessage = useCallback(
+    async (tempId) => {
+      const phone = String(selectedPhoneRef.current || '').trim();
+      const tid = String(tempId || '').trim();
+      if (!phone || !tid || sending) return;
+      const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
+      const failed = msgs.find((m) => String(m?.message_id || '').trim() === tid && m?._sendFailed);
+      const payload = failed?._retryPayload;
+      if (!payload?.apiBody) return;
+
+      patchOutboundMessage(phone, tid, (m) => ({ ...m, _optimistic: true, _sendFailed: false }));
+      setSending(true);
+      try {
+        const shouldAssume = !selected?.need_human;
+        if (shouldAssume) {
+          await setHandoffActive(true);
+        }
+        const { data, status, mediaUrl } = await postWhatsappOutbound({
+          phone,
+          apiBody: payload.apiBody,
+          tempId: tid,
+        });
+        markSeen(phone);
+        toast.show({ type: 'success', message: outboundSuccessMessage({ data, status, mediaUrl }) });
+        await loadList({ reset: true, silent: true });
+      } catch {
+        markOutboundMessageFailed(phone, tid);
+      } finally {
+        setSending(false);
+      }
+    },
+    [sending, selected?.messages, selected?.need_human]
+  );
+
   async function sendManual({ file, mediaUrl: mediaUrlArg, mimeType: mimeTypeArg, caption: captionArg, fileName: fileNameArg } = {}) {
     const phone = String(selectedPhone || '').trim();
     const text = String(draft || '').trim();
@@ -1852,7 +2047,6 @@ export default function Inbox() {
       toast.show({ type: 'error', message: 'Agendamento não está disponível para envio de mídia.' });
       return;
     }
-    setError('');
     setSending(true);
     try {
       if (file) {
@@ -1884,44 +2078,7 @@ export default function Inbox() {
           return;
         }
       }
-      const shouldAssume = !selected?.need_human;
-      if (shouldAssume) {
-        await setHandoffActive(true);
-      }
-      const jwt = await getJwt();
-      const body = mediaUrl
-        ? {
-            phone,
-            mediaUrl,
-            mimeType: mimeType || 'image/jpeg',
-            caption: caption || text,
-            ...(fileName ? { fileName } : {})
-          }
-        : { phone, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) };
-      const resp = await fetch('/api/whatsapp?action=send', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao enviar'));
-      const data = safeParseJson(raw) || {};
-      const waUrl = typeof data?.wa_me_url === 'string' ? data.wa_me_url.trim() : '';
-      if (String(data?.channel || '').trim() === 'wa_me' && waUrl) {
-        try {
-          window.open(waUrl, '_blank', 'noopener,noreferrer');
-        } catch {
-          void 0;
-        }
-      }
-      const status = String(data?.status || '').trim();
-      const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
-      const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
-      const nowIso = new Date().toISOString();
+
       const mime = mimeType || '';
       const mediaType = mime.startsWith('image/')
         ? 'image'
@@ -1930,68 +2087,39 @@ export default function Inbox() {
           : mediaUrl
             ? 'document'
             : '';
-      const displayContent =
-        caption ||
-        text ||
-        (mediaType === 'image'
-          ? '[imagem]'
-          : mediaType === 'audio'
-            ? '🎵 [Áudio enviado]'
-            : mediaType === 'document'
-              ? '📄 [Documento enviado]'
-              : '');
-      setSelected((prev) => {
-        if (!prev || prev.phone !== phone) return prev;
-        const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
-        msgs.push({
-          role: 'assistant',
-          content: displayContent,
-          timestamp: nowIso,
-          sender: 'human',
-          ...(status ? { status } : {}),
-          ...(sendAt ? { send_at: sendAt } : {}),
-          ...(msgId ? { message_id: msgId } : {}),
-          ...(mediaUrl
-            ? {
-                type: mediaType,
-                mediaUrl,
-                mimeType: mime || null,
-                media_stored: true,
-                ...(mediaType === 'document' && fileName ? { fileName } : {})
-              }
-            : {})
-        });
-        return { ...prev, messages: msgs.slice(-AGENT_HISTORY_WINDOW) };
-      });
-      markSeen(phone);
+      const displayContent = buildOutboundDisplayContent({ caption, text, mediaType });
+      const apiBody = mediaUrl
+        ? {
+            phone,
+            mediaUrl,
+            mimeType: mimeType || 'image/jpeg',
+            caption: caption || text,
+            ...(fileName ? { fileName } : {}),
+          }
+        : { phone, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) };
+      const mediaFields = mediaUrl
+        ? {
+            type: mediaType,
+            mediaUrl,
+            mimeType: mime || null,
+            media_stored: true,
+            ...(mediaType === 'document' && fileName ? { fileName } : {}),
+          }
+        : {};
+
+      const tempId = `opt-${Date.now()}`;
       setDraft('');
       setDraftBeforeImprove(null);
       setScheduleOn(false);
       setScheduleAtLocal('');
-      toast.show({
-        type: 'success',
-        message:
-          String(data?.channel || '').trim() === 'wa_me'
-            ? 'Sem instância API: abrimos o WhatsApp para você concluir o envio.'
-            : status === 'scheduled'
-              ? 'Agendado'
-              : mediaUrl
-                ? 'Mídia enviada'
-                : 'Enviado'
+
+      await deliverOutboundMessage({
+        phone,
+        tempId,
+        apiBody,
+        displayContent,
+        mediaFields,
       });
-      await loadList({ reset: true, silent: true });
-      try {
-        setTimeout(() => {
-          const el = threadScrollRef.current;
-          if (!el) return;
-          el.scrollTop = el.scrollHeight;
-          lastAutoScrollPhoneRef.current = phone;
-        }, 0);
-      } catch {
-        void 0;
-      }
-    } catch (e) {
-      setError(friendlyError(e, 'action'));
     } finally {
       setSending(false);
     }
@@ -2486,6 +2614,7 @@ export default function Inbox() {
         _transferTo: transferTo,
         _archived: Boolean(it?.archived),
         _hasLinkedLead: Boolean(String(it?.lead_id || '').trim()),
+        _pipelineStage: String(lead?.pipelineStage || '').trim(),
         _isHighlighted: Boolean(highlighted && typeof highlighted === 'object' && highlighted[phone] && Number(highlighted[phone]) > Date.now())
       };
     });
@@ -2529,7 +2658,7 @@ export default function Inbox() {
       return Number.isFinite(n) ? n : 0;
     };
     if (listFilter === 'needs_me') {
-      return arr.filter((it) => Boolean(it?._handoffActive) && unreadN(it) > 0);
+      return arr.filter((it) => Boolean(it?._handoffActive) || unreadN(it) > 0);
     }
 
     const f = String(listFilter || 'all');
@@ -2661,12 +2790,19 @@ export default function Inbox() {
   function ticketChip(status, transferTo) {
     const s = String(status || '').trim();
     if (s === 'resolved') return { label: 'Resolvido', bg: 'var(--success-light)', fg: 'var(--success)', tone: 'success' };
-    if (s === 'waiting_customer') return { label: 'Aguardando cliente', bg: 'var(--warning-light)', fg: '#b45309', tone: 'warning' };
+    if (s === 'waiting_customer') {
+      return {
+        label: 'Aguardando cliente',
+        bg: 'var(--color-warning-surface, var(--warning-light))',
+        fg: 'var(--color-warning, var(--warning))',
+        tone: 'warning',
+      };
+    }
     if (s === 'transferred')
       return {
         label: transferTo ? `Transferido • ${transferTo}` : 'Transferido',
-        bg: 'var(--inbox-info-badge-bg)',
-        fg: 'var(--inbox-info-badge-fg)',
+        bg: 'var(--inbox-chip-info-bg)',
+        fg: 'var(--inbox-chip-info-fg)',
         tone: 'info'
       };
     return { label: 'Em andamento', bg: 'rgba(6, 182, 212, 0.12)', fg: 'var(--info)', tone: 'info', isDefault: true };
@@ -3205,6 +3341,7 @@ export default function Inbox() {
       listFilter={listFilter}
       unarchiveConversation={unarchiveConversation}
       handoffDurationPhrase={handoffDurationPhrase}
+      retryFailedMessage={retryFailedMessage}
     />
   );
 

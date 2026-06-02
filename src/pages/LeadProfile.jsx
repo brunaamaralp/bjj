@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
-import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
@@ -22,6 +22,7 @@ import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getStudentPayments } from '../lib/studentPayments';
 import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
+import { LEAD_PROFILE_QUICK_NOTE_CHIPS } from '../lib/leadProfileQuickNotes.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskPhone } from '../lib/masks.js';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
@@ -45,6 +46,11 @@ import {
     getLeadAutomationBadges,
 } from '../lib/automationUx.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
+import { getPipelineStageColor } from '../lib/pipelineStageColors.js';
+import {
+    LEAD_PROFILE_FROM_DASHBOARD,
+    LEAD_PROFILE_FROM_PIPELINE,
+} from '../lib/pipelineSessionState.js';
 import ProfileConversationTab from '../components/inbox/ProfileConversationTab.jsx';
 import {
   useTerms,
@@ -53,6 +59,11 @@ import {
   pipelineStageDisplayLabel,
 } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import StageBadge from '../components/shared/StageBadge.jsx';
+import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
+import SkeletonCard from '../components/shared/SkeletonCard.jsx';
+import '../styles/lead-profile.css';
+import '../styles/tasks.css';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -154,9 +165,17 @@ function showLeadProfileScheduleEditSection(status) {
     return status !== LEAD_STATUS.CONVERTED && status !== LEAD_STATUS.LOST;
 }
 
+function truncateBreadcrumbName(name, maxLen = 28) {
+    const s = String(name || '').trim();
+    if (s.length <= maxLen) return s;
+    return `${s.slice(0, maxLen - 1)}…`;
+}
+
 const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const profileFrom = location.state?.from;
     const lead = useLeadStore((s) => s.leads.find((l) => l.id === id));
     const loading = useLeadStore((s) => s.loading);
     const studentsLoading = useStudentStore((s) => s.loading);
@@ -179,6 +198,29 @@ const LeadProfile = () => {
     const terms = useTerms();
     const labels = useLeadStore((s) => s.labels);
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
+    const pipelineLabel = labels?.pipeline || 'Funil';
+
+    const profileBreadcrumb = useMemo(() => {
+        if (profileFrom === LEAD_PROFILE_FROM_DASHBOARD) {
+            return { parentLabel: 'Hoje', parentTo: '/', restorePipeline: false };
+        }
+        if (profileFrom === LEAD_PROFILE_FROM_PIPELINE) {
+            return { parentLabel: pipelineLabel, parentTo: '/pipeline', restorePipeline: true };
+        }
+        return null;
+    }, [profileFrom, pipelineLabel]);
+
+    const handleProfileBack = useCallback(() => {
+        if (profileFrom === LEAD_PROFILE_FROM_DASHBOARD) {
+            navigate('/');
+            return;
+        }
+        if (profileFrom === LEAD_PROFILE_FROM_PIPELINE) {
+            navigate('/pipeline', { state: { fresh: false } });
+            return;
+        }
+        navigate(-1);
+    }, [navigate, profileFrom]);
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -210,6 +252,17 @@ const LeadProfile = () => {
             return fixed;
         }
     }, [academyList, academyId, terms.trial]);
+
+    const pipelineStageBadge = useMemo(() => {
+        if (!lead) return null;
+        const stageId = String(lead.pipelineStage || lead.stage || '').trim();
+        if (!stageId) return null;
+        const stageIdx = stages.findIndex((s) => String(s?.id || '').trim() === stageId);
+        const color = getPipelineStageColor(stageId, stageIdx >= 0 ? stageIdx : 0);
+        const dynamic = stages.find((s) => String(s?.id || '').trim() === stageId);
+        const label = dynamic?.label || pipelineStageDisplayLabel(terms, stageId);
+        return { stageId, label, color };
+    }, [lead, lead?.pipelineStage, lead?.stage, stages, terms]);
 
     const academyNameDisplay = useMemo(() => {
         const cur = (academyList || []).find((a) => a.id === academyId);
@@ -424,6 +477,13 @@ const LeadProfile = () => {
     }, [id, refreshTimeline]);
 
     const [note, setNote] = useState('');
+    const noteTextareaRef = useRef(null);
+    const createTask = useTaskStore((s) => s.createTask);
+    const [inlineTaskOpen, setInlineTaskOpen] = useState(false);
+    const [inlineTaskTitle, setInlineTaskTitle] = useState('');
+    const [inlineTaskDue, setInlineTaskDue] = useState('');
+    const [inlineTaskSaving, setInlineTaskSaving] = useState(false);
+    const [inlineTaskDiscardOpen, setInlineTaskDiscardOpen] = useState(false);
     const [editing, setEditing] = useState(false);
     const [customQuestions, setCustomQuestions] = useState([]);
     const [deletingLead, setDeletingLead] = useState(false);
@@ -646,12 +706,7 @@ const LeadProfile = () => {
         return (
             <div className="container lead-profile-loading" style={{ paddingTop: 24, paddingBottom: 40 }}>
                 <div className="lead-profile-inner">
-                    <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--title" aria-hidden />
-                    <div className="lead-profile-skeleton-card mt-4">
-                        <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--line" />
-                        <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--line short" />
-                        <div className="lead-profile-skeleton-bar lead-profile-skeleton-bar--line" />
-                    </div>
+                    <SkeletonCard variant="card" count={1} />
                     <p className="text-small text-light mt-4" style={{ textAlign: 'center' }}>Carregando perfil…</p>
                 </div>
             </div>
@@ -1042,6 +1097,31 @@ const LeadProfile = () => {
 
     const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
 
+    const focusNoteTextarea = useCallback(() => {
+        requestAnimationFrame(() => {
+            const el = noteTextareaRef.current;
+            if (!el) return;
+            el.focus();
+            const len = el.value?.length ?? 0;
+            try {
+                el.setSelectionRange(len, len);
+            } catch {
+                /* ignore */
+            }
+        });
+    }, []);
+
+    const applyQuickNoteChip = useCallback(
+        (chipText) => {
+            setNote((prev) => {
+                const trimmed = String(prev || '').trim();
+                return trimmed ? `${trimmed} ${chipText}` : chipText;
+            });
+            focusNoteTextarea();
+        },
+        [focusNoteTextarea]
+    );
+
     const addNote = async () => {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
@@ -1057,10 +1137,52 @@ const LeadProfile = () => {
             await updateLead(id, { lastNoteAt: new Date().toISOString() });
             setNote('');
             toast.success('Nota adicionada.');
+            focusNoteTextarea();
         } catch (e) {
             toast.error(e, 'save');
         } finally {
             setAddingNote(false);
+        }
+    };
+
+    const resetInlineTaskForm = useCallback(() => {
+        setInlineTaskTitle('');
+        setInlineTaskDue('');
+        setInlineTaskOpen(false);
+    }, []);
+
+    const inlineTaskHasContent = Boolean(String(inlineTaskTitle || '').trim() || String(inlineTaskDue || '').trim());
+
+    const requestCloseInlineTask = useCallback(() => {
+        if (inlineTaskHasContent) {
+            setInlineTaskDiscardOpen(true);
+            return;
+        }
+        resetInlineTaskForm();
+    }, [inlineTaskHasContent, resetInlineTaskForm]);
+
+    const saveInlineTask = async () => {
+        const title = String(inlineTaskTitle || '').trim();
+        if (!title || inlineTaskSaving) return;
+        setInlineTaskSaving(true);
+        try {
+            const created = await createTask({
+                title,
+                description: '',
+                due_date: String(inlineTaskDue || '').trim(),
+                assigned_to: '',
+                lead_id: id,
+                lead_name: String(lead?.name || '').trim(),
+            });
+            if (created) {
+                setLeadTasks((prev) => [created, ...prev]);
+            }
+            toast.success('Tarefa criada.');
+            resetInlineTaskForm();
+        } catch (e) {
+            toast.error(e, 'save');
+        } finally {
+            setInlineTaskSaving(false);
         }
     };
 
@@ -1142,10 +1264,31 @@ const LeadProfile = () => {
     return (
         <div className={`lead-profile-container ${profilePanelOpen ? 'timeline-open' : 'timeline-closed'}`}>
             <div className="lead-profile-left-col">
-                <div className="left-col-header">
-                    <button type="button" className="icon-btn" onClick={() => navigate(-1)}>
+                <div className="left-col-header lead-profile-left-col-header">
+                    <button type="button" className="icon-btn" onClick={handleProfileBack} aria-label="Voltar">
                         <ArrowLeft size={20} />
                     </button>
+                    {profileBreadcrumb && lead ? (
+                        <nav className="lead-profile-breadcrumb" aria-label="Navegação">
+                            <Link
+                                to={profileBreadcrumb.parentTo}
+                                state={profileBreadcrumb.restorePipeline ? { fresh: false } : undefined}
+                                className="lead-profile-breadcrumb__parent"
+                            >
+                                {profileBreadcrumb.parentLabel}
+                            </Link>
+                            <span className="lead-profile-breadcrumb__sep" aria-hidden>
+                                ›
+                            </span>
+                            <span className="lead-profile-breadcrumb__current" title={String(lead.name || '')}>
+                                {truncateBreadcrumbName(lead.name)}
+                            </span>
+                        </nav>
+                    ) : lead ? (
+                        <span className="lead-profile-breadcrumb lead-profile-breadcrumb--solo" title={String(lead.name || '')}>
+                            {truncateBreadcrumbName(lead.name)}
+                        </span>
+                    ) : null}
                     <div className="flex gap-2" style={{ marginLeft: 'auto', alignItems: 'center' }}>
                         {!editing ? (
                             <button type="button" className="btn-edit-header" onClick={startEdit}>
@@ -1195,6 +1338,14 @@ const LeadProfile = () => {
                             </div>
                             <div className="profile-id-info">
                                 <h1 className="profile-name">{lead.name}</h1>
+                                {pipelineStageBadge ? (
+                                    <StageBadge
+                                        stage={pipelineStageBadge.stageId}
+                                        label={pipelineStageBadge.label}
+                                        size="md"
+                                        colorIndex={stages.findIndex((s) => String(s?.id || '').trim() === pipelineStageBadge.stageId)}
+                                    />
+                                ) : null}
                                 {lead.phone && (
                                     <div className="profile-phone">
                                         <Phone size={12} />
@@ -1401,7 +1552,7 @@ const LeadProfile = () => {
 
                     {/* Comunicação */}
                     <div className="profile-section">
-                        <h3 className="section-title">Comunicação</h3>
+                        <ReportSectionHeading title="Comunicação" className="lead-profile-section-heading" />
                         <div className="comm-actions-wrap" style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                             {normalizeLeadPhoneForInbox(lead.phone) ? (
                                 <button
@@ -1418,7 +1569,7 @@ const LeadProfile = () => {
                             ) : null}
                             <button
                                 type="button"
-                                className="comm-btn-primary"
+                                className="comm-btn-primary btn-wa"
                                 disabled={!normalizeLeadPhoneForInbox(lead.phone) || sendingWhatsapp}
                                 onClick={() => handleWhatsAppPrimary()}
                             >
@@ -1436,7 +1587,7 @@ const LeadProfile = () => {
                                     setTemplateMenuOpen((o) => !o);
                                 }}
                             >
-                                <span className="ti ti-dots-vertical" aria-hidden />
+                                <MoreVertical size={18} aria-hidden />
                             </button>
 
                             {templateMenuOpen && (
@@ -1460,7 +1611,7 @@ const LeadProfile = () => {
 
                     {/* Agendamento */}
                     <div className="profile-section">
-                        <h3 className="section-title">Agendamento</h3>
+                        <ReportSectionHeading title="Agendamento" className="lead-profile-section-heading" />
                         {lead.scheduledDate ? (
                             <div className="schedule-card">
                                 <div className="schedule-info">
@@ -1483,7 +1634,7 @@ const LeadProfile = () => {
                                 <div className="flex gap-2 mt-3">
                                     <button
                                         type="button"
-                                        className="btn-state-attended"
+                                        className="btn-state-attended btn-success-action"
                                         onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}
                                         disabled={updatingStatus}
                                     >
@@ -1524,7 +1675,7 @@ const LeadProfile = () => {
 
                     {/* Próximos Passos */}
                     <div className="profile-section">
-                        <h3 className="section-title">Próximos Passos</h3>
+                        <ReportSectionHeading title="Próximos Passos" className="lead-profile-section-heading" />
                         <div className="flex-col gap-2">
                             {lead.scheduledDate && (
                                 <button
@@ -1540,12 +1691,7 @@ const LeadProfile = () => {
                             {canShowLeadCloseSale(lead) ? (
                                 <button
                                     type="button"
-                                    className="btn-next-step"
-                                    style={{
-                                        background: 'var(--accent)',
-                                        color: '#fff',
-                                        border: 'none',
-                                    }}
+                                    className="btn-next-step btn-primary-action"
                                     onClick={() => setCloseSaleOpen(true)}
                                     disabled={updatingStatus}
                                 >
@@ -1555,7 +1701,7 @@ const LeadProfile = () => {
                             {lead.status !== LEAD_STATUS.CONVERTED && (
                                 <button
                                     type="button"
-                                    className="btn-next-step highlight"
+                                    className="btn-next-step btn-primary-action highlight"
                                     onClick={handleMatricularClick}
                                     disabled={updatingStatus}
                                 >
@@ -1580,36 +1726,68 @@ const LeadProfile = () => {
                     <div className="profile-section">
                         <div className="flex justify-between items-center mb-2">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <h3 className="section-title" style={{ margin: 0 }}>Tarefas</h3>
+                            <ReportSectionHeading title="Tarefas" className="lead-profile-section-heading lead-profile-section-heading--inline" />
                             {leadTaskProgress ? (
                                 <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 999, padding: '2px 8px' }}>
                                     {leadTaskProgress}
                                 </span>
                             ) : null}
                             </div>
-                            {leadTasks.length > 0 && (
+                            {!inlineTaskOpen ? (
                                 <button
                                     type="button"
                                     className="btn-action-ghost"
                                     style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
-                                    onClick={() => navigate(`/tarefas?lead_id=${id}&new=1`)}
+                                    onClick={() => setInlineTaskOpen(true)}
                                 >
-                                    <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova
+                                    <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova tarefa
                                 </button>
-                            )}
+                            ) : null}
                         </div>
-                        {leadTasks.length === 0 ? (
+                        {inlineTaskOpen ? (
+                            <div className="lead-profile-inline-task-form flex-col gap-2">
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="Descrever a tarefa..."
+                                    value={inlineTaskTitle}
+                                    onChange={(e) => setInlineTaskTitle(e.target.value)}
+                                    autoFocus
+                                />
+                                <DateInputField
+                                    label="Vencimento"
+                                    type="date"
+                                    value={inlineTaskDue}
+                                    onChange={(e) => setInlineTaskDue(e.target.value)}
+                                />
+                                <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        disabled={!String(inlineTaskTitle || '').trim() || inlineTaskSaving}
+                                        onClick={() => void saveInlineTask()}
+                                    >
+                                        {inlineTaskSaving ? 'Salvando…' : 'Salvar'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-sm"
+                                        disabled={inlineTaskSaving}
+                                        onClick={requestCloseInlineTask}
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        ) : null}
+                        {leadTasks.length === 0 && !inlineTaskOpen ? (
                             <EmptyState
                                 variant="compact"
                                 tone="dashed"
                                 title="Nenhuma tarefa"
-                                primaryAction={{
-                                    label: '+ Nova tarefa',
-                                    onClick: () => navigate(`/tarefas?lead_id=${id}&new=1`),
-                                }}
                                 role="status"
                             />
-                        ) : (
+                        ) : leadTasks.length > 0 ? (
                             <div className="flex-col gap-2">
                                 {leadTasks.slice(0, 5).map(t => (
                                     <div key={t.id} className={`task-row ${t.status === 'done' ? 'done' : ''}`}>
@@ -1627,24 +1805,33 @@ const LeadProfile = () => {
                                         )}
                                     </div>
                                 ))}
-                                {leadTasks.length > 5 && (
+                                {leadTasks.length > 5 ? (
                                     <button 
                                         type="button" 
                                         className="btn-action-ghost" 
                                         style={{ fontSize: 12, marginTop: 4 }}
                                         onClick={() => navigate(`/tarefas?lead_id=${id}`)}
                                     >
-                                        Ver todas ({leadTasks.length})
+                                        Ver todas as tarefas → ({leadTasks.length})
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="btn-action-ghost"
+                                        style={{ fontSize: 12, marginTop: 4 }}
+                                        onClick={() => navigate(`/tarefas?lead_id=${id}`)}
+                                    >
+                                        Ver todas as tarefas →
                                     </button>
                                 )}
                             </div>
-                        )}
+                        ) : null}
                     </div>
 
                     {/* Dados Adicionais (Preservados do original, mas agora em lista) */}
                     {!editing && (lead.sexo || lead.turma || lead.className) ? (
                         <div className="profile-section extra-info">
-                            <h3 className="section-title">Dados pessoais</h3>
+                            <ReportSectionHeading title="Dados pessoais" className="lead-profile-section-heading" />
                             <div className="flex-col gap-2">
                                 {lead.sexo ? (
                                     <div className="info-mini-row">
@@ -1664,7 +1851,7 @@ const LeadProfile = () => {
 
                     {!editing && hasOtherDetails && (
                         <div className="profile-section extra-info">
-                            <h3 className="section-title">Outros detalhes</h3>
+                            <ReportSectionHeading title="Outros detalhes" className="lead-profile-section-heading" />
                             <div className="flex-col gap-2">
                                 {lead.parentName && (
                                     <div className="info-mini-row">
@@ -1698,7 +1885,7 @@ const LeadProfile = () => {
                         onClick={openDeleteLeadConfirm}
                         disabled={deletingLead}
                     >
-                        <span className="ti ti-trash" aria-hidden style={{ fontSize: 14, lineHeight: 1 }} />
+                        <Trash2 size={14} aria-hidden />
                         {`Excluir ${contactLabel.toLowerCase()}`}
                     </button>
                 </div>
@@ -1745,12 +1932,25 @@ const LeadProfile = () => {
                 <div className="timeline-input-zone">
                     <div className="note-container">
                         <textarea
+                            ref={noteTextareaRef}
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             placeholder={`Adicione uma observação sobre este ${contactLabel.toLowerCase()}...`}
                             className="timeline-textarea"
                             rows={3}
                         />
+                        <div className="lead-profile-quick-note-chips">
+                            {LEAD_PROFILE_QUICK_NOTE_CHIPS.map((chip) => (
+                                <button
+                                    key={chip}
+                                    type="button"
+                                    className="lead-profile-quick-note-chip"
+                                    onClick={() => applyQuickNoteChip(chip)}
+                                >
+                                    {chip}
+                                </button>
+                            ))}
+                        </div>
                         <button 
                             type="button" 
                             className="btn-send-note" 
@@ -1857,6 +2057,19 @@ const LeadProfile = () => {
                 onClose={() => (confirmBusy ? undefined : setConfirmModal(null))}
             />
 
+            <ConfirmDialog
+                open={inlineTaskDiscardOpen}
+                title="Descartar tarefa?"
+                description="Os dados preenchidos serão perdidos."
+                confirmLabel="Descartar"
+                confirmVariant="danger"
+                onConfirm={() => {
+                    setInlineTaskDiscardOpen(false);
+                    resetInlineTaskForm();
+                }}
+                onClose={() => setInlineTaskDiscardOpen(false)}
+            />
+
             <LeadCloseSaleModal
                 open={closeSaleOpen}
                 lead={lead}
@@ -1907,867 +2120,7 @@ const LeadProfile = () => {
                 initialDate={lead?.scheduledDate || ''}
                 initialTime={lead?.scheduledTime || ''}
             />
-
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                @keyframes leadProfileSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-                .lead-profile-skeleton-bar {
-                    border-radius: 10px;
-                    background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
-                    background-size: 200% 100%;
-                    animation: leadProfileSk 1.2s ease-in-out infinite;
-                }
-                .lead-profile-skeleton-bar--title { width: 55%; max-width: 240px; height: 22px; }
-                .lead-profile-skeleton-bar--line { margin-top: 14px; width: 100%; height: 14px; }
-                .lead-profile-skeleton-bar--line.short { width: 72%; }
-                .lead-profile-skeleton-card {
-                    border-radius: var(--radius);
-                    border: 1px solid var(--border);
-                    background: var(--surface);
-                    padding: 20px 18px;
-                }
-                .lead-profile-inner {
-                    max-width: min(100%, 42rem);
-                    margin-left: auto;
-                    margin-right: auto;
-                }
-
-                .lead-profile-container {
-                    display: flex;
-                    height: 100%;
-                    overflow: hidden;
-                    background: var(--surface-hover);
-                    transition: all 0.3s ease;
-                }
-
-                /* Coluna Esquerda */
-                .lead-profile-left-col {
-                    display: flex;
-                    flex-direction: column;
-                    background: var(--surface);
-                    border-right: 1px solid var(--border);
-                    height: 100%;
-                    z-index: 10;
-                    min-width: 0;
-                    transition: width 0.25s ease, flex 0.25s ease, max-width 0.25s ease;
-                }
-
-                .timeline-open .lead-profile-left-col {
-                    width: 360px;
-                    flex: 0 0 auto;
-                    flex-shrink: 0;
-                    flex-grow: 0;
-                    max-width: 100%;
-                }
-
-                .timeline-closed .lead-profile-left-col {
-                    flex: 1;
-                    max-width: 560px;
-                    width: auto;
-                }
-
-                .left-col-header {
-                    padding: 16px;
-                    display: flex;
-                    align-items: center;
-                    border-bottom: 1px solid var(--border-light);
-                }
-
-                .left-col-content {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 20px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 24px;
-                }
-
-                .left-col-footer {
-                    padding: 16px;
-                    border-top: 1px solid var(--border-light);
-                    background: var(--surface);
-                }
-
-                .timeline-closed .left-col-footer {
-                    display: flex;
-                    justify-content: flex-end;
-                }
-
-                /* Seções do Perfil */
-                .profile-main-header {
-                    display: flex;
-                    flex-direction: row;
-                    align-items: flex-start;
-                    gap: 14px;
-                }
-
-                .profile-avatar {
-                    width: 52px;
-                    height: 52px;
-                    border-radius: 50%;
-                    background: var(--v100);
-                    border: 0.5px solid var(--border-violet);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    font-size: 18px;
-                    font-weight: 700;
-                    color: var(--v700);
-                    letter-spacing: -0.02em;
-                    overflow: hidden;
-                }
-
-                .profile-id-info {
-                    flex: 1;
-                    min-width: 0;
-                }
-
-                .profile-name {
-                    font-size: 1.125rem;
-                    font-weight: 700;
-                    color: var(--text);
-                    margin: 0 0 4px;
-                }
-
-                .profile-phone {
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-start;
-                    gap: 6px;
-                    font-size: 13px;
-                    color: var(--text-secondary);
-                }
-
-                .section-title {
-                    font-size: 11px;
-                    font-weight: 500;
-                    letter-spacing: 0.04em;
-                    color: var(--color-text-tertiary, var(--text-muted));
-                    margin: 0 0 8px;
-                }
-
-                .profile-section {
-                    padding-top: 20px;
-                    padding-bottom: 4px;
-                    border-top: 0.5px solid var(--color-border-tertiary, var(--border-light));
-                }
-
-                .profile-section:first-of-type {
-                    border-top: none;
-                    padding-top: 0;
-                }
-
-                /* Mini Rows */
-                .info-mini-row {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 13px;
-                    padding: 4px 0;
-                }
-
-                .info-mini-label { color: var(--text-muted); }
-                .info-mini-value { color: var(--text); font-weight: 600; }
-                .info-meta-grid {
-                    display: grid;
-                    grid-template-columns: 120px 1fr;
-                    gap: 6px 8px;
-                    font-size: 13px;
-                }
-                .info-meta-grid .info-mini-label {
-                    color: var(--color-text-secondary, var(--text-secondary));
-                }
-                .info-meta-grid .info-mini-value {
-                    color: var(--color-text-primary, var(--text));
-                    font-weight: 500;
-                }
-                .lead-contact-label {
-                    color: var(--color-text-secondary, var(--text-secondary));
-                    font-size: 13px;
-                    font-weight: 500;
-                    line-height: 1.2;
-                    font-style: normal;
-                }
-                .status-tag {
-                    border-radius: 20px;
-                    padding: 2px 8px;
-                    font-size: 11px;
-                    line-height: 1.2;
-                }
-                .origin-status-tag {
-                    display: inline-flex;
-                    align-items: center;
-                    background: var(--color-background-secondary, var(--surface-hover)) !important;
-                    border: 0.5px solid var(--color-border-secondary, var(--border)) !important;
-                    color: var(--color-text-secondary, var(--text-secondary)) !important;
-                    font-size: 11px;
-                    padding: 2px 8px;
-                    border-radius: 20px;
-                    font-weight: 500;
-                }
-                .contact-type-badge,
-                .status-tag {
-                    font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif) !important;
-                }
-                .lead-status-row,
-                .lead-status-row * {
-                    font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif) !important;
-                }
-                .lead-status-row .contact-type-badge,
-                .lead-status-row .status-tag {
-                    font-family: Arial, sans-serif !important;
-                    font-style: normal !important;
-                }
-
-                /* Botões de Perfil */
-                .btn-edit-header {
-                    padding: 6px 12px;
-                    border-radius: 8px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    border: 1px solid var(--border);
-                    background: var(--surface);
-                    color: var(--text-secondary);
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    cursor: pointer;
-                }
-                .btn-edit-header.save { background: var(--accent); color: white; border: none; }
-                .btn-edit-header.cancel { color: var(--danger); }
-
-                .form-input-sm {
-                    width: 100%;
-                    padding: 8px 12px;
-                    border-radius: 8px;
-                    border: 1px solid var(--border);
-                    font-size: 13px;
-                    background: var(--surface-hover);
-                }
-
-                .profile-main-header .lead-profile-edit-sections {
-                    text-align: left;
-                    align-self: stretch;
-                }
-                .lead-profile-edit-section-title {
-                    text-align: left;
-                    margin-bottom: 10px !important;
-                }
-                .lead-profile-type-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    gap: 8px;
-                }
-                .lead-profile-type-option {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 10px 6px;
-                    border: 2px solid var(--border);
-                    border-radius: var(--radius-sm);
-                    text-align: center;
-                    cursor: pointer;
-                    gap: 4px;
-                    background: var(--surface-hover);
-                }
-                .lead-profile-type-option input { display: none; }
-                .lead-profile-type-icon { color: var(--text-muted); }
-                .lead-profile-type-name { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
-                .lead-profile-type-option.selected {
-                    border-color: var(--accent);
-                    background: var(--accent-light);
-                }
-                .lead-profile-type-option.selected .lead-profile-type-icon,
-                .lead-profile-type-option.selected .lead-profile-type-name { color: var(--accent); }
-                .lead-profile-radio-row {
-                    display: flex;
-                    gap: 16px;
-                    flex-wrap: wrap;
-                    padding: 4px 0;
-                }
-                .lead-profile-inline-radio {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    font-size: 13px;
-                    color: var(--text);
-                    cursor: pointer;
-                }
-
-                /* Comunicação */
-                .comm-actions-wrap {
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                }
-                .comm-btn-primary {
-                    flex: 1;
-                    height: 40px;
-                    background: var(--accent);
-                    color: white;
-                    border: none;
-                    border-radius: 10px;
-                    font-weight: 700;
-                    font-size: 13px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                    cursor: pointer;
-                }
-                .comm-btn-primary:hover { filter: brightness(0.96); }
-                .comm-btn-primary:focus-visible {
-                    outline: 2px solid color-mix(in srgb, var(--accent) 45%, white);
-                    outline-offset: 2px;
-                }
-
-                .comm-btn-dropdown {
-                    width: 44px;
-                    height: 44px;
-                    background: var(--color-background-secondary, var(--surface-hover));
-                    color: var(--color-text-primary, var(--text));
-                    border: 0.5px solid var(--color-border-secondary, var(--border));
-                    border-radius: var(--border-radius-md, 10px);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                }
-                .comm-btn-dropdown .ti {
-                    font-size: 18px;
-                    color: var(--color-text-primary, var(--text));
-                    line-height: 1;
-                }
-                .comm-btn-dropdown:hover { background: var(--surface); }
-                .comm-btn-dropdown:focus-visible {
-                    outline: 2px solid color-mix(in srgb, var(--accent) 35%, white);
-                    outline-offset: 2px;
-                }
-
-                .comm-dropdown-menu {
-                    left: 0;
-                    right: 0;
-                    max-height: 200px;
-                    overflow-y: auto;
-                    z-index: 100;
-                }
-
-                /* Agendamento Card */
-                .schedule-card {
-                    background: var(--surface-hover);
-                    border: 1px solid var(--border);
-                    border-radius: 12px;
-                    padding: 12px;
-                }
-
-                .schedule-info {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 13px;
-                    font-weight: 700;
-                    color: var(--text);
-                }
-
-                .btn-state-attended {
-                    flex: 1;
-                    padding: 8px;
-                    background: var(--accent);
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-
-                .btn-state-missed {
-                    flex: 1;
-                    padding: 8px;
-                    background: var(--color-background-secondary, var(--surface-hover));
-                    color: var(--color-text-secondary, var(--text-secondary));
-                    border: 0.5px solid var(--color-border-secondary, var(--border));
-                    border-radius: 8px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-
-                /* Próximos Passos */
-                .btn-next-step {
-                    width: 100%;
-                    padding: 10px 16px;
-                    border-radius: 10px;
-                    border: 1.5px solid var(--border);
-                    background: var(--surface);
-                    color: var(--text-secondary);
-                    font-weight: 700;
-                    font-size: 13px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    cursor: pointer;
-                    margin-bottom: 8px;
-                }
-                .btn-next-step:hover { background: var(--surface-hover); }
-                .btn-next-step:focus-visible {
-                    outline: 2px solid color-mix(in srgb, var(--accent) 32%, white);
-                    outline-offset: 2px;
-                }
-
-                .btn-next-step.highlight { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
-                .btn-next-step.highlight {
-                    background: var(--accent);
-                    border-color: var(--accent);
-                    color: #fff;
-                }
-                .btn-next-step.highlight:hover { filter: brightness(0.96); }
-                .next-step-danger-wrap {
-                    margin-top: 8px;
-                    padding-top: 8px;
-                    border-top: 0.5px solid var(--color-border-tertiary, var(--border-light));
-                }
-                .btn-next-step.danger {
-                    border: none;
-                    background: none;
-                    color: var(--text-muted);
-                    margin-bottom: 0;
-                    padding: 4px 0;
-                    font-size: 12px;
-                }
-                .btn-next-step.danger:hover {
-                    color: var(--color-text-danger, var(--danger));
-                }
-
-                .schedule-secondary-link {
-                    margin-top: 10px;
-                    border: none;
-                    background: none;
-                    padding: 0;
-                    font-size: 12px;
-                    color: var(--accent);
-                    font-weight: 600;
-                    cursor: pointer;
-                }
-                .schedule-secondary-link:hover { text-decoration: underline; }
-                .schedule-secondary-link:focus-visible {
-                    outline: 2px solid color-mix(in srgb, var(--accent) 32%, white);
-                    outline-offset: 2px;
-                    border-radius: 6px;
-                }
-                .schedule-secondary-link:disabled {
-                    opacity: 0.6;
-                    cursor: default;
-                }
-
-                .task-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 13px;
-                }
-                .task-title {
-                    color: var(--text);
-                    flex: 1;
-                }
-                .task-due {
-                    color: var(--text-muted);
-                    font-size: 11px;
-                    font-weight: 500;
-                    margin-left: auto;
-                }
-                .task-row.done .task-title {
-                    text-decoration: line-through;
-                    opacity: 0.6;
-                }
-
-                .btn-delete-lead-link {
-                    width: 100%;
-                    padding: 0;
-                    border-radius: 0;
-                    background: transparent;
-                    color: var(--color-text-tertiary, var(--text-muted));
-                    border: none;
-                    font-size: 12px;
-                    font-weight: 500;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 6px;
-                    cursor: pointer;
-                    margin-top: 24px;
-                    margin-bottom: 16px;
-                }
-                .btn-delete-lead-link:hover {
-                    color: var(--color-text-danger, var(--danger));
-                }
-                .btn-delete-lead-link:focus-visible {
-                    outline: 2px solid color-mix(in srgb, var(--danger) 35%, white);
-                    outline-offset: 2px;
-                    border-radius: 8px;
-                }
-                    width: 100%;
-                    padding: 12px;
-                    border-radius: 12px;
-                    background: var(--accent-light);
-                    color: var(--cosmos);
-                    border: none;
-                    font-weight: 700;
-                    font-size: 13px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 10px;
-                    cursor: pointer;
-                }
-
-                .timeline-closed .btn-toggle-timeline {
-                    width: auto;
-                    margin-left: auto;
-                }
-
-                /* Painel Timeline */
-                .lead-profile-right-panel {
-                    flex: 1;
-                    display: flex;
-                    flex-direction: column;
-                    height: 100%;
-                    overflow: hidden;
-                    background: var(--surface-hover);
-                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                    max-width: 420px;
-                }
-
-                .timeline-closed .lead-profile-right-panel {
-                    flex: 0;
-                    max-width: 0;
-                    opacity: 0;
-                    pointer-events: none;
-                }
-
-                .timeline-header {
-                    padding: 24px 24px 12px;
-                }
-
-                .timeline-title {
-                    font-size: 1.25rem;
-                    font-weight: 800;
-                    color: var(--text);
-                    margin: 0 0 16px;
-                }
-
-                .timeline-input-zone {
-                    padding: 0 24px 24px;
-                }
-
-                .note-container {
-                    position: relative;
-                    background: var(--surface);
-                    border: 1px solid var(--border);
-                    border-radius: 16px;
-                    padding: 4px;
-                    box-shadow: var(--shadow-sm);
-                }
-
-                .timeline-textarea {
-                    width: 100%;
-                    border: none;
-                    padding: 12px 48px 12px 12px;
-                    font-family: inherit;
-                    font-size: 14px;
-                    color: var(--text);
-                    background: transparent;
-                    resize: none;
-                    outline: none;
-                }
-
-                .btn-send-note {
-                    position: absolute;
-                    bottom: 8px;
-                    right: 8px;
-                    width: 36px;
-                    height: 36px;
-                    border-radius: var(--border-radius-md, 10px);
-                    background: var(--petroleo);
-                    color: white;
-                    border: none;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 4px;
-                    cursor: pointer;
-                    box-shadow: var(--shadow);
-                }
-                .btn-send-note .send-note-icon {
-                    color: #fff;
-                    display: block;
-                    flex-shrink: 0;
-                }
-
-                .timeline-content {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 0 24px 40px;
-                }
-
-                .timeline-events-list {
-                    position: relative;
-                    display: flex;
-                    flex-direction: column;
-                    padding-left: 24px;
-                }
-
-                .timeline-vertical-line {
-                    position: absolute;
-                    left: 7px;
-                    top: 12px;
-                    bottom: 0;
-                    width: 1px;
-                    background: var(--border-light);
-                    z-index: 0;
-                }
-
-                .timeline-event-item {
-                    position: relative;
-                    margin-bottom: 24px;
-                    padding-left: 12px;
-                    z-index: 1;
-                }
-
-                .event-dot {
-                    position: absolute;
-                    left: -24px;
-                    top: 4px;
-                    width: 8px;
-                    height: 8px;
-                    border-radius: 50%;
-                    border: 2px solid var(--surface);
-                    box-shadow: 0 0 0 1px var(--border-light);
-                }
-
-                .event-header {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin-bottom: 4px;
-                }
-
-                .event-type-label {
-                    font-size: 10px;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    color: var(--text-muted);
-                    letter-spacing: 0.02em;
-                }
-
-                .event-date {
-                    font-size: 11px;
-                    color: var(--faint);
-                }
-
-                .event-message {
-                    font-size: 14px;
-                    color: var(--text);
-                    line-height: 1.5;
-                }
-
-                .inbox-tag {
-                    font-size: 10px;
-                    color: var(--text-muted);
-                    margin-left: 6px;
-                }
-
-                .event-pin-btn {
-                    background: none;
-                    border: none;
-                    padding: 4px;
-                    margin-left: auto;
-                    cursor: pointer;
-                    color: var(--text-muted);
-                    opacity: 0.4;
-                    transition: all 0.2s;
-                }
-                .timeline-event-item:hover .event-pin-btn, .timeline-event-item.pinned .event-pin-btn {
-                    opacity: 1;
-                }
-                .timeline-event-item.pinned .event-pin-btn { color: var(--accent); }
-
-                .timeline-event-item.pinned {
-                    background: rgba(var(--accent-rgb), 0.03);
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    margin-left: -12px;
-                    border: 1px solid var(--accent-light);
-                }
-
-                @media (min-width: 1025px) {
-                    .lead-profile-container {
-                        max-width: 780px;
-                        margin-left: auto;
-                        margin-right: auto;
-                    }
-                }
-
-                @media (min-width: 1025px) and (max-width: 1200px) {
-                    .lead-profile-container {
-                        max-width: 700px;
-                    }
-                    .timeline-open .lead-profile-left-col {
-                        width: 320px;
-                    }
-                    .timeline-open .lead-profile-right-panel {
-                        max-width: 380px;
-                    }
-                }
-
-                /* Responsividade */
-                @media (max-width: 1024px) {
-                    .lead-profile-left-col {
-                        width: 100%;
-                    }
-                    .timeline-closed .lead-profile-left-col {
-                        width: 100%;
-                        max-width: 100%;
-                        flex: 1 1 auto;
-                    }
-                    .lead-profile-right-panel {
-                        position: fixed;
-                        inset: 0;
-                        z-index: 200;
-                        transform: translateX(100%);
-                        padding-top: env(safe-area-inset-top, 0px);
-                        box-sizing: border-box;
-                    }
-
-                    .timeline-open .lead-profile-left-col { display: none; }
-                    .timeline-open .lead-profile-right-panel { transform: translateX(0); max-width: 100%; }
-                    .timeline-closed .lead-profile-right-panel { display: none; }
-                }
-
-                .filter-strip {
-                    display: flex;
-                    flex-wrap: nowrap;
-                    gap: 6px;
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                    padding-bottom: 2px;
-                    -webkit-overflow-scrolling: touch;
-                    scrollbar-width: none;
-                }
-                .filter-strip::-webkit-scrollbar { display: none; }
-
-                .filter-pill {
-                    padding: 4px 10px;
-                    border-radius: 100px;
-                    border: 1px solid var(--border-light);
-                    background: transparent;
-                    color: var(--text-secondary);
-                    font-size: 11px;
-                    font-weight: 600;
-                    white-space: nowrap;
-                    cursor: pointer;
-                    min-height: 30px;
-                    display: inline-flex;
-                    align-items: center;
-                    box-sizing: border-box;
-                }
-                .filter-pill:hover {
-                    border-color: var(--border);
-                    background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
-                }
-                .filter-pill:focus-visible {
-                    outline: 2px solid color-mix(in srgb, var(--accent) 28%, white);
-                    outline-offset: 2px;
-                }
-                .filter-pill.active {
-                    background: var(--accent-light);
-                    color: var(--accent);
-                    border-color: var(--accent);
-                }
-
-                @media (max-width: 640px) {
-                    .left-col-content {
-                        padding: 16px;
-                        gap: 18px;
-                    }
-                    .profile-section {
-                        padding-top: 16px;
-                    }
-                    .comm-actions-wrap {
-                        gap: 6px;
-                    }
-                    .comm-btn-primary,
-                    .comm-btn-dropdown {
-                        height: 38px;
-                    }
-                    .btn-next-step {
-                        padding: 10px 12px;
-                        font-size: 12px;
-                    }
-                    .filter-pill {
-                        min-height: 28px;
-                        padding: 3px 9px;
-                        font-size: 10px;
-                    }
-                }
-
-                /* Confirm Modal Tweaks */
-                .dashboard-confirm-overlay {
-                    position: fixed;
-                    inset: 0;
-                    z-index: 1000;
-                    background: rgba(0, 4, 53, 0.35);
-                    backdrop-filter: blur(12px) saturate(1.4);
-                    -webkit-backdrop-filter: blur(12px) saturate(1.4);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
-                }
-                .dashboard-confirm-modal {
-                    background: var(--surface);
-                    border-radius: 20px;
-                    padding: 32px;
-                    width: 100%;
-                    max-width: 400px;
-                    text-align: center;
-                    box-shadow: var(--shadow-2xl);
-                }
-                .confirm-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 8px; }
-                .confirm-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; }
-                .dashboard-confirm-icon-wrap {
-                  width: 56px; height: 56px; border-radius: 50%;
-                  background: var(--danger-light);
-                  margin: 0 auto 16px;
-                  display: flex; align-items: center; justify-content: center;
-                }
-                .dashboard-confirm-actions {
-                  display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;
-                }
-                .dashboard-confirm-actions .btn-outline,
-                .dashboard-confirm-actions .btn-danger,
-                .dashboard-confirm-actions .btn-secondary {
-                  flex: 1;
-                  min-width: 120px;
-                }
-                .dashboard-confirm-overlay .btn-danger {
-                  background: var(--danger);
-                  color: #fff;
-                  border: none;
-                  border-radius: var(--radius-sm);
-                  font-weight: 700;
-                  padding: 10px 16px;
-                  cursor: pointer;
-                  font-family: inherit;
-                }
-                .dashboard-confirm-overlay .btn-danger:disabled {
-                  opacity: 0.55;
-                  cursor: not-allowed;
-                }
-                `
-            }} />
-        </div>
+</div>
     );
 };
 

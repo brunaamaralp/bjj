@@ -20,6 +20,8 @@ import {
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import FinanceFiltersBar from './FinanceFiltersBar.jsx';
+import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
+import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 
 const PRESETS = [
   { id: '30d', label: '30 dias' },
@@ -197,7 +199,11 @@ export default function ForecastTab({ academyId }) {
               <div className="card finance-forecast-summary__card">
                 <Wallet size={18} className="finance-forecast-summary__icon--primary" aria-hidden />
                 <div>
-                  <p className="text-xs text-muted">Saldo atual</p>
+                  <p className="text-xs text-muted">
+                    <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.realizado}>
+                      Saldo atual
+                    </FinanceLabelWithHint>
+                  </p>
                   <p className="finance-forecast-summary__value">{fmtMoney(data.opening_balance)}</p>
                 </div>
               </div>
@@ -222,7 +228,11 @@ export default function ForecastTab({ academyId }) {
               <div className="card finance-forecast-summary__card">
                 <Wallet size={18} aria-hidden />
                 <div>
-                  <p className="text-xs text-muted">Saldo projetado</p>
+                  <p className="text-xs text-muted">
+                    <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.projetado}>
+                      Saldo projetado
+                    </FinanceLabelWithHint>
+                  </p>
                   <p
                     className={`finance-forecast-summary__value ${
                       projectedPositive
@@ -365,10 +375,16 @@ export default function ForecastTab({ academyId }) {
                             ) : (
                               <span className="finance-forecast-week__label">{item.label}</span>
                             )}
-                            <span className="text-xs text-muted">
+                            <span className="text-xs text-muted finance-forecast-week__status">
                               {fmtDateBr(item.due_date)}
                               {' · '}
-                              {statusLabel(item.status)}
+                              {String(item.status || '').toLowerCase() === 'projetado' ? (
+                                <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.projetado}>
+                                  {statusLabel(item.status)}
+                                </FinanceLabelWithHint>
+                              ) : (
+                                statusLabel(item.status)
+                              )}
                               {item.type === 'pendente' ? (
                                 <>
                                   {' · '}

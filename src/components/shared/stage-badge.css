@@ -1,0 +1,51 @@
+.stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border-radius: 999px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--stage-badge-color, var(--color-text-primary));
+  background: color-mix(in srgb, var(--stage-badge-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-badge-color) 30%, transparent);
+  box-sizing: border-box;
+}
+
+.stage-badge--sm {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.stage-badge--md {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.stage-badge--dot-only {
+  padding: 0;
+  border: none;
+  background: transparent;
+  gap: 0;
+}
+
+.stage-badge--dot-only .stage-badge__dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 1px;
+}
+
+.stage-badge__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--stage-badge-color);
+}
+
+.stage-badge__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

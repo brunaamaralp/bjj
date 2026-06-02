@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
+  BarChart2,
   RefreshCw,
   TrendingDown,
   TrendingUp,
@@ -12,8 +13,11 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
 import { fetchFinanceSummary, fetchFinanceForecast, fetchMonthlyClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
-import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
-import { FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
+import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
+import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
+import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
+import { FINANCEIRO_SECTIONS, EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
+import { hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
 import {
   computeMensalidadesMonthKpis,
   countClosingDivergences,
@@ -61,10 +65,12 @@ function OverviewCard({ title, eyebrow, children, className = '' }) {
   );
 }
 
-function MetricRow({ label, value, hint }) {
+function MetricRow({ label, value, hint, labelHint }) {
   return (
     <div className="financeiro-overview-metric">
-      <span className="financeiro-overview-metric__label">{label}</span>
+      <span className="financeiro-overview-metric__label">
+        {labelHint ? <FinanceLabelWithHint hint={labelHint}>{label}</FinanceLabelWithHint> : label}
+      </span>
       <span className="financeiro-overview-metric__value">{value}</span>
       {hint ? <span className="text-small text-muted">{hint}</span> : null}
     </div>
@@ -104,6 +110,7 @@ export default function VisaoGeralTab({
   const [pendingTxCount, setPendingTxCount] = useState(0);
   const [contractsAwaiting, setContractsAwaiting] = useState(0);
   const [closingDivergences, setClosingDivergences] = useState(0);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   const regime = useMemo(
     () => (academyId ? getFinanceRegime(academyId) : 'cash'),
@@ -236,7 +243,17 @@ export default function VisaoGeralTab({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshToken]);
+
+  useEffect(() => {
+    const bump = () => setRefreshToken((t) => t + 1);
+    window.addEventListener('navi-student-payment-updated', bump);
+    window.addEventListener('navi-financial-tx-settled', bump);
+    return () => {
+      window.removeEventListener('navi-student-payment-updated', bump);
+      window.removeEventListener('navi-financial-tx-settled', bump);
+    };
+  }, []);
 
   const mensalKpis = useMemo(
     () => computeMensalidadesMonthKpis(students, payments, financeConfig, ym),
@@ -253,6 +270,8 @@ export default function VisaoGeralTab({
   );
 
   const monthLabel = useMemo(() => formatMonthTitleCapitalized(ym), [ym]);
+
+  const showAccountsSetupAlert = isOwner && !hasConfiguredBankAccounts(financeConfig);
 
   const hasAlerts =
     mensalKpis.overdueCount > 0 ||
@@ -292,7 +311,15 @@ export default function VisaoGeralTab({
             Período: {fmtDateBr(from)} — {fmtDateBr(to)} ({monthLabel})
           </p>
           <p className="text-small text-muted financeiro-overview__regime" role="status">
-            Régime: {financeRegimeLabel(regime)}
+            <FinanceLabelWithHint
+              hint={
+                regime === FINANCE_REGIME.COMPETENCE
+                  ? FINANCE_TERM_HINTS.regimeCompetence
+                  : FINANCE_TERM_HINTS.regimeCaixa
+              }
+            >
+              Régime {financeRegimeLabel(regime)}
+            </FinanceLabelWithHint>
           </p>
         </div>
         <div className="financeiro-overview__head-actions">
@@ -308,6 +335,13 @@ export default function VisaoGeralTab({
           </button>
         </div>
       </header>
+
+      {showAccountsSetupAlert ? (
+        <div className="financeiro-overview-accounts-alert" role="alert">
+          Configure ao menos uma conta de recebimento para que sua equipe consiga registrar pagamentos.{' '}
+          <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
+        </div>
+      ) : null}
 
       <div className="financeiro-overview-grid">
         <OverviewCard title="Saldo e movimentações" eyebrow="Caixa · mês atual">
@@ -378,6 +412,7 @@ export default function VisaoGeralTab({
             />
             <MetricRow
               label="Inadimplentes"
+              labelHint={FINANCE_TERM_HINTS.inadimplentes}
               value={
                 paymentsFailed
                   ? '—'
@@ -475,11 +510,16 @@ export default function VisaoGeralTab({
       </div>
 
       {isOwner ? (
-        <p className="financeiro-overview__footer">
-          <Link to="/reports?tab=financeiro" className="financeiro-overview-export-link">
-            Exportar relatório →
-          </Link>
-        </p>
+        <Link to="/reports?tab=financeiro" className="financeiro-overview-reports-card card">
+          <BarChart2 size={22} className="financeiro-overview-reports-card__icon" aria-hidden />
+          <div className="financeiro-overview-reports-card__body">
+            <p className="financeiro-overview-reports-card__title">Relatórios financeiros</p>
+            <p className="text-small text-muted financeiro-overview-reports-card__desc">
+              DRE, receita por período e breakdown por forma de pagamento
+            </p>
+          </div>
+          <ArrowRight size={18} className="financeiro-overview-reports-card__arrow" aria-hidden />
+        </Link>
       ) : null}
     </div>
   );

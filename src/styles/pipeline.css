@@ -944,6 +944,26 @@
   border-color: color-mix(in srgb, #25d366 40%, var(--border));
 }
 
+.lead-card-actions-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.pipeline-card-schedule-btn {
+  flex-shrink: 0;
+}
+
+.wa-split-btn--single {
+  flex-shrink: 0;
+}
+
+.wa-main-btn--solo {
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+}
+
 .wa-main-btn {
   background: transparent;
   color: var(--text-secondary);

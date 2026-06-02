@@ -37,7 +37,12 @@ import {
   mergeCollectionIntoFinanceConfig,
 } from '../../lib/collectionRules.js';
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
-import { validateBankAccountForPayment, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import {
+  validateBankAccountForPayment,
+  pickInitialBankAccountForPayment,
+  hasConfiguredBankAccounts,
+} from '../../lib/bankAccounts.js';
+import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
@@ -164,9 +169,13 @@ function formatMonthTitleCapitalized(ym) {
 
 /**
  * Conteúdo de mensalidades (grade, lista, pendências, régua).
- * @param {{ embedded?: boolean }} props — embedded: dentro do hub /financeiro (sem título de página)
+ * @param {{ embedded?: boolean, referenceMonth?: string, onReferenceMonthChange?: (ym: string) => void }} props
  */
-export default function MensalidadesPanel({ embedded = false }) {
+export default function MensalidadesPanel({
+  embedded = false,
+  referenceMonth: referenceMonthProp,
+  onReferenceMonthChange,
+}) {
   const allStudents = useStudentStore((s) => s.students);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -181,7 +190,15 @@ export default function MensalidadesPanel({ embedded = false }) {
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
   const [searchParams] = useSearchParams();
 
-  const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [currentMonth, setCurrentMonth] = useState(
+    () => String(referenceMonthProp || '').trim() || new Date().toISOString().slice(0, 7)
+  );
+
+  useEffect(() => {
+    const ext = String(referenceMonthProp || '').trim();
+    if (!ext) return;
+    setCurrentMonth((cur) => (cur === ext ? cur : ext));
+  }, [referenceMonthProp]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(false);
@@ -192,7 +209,7 @@ export default function MensalidadesPanel({ embedded = false }) {
   useEffect(() => {
     const q = searchParams.get('search');
     if (q) setSearch(q);
-    const filtroParam = searchParams.get('filtro');
+    const filtroParam = searchParams.get('filtro') || searchParams.get('filter');
     if (filtroParam) {
       const map = {
         pending: 'pending',
@@ -563,6 +580,8 @@ export default function MensalidadesPanel({ embedded = false }) {
   );
 
   const canReversePayment = navRole === 'owner' || navRole === 'admin';
+  const linkStudentProfile = navRole === 'owner' || navRole === 'admin';
+  const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
 
   const openPaymentModal = (student, preset = {}) => {
     const refMonth = String(preset.reference_month || currentMonth).trim() || currentMonth;
@@ -577,7 +596,10 @@ export default function MensalidadesPanel({ embedded = false }) {
           ? maskCurrency(String(Math.round(amountNum * 100)))
           : '',
       method: preset.method || student.preferredPaymentMethod || 'pix',
-      account: resolveBankAccountForPayment(student.preferredPaymentAccount || '', financeConfig),
+      account: pickInitialBankAccountForPayment(
+        financeConfig,
+        student.preferredPaymentAccount || ''
+      ),
       status: 'paid',
       paid_at: new Date().toISOString().slice(0, 10),
       due_date: dueDate ? dueDate.toISOString().slice(0, 10) : '',
@@ -853,6 +875,14 @@ export default function MensalidadesPanel({ embedded = false }) {
 
   const fmtMoney = formatBRL;
 
+  const handleMonthChange = useCallback(
+    (ym) => {
+      setCurrentMonth(ym);
+      onReferenceMonthChange?.(ym);
+    },
+    [onReferenceMonthChange]
+  );
+
   return (
     <div
       className={`mensalidades-page animate-in${embedded ? ' mensalidades-panel--embedded mensalidades-page--embedded' : ' mensalidades-page--standalone'}`}
@@ -868,7 +898,7 @@ export default function MensalidadesPanel({ embedded = false }) {
               metaClassName="mensal-header__eyebrow"
               animate={false}
               actions={
-                <FinanceMonthPicker value={currentMonth} onChange={setCurrentMonth} />
+                <FinanceMonthPicker value={currentMonth} onChange={handleMonthChange} />
               }
             />
           </div>
@@ -1177,6 +1207,7 @@ export default function MensalidadesPanel({ embedded = false }) {
         handleEstornar={handleEstornar}
         configuredTurmas={configuredTurmas}
         canReverse={canReversePayment}
+        linkStudentProfile={linkStudentProfile}
         navRole={navRole}
       />
 
@@ -1373,16 +1404,23 @@ export default function MensalidadesPanel({ embedded = false }) {
                       })()}
                     </div>
                   </div>
-                  <BankAccountSelect
-                    id="mensal-pay-account"
-                    academyId={academyId}
-                    financeConfig={financeConfig}
-                    value={payForm.account}
-                    onChange={(v) => setPayForm((f) => ({ ...f, account: v }))}
-                    label="Conta"
-                    required
-                    className="mensal-modal-in mensal-modal-account"
-                  />
+                  {hasBankAccounts ? (
+                    <BankAccountSelect
+                      id="mensal-pay-account"
+                      academyId={academyId}
+                      financeConfig={financeConfig}
+                      value={payForm.account}
+                      onChange={(v) => setPayForm((f) => ({ ...f, account: v }))}
+                      label="Conta"
+                      required
+                      className="mensal-modal-in mensal-modal-account"
+                    />
+                  ) : (
+                    <p className="text-small mensal-modal-no-accounts" role="alert">
+                      Nenhuma conta configurada.{' '}
+                      <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
+                    </p>
+                  )}
                   <label className="mensal-modal-checkbox-row">
                     <input
                       type="checkbox"
@@ -1421,9 +1459,9 @@ export default function MensalidadesPanel({ embedded = false }) {
                   </button>
                   <button
                     type="button"
-                    disabled={savingPayment}
+                    disabled={savingPayment || !hasBankAccounts}
                     onClick={() => void handleSavePayment()}
-                    className={`btn-primary mensalidades-modal-footer__confirm${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
+                    className={`btn-primary mensalidades-modal-footer__confirm${savingPayment || !hasBankAccounts ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
                   >
                     <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
                     {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}

@@ -2,6 +2,12 @@
   /* Badges tipo “Transferido” / info no Inbox */
   --inbox-info-badge-bg: color-mix(in srgb, var(--petroleo) 12%, var(--branco));
   --inbox-info-badge-fg: var(--petroleo);
+  --inbox-chip-info-bg: var(--color-info-surface, var(--inbox-info-badge-bg));
+  --inbox-chip-info-fg: var(--inbox-info-badge-fg);
+
+  /* Badge não lida (lista + filtros) */
+  --inbox-badge-unread-bg: var(--danger);
+  --inbox-badge-unread-fg: #fff;
 
   /* Chips de status na lista */
   --inbox-chip-handoff-bg: color-mix(in srgb, var(--dourado) 15%, var(--branco));

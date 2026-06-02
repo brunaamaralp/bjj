@@ -238,7 +238,7 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       },
       {
         id: 'fechamento',
-        label: 'Fechamento mensal',
+        label: 'Conferência do mês',
         to: `${FINANCEIRO_HUB_PATH}?tab=fechamento`,
         iconKey: 'fechamento',
         group: FINANCEIRO_NAV_GROUP_OPERACOES,

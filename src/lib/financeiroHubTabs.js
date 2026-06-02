@@ -15,11 +15,22 @@ export const FINANCEIRO_SECTIONS = {
 export const EMPRESA_FINANCE_TAB = 'financeiro';
 export const EMPRESA_FINANCE_CONFIG_PATH = `/empresa?tab=${EMPRESA_FINANCE_TAB}`;
 
+/** Contas de recebimento (Minha academia → Financeiro → Recebimento). */
+export const EMPRESA_FINANCE_ACCOUNTS_PATH = `${EMPRESA_FINANCE_CONFIG_PATH}&section=recebimento#contas`;
+
 /** Abas folha sob a seção Operações (legado; hub usa abas planas). */
 export const FINANCEIRO_CAIXA_LEAF_TABS = ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'];
 
 /** Aba operacional do hub — extrato / lançamentos contábeis (legado: razao). */
 export const FINANCEIRO_EXTRATO_TAB = 'extrato';
+
+/** Abas gerenciais ocultas para recepcionista (member); URL direta redireciona ao fallback. */
+export const FINANCEIRO_MEMBER_RESTRICTED_TABS = new Set([
+  'previsao',
+  'fechamento',
+  'conciliacao',
+  FINANCEIRO_EXTRATO_TAB,
+]);
 
 /** Slugs legados redirecionados para Minha academia → Financeiro. */
 const REDIRECT_TO_EMPRESA_CONFIG = new Set([
@@ -41,6 +52,16 @@ const TAB_TO_SECTION = {
   plano: FINANCEIRO_SECTIONS.CONFIG,
   contabilidade: FINANCEIRO_SECTIONS.CONFIG,
   dre: 'dre',
+};
+
+const HUB_TAB_LABELS = {
+  [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
+  [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Mensalidades',
+  movimentacoes: 'Lançamentos',
+  previsao: 'Previsão',
+  fechamento: 'Conferência do mês',
+  conciliacao: 'Conciliação',
+  [FINANCEIRO_EXTRATO_TAB]: 'Extrato contábil',
 };
 
 /** Mapeia ?tab= legado do hub (ex-/caixa) para slug folha. */
@@ -74,32 +95,91 @@ export function getFinanceiroSectionForTab(tab) {
   return TAB_TO_SECTION[id] || FINANCEIRO_SECTIONS.OVERVIEW;
 }
 
-export function buildFinanceiroMemberLeafTabs({ financeModule }) {
-  const tabs = ['movimentacoes'];
+/** Indica se a URL trouxe ?tab= explícito (vs. ausência de parâmetro). */
+export function hasExplicitFinanceiroTabParam(tabParam) {
+  return String(tabParam ?? '').trim().length > 0;
+}
+
+/**
+ * Aba padrão do hub conforme perfil (sem ?tab= ou slug inválido).
+ * Aceita `navRole` ('owner' | 'admin' | 'member') ou `{ isOwner, isAdmin }`.
+ */
+export function getFinanceiroDefaultTab(navRoleOrAccess) {
+  if (navRoleOrAccess && typeof navRoleOrAccess === 'object') {
+    const { isOwner, isAdmin } = navRoleOrAccess;
+    if (isOwner || isAdmin) return FINANCEIRO_SECTIONS.OVERVIEW;
+    return FINANCEIRO_SECTIONS.MENSALIDADES;
+  }
+  return navRoleOrAccess === 'member'
+    ? FINANCEIRO_SECTIONS.MENSALIDADES
+    : FINANCEIRO_SECTIONS.OVERVIEW;
+}
+
+export function buildFinanceiroMemberLeafTabs() {
+  return ['movimentacoes'];
+}
+
+export function buildFinanceiroAdminLeafTabs({ financeModule }) {
+  const tabs = buildFinanceiroMemberLeafTabs();
   if (financeModule) tabs.push('previsao', 'fechamento');
   return tabs;
 }
 
 export function buildFinanceiroOwnerLeafTabs({ financeModule }) {
-  const tabs = buildFinanceiroMemberLeafTabs({ financeModule });
+  const tabs = buildFinanceiroAdminLeafTabs({ financeModule });
   if (financeModule) {
     tabs.push('conciliacao', FINANCEIRO_EXTRATO_TAB);
   }
   return tabs;
 }
 
-export function buildFinanceiroAllowedLeafTabs({ isOwner, financeModule }) {
+function buildFinanceiroOperationalLeafTabs(navRole, financeModule) {
+  if (navRole === 'owner') return buildFinanceiroOwnerLeafTabs({ financeModule });
+  if (navRole === 'admin') return buildFinanceiroAdminLeafTabs({ financeModule });
+  return buildFinanceiroMemberLeafTabs();
+}
+
+export function buildFinanceiroAllowedLeafTabs({ navRole, financeModule, isOwner }) {
+  const role =
+    navRole ||
+    (isOwner === true ? 'owner' : isOwner === false ? 'member' : 'member');
   const base = [FINANCEIRO_SECTIONS.OVERVIEW, FINANCEIRO_SECTIONS.MENSALIDADES];
-  const operational = isOwner
-    ? buildFinanceiroOwnerLeafTabs({ financeModule })
-    : buildFinanceiroMemberLeafTabs({ financeModule });
+  const operational = buildFinanceiroOperationalLeafTabs(role, financeModule);
   return [...base, ...operational];
 }
 
-export function buildFinanceiroManagerLeafTabs({ isOwner, financeModule }) {
-  const base = [FINANCEIRO_SECTIONS.OVERVIEW, FINANCEIRO_SECTIONS.MENSALIDADES];
-  const operational = isOwner
-    ? buildFinanceiroOwnerLeafTabs({ financeModule })
-    : buildFinanceiroMemberLeafTabs({ financeModule });
-  return [...base, ...operational];
+/** @deprecated Prefer buildFinanceiroAllowedLeafTabs({ navRole, financeModule }) */
+export function buildFinanceiroManagerLeafTabs({ navRole, isOwner, financeModule }) {
+  return buildFinanceiroAllowedLeafTabs({ navRole, isOwner, financeModule });
+}
+
+function orderFinanceiroHubTabIds(navRole, tabIds) {
+  if (navRole === 'member') {
+    const memberOrder = [
+      FINANCEIRO_SECTIONS.MENSALIDADES,
+      'movimentacoes',
+      FINANCEIRO_SECTIONS.OVERVIEW,
+    ];
+    const set = new Set(tabIds);
+    return [
+      ...memberOrder.filter((id) => set.has(id)),
+      ...tabIds.filter((id) => !memberOrder.includes(id)),
+    ];
+  }
+  return tabIds;
+}
+
+/** Itens do HubTabBar do /financeiro (ordem e visibilidade por perfil). */
+export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner }) {
+  const role =
+    navRole ||
+    (isOwner === true ? 'owner' : isOwner === false ? 'member' : 'member');
+  const ids = orderFinanceiroHubTabIds(
+    role,
+    buildFinanceiroAllowedLeafTabs({ navRole: role, financeModule })
+  );
+  return ids.map((id) => ({
+    id,
+    label: HUB_TAB_LABELS[id] || id,
+  }));
 }

@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
 import { Download, ShoppingBag } from 'lucide-react';
 import { channelLabel } from '../../lib/salesSettings';
 import { formatBRL } from '../../lib/moneyBr';
@@ -9,13 +18,34 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
+import ReportKpiCard from './shared/ReportKpiCard.jsx';
+import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportDataTable from './shared/ReportDataTable.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
 import '../finance/finance.css';
+import './reports.css';
+
+const CHART_COLOR = 'var(--color-primary, var(--petroleo, #003654))';
+
+function ChannelTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div className="reports-chart-tooltip">
+      <strong>{row.label}</strong>
+      <div>{formatBRL(row.total)}</div>
+      <div className="text-small text-muted">{row.pct}% do total</div>
+    </div>
+  );
+}
 
 export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [productsModalOpen, setProductsModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,15 +79,34 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
     }),
     [data]
   );
-  const byChannel = useMemo(
-    () =>
-      (data?.byChannel || []).map((r) => ({
+
+  const byChannel = useMemo(() => {
+    const total = Number(data?.concludedTotal) || 0;
+    return (data?.byChannel || []).map((r) => {
+      const amt = Number(r.total) || 0;
+      return {
         canal: r.canal,
         label: channelLabel(r.canal),
-        total: r.total,
-      })),
-    [data]
-  );
+        total: amt,
+        pct: total > 0 ? Math.round((amt / total) * 100) : 0,
+      };
+    });
+  }, [data]);
+
+  const topProducts = useMemo(() => {
+    const total = Number(data?.concludedTotal) || 0;
+    return (data?.byProduct || [])
+      .map((p) => ({
+        id: p.product_id,
+        nome: p.nome || 'Produto',
+        qty: Number(p.qty) || 0,
+        total: Number(p.total) || 0,
+        pct: total > 0 ? Math.round(((Number(p.total) || 0) / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [data]);
+
+  const top5 = useMemo(() => topProducts.slice(0, 5), [topProducts]);
   const ticketMedio = data?.ticketMedio ?? 0;
 
   const exportCsv = () => {
@@ -67,6 +116,11 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
       { metrica: 'Ticket médio', valor: ticketMedio },
       { metrica: 'Cancelamentos', valor: totals.cancelCount },
       ...byChannel.map((c) => ({ metrica: `Canal — ${c.label}`, valor: c.total })),
+      ...topProducts.map((p) => ({
+        metrica: `Produto — ${p.nome}`,
+        valor: p.total,
+        quantidade: p.qty,
+      })),
     ];
     downloadCsv(rows, `relatorio-loja-${from}_${to}.csv`);
   };
@@ -90,8 +144,31 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
     );
   }
 
+  const exportAction = (
+    <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
+      <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
+      Exportar CSV
+    </button>
+  );
+
+  const productColumns = [
+    { key: 'nome', label: 'Produto' },
+    { key: 'qty', label: 'Qtd vendida', align: 'right' },
+    {
+      key: 'total',
+      label: 'Faturamento',
+      align: 'right',
+      render: (row) => formatBRL(row.total),
+    },
+    {
+      key: 'pct',
+      label: '% do total',
+      align: 'right',
+      render: (row) => `${row.pct}%`,
+    },
+  ];
+
   return (
-    <>
     <div className="mt-4">
       {loading ? (
         <div className="card" style={{ padding: 16 }}>
@@ -121,57 +198,76 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
               Lista de vendas pode estar truncada no servidor — reduza o período se os totais parecerem baixos.
             </p>
           ) : null}
-          <div className="flex justify-end mb-2">
-            <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
-              <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
-              Exportar CSV
-            </button>
-          </div>
+          <div className="flex justify-end mb-2">{exportAction}</div>
           <div className="reports-kpi-grid">
-            <div className="reports-kpi-card reports-kpi-card--accent">
-              <div className="reports-kpi-card-head">
-                <span className="reports-kpi-label">Vendas concluídas</span>
-              </div>
-              <div className="reports-kpi-value">{totals.concludedCount}</div>
-            </div>
-            <div className="reports-kpi-card reports-kpi-card--success">
-              <div className="reports-kpi-card-head">
-                <span className="reports-kpi-label">Faturamento</span>
-              </div>
-              <div className="reports-kpi-value">{formatBRL(totals.concludedTotal)}</div>
-            </div>
-            <div className="reports-kpi-card reports-kpi-card--warning">
-              <div className="reports-kpi-card-head">
-                <span className="reports-kpi-label">Ticket médio</span>
-              </div>
-              <div className="reports-kpi-value">{formatBRL(ticketMedio)}</div>
-            </div>
-            <div className="reports-kpi-card reports-kpi-card--danger">
-              <div className="reports-kpi-card-head">
-                <span className="reports-kpi-label">Cancelamentos</span>
-              </div>
-              <div className="reports-kpi-value">{totals.cancelCount}</div>
-            </div>
+            <ReportKpiCard label="Vendas concluídas" value={totals.concludedCount} highlight="default" />
+            <ReportKpiCard label="Faturamento" value={formatBRL(totals.concludedTotal)} highlight="success" />
+            <ReportKpiCard label="Ticket médio" value={formatBRL(ticketMedio)} highlight="warning" />
+            <ReportKpiCard label="Cancelamentos" value={totals.cancelCount} highlight="danger" />
           </div>
 
-          {byChannel.length > 0 ? (
-            <div className="card mt-4 finance-reports-block" style={{ padding: '16px 18px' }}>
-              <h4 className="navi-section-heading" style={{ marginBottom: 12 }}>
-                Faturamento por canal
-              </h4>
-              <div>
-                {byChannel.map(({ canal, label, total }) => (
-                  <div key={canal} className="finance-reports-row">
-                    <span>{label}</span>
-                    <span>{formatBRL(total)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <div className="reports-chart-block card mt-4">
+            <ReportSectionHeading title="Por canal de venda" />
+            {byChannel.length === 0 ? (
+              <EmptyState
+                insideCard
+                variant="compact"
+                tone="dashed"
+                title="Sem vendas por canal"
+                description="Não há faturamento por canal neste período."
+                role="status"
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(160, byChannel.length * 44)}>
+                <BarChart data={byChannel} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+                  <XAxis type="number" tickFormatter={(v) => formatBRL(v)} tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="label" width={100} tick={{ fontSize: 12 }} />
+                  <Tooltip content={<ChannelTooltip />} />
+                  <Bar dataKey="total" radius={[0, 6, 6, 0]}>
+                    {byChannel.map((entry) => (
+                      <Cell key={entry.canal} fill={CHART_COLOR} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="card mt-4" style={{ padding: '16px 18px' }}>
+            <ReportSectionHeading title="Produtos mais vendidos" />
+            <ReportDataTable
+              columns={productColumns}
+              rows={top5}
+              emptyMessage="Nenhum produto vendido no período."
+              loading={false}
+              footer={
+                topProducts.length > 5 ? (
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    onClick={() => setProductsModalOpen(true)}
+                  >
+                    Ver todos →
+                  </button>
+                ) : null
+              }
+            />
+          </div>
+
+          <ModalShell
+            open={productsModalOpen}
+            onClose={() => setProductsModalOpen(false)}
+            title="Produtos no período"
+            maxWidth={720}
+          >
+            <ReportDataTable
+              columns={productColumns}
+              rows={topProducts}
+              emptyMessage="Nenhum produto."
+            />
+          </ModalShell>
         </>
       )}
     </div>
-    </>
   );
 }

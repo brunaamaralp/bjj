@@ -77,10 +77,12 @@ export default function MensalidadesListTable({
   handleEstornar,
   configuredTurmas = [],
   canReverse = true,
+  linkStudentProfile = false,
   navRole = 'member',
 }) {
   const reverseBlocked = !canReverse;
   const reverseBlockedTitle = 'Apenas gestores podem estornar pagamentos.';
+  const profileLinkTitle = 'Acesso ao perfil financeiro disponível para gestores';
   const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState({});
   const [confirmPayment, setConfirmPayment] = useState(null);
@@ -139,14 +141,38 @@ export default function MensalidadesListTable({
     });
   }, [studentsByGroup, displayedStudents.length]);
 
-  const handleStudentActivate = (student, { canRegister }) => {
-    const id = String(student?.id || '').trim();
-    if (!id) return;
+  const renderStudentName = (student, { canRegister, displayName, mobile = false }) => {
+    const title = displayName !== '—' ? displayName : undefined;
+    const btnClass = mobile
+      ? 'mensal-mobile-card__name mensal-cell-name__btn'
+      : 'mensal-cell-name__title mensal-cell-name__btn';
     if (canRegister) {
-      openPaymentModal(student);
-      return;
+      return (
+        <button type="button" className={btnClass} title={title} onClick={() => openPaymentModal(student)}>
+          {displayName}
+        </button>
+      );
     }
-    navigate(`/student/${id}`);
+    if (linkStudentProfile) {
+      return (
+        <button
+          type="button"
+          className={btnClass}
+          title={title}
+          onClick={() => navigate(`/student/${student.id}`)}
+        >
+          {displayName}
+        </button>
+      );
+    }
+    return (
+      <span
+        className={mobile ? 'mensal-mobile-card__name' : 'mensal-cell-name__title'}
+        title={profileLinkTitle}
+      >
+        {displayName}
+      </span>
+    );
   };
 
   const renderStudentRow = (student, rowIndex) => {
@@ -244,14 +270,7 @@ export default function MensalidadesListTable({
       <tr key={student.id} className={rowClass} title={isPaid ? paidTooltip : undefined}>
         <td>
           <div className="mensal-cell-name">
-            <button
-              type="button"
-              className="mensal-cell-name__title mensal-cell-name__btn"
-              title={displayName !== '—' ? displayName : undefined}
-              onClick={() => handleStudentActivate(student, { canRegister })}
-            >
-              {displayName}
-            </button>
+            {renderStudentName(student, { canRegister, displayName })}
             <span className="mensal-cell-name__plan">{student.plan || '—'}</span>
           </div>
         </td>
@@ -385,14 +404,11 @@ export default function MensalidadesListTable({
       <article key={student.id} className={`mensal-mobile-card mensal-mobile-card--${rowTone}`}>
         <div className="mensal-mobile-card__head">
           <div className="mensal-mobile-card__head-text">
-            <button
-              type="button"
-              className="mensal-mobile-card__name mensal-cell-name__btn"
-              title={displayName !== '—' ? displayName : undefined}
-              onClick={() => handleStudentActivate(student, { canRegister })}
-            >
-              {displayName}
-            </button>
+            {renderStudentName(student, {
+              canRegister,
+              displayName,
+              mobile: true,
+            })}
             <div className="mensal-mobile-card__meta">
               {student.plan || '—'} · {vencLabel}
             </div>

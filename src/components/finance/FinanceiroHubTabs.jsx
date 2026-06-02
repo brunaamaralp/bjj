@@ -1,30 +1,23 @@
 import React, { useMemo } from 'react';
 import HubTabBar from '../shared/HubTabBar.jsx';
-import { FINANCEIRO_SECTIONS, FINANCEIRO_EXTRATO_TAB } from '../../lib/financeiroHubTabs.js';
+import { buildFinanceiroHubTabItems } from '../../lib/financeiroHubTabs.js';
 
 /**
  * Abas de primeiro nível do hub Financeiro (sem Contabilidade / plano / razão / DRE soltos).
  * @param {string} activeLeafTab — slug em ?tab=
  * @param {(leafTab: string) => void} onLeafChange
- * @param {{ isOwner: boolean, financeModule: boolean }} access
+ * @param {{ navRole?: string, isOwner?: boolean, financeModule: boolean }} access
  */
 export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access }) {
-  const topTabs = useMemo(() => {
-    const tabs = [
-      { id: FINANCEIRO_SECTIONS.OVERVIEW, label: 'Visão Geral' },
-      { id: FINANCEIRO_SECTIONS.MENSALIDADES, label: 'Mensalidades' },
-      { id: 'movimentacoes', label: 'Lançamentos' },
-    ];
-    if (access?.financeModule) {
-      tabs.push({ id: 'previsao', label: 'Previsão' });
-      tabs.push({ id: 'fechamento', label: 'Fechamento mensal' });
-    }
-    if (access?.isOwner && access?.financeModule) {
-      tabs.push({ id: 'conciliacao', label: 'Conciliação' });
-      tabs.push({ id: FINANCEIRO_EXTRATO_TAB, label: 'Extrato contábil' });
-    }
-    return tabs;
-  }, [access?.financeModule, access?.isOwner]);
+  const topTabs = useMemo(
+    () =>
+      buildFinanceiroHubTabItems({
+        navRole: access?.navRole,
+        isOwner: access?.isOwner,
+        financeModule: access?.financeModule,
+      }),
+    [access?.navRole, access?.isOwner, access?.financeModule]
+  );
 
   return (
     <div className="financeiro-hub-tabs">

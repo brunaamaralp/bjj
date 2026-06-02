@@ -382,6 +382,7 @@ export default function NaviSidebarNav({
 }) {
   const isOwner = navRole === 'owner';
   const location = useLocation();
+  const navigate = useNavigate();
   const [expandedAccordionId, setExpandedAccordionId] = useState(null);
 
   const navModel = useMemo(
@@ -439,17 +440,31 @@ export default function NaviSidebarNav({
             ) : null}
           </div>
         ) : null}
-        {navModel.primary.map((item) => (
-          <SideNavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            label={item.label}
-            Icon={ICONS[item.iconKey] || LayoutGrid}
-            collapsed={collapsed}
-            className={sideLinkClass}
-          />
-        ))}
+        {navModel.primary.map((item) =>
+          item.to === '/pipeline' ? (
+            <SideNavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              label={item.label}
+              Icon={ICONS[item.iconKey] || LayoutGrid}
+              collapsed={collapsed}
+              className={sideLinkClass}
+              useNavLink={false}
+              onClick={() => navigate('/pipeline', { state: { fresh: true } })}
+            />
+          ) : (
+            <SideNavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              label={item.label}
+              Icon={ICONS[item.iconKey] || LayoutGrid}
+              collapsed={collapsed}
+              className={sideLinkClass}
+            />
+          )
+        )}
       </SidebarSection>
 
       <SidebarSection title="Atendimento" collapsed={collapsed} showDivider>

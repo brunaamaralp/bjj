@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   Kanban,
@@ -47,6 +47,8 @@ const ICONS = {
   vendas: Receipt,
 };
 
+const PIPELINE_PATH = '/pipeline';
+
 export default function NaviMobileDrawer({
   open,
   onClose,
@@ -54,6 +56,7 @@ export default function NaviMobileDrawer({
   newLeadLabel,
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -120,6 +123,23 @@ export default function NaviMobileDrawer({
                     );
                   }
                   const active = isSidebarNavItemActive(item.toFull || item.to, location);
+                  const pathOnly = String(item.to || '').split('?')[0];
+                  if (pathOnly === PIPELINE_PATH) {
+                    return (
+                      <button
+                        key={`${item.to}-${item.label}`}
+                        type="button"
+                        className={`navi-mobile-drawer__link${active ? ' navi-mobile-drawer__link--active' : ''}`}
+                        onClick={() => {
+                          onClose();
+                          navigate(PIPELINE_PATH, { state: { fresh: true } });
+                        }}
+                      >
+                        <Icon size={20} strokeWidth={1.75} aria-hidden />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  }
                   return (
                     <NavLink
                       key={`${item.toFull || item.to}-${item.label}`}

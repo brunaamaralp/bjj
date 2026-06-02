@@ -1,5 +1,6 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
+import MessageBubble, { messageBubbleStatusFromMessage } from './MessageBubble.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ThreadState from './ThreadState';
 import ThreadSkeleton from './ThreadSkeleton';
@@ -103,6 +104,7 @@ export default function InboxThreadPanel(props) {
     listFilter,
     unarchiveConversation,
     handoffDurationPhrase,
+    retryFailedMessage,
   } = props;
 
   if (!selectedPhone) {
@@ -438,80 +440,38 @@ export default function InboxThreadPanel(props) {
                     const important = Boolean(selectedPhoneFlags?.important && selectedPhoneFlags.important[key]);
                     const senderKind = senderKindFromMessage(m);
                     const senderLabel = senderKind === 'ai' ? 'Agente IA' : senderKind === 'human' ? 'Humano' : 'Cliente';
+                    const bubbleSender = g.bubbleKind === 'user' ? 'user' : g.bubbleKind === 'ai' ? 'ai' : 'human';
+                    const sendFailed = Boolean(m?._sendFailed);
+                    const deliveryStatus = messageBubbleStatusFromMessage(m);
+                    const metaExtra = (
+                      <>
+                        {pinned ? ' • Fixada' : ''}
+                        {important ? ' • Importante' : ''}
+                      </>
+                    );
                     return (
-                      <div
+                      <MessageBubble
                         key={`${key}-${idx}`}
-                        data-msgkey={key}
-                        className={isSelected ? 'inbox-msg selected' : 'inbox-msg'}
-                        style={{ position: 'relative', paddingTop: idx === 0 ? 0 : 2 }}
+                        msgKey={key}
+                        layout="inner"
+                        direction={g.alignEnd ? 'outbound' : 'inbound'}
+                        sender={bubbleSender}
+                        timestamp={m?.timestamp}
+                        timeLabel={formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}
+                        status={deliveryStatus}
+                        onRetry={
+                          sendFailed && mid && typeof retryFailedMessage === 'function'
+                            ? () => retryFailedMessage(mid)
+                            : null
+                        }
+                        showSenderLabel={idx === 0 && g.bubbleKind !== 'user'}
+                        senderLabel={g.bubbleKind === 'ai' ? 'IA' : 'Você'}
+                        selected={isSelected}
+                        paddingTop={idx === 0 ? 0 : 2}
                         onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
-                      >
-                        {idx === 0 && g.bubbleKind !== 'user' && (
-                          <div
-                            className={`inbox-msg-sender-label ${
-                              g.bubbleKind === 'ai' ? 'inbox-msg-sender-label--ai' : 'inbox-msg-sender-label--human'
-                            }`}
-                          >
-                            {g.bubbleKind === 'ai' ? 'IA' : 'Você'}
-                          </div>
-                        )}
-                        {showTempBadge ? <InboxMediaTempLinkBadge /> : null}
-                        {otherMediaKind ? (
-                          <InboxMediaPlaceholder
-                            kind={otherMediaKind}
-                            mediaUrl={mediaUrlNorm}
-                            fileName={m?.fileName}
-                            onClickStop={stopBubbleClick}
-                          />
-                        ) : isAudioMsg ? (
-                          <InboxAudioPlayer
-                            mediaUrl={mediaUrlNorm}
-                            mimeType={mimeType}
-                            mediaStored={mediaStored}
-                            content={contentRaw}
-                            duration={m?.duration}
-                            onReconcile={reconcileLast24h}
-                            reconciling={waSyncing}
-                            whatsAppChatUrl={whatsAppChatUrl}
-                          />
-                        ) : isImageMsg ? (
-                          <InboxMediaImage
-                            mediaUrl={mediaUrlNorm}
-                            mediaStored={mediaStored}
-                            content={contentRaw}
-                            onOpenLightbox={setImageLightboxUrl}
-                            whatsAppChatUrl={whatsAppChatUrl}
-                          />
-                        ) : (
-                          <div className="inbox-msg-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
-                            {content}
-                          </div>
-                        )}
-                        {isLongMsg && (
-                          <button
-                            className="inbox-bubble-expand"
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setExpandedMsgs((prev) => {
-                                const base = prev && typeof prev === 'object' ? { ...prev } : {};
-                                if (expanded) delete base[key];
-                                else base[key] = true;
-                                return base;
-                              });
-                            }}
-                          >
-                            {expanded ? 'Ver menos ↑' : 'Ver mais ↓'}
-                          </button>
-                        )}
-                        <div className="inbox-msg-meta" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                          <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                            {formatTimeOnly(m?.timestamp) || formatWhen(m?.timestamp)}
-                            {pinned ? ' • Fixada' : ''}
-                            {important ? ' • Importante' : ''}
-                          </span>
-                          <div className="inbox-msg-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        metaExtra={metaExtra}
+                        actions={
+                          <>
                             <button
                               className="btn btn-outline inbox-mini-btn"
                               style={{ minHeight: 28, padding: '0 10px' }}
@@ -563,46 +523,94 @@ export default function InboxThreadPanel(props) {
                             >
                               {'\u22EF'}
                             </button>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                              {senderLabel}
-                            </span>
-                            {!!String(statusLower || '').trim() && (
-                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Status: {statusLower}
-                              </span>
-                            )}
-                            {isScheduled && (
-                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Agendada: {formatWhen(scheduledAt)}
-                              </span>
-                            )}
-                            {isCanceled && (
-                              <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                                Cancelada: {canceledAt ? formatWhen(canceledAt) : '—'}
-                              </span>
-                            )}
-                            {canCancel && (
-                              <button
-                                className="btn btn-outline"
-                                style={{ minHeight: 28, padding: '0 10px' }}
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  cancelScheduledMessage(mid);
-                                }}
-                                disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
-                              >
-                                {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar agendamento'}
-                              </button>
-                            )}
-                          </div>
+                          </>
+                        }
+                        details={
+                          isSelected ? (
+                            <div className="inbox-msg-details">
+                              <span className="text-small inbox-msg-details__item">{senderLabel}</span>
+                              {!!String(statusLower || '').trim() && (
+                                <span className="text-small inbox-msg-details__item">
+                                  Status: {statusLower}
+                                </span>
+                              )}
+                              {isScheduled && (
+                                <span className="text-small inbox-msg-details__item">
+                                  Agendada: {formatWhen(scheduledAt)}
+                                </span>
+                              )}
+                              {isCanceled && (
+                                <span className="text-small inbox-msg-details__item">
+                                  Cancelada: {canceledAt ? formatWhen(canceledAt) : '—'}
+                                </span>
+                              )}
+                              {canCancel && (
+                                <button
+                                  className="btn btn-outline inbox-msg-details__btn"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    cancelScheduledMessage(mid);
+                                  }}
+                                  disabled={Boolean(cancelingMsgId) || cancelingMsgId === mid}
+                                >
+                                  {cancelingMsgId === mid ? 'Cancelando…' : 'Cancelar agendamento'}
+                                </button>
+                              )}
+                            </div>
+                          ) : null
+                        }
+                      >
+                        {showTempBadge ? <InboxMediaTempLinkBadge /> : null}
+                        {otherMediaKind ? (
+                          <InboxMediaPlaceholder
+                            kind={otherMediaKind}
+                            mediaUrl={mediaUrlNorm}
+                            fileName={m?.fileName}
+                            onClickStop={stopBubbleClick}
+                          />
+                        ) : isAudioMsg ? (
+                          <InboxAudioPlayer
+                            mediaUrl={mediaUrlNorm}
+                            mimeType={mimeType}
+                            mediaStored={mediaStored}
+                            content={contentRaw}
+                            duration={m?.duration}
+                            onReconcile={reconcileLast24h}
+                            reconciling={waSyncing}
+                            whatsAppChatUrl={whatsAppChatUrl}
+                          />
+                        ) : isImageMsg ? (
+                          <InboxMediaImage
+                            mediaUrl={mediaUrlNorm}
+                            mediaStored={mediaStored}
+                            content={contentRaw}
+                            onOpenLightbox={setImageLightboxUrl}
+                            whatsAppChatUrl={whatsAppChatUrl}
+                          />
+                        ) : (
+                          <div className="inbox-msg-text inbox-msg-text--pre">{content}</div>
                         )}
-                      </div>
+                        {isLongMsg && (
+                          <button
+                            className="inbox-bubble-expand"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExpandedMsgs((prev) => {
+                                const base = prev && typeof prev === 'object' ? { ...prev } : {};
+                                if (expanded) delete base[key];
+                                else base[key] = true;
+                                return base;
+                              });
+                            }}
+                          >
+                            {expanded ? 'Ver menos ↑' : 'Ver mais ↓'}
+                          </button>
+                        )}
+                      </MessageBubble>
                     );
                   })}
                 </div>

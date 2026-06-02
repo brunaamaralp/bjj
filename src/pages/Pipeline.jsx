@@ -6,7 +6,7 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2 } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
@@ -55,10 +55,22 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import Hint from '../components/shared/Hint.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import StageBadge from '../components/shared/StageBadge.jsx';
 import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
 import { getPipelineStageColor } from '../lib/pipelineStageColors.js';
 import { partitionLeadAttributePills } from '../lib/pipelineLeadPills.js';
+import { canShowPipelineScheduleShortcut } from '../lib/pipelineScheduleShortcut.js';
 import PipelineAdvancedFilters, { currentMonthYm } from '../components/pipeline/PipelineAdvancedFilters.jsx';
+import {
+    clearPipelineSessionState,
+    collectColumnScrolls,
+    deriveActivePeriodChip,
+    LEAD_PROFILE_FROM_PIPELINE,
+    pipelineSessionInitialFilters,
+    pipelineSessionInitialQuickFilter,
+    readPipelineSessionState,
+    writePipelineSessionState,
+} from '../lib/pipelineSessionState.js';
 import {
     DropdownMenu,
     DropdownMenuPanel,
@@ -100,7 +112,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleSplitWaMain, toggleWaDropdown, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
@@ -123,6 +135,10 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
         maxHeight: 360,
         zIndex: PIPELINE_MENU_Z,
     });
+    const showScheduleShortcut = useMemo(
+        () => !isEnrolledCard && canShowPipelineScheduleShortcut(lead, mapLeadToStageId),
+        [lead, isEnrolledCard, mapLeadToStageId]
+    );
     const automationBadges = useMemo(
         () => getLeadAutomationBadges(lead, automationConfig),
         [lead, automationConfig]
@@ -147,7 +163,14 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                 ...props.style
             }}
             onMouseEnter={() => { if (!isEnrolledCard) void preloadLeadProfile(); }}
-            onClick={() => !isOverlay && navigate(isEnrolledCard ? `/student/${lead.id}` : `/lead/${lead.id}`)}
+            onClick={() => {
+                if (isOverlay) return;
+                if (onOpenLeadProfile) {
+                    onOpenLeadProfile(lead, isEnrolledCard);
+                    return;
+                }
+                navigate(isEnrolledCard ? `/student/${lead.id}` : `/lead/${lead.id}`);
+            }}
             {...props}
         >
             {slaAlert ? (
@@ -159,7 +182,14 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                 </span>
             ) : null}
             <div className="lead-card-title-row lead-card-title-row--name-only flex items-center gap-2">
-                {stageColor ? <span className="lead-card-stage-dot" style={{ background: stageColor }} aria-hidden /> : null}
+                {pipelineStageId ? (
+                    <StageBadge
+                        stage={String(pipelineStageId)}
+                        colorIndex={pipelineStageColorIndex}
+                        size="sm"
+                        showLabel={false}
+                    />
+                ) : null}
                 <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
                     {lead.name}
                 </span>
@@ -216,26 +246,19 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                 </div>
             ) : null}
             <div className="action-bar action-bar--reorganized lead-card-actions">
-                <div className="wa-split-btn" data-no-dnd="true">
-                    <button
-                        type="button"
-                        className="wa-main-btn"
-                        onClick={(e) => handleSplitWaMain(e, lead)}
-                        title="Conversar no WhatsApp"
-                        aria-label="Conversar no WhatsApp"
-                    >
-                        <MessageCircle size={16} aria-hidden />
-                    </button>
+                <div className="lead-card-actions-primary" data-no-dnd="true">
+                <div className="wa-split-btn wa-split-btn--single" data-no-dnd="true">
                     <button
                         ref={waToggleRef}
                         type="button"
-                        className="wa-drop-toggle"
-                        onClick={(e) => toggleWaDropdown(e, lead.id)}
-                        title="Templates"
+                        className="wa-main-btn btn-wa wa-main-btn--solo"
+                        onClick={(e) => handleWaCardClick(e, lead)}
+                        title="Enviar template WhatsApp"
+                        aria-label="Enviar template WhatsApp"
                         aria-expanded={isWaMenuOpen}
                         aria-haspopup="menu"
                     >
-                        <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                        <MessageCircle size={16} aria-hidden />
                     </button>
                     {isWaMenuOpen && waMenuStyle
                         ? createPortal(
@@ -266,6 +289,23 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                             document.body,
                         )
                         : null}
+                </div>
+                {showScheduleShortcut ? (
+                    <button
+                        type="button"
+                        className="pipeline-card-schedule-btn action-btn navi-menu-trigger--icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                            setWaDropdownOpenId(null);
+                            onOpenScheduleModal(lead);
+                        }}
+                        title="Agendar aula experimental"
+                        aria-label="Agendar aula experimental"
+                    >
+                        <Calendar size={16} aria-hidden />
+                    </button>
+                ) : null}
                 </div>
 
                 <div className="pipeline-card-menu-trigger" data-no-dnd="true" data-pipeline-card-menu>
@@ -447,7 +487,7 @@ const SortableLeadCard = ({ lead, ...props }) => {
 
 const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
-function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, stageColor }) {
+function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, pipelineStageId, pipelineStageColorIndex }) {
     const shouldVirtualize = leads.length > PIPELINE_VIRTUAL_THRESHOLD;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
@@ -463,7 +503,8 @@ function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movin
             lead={lead}
             isMoving={savingLeadIds.has(lead.id) || movingLeadIds.has(lead.id)}
             slaAlert={slaAlerts[lead.id]}
-            stageColor={stageColor}
+            pipelineStageId={pipelineStageId}
+            pipelineStageColorIndex={pipelineStageColorIndex}
             {...cardProps}
         />
     );
@@ -516,6 +557,7 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
     return (
         <div
             ref={setColumnRef}
+            data-pipeline-stage-id={id}
             className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
         >
             <div className="col-header">
@@ -616,8 +658,9 @@ const MobileLeadList = React.memo(function MobileLeadList({
     enrolledForBoard,
     originFilter,
     navigate,
+    onOpenLeadProfile,
     mapLeadToStageId,
-    handleSplitWaMain,
+    handleWaCardClick,
     emptyStageHint,
     showLoading,
     moveToStatus,
@@ -709,10 +752,20 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                             tabIndex={0}
                                             className="pipeline-mobile-lead-row"
                                             onMouseEnter={() => { void preloadLeadProfile(); }}
-                                            onClick={() => navigate(`/lead/${lead.id}`)}
+                                            onClick={() => {
+                                                if (onOpenLeadProfile) {
+                                                    onOpenLeadProfile(lead, false);
+                                                    return;
+                                                }
+                                                navigate(`/lead/${lead.id}`);
+                                            }}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' || e.key === ' ') {
                                                     e.preventDefault();
+                                                    if (onOpenLeadProfile) {
+                                                        onOpenLeadProfile(lead, false);
+                                                        return;
+                                                    }
                                                     navigate(`/lead/${lead.id}`);
                                                 }
                                             }}
@@ -734,8 +787,8 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                 <button
                                                     type="button"
                                                     title="WhatsApp"
-                                                    className="pipeline-mobile-wa-btn"
-                                                    onClick={(e) => handleSplitWaMain(e, lead)}
+                                                    className="pipeline-mobile-wa-btn btn-wa"
+                                                    onClick={(e) => handleWaCardClick(e, lead)}
                                                 >
                                                     <MessageCircle size={16} aria-hidden />
                                                 </button>
@@ -745,6 +798,10 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                     className="pipeline-mobile-profile-link"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (onOpenLeadProfile) {
+                                                            onOpenLeadProfile(lead, false);
+                                                            return;
+                                                        }
                                                         navigate(`/lead/${lead.id}`);
                                                     }}
                                                 >
@@ -820,6 +877,19 @@ const MobileLeadList = React.memo(function MobileLeadList({
 
 const Pipeline = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const initialSavedRef = useRef(/** @type {import('../lib/pipelineSessionState.js').PipelineSessionState | null | undefined} */ (undefined));
+    if (initialSavedRef.current === undefined) {
+        if (location.state?.fresh) {
+            clearPipelineSessionState();
+            initialSavedRef.current = null;
+        } else {
+            initialSavedRef.current = readPipelineSessionState();
+        }
+    }
+    const initialSaved = initialSavedRef.current;
+    const isRestoringPipelineRef = useRef(Boolean(initialSaved));
+    const pendingScrollRestoreRef = useRef(initialSaved);
     const leads = useLeadStore((s) => s.leads);
     const students = useStudentStore((s) => s.students);
     const fetchStudents = useStudentStore((s) => s.fetchStudents);
@@ -879,6 +949,64 @@ const Pipeline = () => {
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const getLeadById = useLeadStore((s) => s.getLeadById);
     const kanbanWrapperRef = useRef(null);
+
+    const invalidatePipelineSession = useCallback(() => {
+        clearPipelineSessionState();
+    }, []);
+
+    const buildPipelineSessionSnapshot = useCallback(() => {
+        const activeFilters = {
+            profileFilter,
+            originFilter,
+            filterDateFrom,
+            filterDateTo,
+            enrollmentMonthFilter,
+            searchStageScope,
+            followupKanban: followupKanbanFilter,
+        };
+        return {
+            scrollX: kanbanWrapperRef.current?.scrollLeft ?? 0,
+            columnScrolls: collectColumnScrolls(kanbanWrapperRef.current),
+            searchTerm: kanbanSearch,
+            activeFilters,
+            activePeriodChip: deriveActivePeriodChip({
+                quickFilter,
+                filterDateFrom,
+                filterDateTo,
+                enrollmentMonthFilter,
+            }),
+        };
+    }, [
+        profileFilter,
+        originFilter,
+        filterDateFrom,
+        filterDateTo,
+        enrollmentMonthFilter,
+        searchStageScope,
+        followupKanbanFilter,
+        kanbanSearch,
+        quickFilter,
+    ]);
+
+    const openLeadProfile = useCallback(
+        (lead, isEnrolledCard = false) => {
+            const leadId = String(lead?.id || '').trim();
+            if (!leadId) return;
+            writePipelineSessionState(buildPipelineSessionSnapshot());
+            if (isEnrolledCard) {
+                navigate(`/student/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
+                return;
+            }
+            navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
+        },
+        [buildPipelineSessionSnapshot, navigate]
+    );
+
+    useEffect(() => {
+        if (!initialSaved?.activeFilters?.followupKanban) return;
+        if (searchParams.get('followup') === 'kanban') return;
+        setSearchParams({ followup: 'kanban' }, { replace: true });
+    }, []);
     const dragScrollRafRef = useRef(null);
     const lastDragClientXRef = useRef(null);
     const [showImport, setShowImport] = useState(false);
@@ -912,12 +1040,13 @@ const Pipeline = () => {
     const [tempStages, setTempStages] = useState(() =>
         buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
     );
-    const [originFilter, setOriginFilter] = useState('all'); // all | origin
-    const [searchParams] = useSearchParams();
+    const [originFilter, setOriginFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).originFilter);
+    const [searchParams, setSearchParams] = useSearchParams();
     const followupKanbanFilter = searchParams.get('followup') === 'kanban';
-    const [kanbanSearch, setKanbanSearch] = useState('');
-    const [profileFilter, setProfileFilter] = useState('all'); // all | Adulto | Criança | Juniores
-    const [searchStageScope, setSearchStageScope] = useState('all');
+    const slaCriticalFilter = searchParams.get('sla') === 'critical';
+    const [kanbanSearch, setKanbanSearch] = useState(() => String(initialSaved?.searchTerm ?? ''));
+    const [profileFilter, setProfileFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).profileFilter);
+    const [searchStageScope, setSearchStageScope] = useState(() => pipelineSessionInitialFilters(initialSaved).searchStageScope);
     const [waDropdownOpenId, setWaDropdownOpenId] = useState(null);
     const [missedModalLead, setMissedModalLead] = useState(null);
     const [activeId, setActiveId] = useState(null);
@@ -928,10 +1057,12 @@ const Pipeline = () => {
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
     const [dragTargetLead, setDragTargetLead] = useState(null);
     const [lostModalLead, setLostModalLead] = useState(null);
-    const [filterDateFrom, setFilterDateFrom] = useState('');
-    const [filterDateTo, setFilterDateTo] = useState('');
-    const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState('');
-    const [quickFilter, setQuickFilter] = useState(null);
+    const [filterDateFrom, setFilterDateFrom] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateFrom);
+    const [filterDateTo, setFilterDateTo] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateTo);
+    const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState(
+        () => pipelineSessionInitialFilters(initialSaved).enrollmentMonthFilter
+    );
+    const [quickFilter, setQuickFilter] = useState(() => pipelineSessionInitialQuickFilter(initialSaved));
     const [waOutbound, setWaOutbound] = useState(() => ({
         name: '',
         zapster_instance_id: '',
@@ -1056,6 +1187,9 @@ const Pipeline = () => {
     }, [academyId, fetchLeads]);
 
     const handleSearch = async (term) => {
+        if (!isRestoringPipelineRef.current) {
+            invalidatePipelineSession();
+        }
         setKanbanSearch(term);
 
         if (!term || term.trim().length < 2) return;
@@ -1178,14 +1312,16 @@ const Pipeline = () => {
         const mainEl = document.querySelector('.main-content');
         if (mainEl) {
             mainEl.classList.add('pipeline-active');
-            mainEl.scrollTop = 0;
-            requestAnimationFrame(() => {
-                try {
-                    mainEl.scrollTop = 0;
-                } catch {
-                    void 0;
-                }
-            });
+            if (!isRestoringPipelineRef.current) {
+                mainEl.scrollTop = 0;
+                requestAnimationFrame(() => {
+                    try {
+                        mainEl.scrollTop = 0;
+                    } catch {
+                        void 0;
+                    }
+                });
+            }
         }
         return () => {
             if (mainEl) mainEl.classList.remove('pipeline-active');
@@ -1285,6 +1421,7 @@ const Pipeline = () => {
     const sendTemplateFromPipeline = useCallback(async (e, lead, key) => {
         e.stopPropagation();
         setOpenMenuId(null);
+        setWaDropdownOpenId(null);
         await sendWhatsappTemplateOutbound({
             lead,
             academyId,
@@ -1323,15 +1460,22 @@ const Pipeline = () => {
         [toast]
     );
 
-    const handleWhatsApp = useCallback((e, lead) => {
-        e.stopPropagation();
-        const digits = normalizeKanbanPhone(lead?.phone);
-        if (!digits) {
-            toast.show({ type: 'error', message: `${contactLabel} sem telefone cadastrado` });
-            return;
-        }
-        navigate(`/inbox?phone=${encodeURIComponent(digits)}`);
-    }, [navigate, contactLabel, toast]);
+    const handleWaCardClick = useCallback(
+        (e, lead) => {
+            e.stopPropagation();
+            if (templateSendKeys.length === 0) {
+                toast.show({ type: 'error', message: 'Sem templates configurados' });
+                return;
+            }
+            if (templateSendKeys.length === 1) {
+                void sendTemplateFromPipeline(e, lead, templateSendKeys[0]);
+                return;
+            }
+            setWaDropdownOpenId((prev) => (prev === lead.id ? null : lead.id));
+            setOpenMenuId(null);
+        },
+        [templateSendKeys, sendTemplateFromPipeline, toast]
+    );
 
     const handleReschedule = async (lead, ymd, time, note) => {
         const patch = buildSchedulePatch(lead, { date: ymd, time });
@@ -1637,12 +1781,48 @@ const Pipeline = () => {
     ]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
+    const leadsForBoardDisplay = useMemo(() => {
+        if (!slaCriticalFilter) return leadsForBoard;
+        return leadsForBoard.filter((l) => slaAlerts[l.id]?.urgency === 'critical');
+    }, [leadsForBoard, slaAlerts, slaCriticalFilter]);
+
     const pipelineHeaderMeta = useMemo(() => {
         const total = leadsForBoard.length;
         const needHumanCount = leadsForBoard.filter((l) => l.needHuman).length;
         const slaCriticalCount = Object.values(slaAlerts).filter((a) => a?.urgency === 'critical').length;
         return { total, needHumanCount, slaCriticalCount };
     }, [leadsForBoard, slaAlerts]);
+
+    useEffect(() => {
+        const saved = pendingScrollRestoreRef.current;
+        if (!saved || showKanbanInitialLoading || isMobile) return;
+
+        let raf1 = 0;
+        let raf2 = 0;
+        raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => {
+                const wrapper = kanbanWrapperRef.current;
+                if (wrapper && Number.isFinite(saved.scrollX)) {
+                    wrapper.scrollLeft = saved.scrollX;
+                }
+                const columnScrolls = saved.columnScrolls || {};
+                wrapper?.querySelectorAll('[data-pipeline-stage-id]').forEach((el) => {
+                    const sid = el.getAttribute('data-pipeline-stage-id');
+                    if (sid && Number.isFinite(columnScrolls[sid])) {
+                        el.scrollTop = columnScrolls[sid];
+                    }
+                });
+                clearPipelineSessionState();
+                pendingScrollRestoreRef.current = null;
+                isRestoringPipelineRef.current = false;
+            });
+        });
+
+        return () => {
+            if (raf1) cancelAnimationFrame(raf1);
+            if (raf2) cancelAnimationFrame(raf2);
+        };
+    }, [showKanbanInitialLoading, isMobile, displayStages.length, leadsForBoard.length, enrolledForBoard.length]);
 
     const advancedFiltersActive =
         profileFilter !== 'all' ||
@@ -1661,6 +1841,9 @@ const Pipeline = () => {
     }, []);
 
     const handleAdvancedFilterChange = useCallback((patch) => {
+        if (!isRestoringPipelineRef.current) {
+            invalidatePipelineSession();
+        }
         if (patch.profileFilter !== undefined) setProfileFilter(patch.profileFilter);
         if (patch.originFilter !== undefined) setOriginFilter(patch.originFilter);
         if (patch.searchStageScope !== undefined) setSearchStageScope(patch.searchStageScope);
@@ -1668,12 +1851,15 @@ const Pipeline = () => {
         if (patch.filterDateFrom !== undefined) setFilterDateFrom(patch.filterDateFrom);
         if (patch.filterDateTo !== undefined) setFilterDateTo(patch.filterDateTo);
         if (patch.quickFilter !== undefined) setQuickFilter(patch.quickFilter);
-    }, []);
+    }, [invalidatePipelineSession]);
 
     const handleClearAdvancedFilters = useCallback(() => {
+        if (!isRestoringPipelineRef.current) {
+            invalidatePipelineSession();
+        }
         clearAdvancedFilters();
         setFiltersMenuOpen(false);
-    }, [clearAdvancedFilters]);
+    }, [clearAdvancedFilters, invalidatePipelineSession]);
 
     const pipelineHeaderMetaNode = showKanbanInitialLoading ? (
         'Carregando…'
@@ -1699,6 +1885,9 @@ const Pipeline = () => {
     const isCurrentEnrollmentMonth = enrollmentMonthFilter === currentMonthYm();
 
     const applyPeriodChip = useCallback((chip) => {
+        if (!isRestoringPipelineRef.current) {
+            invalidatePipelineSession();
+        }
         if (chip === 'today') {
             setQuickFilter('today');
             setEnrollmentMonthFilter('');
@@ -1721,7 +1910,7 @@ const Pipeline = () => {
             return;
         }
         clearAdvancedFilters();
-    }, [clearAdvancedFilters]);
+    }, [clearAdvancedFilters, invalidatePipelineSession]);
 
     const renderAdvancedFiltersPanel = () => (
         <PipelineAdvancedFilters
@@ -2063,16 +2252,6 @@ const Pipeline = () => {
         toast,
     ]);
 
-    const handleSplitWaMain = useCallback((e, lead) => {
-        e.stopPropagation();
-        handleWhatsApp(e, lead);
-    }, [handleWhatsApp]);
-
-    const toggleWaDropdown = useCallback((e, leadId) => {
-        e.stopPropagation();
-        setWaDropdownOpenId(prev => prev === leadId ? null : leadId);
-        setOpenMenuId(null);
-    }, []);
     const openNote = useCallback((e, lead) => {
         e.stopPropagation();
         setNoteLead(lead);
@@ -2110,14 +2289,14 @@ const Pipeline = () => {
     const cardProps = useMemo(
         () => ({
             navigate,
+            onOpenLeadProfile: openLeadProfile,
             openNote,
             openMenuId,
             scheduleModalLeadId,
             moverOpenId,
             setOpenMenuId,
             setWaDropdownOpenId,
-            handleSplitWaMain,
-            toggleWaDropdown,
+            handleWaCardClick,
             waDropdownOpenId,
             templateSendKeys,
             sendTemplateFromPipeline,
@@ -2143,6 +2322,7 @@ const Pipeline = () => {
         }),
         [
             navigate,
+            openLeadProfile,
             openNote,
             openMenuId,
             scheduleModalLeadId,
@@ -2158,8 +2338,7 @@ const Pipeline = () => {
             handleMarkAsLost,
             handleDeleteLead,
             canDeleteLead,
-            handleSplitWaMain,
-            toggleWaDropdown,
+            handleWaCardClick,
             handleConfirmPresence,
             openMover,
             mapLeadToStageId,
@@ -2223,7 +2402,7 @@ const Pipeline = () => {
                                 </DropdownMenu>
                                 <button
                                     type="button"
-                                    className="btn-action-primary"
+                                    className="btn-action-primary btn-primary-action"
                                     onClick={() => navigate('/new-lead')}
                                 >
                                     <PlusCircle size={14} /> Novo lead
@@ -2286,7 +2465,7 @@ const Pipeline = () => {
                             </DropdownMenu>
                             <button
                                 type="button"
-                                className="btn-action-primary"
+                                className="btn-action-primary btn-primary-action"
                                 onClick={() => navigate('/new-lead')}
                             >
                                 <PlusCircle size={14} aria-hidden /> Novo lead
@@ -2381,12 +2560,13 @@ const Pipeline = () => {
             {isMobile ? (
                 <MobileLeadList
                     stages={displayStages}
-                    leadsForBoard={leadsForBoard}
+                    leadsForBoard={leadsForBoardDisplay}
                     enrolledForBoard={enrolledForBoard}
                     originFilter={originFilter}
                     navigate={navigate}
+                    onOpenLeadProfile={openLeadProfile}
                     mapLeadToStageId={mapLeadToStageId}
-                    handleSplitWaMain={handleSplitWaMain}
+                    handleWaCardClick={handleWaCardClick}
                     emptyStageHint={`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}
                     showLoading={showKanbanInitialLoading}
                     moveToStatus={moveToStatus}
@@ -2431,7 +2611,7 @@ const Pipeline = () => {
                         }
 
                         const isEnrolledCol = String(col.id || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
-                        const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoard
+                        const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay
                             .filter(l => mapLeadToStageId(l) === col.id))
                             .filter(l => originFilter === 'all' ? true : boardContactOrigin(l) === originFilter)
                             .sort((a, b) => {
@@ -2472,7 +2652,8 @@ const Pipeline = () => {
                                         movingLeadIds={movingLeadIds}
                                         slaAlerts={slaAlerts}
                                         cardProps={cardProps}
-                                        stageColor={color.color}
+                                        pipelineStageId={col.id}
+                                        pipelineStageColorIndex={idx}
                                     />
                                 </SortableContext>
 
@@ -2522,8 +2703,7 @@ const Pipeline = () => {
                             moverOpenId={moverOpenId}
                             setOpenMenuId={setOpenMenuId}
                             setWaDropdownOpenId={setWaDropdownOpenId}
-                            handleSplitWaMain={handleSplitWaMain}
-                            toggleWaDropdown={toggleWaDropdown}
+                            handleWaCardClick={handleWaCardClick}
                             waDropdownOpenId={waDropdownOpenId}
                             templateSendKeys={templateSendKeys}
                             sendTemplateFromPipeline={sendTemplateFromPipeline}
@@ -2542,6 +2722,7 @@ const Pipeline = () => {
                             openMover={openMover}
                             setDragTargetLead={setDragTargetLead}
                             mapLeadToStageId={mapLeadToStageId}
+                            pipelineStageId={mapLeadToStageId(getLeadById(activeId))}
                             pipelineMenuTrialLc={terms.trial.toLowerCase()}
                             pipelineMenuAttendanceLc={terms.attendance.toLowerCase()}
                             pipelineMenuEnrollment={terms.enrollment}

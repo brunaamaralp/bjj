@@ -15,7 +15,10 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
+import ReportDataTable from './shared/ReportDataTable.jsx';
+import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import '../finance/finance.css';
+import './reports.css';
 
 const CONCILIATION_FILTER_OPTIONS = [
   { value: 'divergent', label: 'Divergentes' },
@@ -271,20 +274,30 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
     overscan: 10,
   });
 
-  const renderMoveRow = useCallback(
-    (r) => (
-      <tr key={r.move_id}>
-        <td>{formatMoveDate(r.date)}</td>
-        <td>{productSizeLabel(r)}</td>
-        <td>{r.movement_kind_label || r.tipo}</td>
-        <td>{r.cliente_nome}</td>
-        <td>{r.operador_nome}</td>
-        <td>{r.quantidade}</td>
-        <td>{r.unit_price != null ? formatBRL(r.unit_price) : '—'}</td>
-        <td>{r.line_total != null ? formatBRL(r.line_total) : '—'}</td>
-        <td>{r.payment_status_label || '—'}</td>
-        <td>
-          {r.sale_id ? (
+  const moveColumns = useMemo(
+    () => [
+      { key: 'date', label: 'Data', render: (r) => formatMoveDate(r.date) },
+      { key: 'product', label: 'Produto / tamanho', render: (r) => productSizeLabel(r) },
+      { key: 'tipo', label: 'Tipo', render: (r) => r.movement_kind_label || r.tipo },
+      { key: 'cliente_nome', label: 'Cliente' },
+      { key: 'operador_nome', label: 'Operador' },
+      { key: 'quantidade', label: 'Qtd' },
+      {
+        key: 'unit_price',
+        label: 'Valor unit.',
+        render: (r) => (r.unit_price != null ? formatBRL(r.unit_price) : '—'),
+      },
+      {
+        key: 'line_total',
+        label: 'Total linha',
+        render: (r) => (r.line_total != null ? formatBRL(r.line_total) : '—'),
+      },
+      { key: 'payment_status_label', label: 'Status pag.', render: (r) => r.payment_status_label || '—' },
+      {
+        key: 'sale_id',
+        label: 'Venda #',
+        render: (r) =>
+          r.sale_id ? (
             <button
               type="button"
               className="reports-moves-sale-chip"
@@ -295,11 +308,108 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
             </button>
           ) : (
             '—'
-          )}
-        </td>
-      </tr>
-    ),
+          ),
+      },
+    ],
     [openSaleDetail]
+  );
+
+  const concColumns = useMemo(
+    () => [
+      { key: 'date', label: 'Data', render: (r) => formatMoveDate(r.date) },
+      { key: 'product', label: 'Produto', render: (r) => productSizeLabel(r) },
+      { key: 'cliente_nome', label: 'Cliente' },
+      {
+        key: 'line_total',
+        label: 'Total',
+        render: (r) => (r.line_total != null ? formatBRL(r.line_total) : '—'),
+      },
+      { key: 'payment_status_at_move_label', label: 'Na saída' },
+      { key: 'status_atual_venda_label', label: 'Hoje' },
+      {
+        key: 'conciliacao_status_label',
+        label: 'Conciliação',
+        render: (r) => (
+          <span
+            className={`reports-conc-badge reports-conc-badge--${
+              r.conciliacao_status === 'ok'
+                ? 'ok'
+                : r.conciliacao_status === 'settled_after'
+                  ? 'info'
+                  : r.conciliacao_status === 'reversed' || r.conciliacao_status === 'cancelled_after'
+                    ? 'danger'
+                    : 'warn'
+            }`}
+          >
+            {r.conciliacao_status_label}
+          </span>
+        ),
+      },
+      {
+        key: 'sale_id',
+        label: 'Venda #',
+        render: (r) =>
+          r.sale_id ? (
+            <button
+              type="button"
+              className="reports-moves-sale-chip"
+              onClick={() => void openSaleDetail(r.sale_id)}
+            >
+              #{formatSaleIdShort(r.sale_id)}
+            </button>
+          ) : (
+            '—'
+          ),
+      },
+    ],
+    [openSaleDetail]
+  );
+
+  const renderMoveBody = useCallback(
+    ({ rows: bodyRows, columns }) => {
+      if (!shouldVirtualizeMoves) {
+        return bodyRows.map((r, index) => (
+          <tr key={r.move_id}>
+            {columns.map((col) => (
+              <td key={col.key}>{typeof col.render === 'function' ? col.render(r) : r[col.key] ?? '—'}</td>
+            ))}
+          </tr>
+        ));
+      }
+      const virtualItems = movesRowVirtualizer.getVirtualItems();
+      const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+      const paddingBottom =
+        virtualItems.length > 0
+          ? movesRowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+          : 0;
+      return (
+        <>
+          {paddingTop > 0 ? (
+            <tr aria-hidden="true">
+              <td colSpan={columns.length} style={{ height: paddingTop, padding: 0, border: 'none' }} />
+            </tr>
+          ) : null}
+          {virtualItems.map((virtualRow) => {
+            const r = bodyRows[virtualRow.index];
+            return (
+              <tr key={r.move_id}>
+                {columns.map((col) => (
+                  <td key={col.key}>
+                    {typeof col.render === 'function' ? col.render(r) : r[col.key] ?? '—'}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+          {paddingBottom > 0 ? (
+            <tr aria-hidden="true">
+              <td colSpan={columns.length} style={{ height: paddingBottom, padding: 0, border: 'none' }} />
+            </tr>
+          ) : null}
+        </>
+      );
+    },
+    [shouldVirtualizeMoves, movesRowVirtualizer]
   );
 
   const exportCsv = () => {
@@ -339,49 +449,6 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
 
   return (
     <>
-      <style>{`
-        .reports-moves-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; align-items: flex-end; }
-        .reports-moves-filters .form-group { margin: 0; min-width: 140px; }
-        .reports-moves-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .reports-moves-table th, .reports-moves-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border, #e5e5ef); }
-        .reports-moves-table th { font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted, #666); }
-        .reports-moves-footer { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #e5e5ef); font-size: 0.9rem; }
-        .reports-moves-sale-chip { display: inline-flex; padding: 2px 8px; border-radius: 6px; border: none; background: var(--surface-2, #f0f0f8); font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--accent, #4f46e5); font-family: inherit; }
-        .reports-moves-sale-chip:hover { text-decoration: underline; }
-        .reports-moves-view-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-        .reports-moves-view-tabs button { font-family: inherit; }
-        .reports-conc-row--warn { background: rgba(234, 179, 8, 0.08); }
-        .reports-conc-row--danger { background: rgba(220, 38, 38, 0.06); }
-        .reports-conc-row--ok-later { background: rgba(59, 130, 246, 0.06); }
-        .reports-conc-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
-        .reports-conc-badge--warn { background: #fef3c7; color: #92400e; }
-        .reports-conc-badge--danger { background: #fee2e2; color: #991b1b; }
-        .reports-conc-badge--info { background: #dbeafe; color: #1e40af; }
-        .reports-conc-badge--ok { background: #dcfce7; color: #166534; }
-        .reports-mov-table-wrap {
-          max-height: calc(100vh - 360px);
-          overflow: auto;
-          -webkit-overflow-scrolling: touch;
-          position: relative;
-        }
-        .reports-mov-table-wrap .reports-moves-table thead th {
-          position: sticky;
-          top: 0;
-          z-index: 1;
-          background: var(--surface, #fff);
-        }
-        .reports-mov-table-wrap::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 32px;
-          height: 100%;
-          background: linear-gradient(to right, transparent, var(--surface, rgba(255, 255, 255, 0.9)));
-          pointer-events: none;
-          z-index: 1;
-        }
-      `}</style>
       <div className="mt-4">
         <div className="reports-moves-view-tabs" role="tablist">
           <button
@@ -427,25 +494,21 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
             {concError ? <ErrorBanner message={friendlyError(concError, 'load')} className="mt-3" /> : null}
             {!concLoading && !concError ? (
               <div className="card" style={{ padding: 16 }}>
-                <div className="flex justify-between items-center gap-2 mb-3">
-                  <div>
-                    <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                      Saídas de estoque vs pagamento atual
-                    </h3>
-                    <p className="text-small text-muted" style={{ margin: '6px 0 0' }}>
-                      Compara o status gravado na movimentação com SALES + Caixa hoje.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-outline btn-sm"
-                    onClick={exportConciliationCsv}
-                    disabled={!concRows.length}
-                  >
-                    <Download size={14} aria-hidden />
-                    Exportar CSV
-                  </button>
-                </div>
+                <ReportSectionHeading
+                  title="Saídas de estoque vs pagamento atual"
+                  subtitle="Compara o status gravado na movimentação com SALES + Caixa hoje."
+                  action={
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm"
+                      onClick={exportConciliationCsv}
+                      disabled={!concRows.length}
+                    >
+                      <Download size={14} aria-hidden />
+                      Exportar CSV
+                    </button>
+                  }
+                />
                 {concSummary ? (
                   <div className="reports-moves-footer" style={{ marginTop: 0, marginBottom: 12, borderTop: 'none' }}>
                     <span>
@@ -472,63 +535,14 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                     role="status"
                   />
                 ) : (
-                  <div className="reports-mov-table-wrap">
-                    <table className="reports-moves-table">
-                      <thead>
-                        <tr>
-                          <th>Data</th>
-                          <th>Produto</th>
-                          <th>Cliente</th>
-                          <th>Total</th>
-                          <th>Na saída</th>
-                          <th>Hoje</th>
-                          <th>Conciliação</th>
-                          <th>Venda #</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {concRows.map((r) => (
-                          <tr key={r.move_id} className={conciliationRowClass(r.conciliacao_status)}>
-                            <td>{formatMoveDate(r.date)}</td>
-                            <td>{productSizeLabel(r)}</td>
-                            <td>{r.cliente_nome}</td>
-                            <td>{r.line_total != null ? formatBRL(r.line_total) : '—'}</td>
-                            <td>{r.payment_status_at_move_label}</td>
-                            <td>{r.status_atual_venda_label}</td>
-                            <td>
-                              <span
-                                className={`reports-conc-badge reports-conc-badge--${
-                                  r.conciliacao_status === 'ok'
-                                    ? 'ok'
-                                    : r.conciliacao_status === 'settled_after'
-                                      ? 'info'
-                                      : r.conciliacao_status === 'reversed' ||
-                                          r.conciliacao_status === 'cancelled_after'
-                                        ? 'danger'
-                                        : 'warn'
-                                }`}
-                              >
-                                {r.conciliacao_status_label}
-                              </span>
-                            </td>
-                            <td>
-                              {r.sale_id ? (
-                                <button
-                                  type="button"
-                                  className="reports-moves-sale-chip"
-                                  onClick={() => void openSaleDetail(r.sale_id)}
-                                >
-                                  #{formatSaleIdShort(r.sale_id)}
-                                </button>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <ReportDataTable
+                    columns={concColumns}
+                    rows={concRows.map((r) => ({ ...r, id: r.move_id }))}
+                    emptyMessage="Nenhuma divergência para os filtros"
+                    getRowClassName={(r) => conciliationRowClass(r.conciliacao_status)}
+                    wrapClassName="reports-mov-table-wrap"
+                    stickyHeader
+                  />
                 )}
               </div>
             ) : null}
@@ -599,16 +613,20 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
 
         {!loading && !error ? (
           <div className="card" style={{ padding: 16 }}>
-            <div className="flex justify-between items-center gap-2 mb-3">
-              <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                <ArrowLeftRight size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
-                Movimentações de estoque
-              </h3>
-              <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
-                <Download size={14} aria-hidden />
-                Exportar CSV
-              </button>
-            </div>
+            <ReportSectionHeading
+              title={
+                <>
+                  <ArrowLeftRight size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
+                  Movimentações de estoque
+                </>
+              }
+              action={
+                <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
+                  <Download size={14} aria-hidden />
+                  Exportar CSV
+                </button>
+              }
+            />
 
             {!filtered.length ? (
               <EmptyState
@@ -620,60 +638,15 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                 role="status"
               />
             ) : (
-              <div className="reports-mov-table-wrap" ref={movTableScrollRef}>
-                <table className="reports-moves-table">
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Produto / tamanho</th>
-                      <th>Tipo</th>
-                      <th>Cliente</th>
-                      <th>Operador</th>
-                      <th>Qtd</th>
-                      <th>Valor unit.</th>
-                      <th>Total linha</th>
-                      <th>Status pag.</th>
-                      <th>Venda #</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shouldVirtualizeMoves
-                      ? (() => {
-                          const virtualItems = movesRowVirtualizer.getVirtualItems();
-                          const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
-                          const paddingBottom =
-                            virtualItems.length > 0
-                              ? movesRowVirtualizer.getTotalSize() -
-                                virtualItems[virtualItems.length - 1].end
-                              : 0;
-                          return (
-                            <>
-                              {paddingTop > 0 ? (
-                                <tr aria-hidden="true">
-                                  <td
-                                    colSpan={10}
-                                    style={{ height: paddingTop, padding: 0, border: 'none' }}
-                                  />
-                                </tr>
-                              ) : null}
-                              {virtualItems.map((virtualRow) =>
-                                renderMoveRow(filtered[virtualRow.index])
-                              )}
-                              {paddingBottom > 0 ? (
-                                <tr aria-hidden="true">
-                                  <td
-                                    colSpan={10}
-                                    style={{ height: paddingBottom, padding: 0, border: 'none' }}
-                                  />
-                                </tr>
-                              ) : null}
-                            </>
-                          );
-                        })()
-                      : filtered.map((r) => renderMoveRow(r))}
-                  </tbody>
-                </table>
-              </div>
+              <ReportDataTable
+                columns={moveColumns}
+                rows={filtered}
+                emptyMessage="Nenhuma movimentação encontrada para os filtros selecionados"
+                scrollRef={movTableScrollRef}
+                wrapClassName="reports-mov-table-wrap"
+                stickyHeader
+                renderBody={renderMoveBody}
+              />
             )}
 
             <div className="reports-moves-footer" role="status">

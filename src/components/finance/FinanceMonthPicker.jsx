@@ -4,12 +4,13 @@ import { currentMonthYm, formatMonthTitleCapitalized, shiftMonthYm } from '../..
 
 /**
  * Seletor de mês padrão do hub Financeiro (.finance-month-picker).
- * @param {{ value: string, onChange: (ym: string) => void, ariaLabel?: string }} props
+ * @param {{ value: string, onChange: (ym: string) => void, ariaLabel?: string, isConferred?: boolean }} props
  */
 export default function FinanceMonthPicker({
   value,
   onChange,
   ariaLabel = 'Selecionar mês de referência',
+  isConferred = false,
 }) {
   const ym = String(value || currentMonthYm()).trim();
   const isCurrentMonth = ym === currentMonthYm();
@@ -25,7 +26,14 @@ export default function FinanceMonthPicker({
       >
         <ChevronLeft size={18} strokeWidth={2} aria-hidden />
       </button>
-      <span className="finance-month-picker__label">{label}</span>
+      <span className="finance-month-picker__label-wrap">
+        <span className="finance-month-picker__label">{label}</span>
+        {isConferred ? (
+          <span className="finance-month-picker__conferred" title="Mês marcado como conferido">
+            Conferido ✓
+          </span>
+        ) : null}
+      </span>
       <button
         type="button"
         className="finance-month-picker__btn"

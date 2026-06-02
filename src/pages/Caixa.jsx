@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { fetchFinanceSummary } from '../lib/financeTxApi.js';
+import { fetchFinanceSummary, fetchMonthlyClosing } from '../lib/financeTxApi.js';
+import { CASH_CLOSING_UPDATED_EVENT } from '../lib/financeTermHints.js';
 
 import { getFinanceRegime } from '../lib/financeCompetence.js';
 
@@ -20,7 +21,9 @@ import {
 
   financeiroLegacyTabToSlug,
 
-  buildFinanceiroManagerLeafTabs,
+  buildFinanceiroAllowedLeafTabs,
+
+  getFinanceiroDefaultTab,
 
   FINANCEIRO_SECTIONS,
 
@@ -31,6 +34,8 @@ import {
   EMPRESA_FINANCE_CONFIG_PATH,
 
   FINANCEIRO_EXTRATO_TAB,
+
+  hasExplicitFinanceiroTabParam,
 
 } from '../lib/financeiroHubTabs.js';
 
@@ -90,7 +95,7 @@ const TAB_SUBTITLES = {
 
   previsao: 'Previsão de caixa com base em mensalidades em aberto e lançamentos pendentes',
 
-  fechamento: 'Painel de conferência — não trava lançamentos nem gera documento de fechamento',
+  fechamento: 'Conferência do mês — não trava lançamentos',
 
   conciliacao: 'Conciliação de extratos bancários com lançamentos do Nave',
 
@@ -127,6 +132,7 @@ export default function Caixa() {
 
   const [summaryLoading, setSummaryLoading] = useState(false);
   const summaryReqRef = useRef(0);
+  const [conferredMonths, setConferredMonths] = useState(() => new Set());
 
 
 
@@ -155,12 +161,14 @@ export default function Caixa() {
 
 
   const allowedLeafTabs = useMemo(
-    () => new Set(buildFinanceiroManagerLeafTabs({ isOwner, financeModule })),
-    [isOwner, financeModule]
+    () => new Set(buildFinanceiroAllowedLeafTabs({ navRole, financeModule })),
+    [navRole, financeModule]
   );
 
-  const rawTab = financeiroLegacyTabToSlug(searchParams.get('tab'));
   const tabParam = searchParams.get('tab');
+  const hasExplicitTab = hasExplicitFinanceiroTabParam(tabParam);
+  const defaultTab = getFinanceiroDefaultTab({ isOwner, isAdmin });
+  const rawTab = financeiroLegacyTabToSlug(tabParam);
 
   if (isFinanceiroConfigTabSlug(rawTab)) {
     return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
@@ -170,7 +178,9 @@ export default function Caixa() {
     return <Navigate to="/reports?tab=financeiro" replace />;
   }
 
-  const activeTab = resolveHubTab(rawTab, allowedLeafTabs, FINANCEIRO_SECTIONS.OVERVIEW);
+  const activeTab = hasExplicitTab
+    ? resolveHubTab(rawTab, allowedLeafTabs, defaultTab)
+    : defaultTab;
 
 
 
@@ -192,16 +202,50 @@ export default function Caixa() {
   useNlPageContext(nlPageCtx);
 
   useEffect(() => {
-
-    const normalized = financeiroLegacyTabToSlug(tabParam);
-
-    if (!allowedLeafTabs.has(normalized) || normalized !== activeTab) {
-
-      setSearchParams({ tab: activeTab }, { replace: true });
-
+    if (!hasExplicitTab) {
+      if (tabParam !== activeTab) {
+        setSearchParams({ tab: activeTab }, { replace: true });
+      }
+      return;
     }
+    const normalized = financeiroLegacyTabToSlug(tabParam);
+    if (!allowedLeafTabs.has(normalized) || normalized !== activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true });
+    }
+  }, [activeTab, allowedLeafTabs, hasExplicitTab, tabParam, setSearchParams]);
 
-  }, [activeTab, allowedLeafTabs, tabParam, setSearchParams]);
+  useEffect(() => {
+    if (!academyId || !financeModule) return undefined;
+    let active = true;
+    const ym = String(referenceMonth || '').trim();
+    if (!ym) return undefined;
+    const regime = getFinanceRegime(academyId);
+    fetchMonthlyClosing({ academyId, month: ym, regime })
+      .then((data) => {
+        if (!active) return;
+        setConferredMonths((prev) => {
+          const next = new Set(prev);
+          if (data?.cashClosing) next.add(ym);
+          else next.delete(ym);
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [academyId, referenceMonth, financeModule]);
+
+  useEffect(() => {
+    function onClosingUpdated(ev) {
+      const ym = String(ev?.detail?.referenceMonth || '').trim();
+      const aid = String(ev?.detail?.academyId || '').trim();
+      if (!ym || (aid && aid !== academyId)) return;
+      setConferredMonths((prev) => new Set(prev).add(ym));
+    }
+    window.addEventListener(CASH_CLOSING_UPDATED_EVENT, onClosingUpdated);
+    return () => window.removeEventListener(CASH_CLOSING_UPDATED_EVENT, onClosingUpdated);
+  }, [academyId]);
 
 
 
@@ -394,7 +438,13 @@ export default function Caixa() {
           title="Financeiro"
           subtitle="Controle entradas, saídas e fechamentos."
           meta={`${subtitle}${academyName ? ` · ${academyName}` : ''}`}
-          actions={<FinanceMonthPicker value={referenceMonth} onChange={setReferenceMonth} />}
+          actions={
+            <FinanceMonthPicker
+              value={referenceMonth}
+              onChange={setReferenceMonth}
+              isConferred={conferredMonths.has(referenceMonth)}
+            />
+          }
         />
 
 
@@ -405,7 +455,7 @@ export default function Caixa() {
 
           onLeafChange={setTab}
 
-          access={{ isOwner, financeModule }}
+          access={{ navRole, isOwner, financeModule }}
 
         />
 
@@ -481,7 +531,7 @@ export default function Caixa() {
 
         ) : null}
 
-        {academyId && activeTab === 'previsao' && financeModule ? (
+        {academyId && activeTab === 'previsao' && financeModule && navRole !== 'member' ? (
 
           <ForecastTab academyId={academyId} />
 
@@ -493,7 +543,7 @@ export default function Caixa() {
 
         ) : null}
 
-        {academyId && activeTab === 'fechamento' && financeModule ? (
+        {academyId && activeTab === 'fechamento' && financeModule && navRole !== 'member' ? (
 
           <MonthlyClosingTab
             academyId={academyId}

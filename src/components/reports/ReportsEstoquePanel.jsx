@@ -8,7 +8,11 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
+import ReportKpiCard from './shared/ReportKpiCard.jsx';
+import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportDataTable from './shared/ReportDataTable.jsx';
 import '../finance/finance.css';
+import './reports.css';
 
 const CURVE_BADGE = {
   A: { label: 'A', className: 'reports-abc-badge reports-abc-badge--a' },
@@ -30,6 +34,48 @@ const DAYS_CLASS = {
   critical: 'reports-days-stock--critical',
   stalled: 'reports-days-stock--stalled',
 };
+
+const ESTOQUE_COLUMNS = [
+  { key: 'nome', label: 'Produto' },
+  {
+    key: 'curve',
+    label: 'Curva',
+    render: (p) => {
+      const badge = CURVE_BADGE[p.curve] || CURVE_BADGE.C;
+      return <span className={badge.className}>{badge.label}</span>;
+    },
+  },
+  { key: 'units_sold', label: 'Vendidos', align: 'right' },
+  {
+    key: 'revenue',
+    label: 'Receita',
+    align: 'right',
+    render: (p) => formatBRL(p.revenue),
+  },
+  {
+    key: 'gross_margin',
+    label: 'Margem',
+    align: 'right',
+    render: (p) => formatBRL(p.gross_margin),
+  },
+  {
+    key: 'days_of_stock_label',
+    label: 'Dias de estoque',
+    align: 'right',
+    render: (p) => {
+      const tone = daysStockTone(p);
+      return <span className={DAYS_CLASS[tone]}>{p.days_of_stock_label}</span>;
+    },
+  },
+  {
+    key: 'last_sale_date',
+    label: 'Última venda',
+    render: (p) =>
+      p.last_sale_date
+        ? new Date(`${p.last_sale_date}T12:00:00`).toLocaleDateString('pt-BR')
+        : '—',
+  },
+];
 
 export default function ReportsEstoquePanel({ academyId, from, to, hasInventory }) {
   const navigate = useNavigate();
@@ -64,12 +110,41 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
 
   const products = useMemo(() => data?.products || [], [data]);
 
+  const restockRows = useMemo(() => {
+    return products
+      .filter((p) => {
+        const stock = Number(p.current_stock) || 0;
+        const min = Number(p.minimum_stock) || 0;
+        if (stock <= 0) return true;
+        if (min > 0 && stock <= min) return true;
+        return false;
+      })
+      .slice(0, 5)
+      .map((p) => {
+        const stock = Number(p.current_stock) || 0;
+        const min = Number(p.minimum_stock) || 0;
+        const zerado = stock <= 0;
+        return {
+          id: p.product_id,
+          nome: p.nome,
+          estoque: stock,
+          minimo: min > 0 ? min : '—',
+          status: zerado ? 'Zerado' : 'Crítico',
+          statusClass: zerado ? 'reports-stock-pill--zero' : 'reports-stock-pill--critical',
+        };
+      });
+  }, [products]);
+
   const filtered = useMemo(() => {
     const list = products.slice();
     if (filter === 'a') return list.filter((p) => p.curve === 'A' && p.units_sold > 0);
     if (filter === 'stalled') return list.filter((p) => p.units_sold <= 0);
     if (filter === 'critical') {
       return list.filter((p) => {
+        const stock = Number(p.current_stock) || 0;
+        const min = Number(p.minimum_stock) || 0;
+        if (stock <= 0) return true;
+        if (min > 0 && stock <= min) return true;
         const tone = daysStockTone(p);
         return tone === 'critical' || tone === 'stalled';
       });
@@ -111,134 +186,154 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
     );
   }
 
+  const headingAction = (
+    <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
+      <Download size={14} aria-hidden />
+      Exportar CSV
+    </button>
+  );
+
   return (
-    <>
-      <style>{`
-        .reports-abc-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
-        .reports-abc-summary__card { padding: 12px 14px; border-radius: 10px; background: var(--surface-2, #f4f4f8); border: 1px solid var(--border, #e5e5ef); }
-        .reports-abc-summary__value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; }
-        .reports-abc-summary__label { font-size: 0.75rem; color: var(--text-muted, #666); margin-top: 2px; }
-        .reports-abc-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
-        .reports-abc-badge--a { background: #dcfce7; color: #166534; }
-        .reports-abc-badge--b { background: #fef9c3; color: #854d0e; }
-        .reports-abc-badge--c { background: #f1f5f9; color: #475569; }
-        .reports-days-stock--ok { color: #166534; font-weight: 600; }
-        .reports-days-stock--warn { color: #854d0e; font-weight: 600; }
-        .reports-days-stock--critical { color: #b91c1c; font-weight: 600; }
-        .reports-days-stock--stalled { color: #b91c1c; font-weight: 600; }
-        .reports-estoque-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-        .reports-estoque-filters .btn-outline.is-active { border-color: var(--accent, #4f46e5); color: var(--accent, #4f46e5); }
-      `}</style>
-      <div className="mt-4">
-        {loading ? (
-          <div className="card" style={{ padding: 16 }}>
-            <PageSkeleton variant="list" rows={6} />
-          </div>
-        ) : null}
-        {error ? (
-          <ErrorBanner message={friendlyError(error)} className="mt-3" />
-        ) : null}
-        {!loading && !error && data ? (
-          <div className="card" style={{ padding: 16 }}>
-            <div className="flex justify-between items-center gap-2 mb-3">
-              <h3 className="navi-section-heading" style={{ margin: 0 }}>
+    <div className="mt-4">
+      {loading ? (
+        <div className="card" style={{ padding: 16 }}>
+          <PageSkeleton variant="list" rows={6} />
+        </div>
+      ) : null}
+      {error ? <ErrorBanner message={friendlyError(error)} className="mt-3" /> : null}
+      {!loading && !error && data ? (
+        <div className="card" style={{ padding: 16 }}>
+          <ReportSectionHeading
+            title={
+              <>
                 <Package size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
                 Giro e curva ABC
-              </h3>
-              <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
-                <Download size={14} aria-hidden />
-                Exportar CSV
-              </button>
-            </div>
+              </>
+            }
+            action={headingAction}
+          />
+
+            {restockRows.length > 0 ? (
+              <div className="mb-4">
+                <ReportSectionHeading title="Atenção — Reposição necessária" />
+                <ReportDataTable
+                  columns={[
+                    { key: 'nome', label: 'Produto' },
+                    { key: 'estoque', label: 'Estoque atual', align: 'right' },
+                    { key: 'minimo', label: 'Mínimo configurado', align: 'right' },
+                    {
+                      key: 'status',
+                      label: 'Status',
+                      render: (row) => (
+                        <span className={`reports-stock-pill ${row.statusClass}`}>{row.status}</span>
+                      ),
+                    },
+                  ]}
+                  rows={restockRows}
+                  footer={
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm"
+                      onClick={() => setFilter('critical')}
+                    >
+                      Ver todos críticos →
+                    </button>
+                  }
+                />
+              </div>
+            ) : null}
 
             <div className="reports-abc-summary" role="group" aria-label="Resumo curva ABC">
-              <div className="reports-abc-summary__card">
-                <div className="reports-abc-summary__value">{summary.curve_a}</div>
-                <div className="reports-abc-summary__label">Produtos A</div>
-              </div>
-              <div className="reports-abc-summary__card">
-                <div className="reports-abc-summary__value">{summary.curve_b}</div>
-                <div className="reports-abc-summary__label">Produtos B</div>
-              </div>
-              <div className="reports-abc-summary__card">
-                <div className="reports-abc-summary__value">{summary.curve_c}</div>
-                <div className="reports-abc-summary__label">Produtos C</div>
-              </div>
-              <div className="reports-abc-summary__card">
-                <div className="reports-abc-summary__value">{summary.stalled}</div>
-                <div className="reports-abc-summary__label">Parados (0 vendas)</div>
-              </div>
-            </div>
-
-            <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
-              {[
-                { id: 'all', label: 'Todos' },
-                { id: 'a', label: 'Só A' },
-                { id: 'stalled', label: 'Só parados' },
-                { id: 'critical', label: 'Críticos' },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`btn-outline btn-sm${filter === f.id ? ' is-active' : ''}`}
-                  onClick={() => setFilter(f.id)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {filtered.length === 0 ? (
-              <EmptyState
-                insideCard
-                variant="compact"
-                title="Nenhum produto neste filtro"
-                description="Altere o filtro ou o período."
-                role="status"
-              />
-            ) : (
-              <div className="reports-estoque-table-wrap">
-                <table className="navi-table">
-                  <thead>
-                    <tr>
-                      <th>Produto</th>
-                      <th>Curva</th>
-                      <th className="text-right">Vendidos</th>
-                      <th className="text-right">Receita</th>
-                      <th className="text-right">Margem</th>
-                      <th className="text-right">Dias de estoque</th>
-                      <th>Última venda</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((p) => {
-                      const badge = CURVE_BADGE[p.curve] || CURVE_BADGE.C;
-                      const tone = daysStockTone(p);
-                      return (
-                        <tr key={p.product_id}>
-                          <td>{p.nome}</td>
-                          <td>
-                            <span className={badge.className}>{badge.label}</span>
-                          </td>
-                          <td className="text-right">{p.units_sold}</td>
-                          <td className="text-right">{formatBRL(p.revenue)}</td>
-                          <td className="text-right">{formatBRL(p.gross_margin)}</td>
-                          <td className={`text-right ${DAYS_CLASS[tone]}`}>{p.days_of_stock_label}</td>
-                          <td className="text-small text-muted">
-                            {p.last_sale_date
-                              ? new Date(`${p.last_sale_date}T12:00:00`).toLocaleDateString('pt-BR')
-                              : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ReportKpiCard label="Produtos A" value={summary.curve_a} />
+            <ReportKpiCard label="Produtos B" value={summary.curve_b} />
+            <ReportKpiCard label="Produtos C" value={summary.curve_c} />
+            <ReportKpiCard label="Parados (0 vendas)" value={summary.stalled} highlight="warning" />
           </div>
-        ) : null}
-      </div>
-    </>
+
+          {criticalRestock.length > 0 ? (
+            <div className="reports-restock-alert card mt-4" style={{ padding: '14px 16px' }}>
+              <ReportSectionHeading title="Atenção — Reposição necessária" />
+              <ReportDataTable
+                columns={[
+                  { key: 'nome', label: 'Produto' },
+                  { key: 'current_stock', label: 'Estoque atual', align: 'right' },
+                  {
+                    key: 'minimum_stock',
+                    label: 'Mínimo configurado',
+                    align: 'right',
+                    render: (row) => (row.minimum_stock > 0 ? row.minimum_stock : '—'),
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (row) => (
+                      <span
+                        className={
+                          row.status === 'zerado'
+                            ? 'reports-restock-pill reports-restock-pill--danger'
+                            : 'reports-restock-pill reports-restock-pill--warning'
+                        }
+                      >
+                        {row.status === 'zerado' ? 'Zerado' : 'Crítico'}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={criticalRestock}
+                emptyMessage=""
+                striped={false}
+                footer={
+                  allCriticalCount > 5 ? (
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm"
+                      onClick={() => setFilter('critical')}
+                    >
+                      Ver todos críticos →
+                    </button>
+                  ) : null
+                }
+              />
+            </div>
+          ) : null}
+
+          <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
+            {[
+              { id: 'all', label: 'Todos' },
+              { id: 'a', label: 'Só A' },
+              { id: 'stalled', label: 'Só parados' },
+              { id: 'critical', label: 'Críticos' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`btn-outline btn-sm${filter === f.id ? ' is-active' : ''}`}
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              insideCard
+              variant="compact"
+              title="Nenhum produto neste filtro"
+              description="Altere o filtro ou o período."
+              role="status"
+            />
+          ) : (
+            <ReportDataTable
+              columns={ESTOQUE_COLUMNS}
+              rows={filtered.map((p) => ({ ...p, id: p.product_id }))}
+              emptyMessage="Nenhum produto neste filtro"
+              wrapClassName="reports-estoque-table-wrap"
+              stickyHeader
+            />
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
+import StageBadge from '../shared/StageBadge.jsx';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
@@ -76,6 +77,8 @@ function ConversationItem({
     showIaChip,
     ticket,
   });
+
+  const pipelineStage = String(item?._pipelineStage || '').trim();
 
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
@@ -194,6 +197,9 @@ function ConversationItem({
               >
                 {String(item?._displayTitle || '-')}
               </span>
+              {pipelineStage ? (
+                <StageBadge stage={pipelineStage} size="sm" className="inbox-conversation-item__stage" />
+              ) : null}
               {primaryChip ? (
                 <span
                   className={`inbox-status-chip ${primaryChip.className}`}

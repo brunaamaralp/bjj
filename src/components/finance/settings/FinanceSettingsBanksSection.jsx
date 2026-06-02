@@ -75,7 +75,7 @@ export default function FinanceSettingsBanksSection({
   };
 
   return (
-    <div className="finance-settings-section-body">
+    <div id="contas" className="finance-settings-section-body">
       <p className="text-small text-muted">
         Dados exibidos em comprovantes e no cálculo de saldo do Caixa (saldo inicial + movimentações liquidadas).
       </p>

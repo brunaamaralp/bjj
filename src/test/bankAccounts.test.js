@@ -1,49 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import {
-  formatBankAccountLabel,
-  validateBankAccountForPayment,
-  resolveBankAccountForPayment,
-  listBankAccountLabels,
-  filterBankAccountsWithBank,
+  pickInitialBankAccountForPayment,
+  hasConfiguredBankAccounts,
+  resolveDefaultBankAccountLabel,
 } from '../lib/bankAccounts.js';
 
-describe('bankAccounts', () => {
-  it('formata rótulo banco + conta', () => {
-    expect(formatBankAccountLabel({ bankName: 'Nubank', account: '12345-6' })).toBe('Nubank · 12345-6');
+describe('bankAccounts — conta inicial no pagamento', () => {
+  const twoAccounts = {
+    bankAccounts: [
+      { bankName: 'BB', account: '111' },
+      { bankName: 'Nubank', account: '222', isDefault: true },
+    ],
+  };
+
+  it('hasConfiguredBankAccounts', () => {
+    expect(hasConfiguredBankAccounts({ bankAccounts: [] })).toBe(false);
+    expect(hasConfiguredBankAccounts({ bankAccounts: [{ bankName: 'BB' }] })).toBe(true);
   });
 
-  it('remove contas sem banco na lista', () => {
-    expect(
-      filterBankAccountsWithBank([
-        { bankName: 'Sicoob', account: '1' },
-        { bankName: '', account: '2' },
-        { bankName: '   ', branch: '1' },
-      ])
-    ).toEqual([
-      {
-        bankName: 'Sicoob',
-        account: '1',
-        branch: '',
-        accountName: '',
-        pixKey: '',
-        openingBalance: 0,
-        openingBalanceDate: '',
-      },
-    ]);
-  });
-
-  it('exige conta cadastrada quando há opções', () => {
+  it('pickInitialBankAccountForPayment — única conta', () => {
     const cfg = { bankAccounts: [{ bankName: 'Sicoob', account: '1' }] };
-    expect(validateBankAccountForPayment('Sicoob · 1', cfg).ok).toBe(true);
-    expect(listBankAccountLabels(cfg)).toEqual(['Sicoob · 1']);
+    expect(pickInitialBankAccountForPayment(cfg, '')).toBe('Sicoob · 1');
   });
 
-  it('resolve conta vazia ou legada para a primeira cadastrada', () => {
-    const cfg = { bankAccounts: [{ bankName: 'Sicoob', account: '1' }] };
-    expect(resolveBankAccountForPayment('', cfg)).toBe('Sicoob · 1');
-    expect(resolveBankAccountForPayment('Conta antiga', cfg)).toBe('Sicoob · 1');
-    const check = validateBankAccountForPayment('', cfg);
-    expect(check.ok).toBe(true);
-    expect(check.account).toBe('Sicoob · 1');
+  it('pickInitialBankAccountForPayment — usa conta padrão quando há várias', () => {
+    expect(pickInitialBankAccountForPayment(twoAccounts, '')).toBe('Nubank · 222');
+    expect(resolveDefaultBankAccountLabel(twoAccounts)).toBe('Nubank · 222');
+  });
+
+  it('pickInitialBankAccountForPayment — preferência do aluno se válida', () => {
+    const cfg = {
+      bankAccounts: [
+        { bankName: 'BB', account: '111' },
+        { bankName: 'Caixa', account: '222' },
+      ],
+    };
+    expect(pickInitialBankAccountForPayment(cfg, 'BB · 111')).toBe('BB · 111');
   });
 });

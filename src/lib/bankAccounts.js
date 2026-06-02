@@ -37,8 +37,42 @@ export function formatBankAccountLabel(acc) {
 }
 
 export function listBankAccountLabels(financeConfig) {
+  return filterBankAccountsWithBank(financeConfig?.bankAccounts).map((acc) => formatBankAccountLabel(acc)).filter(Boolean);
+}
+
+/** Rótulo da conta marcada como padrão no financeConfig (se houver). */
+export function resolveDefaultBankAccountLabel(financeConfig) {
+  const fromRoot = String(
+    financeConfig?.defaultAccount || financeConfig?.defaultBankAccount || ''
+  ).trim();
+  if (fromRoot) return fromRoot;
   const list = Array.isArray(financeConfig?.bankAccounts) ? financeConfig.bankAccounts : [];
-  return list.map((acc) => formatBankAccountLabel(acc)).filter(Boolean);
+  for (const raw of list) {
+    const acc = raw && typeof raw === 'object' ? raw : {};
+    if (acc.isDefault === true || acc.default === true || acc.defaultAccount === true) {
+      const normalized = normalizeBankAccountEntry(acc);
+      if (normalized.bankName) return formatBankAccountLabel(normalized);
+    }
+  }
+  return '';
+}
+
+/**
+ * Conta inicial no modal de pagamento: única conta, padrão cadastrado ou preferência do aluno.
+ * @param {object} financeConfig
+ * @param {string} [preferredAccount]
+ */
+export function pickInitialBankAccountForPayment(financeConfig, preferredAccount = '') {
+  const labels = listBankAccountLabels(financeConfig);
+  if (!labels.length) return '';
+  if (labels.length === 1) return labels[0];
+  const defaultLabel = resolveDefaultBankAccountLabel(financeConfig);
+  if (defaultLabel && labels.includes(defaultLabel)) return defaultLabel;
+  return resolveBankAccountForPayment(preferredAccount, financeConfig);
+}
+
+export function hasConfiguredBankAccounts(financeConfig) {
+  return listBankAccountLabels(financeConfig).length > 0;
 }
 
 /** Conta efetiva do lançamento: valor válido, ou primeira cadastrada se vazio/legado. */

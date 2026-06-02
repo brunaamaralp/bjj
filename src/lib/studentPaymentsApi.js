@@ -47,6 +47,18 @@ export async function apiListStudentPayments({ referenceMonth, page = 1, limit =
   };
 }
 
+function dispatchPaymentUpdated(payload) {
+  if (typeof window === 'undefined') return;
+  const leadId = String(payload?.lead_id || '').trim();
+  const referenceMonth = String(payload?.reference_month || '').trim();
+  window.dispatchEvent(
+    new CustomEvent('navi-student-payment-updated', {
+      detail: { leadId, referenceMonth },
+    })
+  );
+  window.dispatchEvent(new CustomEvent('navi-financial-tx-settled'));
+}
+
 export async function apiCreateStudentPayment(payload) {
   const data = await paymentsFetch(
     '/api/student-payments',
@@ -56,6 +68,7 @@ export async function apiCreateStudentPayment(payload) {
     },
     payload?.academy_id
   );
+  dispatchPaymentUpdated(payload);
   return data.payment;
 }
 
@@ -68,6 +81,7 @@ export async function apiUpdateStudentPayment(paymentId, patch) {
     },
     patch?.academy_id
   );
+  dispatchPaymentUpdated(patch);
   return data.payment;
 }
 

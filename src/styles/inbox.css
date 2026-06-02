@@ -642,6 +642,53 @@
   align-items: center;
 }
 
+.inbox-msg--optimistic {
+  opacity: 0.7;
+}
+
+.inbox-msg--failed {
+  outline: 1px solid var(--danger);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.inbox-msg-meta__status-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.inbox-msg-meta__status-icon--danger {
+  color: var(--danger);
+}
+
+.inbox-msg-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+.inbox-msg-retry-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.inbox-msg-retry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inbox-bubble--user .inbox-msg-retry-btn {
+  color: #ffc9c9;
+}
+
 .inbox-msg-actions-row {
   display: flex;
   gap: 6px;
@@ -866,6 +913,11 @@
   flex-wrap: wrap;
 }
 
+.inbox-conversation-item__stage {
+  flex-shrink: 0;
+  max-width: min(42%, 140px);
+}
+
 .inbox-conversation-item__title {
   font-weight: 700;
   font-size: var(--inbox-font-list-title);
@@ -992,11 +1044,16 @@
 }
 
 .inbox-conversation-item__unread {
-  background: var(--v500);
-  color: #fff;
+  background: var(--inbox-badge-unread-bg);
+  color: var(--inbox-badge-unread-fg);
   padding: 1px 7px;
   border-radius: 999px;
   font-weight: 800;
+}
+
+.inbox-unread-badge--inactive {
+  background: var(--danger-light);
+  color: var(--danger);
 }
 
 .inbox-ticket-chip-inline {
