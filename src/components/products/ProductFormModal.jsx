@@ -523,20 +523,8 @@ export default function ProductFormModal({
     onPatch,
     onRemove,
     rowKeyPrefix,
-    showHead = true,
   }) => (
     <div className="product-variants-editor product-variants-editor--new-rows">
-      {showHead ? (
-        <div className="product-variants-editor__head text-small text-muted" aria-hidden="true">
-          <span>Tamanho</span>
-          <span>Cor</span>
-          <span>SKU</span>
-          <span>Saldo ini.</span>
-          <span>Preço esp.</span>
-          <span>Mín.</span>
-          <span />
-        </div>
-      ) : null}
       {(rowEntries || rows.map((row, idx) => ({ row, idx }))).map(({ row, idx }, mapIdx, arr) => {
         const isLast = mapIdx === arr.length - 1;
         return (
@@ -946,81 +934,84 @@ export default function ProductFormModal({
       {savedSuccess ? (
         <span className="product-variants-editor__saved-badge">Salvo</span>
       ) : null}
-      <VariantRowField label="Tamanho">
-        <input
-          className="form-input"
-          aria-label="Tamanho"
-          placeholder="Tamanho *"
-          maxLength={16}
-          value={row.size}
-          onChange={(e) => onPatch(idx, { size: e.target.value })}
-        />
-      </VariantRowField>
-      <VariantRowField label="Cor">
-        <input
-          className="form-input"
-          aria-label="Cor"
-          placeholder="Cor"
-          maxLength={32}
-          value={row.color}
-          onChange={(e) => onPatch(idx, { color: e.target.value })}
-        />
-      </VariantRowField>
-      <VariantRowField label="SKU">
-        <input
-          className="form-input"
-          aria-label="SKU"
-          placeholder="SKU"
-          maxLength={64}
-          value={row.sku}
-          onChange={(e) => onPatch(idx, { sku: e.target.value })}
-        />
-      </VariantRowField>
-      <VariantRowField label="Saldo ini.">
-        <input
-          type="number"
-          min={0}
-          className="form-input"
-          aria-label="Saldo inicial"
-          placeholder="0"
-          value={row.initial_quantity}
-          onChange={(e) => onPatch(idx, { initial_quantity: e.target.value })}
-        />
-      </VariantRowField>
-      <VariantRowField label="Preço esp.">
-        <input
-          className="form-input"
-          inputMode="numeric"
-          aria-label="Preço específico"
-          placeholder="= pai"
-          title="Vazio = herda o preço do produto pai"
-          value={row.priceOverrideMask || ''}
-          onChange={(e) =>
-            onPatch(idx, {
-              priceOverrideMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
-            })
-          }
-        />
-      </VariantRowField>
-      <VariantRowField label="Mín.">
-        <input
-          type="number"
-          min={0}
-          className="form-input"
-          aria-label="Estoque mínimo"
-          placeholder="0"
-          value={row.minimum_level}
-          onChange={(e) => onPatch(idx, { minimum_level: e.target.value })}
-        />
-      </VariantRowField>
+      <div className="product-variants-editor__fields">
+        <VariantRowField label="Tamanho *">
+          <input
+            className="form-input"
+            aria-label="Tamanho"
+            placeholder="Ex.: P, M, G, GG"
+            maxLength={16}
+            value={row.size}
+            onChange={(e) => onPatch(idx, { size: e.target.value })}
+          />
+        </VariantRowField>
+        <VariantRowField label="Cor">
+          <input
+            className="form-input"
+            aria-label="Cor"
+            placeholder="Opcional"
+            maxLength={32}
+            value={row.color}
+            onChange={(e) => onPatch(idx, { color: e.target.value })}
+          />
+        </VariantRowField>
+        <VariantRowField label="Saldo inicial">
+          <input
+            type="number"
+            min={0}
+            className="form-input"
+            aria-label="Saldo inicial"
+            placeholder="0"
+            value={row.initial_quantity}
+            onChange={(e) => onPatch(idx, { initial_quantity: e.target.value })}
+          />
+        </VariantRowField>
+        <VariantRowField label="Estoque mínimo">
+          <input
+            type="number"
+            min={0}
+            className="form-input"
+            aria-label="Estoque mínimo"
+            placeholder="0"
+            value={row.minimum_level}
+            onChange={(e) => onPatch(idx, { minimum_level: e.target.value })}
+          />
+        </VariantRowField>
+        <VariantRowField label="Preço específico">
+          <input
+            className="form-input"
+            inputMode="numeric"
+            aria-label="Preço específico"
+            placeholder="Herda do produto"
+            title="Vazio = herda o preço do produto pai"
+            value={row.priceOverrideMask || ''}
+            onChange={(e) =>
+              onPatch(idx, {
+                priceOverrideMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
+              })
+            }
+          />
+        </VariantRowField>
+        <VariantRowField label="SKU">
+          <input
+            className="form-input"
+            aria-label="SKU"
+            placeholder="Opcional"
+            maxLength={64}
+            value={row.sku}
+            onChange={(e) => onPatch(idx, { sku: e.target.value })}
+          />
+        </VariantRowField>
+      </div>
       <div className="product-variants-editor__row-actions">
         <button
           type="button"
-          className="btn-ghost"
-          aria-label="Remover linha"
+          className="btn-ghost product-variants-editor__remove-btn"
+          aria-label="Remover tamanho"
           onClick={() => onRemove(row, idx)}
         >
-          <Trash2 size={16} />
+          <Trash2 size={16} aria-hidden />
+          Remover
         </button>
       </div>
       {isDup ? (
@@ -1085,7 +1076,7 @@ export default function ProductFormModal({
                     type="button"
                     className="btn-secondary"
                     onClick={() => void goStep2()}
-                    disabled={!parentForm.nome.trim() || loading}
+                    disabled={!parentForm.nome.trim() || !resolvedCategoria() || loading}
                   >
                     {useEditWizard ? 'Salvar e ir para tamanhos' : 'Próximo: tamanhos'}
                   </button>
@@ -1120,11 +1111,11 @@ export default function ProductFormModal({
                 ) : null}
 
                 <VariantsSection
-                  title="Adicionar tamanhos"
+                  title={useEditWizard ? 'Novos tamanhos' : 'Tamanhos'}
                   hint={
                     useEditWizard
-                      ? 'Inclua novos tamanhos um a um na grade abaixo.'
-                      : 'Defina cada tamanho do produto na grade abaixo.'
+                      ? 'Cadastre cada combinação de tamanho e cor. Toque em Adicionar tamanho para incluir mais linhas.'
+                      : 'Informe tamanho, saldo inicial e demais dados de cada variante do produto.'
                   }
                   className={useEditWizard ? 'product-form-variants-section--add' : ''}
                 >
@@ -1134,36 +1125,30 @@ export default function ProductFormModal({
                   })}
 
                   {useVariantWizard ? (
-                    <VariantsSection
-                      title="Tamanhos do produto"
-                      className="product-form-variants-section--nested"
-                    >
-                      {renderNewVariantsGrid({
-                        rows: variants,
-                        duplicateIndexSet: createWizardDuplicateIndexes,
-                        onPatch: patchCreateVariantRow,
-                        onRemove: (_row, rowIdx) => {
-                          if (variants.length <= 1) return;
-                          setVariants((rows) => rows.filter((_, i) => i !== rowIdx));
-                        },
-                        rowKeyPrefix: 'create',
-                      })}
-                    </VariantsSection>
+                    renderNewVariantsGrid({
+                      rows: variants,
+                      duplicateIndexSet: createWizardDuplicateIndexes,
+                      onPatch: patchCreateVariantRow,
+                      onRemove: (_row, rowIdx) => {
+                        if (variants.length <= 1) return;
+                        setVariants((rows) => rows.filter((_, i) => i !== rowIdx));
+                      },
+                      rowKeyPrefix: 'create',
+                    })
                   ) : null}
 
                   {useEditWizard && newEditVariants.length > 0 ? (
-                    <VariantsSection
-                      title="Novos tamanhos"
-                      className="product-form-variants-section--nested"
-                    >
-                      {renderNewVariantsGrid({
-                        rowEntries: newEditVariants,
-                        duplicateIndexSet: duplicateIndexes,
-                        onPatch: patchVariantRow,
-                        onRemove: confirmDeleteVariant,
-                        rowKeyPrefix: 'new',
-                      })}
-                    </VariantsSection>
+                    renderNewVariantsGrid({
+                      rowEntries: newEditVariants,
+                      duplicateIndexSet: duplicateIndexes,
+                      onPatch: patchVariantRow,
+                      onRemove: confirmDeleteVariant,
+                      rowKeyPrefix: 'new',
+                    })
+                  ) : useEditWizard ? (
+                    <p className="text-small text-muted product-form-variants-empty">
+                      Nenhum tamanho novo. Use o botão acima para adicionar.
+                    </p>
                   ) : null}
                 </VariantsSection>
 
