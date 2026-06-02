@@ -118,11 +118,13 @@ export default function VisaoGeralTab({
     setForecastFailed(false);
     try {
       const regimeVal = getFinanceRegime(academyId);
+      const studentsSnapshot = useStudentStore.getState().students || [];
+      const financeConfigSnapshot = useLeadStore.getState().financeConfig;
       const tasks = [
         fetchFinanceSummary({ academyId, from, to, regime: regimeVal }),
         fetchFinanceSummary({ academyId, from: prevBounds.from, to: prevBounds.to, regime: regimeVal }),
         getMonthlyPayments(academyId, ym, {
-          activeStudentCount: (students || []).filter((s) => String(s.plan || '').trim()).length,
+          activeStudentCount: studentsSnapshot.filter((s) => String(s.plan || '').trim()).length,
         }),
       ];
 
@@ -183,8 +185,8 @@ export default function VisaoGeralTab({
         const div = countClosingDivergences({
           payments: body.payments || [],
           transactions: body.transactions || [],
-          students: students || [],
-          financeConfig,
+          students: studentsSnapshot,
+          financeConfig: financeConfigSnapshot,
           referenceMonth: ym,
           regime: regimeVal,
         });
@@ -228,8 +230,6 @@ export default function VisaoGeralTab({
     financeModule,
     forecastRange.from,
     forecastRange.to,
-    students,
-    financeConfig,
     modules?.finance,
   ]);
 

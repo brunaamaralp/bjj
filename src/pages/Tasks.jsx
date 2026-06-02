@@ -49,6 +49,8 @@ import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 const VIEW_STORAGE_KEY = 'nave_tasks_view';
 /** Tarefas visíveis por aluno antes de exigir "Ver mais". */
 const STUDENT_TASKS_PREVIEW = 4;
+/** Id sintético para expandir/recolher o grupo de tarefas sem aluno. */
+const UNLINKED_STUDENT_GROUP_ID = '__unlinked__';
 
 function initialsFromName(name) {
   const trimmed = String(name || '').trim();
@@ -71,6 +73,22 @@ function sortTasksForStudentGroup(tasks, isOverdue) {
     if (aDue !== bDue) return aDue.localeCompare(bDue);
     return String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR');
   });
+}
+
+function buildStudentTaskGroup(leadId, leadName, tasks, isOverdue) {
+  const tasksSorted = sortTasksForStudentGroup(tasks, isOverdue);
+  let pendingCount = 0;
+  let doneCount = 0;
+  let overdueCount = 0;
+  for (const t of tasksSorted) {
+    if (t.status === 'done') {
+      doneCount += 1;
+    } else {
+      pendingCount += 1;
+      if (isOverdue(t.due_date)) overdueCount += 1;
+    }
+  }
+  return { leadId, leadName, tasks: tasksSorted, pendingCount, doneCount, overdueCount };
 }
 
 function pad2(n) {
@@ -493,23 +511,15 @@ export default function Tasks() {
       map[lid].tasks.push(t);
     }
     return Object.values(map)
-      .map((group) => {
-        const tasksSorted = sortTasksForStudentGroup(group.tasks, isVencida);
-        let pendingCount = 0;
-        let doneCount = 0;
-        let overdueCount = 0;
-        for (const t of tasksSorted) {
-          if (t.status === 'done') {
-            doneCount += 1;
-          } else {
-            pendingCount += 1;
-            if (isVencida(t.due_date)) overdueCount += 1;
-          }
-        }
-        return { ...group, tasks: tasksSorted, pendingCount, doneCount, overdueCount };
-      })
+      .map((group) => buildStudentTaskGroup(group.leadId, group.leadName, group.tasks, isVencida))
       .sort((a, b) => String(a.leadName).localeCompare(String(b.leadName), 'pt-BR'));
   }, [filteredTasks, linkableById]);
+
+  const unlinkedTasksGroup = useMemo(() => {
+    const tasks = filteredTasks.filter((t) => !String(t.lead_id || '').trim());
+    if (tasks.length === 0) return null;
+    return buildStudentTaskGroup(UNLINKED_STUDENT_GROUP_ID, 'Sem aluno vinculado', tasks, isVencida);
+  }, [filteredTasks]);
 
   const kanbanColumns = useMemo(() => {
     const atrasadas = [];
@@ -881,6 +891,146 @@ export default function Tasks() {
     );
   };
 
+  const renderStudentTasksGroupCard = (group, { unlinked = false } = {}) => {
+    const canCollapse = group.tasks.length > STUDENT_TASKS_PREVIEW;
+    const isExpanded = expandedStudentIds.has(group.leadId);
+    const visibleTasks =
+      canCollapse && !isExpanded ? group.tasks.slice(0, STUDENT_TASKS_PREVIEW) : group.tasks;
+    const hiddenCount = Math.max(0, group.tasks.length - STUDENT_TASKS_PREVIEW);
+    const countsMarkup = (
+      <span className="tasks-student-card__counts">
+        {group.pendingCount > 0 ? (
+          <span>
+            {group.pendingCount} pendente{group.pendingCount === 1 ? '' : 's'}
+          </span>
+        ) : null}
+        {group.doneCount > 0 ? (
+          <span>
+            {group.pendingCount > 0 ? ' · ' : ''}
+            {group.doneCount} concluída{group.doneCount === 1 ? '' : 's'}
+          </span>
+        ) : null}
+        {group.overdueCount > 0 ? (
+          <span className="tasks-student-card__overdue">
+            {group.pendingCount > 0 || group.doneCount > 0 ? ' · ' : ''}
+            {group.overdueCount} atrasada{group.overdueCount === 1 ? '' : 's'}
+          </span>
+        ) : null}
+      </span>
+    );
+
+    return (
+      <article
+        key={group.leadId}
+        className={`tasks-student-card${unlinked ? ' tasks-student-card--unlinked' : ''}${canCollapse && !isExpanded ? ' tasks-student-card--collapsed' : ''}`}
+        role="listitem"
+      >
+        <header className="tasks-student-card__head">
+          {unlinked ? (
+            <div className="tasks-student-card__profile-static">
+              <span className="tasks-student-card__avatar tasks-student-card__avatar--unlinked" aria-hidden="true">
+                <ClipboardList size={18} />
+              </span>
+              <span className="tasks-student-card__identity">
+                <span className="tasks-student-card__name-row">
+                  <span className="tasks-student-card__name">{group.leadName}</span>
+                  <span className="tasks-student-card__kind">Geral</span>
+                </span>
+                {countsMarkup}
+              </span>
+            </div>
+          ) : (
+            <>
+              {(() => {
+                const linkedPerson = linkableById.get(group.leadId);
+                const linkedKindLabel =
+                  linkedPerson?.kind === 'lead'
+                    ? contactLabel
+                    : linkedPerson?.kind === 'student'
+                      ? terms.student
+                      : null;
+                const profilePath =
+                  profilePathForLinkablePerson(linkedPerson) || `/student/${group.leadId}`;
+                return (
+                  <button
+                    type="button"
+                    className="tasks-student-card__profile"
+                    onClick={() => navigate(profilePath)}
+                    aria-label={`Abrir perfil de ${group.leadName}`}
+                  >
+                    <span className="tasks-student-card__avatar" aria-hidden="true">
+                      {initialsFromName(group.leadName)}
+                    </span>
+                    <span className="tasks-student-card__identity">
+                      <span className="tasks-student-card__name-row">
+                        <span className="tasks-student-card__name">{group.leadName}</span>
+                        {linkedKindLabel ? (
+                          <span className="tasks-student-card__kind">{linkedKindLabel}</span>
+                        ) : null}
+                      </span>
+                      {countsMarkup}
+                    </span>
+                    <ChevronRight size={16} className="tasks-student-card__chevron" aria-hidden="true" />
+                  </button>
+                );
+              })()}
+            </>
+          )}
+          <div className="tasks-student-card__toolbar">
+            {(() => {
+              if (unlinked) return null;
+              const progress = progressLabelForLead(group.leadId, filteredTasks);
+              return progress ? (
+                <span
+                  className="tasks-student-card__progress"
+                  title="Progresso do checklist de processo automático"
+                >
+                  {progress}
+                </span>
+              ) : null;
+            })()}
+            <button
+              type="button"
+              className="tasks-student-card__add"
+              onClick={() =>
+                unlinked ? openNew() : navigate(`/tarefas?lead_id=${group.leadId}&new=1`)
+              }
+            >
+              <PlusCircle size={14} aria-hidden="true" /> Nova
+            </button>
+          </div>
+        </header>
+        <div className="tasks-student-card__body">
+          <div className="task-list tasks-student-card__tasks">
+            {visibleTasks.map((t) =>
+              renderOneTaskCard(t, { compact: true, hideLead: true, showMeta: true })
+            )}
+          </div>
+          {canCollapse ? (
+            <button
+              type="button"
+              className="tasks-student-card__toggle"
+              onClick={() => toggleStudentTasksExpanded(group.leadId)}
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp size={16} aria-hidden="true" />
+                  Recolher tarefas
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={16} aria-hidden="true" />
+                  Ver mais {hiddenCount} tarefa{hiddenCount === 1 ? '' : 's'}
+                </>
+              )}
+            </button>
+          ) : null}
+        </div>
+      </article>
+    );
+  };
+
   function formatCreatedByLabel(task) {
     const raw = String(task?.created_by || '').trim();
     if (!raw) return '—';
@@ -1019,123 +1169,30 @@ export default function Tasks() {
           />
         ) : viewMode === 'by_student' ? (
           <div className="tasks-by-student">
-            {tasksByLead.length === 0 ? (
-              <EmptyState variant="compact" tone="dashed" title="Nenhuma tarefa vinculada a alunos neste filtro." />
+            {tasksByLead.length === 0 && !unlinkedTasksGroup ? (
+              <EmptyState variant="compact" tone="dashed" title="Nenhuma tarefa neste filtro." />
             ) : (
-              <div className="tasks-by-student-grid" role="list">
-                {tasksByLead.map((group) => {
-                  const linkedPerson = linkableById.get(group.leadId);
-                  const linkedKindLabel =
-                    linkedPerson?.kind === 'lead'
-                      ? contactLabel
-                      : linkedPerson?.kind === 'student'
-                        ? terms.student
-                        : null;
-                  const progress = progressLabelForLead(group.leadId, filteredTasks);
-                  const profilePath =
-                    profilePathForLinkablePerson(linkedPerson) ||
-                    `/student/${group.leadId}`;
-                  const canCollapse = group.tasks.length > STUDENT_TASKS_PREVIEW;
-                  const isExpanded = expandedStudentIds.has(group.leadId);
-                  const visibleTasks =
-                    canCollapse && !isExpanded
-                      ? group.tasks.slice(0, STUDENT_TASKS_PREVIEW)
-                      : group.tasks;
-                  const hiddenCount = Math.max(0, group.tasks.length - STUDENT_TASKS_PREVIEW);
-                  return (
-                    <article
-                      key={group.leadId}
-                      className={`tasks-student-card${canCollapse && !isExpanded ? ' tasks-student-card--collapsed' : ''}`}
-                      role="listitem"
-                    >
-                      <header className="tasks-student-card__head">
-                        <button
-                          type="button"
-                          className="tasks-student-card__profile"
-                          onClick={() => navigate(profilePath)}
-                          aria-label={`Abrir perfil de ${group.leadName}`}
-                        >
-                          <span className="tasks-student-card__avatar" aria-hidden="true">
-                            {initialsFromName(group.leadName)}
-                          </span>
-                          <span className="tasks-student-card__identity">
-                            <span className="tasks-student-card__name-row">
-                              <span className="tasks-student-card__name">{group.leadName}</span>
-                              {linkedKindLabel ? (
-                                <span className="tasks-student-card__kind">{linkedKindLabel}</span>
-                              ) : null}
-                            </span>
-                            <span className="tasks-student-card__counts">
-                              {group.pendingCount > 0 ? (
-                                <span>
-                                  {group.pendingCount} pendente{group.pendingCount === 1 ? '' : 's'}
-                                </span>
-                              ) : null}
-                              {group.doneCount > 0 ? (
-                                <span>
-                                  {group.pendingCount > 0 ? ' · ' : ''}
-                                  {group.doneCount} concluída{group.doneCount === 1 ? '' : 's'}
-                                </span>
-                              ) : null}
-                              {group.overdueCount > 0 ? (
-                                <span className="tasks-student-card__overdue">
-                                  {group.pendingCount > 0 || group.doneCount > 0 ? ' · ' : ''}
-                                  {group.overdueCount} atrasada{group.overdueCount === 1 ? '' : 's'}
-                                </span>
-                              ) : null}
-                            </span>
-                          </span>
-                          <ChevronRight size={16} className="tasks-student-card__chevron" aria-hidden="true" />
-                        </button>
-                        <div className="tasks-student-card__toolbar">
-                          {progress ? (
-                            <span
-                              className="tasks-student-card__progress"
-                              title="Progresso do checklist de processo automático"
-                            >
-                              {progress}
-                            </span>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="tasks-student-card__add"
-                            onClick={() => navigate(`/tarefas?lead_id=${group.leadId}&new=1`)}
-                          >
-                            <PlusCircle size={14} aria-hidden="true" /> Nova
-                          </button>
-                        </div>
-                      </header>
-                      <div className="tasks-student-card__body">
-                        <div className="task-list tasks-student-card__tasks">
-                          {visibleTasks.map((t) =>
-                            renderOneTaskCard(t, { compact: true, hideLead: true, showMeta: true })
-                          )}
-                        </div>
-                        {canCollapse ? (
-                          <button
-                            type="button"
-                            className="tasks-student-card__toggle"
-                            onClick={() => toggleStudentTasksExpanded(group.leadId)}
-                            aria-expanded={isExpanded}
-                          >
-                            {isExpanded ? (
-                              <>
-                                <ChevronUp size={16} aria-hidden="true" />
-                                Recolher tarefas
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown size={16} aria-hidden="true" />
-                                Ver mais {hiddenCount} tarefa{hiddenCount === 1 ? '' : 's'}
-                              </>
-                            )}
-                          </button>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+              <>
+                {unlinkedTasksGroup ? (
+                  <section
+                    className="tasks-by-student-section tasks-by-student-section--unlinked"
+                    aria-labelledby="tasks-unlinked-heading"
+                  >
+                    <h3 id="tasks-unlinked-heading" className="tasks-by-student-section__title">
+                      Sem aluno vinculado
+                    </h3>
+                    <p className="tasks-by-student-section__hint">
+                      Tarefas gerais que não estão ligadas a nenhum aluno.
+                    </p>
+                    {renderStudentTasksGroupCard(unlinkedTasksGroup, { unlinked: true })}
+                  </section>
+                ) : null}
+                {tasksByLead.length > 0 ? (
+                  <div className="tasks-by-student-grid" role="list">
+                    {tasksByLead.map((group) => renderStudentTasksGroupCard(group))}
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         ) : viewMode === 'list' ? (
@@ -2000,6 +2057,22 @@ export default function Tasks() {
         .task-meta--compact .task-badge { font-size: 10px; padding: 2px 5px; }
 
         .tasks-by-student { width: 100%; }
+        .tasks-by-student-section--unlinked {
+          margin-bottom: 18px;
+        }
+        .tasks-by-student-section__title {
+          margin: 0 0 4px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--ink);
+          letter-spacing: 0.01em;
+        }
+        .tasks-by-student-section__hint {
+          margin: 0 0 10px;
+          font-size: 12px;
+          line-height: 1.45;
+          color: var(--text-muted);
+        }
         .tasks-by-student-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -2037,6 +2110,12 @@ export default function Tasks() {
           font-family: inherit;
           min-height: auto;
         }
+        .tasks-student-card__profile-static {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+        }
         .tasks-student-card__profile:hover .tasks-student-card__name { color: var(--v500); }
         .tasks-student-card__profile:hover .tasks-student-card__chevron { color: var(--v500); transform: translateX(2px); }
         .tasks-student-card__avatar {
@@ -2053,6 +2132,14 @@ export default function Tasks() {
           color: var(--v700);
           background: var(--v50);
           border: 1px solid rgba(108, 71, 216, 0.18);
+        }
+        .tasks-student-card__avatar--unlinked {
+          color: var(--text-muted);
+          background: var(--surface-2, var(--surface));
+          border-color: var(--border-mid);
+        }
+        .tasks-student-card--unlinked .tasks-student-card__head {
+          background: linear-gradient(180deg, rgba(0, 4, 53, 0.03) 0%, transparent 100%);
         }
         .tasks-student-card__identity {
           flex: 1;

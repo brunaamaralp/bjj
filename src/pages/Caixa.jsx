@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
 import { fetchFinanceSummary } from '../lib/financeTxApi.js';
 
@@ -126,6 +126,7 @@ export default function Caixa() {
   const [periodBalance, setPeriodBalance] = useState(null);
 
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const summaryReqRef = useRef(0);
 
 
 
@@ -159,6 +160,7 @@ export default function Caixa() {
   );
 
   const rawTab = financeiroLegacyTabToSlug(searchParams.get('tab'));
+  const tabParam = searchParams.get('tab');
 
   if (isFinanceiroConfigTabSlug(rawTab)) {
     return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
@@ -191,7 +193,7 @@ export default function Caixa() {
 
   useEffect(() => {
 
-    const normalized = financeiroLegacyTabToSlug(searchParams.get('tab'));
+    const normalized = financeiroLegacyTabToSlug(tabParam);
 
     if (!allowedLeafTabs.has(normalized) || normalized !== activeTab) {
 
@@ -199,7 +201,7 @@ export default function Caixa() {
 
     }
 
-  }, [activeTab, allowedLeafTabs, searchParams, setSearchParams]);
+  }, [activeTab, allowedLeafTabs, tabParam, setSearchParams]);
 
 
 
@@ -312,18 +314,33 @@ export default function Caixa() {
   useEffect(() => {
     if (activeTab !== 'movimentacoes') return;
     const { from, to } = monthPeriodBounds(referenceMonth);
-    setPeriodFrom(from);
-    setPeriodTo(to);
+    setPeriodFrom((prev) => (prev === from ? prev : from));
+    setPeriodTo((prev) => (prev === to ? prev : to));
   }, [activeTab, referenceMonth]);
+
+  const handlePeriodFiltersChange = useCallback((from, to) => {
+    setPeriodFrom((prev) => (prev === from ? prev : from));
+    setPeriodTo((prev) => (prev === to ? prev : to));
+  }, []);
+
+  const handleTransactionsChange = useCallback((pending) => {
+    setTransactionsForNl((prev) => {
+      const next = Array.isArray(pending) ? pending : [];
+      if (prev.length === next.length && prev.every((tx, i) => tx.id === next[i]?.id)) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
 
   const subtitle = TAB_SUBTITLES[activeTab] || TAB_SUBTITLES.movimentacoes;
 
 
 
   const loadPeriodSummary = useCallback(async () => {
+    if (!academyId || !periodFrom || !periodTo) return;
 
-    if (!academyId) return;
-
+    const reqId = ++summaryReqRef.current;
     setSummaryLoading(true);
 
     try {
@@ -340,15 +357,17 @@ export default function Caixa() {
 
       });
 
+      if (reqId !== summaryReqRef.current) return;
       setPeriodBalance(s);
 
     } catch {
 
+      if (reqId !== summaryReqRef.current) return;
       setPeriodBalance(null);
 
     } finally {
 
-      setSummaryLoading(false);
+      if (reqId === summaryReqRef.current) setSummaryLoading(false);
 
     }
 
@@ -457,19 +476,13 @@ export default function Caixa() {
 
             isAdmin={isAdmin}
 
-            onTransactionsChange={setTransactionsForNl}
+            onTransactionsChange={handleTransactionsChange}
 
             periodFrom={periodFrom}
 
             periodTo={periodTo}
 
-            onPeriodFiltersChange={(from, to) => {
-
-              setPeriodFrom(from);
-
-              setPeriodTo(to);
-
-            }}
+            onPeriodFiltersChange={handlePeriodFiltersChange}
 
             onTxMutated={loadPeriodSummary}
 

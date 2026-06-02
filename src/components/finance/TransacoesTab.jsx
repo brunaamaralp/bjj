@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { createSessionJwt } from '../../lib/appwrite';
 import { listFinanceTx, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
@@ -161,6 +161,8 @@ export default function TransacoesTab({
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
   const [pendingCancelRecId, setPendingCancelRecId] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
+  const loadReqRef = useRef(0);
+  const lastNotifiedTxRef = useRef('');
 
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
@@ -257,22 +259,51 @@ export default function TransacoesTab({
         setTransactions([]);
         return;
       }
+      const reqId = ++loadReqRef.current;
       setTxLoading(true);
       try {
         const body = await listFinanceTx({ academyId, from: fromDate, to: toDate, cursor, regime });
+        if (reqId !== loadReqRef.current) return;
         const items = body.transactions || [];
         setTransactions((prev) => (append ? [...prev, ...items] : items));
         setLoadError(false);
       } catch {
+        if (reqId !== loadReqRef.current) return;
         if (!append) {
           setTransactions([]);
           setLoadError(true);
         }
       } finally {
-        setTxLoading(false);
+        if (reqId === loadReqRef.current) setTxLoading(false);
       }
     },
     [academyId, fromDate, toDate, regime]
+  );
+
+  const notifyPeriodFiltersChange = useCallback(
+    (from, to) => {
+      if (typeof onPeriodFiltersChange !== 'function') return;
+      onPeriodFiltersChange(from, to);
+    },
+    [onPeriodFiltersChange]
+  );
+
+  const handleFromDateChange = useCallback(
+    (e) => {
+      const next = e.target.value;
+      setFromDate(next);
+      notifyPeriodFiltersChange(next, toDate);
+    },
+    [notifyPeriodFiltersChange, toDate]
+  );
+
+  const handleToDateChange = useCallback(
+    (e) => {
+      const next = e.target.value;
+      setToDate(next);
+      notifyPeriodFiltersChange(fromDate, next);
+    },
+    [notifyPeriodFiltersChange, fromDate]
   );
 
   const requestCloseTxModal = () => {
@@ -370,20 +401,19 @@ export default function TransacoesTab({
   }, [loadTransactions]);
 
   useEffect(() => {
-    if (typeof onPeriodFiltersChange === 'function') {
-      onPeriodFiltersChange(fromDate, toDate);
-    }
-  }, [fromDate, toDate, onPeriodFiltersChange]);
-
-  useEffect(() => {
     setFromDate(periodFrom);
     setToDate(periodTo);
   }, [periodFrom, periodTo]);
 
   useEffect(() => {
-    if (typeof onTransactionsChange === 'function') {
-      onTransactionsChange(transactions);
-    }
+    if (typeof onTransactionsChange !== 'function') return;
+    const pending = (transactions || []).filter(
+      (tx) => String(tx.status || '').toLowerCase() === 'pending'
+    );
+    const signature = pending.map((tx) => String(tx.id || '')).join('|');
+    if (signature === lastNotifiedTxRef.current) return;
+    lastNotifiedTxRef.current = signature;
+    onTransactionsChange(pending);
   }, [transactions, onTransactionsChange]);
 
   useEffect(() => {
@@ -608,7 +638,7 @@ export default function TransacoesTab({
                   type="date"
                   aria-label="Data inicial"
                   value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
+                  onChange={handleFromDateChange}
                 />
               </div>
               <div className="finance-filters-bar__field finance-tx-date-group">
@@ -621,7 +651,7 @@ export default function TransacoesTab({
                   type="date"
                   aria-label="Data final"
                   value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
+                  onChange={handleToDateChange}
                 />
               </div>
               <FinanceToolbarSelect
