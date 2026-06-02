@@ -130,9 +130,7 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
       {section === FINANCE_SETTINGS_SECTIONS.REGUA && isOwner ? (
         <FinanceSettingsCollectionSection
           collectionRules={state.collectionRules}
-          overdueLabel={state.overdueLabel}
           onRulesChange={state.setCollectionRules}
-          onOverdueLabelChange={state.setOverdueLabel}
         />
       ) : null}
 

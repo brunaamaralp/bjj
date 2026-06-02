@@ -1,9 +1,32 @@
 /** Contas bancárias da academia (financeConfig.bankAccounts). */
 
+function parseOpeningBalanceDate(value) {
+  const s = String(value || '').trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
+
+/** Normaliza entrada de conta (cadastro + saldo inicial). */
+export function normalizeBankAccountEntry(raw) {
+  const acc = raw && typeof raw === 'object' ? raw : {};
+  const openingRaw = Number(acc.openingBalance);
+  const openingBalance = Number.isFinite(openingRaw) ? Math.round(openingRaw * 100) / 100 : 0;
+  return {
+    bankName: String(acc.bankName || '').trim(),
+    branch: String(acc.branch || '').trim(),
+    account: String(acc.account || '').trim(),
+    accountName: String(acc.accountName || '').trim(),
+    pixKey: String(acc.pixKey || '').trim(),
+    openingBalance: openingBalance >= 0 ? openingBalance : 0,
+    openingBalanceDate: parseOpeningBalanceDate(acc.openingBalanceDate),
+  };
+}
+
 /** Mantém só contas com nome de banco preenchido (evita linha vazia na lista). */
 export function filterBankAccountsWithBank(accounts) {
   const list = Array.isArray(accounts) ? accounts : [];
-  return list.filter((acc) => String(acc?.bankName || '').trim());
+  return list
+    .map((acc) => normalizeBankAccountEntry(acc))
+    .filter((acc) => acc.bankName);
 }
 
 export function formatBankAccountLabel(acc) {

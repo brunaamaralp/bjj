@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Plus, X, ChevronRight, Tag, Pencil, Settings2 } from 'lucide-react';
-import { databases, DB_ID, ACADEMIES_COL, account } from '../../lib/appwrite';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Plus, X, ChevronRight, Settings2 } from 'lucide-react';
+import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { contactLabelSingular } from '../../lib/terminology.js';
 import { normalizeQuestionType } from '../../lib/customLeadQuestions.js';
-import LabelPill from '../shared/LabelPill';
 import EmptyState from '../shared/EmptyState.jsx';
-import ErrorBanner from '../shared/ErrorBanner.jsx';
-import { LABEL_PRESET_COLORS } from '../../lib/labelPresetColors.js';
 
 const QUESTION_LABEL_MAX = 30;
 
@@ -18,44 +15,6 @@ const QUESTION_TYPE_LABELS = {
     boolean: 'Sim / Não',
     select: 'Lista',
 };
-
-function LabelColorSwatch({ preset, selected, onSelect }) {
-    const hex = preset.hex;
-    const bg = preset.cssVar ? `var(${preset.cssVar})` : hex;
-    return (
-        <button
-            type="button"
-            className={`funil-color-swatch${selected ? ' funil-color-swatch--selected' : ''}`}
-            aria-label={`Selecionar cor ${hex}`}
-            aria-pressed={selected}
-            onClick={() => onSelect(hex)}
-            style={{ '--swatch-color': bg, '--swatch-ring': hex }}
-        />
-    );
-}
-
-function LabelColorPicker({ value, onChange, showRequiredHint = false }) {
-    return (
-        <div className="funil-color-picker">
-            <span className="funil-color-picker__label">Cor</span>
-            <div className="funil-color-swatch-group" role="group" aria-label="Cor da etiqueta">
-                {LABEL_PRESET_COLORS.map((preset) => (
-                    <LabelColorSwatch
-                        key={preset.hex}
-                        preset={preset}
-                        selected={value === preset.hex}
-                        onSelect={onChange}
-                    />
-                ))}
-            </div>
-            {showRequiredHint && !value ? (
-                <p className="funil-color-hint" role="status">
-                    Selecione uma cor para continuar
-                </p>
-            ) : null}
-        </div>
-    );
-}
 
 function serializeLeadQuestions(qs) {
     const arr = Array.isArray(qs) ? qs : [];
@@ -199,18 +158,6 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
     );
     const questionsHeading = `Perguntas do ${contactLabel}`;
 
-    // ── Labels state ──────────────────────────────────────────────────────────
-    const [labels, setLabels] = useState([]);
-    const [newLabelName, setNewLabelName] = useState('');
-    const [newLabelColor, setNewLabelColor] = useState('');
-    const [editingLabel, setEditingLabel] = useState(null); // { $id, name, color }
-    const [labelsLoading, setLabelsLoading] = useState(false);
-    const [labelsError, setLabelsError] = useState(false);
-    const [creatingLabel, setCreatingLabel] = useState(false);
-    const [lastCreatedId, setLastCreatedId] = useState(null);
-    const [exitingIds, setExitingIds] = useState({});
-    const enterClearRef = useRef(null);
-
     const createId = () => {
         try {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -275,155 +222,6 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
         setNewQuestion('');
     };
 
-    // ── Labels API helpers ────────────────────────────────────────────────────
-    const getJwt = async () => {
-        try {
-            const jwt = await account.createJWT();
-            return String(jwt?.jwt || '').trim();
-        } catch { return ''; }
-    };
-
-    const labelsHeaders = async () => {
-        const jwt = await getJwt();
-        return {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
-            'x-academy-id': academyId || '',
-        };
-    };
-
-    const fetchLabels = async () => {
-        if (!academyId) return;
-        setLabelsLoading(true);
-        setLabelsError(false);
-        try {
-            const res = await fetch(`/api/labels`, { headers: await labelsHeaders() });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data?.sucesso) {
-                setLabels(data.labels || []);
-            } else {
-                setLabels([]);
-                setLabelsError(true);
-            }
-        } catch {
-            setLabels([]);
-            setLabelsError(true);
-        } finally {
-            setLabelsLoading(false);
-        }
-    };
-
-    useEffect(() => { fetchLabels(); }, [academyId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const handleCreateLabel = async () => {
-        const name = newLabelName.trim();
-        const color = String(newLabelColor || '').trim();
-        if (!name || !color) return;
-        setCreatingLabel(true);
-        try {
-            const res = await fetch('/api/labels', {
-                method: 'POST',
-                headers: await labelsHeaders(),
-                body: JSON.stringify({ name, color }),
-            });
-            const data = await res.json();
-            if (data?.sucesso) {
-                setLabels((prev) => [...prev, data.label].sort((a, b) =>
-                    String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR')
-                ));
-                setNewLabelName('');
-                setNewLabelColor('');
-                setLastCreatedId(data.label.$id);
-                if (enterClearRef.current) window.clearTimeout(enterClearRef.current);
-                enterClearRef.current = window.setTimeout(() => setLastCreatedId(null), 450);
-                addToast({ type: 'success', message: 'Etiqueta criada' });
-            } else {
-                addToast({ type: 'error', message: data?.erro || 'Erro ao criar etiqueta.' });
-            }
-        } catch {
-            addToast({ type: 'error', message: 'Erro de conexão ao criar etiqueta.' });
-        } finally {
-            setCreatingLabel(false);
-        }
-    };
-
-    const handleSaveEditLabel = async () => {
-        if (!editingLabel) return;
-        const name = (editingLabel.name || '').trim();
-        const color = String(editingLabel.color || '').trim();
-        if (!name || !color) return;
-        try {
-            const res = await fetch(`/api/labels/${encodeURIComponent(editingLabel.$id)}`, {
-                method: 'PATCH',
-                headers: await labelsHeaders(),
-                body: JSON.stringify({ name, color }),
-            });
-            const data = await res.json();
-            if (data?.sucesso) {
-                setLabels((prev) =>
-                    prev
-                        .map((l) => (l.$id === editingLabel.$id ? data.label : l))
-                        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
-                );
-                setEditingLabel(null);
-                addToast({ type: 'success', message: 'Etiqueta atualizada.' });
-            } else {
-                addToast({ type: 'error', message: data?.erro || 'Erro ao editar etiqueta.' });
-            }
-        } catch {
-            addToast({ type: 'error', message: 'Erro de conexão ao editar etiqueta.' });
-        }
-    };
-
-    const performDeleteLabel = async (label) => {
-        try {
-            const res = await fetch(`/api/labels/${encodeURIComponent(label.$id)}`, {
-                method: 'DELETE',
-                headers: await labelsHeaders(),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (data?.sucesso) {
-                setExitingIds((m) => ({ ...m, [label.$id]: true }));
-                window.setTimeout(() => {
-                    setLabels((prev) => prev.filter((l) => l.$id !== label.$id));
-                    setExitingIds((m) => {
-                        const n = { ...m };
-                        delete n[label.$id];
-                        return n;
-                    });
-                }, 220);
-                addToast({ type: 'success', message: 'Etiqueta excluída.' });
-                return true;
-            }
-            addToast({ type: 'error', message: data?.erro || 'Erro ao remover etiqueta.' });
-            return false;
-        } catch {
-            addToast({ type: 'error', message: 'Erro de conexão ao remover etiqueta.' });
-            return false;
-        }
-    };
-
-    const requestDeleteLabel = (label) => {
-        addToast({
-            type: 'warning',
-            message: `Excluir etiqueta "${label.name}"?`,
-            persistent: true,
-            secondaryAction: { label: 'Cancelar', onClick: () => {} },
-            actionDanger: true,
-            action: {
-                label: 'Excluir',
-                onClick: async () => performDeleteLabel(label),
-            },
-        });
-    };
-
-    useEffect(
-        () => () => {
-            if (enterClearRef.current) window.clearTimeout(enterClearRef.current);
-        },
-        []
-    );
-
     const handleRemoveQuestion = (id, idx) => {
         setAcademy(a => ({
             ...a,
@@ -460,7 +258,6 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
     const questions = academy.customLeadQuestions || [];
 
     return (
-        <>
         <section className="empresa-section mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
             <div className="flex justify-between items-center mb-2" style={{ gap: 10, flexWrap: 'wrap' }}>
                 <h3 className="navi-section-heading" style={{ margin: 0 }}>{questionsHeading}</h3>
@@ -541,200 +338,6 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }
                 </div>
             </div>
         </section>
-
-        <div className="funil-section-divider" role="separator" aria-hidden="true" />
-
-        {/* Etiquetas: persistência imediata via API (diferente das perguntas, que exigem "Salvar alterações"). */}
-        <section className="empresa-section animate-in" style={{ animationDelay: '0.1s' }}>
-            <p className="funil-section-subheading">Organização</p>
-            <div className="flex justify-between items-center mb-2" style={{ gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <h3 className="navi-section-heading" style={{ margin: 0 }}>Etiquetas</h3>
-                    {labels.length > 0 && (
-                        <span
-                            className="text-small"
-                            style={{
-                                fontWeight: 700,
-                                padding: '2px 9px',
-                                borderRadius: 999,
-                                background: 'var(--border)',
-                                color: 'var(--text-secondary)',
-                                lineHeight: 1.3,
-                            }}
-                        >
-                            {labels.length}
-                        </span>
-                    )}
-                </div>
-            </div>
-            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.45 }}>
-                Criar, editar ou excluir etiquetas salva na hora — não é preciso usar o botão de salvar das perguntas.
-            </p>
-            <div className="card">
-                <div className="flex-col gap-3">
-                    {labelsError && !labelsLoading && (
-                        <ErrorBanner
-                            message="Não foi possível carregar as etiquetas."
-                            onRetry={() => void fetchLabels()}
-                        />
-                    )}
-                    {labelsLoading && (
-                        <p className="navi-subtitle" style={{ margin: 0 }}>Carregando...</p>
-                    )}
-
-                    {!labelsLoading && !labelsError && labels.length === 0 && (
-                        <EmptyState
-                            variant="compact"
-                            tone="dashed"
-                            icon={Tag}
-                            title="Nenhuma etiqueta criada"
-                            description={`Crie etiquetas para categorizar seus ${String(academy?.uiLabels?.leads || 'leads').toLowerCase()} no atendimento.`}
-                            role="status"
-                        />
-                    )}
-
-                    {!labelsLoading && !labelsError && labels.length > 0 && (
-                        <div className="flex-col gap-2">
-                            {labels.map((label) => (
-                                <div
-                                    key={label.$id}
-                                    className={`funil-label-row ${lastCreatedId === label.$id ? 'funil-label-row-enter' : ''} ${exitingIds[label.$id] ? 'funil-label-row-leave' : ''}`}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 10,
-                                        flexWrap: 'wrap',
-                                    }}
-                                >
-                                    {editingLabel?.$id === label.$id ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-                                            <input
-                                                className="form-input"
-                                                value={editingLabel.name}
-                                                onChange={(e) => setEditingLabel((v) => ({ ...v, name: e.target.value }))}
-                                                maxLength={30}
-                                                style={{ width: '100%', boxSizing: 'border-box' }}
-                                            />
-                                            <LabelColorPicker
-                                                value={editingLabel.color}
-                                                onChange={(col) => setEditingLabel((v) => ({ ...v, color: col }))}
-                                            />
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                <button
-                                                    type="button"
-                                                    className="btn-secondary"
-                                                    style={{ padding: '6px 14px', fontSize: 13 }}
-                                                    onClick={handleSaveEditLabel}
-                                                    disabled={!(editingLabel.name || '').trim() || !String(editingLabel.color || '').trim()}
-                                                >
-                                                    Salvar
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="btn-outline"
-                                                    style={{ padding: '6px 14px', fontSize: 13 }}
-                                                    onClick={() => setEditingLabel(null)}
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <LabelPill label={label} showDot={false} fullName />
-                                            {role === 'owner' && (
-                                                <div className="flex gap-1" style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                                                    <button
-                                                        type="button"
-                                                        className="icon-btn icon-only funil-label-edit-btn"
-                                                        title="Editar etiqueta"
-                                                        aria-label="Editar etiqueta"
-                                                        onClick={() =>
-                                                            setEditingLabel({
-                                                                $id: label.$id,
-                                                                name: label.name,
-                                                                color: label.color || '#8E8E8E',
-                                                            })
-                                                        }
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="icon-btn icon-only"
-                                                        title="Excluir"
-                                                        onClick={() => requestDeleteLabel(label)}
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {role === 'owner' && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: labels.length > 0 ? 4 : 0 }}>
-                                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                                <span className="text-small" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                                    Criar etiqueta
-                                </span>
-                                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                <LabelColorPicker
-                                    value={newLabelColor}
-                                    onChange={setNewLabelColor}
-                                    showRequiredHint
-                                />
-                                <div className="funil-label-create-row">
-                                    <div className="funil-label-name-field">
-                                        <input
-                                            className="form-input"
-                                            placeholder="Nome da etiqueta"
-                                            value={newLabelName}
-                                            onChange={(e) => setNewLabelName(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && newLabelName.trim() && newLabelColor && !creatingLabel) {
-                                                    void handleCreateLabel();
-                                                }
-                                            }}
-                                            maxLength={30}
-                                        />
-                                        <span className="funil-char-counter" aria-hidden>
-                                            {newLabelName.length}/30
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="btn-secondary"
-                                        onClick={() => void handleCreateLabel()}
-                                        disabled={!newLabelName.trim() || !newLabelColor || creatingLabel}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            whiteSpace: 'nowrap',
-                                            padding: '0 14px',
-                                            minHeight: 40,
-                                            alignSelf: 'flex-start',
-                                        }}
-                                    >
-                                        <Plus size={16} strokeWidth={2} />
-                                        {creatingLabel ? 'Adicionando…' : 'Adicionar'}
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-        </section>
-        </>
     );
 };
 

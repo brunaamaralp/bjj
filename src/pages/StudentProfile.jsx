@@ -57,9 +57,6 @@ import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import { formatCollectionResultLabel } from '../lib/collectionRules.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
-import LabelPill from '../components/shared/LabelPill';
-import LabelSelector from '../components/shared/LabelSelector';
-import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
@@ -307,20 +304,6 @@ export default function StudentProfile() {
     const toast = useToast();
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(uiLabels), [uiLabels]);
-
-    const { allLabels } = useAcademyLabels(academyId, {
-        onLoadError: () => toast.show({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
-    });
-
-    const handleLabelsChange = async (newIds) => {
-        if (!id) return;
-        try {
-            await updateStudent(id, { label_ids: newIds });
-            toast.success('Etiquetas atualizadas.');
-        } catch (e) {
-            toast.error(e, 'save');
-        }
-    };
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -2100,27 +2083,6 @@ export default function StudentProfile() {
                         </span>
                     ) : null}
 
-                    {/* Etiquetas */}
-                    <div className="student-profile-hd__labels">
-                        {(student.labelIds || []).map((labelId) => {
-                            const label = allLabels.find((l) => l.$id === labelId);
-                            if (!label) return null;
-                            return (
-                                <LabelPill
-                                    key={labelId}
-                                    label={label}
-                                    onRemove={() =>
-                                        handleLabelsChange((student.labelIds || []).filter((x) => x !== labelId))
-                                    }
-                                />
-                            );
-                        })}
-                        <LabelSelector
-                            allLabels={allLabels}
-                            selectedIds={student.labelIds || []}
-                            onChange={handleLabelsChange}
-                        />
-                    </div>
                     </div>{/* fecha student-profile-hd__body */}
                 </div>{/* fecha student-profile-hd */}
 

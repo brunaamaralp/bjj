@@ -820,9 +820,7 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
           {lastSaved.collection ? <p className="text-small text-muted finance-config-section__saved">{formatSavedAt(lastSaved.collection)}</p> : null}
           <CollectionRulesSection
             collectionRules={collectionRules}
-            overdueLabel={overdueLabel}
             onRulesChange={setCollectionRules}
-            onOverdueLabelChange={setOverdueLabel}
           />
           <SectionSaveFooter
             dirty={dirty.collection}

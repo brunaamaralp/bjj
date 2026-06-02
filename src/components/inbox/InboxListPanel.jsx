@@ -1,8 +1,6 @@
 import React, { useRef } from 'react';
 import { Filter } from 'lucide-react';
 import ConversationList from './ConversationList';
-import FormSelect from '../shared/FormSelect.jsx';
-
 export default function InboxListPanel({
   searchQuery,
   hasMore,
@@ -13,9 +11,6 @@ export default function InboxListPanel({
   inboxExtraFilterActive,
   listExtraFiltersRef,
   setListFilter,
-  inboxLabels,
-  labelFilter,
-  setLabelFilter,
   onConversationListScroll,
   groupedFilteredItems,
   loading,
@@ -34,7 +29,6 @@ export default function InboxListPanel({
   nowMs,
   agentIaActive = false,
 }) {
-  const labelOptions = (inboxLabels || []).map((l) => ({ value: l.$id, label: l.name }));
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
   const listScrollRef = useRef(null);
 
@@ -165,24 +159,6 @@ export default function InboxListPanel({
                   Transferidas
                 </button>
               </div>
-              {inboxLabels.length > 0 ? (
-                <div className="inbox-list-filters__label-section">
-                  <label className="text-small inbox-list-filters__label-heading" htmlFor="inbox-label-filter">
-                    Etiqueta
-                  </label>
-                  <FormSelect
-                    id="inbox-label-filter"
-                    value={labelFilter || ''}
-                    onChange={(val) => setLabelFilter(val || null)}
-                    density="toolbar"
-                    emptyLabel="Todas as etiquetas"
-                    options={labelOptions}
-                    aria-label="Filtrar por etiqueta"
-                    className={labelFilter ? 'inbox-label-filter--active' : ''}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              ) : null}
             </div>
           ) : null}
         </div>

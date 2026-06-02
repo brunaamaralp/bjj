@@ -29,7 +29,6 @@ const CLIENT_ONLY_KEYS = new Set([
   'status',
   'contact_type',
   'pipelineStage',
-  'labelIds',
 ]);
 
 const STUDENT_TURMA_KEY = (() => {
@@ -99,7 +98,6 @@ function updatesToStudentPatch(updates, current) {
   }
   if (u.isFirstExperience !== undefined) copyIf('is_first_experience', u.isFirstExperience);
   if (u.belt !== undefined) copyIf('belt', u.belt);
-  if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
   if (u.studentStatus !== undefined) {
     copyIf('student_status', String(u.studentStatus || '').trim() || STUDENT_STATUS.ACTIVE);
   }
@@ -353,10 +351,6 @@ export const useStudentStore = create((set, get) => ({
     for (const [k, v] of Object.entries(updates)) {
       if (!CLIENT_ONLY_KEYS.has(k)) filtered[k] = v;
     }
-    if (Array.isArray(filtered.label_ids)) {
-      filtered.labelIds = [...filtered.label_ids];
-    }
-
     const patch = updatesToStudentPatch(filtered, current);
     if (Object.keys(patch).length > 0) {
       try {
@@ -371,7 +365,6 @@ export const useStudentStore = create((set, get) => ({
     }
 
     const merged = { ...current, ...updates };
-    if (filtered.labelIds) merged.labelIds = filtered.labelIds;
 
     set((state) => ({
       students: state.students.map((s) => (s.id === id ? merged : s)),

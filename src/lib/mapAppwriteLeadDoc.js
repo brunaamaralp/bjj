@@ -67,6 +67,5 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     hasPendingAutomations: doc.has_pending_automations === true,
     createdAt: doc.$createdAt,
     lostReason: doc.lostReason || '',
-    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
   };
 }

@@ -223,6 +223,7 @@ async function syncFinancialTxMirror({
     created_by: String(data.registered_by || '').trim() || 'system',
     updated_by: String(data.registered_by || '').trim() || 'system',
     updated_at: now,
+    bank_account: String(data.account || '').trim().slice(0, 128),
   };
 
   const stripOptionalMirrorAttrs = (payload) => {

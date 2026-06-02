@@ -35,8 +35,6 @@
     { "source": "/api/conversation-notes", "destination": "/api/conversations.js?route=notes" },
     { "source": "/api/public-enrollment", "destination": "/api/leads.js?route=public-enrollment" },
     { "source": "/api/public-enrollment-config", "destination": "/api/leads.js?route=public-enrollment-config" },
-    { "source": "/api/labels", "destination": "/api/leads.js?route=labels" },
-    { "source": "/api/labels/:id", "destination": "/api/leads.js?route=labels&id=:id" },
     { "source": "/api/control-id/status", "destination": "/api/leads.js?route=controlid_status" },
     { "source": "/api/control-id/attendance", "destination": "/api/leads.js?route=control-id-attendance" },
     { "source": "/api/control-id/sync-all", "destination": "/api/leads.js?route=controlid_sync_all" },

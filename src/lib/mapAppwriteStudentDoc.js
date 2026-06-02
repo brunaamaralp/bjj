@@ -54,7 +54,6 @@ export function mapAppwriteDocToStudent(doc) {
     cpfResponsavel: doc.cpf_responsavel || doc.cpfResponsavel || '',
     preferredPaymentMethod: doc.preferred_payment_method || '',
     preferredPaymentAccount: doc.preferred_payment_account || '',
-    labelIds: Array.isArray(doc.label_ids) ? doc.label_ids : [],
     studentStatus: normalizeStudentStatus(doc.student_status ?? doc.studentStatus),
     exitReason: String(doc.exit_reason ?? doc.exitReason ?? '').trim(),
     exitDate: String(doc.exit_date ?? doc.exitDate ?? '').trim().slice(0, 10),

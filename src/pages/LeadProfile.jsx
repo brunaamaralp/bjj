@@ -11,8 +11,6 @@ import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calend
 import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
-import LabelPill from '../components/shared/LabelPill';
-import LabelSelector from '../components/shared/LabelSelector';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
@@ -55,7 +53,6 @@ import {
   pipelineStageDisplayLabel,
 } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
-import { useAcademyLabels } from '../hooks/useAcademyLabels.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -425,10 +422,6 @@ const LeadProfile = () => {
         window.addEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
         return () => window.removeEventListener(LEAD_TIMELINE_CHANGED, onTimelineChanged);
     }, [id, refreshTimeline]);
-
-    const { allLabels } = useAcademyLabels(academyId, {
-        onLoadError: () => toast.show({ type: 'error', message: 'Não foi possível carregar etiquetas.' }),
-    });
 
     const [note, setNote] = useState('');
     const [editing, setEditing] = useState(false);
@@ -1097,15 +1090,6 @@ const LeadProfile = () => {
         }
     };
 
-    const handleLabelsChange = async (newIds) => {
-        try {
-            await updateLead(id, { label_ids: newIds });
-            toast.success('Etiquetas atualizadas.');
-        } catch (e) {
-            toast.error(e, 'save');
-        }
-    };
-
     const statusStyle = STATUS_CONFIG[lead.status] || STATUS_CONFIG[LEAD_STATUS.NEW];
     const statusBadgeStyle =
         lead.status === LEAD_STATUS.SCHEDULED
@@ -1413,26 +1397,6 @@ const LeadProfile = () => {
                             )}
                         </div>
 
-                        {!editing && (
-                            <div className="flex flex-wrap gap-1 mt-3">
-                                {(lead.labelIds || []).map((labelId) => {
-                                    const label = allLabels.find((l) => l.$id === labelId);
-                                    if (!label) return null;
-                                    return (
-                                        <LabelPill
-                                            key={labelId}
-                                            label={label}
-                                            onRemove={() => handleLabelsChange((lead.labelIds || []).filter((x) => x !== labelId))}
-                                        />
-                                    );
-                                })}
-                                <LabelSelector
-                                    allLabels={allLabels}
-                                    selectedIds={lead.labelIds || []}
-                                    onChange={handleLabelsChange}
-                                />
-                            </div>
-                        )}
                     </div>
 
                     {/* Comunicação */}

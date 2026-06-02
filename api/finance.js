@@ -3,7 +3,7 @@
 // Não tem relação com a assinatura do Nave — ver api/billing.js.
 /**
  * Hub financeiro (Vercel Hobby: uma função para tx, mensalidades, resumos, previsão e conciliação).
- * Rotas: ?route=tx | student-payments | summary | closing | forecast
+ * Rotas: ?route=tx | student-payments | summary | closing | forecast | bank-balances
  * Conciliação: ?finance_hub=bank-reconciliation&route=list|detail|import|…
  * Rewrites: /api/student-payments, /api/finance-tx, /api/finance/*, /api/bank-reconciliation
  */
@@ -13,6 +13,7 @@ import financeForecastHandler from '../lib/server/financeForecastHandler.js';
 import financeTxHandler from '../lib/server/financeTxHandler.js';
 import studentPaymentsHandler from '../lib/server/studentPaymentsHandler.js';
 import bankReconciliationHandler from '../lib/server/bankReconciliationHandler.js';
+import financeBankBalancesHandler from '../lib/server/financeBankBalancesHandler.js';
 
 export const config = {
   maxDuration: 60,
@@ -39,6 +40,9 @@ export default async function handler(req, res) {
   }
   if (route === 'forecast' || req.url?.includes('/forecast')) {
     return financeForecastHandler(req, res);
+  }
+  if (route === 'bank-balances' || route === 'bank_balances') {
+    return financeBankBalancesHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);

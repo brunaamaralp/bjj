@@ -1,12 +1,10 @@
 import React from 'react';
 import { Bell, Plus, Trash2 } from 'lucide-react';
-import { DEFAULT_COLLECTION_RULES, DEFAULT_OVERDUE_LABEL } from '../../lib/collectionRules.js';
+import { DEFAULT_COLLECTION_RULES } from '../../lib/collectionRules.js';
 
 export default function CollectionRulesSection({
   collectionRules,
-  overdueLabel,
   onRulesChange,
-  onOverdueLabelChange,
 }) {
   const rules = Array.isArray(collectionRules) ? collectionRules : DEFAULT_COLLECTION_RULES;
 
@@ -41,23 +39,9 @@ export default function CollectionRulesSection({
       </h3>
       <p className="text-small text-muted finance-config-section__hint mensal-collection-intro">
         Configure o que o sistema faz após o vencimento. O Nave <strong>não envia WhatsApp automaticamente</strong> —
-        apenas cria tarefas e etiquetas para a equipe agir.
+        apenas cria tarefas para a equipe agir.
       </p>
       <div className="finance-config-section__body">
-        <div className="form-group mensal-collection-label-field finance-collection-label-field">
-          <label>Etiqueta de inadimplência</label>
-          <input
-            className="form-input finance-compact-input"
-            value={overdueLabel || DEFAULT_OVERDUE_LABEL}
-            onChange={(e) => onOverdueLabelChange(e.target.value)}
-            placeholder={DEFAULT_OVERDUE_LABEL}
-            maxLength={30}
-          />
-          <span className="text-small text-muted">
-            Aplicada a partir de D+1 após o vencimento; removida ao regularizar o pagamento.
-          </span>
-        </div>
-
         <div className="mensal-collection-rules-list">
           {rules.map((rule, idx) => {
             const day = Number(rule.day) || 1;

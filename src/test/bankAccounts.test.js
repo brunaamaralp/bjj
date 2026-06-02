@@ -19,7 +19,17 @@ describe('bankAccounts', () => {
         { bankName: '', account: '2' },
         { bankName: '   ', branch: '1' },
       ])
-    ).toEqual([{ bankName: 'Sicoob', account: '1' }]);
+    ).toEqual([
+      {
+        bankName: 'Sicoob',
+        account: '1',
+        branch: '',
+        accountName: '',
+        pixKey: '',
+        openingBalance: 0,
+        openingBalanceDate: '',
+      },
+    ]);
   });
 
   it('exige conta cadastrada quando há opções', () => {

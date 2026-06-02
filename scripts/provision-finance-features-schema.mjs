@@ -129,6 +129,7 @@ async function provisionFinancialTx(databases) {
   await ensureDatetime(databases, FINANCIAL_TX_COL, 'reconciled_at', false);
   await ensureString(databases, FINANCIAL_TX_COL, 'reconciled_by', 64, false);
   await ensureString(databases, FINANCIAL_TX_COL, 'bank_statement_id', 64, false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'bank_account', 128, false);
   await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_type', 16, false);
   await ensureInteger(databases, FINANCIAL_TX_COL, 'recurrence_day', false);
   await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_end', 7, false);

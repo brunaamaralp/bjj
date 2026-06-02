@@ -9,7 +9,6 @@ import { recordWhatsappTemplateSent } from '../lib/server/whatsappTemplateSent.j
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
-import labelsHandler from '../lib/server/labelsHandler.js';
 import inventoryHandler from '../lib/server/inventoryHandler.js';
 import productsHandler from '../lib/server/productsHandler.js';
 import aiProductImportHandler from '../lib/server/aiProductImportHandler.js';
@@ -246,7 +245,6 @@ export default async function handler(req, res) {
   if (req.query.route === 'public-enrollment' || req.query.route === 'public-enrollment-config') {
     return publicEnrollmentHandler(req, res);
   }
-  if (req.query.route === 'labels') return labelsHandler(req, res);
   if (req.query.route === 'inventory') return inventoryHandler(req, res);
   if (req.query.route === 'products') return productsHandler(req, res);
   if (req.query.route === 'ai_import_products') return aiProductImportHandler(req, res);

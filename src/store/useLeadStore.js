@@ -34,7 +34,6 @@ const CLIENT_ONLY_KEYS = new Set([
   'intention',
   'priority',
   'hotLead',
-  'labelIds',
   '_isNew',
   'whatsappClassifiedAt'
 ]);
@@ -110,8 +109,6 @@ function updatesToAppwritePatch(updates, currentLead) {
     const sx = String(u.sexo || '').trim().slice(0, 16);
     patch.sexo = sx;
   }
-  if (u.label_ids !== undefined) copyIf('label_ids', u.label_ids);
-
   if (u.pipelineStage !== undefined) copyIf('pipeline_stage', u.pipelineStage);
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
   if (u.isFirstExperience !== undefined) copyIf('is_first_experience', u.isFirstExperience);
@@ -504,9 +501,6 @@ export const useLeadStore = create(
       }
 
       const normalizedUpdates = { ...updates };
-      if (Array.isArray(normalizedUpdates.label_ids)) {
-        normalizedUpdates.labelIds = [...normalizedUpdates.label_ids];
-      }
 
       const filtered = {};
       for (const [k, v] of Object.entries(normalizedUpdates)) {

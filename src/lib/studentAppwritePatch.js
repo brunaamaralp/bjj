@@ -18,7 +18,6 @@ export const OPTIONAL_STUDENT_PATCH_ATTRS = [
   'controlid_user_id',
   'controlid_synced',
   'controlid_sync_error',
-  'label_ids',
   'birth_date',
   'sexo',
   'cpf',

@@ -298,8 +298,6 @@ export default function Inbox() {
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const listExtraFiltersRef = useRef(null);
-  const [labelFilter, setLabelFilter] = useState(null); // string id | null
-  const [inboxLabels, setInboxLabels] = useState([]);
   const [agentIaActive, setAgentIaActive] = useState(false);
   const [stats, setStats] = useState({
     resolvedCount: 0,
@@ -537,26 +535,6 @@ export default function Inbox() {
 
   useEffect(() => {
     academyIdRef.current = String(academyId || '').trim();
-  }, [academyId]);
-
-  useEffect(() => {
-    setLabelFilter(null);
-  }, [academyId]);
-
-  useEffect(() => {
-    if (!academyId) return;
-    (async () => {
-      try {
-        const token = await getJwt();
-        const res = await fetch('/api/labels', {
-          headers: { Authorization: `Bearer ${token}`, 'x-academy-id': academyId },
-        });
-        const data = await res.json();
-        if (data?.sucesso) setInboxLabels(data.labels || []);
-      } catch {
-        void 0;
-      }
-    })();
   }, [academyId]);
 
   useEffect(() => {
@@ -2550,16 +2528,8 @@ export default function Inbox() {
       const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
       return Number.isFinite(n) ? n : 0;
     };
-    const applyLabel = (rows) => {
-      if (!labelFilter) return rows;
-      return rows.filter((it) => {
-        const ids = it?._lead?.labelIds;
-        return Array.isArray(ids) && ids.includes(labelFilter);
-      });
-    };
-
     if (listFilter === 'needs_me') {
-      return applyLabel(arr.filter((it) => Boolean(it?._handoffActive) && unreadN(it) > 0));
+      return arr.filter((it) => Boolean(it?._handoffActive) && unreadN(it) > 0);
     }
 
     const f = String(listFilter || 'all');
@@ -2571,7 +2541,6 @@ export default function Inbox() {
     else if (f === 'waiting_customer') result = arr.filter((it) => normTicket(it) === 'waiting_customer');
     else if (f === 'resolved') result = arr.filter((it) => normTicket(it) === 'resolved');
     else if (f === 'transferred') result = arr.filter((it) => normTicket(it) === 'transferred');
-    result = applyLabel(result);
     if (f === 'all') {
       const updatedMs = (it) => {
         const u = parseTimestampMs(it?.updated_at);
@@ -2586,7 +2555,7 @@ export default function Inbox() {
       });
     }
     return result;
-  }, [prioritizedItems, listFilter, labelFilter]);
+  }, [prioritizedItems, listFilter]);
 
   const groupedFilteredItems = useMemo(() => {
     const arr = Array.isArray(filteredItems) ? filteredItems : [];
@@ -3031,7 +3000,6 @@ export default function Inbox() {
 
   const handleClearInboxListFilters = useCallback(() => {
     setListFilter('all');
-    setLabelFilter(null);
     setExtraFiltersMenuOpen(false);
     setSearch('');
   }, []);
@@ -3077,8 +3045,7 @@ export default function Inbox() {
     };
   }, [isMobile]);
 
-  const inboxExtraFilterActive =
-    !INBOX_PRIMARY_FILTERS.has(String(listFilter || '')) || Boolean(labelFilter);
+  const inboxExtraFilterActive = !INBOX_PRIMARY_FILTERS.has(String(listFilter || ''));
 
   const listPanel = (
     <InboxListPanel
@@ -3091,9 +3058,6 @@ export default function Inbox() {
       inboxExtraFilterActive={inboxExtraFilterActive}
       listExtraFiltersRef={listExtraFiltersRef}
       setListFilter={setListFilter}
-      inboxLabels={inboxLabels}
-      labelFilter={labelFilter}
-      setLabelFilter={setLabelFilter}
       onConversationListScroll={onConversationListScroll}
       groupedFilteredItems={groupedFilteredItems}
       loading={loading}

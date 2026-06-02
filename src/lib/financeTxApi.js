@@ -46,6 +46,17 @@ export async function patchFinanceTx({ academyId, id, payload }) {
   return body.transaction;
 }
 
+export async function fetchBankBalances({ academyId, asOf } = {}) {
+  const params = new URLSearchParams({ route: 'bank-balances' });
+  if (asOf) params.set('asOf', asOf);
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar saldos das contas');
+  return body;
+}
+
 export async function fetchFinanceSummary({ academyId, from, to, regime }) {
   const params = new URLSearchParams({ route: 'summary' });
   if (from) params.set('from', from);

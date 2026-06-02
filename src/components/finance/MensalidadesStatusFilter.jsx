@@ -8,9 +8,6 @@ export default function MensalidadesStatusFilter({
   filterCounts,
   reguaFilterChips,
   collectionRules,
-  overdueLabelName,
-  overdueLabelCount,
-  overdueLabelId,
 }) {
   const rulesByDay = useMemo(() => {
     const map = new Map();
@@ -42,17 +39,9 @@ export default function MensalidadesStatusFilter({
         title: rule ? buildReguaStageTooltip(rule) : `Etapa D+${day} da régua de cobrança`,
       };
     });
-    if (overdueLabelId) {
-      reguaOptions.push({
-        id: 'overdue_label',
-        label: overdueLabelName,
-        count: overdueLabelCount,
-        title: 'Alunos com a etiqueta de inadimplência aplicada pelo cron (D+1+).',
-      });
-    }
     if (!reguaOptions.length) return [];
     return [{ label: 'Régua de cobrança', options: reguaOptions }];
-  }, [reguaFilterChips, rulesByDay, overdueLabelId, overdueLabelName, overdueLabelCount]);
+  }, [reguaFilterChips, rulesByDay]);
 
   return (
     <CompactStatusFilter

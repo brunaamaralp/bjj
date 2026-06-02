@@ -30,14 +30,12 @@ import { useTerms } from '../../lib/terminology.js';
 import { isActiveStudent } from '../../lib/studentStatus.js';
 import { useStudentStore } from '../../store/useStudentStore';
 import {
-  parseOverdueLabel,
   resolveCollectionStage,
   readCollectionSettingsFromFinanceConfig,
   readCollectionSettingsFromAcademy,
   mergeCollectionIntoFinanceConfig,
 } from '../../lib/collectionRules.js';
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
-import { useAcademyLabels } from '../../hooks/useAcademyLabels.js';
 import { validateBankAccountForPayment, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
@@ -179,7 +177,6 @@ export default function MensalidadesPanel({ embedded = false }) {
   const modules = useLeadStore((s) => s.modules);
   const toast = useToast();
   const terms = useTerms();
-  const { allLabels: academyLabels } = useAcademyLabels(academyId);
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
   const [searchParams] = useSearchParams();
 
@@ -269,7 +266,7 @@ export default function MensalidadesPanel({ embedded = false }) {
     }
   }, [academyId, currentMonth]);
 
-  const { collectionRules, overdueLabel: overdueLabelName } = useMemo(
+  const { collectionRules } = useMemo(
     () => readCollectionSettingsFromFinanceConfig(financeConfig),
     [financeConfig]
   );
@@ -425,12 +422,6 @@ export default function MensalidadesPanel({ embedded = false }) {
     [paymentMap, currentMonth]
   );
 
-  const overdueLabelId = useMemo(() => {
-    const name = parseOverdueLabel(overdueLabelName).toLowerCase();
-    const found = (academyLabels || []).find((l) => String(l.name || '').trim().toLowerCase() === name);
-    return found?.$id || found?.id || null;
-  }, [academyLabels, overdueLabelName]);
-
   const studentOverdueMeta = useMemo(() => {
     const map = {};
     for (const s of students) {
@@ -466,10 +457,6 @@ export default function MensalidadesPanel({ embedded = false }) {
     const q = debouncedSearch.trim().toLowerCase();
     return students
       .filter((s) => {
-        if (filter === 'overdue_label') {
-          if (!overdueLabelId) return false;
-          return (s.labelIds || []).includes(overdueLabelId);
-        }
         if (String(filter || '').startsWith('regua_')) {
           const day = Number(String(filter).replace('regua_', ''));
           const meta = studentOverdueMeta[s.id];
@@ -484,7 +471,7 @@ export default function MensalidadesPanel({ embedded = false }) {
         return filter === 'all' || getStatus(s) === filter;
       })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, debouncedSearch, getStatus, overdueLabelId, studentOverdueMeta]);
+  }, [students, filter, debouncedSearch, getStatus, studentOverdueMeta]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -938,9 +925,6 @@ export default function MensalidadesPanel({ embedded = false }) {
               filterCounts={filterCounts}
               reguaFilterChips={reguaFilterChips}
               collectionRules={collectionRules}
-              overdueLabelName={parseOverdueLabel(overdueLabelName)}
-              overdueLabelCount={students.filter((s) => (s.labelIds || []).includes(overdueLabelId)).length}
-              overdueLabelId={overdueLabelId}
             />
           ) : null}
           {viewMode === 'grid' && gridTurmas.length > 0 ? (
