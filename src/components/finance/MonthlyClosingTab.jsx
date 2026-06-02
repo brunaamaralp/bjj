@@ -34,7 +34,6 @@ import {
 } from '../../lib/monthlyClosing.js';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
 import { FINANCE_REGIME, getFinanceRegime } from '../../lib/financeCompetence.js';
-import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import {
   CheckCircle,
@@ -92,7 +91,6 @@ export default function MonthlyClosingTab({
   const referenceMonth = referenceMonthProp ?? referenceMonthInternal;
   const setReferenceMonth = onReferenceMonthChange ?? setReferenceMonthInternal;
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
-  const [operationalReceived, setOperationalReceived] = useState(null);
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -198,30 +196,6 @@ export default function MonthlyClosingTab({
     return rows.filter((r) => r.origin !== 'produto' || salesEnabled);
   }, [payments, transactions, leadById, financeConfig, referenceMonth, salesEnabled, regime]);
 
-  useEffect(() => {
-    let active = true;
-    const run = async () => {
-      if (!academyId || !referenceMonth) {
-        setOperationalReceived(null);
-        return;
-      }
-      const [y, m] = referenceMonth.split('-').map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const from = `${referenceMonth}-01`;
-      const to = `${referenceMonth}-${String(lastDay).padStart(2, '0')}`;
-      try {
-        const body = await fetchReportsFinanceLight({ academyId, from, to, regime });
-        if (active) setOperationalReceived(Number(body.received) || 0);
-      } catch {
-        if (active) setOperationalReceived(null);
-      }
-    };
-    void run();
-    return () => {
-      active = false;
-    };
-  }, [academyId, referenceMonth, regime]);
-
   const methodOptions = useMemo(() => {
     const set = new Set();
     for (const r of allRows) {
@@ -249,9 +223,6 @@ export default function MonthlyClosingTab({
 
   const sortedRows = useMemo(() => sortClosingRows(filteredRows, sortBy), [filteredRows, sortBy]);
   const totals = useMemo(() => computeClosingTotals(sortedRows), [sortedRows]);
-
-  const totalsDiverge =
-    operationalReceived != null && Math.abs(totals.received - operationalReceived) > 0.01;
 
   const studentMatches = useMemo(() => {
     const q = String(manualForm.studentQuery || '').trim().toLowerCase();
@@ -447,27 +418,12 @@ export default function MonthlyClosingTab({
       {academyId ? (
         <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
       ) : null}
-      <p className="text-xs text-muted monthly-closing-regime-note" role="status">
-        {regime === FINANCE_REGIME.COMPETENCE
-          ? 'Na conferência: mensalidades pelo mês de referência; demais lançamentos por competência (fallback: data de pagamento).'
-          : 'Na conferência: transações pelo mês de liquidação (data de recebimento no Caixa).'}
-      </p>
       {closingPartialWarning ? (
         <ErrorBanner
           className="mb-3"
           message="Alguns dados não puderam ser carregados. A conferência pode estar incompleta — vendas e outros lançamentos podem estar faltando."
           onRetry={() => void loadData()}
         />
-      ) : null}
-      {totalsDiverge ? (
-        <div className="card mb-3 monthly-closing-alert" role="alert">
-          <strong>Divergência — verifique o regime de visualização</strong>
-          <p className="text-small monthly-closing-alert__text">
-            Conferência: {fmtMoney(totals.received)} · Relatório operacional: {fmtMoney(operationalReceived)}.
-            Use o mesmo regime (caixa ou competência) nos dois painéis ou confira lançamentos sem competência
-            definida.
-          </p>
-        </div>
       ) : null}
       {unclassifiedCount > 0 ? (
         <div className="card mb-3 monthly-closing-alert" role="alert">
@@ -481,12 +437,6 @@ export default function MonthlyClosingTab({
           <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou cancele em
           Movimentações antes de considerar o mês fechado.{' '}
           <Link to="/financeiro?tab=movimentacoes">Ver lançamentos →</Link>
-        </div>
-      ) : null}
-      {totals.pending > 0 ? (
-        <div className="card mb-3 monthly-closing-alert" role="alert">
-          Existem mensalidades pendentes na conferência.{' '}
-          <Link to="/financeiro?tab=mensalidades&filtro=pending">Ver Mensalidades →</Link>
         </div>
       ) : null}
 

@@ -250,53 +250,6 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
             <ReportKpiCard label="Parados (0 vendas)" value={summary.stalled} highlight="warning" />
           </div>
 
-          {criticalRestock.length > 0 ? (
-            <div className="reports-restock-alert card mt-4" style={{ padding: '14px 16px' }}>
-              <ReportSectionHeading title="Atenção — Reposição necessária" />
-              <ReportDataTable
-                columns={[
-                  { key: 'nome', label: 'Produto' },
-                  { key: 'current_stock', label: 'Estoque atual', align: 'right' },
-                  {
-                    key: 'minimum_stock',
-                    label: 'Mínimo configurado',
-                    align: 'right',
-                    render: (row) => (row.minimum_stock > 0 ? row.minimum_stock : '—'),
-                  },
-                  {
-                    key: 'status',
-                    label: 'Status',
-                    render: (row) => (
-                      <span
-                        className={
-                          row.status === 'zerado'
-                            ? 'reports-restock-pill reports-restock-pill--danger'
-                            : 'reports-restock-pill reports-restock-pill--warning'
-                        }
-                      >
-                        {row.status === 'zerado' ? 'Zerado' : 'Crítico'}
-                      </span>
-                    ),
-                  },
-                ]}
-                rows={criticalRestock}
-                emptyMessage=""
-                striped={false}
-                footer={
-                  allCriticalCount > 5 ? (
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm"
-                      onClick={() => setFilter('critical')}
-                    >
-                      Ver todos críticos →
-                    </button>
-                  ) : null
-                }
-              />
-            </div>
-          ) : null}
-
           <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
             {[
               { id: 'all', label: 'Todos' },
