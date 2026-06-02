@@ -16,7 +16,6 @@ import {
   parentSizeSummary,
   variantSizeLabel,
 } from '../../lib/inventoryCatalogMerge.js';
-import { formatBRL } from '../../lib/moneyBr';
 import ProductThumb from '../products/ProductThumb';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
@@ -26,15 +25,6 @@ import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/men
 function isDefaultUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
   return !u || u === 'unidade';
-}
-
-function variantMarginTitle(variant, salePrice) {
-  const sp = Number(salePrice);
-  const avg = Number(variant?.average_cost) || 0;
-  if (!Number.isFinite(sp) || sp <= 0) return undefined;
-  const margin = sp - avg;
-  const pct = Math.round((margin / sp) * 100);
-  return `Margem: ${formatBRL(margin)} (${pct}%)`;
 }
 
 function StockStatusBadge({ status, item, onRegisterEntry }) {
@@ -181,7 +171,6 @@ export default function InventoryBalanceView({
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [forSaleOnly, setForSaleOnly] = useState(false);
-  const [showPrices, setShowPrices] = useState(false);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [actionsMenuId, setActionsMenuId] = useState(null);
   const [variantMenuId, setVariantMenuId] = useState(null);
@@ -239,7 +228,6 @@ export default function InventoryBalanceView({
   );
 
   const showMinColumn = anyExpanded || filtered.some((row) => (row.variants || []).length <= 1);
-  const showAvgCostCol = showPrices && anyExpanded;
 
   const toggleExpanded = (parentId) => {
     setExpandedIds((prev) => {
@@ -262,20 +250,6 @@ export default function InventoryBalanceView({
       <div className="flex justify-between items-center gap-2 mb-2 inventory-balance-toolbar">
         <h2 className="navi-section-heading" style={{ margin: 0 }}>Saldo atual</h2>
         <div className="flex gap-2 items-center inventory-balance-toolbar__controls">
-          <label className="navi-inline-toggle" title="Exibir colunas de preço de venda e custo">
-            <span className="navi-inline-toggle__track" aria-hidden>
-              <span
-                className={`navi-inline-toggle__thumb${showPrices ? ' navi-inline-toggle__thumb--on' : ''}`}
-              />
-            </span>
-            <input
-              type="checkbox"
-              className="navi-inline-toggle__input"
-              checked={showPrices}
-              onChange={(e) => setShowPrices(e.target.checked)}
-            />
-            <span className="navi-inline-toggle__label">Mostrar preços</span>
-          </label>
           <button type="button" className="btn-outline navi-btn--toolbar" onClick={() => void onRefresh()} disabled={loading}>
             {loading ? 'Atualizando…' : 'Atualizar'}
           </button>
@@ -328,7 +302,7 @@ export default function InventoryBalanceView({
         </div>
 
         {loading && items.length === 0 ? (
-          <PageSkeleton variant="table" rows={6} columns={showPrices ? (showAvgCostCol ? 9 : 8) : 6} />
+          <PageSkeleton variant="table" rows={6} columns={6} />
         ) : filtered.length === 0 ? (
           <EmptyState
             variant="compact"
@@ -350,9 +324,6 @@ export default function InventoryBalanceView({
                   <col className="inventory-table__col-name products-table__col-product" />
                   {showSizeColumn ? <col className="inventory-table__col-size" /> : null}
                   <col className="inventory-table__col-cat" />
-                  {showPrices ? <col className="inventory-table__col-price" /> : null}
-                  {showPrices ? <col className="inventory-table__col-price" /> : null}
-                  {showAvgCostCol ? <col className="inventory-table__col-price" /> : null}
                   {showUnitColumn ? <col className="inventory-table__col-unit" /> : null}
                   <col className="inventory-table__col-qty" />
                   {showMinColumn ? <col className="inventory-table__col-min" /> : null}
@@ -369,9 +340,6 @@ export default function InventoryBalanceView({
                       <th className="inventory-table__th inventory-table__col-size">Tamanho</th>
                     ) : null}
                     <th className="inventory-table__th inventory-table__col-cat">Categoria</th>
-                    {showPrices ? <th className="inventory-table__th">Preço venda</th> : null}
-                    {showPrices ? <th className="inventory-table__th">Preço custo</th> : null}
-                    {showAvgCostCol ? <th className="inventory-table__th">Custo médio</th> : null}
                     {showUnitColumn ? <th className="inventory-table__th">Unidade</th> : null}
                     <th className="inventory-table__th inventory-table__col-qty">Saldo</th>
                     {showMinColumn ? (
@@ -471,23 +439,6 @@ export default function InventoryBalanceView({
                           <td className="inventory-table__col-cat text-small text-muted">
                             {parent.categoria || '—'}
                           </td>
-                          {showPrices ? (
-                            <td className="text-small inventory-table__price">
-                              {parent.sale_price != null ? formatBRL(parent.sale_price) : '—'}
-                            </td>
-                          ) : null}
-                          {showPrices ? (
-                            <td className="text-small inventory-table__price">
-                              {parent.cost_price != null
-                                ? formatBRL(parent.cost_price)
-                                : solo && Number(soloVariant?.average_cost) > 0
-                                  ? formatBRL(soloVariant.average_cost)
-                                  : '—'}
-                            </td>
-                          ) : null}
-                          {showAvgCostCol ? (
-                            <td className="inventory-table__cell-empty" aria-hidden />
-                          ) : null}
                           {showUnitColumn ? (
                             <td className="text-small text-muted">
                               {solo && !isDefaultUnit(soloVariant?.unit) ? soloVariant.unit : '—'}
@@ -616,20 +567,6 @@ export default function InventoryBalanceView({
                                     className="inventory-table__col-cat inventory-table__cell-empty products-table__cell-empty"
                                     aria-hidden
                                   />
-                                  {showPrices ? (
-                                    <td className="inventory-table__cell-empty" aria-hidden />
-                                  ) : null}
-                                  {showPrices ? (
-                                    <td className="inventory-table__cell-empty" aria-hidden />
-                                  ) : null}
-                                  {showAvgCostCol ? (
-                                    <td
-                                      className="text-small inventory-table__price"
-                                      title={variantMarginTitle(v, parent.sale_price)}
-                                    >
-                                      {Number(v.average_cost) > 0 ? formatBRL(v.average_cost) : '—'}
-                                    </td>
-                                  ) : null}
                                   {showUnitColumn ? (
                                     <td className="text-small text-muted">
                                       {isDefaultUnit(v.unit) ? '—' : v.unit}

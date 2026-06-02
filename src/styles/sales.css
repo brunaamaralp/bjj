@@ -43,6 +43,22 @@
   flex-wrap: wrap;
 }
 
+.inventory-config-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inventory-config-btn--active {
+  background: var(--color-primary-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.inventory-config-panel {
+  flex-shrink: 0;
+}
+
 .loja-hub > .container.products-page,
 .loja-hub > .container.inventory-page,
 .loja-hub > .container.sales-page {

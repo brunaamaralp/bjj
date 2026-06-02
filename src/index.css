@@ -9,6 +9,7 @@
 @import './styles/dashboard.css';
 @import './styles/lead-profile.css';
 @import './styles/sales.css';
+@import './styles/stock-settings.css';
 @import './styles/tokens/finance.css';
 @import './styles/equipe.css';
 @import './components/reports/reports.css';

@@ -157,11 +157,16 @@ const Inventory = () => {
     []
   );
 
-  const openStockConfig = () => {
-    setStockConfigOpen(true);
-    window.setTimeout(() => {
-      stockConfigRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
+  const toggleStockConfig = () => {
+    setStockConfigOpen((open) => {
+      const next = !open;
+      if (next) {
+        window.setTimeout(() => {
+          stockConfigRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 80);
+      }
+      return next;
+    });
   };
 
   return (
@@ -179,11 +184,11 @@ const Inventory = () => {
         <div className="loja-subnav__actions inventory-page-actions">
           <button
             type="button"
-            className="btn-outline"
-            onClick={openStockConfig}
+            className={`btn-outline inventory-config-btn${stockConfigOpen ? ' inventory-config-btn--active' : ''}`}
+            onClick={toggleStockConfig}
             aria-expanded={stockConfigOpen}
             aria-controls="stock-config-panel"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            title={stockConfigOpen ? 'Fechar configurações de estoque' : 'Configurações de estoque'}
           >
             <Settings size={14} aria-hidden />
             Configurações
@@ -194,6 +199,16 @@ const Inventory = () => {
           </Link>
         </div>
       </div>
+
+      {academyId && stockConfigOpen ? (
+        <div id="stock-config-panel" ref={stockConfigRef} className="inventory-config-panel animate-in">
+          <StockSettingsSection
+            academyId={academyId}
+            modules={modules}
+            onClose={() => setStockConfigOpen(false)}
+          />
+        </div>
+      ) : null}
 
       <div className="inventory-page__body">
       {tab === 'saldo' ? (
@@ -256,11 +271,6 @@ const Inventory = () => {
         onSubmit={submitAdjust}
       />
 
-      {academyId && stockConfigOpen ? (
-        <div id="stock-config-panel" ref={stockConfigRef} className="mt-4 animate-in">
-          <StockSettingsSection academyId={academyId} modules={modules} />
-        </div>
-      ) : null}
     </div>
   );
 };
