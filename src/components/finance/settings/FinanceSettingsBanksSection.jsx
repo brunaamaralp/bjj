@@ -205,8 +205,12 @@ export default function FinanceSettingsBanksSection({
           <div className="form-group">
             <label>Válido a partir de</label>
             <DateInputField
+              className="form-input"
+              type="date"
               value={draft.openingBalanceDate || ''}
-              onChange={(ymd) => setDraft((prev) => ({ ...prev, openingBalanceDate: ymd }))}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, openingBalanceDate: e.target.value }))
+              }
               placeholder="Opcional"
             />
             <p className="text-small text-muted" style={{ marginTop: 6 }}>
