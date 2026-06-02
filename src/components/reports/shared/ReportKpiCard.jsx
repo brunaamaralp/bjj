@@ -25,6 +25,7 @@ export default function ReportKpiCard({
   ctaLabel = 'Ver detalhes →',
   ctaIcon = null,
   loading = false,
+  valueVariant = 'metric',
   className = '',
 }) {
   if (loading) {
@@ -81,7 +82,16 @@ export default function ReportKpiCard({
         ) : null}
       </div>
       <div className="report-kpi-card__value-row">
-        <span className="report-kpi-card__value">{value}</span>
+        <span
+          className={[
+            'report-kpi-card__value',
+            valueVariant === 'message' ? 'report-kpi-card__value--message' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {value}
+        </span>
         {hasTrend ? (
           <span className={`report-kpi-card__trend ${isUp ? 'is-up' : 'is-down'}`}>
             {isUp ? <TrendingUp size={14} strokeWidth={2.25} aria-hidden /> : <TrendingDown size={14} strokeWidth={2.25} aria-hidden />}

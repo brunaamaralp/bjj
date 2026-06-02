@@ -732,6 +732,7 @@ const Dashboard = () => {
                                     )
                                 }
                                 value={isOk ? 'Tudo em dia ✓' : card.count}
+                                valueVariant={isOk ? 'message' : 'metric'}
                                 highlight={highlight}
                                 trendLabel={trendLabel}
                                 icon={<card.Icon size={20} strokeWidth={2.25} />}
