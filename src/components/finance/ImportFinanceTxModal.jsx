@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { createSessionJwt } from '../../lib/appwrite';
 import { createFinanceTx, listFinanceTx } from '../../lib/financeTxApi.js';
+import { FINANCE_TX_LIST_MAX_PAGE_SIZE } from '../../lib/financeListLimits.js';
 import { apiListStudentPayments } from '../../lib/studentPaymentsApi.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
@@ -81,7 +82,7 @@ async function fetchExistingDedupKeys(academyId, previewRows, studentNameById) {
           academyId,
           referenceMonth: ym,
           cursor,
-          limit: 200,
+          limit: FINANCE_TX_LIST_MAX_PAGE_SIZE,
         });
         for (const k of collectExistingFinanceTxDedupKeys({
           payments,

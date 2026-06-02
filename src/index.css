@@ -8184,7 +8184,7 @@ input.navi-typable-date.form-input:focus {
   background: var(--surface);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-sm);
-  max-height: calc(100vh - 280px);
+  max-height: var(--finance-table-max-height, calc(100vh - 200px));
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }

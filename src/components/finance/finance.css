@@ -480,8 +480,15 @@
 .financeiro-hub-tabs { margin-bottom: 16px; }
 .financeiro-hub-tabs__secondary { margin-top: 10px; }
 .navi-hub-tabs--nested .navi-hub-tab { font-size: var(--font-sm); padding: 6px 12px; }
-.finance-page-root { width: 100%; box-sizing: border-box; }
+.finance-page-root {
+  width: 100%;
+  box-sizing: border-box;
+  --finance-table-max-height: calc(100vh - 200px);
+}
 .finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 0; box-sizing: border-box; }
+.mensalidades-page {
+  --finance-table-max-height: calc(100vh - 200px);
+}
 /* Abas: estilos globais em index.css (.navi-hub-tabs / .finance-tabs) */
 .finance-regime-toggle {
   display: flex;
@@ -1180,7 +1187,7 @@
   align-items: center;
 }
 .payment-exceptions-table-wrap {
-  max-height: calc(100vh - 340px);
+  max-height: var(--finance-table-max-height, calc(100vh - 200px));
   overflow: auto;
 }
 .payment-exceptions-table {
@@ -1378,7 +1385,7 @@
   border-radius: var(--radius-sm);
   border: 0.5px dashed var(--border-light);
 }
-.finance-table-wrap { width: 100%; max-height: calc(100vh - 320px); overflow: auto; -webkit-overflow-scrolling: touch; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
+.finance-table-wrap { width: 100%; max-height: var(--finance-table-max-height, calc(100vh - 200px)); overflow: auto; -webkit-overflow-scrolling: touch; border: 0.5px solid var(--border-violet); border-radius: var(--radius-sm); background: var(--surface); }
 .finance-table-wrap--modal { max-height: 60vh; overflow: auto; -webkit-overflow-scrolling: touch; }
 .finance-table { width: 100%; border-collapse: collapse; font-size: var(--font-base); }
 .finance-table thead th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 10px 12px; background: var(--surface); border-bottom: 0.5px solid var(--border-light); font-size: var(--font-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); white-space: nowrap; }
@@ -2917,7 +2924,8 @@
   background: var(--surface, #fff);
   border: 0.5px solid var(--border-light, #e8e8ef);
   border-radius: 10px;
-  overflow-x: auto;
+  max-height: var(--finance-table-max-height, calc(100vh - 200px));
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -4202,7 +4210,7 @@
 }
 /* Grade do mês: filtros na toolbar unificada de Mensalidades (.finance-filters-bar) */
 .monthly-grid-table-wrap {
-  max-height: calc(100vh - 320px);
+  max-height: var(--finance-table-max-height, calc(100vh - 200px));
   overflow: auto;
 }
 .monthly-grid-table {

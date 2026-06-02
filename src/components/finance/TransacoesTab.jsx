@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
+import { FINANCE_TX_LIST_PAGE_SIZE } from '../../lib/financeListLimits.js';
 import {
   txDirection,
   displayGross,
@@ -381,7 +382,7 @@ export default function TransacoesTab({
           to: toDate,
           cursor,
           regime,
-          limit: 50,
+          limit: FINANCE_TX_LIST_PAGE_SIZE,
         });
         if (reqId !== loadReqRef.current) return;
         const items = body.transactions || [];

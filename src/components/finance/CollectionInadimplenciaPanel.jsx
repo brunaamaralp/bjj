@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { FINANCE_INADIMPLENCIA_LIST_LIMIT } from '../../lib/financeListLimits.js';
 import { createPortal } from 'react-dom';
 import { MessageCircle, Handshake, Clock } from 'lucide-react';
 import { useTaskStore } from '../../store/useTaskStore.js';
@@ -47,7 +48,7 @@ export default function CollectionInadimplenciaPanel({
       })
       .filter(Boolean)
       .sort((a, b) => (b.meta.daysOverdue || 0) - (a.meta.daysOverdue || 0))
-      .slice(0, 30);
+      .slice(0, FINANCE_INADIMPLENCIA_LIST_LIMIT);
   }, [students, studentOverdueMeta, paymentMap]);
 
   if (!rows.length) return null;
