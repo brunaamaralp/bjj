@@ -949,59 +949,6 @@ const Pipeline = () => {
         clearPipelineSessionState();
     }, []);
 
-    const buildPipelineSessionSnapshot = useCallback(() => {
-        const activeFilters = {
-            profileFilter,
-            originFilter,
-            filterDateFrom,
-            filterDateTo,
-            enrollmentMonthFilter,
-            searchStageScope,
-            followupKanban: followupKanbanFilter,
-        };
-        return {
-            scrollX: kanbanWrapperRef.current?.scrollLeft ?? 0,
-            columnScrolls: collectColumnScrolls(kanbanWrapperRef.current),
-            searchTerm: kanbanSearch,
-            activeFilters,
-            activePeriodChip: deriveActivePeriodChip({
-                quickFilter,
-                filterDateFrom,
-                filterDateTo,
-                enrollmentMonthFilter,
-            }),
-        };
-    }, [
-        profileFilter,
-        originFilter,
-        filterDateFrom,
-        filterDateTo,
-        enrollmentMonthFilter,
-        searchStageScope,
-        followupKanbanFilter,
-        kanbanSearch,
-        quickFilter,
-    ]);
-
-    const openLeadProfile = useCallback(
-        (lead, isEnrolledCard = false) => {
-            const leadId = String(lead?.id || '').trim();
-            if (!leadId) return;
-            writePipelineSessionState(buildPipelineSessionSnapshot());
-            if (isEnrolledCard) {
-                navigate(`/student/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
-                return;
-            }
-            navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
-        },
-        [buildPipelineSessionSnapshot, navigate]
-    );
-
-    useEffect(() => {
-        if (!initialSaved?.activeFilters?.followupKanban) return;
-        if (searchParams.get('followup') === 'kanban') return;
-        setSearchParams({ followup: 'kanban' }, { replace: true });
-    }, []);
     const dragScrollRafRef = useRef(null);
     const lastDragClientXRef = useRef(null);
     const [showImport, setShowImport] = useState(false);
@@ -1058,6 +1005,62 @@ const Pipeline = () => {
         () => pipelineSessionInitialFilters(initialSaved).enrollmentMonthFilter
     );
     const [quickFilter, setQuickFilter] = useState(() => pipelineSessionInitialQuickFilter(initialSaved));
+
+    const buildPipelineSessionSnapshot = useCallback(() => {
+        const activeFilters = {
+            profileFilter,
+            originFilter,
+            filterDateFrom,
+            filterDateTo,
+            enrollmentMonthFilter,
+            searchStageScope,
+            followupKanban: followupKanbanFilter,
+        };
+        return {
+            scrollX: kanbanWrapperRef.current?.scrollLeft ?? 0,
+            columnScrolls: collectColumnScrolls(kanbanWrapperRef.current),
+            searchTerm: kanbanSearch,
+            activeFilters,
+            activePeriodChip: deriveActivePeriodChip({
+                quickFilter,
+                filterDateFrom,
+                filterDateTo,
+                enrollmentMonthFilter,
+            }),
+        };
+    }, [
+        profileFilter,
+        originFilter,
+        filterDateFrom,
+        filterDateTo,
+        enrollmentMonthFilter,
+        searchStageScope,
+        followupKanbanFilter,
+        kanbanSearch,
+        quickFilter,
+    ]);
+
+    const openLeadProfile = useCallback(
+        (lead, isEnrolledCard = false) => {
+            const leadId = String(lead?.id || '').trim();
+            if (!leadId) return;
+            writePipelineSessionState(buildPipelineSessionSnapshot());
+            if (isEnrolledCard) {
+                navigate(`/student/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
+                return;
+            }
+            navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
+        },
+        [buildPipelineSessionSnapshot, navigate]
+    );
+
+    useEffect(() => {
+        if (!initialSaved?.activeFilters?.followupKanban) return;
+        if (searchParams.get('followup') === 'kanban') return;
+        setSearchParams({ followup: 'kanban' }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restaura ?followup=kanban só na montagem
+    }, []);
+
     const [waOutbound, setWaOutbound] = useState(() => ({
         name: '',
         zapster_instance_id: '',

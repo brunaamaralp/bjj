@@ -10,7 +10,6 @@ import {
   MessageCircle,
   Users,
 } from 'lucide-react';
-import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import { formatBRL } from '../../lib/moneyBr.js';
 import { monthPeriodBounds } from '../../lib/financeiroOverview.js';
 import { fetchReportsFinanceLightResult } from '../../lib/reportsLightApi.js';
@@ -229,8 +228,6 @@ export default function DashboardManagerSection({
 
   return (
     <section className="dashboard-manager-section reception-section animate-in" style={{ animationDelay: '0.02s' }}>
-      <ReportSectionHeading title="Visão geral" subtitle="Indicadores estratégicos da academia" />
-
       <div className="agenda-kpi-grid dashboard-manager-kpi-grid" aria-busy={financeLoading}>
         {kpiCards.map((card) => (
           <ManagerKpiCard

@@ -143,9 +143,22 @@ function SideNavLink({
       .join(' ');
   };
 
+  if (onClick && useNavLink) {
+    return (
+      <NavLink to={to} end={end} className={resolveNavClass} title={title} onClick={onClick}>
+        {inner}
+      </NavLink>
+    );
+  }
+
   if (onClick) {
     return (
-      <button type="button" className={resolveNavClass({ isActive: false })} title={title} onClick={onClick}>
+      <button
+        type="button"
+        className={resolveNavClass({ isActive: isSidebarNavItemActive(to, location) })}
+        title={title}
+        onClick={onClick}
+      >
         {inner}
       </button>
     );
@@ -440,31 +453,25 @@ export default function NaviSidebarNav({
             ) : null}
           </div>
         ) : null}
-        {navModel.primary.map((item) =>
-          item.to === '/pipeline' ? (
-            <SideNavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              label={item.label}
-              Icon={ICONS[item.iconKey] || LayoutGrid}
-              collapsed={collapsed}
-              className={sideLinkClass}
-              useNavLink={false}
-              onClick={() => navigate('/pipeline', { state: { fresh: true } })}
-            />
-          ) : (
-            <SideNavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              label={item.label}
-              Icon={ICONS[item.iconKey] || LayoutGrid}
-              collapsed={collapsed}
-              className={sideLinkClass}
-            />
-          )
-        )}
+        {navModel.primary.map((item) => (
+          <SideNavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            label={item.label}
+            Icon={ICONS[item.iconKey] || LayoutGrid}
+            collapsed={collapsed}
+            className={sideLinkClass}
+            onClick={
+              item.to === '/pipeline'
+                ? (e) => {
+                    e.preventDefault();
+                    navigate('/pipeline', { state: { fresh: true } });
+                  }
+                : undefined
+            }
+          />
+        ))}
       </SidebarSection>
 
       <SidebarSection title="Atendimento" collapsed={collapsed} showDivider>

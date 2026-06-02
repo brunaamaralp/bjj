@@ -514,15 +514,6 @@
   border-color: var(--color-primary) !important;
   color: var(--color-primary-dark) !important;
 }
-.finance-tx-info-banner__text {
-  margin: 0;
-  line-height: 1.45;
-}
-
-.finance-tx-info-banner__text a {
-  font-weight: 600;
-}
-
 .finance-tx-period-hint {
   margin: 0;
 }
@@ -2157,33 +2148,89 @@
 
 .finance-bank-balances__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
 }
 
 .finance-bank-balances__card {
-  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px;
+}
+
+.finance-bank-balances__card--selectable.card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.finance-bank-balances__card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
 }
 
 .finance-bank-balances__card--muted {
   border-style: dashed;
 }
 
-.finance-bank-balances__card-title {
-  margin: 0 0 6px;
+.finance-bank-balances__card h3.finance-bank-balances__card-title {
+  margin: 0;
   font-size: var(--font-sm);
   font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: normal;
+  color: var(--text-secondary, var(--color-text-secondary));
 }
 
 .finance-bank-balances__card-balance {
   margin: 0;
-  font-size: var(--font-xl);
+  font-size: var(--font-2xl);
   font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink, var(--color-text-primary));
 }
 
-.finance-bank-balances__card-meta {
-  margin: 8px 0 0;
-  line-height: 1.4;
+.finance-bank-balances__card-breakdown {
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 0.5px solid var(--border-light, var(--color-card-border));
+  display: grid;
+  gap: 6px;
+}
+
+.finance-bank-balances__card-breakdown > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--font-xs);
+  line-height: 1.35;
+}
+
+.finance-bank-balances__card-breakdown dt {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-secondary, var(--color-text-secondary));
+}
+
+.finance-bank-balances__card-breakdown dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink, var(--color-text-primary));
+  text-align: right;
+}
+
+.finance-bank-balances__card-breakdown--in {
+  color: var(--finance-color-positive, var(--success));
+}
+
+.finance-bank-balances__card-breakdown--out {
+  color: var(--finance-color-negative, var(--danger));
 }
 
 .finance-bank-balances__total {

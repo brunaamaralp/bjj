@@ -16,6 +16,57 @@ function fmtMoney(v) {
   }
 }
 
+function BankBalanceCard({
+  label,
+  balance,
+  muted = false,
+  selected = false,
+  selectable = false,
+  onClick,
+  children,
+}) {
+  const CardTag = selectable ? 'button' : 'article';
+  return (
+    <CardTag
+      type={selectable ? 'button' : undefined}
+      className={`finance-bank-balances__card card${muted ? ' finance-bank-balances__card--muted' : ''}${selected ? ' finance-bank-balances__card--selected' : ''}${selectable ? ' finance-bank-balances__card--selectable' : ''}`}
+      onClick={onClick}
+      aria-pressed={selectable ? selected : undefined}
+    >
+      <div className="finance-bank-balances__card-inner">
+        <h3 className="finance-bank-balances__card-title">{label}</h3>
+        <p className="finance-bank-balances__card-balance">{fmtMoney(balance)}</p>
+        {children}
+      </div>
+    </CardTag>
+  );
+}
+
+function AccountBreakdown({ openingBalance, inflow, outflow, movementCount }) {
+  return (
+    <dl className="finance-bank-balances__card-breakdown">
+      <div>
+        <dt>Saldo inicial</dt>
+        <dd>{fmtMoney(openingBalance)}</dd>
+      </div>
+      <div>
+        <dt>Entradas</dt>
+        <dd className="finance-bank-balances__card-breakdown--in">+{fmtMoney(inflow)}</dd>
+      </div>
+      <div>
+        <dt>Saídas</dt>
+        <dd className="finance-bank-balances__card-breakdown--out">−{fmtMoney(outflow)}</dd>
+      </div>
+      {movementCount > 0 ? (
+        <div>
+          <dt>Movimentações</dt>
+          <dd>{movementCount}</dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
 export default function BankBalancesOverview({ academyId, onSelectAccount, selectedAccountLabel = '' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -67,6 +118,8 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
     );
   }
 
+  const selectable = Boolean(onSelectAccount);
+
   return (
     <div className="finance-bank-balances">
       <div className="finance-bank-balances__head">
@@ -87,46 +140,56 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
       <div className="finance-bank-balances__grid">
         {accounts.map((row) => {
           const selected = selectedAccountLabel && selectedAccountLabel === row.label;
-          const CardTag = onSelectAccount ? 'button' : 'article';
           return (
-          <CardTag
-            key={row.label}
-            type={onSelectAccount ? 'button' : undefined}
-            className={`finance-bank-balances__card card${selected ? ' finance-bank-balances__card--selected' : ''}${onSelectAccount ? ' finance-bank-balances__card--selectable' : ''}`}
-            onClick={onSelectAccount ? () => onSelectAccount(selected ? '' : row.label) : undefined}
-            aria-pressed={onSelectAccount ? selected : undefined}
-          >
-            <h3 className="finance-bank-balances__card-title">{row.label}</h3>
-            <p className="finance-bank-balances__card-balance">{fmtMoney(row.balance)}</p>
-            <p className="text-small text-muted finance-bank-balances__card-meta">
-              Inicial {fmtMoney(row.openingBalance)} · +{fmtMoney(row.inflow)} · −{fmtMoney(row.outflow)}
-              {row.movementCount > 0 ? ` · ${row.movementCount} mov.` : ''}
-            </p>
-          </CardTag>
-        );
+            <BankBalanceCard
+              key={row.label}
+              label={row.label}
+              balance={row.balance}
+              selected={selected}
+              selectable={selectable}
+              onClick={
+                selectable ? () => onSelectAccount(selected ? '' : row.label) : undefined
+              }
+            >
+              <AccountBreakdown
+                openingBalance={row.openingBalance}
+                inflow={row.inflow}
+                outflow={row.outflow}
+                movementCount={row.movementCount}
+              />
+            </BankBalanceCard>
+          );
         })}
         {unallocated?.count > 0 ? (
-          (() => {
-            const selected = selectedAccountLabel === UNALLOCATED_BANK_LABEL;
-            const CardTag = onSelectAccount ? 'button' : 'article';
-            return (
-          <CardTag
-            type={onSelectAccount ? 'button' : undefined}
-            className={`finance-bank-balances__card card finance-bank-balances__card--muted${selected ? ' finance-bank-balances__card--selected' : ''}${onSelectAccount ? ' finance-bank-balances__card--selectable' : ''}`}
-            onClick={onSelectAccount ? () => onSelectAccount(selected ? '' : UNALLOCATED_BANK_LABEL) : undefined}
-            aria-pressed={onSelectAccount ? selected : undefined}
+          <BankBalanceCard
+            label={UNALLOCATED_BANK_LABEL}
+            balance={unallocated.balance}
+            muted
+            selected={selectedAccountLabel === UNALLOCATED_BANK_LABEL}
+            selectable={selectable}
+            onClick={
+              selectable
+                ? () =>
+                    onSelectAccount(
+                      selectedAccountLabel === UNALLOCATED_BANK_LABEL ? '' : UNALLOCATED_BANK_LABEL
+                    )
+                : undefined
+            }
           >
-            <h3 className="finance-bank-balances__card-title">{UNALLOCATED_BANK_LABEL}</h3>
-            <p className="finance-bank-balances__card-balance">{fmtMoney(unallocated.balance)}</p>
-            <p className="text-small text-muted finance-bank-balances__card-meta">
-              {unallocated.count} lançamento(s) sem conta vinculada
-            </p>
-          </CardTag>
-            );
-          })()
+            <dl className="finance-bank-balances__card-breakdown">
+              <div>
+                <dt>Lançamentos</dt>
+                <dd>{unallocated.count}</dd>
+              </div>
+              <div>
+                <dt>Vínculo</dt>
+                <dd>Sem conta bancária</dd>
+              </div>
+            </dl>
+          </BankBalanceCard>
         ) : null}
       </div>
-      {onSelectAccount ? (
+      {selectable ? (
         <p className="text-small text-muted finance-bank-balances__filter-hint">
           Clique em uma conta para filtrar a lista abaixo. Clique de novo para remover o filtro.
         </p>

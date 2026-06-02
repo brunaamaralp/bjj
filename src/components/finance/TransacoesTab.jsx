@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
 import {
   txDirection,
@@ -49,7 +48,6 @@ import {
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
-import StatusBanner from '../shared/StatusBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
 import FinanceTxRowActions, { EXPENSE_EDIT_TITLE } from './FinanceTxRowActions.jsx';
@@ -717,14 +715,6 @@ export default function TransacoesTab({
     <>
       <section className="mt-4 animate-in finance-tx-section">
         <h3 className="navi-section-heading mb-2">Lançamentos</h3>
-        <StatusBanner variant="info" className="finance-tx-info-banner mb-3">
-          <p className="finance-tx-info-banner__text">
-            Mensalidades <strong>pagas</strong> geram lançamento aqui automaticamente. Cobranças em aberto ficam em{' '}
-            <Link to="/financeiro?tab=mensalidades">Mensalidades</Link>. Pendentes podem ser editados;{' '}
-            <strong>liquidados</strong> podem ser <strong>estornados</strong> por gestores (cancela o original e registra o
-            espelho contábil).
-          </p>
-        </StatusBanner>
         {academyId ? (
           <div className="mb-3">
             <BankBalancesOverview
