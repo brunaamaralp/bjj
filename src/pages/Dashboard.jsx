@@ -44,8 +44,6 @@ import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
-import { useUserRole } from '../lib/useUserRole.js';
-import DashboardManagerSection from '../components/dashboard/DashboardManagerSection.jsx';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
@@ -57,13 +55,6 @@ const Dashboard = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const academyList = useLeadStore((s) => s.academyList);
     const modules = useLeadStore((s) => s.modules);
-    const academyDocForRole = useMemo(
-        () => (academyList || []).find((a) => a.id === academyId) || null,
-        [academyList, academyId]
-    );
-    const role = useUserRole(academyDocForRole);
-    const isManager = role === 'owner' || role === 'admin';
-    const isOwner = role === 'owner';
     const leadsError = useLeadStore((s) => s.leadsError);
     const leadsLastFetchedAt = useLeadStore((s) => s.leadsLastFetchedAt);
     const vertical = useLeadStore((s) => s.vertical);
@@ -668,19 +659,6 @@ const Dashboard = () => {
                     onRetry={() => void fetchLeads()}
                 />
             )}
-
-            {isManager ? (
-                <DashboardManagerSection
-                    isOwner={isOwner}
-                    leads={leads}
-                    students={students}
-                    tasks={tasks}
-                    pipelineStages={pipelineStagesNl}
-                    modules={modules}
-                    academyId={academyId}
-                    leadsLabel={labels?.leads || 'Leads'}
-                />
-            ) : null}
 
             <div
                 className="reports-kpi-grid reports-kpi-grid--overview reception-kpi-grid animate-in"
