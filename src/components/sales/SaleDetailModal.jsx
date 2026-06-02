@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, XCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { X, XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
-import { formatDateTimeBr, saleStatusLabel, saleStatusBadgeClass } from '../../lib/salesHistory';
+import { formatDateTimeBr, SALE_STATUS_BADGE_MAP } from '../../lib/salesHistory';
+import StatusBadge from '../shared/StatusBadge.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -67,6 +69,14 @@ export default function SaleDetailModal({
 
   const paymentValid = paymentsUiValid(payments, totalCents);
 
+  const studentId = String(sale.student_id || sale.aluno_id || '').trim();
+  const leadId = String(sale.lead_id || '').trim();
+  const clientProfileHref = studentId
+    ? `/student/${studentId}`
+    : leadId
+      ? `/lead/${leadId}`
+      : null;
+
   const handleLiquidate = async () => {
     setLiquidateError('');
     if (!paymentValid.ok) {
@@ -89,7 +99,7 @@ export default function SaleDetailModal({
     <div className="sales-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="sales-modal card sales-modal--wide" role="dialog" aria-modal onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="navi-section-heading" style={{ margin: 0 }}>
+          <h3 className="navi-section-heading sales-modal__title">
             Venda {sale.id_short}
           </h3>
           <button type="button" className="btn-ghost" onClick={onClose} aria-label="Fechar">
@@ -113,14 +123,22 @@ export default function SaleDetailModal({
           <>
             <div className="sales-detail-grid text-small">
               <div><strong>Data:</strong> {formatDateTimeBr(sale.created_at)}</div>
-              <div><strong>Cliente:</strong> {sale.client_name}</div>
+              <div>
+                <strong>Cliente:</strong>{' '}
+                {clientProfileHref ? (
+                  <Link to={clientProfileHref} className="sales-profile-link">
+                    {sale.client_name}
+                    <ExternalLink size={12} aria-hidden />
+                  </Link>
+                ) : (
+                  sale.client_name
+                )}
+              </div>
               <div><strong>Canal:</strong> {sale.canal_label}</div>
               <div><strong>Pagamento:</strong> {sale.payment_label}</div>
               <div>
                 <strong>Status:</strong>{' '}
-                <span className={saleStatusBadgeClass(sale.status)}>
-                  {saleStatusLabel(sale.status)}
-                </span>
+                <StatusBadge status={sale.status} map={SALE_STATUS_BADGE_MAP} size="sm" />
               </div>
               {isPendente && sale.due_date ? (
                 <div><strong>Vencimento:</strong> {String(sale.due_date).slice(0, 10).split('-').reverse().join('/')}</div>
@@ -133,7 +151,7 @@ export default function SaleDetailModal({
               )}
             </div>
 
-            <h4 className="navi-section-heading mt-4" style={{ fontSize: 14 }}>Itens</h4>
+            <h4 className="navi-section-heading sales-modal__section-title mt-4">Itens</h4>
             <table className="sales-table mt-2">
               <thead>
                 <tr>
@@ -171,8 +189,7 @@ export default function SaleDetailModal({
             {isPendente && !liquidateOpen ? (
               <button
                 type="button"
-                className="btn-primary mt-4"
-                style={{ width: '100%' }}
+                className="btn-primary mt-4 sales-modal__full-width"
                 onClick={() => setLiquidateOpen(true)}
               >
                 Registrar pagamento
@@ -180,12 +197,12 @@ export default function SaleDetailModal({
             ) : null}
 
             {isPendente && liquidateOpen ? (
-              <div className="mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <h4 className="navi-section-heading" style={{ fontSize: 14, margin: 0 }}>
+              <div className="sales-liquidate-panel mt-4">
+                <h4 className="navi-section-heading sales-modal__section-title">
                   Registrar pagamento
                 </h4>
                 {liquidateError ? (
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)' }} role="alert">
+                  <p className="sales-liquidate-panel__error" role="alert">
                     {liquidateError}
                   </p>
                 ) : null}
@@ -195,11 +212,10 @@ export default function SaleDetailModal({
                   onChange={setPayments}
                   disabled={creating}
                 />
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="sales-liquidate-panel__actions">
                   <button
                     type="button"
-                    className="btn-outline"
-                    style={{ flex: 1 }}
+                    className="btn-outline sales-liquidate-panel__btn"
                     disabled={creating}
                     onClick={() => {
                       setLiquidateOpen(false);
@@ -210,8 +226,7 @@ export default function SaleDetailModal({
                   </button>
                   <button
                     type="button"
-                    className="btn-primary"
-                    style={{ flex: 1 }}
+                    className="btn-primary sales-liquidate-panel__btn"
                     disabled={creating}
                     onClick={() => void handleLiquidate()}
                   >
@@ -222,8 +237,8 @@ export default function SaleDetailModal({
             ) : null}
 
             {isConcluida && canCancelSale ? (
-              <button type="button" className="btn-outline mt-4" onClick={onCancelClick}>
-                <XCircle size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
+              <button type="button" className="btn-outline mt-4 sales-cancel-sale-btn" onClick={onCancelClick}>
+                <XCircle size={16} aria-hidden />
                 Cancelar venda
               </button>
             ) : null}

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
@@ -14,8 +14,12 @@ import HubTabBar from '../components/shared/HubTabBar';
 
 const Sales = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const academyId = useLeadStore((s) => s.academyId);
   const configRef = useRef(null);
+  const appliedNavStateRef = useRef(false);
+  const [historyPeriodFromNav, setHistoryPeriodFromNav] = useState(null);
   const tabs = useMemo(
     () => [
       { id: 'new', label: 'Nova venda' },
@@ -26,6 +30,19 @@ const Sales = () => {
   const subtab = resolveSalesSubtab(searchParams);
   const wantsConfig = String(searchParams.get('config') || '').trim() === '1';
   const [salesConfigOpen, setSalesConfigOpen] = useState(wantsConfig);
+
+  useEffect(() => {
+    if (appliedNavStateRef.current) return;
+    const st = location.state;
+    if (!st?.dateFrom || !st?.dateTo) return;
+    appliedNavStateRef.current = true;
+    const subtabId = st.subtab === 'historico' ? 'history' : resolveSalesSubtab(searchParams);
+    if (subtabId !== resolveSalesSubtab(searchParams)) {
+      setSearchParams(lojaVendasTabParams(subtabId, searchParams), { replace: true });
+    }
+    setHistoryPeriodFromNav({ from: st.dateFrom, to: st.dateTo });
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+  }, [location, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (wantsConfig) {
@@ -57,7 +74,7 @@ const Sales = () => {
   };
 
   return (
-    <div className="container sales-page navi-hub-page" style={{ paddingBottom: 20 }}>
+    <div className="container sales-page navi-hub-page sales-page--padded">
       <div className="loja-subnav sales-subnav">
         <HubTabBar
           tabs={tabs}
@@ -72,12 +89,11 @@ const Sales = () => {
           <div className="loja-subnav__actions">
             <button
               type="button"
-              className="btn-outline"
+              className="btn-outline sales-config-btn"
               onClick={openConfig}
               aria-expanded={salesConfigOpen}
               aria-controls="sales-config-panel"
               title="Configurações de vendas"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
             >
               <Settings size={16} aria-hidden />
               Configurações
@@ -86,7 +102,11 @@ const Sales = () => {
         ) : null}
       </div>
 
-      {subtab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab onSwitchTab={setSubtab} />}
+      {subtab === 'new' ? (
+        <SalesNewSaleTab />
+      ) : (
+        <SalesHistoryTab onSwitchTab={setSubtab} initialPeriod={historyPeriodFromNav} />
+      )}
 
       {academyId && salesConfigOpen ? (
         <div id="sales-config-panel" ref={configRef} className="mt-4 animate-in">

@@ -58,7 +58,7 @@ export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, f
     items.push({
       id: 'tasks_due',
       label: tasksDue.length === 1 ? '1 tarefa vence hoje' : `${tasksDue.length} tarefas vencem hoje`,
-      href: '/tarefas',
+      href: '/tarefas?period=today',
       count: tasksDue.length,
     });
   }

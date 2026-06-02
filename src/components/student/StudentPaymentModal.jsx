@@ -8,6 +8,7 @@ import StudentProductSaleStep from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 
@@ -373,11 +374,11 @@ export default function StudentPaymentModal({
                   value={payForm.method}
                   onChange={(e) => setPayForm((p) => ({ ...p, method: e.target.value }))}
                 >
-                  <option value="pix">PIX</option>
-                  <option value="dinheiro">Dinheiro</option>
-                  <option value="cartão_débito">Cartão débito</option>
-                  <option value="cartão_crédito">Cartão crédito</option>
-                  <option value="transferência">Transferência</option>
+                  {PAYMENT_METHODS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

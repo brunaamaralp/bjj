@@ -2,6 +2,8 @@ import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
 import StageBadge from '../shared/StageBadge.jsx';
+import StatusBadge from '../shared/StatusBadge.jsx';
+import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
@@ -13,11 +15,12 @@ function resolvePrimaryChip({ showHandoffChip, showWaitingChip, showIaChip, tick
   }
   if (showWaitingChip) {
     const label = String(ticket?.label || '').trim() || 'Aguardando cliente';
+    const statusKey = String(ticket?.status || 'waiting_customer').trim();
     return {
       kind: 'waiting',
       label,
-      className: 'inbox-ticket-chip-inline',
-      style: ticket?.bg && ticket?.fg ? { background: ticket.bg, color: ticket.fg } : undefined,
+      status: statusKey,
+      tone: ticket?.tone || 'warning',
     };
   }
   if (showIaChip) {
@@ -201,12 +204,24 @@ function ConversationItem({
                 <StageBadge stage={pipelineStage} size="sm" className="inbox-conversation-item__stage" />
               ) : null}
               {primaryChip ? (
-                <span
-                  className={`inbox-status-chip ${primaryChip.className}`}
-                  style={primaryChip.style}
-                >
-                  {primaryChip.label}
-                </span>
+                primaryChip.kind === 'waiting' ? (
+                  <StatusBadge
+                    status={primaryChip.status}
+                    map={{
+                      ...INBOX_TICKET_BADGE_MAP,
+                      [primaryChip.status]: {
+                        label: primaryChip.label,
+                        tone: primaryChip.tone,
+                      },
+                    }}
+                    size="sm"
+                    className="inbox-status-chip"
+                  />
+                ) : (
+                  <span className={`inbox-status-chip ${primaryChip.className}`}>
+                    {primaryChip.label}
+                  </span>
+                )
               ) : null}
             </div>
             <div

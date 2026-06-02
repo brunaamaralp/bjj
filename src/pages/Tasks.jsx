@@ -16,13 +16,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import { DateInputField } from '../components/DateInput';
+import TaskCard from '../components/shared/TaskCard.jsx';
+import { isTaskOverdue as isVencida } from '../lib/taskDue.js';
 import {
   CheckSquare,
   PlusCircle,
-  Pencil,
-  Trash2,
-  Calendar,
-  User,
   X,
   ClipboardList,
   AlertTriangle,
@@ -138,8 +136,7 @@ function TasksKanbanColumnBody({
   return (
     <div
       ref={scrollRef}
-      className="tasks-kanban-col-body task-list"
-      style={{ overflow: 'auto', maxHeight: 'min(70vh, 720px)', position: 'relative' }}
+      className="tasks-kanban-col-body task-list task-virtual-scroll"
     >
       {shouldVirtualize ? (
         <div
@@ -176,8 +173,7 @@ function TasksKanbanColumnBody({
       {hasMore ? (
         <button
           type="button"
-          className="btn-action-ghost"
-          style={{ width: '100%', marginTop: 8 }}
+          className="btn-action-ghost task-kanban-load-more"
           disabled={loadingMore}
           onClick={onLoadMore}
         >
@@ -221,8 +217,17 @@ export default function Tasks() {
 
   useEffect(() => {
     const f = String(searchParams.get('filter') || '').trim().toLowerCase();
-    if (f === 'overdue' || f === 'vencidas') {
+    const status = String(searchParams.get('status') || '').trim().toLowerCase();
+    const period = String(searchParams.get('period') || '').trim().toLowerCase();
+
+    if (f === 'overdue' || f === 'vencidas' || status === 'vencidas') {
       setFilter('status', 'vencidas');
+    } else if (status === 'pendentes') {
+      setFilter('status', 'pendentes');
+    }
+
+    if (period === 'today') {
+      setPeriodTodayOn(true);
     }
   }, [searchParams, setFilter]);
 
@@ -298,6 +303,7 @@ export default function Tasks() {
     }
   });
   const [estaSemanaOn, setEstaSemanaOn] = useState(false);
+  const [periodTodayOn, setPeriodTodayOn] = useState(false);
   const [expandedStudentIds, setExpandedStudentIds] = useState(() => new Set());
   const [detailTask, setDetailTask] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -409,28 +415,6 @@ export default function Tasks() {
     return () => window.removeEventListener('keydown', onKey);
   }, [detailTask]);
 
-  function isVencida(dateStr) {
-    if (!dateStr) return false;
-    const due = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr).getTime();
-    const now = new Date().setHours(0,0,0,0);
-    return due < now;
-  }
-
-  function formatDueRelative(dateStr) {
-    if (!dateStr) return null;
-    const due = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDay = new Date(due);
-    dueDay.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((dueDay.getTime() - today.getTime()) / 86400000);
-    if (diffDays === 0) return { text: 'Hoje', title: 'Vence hoje' };
-    if (diffDays === 1) return { text: 'Amanhã', title: 'Vence amanhã' };
-    if (diffDays === -1) return { text: 'Ontem', title: 'Venceu ontem' };
-    if (diffDays > 1) return { text: `${diffDays} dias`, title: `Vence em ${diffDays} dias` };
-    return { text: `${Math.abs(diffDays)} dias`, title: `Atrasada há ${Math.abs(diffDays)} dias` };
-  }
-
   const [quickTitle, setQuickTitle] = useState('');
   const [quickError, setQuickError] = useState('');
   const [quickSaving, setQuickSaving] = useState(false);
@@ -472,6 +456,7 @@ export default function Tasks() {
     return tasks.filter(t => {
       if (filters.status === 'minhas' && t.assigned_to !== userId) return false;
       if (filters.status === 'vencidas' && (t.status === 'done' || !isVencida(t.due_date))) return false;
+      if (filters.status === 'pendentes' && t.status === 'done') return false;
       if (filters.status === 'concluidas' && t.status !== 'done') return false;
       if (filters.lead_id && t.lead_id !== filters.lead_id) return false;
       return true;
@@ -479,9 +464,18 @@ export default function Tasks() {
   }, [tasks, filters.status, filters.lead_id]);
 
   const filteredTasks = useMemo(() => {
-    if (!estaSemanaOn) return filteredTasksBase;
-    return filteredTasksBase.filter((t) => isDueInCurrentWeek(t.due_date));
-  }, [filteredTasksBase, estaSemanaOn]);
+    let list = filteredTasksBase;
+    if (estaSemanaOn) {
+      list = list.filter((t) => isDueInCurrentWeek(t.due_date));
+    }
+    if (periodTodayOn) {
+      list = list.filter((t) => {
+        const due = String(t.due_date || '').trim().slice(0, 10);
+        return due === todayYmd;
+      });
+    }
+    return list;
+  }, [filteredTasksBase, estaSemanaOn, periodTodayOn, todayYmd]);
 
   const semPrazoExcluidasCount = useMemo(
     () => filteredTasksBase.filter((t) => !t.due_date || !String(t.due_date).trim()).length,
@@ -737,117 +731,32 @@ export default function Tasks() {
     });
   }, []);
 
-  const renderTaskLeadBadge = (t, { compact = false } = {}) => {
-    if (!t.lead_id) return null;
-    const person = linkableById.get(t.lead_id);
-    const name = String(t.lead_name || person?.name || '').trim() || terms.student;
-    const kindLabel =
-      person?.kind === 'student' ? terms.student : person?.kind === 'lead' ? contactLabel : null;
-    const path = profilePathForLinkablePerson(person) || `/student/${t.lead_id}`;
-    return (
-      <span
-        className={`task-badge lead-badge${compact ? ' task-badge--compact' : ''}`}
-        role="link"
-        tabIndex={0}
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate(path);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.stopPropagation();
-            navigate(path);
-          }
-        }}
-      >
-        <User size={12} aria-hidden="true" /> {name}
-        {kindLabel ? ` · ${kindLabel}` : ''}
-      </span>
-    );
+  const assigneeForTask = (t) => {
+    if (!t?.assigned_to) return { label: null, initials: null };
+    const member = members.find((m) => m.userId === t.assigned_to);
+    const label = membershipPrimaryLabel(member || {}) || t.assigned_to;
+    return { label, initials: String(label).slice(0, 2).toUpperCase() };
   };
 
   const renderOneTaskCard = (t, opts = {}) => {
     const compact = Boolean(opts.compact);
-    const vencida = isVencida(t.due_date) && t.status !== 'done';
-    const showLinkedPerson = Boolean(t.lead_id) && !opts.hideLead;
+    const { label, initials } = assigneeForTask(t);
     return (
-      <div
+      <TaskCard
         key={t.id}
-        className={`task-card ${compact ? 'task-card--compact' : ''} ${t.status === 'done' ? 'done' : ''}`}
-      >
-        <span className="task-checkbox-wrap" onClick={(e) => e.stopPropagation()}>
-          {isUpdating(t.id) ? (
-            <Loader2 size={16} className="navi-async-btn__spin task-checkbox-spinner" aria-hidden />
-          ) : (
-            <input
-              type="checkbox"
-              checked={t.status === 'done'}
-              onChange={() => void toggleDone(t)}
-              className="task-checkbox"
-              aria-label={t.status === 'done' ? 'Marcar como pendente' : 'Marcar como concluída'}
-            />
-          )}
-        </span>
-        <div
-          className="task-content"
-          role="button"
-          tabIndex={0}
-          onClick={() => setDetailTask(t)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setDetailTask(t);
-            }
-          }}
-        >
-          <span className={`task-title ${t.status === 'done' ? 'line-through' : ''}`}>{t.title}</span>
-          {showLinkedPerson ? (
-            <div className={`task-linked-person${compact ? ' task-linked-person--compact' : ''}`}>
-              {renderTaskLeadBadge(t, { compact })}
-            </div>
-          ) : null}
-          {!compact || opts.showMeta ? (
-            <div className={`task-meta${compact ? ' task-meta--compact' : ''}`}>
-              {t.due_date ? (
-                (() => {
-                  const rel = formatDueRelative(t.due_date);
-                  return (
-                    <span
-                      className={`task-badge ${vencida ? 'text-danger' : ''}`}
-                      title={rel?.title || undefined}
-                    >
-                      <Calendar size={12} /> {rel?.text || new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                    </span>
-                  );
-                })()
-              ) : null}
-              {t.assigned_to ? (
-                <span
-                  className="task-badge assign-badge"
-                  title={
-                    membershipPrimaryLabel(members.find((m) => m.userId === t.assigned_to) || {}) ||
-                    t.assigned_to
-                  }
-                >
-                  {(members.find((m) => m.userId === t.assigned_to)
-                    ? membershipPrimaryLabel(members.find((m) => m.userId === t.assigned_to))
-                    : t.assigned_to)
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="task-actions dropdown-container" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="task-action-btn" onClick={() => openEdit(t)}>
-            <Pencil size={14} />
-          </button>
-          <button type="button" className="task-action-btn text-danger" onClick={() => handleDelete(t.id)}>
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
+        task={t}
+        variant={compact ? 'compact' : 'full'}
+        compactLayout={compact ? 'stack' : 'row'}
+        showLead={!opts.hideLead}
+        showAssignee={!compact || Boolean(opts.showMeta)}
+        isUpdating={isUpdating(t.id)}
+        assigneeLabel={label}
+        assigneeInitials={initials}
+        onComplete={() => void toggleDone(t)}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        onOpen={() => setDetailTask(t)}
+      />
     );
   };
 
@@ -1049,7 +958,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
+    <div className="container navi-hub-page tasks-page--padded">
       <header className="animate-in">
         <PageHeader
           className="navi-page-header--flush"
@@ -1117,7 +1026,7 @@ export default function Tasks() {
           )}
         </div>
         {estaSemanaOn && semPrazoExcluidasCount > 0 ? (
-          <p className="task-week-hint text-muted text-sm mt-2 mb-0" style={{ lineHeight: 1.45 }}>
+          <p className="task-week-hint text-muted text-sm mt-2 mb-0">
             {semPrazoExcluidasCount} {semPrazoExcluidasCount === 1 ? 'tarefa sem prazo definido não aparece' : 'tarefas sem prazo definido não aparecem'} neste filtro.
           </p>
         ) : null}
@@ -1159,7 +1068,7 @@ export default function Tasks() {
             tone="dashed"
             title="Nenhuma tarefa corresponde a este filtro."
             secondaryAction={
-              filters.status !== 'all' || filters.lead_id || estaSemanaOn
+              filters.status !== 'all' || filters.lead_id || estaSemanaOn || periodTodayOn
                 ? {
                     label: 'Limpar filtros',
                     variant: 'link',
@@ -1167,6 +1076,7 @@ export default function Tasks() {
                       setFilter('status', 'all');
                       setFilter('lead_id', null);
                       setEstaSemanaOn(false);
+                      setPeriodTodayOn(false);
                       navigate('/tarefas');
                     },
                   }
@@ -1458,9 +1368,9 @@ export default function Tasks() {
               </div>
 
               {/* Vincular aluno / lead */}
-              <div className="task-field" ref={leadDropRef} style={{ position: 'relative' }}>
+              <div className="task-field task-field--dropdown" ref={leadDropRef}>
                 <label className="task-field-label">{`Vincular ${terms.student.toLowerCase()} / ${contactLabel.toLowerCase()}`}</label>
-                <div style={{ position: 'relative' }}>
+                <div className="task-field-dropdown-wrap">
                   <input
                     type="text"
                     className="form-input"

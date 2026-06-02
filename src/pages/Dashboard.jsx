@@ -42,6 +42,7 @@ import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
+import TaskCard from '../components/shared/TaskCard.jsx';
 import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
 import { useUserRole } from '../lib/useUserRole.js';
 import DashboardManagerSection from '../components/dashboard/DashboardManagerSection.jsx';
@@ -387,6 +388,10 @@ const Dashboard = () => {
     const handleKpiClick = (cardKey) => {
         if (cardKey === 'followup') {
             scrollToFollowUps();
+            return;
+        }
+        if (cardKey === 'tasks') {
+            navigate('/tarefas?status=pendentes&period=today');
             return;
         }
         setListModalType(cardKey);
@@ -1150,79 +1155,61 @@ const Dashboard = () => {
                     <div className="reception-list-modal__empty">
                         <EmptyState variant="compact" tone="dashed" title="Nenhum item nessa lista." role="status" />
                     </div>
+                ) : listModalType === 'tasks' ? (
+                    <div className="flex-col gap-2">
+                        {modalListItems.map((task) => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                variant="compact"
+                                showLead={true}
+                                showAssignee={false}
+                                isUpdating={isUpdatingTask(String(task.id))}
+                                onComplete={() => void markTaskAsDone(task)}
+                                onEdit={null}
+                                onDelete={null}
+                                onOpen={(t) => {
+                                    const leadId = String(t?.lead_id || '').trim();
+                                    if (leadId) {
+                                        navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
+                                    }
+                                }}
+                            />
+                        ))}
+                    </div>
                 ) : (
                     <div className="flex-col agenda-followups-list">
                         {modalListItems.map((lead, i) => {
-                            const isTasks = listModalType === 'tasks';
                             const busy = Boolean(savingPresence[`${lead.id}:attended`] || savingPresence[`${lead.id}:missed`]);
-                            const taskBusy = isUpdatingTask(String(lead?.id || '').trim());
                             return (
                                 <div key={`${lead.id || lead.$id || i}-${i}`} className="card follow-card">
                                     <div
                                         className="flex justify-between items-center"
                                         onClick={() => {
-                                            if (isTasks) {
-                                                const leadId = String(lead?.lead_id || '').trim();
-                                                if (leadId) {
-                                                    navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
-                                                    return;
-                                                }
-                                                return;
-                                            }
                                             navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
                                         }}
                                         style={{ cursor: 'pointer' }}
                                     >
-                                        <strong className="agenda-followup-name">
-                                            {isTasks ? String(lead?.title || 'Tarefa') : lead.name}
-                                        </strong>
-                                        {isTasks ? (
-                                            <span className="status-pill">
-                                                {lead?.due_date ? new Date(`${lead.due_date}T00:00:00`).toLocaleDateString('pt-BR') : 'Sem prazo'}
-                                            </span>
-                                        ) : (
-                                            <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
-                                        )}
+                                        <strong className="agenda-followup-name">{lead.name}</strong>
+                                        <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
                                     </div>
                                     <div className="flex gap-2 agenda-followup-actions border-t">
-                                        {isTasks ? (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    className="followup-action-btn flex-1"
-                                                    disabled={taskBusy}
-                                                    onClick={() => void markTaskAsDone(lead)}
-                                                >
-                                                    {taskBusy ? 'Salvando…' : 'Marcar concluída'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="followup-action-btn flex-1"
-                                                    onClick={() => navigate('/tarefas')}
-                                                >
-                                                    <ChevronRight size={14} /> Abrir tarefas
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    className="followup-action-btn flex-1"
-                                                    disabled={busy}
-                                                    onClick={() => void markLeadAttended(lead)}
-                                                >
-                                                    {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="followup-action-btn flex-1"
-                                                    disabled={busy}
-                                                    onClick={() => void markLeadMissed(lead)}
-                                                >
-                                                    {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
-                                                </button>
-                                            </>
-                                        )}
+                                        <button
+                                            type="button"
+                                            className="followup-action-btn flex-1"
+                                            disabled={busy}
+                                            onClick={() => void markLeadAttended(lead)}
+                                        >
+                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="followup-action-btn flex-1"
+                                            disabled={busy}
+                                            onClick={() => void markLeadMissed(lead)}
+                                        >
+                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
+                                        </button>
                                     </div>
                                 </div>
                             );

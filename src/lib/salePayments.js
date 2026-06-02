@@ -1,16 +1,10 @@
 import { paymentLabel } from './salesSettings.js';
 import { formatBRL } from './moneyBr.js';
+import { PAYMENT_METHODS } from './paymentMethods.js';
 
 export const MAX_SALE_PAYMENTS = 3;
 
-export const SALE_PAYMENT_FORM_OPTIONS = [
-  { value: 'pix', label: 'PIX' },
-  { value: 'cartao_credito', label: 'Cartão de crédito' },
-  { value: 'cartao_debito', label: 'Cartão de débito' },
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'transferencia', label: 'Transferência' },
-  { value: 'outro', label: 'Outro' },
-];
+export const SALE_PAYMENT_FORM_OPTIONS = PAYMENT_METHODS;
 
 export const TROCO_FORM_OPTIONS = [
   { value: 'pix', label: 'PIX' },

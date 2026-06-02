@@ -62,8 +62,8 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import StageBadge from '../components/shared/StageBadge.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
+import TaskCard from '../components/shared/TaskCard.jsx';
 import '../styles/lead-profile.css';
-import '../styles/tasks.css';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -272,22 +272,80 @@ const LeadProfile = () => {
     const [studentPayments, setStudentPayments] = useState([]);
     const [leadTasks, setLeadTasks] = useState([]);
     const leadTaskProgress = useMemo(() => progressLabelForLead(id, leadTasks), [id, leadTasks]);
+    const storeTasks = useTaskStore((s) => s.tasks);
+    const isUpdatingLeadTask = useTaskStore((s) => s.isUpdating);
+
+    const loadLeadTasks = useCallback(() => {
+        if (!id || !academyId) return;
+        createSessionJwt().then((jwt) => {
+            if (!jwt) return;
+            fetch(`/api/tasks?academy_id=${encodeURIComponent(academyId)}&lead_id=${encodeURIComponent(id)}`, {
+                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId },
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.sucesso) {
+                        setLeadTasks(data.tasks || []);
+                    }
+                })
+                .catch(() => {});
+        });
+    }, [id, academyId]);
 
     useEffect(() => {
-        if (!id || !academyId) return;
         let cancelled = false;
-        createSessionJwt().then(jwt => {
+        if (!id || !academyId) return undefined;
+        createSessionJwt().then((jwt) => {
             if (!jwt || cancelled) return;
             fetch(`/api/tasks?academy_id=${encodeURIComponent(academyId)}&lead_id=${encodeURIComponent(id)}`, {
-                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId }
-            }).then(r => r.json()).then(data => {
-                if (!cancelled && data.sucesso) {
-                    setLeadTasks(data.tasks || []);
-                }
-            }).catch(() => {});
+                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId },
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (!cancelled && data.sucesso) {
+                        setLeadTasks(data.tasks || []);
+                    }
+                })
+                .catch(() => {});
         });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [id, academyId]);
+
+    useEffect(() => {
+        if (!id) return;
+        const relevant = (storeTasks || []).filter(
+            (t) => String(t.lead_id || t.leadId || '').trim() === String(id).trim()
+        );
+        if (!relevant.length) return;
+        setLeadTasks((prev) => {
+            const byId = new Map(relevant.map((t) => [t.id, t]));
+            let changed = false;
+            const next = prev.map((t) => {
+                const hit = byId.get(t.id);
+                if (!hit) return t;
+                if (
+                    hit.status === t.status &&
+                    hit.title === t.title &&
+                    String(hit.due_date || '') === String(t.due_date || t.dueDate || '')
+                ) {
+                    return t;
+                }
+                changed = true;
+                return { ...t, ...hit };
+            });
+            return changed ? next : prev;
+        });
+    }, [storeTasks, id]);
+
+    useEffect(() => {
+        const onVis = () => {
+            if (document.visibilityState === 'visible') loadLeadTasks();
+        };
+        document.addEventListener('visibilitychange', onVis);
+        return () => document.removeEventListener('visibilitychange', onVis);
+    }, [loadLeadTasks]);
 
     const toggleLeadTask = async (t) => {
         const newStatus = t.status === 'done' ? 'pending' : 'done';
@@ -1760,21 +1818,18 @@ const LeadProfile = () => {
                             />
                         ) : leadTasks.length > 0 ? (
                             <div className="flex-col gap-2">
-                                {leadTasks.slice(0, 5).map(t => (
-                                    <div key={t.id} className={`task-row ${t.status === 'done' ? 'done' : ''}`}>
-                                        <input 
-                                            type="checkbox" 
-                                            checked={t.status === 'done'} 
-                                            onChange={() => toggleLeadTask(t)} 
-                                            className="lead-profile-task-checkbox"
-                                        />
-                                        <span className="task-title">{t.title}</span>
-                                        {(t.due_date || t.dueDate) && (
-                                            <span className="task-due">
-                                                {new Date((t.due_date || t.dueDate) + 'T00:00:00').toLocaleDateString('pt-BR')}
-                                            </span>
-                                        )}
-                                    </div>
+                                {leadTasks.slice(0, 5).map((t) => (
+                                    <TaskCard
+                                        key={t.id}
+                                        task={t}
+                                        variant="compact"
+                                        showLead={false}
+                                        showAssignee={true}
+                                        isUpdating={isUpdatingLeadTask(t.id)}
+                                        onComplete={() => void toggleLeadTask(t)}
+                                        onEdit={null}
+                                        onDelete={null}
+                                    />
                                 ))}
                                 {leadTasks.length > 5 ? (
                                     <button 

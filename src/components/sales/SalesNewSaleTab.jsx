@@ -64,7 +64,12 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
   const [descGeralCents, setDescGeralCents] = useState(0);
   const [descGeralPct, setDescGeralPct] = useState(0);
 
+  const [priceTouched, setPriceTouched] = useState({});
   const [receipt, setReceipt] = useState(null);
+
+  const handlePriceBlur = useCallback((idx) => {
+    setPriceTouched((prev) => ({ ...prev, [idx]: true }));
+  }, []);
 
   const idempotencyKeyRef = useRef(
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -682,7 +687,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
             }`}
           >
             {catalogError ? (
-              <p className="text-small" style={{ color: 'var(--danger)', marginBottom: 8 }}>
+              <p className="text-small sales-catalog-error">
                 Não foi possível carregar o catálogo:{' '}
                 {friendlySaleError(catalogError) || catalogError}
               </p>
@@ -779,6 +784,9 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
                 subtotalMasked={subtotalMasked}
                 descGeralMasked={descGeralMaskedOut}
                 totalMasked={totalMasked}
+                inlineValidate
+                priceTouched={priceTouched}
+                onPriceBlur={handlePriceBlur}
               />
 
               <div className="sales-checkout__discount">
@@ -819,6 +827,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
                 payments={payments}
                 onChange={setPayments}
                 disabled={creating || cart.length === 0}
+                inlineValidate
               />
 
               <div className="sales-collab-toggle">
@@ -859,7 +868,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       </form>
 
       {(localError || error) ? (
-        <p className="text-small mt-2" style={{ color: 'var(--danger)' }}>
+              <p className="text-small mt-2 sales-form-error">
           {friendlySaleError(localError || error)}
         </p>
       ) : null}

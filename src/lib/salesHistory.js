@@ -186,6 +186,13 @@ export function saleStatusLabel(status) {
   return status || '—';
 }
 
+export const SALE_STATUS_BADGE_MAP = {
+  concluida: { label: 'Concluída', tone: 'success' },
+  cancelada: { label: 'Cancelada', tone: 'danger' },
+  pendente: { label: 'Pendente', tone: 'warning' },
+};
+
+/** @deprecated Use StatusBadge + SALE_STATUS_BADGE_MAP */
 export function saleStatusBadgeClass(status) {
   const st = String(status || '').toLowerCase();
   if (st === 'cancelada') return 'sales-badge sales-badge--danger';

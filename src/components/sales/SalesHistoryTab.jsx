@@ -17,16 +17,16 @@ import {
   filterSalesList,
   formatDateTimeBr,
   formatSaleIdShort,
-  saleStatusLabel,
-  saleStatusBadgeClass,
+  SALE_STATUS_BADGE_MAP,
 } from '../../lib/salesHistory';
+import StatusBadge from '../shared/StatusBadge.jsx';
 import { formatBRL } from '../../lib/moneyBr';
 import { friendlyError } from '../../lib/errorMessages';
 import SaleDetailModal from './SaleDetailModal';
 import SalesCancelModal from './SalesCancelModal';
 import CancelReceiptPanel from './CancelReceiptPanel';
 
-export default function SalesHistoryTab({ onSwitchTab }) {
+export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const academyDoc = useMemo(() => {
@@ -45,7 +45,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
   const cancelling = useSalesStore((s) => s.cancelling);
   const error = useSalesStore((s) => s.error);
 
-  const [period, setPeriod] = useState(defaultPeriodRange);
+  const [period, setPeriod] = useState(() => initialPeriod || defaultPeriodRange);
   const [statusFilter, setStatusFilter] = useState('all');
   const [canalFilter, setCanalFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -66,6 +66,12 @@ export default function SalesHistoryTab({ onSwitchTab }) {
   const [salesSettings, setSalesSettings] = useState(() => readSalesSettings(null));
   const [academyName, setAcademyName] = useState('');
   const isMobile = useMatchMobile();
+
+  useEffect(() => {
+    if (initialPeriod?.from && initialPeriod?.to) {
+      setPeriod({ from: initialPeriod.from, to: initialPeriod.to });
+    }
+  }, [initialPeriod?.from, initialPeriod?.to]);
 
   useEffect(() => {
     if (!academyId || !ACADEMIES_COL || !DB_ID) return;
@@ -184,8 +190,8 @@ export default function SalesHistoryTab({ onSwitchTab }) {
   return (
   <>
       <div className="card mt-4">
-        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
+        <div className="flex gap-2 sales-history-filters">
+          <div className="form-group form-group--from">
             <label className="text-xs">De</label>
             <DateInputField
               type="date"
@@ -194,7 +200,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
               onChange={(e) => setPeriod((p) => ({ ...p, from: e.target.value }))}
             />
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 130 }}>
+          <div className="form-group form-group--to">
             <label className="text-xs">Até</label>
             <DateInputField
               type="date"
@@ -203,7 +209,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
               onChange={(e) => setPeriod((p) => ({ ...p, to: e.target.value }))}
             />
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+          <div className="form-group form-group--status">
             <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -211,7 +217,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
               <option value="cancelada">Canceladas</option>
             </select>
           </div>
-          <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+          <div className="form-group form-group--canal">
             <label className="text-xs">Canal</label>
             <select className="form-input" value={canalFilter} onChange={(e) => setCanalFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -222,13 +228,12 @@ export default function SalesHistoryTab({ onSwitchTab }) {
               ))}
             </select>
           </div>
-          <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 180 }}>
+          <div className="form-group form-group--search">
             <label className="text-xs">Busca</label>
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: 10, top: 10, opacity: 0.5 }} />
+            <div className="sales-history-search-wrap">
+              <Search size={16} className="sales-history-search-icon" />
               <input
-                className="form-input"
-                style={{ paddingLeft: 32 }}
+                className="form-input sales-history-search-input"
                 placeholder="Cliente ou ID da venda"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -253,14 +258,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         </div>
       </div>
 
-      <div
-        className="card mt-3 sales-history-table-wrap"
-        style={{
-          maxHeight: 'calc(100vh - 320px)',
-          overflow: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
+      <div className="card mt-3 sales-history-table-wrap">
         {loading ? (
           <div className="p-3">
             <PageSkeleton variant="list" rows={5} />
@@ -310,30 +308,26 @@ export default function SalesHistoryTab({ onSwitchTab }) {
                         ) : null}
                       </div>
                     </div>
-                    <span className={saleStatusBadgeClass(row.status)}>
-                      {saleStatusLabel(row.status)}
-                    </span>
+                    <StatusBadge status={row.status} map={SALE_STATUS_BADGE_MAP} size="sm" />
                   </div>
                   <div className="navi-mobile-card__actions sales-history-mobile-card__actions">
                     <button
                       type="button"
-                      className="btn-outline"
-                      style={{ minHeight: 44, flex: 1, justifyContent: 'center' }}
+                      className="btn-outline sales-history-mobile-detail-btn"
                       onClick={() => openDetail(row)}
                     >
                       Ver detalhes
-                      <ChevronRight size={16} aria-hidden style={{ marginLeft: 4 }} />
+                      <ChevronRight size={16} aria-hidden className="sales-history-mobile-detail-btn__chevron" />
                     </button>
                   </div>
                 </article>
               );
             })}
             {hasMore ? (
-              <div className="p-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+              <div className="p-3 sales-history-load-more">
                 <button
                   type="button"
-                  className="btn-outline"
-                  style={{ width: '100%', minHeight: 44 }}
+                  className="btn-outline sales-history-load-more__btn"
                   disabled={loadingMore}
                   onClick={() => void loadSales({ append: true, cursor: nextCursor })}
                 >
@@ -372,9 +366,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
                     <td>{row.total_label || formatBRL(row.total)}</td>
                     <td>{row.payment_label}</td>
                     <td>
-                      <span className={saleStatusBadgeClass(row.status)}>
-                        {saleStatusLabel(row.status)}
-                      </span>
+                      <StatusBadge status={row.status} map={SALE_STATUS_BADGE_MAP} size="sm" />
                     </td>
                   </tr>
                 );
@@ -383,7 +375,7 @@ export default function SalesHistoryTab({ onSwitchTab }) {
           </table>
         )}
         {!loading && !loadError && filtered.length > 0 && hasMore ? (
-          <div className="p-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+          <div className="p-3 sales-history-load-more">
             <button
               type="button"
               className="btn-outline btn-sm"

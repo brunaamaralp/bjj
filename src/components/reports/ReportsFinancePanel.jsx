@@ -18,13 +18,7 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import './reports.css';
 
-const METHOD_LABELS = {
-  pix: 'PIX',
-  debito: 'Débito',
-  credito: 'Crédito',
-  dinheiro: 'Dinheiro',
-  outro: 'Outro',
-};
+import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 
 function OperationalFinanceReport({ academyId, from, to }) {
   const [data, setData] = useState(null);
@@ -97,7 +91,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
       { metrica: 'Despesas', valor: totals.expenses },
       { metrica: 'Saldo', valor: totals.balance },
       ...(totals.methodRows || []).map((r) => ({
-        metrica: `Por forma — ${METHOD_LABELS[r.method] || r.method}`,
+        metrica: `Por forma — ${formatPaymentMethod(r.method)}`,
         valor: r.total,
       })),
     ];
@@ -196,7 +190,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
           <div>
             {totals.methodRows.map(({ method, total }) => (
               <div key={method} className="finance-reports-row">
-                <span>{METHOD_LABELS[method] || method}</span>
+                <span>{formatPaymentMethod(method)}</span>
                 <span>{fmt(total)}</span>
               </div>
             ))}

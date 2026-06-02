@@ -28,27 +28,6 @@ select.task-select option {
   }
 }
 
-.task-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-}
-.task-title {
-    color: var(--text);
-    flex: 1;
-}
-.task-due {
-    color: var(--text-muted);
-    font-size: 11px;
-    font-weight: 500;
-    margin-left: auto;
-}
-.task-row.done .task-title {
-    text-decoration: line-through;
-    opacity: 0.6;
-}
-
 @keyframes tasksSkeletonShimmer {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
@@ -149,34 +128,6 @@ select.task-select option {
 .tasks-lists-wrap { display: flex; flex-direction: column; gap: 24px; }
 .task-group-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
 .task-list { display: flex; flex-direction: column; gap: 8px; }
-.task-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: var(--transition); }
-.task-card:hover { border-color: var(--border-mid); }
-.task-card.done { opacity: 0.7; background: var(--surface-hover); }
-.task-checkbox-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-.task-checkbox-spinner { color: var(--v500); }
-.task-checkbox { margin-top: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--success); }
-.task-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
-.task-title { font-weight: 600; font-size: 14px; color: var(--text); }
-.task-title.line-through { text-decoration: line-through; color: var(--text-muted); }
-.task-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.task-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--border-light); color: var(--text-secondary); font-weight: 500; }
-.task-badge.text-danger { color: var(--danger); background: var(--danger-light); }
-.lead-badge { cursor: pointer; }
-.lead-badge:hover { background: var(--accent-light); color: var(--accent); }
-.assign-badge { width: 22px; height: 22px; justify-content: center; border-radius: 50%; padding: 0; font-size: 9px; font-weight: 800; background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent); }
-.task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; }
-.task-card:hover .task-actions { opacity: 1; }
-.task-action-btn { background: transparent; border: none; padding: 6px; border-radius: 6px; cursor: pointer; color: var(--text-muted); }
-.task-action-btn:hover { background: var(--border-light); color: var(--text); }
-.task-action-btn.text-danger:hover { background: var(--danger-light); color: var(--danger); }
 
 /* ── Modal ── */
 .task-modal-overlay {
@@ -456,16 +407,6 @@ select.task-select option {
 }
 .tasks-cal-semprazo-grid .task-card { min-width: 0; }
 
-.task-card--compact { padding: 8px 10px; gap: 8px; }
-.task-card--compact .task-checkbox { margin-top: 2px; width: 14px; height: 14px; }
-.task-card--compact .task-title { font-size: 13px; line-height: 1.35; }
-.task-card--compact .task-actions { opacity: 1; }
-.task-linked-person { margin-top: 4px; }
-.task-linked-person--compact { margin-top: 3px; }
-.task-badge--compact { font-size: 10px; padding: 2px 5px; }
-.task-meta--compact { gap: 6px; }
-.task-meta--compact .task-badge { font-size: 10px; padding: 2px 5px; }
-
 .tasks-by-student { width: 100%; }
 .tasks-by-student-section--unlinked {
   margin-bottom: 18px;
@@ -729,3 +670,13 @@ select.task-select option {
   padding: 14px 18px; border-top: 1px solid var(--border); flex-shrink: 0;
 }
 .task-drawer-edit { width: 100%; justify-content: center; }
+.tasks-page--padded { padding-bottom: 30px; }
+.task-virtual-scroll {
+  overflow: auto;
+  max-height: min(70vh, 720px);
+  position: relative;
+}
+.task-kanban-load-more { width: 100%; margin-top: 8px; }
+.task-week-hint { line-height: 1.45; }
+.task-field--dropdown { position: relative; }
+.task-field-dropdown-wrap { position: relative; }

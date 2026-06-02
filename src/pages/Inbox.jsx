@@ -11,6 +11,7 @@ import {
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
+import { resolveInboxTicketBadge } from '../lib/inboxTicketBadges.js';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
@@ -2787,24 +2788,13 @@ export default function Inbox() {
   }, [academyId, loading, firstVisibleConversation, location.search, searchQuery]);
 
   function ticketChip(status, transferTo) {
-    const s = String(status || '').trim();
-    if (s === 'resolved') return { label: 'Resolvido', bg: 'var(--success-light)', fg: 'var(--success)', tone: 'success' };
-    if (s === 'waiting_customer') {
-      return {
-        label: 'Aguardando cliente',
-        bg: 'var(--color-warning-surface, var(--warning-light))',
-        fg: 'var(--color-warning, var(--warning))',
-        tone: 'warning',
-      };
-    }
-    if (s === 'transferred')
-      return {
-        label: transferTo ? `Transferido • ${transferTo}` : 'Transferido',
-        bg: 'var(--inbox-chip-info-bg)',
-        fg: 'var(--inbox-chip-info-fg)',
-        tone: 'info'
-      };
-    return { label: 'Em andamento', bg: 'rgba(6, 182, 212, 0.12)', fg: 'var(--info)', tone: 'info', isDefault: true };
+    const resolved = resolveInboxTicketBadge(status, transferTo);
+    return {
+      label: resolved.label,
+      tone: resolved.tone,
+      status: resolved.status,
+      isDefault: resolved.isDefault,
+    };
   }
 
   async function updateTicket({ status, transferTo } = {}) {

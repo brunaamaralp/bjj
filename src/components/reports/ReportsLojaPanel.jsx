@@ -187,7 +187,10 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
             role="status"
             primaryAction={{
               label: 'Registrar venda',
-              onClick: () => navigate('/loja?tab=vendas'),
+              onClick: () =>
+                navigate('/loja?tab=vendas', {
+                  state: { subtab: 'historico', dateFrom: from, dateTo: to },
+                }),
             }}
           />
         </div>

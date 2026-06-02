@@ -14,6 +14,9 @@ export default function SalesCart({
   subtotalMasked,
   descGeralMasked,
   totalMasked,
+  inlineValidate = false,
+  priceTouched = {},
+  onPriceBlur,
 }) {
   const [removingIdx, setRemovingIdx] = useState(null);
 
@@ -125,16 +128,29 @@ export default function SalesCart({
                     </button>
                   </div>
                   <div className="sales-cart-row__price">
-                    <label className="text-xs">Unit.</label>
+                    <label className="text-xs">
+                      Unit.
+                      {!lockPriceEdit && inlineValidate ? (
+                        <span className="sales-field-required"> *</span>
+                      ) : null}
+                    </label>
                     <input
                       type="text"
-                      className="form-input"
+                      className={`form-input${
+                        inlineValidate && !lockPriceEdit && priceTouched[idx] && (!priceCents || priceCents <= 0)
+                          ? ' sales-input--invalid'
+                          : ''
+                      }`}
                       inputMode="numeric"
                       placeholder="R$ 0,00"
                       value={priceDisplay}
                       disabled={lockPriceEdit}
+                      onBlur={() => onPriceBlur?.(idx)}
                       onChange={(e) => onPriceChange(idx, parseMaskToCents(e.target.value))}
                     />
+                    {inlineValidate && !lockPriceEdit && priceTouched[idx] && (!priceCents || priceCents <= 0) ? (
+                      <p className="sales-field-error" role="alert">Campo obrigatório</p>
+                    ) : null}
                   </div>
                   <div className="sales-cart-row__subtotal">
                     <span className="text-xs">Subtotal</span>

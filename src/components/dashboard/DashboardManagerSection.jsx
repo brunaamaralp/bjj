@@ -176,7 +176,7 @@ export default function DashboardManagerSection({
         tone: 'warning',
         icon: CheckSquare,
         text: `${metrics.overdueTasks} ${metrics.overdueTasks === 1 ? 'tarefa vencida' : 'tarefas vencidas'}`,
-        onClick: () => navigate('/tarefas?filter=overdue'),
+        onClick: () => navigate('/tarefas?status=vencidas'),
       });
     }
     return rows.slice(0, 4);

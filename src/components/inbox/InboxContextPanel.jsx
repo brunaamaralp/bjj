@@ -2,6 +2,8 @@ import React from 'react';
 import { Flame } from 'lucide-react';
 import ConversationNotesPanel from './ConversationNotesPanel';
 import EmptyState from '../shared/EmptyState.jsx';
+import StatusBadge from '../shared/StatusBadge.jsx';
+import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 
 export function InboxContextPanelContent(props) {
   const {
@@ -64,13 +66,16 @@ export function InboxContextPanelContent(props) {
             <span className="ctx-label ctx-label--inline">Status</span>
             {(() => {
               const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
+              const statusKey = String(chip.status || selected?.ticket_status || 'in_progress').trim();
               return (
-                <span
-                  className="text-small inbox-ticket-chip-inline"
-                  style={{ background: chip.bg, color: chip.fg }}
-                >
-                  {chip.label}
-                </span>
+                <StatusBadge
+                  status={statusKey}
+                  map={{
+                    ...INBOX_TICKET_BADGE_MAP,
+                    [statusKey]: { label: chip.label, tone: chip.tone || 'info' },
+                  }}
+                  size="sm"
+                />
               );
             })()}
           </div>

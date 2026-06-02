@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import {
@@ -20,8 +20,19 @@ function rebalanceFirstRow(rows, totalCents) {
   return next;
 }
 
-export default function SalesPaymentBlock({ totalCents, payments, onChange, disabled }) {
+export default function SalesPaymentBlock({
+  totalCents,
+  payments,
+  onChange,
+  disabled,
+  inlineValidate = false,
+}) {
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
+  const [touched, setTouched] = useState({});
+
+  const markTouched = useCallback((key) => {
+    setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  }, []);
 
   const validation = useMemo(() => paymentsUiValid(payments, total), [payments, total]);
   const netCents = useMemo(() => netPaidCentsFromRows(payments), [payments]);
@@ -70,7 +81,10 @@ export default function SalesPaymentBlock({ totalCents, payments, onChange, disa
   return (
     <div className="sales-payment-block form-group sales-checkout__field">
       <div className="sales-payment-block__head">
-        <label style={{ margin: 0 }}>Pagamento</label>
+        <label className="sales-payment-block__label">
+          Pagamento
+          {inlineValidate ? <span className="sales-field-required"> *</span> : null}
+        </label>
         {payments.length < MAX_SALE_PAYMENTS ? (
           <button
             type="button"
@@ -92,14 +106,28 @@ export default function SalesPaymentBlock({ totalCents, payments, onChange, disa
           const valorCents = Math.max(0, Math.round(Number(row.valorCents) || 0));
           const insuficiente = isCash && recebidoCents < valorCents;
 
+          const formaKey = `forma-${idx}`;
+          const valorKey = `valor-${idx}`;
+          const formaMissing = !String(row.forma || '').trim();
+          const valorMissing = total > 0 && valorCents <= 0;
+          const showFormaError = inlineValidate && touched[formaKey] && formaMissing;
+          const showValorError = inlineValidate && touched[valorKey] && valorMissing;
+
           return (
-            <div key={row.id} className="sales-payment-row card" style={{ padding: 12, marginBottom: 10 }}>
+            <div key={row.id} className="sales-payment-row card">
               <div className="sales-payment-row__main">
-                <select
-                  className="form-input"
-                  disabled={disabled}
-                  value={row.forma}
-                  onChange={(e) => {
+                <div className="sales-payment-row__field">
+                  {inlineValidate && idx === 0 ? (
+                    <span className="text-xs sales-payment-row__field-label">
+                      Forma de pagamento <span className="sales-field-required">*</span>
+                    </span>
+                  ) : null}
+                  <select
+                    className={`form-input${showFormaError ? ' sales-input--invalid' : ''}`}
+                    disabled={disabled}
+                    value={row.forma}
+                    onBlur={() => inlineValidate && markTouched(formaKey)}
+                    onChange={(e) => {
                     const forma = e.target.value;
                     const patch = { forma };
                     if (forma === 'dinheiro') {
@@ -114,22 +142,36 @@ export default function SalesPaymentBlock({ totalCents, payments, onChange, disa
                     </option>
                   ))}
                 </select>
-                <input
-                  type="text"
-                  className="form-input"
-                  disabled={disabled}
-                  value={formatBRLFromCents(valorCents)}
-                  onChange={(e) => setValorCents(idx, parseMaskToCents(e.target.value))}
-                  placeholder="R$ 0,00"
-                  aria-label="Valor"
-                />
+                  {showFormaError ? (
+                    <p className="sales-field-error" role="alert">Campo obrigatório</p>
+                  ) : null}
+                </div>
+                <div className="sales-payment-row__field">
+                  {inlineValidate && idx === 0 ? (
+                    <span className="text-xs sales-payment-row__field-label">
+                      Valor <span className="sales-field-required">*</span>
+                    </span>
+                  ) : null}
+                  <input
+                    type="text"
+                    className={`form-input${showValorError ? ' sales-input--invalid' : ''}`}
+                    disabled={disabled}
+                    value={formatBRLFromCents(valorCents)}
+                    onBlur={() => inlineValidate && markTouched(valorKey)}
+                    onChange={(e) => setValorCents(idx, parseMaskToCents(e.target.value))}
+                    placeholder="R$ 0,00"
+                    aria-label="Valor"
+                  />
+                  {showValorError ? (
+                    <p className="sales-field-error" role="alert">Campo obrigatório</p>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="btn-ghost sales-payment-row__remove"
                   disabled={disabled || payments.length <= 1}
                   onClick={() => removeRow(idx)}
                   aria-label="Remover forma"
-                  style={{ padding: 8 }}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -182,10 +224,13 @@ export default function SalesPaymentBlock({ totalCents, payments, onChange, disa
       </div>
 
       <div
-        className="sales-payment-block__sum text-small"
-        style={{
-          color: validation.ok ? 'var(--success, #0d7a4a)' : diffCents > 0 ? 'var(--warning, #b8860b)' : 'var(--danger)',
-        }}
+        className={`sales-payment-block__sum text-small ${
+          validation.ok
+            ? 'sales-payment-block__sum--ok'
+            : diffCents > 0
+              ? 'sales-payment-block__sum--warn'
+              : 'sales-payment-block__sum--danger'
+        }`}
       >
         {validation.ok ? (
           <>
