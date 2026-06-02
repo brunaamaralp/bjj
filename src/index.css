@@ -4223,6 +4223,43 @@ button.funil-color-swatch {
   --tabs-border: var(--border-light);
 }
 
+/* Sub-navegação dentro de hub (ex.: Vendas / Estoque na Loja) — sem segundo segmented control */
+.navi-hub-tabs--underline {
+  --tabs-bg: transparent;
+  --tabs-border: transparent;
+  --tabs-radius: 0;
+  --tabs-pad: 0;
+  --tabs-gap: 0;
+  --tabs-item-radius: 0;
+  --tabs-item-active-bg: transparent;
+  --tabs-item-active-shadow: none;
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.navi-hub-tabs--underline .navi-hub-tab {
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  border-radius: 0;
+}
+
+.navi-hub-tabs--underline .navi-hub-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.navi-hub-tabs--underline .navi-hub-tab--active:hover {
+  color: var(--color-primary);
+}
+
 .navi-hub-tabs--sm {
   --tabs-item-pad-y: 6px;
   --tabs-item-pad-x: 12px;

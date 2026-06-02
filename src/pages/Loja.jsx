@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import { resolveSalesSubtab } from '../lib/lojaSalesTabs';
+import { INVENTORY_SUBTAB_LABELS, resolveInventorySubtab } from '../lib/lojaInventoryTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import Sales from './Sales';
@@ -58,10 +59,15 @@ export default function Loja() {
           ? 'Ajuste saldos e movimentações por item.'
           : 'Gerencie vendas, produtos e estoque.';
 
-  const hubMeta =
-    activeTab === 'vendas' && resolveSalesSubtab(searchParams) === 'history'
-      ? 'Histórico e cancelamentos'
-      : null;
+  const hubMeta = (() => {
+    if (activeTab === 'vendas' && resolveSalesSubtab(searchParams) === 'history') {
+      return 'Histórico e cancelamentos';
+    }
+    if (activeTab === 'estoque') {
+      return INVENTORY_SUBTAB_LABELS[resolveInventorySubtab(searchParams)] || null;
+    }
+    return null;
+  })();
 
   return (
     <div className="loja-hub">

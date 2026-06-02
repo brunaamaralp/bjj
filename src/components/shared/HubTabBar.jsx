@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * Abas de hub interno (?tab=) — estilos globais em index.css (.navi-hub-tabs).
  * @param {{ id: string, label: string, disabled?: boolean, disabledTitle?: string }[]} tabs
- * @param {'primary'|'secondary'} [variant]
+ * @param {'primary'|'secondary'|'underline'} [variant]
  * @param {'sm'|'md'} [size]
  * @param {boolean} [fullWidth]
  * @param {string} [className]
@@ -24,6 +24,7 @@ export default function HubTabBar({
       className={[
         'navi-hub-tabs',
         variant === 'secondary' ? 'navi-hub-tabs--secondary' : '',
+        variant === 'underline' ? 'navi-hub-tabs--underline' : '',
         size === 'sm' ? 'navi-hub-tabs--sm' : '',
         fullWidth ? 'navi-hub-tabs--full' : '',
         className,

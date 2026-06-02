@@ -81,8 +81,8 @@ const Sales = () => {
           activeId={subtab}
           onChange={setSubtab}
           ariaLabel="Vendas"
-          variant="secondary"
-          fullWidth
+          variant="underline"
+          size="sm"
           className="loja-subnav__tabs"
         />
         {academyId ? (

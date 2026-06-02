@@ -16,6 +16,7 @@ import InventoryCheckModal from '../components/inventory/InventoryCheckModal';
 import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
 import { mergeCatalogWithInventoryItems } from '../lib/inventoryCatalogMerge.js';
+import { lojaEstoqueTabParams, resolveInventorySubtab } from '../lib/lojaInventoryTabs.js';
 const Inventory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
@@ -48,10 +49,7 @@ const Inventory = () => {
   }, []);
 
   const addToast = useUiStore((s) => s.addToast);
-  const tab = useMemo(() => {
-    const raw = String(searchParams.get('subtab') || '').trim().toLowerCase();
-    return raw === 'movimentos' ? 'movimentos' : 'saldo';
-  }, [searchParams]);
+  const tab = useMemo(() => resolveInventorySubtab(searchParams), [searchParams]);
   const movePreset = { itemId: '', tipo: 'entrada' };
 
   const refresh = useCallback(async () => {
@@ -172,14 +170,10 @@ const Inventory = () => {
         <HubTabBar
           tabs={inventoryTabs}
           activeId={tab}
-          onChange={(id) => {
-            const next = new URLSearchParams(searchParams);
-            next.set('subtab', id);
-            setSearchParams(next, { replace: false });
-          }}
+          onChange={(id) => setSearchParams(lojaEstoqueTabParams(id, searchParams), { replace: false })}
           ariaLabel="Estoque"
-          variant="secondary"
-          fullWidth
+          variant="underline"
+          size="sm"
           className="loja-subnav__tabs inventory-page__tabs"
         />
         <div className="loja-subnav__actions inventory-page-actions">
