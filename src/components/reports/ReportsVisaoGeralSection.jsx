@@ -11,13 +11,26 @@ const pctVar = (cur, prev) => {
   return Math.round(((cur - prev) / prev) * 100);
 };
 
-function ReportTabFooterLink({ to, children }) {
+function ReportInlineLink({ to, children, className = '' }) {
   return (
-    <p className="reports-section-footer-link mt-3 mb-0">
-      <Link to={to} className="edit-link">
-        {children}
-      </Link>
-    </p>
+    <Link to={to} className={['reports-inline-link', className].filter(Boolean).join(' ')}>
+      {children}
+    </Link>
+  );
+}
+
+function ReportKpiCell({ footerTo, footerLabel = 'Ver detalhes →', children }) {
+  return (
+    <div className="reports-kpi-cell">
+      {children}
+      {footerTo ? (
+        <ReportInlineLink to={footerTo} className="reports-kpi-cell__footer">
+          {footerLabel}
+        </ReportInlineLink>
+      ) : (
+        <span className="reports-kpi-cell__footer-spacer" aria-hidden />
+      )}
+    </div>
   );
 }
 
@@ -28,7 +41,6 @@ export default function ReportsVisaoGeralSection({
   reportData,
   funnelStages,
   ratesCards,
-  terms,
   hasFinance,
   canViewFinance,
   financeSummary,
@@ -65,106 +77,124 @@ export default function ReportsVisaoGeralSection({
   return (
     <div className="reports-visao-geral mt-4 animate-in">
       <div className="reports-kpi-grid reports-kpi-grid--overview">
-        <ReportKpiCard
-          label="Leads no período"
-          value={newLeadsCur}
-          trend={pctVar(newLeadsCur, newLeadsPrev)}
-          trendLabel="vs. período anterior"
-          icon={<UserPlus size={20} strokeWidth={2.25} />}
-          onClick={() => onFunnelDrill?.('newLeads')}
-        />
-        <ReportKpiCard
-          label="Matrículas no período"
-          value={convertedCur}
-          trend={pctVar(convertedCur, convertedPrev)}
-          trendLabel="vs. período anterior"
-          icon={<Users size={20} strokeWidth={2.25} />}
-          highlight="success"
-          onClick={() => onFunnelDrill?.('converted')}
-        />
+        <ReportKpiCell footerTo="/reports?tab=funil">
+          <ReportKpiCard
+            label="Leads no período"
+            value={newLeadsCur}
+            trend={pctVar(newLeadsCur, newLeadsPrev)}
+            trendLabel="vs. período anterior"
+            icon={<UserPlus size={20} strokeWidth={2.25} />}
+            showCta={false}
+            onClick={() => onFunnelDrill?.('newLeads')}
+          />
+        </ReportKpiCell>
+        <ReportKpiCell footerTo="/reports?tab=funil">
+          <ReportKpiCard
+            label="Matrículas no período"
+            value={convertedCur}
+            trend={pctVar(convertedCur, convertedPrev)}
+            trendLabel="vs. período anterior"
+            icon={<Users size={20} strokeWidth={2.25} />}
+            highlight="success"
+            showCta={false}
+            onClick={() => onFunnelDrill?.('converted')}
+          />
+        </ReportKpiCell>
         {showRevenueKpi && financeLoading ? (
-          <ReportKpiCardSkeleton />
+          <ReportKpiCell>
+            <ReportKpiCardSkeleton />
+          </ReportKpiCell>
         ) : null}
         {showRevenueKpi && !financeLoading && financeSummary ? (
-          <ReportKpiCard
-            label="Receita liquidada"
-            value={formatBRL(Number(receivedCur) || 0)}
-            trend={
-              receivedPrev != null
-                ? pctVar(Number(receivedCur) || 0, Number(receivedPrev) || 0)
-                : null
-            }
-            trendLabel="vs. período anterior"
-            icon={<Wallet size={20} strokeWidth={2.25} />}
-            highlight="accent"
-          />
+          <ReportKpiCell footerTo="/reports?tab=financeiro">
+            <ReportKpiCard
+              label="Receita liquidada"
+              value={formatBRL(Number(receivedCur) || 0)}
+              trend={
+                receivedPrev != null
+                  ? pctVar(Number(receivedCur) || 0, Number(receivedPrev) || 0)
+                  : null
+              }
+              trendLabel="vs. período anterior"
+              icon={<Wallet size={20} strokeWidth={2.25} />}
+              highlight="accent"
+              showCta={false}
+            />
+          </ReportKpiCell>
         ) : null}
         {showActiveKpi ? (
-          <ReportKpiCard
-            label="Alunos ativos"
-            value={activeEnd}
-            trend={activeEndPrev != null ? pctVar(activeEnd, activeEndPrev) : null}
-            trendLabel="vs. fim do período anterior"
-            icon={<TrendingUp size={20} strokeWidth={2.25} />}
-          />
+          <ReportKpiCell footerTo="/reports?tab=alunos">
+            <ReportKpiCard
+              label="Alunos ativos"
+              value={activeEnd}
+              trend={activeEndPrev != null ? pctVar(activeEnd, activeEndPrev) : null}
+              trendLabel="vs. fim do período anterior"
+              icon={<TrendingUp size={20} strokeWidth={2.25} />}
+              showCta={false}
+            />
+          </ReportKpiCell>
         ) : null}
       </div>
 
-      <div className="reports-funnel-card mt-4">
-        <ReportSectionHeading title="Funil de captação" subtitle="Leads → Matrícula" />
-        <div className="reports-funnel-row">
-          {funnelStages.map((stage) => (
-            <React.Fragment key={stage.key}>
-              <button
-                type="button"
-                className={`reports-funnel-stage${stage.drillKey ? ' is-clickable' : ''}`}
-                onClick={() => stage.drillKey && onFunnelDrill?.(stage.drillKey)}
-                disabled={!stage.drillKey}
-              >
-                <div className="reports-funnel-track">
-                  <span
-                    className="reports-funnel-fill"
-                    style={{ width: `${stage.barPct}%`, background: stage.color }}
-                  />
-                </div>
-                <div className="reports-funnel-value">{stage.isPercent ? `${stage.current}%` : stage.current}</div>
-                <div className="reports-funnel-label">{stage.label}</div>
-                <div className={`reports-funnel-variation ${stage.variation >= 0 ? 'is-up' : 'is-down'}`}>
-                  {stage.variation >= 0 ? '+' : ''}
-                  {stage.variation}% vs período anterior
-                </div>
-                <span className="reports-funnel-relative">{stage.relativePct}% da etapa anterior</span>
-              </button>
-              {!stage.isLast ? (
-                <span className="reports-funnel-arrow" aria-hidden>
-                  <span className="ti ti-chevron-right" />
-                </span>
-              ) : null}
-            </React.Fragment>
-          ))}
-        </div>
-        <ReportTabFooterLink to="/reports?tab=funil">Ver relatório completo →</ReportTabFooterLink>
-      </div>
+      <div className="reports-visao-geral__section-divider" role="presentation" />
 
-      <div className="reports-rates-block mt-4">
-        <div className="reports-rates-grid">
-          {ratesCards.map((item) => (
-            <div key={item.key} className="reports-rate-card">
-              <span className={item.icon} aria-hidden style={{ color: item.accent }} />
-              <div className="reports-rate-value">{item.pct}%</div>
-              <div className="reports-rate-label">{item.label}</div>
-              <div className="reports-rate-insight">{item.insight}</div>
-            </div>
-          ))}
+      <section className="reports-funnel-stack" aria-label="Funil de captação e taxas">
+        <div className="reports-funnel-card">
+          <ReportSectionHeading title="Funil de captação" subtitle="Leads → Matrícula" />
+          <div className="reports-funnel-row">
+            {funnelStages.map((stage) => (
+              <React.Fragment key={stage.key}>
+                <button
+                  type="button"
+                  className={`reports-funnel-stage${stage.drillKey ? ' is-clickable' : ''}`}
+                  onClick={() => stage.drillKey && onFunnelDrill?.(stage.drillKey)}
+                  disabled={!stage.drillKey}
+                >
+                  <div className="reports-funnel-track">
+                    <span
+                      className="reports-funnel-fill"
+                      style={{ width: `${stage.barPct}%`, background: stage.color }}
+                    />
+                  </div>
+                  <div className="reports-funnel-value">{stage.isPercent ? `${stage.current}%` : stage.current}</div>
+                  <div className="reports-funnel-label">{stage.label}</div>
+                  <div className={`reports-funnel-variation ${stage.variation >= 0 ? 'is-up' : 'is-down'}`}>
+                    {stage.variation >= 0 ? '+' : ''}
+                    {stage.variation}% vs período anterior
+                  </div>
+                  <span className="reports-funnel-relative">{stage.relativePct}% da etapa anterior</span>
+                </button>
+                {!stage.isLast ? (
+                  <span className="reports-funnel-arrow" aria-hidden>
+                    <span className="ti ti-chevron-right" />
+                  </span>
+                ) : null}
+              </React.Fragment>
+            ))}
+          </div>
+          <p className="reports-section-footer-link mb-0">
+            <ReportInlineLink to="/reports?tab=funil">Ver relatório completo →</ReportInlineLink>
+          </p>
         </div>
-        <div className="reports-section-footer-links-row">
-          <ReportTabFooterLink to="/reports?tab=funil">Funil →</ReportTabFooterLink>
-          <ReportTabFooterLink to="/reports?tab=alunos">Alunos →</ReportTabFooterLink>
-          {hasFinance ? (
-            <ReportTabFooterLink to="/reports?tab=financeiro">Financeiro →</ReportTabFooterLink>
-          ) : null}
+
+        <div className="reports-funnel-card reports-funnel-card--rates">
+          <div className="reports-rates-grid">
+            {ratesCards.map((item) => (
+              <div key={item.key} className="reports-rate-card">
+                <span className={item.icon} aria-hidden style={{ color: item.accent }} />
+                <div className="reports-rate-value">{item.pct}%</div>
+                <div className="reports-rate-label">{item.label}</div>
+                <div className="reports-rate-insight">{item.insight}</div>
+              </div>
+            ))}
+          </div>
+          <nav className="reports-section-footer-links-row" aria-label="Relatórios relacionados">
+            <ReportInlineLink to="/reports?tab=funil">Funil →</ReportInlineLink>
+            <ReportInlineLink to="/reports?tab=alunos">Alunos →</ReportInlineLink>
+            {hasFinance ? <ReportInlineLink to="/reports?tab=financeiro">Financeiro →</ReportInlineLink> : null}
+          </nav>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

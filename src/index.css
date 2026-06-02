@@ -3121,7 +3121,7 @@ button.funil-color-swatch {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--color-sidebar-section);
 }
 
 .navi-sidebar-actions {
@@ -3474,7 +3474,7 @@ button.funil-color-swatch {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--color-sidebar-section);
 }
 .navi-side-link--action {
   margin-top: 8px;

@@ -40,6 +40,89 @@
 
 .reports-kpi-grid--overview {
   grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.reports-kpi-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.reports-kpi-cell .report-kpi-card {
+  flex: 1;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+}
+
+.reports-kpi-cell__footer,
+.reports-kpi-cell__footer-spacer {
+  display: block;
+  min-height: 1.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.reports-kpi-cell__footer-spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.reports-visao-geral__section-divider {
+  margin: var(--reports-gap-lg) 0 var(--reports-gap-md);
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.reports-funnel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.reports-funnel-card--rates {
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+  padding-top: var(--reports-gap-md);
+}
+
+.reports-funnel-stack > .reports-funnel-card:first-child {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.reports-inline-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.reports-inline-link:hover {
+  text-decoration: underline;
+}
+
+.reports-section-footer-link {
+  font-size: 0.875rem;
+}
+
+.reports-section-footer-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin-top: var(--reports-gap-md);
+  padding-top: var(--reports-gap-md);
+  border-top: 1px solid var(--color-border, var(--border-light));
+}
+
+.reports-section-footer-links-row .reports-inline-link {
+  margin: 0;
 }
 
 @media (min-width: 640px) {
@@ -52,19 +135,6 @@
   .reports-kpi-grid--overview {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-}
-
-.reports-section-footer-link {
-  font-size: 0.875rem;
-}
-
-.reports-section-footer-links-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-border, var(--border-light));
 }
 
 .reports-chart-block {
@@ -703,10 +773,101 @@
 }
 
 .reports-rates-grid {
-  margin-top: var(--reports-gap-sm);
+  margin-top: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--reports-gap-sm);
+}
+
+.reports-rate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  min-height: 100%;
+}
+
+.reports-rate-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+.reports-rate-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.reports-rate-insight {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.reports-meta-refresh {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-sm, 0.8125rem);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: right;
+  line-height: 1.45;
+}
+
+.reports-meta-refresh:hover:not(:disabled) {
+  color: var(--color-primary);
+}
+
+.reports-meta-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reports-meta-refresh__icon {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.reports-meta-refresh:hover:not(:disabled) .reports-meta-refresh__icon {
+  color: var(--color-primary);
+}
+
+.reports-filters-row--split {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.reports-segment-block {
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+
+.reports-segment-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
 }
 
 .reports-evo-card {
@@ -901,6 +1062,7 @@
   gap: 10px;
   flex-wrap: nowrap;
   overflow-x: auto;
+  width: 100%;
 }
 
 .reports-period-block {
@@ -1285,6 +1447,11 @@
   .reports-filters-row {
     flex-wrap: wrap;
     overflow-x: visible;
+  }
+
+  .reports-filters-row--split .reports-segment-block {
+    margin-left: 0;
+    width: 100%;
   }
 
   .reports-filters-divider {

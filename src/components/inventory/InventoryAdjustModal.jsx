@@ -20,6 +20,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
   const [saldoCorreto, setSaldoCorreto] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const suppressOverlayCloseUntil = useRef(0);
 
   const currentQty = Number(item?.current_quantity);
   const saldoAtual = Number.isFinite(currentQty) ? currentQty : 0;

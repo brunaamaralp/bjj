@@ -21,6 +21,7 @@ export default function ReportKpiCard({
   highlight = 'default',
   tooltip = null,
   onClick = null,
+  showCta = true,
   ctaLabel = 'Ver detalhes →',
   ctaIcon = null,
   loading = false,
@@ -92,7 +93,7 @@ export default function ReportKpiCard({
         ) : null}
       </div>
       {trendLabel ? <p className="report-kpi-card__trend-label">{trendLabel}</p> : null}
-      {clickable ? (
+      {clickable && showCta ? (
         <span className="report-kpi-card__cta">
           {ctaIcon ? <span className="report-kpi-card__cta-icon">{ctaIcon}</span> : null}
           <span>{ctaLabel}</span>

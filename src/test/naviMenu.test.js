@@ -37,6 +37,7 @@ describe('naviMenu', () => {
     expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=fechamento' })).toBe('financeiro');
     expect(getAccordionIdForLocation({ pathname: '/loja', search: '?tab=vendas' })).toBe('loja');
     expect(getAccordionIdForLocation({ pathname: '/students', search: '' })).toBe(null);
+    expect(getAccordionIdForLocation({ pathname: '/reports', search: '?tab=funil' })).toBe(null);
   });
 
   it('isDirectNavPath for flat routes', () => {
@@ -109,26 +110,11 @@ describe('naviMenu', () => {
     expect(model.financeDirect).toEqual([]);
   });
 
-  it('buildRelatoriosAccordion mirrors Reports.jsx tab visibility', () => {
-    const full = buildRelatoriosAccordion({
-      modules: { finance: true, sales: true, inventory: true },
-    });
-    expect(full.children.map((c) => c.id)).toEqual([
-      'visao-geral',
-      'funil',
-      'alunos',
-      'financeiro',
-      'loja',
-      'estoque',
-      'movimentacoes',
-      'operador',
-    ]);
-    expect(full.children.find((c) => c.id === 'funil')?.label).toBe('Análise do Funil');
-
-    const minimal = buildRelatoriosAccordion({
-      modules: { finance: false, sales: false, inventory: false },
-    });
-    expect(minimal.children.map((c) => c.id)).toEqual(['visao-geral', 'funil', 'alunos']);
+  it('buildRelatoriosAccordion is a single sidebar link (tabs live in Reports.jsx)', () => {
+    const rel = buildRelatoriosAccordion();
+    expect(rel.linkOnly).toBe(true);
+    expect(rel.children).toEqual([]);
+    expect(rel.defaultTo).toBe('/reports?tab=visao-geral');
   });
 
   it('buildSidebarNavModel hides contabilidade for non-owner', () => {

@@ -88,6 +88,9 @@ function SidebarSection({ title, children, collapsed, footer = false, showDivide
         .join(' ')}
     >
       {showDivider && collapsed ? <hr className="navi-sidebar-section-rule" aria-hidden /> : null}
+      {title && !collapsed ? (
+        <span className="navi-sidebar-section-title">{title}</span>
+      ) : null}
       {children}
     </div>
   );
@@ -254,8 +257,29 @@ function SideNavAccordion({
 }) {
   const navigate = useNavigate();
   const panelId = `navi-accordion-panel-${accordion.id}`;
-  const partial = isAccordionParentPartial(accordion, location);
-  const anyChildActive = accordion.children.some((c) => isAccordionChildActive(c, location));
+  const linkOnly = accordion.linkOnly === true || accordion.children.length === 0;
+  const hubPath = String(accordion.defaultTo || '').split('?')[0];
+  const onHubRoute = hubPath && location.pathname === hubPath;
+  const partial = linkOnly ? onHubRoute : isAccordionParentPartial(accordion, location);
+  const anyChildActive = linkOnly
+    ? onHubRoute
+    : accordion.children.some((c) => isAccordionChildActive(c, location));
+
+  if (linkOnly) {
+    const linkClass = (state) => {
+      const base =
+        typeof sideLinkClass === 'function' ? sideLinkClass(state) : sideLinkClass || 'navi-sidebar-link';
+      return partial || anyChildActive || state.isActive ? `${base} active navi-sidebar-link--active` : base;
+    };
+    return (
+      <NavLink to={accordion.defaultTo} className={linkClass} title={accordion.label}>
+        <span className="navi-sidebar-link__icon">
+          <Icon size={20} strokeWidth={1.75} />
+        </span>
+        <span className="navi-sidebar-link__label">{accordion.label}</span>
+      </NavLink>
+    );
+  }
 
   if (collapsed) {
     return (

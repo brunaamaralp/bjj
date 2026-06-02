@@ -18,7 +18,7 @@ const FINANCEIRO_HUB_PATH = '/financeiro';
 export const FINANCEIRO_NAV_GROUP_OPERACOES = 'Operações';
 
 /** @typedef {{ id: string, label: string, to: string, iconKey?: string, requireAgent?: boolean, group?: string | null }} NavChildItem */
-/** @typedef {{ id: string, label: string, iconKey: string, defaultTo: string, children: NavChildItem[] }} NavAccordionItem */
+/** @typedef {{ id: string, label: string, iconKey: string, defaultTo: string, children: NavChildItem[], linkOnly?: boolean }} NavAccordionItem */
 /** @typedef {{ to: string, label: string, iconKey: string, end?: boolean, action?: boolean }} NavDirectItem */
 
 export function getNewLeadLabel(leadsLabel = 'Leads') {
@@ -82,6 +82,9 @@ export function isSidebarNavItemActive(to, location) {
     if (onStudentsHub) return true;
     return isStudentProfilePath(loc.pathname);
   }
+  if (pathOnly === '/reports') {
+    return loc.pathname === '/reports';
+  }
   return matchNavTarget(to, loc);
 }
 
@@ -120,7 +123,6 @@ export function getAccordionIdForLocation({ pathname, search }) {
   if (p === '/equipe' || p === '/integracoes') return null;
   if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque') return NAV_ACCORDION_IDS.LOJA;
   if (isFinanceiroHubPath(p)) return NAV_ACCORDION_IDS.FINANCEIRO;
-  if (p === '/reports') return NAV_ACCORDION_IDS.RELATORIOS;
   return null;
 }
 
@@ -275,39 +277,16 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
 }
 
 /**
- * Accordion Relatórios — mesmas abas e filtros que Reports.jsx (reportTabItems).
- * @param {{ modules?: { finance?: boolean, sales?: boolean, inventory?: boolean } }} opts
+ * Item Relatórios na sidebar — navegação interna fica nas abas de Reports.jsx.
  */
-export function buildRelatoriosAccordion({ modules = {} } = {}) {
-  const hasFinance = modules.finance === true;
-  const hasSales = modules.sales === true;
-  const hasInventory = modules.inventory === true;
-
-  const base = [
-    { id: 'visao-geral', label: 'Visão geral', to: '/reports?tab=visao-geral' },
-    { id: 'funil', label: 'Análise do Funil', to: '/reports?tab=funil' },
-    { id: 'alunos', label: 'Alunos', to: '/reports?tab=alunos' },
-    { id: 'financeiro', label: 'Financeiro', to: '/reports?tab=financeiro' },
-    { id: 'loja', label: 'Vendas', to: '/reports?tab=loja' },
-    { id: 'estoque', label: 'Estoque', to: '/reports?tab=estoque' },
-    { id: 'movimentacoes', label: 'Movimentações', to: '/reports?tab=movimentacoes' },
-    { id: 'operador', label: 'Por Operador', to: '/reports?tab=operador' },
-  ];
-
-  const children = base.filter((t) => {
-    if (t.id === 'financeiro') return hasFinance;
-    if (t.id === 'loja') return hasSales;
-    if (t.id === 'estoque' || t.id === 'movimentacoes') return hasInventory;
-    if (t.id === 'operador') return hasSales;
-    return true;
-  });
-
+export function buildRelatoriosAccordion() {
   return {
     id: NAV_ACCORDION_IDS.RELATORIOS,
     label: 'Relatórios',
     iconKey: 'relatorios',
     defaultTo: '/reports?tab=visao-geral',
-    children,
+    children: [],
+    linkOnly: true,
   };
 }
 
@@ -335,7 +314,7 @@ export function buildSidebarNavModel({
   const loja = buildLojaAccordion({ modules });
   if (loja) accordions.push(loja);
 
-  accordions.push(buildRelatoriosAccordion({ modules }));
+  accordions.push(buildRelatoriosAccordion());
 
   return {
     newLead: newLeadLabel ? { to: '/new-lead', label: newLeadLabel, iconKey: 'newLead', action: true } : null,
@@ -399,7 +378,6 @@ export function flattenNavItemsForMobile(model) {
   const rel = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
   if (rel) {
     push({ to: rel.defaultTo, label: rel.label, iconKey: rel.iconKey || 'relatorios', section: null });
-    for (const c of rel.children) push({ ...c, iconKey: c.iconKey || rel.iconKey || 'relatorios', section: null });
   }
 
   return rows;

@@ -37,6 +37,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { friendlyError } from '../lib/errorMessages';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import CollectionResultModal from '../components/CollectionResultModal.jsx';
+import { useModalA11y } from '../hooks/useModalA11y.js';
 import {
   isCollectionTask,
   parseCollectionTaskDescription,
@@ -254,6 +255,7 @@ export default function Tasks() {
   const [collectionModalTask, setCollectionModalTask] = useState(null);
   const [collectionSaving, setCollectionSaving] = useState(false);
   const [showModal, setShowModal] = useState(initNew);
+  const suppressOverlayCloseUntil = useRef(0);
   const [editingTask, setEditingTask] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', due_date: '', assigned_to: '', lead_id: initLeadId });
   const [saving, setSaving] = useState(false);
@@ -321,13 +323,25 @@ export default function Tasks() {
   }, [viewMode]);
 
   useEffect(() => {
-    if (!showModal) return undefined;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [showModal]);
+    if (!showModal) return;
+    suppressOverlayCloseUntil.current = Date.now() + 400;
+  }, [showModal, editingTask?.id]);
+
+  const requestCloseModal = useCallback(() => {
+    if (saving) return;
+    setShowModal(false);
+  }, [saving]);
+
+  const handleTaskModalOverlayPointerUp = useCallback(
+    (e) => {
+      if (e.target !== e.currentTarget) return;
+      if (Date.now() < suppressOverlayCloseUntil.current) return;
+      requestCloseModal();
+    },
+    [requestCloseModal]
+  );
+
+  useModalA11y({ isOpen: showModal, onClose: requestCloseModal });
 
   // Sincronizar filtro ao carregar a página se tiver lead_id na URL
   useEffect(() => {
@@ -1265,14 +1279,14 @@ export default function Tasks() {
         <div
           role="presentation"
           className="task-modal-overlay"
-          onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) setShowModal(false); }}
+          onMouseUp={handleTaskModalOverlayPointerUp}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="task-modal-title"
             className="task-modal-panel"
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
           >
             {/* Cabeçalho */}
             <div className="task-modal-header">
@@ -1286,7 +1300,7 @@ export default function Tasks() {
               </div>
               <button
                 type="button"
-                onClick={() => !saving && setShowModal(false)}
+                onClick={requestCloseModal}
                 aria-label="Fechar"
                 className="task-modal-close"
               >
@@ -1430,7 +1444,7 @@ export default function Tasks() {
 
               {/* Ações */}
               <div className="task-modal-footer">
-                <button type="button" className="btn-outline" onClick={() => setShowModal(false)} disabled={saving}>
+                <button type="button" className="btn-outline" onClick={requestCloseModal} disabled={saving}>
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>

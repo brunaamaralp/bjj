@@ -595,14 +595,18 @@ const Reports = () => {
                     className="navi-page-header--flush"
                     title="Relatórios"
                     subtitle="Analise indicadores por período."
-                    metaClassName="reports-header-eyebrow"
-                    meta={
-                        <>
-                            <span>Período · {prettyRange}</span>
-                            {needsFunnelReport && reportData?.snapshotUpdatedAt ? (
-                                <span className="reports-snapshot-meta text-small text-muted">
-                                    {' '}
-                                    · Atualizado em{' '}
+                    meta={<span>Período · {prettyRange}</span>}
+                    actions={
+                        needsFunnelReport && reportData?.snapshotUpdatedAt ? (
+                            <button
+                                type="button"
+                                className="reports-meta-refresh"
+                                onClick={() => void fetchReport(true)}
+                                disabled={loading}
+                                aria-label="Atualizar dados do relatório"
+                            >
+                                <span>
+                                    Atualizado em{' '}
                                     {new Date(reportData.snapshotUpdatedAt).toLocaleString('pt-BR', {
                                         day: '2-digit',
                                         month: 'short',
@@ -610,19 +614,16 @@ const Reports = () => {
                                         minute: '2-digit',
                                     })}
                                     {reportData.fromSnapshot ? ' (cache)' : ''}
-                                    <button
-                                        type="button"
-                                        className="btn-outline reports-refresh-mini"
-                                        onClick={() => void fetchReport(true)}
-                                        disabled={loading}
-                                        style={{ marginLeft: 8 }}
-                                    >
-                                        <RefreshCw size={14} className={loading ? 'reports-spin' : ''} aria-hidden />
-                                        Atualizar agora
-                                    </button>
                                 </span>
-                            ) : null}
-                        </>
+                                <RefreshCw
+                                    size={14}
+                                    strokeWidth={2}
+                                    className={`reports-meta-refresh__icon${loading ? ' reports-spin' : ''}`}
+                                    aria-hidden
+                                />
+                                <span>Atualizar</span>
+                            </button>
+                        ) : null
                     }
                 />
                 <HubTabBar
@@ -660,7 +661,7 @@ const Reports = () => {
 
             {isPeriodTab ? (
             <div className="page-header-card">
-                <div className="page-header-row navi-toolbar reports-filters-row">
+                <div className="page-header-row navi-toolbar reports-filters-row reports-filters-row--split">
                     <FilterBar className="reports-period-block">
                         {presets.map((p) => (
                             <button
@@ -683,7 +684,9 @@ const Reports = () => {
                     {needsFunnelReport ? (
                     <>
                     <div className="reports-filters-divider" aria-hidden />
-                    <div className="filter-group reports-selects-inline">
+                    <div className="reports-segment-block">
+                        <span className="reports-segment-label">Segmentar por:</span>
+                        <div className="filter-group reports-selects-inline">
                         <select
                             value={originFilter}
                             onChange={(e) => setOriginFilter(e.target.value)}
@@ -708,6 +711,7 @@ const Reports = () => {
                             <option value="Criança">Criança</option>
                             <option value="Juniores">Juniores</option>
                         </select>
+                        </div>
                     </div>
                     {dateError ? <FieldError>{dateError}</FieldError> : null}
                     <div style={{ flex: 1 }} />
