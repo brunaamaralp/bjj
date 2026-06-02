@@ -11,7 +11,9 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createSessionJwt } from '../../lib/appwrite';
-import { createFinanceTx } from '../../lib/financeTxApi.js';
+import { createFinanceTx, listFinanceTx } from '../../lib/financeTxApi.js';
+import { apiListStudentPayments } from '../../lib/studentPaymentsApi.js';
+import { useStudentStore } from '../../store/useStudentStore.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
 import {
   MAX_FINANCE_TX_IMPORT_ROWS,
@@ -22,8 +24,81 @@ import {
   countFinanceTxByStatus,
   financeTxRowToPayload,
   downloadFinanceTxImportTemplate,
+  markFinanceTxImportDuplicates,
+  collectExistingFinanceTxDedupKeys,
+  dateRangeFromFinanceTxRows,
+  monthsInDateRange,
+  financeTxDedupKey,
 } from '../../lib/financeTxImport.js';
 const STEPS = ['Upload', 'Processando', 'Preview', 'Importando'];
+
+async function ensureAllStudentsLoaded() {
+  const store = useStudentStore.getState();
+  if (!store.students.length) {
+    await store.fetchStudents();
+  }
+  let guard = 0;
+  while (useStudentStore.getState().studentsHasMore && guard < 40) {
+    await useStudentStore.getState().fetchMoreStudents();
+    guard += 1;
+  }
+  return useStudentStore.getState().students;
+}
+
+function studentNameByIdFromStudents(students) {
+  const map = {};
+  for (const s of students || []) {
+    const id = String(s.id || s.$id || '').trim();
+    if (!id) continue;
+    map[id] = s.name || s.nome || '';
+  }
+  return map;
+}
+
+async function fetchExistingDedupKeys(academyId, previewRows, studentNameById) {
+  const { from, to } = dateRangeFromFinanceTxRows(previewRows);
+  const keys = new Set();
+  if (!from || !to || !academyId) return keys;
+
+  try {
+    const txRes = await listFinanceTx({ academyId, from, to });
+    for (const k of collectExistingFinanceTxDedupKeys({
+      transactions: txRes.transactions || [],
+      studentNameById,
+    })) {
+      keys.add(k);
+    }
+  } catch {
+    void 0;
+  }
+
+  for (const ym of monthsInDateRange(from, to)) {
+    try {
+      let cursor = null;
+      let guard = 0;
+      do {
+        const { payments, next_cursor: nextCursor } = await apiListStudentPayments({
+          academyId,
+          referenceMonth: ym,
+          cursor,
+          limit: 200,
+        });
+        for (const k of collectExistingFinanceTxDedupKeys({
+          payments,
+          studentNameById,
+        })) {
+          keys.add(k);
+        }
+        cursor = nextCursor;
+        guard += 1;
+      } while (cursor && guard < 30);
+    } catch {
+      void 0;
+    }
+  }
+
+  return keys;
+}
 
 function fmtMoney(v) {
   try {
@@ -140,14 +215,25 @@ function ConfidenceDot({ level }) {
   );
 }
 
-function StatusIcon({ status }) {
+function StatusIcon({ status, error }) {
   if (status === 'ready') return <CheckCircle2 size={18} className="product-import-status--ready" aria-hidden />;
+  if (status === 'duplicate') {
+    return (
+      <AlertCircle
+        size={18}
+        className="product-import-status--warn"
+        aria-hidden
+        title={error || 'Duplicado'}
+      />
+    );
+  }
   if (status === 'incomplete') return <AlertCircle size={18} className="product-import-status--warn" aria-hidden />;
   return <XCircle size={18} className="product-import-status--invalid" aria-hidden />;
 }
 
 export default function ImportFinanceTxModal({ open, onClose, onImported, academyId }) {
   const fileRef = useRef(null);
+  const existingDedupKeysRef = useRef(new Set());
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [fileName, setFileName] = useState('');
@@ -159,6 +245,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
   const [columnConfidence, setColumnConfidence] = useState({});
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState('');
+  const [dedupLoading, setDedupLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0, ok: 0, fail: 0 });
   const [importFinished, setImportFinished] = useState(false);
@@ -175,6 +262,8 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
     setColumnConfidence({});
     setAiLoading(false);
     setAiSuggestions('');
+    setDedupLoading(false);
+    existingDedupKeysRef.current = new Set();
     setImportProgress({ done: 0, total: 0, ok: 0, fail: 0 });
     setImportFinished(false);
   }, []);
@@ -198,6 +287,39 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
 
   const statusCounts = useMemo(() => countFinanceTxByStatus(previewRows), [previewRows]);
   const selectedCount = useMemo(() => previewRows.filter((r) => r.selected).length, [previewRows]);
+  const hasStudentMapped = useMemo(
+    () => Object.values(columnToField).includes('student_name'),
+    [columnToField]
+  );
+
+  const buildPreviewWithDedup = useCallback(
+    async (rows, fieldMap) => {
+      const base = buildFinanceTxPreviewRows(rows, fieldMap);
+      if (!Object.values(fieldMap).includes('student_name')) {
+        existingDedupKeysRef.current = new Set();
+        setPreviewRows(base);
+        return base;
+      }
+
+      setDedupLoading(true);
+      try {
+        const students = await ensureAllStudentsLoaded();
+        const studentNameById = studentNameByIdFromStudents(students);
+        const existingKeys = await fetchExistingDedupKeys(academyId, base, studentNameById);
+        existingDedupKeysRef.current = existingKeys;
+        const marked = markFinanceTxImportDuplicates(base, existingKeys);
+        setPreviewRows(marked);
+        return marked;
+      } catch {
+        existingDedupKeysRef.current = new Set();
+        setPreviewRows(base);
+        return base;
+      } finally {
+        setDedupLoading(false);
+      }
+    },
+    [academyId]
+  );
 
   const processFile = async (file) => {
     if (!file) return;
@@ -250,7 +372,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
         }
         const fields = Object.values(fieldMap);
         if (fields.includes('date') && fields.includes('amount')) {
-          setPreviewRows(buildFinanceTxPreviewRows(rows, fieldMap));
+          void buildPreviewWithDedup(rows, fieldMap);
         }
       }
     } catch (err) {
@@ -274,7 +396,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
   };
 
   const refreshPreview = () => {
-    setPreviewRows(buildFinanceTxPreviewRows(dataRows, columnToFieldMap));
+    void buildPreviewWithDedup(dataRows, columnToFieldMap);
   };
 
   const goToReview = () => {
@@ -283,7 +405,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
       return;
     }
     setError('');
-    refreshPreview();
+    void buildPreviewWithDedup(dataRows, columnToFieldMap);
     setStep(2);
   };
 
@@ -296,13 +418,28 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
 
     let ok = 0;
     let fail = 0;
+    const sessionKeys = new Set();
 
     for (let i = 0; i < toImport.length; i += 1) {
       const row = toImport[i];
+      const key = financeTxDedupKey({
+        dateIso: row.data?.dateIso,
+        amount: row.data?.amount,
+        studentName: row.data?.studentName,
+      });
+      if (key && (existingDedupKeysRef.current.has(key) || sessionKeys.has(key))) {
+        fail += 1;
+        setImportProgress({ done: i + 1, total: toImport.length, ok, fail });
+        continue;
+      }
       try {
         const payload = financeTxRowToPayload(row.data);
         const tx = await createFinanceTx({ academyId, payload });
         if (tx) applyAccountingSideEffectsAuto(tx, academyId);
+        if (key) {
+          sessionKeys.add(key);
+          existingDedupKeysRef.current.add(key);
+        }
         ok += 1;
       } catch (e) {
         console.error(e);
@@ -376,8 +513,8 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
                 </button>
               </div>
               <p className="text-xs text-muted mt-3">
-                Colunas mínimas: <strong>Data</strong> e <strong>Valor</strong>. Natureza e categoria são opcionais — a IA
-                tenta identificar automaticamente.
+                Colunas mínimas: <strong>Data</strong> e <strong>Valor Recebido</strong>. Mapeie também{' '}
+                <strong>Aluno</strong> para detectar lançamentos já existentes (data + valor + aluno).
               </p>
               <button type="button" className="btn-link text-xs mt-2" onClick={downloadFinanceTxImportTemplate}>
                 Baixar modelo CSV
@@ -430,6 +567,19 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
                 <p className="product-import-warn">Mapeie <strong>Data</strong> e <strong>Valor</strong> para continuar.</p>
               ) : null}
 
+              {requiredMapped && !hasStudentMapped ? (
+                <p className="product-import-warn">
+                  Mapeie a coluna <strong>Aluno</strong> para o sistema identificar duplicatas automaticamente.
+                </p>
+              ) : null}
+
+              {dedupLoading ? (
+                <p className="product-import-hint mt-2">
+                  <Loader2 size={14} className="animate-spin inline-block mr-1" aria-hidden />
+                  Verificando lançamentos já existentes…
+                </p>
+              ) : null}
+
               {previewRows.length === 0 ? (
                 <button type="button" className="btn-primary mt-3" disabled={!requiredMapped} onClick={goToReview}>
                   Gerar preview
@@ -445,6 +595,9 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
                     </span>
                     <span className="product-import-summary-item product-import-summary-item--invalid">
                       {statusCounts.invalid} inválidos
+                    </span>
+                    <span className="product-import-summary-item product-import-summary-item--warn">
+                      {statusCounts.duplicate} duplicados
                     </span>
                     <span className="product-import-summary-item">{selectedCount} selecionados</span>
                   </div>
@@ -469,9 +622,11 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
                           <th>Status</th>
                           <th>Data</th>
                           <th>Valor</th>
+                          <th>Aluno</th>
                           <th>Natureza</th>
                           <th>Categoria</th>
                           <th>Descrição</th>
+                          <th>Observação</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -490,13 +645,15 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
                               />
                             </td>
                             <td>
-                              <StatusIcon status={row.status} />
+                              <StatusIcon status={row.status} error={row.error} />
                             </td>
                             <td>{fmtDate(row.data.dateIso)}</td>
                             <td>{fmtMoney(row.data.amount)}</td>
+                            <td>{row.data.studentName || '—'}</td>
                             <td>{row.data.direction === 'out' ? 'Saída' : 'Entrada'}</td>
                             <td>{row.data.category}</td>
                             <td className="product-import-cell-note">{row.data.note || '—'}</td>
+                            <td className="product-import-cell-note text-xs text-muted">{row.error || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -551,6 +708,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
               <button
                 type="button"
                 className="btn-outline"
+                disabled={dedupLoading}
                 onClick={() => {
                   refreshPreview();
                 }}
@@ -560,7 +718,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
               <button
                 type="button"
                 className="btn-primary"
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || dedupLoading}
                 onClick={() => void runImport()}
               >
                 Importar {selectedCount} lançamento{selectedCount !== 1 ? 's' : ''}

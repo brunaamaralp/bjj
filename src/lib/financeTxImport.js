@@ -14,6 +14,7 @@ export const FINANCE_TX_IMPORT_FIELD_OPTIONS = [
   { value: '', label: 'Ignorar' },
   { value: 'date', label: 'Data *' },
   { value: 'amount', label: 'Valor *' },
+  { value: 'student_name', label: 'Aluno' },
   { value: 'direction', label: 'Natureza (entrada/saída)' },
   { value: 'category', label: 'Categoria' },
   { value: 'note', label: 'Descrição / nota' },
@@ -27,6 +28,143 @@ const FIELD_LABEL = Object.fromEntries(
 
 export function financeTxFieldLabel(field) {
   return FIELD_LABEL[field] || field;
+}
+
+/** Nome do aluno normalizado para comparação de duplicatas. */
+export function normalizeImportStudentName(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/** Chave estável: data civil + valor + aluno. */
+export function financeTxDedupKey({ dateIso, amount, studentName }) {
+  const ymd = String(dateIso || '').slice(0, 10);
+  const amt = Math.round((Number(amount) || 0) * 100) / 100;
+  const name = normalizeImportStudentName(studentName);
+  if (!ymd || amt < 0.01 || !name) return null;
+  return `${ymd}|${amt.toFixed(2)}|${name}`;
+}
+
+export function paymentDateKeyForDedup(payment) {
+  if (payment?.paid_at) return String(payment.paid_at).slice(0, 10);
+  if (payment?.paidAt) return String(payment.paidAt).slice(0, 10);
+  if (payment?.due_date) return String(payment.due_date).slice(0, 10);
+  if (payment?.dueDate) return String(payment.dueDate).slice(0, 10);
+  const ref = String(payment?.reference_month || payment?.referenceMonth || '').trim();
+  if (/^\d{4}-\d{2}$/.test(ref)) return `${ref}-01`;
+  return null;
+}
+
+function txDateKeyForDedup(tx) {
+  if (tx?.settledAt) return String(tx.settledAt).slice(0, 10);
+  if (tx?.createdAt) return String(tx.createdAt).slice(0, 10);
+  return null;
+}
+
+function paymentEligibleForDedup(payment) {
+  const status = String(payment?.status || '').toLowerCase();
+  return status === 'paid' || status === 'partial';
+}
+
+function txEligibleForDedup(tx) {
+  const status = String(tx?.status || '').toLowerCase();
+  return status !== 'cancelled' && status !== 'canceled';
+}
+
+/** Monta chaves de lançamentos/mensalidades já existentes no sistema. */
+export function collectExistingFinanceTxDedupKeys({
+  transactions = [],
+  payments = [],
+  studentNameById = {},
+}) {
+  const keys = new Set();
+
+  for (const tx of transactions) {
+    if (!txEligibleForDedup(tx)) continue;
+    const leadId = String(tx.lead_id || tx.leadId || '').trim();
+    const studentName = studentNameById[leadId] || '';
+    const dateIso = txDateKeyForDedup(tx);
+    const amount = Math.abs(Number(tx.gross ?? tx.net ?? 0));
+    const key = financeTxDedupKey({ dateIso, amount, studentName });
+    if (key) keys.add(key);
+  }
+
+  for (const payment of payments) {
+    if (!paymentEligibleForDedup(payment)) continue;
+    const leadId = String(payment.lead_id || payment.leadId || '').trim();
+    const studentName = studentNameById[leadId] || '';
+    const dateIso = paymentDateKeyForDedup(payment);
+    const amount = Number(payment.amount ?? payment.paid_amount ?? payment.paidAmount ?? 0);
+    const key = financeTxDedupKey({ dateIso, amount, studentName });
+    if (key) keys.add(key);
+  }
+
+  return keys;
+}
+
+/** Marca duplicatas no preview (sistema ou mesmo arquivo). */
+export function markFinanceTxImportDuplicates(rows, existingKeys = new Set()) {
+  const sessionKeys = new Set();
+  return (rows || []).map((row) => {
+    if (row.status !== 'ready') return row;
+    const key = financeTxDedupKey({
+      dateIso: row.data?.dateIso,
+      amount: row.data?.amount,
+      studentName: row.data?.studentName,
+    });
+    if (!key) return row;
+    if (existingKeys.has(key)) {
+      return {
+        ...row,
+        status: 'duplicate',
+        selected: false,
+        duplicateReason: 'existing',
+        error: 'Já lançado (mesma data, valor e aluno)',
+      };
+    }
+    if (sessionKeys.has(key)) {
+      return {
+        ...row,
+        status: 'duplicate',
+        selected: false,
+        duplicateReason: 'file',
+        error: 'Duplicado no arquivo (mesma data, valor e aluno)',
+      };
+    }
+    sessionKeys.add(key);
+    return row;
+  });
+}
+
+export function monthsInDateRange(fromYmd, toYmd) {
+  if (!fromYmd || !toYmd) return [];
+  const months = new Set();
+  const start = new Date(`${fromYmd}T12:00:00`);
+  const end = new Date(`${toYmd}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cursor <= endMonth) {
+    months.add(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return [...months];
+}
+
+export function dateRangeFromFinanceTxRows(rows) {
+  let from = null;
+  let to = null;
+  for (const row of rows || []) {
+    const ymd = String(row?.data?.dateIso || '').slice(0, 10);
+    if (!ymd) continue;
+    if (!from || ymd < from) from = ymd;
+    if (!to || ymd > to) to = ymd;
+  }
+  return { from, to };
 }
 
 function normalizeHeader(h) {
@@ -150,6 +288,7 @@ export function rowToFinanceTxData(rawRow, columnToField) {
   }
 
   const note = String(pickCell(rawRow, columnToField, 'note') ?? '').trim();
+  const studentName = String(pickCell(rawRow, columnToField, 'student_name') ?? '').trim();
   const method = parseMethodCell(pickCell(rawRow, columnToField, 'method'));
   const competence_month = parseCompetenceCell(
     pickCell(rawRow, columnToField, 'competence_month'),
@@ -162,6 +301,7 @@ export function rowToFinanceTxData(rawRow, columnToField) {
     direction: direction || 'in',
     category,
     note,
+    studentName,
     method,
     competence_month,
   };
@@ -190,7 +330,7 @@ export function buildFinanceTxPreviewRows(dataRows, columnToField) {
 }
 
 export function countFinanceTxByStatus(rows) {
-  const counts = { ready: 0, incomplete: 0, invalid: 0 };
+  const counts = { ready: 0, incomplete: 0, invalid: 0, duplicate: 0 };
   for (const r of rows || []) {
     if (counts[r.status] != null) counts[r.status] += 1;
   }
@@ -214,9 +354,9 @@ export function financeTxRowToPayload(data) {
 }
 
 export function downloadFinanceTxImportTemplate() {
-  const headers = ['Data', 'Valor', 'Natureza', 'Categoria', 'Descrição', 'Forma de pagamento'];
+  const headers = ['Data', 'Valor Recebido', 'Aluno', 'Natureza', 'Categoria', 'Descrição', 'Forma de pagamento'];
   const sampleRows = [
-    ['15/05/2025', '350,00', 'Entrada', 'Mensalidades', 'Mensalidade João', 'PIX'],
+    ['15/05/2025', '350,00', 'João Silva', 'Entrada', 'Mensalidades', 'Mensalidade João', 'PIX'],
     ['20/05/2025', '-120,00', 'Saída', 'Marketing', 'Anúncio Instagram', 'Cartão de crédito'],
   ];
   const csv = [headers, ...sampleRows]
