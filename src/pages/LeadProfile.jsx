@@ -1379,7 +1379,12 @@ const LeadProfile = () => {
                                         stage={pipelineStageBadge.stageId}
                                         label={pipelineStageBadge.label}
                                         size="md"
-                                        colorIndex={stages.findIndex((s) => String(s?.id || '').trim() === pipelineStageBadge.stageId)}
+                                        colorIndex={Math.max(
+                                            0,
+                                            stages.findIndex(
+                                                (s) => String(s?.id || '').trim() === pipelineStageBadge.stageId
+                                            )
+                                        )}
                                     />
                                 ) : null}
                                 {lead.phone && (

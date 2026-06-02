@@ -21,5 +21,7 @@ const STAGE_COLOR_FALLBACK = [
 export function getPipelineStageColor(stageId, fallbackIndex = 0) {
   const key = String(stageId || '').trim();
   if (STAGE_COLOR_BY_ID[key]) return STAGE_COLOR_BY_ID[key];
-  return STAGE_COLOR_FALLBACK[fallbackIndex % STAGE_COLOR_FALLBACK.length];
+  const idx = Number(fallbackIndex);
+  const safeIndex = Number.isFinite(idx) && idx >= 0 ? idx : 0;
+  return STAGE_COLOR_FALLBACK[safeIndex % STAGE_COLOR_FALLBACK.length];
 }

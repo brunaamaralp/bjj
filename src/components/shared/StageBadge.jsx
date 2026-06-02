@@ -26,10 +26,10 @@ export default function StageBadge({
   const stageKey = String(stage || '').trim();
   if (!stageKey) return null;
 
-  const colors = useMemo(
-    () => getPipelineStageColor(stageKey, colorIndex),
-    [stageKey, colorIndex]
-  );
+  const colors = useMemo(() => {
+    const resolved = getPipelineStageColor(stageKey, colorIndex);
+    return resolved?.color ? resolved : getPipelineStageColor(stageKey, 0);
+  }, [stageKey, colorIndex]);
 
   const displayLabel = String(label ?? stageKey).trim();
   const title = displayLabel ? `Etapa: ${displayLabel}` : undefined;
