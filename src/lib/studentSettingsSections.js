@@ -2,77 +2,74 @@ import { parseStudentExitReasons } from './studentExitConfig.js';
 import { parseStudentFreezeReasons } from './studentFreezeConfig.js';
 import { readPublicEnrollment } from './publicEnrollmentSettings.js';
 import { readAcademyTurmas } from './academyTurmas.js';
+import { parseBeltGradesFromSettings } from './beltGradesConfig.js';
 
 /** Slugs em ?tab=alunos&section= */
 export const STUDENT_SETTINGS_SECTIONS = {
-  DESLIGAMENTO: 'desligamento',
-  TRANCAMENTO: 'trancamento',
-  MATRICULA: 'matricula-online',
-  TURMAS: 'turmas',
+  CAMPOS: 'campos-personalizados',
+  GRADUACOES: 'graduacoes',
+  MATRICULA: 'matricula',
 };
 
 const VALID = new Set(Object.values(STUDENT_SETTINGS_SECTIONS));
 
+const LEGACY_SECTION_MAP = {
+  desligamento: STUDENT_SETTINGS_SECTIONS.CAMPOS,
+  trancamento: STUDENT_SETTINGS_SECTIONS.CAMPOS,
+  turmas: STUDENT_SETTINGS_SECTIONS.CAMPOS,
+  'matricula-online': STUDENT_SETTINGS_SECTIONS.MATRICULA,
+};
+
 export function isStudentSettingsSection(raw) {
   const id = String(raw || '').trim().toLowerCase();
-  return VALID.has(id) ? id : null;
+  if (VALID.has(id)) return id;
+  return LEGACY_SECTION_MAP[id] || null;
 }
 
 export const STUDENT_SETTINGS_ITEMS = [
   {
-    id: STUDENT_SETTINGS_SECTIONS.DESLIGAMENTO,
-    label: 'Motivos de desligamento',
-    hint: 'Opções ao encerrar uma matrícula',
+    id: STUDENT_SETTINGS_SECTIONS.CAMPOS,
+    label: 'Campos personalizados',
+    hint: 'Turmas e motivos exibidos no cadastro e na gestão do aluno.',
   },
   {
-    id: STUDENT_SETTINGS_SECTIONS.TRANCAMENTO,
-    label: 'Motivos de trancamento',
-    hint: 'Opções ao pausar uma matrícula',
+    id: STUDENT_SETTINGS_SECTIONS.GRADUACOES,
+    label: 'Graduações',
+    hint: 'Opções de faixa ou evolução no perfil do aluno.',
   },
   {
     id: STUDENT_SETTINGS_SECTIONS.MATRICULA,
-    label: 'Matrícula online',
-    hint: 'Link público para novos alunos',
-  },
-  {
-    id: STUDENT_SETTINGS_SECTIONS.TURMAS,
-    label: 'Turmas',
-    hint: 'Grupos exibidos no cadastro',
+    label: 'Configurações de matrícula',
+    hint: 'Matrícula online e tarefas após a conversão.',
   },
 ];
+
+export const STUDENT_DEFAULT_SECTION = STUDENT_SETTINGS_SECTIONS.CAMPOS;
 
 export function buildStudentSettingsSummaries({ academy, turmasCount = null }) {
   const reasons = parseStudentExitReasons(academy?.studentExitReasons);
   const freezeReasons = parseStudentFreezeReasons(academy?.studentFreezeReasons);
   const enrollment = readPublicEnrollment(academy?.settings);
+  const belts = parseBeltGradesFromSettings(academy?.settings);
 
   const turmas =
-    turmasCount != null
-      ? turmasCount
-      : readAcademyTurmas(academy?.settings).length;
+    turmasCount != null ? turmasCount : readAcademyTurmas(academy?.settings).length;
 
   return {
-    [STUDENT_SETTINGS_SECTIONS.DESLIGAMENTO]: {
+    [STUDENT_SETTINGS_SECTIONS.CAMPOS]: {
       summary:
-        reasons.length === 0
-          ? 'Nenhum motivo'
-          : `${reasons.length} motivo${reasons.length === 1 ? '' : 's'}`,
-      done: reasons.length > 0,
+        turmas === 0 && reasons.length === 0
+          ? 'Não configurado'
+          : `${turmas} turma${turmas === 1 ? '' : 's'} · ${reasons.length + freezeReasons.length} motivos`,
+      done: turmas > 0 || reasons.length > 0,
     },
-    [STUDENT_SETTINGS_SECTIONS.TRANCAMENTO]: {
-      summary:
-        freezeReasons.length === 0
-          ? 'Nenhum motivo'
-          : `${freezeReasons.length} motivo${freezeReasons.length === 1 ? '' : 's'}`,
-      done: freezeReasons.length > 0,
+    [STUDENT_SETTINGS_SECTIONS.GRADUACOES]: {
+      summary: belts.length === 0 ? 'Padrão do sistema' : `${belts.length} opções`,
+      done: belts.length > 0,
     },
     [STUDENT_SETTINGS_SECTIONS.MATRICULA]: {
-      summary: enrollment.enabled ? 'Ativa' : 'Desativada',
+      summary: enrollment.enabled ? 'Matrícula online ativa' : 'Somente interna',
       done: enrollment.enabled,
-    },
-    [STUDENT_SETTINGS_SECTIONS.TURMAS]: {
-      summary: turmas === 0 ? 'Nenhuma turma' : `${turmas} turma${turmas === 1 ? '' : 's'}`,
-      done: turmas > 0,
     },
   };
 }

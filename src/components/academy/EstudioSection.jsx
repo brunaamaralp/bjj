@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Building2, Phone, Mail, MapPin, Tags, AlertTriangle } from 'lucide-react';
+import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { useTerms } from '../../lib/terminology.js';
@@ -7,11 +8,23 @@ import FieldError from '../shared/FieldError.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SettingsStickySave from '../shared/settings/SettingsStickySave.jsx';
 import { maskPhone, maskCPFOrCNPJ } from '../../lib/masks.js';
+import { useAcademyTabSection } from '../../lib/academyTabSection.js';
+import {
+  ESTUDIO_SETTINGS_ITEMS,
+  ESTUDIO_SETTINGS_SECTIONS,
+  ESTUDIO_DEFAULT_SECTION,
+  isEstudioSettingsSection,
+} from '../../lib/estudioSettingsSections.js';
+import { readSocialLinks, mergeSocialLinksIntoSettings } from '../../lib/socialLinksConfig.js';
+import { friendlyError } from '../../lib/errorMessages';
+import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
 import '../finance/finance.css';
 
 const FISCAL_MASKED = '•••.•••.•••-••';
 
-function buildStudioSnapshot(academy, taxDocumentInput) {
+const SECTION_META = Object.fromEntries(ESTUDIO_SETTINGS_ITEMS.map((item) => [item.id, item]));
+
+function buildStudioSnapshot(academy, taxDocumentInput, socialLinks) {
   return JSON.stringify({
     name: String(academy?.name || '').trim(),
     phone: String(academy?.phone || '').replace(/\D/g, ''),
@@ -20,6 +33,7 @@ function buildStudioSnapshot(academy, taxDocumentInput) {
     quickTimes: String(academy?.quickTimes || '').trim(),
     vertical: academy?.vertical === 'physio' ? 'physio' : 'fitness',
     taxDocumentInput: String(taxDocumentInput || '').trim(),
+    socialLinks,
   });
 }
 
@@ -31,26 +45,15 @@ function formatQuickTimesPreview(input) {
   return parts.length ? parts.join(' · ') : '';
 }
 
-const InfoRow = ({ icon, label, value, showAddInline, onAdd, action }) => (
+const InfoRow = ({ icon, label, value }) => (
   <div className="info-row">
     <span className="info-row-icon">{icon}</span>
     <span className="info-row-label">{label}</span>
     {value ? (
       <span className="info-row-value">{value}</span>
     ) : (
-      <span className="info-row-empty">
-        Não informado
-        {showAddInline && typeof onAdd === 'function' ? (
-          <>
-            {' '}
-            <button type="button" className="academy-field-add-link" onClick={onAdd}>
-              Adicionar →
-            </button>
-          </>
-        ) : null}
-      </span>
+      <span className="info-row-empty">Não informado</span>
     )}
-    {action ? <span className="info-row-action">{action}</span> : null}
   </div>
 );
 
@@ -65,6 +68,7 @@ const EstudioSection = ({
   setTaxDocumentInput,
   taxInputRef,
   autoEditTax = false,
+  academyId,
   academyDataVersion = 0,
 }) => {
   const terms = useTerms();
@@ -73,30 +77,49 @@ const EstudioSection = ({
   const canEdit = role === 'owner';
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [savedDigest, setSavedDigest] = useState(() => buildStudioSnapshot(academy, taxDocumentInput));
   const [pendingVertical, setPendingVertical] = useState(null);
+  const [socialSaving, setSocialSaving] = useState(false);
   const didAutoFocusTax = useRef(false);
 
+  const socialLinks = useMemo(() => readSocialLinks(academy.settings), [academy.settings]);
+  const [socialDraft, setSocialDraft] = useState(socialLinks);
+
   useEffect(() => {
-    setSavedDigest(buildStudioSnapshot(academy, ''));
+    setSocialDraft(readSocialLinks(academy.settings));
+  }, [academy.settings, academyDataVersion]);
+
+  const { section, goSection } = useAcademyTabSection(
+    'estudio',
+    ESTUDIO_DEFAULT_SECTION,
+    isEstudioSettingsSection
+  );
+
+  const [savedDigest, setSavedDigest] = useState(() =>
+    buildStudioSnapshot(academy, taxDocumentInput, socialLinks)
+  );
+
+  useEffect(() => {
+    setSavedDigest(buildStudioSnapshot(academy, '', readSocialLinks(academy.settings)));
     setFieldErrors({});
   }, [academyDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (autoEditTax && taxUpdateNeeded && canEdit && !didAutoFocusTax.current) {
-      didAutoFocusTax.current = true;
-      const t = window.setTimeout(() => {
-        taxInputRef?.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        taxInputRef?.current?.focus?.();
-      }, 120);
-      return () => window.clearTimeout(t);
+    if (autoEditTax && taxUpdateNeeded && canEdit && section === ESTUDIO_SETTINGS_SECTIONS.DADOS) {
+      if (!didAutoFocusTax.current) {
+        didAutoFocusTax.current = true;
+        const t = window.setTimeout(() => {
+          taxInputRef?.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          taxInputRef?.current?.focus?.();
+        }, 120);
+        return () => window.clearTimeout(t);
+      }
     }
     return undefined;
-  }, [autoEditTax, taxUpdateNeeded, canEdit, taxInputRef]);
+  }, [autoEditTax, taxUpdateNeeded, canEdit, taxInputRef, section]);
 
   const currentDigest = useMemo(
-    () => buildStudioSnapshot(academy, taxDocumentInput),
-    [academy, taxDocumentInput]
+    () => buildStudioSnapshot(academy, taxDocumentInput, socialDraft),
+    [academy, taxDocumentInput, socialDraft]
   );
   const hasUnsaved = canEdit && currentDigest !== savedDigest;
 
@@ -146,13 +169,25 @@ const EstudioSection = ({
     }
     setSaving(true);
     try {
+      if (academyId && section === ESTUDIO_SETTINGS_SECTIONS.REDES) {
+        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        const mergedSettings = mergeSocialLinksIntoSettings(doc.settings, socialDraft);
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+          settings: JSON.stringify(mergedSettings),
+        });
+        setAcademy((a) => ({ ...a, settings: JSON.stringify(mergedSettings) }));
+      }
+
       await onSave({
-        successMessage: `Dados da ${terms.workspaceNoun} salvos.`,
+        successMessage:
+          section === ESTUDIO_SETTINGS_SECTIONS.REDES
+            ? 'Redes sociais salvas.'
+            : `Dados da ${terms.workspaceNoun} salvos.`,
       });
-      setSavedDigest(buildStudioSnapshot(academy, ''));
+      setSavedDigest(buildStudioSnapshot(academy, '', socialDraft));
       if (setTaxDocumentInput) setTaxDocumentInput('');
     } catch {
-      // Error handled in onSave
+      void 0;
     } finally {
       setSaving(false);
     }
@@ -170,12 +205,13 @@ const EstudioSection = ({
         quickTimes: prev.quickTimes,
         vertical: prev.vertical,
       }));
+      setSocialDraft(prev.socialLinks || readSocialLinks(academy.settings));
       if (setTaxDocumentInput) setTaxDocumentInput('');
       setFieldErrors({});
     } catch {
       void 0;
     }
-  }, [savedDigest, setAcademy, setTaxDocumentInput]);
+  }, [savedDigest, setAcademy, setTaxDocumentInput, academy.settings]);
 
   const applyVerticalChange = (nextVertical) => {
     setAcademy((a) => ({
@@ -187,17 +223,43 @@ const EstudioSection = ({
 
   const verticalLabel =
     academy.vertical === 'physio' ? 'Fisioterapia' : 'Academia / Artes marciais';
-
   const showFiscalBlock = billingLive && canEdit;
   const quickPreview = formatQuickTimesPreview(academy.quickTimes);
+  const meta = SECTION_META[section];
 
-  return (
-    <section
-      className={`empresa-section estudio-section animate-in${hasUnsaved ? ' estudio-section--dirty' : ''}`}
-      style={{ animationDelay: '0.05s' }}
-    >
-      <div className="finance-settings-group">
-        <p className="finance-settings-group__label">Identidade</p>
+  const saveSocialOnly = async () => {
+    if (!academyId || !canEdit) return;
+    setSocialSaving(true);
+    try {
+      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const mergedSettings = mergeSocialLinksIntoSettings(doc.settings, socialDraft);
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        settings: JSON.stringify(mergedSettings),
+      });
+      setAcademy((a) => ({ ...a, settings: JSON.stringify(mergedSettings) }));
+      setSavedDigest(
+        buildStudioSnapshot(
+          { ...academy, settings: JSON.stringify(mergedSettings) },
+          taxDocumentInput,
+          socialDraft
+        )
+      );
+      addToast({ type: 'success', message: 'Redes sociais salvas.' });
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setSocialSaving(false);
+    }
+  };
+
+  const socialDirty =
+    JSON.stringify(socialDraft) !== JSON.stringify(readSocialLinks(academy.settings));
+
+  let sectionBody = null;
+
+  if (section === ESTUDIO_SETTINGS_SECTIONS.DADOS) {
+    sectionBody = (
+      <div className="finance-settings-section-body">
         <div className="card" style={{ padding: canEdit ? 16 : 0 }}>
           {canEdit ? (
             <div className="settings-form">
@@ -233,15 +295,36 @@ const EstudioSection = ({
                 />
                 {fieldErrors.email ? <FieldError>{fieldErrors.email}</FieldError> : null}
               </div>
-              <div className="form-group">
-                <label>Endereço</label>
-                <input
-                  className="form-input"
-                  value={academy.address}
-                  onChange={(e) => setAcademy({ ...academy, address: e.target.value })}
-                  placeholder="Rua, número, bairro"
-                />
-              </div>
+              {showFiscalBlock ? (
+                <div className="form-group" id="navi-academy-tax" ref={taxInputRef}>
+                  <label>CPF ou CNPJ (nota fiscal)</label>
+                  {taxUpdateNeeded && setTaxDocumentInput ? (
+                    <>
+                      <input
+                        className="form-input"
+                        type="text"
+                        inputMode="numeric"
+                        value={taxDocumentInput}
+                        onChange={(e) => setTaxDocumentInput(maskCPFOrCNPJ(e.target.value))}
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        autoComplete="off"
+                        maxLength={20}
+                      />
+                      <p className="text-xs text-light" style={{ marginTop: 6 }}>
+                        Usado na cobrança. Se já informou ao assinar, pode ignorar.
+                      </p>
+                    </>
+                  ) : companyTaxRegistered ? (
+                    <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '6px 0 0' }}>
+                      CPF/CNPJ cadastrado · {FISCAL_MASKED}
+                    </p>
+                  ) : (
+                    <p className="text-small text-muted" style={{ margin: '6px 0 0' }}>
+                      CPF/CNPJ não cadastrado.
+                    </p>
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="flex-col gap-2">
@@ -252,59 +335,89 @@ const EstudioSection = ({
                 value={academy.phone ? maskPhone(String(academy.phone)) : ''}
               />
               <InfoRow icon={<Mail size={16} />} label="E-mail" value={academy.email} />
-              <InfoRow icon={<MapPin size={16} />} label="Endereço" value={academy.address} />
             </div>
           )}
         </div>
       </div>
-
-      {showFiscalBlock ? (
-        <div className="finance-settings-group">
-          <p className="finance-settings-group__label">Faturamento</p>
-          <div className="card" style={{ padding: 16 }}>
-            {taxUpdateNeeded && setTaxDocumentInput ? (
-              <div className="form-group"  id="navi-academy-tax" ref={taxInputRef}>
-                <label>CPF ou CNPJ (nota fiscal)</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={taxDocumentInput}
-                  onChange={(e) => setTaxDocumentInput(maskCPFOrCNPJ(e.target.value))}
-                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                  autoComplete="off"
-                  maxLength={20}
-                  aria-label="CPF ou CNPJ"
-                />
-                <p className="text-xs text-light" style={{ marginTop: 6 }}>
-                  Usado na cobrança. Se já informou ao assinar, pode ignorar.
-                </p>
-              </div>
-            ) : companyTaxRegistered ? (
-              <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                CPF/CNPJ cadastrado · {FISCAL_MASKED}
-              </p>
-            ) : (
-              <p className="text-small text-muted" >
-                CPF/CNPJ não cadastrado.
-              </p>
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="finance-settings-group">
-        <p className="finance-settings-group__label">Operacional</p>
+    );
+  } else if (section === ESTUDIO_SETTINGS_SECTIONS.ENDERECO) {
+    sectionBody = (
+      <div className="finance-settings-section-body">
         <div className="card" style={{ padding: canEdit ? 16 : 0 }}>
           {canEdit ? (
             <div className="settings-form">
-              <div className="form-group" >
+              <div className="form-group">
+                <label>Endereço completo</label>
+                <input
+                  className="form-input"
+                  value={academy.address}
+                  onChange={(e) => setAcademy({ ...academy, address: e.target.value })}
+                  placeholder="Rua, número, bairro, cidade"
+                />
+              </div>
+            </div>
+          ) : (
+            <InfoRow icon={<MapPin size={16} />} label="Endereço" value={academy.address} />
+          )}
+        </div>
+      </div>
+    );
+  } else if (section === ESTUDIO_SETTINGS_SECTIONS.REDES) {
+    sectionBody = (
+      <div className="finance-settings-section-body">
+        <div className="card" style={{ padding: canEdit ? 16 : 0 }}>
+          {canEdit ? (
+            <div className="settings-form">
+              {[
+                { key: 'instagram', label: 'Instagram', placeholder: '@suaacademia ou URL' },
+                { key: 'facebook', label: 'Facebook', placeholder: 'URL da página' },
+                { key: 'website', label: 'Site', placeholder: 'https://…' },
+                { key: 'whatsapp', label: 'WhatsApp (link)', placeholder: 'https://wa.me/…' },
+              ].map(({ key, label, placeholder }) => (
+                <div className="form-group" key={key}>
+                  <label>{label}</label>
+                  <input
+                    className="form-input"
+                    value={socialDraft[key]}
+                    onChange={(e) => setSocialDraft((s) => ({ ...s, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={socialSaving || !socialDirty}
+                onClick={() => void saveSocialOnly()}
+              >
+                {socialSaving ? 'Salvando…' : 'Salvar redes sociais'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex-col gap-2">
+              {Object.entries(socialLinks).map(([key, value]) =>
+                value ? (
+                  <InfoRow key={key} icon={<span aria-hidden>🔗</span>} label={key} value={value} />
+                ) : null
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  } else if (section === ESTUDIO_SETTINGS_SECTIONS.PERSONALIZACAO) {
+    sectionBody = (
+      <div className="finance-settings-section-body">
+        <div className="card" style={{ padding: canEdit ? 16 : 0 }}>
+          {canEdit ? (
+            <div className="settings-form">
+              <div className="form-group">
                 <label>Tipo de negócio</label>
                 <div className="estudio-vertical-alert" role="note">
                   <AlertTriangle size={16} aria-hidden />
                   <span>
-                    Altera a terminologia em todo o sistema — ex.: &quot;aluno&quot; vira &quot;paciente&quot; ao
-                    escolher Fisioterapia.
+                    Altera a terminologia em todo o sistema — ex.: &quot;aluno&quot; vira &quot;paciente&quot;
+                    ao escolher Fisioterapia.
                   </span>
                 </div>
                 <select
@@ -322,7 +435,7 @@ const EstudioSection = ({
                   <option value="physio">Fisioterapia</option>
                 </select>
               </div>
-              <div className="form-group" >
+              <div className="form-group">
                 <label>Horários rápidos (reagendar)</label>
                 <input
                   className="form-input"
@@ -353,9 +466,32 @@ const EstudioSection = ({
           )}
         </div>
       </div>
+    );
+  }
+
+  const stickyVisible =
+    canEdit &&
+    hasUnsaved &&
+    section !== ESTUDIO_SETTINGS_SECTIONS.REDES &&
+    section !== ESTUDIO_SETTINGS_SECTIONS.PERSONALIZACAO;
+
+  return (
+    <section
+      className={`empresa-section estudio-section animate-in${hasUnsaved ? ' estudio-section--dirty' : ''}`}
+    >
+      <AcademyTabSettingsLayout
+        navLabel="Seções do estúdio"
+        items={ESTUDIO_SETTINGS_ITEMS}
+        activeId={section}
+        onSelect={goSection}
+        title={meta?.label}
+        subtitle={meta?.hint}
+      >
+        {sectionBody}
+      </AcademyTabSettingsLayout>
 
       <SettingsStickySave
-        visible={hasUnsaved}
+        visible={stickyVisible}
         saving={saving}
         onSave={handleSave}
         onDiscard={discardChanges}
@@ -376,22 +512,6 @@ const EstudioSection = ({
         .estudio-section--dirty {
           padding-bottom: calc(var(--space-12) + 56px);
         }
-        .academy-field-add-link {
-          margin: 0;
-          padding: 0;
-          border: none;
-          background: transparent;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--accent);
-          cursor: pointer;
-          text-decoration: none;
-          font-family: inherit;
-          white-space: nowrap;
-        }
-        .academy-field-add-link:hover { text-decoration: underline; }
-        .info-row { flex-wrap: wrap; }
-        .info-row-action { margin-left: auto; flex-shrink: 0; }
         .estudio-vertical-alert {
           display: flex;
           align-items: flex-start;

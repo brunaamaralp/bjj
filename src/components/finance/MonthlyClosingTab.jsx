@@ -33,6 +33,12 @@ import {
   mapOriginToTxType,
 } from '../../lib/monthlyClosing.js';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
+import {
+  DropdownMenu,
+  DropdownMenuPanel,
+  DropdownMenuItemStatic,
+  DropdownMenuLabel,
+} from '../shared/menu';
 import { FINANCE_REGIME, getFinanceRegime } from '../../lib/financeCompetence.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import {
@@ -42,6 +48,47 @@ import {
   Plus,
   Receipt,
 } from 'lucide-react';
+
+const CLOSING_COLUMNS_STORAGE_PREFIX = 'navi-finance-closing-cols';
+
+const OPTIONAL_CLOSING_COLUMNS = [{ key: 'name', label: 'Nome', defaultVisible: false }];
+
+function defaultClosingColumnVisibility() {
+  return Object.fromEntries(OPTIONAL_CLOSING_COLUMNS.map((c) => [c.key, c.defaultVisible]));
+}
+
+function loadClosingColumnVisibility(academyId) {
+  if (!academyId) return defaultClosingColumnVisibility();
+  try {
+    const raw = localStorage.getItem(`${CLOSING_COLUMNS_STORAGE_PREFIX}:${academyId}`);
+    if (!raw) return defaultClosingColumnVisibility();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return defaultClosingColumnVisibility();
+    return {
+      ...defaultClosingColumnVisibility(),
+      ...OPTIONAL_CLOSING_COLUMNS.reduce((acc, col) => {
+        if (typeof parsed[col.key] === 'boolean') acc[col.key] = parsed[col.key];
+        return acc;
+      }, {}),
+    };
+  } catch {
+    return defaultClosingColumnVisibility();
+  }
+}
+
+function saveClosingColumnVisibility(academyId, visibility) {
+  if (!academyId) return;
+  try {
+    localStorage.setItem(`${CLOSING_COLUMNS_STORAGE_PREFIX}:${academyId}`, JSON.stringify(visibility));
+  } catch {
+    /* ignore */
+  }
+}
+
+function closingNameCell(row) {
+  if (!row) return '—';
+  return row.guardian ? `${row.name} (${row.guardian})` : row.name;
+}
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -86,6 +133,8 @@ export default function MonthlyClosingTab({
   const addToast = useUiStore((s) => s.addToast);
   const isMobile = useMatchMobile();
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [visibleCols, setVisibleCols] = useState(() => defaultClosingColumnVisibility());
 
   const [referenceMonthInternal, setReferenceMonthInternal] = useState(currentYm);
   const referenceMonth = referenceMonthProp ?? referenceMonthInternal;
@@ -173,6 +222,24 @@ export default function MonthlyClosingTab({
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
   }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    setVisibleCols(loadClosingColumnVisibility(academyId));
+  }, [academyId]);
+
+  const toggleClosingColumn = useCallback(
+    (key) => {
+      setVisibleCols((prev) => {
+        const next = { ...prev, [key]: !prev[key] };
+        saveClosingColumnVisibility(academyId, next);
+        return next;
+      });
+    },
+    [academyId]
+  );
+
+  const desktopTableColCount = useMemo(() => 8 + (visibleCols.name ? 1 : 0), [visibleCols.name]);
 
   useEffect(() => {
     void loadData();
@@ -370,9 +437,6 @@ export default function MonthlyClosingTab({
       <div className="monthly-closing-tab__head">
         <div className="monthly-closing-tab__head-main">
           <h3 className="navi-section-heading monthly-closing-tab__head-title">Conferência do mês</h3>
-          <p className="text-small text-muted monthly-closing-tab__lead">
-            Painel de conferência — não trava lançamentos nem gera documento de fechamento.
-          </p>
           <div className="monthly-closing-status-badge">
             {cashClosing ? (
               <>
@@ -416,7 +480,13 @@ export default function MonthlyClosingTab({
         </p>
       ) : null}
       {academyId ? (
-        <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
+        <FinanceRegimeToggle
+          academyId={academyId}
+          value={regime}
+          onChange={setRegime}
+          hintStyle="tooltip"
+          className="mb-2"
+        />
       ) : null}
       {closingPartialWarning ? (
         <ErrorBanner
@@ -582,38 +652,50 @@ export default function MonthlyClosingTab({
           placeholder="Buscar por nome"
           aria-label="Buscar na conferência"
         />
-        <div className="finance-filters-bar__field monthly-closing-filters__group">
-          <span className="finance-filters-bar__sr-label" id="monthly-closing-origin-label">
-            Origem
-          </span>
-          <div className="monthly-closing-filters__chips" role="group" aria-labelledby="monthly-closing-origin-label">
-            {availableOrigins.map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={`filter-chip ${originFilter.has(key) ? 'is-active' : ''}`}
-                onClick={() => toggleOrigin(key)}
-              >
-                {CLOSING_ORIGIN_LABELS[key]}
-              </button>
-            ))}
+        <div className="monthly-closing-filters__pill-groups">
+          <div className="monthly-closing-filters__pill-group">
+            <span className="monthly-closing-filters__pill-label" id="monthly-closing-origin-label">
+              Tipo
+            </span>
+            <div
+              className="monthly-closing-filters__chips"
+              role="group"
+              aria-labelledby="monthly-closing-origin-label"
+            >
+              {availableOrigins.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`monthly-closing-filter-pill${originFilter.has(key) ? ' is-active' : ''}`}
+                  aria-pressed={originFilter.has(key)}
+                  onClick={() => toggleOrigin(key)}
+                >
+                  {CLOSING_ORIGIN_LABELS[key]}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="finance-filters-bar__field monthly-closing-filters__group">
-          <span className="finance-filters-bar__sr-label" id="monthly-closing-situation-label">
-            Situação
-          </span>
-          <div className="monthly-closing-filters__chips" role="group" aria-labelledby="monthly-closing-situation-label">
-            {CLOSING_SITUATIONS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={`filter-chip ${situationFilter.has(key) ? 'is-active' : ''}`}
-                onClick={() => toggleSituation(key)}
-              >
-                {CLOSING_SITUATION_LABELS[key]}
-              </button>
-            ))}
+          <div className="monthly-closing-filters__pill-group">
+            <span className="monthly-closing-filters__pill-label" id="monthly-closing-situation-label">
+              Situação
+            </span>
+            <div
+              className="monthly-closing-filters__chips"
+              role="group"
+              aria-labelledby="monthly-closing-situation-label"
+            >
+              {CLOSING_SITUATIONS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`monthly-closing-filter-pill${situationFilter.has(key) ? ' is-active' : ''}`}
+                  aria-pressed={situationFilter.has(key)}
+                  onClick={() => toggleSituation(key)}
+                >
+                  {CLOSING_SITUATION_LABELS[key]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         {methodOptions.length > 0 ? (
@@ -689,10 +771,46 @@ export default function MonthlyClosingTab({
             )}
           </div>
         ) : (
+        <>
+        <div className="monthly-closing-table-toolbar">
+          <DropdownMenu
+            open={colsMenuOpen}
+            onOpenChange={setColsMenuOpen}
+            className="monthly-closing-cols-menu"
+            align="end"
+          >
+            <button
+              type="button"
+              className="btn-ghost btn-sm monthly-closing-cols-trigger"
+              aria-expanded={colsMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setColsMenuOpen((o) => !o)}
+            >
+              Colunas +
+            </button>
+            {colsMenuOpen ? (
+              <DropdownMenuPanel aria-label="Colunas da tabela de conferência">
+                <DropdownMenuLabel>Exibir colunas</DropdownMenuLabel>
+                {OPTIONAL_CLOSING_COLUMNS.map((col) => (
+                  <DropdownMenuItemStatic key={col.key}>
+                    <label className="monthly-closing-cols-option">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(visibleCols[col.key])}
+                        onChange={() => toggleClosingColumn(col.key)}
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                  </DropdownMenuItemStatic>
+                ))}
+              </DropdownMenuPanel>
+            ) : null}
+          </DropdownMenu>
+        </div>
         <table className="finance-table monthly-closing-table">
           <thead>
             <tr>
-              <th>Nome</th>
+              {visibleCols.name ? <th>Nome</th> : null}
               <th>Descrição</th>
               <th className="finance-num">Esperado</th>
               <th className="finance-num">Recebido</th>
@@ -706,7 +824,7 @@ export default function MonthlyClosingTab({
           <tbody>
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="monthly-closing-empty-cell">
+                <td colSpan={desktopTableColCount} className="monthly-closing-empty-cell">
                   <EmptyState
                     variant="table-cell"
                     icon={Receipt}
@@ -725,12 +843,15 @@ export default function MonthlyClosingTab({
                   row.missingCompetence && regime === FINANCE_REGIME.COMPETENCE
                     ? ' · sem competência definida'
                     : '';
-                const nameCell = row.guardian ? `${row.name} (${row.guardian})` : row.name;
+                const nameCell = closingNameCell(row);
+                const descText = String(row.description || '').trim();
                 return (
                   <tr key={row.id}>
-                    <td className="monthly-closing-name-cell">{nameCell}</td>
-                    <td className="text-small">
-                      {row.description}
+                    {visibleCols.name ? (
+                      <td className="monthly-closing-name-cell">{nameCell}</td>
+                    ) : null}
+                    <td className="text-small monthly-closing-desc-cell" title={descText || undefined}>
+                      <span className="monthly-closing-desc-cell__text">{row.description}</span>
                       {row.categoryUnclassified ? (
                         <span
                           className="badge badge-warning monthly-closing-unclassified-badge"
@@ -764,6 +885,7 @@ export default function MonthlyClosingTab({
             )}
           </tbody>
         </table>
+        </>
         )}
       </div>
 

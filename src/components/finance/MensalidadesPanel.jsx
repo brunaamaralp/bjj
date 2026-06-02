@@ -13,7 +13,7 @@ import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError } from '../../lib/errorMessages';
-import { Check, ChevronDown } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
@@ -922,7 +922,7 @@ export default function MensalidadesPanel({
               className={`mensal-page-tab${viewMode === 'grid' ? ' mensal-page-tab--active' : ''}`}
               onClick={() => setViewMode('grid')}
             >
-              Grade do mês
+              Resumo
             </button>
             <button
               type="button"
@@ -1114,51 +1114,78 @@ export default function MensalidadesPanel({
 
       {viewMode === 'list' ? (
       <>
-      <section className="mensal-summary-block mensal-priorities-block" aria-label="Prioridades do dia">
+      <section className="mensal-priorities-block" aria-label="Prioridades do dia">
         {loading ? (
-          <div className="mensal-summary-grid mensal-summary-grid--reception mensal-priorities-skeleton" aria-hidden>
+          <div className="mensal-priorities-strip mensal-priorities-strip--skeleton" aria-hidden>
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="mensal-summary-card mensal-summary-card--static mensal-priorities-skeleton__card" />
+              <div key={i} className="mensal-priorities-strip__skeleton" />
             ))}
           </div>
         ) : (
-          <div className="mensal-summary-grid mensal-summary-grid--reception">
-            <button
-              type="button"
-              aria-pressed={filter === 'due_today'}
-              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--today${filter === 'due_today' ? ' mensal-summary-card--active' : ''}`}
-              onClick={() => toggleReceptionFilter('due_today')}
-            >
-              <div className="mensal-summary-card__value">{receptionSummary.dueToday}</div>
-              <div className="mensal-summary-card__label">Vencendo hoje</div>
-            </button>
-            <button
-              type="button"
-              aria-pressed={filter === 'due_week'}
-              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--soon${filter === 'due_week' ? ' mensal-summary-card--active' : ''}`}
-              onClick={() => toggleReceptionFilter('due_week')}
-            >
-              <div className="mensal-summary-card__value">{receptionSummary.dueWeek}</div>
-              <div className="mensal-summary-card__label">Vence em até 7 dias</div>
-            </button>
-            <button
-              type="button"
-              aria-pressed={filter === 'overdue'}
-              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--pending${filter === 'overdue' ? ' mensal-summary-card--active' : ''}`}
-              onClick={() => toggleReceptionFilter('overdue')}
-            >
-              <div className="mensal-summary-card__value">{receptionSummary.overdue}</div>
-              <div className="mensal-summary-card__label">Em atraso</div>
-            </button>
-            <button
-              type="button"
-              aria-pressed={filter === 'paid'}
-              className={`mensal-summary-card mensal-summary-card--clickable mensal-summary-card--paid${filter === 'paid' ? ' mensal-summary-card--active' : ''}`}
-              onClick={() => toggleReceptionFilter('paid')}
-            >
-              <div className="mensal-summary-card__value">{receptionSummary.paid}</div>
-              <div className="mensal-summary-card__label">Pagos no mês</div>
-            </button>
+          <div className="mensal-priorities-strip" role="list">
+            {[
+              {
+                key: 'due_today',
+                filterKey: 'due_today',
+                count: receptionSummary.dueToday,
+                label: 'Vencendo hoje',
+                icon: Calendar,
+                tone: 'warn',
+              },
+              {
+                key: 'due_week',
+                filterKey: 'due_week',
+                count: receptionSummary.dueWeek,
+                label: 'Vence em até 7 dias',
+                icon: CalendarClock,
+                tone: 'warn',
+              },
+              {
+                key: 'overdue',
+                filterKey: 'overdue',
+                count: receptionSummary.overdue,
+                label: 'Em atraso',
+                icon: AlertCircle,
+                tone: 'danger',
+              },
+              {
+                key: 'paid',
+                filterKey: 'paid',
+                count: receptionSummary.paid,
+                label: 'Pagos no mês',
+                icon: CheckCircle2,
+                tone: 'success',
+              },
+            ].map((item, index) => {
+              const Icon = item.icon;
+              const isZero = Number(item.count) === 0;
+              const isActive = filter === item.filterKey;
+              return (
+                <React.Fragment key={item.key}>
+                  {index > 0 ? (
+                    <span className="mensal-priorities-strip__divider" aria-hidden />
+                  ) : null}
+                  <button
+                    type="button"
+                    role="listitem"
+                    aria-pressed={isActive}
+                    className={[
+                      'mensal-priorities-chip',
+                      `mensal-priorities-chip--${item.tone}`,
+                      isZero ? 'mensal-priorities-chip--zero' : '',
+                      isActive ? 'mensal-priorities-chip--active' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => toggleReceptionFilter(item.filterKey)}
+                  >
+                    <Icon size={15} className="mensal-priorities-chip__icon" aria-hidden />
+                    <span className="mensal-priorities-chip__value">{item.count}</span>
+                    <span className="mensal-priorities-chip__label">{item.label}</span>
+                  </button>
+                </React.Fragment>
+              );
+            })}
           </div>
         )}
       </section>

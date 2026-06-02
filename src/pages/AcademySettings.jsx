@@ -29,10 +29,10 @@ import { useUserRole } from '../lib/useUserRole';
 import { useTerms } from '../lib/terminology.js';
 
 const TABS_ALL = [
-    { id: 'estudio', label: 'Estúdio', subtitle: 'Dados e identidade' },
-    { id: 'funil', label: 'Funil', subtitle: 'Perguntas e etiquetas' },
-    { id: 'alunos', label: 'Alunos', subtitle: 'Cadastro e matrícula' },
-    { id: 'financeiro', label: 'Financeiro', subtitle: 'Planos, taxas e contratos' },
+    { id: 'estudio', label: 'Estúdio' },
+    { id: 'funil', label: 'Funil' },
+    { id: 'alunos', label: 'Alunos' },
+    { id: 'financeiro', label: 'Financeiro' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -95,6 +95,7 @@ const AcademySettings = () => {
         customLeadQuestions: [],
         studentExitReasons: [],
         studentFreezeReasons: [],
+        settings: '',
         teamId: '',
         ownerId: '',
     });
@@ -117,11 +118,6 @@ const AcademySettings = () => {
 
     const rawTab = searchParams.get('tab') || '';
     const activeTab = VALID_TAB_IDS.has(rawTab) ? rawTab : 'estudio';
-
-    const activeTabMeta = useMemo(
-        () => TABS_ALL.find((t) => t.id === activeTab) || TABS_ALL[0],
-        [activeTab]
-    );
 
     const tabDisabledState = useMemo(
         () => getTabDisabledState(activeTab, { role, modules: academy.modules }),
@@ -267,6 +263,7 @@ const AcademySettings = () => {
                     customLeadQuestions: normalized.questions,
                     studentExitReasons: readStudentExitReasonsFromAcademyDoc(doc),
                     studentFreezeReasons: readStudentFreezeReasonsFromAcademyDoc(doc),
+                    settings: doc.settings || '',
                 });
                 try {
                     useLeadStore.getState().setVertical(vertical);
@@ -396,24 +393,6 @@ const AcademySettings = () => {
             <PageHeader
                 title={terms.myWorkspace}
                 subtitle="Dados da academia, funil, alunos e financeiro."
-                meta={
-                    contentLoading ? (
-                        <span
-                            className="empresa-skeleton-block academy-settings-page-name-skeleton"
-                            style={{ display: 'block', height: 18, maxWidth: 220 }}
-                            aria-hidden
-                        />
-                    ) : (
-                        <>
-                            {academy.name ? (
-                                <span className="academy-settings-page-name">{academy.name}</span>
-                            ) : null}
-                            <span className="academy-settings-page-subtitle">
-                                {activeTabMeta.label} · {activeTabMeta.subtitle}
-                            </span>
-                        </>
-                    )
-                }
                 prefix={
                     <Link
                         to="/"
@@ -466,6 +445,7 @@ const AcademySettings = () => {
             {!contentLoading && !tabDisabledState.disabled && activeTab === 'estudio' && (
                 <>
                     <EstudioSection
+                        academyId={academyId}
                         academy={academy}
                         setAcademy={setAcademy}
                         onSave={handleSave}
@@ -487,6 +467,7 @@ const AcademySettings = () => {
                     setAcademy={setAcademy}
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
+                    onSave={handleSave}
                 />
             )}
 
@@ -591,26 +572,6 @@ const AcademySettings = () => {
         }
         .info-row:last-child { border-bottom: none; }
         .info-row-icon { color: var(--text-muted); flex-shrink: 0; }
-        .academy-settings-page-name {
-          margin: 6px 0 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--text);
-          letter-spacing: -0.01em;
-          font-family: var(--ff-ui, inherit);
-        }
-        .academy-settings-page-name-skeleton {
-          margin-top: 6px;
-        }
-        .academy-settings-page-subtitle {
-          margin: 6px 0 0;
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--text-secondary);
-          letter-spacing: 0.01em;
-          text-transform: none;
-          font-family: var(--ff-ui, inherit);
-        }
         .info-row-label { font-size: 13px; color: var(--text-secondary); min-width: 80px; font-weight: 500; }
         .info-row-value { font-size: 14px; color: var(--text); font-weight: 500; }
         .info-row-empty { font-size: 13px; color: var(--text-muted); }
@@ -712,6 +673,40 @@ const AcademySettings = () => {
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .academy-settings-page .stage-editor-head {
+          display: grid;
+          grid-template-columns: 1fr 90px;
+          gap: 8px;
+          margin-bottom: 6px;
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+        .academy-settings-page .stage-row {
+          display: grid;
+          grid-template-columns: 1fr 90px;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        .academy-settings-page .stage-input,
+        .academy-settings-page .stage-sla {
+          padding: 8px 10px;
+        }
+        .academy-settings-page .stage-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+        .academy-settings-page .stage-actions .grow {
+          flex: 1 1 auto;
+        }
+        .academy-settings-page .academy-tab-settings-layout {
+          margin-top: var(--space-3);
         }
       `}} />
         </div>

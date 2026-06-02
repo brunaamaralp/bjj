@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useUiStore } from '../../store/useUiStore';
@@ -17,21 +17,24 @@ import {
   parseStudentFreezeReasons,
   serializeStudentFreezeReasons,
 } from '../../lib/studentFreezeConfig.js';
-import { readAcademyTurmas } from '../../lib/academyTurmas.js';
 import {
   STUDENT_SETTINGS_ITEMS,
   STUDENT_SETTINGS_SECTIONS,
+  STUDENT_DEFAULT_SECTION,
   isStudentSettingsSection,
 } from '../../lib/studentSettingsSections.js';
+import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import AcademyTurmasSection from './AcademyTurmasSection.jsx';
 import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
-import StudentsSettingsHub from './settings/StudentsSettingsHub.jsx';
-import FinanceSettingsDetailHeader from '../finance/settings/FinanceSettingsDetailHeader.jsx';
+import EnrollmentFollowUpSection from './EnrollmentFollowUpSection.jsx';
+import BeltGradesSection from './BeltGradesSection.jsx';
+import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
 import '../finance/finance.css';
 
 const SECTION_META = Object.fromEntries(STUDENT_SETTINGS_ITEMS.map((item) => [item.id, item]));
 
 function EditableStringList({
+  title,
   hint,
   items,
   canEdit,
@@ -49,7 +52,8 @@ function EditableStringList({
   footerNote,
 }) {
   return (
-    <div className="finance-settings-section-body">
+    <div className="finance-settings-section-body students-settings-subsection">
+      {title ? <h4 className="navi-section-heading" style={{ margin: '0 0 8px', fontSize: '0.95rem' }}>{title}</h4> : null}
       {hint ? (
         <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
           {hint}
@@ -124,14 +128,15 @@ function EditableStringList({
 }
 
 const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const section = isStudentSettingsSection(searchParams.get('section'));
+  const { section, goSection } = useAcademyTabSection(
+    'alunos',
+    STUDENT_DEFAULT_SECTION,
+    isStudentSettingsSection
+  );
   const addToast = useUiStore((s) => s.addToast);
   const role = useUserRole(academy);
   const canEdit = role === 'owner' || role === 'admin';
 
-  const [turmasCount, setTurmasCount] = useState(null);
-  const [academySettingsRaw, setAcademySettingsRaw] = useState('');
   const [newReason, setNewReason] = useState('');
   const [savingReasons, setSavingReasons] = useState(false);
   const [savedReasonsDigest, setSavedReasonsDigest] = useState('');
@@ -149,24 +154,6 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
   );
 
   useEffect(() => {
-    if (!academyId) return undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-        if (cancelled) return;
-        setTurmasCount(readAcademyTurmas(doc.settings).length);
-        setAcademySettingsRaw(doc.settings || '');
-      } catch {
-        if (!cancelled) setTurmasCount(0);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [academyId, academyDataVersion]);
-
-  useEffect(() => {
     if (!academyId) return;
     setSavedReasonsDigest(serializeStudentExitReasons(academy.studentExitReasons));
     setSavedFreezeReasonsDigest(serializeStudentFreezeReasons(academy.studentFreezeReasons));
@@ -180,30 +167,6 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     () => serializeStudentFreezeReasons(academy.studentFreezeReasons) !== savedFreezeReasonsDigest,
     [academy.studentFreezeReasons, savedFreezeReasonsDigest]
   );
-
-  const goHub = () => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', 'alunos');
-        next.delete('section');
-        return next;
-      },
-      { replace: false }
-    );
-  };
-
-  const goSection = (id) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', 'alunos');
-        next.set('section', id);
-        return next;
-      },
-      { replace: false }
-    );
-  };
 
   const notifyRestoreDefaults = () => {
     addToast({
@@ -221,7 +184,7 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      setAcademy((a) => ({ ...a, studentExitReasons: list }));
+      setAcademy((a) => ({ ...a, studentExitReasons: list, settings: JSON.stringify(merged) }));
       setSavedReasonsDigest(serializeStudentExitReasons(list));
       addToast({ type: 'success', message: 'Motivos de desligamento salvos.' });
     } catch (e) {
@@ -265,7 +228,7 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      setAcademy((a) => ({ ...a, studentFreezeReasons: list }));
+      setAcademy((a) => ({ ...a, studentFreezeReasons: list, settings: JSON.stringify(merged) }));
       setSavedFreezeReasonsDigest(serializeStudentFreezeReasons(list));
       addToast({ type: 'success', message: 'Motivos de trancamento salvos.' });
     } catch (e) {
@@ -300,7 +263,7 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     setAcademy((a) => ({ ...a, studentFreezeReasons: next }));
   };
 
-  const meta = section ? SECTION_META[section] : null;
+  const meta = SECTION_META[section];
   const automationsFootnote = (
     <>
       Para tarefas automáticas ao desligar ou matricular, configure em{' '}
@@ -311,87 +274,97 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     </>
   );
 
-  return (
-    <section className={`empresa-section animate-in students-settings${section ? ' students-settings--detail' : ''}`}>
-      {!section ? (
-        <StudentsSettingsHub
-          academy={{ ...academy, settings: academySettingsRaw }}
-          turmasCount={turmasCount}
-          onSelectSection={goSection}
-        />
-      ) : (
-        <>
-          <FinanceSettingsDetailHeader
-            title={meta?.label || 'Alunos'}
-            subtitle={meta?.hint}
-            onBack={goHub}
-            backLabel="Alunos"
+  let sectionBody = null;
+
+  if (section === STUDENT_SETTINGS_SECTIONS.CAMPOS) {
+    sectionBody = (
+      <>
+        <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} embedded />
+        <div className="card" style={{ padding: 16, marginTop: 16 }}>
+          <EditableStringList
+            title="Motivos de desligamento"
+            hint="Opções exibidas ao encerrar matrícula de um aluno."
+            footerNote={automationsFootnote}
+            items={reasons}
+            canEdit={canEdit}
+            saving={savingReasons}
+            hasUnsaved={hasUnsavedReasons}
+            newValue={newReason}
+            onNewValueChange={setNewReason}
+            onAdd={handleAddReason}
+            onRemove={removeReason}
+            onSave={() => void saveReasons(reasons)}
+            onResetDefaults={() => {
+              setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }));
+              notifyRestoreDefaults();
+            }}
+            placeholder="Novo motivo de desligamento"
+            saveLabel="Salvar desligamento"
+            resetLabel="Restaurar padrões"
           />
+        </div>
+        <div className="card" style={{ padding: 16, marginTop: 16 }}>
+          <EditableStringList
+            title="Motivos de trancamento"
+            hint="Opções exibidas ao pausar uma matrícula temporariamente."
+            items={freezeReasons}
+            canEdit={canEdit}
+            saving={savingFreezeReasons}
+            hasUnsaved={hasUnsavedFreezeReasons}
+            newValue={newFreezeReason}
+            onNewValueChange={setNewFreezeReason}
+            onAdd={handleAddFreezeReason}
+            onRemove={removeFreezeReason}
+            onSave={() => void saveFreezeReasons(freezeReasons)}
+            onResetDefaults={() => {
+              setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }));
+              notifyRestoreDefaults();
+            }}
+            placeholder="Novo motivo de trancamento"
+            saveLabel="Salvar trancamento"
+            resetLabel="Restaurar padrões"
+          />
+        </div>
+      </>
+    );
+  } else if (section === STUDENT_SETTINGS_SECTIONS.GRADUACOES) {
+    sectionBody = (
+      <BeltGradesSection
+        academyId={academyId}
+        academy={academy}
+        setAcademy={setAcademy}
+        academyDataVersion={academyDataVersion}
+      />
+    );
+  } else if (section === STUDENT_SETTINGS_SECTIONS.MATRICULA) {
+    sectionBody = (
+      <>
+        <PublicEnrollmentSection
+          academyId={academyId}
+          academy={academy}
+          setAcademy={setAcademy}
+          canEdit={canEdit}
+          embedded
+        />
+        <div style={{ marginTop: 16 }}>
+          <EnrollmentFollowUpSection academyId={academyId} embedded />
+        </div>
+      </>
+    );
+  }
 
-          {section === STUDENT_SETTINGS_SECTIONS.DESLIGAMENTO ? (
-            <div className="card" style={{ padding: 16 }}>
-              <EditableStringList
-                hint="Motivos exibidos ao encerrar matrícula de um aluno."
-                footerNote={automationsFootnote}
-                items={reasons}
-                canEdit={canEdit}
-                saving={savingReasons}
-                hasUnsaved={hasUnsavedReasons}
-                newValue={newReason}
-                onNewValueChange={setNewReason}
-                onAdd={handleAddReason}
-                onRemove={removeReason}
-                onSave={() => void saveReasons(reasons)}
-                onResetDefaults={() => {
-                  setAcademy((a) => ({ ...a, studentExitReasons: [...DEFAULT_STUDENT_EXIT_REASONS] }));
-                  notifyRestoreDefaults();
-                }}
-                placeholder="Novo motivo de desligamento"
-                saveLabel="Salvar"
-                resetLabel="Restaurar padrões"
-              />
-            </div>
-          ) : null}
-
-          {section === STUDENT_SETTINGS_SECTIONS.TRANCAMENTO ? (
-            <div className="card" style={{ padding: 16 }}>
-              <EditableStringList
-                hint="Motivos exibidos ao pausar uma matrícula temporariamente."
-                items={freezeReasons}
-                canEdit={canEdit}
-                saving={savingFreezeReasons}
-                hasUnsaved={hasUnsavedFreezeReasons}
-                newValue={newFreezeReason}
-                onNewValueChange={setNewFreezeReason}
-                onAdd={handleAddFreezeReason}
-                onRemove={removeFreezeReason}
-                onSave={() => void saveFreezeReasons(freezeReasons)}
-                onResetDefaults={() => {
-                  setAcademy((a) => ({ ...a, studentFreezeReasons: [...DEFAULT_STUDENT_FREEZE_REASONS] }));
-                  notifyRestoreDefaults();
-                }}
-                placeholder="Novo motivo de trancamento"
-                saveLabel="Salvar"
-                resetLabel="Restaurar padrões"
-              />
-            </div>
-          ) : null}
-
-          {section === STUDENT_SETTINGS_SECTIONS.MATRICULA ? (
-            <PublicEnrollmentSection
-              academyId={academyId}
-              academy={academy}
-              setAcademy={setAcademy}
-              canEdit={canEdit}
-              embedded
-            />
-          ) : null}
-
-          {section === STUDENT_SETTINGS_SECTIONS.TURMAS ? (
-            <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} embedded />
-          ) : null}
-        </>
-      )}
+  return (
+    <section className="empresa-section animate-in students-settings">
+      <AcademyTabSettingsLayout
+        navLabel="Seções de alunos"
+        items={STUDENT_SETTINGS_ITEMS}
+        activeId={section}
+        onSelect={goSection}
+        title={meta?.label}
+        subtitle={meta?.hint}
+      >
+        {sectionBody}
+      </AcademyTabSettingsLayout>
 
       <style
         dangerouslySetInnerHTML={{
@@ -417,6 +390,9 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
         .students-settings-list__index {
           color: var(--text-muted);
           margin-right: 6px;
+        }
+        .students-settings-subsection + .students-settings-subsection {
+          margin-top: 8px;
         }
       `,
         }}

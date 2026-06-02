@@ -437,7 +437,13 @@ export default function Caixa() {
           className="navi-page-header--flush navi-hub-page__head"
           title="Financeiro"
           subtitle="Controle entradas, saídas e fechamentos."
-          meta={`${subtitle}${academyName ? ` · ${academyName}` : ''}`}
+          meta={
+            activeTab === 'movimentacoes' ||
+            activeTab === 'fechamento' ||
+            activeTab === FINANCEIRO_SECTIONS.MENSALIDADES
+              ? undefined
+              : `${subtitle}${academyName ? ` · ${academyName}` : ''}`
+          }
           actions={
             <FinanceMonthPicker
               value={referenceMonth}

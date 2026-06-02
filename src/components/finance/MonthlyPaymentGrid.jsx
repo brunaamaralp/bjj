@@ -1,4 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuPanel,
+  DropdownMenuItemStatic,
+  DropdownMenuLabel,
+} from '../shared/menu';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
@@ -27,6 +33,46 @@ function truncateNote(note, max = 40) {
   if (!s) return '';
   if (s.length <= max) return s;
   return `${s.slice(0, max - 1)}…`;
+}
+
+const GRID_COLUMNS_STORAGE_PREFIX = 'navi-mensal-grid-cols';
+
+const OPTIONAL_GRID_COLUMNS = [
+  { key: 'expected', label: 'Valor esperado', defaultVisible: false },
+  { key: 'due', label: 'Vencimento', defaultVisible: false },
+  { key: 'account', label: 'Conta / plataforma', defaultVisible: false },
+];
+
+function defaultGridColumnVisibility() {
+  return Object.fromEntries(OPTIONAL_GRID_COLUMNS.map((c) => [c.key, c.defaultVisible]));
+}
+
+function loadGridColumnVisibility(academyId) {
+  if (!academyId) return defaultGridColumnVisibility();
+  try {
+    const raw = localStorage.getItem(`${GRID_COLUMNS_STORAGE_PREFIX}:${academyId}`);
+    if (!raw) return defaultGridColumnVisibility();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return defaultGridColumnVisibility();
+    return {
+      ...defaultGridColumnVisibility(),
+      ...OPTIONAL_GRID_COLUMNS.reduce((acc, col) => {
+        if (typeof parsed[col.key] === 'boolean') acc[col.key] = parsed[col.key];
+        return acc;
+      }, {}),
+    };
+  } catch {
+    return defaultGridColumnVisibility();
+  }
+}
+
+function saveGridColumnVisibility(academyId, visibility) {
+  if (!academyId) return;
+  try {
+    localStorage.setItem(`${GRID_COLUMNS_STORAGE_PREFIX}:${academyId}`, JSON.stringify(visibility));
+  } catch {
+    /* ignore */
+  }
 }
 
 function studentTurma(student) {
@@ -62,8 +108,31 @@ export default function MonthlyPaymentGrid({
   const [historyLoading, setHistoryLoading] = useState(null);
   const [notePopoverId, setNotePopoverId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [visibleCols, setVisibleCols] = useState(() => defaultGridColumnVisibility());
   const isMobile = useMatchMobile();
   const tableScrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!academyId) return;
+    setVisibleCols(loadGridColumnVisibility(academyId));
+  }, [academyId]);
+
+  const toggleGridColumn = useCallback(
+    (key) => {
+      setVisibleCols((prev) => {
+        const next = { ...prev, [key]: !prev[key] };
+        saveGridColumnVisibility(academyId, next);
+        return next;
+      });
+    },
+    [academyId]
+  );
+
+  const desktopColCount = useMemo(() => {
+    const optional = OPTIONAL_GRID_COLUMNS.filter((c) => visibleCols[c.key]).length;
+    return 5 + optional;
+  }, [visibleCols]);
 
   const rows = useMemo(() => {
     return students.map((student) => {
@@ -340,17 +409,21 @@ export default function MonthlyPaymentGrid({
           </span>
         </td>
         <td className="text-small">{student.plan || payment?.plan_name || '—'}</td>
-        <td className="monthly-grid-amount">
-          {expected > 0 ? fmtMoney(expected) : '—'}
-        </td>
-        <td className="text-small">{formatDueDayLabel(student)}</td>
-        <td className="text-small">
-          {student.preferredPaymentAccount || payment?.account ? (
-            student.preferredPaymentAccount || payment?.account
-          ) : (
-            <span className="mensal-cell-faint">—</span>
-          )}
-        </td>
+        {visibleCols.expected ? (
+          <td className="monthly-grid-amount">{expected > 0 ? fmtMoney(expected) : '—'}</td>
+        ) : null}
+        {visibleCols.due ? (
+          <td className="text-small">{formatDueDayLabel(student)}</td>
+        ) : null}
+        {visibleCols.account ? (
+          <td className="text-small">
+            {student.preferredPaymentAccount || payment?.account ? (
+              student.preferredPaymentAccount || payment?.account
+            ) : (
+              <span className="mensal-cell-faint">—</span>
+            )}
+          </td>
+        ) : null}
         <td>
           <GridStatusBadgeButton
             display={display}
@@ -401,7 +474,7 @@ export default function MonthlyPaymentGrid({
 
     return (
       <tr key={`${student.id}-history`} className="grid-history-row">
-        <td colSpan={8} className="grid-history-panel">
+        <td colSpan={desktopColCount} className="grid-history-panel">
           {historyLoading === student.id ? (
             <span className="text-xs text-muted">Carregando histórico…</span>
           ) : (
@@ -473,7 +546,7 @@ export default function MonthlyPaymentGrid({
 
   return (
     <div className="monthly-payment-grid">
-      <div className="mensal-summary-grid monthly-grid-summary">
+      <div className="mensal-summary-grid monthly-grid-summary monthly-grid-summary--five">
         <div className="card mensal-summary-metric-card">
           <div className="mensal-summary-metric-card__value finance-data">{fmtMoney(totals.expectedTotal)}</div>
           <div className="text-xs text-muted">Total esperado no mês</div>
@@ -532,7 +605,7 @@ export default function MonthlyPaymentGrid({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="monthly-grid-loading-cell">
+                <td colSpan={desktopColCount} className="monthly-grid-loading-cell">
                   Carregando…
                 </td>
               </tr>

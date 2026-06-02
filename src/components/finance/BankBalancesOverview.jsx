@@ -20,16 +20,55 @@ function BankBalanceCard({
   label,
   balance,
   muted = false,
+  unallocated = false,
   selected = false,
   selectable = false,
   onClick,
+  compactLayout = false,
   children,
 }) {
+  const cardClass = [
+    'finance-bank-balances__card',
+    'card',
+    muted && !unallocated ? ' finance-bank-balances__card--muted' : '',
+    unallocated ? ' finance-bank-balances__card--unallocated' : '',
+    selected ? ' finance-bank-balances__card--selected' : '',
+    selectable ? ' finance-bank-balances__card--selectable' : '',
+    compactLayout ? ' finance-bank-balances__card--compact' : '',
+  ]
+    .filter(Boolean)
+    .join('');
+
+  if (compactLayout) {
+    const HeroTag = selectable ? 'button' : 'div';
+    return (
+      <article className={cardClass}>
+        <HeroTag
+          type={selectable ? 'button' : undefined}
+          className="finance-bank-balances__card-hero"
+          onClick={selectable ? onClick : undefined}
+          aria-pressed={selectable ? selected : undefined}
+        >
+          <h3 className="finance-bank-balances__card-title">{label}</h3>
+          <p className="finance-bank-balances__card-balance finance-bank-balances__card-balance--hero">
+            {fmtMoney(balance)}
+          </p>
+        </HeroTag>
+        {children ? (
+          <details className="finance-bank-balances__card-details">
+            <summary className="finance-bank-balances__card-details-summary">Detalhes</summary>
+            <div className="finance-bank-balances__card-details-body">{children}</div>
+          </details>
+        ) : null}
+      </article>
+    );
+  }
+
   const CardTag = selectable ? 'button' : 'article';
   return (
     <CardTag
       type={selectable ? 'button' : undefined}
-      className={`finance-bank-balances__card card${muted ? ' finance-bank-balances__card--muted' : ''}${selected ? ' finance-bank-balances__card--selected' : ''}${selectable ? ' finance-bank-balances__card--selectable' : ''}`}
+      className={cardClass}
       onClick={onClick}
       aria-pressed={selectable ? selected : undefined}
     >
@@ -67,7 +106,12 @@ function AccountBreakdown({ openingBalance, inflow, outflow, movementCount }) {
   );
 }
 
-export default function BankBalancesOverview({ academyId, onSelectAccount, selectedAccountLabel = '' }) {
+export default function BankBalancesOverview({
+  academyId,
+  onSelectAccount,
+  selectedAccountLabel = '',
+  compactLayout = false,
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -119,9 +163,10 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
   }
 
   const selectable = Boolean(onSelectAccount);
+  const showUnallocated = compactLayout || (unallocated?.count > 0);
 
   return (
-    <div className="finance-bank-balances">
+    <div className={`finance-bank-balances${compactLayout ? ' finance-bank-balances--compact' : ''}`}>
       <div className="finance-bank-balances__head">
         <p className="text-small text-muted" role="status">
           Saldos liquidados até {String(data?.asOf || '').split('-').reverse().join('/') || 'hoje'}
@@ -137,7 +182,9 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
           Atualizar
         </button>
       </div>
-      <div className="finance-bank-balances__grid">
+      <div
+        className={`finance-bank-balances__grid${compactLayout ? ' finance-bank-balances__grid--quad' : ''}`}
+      >
         {accounts.map((row) => {
           const selected = selectedAccountLabel && selectedAccountLabel === row.label;
           return (
@@ -147,6 +194,7 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
               balance={row.balance}
               selected={selected}
               selectable={selectable}
+              compactLayout={compactLayout}
               onClick={
                 selectable ? () => onSelectAccount(selected ? '' : row.label) : undefined
               }
@@ -160,13 +208,14 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
             </BankBalanceCard>
           );
         })}
-        {unallocated?.count > 0 ? (
+        {showUnallocated ? (
           <BankBalanceCard
             label={UNALLOCATED_BANK_LABEL}
-            balance={unallocated.balance}
-            muted
+            balance={unallocated?.balance ?? 0}
+            unallocated
             selected={selectedAccountLabel === UNALLOCATED_BANK_LABEL}
             selectable={selectable}
+            compactLayout={compactLayout}
             onClick={
               selectable
                 ? () =>
@@ -179,7 +228,7 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
             <dl className="finance-bank-balances__card-breakdown">
               <div>
                 <dt>Lançamentos</dt>
-                <dd>{unallocated.count}</dd>
+                <dd>{unallocated?.count ?? 0}</dd>
               </div>
               <div>
                 <dt>Vínculo</dt>
@@ -191,7 +240,9 @@ export default function BankBalancesOverview({ academyId, onSelectAccount, selec
       </div>
       {selectable ? (
         <p className="text-small text-muted finance-bank-balances__filter-hint">
-          Clique em uma conta para filtrar a lista abaixo. Clique de novo para remover o filtro.
+          {compactLayout
+            ? 'Clique no saldo para filtrar a lista. Abra “Detalhes” para ver entradas e saídas.'
+            : 'Clique em uma conta para filtrar a lista abaixo. Clique de novo para remover o filtro.'}
         </p>
       ) : null}
       <p className="text-small text-muted finance-bank-balances__total">

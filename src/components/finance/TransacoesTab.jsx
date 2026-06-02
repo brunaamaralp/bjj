@@ -50,6 +50,12 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
+import {
+  DropdownMenu,
+  DropdownMenuPanel,
+  DropdownMenuItemStatic,
+  DropdownMenuLabel,
+} from '../shared/menu';
 import FinanceTxRowActions, { EXPENSE_EDIT_TITLE } from './FinanceTxRowActions.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
@@ -65,6 +71,48 @@ import {
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 
 const BANK_FILTER_UNALLOCATED = '__unallocated__';
+
+const TX_COLUMNS_STORAGE_PREFIX = 'navi-finance-tx-cols';
+
+const OPTIONAL_TX_COLUMNS = [
+  { key: 'sale', label: 'Venda', defaultVisible: false },
+  { key: 'bank', label: 'Conta', defaultVisible: false },
+  { key: 'type', label: 'Tipo', defaultVisible: true },
+  { key: 'method', label: 'Método', defaultVisible: true },
+  { key: 'fee', label: 'Taxa', defaultVisible: true },
+];
+
+function defaultTxColumnVisibility() {
+  return Object.fromEntries(OPTIONAL_TX_COLUMNS.map((c) => [c.key, c.defaultVisible]));
+}
+
+function loadTxColumnVisibility(academyId) {
+  if (!academyId) return defaultTxColumnVisibility();
+  try {
+    const raw = localStorage.getItem(`${TX_COLUMNS_STORAGE_PREFIX}:${academyId}`);
+    if (!raw) return defaultTxColumnVisibility();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return defaultTxColumnVisibility();
+    return {
+      ...defaultTxColumnVisibility(),
+      ...OPTIONAL_TX_COLUMNS.reduce((acc, col) => {
+        if (typeof parsed[col.key] === 'boolean') acc[col.key] = parsed[col.key];
+        return acc;
+      }, {}),
+    };
+  } catch {
+    return defaultTxColumnVisibility();
+  }
+}
+
+function saveTxColumnVisibility(academyId, visibility) {
+  if (!academyId) return;
+  try {
+    localStorage.setItem(`${TX_COLUMNS_STORAGE_PREFIX}:${academyId}`, JSON.stringify(visibility));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 function formatTxDateStr(iso) {
   const dt = new Date(iso);
@@ -180,6 +228,8 @@ export default function TransacoesTab({
   const [pendingReverseId, setPendingReverseId] = useState('');
   const [reverseLoadingId, setReverseLoadingId] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [visibleCols, setVisibleCols] = useState(() => defaultTxColumnVisibility());
   const loadReqRef = useRef(0);
   const lastNotifiedTxRef = useRef('');
   const highlightRowRef = useRef(null);
@@ -187,6 +237,27 @@ export default function TransacoesTab({
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
   }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    setVisibleCols(loadTxColumnVisibility(academyId));
+  }, [academyId]);
+
+  const toggleTxColumn = useCallback(
+    (key) => {
+      setVisibleCols((prev) => {
+        const next = { ...prev, [key]: !prev[key] };
+        saveTxColumnVisibility(academyId, next);
+        return next;
+      });
+    },
+    [academyId]
+  );
+
+  const desktopTableColCount = useMemo(() => {
+    const optionalVisible = OPTIONAL_TX_COLUMNS.filter((c) => visibleCols[c.key]).length;
+    return 8 + optionalVisible;
+  }, [visibleCols]);
 
   const initialTxForm = () => ({
     direction: 'in',
@@ -719,6 +790,7 @@ export default function TransacoesTab({
           <div className="mb-3">
             <BankBalancesOverview
               academyId={academyId}
+              compactLayout
               onSelectAccount={(label) => {
                 if (!label) {
                   setBankAccountFilter('all');
@@ -740,7 +812,13 @@ export default function TransacoesTab({
         ) : null}
         <div className="card">
           {academyId ? (
-            <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-3" />
+            <FinanceRegimeToggle
+              academyId={academyId}
+              value={regime}
+              onChange={setRegime}
+              hintStyle="tooltip"
+              className="mb-3"
+            />
           ) : null}
           <p className="text-small text-muted finance-tx-period-hint mb-3">
             O mês no cabeçalho da página define o período inicial. Ajuste <strong>De</strong> e <strong>Até</strong> para
@@ -997,19 +1075,54 @@ export default function TransacoesTab({
             </div>
             ) : (
             <div className="navi-desktop-table-wrap finance-desktop-table-wrap">
+            <div className="finance-tx-table-toolbar">
+              <DropdownMenu
+                open={colsMenuOpen}
+                onOpenChange={setColsMenuOpen}
+                className="finance-tx-cols-menu"
+                align="end"
+              >
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm finance-tx-cols-trigger"
+                  aria-expanded={colsMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setColsMenuOpen((o) => !o)}
+                >
+                  Colunas +
+                </button>
+                {colsMenuOpen ? (
+                  <DropdownMenuPanel aria-label="Colunas da tabela de lançamentos">
+                    <DropdownMenuLabel>Exibir colunas</DropdownMenuLabel>
+                    {OPTIONAL_TX_COLUMNS.map((col) => (
+                      <DropdownMenuItemStatic key={col.key}>
+                        <label className="finance-tx-cols-option">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(visibleCols[col.key])}
+                            onChange={() => toggleTxColumn(col.key)}
+                          />
+                          <span>{col.label}</span>
+                        </label>
+                      </DropdownMenuItemStatic>
+                    ))}
+                  </DropdownMenuPanel>
+                ) : null}
+              </DropdownMenu>
+            </div>
             <table className="finance-table">
               <thead>
                 <tr>
                   <th>Data</th>
                   <th>Natureza</th>
                   <th>Categoria</th>
-                  <th>Venda</th>
-                  <th>Conta</th>
+                  {visibleCols.sale ? <th>Venda</th> : null}
+                  {visibleCols.bank ? <th>Conta</th> : null}
                   <th>Aluno</th>
-                  <th>Tipo</th>
-                  <th>Método</th>
+                  {visibleCols.type ? <th>Tipo</th> : null}
+                  {visibleCols.method ? <th>Método</th> : null}
                   <th className="finance-num">Bruto</th>
-                  <th className="finance-num">Taxa</th>
+                  {visibleCols.fee ? <th className="finance-num">Taxa</th> : null}
                   <th className="finance-num">Líquido</th>
                   <th>Status</th>
                   <th className="finance-num finance-tx-th-action">Ação</th>
@@ -1018,7 +1131,7 @@ export default function TransacoesTab({
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="finance-tx-empty-cell">
+                    <td colSpan={desktopTableColCount} className="finance-tx-empty-cell">
                       <EmptyState
                         variant="table-cell"
                         tone="solid"
@@ -1103,15 +1216,19 @@ export default function TransacoesTab({
                         <span className={dir === 'out' ? 'finance-value-negative finance-tx-nature-label' : 'finance-value-positive finance-tx-nature-label'}>{nature.label}</span>
                       </td>
                       <td>{catBadge ? <span className={catBadge.className}>{catBadge.label}</span> : '—'}</td>
-                      <td>{tx.saleId ? formatSaleIdShort(tx.saleId) : '—'}</td>
-                      <td title={tx.bankAccount || resolveTxBankAccount(tx) || undefined}>
-                        {tx.bankAccount || resolveTxBankAccount(tx) || '—'}
-                      </td>
+                      {visibleCols.sale ? (
+                        <td>{tx.saleId ? formatSaleIdShort(tx.saleId) : '—'}</td>
+                      ) : null}
+                      {visibleCols.bank ? (
+                        <td title={tx.bankAccount || resolveTxBankAccount(tx) || undefined}>
+                          {tx.bankAccount || resolveTxBankAccount(tx) || '—'}
+                        </td>
+                      ) : null}
                       <td title={rawName || undefined}>{alumStr}</td>
-                      <td>{typeLabel}</td>
-                      <td>{methodLabel}</td>
+                      {visibleCols.type ? <td>{typeLabel}</td> : null}
+                      {visibleCols.method ? <td>{methodLabel}</td> : null}
                       <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{grossFmt}</td>
-                      <td className="finance-num finance-data">{feeFmt}</td>
+                      {visibleCols.fee ? <td className="finance-num finance-data">{feeFmt}</td> : null}
                       <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{netFmt}</td>
                       <td>{statusBadge}</td>
                       <td className="finance-num">

@@ -10,7 +10,7 @@ import { useFinanceConfigState } from '../../hooks/useFinanceConfigState.js';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import CaixaAccountingPanel from './CaixaAccountingPanel.jsx';
 import FinanceSettingsHub from './settings/FinanceSettingsHub.jsx';
-import FinanceSettingsDetailHeader from './settings/FinanceSettingsDetailHeader.jsx';
+import AcademyTabSettingsLayout from '../academy/settings/AcademyTabSettingsLayout.jsx';
 import FinanceSettingsStickySave from './settings/FinanceSettingsStickySave.jsx';
 import FinanceSettingsPlansSection from './settings/FinanceSettingsPlansSection.jsx';
 import FinanceSettingsFeesSection from './settings/FinanceSettingsFeesSection.jsx';
@@ -188,24 +188,18 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
           onSelectSection={goSection}
         />
       ) : (
-        <div className="finance-settings-layout">
-          <nav className="finance-settings-sidenav" aria-label="Seções do financeiro">
-            {allNavItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`finance-settings-sidenav__item${section === item.id ? ' finance-settings-sidenav__item--active' : ''}`}
-                onClick={() => goSection(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-          <div className="finance-settings-layout__content">
-            <FinanceSettingsDetailHeader title={meta?.label || 'Financeiro'} subtitle={meta?.hint} onBack={goHub} />
-            {sectionBody}
-          </div>
-        </div>
+        <AcademyTabSettingsLayout
+          navLabel="Seções do financeiro"
+          items={allNavItems}
+          activeId={section}
+          onSelect={goSection}
+          title={meta?.label || 'Financeiro'}
+          subtitle={meta?.hint}
+          onBack={goHub}
+          backLabel="Financeiro"
+        >
+          {sectionBody}
+        </AcademyTabSettingsLayout>
       )}
 
       <FinanceSettingsStickySave
