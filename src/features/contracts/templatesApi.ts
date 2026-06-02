@@ -92,6 +92,30 @@ async function templatesFetch(path: string, options: RequestInit = {}): Promise<
   return fetch(path, { ...options, headers });
 }
 
+async function readTemplatesJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) {
+    if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
+    return {} as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(res.ok ? 'Resposta inválida do servidor' : `Erro HTTP ${res.status}`);
+  }
+}
+
+function templatesApiError(data: { error?: unknown }, status: number): string {
+  const err = data?.error;
+  if (typeof err === 'string' && err.trim()) return err;
+  if (err && typeof err === 'object') {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+  }
+  if (err != null) return typeof err === 'object' ? JSON.stringify(err) : String(err);
+  return `Erro HTTP ${status}`;
+}
+
 export async function fetchContractTemplates(opts: {
   activeOnly?: boolean;
   purpose?: ContractTemplatePurpose;
@@ -103,12 +127,14 @@ export async function fetchContractTemplates(opts: {
   if (opts.activeOnly) qs.set('activeOnly', 'true');
   if (opts.purpose) qs.set('purpose', opts.purpose);
   const res = await templatesFetch(`/api/contract-templates?${qs.toString()}`);
-  const data = (await res.json()) as ContractTemplatesListResponse & {
-    templates?: Record<string, unknown>[];
-    template?: Record<string, unknown>;
-  };
+  const data = await readTemplatesJson<
+    ContractTemplatesListResponse & {
+      templates?: Record<string, unknown>[];
+      template?: Record<string, unknown>;
+    }
+  >(res);
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    throw new Error(templatesApiError(data, res.status));
   }
   const templates = (data.templates || []).map((t) => mapTemplate(t as Record<string, unknown>));
   return {
@@ -137,9 +163,11 @@ export async function createContractTemplateRequest(input: {
       signer_layout_json: input.signerLayoutJson,
     }),
   });
-  const data = (await res.json()) as ContractTemplatesListResponse & { template?: Record<string, unknown> };
+  const data = await readTemplatesJson<
+    ContractTemplatesListResponse & { template?: Record<string, unknown> }
+  >(res);
   if (!res.ok || !data.ok || !data.template) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    throw new Error(templatesApiError(data, res.status));
   }
   return mapTemplate(data.template as Record<string, unknown>);
 }
@@ -169,9 +197,11 @@ export async function updateContractTemplateRequest(
       signer_layout_json: patch.signerLayoutJson,
     }),
   });
-  const data = (await res.json()) as ContractTemplatesListResponse & { template?: Record<string, unknown> };
+  const data = await readTemplatesJson<
+    ContractTemplatesListResponse & { template?: Record<string, unknown> }
+  >(res);
   if (!res.ok || !data.ok || !data.template) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    throw new Error(templatesApiError(data, res.status));
   }
   return mapTemplate(data.template as Record<string, unknown>);
 }
@@ -180,9 +210,9 @@ export async function deleteContractTemplateRequest(id: string): Promise<void> {
   const res = await templatesFetch(`/api/contract-templates?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
-  const data = (await res.json()) as { ok: boolean; error?: string };
+  const data = await readTemplatesJson<{ ok: boolean; error?: unknown }>(res);
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    throw new Error(templatesApiError(data, res.status));
   }
 }
 
@@ -202,15 +232,15 @@ export async function ensureAcademyContractSetupRequest(): Promise<{
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'ensure-setup' }),
   });
-  const data = (await res.json()) as {
+  const data = await readTemplatesJson<{
     ok: boolean;
-    error?: string;
+    error?: unknown;
     summary?: EnsureContractSetupSummary;
     financeConfig?: Record<string, unknown>;
     templates?: Record<string, unknown>[];
-  };
+  }>(res);
   if (!res.ok || !data.ok || !data.summary) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    throw new Error(templatesApiError(data, res.status));
   }
   const templates = (data.templates || []).map((t) => mapTemplate(t));
   return {
@@ -248,4 +278,4 @@ export function resolveTemplateIdForPlan(
   const def = scoped.find((t) => t.isDefault);
   return def?.$id || null;
 }
-
+

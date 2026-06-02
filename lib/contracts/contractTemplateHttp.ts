@@ -25,12 +25,27 @@ function requireOwner(auth: ContractAuthContext): Response | null {
   return null;
 }
 
+function apiErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === 'object') {
+    const row = err as { message?: unknown; type?: unknown };
+    if (typeof row.message === 'string' && row.message.trim()) return row.message;
+    if (typeof row.type === 'string' && row.type.trim()) return row.type;
+  }
+  return String(err);
+}
+
 export async function handleGetContractTemplates(
   auth: ContractAuthContext,
   searchParams: URLSearchParams
 ): Promise<Response> {
   if (!isContractTemplatesConfigured()) {
     return jsonResponse({ ok: true, templates: [], configured: false });
+  }
+
+  const academyId = String(auth.academyId || '').trim();
+  if (!academyId) {
+    return jsonResponse({ ok: false, error: 'academy_id_required' }, 400);
   }
 
   try {
@@ -42,17 +57,16 @@ export async function handleGetContractTemplates(
       : undefined;
 
     if (id) {
-      const template = await getContractTemplateById(id, auth.academyId);
+      const template = await getContractTemplateById(id, academyId);
       if (!template) return jsonResponse({ ok: false, error: 'not_found' }, 404);
       return jsonResponse({ ok: true, template, configured: true });
     }
 
-    const templates = await listContractTemplates(auth.academyId, { activeOnly, purpose });
+    const templates = await listContractTemplates(academyId, { activeOnly, purpose });
     return jsonResponse({ ok: true, templates, configured: true });
   } catch (err) {
     console.error('[contract-templates GET]', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
   }
 }
 
@@ -106,8 +120,7 @@ export async function handlePostContractTemplate(
     return jsonResponse({ ok: true, template });
   } catch (err) {
     console.error('[contract-templates POST]', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
   }
 }
 
@@ -153,8 +166,7 @@ export async function handlePatchContractTemplate(
     return jsonResponse({ ok: true, template });
   } catch (err) {
     console.error('[contract-templates PATCH]', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
   }
 }
 
@@ -175,7 +187,6 @@ export async function handleDeleteContractTemplate(
     return jsonResponse({ ok: true });
   } catch (err) {
     console.error('[contract-templates DELETE]', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
   }
 }

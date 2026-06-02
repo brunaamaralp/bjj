@@ -26,7 +26,7 @@ export type { ContractTemplatePurpose, FinancePlanContractLink };
 export { parseContractTemplatePurpose, financePlanTemplateField };
 
 const TEMPLATES_COL = () =>
-  String(process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || '').trim();
+  String(process.env.APPWRITE_CONTRACT_TEMPLATES_COLLECTION_ID || 'contract_templates').trim();
 
 let cachedDb: Databases | null = null;
 
@@ -101,7 +101,11 @@ function mapTemplateDoc(doc: Models.Document | null): ContractTemplateRecord | n
   };
 }
 
-async function clearOtherDefaults(academyId: string, exceptId?: string) {
+async function clearOtherDefaults(
+  academyId: string,
+  purpose: ContractTemplatePurpose,
+  exceptId?: string
+) {
   const databases = requireDb();
   const list = await databases.listDocuments(DB_ID, TEMPLATES_COL(), [
     Query.equal('academy_id', [String(academyId)]),
@@ -110,6 +114,7 @@ async function clearOtherDefaults(academyId: string, exceptId?: string) {
   ]);
   for (const doc of list.documents || []) {
     if (exceptId && doc.$id === exceptId) continue;
+    if (parseContractTemplatePurpose(doc.purpose) !== purpose) continue;
     await databases.updateDocument(DB_ID, TEMPLATES_COL(), doc.$id, { is_default: false });
   }
 }
@@ -118,18 +123,23 @@ export async function listContractTemplates(
   academyId: string,
   opts: { activeOnly?: boolean; purpose?: ContractTemplatePurpose } = {}
 ): Promise<ContractTemplateRecord[]> {
+  const aid = String(academyId || '').trim();
+  if (!aid) throw new Error('academy_id_required');
+
   const databases = requireDb();
   const queries = [
-    Query.equal('academy_id', [String(academyId)]),
+    Query.equal('academy_id', [aid]),
     Query.orderDesc('$createdAt'),
     Query.limit(100),
   ];
-  if (opts.activeOnly) queries.unshift(Query.equal('active', [true]));
 
   const list = await databases.listDocuments(DB_ID, TEMPLATES_COL(), queries);
   let rows = (list.documents || [])
     .map((d) => mapTemplateDoc(d))
     .filter((t): t is ContractTemplateRecord => Boolean(t));
+  if (opts.activeOnly) {
+    rows = rows.filter((t) => t.active);
+  }
   if (opts.purpose) {
     rows = rows.filter((t) => t.purpose === opts.purpose);
   }

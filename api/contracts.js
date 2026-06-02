@@ -87,13 +87,26 @@ async function readJsonBody(req) {
   }
 }
 
+function sendContractsJsonError(res, err, label) {
+  if (res.headersSent) return;
+  console.error(label, err);
+  const message = err instanceof Error ? err.message : String(err);
+  res.statusCode = 500;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ ok: false, error: message }));
+}
+
 async function handleTemplatesVercel(req, res, auth) {
   const templateId = templateIdFromRequest(req);
   const host = req.headers.host || 'localhost';
   const url = new URL(req.url || '/api/contracts?route=templates', `https://${host}`);
 
   if (req.method === 'GET') {
-    return responseToVercel(res, await handleGetContractTemplates(auth, url.searchParams));
+    try {
+      return await responseToVercel(res, await handleGetContractTemplates(auth, url.searchParams));
+    } catch (err) {
+      return sendContractsJsonError(res, err, '[api/contracts templates GET]');
+    }
   }
 
   if (req.method === 'POST' && !templateId) {
@@ -138,6 +151,7 @@ async function resolveContractAuth(req, res) {
 }
 
 export default async function handler(req, res) {
+  try {
   const auth = await resolveContractAuth(req, res);
   if (!auth) return;
 
@@ -181,4 +195,7 @@ export default async function handler(req, res) {
   }
 
   return responseToVercel(res, jsonResponse({ ok: false, error: 'method_not_allowed' }, 405));
+  } catch (err) {
+    sendContractsJsonError(res, err, '[api/contracts]');
+  }
 }

@@ -224,9 +224,10 @@ function PlanRow({ pl, idx, onUpdate, onRemove }) {
 export default function ConfigTab({ academyId, layout = 'picker', isOwner = true }) {
   const isStacked = layout === 'stacked';
   const addToast = useUiStore((s) => s.addToast);
-  const { data: contractTemplatesData } = useContractTemplates(true);
+  const { data: contractTemplatesData, isSuccess: contractTemplatesReady } = useContractTemplates(true);
   const contractTemplates = contractTemplatesData?.templates || [];
-  const contractTemplatesConfigured = contractTemplatesData?.configured !== false;
+  const contractTemplatesConfigured =
+    contractTemplatesReady && contractTemplatesData?.configured !== false;
   const ensureContractSetup = useEnsureAcademyContractSetup();
   const enrollmentTemplates = useMemo(
     () => templatesForPurpose(contractTemplates, 'enrollment'),

@@ -79,9 +79,10 @@ export function installmentSummary(parcelado) {
 
 export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
   const addToast = useUiStore((s) => s.addToast);
-  const { data: contractTemplatesData } = useContractTemplates(true);
+  const { data: contractTemplatesData, isSuccess: contractTemplatesReady } = useContractTemplates(true);
   const contractTemplates = contractTemplatesData?.templates || [];
-  const contractTemplatesConfigured = contractTemplatesData?.configured !== false;
+  const contractTemplatesConfigured =
+    contractTemplatesReady && contractTemplatesData?.configured !== false;
   const ensureContractSetup = useEnsureAcademyContractSetup();
 
   const [loading, setLoading] = useState(Boolean(academyId));
