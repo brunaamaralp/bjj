@@ -4,6 +4,8 @@ import { MessageCircle, ChevronRight } from 'lucide-react';
 import { normalizeLeadProfileType } from '../../../lib/leadTypeNormalize.js';
 import ControlIdSyncBadge from './ControlIdSyncBadge.jsx';
 import StudentStatusBadge from './StudentStatusBadge.jsx';
+import StudentOverdueBadge from './StudentOverdueBadge.jsx';
+import { useLeadStore } from '../../store/useLeadStore.js';
 import { resolveStudentListStatus } from '../../lib/studentDisplayStatus.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
 import { preloadStudentProfile } from '../../lib/preloadRoutes.js';
@@ -18,6 +20,7 @@ function StudentListCard({
 }) {
   const digits = String(student.phone || '').replace(/\D/g, '');
   const paymentHint = useStudentStore((s) => s.paymentStatusByStudentId[student.id]);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
   const displayStatus = resolveStudentListStatus(student, paymentHint);
 
   return (
@@ -61,6 +64,7 @@ function StudentListCard({
             }}
           >
             {displayStatus ? <StudentStatusBadge status={displayStatus} /> : null}
+            <StudentOverdueBadge student={student} financeConfig={financeConfig} />
             {student.plan ? (
               <span className="text-small" style={{ margin: 0, color: 'var(--text-muted)' }}>
                 {student.plan}

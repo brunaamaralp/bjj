@@ -1,4 +1,5 @@
 import { filterBankAccountsWithBank } from './bankAccounts.js';
+import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
 
 /** Slugs em ?tab=financeiro&section= */
 export const FINANCE_SETTINGS_SECTIONS = {
@@ -6,6 +7,7 @@ export const FINANCE_SETTINGS_SECTIONS = {
   TAXAS: 'taxas',
   RECEBIMENTO: 'recebimento',
   REGUA: 'regua',
+  WHATSAPP: 'lembretes-whatsapp',
   EXCECOES: 'excecoes',
   PLANO_CONTAS: 'plano-contas',
   CONTRATOS: 'contratos',
@@ -48,6 +50,11 @@ export const FINANCE_SETTINGS_GROUPS = [
         id: FINANCE_SETTINGS_SECTIONS.REGUA,
         label: 'Régua de cobrança',
         hint: 'Lembretes e etiquetas após vencimento',
+      },
+      {
+        id: FINANCE_SETTINGS_SECTIONS.WHATSAPP,
+        label: 'Lembretes WhatsApp',
+        hint: 'Aviso automático antes e depois do vencimento',
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.CONTRATOS,
@@ -118,6 +125,10 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
         : `${banks.length} contas`;
 
   const rulesCount = Array.isArray(collectionRules) ? collectionRules.length : 0;
+  const wa = normalizeWhatsappRemindersConfig(financeConfig?.whatsappReminders);
+  const waParts = [];
+  if (wa.dueSoon.enabled) waParts.push(`antes (${wa.dueSoon.daysBefore}d)`);
+  if (wa.overdue.enabled) waParts.push(`atraso (${wa.overdue.daysAfter}d)`);
 
   return {
     [FINANCE_SETTINGS_SECTIONS.PLANOS]: {
@@ -135,6 +146,10 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.REGUA]: {
       done: rulesCount > 0,
       summary: rulesCount > 0 ? `${rulesCount} etapa${rulesCount === 1 ? '' : 's'}` : 'Padrão',
+    },
+    [FINANCE_SETTINGS_SECTIONS.WHATSAPP]: {
+      done: wa.dueSoon.enabled || wa.overdue.enabled,
+      summary: waParts.length ? waParts.join(' · ') : 'Desativado',
     },
     [FINANCE_SETTINGS_SECTIONS.EXCECOES]: {
       done: true,

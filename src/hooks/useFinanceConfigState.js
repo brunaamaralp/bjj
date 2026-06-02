@@ -23,6 +23,11 @@ import {
   mergeCollectionIntoFinanceConfig,
 } from '../lib/collectionRules.js';
 import { filterBankAccountsWithBank } from '../lib/bankAccounts.js';
+import {
+  defaultWhatsappRemindersConfig,
+  digestWhatsappReminders,
+  mergeWhatsappRemindersIntoFinanceConfig,
+} from '../lib/financeWhatsappReminders.js';
 
 export const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -37,6 +42,7 @@ export const defaultFinanceConfig = () => ({
   },
   bankAccounts: [],
   plans: [],
+  whatsappReminders: defaultWhatsappRemindersConfig(),
 });
 
 export function digestBankAccounts(accounts) {
@@ -93,13 +99,14 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     plans: digestPlans([]),
     collection: digestCollection(DEFAULT_COLLECTION_RULES, 'Inadimplente'),
     exceptions: digestExceptionLabels(readExceptionStatusLabels(null)),
+    whatsapp: digestWhatsappReminders(defaultWhatsappRemindersConfig()),
   });
 
   const applyLoadedState = useCallback((mergedCfg, coll) => {
-    const cfg = {
+    const cfg = mergeWhatsappRemindersIntoFinanceConfig({
       ...mergedCfg,
       bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
-    };
+    });
     setFinanceConfig(cfg);
     setCollectionRules(coll.collectionRules);
     setOverdueLabel(coll.overdueLabel);
@@ -111,6 +118,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       plans: digestPlans(cfg.plans),
       collection: digestCollection(coll.collectionRules, coll.overdueLabel),
       exceptions: digestExceptionLabels(labels),
+      whatsapp: digestWhatsappReminders(cfg.whatsappReminders),
     });
   }, []);
 
@@ -252,6 +260,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       plans: digestPlans(financeConfig.plans) !== savedDigests.plans,
       collection: digestCollection(collectionRules, overdueLabel) !== savedDigests.collection,
       exceptions: digestExceptionLabels(exceptionLabels) !== savedDigests.exceptions,
+      whatsapp: digestWhatsappReminders(financeConfig.whatsappReminders) !== savedDigests.whatsapp,
     }),
     [financeConfig, collectionRules, overdueLabel, exceptionLabels, savedDigests]
   );
@@ -264,10 +273,10 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       overdueLabel,
     });
     mergedCfg = mergeExceptionLabelsIntoFinanceConfig(mergedCfg, exceptionLabels);
-    mergedCfg = {
+    mergedCfg = mergeWhatsappRemindersIntoFinanceConfig({
       ...mergedCfg,
       bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
-    };
+    });
     return mergedCfg;
   }, [financeConfig, collectionRules, overdueLabel, exceptionLabels]);
 
@@ -303,6 +312,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         plans: digestPlans(mergedCfg.plans),
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),
         exceptions: digestExceptionLabels(labels),
+        whatsapp: digestWhatsappReminders(mergedCfg.whatsappReminders),
       });
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
       return true;

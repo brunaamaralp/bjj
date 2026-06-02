@@ -453,6 +453,30 @@
   display: inline-flex;
 }
 
+.finance-tx-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+.finance-tx-pagination__meta {
+  margin: 0;
+  flex: 1 1 12rem;
+}
+
+.finance-tx-pagination__btn {
+  flex-shrink: 0;
+}
+
+.finance-tx-pagination__filter-empty {
+  margin: 0.75rem 0 0;
+}
+
 .finance-tx-section__lead {
   margin: 0 0 var(--finance-space-4);
   font-size: var(--font-sm);
@@ -3803,4 +3827,31 @@
   width: var(--progress-pct, 0%);
   animation: none;
   background: var(--color-primary);
+}
+
+.finance-whatsapp-reminders-intro,
+.finance-whatsapp-reminders-vars {
+  margin: 0;
+}
+
+.finance-whatsapp-reminder-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-whatsapp-reminder-block__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-whatsapp-reminder-block__days {
+  max-width: 6rem;
+}
+
+.finance-whatsapp-reminder-block__message {
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
 }

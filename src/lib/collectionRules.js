@@ -5,7 +5,7 @@
  * - Não cria tarefa se payment.status === 'awaiting' (aguardando confirmação).
  * - Não cria tarefa se o aluno estiver em snooze de régua no mês de referência
  *   (collection_snooze_month === YYYY-MM no documento do aluno).
- * - Não envia WhatsApp automaticamente; apenas etiqueta + tarefa para a equipe.
+ * - Não envia WhatsApp automaticamente; persiste overdue no aluno + tarefa para a equipe.
  */
 
 export const DEFAULT_OVERDUE_LABEL = 'Inadimplente';

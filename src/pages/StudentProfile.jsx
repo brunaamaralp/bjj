@@ -64,6 +64,7 @@ import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.j
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
+import StudentOverdueBadge from '../components/student/StudentOverdueBadge.jsx';
 import { resolveStudentListStatus } from '../lib/studentDisplayStatus.js';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
@@ -1373,6 +1374,7 @@ export default function StudentProfile() {
                 ? await updatePayment(editingPaymentId, data)
                 : await createPayment(data);
             await loadPayments();
+            void fetchStudentById(student.id);
             const localYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
             if (
                 doc.reference_month === localYm &&
@@ -2023,6 +2025,9 @@ export default function StudentProfile() {
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, paymentStatus)}
                         />
+                        {modules?.finance === true ? (
+                            <StudentOverdueBadge student={student} financeConfig={financeConfig} />
+                        ) : null}
                         {modules?.finance === true && student?.id ? (
                             <StudentContractHeaderChip
                                 leadId={student.id}

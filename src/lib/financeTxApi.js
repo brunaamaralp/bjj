@@ -10,12 +10,13 @@ async function financeHeaders(academyId) {
   };
 }
 
-export async function listFinanceTx({ academyId, from, to, cursor, regime }) {
+export async function listFinanceTx({ academyId, from, to, cursor, regime, limit }) {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   if (cursor) params.set('cursor', cursor);
   if (regime) params.set('regime', regime);
+  if (limit != null && Number.isFinite(Number(limit))) params.set('limit', String(Math.floor(Number(limit))));
   const res = await authedFetch(`/api/finance-tx?${params}`, {
     headers: await financeHeaders(academyId),
   });
@@ -44,6 +45,18 @@ export async function patchFinanceTx({ academyId, id, payload }) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Erro ao atualizar lançamento');
   return body.transaction;
+}
+
+/** Estorno pós-liquidação — cancela o original e cria lançamento espelho. */
+export async function reverseFinanceTx({ academyId, id, reason }) {
+  const res = await authedFetch(`/api/finance-tx?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: await financeHeaders(academyId),
+    body: JSON.stringify({ action: 'reverse', reason: reason || '' }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao estornar lançamento');
+  return body;
 }
 
 export async function fetchBankBalances({ academyId, asOf } = {}) {

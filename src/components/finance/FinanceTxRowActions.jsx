@@ -10,14 +10,13 @@ import {
 const EXPENSE_EDIT_TITLE = 'Despesas só podem ser editadas por titular ou administrador.';
 
 /**
- * Ações de linha (desktop) para lançamento pendente / recorrência.
+ * Ações de linha (desktop) para lançamento pendente, liquidado ou recorrência.
  */
 export default function FinanceTxRowActions({
   txId,
   status,
   direction,
   canManageAdvanced,
-  canEditRow,
   showRecMenu,
   rowBusy,
   menuOpen,
@@ -25,25 +24,24 @@ export default function FinanceTxRowActions({
   onEdit,
   onSettle,
   onCancel,
+  onReverse,
   onEditRecurrence,
   onCancelRecurrence,
   recurrenceCancelLoading,
 }) {
   const st = String(status || '').toLowerCase();
   const isPending = st === 'pending';
+  const isSettled = st === 'settled';
   const showEdit = isPending && (canManageAdvanced || direction !== 'out');
   const editDisabled = isPending && direction === 'out' && !canManageAdvanced;
-  const hasPrimary = isPending || showRecMenu;
+  const hasPrimary = isPending || showRecMenu || (isSettled && canManageAdvanced);
 
   if (!hasPrimary) {
     return <span className="text-small finance-tx-no-actions">—</span>;
   }
 
   const moreOpen = menuOpen === txId;
-  const hasMoreItems =
-    showRecMenu ||
-    (isPending && canManageAdvanced) ||
-    (isPending && showEdit);
+  const hasMoreItems = showRecMenu || (isPending && canManageAdvanced);
 
   return (
     <div className="finance-tx-actions-cell">
@@ -75,6 +73,17 @@ export default function FinanceTxRowActions({
         </>
       ) : null}
 
+      {isSettled && canManageAdvanced ? (
+        <button
+          type="button"
+          className="btn-outline finance-btn-danger-outline"
+          onClick={onReverse}
+          disabled={rowBusy}
+        >
+          {rowBusy ? 'Estornando…' : 'Estornar'}
+        </button>
+      ) : null}
+
       {hasMoreItems ? (
         <DropdownMenu
           open={moreOpen}
@@ -100,7 +109,7 @@ export default function FinanceTxRowActions({
                   <DropdownMenuItem danger disabled={rowBusy} onClick={onCancelRecurrence}>
                     {recurrenceCancelLoading ? 'Cancelando…' : 'Cancelar recorrência'}
                   </DropdownMenuItem>
-                  {isPending && canManageAdvanced ? <DropdownMenuDivider /> : null}
+                  {(isPending || isSettled) && canManageAdvanced ? <DropdownMenuDivider /> : null}
                 </>
               ) : null}
               {isPending && canManageAdvanced ? (

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { listFinanceTx, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
+import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
 import {
   txDirection,
   displayGross,
@@ -165,6 +165,11 @@ export default function TransacoesTab({
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
   const [loadError, setLoadError] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [listTotal, setListTotal] = useState(null);
+  const [listTruncated, setListTruncated] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
   const [txSearch, setTxSearch] = useState('');
@@ -173,6 +178,9 @@ export default function TransacoesTab({
   const [pendingCancelId, setPendingCancelId] = useState('');
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
   const [pendingCancelRecId, setPendingCancelRecId] = useState('');
+  const [showReverseTxDialog, setShowReverseTxDialog] = useState(false);
+  const [pendingReverseId, setPendingReverseId] = useState('');
+  const [reverseLoadingId, setReverseLoadingId] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const loadReqRef = useRef(0);
   const lastNotifiedTxRef = useRef('');
@@ -289,28 +297,54 @@ export default function TransacoesTab({
     async (cursor = null, append = false) => {
       if (!academyId) {
         setTransactions([]);
+        setHasMore(false);
+        setNextCursor(null);
+        setListTotal(null);
         return;
       }
       const reqId = ++loadReqRef.current;
-      setTxLoading(true);
+      if (append) setLoadingMore(true);
+      else setTxLoading(true);
       try {
-        const body = await listFinanceTx({ academyId, from: fromDate, to: toDate, cursor, regime });
+        const body = await listFinanceTx({
+          academyId,
+          from: fromDate,
+          to: toDate,
+          cursor,
+          regime,
+          limit: 50,
+        });
         if (reqId !== loadReqRef.current) return;
         const items = body.transactions || [];
         setTransactions((prev) => (append ? [...prev, ...items] : items));
+        setHasMore(Boolean(body.hasMore));
+        setNextCursor(body.nextCursor || null);
+        setListTotal(typeof body.total === 'number' ? body.total : null);
+        setListTruncated(Boolean(body.truncated));
         setLoadError(false);
       } catch {
         if (reqId !== loadReqRef.current) return;
         if (!append) {
           setTransactions([]);
+          setHasMore(false);
+          setNextCursor(null);
+          setListTotal(null);
           setLoadError(true);
         }
       } finally {
-        if (reqId === loadReqRef.current) setTxLoading(false);
+        if (reqId === loadReqRef.current) {
+          setTxLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [academyId, fromDate, toDate, regime]
   );
+
+  const loadMoreTransactions = useCallback(() => {
+    if (!hasMore || !nextCursor || txLoading || loadingMore) return;
+    void loadTransactions(nextCursor, true);
+  }, [hasMore, nextCursor, txLoading, loadingMore, loadTransactions]);
 
   const notifyPeriodFiltersChange = useCallback(
     (from, to) => {
@@ -480,6 +514,10 @@ export default function TransacoesTab({
     if (c === 'cannot_cancel_settled') return 'Não é possível cancelar um lançamento já liquidado.';
     if (c === 'already_cancelled') return 'Este lançamento já está cancelado.';
     if (c === 'already_settled') return 'Este lançamento já foi liquidado.';
+    if (c === 'only_settled_can_reverse') return 'Só é possível estornar lançamentos liquidados.';
+    if (c === 'already_reversed') return 'Este lançamento já foi estornado.';
+    if (c === 'cannot_reverse_reversal') return 'Não é possível estornar um lançamento de estorno.';
+    if (c === 'cannot_reverse_recurrence_template') return 'Não é possível estornar o modelo de recorrência.';
     return '';
   };
 
@@ -509,6 +547,48 @@ export default function TransacoesTab({
     if (!tid) return;
     setPendingCancelId(tid);
     setShowCancelTxDialog(true);
+  };
+
+  const requestReverseTx = (id) => {
+    const tid = String(id || '').trim();
+    if (!tid) return;
+    setPendingReverseId(tid);
+    setShowReverseTxDialog(true);
+    setMenuOpenId('');
+  };
+
+  const reverseTx = async (id) => {
+    const tid = String(id || pendingReverseId || '').trim();
+    if (!tid || !academyId) return;
+    setReverseLoadingId(tid);
+    setShowReverseTxDialog(false);
+    setPendingReverseId('');
+    try {
+      const body = await reverseFinanceTx({ academyId, id: tid });
+      const original = body.transaction;
+      const reversal = body.reversal;
+      setTransactions((prev) => {
+        const next = prev.map((t) => (String(t.id) === tid ? original : t));
+        if (reversal?.id && !next.some((t) => String(t.id) === String(reversal.id))) {
+          return [reversal, ...next];
+        }
+        return next;
+      });
+      if (reversal && academyId) {
+        applySettleAccountingSideEffects(reversal, academyId);
+      }
+      toast.success('Lançamento estornado. O original foi cancelado e um estorno foi registrado.');
+      if (typeof onTxMutated === 'function') onTxMutated();
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+    } catch (e) {
+      const code = String(e?.message || '').trim();
+      toast.show({
+        type: 'error',
+        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+      });
+    } finally {
+      setReverseLoadingId('');
+    }
   };
 
   const cancelTx = async (id) => {
@@ -640,8 +720,9 @@ export default function TransacoesTab({
         <StatusBanner variant="info" className="finance-tx-info-banner mb-3">
           <p className="finance-tx-info-banner__text">
             Mensalidades <strong>pagas</strong> geram lançamento aqui automaticamente. Cobranças em aberto ficam em{' '}
-            <Link to="/financeiro?tab=mensalidades">Mensalidades</Link>. Só lançamentos <strong>pendentes</strong> podem
-            ser editados; liquidados exigem cancelamento e novo registro, se necessário.
+            <Link to="/financeiro?tab=mensalidades">Mensalidades</Link>. Pendentes podem ser editados;{' '}
+            <strong>liquidados</strong> podem ser <strong>estornados</strong> por gestores (cancela o original e registra o
+            espelho contábil).
           </p>
         </StatusBanner>
         {academyId ? (
@@ -833,7 +914,10 @@ export default function TransacoesTab({
                 const displayName = rawName || '—';
                 const badge = getTxCategoryBadge(tx);
                 const st = String(tx.status || '').toLowerCase();
-                const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
+                const rowBusy =
+                  cancelLoadingId === tx.id ||
+                  recurrenceCancelLoadingId === tx.id ||
+                  reverseLoadingId === tx.id;
                 const rec = isRecurrenceTx(tx);
                 return (
                   <article
@@ -902,6 +986,18 @@ export default function TransacoesTab({
                             {rowBusy ? '…' : 'Cancelar'}
                           </button>
                         ) : null}
+                      </div>
+                    ) : null}
+                    {st === 'settled' && canManageAdvanced ? (
+                      <div className="finance-mobile-card__actions">
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm finance-btn-danger-outline"
+                          disabled={rowBusy}
+                          onClick={() => requestReverseTx(tx.id)}
+                        >
+                          {reverseLoadingId === tx.id ? 'Estornando…' : 'Estornar'}
+                        </button>
                       </div>
                     ) : null}
                   </article>
@@ -981,7 +1077,10 @@ export default function TransacoesTab({
                     ) : (
                       <span className="finance-badge-neutro">{tx.status || '—'}</span>
                     );
-                  const rowBusy = cancelLoadingId === tx.id || recurrenceCancelLoadingId === tx.id;
+                  const rowBusy =
+                    cancelLoadingId === tx.id ||
+                    recurrenceCancelLoadingId === tx.id ||
+                    reverseLoadingId === tx.id;
                   const rec = isRecurrenceTx(tx);
                   const recTip = recurrenceTooltip(tx);
                   const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
@@ -1038,6 +1137,7 @@ export default function TransacoesTab({
                           onEdit={() => openEditModal(tx)}
                           onSettle={() => void settle(tx.id)}
                           onCancel={() => requestCancelTx(tx.id)}
+                          onReverse={() => requestReverseTx(tx.id)}
                           onEditRecurrence={() => openEditRecurrenceModal(tx)}
                           onCancelRecurrence={() => requestCancelRecurrence(tx.id)}
                           recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
@@ -1051,7 +1151,39 @@ export default function TransacoesTab({
             </div>
             )}
           </div>
-          {/* TODO: paginação real pendente no backend (hasMore/nextCursor) */}
+          {!loadError && transactions.length > 0 ? (
+            <div className="finance-tx-pagination">
+              <p className="text-small text-muted finance-tx-pagination__meta" role="status">
+                {hasActiveTxFilters
+                  ? `${filteredTransactions.length} resultado(s) nos ${transactions.length} lançamentos carregados`
+                  : `${transactions.length} lançamento${transactions.length === 1 ? '' : 's'} carregado${transactions.length === 1 ? '' : 's'}`}
+                {listTotal != null ? ` · ${listTotal} no período` : ''}
+                {hasActiveTxFilters && hasMore
+                  ? ' — carregue mais para ampliar a busca com os filtros ativos'
+                  : ''}
+                {listTruncated ? ' · Período muito grande: refine as datas.' : ''}
+              </p>
+              {hasMore ? (
+                <button
+                  type="button"
+                  className="btn-outline finance-tx-pagination__btn"
+                  onClick={loadMoreTransactions}
+                  disabled={loadingMore || txLoading}
+                  aria-busy={loadingMore}
+                >
+                  {loadingMore ? 'Carregando…' : 'Carregar mais'}
+                </button>
+              ) : (
+                <p className="text-small text-muted">Todos os lançamentos do período foram carregados.</p>
+              )}
+            </div>
+          ) : null}
+          {!loadError && hasActiveTxFilters && filteredTransactions.length === 0 && transactions.length > 0 ? (
+            <p className="text-small text-muted finance-tx-pagination__filter-empty">
+              Nenhum resultado nos lançamentos já carregados.
+              {hasMore ? ' Use “Carregar mais” para buscar no restante do período.' : ' Ajuste os filtros ou limpe a busca.'}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -1460,6 +1592,22 @@ export default function TransacoesTab({
           if (!cancelLoadingId) {
             setShowCancelTxDialog(false);
             setPendingCancelId('');
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={showReverseTxDialog}
+        title="Estornar lançamento liquidado"
+        description="O lançamento original será cancelado e um novo lançamento de estorno será registrado no caixa, com efeito contábil oposto. Esta ação é para gestores. Confirmar?"
+        confirmLabel="Estornar"
+        confirmVariant="danger"
+        loading={Boolean(reverseLoadingId)}
+        onConfirm={() => void reverseTx(pendingReverseId)}
+        onClose={() => {
+          if (!reverseLoadingId) {
+            setShowReverseTxDialog(false);
+            setPendingReverseId('');
           }
         }}
       />

@@ -450,6 +450,8 @@ const STUDENTS_ATTRS = [
   { key: 'photo_url', type: 'string', size: 512 },
   { key: 'collection_snooze_month', type: 'string', size: 7 },
   { key: 'collection_snooze_until', type: 'string', size: 32 },
+  { key: 'overdue', type: 'boolean' },
+  { key: 'overdue_label', type: 'string', size: 30 },
 ];
 
 /** api/tasks.js, applyTaskTemplate.js, inventoryMoveHandler */

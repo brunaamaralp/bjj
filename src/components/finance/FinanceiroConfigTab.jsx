@@ -18,6 +18,7 @@ import FinanceSettingsBanksSection from './settings/FinanceSettingsBanksSection.
 import { normalizeBankAccountEntry } from '../../lib/bankAccounts.js';
 import { parseCurrencyBRL } from '../../lib/masks.js';
 import FinanceSettingsCollectionSection from './settings/FinanceSettingsCollectionSection.jsx';
+import FinanceSettingsWhatsappRemindersSection from './settings/FinanceSettingsWhatsappRemindersSection.jsx';
 import FinanceSettingsExceptionsSection from './settings/FinanceSettingsExceptionsSection.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -142,6 +143,13 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         <FinanceSettingsCollectionSection
           collectionRules={state.collectionRules}
           onRulesChange={state.setCollectionRules}
+        />
+      ) : null}
+
+      {section === FINANCE_SETTINGS_SECTIONS.WHATSAPP ? (
+        <FinanceSettingsWhatsappRemindersSection
+          financeConfig={state.financeConfig}
+          setFinanceConfig={state.setFinanceConfig}
         />
       ) : null}
 

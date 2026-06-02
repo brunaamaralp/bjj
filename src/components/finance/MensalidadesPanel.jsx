@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
-import { account, databases, DB_ID, FINANCIAL_TX_COL, ACADEMIES_COL } from '../../lib/appwrite';
+import { account, databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments, createPayment, updatePayment } from '../../lib/studentPayments';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
@@ -743,13 +744,14 @@ export default function MensalidadesPanel({ embedded = false }) {
     try {
       await updatePayment(id, { status: 'cancelled', academy_id: payment.academy_id });
       const txId = String(payment?.financial_tx_id || '').trim();
-      if (txId && FINANCIAL_TX_COL) {
+      const aid = String(payment?.academy_id || academyId || '').trim();
+      if (txId && aid) {
         try {
-          await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, txId, { status: 'cancelled' });
+          await reverseFinanceTx({ academyId: aid, id: txId, reason: 'Estorno mensalidade' });
         } catch (err) {
           console.error('Falha no sync financeiro após estorno:', err);
           setEstornoCaixaWarning(
-            'Mensalidade estornada, mas o lançamento no caixa pode não ter sido atualizado. Verifique em Caixa → Movimentações.'
+            'Mensalidade estornada, mas o estorno no caixa pode não ter sido concluído. Verifique em Financeiro → Lançamentos.'
           );
         }
       }
