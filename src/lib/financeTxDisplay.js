@@ -40,3 +40,22 @@ export const NATURE_STYLES = {
   in: { color: '#3B6D11', label: 'Entrada' },
   out: { color: '#A32D2D', label: 'Saída' },
 };
+
+const TX_TYPE_LABELS = {
+  plan: 'Plano',
+  product: 'Produto',
+  enrollment: 'Matrícula',
+  other: 'Outro',
+  expense: 'Despesa',
+  expense_operational: 'Despesa operacional',
+  expense_financial: 'Despesa financeira',
+  card_fee: 'Taxa de cartão',
+  stock_purchase: 'Custo de estoque',
+  refund: 'Estorno',
+};
+
+/** Rótulo legível para FINANCIAL_TX.type (evita exibir slugs como stock_purchase). */
+export function labelForFinanceTxType(type) {
+  const t = String(type || '').toLowerCase();
+  return TX_TYPE_LABELS[t] || (t ? t.replace(/_/g, ' ') : '—');
+}

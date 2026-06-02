@@ -8,8 +8,10 @@ import {
   displayNet,
   displayFee,
   formatSignedMoney,
+  labelForFinanceTxType,
   NATURE_STYLES,
 } from '../../lib/financeTxDisplay.js';
+import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
@@ -91,19 +93,15 @@ function getTxSubtitle(tx) {
     const plan = tx.planName ? String(tx.planName) : 'Plano';
     return `${plan} · ${method}`;
   }
-  if (t === 'product') return `Produto · ${method}`;
-  if (t === 'expense') return `Despesa · ${method}`;
-  if (t === 'other') return `Outro · ${method}`;
+  const typeLabel = labelForFinanceTxType(t);
+  if (typeLabel && typeLabel !== '—') return `${typeLabel} · ${method}`;
   return method;
 }
 
 function getTxTypeLabelDesktop(tx) {
-  if (tx.type === 'plan') return `Plano${tx.planName ? ` • ${tx.planName}` : ''}`;
-  if (tx.type === 'product') return 'Produto';
-  if (tx.type === 'other') return 'Outro';
-  if (tx.type === 'expense') return 'Despesa';
-  if (tx.type) return String(tx.type);
-  return '—';
+  const t = String(tx.type || '').toLowerCase();
+  if (t === 'plan') return `Plano${tx.planName ? ` • ${tx.planName}` : ''}`;
+  return labelForFinanceTxType(t);
 }
 
 export default function TransacoesTab({
@@ -921,7 +919,7 @@ export default function TransacoesTab({
                         <span className={dir === 'out' ? 'finance-value-negative finance-tx-nature-label' : 'finance-value-positive finance-tx-nature-label'}>{nature.label}</span>
                       </td>
                       <td>{catBadge ? <span className={catBadge.className}>{catBadge.label}</span> : '—'}</td>
-                      <td>{tx.saleId || '-'}</td>
+                      <td>{tx.saleId ? formatSaleIdShort(tx.saleId) : '—'}</td>
                       <td title={rawName || undefined}>{alumStr}</td>
                       <td>{typeLabel}</td>
                       <td>{methodLabel}</td>
