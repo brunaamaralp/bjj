@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { templatesForPurpose } from '../../lib/contractPlanTemplates.js';
 import {
   FINANCE_SETTINGS_SECTIONS,
+  FINANCE_DEFAULT_SECTION,
   isFinanceSettingsSection,
   FINANCE_SETTINGS_GROUPS,
 } from '../../lib/financeSettingsSections.js';
+import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import { useFinanceConfigState } from '../../hooks/useFinanceConfigState.js';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import CaixaAccountingPanel from './CaixaAccountingPanel.jsx';
-import FinanceSettingsHub from './settings/FinanceSettingsHub.jsx';
 import AcademyTabSettingsLayout from '../academy/settings/AcademyTabSettingsLayout.jsx';
 import FinanceSettingsStickySave from './settings/FinanceSettingsStickySave.jsx';
 import FinanceSettingsPlansSection from './settings/FinanceSettingsPlansSection.jsx';
@@ -32,47 +32,42 @@ const SECTION_META = Object.fromEntries(
   FINANCE_SETTINGS_GROUPS.flatMap((g) => g.items.map((item) => [item.id, item]))
 );
 
-/** Minha academia → Financeiro — hub estilo Settings + sub-telas. */
+/** Minha academia → Financeiro — sidebar + subpáginas (mesmo layout das demais abas). */
 export default function FinanceiroConfigTab({ academyId, isOwner }) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const section = isFinanceSettingsSection(searchParams.get('section'));
   const state = useFinanceConfigState(academyId, { isOwner });
-  const accounts = useAccountingStore((s) => s.accounts);
+  const { section, goSection } = useAcademyTabSection(
+    'financeiro',
+    FINANCE_DEFAULT_SECTION,
+    isFinanceSettingsSection
+  );
 
   useEffect(() => {
     if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
   }, [academyId]);
-
-  const accountsCount = accounts?.length || 0;
 
   const rescissionTemplates = useMemo(
     () => templatesForPurpose(state.contractTemplates, 'rescission'),
     [state.contractTemplates]
   );
 
-  const goHub = () => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', 'financeiro');
-        next.delete('section');
-        return next;
-      },
-      { replace: false }
-    );
-  };
+  const allNavItems = useMemo(
+    () =>
+      FINANCE_SETTINGS_GROUPS.flatMap((g) =>
+        g.items.filter((item) => !(item.ownerOnly && !isOwner))
+      ),
+    [isOwner]
+  );
 
-  const goSection = (id) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', 'financeiro');
-        next.set('section', id);
-        return next;
-      },
-      { replace: false }
-    );
-  };
+  const activeSection = useMemo(() => {
+    if (allNavItems.some((item) => item.id === section)) return section;
+    return allNavItems[0]?.id || FINANCE_DEFAULT_SECTION;
+  }, [allNavItems, section]);
+
+  useEffect(() => {
+    if (section !== activeSection) {
+      goSection(activeSection);
+    }
+  }, [section, activeSection, goSection]);
 
   const saveBank = (idx, data) => {
     const openingRaw = data.openingBalance;
@@ -102,15 +97,11 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
     return <PageSkeleton variant="list" rows={5} />;
   }
 
-  const meta = section ? SECTION_META[section] : null;
+  const meta = SECTION_META[activeSection] || null;
 
-  const allNavItems = FINANCE_SETTINGS_GROUPS.flatMap((g) =>
-    g.items.filter((item) => !(item.ownerOnly && !isOwner))
-  );
-
-  const sectionBody = section ? (
+  const sectionBody = activeSection ? (
     <>
-      {section === FINANCE_SETTINGS_SECTIONS.PLANOS && isOwner ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.PLANOS && isOwner ? (
         <FinanceSettingsPlansSection
           financeConfig={state.financeConfig}
           contractTemplates={state.contractTemplates}
@@ -124,14 +115,14 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         />
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.TAXAS ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.TAXAS ? (
         <FinanceSettingsFeesSection
           financeConfig={state.financeConfig}
           setFinanceConfig={state.setFinanceConfig}
         />
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.RECEBIMENTO ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.RECEBIMENTO ? (
         <FinanceSettingsBanksSection
           financeConfig={state.financeConfig}
           onSaveBank={saveBank}
@@ -139,34 +130,34 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         />
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.REGUA && isOwner ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.REGUA && isOwner ? (
         <FinanceSettingsCollectionSection
           collectionRules={state.collectionRules}
           onRulesChange={state.setCollectionRules}
         />
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.WHATSAPP ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.WHATSAPP ? (
         <FinanceSettingsWhatsappRemindersSection
           financeConfig={state.financeConfig}
           setFinanceConfig={state.setFinanceConfig}
         />
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.EXCECOES ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.EXCECOES ? (
         <FinanceSettingsExceptionsSection
           labels={state.exceptionLabels}
           onChange={state.setExceptionLabels}
         />
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS && isOwner ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS && isOwner ? (
         <div className="finance-settings-section-body finance-settings-section-body--flush">
           <CaixaAccountingPanel scope="settings" isOwner={isOwner} />
         </div>
       ) : null}
 
-      {section === FINANCE_SETTINGS_SECTIONS.CONTRATOS && isOwner ? (
+      {activeSection === FINANCE_SETTINGS_SECTIONS.CONTRATOS && isOwner ? (
         <div className="finance-settings-section-body finance-settings-section-body--flush">
           <React.Suspense fallback={<RouteFallback />}>
             <ContractTemplatesPage embedded embeddedFinance />
@@ -178,29 +169,16 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
 
   return (
     <div className={`financeiro-config-tab${state.hasDirty ? ' financeiro-config-tab--dirty' : ''}`}>
-      {!section ? (
-        <FinanceSettingsHub
-          financeConfig={state.financeConfig}
-          collectionRules={state.collectionRules}
-          accountsCount={accountsCount}
-          contractTemplatesCount={(state.contractTemplates || []).length}
-          isOwner={isOwner}
-          onSelectSection={goSection}
-        />
-      ) : (
-        <AcademyTabSettingsLayout
-          navLabel="Seções do financeiro"
-          items={allNavItems}
-          activeId={section}
-          onSelect={goSection}
-          title={meta?.label || 'Financeiro'}
-          subtitle={meta?.hint}
-          onBack={goHub}
-          backLabel="Financeiro"
-        >
-          {sectionBody}
-        </AcademyTabSettingsLayout>
-      )}
+      <AcademyTabSettingsLayout
+        navLabel="Seções do financeiro"
+        items={allNavItems}
+        activeId={activeSection}
+        onSelect={goSection}
+        title={meta?.label || 'Financeiro'}
+        subtitle={meta?.hint}
+      >
+        {sectionBody}
+      </AcademyTabSettingsLayout>
 
       <FinanceSettingsStickySave
         visible={state.hasDirty}

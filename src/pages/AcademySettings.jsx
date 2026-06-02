@@ -705,7 +705,8 @@ const AcademySettings = () => {
         .academy-settings-page .stage-actions .grow {
           flex: 1 1 auto;
         }
-        .academy-settings-page .academy-tab-settings-layout {
+        .academy-settings-page .academy-tab-settings-layout,
+        .academy-settings-page .financeiro-config-tab .academy-tab-settings-layout {
           margin-top: var(--space-3);
         }
       `}} />

@@ -26,7 +26,6 @@ import {
 import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import AcademyTurmasSection from './AcademyTurmasSection.jsx';
 import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
-import EnrollmentFollowUpSection from './EnrollmentFollowUpSection.jsx';
 import BeltGradesSection from './BeltGradesSection.jsx';
 import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
 import '../finance/finance.css';
@@ -346,9 +345,6 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           canEdit={canEdit}
           embedded
         />
-        <div style={{ marginTop: 16 }}>
-          <EnrollmentFollowUpSection academyId={academyId} embedded />
-        </div>
       </>
     );
   }

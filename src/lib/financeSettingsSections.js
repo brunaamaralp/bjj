@@ -20,6 +20,8 @@ export function isFinanceSettingsSection(raw) {
   return VALID.has(id) ? id : null;
 }
 
+export const FINANCE_DEFAULT_SECTION = FINANCE_SETTINGS_SECTIONS.PLANOS;
+
 export const FINANCE_SETTINGS_GROUPS = [
   {
     id: 'essencial',

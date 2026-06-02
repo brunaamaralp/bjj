@@ -338,18 +338,18 @@ export default function PaymentExceptionsView({
 
   return (
     <div className="payment-exceptions-view">
-      <div className="mensal-summary-grid payment-exceptions-summary">
-        <div className="card mensal-summary-metric-card">
+      <div className="mensal-summary-grid payment-exceptions-summary payment-exceptions-summary--balanced">
+        <div className="card mensal-summary-metric-card payment-exceptions-summary__metric">
           <div className="mensal-summary-metric-card__value mensal-summary-metric-card__value--lg finance-data">{totals.count}</div>
           <div className="text-xs text-muted">Total de casos</div>
         </div>
-        <div className="card mensal-summary-metric-card">
+        <div className="card mensal-summary-metric-card payment-exceptions-summary__metric">
           <div className="mensal-summary-metric-card__value mensal-summary-metric-card__value--lg finance-amount-negative">{fmtMoney(totals.openValue)}</div>
           <div className="text-xs text-muted">Valor em aberto</div>
         </div>
-        <div className="card payment-exceptions-summary__status-card">
+        <div className="card mensal-summary-metric-card payment-exceptions-summary__metric payment-exceptions-summary__status-card">
           <div className="text-xs text-muted payment-exceptions-summary__status-label">Por status</div>
-          <div className="flex gap-2 payment-exceptions-summary__chips">
+          <div className="payment-exceptions-summary__chips">
             {EXCEPTION_STATUS_KEYS.map((key) => {
               const n = totals.byStatus[key] || 0;
               if (!n) return null;
@@ -377,11 +377,15 @@ export default function PaymentExceptionsView({
               <th>Diferença</th>
               <th>Vencimento</th>
               <th>
-                <span className="mensal-th-with-hint">
+                <span
+                  className="mensal-th-with-hint"
+                  title="Conta bancária ou forma de pagamento cadastrada no aluno — use para saber onde conferir o recebimento."
+                >
                   Conferir em
                   <Hint
-                    text="Canal ou sistema onde o pagamento deve ser conferido (caixa, Pix, planilha, etc.)."
+                    text="Indica onde o pagamento deve ser conferido: conta bancária ou forma de pagamento preferida do aluno (Pix, cartão, etc.), conforme o cadastro."
                     position="top"
+                    className="payment-exceptions-th-hint"
                   />
                 </span>
               </th>

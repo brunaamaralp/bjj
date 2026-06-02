@@ -11,8 +11,12 @@ import {
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 async function postEnrollmentConfig(academyId, body) {
-  const jwt = await createSessionJwt();
-  const token = String(jwt?.jwt || '').trim();
+  const token = String((await createSessionJwt()) || '').trim();
+  if (!token) {
+    const err = new Error('Sessão expirada. Faça login novamente.');
+    err.code = 'session_required';
+    throw err;
+  }
   const res = await fetch('/api/leads?route=public-enrollment-config', {
     method: 'POST',
     headers: {

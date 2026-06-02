@@ -3988,6 +3988,218 @@
   gap: var(--finance-space-3);
   margin-bottom: var(--finance-space-4);
 }
+
+.monthly-grid-summary--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 960px) {
+  .monthly-grid-summary--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .monthly-grid-summary--five {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.monthly-grid-table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.monthly-grid-cols-trigger {
+  font-size: var(--font-xs);
+  color: var(--text-secondary, var(--color-text-secondary));
+  padding: 2px 8px;
+}
+
+.monthly-grid-cols-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--ink, var(--color-text-primary));
+  cursor: pointer;
+}
+
+.monthly-grid-cols-option input {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.mensalidades-page .mensal-priorities-block {
+  margin-bottom: var(--finance-space-3, 12px);
+}
+
+.mensal-priorities-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  padding: 8px 12px;
+  border: 0.5px solid var(--border-light, var(--color-card-border));
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface, #fff);
+}
+
+.mensal-priorities-strip--skeleton {
+  gap: 8px;
+}
+
+.mensal-priorities-strip__skeleton {
+  flex: 1 1 120px;
+  min-height: 36px;
+  border-radius: 6px;
+  animation: mensal-pulse 1.2s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover, #f4f4f8) 0%,
+    var(--surface, #fff) 50%,
+    var(--surface-hover, #f4f4f8) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.mensal-priorities-strip__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 10px;
+  background: var(--border-light, var(--color-card-border));
+  flex-shrink: 0;
+}
+
+.mensal-priorities-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
+  transition: background 0.15s ease;
+}
+
+.mensal-priorities-chip:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.03));
+}
+
+.mensal-priorities-chip__icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.mensal-priorities-chip__value {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.mensal-priorities-chip__label {
+  font-size: var(--font-2xs);
+  font-weight: 500;
+  color: var(--text-secondary, var(--color-text-secondary));
+  line-height: 1.2;
+}
+
+.mensal-priorities-chip--zero .mensal-priorities-chip__value,
+.mensal-priorities-chip--zero .mensal-priorities-chip__icon {
+  color: var(--text-secondary, var(--color-text-secondary));
+}
+
+.mensal-priorities-chip--warn:not(.mensal-priorities-chip--zero) .mensal-priorities-chip__value,
+.mensal-priorities-chip--warn:not(.mensal-priorities-chip--zero) .mensal-priorities-chip__icon {
+  color: #b45309;
+}
+
+.mensal-priorities-chip--danger:not(.mensal-priorities-chip--zero) .mensal-priorities-chip__value,
+.mensal-priorities-chip--danger:not(.mensal-priorities-chip--zero) .mensal-priorities-chip__icon {
+  color: var(--finance-color-negative, #a32d2d);
+}
+
+.mensal-priorities-chip--success:not(.mensal-priorities-chip--zero) .mensal-priorities-chip__value,
+.mensal-priorities-chip--success:not(.mensal-priorities-chip--zero) .mensal-priorities-chip__icon {
+  color: #3b6d11;
+}
+
+.mensal-priorities-chip--active {
+  background: color-mix(in srgb, var(--color-accent, var(--accent)) 10%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent));
+}
+
+.payment-exceptions-view .payment-exceptions-summary--balanced {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payment-exceptions-view .payment-exceptions-summary__metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 88px;
+}
+
+.payment-exceptions-view .payment-exceptions-summary__status-card {
+  grid-column: auto;
+  min-height: 88px;
+}
+
+.payment-exceptions-view .payment-exceptions-summary__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.payment-exceptions-view .payment-exceptions-summary__status-label {
+  margin-bottom: 0;
+}
+
+.payment-exceptions-table thead th {
+  overflow: visible;
+}
+
+.payment-exceptions-view .mensal-th-with-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.payment-exceptions-view .payment-exceptions-th-hint .navi-hint__bubble {
+  z-index: calc(var(--z-sticky, 2) + 3);
+  max-width: 240px;
+}
+
+@media (max-width: 900px) {
+  .payment-exceptions-view .payment-exceptions-summary--balanced {
+    grid-template-columns: 1fr;
+  }
+
+  .mensal-priorities-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mensal-priorities-strip__divider {
+    width: auto;
+    height: 1px;
+    margin: 6px 0;
+  }
+}
 /* Grade do mês: filtros na toolbar unificada de Mensalidades (.finance-filters-bar) */
 .monthly-grid-table-wrap {
   max-height: calc(100vh - 320px);

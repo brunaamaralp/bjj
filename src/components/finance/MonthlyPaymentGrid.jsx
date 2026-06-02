@@ -578,15 +578,51 @@ export default function MonthlyPaymentGrid({
       {isMobile ? (
         renderMobileList()
       ) : (
+      <>
+      <div className="monthly-grid-table-toolbar">
+        <DropdownMenu
+          open={colsMenuOpen}
+          onOpenChange={setColsMenuOpen}
+          className="monthly-grid-cols-menu"
+          align="end"
+        >
+          <button
+            type="button"
+            className="btn-ghost btn-sm monthly-grid-cols-trigger"
+            aria-expanded={colsMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setColsMenuOpen((o) => !o)}
+          >
+            Colunas +
+          </button>
+          {colsMenuOpen ? (
+            <DropdownMenuPanel aria-label="Colunas da grade mensal">
+              <DropdownMenuLabel>Exibir colunas</DropdownMenuLabel>
+              {OPTIONAL_GRID_COLUMNS.map((col) => (
+                <DropdownMenuItemStatic key={col.key}>
+                  <label className="monthly-grid-cols-option">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(visibleCols[col.key])}
+                      onChange={() => toggleGridColumn(col.key)}
+                    />
+                    <span>{col.label}</span>
+                  </label>
+                </DropdownMenuItemStatic>
+              ))}
+            </DropdownMenuPanel>
+          ) : null}
+        </DropdownMenu>
+      </div>
       <div ref={tableScrollRef} className="mensal-table-wrap mensal-table-wrap--scroll-hint monthly-grid-table-wrap">
         <table className="mensal-table monthly-grid-table">
           <colgroup>
             <col className="monthly-grid-col-expand" />
             <col className="monthly-grid-col-name" />
             <col className="monthly-grid-col-plan" />
-            <col className="monthly-grid-col-amount" />
-            <col className="monthly-grid-col-due" />
-            <col className="monthly-grid-col-account" />
+            {visibleCols.expected ? <col className="monthly-grid-col-amount" /> : null}
+            {visibleCols.due ? <col className="monthly-grid-col-due" /> : null}
+            {visibleCols.account ? <col className="monthly-grid-col-account" /> : null}
             <col className="monthly-grid-col-status" />
             <col className="monthly-grid-col-note" />
           </colgroup>
@@ -595,9 +631,9 @@ export default function MonthlyPaymentGrid({
               <th className="monthly-grid-col-expand" />
               <th>{terms.student}</th>
               <th>Plano</th>
-              <th>Valor esperado</th>
-              <th>Vencimento</th>
-              <th>Conta / plataforma</th>
+              {visibleCols.expected ? <th>Valor esperado</th> : null}
+              {visibleCols.due ? <th>Vencimento</th> : null}
+              {visibleCols.account ? <th>Conta / plataforma</th> : null}
               <th>Status</th>
               <th className="mensal-th-note" aria-label="Nota" />
             </tr>
@@ -611,7 +647,7 @@ export default function MonthlyPaymentGrid({
               </tr>
             ) : sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="monthly-grid-empty-cell">
+                <td colSpan={desktopColCount} className="monthly-grid-empty-cell">
                   <EmptyState variant="table-cell" icon={Users} title="Nenhum registro neste filtro" />
                 </td>
               </tr>
@@ -627,7 +663,7 @@ export default function MonthlyPaymentGrid({
                   <>
                     {paddingTop > 0 ? (
                       <tr aria-hidden="true" className="mensal-virtual-spacer" style={{ height: paddingTop }}>
-                        <td colSpan={8} />
+                        <td colSpan={desktopColCount} />
                       </tr>
                     ) : null}
                     {virtualRows.map((virtualRow) => {
@@ -639,7 +675,7 @@ export default function MonthlyPaymentGrid({
                     })}
                     {paddingBottom > 0 ? (
                       <tr aria-hidden="true" className="mensal-virtual-spacer" style={{ height: paddingBottom }}>
-                        <td colSpan={8} />
+                        <td colSpan={desktopColCount} />
                       </tr>
                     ) : null}
                   </>
@@ -656,6 +692,7 @@ export default function MonthlyPaymentGrid({
           </tbody>
         </table>
       </div>
+      </>
       )}
 
       {popover && typeof document !== 'undefined'
