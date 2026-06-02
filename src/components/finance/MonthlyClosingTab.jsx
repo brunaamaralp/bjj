@@ -17,6 +17,7 @@ import { DateInputField } from '../DateInput';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
 import {
   buildClosingRows,
@@ -609,19 +610,19 @@ export default function MonthlyClosingTab({
         </div>
       </div>
 
-      <div className="filter-bar mb-2 monthly-closing-filters navi-toolbar">
-        <div className="form-group filter-field monthly-closing-filters__search">
-          <label className="text-xs">Buscar</label>
-          <SearchField
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome"
-            aria-label="Buscar na conferência"
-          />
-        </div>
-        <div className="form-group filter-field monthly-closing-filters__group">
-          <label className="text-xs">Origem</label>
-          <div className="monthly-closing-filters__chips">
+      <FinanceFiltersBar className="monthly-closing-filters mb-2">
+        <SearchField
+          className="finance-filters-bar__search monthly-closing-filters__search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nome"
+          aria-label="Buscar na conferência"
+        />
+        <div className="finance-filters-bar__field monthly-closing-filters__group">
+          <span className="finance-filters-bar__sr-label" id="monthly-closing-origin-label">
+            Origem
+          </span>
+          <div className="monthly-closing-filters__chips" role="group" aria-labelledby="monthly-closing-origin-label">
             {availableOrigins.map((key) => (
               <button
                 key={key}
@@ -634,9 +635,11 @@ export default function MonthlyClosingTab({
             ))}
           </div>
         </div>
-        <div className="form-group filter-field monthly-closing-filters__group">
-          <label className="text-xs">Situação</label>
-          <div className="monthly-closing-filters__chips">
+        <div className="finance-filters-bar__field monthly-closing-filters__group">
+          <span className="finance-filters-bar__sr-label" id="monthly-closing-situation-label">
+            Situação
+          </span>
+          <div className="monthly-closing-filters__chips" role="group" aria-labelledby="monthly-closing-situation-label">
             {CLOSING_SITUATIONS.map((key) => (
               <button
                 key={key}
@@ -650,31 +653,37 @@ export default function MonthlyClosingTab({
           </div>
         </div>
         {methodOptions.length > 0 ? (
-          <div className="form-group filter-field monthly-closing-filters__method">
-            <label className="text-xs">Forma de pagamento</label>
-            <select className="form-input navi-control--toolbar" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
-              <option value="all">Todas</option>
-              {methodOptions.map((k) => {
-                const methodKey = k.split('|')[0] || k;
-                return (
-                  <option key={k} value={k}>
-                    {formatPaymentMethodLabel(methodKey)}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+          <FinanceToolbarSelect
+            id="monthly-closing-method"
+            label="Forma de pagamento"
+            className="monthly-closing-filters__method"
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+          >
+            <option value="all">Todas</option>
+            {methodOptions.map((k) => {
+              const methodKey = k.split('|')[0] || k;
+              return (
+                <option key={k} value={k}>
+                  {formatPaymentMethodLabel(methodKey)}
+                </option>
+              );
+            })}
+          </FinanceToolbarSelect>
         ) : null}
-        <div className="form-group filter-field monthly-closing-filters__sort">
-          <label className="text-xs">Ordenar</label>
-          <select className="form-input navi-control--toolbar" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="date">Data (recente)</option>
-            <option value="name">Nome</option>
-            <option value="received">Valor recebido</option>
-            <option value="expected">Valor esperado</option>
-          </select>
-        </div>
-      </div>
+        <FinanceToolbarSelect
+          id="monthly-closing-sort"
+          label="Ordenar"
+          className="monthly-closing-filters__sort"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+        >
+          <option value="date">Data (recente)</option>
+          <option value="name">Nome</option>
+          <option value="received">Valor recebido</option>
+          <option value="expected">Valor esperado</option>
+        </FinanceToolbarSelect>
+      </FinanceFiltersBar>
 
       <div className="finance-table-wrap monthly-closing-wrap">
         {loading && sortedRows.length > 0 ? (

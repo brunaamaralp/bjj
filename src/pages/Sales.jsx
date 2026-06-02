@@ -16,12 +16,7 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 const Sales = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const academyId = useLeadStore((s) => s.academyId);
-  const academyList = useLeadStore((s) => s.academyList);
   const configRef = useRef(null);
-  const academyName = useMemo(() => {
-    const cur = (academyList || []).find((a) => a.id === academyId);
-    return String(cur?.name || '').trim();
-  }, [academyList, academyId]);
   const tabs = useMemo(
     () => [
       { id: 'new', label: 'Nova venda' },

@@ -9077,49 +9077,11 @@ input.navi-typable-date.form-input:focus {
   color: #fff;
 }
 
-.mensal-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--control-gap);
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.mensal-search {
-  flex: 1;
+.mensal-search,
+.finance-filters-bar__search {
+  flex: 1 1 200px;
   min-width: 180px;
   max-width: 360px;
-}
-
-.mensal-filters {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mensal-filters__primary,
-.mensal-filters__regua-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.mensal-filters__regua-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: none;
-  background: none;
-  padding: 4px 0;
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.mensal-filters__chev--open {
-  transform: rotate(180deg);
 }
 
 .mensal-chip {

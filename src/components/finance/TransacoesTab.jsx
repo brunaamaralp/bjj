@@ -49,6 +49,7 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
@@ -595,73 +596,79 @@ export default function TransacoesTab({
           {academyId ? (
             <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-3" />
           ) : null}
-          <div className="finance-tx-toolbar navi-toolbar">
-            <div className="finance-tx-toolbar__filters">
-              <div className="flex gap-2 finance-tx-date-filters">
-                <div className="form-group finance-tx-date-group">
-                  <label>De</label>
-                  <DateInputField
-                    className="form-input navi-date-filter navi-control--toolbar"
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                  />
-                </div>
-                <div className="form-group finance-tx-date-group">
-                  <label>Até</label>
-                  <DateInputField
-                    className="form-input navi-date-filter navi-control--toolbar"
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="filter-bar finance-tx-filters navi-toolbar">
-                <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--status">
-                  <label>Status</label>
-                  <select
-                    className="form-input navi-control--toolbar"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    <option value="pending">Pendente</option>
-                    <option value="settled">Liquidado</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>
-                </div>
-                <div className="form-group filter-field finance-tx-filter-group finance-tx-filter-group--nature">
-                  <label>Natureza</label>
-                  <select
-                    className="form-input navi-control--toolbar"
-                    value={directionFilter}
-                    onChange={(e) => setDirectionFilter(e.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    <option value="in">Entrada</option>
-                    <option value="out">Saída</option>
-                  </select>
-                </div>
-                <SearchField
-                  className="finance-tx-toolbar__search"
-                  value={txSearch}
-                  onChange={(e) => setTxSearch(e.target.value)}
-                  placeholder="Buscar aluno, categoria ou nota"
-                  aria-label="Buscar lançamentos"
+          <FinanceFiltersBar className="finance-tx-toolbar">
+            <div className="finance-tx-toolbar__row">
+              <div className="finance-filters-bar__field finance-tx-date-group">
+                <label htmlFor="finance-tx-from" className="finance-filters-bar__sr-label">
+                  De
+                </label>
+                <DateInputField
+                  id="finance-tx-from"
+                  className="form-input navi-date-filter navi-control--toolbar"
+                  type="date"
+                  aria-label="Data inicial"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
                 />
-                {hasActiveTxFilters ? (
-                  <button type="button" className="btn-outline btn-sm filter-clear navi-btn--toolbar" onClick={clearTxFilters}>
-                    Limpar filtros
-                  </button>
-                ) : null}
               </div>
+              <div className="finance-filters-bar__field finance-tx-date-group">
+                <label htmlFor="finance-tx-to" className="finance-filters-bar__sr-label">
+                  Até
+                </label>
+                <DateInputField
+                  id="finance-tx-to"
+                  className="form-input navi-date-filter navi-control--toolbar"
+                  type="date"
+                  aria-label="Data final"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </div>
+              <FinanceToolbarSelect
+                id="finance-tx-status"
+                label="Status"
+                className="finance-tx-filter-group--status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="pending">Pendente</option>
+                <option value="settled">Liquidado</option>
+                <option value="cancelled">Cancelado</option>
+              </FinanceToolbarSelect>
+              <FinanceToolbarSelect
+                id="finance-tx-nature"
+                label="Natureza"
+                className="finance-tx-filter-group--nature"
+                value={directionFilter}
+                onChange={(e) => setDirectionFilter(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="in">Entrada</option>
+                <option value="out">Saída</option>
+              </FinanceToolbarSelect>
+              <SearchField
+                className="finance-filters-bar__search finance-tx-toolbar__search"
+                value={txSearch}
+                onChange={(e) => setTxSearch(e.target.value)}
+                placeholder="Buscar aluno, categoria ou nota"
+                aria-label="Buscar lançamentos"
+              />
+              {hasActiveTxFilters ? (
+                <button
+                  type="button"
+                  className="btn-outline btn-sm filter-clear navi-btn--toolbar"
+                  onClick={clearTxFilters}
+                >
+                  Limpar filtros
+                </button>
+              ) : null}
             </div>
             <div className="finance-tx-toolbar__actions flex gap-2">
               {canManageAdvanced ? (
                 <button
                   type="button"
-                  className="btn-outline finance-tx-toolbar__cta"
+                  className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta"
                   onClick={() => setShowImportModal(true)}
                 >
                   <Upload size={16} aria-hidden />
@@ -670,7 +677,7 @@ export default function TransacoesTab({
               ) : null}
               <button
                 type="button"
-                className="btn-primary finance-tx-toolbar__cta"
+                className="btn-primary navi-btn--toolbar finance-tx-toolbar__cta"
                 onClick={() => {
                   setEditingTxId('');
                   setEditPreservedSaleId('');
@@ -684,7 +691,7 @@ export default function TransacoesTab({
                 + Nova transação
               </button>
             </div>
-          </div>
+          </FinanceFiltersBar>
           {loadError ? (
             <ErrorBanner
               message="Não foi possível carregar os lançamentos. Verifique a conexão e tente novamente."

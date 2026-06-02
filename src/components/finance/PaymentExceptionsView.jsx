@@ -21,8 +21,6 @@ import {
 import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
-import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
-
 function displayNote(note, max = 80) {
   const s = String(note || '').trim();
   if (!s) return '';
@@ -41,6 +39,11 @@ export default function PaymentExceptionsView({
   userId,
   sessionUserName,
   search,
+  statusFilter = 'all',
+  turmaFilter = 'all',
+  platformFilter = 'all',
+  onlyWithDiff = false,
+  sortBy = 'difference',
   terms,
   addToast,
   friendlyError,
@@ -51,11 +54,6 @@ export default function PaymentExceptionsView({
     [financeConfig]
   );
 
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [turmaFilter, setTurmaFilter] = useState('all');
-  const [platformFilter, setPlatformFilter] = useState('all');
-  const [onlyWithDiff, setOnlyWithDiff] = useState(false);
-  const [sortBy, setSortBy] = useState('difference');
   const [popover, setPopover] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -82,40 +80,6 @@ export default function PaymentExceptionsView({
       })
       .filter(Boolean);
   }, [students, paymentMap, currentMonth, financeConfig]);
-
-  const turmas = useMemo(() => {
-    const set = new Set();
-    for (const r of exceptionRows) {
-      if (r.turma) set.add(r.turma);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [exceptionRows]);
-
-  const platforms = useMemo(() => {
-    const set = new Set();
-    for (const r of exceptionRows) {
-      if (r.platform && r.platform !== '—') set.add(r.platform);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [exceptionRows]);
-
-  const statusFilterOptions = useMemo(() => {
-    const counts = { all: exceptionRows.length };
-    for (const key of EXCEPTION_STATUS_KEYS) counts[key] = 0;
-    for (const row of exceptionRows) {
-      for (const r of row.reasons) {
-        if (counts[r] != null) counts[r] += 1;
-      }
-    }
-    return [
-      { id: 'all', label: 'Todos', count: counts.all },
-      ...EXCEPTION_STATUS_KEYS.map((key) => ({
-        id: key,
-        label: labelForExceptionStatus(key, statusLabels),
-        count: counts[key],
-      })),
-    ];
-  }, [exceptionRows, statusLabels]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -396,54 +360,6 @@ export default function PaymentExceptionsView({
               );
             })}
           </div>
-        </div>
-      </div>
-
-      <div className="filter-bar mb-2 payment-exceptions-filters">
-        <div className="form-group filter-field payment-exceptions-filters__type">
-          <label className="text-xs">Tipo</label>
-          <CompactStatusFilter
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={statusFilterOptions}
-            placeholder="Todos os tipos"
-            showCounts={false}
-          />
-        </div>
-        {turmas.length > 0 ? (
-          <div className="form-group filter-field payment-exceptions-filters__turma">
-            <label className="text-xs">Turma</label>
-            <select className="form-input" value={turmaFilter} onChange={(e) => setTurmaFilter(e.target.value)}>
-              <option value="all">Todas</option>
-              {turmas.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        {platforms.length > 0 ? (
-          <div className="form-group filter-field payment-exceptions-filters__platform">
-            <label className="text-xs">Plataforma</label>
-            <select className="form-input" value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
-              <option value="all">Todas</option>
-              {platforms.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        <label className="flex items-center gap-2 text-small payment-exceptions-filters__diff-check">
-          <input type="checkbox" checked={onlyWithDiff} onChange={(e) => setOnlyWithDiff(e.target.checked)} />
-          Só com diferença &gt; 0
-        </label>
-        <div className="form-group filter-field payment-exceptions-filters__sort">
-          <label className="text-xs">Ordenar por</label>
-          <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="difference">Diferença (maior)</option>
-            <option value="due">Vencimento (atraso)</option>
-            <option value="name">Nome</option>
-            <option value="status">Status</option>
-          </select>
         </div>
       </div>
 

@@ -36,7 +36,7 @@ export async function enrichContractSignersFromAcademy(
     if (!String(next.name || '').trim() && academyName) {
       next.name = academyName;
     }
-    if (usesPhoneDelivery(next.delivery_method)) return next;
+    if (needsPhone(next.delivery_method)) return next;
 
     if (!String(next.email || '').trim() && academyEmail) {
       next.email = academyEmail;

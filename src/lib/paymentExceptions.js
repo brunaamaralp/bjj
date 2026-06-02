@@ -224,6 +224,45 @@ export function studentTurma(student) {
   ).trim();
 }
 
+/** Linhas da visão Pendências (para toolbar unificada em Mensalidades). */
+export function listExceptionRows(students, paymentMap, currentMonth, financeConfig) {
+  if (!Array.isArray(students)) return [];
+  return students
+    .map((student) => {
+      const payment = paymentMap?.[student.id];
+      const analysis = analyzePaymentException(student, payment, currentMonth, financeConfig);
+      if (!analysis.isException) return null;
+      return {
+        student,
+        payment,
+        ...analysis,
+        turma: studentTurma(student),
+        platform: studentPaymentPlatform(student, payment),
+      };
+    })
+    .filter(Boolean);
+}
+
+/** Opções do CompactStatusFilter na toolbar de Pendências. */
+export function buildExceptionStatusFilterOptions(exceptionRows, statusLabels) {
+  const rows = Array.isArray(exceptionRows) ? exceptionRows : [];
+  const counts = { all: rows.length };
+  for (const key of EXCEPTION_STATUS_KEYS) counts[key] = 0;
+  for (const row of rows) {
+    for (const r of row.reasons || []) {
+      if (counts[r] != null) counts[r] += 1;
+    }
+  }
+  return [
+    { id: 'all', label: 'Todos', count: counts.all },
+    ...EXCEPTION_STATUS_KEYS.map((key) => ({
+      id: key,
+      label: labelForExceptionStatus(key, statusLabels),
+      count: counts[key],
+    })),
+  ];
+}
+
 export function studentPaymentPlatform(student, payment) {
   return String(
     payment?.account || student?.preferredPaymentAccount || student?.preferredPaymentMethod || ''

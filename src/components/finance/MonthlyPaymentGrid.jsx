@@ -48,13 +48,13 @@ export default function MonthlyPaymentGrid({
   sessionUserName,
   search,
   filter,
+  turmaFilter = 'all',
+  sortBy = 'name',
   terms,
   addToast,
   friendlyError,
   loading,
 }) {
-  const [sortBy, setSortBy] = useState('name');
-  const [turmaFilter, setTurmaFilter] = useState('all');
   const [popover, setPopover] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -64,15 +64,6 @@ export default function MonthlyPaymentGrid({
   const [noteDraft, setNoteDraft] = useState('');
   const isMobile = useMatchMobile();
   const tableScrollRef = useRef(null);
-
-  const turmas = useMemo(() => {
-    const set = new Set();
-    for (const s of students) {
-      const t = studentTurma(s);
-      if (t) set.add(t);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [students]);
 
   const rows = useMemo(() => {
     return students.map((student) => {
@@ -508,29 +499,6 @@ export default function MonthlyPaymentGrid({
         <div className="card mensal-summary-metric-card">
           <div className="mensal-summary-metric-card__value finance-value-pending">{totals.problemCount}</div>
           <div className="text-xs text-muted">Com pendência ou divergência</div>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mb-2 monthly-grid-filters">
-        {turmas.length > 0 ? (
-          <div className="form-group monthly-grid-filter-field monthly-grid-filter-field--turma">
-            <label className="text-xs">Turma</label>
-            <select className="form-input" value={turmaFilter} onChange={(e) => setTurmaFilter(e.target.value)}>
-              <option value="all">Todas</option>
-              {turmas.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        <div className="form-group monthly-grid-filter-field monthly-grid-filter-field--sort">
-          <label className="text-xs">Ordenar por</label>
-          <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="name">Nome</option>
-            <option value="due">Vencimento</option>
-            <option value="status">Status</option>
-            <option value="amount">Valor esperado</option>
-          </select>
         </div>
       </div>
 

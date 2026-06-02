@@ -1766,16 +1766,6 @@ const Dashboard = () => {
           font-variant-numeric: tabular-nums;
           letter-spacing: -0.03em;
         }
-        @media (max-width: 767px) {
-          .reception-header-ai-mobile {
-            margin-top: 12px;
-            width: 100%;
-            max-width: 100%;
-          }
-          .reception-header-ai-mobile button {
-            width: 100%;
-          }
-        }
         .agenda-kpi-value--attention {
           font-size: 1.55rem !important;
           line-height: 1.1;

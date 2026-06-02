@@ -19,6 +19,7 @@ import {
 } from '../../lib/financeForecastCore.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import FinanceFiltersBar from './FinanceFiltersBar.jsx';
 
 const PRESETS = [
   { id: '30d', label: '30 dias' },
@@ -142,13 +143,13 @@ export default function ForecastTab({ academyId }) {
         </p>
       </div>
 
-      <div className="flex gap-2 mb-3 finance-forecast-toolbar">
+      <FinanceFiltersBar className="finance-forecast-toolbar">
         <span className="text-small text-muted">Período:</span>
         {PRESETS.map((p) => (
           <button
             key={p.id}
             type="button"
-            className={`btn-outline btn-sm${preset === p.id ? ' finance-regime-active' : ''}`}
+            className={`btn-outline btn-sm navi-btn--toolbar${preset === p.id ? ' finance-forecast-preset--active' : ''}`}
             onClick={() => setPreset(p.id)}
             title={p.hint || undefined}
           >
@@ -159,7 +160,7 @@ export default function ForecastTab({ academyId }) {
           {isRefreshing ? 'Atualizando…' : cachedAtLabel ? `Atualizado às ${cachedAtLabel}` : '—'}
           <button
             type="button"
-            className="btn-outline btn-sm"
+            className="btn-outline btn-sm navi-btn--toolbar"
             onClick={() => void load(true)}
             disabled={loading}
             aria-label="Atualizar previsão"
@@ -172,7 +173,7 @@ export default function ForecastTab({ academyId }) {
             {fmtDateBr(range.from)} — {fmtDateBr(range.to)}
           </span>
         ) : null}
-      </div>
+      </FinanceFiltersBar>
 
       {loading && !data ? <PageSkeleton variant="cards" rows={2} /> : null}
       {error ? (

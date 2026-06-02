@@ -43,6 +43,14 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
+import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
+import {
+  buildExceptionStatusFilterOptions,
+  listExceptionRows,
+  readExceptionStatusLabels,
+  studentTurma,
+} from '../../lib/paymentExceptions.js';
 import { formatPaymentDateLabel, isPaymentDateInFuture } from '../../lib/validations.js';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 
@@ -206,6 +214,13 @@ export default function MensalidadesPanel({ embedded = false }) {
   const skipFuturePaidDateRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [viewMode, setViewMode] = useState('list');
+  const [gridTurmaFilter, setGridTurmaFilter] = useState('all');
+  const [gridSortBy, setGridSortBy] = useState('name');
+  const [exStatusFilter, setExStatusFilter] = useState('all');
+  const [exTurmaFilter, setExTurmaFilter] = useState('all');
+  const [exPlatformFilter, setExPlatformFilter] = useState('all');
+  const [exOnlyWithDiff, setExOnlyWithDiff] = useState(false);
+  const [exSortBy, setExSortBy] = useState('difference');
   const [estornoCaixaWarning, setEstornoCaixaWarning] = useState('');
 
   useEffect(() => {
@@ -762,10 +777,57 @@ export default function MensalidadesPanel({ embedded = false }) {
     }
   };
 
+  const gridTurmas = useMemo(() => {
+    const set = new Set();
+    for (const s of students) {
+      const t = studentTurma(s);
+      if (t) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [students]);
+
+  const exceptionStatusLabels = useMemo(
+    () => readExceptionStatusLabels(financeConfig),
+    [financeConfig]
+  );
+
+  const exceptionRows = useMemo(
+    () => listExceptionRows(students, paymentMap, currentMonth, financeConfig),
+    [students, paymentMap, currentMonth, financeConfig]
+  );
+
+  const exTurmas = useMemo(() => {
+    const set = new Set();
+    for (const r of exceptionRows) {
+      if (r.turma) set.add(r.turma);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [exceptionRows]);
+
+  const exPlatforms = useMemo(() => {
+    const set = new Set();
+    for (const r of exceptionRows) {
+      if (r.platform && r.platform !== '—') set.add(r.platform);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [exceptionRows]);
+
+  const exStatusFilterOptions = useMemo(
+    () => buildExceptionStatusFilterOptions(exceptionRows, exceptionStatusLabels),
+    [exceptionRows, exceptionStatusLabels]
+  );
+
   const clearFilters = useCallback(() => {
     setFilter('all');
     setSearch('');
     setDueSortOrder(null);
+    setGridTurmaFilter('all');
+    setGridSortBy('name');
+    setExStatusFilter('all');
+    setExTurmaFilter('all');
+    setExPlatformFilter('all');
+    setExOnlyWithDiff(false);
+    setExSortBy('difference');
   }, []);
 
   const hasStudentsWithPlan = useMemo(
@@ -773,10 +835,32 @@ export default function MensalidadesPanel({ embedded = false }) {
     [students]
   );
 
-  const hasActiveFilters = useMemo(
-    () => filter !== 'all' || search.trim().length > 0,
-    [filter, search]
-  );
+  const hasActiveFilters = useMemo(() => {
+    if (search.trim().length > 0) return true;
+    if (viewMode === 'list' && filter !== 'all') return true;
+    if (viewMode === 'grid' && (gridTurmaFilter !== 'all' || gridSortBy !== 'name')) return true;
+    if (viewMode === 'exceptions') {
+      return (
+        exStatusFilter !== 'all' ||
+        exTurmaFilter !== 'all' ||
+        exPlatformFilter !== 'all' ||
+        exOnlyWithDiff ||
+        exSortBy !== 'difference'
+      );
+    }
+    return false;
+  }, [
+    search,
+    filter,
+    viewMode,
+    gridTurmaFilter,
+    gridSortBy,
+    exStatusFilter,
+    exTurmaFilter,
+    exPlatformFilter,
+    exOnlyWithDiff,
+    exSortBy,
+  ]);
 
   const fmtMoney = formatBRL;
 
@@ -839,9 +923,9 @@ export default function MensalidadesPanel({ embedded = false }) {
           </div>
         ) : null}
 
-        <div className="mensal-toolbar navi-toolbar">
+        <FinanceFiltersBar className="mensal-toolbar">
           <SearchField
-            className="mensal-search"
+            className="finance-filters-bar__search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={`Buscar ${terms.student.toLowerCase()}...`}
@@ -859,7 +943,109 @@ export default function MensalidadesPanel({ embedded = false }) {
               overdueLabelId={overdueLabelId}
             />
           ) : null}
-        </div>
+          {viewMode === 'grid' && gridTurmas.length > 0 ? (
+            <FinanceToolbarSelect
+              id="mensal-grid-turma"
+              label="Turma"
+              className="finance-filters-bar__field--turma"
+              value={gridTurmaFilter}
+              onChange={(e) => setGridTurmaFilter(e.target.value)}
+            >
+              <option value="all">Todas as turmas</option>
+              {gridTurmas.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </FinanceToolbarSelect>
+          ) : null}
+          {viewMode === 'grid' ? (
+            <FinanceToolbarSelect
+              id="mensal-grid-sort"
+              label="Ordenar por"
+              className="finance-filters-bar__field--sort"
+              value={gridSortBy}
+              onChange={(e) => setGridSortBy(e.target.value)}
+            >
+              <option value="name">Nome</option>
+              <option value="due">Vencimento</option>
+              <option value="status">Status</option>
+              <option value="amount">Valor esperado</option>
+            </FinanceToolbarSelect>
+          ) : null}
+          {viewMode === 'exceptions' ? (
+            <>
+              <CompactStatusFilter
+                value={exStatusFilter}
+                onChange={setExStatusFilter}
+                options={exStatusFilterOptions}
+                placeholder="Todos os tipos"
+                showCounts={false}
+              />
+              {exTurmas.length > 0 ? (
+                <FinanceToolbarSelect
+                  id="mensal-ex-turma"
+                  label="Turma"
+                  className="finance-filters-bar__field--turma"
+                  value={exTurmaFilter}
+                  onChange={(e) => setExTurmaFilter(e.target.value)}
+                >
+                  <option value="all">Todas</option>
+                  {exTurmas.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </FinanceToolbarSelect>
+              ) : null}
+              {exPlatforms.length > 0 ? (
+                <FinanceToolbarSelect
+                  id="mensal-ex-platform"
+                  label="Plataforma"
+                  className="finance-filters-bar__field--platform"
+                  value={exPlatformFilter}
+                  onChange={(e) => setExPlatformFilter(e.target.value)}
+                >
+                  <option value="all">Todas</option>
+                  {exPlatforms.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </FinanceToolbarSelect>
+              ) : null}
+              <label className="finance-filters-bar__check">
+                <input
+                  type="checkbox"
+                  checked={exOnlyWithDiff}
+                  onChange={(e) => setExOnlyWithDiff(e.target.checked)}
+                />
+                Só com diferença &gt; 0
+              </label>
+              <FinanceToolbarSelect
+                id="mensal-ex-sort"
+                label="Ordenar por"
+                className="finance-filters-bar__field--sort"
+                value={exSortBy}
+                onChange={(e) => setExSortBy(e.target.value)}
+              >
+                <option value="difference">Diferença (maior)</option>
+                <option value="due">Vencimento (atraso)</option>
+                <option value="name">Nome</option>
+                <option value="status">Status</option>
+              </FinanceToolbarSelect>
+            </>
+          ) : null}
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="btn-outline btn-sm filter-clear navi-btn--toolbar"
+              onClick={clearFilters}
+            >
+              Limpar filtros
+            </button>
+          ) : null}
+        </FinanceFiltersBar>
 
       </header>
 
@@ -877,6 +1063,8 @@ export default function MensalidadesPanel({ embedded = false }) {
           sessionUserName={sessionUserName}
           search={search}
           filter={filter}
+          turmaFilter={gridTurmaFilter}
+          sortBy={gridSortBy}
           terms={terms}
           addToast={toast.addToast}
           friendlyError={friendlyError}
@@ -896,6 +1084,11 @@ export default function MensalidadesPanel({ embedded = false }) {
           userId={userId}
           sessionUserName={sessionUserName}
           search={search}
+          statusFilter={exStatusFilter}
+          turmaFilter={exTurmaFilter}
+          platformFilter={exPlatformFilter}
+          onlyWithDiff={exOnlyWithDiff}
+          sortBy={exSortBy}
           terms={terms}
           addToast={toast.addToast}
           friendlyError={friendlyError}
