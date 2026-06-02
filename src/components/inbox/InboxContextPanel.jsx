@@ -51,41 +51,41 @@ export function InboxContextPanelContent(props) {
 
   return (
     <div className="inbox-context-panel__body">
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-        <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-          Conversa
-        </div>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-            <span className="ctx-label" style={{ marginBottom: 0 }}>Telefone</span>
-            <span className="navi-ui-count" style={{ textAlign: 'right', wordBreak: 'break-all', color: 'var(--ink)' }}>
+      <div className="inbox-context-card">
+        <div className="navi-section-heading inbox-context-card__heading">Conversa</div>
+        <div className="inbox-context-stack inbox-context-stack--tight">
+          <div className="inbox-context-kv">
+            <span className="ctx-label ctx-label--inline">Telefone</span>
+            <span className="navi-ui-count inbox-context-kv__value inbox-context-kv__value--break">
               {selectedPhone || '—'}
             </span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-            <span className="ctx-label" style={{ marginBottom: 0 }}>Status</span>
+          <div className="inbox-context-kv">
+            <span className="ctx-label ctx-label--inline">Status</span>
             {(() => {
               const chip = ticketChip(selected?.ticket_status, selected?.transfer_to);
               return (
-                <span className="text-small" style={{ background: chip.bg, color: chip.fg, padding: '2px 8px', borderRadius: 999 }}>
+                <span
+                  className="text-small inbox-ticket-chip-inline"
+                  style={{ background: chip.bg, color: chip.fg }}
+                >
                   {chip.label}
                 </span>
               );
             })()}
           </div>
           {!!String(selected?.transfer_to || '').trim() && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-              <span className="ctx-label" style={{ marginBottom: 0 }}>Transferido para</span>
-              <span className="navi-ui-count" style={{ textAlign: 'right', color: 'var(--ink)' }}>
+            <div className="inbox-context-kv">
+              <span className="ctx-label ctx-label--inline">Transferido para</span>
+              <span className="navi-ui-count inbox-context-kv__value">
                 {String(selected?.transfer_to || '').trim()}
               </span>
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+        <div className="inbox-context-actions">
           <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34 }}
+            className="btn btn-outline inbox-btn--ctx"
             type="button"
             onClick={() => updateTicket({ status: 'waiting_customer' })}
             disabled={!selectedPhone || ticketUpdating}
@@ -93,12 +93,16 @@ export function InboxContextPanelContent(props) {
           >
             Aguardando cliente
           </button>
-          <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => loadThread(selectedPhone)} disabled={!selectedPhone} type="button">
+          <button
+            className="btn btn-outline inbox-btn--ctx"
+            onClick={() => loadThread(selectedPhone)}
+            disabled={!selectedPhone}
+            type="button"
+          >
             Recarregar
           </button>
           <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34 }}
+            className="btn btn-outline inbox-btn--ctx"
             type="button"
             onClick={() => setLeadPanel((v) => (v === 'transfer' ? null : 'transfer'))}
             disabled={!selectedPhone || ticketUpdating}
@@ -106,7 +110,7 @@ export function InboxContextPanelContent(props) {
             Transferir
           </button>
           {canConfigureAgenteIa && (
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={openPromptSettings} type="button">
+            <button className="btn btn-outline inbox-btn--ctx" onClick={openPromptSettings} type="button">
               Configurar IA
             </button>
           )}
@@ -131,47 +135,39 @@ export function InboxContextPanelContent(props) {
         const priority = String(lead?.priority || '').trim();
         const hotLead = Boolean(lead?.hotLead);
         return (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-            <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-              {`Contato / ${contactLabel}`}
-            </div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ fontWeight: 900, lineHeight: '20px' }}>{name || phone || '—'}</div>
-              {!!phone && (
-                <div className="navi-subtitle" style={{ marginTop: 0 }}>
-                  {phone}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {!!status && (
-                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
-                    {status}
-                  </span>
-                )}
-                {!!intention && (
-                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
-                    {intention}
-                  </span>
-                )}
-                {!!priority && (
-                  <span className="text-small" style={{ background: 'var(--border-light)', padding: '2px 8px', borderRadius: 999 }}>
-                    {priority}
-                  </span>
-                )}
+          <div className="inbox-context-card">
+            <div className="navi-section-heading inbox-context-card__heading">{`Contato / ${contactLabel}`}</div>
+            <div className="inbox-context-stack">
+              <div className="inbox-context-contact-name">{name || phone || '—'}</div>
+              {!!phone && <div className="navi-subtitle navi-subtitle--flush">{phone}</div>}
+              <div className="inbox-context-chip-row">
+                {!!status && <span className="text-small inbox-context-neutral-chip">{status}</span>}
+                {!!intention && <span className="text-small inbox-context-neutral-chip">{intention}</span>}
+                {!!priority && <span className="text-small inbox-context-neutral-chip">{priority}</span>}
                 {hotLead && (
-                  <span className="text-small inbox-hot-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(245, 158, 11, 0.18)', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
+                  <span className="text-small inbox-hot-chip">
                     <Flame size={12} aria-hidden />
                     Quente
                   </span>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className="inbox-context-btn-row">
                 {!selected?.lead_id && (
                   <>
-                    <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))} disabled={!selectedPhone || linkingLead}>
+                    <button
+                      className="btn btn-primary inbox-btn--ctx"
+                      type="button"
+                      onClick={() => setLeadPanel((v) => (v === 'convert' ? null : 'convert'))}
+                      disabled={!selectedPhone || linkingLead}
+                    >
                       Converter em contato
                     </button>
-                    <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))} disabled={!selectedPhone || linkingLead}>
+                    <button
+                      className="btn btn-primary inbox-btn--ctx"
+                      type="button"
+                      onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
+                      disabled={!selectedPhone || linkingLead}
+                    >
                       Associar contato
                     </button>
                   </>
@@ -179,22 +175,20 @@ export function InboxContextPanelContent(props) {
                 {!!selected?.lead_id && (
                   <>
                     <button
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 10px', minHeight: 34 }}
+                      className="btn btn-secondary inbox-btn--ctx"
                       onClick={() => navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`)}
                       type="button"
                     >
                       {`Ver ${contactLabel.toLowerCase()}`}
                     </button>
-                    <button className="btn btn-secondary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => navigate('/pipeline')} type="button">
+                    <button className="btn btn-secondary inbox-btn--ctx" onClick={() => navigate('/pipeline')} type="button">
                       Kanban
                     </button>
                   </>
                 )}
                 {!!lead?.id && (
                   <button
-                    className="btn btn-outline"
-                    style={{ padding: '6px 10px', minHeight: 34 }}
+                    className="btn btn-outline inbox-btn--ctx"
                     onClick={() => navigate(`/lead/${encodeURIComponent(String(lead.id))}`)}
                     type="button"
                   >
@@ -208,32 +202,28 @@ export function InboxContextPanelContent(props) {
       })()}
 
       {leadPanel === 'convert' && !selected?.lead_id && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
+        <div className="inbox-context-card">
+          <div className="navi-section-heading inbox-context-card__heading">
             {`Converter em ${contactLabel.toLowerCase()}`}
           </div>
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="inbox-context-stack">
             <div>
-              <div className="ctx-label" style={{ marginBottom: 6 }}>
-                Nome
-              </div>
+              <div className="ctx-label inbox-context-field">Nome</div>
               <input className="input" value={leadNameDraft} onChange={(e) => setLeadNameDraft(e.target.value)} placeholder="Ex: João Silva" />
             </div>
             <div>
-              <div className="ctx-label" style={{ marginBottom: 6 }}>
-                Tipo
-              </div>
+              <div className="ctx-label inbox-context-field">Tipo</div>
               <select className="input" value={leadTypeDraft} onChange={(e) => setLeadTypeDraft(e.target.value)}>
                 <option value="Adulto">Adulto</option>
                 <option value="Criança">Criança</option>
                 <option value="Juniores">Juniores</option>
               </select>
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
+            <div className="inbox-context-btn-row inbox-context-btn-row--end">
+              <button className="btn btn-outline inbox-btn--ctx" type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
                 Fechar
               </button>
-              <button className="btn btn-primary" style={{ padding: '6px 10px', minHeight: 34 }} onClick={convertToLead} disabled={linkingLead} type="button">
+              <button className="btn btn-primary inbox-btn--ctx" onClick={convertToLead} disabled={linkingLead} type="button">
                 {linkingLead ? 'Convertendo…' : 'Converter'}
               </button>
             </div>
@@ -242,18 +232,14 @@ export function InboxContextPanelContent(props) {
       )}
 
       {leadPanel === 'transfer' && selectedPhone ? (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Transferir conversa
-          </div>
-          <p className="navi-subtitle" style={{ marginTop: 0, marginBottom: 10 }}>
+        <div className="inbox-context-card">
+          <div className="navi-section-heading inbox-context-card__heading">Transferir conversa</div>
+          <p className="navi-subtitle navi-subtitle--spaced">
             O destinatário verá o status &quot;Transferido&quot; no ticket desta conversa.
           </p>
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="inbox-context-stack">
             <div>
-              <div className="ctx-label" style={{ marginBottom: 6 }}>
-                Atendente
-              </div>
+              <div className="ctx-label inbox-context-field">Atendente</div>
               <select
                 className="input"
                 value={transferToDraft}
@@ -271,15 +257,12 @@ export function InboxContextPanelContent(props) {
                 })}
               </select>
               {teamMembers.length === 0 ? (
-                <p className="text-small" style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>
-                  Nenhum membro ativo na equipe.
-                </p>
+                <p className="text-small inbox-context-muted-block">Nenhum membro ativo na equipe.</p>
               ) : null}
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="inbox-context-btn-row inbox-context-btn-row--end">
               <button
-                className="btn btn-outline"
-                style={{ padding: '6px 10px', minHeight: 34 }}
+                className="btn btn-outline inbox-btn--ctx"
                 type="button"
                 onClick={() => {
                   setLeadPanel(null);
@@ -290,8 +273,7 @@ export function InboxContextPanelContent(props) {
                 Fechar
               </button>
               <button
-                className="btn btn-primary"
-                style={{ padding: '6px 10px', minHeight: 34 }}
+                className="btn btn-primary inbox-btn--ctx"
                 type="button"
                 onClick={() => void confirmTransferConversation()}
                 disabled={ticketUpdating || !transferToDraft}
@@ -304,42 +286,49 @@ export function InboxContextPanelContent(props) {
       ) : null}
 
       {leadPanel === 'associate' && !selected?.lead_id && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Associar contato
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-            <input className="input" value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="Buscar por nome ou telefone" style={{ flex: 1, minWidth: 220 }} />
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} onClick={() => fetchLeads()} disabled={leadsLoading || linkingLead} type="button">
+        <div className="inbox-context-card">
+          <div className="navi-section-heading inbox-context-card__heading">Associar contato</div>
+          <div className="inbox-context-search-row">
+            <input
+              className="input"
+              value={leadSearch}
+              onChange={(e) => setLeadSearch(e.target.value)}
+              placeholder="Buscar por nome ou telefone"
+            />
+            <button
+              className="btn btn-outline inbox-btn--ctx"
+              onClick={() => fetchLeads()}
+              disabled={leadsLoading || linkingLead}
+              type="button"
+            >
               Atualizar
             </button>
           </div>
-          {leadsLoading && <div className="text-small" style={{ color: 'var(--text-secondary)' }}>Carregando…</div>}
+          {leadsLoading && <div className="text-small inbox-context-muted">Carregando…</div>}
           {!leadsLoading && leadCandidates.length === 0 && (
             <EmptyState variant="compact" tone="dashed" title="Nenhuma conversa encontrada." role="status" />
           )}
           {!leadsLoading && leadCandidates.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="inbox-context-list">
               {leadCandidates.map((l) => (
                 <button
                   key={l.id}
-                  className="btn btn-outline"
-                  style={{ justifyContent: 'space-between', display: 'flex', minHeight: 44 }}
+                  className="btn btn-outline inbox-context-list-item"
                   onClick={() => linkLeadToConversation({ leadId: l.id })}
                   disabled={linkingLead}
                   type="button"
                 >
-                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                    <span style={{ fontWeight: 800 }}>{l.name || 'Sem nome'}</span>
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.phone || ''}</span>
+                  <span className="inbox-context-list-item__main">
+                    <span className="inbox-context-list-item__title">{l.name || 'Sem nome'}</span>
+                    <span className="text-small inbox-context-muted">{l.phone || ''}</span>
                   </span>
-                  <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{l.pipelineStage || l.status || ''}</span>
+                  <span className="text-small inbox-context-muted">{l.pipelineStage || l.status || ''}</span>
                 </button>
               ))}
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-            <button className="btn btn-outline" style={{ padding: '6px 10px', minHeight: 34 }} type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
+          <div className="inbox-context-btn-row inbox-context-btn-row--end inbox-context-footer-note">
+            <button className="btn btn-outline inbox-btn--ctx" type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
               Fechar
             </button>
           </div>
@@ -347,47 +336,40 @@ export function InboxContextPanelContent(props) {
       )}
 
       {selected?.summary?.text && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-          <div className="navi-section-heading" style={{ marginBottom: 8, width: '100%' }}>
-            Resumo
-          </div>
-          <div className="navi-subtitle" style={{ whiteSpace: 'pre-wrap', color: 'var(--ink)', marginTop: 0 }}>{selected.summary.text}</div>
+        <div className="inbox-context-card">
+          <div className="navi-section-heading inbox-context-card__heading">Resumo</div>
+          <div className="navi-subtitle inbox-context-summary">{selected.summary.text}</div>
         </div>
       )}
 
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-          <div className="navi-section-heading">
-            Fixadas
-          </div>
+      <div className="inbox-context-card">
+        <div className="inbox-context-pinned-header">
+          <div className="navi-section-heading">Fixadas</div>
           <span className="navi-ui-count">{pinnedMessages.length}</span>
         </div>
         {pinnedMessages.length === 0 ? (
           <EmptyState variant="bare" title="Nenhuma mensagem fixada." role="status" />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="inbox-context-list">
             {pinnedMessages.map((pm) => (
               <button
                 key={pm.key}
                 type="button"
-                className="btn btn-outline"
-                style={{ justifyContent: 'space-between', display: 'flex', minHeight: 40, textAlign: 'left' }}
+                className="btn btn-outline inbox-context-list-item inbox-context-list-item--compact"
                 onClick={() => {
                   setSelectedMsgKey(pm.key);
                   scrollToMsgKey(pm.key);
                   if (isMobile) setDetailsOpen(false);
                 }}
               >
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pm.preview || '—'}</span>
-                <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                  Ver
-                </span>
+                <span className="inbox-context-list-item__preview">{pm.preview || '—'}</span>
+                <span className="text-small inbox-context-muted">Ver</span>
               </button>
             ))}
           </div>
         )}
-        <div style={{ marginTop: 10 }}>
-          <div className="text-small" style={{ color: 'var(--text-secondary)' }}>
+        <div className="inbox-context-footer-note">
+          <div className="text-small inbox-context-muted">
             Importantes: {Object.keys(selectedPhoneFlags?.important || {}).length}
           </div>
         </div>

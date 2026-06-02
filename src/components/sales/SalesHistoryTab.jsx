@@ -421,7 +421,6 @@ export default function SalesHistoryTab({ onSwitchTab }) {
         onCopy={copyReceipt}
       />
 
-      
     </>
   );
 }

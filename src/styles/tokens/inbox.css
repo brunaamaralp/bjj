@@ -6,7 +6,7 @@
   --inbox-chip-info-fg: var(--inbox-info-badge-fg);
 
   /* Badge não lida (lista + filtros) */
-  --inbox-badge-unread-bg: var(--danger);
+  --inbox-badge-unread-bg: var(--color-danger, var(--danger));
   --inbox-badge-unread-fg: #fff;
 
   /* Chips de status na lista */

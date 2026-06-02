@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use InboxComposer com mode="compact" (ProfileConversationTab).
+ * Mantido até validação visual; remover após confirmação.
+ */
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ArrowUp } from 'lucide-react';
 import AsyncButton from '../shared/AsyncButton.jsx';

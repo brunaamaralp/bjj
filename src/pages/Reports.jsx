@@ -477,7 +477,7 @@ const Reports = () => {
         const conversionPrev = Number(m.conversionRate?.previous || 0);
         const stageRows = [
             { key: 'newLeads', label: 'Novos leads', current: newLeadsCurrent, previous: Number(m.newLeads?.previous || 0), drillKey: 'newLeads', prevBase: newLeadsCurrent, color: 'var(--petroleo)' },
-            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: '#6C47D8' },
+            { key: 'scheduled', label: 'Agendados', current: scheduledCurrent, previous: scheduledPrev, drillKey: 'scheduled', prevBase: newLeadsCurrent, color: 'var(--color-primary)' },
             { key: 'completed', label: 'Compareceram', current: completedCurrent, previous: completedPrev, drillKey: 'completed', prevBase: scheduledCurrent, color: '#003654' },
             { key: 'converted', label: terms.reportsMetricConvertedShort, current: convertedCurrent, previous: convertedPrev, drillKey: 'converted', prevBase: completedCurrent, color: 'var(--petroleo)' },
             { key: 'conversionRate', label: 'Conversão total', current: conversionCurrent, previous: conversionPrev, drillKey: null, prevBase: 100, color: '#000435', isPercent: true },

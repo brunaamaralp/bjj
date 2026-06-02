@@ -10,7 +10,6 @@ import {
 } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useShallow } from 'zustand/react/shallow';
-import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';

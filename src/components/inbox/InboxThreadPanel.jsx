@@ -474,7 +474,6 @@ export default function InboxThreadPanel(props) {
                           <>
                             <button
                               className="btn btn-outline inbox-mini-btn"
-                              style={{ minHeight: 28, padding: '0 10px' }}
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();
@@ -499,7 +498,6 @@ export default function InboxThreadPanel(props) {
                             </button>
                             <button
                               className="btn btn-outline inbox-mini-btn"
-                              style={{ minHeight: 28, padding: '0 10px' }}
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();
@@ -510,8 +508,7 @@ export default function InboxThreadPanel(props) {
                               Copiar
                             </button>
                             <button
-                              className="btn btn-outline inbox-mini-btn"
-                              style={{ minHeight: 28, padding: '0 10px', fontWeight: 900 }}
+                              className="btn btn-outline inbox-mini-btn inbox-mini-btn--menu"
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();

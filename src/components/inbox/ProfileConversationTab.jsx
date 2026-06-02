@@ -1,10 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Sparkles, WifiOff } from 'lucide-react';
 import { useInboxConversation } from '../../hooks/useInboxConversation';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import ThreadSkeleton from './ThreadSkeleton';
-import ProfileComposer from './ProfileComposer';
+import InboxComposer from './InboxComposer';
+import MessageBubble, {
+  messageBubbleSenderFromMessage,
+  messageBubbleStatusFromMessage,
+} from './MessageBubble.jsx';
 
 function formatDayLabel(iso) {
   const s = String(iso || '').trim();
@@ -64,7 +68,6 @@ function buildBlocks(messages) {
       key: messageKey(m, i),
       m,
       outgoing: isOutgoingMessage(m),
-      pending: Boolean(m?._optimistic),
     });
   }
   return out;
@@ -72,26 +75,10 @@ function buildBlocks(messages) {
 
 function ProfileConversationEmpty({ icon: Icon, title, description, action }) {
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 32,
-        textAlign: 'center',
-        gap: 12,
-        minHeight: 200,
-      }}
-    >
-      {Icon ? <Icon size={40} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} aria-hidden /> : null}
-      <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text)' }}>{title}</div>
-      {description ? (
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.45, maxWidth: 320 }}>
-          {description}
-        </p>
-      ) : null}
+    <div className="profile-conversation-empty">
+      {Icon ? <Icon size={40} strokeWidth={1.5} className="profile-conversation-empty__icon" aria-hidden /> : null}
+      <div className="profile-conversation-empty__title">{title}</div>
+      {description ? <p className="profile-conversation-empty__desc">{description}</p> : null}
       {action || null}
     </div>
   );
@@ -99,32 +86,12 @@ function ProfileConversationEmpty({ icon: Icon, title, description, action }) {
 
 function HandoffBanner({ onDismiss }) {
   return (
-    <div
-      role="status"
-      style={{
-        flexShrink: 0,
-        margin: '0 12px 8px',
-        padding: '10px 12px',
-        borderRadius: 10,
-        background: 'var(--accent-light)',
-        color: 'var(--cosmos)',
-        fontSize: 12,
-        lineHeight: 1.4,
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-      }}
-    >
+    <div role="status" className="profile-conversation-handoff">
       <Sparkles size={16} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
-      <span style={{ flex: 1 }}>
+      <span className="profile-conversation-handoff__text">
         Agente IA respondendo — ao enviar, você assume o atendimento
       </span>
-      <button
-        type="button"
-        className="btn btn-outline"
-        style={{ minHeight: 28, padding: '2px 10px', fontSize: 11, flexShrink: 0 }}
-        onClick={onDismiss}
-      >
+      <button type="button" className="btn btn-outline inbox-btn--ctx" onClick={onDismiss}>
         Ok
       </button>
     </div>
@@ -146,6 +113,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
     hasMore,
     loadMore,
     sendMessage,
+    retryFailedMessage,
     markRead,
     refresh,
   } = useInboxConversation({ phone: rawPhone, academyId, enabled: Boolean(phoneDigits && academyId) });
@@ -158,6 +126,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
 
   const [draft, setDraft] = useState('');
   const [handoffBannerDismissed, setHandoffBannerDismissed] = useState(false);
+  const textareaRef = useRef(null);
 
   const scrollRef = useRef(null);
   const initialScrollDoneRef = useRef(false);
@@ -201,12 +170,16 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
   const showAiHandoffBanner = Boolean(summary?.handoff) && !handoffBannerDismissed;
   const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const text = String(draft || '').trim();
     if (!text) return;
     const ok = await sendMessage(text);
     if (ok) setDraft('');
-  };
+  }, [draft, sendMessage]);
+
+  const handleDraftChange = useCallback((e) => {
+    setDraft(e.target.value);
+  }, []);
 
   if (!phoneDigits) {
     return (
@@ -234,47 +207,19 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 280,
-        background: 'var(--surface)',
-      }}
-    >
+    <div className="profile-conversation-tab">
       {!waConnected ? (
-        <div
-          role="status"
-          style={{
-            flexShrink: 0,
-            padding: '10px 14px',
-            background: 'var(--warning-light)',
-            color: 'var(--warning-text, #b45309)',
-            fontSize: 12,
-            fontWeight: 600,
-            borderBottom: '1px solid var(--border-light)',
-          }}
-        >
+        <div role="status" className="profile-conversation-tab__wa-banner">
           WhatsApp desconectado — não é possível enviar mensagens
         </div>
       ) : null}
 
-      <div
-        ref={scrollRef}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: 16,
-          background: 'rgba(108, 71, 216,0.04)',
-        }}
-      >
+      <div ref={scrollRef} className="profile-conversation-tab__messages">
         {loading ? <ThreadSkeleton /> : null}
 
         {!loading && error ? (
-          <div style={{ textAlign: 'center', padding: 24 }}>
-            <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>
+          <div className="profile-conversation-error">
+            <p className="profile-conversation-error__text">{error}</p>
             <button type="button" className="btn btn-outline" onClick={() => void refresh()}>
               Tentar novamente
             </button>
@@ -297,11 +242,10 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
         ) : null}
 
         {!loading && !error && hasMessages && hasMore ? (
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <div className="profile-conversation-load-more">
             <button
               type="button"
-              className="btn btn-outline"
-              style={{ padding: '6px 12px', minHeight: 34, fontSize: 12 }}
+              className="btn btn-outline inbox-btn--ctx"
               disabled={loadingMore}
               onClick={() => void loadMore()}
             >
@@ -314,82 +258,40 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
           ? blocks.map((b) => {
               if (b.type === 'day') {
                 return (
-                  <div
-                    key={b.key}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      margin: '16px 0',
-                      color: 'var(--mid, var(--text-muted))',
-                      fontSize: 11,
-                    }}
-                  >
-                    <span style={{ flex: 1, height: 1, background: 'var(--border-mid, var(--border))' }} />
-                    <span style={{ flexShrink: 0 }}>{b.label}</span>
-                    <span style={{ flex: 1, height: 1, background: 'var(--border-mid, var(--border))' }} />
+                  <div key={b.key} className="inbox-day-divider">
+                    <span className="text-small inbox-day-divider__pill">{b.label}</span>
                   </div>
                 );
               }
               const content = String(b.m?.content || '').trim();
               if (!content) return null;
+              const mid = String(b.m?.message_id || '').trim();
+              const sendFailed = Boolean(b.m?._sendFailed);
+              const deliveryStatus = messageBubbleStatusFromMessage(b.m);
               return (
-                <div
+                <MessageBubble
                   key={b.key}
-                  style={{
-                    display: 'flex',
-                    justifyContent: b.outgoing ? 'flex-end' : 'flex-start',
-                    marginBottom: 10,
-                    opacity: b.pending ? 0.75 : 1,
-                  }}
-                >
-                  <div
-                    style={{
-                      maxWidth: '78%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: b.outgoing ? 'flex-end' : 'flex-start',
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '10px 12px',
-                        borderRadius: 14,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        fontSize: 14,
-                        lineHeight: 1.4,
-                        background: b.outgoing ? 'var(--v100, var(--accent-light))' : 'var(--surface)',
-                        color: 'var(--ink, var(--text))',
-                        border: b.outgoing ? 'none' : '1px solid var(--border-mid, var(--border))',
-                        boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04))',
-                      }}
-                    >
-                      {content}
-                    </div>
-                    <span style={{ fontSize: 11, color: 'var(--faint, var(--text-muted))', marginTop: 4 }}>
-                      {formatTimeOnly(b.m?.timestamp)}
-                      {b.pending ? ' · Enviando…' : ''}
-                    </span>
-                  </div>
-                </div>
+                  msgKey={b.key}
+                  layout="standalone"
+                  direction={b.outgoing ? 'outbound' : 'inbound'}
+                  sender={messageBubbleSenderFromMessage(b.m, { outgoing: b.outgoing })}
+                  timestamp={b.m?.timestamp}
+                  timeLabel={formatTimeOnly(b.m?.timestamp)}
+                  status={deliveryStatus}
+                  content={content}
+                  onRetry={
+                    sendFailed && mid && typeof retryFailedMessage === 'function'
+                      ? () => void retryFailedMessage(mid)
+                      : null
+                  }
+                />
               );
             })
           : null}
       </div>
 
       {sendError ? (
-        <div
-          role="alert"
-          style={{
-            flexShrink: 0,
-            padding: '8px 14px',
-            fontSize: 12,
-            color: 'var(--danger)',
-            background: 'var(--danger-light, #fef2f2)',
-            borderTop: '1px solid var(--border-light)',
-          }}
-        >
+        <div role="alert" className="profile-conversation-send-error">
           {sendError}
         </div>
       ) : null}
@@ -398,12 +300,19 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
         <HandoffBanner onDismiss={() => setHandoffBannerDismissed(true)} />
       ) : null}
 
-      <ProfileComposer
-        value={draft}
-        onChange={setDraft}
-        onSend={handleSend}
+      <InboxComposer
+        mode="compact"
+        compactDisabled={!waConnected}
+        compactPlaceholder="Digite uma mensagem..."
+        draft={draft}
+        setDraft={setDraft}
+        handleDraftChange={handleDraftChange}
+        sendManual={handleSend}
         sending={sending}
-        disabled={!waConnected}
+        selectedPhone={phoneDigits}
+        textareaRef={textareaRef}
+        inboxVvInset={0}
+        isMobile={false}
       />
     </div>
   );

@@ -230,7 +230,6 @@ export default function SaleDetailModal({
           </>
         )}
       </div>
-      
     </div>
   );
 }

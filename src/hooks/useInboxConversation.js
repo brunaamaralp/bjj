@@ -338,7 +338,11 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
         return true;
       } catch (e) {
         setMessages((prev) =>
-          (Array.isArray(prev) ? prev : []).filter((m) => String(m?.message_id || '') !== tempId)
+          (Array.isArray(prev) ? prev : []).map((m) =>
+            String(m?.message_id || '') === tempId
+              ? { ...m, _optimistic: false, _sendFailed: true }
+              : m
+          )
         );
         setSendError(friendlyError(e, 'action'));
         return false;
@@ -347,6 +351,92 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
       }
     },
     [assumeHandoff, markRead, sending]
+  );
+
+  const retryFailedMessage = useCallback(
+    async (messageId) => {
+      const mid = String(messageId || '').trim();
+      if (!mid || sending) return false;
+
+      const failed = (Array.isArray(messages) ? messages : []).find(
+        (m) => String(m?.message_id || '') === mid && m?._sendFailed
+      );
+      const body = String(failed?.content || '').trim();
+      if (!body) return false;
+
+      setSendError(null);
+      setSending(true);
+      setMessages((prev) =>
+        (Array.isArray(prev) ? prev : []).map((m) =>
+          String(m?.message_id || '') === mid
+            ? { ...m, _optimistic: true, _sendFailed: false, timestamp: new Date().toISOString() }
+            : m
+        )
+      );
+
+      const p = phoneRef.current;
+      const aid = academyIdRef.current;
+
+      try {
+        const cur = summaryRef.current;
+        if (cur && !cur.need_human) {
+          await assumeHandoff();
+        }
+
+        const jwt = await getJwt();
+        const resp = await fetch('/api/whatsapp?action=send', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            'x-academy-id': aid,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ phone: p, text: body }),
+        });
+        const raw = await resp.text();
+        if (!resp.ok) throw new Error(parseApiError(raw, 'Falha ao enviar'));
+
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          data = {};
+        }
+
+        const status = String(data?.status || '').trim();
+        const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
+        const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
+        const nowIso = new Date().toISOString();
+
+        setMessages((prev) => {
+          const arr = (Array.isArray(prev) ? prev : []).filter((m) => String(m?.message_id || '') !== mid);
+          arr.push({
+            role: 'assistant',
+            content: body,
+            timestamp: nowIso,
+            sender: 'human',
+            ...(status ? { status } : {}),
+            ...(sendAt ? { send_at: sendAt } : {}),
+            ...(msgId ? { message_id: msgId } : { message_id: mid }),
+          });
+          return dedupeMessages(arr).slice(-AGENT_HISTORY_WINDOW);
+        });
+
+        void markRead();
+        return true;
+      } catch (e) {
+        setMessages((prev) =>
+          (Array.isArray(prev) ? prev : []).map((m) =>
+            String(m?.message_id || '') === mid ? { ...m, _optimistic: false, _sendFailed: true } : m
+          )
+        );
+        setSendError(friendlyError(e, 'action'));
+        return false;
+      } finally {
+        setSending(false);
+      }
+    },
+    [assumeHandoff, markRead, messages, sending]
   );
 
   useEffect(() => {
@@ -477,6 +567,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
     hasMore,
     loadMore,
     sendMessage,
+    retryFailedMessage,
     markRead,
     refresh,
     realtimeOn,

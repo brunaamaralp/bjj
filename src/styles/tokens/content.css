@@ -16,7 +16,14 @@
   --color-card-bg: #FFFFFF;
   --color-card-border: #E8E5F5;
   --color-text-primary: #18162A;
+  --color-text-heading: var(--color-text-primary);
   --color-text-secondary: #9896A8;
+  --color-danger: #E24B4A;
+  --color-warning: #C47A00;
+  --color-border: var(--color-card-border);
+  --color-white: #FFFFFF;
+  --color-surface: var(--color-card-bg);
+  --color-surface-canvas: var(--color-content-bg);
   --color-badge-primary-text: #4A2FA3;
   --color-status-positive-text: #085041;
   --color-agenda-today-bg: #FAFAFE;
@@ -128,33 +135,6 @@
 .navi-main-stack .main-content .navi-section-heading svg,
 .navi-main-stack .main-content .reception-section-heading svg {
   color: var(--color-primary);
-}
-
-/* Stat cards — Hoje */
-.navi-main-stack .main-content .agenda-kpi-value {
-  color: var(--color-primary);
-}
-
-.navi-main-stack .main-content .agenda-kpi-value--followup,
-.navi-main-stack .main-content .agenda-kpi-value--attention,
-.navi-main-stack .main-content .agenda-kpi-value--tasks {
-  color: var(--color-primary) !important;
-}
-
-.navi-main-stack .main-content .agenda-kpi-card {
-  background: var(--color-card-bg);
-  border-color: var(--color-card-border);
-}
-
-.navi-main-stack .main-content .agenda-kpi-trend--followup,
-.navi-main-stack .main-content .agenda-kpi-trend--followup svg,
-.navi-main-stack .main-content .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup,
-.navi-main-stack .main-content .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup svg {
-  color: var(--color-primary) !important;
-}
-
-.navi-main-stack .main-content .agenda-kpi-card--clickable:hover .agenda-kpi-trend--followup {
-  border-color: var(--color-primary);
 }
 
 .navi-main-stack .main-content .badge.reception-week-count-badge,

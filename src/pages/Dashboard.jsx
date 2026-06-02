@@ -635,8 +635,7 @@ const Dashboard = () => {
                         {controlIdCfg.enabled && (
                             <button
                                 type="button"
-                                className="btn-secondary"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                className="btn-secondary reception-gate-release-btn"
                                 onClick={() => setGateReleaseOpen(true)}
                             >
                                 <DoorOpen size={18} aria-hidden />
@@ -922,8 +921,12 @@ const Dashboard = () => {
                         const waState = waStateByLead[leadId] || 'idle';
                         const elapsedLabel =
                             lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
-                        const diasColor =
-                            lead.daysAgo <= 3 ? '#9896A8' : lead.daysAgo <= 5 ? '#C47A00' : '#E24B4A';
+                        const fuTimeClass =
+                            lead.daysAgo <= 3
+                                ? 'fu-time--recent'
+                                : lead.daysAgo <= 5
+                                  ? 'fu-time--warning'
+                                  : 'fu-time--urgent';
                         const tagLabel = isPost
                             ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula')
                             : 'Recuperar';
@@ -938,8 +941,7 @@ const Dashboard = () => {
                                 style={{ animationDelay: `${0.04 * i}s` }}
                             >
                                 <div
-                                    className="fu-dot"
-                                    style={{ background: isPost ? '#1FAA5E' : '#E24B4A' }}
+                                    className={`fu-dot ${isPost ? 'fu-dot--post' : 'fu-dot--recover'}`}
                                     aria-hidden
                                 />
                                 <div className="fu-info">
@@ -955,8 +957,7 @@ const Dashboard = () => {
                                     <div className="fu-sub">
                                         <span className="fu-phone">{lead.phone || '—'}</span>
                                         <span
-                                            className="fu-time"
-                                            style={{ color: diasColor }}
+                                            className={`fu-time ${fuTimeClass}`}
                                             title={
                                                 lead.daysAgo === 0
                                                     ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
@@ -1028,7 +1029,7 @@ const Dashboard = () => {
                         );
                     }) : (
                         <div className="fu-list-empty fu-list-empty--all-done" role="status">
-                            <CheckCircle2 className="fu-list-empty__icon" size={28} strokeWidth={2} aria-hidden />
+                            <CheckCircle2 className="fu-list-empty__icon" size={24} strokeWidth={2} aria-hidden />
                             <p className="fu-list-empty__title">Todos os follow-ups concluídos!</p>
                             {followUpsKanbanOnlyCount > 0 ? (
                                 <p className="fu-list-empty__hint">
@@ -1107,7 +1108,7 @@ const Dashboard = () => {
                                     }}
                                 >
                                     <span className="bd-emoji" aria-hidden>
-                                        🎂
+                                        <Cake size={14} />
                                     </span>
                                     <div className="bd-info">
                                         <div className="bd-name">{student.name}</div>
@@ -1125,7 +1126,7 @@ const Dashboard = () => {
                             ))
                         ) : (
                             <div className="bd-list-empty" role="status">
-                                <Cake className="bd-list-empty__icon" size={26} strokeWidth={2} aria-hidden />
+                                <Cake className="bd-list-empty__icon" size={24} strokeWidth={2} aria-hidden />
                                 <p className="bd-list-empty__title">Nenhum aniversariante hoje</p>
                                 <p className="bd-list-empty__hint">
                                     Quando algum {terms.student.toLowerCase()} fizer aniversário, aparece aqui.

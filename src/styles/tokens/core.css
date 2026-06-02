@@ -10,6 +10,15 @@
   --color-accent-light: #9FE1CB;
   --color-accent-surface: #E1F5EE;
   --color-accent-dark: #085041;
+  --color-success: var(--color-accent);
+  --color-success-surface: var(--color-accent-surface);
+  --color-danger: #E24B4A;
+  --color-warning: #C47A00;
+  --color-text-heading: #18162A;
+  --color-border: #E8E5F5;
+  --color-white: #FFFFFF;
+  --color-surface: var(--color-card-bg);
+  --color-surface-canvas: var(--color-content-bg);
 
   /* Sidebar / Topbar */
   --color-sidebar-bg: #13111F;

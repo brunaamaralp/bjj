@@ -92,10 +92,10 @@ function expectedPipelineStageForStatus(status) {
 }
 
 const STATUS_CONFIG = {
-    [LEAD_STATUS.NEW]: { bg: 'var(--accent-light)', color: 'var(--accent)' },
-    [LEAD_STATUS.SCHEDULED]: { bg: 'var(--warning-light)', color: 'var(--warning)' },
-    [LEAD_STATUS.COMPLETED]: { bg: 'var(--success-light)', color: 'var(--success)' },
-    [LEAD_STATUS.MISSED]: { bg: 'var(--danger-light)', color: 'var(--danger)' },
+    [LEAD_STATUS.NEW]: { bg: 'var(--color-accent-surface)', color: 'var(--color-accent)' },
+    [LEAD_STATUS.SCHEDULED]: { bg: 'var(--color-warning-surface)', color: 'var(--color-warning)' },
+    [LEAD_STATUS.COMPLETED]: { bg: 'var(--color-success-surface)', color: 'var(--color-success)' },
+    [LEAD_STATUS.MISSED]: { bg: 'var(--color-danger-surface)', color: 'var(--color-danger)' },
     [LEAD_STATUS.CONVERTED]: { bg: 'rgba(228, 181, 93, 0.12)', color: 'var(--dourado)' },
     [LEAD_STATUS.LOST]: { bg: '#f1f5f9', color: '#64748b' },
 };
@@ -704,10 +704,10 @@ const LeadProfile = () => {
 
     if (loading && !lead) {
         return (
-            <div className="container lead-profile-loading" style={{ paddingTop: 24, paddingBottom: 40 }}>
+            <div className="container lead-profile-loading">
                 <div className="lead-profile-inner">
                     <SkeletonCard variant="card" count={1} />
-                    <p className="text-small text-light mt-4" style={{ textAlign: 'center' }}>Carregando perfil…</p>
+                    <p className="text-small text-light mt-4 lead-profile-loading-text">Carregando perfil…</p>
                 </div>
             </div>
         );
@@ -715,7 +715,7 @@ const LeadProfile = () => {
 
     if (!lead) {
         return (
-            <div className="container" style={{ paddingTop: 40, textAlign: 'center' }}>
+            <div className="container lead-profile-not-found">
                 <p className="text-light">{contactLabel} não encontrado.</p>
                 <button type="button" className="btn-primary mt-4" onClick={() => navigate('/')}>Voltar</button>
             </div>
@@ -1242,20 +1242,8 @@ const LeadProfile = () => {
         <button
             key={id}
             type="button"
+            className={`profile-tab${activeProfileTab === id ? ' is-active' : ''}`}
             onClick={() => setActiveProfileTab(id)}
-            style={{
-                flexShrink: 0,
-                padding: '8px 14px',
-                borderRadius: 8,
-                border: 'none',
-                background: activeProfileTab === id ? 'var(--surface)' : 'transparent',
-                color: activeProfileTab === id ? 'var(--text)' : 'var(--text-secondary)',
-                fontWeight: activeProfileTab === id ? 800 : 600,
-                fontSize: 13,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                boxShadow: activeProfileTab === id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-            }}
         >
             {label}
         </button>
@@ -1289,7 +1277,7 @@ const LeadProfile = () => {
                             {truncateBreadcrumbName(lead.name)}
                         </span>
                     ) : null}
-                    <div className="flex gap-2" style={{ marginLeft: 'auto', alignItems: 'center' }}>
+                    <div className="flex gap-2 lead-profile-header-actions">
                         {!editing ? (
                             <button type="button" className="btn-edit-header" onClick={startEdit}>
                                 <Pencil size={14} /> Editar
@@ -1305,17 +1293,7 @@ const LeadProfile = () => {
                     </div>
                 </div>
 
-                <div
-                    style={{
-                        padding: '8px 16px',
-                        display: 'flex',
-                        gap: 6,
-                        borderBottom: '1px solid var(--border-light)',
-                        flexShrink: 0,
-                        overflowX: 'auto',
-                        WebkitOverflowScrolling: 'touch',
-                    }}
-                >
+                <div className="lead-profile-tab-bar">
                     {profileTabBtn('dados', 'Dados')}
                     {profileTabBtn('timeline', 'Timeline')}
                     {showConversationTab ? profileTabBtn('conversation', 'Conversa') : null}
@@ -1398,7 +1376,7 @@ const LeadProfile = () => {
                                     {(form.type === 'Criança' || form.type === 'Juniores') && (
                                         <div className="flex-col gap-2 mt-3">
                                             <div className="flex-col gap-1">
-                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Responsável</span>
+                                                <span className="info-mini-label info-mini-label--start">Responsável</span>
                                                 <input
                                                     className="form-input-sm"
                                                     type="text"
@@ -1408,7 +1386,7 @@ const LeadProfile = () => {
                                                 />
                                             </div>
                                             <div className="flex-col gap-1">
-                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Idade</span>
+                                                <span className="info-mini-label info-mini-label--start">Idade</span>
                                                 <input
                                                     className="form-input-sm"
                                                     type="number"
@@ -1420,7 +1398,7 @@ const LeadProfile = () => {
                                         </div>
                                     )}
                                     <div className="flex-col gap-1 mt-3">
-                                        <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Origem</span>
+                                        <span className="info-mini-label info-mini-label--start">Origem</span>
                                         <select
                                             className="form-input-sm"
                                             value={form.origin}
@@ -1438,7 +1416,7 @@ const LeadProfile = () => {
                                             <h3 className="section-title lead-profile-edit-section-title mt-4">Agendamento</h3>
                                             <div className="flex-col gap-2">
                                                 <div className="flex-col gap-1">
-                                                    <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data da aula</span>
+                                                    <span className="info-mini-label info-mini-label--start">Data da aula</span>
                                                     <DateInputField
                                                         className="form-input-sm"
                                                         type="date"
@@ -1447,7 +1425,7 @@ const LeadProfile = () => {
                                                     />
                                                 </div>
                                                 <div className="flex-col gap-1">
-                                                    <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Horário</span>
+                                                    <span className="info-mini-label info-mini-label--start">Horário</span>
                                                     <input
                                                         className="form-input-sm"
                                                         type="time"
@@ -1461,9 +1439,9 @@ const LeadProfile = () => {
 
                                     <h3 className="section-title lead-profile-edit-section-title mt-4">Dados adicionais</h3>
                                     <div className="flex-col gap-2">
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                                        <div className="profile-form-grid">
                                             <div className="flex-col gap-1">
-                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Data de nascimento</span>
+                                                <span className="info-mini-label info-mini-label--start">Data de nascimento</span>
                                                 <DateInputField
                                                     className="form-input-sm"
                                                     type="date"
@@ -1472,7 +1450,7 @@ const LeadProfile = () => {
                                                 />
                                             </div>
                                             <div className="flex-col gap-1">
-                                                <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Sexo</span>
+                                                <span className="info-mini-label info-mini-label--start">Sexo</span>
                                                 <SexoSelect
                                                     className="form-input-sm"
                                                     value={form.sexo}
@@ -1481,7 +1459,7 @@ const LeadProfile = () => {
                                             </div>
                                         </div>
                                         <div className="flex-col gap-1">
-                                            <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Turma</span>
+                                            <span className="info-mini-label info-mini-label--start">Turma</span>
                                             <TurmaSelect
                                                 turmas={academyTurmas}
                                                 selectValue={form.turmaSelect}
@@ -1494,7 +1472,7 @@ const LeadProfile = () => {
                                             />
                                         </div>
                                         <div className="flex-col gap-1">
-                                            <span className="info-mini-label" style={{ alignSelf: 'flex-start' }}>Primeira experiência?</span>
+                                            <span className="info-mini-label info-mini-label--start">Primeira experiência?</span>
                                             <div className="lead-profile-radio-row">
                                                 <label className="lead-profile-inline-radio">
                                                     <input
@@ -1533,13 +1511,8 @@ const LeadProfile = () => {
                                 {contactType === 'student' ? terms.student : contactLabel}
                             </span>
                             <span
-                                className="status-tag"
-                                style={{
-                                    ...statusBadgeStyle,
-                                    fontFamily: 'Arial, sans-serif',
-                                    fontWeight: 600,
-                                    fontStyle: 'normal',
-                                }}
+                                className="status-tag lead-profile-status-tag"
+                                style={statusBadgeStyle}
                             >
                                 {operationalStatusDisplayLabel(terms, lead.status)}
                             </span>
@@ -1553,12 +1526,11 @@ const LeadProfile = () => {
                     {/* Comunicação */}
                     <div className="profile-section">
                         <ReportSectionHeading title="Comunicação" className="lead-profile-section-heading" />
-                        <div className="comm-actions-wrap" style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                        <div className="comm-actions-wrap lead-profile-comm-actions">
                             {normalizeLeadPhoneForInbox(lead.phone) ? (
                                 <button
                                     type="button"
-                                    className="btn btn-outline"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40 }}
+                                    className="btn btn-outline lead-profile-inbox-btn"
                                     onClick={() =>
                                         navigate(`/inbox?phone=${encodeURIComponent(normalizeLeadPhoneForInbox(lead.phone))}`)
                                     }
@@ -1725,10 +1697,10 @@ const LeadProfile = () => {
                     {/* Tarefas */}
                     <div className="profile-section">
                         <div className="flex justify-between items-center mb-2">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="lead-profile-tasks-head">
                             <ReportSectionHeading title="Tarefas" className="lead-profile-section-heading lead-profile-section-heading--inline" />
                             {leadTaskProgress ? (
-                                <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 999, padding: '2px 8px' }}>
+                                <span className="badge-secondary lead-profile-task-progress-badge">
                                     {leadTaskProgress}
                                 </span>
                             ) : null}
@@ -1736,11 +1708,10 @@ const LeadProfile = () => {
                             {!inlineTaskOpen ? (
                                 <button
                                     type="button"
-                                    className="btn-action-ghost"
-                                    style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent)' }}
+                                    className="btn-action-ghost lead-profile-new-task-btn"
                                     onClick={() => setInlineTaskOpen(true)}
                                 >
-                                    <CheckSquare size={12} style={{ marginRight: 4 }} /> + Nova tarefa
+                                    <CheckSquare size={12} aria-hidden /> + Nova tarefa
                                 </button>
                             ) : null}
                         </div>
@@ -1760,7 +1731,7 @@ const LeadProfile = () => {
                                     value={inlineTaskDue}
                                     onChange={(e) => setInlineTaskDue(e.target.value)}
                                 />
-                                <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                                <div className="flex gap-2 lead-profile-inline-task-actions">
                                     <button
                                         type="button"
                                         className="btn btn-primary btn-sm"
@@ -1795,7 +1766,7 @@ const LeadProfile = () => {
                                             type="checkbox" 
                                             checked={t.status === 'done'} 
                                             onChange={() => toggleLeadTask(t)} 
-                                            style={{ cursor: 'pointer' }}
+                                            className="lead-profile-task-checkbox"
                                         />
                                         <span className="task-title">{t.title}</span>
                                         {(t.due_date || t.dueDate) && (
@@ -1808,8 +1779,7 @@ const LeadProfile = () => {
                                 {leadTasks.length > 5 ? (
                                     <button 
                                         type="button" 
-                                        className="btn-action-ghost" 
-                                        style={{ fontSize: 12, marginTop: 4 }}
+                                        className="btn-action-ghost lead-profile-view-all-tasks"
                                         onClick={() => navigate(`/tarefas?lead_id=${id}`)}
                                     >
                                         Ver todas as tarefas → ({leadTasks.length})
@@ -1817,8 +1787,7 @@ const LeadProfile = () => {
                                 ) : (
                                     <button
                                         type="button"
-                                        className="btn-action-ghost"
-                                        style={{ fontSize: 12, marginTop: 4 }}
+                                        className="btn-action-ghost lead-profile-view-all-tasks"
                                         onClick={() => navigate(`/tarefas?lead_id=${id}`)}
                                     >
                                         Ver todas as tarefas →
@@ -1901,7 +1870,7 @@ const LeadProfile = () => {
                             setTimelineOpen(true);
                         }}
                     >
-                        <span style={{ order: 2 }}><ArrowRight size={16} /></span>
+                        <span className="lead-profile-next-step-icon"><ArrowRight size={16} /></span>
                         Abrir histórico →
                     </button>
                 </div>

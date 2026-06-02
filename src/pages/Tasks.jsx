@@ -1646,8 +1646,6 @@ export default function Tasks() {
         onConfirm={handleCollectionConfirm}
       />
 
-      >
-
       <ConfirmDialog
         open={Boolean(deleteConfirmId)}
         title="Excluir tarefa?"

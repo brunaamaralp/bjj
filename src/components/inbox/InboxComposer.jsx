@@ -13,6 +13,9 @@ function attachmentKindFromFile(file) {
 
 export default function InboxComposer(props) {
   const {
+    mode = 'full',
+    compactDisabled = false,
+    compactPlaceholder = 'Digite uma mensagem...',
     isMobile,
     inboxVvInset,
     composerExpanded,
@@ -153,6 +156,50 @@ export default function InboxComposer(props) {
 
   const canSend = Boolean(selectedPhone) && (String(draft || '').trim() || attachment?.file);
   const showImageCaption = attachment?.kind === 'image';
+  const isCompact = mode === 'compact';
+
+  if (isCompact) {
+    const canSendCompact = !compactDisabled && !sending && Boolean(String(draft || '').trim());
+    return (
+      <div
+        className={`inbox-thread-composer inbox-thread-composer--compact${isMobile ? ' inbox-thread-composer--mobile-safe' : ''}`}
+        style={{ '--inbox-vv-inset': `${inboxVvInset}px` }}
+      >
+        <div className="inbox-composer-compact-row">
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={handleDraftChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (canSendCompact) void sendManual?.();
+              }
+            }}
+            placeholder={compactPlaceholder}
+            className="form-input inbox-composer-compact-input"
+            rows={1}
+            disabled={compactDisabled || sending}
+          />
+          <button
+            className="btn btn-primary inbox-composer-compact-send"
+            onClick={() => void sendManual?.()}
+            disabled={sending || !canSendCompact}
+            type="button"
+          >
+            {sending ? (
+              <span className="inbox-composer-send-loading">
+                <Loader2 size={16} className="navi-async-btn__spin" aria-hidden />
+                Enviar
+              </span>
+            ) : (
+              'Enviar'
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -206,13 +253,12 @@ export default function InboxComposer(props) {
       ) : null}
 
       {composerExpanded && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="inbox-composer-toolbar-row">
+          <div className="inbox-composer-toolbar-group">
             {selectedPhone && (
-              <div style={{ position: 'relative' }}>
+              <div className="inbox-composer-popover-anchor">
                 <button
                   className={`inbox-composer-action-btn ${templatesOpen ? 'btn btn-secondary' : 'btn btn-outline'}`}
-                  style={{ padding: '0 10px', fontSize: 'var(--inbox-font-list-title)' }}
                   onClick={() => {
                     setTemplatesOpen((v) => !v);
                     setEmojiOpen(false);
@@ -223,26 +269,8 @@ export default function InboxComposer(props) {
                   {'\u26A1'}
                 </button>
                 {templatesOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 36,
-                      left: 0,
-                      width: 280,
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 12,
-                      boxShadow: 'var(--shadow)',
-                      padding: 8,
-                      zIndex: 50,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4
-                    }}
-                  >
-                    <div className="navi-section-heading" style={{ padding: '2px 6px 6px' }}>
-                      Mensagens prontas
-                    </div>
+                  <div className="inbox-composer-popover inbox-composer-popover--templates">
+                    <div className="navi-section-heading inbox-composer-popover__heading">Mensagens prontas</div>
                     {quickTemplates.length === 0 && (
                       <EmptyState
                         variant="bare"
@@ -260,8 +288,7 @@ export default function InboxComposer(props) {
                         <button
                           key={tpl.key}
                           type="button"
-                          className="btn btn-outline"
-                          style={{ textAlign: 'left', padding: '6px 10px', minHeight: 32, whiteSpace: 'normal', lineHeight: '18px' }}
+                          className="btn btn-outline inbox-composer-template-btn"
                           onClick={() => {
                             const out = applyWhatsappTemplatePlaceholders(tpl.text, {
                               lead: leadForTpl,
@@ -276,17 +303,8 @@ export default function InboxComposer(props) {
                             }
                           }}
                         >
-                          <span
-                            style={{
-                              display: 'block',
-                              fontWeight: 700,
-                              fontSize: 'var(--inbox-font-caption)',
-                              marginBottom: 2
-                            }}
-                          >
-                            {tpl.label}
-                          </span>
-                          <span style={{ fontSize: 'var(--inbox-font-secondary)', color: 'var(--text-secondary)' }}>
+                          <span className="inbox-composer-template-btn__label">{tpl.label}</span>
+                          <span className="inbox-composer-template-btn__preview">
                             {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
                           </span>
                         </button>
@@ -296,10 +314,9 @@ export default function InboxComposer(props) {
                 )}
               </div>
             )}
-            <div style={{ position: 'relative' }}>
+            <div className="inbox-composer-popover-anchor">
               <button
-                className="btn btn-outline inbox-composer-action-btn"
-                style={{ padding: '0 10px', fontSize: '1.125rem' }}
+                className="btn btn-outline inbox-composer-action-btn inbox-composer-action-btn--emoji"
                 onClick={() => {
                   setEmojiOpen((v) => !v);
                   setTemplatesOpen(false);
@@ -311,21 +328,8 @@ export default function InboxComposer(props) {
                 {'\u{1F60A}'}
               </button>
               {emojiOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 36,
-                    left: 0,
-                    width: 260,
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 12,
-                    boxShadow: 'var(--shadow)',
-                    padding: 10,
-                    zIndex: 50
-                  }}
-                >
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
+                <div className="inbox-composer-popover inbox-composer-popover--emoji">
+                  <div className="inbox-composer-emoji-grid">
                     {emojis.map((em) => (
                       <button
                         key={em}
@@ -335,14 +339,8 @@ export default function InboxComposer(props) {
                           insertAtCursor(em);
                           setEmojiOpen(false);
                         }}
-                        style={{
-                          padding: 0,
-                          borderRadius: 10,
-                          background: 'transparent',
-                          border: '1px solid var(--border)'
-                        }}
                       >
-                        <span style={{ fontSize: '1.125rem', lineHeight: 1 }}>{em}</span>
+                        <span>{em}</span>
                       </button>
                     ))}
                   </div>
@@ -359,8 +357,7 @@ export default function InboxComposer(props) {
                   onChange={handleFileChange}
                 />
                 <button
-                  className="btn btn-outline inbox-composer-action-btn"
-                  style={{ padding: '0 10px', minHeight: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="btn btn-outline inbox-composer-action-btn inbox-composer-action-btn--attach"
                   type="button"
                   title="Anexar imagem, áudio ou PDF"
                   aria-label="Anexar arquivo"
@@ -376,10 +373,9 @@ export default function InboxComposer(props) {
       )}
 
       {(composerExpanded || scheduleOn) && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <div className="inbox-composer-schedule-row">
           <button
-            className={scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'}
-            style={{ padding: '6px 10px' }}
+            className={`${scheduleOn ? 'btn btn-secondary' : 'btn btn-outline'} inbox-composer-btn--schedule`}
             onClick={() => setScheduleOn((v) => !v)}
             disabled={sending || !selectedPhone || Boolean(attachment)}
             type="button"
@@ -390,21 +386,19 @@ export default function InboxComposer(props) {
           {scheduleOn && (
             <DateInputField
               type="datetime-local"
-              className="form-input"
+              className="form-input inbox-composer-schedule-input"
               value={scheduleAtLocal}
               onChange={(e) => setScheduleAtLocal(e.target.value)}
               disabled={sending || !selectedPhone}
-              style={{ width: 210 }}
             />
           )}
         </div>
       )}
 
       {composerExpanded && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div className="inbox-composer-ai-row">
           <button
-            className="btn btn-outline"
-            style={{ padding: '6px 10px', minHeight: 34, minWidth: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+            className="btn btn-outline inbox-composer-btn--tool"
             onClick={improveDraftWithAi}
             disabled={sending || improvingDraft || !selectedPhone || String(draft || '').trim().length <= 3}
             type="button"
@@ -420,8 +414,7 @@ export default function InboxComposer(props) {
           </button>
           {draftBeforeImprove != null && (
             <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34 }}
+              className="btn btn-outline inbox-composer-btn--undo"
               onClick={() => {
                 setDraft(String(draftBeforeImprove));
                 setDraftBeforeImprove(null);
@@ -439,81 +432,46 @@ export default function InboxComposer(props) {
             </button>
           )}
           {String(draft || '').length > 160 && (
-            <div className="text-small" style={{ color: String(draft || '').length > 800 ? 'var(--danger)' : 'var(--text-secondary)' }}>
+            <div
+              className={`text-small ${
+                String(draft || '').length > 800
+                  ? 'inbox-composer-char-count--warn'
+                  : 'inbox-composer-char-count--ok'
+              }`}
+            >
               {String(draft || '').length} chars
             </div>
           )}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+      <div className="inbox-composer-main-row">
+        <div className="inbox-composer-input-wrap">
           {selectedPhone && (
-            <div
-              className="inbox-composer-format-toolbar"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginBottom: '6px',
-                padding: '2px 4px',
-                flexWrap: 'wrap'
-              }}
-            >
+            <div className="inbox-composer-format-toolbar">
               <button
                 type="button"
-                className="btn btn-outline"
-                style={{
-                  padding: '4px 8px',
-                  height: '28px',
-                  minHeight: '28px',
-                  fontSize: 'var(--inbox-font-secondary)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  borderRadius: '6px'
-                }}
+                className="btn btn-outline inbox-composer-format-btn"
                 onClick={() => applyWrapToDraft('*')}
                 title="Negrito (*)"
               >
                 <Bold size={13} strokeWidth={2.5} aria-hidden />
-                <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Negrito</span>
+                <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Negrito</span>
               </button>
               <button
                 type="button"
-                className="btn btn-outline"
-                style={{
-                  padding: '4px 8px',
-                  height: '28px',
-                  minHeight: '28px',
-                  fontSize: 'var(--inbox-font-secondary)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  borderRadius: '6px'
-                }}
+                className="btn btn-outline inbox-composer-format-btn"
                 onClick={() => applyWrapToDraft('_')}
                 title="Itálico (_)"
               >
                 <Italic size={13} strokeWidth={2.5} aria-hidden />
-                <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Itálico</span>
+                <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Itálico</span>
               </button>
 
-              
-              <div style={{ position: 'relative' }}>
+              <div className="inbox-composer-popover-anchor">
                 <button
                   type="button"
-                  className={`btn ${emojiOpen ? 'btn-secondary' : 'btn-outline'}`}
-                  style={{
-                    padding: '4px 8px',
-                    height: '28px',
-                    minHeight: '28px',
-                    fontSize: 'var(--inbox-font-secondary)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    borderRadius: '6px'
-                  }}
+                  className={`btn inbox-composer-format-btn ${emojiOpen ? 'btn-secondary' : 'btn-outline'}`}
                   onClick={() => {
                     setEmojiOpen((v) => !v);
                     setTemplatesOpen(false);
@@ -522,24 +480,11 @@ export default function InboxComposer(props) {
                   title="Emoji"
                 >
                   <Smile size={13} strokeWidth={2.5} aria-hidden />
-                  <span className="text-small font-medium" style={{ display: isMobile ? 'none' : 'inline' }}>Emoji</span>
+                  <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Emoji</span>
                 </button>
                 {emojiOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '34px',
-                      left: 0,
-                      width: '260px',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      boxShadow: 'var(--shadow)',
-                      padding: '10px',
-                      zIndex: 100
-                    }}
-                  >
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '6px' }}>
+                  <div className="inbox-composer-popover inbox-composer-emoji-popover--toolbar">
+                    <div className="inbox-composer-emoji-grid">
                       {emojis.map((em) => (
                         <button
                           key={em}
@@ -549,18 +494,8 @@ export default function InboxComposer(props) {
                             insertAtCursor(em);
                             setEmojiOpen(false);
                           }}
-                          style={{
-                            padding: 0,
-                            borderRadius: '8px',
-                            background: 'transparent',
-                            border: '1px solid var(--border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: '24px'
-                          }}
                         >
-                          <span style={{ fontSize: '1rem', lineHeight: 1 }}>{em}</span>
+                          <span>{em}</span>
                         </button>
                       ))}
                     </div>
@@ -590,8 +525,8 @@ export default function InboxComposer(props) {
                         applySlashTemplate(tpl);
                       }}
                     >
-                      <span style={{ display: 'block', fontWeight: 700, fontSize: 'var(--inbox-font-secondary)' }}>{tpl.label}</span>
-                      <span className="text-small" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 2 }}>
+                      <span className="inbox-composer-template-btn__label">{tpl.label}</span>
+                      <span className="inbox-composer-template-btn__preview inbox-composer-template-btn__preview--slash">
                         {preview}
                       </span>
                     </button>
@@ -664,9 +599,8 @@ export default function InboxComposer(props) {
               }
             }}
             placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
-            className="form-input"
+            className="form-input inbox-composer-textarea"
             rows={3}
-            style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 88 }}
             onFocus={(e) => {
               if (!isMobile) setComposerExpanded(true);
               if (isMobile) {
@@ -682,11 +616,10 @@ export default function InboxComposer(props) {
             }}
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
+        <div className="inbox-composer-side-col">
           {draftBeforeImprove != null && !composerExpanded && (
             <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34, whiteSpace: 'nowrap' }}
+              className="btn btn-outline inbox-composer-btn--undo"
               onClick={() => {
                 setDraft(String(draftBeforeImprove));
                 setDraftBeforeImprove(null);
@@ -710,7 +643,7 @@ export default function InboxComposer(props) {
             type="button"
           >
             {sending ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span className="inbox-composer-send-loading">
                 <Loader2 size={16} className="navi-async-btn__spin" aria-hidden />
                 Enviar
               </span>
@@ -720,20 +653,11 @@ export default function InboxComposer(props) {
           </button>
           <button
             type="button"
-            className="btn btn-outline inbox-composer-action-btn"
+            className="btn btn-outline inbox-composer-action-btn inbox-composer-expand-btn"
             aria-label="Mais opções"
             aria-expanded={composerExpanded}
             onClick={() => setComposerExpanded((v) => !v)}
             title={composerExpanded ? 'Ocultar opções avançadas' : 'Mais opções: templates, emoji, agendar, IA'}
-            style={{
-              minHeight: 44,
-              minWidth: 44,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 10px',
-              alignSelf: 'stretch'
-            }}
           >
             {composerExpanded ? <ChevronDown size={20} strokeWidth={2} aria-hidden /> : <ChevronUp size={20} strokeWidth={2} aria-hidden />}
           </button>

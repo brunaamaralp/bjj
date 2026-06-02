@@ -685,7 +685,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
     return (
         <div className="pipeline-mobile-list-root">
             {showLoading ? (
-                <div className="pipeline-kanban-loading-hint" role="status" style={{ padding: '8px 0 0' }}>
+                <div className="pipeline-kanban-loading-hint" role="status">
                     Carregando leads do funil…
                 </div>
             ) : null}
@@ -732,7 +732,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                         {isOpen ? (
                             <div className="pipeline-mobile-stage-body">
                                 {stageLeads.length === 0 ? (
-                                    <div style={{ padding: '8px 12px 12px' }}>
+                                    <div className="pipeline-mobile-stage-empty">
                                         <EmptyState variant="compact" tone="dashed" title={emptyStageHint} role="none" />
                                     </div>
                                 ) : (
@@ -742,10 +742,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                         return (
                                         <div
                                             key={lead.id}
-                                            className="pipeline-mobile-lead-item"
-                                            style={{
-                                                borderBottom: li < stageLeads.length - 1 ? '0.5px solid var(--border-light)' : 'none',
-                                            }}
+                                            className={`pipeline-mobile-lead-item${li < stageLeads.length - 1 ? '' : ' pipeline-mobile-lead-item--last'}`}
                                         >
                                         <div
                                             role="button"
@@ -815,8 +812,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                             >
                                                 <button
                                                     type="button"
-                                                    className="btn btn-outline btn-sm"
-                                                    style={{ flexShrink: 0, minHeight: 44, fontSize: 12, boxSizing: 'border-box' }}
+                                                    className="btn btn-outline btn-sm pipeline-mobile-move-trigger"
                                                     onClick={() => {
                                                         if (moveOpen) {
                                                             setMobileMoveLeadId(null);
@@ -848,8 +844,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                         </select>
                                                         <button
                                                             type="button"
-                                                            className="btn btn-primary btn-sm"
-                                                            style={{ flexShrink: 0, minHeight: 44, boxSizing: 'border-box' }}
+                                                            className="btn btn-primary btn-sm pipeline-mobile-move-confirm"
                                                             disabled={!mobileMoveTarget}
                                                             onClick={(e) => {
                                                                 void moveToStatus(e, lead.id, mobileMoveTarget);
@@ -2371,7 +2366,7 @@ const Pipeline = () => {
                                 {searchingServer ? (
                                     <span className="pipeline-search-status" role="status">Buscando…</span>
                                 ) : null}
-                                <div style={{ flex: 1 }} />
+                                <div className="pipeline-header-spacer" />
                                 <DropdownMenu
                                     open={filtersMenuOpen}
                                     onOpenChange={setFiltersMenuOpen}
@@ -2471,7 +2466,7 @@ const Pipeline = () => {
                                 <PlusCircle size={14} aria-hidden /> Novo lead
                             </button>
                         </div>
-                        <FilterBar className="page-header-row" style={{ paddingBottom: 8 }}>
+                        <FilterBar className="page-header-row pipeline-filter-bar">
                             <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
                             <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
                             <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
@@ -2543,7 +2538,7 @@ const Pipeline = () => {
                 )}
             </div>
             {leadsError ? (
-                <div className="container" style={{ paddingTop: 10 }}>
+                <div className="container pipeline-page-container">
                     <ErrorBanner
                         message="Não foi possível carregar os leads do funil."
                         onRetry={() => void fetchLeads({ reset: true })}
@@ -2835,8 +2830,8 @@ const Pipeline = () => {
 
             {missedModalLead && (
                 <div className="note-overlay" onClick={() => setMissedModalLead(null)}>
-                    <div className="note-modal mini-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '340px' }}>
-                        <h4 className="navi-section-heading" style={{ marginBottom: 16, fontSize: '0.95rem' }}>Por que não compareceu?</h4>
+                    <div className="note-modal mini-modal" onClick={(e) => e.stopPropagation()}>
+                        <h4 className="navi-section-heading pipeline-missed-modal-heading">Por que não compareceu?</h4>
                         <div className="reason-grid">
                             {[
                                 'Esqueceu',
@@ -2855,8 +2850,8 @@ const Pipeline = () => {
                                 </button>
                             ))}
                         </div>
-                        <div className="note-footer" style={{ marginTop: 20 }}>
-                            <button className="btn-ghost" onClick={() => setMissedModalLead(null)} style={{ fontSize: '0.85rem', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                        <div className="note-footer pipeline-missed-modal-footer">
+                            <button type="button" className="btn-ghost pipeline-missed-cancel-btn" onClick={() => setMissedModalLead(null)}>
                                 Cancelar
                             </button>
                         </div>
@@ -2902,8 +2897,8 @@ const Pipeline = () => {
             {confirmModal && (
                 <div className="note-overlay" onClick={() => setConfirmModal(null)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="navi-section-heading" style={{ marginBottom: 8 }}>{confirmModal.title}</h3>
-                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 14 }}>{confirmModal.description}</p>
+                        <h3 className="navi-section-heading pipeline-note-modal-heading">{confirmModal.title}</h3>
+                        <p className="text-small pipeline-note-modal-desc">{confirmModal.description}</p>
                         <div className="note-footer">
                             <button className="btn-outline" onClick={() => setConfirmModal(null)}>Cancelar</button>
                             <button className="btn-secondary" onClick={() => void confirmModal.onConfirm?.()}>{confirmModal.confirmLabel || 'Confirmar'}</button>
@@ -2914,14 +2909,14 @@ const Pipeline = () => {
             {noteOpen && (
                 <div className="note-overlay" onClick={() => setNoteOpen(false)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="navi-section-heading" style={{ marginBottom: 8 }}>Adicionar observação</h3>
+                        <h3 className="navi-section-heading pipeline-note-modal-heading">Adicionar observação</h3>
                         <textarea
                             className="note-textarea"
                             value={noteText}
                             onChange={(e) => setNoteText(e.target.value)}
                             placeholder="Ex.: Ligação realizada, reagendado para quinta às 19:00"
                         />
-                        {noteError ? <p className="text-small" style={{ color: 'var(--danger)', marginTop: 8 }}>{noteError}</p> : null}
+                        {noteError ? <p className="text-small pipeline-note-error">{noteError}</p> : null}
                         <div className="note-footer">
                             <button className="btn-outline" onClick={() => setNoteOpen(false)}>Cancelar</button>
                             <button className="btn-secondary" onClick={saveNote} disabled={!String(noteText || '').trim()}>Salvar</button>

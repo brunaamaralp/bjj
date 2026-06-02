@@ -1,5 +1,13 @@
 /**
  * Botões de ação unificados — CRM (Dashboard, Perfil, Pipeline).
+ *
+ * Escala de tamanhos de ícone (lucide-react):
+ * - 12px: metadados, badges, contadores
+ * - 14px: ações em linha, chips
+ * - 16px: botões secundários, menus
+ * - 18px: botões primários, destaques
+ * - 20px: headers de seção
+ * - 24px: ícones de empty state, onboarding
  */
 
 :root {
