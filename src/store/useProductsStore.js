@@ -33,8 +33,16 @@ function normalizeCatalogResponse(data) {
   const variants = data.variants || data.products || [];
   let parentProducts = data.products || [];
 
-  if (catalogMode === 'legacy' && parentProducts.length && !parentProducts[0]?.variants) {
-    parentProducts = legacyStockItemsAsParents(parentProducts);
+  if (catalogMode === 'legacy') {
+    const legacyFlat =
+      parentProducts.length && !parentProducts[0]?.variants
+        ? parentProducts
+        : variants.length && !variants[0]?.variants
+          ? variants
+          : [];
+    if (legacyFlat.length) {
+      parentProducts = legacyStockItemsAsParents(legacyFlat);
+    }
   }
 
   return {
