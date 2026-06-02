@@ -417,11 +417,13 @@ export default function CreateContractModal({
     if (primary.phone) {
       setValue('signers.0.phone', primary.phone, { shouldDirty: false, shouldValidate: true });
     }
-    setValue('signers.0.delivery_method', primary.delivery_method, {
-      shouldDirty: false,
-      shouldValidate: true,
-    });
-  }, [open, leadId, lead, setValue]);
+    if (!dirtyFields.signers?.[0]?.delivery_method) {
+      setValue('signers.0.delivery_method', primary.delivery_method, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+    }
+  }, [open, leadId, lead, setValue, dirtyFields.signers]);
 
   useEffect(() => {
     if (!open || !academyId) return;
@@ -487,8 +489,12 @@ export default function CreateContractModal({
   const goNextFromSigners = async () => {
     const ok = await trigger('signers');
     if (!ok) return;
-    if (sendDiagnostics.blockers.length) {
-      setFormError(sendDiagnostics.blockers.join('\n'));
+    const blockers = diagnoseContractSend({
+      signers: mapSignersForDiagnostics(getValues('signers')),
+      layout: selectedTemplate?.signerLayout as ContractSignerLayout | undefined,
+    }).blockers;
+    if (blockers.length) {
+      setFormError(blockers.join('\n'));
       return;
     }
     if ((signers || []).length !== requiredSignerCount) {
@@ -538,13 +544,7 @@ export default function CreateContractModal({
   const onSubmit = handleSubmit(async (values) => {
     setFormError('');
     const preSubmit = diagnoseContractSend({
-      signers: (values.signers || []).map((s) => ({
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-        action: s.action,
-        delivery_method: s.delivery_method,
-      })),
+      signers: mapSignersForDiagnostics(values.signers),
       layout: selectedTemplate?.signerLayout as ContractSignerLayout | undefined,
     });
     if (preSubmit.blockers.length) {
@@ -776,6 +776,7 @@ export default function CreateContractModal({
                       </div>
 
                       <div className="contracts-signer-grid__full">
+                        <input type="hidden" {...register(`signers.${index}.delivery_method`)} />
                         {isContratada ? (
                           <p className="text-small text-muted contracts-signer-delivery-badge">
                             Envio: <strong>E-mail</strong> (contratada / academia)
@@ -986,20 +987,14 @@ export default function CreateContractModal({
               <div className="contracts-send-summary card">
                 <p className="task-field-label contracts-send-summary__title">Resumo do envio</p>
                 <ul className="contracts-send-summary__list text-small">
-                  {(signers || []).map((s, index) => {
+                  {mapSignersForDiagnostics(signers).map((s, index) => {
                     const slotLabel =
                       selectedTemplate?.signerLayout?.slots?.[index]?.label ||
                       `Signatário ${index + 1}`;
                     return (
                       <li key={`summary-${index}`}>
                         <strong>{slotLabel}</strong> — {String(s?.name || 'Sem nome').trim()} ·{' '}
-                        {describeSignerDelivery({
-                          name: s?.name,
-                          email: s?.email,
-                          phone: s?.phone,
-                          delivery_method: s?.delivery_method,
-                          action: s?.action,
-                        })}
+                        {describeSignerDelivery(s)}
                       </li>
                     );
                   })}
