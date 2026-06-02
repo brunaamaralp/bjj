@@ -48,9 +48,11 @@ import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
 import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
 import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
+import FinanceMonthPicker from '../components/finance/FinanceMonthPicker.jsx';
 
-import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { currentMonthYm, monthPeriodBounds } from '../lib/financeiroOverview.js';
 
 import '../components/finance/finance.css';
 
@@ -113,9 +115,9 @@ export default function Caixa() {
 
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
 
-  const [nlOpen, setNlOpen] = useState(false);
-
   const [transactionsForNl, setTransactionsForNl] = useState([]);
+
+  const [referenceMonth, setReferenceMonth] = useState(() => currentMonthYm());
 
   const [periodFrom, setPeriodFrom] = useState('');
 
@@ -178,7 +180,14 @@ export default function Caixa() {
 
   }, [academyList, academyId]);
 
-
+  const nlPageCtx = useMemo(
+    () => ({
+      context: 'financeiro',
+      pendingTransactions: activeTab === 'movimentacoes' ? transactionsForNl : [],
+    }),
+    [activeTab, transactionsForNl]
+  );
+  useNlPageContext(nlPageCtx);
 
   useEffect(() => {
 
@@ -300,7 +309,12 @@ export default function Caixa() {
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
-
+  useEffect(() => {
+    if (activeTab !== 'movimentacoes') return;
+    const { from, to } = monthPeriodBounds(referenceMonth);
+    setPeriodFrom(from);
+    setPeriodTo(to);
+  }, [activeTab, referenceMonth]);
 
   const subtitle = TAB_SUBTITLES[activeTab] || TAB_SUBTITLES.movimentacoes;
 
@@ -352,24 +366,16 @@ export default function Caixa() {
 
   return (
 
-    <div className="finance-page-root navi-hub-page">
+    <div className="container navi-hub-page finance-page-root">
 
-      <div className="finance-page-inner navi-hub-page__body">
+      <div className="finance-page-inner">
 
         <PageHeader
-          className="navi-hub-page__head"
+          className="navi-page-header--flush navi-hub-page__head"
           title="Financeiro"
           subtitle="Controle entradas, saídas e fechamentos."
           meta={`${subtitle}${academyName ? ` · ${academyName}` : ''}`}
-          metaClassName="finance-hub-eyebrow"
-          toolbar={
-            activeTab === 'movimentacoes' ? (
-              <div className="page-header-row">
-                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                <div className="finance-hub-header-spacer" />
-              </div>
-            ) : null
-          }
+          actions={<FinanceMonthPicker value={referenceMonth} onChange={setReferenceMonth} />}
         />
 
 
@@ -392,11 +398,16 @@ export default function Caixa() {
             financeModule={financeModule}
             modules={modules}
             isOwner={isOwner}
+            referenceMonth={referenceMonth}
           />
         ) : null}
 
         {activeTab === FINANCEIRO_SECTIONS.MENSALIDADES && academyId ? (
-          <MensalidadesPanel embedded />
+          <MensalidadesPanel
+            embedded
+            referenceMonth={referenceMonth}
+            onReferenceMonthChange={setReferenceMonth}
+          />
         ) : null}
 
 
@@ -481,15 +492,12 @@ export default function Caixa() {
         {academyId && activeTab === 'fechamento' && financeModule ? (
 
           <MonthlyClosingTab
-
             academyId={academyId}
-
             academyName={academyName}
-
             financeConfig={financeConfig}
-
             modules={modules}
-
+            referenceMonth={referenceMonth}
+            onReferenceMonthChange={setReferenceMonth}
           />
 
         ) : null}
@@ -499,18 +507,6 @@ export default function Caixa() {
         ) : null}
 
       </div>
-
-      <NlCommandBar
-
-        open={nlOpen}
-
-        onOpenChange={setNlOpen}
-
-        academyName={academyName}
-
-        pendingTransactions={transactionsForNl}
-
-      />
 
     </div>
 

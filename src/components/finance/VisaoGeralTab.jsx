@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   RefreshCw,
   TrendingDown,
   TrendingUp,
@@ -15,14 +13,14 @@ import { useStudentStore } from '../../store/useStudentStore';
 import { fetchFinanceSummary, fetchFinanceForecast, fetchMonthlyClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
-import { EMPRESA_FINANCE_CONFIG_PATH, FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
+import { FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
 import {
   computeMensalidadesMonthKpis,
   countClosingDivergences,
-  currentMonthYm,
   flattenForecastItems,
   forecastNext30Range,
   formatBalanceDelta,
+  formatMonthTitleCapitalized,
   monthPeriodBounds,
   previousMonthYm,
   sumForecastInflow,
@@ -52,26 +50,6 @@ function fmtDateBr(ymd) {
   return `${p[2]}/${p[1]}/${p[0]}`;
 }
 
-function formatMonthTitleCapitalized(ym) {
-  try {
-    const raw = new Date(`${ym}-02T12:00:00`).toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    });
-    const s = String(raw || '').trim();
-    if (!s) return ym;
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  } catch {
-    return ym;
-  }
-}
-
-function shiftMonthYm(ym, delta) {
-  const d = new Date(`${ym}-02T12:00:00`);
-  d.setMonth(d.getMonth() + delta);
-  return d.toISOString().slice(0, 7);
-}
-
 function OverviewCard({ title, eyebrow, children, className = '' }) {
   return (
     <section className={`card financeiro-overview-card ${className}`.trim()}>
@@ -96,13 +74,19 @@ function CardLoadError({ message }) {
   return <ErrorBanner message={message} className="financeiro-overview-card__error" />;
 }
 
-export default function VisaoGeralTab({ academyId, financeModule, modules, isOwner = false }) {
+export default function VisaoGeralTab({
+  academyId,
+  financeModule,
+  modules,
+  isOwner = false,
+  referenceMonth,
+}) {
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const students = useStudentStore((s) => s.students);
 
-  const [referenceMonth, setReferenceMonth] = useState(() => currentMonthYm());
-  const { from, to } = useMemo(() => monthPeriodBounds(referenceMonth), [referenceMonth]);
-  const prevMonth = useMemo(() => previousMonthYm(referenceMonth), [referenceMonth]);
+  const ym = String(referenceMonth || '').trim();
+  const { from, to } = useMemo(() => monthPeriodBounds(ym), [ym]);
+  const prevMonth = useMemo(() => previousMonthYm(ym), [ym]);
   const prevBounds = useMemo(() => monthPeriodBounds(prevMonth), [prevMonth]);
   const forecastRange = useMemo(() => forecastNext30Range(), []);
 
@@ -125,17 +109,6 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
     [academyId]
   );
 
-  const isCurrentMonth = referenceMonth === currentMonthYm();
-
-  const goPrevMonth = useCallback(() => {
-    setReferenceMonth((ym) => shiftMonthYm(ym, -1));
-  }, []);
-
-  const goNextMonth = useCallback(() => {
-    if (isCurrentMonth) return;
-    setReferenceMonth((ym) => shiftMonthYm(ym, 1));
-  }, [isCurrentMonth]);
-
   const load = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
@@ -148,7 +121,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
       const tasks = [
         fetchFinanceSummary({ academyId, from, to, regime: regimeVal }),
         fetchFinanceSummary({ academyId, from: prevBounds.from, to: prevBounds.to, regime: regimeVal }),
-        getMonthlyPayments(academyId, referenceMonth, {
+        getMonthlyPayments(academyId, ym, {
           activeStudentCount: (students || []).filter((s) => String(s.plan || '').trim()).length,
         }),
       ];
@@ -164,7 +137,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
         tasks.push(
           fetchMonthlyClosing({
             academyId,
-            month: referenceMonth,
+            month: ym,
             regime: regimeVal,
           })
         );
@@ -212,7 +185,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
           transactions: body.transactions || [],
           students: students || [],
           financeConfig,
-          referenceMonth,
+          referenceMonth: ym,
           regime: regimeVal,
         });
         setClosingDivergences(div);
@@ -251,7 +224,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
     to,
     prevBounds.from,
     prevBounds.to,
-    referenceMonth,
+    ym,
     financeModule,
     forecastRange.from,
     forecastRange.to,
@@ -265,8 +238,8 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
   }, [load]);
 
   const mensalKpis = useMemo(
-    () => computeMensalidadesMonthKpis(students, payments, financeConfig, referenceMonth),
-    [students, payments, financeConfig, referenceMonth]
+    () => computeMensalidadesMonthKpis(students, payments, financeConfig, ym),
+    [students, payments, financeConfig, ym]
   );
 
   const forecastItems = useMemo(() => flattenForecastItems(forecast), [forecast]);
@@ -278,7 +251,7 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
     [summary, summaryPrev]
   );
 
-  const monthLabel = useMemo(() => formatMonthTitleCapitalized(referenceMonth), [referenceMonth]);
+  const monthLabel = useMemo(() => formatMonthTitleCapitalized(ym), [ym]);
 
   const hasAlerts =
     mensalKpis.overdueCount > 0 ||
@@ -322,21 +295,6 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
           </p>
         </div>
         <div className="financeiro-overview__head-actions">
-          <div className="mensal-month-picker" aria-label="Selecionar mês de referência">
-            <button type="button" className="mensal-month-picker__btn" onClick={goPrevMonth} aria-label="Mês anterior">
-              <ChevronLeft size={18} strokeWidth={2} />
-            </button>
-            <span className="mensal-month-picker__label">{monthLabel}</span>
-            <button
-              type="button"
-              className="mensal-month-picker__btn"
-              onClick={goNextMonth}
-              disabled={isCurrentMonth}
-              aria-label="Próximo mês"
-            >
-              <ChevronRight size={18} strokeWidth={2} />
-            </button>
-          </div>
           <button
             type="button"
             className="btn-outline btn-sm financeiro-overview-refresh"
@@ -349,27 +307,6 @@ export default function VisaoGeralTab({ academyId, financeModule, modules, isOwn
           </button>
         </div>
       </header>
-
-      <aside className="finance-guide" aria-label="Onde lançar no financeiro">
-        <p className="finance-guide__title">Onde lançar</p>
-        <ul className="finance-guide__list">
-          <li>
-            <span>Cobrança de alunos (mensalidade):</span>
-            <Link to={`/financeiro?tab=${FINANCEIRO_SECTIONS.MENSALIDADES}`}>Mensalidades</Link>
-          </li>
-          <li>
-            <span>Despesas, entradas avulsas e recorrências:</span>
-            <Link to="/financeiro?tab=movimentacoes">Caixa</Link>
-          </li>
-        </ul>
-        <p className="finance-guide__note">
-          Mensalidade paga gera entrada automática no Caixa. Mensalidade pendente não aparece como lançamento
-          pendente no Caixa — use Mensalidades para cobrar e registrar pagamentos.
-        </p>
-        <p className="finance-guide__footer">
-          <Link to={EMPRESA_FINANCE_CONFIG_PATH}>Configurar planos, taxas e contas bancárias</Link>
-        </p>
-      </aside>
 
       <div className="financeiro-overview-grid">
         <OverviewCard title="Saldo e movimentações" eyebrow="Caixa · mês atual">

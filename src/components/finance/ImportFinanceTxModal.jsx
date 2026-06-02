@@ -323,7 +323,10 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
     <div className="product-import-overlay" role="dialog" aria-modal="true" aria-labelledby="finance-tx-import-title">
       <div className="product-import-modal">
         <div className="product-import-progress" aria-hidden="true">
-          <div className="product-import-progress-bar" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+          <div
+            className="product-import-progress-bar product-import-progress-bar--determinate"
+            style={{ '--progress-pct': `${((step + 1) / STEPS.length) * 100}%` }}
+          />
         </div>
 
         <header className="product-import-header">

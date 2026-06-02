@@ -47,12 +47,10 @@ function formatNlPaymentMethod(method) {
   return PAYMENT_METHOD_LABELS[k] || (k ? k : '—');
 }
 
-export function NlCommandBarTrigger({ onClick, mode = 'ask' }) {
-  const label = mode === 'ask' ? 'Faça uma pergunta…' : 'O que você quer fazer?';
+export function NlCommandBarTrigger({ onClick }) {
+  const label = 'Pergunte ou descreva uma ação…';
   const title =
-    mode === 'ask'
-      ? 'Pergunte sobre matrículas, mensalidades, funil, caixa ou estoque (⌘K)'
-      : 'Descreva uma ação em português (⌘K)';
+    'Consultas e comandos: matrículas, mensalidades, funil, caixa ou estoque (⌘K / Ctrl+K)';
   return (
     <button type="button" className="nl-command-bar-trigger" onClick={onClick} title={title}>
       <span className="nl-command-bar-trigger__icon" aria-hidden>
@@ -71,6 +69,12 @@ const ASK_SUGGESTIONS = [
   'Quem faltou na experimental?',
   'Quanto entrou esse mês?',
   'O que mais vendeu esse mês?',
+];
+
+const ACTION_SUGGESTIONS = [
+  'Registrar pagamento do João em março',
+  'Marcar lead como compareceu',
+  'Registrar venda de rashguard',
 ];
 
 const ASK_HELP_SECTIONS = [
@@ -107,7 +111,6 @@ export default function NlCommandBar({
   onOpenChange,
   academyName: academyNameProp,
   context = 'financeiro',
-  mode = 'ask',
   pipelineStages = [],
   pendingTransactions = [],
   recentPayments = [],
@@ -293,7 +296,7 @@ export default function NlCommandBar({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={mode === 'ask' ? 'Assistente de perguntas' : 'Assistente de comandos'}
+          aria-label="Assistente · perguntas e ações"
           onClick={(e) => e.stopPropagation()}
           style={{
             background: 'var(--surface)',
@@ -333,11 +336,7 @@ export default function NlCommandBar({
                 }
               }}
               disabled={inputDisabled}
-              placeholder={
-                mode === 'ask'
-                  ? 'Ex.: Quem fez matrícula esse mês? Quem ainda não pagou?'
-                  : 'Descreva o que deseja fazer…'
-              }
+              placeholder="Ex.: Quem não pagou? · Registrar pagamento do João em março"
               style={{
                 flex: 1,
                 border: 'none',
@@ -379,73 +378,71 @@ export default function NlCommandBar({
 
           {state === 'idle' ? (
             <div style={{ padding: 20 }}>
-              {mode === 'ask' ? (
-                <>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                    {ASK_SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className="filter-chip"
-                        onClick={() => {
-                          setText(s);
-                          inputRef.current?.focus();
-                        }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAskHelp((v) => !v)}
-                    style={{
-                      marginBottom: showAskHelp ? 12 : 14,
-                      padding: 0,
-                      border: 'none',
-                      background: 'none',
-                      color: 'var(--petroleo)',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {showAskHelp ? 'Ocultar exemplos' : 'O que posso perguntar?'}
-                  </button>
-                  {showAskHelp ? (
-                    <div
-                      style={{
-                        marginBottom: 14,
-                        padding: '12px 14px',
-                        borderRadius: 10,
-                        border: '1px solid var(--border-light)',
-                        background: 'var(--surface-hover, #fafafa)',
-                        fontSize: 12,
-                        lineHeight: 1.5,
-                        color: 'var(--text-secondary)',
+              <>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {[...ASK_SUGGESTIONS.slice(0, 4), ...ACTION_SUGGESTIONS].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="filter-chip"
+                      onClick={() => {
+                        setText(s);
+                        inputRef.current?.focus();
                       }}
                     >
-                      {ASK_HELP_SECTIONS.map((section) => (
-                        <div key={section.title} style={{ marginBottom: 10 }}>
-                          <div style={{ fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
-                            {section.title}
-                          </div>
-                          <ul style={{ margin: 0, paddingLeft: 18 }}>
-                            {section.examples.map((ex) => (
-                              <li key={ex}>{ex}</li>
-                            ))}
-                          </ul>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAskHelp((v) => !v)}
+                  style={{
+                    marginBottom: showAskHelp ? 12 : 14,
+                    padding: 0,
+                    border: 'none',
+                    background: 'none',
+                    color: 'var(--petroleo)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {showAskHelp ? 'Ocultar exemplos' : 'O que posso perguntar ou fazer?'}
+                </button>
+                {showAskHelp ? (
+                  <div
+                    style={{
+                      marginBottom: 14,
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border-light)',
+                      background: 'var(--surface-hover, #fafafa)',
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    {ASK_HELP_SECTIONS.map((section) => (
+                      <div key={section.title} style={{ marginBottom: 10 }}>
+                        <div style={{ fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+                          {section.title}
                         </div>
-                      ))}
-                      <div style={{ fontSize: 11, marginTop: 4 }}>
-                        Comandos (registrar pagamento, matricular lead, etc.) exigem confirmação. Consulta
-                        detalhada: docs/assistive-queries.md
+                        <ul style={{ margin: 0, paddingLeft: 18 }}>
+                          {section.examples.map((ex) => (
+                            <li key={ex}>{ex}</li>
+                          ))}
+                        </ul>
                       </div>
+                    ))}
+                    <div style={{ fontSize: 11, marginTop: 4 }}>
+                      Comandos (registrar pagamento, matricular lead, etc.) exigem confirmação. Consulta
+                      detalhada: docs/assistive-queries.md
                     </div>
-                  ) : null}
-                </>
-              ) : null}
+                  </div>
+                ) : null}
+              </>
               <button
                 type="button"
                 disabled={!text.trim()}
@@ -464,7 +461,7 @@ export default function NlCommandBar({
                   fontFamily: 'inherit'
                 }}
               >
-                {mode === 'ask' ? 'Buscar resposta' : 'Interpretar comando'}
+                Enviar
               </button>
             </div>
           ) : null}
@@ -483,7 +480,7 @@ export default function NlCommandBar({
                 }}
               />
               <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                {mode === 'ask' ? 'Consultando seus dados…' : 'Interpretando seu comando…'}
+                Processando…
               </div>
             </div>
           ) : null}
@@ -1099,15 +1096,17 @@ export default function NlCommandBar({
             }}
           >
             <span>
-              {mode === 'ask'
-                ? 'Perguntas · alunos, mensalidades e estoque'
-                : context === 'funil'
-                  ? 'Funil de Vendas'
+              {`Assistente · perguntas e ações · ${
+                context === 'funil'
+                  ? 'Funil'
                   : context === 'perfil'
-                    ? 'Perfil (finanças + funil)'
+                    ? 'Geral'
                     : context === 'vendas'
                       ? 'Vendas'
-                      : 'Módulo Financeiro'}
+                      : context === 'financeiro'
+                        ? 'Financeiro'
+                        : 'Geral'
+              }`}
               {academyName ? ` · ${academyName}` : ''}
             </span>
             <kbd

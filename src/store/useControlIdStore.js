@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import * as controlId from '../services/controlIdService';
 import { createSessionJwt } from '../lib/appwrite';
+import { attendanceApiUrl } from '../lib/controlidApi.js';
 
 const CONTROLID_STORE_KEY = 'controlid-store';
 
@@ -105,7 +106,7 @@ export const useControlIdStore = create(
           }
 
           const jwt = await createSessionJwt();
-          const res = await fetch('/api/control-id/attendance', {
+          const res = await fetch(attendanceApiUrl(), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ export const useControlIdStore = create(
         if (startDate) params.set('start', startDate);
         if (endDate) params.set('end', endDate);
 
-        const res = await fetch(`/api/control-id/attendance?${params}`, {
+        const res = await fetch(attendanceApiUrl(params), {
           headers: {
             'Authorization': `Bearer ${jwt}`,
             'x-academy-id': academyId,

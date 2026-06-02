@@ -4,7 +4,6 @@ import { Settings } from 'lucide-react';
 import SalesNewSaleTab from '../components/sales/SalesNewSaleTab';
 import SalesHistoryTab from '../components/sales/SalesHistoryTab';
 import SalesSettingsSection from '../components/academy/SalesSettingsSection.jsx';
-import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
 import { useLeadStore } from '../store/useLeadStore';
 import {
   lojaVendasTabParams,
@@ -19,7 +18,6 @@ const Sales = () => {
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const configRef = useRef(null);
-  const [nlOpen, setNlOpen] = useState(false);
   const academyName = useMemo(() => {
     const cur = (academyList || []).find((a) => a.id === academyId);
     return String(cur?.name || '').trim();
@@ -86,7 +84,6 @@ const Sales = () => {
             </button>
           ) : null
         }
-        toolbar={<NlCommandBarTrigger onClick={() => setNlOpen(true)} />}
       />
 
       <HubTabBar
@@ -100,8 +97,6 @@ const Sales = () => {
       />
 
       {subtab === 'new' ? <SalesNewSaleTab /> : <SalesHistoryTab onSwitchTab={setSubtab} />}
-
-      <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} academyName={academyName} context="vendas" />
 
       {academyId && salesConfigOpen ? (
         <div id="sales-config-panel" ref={configRef} className="mt-4 animate-in">

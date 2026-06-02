@@ -124,7 +124,7 @@ function SectionSaveFooter({ dirty, saving, onSave }) {
 }
 
 function FinanceSectionHeading({ icon, children }) {
-  const iconEl = React.createElement(icon, { size: 18, color: 'var(--v500)', 'aria-hidden': true });
+  const iconEl = React.createElement(icon, { size: 18, className: 'finance-config-section__icon', 'aria-hidden': true });
   return (
     <h3 className="navi-section-heading finance-config-section__heading">
       {iconEl}
@@ -541,8 +541,8 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
             .
           </p>
           {isOwner && contractTemplatesConfigured && rescissionTemplates.length === 0 ? (
-            <div className="finance-config-setup-banner card" style={{ padding: 12, marginBottom: 12 }}>
-              <p className="text-small text-muted" style={{ margin: '0 0 10px' }}>
+            <div className="finance-config-setup-banner card">
+              <p className="text-small text-muted finance-config-setup-banner__text">
                 Falta o termo de rescisão padrão. Você pode gerar os modelos e vincular todos os planos
                 automaticamente.
               </p>

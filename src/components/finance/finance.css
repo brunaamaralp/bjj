@@ -375,7 +375,7 @@
 .financeiro-hub-tabs__secondary { margin-top: 10px; }
 .navi-hub-tabs--nested .navi-hub-tab { font-size: var(--font-sm); padding: 6px 12px; }
 .finance-page-root { width: 100%; box-sizing: border-box; }
-.finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 24px; box-sizing: border-box; padding-bottom: 40px; }
+.finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 0; box-sizing: border-box; }
 /* Abas: estilos globais em index.css (.navi-hub-tabs / .finance-tabs) */
 .finance-regime-toggle {
   display: flex;
@@ -1191,6 +1191,8 @@
 
 .accounts-popover.navi-menu__panel {
   position: fixed;
+  top: var(--menu-top, auto);
+  left: var(--menu-left, auto);
   z-index: 1100;
   min-width: var(--menu-min-width);
   padding: var(--menu-padding) 0;
@@ -1866,8 +1868,8 @@
 }
 
 .finance-hub-eyebrow {
-  margin-top: 6px;
-  margin-bottom: 14px;
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 
 .finance-hub-header-spacer {
@@ -3322,4 +3324,329 @@
     padding: 6px 12px;
     font-size: var(--font-sm);
   }
+}
+
+/* === Progresso dinâmico (--progress-pct) === */
+.navi-progress-fill {
+  width: var(--progress-pct, 0%);
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.25s var(--ease-standard);
+}
+.finance-settings-progress__fill {
+  width: var(--progress-pct, 0%);
+}
+
+/* === Payment status popover === */
+.payment-status-popover {
+  position: fixed;
+  z-index: var(--z-modal, 2600);
+  width: 280px;
+  top: var(--popover-top, 40%);
+  left: var(--popover-left, 40%);
+}
+.payment-status-popover__form {
+  padding: var(--finance-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.payment-status-popover__title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.payment-status-popover__field-label {
+  display: block;
+  margin-bottom: 4px;
+}
+.payment-status-popover__input--amount {
+  font-size: var(--font-md);
+}
+.payment-status-popover__input--compact {
+  font-size: var(--font-md);
+}
+.payment-status-popover__hint {
+  margin-top: 4px;
+}
+.payment-status-popover__actions {
+  justify-content: flex-end;
+}
+
+/* === Bank account select === */
+.bank-account-select__legacy-hint {
+  margin: 6px 0 0;
+  font-size: var(--font-sm);
+  color: var(--text-muted, var(--text-secondary));
+}
+.bank-account-select__toggle {
+  margin-top: var(--finance-space-2);
+  padding: 4px 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.bank-account-select__inline-panel {
+  margin-top: 10px;
+  padding: var(--finance-space-3);
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-light);
+  background: var(--color-background-secondary, var(--surface-hover));
+  display: grid;
+  gap: 10px;
+}
+.bank-account-select__field {
+  margin: 0;
+}
+.bank-account-select__field-label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+.bank-account-select__submit {
+  justify-self: start;
+  min-height: 40px;
+  font-size: var(--font-md);
+}
+
+/* === Relatórios (ReportsTab) === */
+.finance-reports-tab--delayed {
+  animation-delay: 0.05s;
+}
+.finance-reports-filters__regime-note {
+  width: 100%;
+  margin: 0 0 var(--finance-space-2);
+}
+.finance-reports-date-field {
+  width: 138px;
+}
+.finance-reports-method-field {
+  width: 200px;
+}
+.finance-reports-actions {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.finance-reports-tab:not(.finance-reports-tab--embedded) .finance-reports-actions {
+  margin-left: auto;
+}
+.finance-reports-hint__btn {
+  flex-shrink: 0;
+}
+.finance-reports-row__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.finance-reports-unclassified-badge {
+  font-size: 10px;
+  font-weight: 600;
+}
+.finance-reports-row__value {
+  font-weight: 500;
+}
+.finance-reports-row--total .finance-reports-row__value {
+  font-weight: 600;
+}
+
+/* === Grade mensal (MonthlyPaymentGrid) === */
+.monthly-grid-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--finance-space-3);
+  margin-bottom: var(--finance-space-4);
+}
+.monthly-grid-filters {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.monthly-grid-filter-field {
+  margin: 0;
+}
+.monthly-grid-filter-field--turma {
+  min-width: 140px;
+}
+.monthly-grid-filter-field--sort {
+  min-width: 160px;
+}
+.monthly-grid-table-wrap {
+  max-height: calc(100vh - 320px);
+  overflow: auto;
+}
+.monthly-grid-table {
+  min-width: 960px;
+  table-layout: fixed;
+  width: 100%;
+}
+.monthly-grid-table thead {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky, 2);
+  background: var(--color-background-secondary, var(--surface-hover));
+}
+.monthly-grid-col-expand {
+  width: 28px;
+}
+.monthly-grid-col-name {
+  width: 22%;
+}
+.monthly-grid-col-plan {
+  width: 14%;
+}
+.monthly-grid-col-amount {
+  width: 12%;
+}
+.monthly-grid-col-due {
+  width: 10%;
+}
+.monthly-grid-col-account {
+  width: 16%;
+}
+.monthly-grid-col-status {
+  width: 14%;
+}
+.monthly-grid-col-note {
+  width: 48px;
+}
+.monthly-grid-loading-cell {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.monthly-grid-empty-cell {
+  padding: var(--finance-space-6);
+  text-align: center;
+}
+.monthly-grid-expand-btn {
+  padding: 2px;
+}
+.monthly-grid-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.monthly-grid-note-cell {
+  max-width: 200px;
+}
+.monthly-grid-note-input {
+  font-size: var(--font-sm);
+  padding: 4px 8px;
+}
+.monthly-grid-history-chips {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.monthly-grid-history-chips__label {
+  margin-right: 4px;
+}
+.monthly-grid-history-chip {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 0.5px solid var(--border-light);
+}
+.monthly-grid-row-covered {
+  opacity: 0.85;
+}
+.grid-status-badge--covered {
+  cursor: default;
+}
+.grid-status-badge:not(.grid-status-badge--covered) {
+  cursor: pointer;
+}
+
+/* === Painéis mensalidades (loading / vazio) === */
+.mensal-panel-loading {
+  padding: var(--finance-space-6);
+  text-align: center;
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+.mensal-panel-empty {
+  padding: var(--finance-space-6);
+}
+.mensal-panel-empty--center {
+  text-align: center;
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+
+/* === Virtualização (altura/transform dinâmicos permitidos) === */
+.mensal-virtual-spacer {
+  border: 0;
+  visibility: hidden;
+}
+.mensal-virtual-container {
+  position: relative;
+  width: 100%;
+}
+.mensal-virtual-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding-bottom: 10px;
+}
+.mensal-mobile-list--virtual {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* === Config financeiro === */
+.finance-config-section__icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+.finance-config-setup-banner {
+  padding: var(--finance-space-3);
+  margin-bottom: var(--finance-space-3);
+}
+.finance-config-setup-banner__text {
+  margin: 0 0 10px;
+}
+.finance-config-section__body--compact {
+  padding-top: 4px;
+}
+.finance-collection-label-field {
+  margin-bottom: var(--finance-space-3);
+}
+.mensal-collection-rule-message {
+  margin: 0;
+}
+.finance-settings-exceptions-intro {
+  margin-bottom: var(--finance-space-3);
+}
+.finance-settings-group__chevron--open {
+  transform: rotate(180deg);
+}
+
+/* === Contas (AccountsTab) === */
+.accounts-tab--delayed {
+  animation-delay: 0.05s;
+}
+.accounts-lock-icon {
+  margin-right: 6px;
+  opacity: 0.8;
+}
+.accounts-drawer-collapse-trigger__chevron {
+  transition: transform 0.15s ease;
+}
+.accounts-drawer-collapse-trigger[aria-expanded='true'] .accounts-drawer-collapse-trigger__chevron {
+  transform: rotate(180deg);
+}
+
+/* === Mobile grade — nota === */
+.mensal-mobile-grid__note-edit {
+  padding: 0 14px 12px;
+}
+.mensal-mobile-grid__note-input {
+  font-size: var(--font-md);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.product-import-progress-bar--determinate {
+  width: var(--progress-pct, 0%);
+  animation: none;
+  background: var(--color-primary);
 }

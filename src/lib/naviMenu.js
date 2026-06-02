@@ -344,7 +344,6 @@ export function buildSidebarNavModel({
       { to: '/pipeline', label: pipelineLabel, iconKey: 'pipeline' },
       { to: '/students', label: navStudentsLabel, iconKey: 'students' },
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
-      { to: '/presenca', label: 'Presença', iconKey: 'catraca' },
     ],
     atendimento: [{ to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
     financeDirect: [],

@@ -11,9 +11,14 @@ export function normalizeStudentStatus(raw) {
   return STUDENT_STATUS.ACTIVE;
 }
 
+export function studentStatusRaw(lead) {
+  return lead?.studentStatus ?? lead?.student_status ?? '';
+}
+
 export function isStudentRecord(lead) {
   if (!lead) return false;
   if (lead._isStudent === true) return true;
+  if (String(studentStatusRaw(lead)).trim()) return true;
   return (
     String(lead?.status || '').trim() === 'Matriculado' ||
     String(lead?.contact_type || '').trim() === 'student'
@@ -22,12 +27,12 @@ export function isStudentRecord(lead) {
 
 export function isActiveStudent(lead) {
   if (!isStudentRecord(lead)) return false;
-  return normalizeStudentStatus(lead?.studentStatus) === STUDENT_STATUS.ACTIVE;
+  return normalizeStudentStatus(studentStatusRaw(lead)) === STUDENT_STATUS.ACTIVE;
 }
 
 export function isInactiveStudent(lead) {
   if (!isStudentRecord(lead)) return false;
-  return normalizeStudentStatus(lead?.studentStatus) === STUDENT_STATUS.INACTIVE;
+  return normalizeStudentStatus(studentStatusRaw(lead)) === STUDENT_STATUS.INACTIVE;
 }
 
 export function filterActiveStudents(leads) {

@@ -49,7 +49,7 @@ import { maskCPF, maskPhone } from '../lib/masks.js';
 import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 import { useTerms, contactLabelSingular, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
-import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { NL_PAYMENT_PREFILL_EVENT } from '../lib/nlCorrect.js';
 import { formatBRLFromCents } from '../lib/moneyBr';
 import { DateInputField } from '../components/DateInput';
@@ -514,7 +514,6 @@ export default function StudentProfile() {
                 status: 'paid',
             });
             setShowPaymentModal(true);
-            setNlOpen(false);
         };
         window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
         return () => window.removeEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
@@ -799,8 +798,6 @@ export default function StudentProfile() {
         return String(cur?.name || '').trim();
     }, [academyList, academyId]);
 
-    const [nlOpen, setNlOpen] = useState(false);
-
     const recentPaymentsForNl = useMemo(() => {
         if (!student) return [];
         const nm = String(student.name || '').trim();
@@ -821,6 +818,16 @@ export default function StudentProfile() {
                 account: String(p.account || '')
             }));
     }, [payments, student, leadId]);
+
+    const nlPageCtx = useMemo(
+        () => ({
+            context: 'perfil',
+            pipelineStages: pipelineStagesNl,
+            recentPayments: recentPaymentsForNl,
+        }),
+        [pipelineStagesNl, recentPaymentsForNl]
+    );
+    useNlPageContext(nlPageCtx);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -2011,7 +2018,6 @@ export default function StudentProfile() {
                 >
                     ← {studentsPlural}
                 </button>
-                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
             </div>
 
             <div style={{ padding: '16px 14px', flex: 1 }}>
@@ -3074,15 +3080,6 @@ export default function StudentProfile() {
             />
             {leftColumn}
             {rightColumn}
-
-            <NlCommandBar
-                open={nlOpen}
-                onOpenChange={setNlOpen}
-                academyName={academyNameDisplay}
-                context="perfil"
-                pipelineStages={pipelineStagesNl}
-                recentPayments={recentPaymentsForNl}
-            />
 
             {confirmDeleteOpen ? (
                 <div

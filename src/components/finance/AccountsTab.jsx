@@ -133,7 +133,7 @@ function AccountsActionMenu({ menu, onClose, onEdit, onAddSubconta, onDelete }) 
       <DropdownMenuPanel
         className="accounts-popover"
         fixed
-        style={{ top: menu.top, left: menu.left }}
+        style={{ '--menu-top': `${menu.top}px`, '--menu-left': `${menu.left}px` }}
         aria-label="Ações da conta"
       >
         <DropdownMenuItem icon={<Pencil size={16} aria-hidden />} onClick={() => onEdit(menu.account)}>
@@ -223,7 +223,7 @@ function AccountsAccountDrawer({
               />
               {protectedRow ? (
                 <p className="accounts-protected-hint" role="status">
-                  <Lock size={12} aria-hidden style={{ marginRight: 6, opacity: 0.8 }} />
+                  <Lock size={12} aria-hidden className="accounts-lock-icon" />
                   {PROTECTED_CODE_EDIT_WARNING}
                 </p>
               ) : null}
@@ -261,11 +261,7 @@ function AccountsAccountDrawer({
               aria-expanded={accountingOpen}
             >
               <span>DRE / DFC</span>
-              <ChevronDown
-                size={18}
-                aria-hidden
-                style={{ transform: accountingOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
-              />
+              <ChevronDown size={18} aria-hidden className="accounts-drawer-collapse-trigger__chevron" />
             </button>
             {accountingOpen ? (
               <div className="accounts-drawer-collapse-body">
@@ -741,7 +737,7 @@ export default function AccountsTab({
   );
 
   return (
-    <section className="accounts-tab mt-4 animate-in" style={{ animationDelay: '0.05s' }}>
+    <section className="accounts-tab mt-4 animate-in accounts-tab--delayed">
       <div className="accounts-header">
         <h3 className="navi-section-heading accounts-header-title">Plano de Contas</h3>
         <div className="accounts-header-actions">

@@ -36,7 +36,7 @@ export default function CollectionRulesSection({
   return (
     <section className="finance-config-section animate-in mensal-collection-rules">
       <h3 className="navi-section-heading finance-config-section__heading">
-        <Bell size={18} color="var(--v500)" aria-hidden />
+        <Bell size={18} className="finance-config-section__icon" aria-hidden />
         Régua de cobrança
       </h3>
       <p className="text-small text-muted finance-config-section__hint mensal-collection-intro">
@@ -44,7 +44,7 @@ export default function CollectionRulesSection({
         apenas cria tarefas e etiquetas para a equipe agir.
       </p>
       <div className="finance-config-section__body">
-        <div className="form-group mensal-collection-label-field" style={{ marginBottom: 12 }}>
+        <div className="form-group mensal-collection-label-field finance-collection-label-field">
           <label>Etiqueta de inadimplência</label>
           <input
             className="form-input finance-compact-input"
@@ -114,7 +114,7 @@ export default function CollectionRulesSection({
                   </div>
                 </div>
                 {!rule.escalate ? (
-                  <div className="form-group mensal-collection-rule-message" style={{ margin: 0 }}>
+                  <div className="form-group mensal-collection-rule-message">
                     <label>Mensagem padrão (use [nome] para o aluno)</label>
                     <textarea
                       className="form-input"

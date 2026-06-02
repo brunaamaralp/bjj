@@ -12,8 +12,19 @@ const ROUTE_PATH = {
   controlid_monitor: 'monitor',
   controlid_test_image: 'test-image',
   controlid_attendance: 'attendance',
+  'control-id-attendance': 'attendance',
   controlid_sync_all: 'sync-all',
 };
+
+/** URL da API de presenças (GET/POST). Em dev, usa /api/leads — não depende do rewrite do vercel.json. */
+export function attendanceApiUrl(queryParams) {
+  const qs = queryParams?.toString?.() ? String(queryParams) : '';
+  if (LOCAL_BASE) {
+    return qs ? `${LOCAL_BASE}/controlid/attendance?${qs}` : `${LOCAL_BASE}/controlid/attendance`;
+  }
+  const base = '/api/leads?route=control-id-attendance';
+  return qs ? `${base}&${qs}` : base;
+}
 
 function routeUrl(route) {
   if (LOCAL_BASE) {
@@ -116,10 +127,7 @@ export async function fetchControlIdAttendance(academyId, { since, start, end, l
   // server-side handler usa `start`, não `since` — normalizar aqui
   if (since && !params.has('start')) { params.set('start', since); params.delete('since'); }
 
-  const base = LOCAL_BASE ? `${LOCAL_BASE}/controlid/attendance` : '/api/control-id/attendance';
-  const url = params.toString() ? `${base}?${params}` : base;
-
-  const res = await authedFetch(url, {
+  const res = await authedFetch(attendanceApiUrl(params), {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${jwt}`,

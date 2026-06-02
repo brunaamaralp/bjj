@@ -1,6 +1,6 @@
-# Barra de perguntas (⌘K / Ctrl+K)
+# Assistente NL (⌘K / Ctrl+K)
 
-Assistente em linguagem natural: **Faça uma pergunta…** na barra superior ou ⌘K.
+Assistente em linguagem natural: **Pergunte ou descreva uma ação…** na barra superior (topbar) ou ⌘K / Ctrl+K. Uma única entrada para consultas read-only e comandos com confirmação.
 
 Fluxo: [`NlCommandBar.jsx`](../src/components/NlCommandBar.jsx) → `/api/agent?route=nl-action` → [`nlActionHandler.js`](../lib/server/nlActionHandler.js).
 

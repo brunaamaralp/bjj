@@ -182,6 +182,38 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
       [disabled, emitChange]
     );
 
+    const insertTextInVisualEditor = useCallback((text: string) => {
+      const el = editorRef.current;
+      if (!el) return;
+      el.focus();
+      restoreVisualSelection();
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        try {
+          document.execCommand('insertText', false, text);
+        } catch {
+          el.appendChild(document.createTextNode(text));
+        }
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      if (!el.contains(range.commonAncestorContainer)) {
+        try {
+          document.execCommand('insertText', false, text);
+        } catch {
+          el.appendChild(document.createTextNode(text));
+        }
+        return;
+      }
+      range.deleteContents();
+      const node = document.createTextNode(text);
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }, [restoreVisualSelection]);
+
     const insertVariable = useCallback(
       (key: string) => {
         if (disabled) return;
@@ -200,18 +232,21 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
           });
           return;
         }
-        editorRef.current?.focus();
-        restoreVisualSelection();
-        const highlighted = `<span class="contract-var-token" contenteditable="false" data-contract-var="1">${token}</span>`;
-        try {
-          document.execCommand('insertHTML', false, highlighted);
-        } catch {
-          const el = editorRef.current;
-          if (el) el.innerHTML = `${el.innerHTML}${highlighted}`;
-        }
+        insertTextInVisualEditor(token);
         emitChange();
+        requestAnimationFrame(() => {
+          refreshVisualHighlights();
+        });
       },
-      [disabled, emitChange, handleSourceChange, mode, restoreVisualSelection, sourceDraft]
+      [
+        disabled,
+        emitChange,
+        handleSourceChange,
+        insertTextInVisualEditor,
+        mode,
+        refreshVisualHighlights,
+        sourceDraft,
+      ]
     );
 
     useImperativeHandle(

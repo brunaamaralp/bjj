@@ -328,17 +328,15 @@ export default function MonthlyPaymentGrid({
         key={student.id}
         className={[
           savingId === student.id ? 'grid-row-saving' : '',
-          display.key === 'covered' ? 'grid-row-covered' : '',
+          display.key === 'covered' ? 'monthly-grid-row-covered' : '',
         ]
           .filter(Boolean)
-          .join(' ')}
-        style={display.key === 'covered' ? { opacity: 0.85 } : undefined}
+          .join(' ') || undefined}
       >
         <td>
           <button
             type="button"
-            className="btn-action-ghost"
-            style={{ padding: 2 }}
+            className="btn-action-ghost monthly-grid-expand-btn"
             onClick={() => toggleExpand(row)}
             aria-expanded={isExpanded}
           >
@@ -351,7 +349,7 @@ export default function MonthlyPaymentGrid({
           </span>
         </td>
         <td className="text-small">{student.plan || payment?.plan_name || '—'}</td>
-        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+        <td className="monthly-grid-amount">
           {expected > 0 ? fmtMoney(expected) : '—'}
         </td>
         <td className="text-small">{formatDueDayLabel(student)}</td>
@@ -373,11 +371,10 @@ export default function MonthlyPaymentGrid({
             }}
           />
         </td>
-        <td className="text-small" style={{ maxWidth: 200 }}>
+        <td className="text-small monthly-grid-note-cell">
           {notePopoverId === student.id ? (
             <input
-              className="form-input"
-              style={{ fontSize: 12, padding: '4px 8px' }}
+              className="form-input monthly-grid-note-input"
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
               onBlur={() => void saveNoteInline(row)}
@@ -417,8 +414,8 @@ export default function MonthlyPaymentGrid({
           {historyLoading === student.id ? (
             <span className="text-xs text-muted">Carregando histórico…</span>
           ) : (
-            <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-              <span className="text-xs text-muted" style={{ marginRight: 4 }}>
+            <div className="flex gap-2 monthly-grid-history-chips">
+              <span className="text-xs text-muted monthly-grid-history-chips__label">
                 Últimos 6 meses:
               </span>
               {monthHistoryKeys.map((ym) => {
@@ -429,14 +426,8 @@ export default function MonthlyPaymentGrid({
                 return (
                   <span
                     key={ym}
+                    className="monthly-grid-history-chip"
                     title={`${short}: ${GRID_STATUS_LABELS[hKey] || hKey}`}
-                    style={{
-                      fontSize: 10,
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      background: 'var(--surface)',
-                      border: '0.5px solid var(--border-light)',
-                    }}
                   >
                     {short}:{lbl}
                   </span>
@@ -452,9 +443,9 @@ export default function MonthlyPaymentGrid({
   const renderMobileList = () => (
     <div className="mensal-mobile-grid">
       {loading ? (
-        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando…</div>
+        <div className="mensal-panel-loading">Carregando…</div>
       ) : sortedRows.length === 0 ? (
-        <div style={{ padding: 24 }}>
+        <div className="mensal-panel-empty">
           <EmptyState variant="table-cell" icon={Users} title="Nenhum registro neste filtro" />
         </div>
       ) : (
@@ -491,15 +482,7 @@ export default function MonthlyPaymentGrid({
 
   return (
     <div className="monthly-payment-grid">
-      <div
-        className="mensal-summary-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
+      <div className="mensal-summary-grid monthly-grid-summary">
         <div className="card mensal-summary-metric-card">
           <div className="mensal-summary-metric-card__value finance-data">{fmtMoney(totals.expectedTotal)}</div>
           <div className="text-xs text-muted">Total esperado no mês</div>
@@ -528,9 +511,9 @@ export default function MonthlyPaymentGrid({
         </div>
       </div>
 
-      <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div className="flex gap-2 mb-2 monthly-grid-filters">
         {turmas.length > 0 ? (
-          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+          <div className="form-group monthly-grid-filter-field monthly-grid-filter-field--turma">
             <label className="text-xs">Turma</label>
             <select className="form-input" value={turmaFilter} onChange={(e) => setTurmaFilter(e.target.value)}>
               <option value="all">Todas</option>
@@ -540,7 +523,7 @@ export default function MonthlyPaymentGrid({
             </select>
           </div>
         ) : null}
-        <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+        <div className="form-group monthly-grid-filter-field monthly-grid-filter-field--sort">
           <label className="text-xs">Ordenar por</label>
           <select className="form-input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="name">Nome</option>
@@ -554,25 +537,21 @@ export default function MonthlyPaymentGrid({
       {isMobile ? (
         renderMobileList()
       ) : (
-      <div
-        ref={tableScrollRef}
-        className="mensal-table-wrap mensal-table-wrap--scroll-hint"
-        style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}
-      >
-        <table className="mensal-table monthly-grid-table" style={{ minWidth: 960, tableLayout: 'fixed', width: '100%' }}>
+      <div ref={tableScrollRef} className="mensal-table-wrap mensal-table-wrap--scroll-hint monthly-grid-table-wrap">
+        <table className="mensal-table monthly-grid-table">
           <colgroup>
-            <col style={{ width: 28 }} />
-            <col style={{ width: '22%' }} />
-            <col style={{ width: '14%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '16%' }} />
-            <col style={{ width: '14%' }} />
-            <col style={{ width: 48 }} />
+            <col className="monthly-grid-col-expand" />
+            <col className="monthly-grid-col-name" />
+            <col className="monthly-grid-col-plan" />
+            <col className="monthly-grid-col-amount" />
+            <col className="monthly-grid-col-due" />
+            <col className="monthly-grid-col-account" />
+            <col className="monthly-grid-col-status" />
+            <col className="monthly-grid-col-note" />
           </colgroup>
-          <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface-hover)' }}>
+          <thead>
             <tr>
-              <th style={{ width: 28 }} />
+              <th className="monthly-grid-col-expand" />
               <th>{terms.student}</th>
               <th>Plano</th>
               <th>Valor esperado</th>
@@ -585,13 +564,13 @@ export default function MonthlyPaymentGrid({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <td colSpan={8} className="monthly-grid-loading-cell">
                   Carregando…
                 </td>
               </tr>
             ) : sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: 24, textAlign: 'center' }}>
+                <td colSpan={8} className="monthly-grid-empty-cell">
                   <EmptyState variant="table-cell" icon={Users} title="Nenhum registro neste filtro" />
                 </td>
               </tr>
@@ -606,7 +585,7 @@ export default function MonthlyPaymentGrid({
                 return (
                   <>
                     {paddingTop > 0 ? (
-                      <tr aria-hidden="true" style={{ height: paddingTop, border: 0, visibility: 'hidden' }}>
+                      <tr aria-hidden="true" className="mensal-virtual-spacer" style={{ height: paddingTop }}>
                         <td colSpan={8} />
                       </tr>
                     ) : null}
@@ -618,7 +597,7 @@ export default function MonthlyPaymentGrid({
                         : renderDesktopMainRow(item.row);
                     })}
                     {paddingBottom > 0 ? (
-                      <tr aria-hidden="true" style={{ height: paddingBottom, border: 0, visibility: 'hidden' }}>
+                      <tr aria-hidden="true" className="mensal-virtual-spacer" style={{ height: paddingBottom }}>
                         <td colSpan={8} />
                       </tr>
                     ) : null}

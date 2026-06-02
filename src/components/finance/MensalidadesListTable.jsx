@@ -569,25 +569,18 @@ export default function MensalidadesListTable({
       </div>
 
       <div
-        className="mensal-mobile-list"
+        className={`mensal-mobile-list${shouldVirtualizeMobile ? ' mensal-mobile-list--virtual' : ''}`}
         ref={mobileListRef}
-        style={shouldVirtualizeMobile ? { maxHeight: '70vh', overflow: 'auto' } : undefined}
       >
         {shouldVirtualizeMobile ? (
-          <div style={{ height: mobileVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+          <div className="mensal-virtual-container" style={{ height: mobileVirtualizer.getTotalSize() }}>
             {mobileVirtualizer.getVirtualItems().map((vi) => {
               const student = displayedStudents[vi.index];
               return (
                 <div
                   key={student.id}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${vi.start}px)`,
-                    paddingBottom: 10,
-                  }}
+                  className="mensal-virtual-item"
+                  style={{ transform: `translateY(${vi.start}px)` }}
                 >
                   {renderMobileCard(student)}
                 </div>

@@ -50,15 +50,12 @@ export default function PaymentStatusPopover({
     };
   }, [onClose]);
 
-  const style = anchorRect
+  const positionStyle = anchorRect
     ? {
-        position: 'fixed',
-        top: Math.min(anchorRect.bottom + 6, window.innerHeight - 280),
-        left: Math.min(anchorRect.left, window.innerWidth - 300),
-        zIndex: 2600,
-        width: 280,
+        '--popover-top': `${Math.min(anchorRect.bottom + 6, window.innerHeight - 280)}px`,
+        '--popover-left': `${Math.min(anchorRect.left, window.innerWidth - 300)}px`,
       }
-    : { position: 'fixed', top: '40%', left: '40%', zIndex: 2600, width: 280 };
+    : undefined;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -80,26 +77,37 @@ export default function PaymentStatusPopover({
   const showAmount = status === 'paid' || status === 'partial';
 
   return (
-    <div ref={popRef} className="card payment-status-popover" style={style} role="dialog" aria-label="Atualizar pagamento">
-      <form onSubmit={handleSubmit} style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Status do mês</div>
-        <select className="form-input" value={status} onChange={(e) => setStatus(e.target.value)} style={{ fontSize: 13 }}>
+    <div
+      ref={popRef}
+      className="card payment-status-popover"
+      style={positionStyle}
+      role="dialog"
+      aria-label="Atualizar pagamento"
+    >
+      <form onSubmit={handleSubmit} className="payment-status-popover__form">
+        <div className="payment-status-popover__title">Status do mês</div>
+        <select
+          className="form-input payment-status-popover__input--compact"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
           {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
 
         {showAmount ? (
           <div>
-            <label className="text-xs" style={{ display: 'block', marginBottom: 4 }}>Valor recebido</label>
+            <label className="text-xs payment-status-popover__field-label">Valor recebido</label>
             <input
-              className="form-input"
+              className="form-input payment-status-popover__input--amount"
               value={paidAmount}
               onChange={(e) => setPaidAmount(maskCurrency(e.target.value))}
-              style={{ fontSize: 14 }}
             />
             {status === 'partial' && expectedAmount > 0 ? (
-              <p className="text-xs text-muted" style={{ marginTop: 4 }}>
+              <p className="text-xs text-muted payment-status-popover__hint">
                 Esperado: {expectedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </p>
             ) : null}
@@ -108,23 +116,27 @@ export default function PaymentStatusPopover({
 
         {status !== 'awaiting' ? (
           <div>
-            <label className="text-xs" style={{ display: 'block', marginBottom: 4 }}>Data</label>
-            <DateInputField type="date" className="form-input" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} style={{ fontSize: 13 }} />
+            <label className="text-xs payment-status-popover__field-label">Data</label>
+            <DateInputField
+              type="date"
+              className="form-input payment-status-popover__input--compact"
+              value={paidAt}
+              onChange={(e) => setPaidAt(e.target.value)}
+            />
           </div>
         ) : null}
 
         <div>
-          <label className="text-xs" style={{ display: 'block', marginBottom: 4 }}>Observação</label>
+          <label className="text-xs payment-status-popover__field-label">Observação</label>
           <input
-            className="form-input"
+            className="form-input payment-status-popover__input--compact"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Ex.: PIX não identificado"
-            style={{ fontSize: 13 }}
           />
         </div>
 
-        <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+        <div className="flex gap-2 payment-status-popover__actions">
           <button type="button" className="btn-outline btn-sm" onClick={onClose} disabled={saving}>
             Cancelar
           </button>

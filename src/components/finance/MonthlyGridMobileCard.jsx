@@ -82,10 +82,9 @@ export default function MonthlyGridMobileCard({
       )}
 
       {notePopoverId === student.id ? (
-        <div className="mensal-mobile-grid__note-edit" style={{ padding: '0 14px 12px' }}>
+        <div className="mensal-mobile-grid__note-edit">
           <input
-            className="form-input"
-            style={{ fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+            className="form-input mensal-mobile-grid__note-input"
             value={noteDraft}
             onChange={(e) => onNoteDraftChange(e.target.value)}
             onKeyDown={(e) => {

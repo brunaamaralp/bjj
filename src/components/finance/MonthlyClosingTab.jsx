@@ -36,8 +36,6 @@ import { fetchReportsFinanceLight } from '../../lib/reportsLightApi.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import {
   CheckCircle,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Download,
   Plus,
@@ -51,17 +49,6 @@ const PAY_METHODS = [
   { value: 'cartão_crédito', label: 'Cartão de crédito' },
   { value: 'transferência', label: 'Transferência' },
 ];
-
-function formatMonthTitle(ym) {
-  const [y, m] = String(ym || '').split('-').map(Number);
-  if (!y || !m) return ym;
-  const d = new Date(y, m - 1, 1);
-  try {
-    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  } catch {
-    return ym;
-  }
-}
 
 function currentYm() {
   const d = new Date();
@@ -85,14 +72,23 @@ function ClosingSituationBadge({ situation, table = false }) {
   );
 }
 
-export default function MonthlyClosingTab({ academyId, academyName, financeConfig, modules }) {
+export default function MonthlyClosingTab({
+  academyId,
+  academyName,
+  financeConfig,
+  modules,
+  referenceMonth: referenceMonthProp,
+  onReferenceMonthChange,
+}) {
   const leads = useStudentStore((s) => s.students);
   const academyList = useLeadStore((s) => s.academyList);
   const addToast = useUiStore((s) => s.addToast);
   const isMobile = useMatchMobile();
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
 
-  const [referenceMonth, setReferenceMonth] = useState(currentYm);
+  const [referenceMonthInternal, setReferenceMonthInternal] = useState(currentYm);
+  const referenceMonth = referenceMonthProp ?? referenceMonthInternal;
+  const setReferenceMonth = onReferenceMonthChange ?? setReferenceMonthInternal;
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
   const [operationalReceived, setOperationalReceived] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -272,19 +268,6 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
     }
   };
 
-  const isCurrentMonth = referenceMonth === currentYm();
-
-  const prevMonth = () => {
-    const [y, m] = referenceMonth.split('-').map(Number);
-    const d = new Date(y, m - 2, 1);
-    setReferenceMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  };
-
-  const nextMonth = () => {
-    const [y, m] = referenceMonth.split('-').map(Number);
-    const d = new Date(y, m, 1);
-    setReferenceMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  };
 
   const toggleOrigin = (key) => {
     setOriginFilter((prev) => {
@@ -422,21 +405,6 @@ export default function MonthlyClosingTab({ academyId, academyName, financeConfi
           </div>
         </div>
         <div className="monthly-closing-tab__head-actions">
-          <div className="monthly-closing-month-picker">
-            <button type="button" className="btn-action-ghost" onClick={prevMonth} aria-label="Mês anterior">
-              <ChevronLeft size={16} />
-            </button>
-            <span className="monthly-closing-month-picker__label">{formatMonthTitle(referenceMonth)}</span>
-            <button
-              type="button"
-              className="btn-action-ghost"
-              onClick={nextMonth}
-              disabled={isCurrentMonth}
-              aria-label="Próximo mês"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
           <button type="button" className="btn-outline btn-sm" onClick={handleExport} disabled={!sortedRows.length}>
             <Download size={14} className="monthly-closing-btn-icon" aria-hidden />
             Exportar CSV

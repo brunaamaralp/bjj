@@ -16,7 +16,7 @@ export default function FinanceSettingsExceptionsSection({ labels, onChange }) {
 
 function ExceptionRulesIntro() {
   return (
-    <p className="text-small text-muted" style={{ marginBottom: 12 }}>
+    <p className="text-small text-muted finance-settings-exceptions-intro">
       Personalize como aparecem status como bolsa e cortesia nas mensalidades.
     </p>
   );

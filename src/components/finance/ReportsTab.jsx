@@ -118,12 +118,16 @@ export default function ReportsTab({
   const showPeriodEmpty = journal.length > 0 && !hasMovement;
 
   return (
-    <section className={embedded ? 'mt-4' : 'mt-4 animate-in'} style={embedded ? undefined : { animationDelay: '0.05s' }}>
+    <section
+      className={
+        embedded ? 'mt-4 finance-reports-tab finance-reports-tab--embedded' : 'mt-4 animate-in finance-reports-tab finance-reports-tab--delayed'
+      }
+    >
       {!embedded ? <h3 className="navi-section-heading mb-2">Relatórios</h3> : null}
       {journal.length === 0 && typeof onGoToLancamentos === 'function' ? (
         <div className="finance-reports-hint" role="status">
           <span>Para ver os relatórios com dados do diário, abra a aba Lançamentos primeiro ou aguarde a sincronização automática.</span>
-          <button type="button" className="btn-secondary" style={{ flexShrink: 0 }} onClick={() => onGoToLancamentos()}>
+          <button type="button" className="btn-secondary finance-reports-hint__btn" onClick={() => onGoToLancamentos()}>
             Ir para Lançamentos
           </button>
         </div>
@@ -137,7 +141,7 @@ export default function ReportsTab({
             className="mb-2"
           />
         ) : null}
-        <p className="text-xs text-muted" style={{ width: '100%', margin: '0 0 8px' }} role="status">
+        <p className="text-xs text-muted finance-reports-filters__regime-note" role="status">
           DRE pelo livro razão · regime {financeRegimeLabel(regime).toLowerCase()}
           {regime === FINANCE_REGIME.COMPETENCE
             ? ' (lançamentos sem competência usam data de pagamento no razão)'
@@ -145,24 +149,24 @@ export default function ReportsTab({
         </p>
         {!embedded ? (
           <>
-            <div className="form-group" style={{ width: 138 }}>
+            <div className="form-group finance-reports-date-field">
               <label>De</label>
               <DateInputField className="form-input navi-date-filter" type="date" value={fromLocal} onChange={(e) => setFromLocal(e.target.value)} />
             </div>
-            <div className="form-group" style={{ width: 138 }}>
+            <div className="form-group finance-reports-date-field">
               <label>Até</label>
               <DateInputField className="form-input navi-date-filter" type="date" value={toLocal} onChange={(e) => setToLocal(e.target.value)} />
             </div>
           </>
         ) : null}
-        <div className="form-group" style={{ width: 200 }}>
+        <div className="form-group finance-reports-method-field">
           <label>Método DFC</label>
           <select className="form-input" value={method} onChange={(e) => setMethod(e.target.value)}>
             <option value="indireto">Indireto</option>
             <option value="direto">Direto</option>
           </select>
         </div>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end', marginLeft: embedded ? 0 : 'auto' }}>
+        <div className="flex gap-2 finance-reports-actions">
           <button type="button" className="btn-action-ghost" onClick={exportDRE_CSV}>
             ↓ Exportar DRE
           </button>
@@ -190,19 +194,18 @@ export default function ReportsTab({
                   key={row.group}
                   className={`finance-reports-row${row.isTotal ? ' finance-reports-row--total' : ''}`}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span className="finance-reports-row__label">
                     {row.group}
                     {row.warn ? (
                       <span
-                        className="badge badge-warning"
+                        className="badge badge-warning finance-reports-unclassified-badge"
                         title="Há lançamentos com categoria não mapeada no plano fixo"
-                        style={{ fontSize: 10, fontWeight: 600 }}
                       >
                         não classificado
                       </span>
                     ) : null}
                   </span>
-                  <span style={{ fontWeight: row.isTotal ? 600 : 500 }}>{fmt(row.value)}</span>
+                  <span className="finance-reports-row__value">{fmt(row.value)}</span>
                 </div>
               ))}
             </div>
@@ -216,7 +219,7 @@ export default function ReportsTab({
                   className={`finance-reports-row${idx === dfcRows.length - 1 ? ' finance-reports-row--total' : ''}`}
                 >
                   <span>{k}</span>
-                  <span style={{ fontWeight: idx === dfcRows.length - 1 ? 600 : 500 }}>{fmt(v)}</span>
+                  <span className="finance-reports-row__value">{fmt(v)}</span>
                 </div>
               ))}
             </div>

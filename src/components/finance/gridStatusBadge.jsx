@@ -32,7 +32,6 @@ export function GridStatusBadgeButton({ display, payment, onClick, onCoveredExpa
     <button
       type="button"
       className={`grid-status-badge grid-status-badge--${display.key}`}
-      style={{ cursor: isCovered ? 'default' : 'pointer' }}
       title={
         isCovered && payment?.note
           ? String(payment.note)

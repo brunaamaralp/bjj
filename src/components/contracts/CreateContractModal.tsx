@@ -134,7 +134,7 @@ export default function CreateContractModal({
     reset,
     trigger,
     getValues,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<CreateContractFormValues>({
     defaultValues: {
       name: '',
@@ -325,19 +325,27 @@ export default function CreateContractModal({
     [buildSignersForTemplate, replace, setValue, templates]
   );
 
+  const mapSignersForDiagnostics = useCallback(
+    (rows: CreateContractFormValues['signers'] | undefined) =>
+      (rows || []).map((s, index) => ({
+        name: s?.name,
+        email: s?.email,
+        phone: s?.phone,
+        action: s?.action,
+        // watch('signers') pode omitir campos não registrados; getValues no path garante delivery_method.
+        delivery_method:
+          s?.delivery_method ?? getValues(`signers.${index}.delivery_method` as const),
+      })),
+    [getValues]
+  );
+
   const sendDiagnostics = useMemo(
     () =>
       diagnoseContractSend({
-        signers: (signers || []).map((s) => ({
-          name: s?.name,
-          email: s?.email,
-          phone: s?.phone,
-          action: s?.action,
-          delivery_method: s?.delivery_method,
-        })),
+        signers: mapSignersForDiagnostics(signers),
         layout: selectedTemplate?.signerLayout as ContractSignerLayout | undefined,
       }),
-    [signers, selectedTemplate?.signerLayout]
+    [signers, selectedTemplate?.signerLayout, mapSignersForDiagnostics]
   );
 
   const deliveryWarnings = useMemo(

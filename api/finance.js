@@ -14,6 +14,10 @@ import financeTxHandler from '../lib/server/financeTxHandler.js';
 import studentPaymentsHandler from '../lib/server/studentPaymentsHandler.js';
 import bankReconciliationHandler from '../lib/server/bankReconciliationHandler.js';
 
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req, res) {
   const financeHub = String(req.query.finance_hub || '').trim();
   if (financeHub === 'bank-reconciliation' || financeHub === 'bank_reconciliation') {

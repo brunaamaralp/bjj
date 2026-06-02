@@ -265,10 +265,10 @@ export default function Tasks() {
   const [viewMode, setViewMode] = useState(() => {
     try {
       const v = localStorage.getItem(VIEW_STORAGE_KEY);
-      if (v === 'kanban' || v === 'calendar' || v === 'by_student') return v;
-      return 'list';
+      if (v === 'kanban' || v === 'calendar' || v === 'by_student' || v === 'list') return v;
+      return 'by_student';
     } catch {
-      return 'list';
+      return 'by_student';
     }
   });
   const [estaSemanaOn, setEstaSemanaOn] = useState(false);
@@ -719,9 +719,39 @@ export default function Tasks() {
     });
   }, []);
 
+  const renderTaskLeadBadge = (t, { compact = false } = {}) => {
+    if (!t.lead_id) return null;
+    const person = linkableById.get(t.lead_id);
+    const name = String(t.lead_name || person?.name || '').trim() || terms.student;
+    const kindLabel =
+      person?.kind === 'student' ? terms.student : person?.kind === 'lead' ? contactLabel : null;
+    const path = profilePathForLinkablePerson(person) || `/student/${t.lead_id}`;
+    return (
+      <span
+        className={`task-badge lead-badge${compact ? ' task-badge--compact' : ''}`}
+        role="link"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(path);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.stopPropagation();
+            navigate(path);
+          }
+        }}
+      >
+        <User size={12} aria-hidden="true" /> {name}
+        {kindLabel ? ` · ${kindLabel}` : ''}
+      </span>
+    );
+  };
+
   const renderOneTaskCard = (t, opts = {}) => {
     const compact = Boolean(opts.compact);
     const vencida = isVencida(t.due_date) && t.status !== 'done';
+    const showLinkedPerson = Boolean(t.lead_id) && !opts.hideLead;
     return (
       <div
         key={t.id}
@@ -753,33 +783,13 @@ export default function Tasks() {
           }}
         >
           <span className={`task-title ${t.status === 'done' ? 'line-through' : ''}`}>{t.title}</span>
+          {showLinkedPerson ? (
+            <div className={`task-linked-person${compact ? ' task-linked-person--compact' : ''}`}>
+              {renderTaskLeadBadge(t, { compact })}
+            </div>
+          ) : null}
           {!compact || opts.showMeta ? (
             <div className={`task-meta${compact ? ' task-meta--compact' : ''}`}>
-              {t.lead_id && !opts.hideLead ? (
-                <span
-                  className="task-badge lead-badge"
-                  role="link"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const path =
-                      profilePathForLinkablePerson(linkableById.get(t.lead_id)) ||
-                      `/student/${t.lead_id}`;
-                    navigate(path);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.stopPropagation();
-                      const path =
-                        profilePathForLinkablePerson(linkableById.get(t.lead_id)) ||
-                        `/student/${t.lead_id}`;
-                      navigate(path);
-                    }
-                  }}
-                >
-                  <User size={12} /> {t.lead_name || linkableById.get(t.lead_id)?.name || 'Aluno'}
-                </span>
-              ) : null}
               {t.due_date ? (
                 (() => {
                   const rel = formatDueRelative(t.due_date);
@@ -886,7 +896,7 @@ export default function Tasks() {
         <PageHeader
           className="navi-page-header--flush"
           title="Tarefas"
-          subtitle="Organize pendências por lista, kanban ou calendário."
+          subtitle="Organize pendências por aluno, lista, kanban ou calendário."
           actions={
             <>
               <Link to="/automacoes?tab=processos" className="edit-link text-small">
@@ -901,10 +911,10 @@ export default function Tasks() {
 
         <HubTabBar
           tabs={[
+            { id: 'by_student', label: 'Por aluno' },
             { id: 'list', label: 'Lista' },
             { id: 'kanban', label: 'Kanban' },
             { id: 'calendar', label: 'Calendário' },
-            { id: 'by_student', label: 'Por aluno' },
           ]}
           activeId={viewMode}
           onChange={setViewMode}
@@ -1014,9 +1024,16 @@ export default function Tasks() {
             ) : (
               <div className="tasks-by-student-grid" role="list">
                 {tasksByLead.map((group) => {
+                  const linkedPerson = linkableById.get(group.leadId);
+                  const linkedKindLabel =
+                    linkedPerson?.kind === 'lead'
+                      ? contactLabel
+                      : linkedPerson?.kind === 'student'
+                        ? terms.student
+                        : null;
                   const progress = progressLabelForLead(group.leadId, filteredTasks);
                   const profilePath =
-                    profilePathForLinkablePerson(linkableById.get(group.leadId)) ||
+                    profilePathForLinkablePerson(linkedPerson) ||
                     `/student/${group.leadId}`;
                   const canCollapse = group.tasks.length > STUDENT_TASKS_PREVIEW;
                   const isExpanded = expandedStudentIds.has(group.leadId);
@@ -1042,7 +1059,12 @@ export default function Tasks() {
                             {initialsFromName(group.leadName)}
                           </span>
                           <span className="tasks-student-card__identity">
-                            <span className="tasks-student-card__name">{group.leadName}</span>
+                            <span className="tasks-student-card__name-row">
+                              <span className="tasks-student-card__name">{group.leadName}</span>
+                              {linkedKindLabel ? (
+                                <span className="tasks-student-card__kind">{linkedKindLabel}</span>
+                              ) : null}
+                            </span>
                             <span className="tasks-student-card__counts">
                               {group.pendingCount > 0 ? (
                                 <span>
@@ -1971,6 +1993,9 @@ export default function Tasks() {
         .task-card--compact .task-checkbox { margin-top: 2px; width: 14px; height: 14px; }
         .task-card--compact .task-title { font-size: 13px; line-height: 1.35; }
         .task-card--compact .task-actions { opacity: 1; }
+        .task-linked-person { margin-top: 4px; }
+        .task-linked-person--compact { margin-top: 3px; }
+        .task-badge--compact { font-size: 10px; padding: 2px 5px; }
         .task-meta--compact { gap: 6px; }
         .task-meta--compact .task-badge { font-size: 10px; padding: 2px 5px; }
 
@@ -2036,6 +2061,12 @@ export default function Tasks() {
           flex-direction: column;
           gap: 2px;
         }
+        .tasks-student-card__name-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
         .tasks-student-card__name {
           font-size: 14px;
           font-weight: 700;
@@ -2045,6 +2076,19 @@ export default function Tasks() {
           text-overflow: ellipsis;
           white-space: nowrap;
           transition: color 0.15s;
+          min-width: 0;
+        }
+        .tasks-student-card__kind {
+          flex-shrink: 0;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: var(--text-muted);
+          padding: 2px 6px;
+          border-radius: 4px;
+          background: var(--surface-hover);
+          border: 1px solid var(--border);
         }
         .tasks-student-card__counts {
           font-size: 11px;

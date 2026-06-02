@@ -760,7 +760,7 @@
   color: var(--text);
   outline: none;
   word-wrap: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .contract-rich-editor-surface table {
@@ -833,6 +833,7 @@
   font-weight: 700;
   border: 1px solid rgba(123, 99, 212, 0.35);
   white-space: nowrap;
+  vertical-align: baseline;
   cursor: default;
 }
 

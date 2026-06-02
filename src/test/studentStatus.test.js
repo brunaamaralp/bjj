@@ -39,6 +39,13 @@ describe('studentStatus', () => {
     expect(isStudentRecord(lead)).toBe(false);
   });
 
+  it('detects students collection docs with student_status', () => {
+    const fromStudentsCol = { plan: 'Mensal', student_status: 'active' };
+    expect(isStudentRecord(fromStudentsCol)).toBe(true);
+    expect(isActiveStudent(fromStudentsCol)).toBe(true);
+    expect(isActiveStudent({ plan: 'Mensal', student_status: 'inactive' })).toBe(false);
+  });
+
   it('detects active vs inactive', () => {
     expect(isActiveStudent(activeStudent)).toBe(true);
     expect(isInactiveStudent(inactiveStudent)).toBe(true);

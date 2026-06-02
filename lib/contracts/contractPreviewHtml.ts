@@ -4,7 +4,7 @@ const CONTRACT_VAR_TOKEN_RE = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
 
 export function highlightContractVariableTokens(html: string): string {
   return String(html || '').replace(CONTRACT_VAR_TOKEN_RE, (match) => {
-    return `<span class="contract-var-token" contenteditable="false" data-contract-var="1">${match}</span>`;
+    return `<span class="contract-var-token" data-contract-var="1">${match}</span>`;
   });
 }
 
@@ -96,7 +96,8 @@ export function prepareVisualEditorHtml(html: string): string {
   const { body, styles } = extractContractPreviewParts(html);
   if (!body && styles.length === 0) return '';
   const styleTag = styles.length > 0 ? `<style>${styles.join('\n')}</style>` : '';
-  return `${styleTag}${highlightContractVariableTokens(body)}`;
+  const normalizedBody = stripContractVariableHighlights(body);
+  return `${styleTag}${highlightContractVariableTokens(normalizedBody)}`;
 }
 
 function isFullHtmlDocument(html: string): boolean {

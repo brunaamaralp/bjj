@@ -22,7 +22,7 @@ import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
-import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 import AgendaCalendarWeek, {
     formatWeekRangeLabel,
@@ -84,7 +84,6 @@ const Dashboard = () => {
     } = useWhatsappTemplates(academyId);
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
-    const [nlOpen, setNlOpen] = useState(false);
     const [listModalType, setListModalType] = useState('');
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
@@ -135,6 +134,9 @@ const Dashboard = () => {
             return fixed;
         }
     }, [academyList, academyId]);
+
+    const nlPageCtx = useMemo(() => ({ pipelineStages: pipelineStagesNl }), [pipelineStagesNl]);
+    useNlPageContext(nlPageCtx);
 
     useEffect(() => {
         if (!academyId) return undefined;
@@ -614,11 +616,6 @@ const Dashboard = () => {
                 subtitle={receptionSubtitle}
                 actions={
                     <>
-                        {!isDashboardMobile ? (
-                            <div className="reception-header-ai reception-command-bar">
-                                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                            </div>
-                        ) : null}
                         {controlIdCfg.enabled && (
                             <button
                                 type="button"
@@ -767,12 +764,6 @@ const Dashboard = () => {
                     })
                 )}
             </div>
-
-            {isDashboardMobile ? (
-                <div className="reception-header-ai-mobile reception-command-bar animate-in" style={{ animationDelay: '0.08s' }}>
-                    <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                </div>
-            ) : null}
 
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
@@ -1252,9 +1243,6 @@ const Dashboard = () => {
         .reception-kpi-grid {
           margin-top: 14px !important;
         }
-        .reception-command-bar .nl-command-bar-trigger {
-          max-width: 380px;
-        }
         .reception-dashboard-page-header .navi-page-header__intro {
           flex: 1 1 220px;
           min-width: 0;
@@ -1267,12 +1255,6 @@ const Dashboard = () => {
           gap: 10px 12px;
           flex: 1 1 300px;
         }
-        .reception-header-ai {
-          flex: 1 1 200px;
-          min-width: min(100%, 200px);
-          max-width: 380px;
-        }
-        .reception-header-ai button { width: 100%; }
         .reception-header-new-lead {
           display: inline-flex !important;
           align-items: center;
@@ -2741,14 +2723,6 @@ const Dashboard = () => {
         }
         .time-chip.active, .time-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
       `}} />
-            <NlCommandBar
-                open={nlOpen}
-                onOpenChange={setNlOpen}
-                academyName={academyWa.name}
-                context="perfil"
-                pipelineStages={pipelineStagesNl}
-                recentPayments={[]}
-            />
         </div>
         </div>
     );

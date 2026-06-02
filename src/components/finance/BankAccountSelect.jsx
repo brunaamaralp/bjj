@@ -89,42 +89,23 @@ export default function BankAccountSelect({
         ) : null}
       </select>
       {value && !options.includes(value) ? (
-        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+        <p className="bank-account-select__legacy-hint">
           Valor anterior: «{value}» — selecione uma conta cadastrada ou cadastre abaixo.
         </p>
       ) : null}
       <button
         type="button"
-        className="btn-ghost"
+        className="btn-ghost bank-account-select__toggle"
         disabled={disabled || saving}
         onClick={() => setShowInline((v) => !v)}
-        style={{
-          marginTop: 8,
-          padding: '4px 0',
-          fontSize: 12,
-          fontWeight: 600,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
       >
         <Plus size={14} aria-hidden />
         {showInline ? 'Fechar cadastro' : 'Cadastrar nova conta'}
       </button>
       {showInline ? (
-        <div
-          style={{
-            marginTop: 10,
-            padding: 12,
-            borderRadius: 'var(--radius-sm)',
-            border: '0.5px solid var(--border-light)',
-            background: 'var(--surface-hover)',
-            display: 'grid',
-            gap: 10,
-          }}
-        >
-          <div className="form-group" style={{ margin: 0 }}>
-            <label style={{ fontSize: 12, fontWeight: 600 }}>Banco *</label>
+        <div className="bank-account-select__inline-panel">
+          <div className="form-group bank-account-select__field">
+            <label className="bank-account-select__field-label">Banco *</label>
             <input
               className="form-input"
               value={draft.bankName}
@@ -133,8 +114,8 @@ export default function BankAccountSelect({
               onChange={(e) => setDraft((p) => ({ ...p, bankName: e.target.value }))}
             />
           </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label style={{ fontSize: 12, fontWeight: 600 }}>Número da conta</label>
+          <div className="form-group bank-account-select__field">
+            <label className="bank-account-select__field-label">Número da conta</label>
             <input
               className="form-input"
               value={draft.account}
@@ -145,10 +126,9 @@ export default function BankAccountSelect({
           </div>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary bank-account-select__submit"
             disabled={saving || !String(draft.bankName || '').trim()}
             onClick={() => void handleAdd()}
-            style={{ justifySelf: 'start', minHeight: 40, fontSize: 13 }}
           >
             {saving ? 'Salvando…' : 'Adicionar conta'}
           </button>

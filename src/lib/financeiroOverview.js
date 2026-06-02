@@ -16,12 +16,30 @@ export function currentMonthYm() {
 }
 
 export function previousMonthYm(ym) {
+  return shiftMonthYm(ym, -1);
+}
+
+/** Desloca YYYY-MM por `delta` meses (ex.: +1 próximo, -1 anterior). */
+export function shiftMonthYm(ym, delta) {
   const ref = String(ym || currentMonthYm()).trim();
-  const m = ref.match(/^(\d{4})-(\d{2})$/);
-  if (!m) return ref;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
-  d.setMonth(d.getMonth() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const d = new Date(`${ref}-02T12:00:00`);
+  if (Number.isNaN(d.getTime())) return ref;
+  d.setMonth(d.getMonth() + delta);
+  return d.toISOString().slice(0, 7);
+}
+
+export function formatMonthTitleCapitalized(ym) {
+  try {
+    const raw = new Date(`${ym}-02T12:00:00`).toLocaleDateString('pt-BR', {
+      month: 'long',
+      year: 'numeric',
+    });
+    const s = String(raw || '').trim();
+    if (!s) return ym;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  } catch {
+    return ym;
+  }
 }
 
 /** Limites YYYY-MM-DD do mês civil (até hoje se for o mês corrente). */

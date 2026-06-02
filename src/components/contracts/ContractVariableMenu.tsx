@@ -81,6 +81,7 @@ export default function ContractVariableMenu({ onInsert, disabled = false }: Con
                     <DropdownMenuItem
                       key={v.key}
                       title={`Inserir {{${v.key}}}`}
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleInsert(v.key)}
                     >
                       <span className="contract-variable-menu__item-label">{v.label}</span>

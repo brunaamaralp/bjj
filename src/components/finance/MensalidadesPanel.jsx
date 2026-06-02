@@ -12,7 +12,7 @@ import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError } from '../../lib/errorMessages';
-import { ChevronLeft, ChevronRight, Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
@@ -23,7 +23,8 @@ import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import './finance.css';
 import { useUserRole } from '../../lib/useUserRole.js';
-import NlCommandBar, { NlCommandBarTrigger } from '../NlCommandBar';
+import { useNlPageContext } from '../../hooks/useNlPageContext.js';
+import { NL_PAYMENT_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { DateInput } from '../DateInput';
 import { useTerms } from '../../lib/terminology.js';
 import { isActiveStudent } from '../../lib/studentStatus.js';
@@ -204,7 +205,6 @@ export default function MensalidadesPanel({ embedded = false }) {
   const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
   const skipFuturePaidDateRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
-  const [nlOpen, setNlOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [estornoCaixaWarning, setEstornoCaixaWarning] = useState('');
 
@@ -395,18 +395,12 @@ export default function MensalidadesPanel({ embedded = false }) {
       });
   }, [payments, students]);
 
-  const prevMonth = useCallback(() => {
-    const d = new Date(`${currentMonth}-02T12:00:00`);
-    d.setMonth(d.getMonth() - 1);
-    setCurrentMonth(d.toISOString().slice(0, 7));
-  }, [currentMonth]);
+  const nlPageCtx = useMemo(
+    () => ({ context: 'financeiro', recentPayments: recentPaymentsForNl }),
+    [recentPaymentsForNl]
+  );
+  useNlPageContext(nlPageCtx);
 
-  const nextMonth = useCallback(() => {
-    if (isCurrentMonth) return;
-    const d = new Date(`${currentMonth}-02T12:00:00`);
-    d.setMonth(d.getMonth() + 1);
-    setCurrentMonth(d.toISOString().slice(0, 7));
-  }, [currentMonth, isCurrentMonth]);
 
   const getStatus = useCallback(
     (student) => {
@@ -592,16 +586,17 @@ export default function MensalidadesPanel({ embedded = false }) {
     setShowModal(true);
   };
 
-  const handleNlCorrect = useCallback(
-    (_parsed, detail) => {
-      const sid = String(detail?.student_id || '').trim();
+  useEffect(() => {
+    const onNlPaymentPrefill = (ev) => {
+      const d = ev?.detail || {};
+      const sid = String(d.student_id || '').trim();
       const student = students.find((s) => String(s.id || '').trim() === sid);
       if (!student) return;
-      openPaymentModal(student, detail);
-      setNlOpen(false);
-    },
-    [students, currentMonth]
-  );
+      openPaymentModal(student, d);
+    };
+    window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
+    return () => window.removeEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
+  }, [students, currentMonth]);
 
   const handleSavePayment = async () => {
     if (!selectedStudent || !academyId || savingPayment) return;
@@ -790,8 +785,8 @@ export default function MensalidadesPanel({ embedded = false }) {
       className={`mensalidades-page animate-in${embedded ? ' mensalidades-panel--embedded mensalidades-page--embedded' : ' mensalidades-page--standalone'}`}
     >
       <header className="mensal-header">
-        <div className="mensal-header__top">
-          {!embedded ? (
+        {!embedded ? (
+          <div className="mensal-header__top">
             <PageHeader
               className="navi-page-header--flush mensal-header__page-title"
               title="Mensalidades"
@@ -800,51 +795,11 @@ export default function MensalidadesPanel({ embedded = false }) {
               metaClassName="mensal-header__eyebrow"
               animate={false}
               actions={
-                <div className="mensal-month-picker" aria-label="Selecionar mês">
-                  <button type="button" className="mensal-month-picker__btn" onClick={prevMonth} aria-label="Mês anterior">
-                    <ChevronLeft size={18} strokeWidth={2} />
-                  </button>
-                  <span className="mensal-month-picker__label">{formatMonthTitleCapitalized(currentMonth)}</span>
-                  <button
-                    type="button"
-                    className="mensal-month-picker__btn"
-                    onClick={nextMonth}
-                    disabled={isCurrentMonth}
-                    aria-label="Próximo mês"
-                  >
-                    <ChevronRight size={18} strokeWidth={2} />
-                  </button>
-                </div>
+                <FinanceMonthPicker value={currentMonth} onChange={setCurrentMonth} />
               }
             />
-          ) : (
-            <>
-              <p className="navi-eyebrow mensal-header__eyebrow mensal-header__eyebrow--embedded">
-                Mês de referência
-                {academyName ? ` · ${academyName}` : ''}
-              </p>
-              <div className="mensal-month-picker" aria-label="Selecionar mês">
-                <button type="button" className="mensal-month-picker__btn" onClick={prevMonth} aria-label="Mês anterior">
-                  <ChevronLeft size={18} strokeWidth={2} />
-                </button>
-                <span className="mensal-month-picker__label">{formatMonthTitleCapitalized(currentMonth)}</span>
-                <button
-                  type="button"
-                  className="mensal-month-picker__btn"
-                  onClick={nextMonth}
-                  disabled={isCurrentMonth}
-                  aria-label="Próximo mês"
-                >
-                  <ChevronRight size={18} strokeWidth={2} />
-                </button>
-              </div>
-              <p className="finance-guide__note mensalidades-embedded-hint">
-                Cobrança de alunos nesta aba. Despesas e entradas avulsas em{' '}
-                <Link to="/financeiro?tab=movimentacoes">Caixa</Link>.
-              </p>
-            </>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {modules?.finance === true ? (
           <div className="mensal-page-tabs" role="tablist" aria-label="Visualização">
@@ -885,7 +840,6 @@ export default function MensalidadesPanel({ embedded = false }) {
         ) : null}
 
         <div className="mensal-toolbar navi-toolbar">
-          <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
           <SearchField
             className="mensal-search"
             value={search}
@@ -1301,14 +1255,6 @@ export default function MensalidadesPanel({ embedded = false }) {
             document.body
           )
         : null}
-      <NlCommandBar
-        open={nlOpen}
-        onOpenChange={setNlOpen}
-        academyName={academyName}
-        recentPayments={recentPaymentsForNl}
-        onCorrect={handleNlCorrect}
-      />
-
       <ConfirmDialog
         open={Boolean(futurePaidDateLabel)}
         title="Data de pagamento futura"

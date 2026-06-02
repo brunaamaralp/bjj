@@ -3,8 +3,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, STUDENTS_PAGE_SIZE } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
-import { Link, useNavigate } from 'react-router-dom';
-import { MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X, DoorOpen, Users } from 'lucide-react';
+import ControlIdAttendancePanel from '../components/attendance/ControlIdAttendancePanel.jsx';
 import SearchField from '../components/shared/SearchField.jsx';
 
 const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
@@ -42,6 +43,8 @@ function formatDate(dateStr) {
 
 const Students = ({ embedded = false }) => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const viewMode = !embedded && searchParams.get('view') === 'presenca' ? 'presenca' : 'lista';
     const labels = useLeadStore((s) => s.labels);
     const terms = useTerms();
     const studentPlural = terms.students;
@@ -455,11 +458,17 @@ const Students = ({ embedded = false }) => {
         <div className={embedded ? 'students-page students-page--embedded' : 'container students-page'}>
             <header className="animate-in">
                 {!embedded ? (
+                    <>
                     <PageHeader
                         className="navi-page-header--flush"
                         title={studentLabel}
-                        subtitle={`Consulte cadastro, planos e status dos ${studentPlural.toLowerCase()}.`}
+                        subtitle={
+                            viewMode === 'presenca'
+                                ? `Histórico de ${terms.attendance.toLowerCase()} na catraca Control iD.`
+                                : `Consulte cadastro, planos e status dos ${studentPlural.toLowerCase()}.`
+                        }
                         meta={
+                            viewMode === 'lista' ? (
                             <>
                                 <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
                                 {studentPlural.toLowerCase()} cadastrados
@@ -470,8 +479,32 @@ const Students = ({ embedded = false }) => {
                                     ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
                                     : ''}
                             </>
+                            ) : null
                         }
                     />
+                    <div className="mensal-page-tabs students-page-view-tabs" role="tablist" aria-label={`Visualização de ${studentPlural.toLowerCase()}`}>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={viewMode === 'lista'}
+                            className={`mensal-page-tab${viewMode === 'lista' ? ' mensal-page-tab--active' : ''}`}
+                            onClick={() => setSearchParams({}, { replace: true })}
+                        >
+                            <Users size={14} aria-hidden />
+                            Lista
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={viewMode === 'presenca'}
+                            className={`mensal-page-tab${viewMode === 'presenca' ? ' mensal-page-tab--active' : ''}`}
+                            onClick={() => setSearchParams({ view: 'presenca' }, { replace: true })}
+                        >
+                            <DoorOpen size={14} aria-hidden />
+                            {terms.attendance}
+                        </button>
+                    </div>
+                    </>
                 ) : (
                     <p className="navi-eyebrow students-page-embedded-count navi-page-header__meta" style={{ marginTop: 0, marginBottom: 14 }}>
                         <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
@@ -484,6 +517,7 @@ const Students = ({ embedded = false }) => {
                             : ''}
                     </p>
                 )}
+                {viewMode === 'lista' && (
                 <div className="page-header-card students-page-header">
                     <div className="page-header-row navi-toolbar students-header-row-search">
                         <SearchField
@@ -684,8 +718,15 @@ const Students = ({ embedded = false }) => {
                         ) : null}
                     </div>
                 </div>
+                )}
             </header>
 
+            {viewMode === 'presenca' ? (
+                <ControlIdAttendancePanel className="animate-in" style={{ marginTop: 8 }} />
+            ) : null}
+
+            {viewMode === 'lista' ? (
+            <>
             {studentsError ? (
                 <ErrorBanner
                     className="mt-3"
@@ -846,6 +887,8 @@ const Students = ({ embedded = false }) => {
             ) : null}
 
             </div>
+            </>
+            ) : null}
 
             <ImportSheet
                 isOpen={showImport}

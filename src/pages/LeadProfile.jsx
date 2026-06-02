@@ -20,7 +20,7 @@ import { LostReasonModal } from '../components/LostReasonModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import MatriculaModal from '../components/MatriculaModal';
 import { performEnrollment } from '../lib/performEnrollment.js';
-import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getStudentPayments } from '../lib/studentPayments';
 import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
@@ -219,7 +219,6 @@ const LeadProfile = () => {
         return String(cur?.name || '').trim();
     }, [academyList, academyId]);
 
-    const [nlOpen, setNlOpen] = useState(false);
     const [studentPayments, setStudentPayments] = useState([]);
     const [leadTasks, setLeadTasks] = useState([]);
     const leadTaskProgress = useMemo(() => progressLabelForLead(id, leadTasks), [id, leadTasks]);
@@ -311,8 +310,15 @@ const LeadProfile = () => {
             });
     }, [studentPayments, lead]);
 
-    /** Financeiro + funil no mesmo assistente (validação no servidor só bloqueia em contextos exclusivos). */
-    const nlCommandContext = 'perfil';
+    const nlPageCtx = useMemo(
+        () => ({
+            context: 'perfil',
+            pipelineStages: stages,
+            recentPayments: recentPaymentsForNl,
+        }),
+        [stages, recentPaymentsForNl]
+    );
+    useNlPageContext(nlPageCtx);
 
     const [timelineEvents, setTimelineEvents] = useState([]);
     const [timelineError, setTimelineError] = useState(false);
@@ -1157,7 +1163,6 @@ const LeadProfile = () => {
                         <ArrowLeft size={20} />
                     </button>
                     <div className="flex gap-2" style={{ marginLeft: 'auto', alignItems: 'center' }}>
-                        <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
                         {!editing ? (
                             <button type="button" className="btn-edit-header" onClick={startEdit}>
                                 <Pencil size={14} /> Editar
@@ -1937,15 +1942,6 @@ const LeadProfile = () => {
                 quickTimes={profileQuickTimes}
                 initialDate={lead?.scheduledDate || ''}
                 initialTime={lead?.scheduledTime || ''}
-            />
-
-            <NlCommandBar
-                open={nlOpen}
-                onOpenChange={setNlOpen}
-                academyName={academyNameDisplay}
-                context={nlCommandContext}
-                pipelineStages={stages}
-                recentPayments={recentPaymentsForNl}
             />
 
             <style dangerouslySetInnerHTML={{

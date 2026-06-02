@@ -83,6 +83,8 @@ import { OPEN_NOVA_VENDA_MODAL_EVENT } from './lib/novaVendaModal.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 import NovaVendaModal from './components/sales/NovaVendaModal.jsx';
 import NlCommandBar, { NlCommandBarTrigger } from './components/NlCommandBar.jsx';
+import { resolveNlContext } from './lib/nlCommandRouteContext.js';
+import { useNlCommandStore } from './store/useNlCommandStore.js';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
 import RouteFallback from './components/shared/RouteFallback.jsx';
 import PageSkeleton from './components/shared/PageSkeleton.jsx';
@@ -132,6 +134,12 @@ const App = () => {
   const [mobileNavDrawerOpen, setMobileNavDrawerOpen] = useState(false);
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const [nlOpen, setNlOpen] = useState(false);
+  const nlPageOverrides = useNlCommandStore((s) => s.pageOverrides);
+  const nlContext = useMemo(() => {
+    const base = resolveNlContext(location.pathname);
+    const pageCtx = nlPageOverrides?.context;
+    return pageCtx && ['financeiro', 'funil', 'perfil', 'vendas'].includes(pageCtx) ? pageCtx : base;
+  }, [location.pathname, nlPageOverrides?.context]);
   const isActive = (path) => {
     if (path === '/students' || path === '/alunos') {
       return (
@@ -1039,7 +1047,7 @@ const App = () => {
             <div className="navi-topbar-spacer" aria-hidden="true" />
             {academyReady && academyIdStore ? (
               <div className="navi-topbar-search">
-                <NlCommandBarTrigger onClick={() => setNlOpen(true)} mode="ask" />
+                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
               </div>
             ) : null}
             <div className="navi-topbar-actions">
@@ -1173,8 +1181,10 @@ const App = () => {
           open={nlOpen}
           onOpenChange={setNlOpen}
           academyName={academyName}
-          context="perfil"
-          mode="ask"
+          context={nlContext}
+          pipelineStages={nlPageOverrides.pipelineStages}
+          pendingTransactions={nlPageOverrides.pendingTransactions}
+          recentPayments={nlPageOverrides.recentPayments}
         />
       ) : null}
 

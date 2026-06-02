@@ -35,7 +35,7 @@ import {
 } from '../lib/pipelineEnrollmentFilter.js';
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
-import NlCommandBar, { NlCommandBarTrigger } from '../components/NlCommandBar';
+import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -903,6 +903,11 @@ const Pipeline = () => {
             ),
         [stages, terms.trialShort]
     );
+    const nlPageCtx = useMemo(
+        () => ({ context: 'funil', pipelineStages: displayStages }),
+        [displayStages]
+    );
+    useNlPageContext(nlPageCtx);
     const [editStages, setEditStages] = useState(false);
     const [tempStages, setTempStages] = useState(() =>
         buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
@@ -948,7 +953,6 @@ const Pipeline = () => {
     const { questions: enrollmentQuestions } = useCustomLeadQuestions(academyId);
     const [noteError, setNoteError] = useState('');
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 1023);
-    const [nlOpen, setNlOpen] = useState(false);
     const [filtersMenuOpen, setFiltersMenuOpen] = useState(false);
     const [pageActionsMenuOpen, setPageActionsMenuOpen] = useState(false);
     const filterTriggerRef = useRef(null);
@@ -2178,8 +2182,6 @@ const Pipeline = () => {
                             toolbar={
                             <>
                             <div className="page-header-row navi-toolbar">
-                                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
-                                <div className="page-header-sep" />
                                 <SearchField
                                     title="Filtra por nome ou telefone"
                                     value={kanbanSearch}
@@ -2746,7 +2748,6 @@ const Pipeline = () => {
                     </div>
                 </div>
             )}
-            <NlCommandBar open={nlOpen} onOpenChange={setNlOpen} context="funil" pipelineStages={displayStages} />
         </div>
     );
 };

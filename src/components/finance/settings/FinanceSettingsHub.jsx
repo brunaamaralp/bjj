@@ -61,7 +61,9 @@ export default function FinanceSettingsHub({
         <div className="finance-settings-progress__bar" aria-hidden>
           <div
             className="finance-settings-progress__fill"
-            style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
+            style={{
+              '--progress-pct': `${progress.total ? (progress.done / progress.total) * 100 : 0}%`,
+            }}
           />
         </div>
       </div>
@@ -102,7 +104,7 @@ export default function FinanceSettingsHub({
                 onClick={() => setAdvancedOpen(false)}
               >
                 <span>{group.label}</span>
-                <ChevronDown size={18} style={{ transform: 'rotate(180deg)' }} aria-hidden />
+                <ChevronDown size={18} className="finance-settings-group__chevron--open" aria-hidden />
               </button>
             ) : (
               <p className="finance-settings-group__label">{group.label}</p>
