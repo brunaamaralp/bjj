@@ -227,8 +227,11 @@ export const useLeadStore = create(
     if (!academyId || !Array.isArray(ids) || ids.length === 0) return;
     const merged = mergeOnboardingStepIdsDone(get().onboardingChecklist, ids);
     try {
+      const acad = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        onboardingChecklist: serializeOnboardingChecklistForDb(merged)
+        onboardingChecklist: serializeOnboardingChecklistForDb(merged, {
+          preserveRaw: acad.onboardingChecklist,
+        }),
       });
     } catch (e) {
       console.warn('completeOnboardingStepIds Appwrite:', e?.message || e);
@@ -465,21 +468,14 @@ export const useLeadStore = create(
       if (wasEmpty) {
         try {
           const acad = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-          let checklist = [];
-          try {
-            if (acad.onboardingChecklist) {
-              checklist =
-                typeof acad.onboardingChecklist === 'string'
-                  ? JSON.parse(acad.onboardingChecklist)
-                  : acad.onboardingChecklist;
-              if (!Array.isArray(checklist)) checklist = [];
-            }
-          } catch {
-            checklist = [];
-          }
-          const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
+          const merged = mergeOnboardingStepIdsDone(
+            parseOnboardingChecklist(acad.onboardingChecklist),
+            ['first_lead']
+          );
           await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-            onboardingChecklist: serializeOnboardingChecklistForDb(merged)
+            onboardingChecklist: serializeOnboardingChecklistForDb(merged, {
+              preserveRaw: acad.onboardingChecklist,
+            }),
           });
           get().setOnboardingChecklist(merged);
         } catch (e) {
@@ -645,21 +641,14 @@ export const useLeadStore = create(
     if (wasEmpty && newLeads.length > 0) {
       try {
         const acad = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-        let checklist = [];
-        try {
-          if (acad.onboardingChecklist) {
-            checklist =
-              typeof acad.onboardingChecklist === 'string'
-                ? JSON.parse(acad.onboardingChecklist)
-                : acad.onboardingChecklist;
-            if (!Array.isArray(checklist)) checklist = [];
-          }
-        } catch {
-          checklist = [];
-        }
-        const merged = mergeOnboardingStepIdsDone(checklist, ['first_lead']);
+        const merged = mergeOnboardingStepIdsDone(
+          parseOnboardingChecklist(acad.onboardingChecklist),
+          ['first_lead']
+        );
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-          onboardingChecklist: serializeOnboardingChecklistForDb(merged)
+          onboardingChecklist: serializeOnboardingChecklistForDb(merged, {
+            preserveRaw: acad.onboardingChecklist,
+          }),
         });
         get().setOnboardingChecklist(merged);
       } catch (e) {

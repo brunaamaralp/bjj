@@ -32,6 +32,11 @@ import {
 } from '../../lib/contractPlanTemplates.js';
 import { useEnsureAcademyContractSetup } from '../../features/contracts/queries.js';
 import {
+  FinanceConfigTooLargeError,
+  mergeFinanceConfigFromAcademyDoc,
+  persistAcademyFinanceConfig,
+} from '../../lib/financeConfigStorage.js';
+import {
   serializeCollectionRules,
   parseOverdueLabel,
   DEFAULT_COLLECTION_RULES,
@@ -289,17 +294,8 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
       .getDocument(DB_ID, ACADEMIES_COL, academyId)
       .then((doc) => {
         if (loadAid !== useLeadStore.getState().academyId) return;
-        let cfg = null;
-        try {
-          cfg = doc.financeConfig
-            ? typeof doc.financeConfig === 'string'
-              ? JSON.parse(doc.financeConfig)
-              : doc.financeConfig
-            : null;
-        } catch {
-          cfg = null;
-        }
-        if (!cfg) {
+        let cfg = mergeFinanceConfigFromAcademyDoc(doc);
+        if (!cfg || Object.keys(cfg).length === 0) {
           cfg = defaultFinanceConfig();
           if (
             typeof doc.debitPercentage !== 'undefined' ||
@@ -450,17 +446,19 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
     setSavingSection(sectionKey);
     try {
       const mergedCfg = buildMergedConfig();
-      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        financeConfig: JSON.stringify(mergedCfg),
+      const savedCfg = await persistAcademyFinanceConfig(academyId, mergedCfg, {
+        databases,
+        DB_ID,
+        ACADEMIES_COL,
       });
-      setFinanceConfig(mergedCfg);
-      useLeadStore.getState().setFinanceConfig(mergedCfg);
-      const coll = readCollectionSettingsFromFinanceConfig(mergedCfg);
-      const labels = readExceptionStatusLabels(mergedCfg);
+      setFinanceConfig(savedCfg);
+      useLeadStore.getState().setFinanceConfig(savedCfg);
+      const coll = readCollectionSettingsFromFinanceConfig(savedCfg);
+      const labels = readExceptionStatusLabels(savedCfg);
       setSavedDigests({
-        accounts: digestBankAccounts(mergedCfg.bankAccounts),
-        fees: digestCardFees(mergedCfg.cardFees),
-        plans: digestPlans(mergedCfg.plans),
+        accounts: digestBankAccounts(savedCfg.bankAccounts),
+        fees: digestCardFees(savedCfg.cardFees),
+        plans: digestPlans(savedCfg.plans),
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),
         exceptions: digestExceptionLabels(labels),
       });
@@ -470,7 +468,15 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
       addToast({ type: 'success', message: successMessage });
     } catch (e) {
       console.error(e);
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      if (e instanceof FinanceConfigTooLargeError) {
+        addToast({
+          type: 'error',
+          message:
+            'A configuração financeira ficou grande demais para salvar. Reduza planos ou textos longos, ou peça ao suporte para ampliar o limite no Appwrite (npm run provision:academy-attrs).',
+        });
+      } else {
+        addToast({ type: 'error', message: friendlyError(e, 'save') });
+      }
     } finally {
       setSavingSection(null);
     }

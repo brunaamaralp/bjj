@@ -4,6 +4,7 @@ import {
   mergeCollectionIntoFinanceConfig,
   readCollectionSettingsFromAcademy,
 } from './collectionRules.js';
+import { mergeFinanceConfigFromAcademyDoc } from './financeConfigStorage.js';
 
 function defaultFinanceConfig() {
   return {
@@ -22,18 +23,9 @@ export async function prefetchFinanceConfig(academyId) {
 
   try {
     const doc = await getAcademyDocument(id);
-    let cfg = null;
-    try {
-      cfg = doc.financeConfig
-        ? typeof doc.financeConfig === 'string'
-          ? JSON.parse(doc.financeConfig)
-          : doc.financeConfig
-        : null;
-    } catch {
-      cfg = null;
-    }
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc) || defaultFinanceConfig();
     const coll = readCollectionSettingsFromAcademy(doc);
-    const merged = mergeCollectionIntoFinanceConfig(cfg || defaultFinanceConfig(), coll);
+    const merged = mergeCollectionIntoFinanceConfig(cfg, coll);
     if (useLeadStore.getState().academyId === id) {
       useLeadStore.getState().setFinanceConfig(merged);
     }

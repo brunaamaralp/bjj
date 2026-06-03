@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import { account, databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments, createPayment, updatePayment } from '../../lib/studentPayments';
+import { mergeFinanceConfigFromAcademyDoc } from '../../lib/financeConfigStorage.js';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from './PaymentExceptionsView.jsx';
@@ -296,16 +297,7 @@ export default function MensalidadesPanel({
       .getDocument(DB_ID, ACADEMIES_COL, academyId)
       .then((doc) => {
         if (!active || academyId !== useLeadStore.getState().academyId) return;
-        let cfg = null;
-        try {
-          cfg = doc.financeConfig
-            ? typeof doc.financeConfig === 'string'
-              ? JSON.parse(doc.financeConfig)
-              : doc.financeConfig
-            : null;
-        } catch {
-          cfg = null;
-        }
+        const cfg = mergeFinanceConfigFromAcademyDoc(doc);
         const coll = readCollectionSettingsFromAcademy(doc);
         const merged = mergeCollectionIntoFinanceConfig(cfg || {}, coll);
         useLeadStore.getState().setFinanceConfig(merged);

@@ -61,10 +61,11 @@ async function ensureStringAttr(databases, key, size, required = false) {
     console.log(`✅ Criado: ${key} (string, ${size})`);
     await sleep(1500);
   } catch (e) {
-    if (e.code === 409 || String(e?.message || '').includes('already exists')) {
+    const msg = String(e?.message || '');
+    if (e.type === 'attribute_limit_exceeded' || msg.includes('attribute_limit')) {
+      console.log(`⚠️  Limite de atributos — não foi possível criar ${key}.`);
+    } else if (e.code === 409 || msg.includes('already exists')) {
       console.log(`⏭️  ${key} já existe`);
-    } else if (e.type === 'attribute_limit_exceeded') {
-      console.log(`⚠️  Limite de atributos — não foi possível criar ${key}. Use settings (JSON) para novos campos.`);
     } else {
       console.error(`❌ ${key}: ${e.message}`);
       throw e;
@@ -87,6 +88,7 @@ async function main() {
 
   console.log('Provisionando atributos em academies...\n');
   await ensureStringAttr(databases, 'settings', 16384, false);
+  await ensureStringAttr(databases, 'financeBankAccounts', 8192, false);
   await ensureStringAttr(databases, 'onboardingChecklist', 512, false);
   console.log('\n✅ Concluído.');
   console.log('Motivos de trancamento/desligamento: gravados em settings.student_freeze_reasons / student_exit_reasons (JSON).');

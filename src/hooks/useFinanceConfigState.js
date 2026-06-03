@@ -28,6 +28,11 @@ import {
   digestWhatsappReminders,
   mergeWhatsappRemindersIntoFinanceConfig,
 } from '../lib/financeWhatsappReminders.js';
+import {
+  FinanceConfigTooLargeError,
+  mergeFinanceConfigFromAcademyDoc,
+  persistAcademyFinanceConfig,
+} from '../lib/financeConfigStorage.js';
 
 export const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -128,18 +133,11 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     setLoading(true);
     try {
       const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-      let cfg = null;
-      try {
-        cfg = doc.financeConfig
-          ? typeof doc.financeConfig === 'string'
-            ? JSON.parse(doc.financeConfig)
-            : doc.financeConfig
-          : null;
-      } catch {
-        cfg = null;
-      }
-      if (!cfg) {
+      let cfg = mergeFinanceConfigFromAcademyDoc(doc);
+      if (!cfg || Object.keys(cfg).length === 0) {
         cfg = defaultFinanceConfig();
+      }
+      if (!(cfg.plans?.length || cfg.bankAccounts?.length || cfg.cardFees)) {
         if (
           typeof doc.debitPercentage !== 'undefined' ||
           typeof doc.creditPercentage !== 'undefined' ||
@@ -300,26 +298,36 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     setSaving(true);
     try {
       const mergedCfg = buildMergedConfig();
-      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        financeConfig: JSON.stringify(mergedCfg),
+      const savedCfg = await persistAcademyFinanceConfig(academyId, mergedCfg, {
+        databases,
+        DB_ID,
+        ACADEMIES_COL,
       });
-      setFinanceConfig(mergedCfg);
-      useLeadStore.getState().setFinanceConfig(mergedCfg);
-      const coll = readCollectionSettingsFromFinanceConfig(mergedCfg);
-      const labels = readExceptionStatusLabels(mergedCfg);
+      setFinanceConfig(savedCfg);
+      useLeadStore.getState().setFinanceConfig(savedCfg);
+      const coll = readCollectionSettingsFromFinanceConfig(savedCfg);
+      const labels = readExceptionStatusLabels(savedCfg);
       setSavedDigests({
-        accounts: digestBankAccounts(mergedCfg.bankAccounts),
-        fees: digestCardFees(mergedCfg.cardFees),
-        plans: digestPlans(mergedCfg.plans),
+        accounts: digestBankAccounts(savedCfg.bankAccounts),
+        fees: digestCardFees(savedCfg.cardFees),
+        plans: digestPlans(savedCfg.plans),
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),
         exceptions: digestExceptionLabels(labels),
-        whatsapp: digestWhatsappReminders(mergedCfg.whatsappReminders),
+        whatsapp: digestWhatsappReminders(savedCfg.whatsappReminders),
       });
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
       return true;
     } catch (e) {
       console.error(e);
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      if (e instanceof FinanceConfigTooLargeError) {
+        addToast({
+          type: 'error',
+          message:
+            'A configuração financeira ficou grande demais para salvar. Reduza planos ou textos longos, ou peça ao suporte para ampliar o limite no Appwrite (npm run provision:academy-attrs).',
+        });
+      } else {
+        addToast({ type: 'error', message: friendlyError(e, 'save') });
+      }
       return false;
     } finally {
       setSaving(false);

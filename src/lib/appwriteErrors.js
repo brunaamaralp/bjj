@@ -28,6 +28,7 @@ const ATTR_LABELS = {
   student_freeze_reasons: 'Motivos de trancamento',
   student_exit_reasons: 'Motivos de desligamento',
   onboardingChecklist: 'Checklist de configuração',
+  financeConfig: 'Configuração financeira',
   updated_at: 'Data de atualização',
   items_json: 'Itens do template de tarefas',
   academy_id: 'Academia',
@@ -43,6 +44,7 @@ const ATTR_PROVISION_HINTS = {
   student_freeze_reasons: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
   student_exit_reasons: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
   onboardingChecklist: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
+  financeConfig: { collection: 'academies', cmd: 'npm run provision:academy-attrs' },
   updated_at: { collection: 'students', cmd: 'npm run provision:students' },
   items_json: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
   academy_id: { collection: 'task_templates', cmd: 'npm run provision:task-templates' },
@@ -81,6 +83,9 @@ export function describeAppwriteError(err) {
     const label = labelForAttr(key);
     const sizeM = msg.match(/no longer than (\d+)/i);
     if (sizeM) {
+      if (key === 'financeConfig') {
+        return `A configuração financeira excede o limite de ${sizeM[1]} caracteres no Appwrite. Salve de novo (contas podem ir para settings) ou execute: npm run provision:academy-attrs`;
+      }
       return `O campo "${label}" excede o limite de ${sizeM[1]} caracteres.`;
     }
     if (/invalid type|must be a valid/i.test(msg)) {

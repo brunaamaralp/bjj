@@ -5,6 +5,7 @@ import {
   mergeCollectionIntoFinanceConfig,
   readCollectionSettingsFromAcademy,
 } from './collectionRules.js';
+import { persistAcademyFinanceConfig } from './financeConfigStorage.js';
 
 function defaultFinanceConfig() {
   return {
@@ -44,14 +45,11 @@ export async function appendBankAccountToAcademy(academyId, fields, currentConfi
 
   const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
   const merged = mergeCollectionIntoFinanceConfig(next, readCollectionSettingsFromAcademy(doc));
-
-  await databases.updateDocument(DB_ID, ACADEMIES_COL, aid, {
-    financeConfig: JSON.stringify(merged),
-  });
+  const saved = await persistAcademyFinanceConfig(aid, merged, { databases, DB_ID, ACADEMIES_COL });
 
   if (useLeadStore.getState().academyId === aid) {
-    useLeadStore.getState().setFinanceConfig(merged);
+    useLeadStore.getState().setFinanceConfig(saved);
   }
 
-  return { config: merged, label: formatBankAccountLabel(entry) };
+  return { config: saved, label: formatBankAccountLabel(entry) };
 }

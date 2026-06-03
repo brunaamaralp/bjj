@@ -102,10 +102,40 @@ export function normalizeOnboardingChecklistList(list) {
   return ordered;
 }
 
-/** Gravação no Appwrite: JSON curto (≤255) sem duplicar títulos longos no documento. */
-export function serializeOnboardingChecklistForDb(list) {
+/** Contas bancárias overflow quando financeConfig (2500) não cabe — envelope JSON no mesmo atributo. */
+export const ONBOARDING_FINANCE_BANKS_KEY = 'fba';
+
+export const ONBOARDING_CHECKLIST_MAX_CHARS = 2048;
+
+/** Gravação no Appwrite: JSON curto; envelope `{ steps, fba }` quando há contas no overflow financeiro. */
+export function serializeOnboardingChecklistForDb(list, options = {}) {
   const norm = normalizeOnboardingChecklistList(Array.isArray(list) ? list : null);
-  return JSON.stringify(norm.map(({ id, done }) => ({ id, done: Boolean(done) })));
+  const compact = norm.map(({ id, done }) => ({ id, done: Boolean(done) }));
+  const banks = options.financeBankAccounts;
+  const preserveRaw = options.preserveRaw;
+  const clearBanks = options.clearFinanceBankAccounts === true;
+  let fba = Array.isArray(banks) && banks.length > 0 ? banks : null;
+  if (!fba && !clearBanks && preserveRaw != null && preserveRaw !== '') {
+    fba = extractFinanceBankAccountsFromOnboardingRaw(preserveRaw);
+  }
+  if (fba?.length) {
+    return JSON.stringify({ steps: compact, fba });
+  }
+  return JSON.stringify(compact);
+}
+
+export function extractFinanceBankAccountsFromOnboardingRaw(raw) {
+  if (raw == null || raw === '') return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const fba = parsed[ONBOARDING_FINANCE_BANKS_KEY] ?? parsed.financeBankAccounts;
+      return Array.isArray(fba) ? fba : [];
+    }
+  } catch {
+    void 0;
+  }
+  return [];
 }
 
 export function parseOnboardingChecklist(raw) {
@@ -113,11 +143,14 @@ export function parseOnboardingChecklist(raw) {
     return cloneDefault();
   }
   try {
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!Array.isArray(arr) || arr.length === 0) {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.steps)) {
+      return normalizeOnboardingChecklistList(parsed.steps);
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
       return cloneDefault();
     }
-    return normalizeOnboardingChecklistList(arr);
+    return normalizeOnboardingChecklistList(parsed);
   } catch {
     return cloneDefault();
   }
