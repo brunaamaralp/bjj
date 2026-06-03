@@ -7,10 +7,7 @@ import { getFinanceRegime } from '../lib/financeCompetence.js';
 
 import { useSearchParams, Navigate } from 'react-router-dom';
 
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
-
-import { mergeFinanceConfigFromAcademyDoc } from '../lib/financeConfigStorage.js';
-import { mergeCollectionIntoFinanceConfig, readCollectionSettingsFromAcademy } from '../lib/collectionRules.js';
+import { loadMergedFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 
 import { useLeadStore } from '../store/useLeadStore';
 
@@ -253,72 +250,18 @@ export default function Caixa() {
 
 
   useEffect(() => {
-
     if (!academyId) return;
 
-    const st = useLeadStore.getState();
+    let active = true;
+    void loadMergedFinanceConfigForAcademy(academyId).then((cfg) => {
+      if (!active || !cfg || academyId !== useLeadStore.getState().academyId) return;
+      setFinanceConfig(cfg);
+    });
 
-    if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
-
-      Promise.resolve().then(() => setFinanceConfig(st.financeConfig));
-
-      return;
-
-    }
-
-    const loadAid = academyId;
-
-    databases
-
-      .getDocument(DB_ID, ACADEMIES_COL, academyId)
-
-      .then((doc) => {
-
-        if (loadAid !== useLeadStore.getState().academyId) return;
-
-        let cfg = mergeFinanceConfigFromAcademyDoc(doc);
-        if (!cfg || Object.keys(cfg).length === 0) {
-          cfg = defaultFinanceConfig();
-        }
-        if (!(cfg.plans?.length || cfg.bankAccounts?.length || cfg.cardFees)) {
-          cfg = { ...defaultFinanceConfig(), ...cfg };
-          if (
-            typeof doc.debitPercentage !== 'undefined' ||
-            typeof doc.creditPercentage !== 'undefined' ||
-            typeof doc.creditInstallmentPercentage !== 'undefined'
-          ) {
-            const deb = Number(doc.debitPercentage ?? 0) || 0;
-            const cre = Number(doc.creditPercentage ?? 0) || 0;
-            const crePar = Number(doc.creditInstallmentPercentage ?? 0) || 0;
-            const parcelasMap = {};
-            for (let i = 2; i <= 12; i++) parcelasMap[String(i)] = crePar;
-            cfg.cardFees = {
-              pix: { percent: 0, fixed: 0 },
-              debito: { percent: deb, fixed: 0 },
-              credito_avista: { percent: cre, fixed: 0 },
-              credito_parcelado: parcelasMap,
-            };
-          }
-        }
-        cfg = mergeCollectionIntoFinanceConfig(cfg, readCollectionSettingsFromAcademy(doc));
-
-        if (loadAid !== useLeadStore.getState().academyId) return;
-
-        setFinanceConfig(cfg);
-
-        useLeadStore.getState().setFinanceConfig(cfg);
-
-      })
-
-      .catch((e) => {
-
-        console.error(e);
-
-        addToast({ type: 'error', message: friendlyError(e, 'action') });
-
-      });
-
-  }, [academyId, addToast]);
+    return () => {
+      active = false;
+    };
+  }, [academyId]);
 
 
 

@@ -22,7 +22,7 @@ import {
   readCollectionSettingsFromAcademy,
   mergeCollectionIntoFinanceConfig,
 } from '../lib/collectionRules.js';
-import { filterBankAccountsWithBank } from '../lib/bankAccounts.js';
+import { filterBankAccountsWithBank, hasConfiguredBankAccounts } from '../lib/bankAccounts.js';
 import {
   defaultWhatsappRemindersConfig,
   digestWhatsappReminders,
@@ -174,7 +174,11 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       return;
     }
     const st = useLeadStore.getState();
-    if (st.financeConfig != null && st.financeConfigAcademyId === academyId) {
+    if (
+      st.financeConfig != null &&
+      st.financeConfigAcademyId === academyId &&
+      hasConfiguredBankAccounts(st.financeConfig)
+    ) {
       const coll = readCollectionSettingsFromFinanceConfig(st.financeConfig);
       applyLoadedState(st.financeConfig, coll);
       setLoading(false);

@@ -4,6 +4,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { listBankAccountLabels, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { refreshFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { appendBankAccountToAcademy } from '../../lib/academyBankAccounts.js';
 
 /**
@@ -25,19 +26,28 @@ export default function BankAccountSelect({
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
+  const storeFinanceConfig = useLeadStore((s) =>
+    s.financeConfigAcademyId === academyId ? s.financeConfig : null
+  );
+  const resolvedFinanceConfig = storeFinanceConfig || financeConfig;
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState({ bankName: '', account: '' });
   const [showInline, setShowInline] = useState(false);
 
-  const options = useMemo(() => listBankAccountLabels(financeConfig), [financeConfig]);
+  const options = useMemo(() => listBankAccountLabels(resolvedFinanceConfig), [resolvedFinanceConfig]);
+
+  useEffect(() => {
+    if (!academyId || options.length || saving) return;
+    void refreshFinanceConfigForAcademy(academyId);
+  }, [academyId, options.length, saving]);
 
   useEffect(() => {
     if (allowEmpty || saving || !options.length) return;
-    const resolved = resolveBankAccountForPayment(value, financeConfig);
+    const resolved = resolveBankAccountForPayment(value, resolvedFinanceConfig);
     if (resolved && resolved !== String(value || '').trim()) {
       onChange(resolved);
     }
-  }, [allowEmpty, saving, options, value, financeConfig, onChange]);
+  }, [allowEmpty, saving, options, value, resolvedFinanceConfig, onChange]);
 
   const handleAdd = async () => {
     if (saving || !academyId) return;
@@ -46,7 +56,7 @@ export default function BankAccountSelect({
       const { config, label: newLabel } = await appendBankAccountToAcademy(
         academyId,
         draft,
-        financeConfig
+        resolvedFinanceConfig
       );
       setFinanceConfig(config);
       onChange(newLabel);

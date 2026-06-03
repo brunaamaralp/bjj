@@ -17,7 +17,7 @@ import StudentStatusBadge from './student/StudentStatusBadge.jsx';
 import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
 import { DateInputField } from './DateInput';
 import { useLeadStore } from '../store/useLeadStore.js';
-import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
+import { refreshFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 
 export default function MatriculaModal({
   isOpen,
@@ -62,7 +62,7 @@ export default function MatriculaModal({
 
   useEffect(() => {
     if (!isOpen || !academyId || !paymentEnabled) return;
-    void prefetchFinanceConfig(academyId);
+    void refreshFinanceConfigForAcademy(academyId);
   }, [isOpen, academyId, paymentEnabled]);
 
   const resolvedLeadId = String(enrolledLeadId || leadId || lead?.id || '').trim();

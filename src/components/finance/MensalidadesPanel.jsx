@@ -4,10 +4,10 @@ import { createPortal } from 'react-dom';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
-import { account, databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { account } from '../../lib/appwrite';
 import { reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments, createPayment, updatePayment } from '../../lib/studentPayments';
-import { mergeFinanceConfigFromAcademyDoc } from '../../lib/financeConfigStorage.js';
+import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from './PaymentExceptionsView.jsx';
@@ -34,8 +34,6 @@ import { useStudentStore } from '../../store/useStudentStore';
 import {
   resolveCollectionStage,
   readCollectionSettingsFromFinanceConfig,
-  readCollectionSettingsFromAcademy,
-  mergeCollectionIntoFinanceConfig,
 } from '../../lib/collectionRules.js';
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
 import {
@@ -292,23 +290,7 @@ export default function MensalidadesPanel({
 
   useEffect(() => {
     if (!academyId) return;
-    const st = useLeadStore.getState();
-    const cachedForAcademy = st.financeConfigAcademyId === academyId && st.financeConfig;
-    if (cachedForAcademy && hasConfiguredBankAccounts(st.financeConfig)) return;
-    let active = true;
-    databases
-      .getDocument(DB_ID, ACADEMIES_COL, academyId)
-      .then((doc) => {
-        if (!active || academyId !== useLeadStore.getState().academyId) return;
-        const cfg = mergeFinanceConfigFromAcademyDoc(doc);
-        const coll = readCollectionSettingsFromAcademy(doc);
-        const merged = mergeCollectionIntoFinanceConfig(cfg || {}, coll);
-        useLeadStore.getState().setFinanceConfig(merged);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
+    void loadMergedFinanceConfigForAcademy(academyId);
   }, [academyId]);
 
   useEffect(() => {

@@ -48,6 +48,31 @@ describe('financeConfigStorage', () => {
     expect(onboarding.fba).toHaveLength(2);
   });
 
+  it('mergeFinanceConfigFromAcademyDoc reads offloaded banks from settings', () => {
+    const doc = {
+      financeConfig: JSON.stringify({ plans: [{ name: 'Mensal', price: 100 }], bankAccounts: [] }),
+      settings: JSON.stringify({
+        financeBankAccountsOffloaded: true,
+        financeBankAccounts: [{ bankName: 'Sicoob', account: '999', pixKey: '' }],
+      }),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.bankAccounts).toHaveLength(1);
+    expect(cfg.bankAccounts[0].bankName).toBe('Sicoob');
+  });
+
+  it('mergeFinanceConfigFromAcademyDoc reads bankAccounts alias in settings', () => {
+    const doc = {
+      financeConfig: JSON.stringify({ plans: [], bankAccounts: [] }),
+      settings: JSON.stringify({
+        bankAccounts: [{ bankName: 'Nubank', account: '1', pixKey: '' }],
+      }),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.bankAccounts).toHaveLength(1);
+    expect(cfg.bankAccounts[0].bankName).toBe('Nubank');
+  });
+
   it('mergeFinanceConfigFromAcademyDoc reads offloaded banks from onboarding envelope', () => {
     const doc = {
       financeConfig: JSON.stringify({ plans: [{ name: 'Mensal', price: 100 }] }),
