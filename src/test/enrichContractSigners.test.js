@@ -35,4 +35,28 @@ describe('enrichContractSignersFromAcademy', () => {
     expect(out[1].email).toBe('academia@example.com');
     expect(out[1].name).toBe('Team BJJ');
   });
+
+  it('prefere e-mail Autentique da academia para contratada', async () => {
+    vi.mocked(fetchAcademyDoc).mockResolvedValue({
+      email: 'contato@example.com',
+      name: 'Team BJJ',
+      autentique_account_email: 'token@example.com',
+    });
+
+    const layout = {
+      version: 1,
+      slots: [
+        { label: 'Contratante', enabled: true },
+        { label: 'Contratada', enabled: true },
+      ],
+    };
+
+    const signers = [
+      { name: 'Aluno', email: 'aluno@example.com', delivery_method: 'DELIVERY_METHOD_EMAIL' },
+      { name: '', email: '', delivery_method: 'DELIVERY_METHOD_EMAIL' },
+    ];
+
+    const out = await enrichContractSignersFromAcademy(signers, layout, 'acad-1');
+    expect(out[1].email).toBe('token@example.com');
+  });
 });

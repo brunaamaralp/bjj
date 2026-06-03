@@ -428,23 +428,45 @@ export default function CreateContractModal({
   useEffect(() => {
     if (!open || !academyId) return;
     let cancelled = false;
-    void resolveAcademyContactEmail(academyId, academyList).then((email) => {
-      if (cancelled) return;
-      setAcademyContactEmail(email);
-      setInlineAcademyEmail(email);
-      if (!email) return;
+
+    const applyContratadaContactEmail = (email: string) => {
+      const trimmed = String(email || '').trim();
+      if (!trimmed) return;
       const currentSigners = getValues('signers') || [];
       currentSigners.forEach((s, index) => {
         if (!isContratadaSignerIndex(index)) return;
         if (!isEmailDelivery(s?.delivery_method)) return;
         if (String(s?.email || '').trim()) return;
-        setValue(`signers.${index}.email`, email, { shouldDirty: false, shouldValidate: true });
+        setValue(`signers.${index}.email`, trimmed, { shouldDirty: false, shouldValidate: true });
       });
+    };
+
+    const autentiqueEmail = String(autentiqueMeta?.accountEmail || '').trim();
+    if (autentiqueEmail) {
+      setAcademyContactEmail(autentiqueEmail);
+      setInlineAcademyEmail(autentiqueEmail);
+      applyContratadaContactEmail(autentiqueEmail);
+      return;
+    }
+
+    void resolveAcademyContactEmail(academyId, academyList).then((email) => {
+      if (cancelled) return;
+      setAcademyContactEmail(email);
+      setInlineAcademyEmail(email);
+      applyContratadaContactEmail(email);
     });
     return () => {
       cancelled = true;
     };
-  }, [open, academyId, academyList, getValues, setValue, isContratadaSignerIndex]);
+  }, [
+    open,
+    academyId,
+    academyList,
+    autentiqueMeta?.accountEmail,
+    getValues,
+    setValue,
+    isContratadaSignerIndex,
+  ]);
 
   useEffect(() => {
     if (!open || templatesLoading) return;
@@ -583,15 +605,21 @@ export default function CreateContractModal({
         contractPurpose: purpose,
         autoSignAcademy: autoSignAcademy && canAutoSignAcademy,
       });
-      const appliedAutoSign = Boolean(autoSignAcademy && canAutoSignAcademy && result.autoSign?.applied);
+      const triedAutoSign = Boolean(autoSignAcademy && canAutoSignAcademy);
+      const appliedAutoSign = Boolean(triedAutoSign && result.autoSign?.applied);
+      const autoSignFailed = triedAutoSign && !appliedAutoSign;
       const successMsg = isRescission
         ? appliedAutoSign
           ? 'Termo enviado. Academia assinou automaticamente; aguardando o aluno.'
-          : 'Termo de rescisão enviado para assinatura.'
+          : autoSignFailed
+            ? 'Termo enviado, mas a auto-assinatura da academia não foi aplicada.'
+            : 'Termo de rescisão enviado para assinatura.'
         : appliedAutoSign
           ? 'Contrato enviado. Academia assinou automaticamente; aguardando o aluno.'
-          : 'Contrato enviado para assinatura.';
-      addToast({ type: 'success', message: successMsg });
+          : autoSignFailed
+            ? 'Contrato enviado, mas a auto-assinatura da academia não foi aplicada.'
+            : 'Contrato enviado para assinatura.';
+      addToast({ type: autoSignFailed ? 'warning' : 'success', message: successMsg });
       if (result.warning) {
         addToast({ type: 'warning', message: result.warning });
       }

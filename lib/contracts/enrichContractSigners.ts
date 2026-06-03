@@ -1,5 +1,6 @@
 import type { SignerInput } from './types.js';
 import type { ContractSignerLayout } from './contractSignerLayout.js';
+import { resolveAutentiqueAccountEmail } from './autentiqueAutoSign.js';
 import { fetchAcademyDoc } from './contractLeadAccess.js';
 function needsPhone(method: string | undefined): boolean {
   const m = String(method || '').trim();
@@ -27,6 +28,11 @@ export async function enrichContractSignersFromAcademy(
 
   const academyEmail = String(academy.email || '').trim();
   const academyName = String(academy.name || '').trim();
+  const autentiqueEmail = resolveAutentiqueAccountEmail(
+    academy as Record<string, unknown>
+  ).trim();
+  /** Para auto-assinatura, o e-mail da contratada deve ser o da conta Autentique (token). */
+  const contratadaDefaultEmail = autentiqueEmail || academyEmail;
 
   return signers.map((signer, index) => {
     const label = String(slots[index]?.label || '');
@@ -38,8 +44,8 @@ export async function enrichContractSignersFromAcademy(
     }
     if (needsPhone(next.delivery_method)) return next;
 
-    if (!String(next.email || '').trim() && academyEmail) {
-      next.email = academyEmail;
+    if (!String(next.email || '').trim() && contratadaDefaultEmail) {
+      next.email = contratadaDefaultEmail;
     }
     return next;
   });
