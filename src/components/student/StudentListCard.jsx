@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, ChevronRight } from 'lucide-react';
-import { formatPhone } from '../../lib/masks.js';
+import { maskPhone } from '../../lib/masks.js';
 import ControlIdSyncBadge from './ControlIdSyncBadge.jsx';
 import StudentStatusBadge from './StudentStatusBadge.jsx';
 import StudentOverdueBadge from './StudentOverdueBadge.jsx';
@@ -77,7 +77,7 @@ function StudentListCard({
           <p className="student-card-desktop-meta text-small" style={{ margin: '4px 0 0' }}>
             {[
               String(student.turma || student.className || '').trim(),
-              formatPhone(student.phone) || String(student.phone || '').trim(),
+              maskPhone(student.phone) || String(student.phone || '').trim(),
             ]
               .filter((p) => p && String(p).trim())
               .join(' • ') || '—'}
