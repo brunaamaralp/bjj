@@ -99,6 +99,7 @@ export async function performEnrollment({
   customQuestions = [],
   customAnswers = {},
   plan = '',
+  enrollmentDate = '',
   academySettingsRaw = null,
   waAutomation = null,
   onToast = null,
@@ -109,6 +110,7 @@ export async function performEnrollment({
   if (!leadId) throw new Error('lead_missing');
 
   const planName = String(plan || lead?.plan || '').trim();
+  const enrollmentDateYmd = String(enrollmentDate || '').trim().slice(0, 10);
   let student;
 
   if (source === 'direct') {
@@ -152,6 +154,7 @@ export async function performEnrollment({
         plan: planName || lead.plan,
         convertedAt: new Date().toISOString(),
         studentStatus: 'active',
+        ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),
         ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
       },
       permissions: perms,

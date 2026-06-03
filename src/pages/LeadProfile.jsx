@@ -8,7 +8,6 @@ import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
-import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -17,6 +16,7 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { LostReasonModal } from '../components/LostReasonModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import MatriculaModal from '../components/MatriculaModal';
+import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getStudentPayments } from '../lib/studentPayments';
@@ -547,7 +547,9 @@ const LeadProfile = () => {
     const [deletingLead, setDeletingLead] = useState(false);
     const [lostModalOpen, setLostModalOpen] = useState(false);
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
-    const [closeSaleOpen, setCloseSaleOpen] = useState(false);
+    const [matriculaInitialStep, setMatriculaInitialStep] = useState('choose');
+    const [postMatriculaContractOpen, setPostMatriculaContractOpen] = useState(false);
+    const [postMatriculaContractLeadId, setPostMatriculaContractLeadId] = useState(null);
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
     const [academySettingsRaw, setAcademySettingsRaw] = useState(null);
     const [academyAutomationsRaw, setAcademyAutomationsRaw] = useState('');
@@ -1008,11 +1010,16 @@ const LeadProfile = () => {
         setLostModalOpen(true);
     };
 
-    const handleMatricularClick = () => {
+    const openMatriculaModal = useCallback(({ paymentShortcut = false } = {}) => {
+        setMatriculaInitialStep(paymentShortcut ? 'payment' : 'choose');
         setMatriculaModalOpen(true);
+    }, []);
+
+    const handleMatricularClick = () => {
+        openMatriculaModal();
     };
 
-    const runEnrollment = async (customAnswers = {}, plan = '') => {
+    const runEnrollment = async (customAnswers = {}, plan = '', enrollmentDate = '') => {
         let extraToast = '';
         await performEnrollment({
             lead,
@@ -1023,6 +1030,7 @@ const LeadProfile = () => {
             customQuestions,
             customAnswers,
             plan,
+            enrollmentDate,
             academySettingsRaw,
             waAutomation: {
                 waOutbound: {
@@ -1040,31 +1048,6 @@ const LeadProfile = () => {
             type: 'success',
             message: terms.leadMarkedConvertedToast + (extraToast ? ` ${extraToast}` : ''),
         });
-    };
-
-    const handleConfirmSimple = async (plan) => {
-        setMatriculaModalOpen(false);
-        setMatriculaSubmitting(true);
-        try {
-            await runEnrollment({}, plan);
-        } catch (e) {
-            toast.error(e, 'action');
-        } finally {
-            setMatriculaSubmitting(false);
-        }
-    };
-
-    const handleConfirmFull = async (customAnswers, plan) => {
-        setMatriculaSubmitting(true);
-        try {
-            await runEnrollment(customAnswers, plan);
-            setMatriculaModalOpen(false);
-            navigate(`/student/${id}?edit=enrollment`);
-        } catch (e) {
-            toast.error(e, 'action');
-        } finally {
-            setMatriculaSubmitting(false);
-        }
     };
 
     const confirmMarkLost = async (lostReason) => {
@@ -1727,7 +1710,7 @@ const LeadProfile = () => {
                                 <button
                                     type="button"
                                     className="btn-next-step btn-primary-action"
-                                    onClick={() => setCloseSaleOpen(true)}
+                                    onClick={() => openMatriculaModal({ paymentShortcut: true })}
                                     disabled={updatingStatus}
                                 >
                                     <BadgeCheck size={14} /> Fechar venda
@@ -2099,29 +2082,71 @@ const LeadProfile = () => {
                 onClose={() => setInlineTaskDiscardOpen(false)}
             />
 
-            <LeadCloseSaleModal
-                open={closeSaleOpen}
-                lead={lead}
-                academyId={academyId}
-                userId={userId}
-                permissionContext={permCtx}
-                onClose={() => {
-                    setCloseSaleOpen(false);
-                    void refreshTimeline();
-                }}
-            />
-
             <MatriculaModal
                 isOpen={matriculaModalOpen}
+                lead={lead}
+                leadId={id || ''}
+                academyId={academyId}
+                userId={userId}
+                teamId={permCtx.teamId || ''}
+                initialStep={matriculaInitialStep}
+                paymentEnabled={modules?.finance === true}
+                showContractPrompt={modules?.finance === true}
                 enrollmentQuestions={customQuestions}
                 financeConfig={financeConfig}
                 submitting={matriculaSubmitting}
                 onClose={() => {
                     if (matriculaSubmitting) return;
                     setMatriculaModalOpen(false);
+                    setMatriculaInitialStep('choose');
                 }}
-                onConfirmSimple={handleConfirmSimple}
-                onConfirmFull={handleConfirmFull}
+                onSendContract={(studentId) => {
+                    setMatriculaModalOpen(false);
+                    setMatriculaInitialStep('choose');
+                    setPostMatriculaContractLeadId(studentId);
+                    setPostMatriculaContractOpen(true);
+                }}
+                onSkipAfterEnroll={(studentId) => {
+                    setMatriculaModalOpen(false);
+                    setMatriculaInitialStep('choose');
+                    if (studentId) navigate(`/student/${studentId}?edit=enrollment`);
+                }}
+                onPaymentRegistered={(doc) => {
+                    if (doc?.warning) {
+                        toast.show({
+                            type: 'warning',
+                            message: String(doc.warning || '').trim() || 'Pagamento registrado, mas houve um problema ao atualizar o caixa.',
+                            duration: 10000,
+                        });
+                    } else {
+                        toast.show({ type: 'success', message: 'Pagamento registrado.' });
+                    }
+                    void refreshTimeline();
+                }}
+                onEnroll={async ({ plan, enrollmentDate, answers }) => {
+                    setMatriculaSubmitting(true);
+                    try {
+                        await runEnrollment(answers, plan, enrollmentDate);
+                    } catch (e) {
+                        toast.error(e, 'action');
+                        throw e;
+                    } finally {
+                        setMatriculaSubmitting(false);
+                    }
+                }}
+            />
+
+            <CreateContractModal
+                open={postMatriculaContractOpen}
+                leadId={postMatriculaContractLeadId || undefined}
+                onClose={() => {
+                    setPostMatriculaContractOpen(false);
+                    setPostMatriculaContractLeadId(null);
+                }}
+                onSuccess={() => {
+                    setPostMatriculaContractOpen(false);
+                    setPostMatriculaContractLeadId(null);
+                }}
             />
             {lostModalOpen && (
                 <LostReasonModal

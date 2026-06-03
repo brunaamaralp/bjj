@@ -10,7 +10,6 @@ import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-do
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2 } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
-import LeadCloseSaleModal from '../components/sales/LeadCloseSaleModal.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
 import ImportSheet from '../components/ImportSheet';
 import { exportLeadsSpreadsheet } from '../lib/exportLeadsSpreadsheet.js';
@@ -112,7 +111,7 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, handleConfirmPresence, setMissedModalLead, setMatriculaModalOpen, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
@@ -376,7 +375,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                     </button>
                                 )}
                                 {!isEnrolledCard && ['Aguardando decisão', 'Protocolo', 'Matriculado'].includes(lead.pipelineStage) && (
-                                    <button type="button" className="navi-menu__item navi-menu__item--primary" onClick={(e) => { e.stopPropagation(); setDragTargetLead(lead); setMatriculaModalOpen(true); setOpenMenuId(null); }}>
+                                    <button type="button" className="navi-menu__item navi-menu__item--primary" onClick={(e) => { e.stopPropagation(); onOpenMatricula?.(lead); setOpenMenuId(null); }}>
                                         <GraduationCap size={16} /> {pipelineMenuEnrollment}
                                     </button>
                                 )}
@@ -903,6 +902,7 @@ const Pipeline = () => {
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
     const userId = useLeadStore((s) => s.userId);
+    const teamId = useLeadStore((s) => s.teamId);
     const academyList = useLeadStore((s) => s.academyList);
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -1077,7 +1077,7 @@ const Pipeline = () => {
     const [matriculaSubmitting, setMatriculaSubmitting] = useState(false);
     const [postMatriculaContractOpen, setPostMatriculaContractOpen] = useState(false);
     const [postMatriculaContractLeadId, setPostMatriculaContractLeadId] = useState(null);
-    const [closeSaleLead, setCloseSaleLead] = useState(null);
+    const [matriculaInitialStep, setMatriculaInitialStep] = useState('choose');
     const modules = useLeadStore((s) => s.modules);
     const { questions: enrollmentQuestions } = useCustomLeadQuestions(academyId);
     const [noteError, setNoteError] = useState('');
@@ -1581,7 +1581,7 @@ const Pipeline = () => {
         }
     };
 
-    const executeMatricula = async (lead, customAnswers = {}, plan = '') => {
+    const executeMatricula = async (lead, customAnswers = {}, plan = '', enrollmentDate = '') => {
         try {
             let extraToast = '';
             await performEnrollment({
@@ -1593,6 +1593,7 @@ const Pipeline = () => {
                 customQuestions: enrollmentQuestions,
                 customAnswers,
                 plan,
+                enrollmentDate,
                 academySettingsRaw,
                 waAutomation: { waOutbound, academyRaw: academyAutomationsRaw },
                 onToast: (msg) => {
@@ -1608,6 +1609,12 @@ const Pipeline = () => {
             throw err;
         }
     };
+
+    const openMatriculaModal = useCallback((lead, { paymentShortcut = false } = {}) => {
+        setDragTargetLead(lead);
+        setMatriculaInitialStep(paymentShortcut ? 'payment' : 'choose');
+        setMatriculaModalOpen(true);
+    }, []);
 
     const saveStages = async () => {
         try {
@@ -2059,8 +2066,7 @@ const Pipeline = () => {
         if (!lead || mapLeadToStageId(lead) === status) return;
 
         if (status === 'Matriculado') {
-            setDragTargetLead(lead);
-            setMatriculaModalOpen(true);
+            openMatriculaModal(lead);
             return;
         }
 
@@ -2150,8 +2156,7 @@ const Pipeline = () => {
         const toStage = stageId;
 
         if (stageId === 'Matriculado') {
-            setDragTargetLead(lead);
-            setMatriculaModalOpen(true);
+            openMatriculaModal(lead);
             setMoverOpenId(null);
             return;
         }
@@ -2306,10 +2311,10 @@ const Pipeline = () => {
             handleDeleteLead,
             canDeleteLead,
             onOpenScheduleModal: setScheduleModalLead,
-            onCloseSale: setCloseSaleLead,
+            onCloseSale: (lead) => openMatriculaModal(lead, { paymentShortcut: true }),
+            onOpenMatricula: openMatriculaModal,
             handleConfirmPresence,
             setMissedModalLead,
-            setMatriculaModalOpen,
             openMover,
             setDragTargetLead,
             mapLeadToStageId,
@@ -2343,6 +2348,7 @@ const Pipeline = () => {
             pipelineMenuTrialLc,
             pipelineMenuAttendanceLc,
             pipelineMenuEnrollment,
+            openMatriculaModal,
         ]
     );
 
@@ -2713,10 +2719,10 @@ const Pipeline = () => {
                             handleDeleteLead={handleDeleteLead}
                             canDeleteLead={canDeleteLead}
                             onOpenScheduleModal={setScheduleModalLead}
-                            onCloseSale={setCloseSaleLead}
+                            onCloseSale={(lead) => openMatriculaModal(lead, { paymentShortcut: true })}
+                            onOpenMatricula={openMatriculaModal}
                             handleConfirmPresence={handleConfirmPresence}
                             setMissedModalLead={setMissedModalLead}
-                            setMatriculaModalOpen={setMatriculaModalOpen}
                             openMover={openMover}
                             setDragTargetLead={setDragTargetLead}
                             mapLeadToStageId={mapLeadToStageId}
@@ -2731,13 +2737,58 @@ const Pipeline = () => {
             </div>
             )}
 
-            <LeadCloseSaleModal
-                open={Boolean(closeSaleLead)}
-                lead={closeSaleLead}
+            <MatriculaModal
+                isOpen={matriculaModalOpen}
+                lead={dragTargetLead}
+                leadId={dragTargetLead?.id || ''}
                 academyId={academyId}
                 userId={userId}
-                permissionContext={permCtx}
-                onClose={() => setCloseSaleLead(null)}
+                teamId={teamId}
+                initialStep={matriculaInitialStep}
+                paymentEnabled={modules?.finance === true}
+                showContractPrompt={modules?.finance === true}
+                enrollmentQuestions={enrollmentQuestions}
+                financeConfig={financeConfig}
+                submitting={matriculaSubmitting}
+                onClose={() => {
+                    if (matriculaSubmitting) return;
+                    setMatriculaModalOpen(false);
+                    setDragTargetLead(null);
+                    setMatriculaInitialStep('choose');
+                }}
+                onSendContract={(id) => {
+                    setMatriculaModalOpen(false);
+                    setDragTargetLead(null);
+                    setMatriculaInitialStep('choose');
+                    setPostMatriculaContractLeadId(id);
+                    setPostMatriculaContractOpen(true);
+                }}
+                onSkipAfterEnroll={(studentId) => {
+                    setMatriculaModalOpen(false);
+                    setDragTargetLead(null);
+                    setMatriculaInitialStep('choose');
+                    if (studentId) navigate(`/student/${studentId}?edit=enrollment`);
+                }}
+                onPaymentRegistered={(doc) => {
+                    if (doc?.warning) {
+                        toast.show({
+                            type: 'warning',
+                            message: String(doc.warning || '').trim() || 'Pagamento registrado, mas houve um problema ao atualizar o caixa.',
+                            duration: 10000,
+                        });
+                    } else {
+                        toast.show({ type: 'success', message: 'Pagamento registrado.' });
+                    }
+                }}
+                onEnroll={async ({ plan, enrollmentDate, answers, mode }) => {
+                    if (!dragTargetLead) return;
+                    setMatriculaSubmitting(true);
+                    try {
+                        await executeMatricula(dragTargetLead, answers, plan, enrollmentDate);
+                    } finally {
+                        setMatriculaSubmitting(false);
+                    }
+                }}
             />
 
             <ScheduleModal
@@ -2773,49 +2824,6 @@ const Pipeline = () => {
                 defaultStatus={LEAD_STATUS.NEW}
                 title={`Importar ${labels.leads}`}
                 financeConfig={financeConfig}
-            />
-
-            <MatriculaModal
-                isOpen={matriculaModalOpen}
-                leadId={dragTargetLead?.id || ''}
-                showContractPrompt={modules?.finance === true}
-                enrollmentQuestions={enrollmentQuestions}
-                financeConfig={financeConfig}
-                submitting={matriculaSubmitting}
-                onClose={() => {
-                    if (matriculaSubmitting) return;
-                    setMatriculaModalOpen(false);
-                    setDragTargetLead(null);
-                }}
-                onSendContract={(id) => {
-                    setMatriculaModalOpen(false);
-                    setDragTargetLead(null);
-                    setPostMatriculaContractLeadId(id);
-                    setPostMatriculaContractOpen(true);
-                }}
-                onSkipAfterEnroll={(studentId) => {
-                    setMatriculaModalOpen(false);
-                    setDragTargetLead(null);
-                    if (studentId) navigate(`/student/${studentId}?edit=enrollment`);
-                }}
-                onConfirmSimple={async (plan) => {
-                    if (!dragTargetLead) return;
-                    setMatriculaSubmitting(true);
-                    try {
-                        await executeMatricula(dragTargetLead, {}, plan);
-                    } finally {
-                        setMatriculaSubmitting(false);
-                    }
-                }}
-                onConfirmFull={async (customAnswers, plan) => {
-                    if (!dragTargetLead) return;
-                    setMatriculaSubmitting(true);
-                    try {
-                        await executeMatricula(dragTargetLead, customAnswers, plan);
-                    } finally {
-                        setMatriculaSubmitting(false);
-                    }
-                }}
             />
 
             <CreateContractModal

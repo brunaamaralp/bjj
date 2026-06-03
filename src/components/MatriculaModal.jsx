@@ -1,23 +1,41 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useMatchMobile from '../hooks/useMatchMobile.js';
 import useVisualViewportKeyboardOffset from '../hooks/useVisualViewportKeyboardOffset.js';
 import { useTerms } from '../lib/terminology.js';
+import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
+import {
+  buildPayFormForEnrollment,
+  registerEnrollmentPayment,
+  referenceMonthFromEnrollmentDate,
+} from '../lib/enrollmentPayment.js';
+import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
+import { PAYMENT_CATEGORY } from '../lib/studentPayments.js';
+import { centsToNumber, parseMaskToCents } from '../lib/moneyBr.js';
 import CustomLeadQuestionFields from './CustomLeadQuestionFields.jsx';
 import PlanSelect from './shared/PlanSelect.jsx';
 import StudentStatusBadge from './student/StudentStatusBadge.jsx';
+import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
+import { DateInputField } from './DateInput';
 
 export default function MatriculaModal({
   isOpen,
   onClose,
-  onConfirmSimple,
-  onConfirmFull,
+  lead = null,
+  leadId = '',
+  academyId = '',
+  userId = '',
+  teamId = '',
   enrollmentQuestions = [],
   financeConfig = null,
   submitting = false,
-  leadId = '',
   showContractPrompt = false,
+  paymentEnabled = true,
+  initialStep = 'choose',
+  onEnroll,
+  onPaymentRegistered,
   onSendContract,
   onSkipAfterEnroll,
+  registeredByName = 'Usuário',
 }) {
   const terms = useTerms();
   const [step, setStep] = useState('choose');
@@ -25,14 +43,20 @@ export default function MatriculaModal({
   const [enrolledLeadId, setEnrolledLeadId] = useState('');
   const [enrollMode, setEnrollMode] = useState('simple');
   const [enrollmentPlan, setEnrollmentPlan] = useState('');
+  const [enrollmentDate, setEnrollmentDate] = useState('');
+  const [payForm, setPayForm] = useState(null);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [enrolledStudent, setEnrolledStudent] = useState(false);
 
   const hasQuestions = Array.isArray(enrollmentQuestions) && enrollmentQuestions.length > 0;
   const isMobile = useMatchMobile();
   const keyboardOffset = useVisualViewportKeyboardOffset(isOpen && isMobile);
+  const showPaymentStep = paymentEnabled && Boolean(financeConfig);
 
-  const footerStyle = isMobile
-    ? { paddingBottom: keyboardOffset + 16 }
-    : undefined;
+  const resolvedLeadId = String(enrolledLeadId || leadId || lead?.id || '').trim();
+
+  const footerStyle = isMobile ? { paddingBottom: keyboardOffset + 16 } : undefined;
 
   useEffect(() => {
     if (!isOpen) {
@@ -41,8 +65,43 @@ export default function MatriculaModal({
       setEnrolledLeadId('');
       setEnrollMode('simple');
       setEnrollmentPlan('');
+      setEnrollmentDate('');
+      setPayForm(null);
+      setPaymentError('');
+      setPaymentSaving(false);
+      setEnrolledStudent(false);
+      return;
     }
-  }, [isOpen]);
+    const defaultDate = defaultEnrollmentDateIso(lead);
+    const defaultPlan = String(lead?.plan || '').trim();
+    setEnrollmentDate(defaultDate);
+    setEnrollmentPlan(defaultPlan);
+    setStep(initialStep === 'payment' && showPaymentStep ? 'payment' : 'choose');
+    if (initialStep === 'payment' && showPaymentStep) {
+      setPayForm(buildPayFormForEnrollment(lead, financeConfig, defaultDate, defaultPlan));
+    }
+  }, [isOpen, lead, financeConfig, initialStep, showPaymentStep]);
+
+  useEffect(() => {
+    if (step !== 'payment') return;
+    const refMonth = referenceMonthFromEnrollmentDate(enrollmentDate);
+    setPayForm((p) => {
+      if (!p) return p;
+      if (p.reference_month === refMonth && p.bundle_start_month === refMonth) return p;
+      return { ...p, reference_month: refMonth, bundle_start_month: refMonth };
+    });
+  }, [enrollmentDate, step]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !submitting && !paymentSaving) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose, submitting, paymentSaving]);
+
+  const modalBusy = submitting || paymentSaving;
 
   const planField = (
     <div className="form-group">
@@ -53,29 +112,32 @@ export default function MatriculaModal({
         financeConfig={financeConfig}
         value={enrollmentPlan}
         onChange={setEnrollmentPlan}
-        disabled={submitting}
+        disabled={modalBusy}
         emptyLabel="Selecione o plano (obrigatório)…"
       />
     </div>
   );
 
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape' && !submitting) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose, submitting]);
+  const enrollmentDateField = (
+    <div className="form-group">
+      <DateInputField
+        label="Data de matrícula"
+        type="date"
+        className="form-input"
+        value={enrollmentDate}
+        disabled={modalBusy}
+        onChange={(e) => setEnrollmentDate(e.target.value)}
+      />
+      <p className="text-small text-muted" style={{ margin: '6px 0 0' }}>
+        Use a data real de ingresso; afeta o mês de referência da 1ª mensalidade.
+      </p>
+    </div>
+  );
 
-  if (!isOpen) return null;
-
-  const handleAnswerChange = (qid, value) => {
-    setAnswers((prev) => ({ ...prev, [qid]: value }));
-  };
+  const canEnrollNow = Boolean(String(enrollmentPlan || '').trim()) && !modalBusy;
 
   const goToSuccess = (id) => {
-    const resolvedId = String(id || leadId || '').trim();
+    const resolvedId = String(id || resolvedLeadId || '').trim();
     if (showContractPrompt && resolvedId) {
       setEnrolledLeadId(resolvedId);
       setStep('success');
@@ -88,10 +150,99 @@ export default function MatriculaModal({
     onClose();
   };
 
-  const runFull = async () => {
-    setEnrollMode('full');
-    await onConfirmFull(answers, enrollmentPlan);
-    goToSuccess(leadId);
+  const runEnroll = async (mode) => {
+    if (!onEnroll) throw new Error('Matrícula indisponível.');
+    const planName = String(enrollmentPlan || '').trim();
+    if (!planName) throw new Error('Selecione o plano.');
+    setEnrollMode(mode);
+    await onEnroll({
+      plan: planName,
+      enrollmentDate,
+      answers,
+      mode,
+    });
+    setEnrolledStudent(true);
+    setEnrolledLeadId(String(leadId || lead?.id || '').trim());
+  };
+
+  const validatePaymentForm = () => {
+    if (!payForm) return 'Preencha os dados do pagamento.';
+    const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return 'Informe um valor maior que zero.';
+    }
+    if (payForm.status === 'paid') {
+      const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
+      if (!accountCheck.ok) return accountCheck.message;
+    }
+    const refMonth = referenceMonthFromEnrollmentDate(enrollmentDate);
+    if (payForm.payment_type === PAYMENT_CATEGORY.PLAN && payForm.reference_month !== refMonth) {
+      setPayForm((p) => ({ ...p, reference_month: refMonth, bundle_start_month: refMonth }));
+    }
+    return '';
+  };
+
+  const handleRegisterPayment = async () => {
+    setPaymentError('');
+    const validation = validatePaymentForm();
+    if (validation) {
+      setPaymentError(validation);
+      return;
+    }
+    setPaymentSaving(true);
+    try {
+      if (!enrolledStudent) {
+        await runEnroll(enrollMode || 'simple');
+      }
+      const doc = await registerEnrollmentPayment({
+        academyId,
+        userId,
+        teamId,
+        studentId: resolvedLeadId,
+        payForm: {
+          ...payForm,
+          plan_name: enrollmentPlan || payForm.plan_name,
+          reference_month: referenceMonthFromEnrollmentDate(enrollmentDate),
+          bundle_start_month: referenceMonthFromEnrollmentDate(enrollmentDate),
+        },
+        financeConfig,
+        registeredByName,
+      });
+      onPaymentRegistered?.(doc);
+      goToSuccess(resolvedLeadId);
+    } catch (e) {
+      setPaymentError(e?.message || 'Não foi possível registrar o pagamento.');
+      if (enrolledStudent && !enrolledLeadId) {
+        setEnrolledLeadId(String(leadId || lead?.id || '').trim());
+      }
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
+  const handleEnrollOnly = async (mode) => {
+    setPaymentError('');
+    try {
+      await runEnroll(mode);
+      goToSuccess(resolvedLeadId);
+    } catch (e) {
+      setPaymentError(e?.message || 'Não foi possível concluir a matrícula.');
+    }
+  };
+
+  const handleEnrollThenPayment = async (mode) => {
+    setPaymentError('');
+    if (!showPaymentStep) {
+      await handleEnrollOnly(mode);
+      return;
+    }
+    try {
+      setEnrollMode(mode);
+      setPayForm(buildPayFormForEnrollment(lead, financeConfig, enrollmentDate, enrollmentPlan));
+      setStep('payment');
+    } catch (e) {
+      setPaymentError(e?.message || 'Erro ao preparar pagamento.');
+    }
   };
 
   const handleChooseFull = () => {
@@ -99,18 +250,20 @@ export default function MatriculaModal({
       setStep('questions');
       return;
     }
-    void runFull();
+    void handleEnrollThenPayment('full');
   };
 
-  const handleConfirmSimple = async () => {
-    const planName = String(enrollmentPlan || '').trim();
-    if (!planName) return;
-    setEnrollMode('simple');
-    await onConfirmSimple(enrollmentPlan);
-    goToSuccess(leadId);
+  const handleSkipPayment = async () => {
+    setPaymentError('');
+    try {
+      if (!enrolledStudent) {
+        await runEnroll(enrollMode || 'simple');
+      }
+      goToSuccess(resolvedLeadId);
+    } catch (e) {
+      setPaymentError(e?.message || 'Não foi possível concluir a matrícula.');
+    }
   };
-
-  const canEnrollNow = Boolean(String(enrollmentPlan || '').trim()) && !submitting;
 
   const handleSkipContract = () => {
     if (onSkipAfterEnroll) {
@@ -120,13 +273,24 @@ export default function MatriculaModal({
     }
   };
 
+  const titleByStep = useMemo(() => {
+    if (step === 'success') return 'Aluno matriculado!';
+    if (step === 'payment') {
+      return initialStep === 'payment' ? 'Matricular e registrar pagamento' : 'Primeira mensalidade';
+    }
+    if (step === 'questions') return 'Dados da matrícula';
+    return terms.matriculaModalTitle;
+  }, [step, initialStep, terms.matriculaModalTitle]);
+
+  if (!isOpen) return null;
+
   return (
     <div
       role="presentation"
       className="navi-modal-overlay"
       style={{ zIndex: 9999, padding: 16 }}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
+        if (e.target === e.currentTarget && !modalBusy) onClose();
       }}
     >
       <div
@@ -138,7 +302,7 @@ export default function MatriculaModal({
           background: 'var(--surface)',
           borderRadius: 16,
           width: '100%',
-          maxWidth: step === 'questions' ? 480 : 420,
+          maxWidth: step === 'questions' || step === 'payment' ? 480 : 420,
           boxShadow: 'var(--shadow)',
           border: '1px solid var(--border)',
           margin: 16,
@@ -151,61 +315,77 @@ export default function MatriculaModal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="matricula-modal-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px 24px 8px' }}>
-        {step === 'success' ? (
-          <>
-            <h3
-              id="matricula-modal-title"
-              style={{ margin: '0 0 8px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
-            >
-              ✓ Aluno matriculado!
-            </h3>
-            <div style={{ marginBottom: 12 }}>
-              <StudentStatusBadge status="ativo" />
-            </div>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              Deseja enviar o contrato agora?
-            </p>
-          </>
-        ) : step === 'choose' ? (
-          <>
-            <h3
-              id="matricula-modal-title"
-              style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
-            >
-              {terms.matriculaModalTitle}
-            </h3>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              {terms.matriculaModalSubtitle}
-            </p>
+          <h3
+            id="matricula-modal-title"
+            style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
+          >
+            {titleByStep}
+          </h3>
 
-            {planField}
-          </>
-        ) : (
-          <>
-            <h3
-              id="matricula-modal-title"
-              style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text)', fontWeight: 700 }}
-            >
-              Dados da matrícula
-            </h3>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              Registre as informações abaixo. O plano escolhido será salvo no cadastro do aluno.
-            </p>
+          {step === 'success' ? (
+            <>
+              <div style={{ marginBottom: 12 }}>
+                <StudentStatusBadge status="ativo" />
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Deseja enviar o contrato agora?
+              </p>
+            </>
+          ) : null}
 
-            {planField}
+          {step === 'choose' ? (
+            <>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                {terms.matriculaModalSubtitle}
+              </p>
+              {planField}
+              {enrollmentDateField}
+            </>
+          ) : null}
 
-            <CustomLeadQuestionFields
-              questions={enrollmentQuestions}
-              values={answers}
-              onChange={handleAnswerChange}
-              disabled={submitting}
-            />
-          </>
-        )}
+          {step === 'questions' ? (
+            <>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Registre as informações abaixo. O plano escolhido será salvo no cadastro do aluno.
+              </p>
+              {planField}
+              {enrollmentDateField}
+              <CustomLeadQuestionFields
+                questions={enrollmentQuestions}
+                values={answers}
+                onChange={(qid, value) => setAnswers((prev) => ({ ...prev, [qid]: value }))}
+                disabled={modalBusy}
+              />
+            </>
+          ) : null}
+
+          {step === 'payment' && showPaymentStep ? (
+            <>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Opcional — registre a 1ª mensalidade ou pacote. O lançamento entra no caixa automaticamente.
+              </p>
+              {initialStep === 'payment' ? (
+                <>
+                  {planField}
+                  {enrollmentDateField}
+                </>
+              ) : null}
+              <MatriculaPaymentStep
+                payForm={payForm}
+                setPayForm={setPayForm}
+                financeConfig={financeConfig}
+                academyId={academyId}
+                enrollmentPlan={enrollmentPlan}
+                onPlanChange={setEnrollmentPlan}
+                disabled={modalBusy}
+                paymentError={paymentError}
+              />
+            </>
+          ) : null}
         </div>
 
         <div className="matricula-modal-footer" style={footerStyle}>
-        {step === 'success' ? (
+          {step === 'success' ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <button
                 type="button"
@@ -224,22 +404,35 @@ export default function MatriculaModal({
                 Pular
               </button>
             </div>
-        ) : step === 'choose' ? (
+          ) : null}
+
+          {step === 'choose' ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => void handleConfirmSimple()}
+                onClick={() => void handleEnrollOnly('simple')}
                 disabled={!canEnrollNow}
                 style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}
               >
                 {submitting ? 'Salvando…' : 'Matricular agora'}
               </button>
+              {showPaymentStep ? (
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => void handleEnrollThenPayment('simple')}
+                  disabled={!canEnrollNow}
+                  style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}
+                >
+                  Matricular e registrar pagamento
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="btn-outline"
                 onClick={handleChooseFull}
-                disabled={submitting}
+                disabled={modalBusy}
                 style={{
                   width: '100%',
                   justifyContent: 'center',
@@ -251,54 +444,69 @@ export default function MatriculaModal({
                 Completar depois
                 {hasQuestions ? ' (perguntas e dados)' : ''}
               </button>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={submitting}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-secondary)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: submitting ? 'default' : 'pointer',
-                  padding: '10px 4px',
-                  minHeight: 44,
-                }}
-              >
+              <button type="button" className="btn-ghost" onClick={onClose} disabled={modalBusy}>
                 Cancelar
               </button>
             </div>
-        ) : (
+          ) : null}
+
+          {step === 'questions' ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => void runFull()}
-                disabled={submitting}
+                onClick={() => void handleEnrollThenPayment('full')}
+                disabled={modalBusy || !canEnrollNow}
                 style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}
               >
-                {submitting ? 'Salvando…' : 'Continuar'}
+                {submitting ? 'Salvando…' : showPaymentStep ? 'Continuar para pagamento' : 'Matricular'}
               </button>
               <button
                 type="button"
-                onClick={() => setStep('choose')}
-                disabled={submitting}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-secondary)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: submitting ? 'default' : 'pointer',
-                  padding: '10px 4px',
-                  minHeight: 44,
-                }}
+                className="btn-outline"
+                onClick={() => void handleEnrollOnly('full')}
+                disabled={modalBusy || !canEnrollNow}
+                style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}
               >
+                Matricular sem pagamento
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => setStep('choose')} disabled={modalBusy}>
                 Voltar
               </button>
             </div>
-        )}
+          ) : null}
+
+          {step === 'payment' && showPaymentStep ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handleRegisterPayment()}
+                disabled={modalBusy}
+                style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}
+              >
+                {paymentSaving ? 'Registrando…' : 'Registrar pagamento'}
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => void handleSkipPayment()}
+                disabled={modalBusy}
+                style={{ width: '100%', justifyContent: 'center', minHeight: 44 }}
+              >
+                Pular pagamento
+              </button>
+              {initialStep !== 'payment' ? (
+                <button type="button" className="btn-ghost" onClick={() => setStep('choose')} disabled={modalBusy}>
+                  Voltar
+                </button>
+              ) : (
+                <button type="button" className="btn-ghost" onClick={onClose} disabled={modalBusy}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
