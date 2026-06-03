@@ -4,6 +4,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import { useUiStore } from '../../store/useUiStore';
 import { databases, DB_ID, ACCOUNTS_COL, ACADEMIES_COL } from '../../lib/appwrite';
+import { mergeFinanceConfigFromAcademyDoc } from '../../lib/financeConfigStorage.js';
 import AccountsTab from './AccountsTab.jsx';
 import JournalTab from './JournalTab.jsx';
 import ImportFinanceModal from './ImportFinanceModal.jsx';
@@ -81,17 +82,9 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
         .getDocument(DB_ID, ACADEMIES_COL, academyId)
         .then((doc) => {
           if (!active || loadAid !== useLeadStore.getState().academyId) return;
-          let cfg = defaultFinanceConfig();
-          try {
-            const parsed = doc.financeConfig
-              ? typeof doc.financeConfig === 'string'
-                ? JSON.parse(doc.financeConfig)
-                : doc.financeConfig
-              : null;
-            if (parsed && typeof parsed === 'object') cfg = { ...cfg, ...parsed };
-          } catch {
-            void 0;
-          }
+          let cfg = mergeFinanceConfigFromAcademyDoc(doc);
+          if (!cfg || Object.keys(cfg).length === 0) cfg = defaultFinanceConfig();
+          else cfg = { ...defaultFinanceConfig(), ...cfg };
           setFinanceConfig(cfg);
           useLeadStore.getState().setFinanceConfig(cfg);
         })

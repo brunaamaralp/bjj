@@ -9,6 +9,9 @@ import { useSearchParams, Navigate } from 'react-router-dom';
 
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 
+import { mergeFinanceConfigFromAcademyDoc } from '../lib/financeConfigStorage.js';
+import { mergeCollectionIntoFinanceConfig, readCollectionSettingsFromAcademy } from '../lib/collectionRules.js';
+
 import { useLeadStore } from '../store/useLeadStore';
 
 import { useUiStore } from '../store/useUiStore';
@@ -273,65 +276,31 @@ export default function Caixa() {
 
         if (loadAid !== useLeadStore.getState().academyId) return;
 
-        let cfg = null;
-
-        try {
-
-          cfg = doc.financeConfig
-
-            ? typeof doc.financeConfig === 'string'
-
-              ? JSON.parse(doc.financeConfig)
-
-              : doc.financeConfig
-
-            : null;
-
-        } catch {
-
-          cfg = null;
-
-        }
-
-        if (!cfg) {
-
+        let cfg = mergeFinanceConfigFromAcademyDoc(doc);
+        if (!cfg || Object.keys(cfg).length === 0) {
           cfg = defaultFinanceConfig();
-
-          if (
-
-            typeof doc.debitPercentage !== 'undefined' ||
-
-            typeof doc.creditPercentage !== 'undefined' ||
-
-            typeof doc.creditInstallmentPercentage !== 'undefined'
-
-          ) {
-
-            const deb = Number(doc.debitPercentage ?? 0) || 0;
-
-            const cre = Number(doc.creditPercentage ?? 0) || 0;
-
-            const crePar = Number(doc.creditInstallmentPercentage ?? 0) || 0;
-
-            const parcelasMap = {};
-
-            for (let i = 2; i <= 12; i++) parcelasMap[String(i)] = crePar;
-
-            cfg.cardFees = {
-
-              pix: { percent: 0, fixed: 0 },
-
-              debito: { percent: deb, fixed: 0 },
-
-              credito_avista: { percent: cre, fixed: 0 },
-
-              credito_parcelado: parcelasMap,
-
-            };
-
-          }
-
         }
+        if (!(cfg.plans?.length || cfg.bankAccounts?.length || cfg.cardFees)) {
+          cfg = { ...defaultFinanceConfig(), ...cfg };
+          if (
+            typeof doc.debitPercentage !== 'undefined' ||
+            typeof doc.creditPercentage !== 'undefined' ||
+            typeof doc.creditInstallmentPercentage !== 'undefined'
+          ) {
+            const deb = Number(doc.debitPercentage ?? 0) || 0;
+            const cre = Number(doc.creditPercentage ?? 0) || 0;
+            const crePar = Number(doc.creditInstallmentPercentage ?? 0) || 0;
+            const parcelasMap = {};
+            for (let i = 2; i <= 12; i++) parcelasMap[String(i)] = crePar;
+            cfg.cardFees = {
+              pix: { percent: 0, fixed: 0 },
+              debito: { percent: deb, fixed: 0 },
+              credito_avista: { percent: cre, fixed: 0 },
+              credito_parcelado: parcelasMap,
+            };
+          }
+        }
+        cfg = mergeCollectionIntoFinanceConfig(cfg, readCollectionSettingsFromAcademy(doc));
 
         if (loadAid !== useLeadStore.getState().academyId) return;
 
