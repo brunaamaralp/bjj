@@ -5,7 +5,6 @@
  */
 import { parseAcademySettings } from './stockSettings.js';
 import { filterBankAccountsWithBank } from './bankAccounts.js';
-import { invalidateAcademyDocumentCache } from './getAcademyDocument.js';
 import {
   extractFinanceBankAccountsFromOnboardingRaw,
   ONBOARDING_CHECKLIST_MAX_CHARS,
@@ -55,6 +54,11 @@ export function extractBankAccountsFromSettings(settingsRaw) {
     }
   }
   return filterBankAccountsWithBank(lists);
+}
+
+/** Lê contas do atributo raiz academy.financeBankAccounts (legado Appwrite). */
+export function extractBankAccountsFromRootAttribute(academyDoc) {
+  return filterBankAccountsWithBank(coerceBankAccountList(academyDoc?.financeBankAccounts));
 }
 
 export class FinanceConfigTooLargeError extends Error {
@@ -114,19 +118,51 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
   const fromCfg = filterBankAccountsWithBank(cfg.bankAccounts);
   const fromSettings = extractBankAccountsFromSettings(academyDoc?.settings);
+  const fromRoot = extractBankAccountsFromRootAttribute(academyDoc);
   const fromOnboarding = filterBankAccountsWithBank(
     extractFinanceBankAccountsFromOnboardingRaw(academyDoc?.onboardingChecklist)
   );
 
   const mergedBanks = mergeBankAccountLists(
-    mergeBankAccountLists(fromCfg, fromSettings),
-    fromOnboarding
+    mergeBankAccountLists(mergeBankAccountLists(fromCfg, fromSettings), fromOnboarding),
+    fromRoot
   );
 
   if (mergedBanks.length > 0) {
     return { ...cfg, bankAccounts: mergedBanks };
   }
   return { ...cfg, bankAccounts: fromCfg };
+}
+
+/**
+ * Auditoria: de onde vêm as contas bancárias no documento da academia.
+ * @returns {{ sources: object, merged: object[], needsRecovery: boolean }}
+ */
+export function auditBankAccountsFromAcademyDoc(academyDoc) {
+  const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
+  const fromCfg = filterBankAccountsWithBank(cfg.bankAccounts);
+  const fromSettings = extractBankAccountsFromSettings(academyDoc?.settings);
+  const fromRoot = extractBankAccountsFromRootAttribute(academyDoc);
+  const fromOnboarding = filterBankAccountsWithBank(
+    extractFinanceBankAccountsFromOnboardingRaw(academyDoc?.onboardingChecklist)
+  );
+  const merged = mergeFinanceConfigFromAcademyDoc(academyDoc).bankAccounts || [];
+
+  const overflowCount = fromSettings.length + fromOnboarding.length + fromRoot.length;
+  const needsRecovery =
+    merged.length > fromCfg.length ||
+    (fromCfg.length === 0 && overflowCount > 0);
+
+  return {
+    sources: {
+      financeConfig: fromCfg,
+      settings: fromSettings,
+      onboarding: fromOnboarding,
+      rootAttribute: fromRoot,
+    },
+    merged: filterBankAccountsWithBank(merged),
+    needsRecovery,
+  };
 }
 
 function fitsFinanceConfigLimit(json) {
@@ -227,7 +263,12 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
 
   await databases.updateDocument(DB_ID, ACADEMIES_COL, aid, payload);
 
-  invalidateAcademyDocumentCache(aid);
+  try {
+    const { invalidateAcademyDocumentCache } = await import('./getAcademyDocument.js');
+    invalidateAcademyDocumentCache(aid);
+  } catch {
+    void 0;
+  }
 
   return mergeFinanceConfigFromAcademyDoc({
     ...doc,

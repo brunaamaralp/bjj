@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAcademyFinanceConfigUpdate,
   mergeFinanceConfigFromAcademyDoc,
+  auditBankAccountsFromAcademyDoc,
   FinanceConfigTooLargeError,
   FINANCE_CONFIG_LEGACY_MAX_CHARS,
 } from '../lib/financeConfigStorage.js';
@@ -71,6 +72,28 @@ describe('financeConfigStorage', () => {
     const cfg = mergeFinanceConfigFromAcademyDoc(doc);
     expect(cfg.bankAccounts).toHaveLength(1);
     expect(cfg.bankAccounts[0].bankName).toBe('Nubank');
+  });
+
+  it('mergeFinanceConfigFromAcademyDoc reads root financeBankAccounts attribute', () => {
+    const doc = {
+      financeConfig: JSON.stringify({ plans: [], bankAccounts: [] }),
+      financeBankAccounts: JSON.stringify([{ bankName: 'Caixa', account: '55', pixKey: '' }]),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.bankAccounts).toHaveLength(1);
+    expect(cfg.bankAccounts[0].bankName).toBe('Caixa');
+  });
+
+  it('auditBankAccountsFromAcademyDoc flags overflow-only academies', () => {
+    const doc = {
+      financeConfig: JSON.stringify({ plans: [{ name: 'Mensal', price: 100 }], bankAccounts: [] }),
+      settings: JSON.stringify({
+        financeBankAccounts: [{ bankName: 'BB', account: '1', pixKey: '' }],
+      }),
+    };
+    const audit = auditBankAccountsFromAcademyDoc(doc);
+    expect(audit.needsRecovery).toBe(true);
+    expect(audit.merged).toHaveLength(1);
   });
 
   it('mergeFinanceConfigFromAcademyDoc reads offloaded banks from onboarding envelope', () => {

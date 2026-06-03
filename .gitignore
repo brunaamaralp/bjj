@@ -34,6 +34,8 @@ scripts/*
 !scripts/verify-and-fix-schema-integrations.mjs
 !scripts/provision-webhook-logs-schema.mjs
 !scripts/verify-contracts-autentique.mjs
+!scripts/recover-bank-accounts.mjs
+!scripts/unify-bank-account-labels.mjs
 
 # Editor directories and files
 .vscode/*
