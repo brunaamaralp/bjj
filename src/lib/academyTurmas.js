@@ -61,6 +61,17 @@ export function turmaValueFromForm(selectValue, otherText) {
  * @param {object} student
  * @param {string[]} [configuredTurmas]
  */
+/**
+ * Fallback legado: infere perfil do lead (Adulto/Criança/Juniores) a partir do nome da turma.
+ * @param {string|null|undefined} turma
+ */
+export function profileTypeFromTurma(turma) {
+  const low = String(turma || '').toLowerCase();
+  if (low.includes('kid') || low.includes('crian')) return 'Criança';
+  if (low.includes('junior')) return 'Juniores';
+  return 'Adulto';
+}
+
 export function studentTurmaGroupKey(student, configuredTurmas = []) {
   const turma = String(student?.turma || student?.className || student?.class_name || '').trim();
   if (turma) return turma;

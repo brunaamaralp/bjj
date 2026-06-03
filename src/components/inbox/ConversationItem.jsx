@@ -158,10 +158,17 @@ function ConversationItem({
     .filter(Boolean)
     .join(' ');
 
+  const listTitle = String(item?._displayTitle || '-').trim() || 'Conversa';
+  const ariaLabelParts = [listTitle];
+  if (unreadCount > 0) ariaLabelParts.push(`${unreadCount} não lidas`);
+  if (primaryChip?.label) ariaLabelParts.push(primaryChip.label);
+
   return (
     <button
       type="button"
       data-inbox-conversation-item
+      aria-label={ariaLabelParts.join(', ')}
+      aria-current={active ? 'true' : undefined}
       onClick={handleClick}
       onTouchStart={enableLongPress ? handleTouchStart : undefined}
       onTouchMove={enableLongPress ? handleTouchMove : undefined}

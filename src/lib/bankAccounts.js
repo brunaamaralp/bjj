@@ -65,19 +65,10 @@ export function resolveDefaultBankAccountLabel(financeConfig) {
   return '';
 }
 
-/**
- * Conta inicial no modal de pagamento: única conta, padrão cadastrado ou preferência do aluno.
- * @param {object} financeConfig
- * @param {string} [preferredAccount]
- */
-export function pickInitialBankAccountForPayment(financeConfig, preferredAccount = '') {
-  const labels = listBankAccountLabels(financeConfig);
-  if (!labels.length) return '';
-  if (labels.length === 1) return labels[0];
-  const defaultLabel = resolveDefaultBankAccountLabel(financeConfig);
-  if (defaultLabel && labels.includes(defaultLabel)) return defaultLabel;
-  return resolveBankAccountForPayment(preferredAccount, financeConfig);
-}
+export {
+  resolveInitialBankAccountForPayment as pickInitialBankAccountForPayment,
+  accountWhenPaymentMethodChanges,
+} from './paymentMethodBankDefaults.js';
 
 export function hasConfiguredBankAccounts(financeConfig) {
   return listBankAccountLabels(financeConfig).length > 0;

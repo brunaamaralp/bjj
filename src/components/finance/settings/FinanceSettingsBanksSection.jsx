@@ -5,6 +5,9 @@ import ModalShell from '../../shared/ModalShell.jsx';
 import EmptyState from '../../shared/EmptyState.jsx';
 import { DateInputField } from '../../DateInput';
 import { maskCurrency } from '../../../lib/masks.js';
+import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js';
+import { listBankAccountLabels } from '../../../lib/bankAccounts.js';
+import { readDefaultAccountByMethod } from '../../../lib/paymentMethodBankDefaults.js';
 
 const EMPTY_BANK = {
   bankName: '',
@@ -35,12 +38,15 @@ function bankCardSub(acc) {
 
 export default function FinanceSettingsBanksSection({
   financeConfig,
+  setFinanceConfig,
   onSaveBank,
   onRemoveRequest,
 }) {
   const [editIdx, setEditIdx] = useState(null);
   const [draft, setDraft] = useState(EMPTY_BANK);
   const accounts = financeConfig.bankAccounts || [];
+  const accountLabels = listBankAccountLabels(financeConfig);
+  const defaultByMethod = readDefaultAccountByMethod(financeConfig);
 
   const openEdit = (idx) => {
     setEditIdx(idx);
@@ -117,6 +123,43 @@ export default function FinanceSettingsBanksSection({
           <Plus size={16} aria-hidden />
           Adicionar conta
         </button>
+      ) : null}
+
+      {accounts.length > 0 && setFinanceConfig ? (
+        <div className="finance-settings-inset card finance-settings-method-accounts">
+          <h3 className="finance-settings-subtitle">Conta padrão por forma de pagamento</h3>
+          <p className="text-small text-muted">
+            Ao registrar um pagamento, a conta é preenchida automaticamente conforme o método escolhido.
+          </p>
+          <div className="finance-settings-method-accounts__grid">
+            {PAYMENT_METHODS.map(({ value, label }) => (
+              <div key={value} className="form-group">
+                <label>{label}</label>
+                <select
+                  className="form-input"
+                  value={defaultByMethod[value] || ''}
+                  onChange={(e) => {
+                    const next = String(e.target.value || '').trim();
+                    setFinanceConfig((prev) => {
+                      const current = readDefaultAccountByMethod(prev);
+                      const updated = { ...current };
+                      if (next) updated[value] = next;
+                      else delete updated[value];
+                      return { ...prev, defaultAccountByMethod: updated };
+                    });
+                  }}
+                >
+                  <option value="">Padrão geral</option>
+                  {accountLabels.map((lbl) => (
+                    <option key={lbl} value={lbl}>
+                      {lbl}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">

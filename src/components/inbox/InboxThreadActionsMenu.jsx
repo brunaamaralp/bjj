@@ -1,0 +1,186 @@
+import React, { useState } from 'react';
+import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
+import { InboxMenuAction } from './inboxMenuUi.jsx';
+
+export default function InboxThreadActionsMenu({
+  selectedPhone,
+  selected,
+  items,
+  listFilter,
+  isMobile,
+  isNarrowDesktop,
+  contextPanelVisible,
+  setDetailsOpen,
+  setContextOpen,
+  updateTicket,
+  ticketUpdating,
+  setLeadPanel,
+  archiveConversation,
+  unarchiveConversation,
+  loadThread,
+  markUnread,
+  openPromptSettings,
+  canConfigureAgenteIa,
+  linkingLead,
+  navigate,
+  contactLabel,
+}) {
+  const [open, setOpen] = useState(false);
+  const phone = String(selectedPhone || '').trim();
+  const hasLead = Boolean(String(selected?.lead_id || '').trim());
+  const listArr = Array.isArray(items) ? items : [];
+  const listRow = listArr.find((row) => String(row?.phone_number || '').trim() === phone);
+  const isConvArchived = Boolean(listRow?.archived || selected?.archived);
+  const threadUnread = Number.isFinite(Number(listRow?.unread_count)) ? Number(listRow.unread_count) : 0;
+
+  const close = () => setOpen(false);
+  const openDetails = () => {
+    if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+    else setContextOpen((v) => !v);
+    close();
+  };
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen} className="inbox-thread-actions-menu">
+      <button
+        className="btn btn-outline"
+        style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900, flexShrink: 0 }}
+        type="button"
+        disabled={!selectedPhone}
+        title={!selectedPhone ? 'Selecione uma conversa para ver as ações' : 'Mais ações'}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {'\u22EF'}
+      </button>
+      {open ? (
+        <DropdownMenuPanel className="inbox-thread-actions-menu__panel" aria-label="Ações da conversa">
+          <InboxMenuAction
+            label={isMobile || isNarrowDesktop ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
+            hint="Detalhes"
+            onClick={openDetails}
+          />
+          <InboxMenuAction
+            label="Aguardando cliente"
+            hint="Ticket"
+            disabled={!phone || ticketUpdating}
+            onClick={() => {
+              updateTicket({ status: 'waiting_customer' });
+              close();
+            }}
+          />
+          <InboxMenuAction
+            label="Transferir conversa"
+            hint="Equipe"
+            disabled={!phone || ticketUpdating}
+            onClick={() => {
+              setLeadPanel('transfer');
+              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+              else setContextOpen(true);
+              close();
+            }}
+          />
+          {listFilter !== 'archived' && !isConvArchived ? (
+            <InboxMenuAction
+              label="Arquivar"
+              hint="Inbox"
+              disabled={!phone}
+              onClick={() => {
+                void archiveConversation(phone);
+                close();
+              }}
+            />
+          ) : null}
+          {listFilter === 'archived' || isConvArchived ? (
+            <InboxMenuAction
+              label="Desarquivar"
+              hint="Inbox"
+              disabled={!phone}
+              onClick={() => {
+                void unarchiveConversation(phone);
+                close();
+              }}
+            />
+          ) : null}
+          <InboxMenuAction
+            label="Recarregar conversa"
+            hint="Atualiza"
+            disabled={!phone}
+            onClick={() => {
+              loadThread(phone);
+              close();
+            }}
+          />
+          {threadUnread === 0 ? (
+            <InboxMenuAction
+              label="Marcar como não lida"
+              hint="Lista"
+              disabled={!phone}
+              onClick={() => {
+                void markUnread(phone);
+                close();
+              }}
+            />
+          ) : null}
+          {canConfigureAgenteIa ? (
+            <InboxMenuAction
+              label="Configurar IA"
+              hint="Prompt"
+              onClick={() => {
+                openPromptSettings();
+                close();
+              }}
+            />
+          ) : null}
+          {!hasLead ? (
+            <>
+              <InboxMenuAction
+                label="Converter em contato"
+                hint="CRM"
+                disabled={!phone || linkingLead}
+                onClick={() => {
+                  setLeadPanel('convert');
+                  if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                  else setContextOpen(true);
+                  close();
+                }}
+              />
+              <InboxMenuAction
+                label="Associar contato"
+                hint="CRM"
+                disabled={!phone || linkingLead}
+                onClick={() => {
+                  setLeadPanel('associate');
+                  if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                  else setContextOpen(true);
+                  close();
+                }}
+              />
+            </>
+          ) : null}
+          {hasLead ? (
+            <>
+              <InboxMenuAction
+                label={`Ver ${contactLabel.toLowerCase()}`}
+                hint="Perfil"
+                onClick={() => {
+                  navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`);
+                  close();
+                }}
+              />
+              <InboxMenuAction
+                label="Kanban"
+                hint="Funil"
+                onClick={() => {
+                  navigate('/pipeline');
+                  close();
+                }}
+              />
+            </>
+          ) : null}
+        </DropdownMenuPanel>
+      ) : null}
+    </DropdownMenu>
+  );
+}

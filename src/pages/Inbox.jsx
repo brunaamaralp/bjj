@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { account, realtime, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
+import { account, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
@@ -12,7 +12,7 @@ import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { resolveInboxTicketBadge } from '../lib/inboxTicketBadges.js';
-import { LEAD_STATUS, useLeadStore } from '../store/useLeadStore';
+import { useLeadStore } from '../store/useLeadStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
@@ -23,6 +23,8 @@ import {
   DropdownMenu,
   DropdownMenuDivider,
   DropdownMenuItem,
+  DropdownMenuItemStatic,
+  DropdownMenuLabel,
   DropdownMenuPanel,
 } from '../components/shared/menu';
 import InboxListPanel from '../components/inbox/InboxListPanel';
@@ -35,6 +37,31 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import SearchField from '../components/shared/SearchField.jsx';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
+import useDebounce from '../hooks/useDebounce.js';
+import { useInboxContextMenu } from '../hooks/useInboxContextMenu.js';
+import { useInboxKeyboard } from '../hooks/useInboxKeyboard.js';
+import { useInboxListPipeline } from '../hooks/useInboxListPipeline.js';
+import { useInboxRealtimeSync } from '../hooks/useInboxRealtimeSync.js';
+import { useInboxThreadScroll } from '../hooks/useInboxThreadScroll.js';
+import { useInboxViewport } from '../hooks/useInboxViewport.js';
+import { useInboxConversationList } from '../hooks/useInboxConversationList.js';
+import { useInboxThreadLoader } from '../hooks/useInboxThreadLoader.js';
+import { useInboxConversationActions } from '../hooks/useInboxConversationActions.js';
+import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js';
+import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
+import {
+  getInboxJwt as getJwt,
+  normalizeInboxApiError as normalizeApiError,
+  safeParseInboxJson as safeParseJson,
+} from '../lib/inboxApiUtils.js';
+import {
+  normalizeInboxPhone as normalizePhone,
+  formatInboxPhone as formatPhone,
+  pickInboxDisplayName as pickDisplayName,
+} from '../lib/inboxContactDisplay.js';
+import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
+import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
+import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
@@ -42,27 +69,6 @@ const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
 /** Filtro inicial da lista — fila completa (Todos), salvo preferência legada de "Minha fila". */
 const DEFAULT_INBOX_LIST_FILTER = 'all';
 const INBOX_PRIMARY_FILTERS = new Set(['all', 'needs_me', 'unread']);
-const MAX_INBOX_LIST_ITEMS = 150;
-
-/** Mantém no máximo MAX_INBOX_LIST_ITEMS; preserva conversa selecionada se sair da janela. */
-function capInboxListItems(items, selectedPhone) {
-  const list = Array.isArray(items) ? items : [];
-  if (list.length <= MAX_INBOX_LIST_ITEMS) return list;
-  const selected = String(selectedPhone || '').trim();
-  let trimmed = list.slice(-MAX_INBOX_LIST_ITEMS);
-  if (selected) {
-    const selectedItem = list.find((it) => String(it?.phone_number || '').trim() === selected);
-    if (selectedItem) {
-      const inTrimmed = trimmed.some(
-        (it) => String(it?.phone_number || '').trim() === selected
-      );
-      if (!inTrimmed) {
-        trimmed = [selectedItem, ...trimmed.slice(0, MAX_INBOX_LIST_ITEMS - 1)];
-      }
-    }
-  }
-  return trimmed;
-}
 
 function readInitialInboxListFilter() {
   if (typeof window === 'undefined') return DEFAULT_INBOX_LIST_FILTER;
@@ -84,30 +90,6 @@ function readComposerExpandedFromStorage() {
   }
 }
 
-function normalizePhone(v) {
-  const raw = String(v || '').trim();
-  if (!raw) return '';
-  return raw.replace(/[^\d]/g, '');
-}
-
-function formatPhone(raw) {
-  const digits = String(raw || '').replace(/\D/g, '');
-  const local = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
-  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
-  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
-  return raw;
-}
-
-function pickDisplayName({ leadName = '', manualContactName = '', whatsappProfileName = '', phone = '' }) {
-  const lead = String(leadName || '').trim();
-  if (lead) return lead;
-  const manual = String(manualContactName || '').trim();
-  if (manual) return manual;
-  const wa = String(whatsappProfileName || '').trim();
-  if (wa) return wa;
-  return formatPhone(String(phone || '').trim()) || '-';
-}
-
 function isInboxDebugEnabled() {
   const envEnabled =
     import.meta.env.DEV ||
@@ -120,11 +102,6 @@ function isInboxDebugEnabled() {
   } catch {
     return false;
   }
-}
-
-async function getJwt() {
-  const jwt = await account.createJWT();
-  return String(jwt?.jwt || '').trim();
 }
 
 function formatWhen(iso) {
@@ -166,22 +143,6 @@ function formatListActivityLabel(iso) {
   yesterday.setDate(yesterday.getDate() - 1);
   if (startOfMsg.getTime() === yesterday.getTime()) return 'Ontem';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
-
-/** 0 = desconhecido/inválido — na ordenação por data ficam por último dentro do grupo. */
-function parseTimestampMs(value) {
-  const s = String(value || '').trim();
-  if (!s) return 0;
-  const ms = new Date(s).getTime();
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-/** Citação estilo WhatsApp para encaminhar na mesma conversa: cada linha com ">", depois linha em branco para o cursor. */
-function buildQuotedForwardBlock(originalText) {
-  const raw = String(originalText ?? '').replace(/\r\n/g, '\n');
-  const lines = raw.split('\n');
-  const quoted = lines.map((ln) => `> ${ln}`).join('\n');
-  return `${quoted}\n\n`;
 }
 
 function inboxMessageMediaUrl(m) {
@@ -263,6 +224,8 @@ export default function Inbox() {
   }, [location.search]);
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 350);
+  const [listCapped, setListCapped] = useState(false);
   const [draft, setDraft] = useState('');
   const [scheduleOn, setScheduleOn] = useState(false);
   const [scheduleAtLocal, setScheduleAtLocal] = useState('');
@@ -278,12 +241,7 @@ export default function Inbox() {
   const autoRefresh = true;
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(max-width: 1023px)').matches
-      : false
-  );
-  const [isNarrowDesktop, setIsNarrowDesktop] = useState(false);
+  const { isMobile, isNarrowDesktop, inboxThreadNarrow767, showInboxKeyHints } = useInboxViewport();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
@@ -330,7 +288,6 @@ export default function Inbox() {
   const [leadSearch, setLeadSearch] = useState('');
   const [linkingLead, setLinkingLead] = useState(false);
   const [highlighted, setHighlighted] = useState({});
-  const [realtimeOn, setRealtimeOn] = useState(false);
   const [desktopNotify, setDesktopNotify] = useState(() => {
     try {
       return typeof window !== 'undefined' && window.localStorage.getItem('inbox_desktop_notify') === '1';
@@ -353,14 +310,12 @@ export default function Inbox() {
     return false;
   });
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [menu, setMenu] = useState(null);
+  const { menu, openMenu, closeMenu } = useInboxContextMenu();
   const [imageLightboxUrl, setImageLightboxUrl] = useState('');
   /** Mobile: bottom sheet após long press na lista (só ação "marcar não lida" quando aplicável). */
   const [conversationSheet, setConversationSheet] = useState(null);
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
   const [expandedMsgs, setExpandedMsgs] = useState({});
-  const [threadAtBottom, setThreadAtBottom] = useState(true);
-  const [newMsgCount, setNewMsgCount] = useState(0);
   const [msgFlags, setMsgFlags] = useState({});
 
   useEffect(() => {
@@ -407,13 +362,12 @@ export default function Inbox() {
   const slashPopupRef = useRef(null);
   const slashActiveItemRef = useRef(null);
   const threadScrollRef = useRef(null);
+  const threadMessagesApiRef = useRef(null);
   const lastAutoScrollPhoneRef = useRef('');
   const threadMsgCountRef = useRef(0);
   const listMetaRef = useRef(new Map());
   const notifiedOnceRef = useRef(false);
   const desktopNotifyRef = useRef(false);
-  const loadListRef = useRef(null);
-  const loadThreadRef = useRef(null);
   const loadingListRef = useRef(false);
   const threadAbortRef = useRef(null);
   const threadRequestSeqRef = useRef(0);
@@ -424,12 +378,177 @@ export default function Inbox() {
   const handleSelectConversationRef = useRef(() => {});
   const markSeenRef = useRef(null);
   const messageFlagsMigrationDoneRef = useRef(false);
+
+  const threadMessageCount = Array.isArray(selected?.messages) ? selected.messages.length : 0;
+  const {
+    threadAtBottom,
+    setThreadAtBottom,
+    newMsgCount,
+    setNewMsgCount,
+    scrollThreadToBottom,
+  } = useInboxThreadScroll({
+    selectedPhone,
+    messageCount: threadMessageCount,
+    threadScrollRef,
+    selectedPhoneRef,
+    threadMsgCountRef,
+    lastAutoScrollPhoneRef,
+    onPhoneChange: () => {
+      setSelectedMsgKey('');
+      setExpandedMsgs({});
+      setDetailsOpen(false);
+    },
+  });
+
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
+  const debouncedSearchQuery = useMemo(() => String(debouncedSearch || '').trim(), [debouncedSearch]);
+  const searchPending = searchQuery !== debouncedSearchQuery;
   const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
   const handoffDurationPhrase = useMemo(
     () => (handoffHours === 1 ? '1 hora' : `${handoffHours} horas`),
     [handoffHours]
   );
+
+  const onListItemNotifyRef = useRef(() => {});
+
+  const { loadList, loadListRef } = useInboxConversationList({
+    academyIdRef,
+    debouncedSearchQuery,
+    listFilterRef,
+    selectedPhoneRef,
+    listMetaRef,
+    notifiedOnceRef,
+    loadingListRef,
+    nextCursor,
+    hasMore,
+    loading,
+    loadingMore,
+    setNextCursor,
+    setHasMore,
+    setError,
+    setLoading,
+    setLoadingMore,
+    setLastUpdatedAt,
+    setItems,
+    setListCapped,
+    onListItemNotifyRef,
+  });
+
+  const { loadThread, loadThreadRef } = useInboxThreadLoader({
+    academyIdRef,
+    threadScrollRef,
+    threadAbortRef,
+    threadRequestSeqRef,
+    lastAutoScrollPhoneRef,
+    setError,
+    setThreadError,
+    setThreadPaging,
+    setThreadLoading,
+    setThreadCursor,
+    setThreadHasMore,
+    setSelected,
+    setItems,
+  });
+
+  const {
+    markSeen,
+    markUnread,
+    unarchiveConversation,
+    archiveConversation,
+    setHandoffActive,
+    updateTicket,
+    linkLeadToConversation,
+    saveContactName,
+    convertToLead,
+    openPromptSettings,
+  } = useInboxConversationActions({
+    toast,
+    academyIdRef,
+    selectedPhoneRef,
+    listFilterRef,
+    loadListRef,
+    loadList,
+    closeMenu,
+    setError,
+    setItems,
+    setSelected,
+    setSelectedPhone,
+    setHighlighted,
+    setConversationSheet,
+    setHandoffReleaseHint,
+    setTicketUpdating,
+    ticketUpdating,
+    setLinkingLead,
+    setLeadPanel,
+    setLeadSearch,
+    setEditingContactName,
+    setSavingContactName,
+    savingContactName,
+    contactNameDraft,
+    leadNameDraft,
+    leadTypeDraft,
+    selected,
+    contactLabel,
+  });
+
+  const {
+    sendManual,
+    retryFailedMessage,
+    cancelScheduledMessage,
+    runCancelScheduledMessage,
+    improveDraftWithAi,
+  } = useInboxOutboundMessaging({
+    toast,
+    academyIdRef,
+    selectedPhoneRef,
+    threadScrollRef,
+    lastAutoScrollPhoneRef,
+    draftRef,
+    textareaRef,
+    selectedPhone,
+    selected,
+    draft,
+    scheduleOn,
+    scheduleAtLocal,
+    sending,
+    cancelingMsgId,
+    cancelConfirmMsgId,
+    setError,
+    setSelected,
+    setDraft,
+    setDraftBeforeImprove,
+    setScheduleOn,
+    setScheduleAtLocal,
+    setSending,
+    setImprovingDraft,
+    setCancelConfirmMsgId,
+    setCancelingMsgId,
+    scrollThreadToBottom,
+    setHandoffActive,
+    markSeen,
+    loadList,
+  });
+
+  useEffect(() => {
+    markSeenRef.current = markSeen;
+  }, [markSeen]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    const connected = String(waStatus || '').trim() === 'connected';
+    if (!connected) return;
+    const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
+    if (done) return;
+    void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
+  }, [waStatus, academyId]);
+
+  const { realtimeOn } = useInboxRealtimeSync({
+    academyIdRef,
+    selectedPhoneRef,
+    loadListRef,
+    loadThreadRef,
+    realtimeTimersRef,
+  });
 
   useEffect(() => {
     draftRef.current = String(draft || '');
@@ -604,61 +723,6 @@ export default function Inbox() {
   }, [leadPanel, leadsLoading, leads, fetchLeads]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(max-width: 1023px)');
-    const apply = () => {
-      setIsMobile(Boolean(mq.matches));
-    };
-    apply();
-    if (mq.addEventListener) mq.addEventListener('change', apply);
-    else mq.addListener(apply);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', apply);
-      else mq.removeListener(apply);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(max-width: 1365px)');
-    const apply = () => setIsNarrowDesktop(Boolean(mq.matches));
-    apply();
-    if (mq.addEventListener) mq.addEventListener('change', apply);
-    else mq.addListener(apply);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', apply);
-      else mq.removeListener(apply);
-    };
-  }, []);
-
-  const [inboxThreadNarrow767, setInboxThreadNarrow767] = useState(false);
-  const [showInboxKeyHints, setShowInboxKeyHints] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(max-width: 767px)');
-    const apply = () => setInboxThreadNarrow767(Boolean(mq.matches));
-    apply();
-    if (mq.addEventListener) mq.addEventListener('change', apply);
-    else mq.addListener(apply);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', apply);
-      else mq.removeListener(apply);
-    };
-  }, []);
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(min-width: 769px)');
-    const apply = () => setShowInboxKeyHints(Boolean(mq.matches));
-    apply();
-    if (mq.addEventListener) mq.addEventListener('change', apply);
-    else mq.addListener(apply);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', apply);
-      else mq.removeListener(apply);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!isNarrowDesktop) return;
     if (!contextOpen) return;
     setContextOpen(false);
@@ -668,55 +732,14 @@ export default function Inbox() {
     if (listFilter === 'archived') return;
     const arr = Array.isArray(items) ? items : [];
     const unreadBacklog = arr.reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
-    const needsMeBacklog = arr.filter(
-      (it) => Boolean(it?.need_human) || Number(it?.unread_count || 0) > 0
-    ).length;
+    const needsMeBacklog = arr.filter((it) => Boolean(it?.need_human)).length;
     const resolvedCount = arr.filter((it) => String(it?.ticket_status || '') === 'resolved').length;
     const transferredCount = arr.filter((it) => String(it?.ticket_status || '') === 'transferred').length;
     setStats((prev) => ({ ...prev, unreadBacklog, needsMeBacklog, resolvedCount, transferredCount }));
     useLeadStore.getState().setInboxUnreadConversations(unreadBacklog);
   }, [items, listFilter]);
 
-  function safeParseJson(raw) {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  }
-
-  function formatDayLabel(iso) {
-    const s = String(iso || '').trim();
-    if (!s) return '';
-    const d = new Date(s);
-    if (!Number.isFinite(d.getTime())) return '';
-    const now = new Date();
-    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const nn = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const diff = Math.round((dd.getTime() - nn.getTime()) / (24 * 60 * 60 * 1000));
-    if (diff === 0) return 'Hoje';
-    if (diff === -1) return 'Ontem';
-    return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
-  }
-
-  function messageKey(m) {
-    const mid = String(m?.message_id || '').trim();
-    if (mid) return mid;
-    const role = String(m?.role || '').trim();
-    const ts = String(m?.timestamp || '').trim();
-    const content = String(m?.content || '').trim();
-    return `${role}:${ts}:${content.slice(0, 80)}`;
-  }
-
-  function senderKindFromMessage(m) {
-    const role = m?.role === 'assistant' ? 'assistant' : 'user';
-    if (role !== 'assistant') return 'user';
-    const sender = String(m?.sender || '').trim().toLowerCase();
-    if (sender === 'human' || sender === 'humano') return 'human';
-    if (sender === 'ai' || sender === 'agent' || sender === 'agente') return 'ai';
-    const hasAiHints = Boolean(m?.in_reply_to) || (m?.classificacao && typeof m.classificacao === 'object');
-    return hasAiHints ? 'ai' : 'human';
-  }
+  const senderKindFromMessage = senderKindFromInboxMessage;
 
   async function copyToClipboard(text) {
     try {
@@ -979,57 +1002,6 @@ export default function Inbox() {
     }
   }
 
-  function openMenu(kind, anchorEl, payload) {
-    const el = anchorEl && anchorEl.getBoundingClientRect ? anchorEl : null;
-    const rect = el ? el.getBoundingClientRect() : { left: 0, top: 0, bottom: 0, right: 0, width: 0, height: 0 };
-    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const pad = 8;
-    const menuW = 260;
-    const menuH = String(kind || '').trim() === 'message' ? 300 : 360;
-    let x;
-    if (String(kind || '').trim() === 'message') {
-      x = rect.right - menuW;
-    } else {
-      x = rect.left;
-    }
-    x = Math.max(pad, Math.min(x, vw - menuW - pad));
-    let y = rect.bottom + 6;
-    if (y + menuH > vh - pad) {
-      y = rect.top - menuH - 6;
-    }
-    y = Math.max(pad, Math.min(y, vh - menuH - pad));
-    setMenu({ kind: String(kind || '').trim(), x, y, payload: payload || null });
-  }
-
-  function closeMenu() {
-    setMenu(null);
-  }
-
-  function scrollThreadToBottom({ clearNew = true } = {}) {
-    const el = threadScrollRef.current;
-    if (!el) return;
-    try {
-      el.scrollTop = el.scrollHeight;
-      lastAutoScrollPhoneRef.current = String(selectedPhoneRef.current || '').trim();
-      setThreadAtBottom(true);
-      if (clearNew) setNewMsgCount(0);
-    } catch {
-      void 0;
-    }
-  }
-
-  function normalizeApiError(raw, fallback) {
-    const s = String(raw || '').trim();
-    if (!s) return fallback;
-    const parsed = safeParseJson(s);
-    if (parsed && typeof parsed === 'object') {
-      if (typeof parsed.erro === 'string' && parsed.erro.trim()) return parsed.erro.trim();
-      if (typeof parsed.error === 'string' && parsed.error.trim()) return parsed.error.trim();
-    }
-    return s;
-  }
-
   async function reconcileLast24h() {
     if (!academyIdRef.current) {
       const message = 'Não foi possível sincronizar: academia não identificada.';
@@ -1100,6 +1072,18 @@ export default function Inbox() {
     }
   }
 
+  useEffect(() => {
+    onListItemNotifyRef.current = ({ phone, name, preview }) => {
+      playNotificationSound();
+      setHighlightedPhone(phone);
+      toast.show({
+        type: 'info',
+        message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`,
+      });
+      tryDesktopNotify({ phone, name, preview });
+    };
+  });
+
   async function toggleDesktopNotifyPreference() {
     if (desktopNotify) {
       try {
@@ -1155,1212 +1139,6 @@ export default function Inbox() {
     }
   }
 
-  /**
-   * Marca conversa como lida: unread_count é a fonte do badge na lista (zera só após POST read OK).
-   * Notificação desktop usa last_user_msg_at separadamente — não confundir com o contador.
-   */
-  async function markSeen(phone, { notifySuccess = false } = {}) {
-    const p = String(phone || '').trim();
-    if (!p) return;
-    if (!academyIdRef.current) return;
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'read' })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como lida'));
-      setItems((prev) => {
-        const arr = Array.isArray(prev) ? prev : [];
-        return arr.map((it) => {
-          const ph = String(it?.phone_number || '').trim();
-          if (ph !== p) return it;
-          return { ...it, unread_count: 0, last_read_at: new Date().toISOString() };
-        });
-      });
-      setSelected((prev) => {
-        if (!prev || prev.phone !== p) return prev;
-        return { ...prev, unread_count: 0, last_read_at: new Date().toISOString() };
-      });
-      setHighlighted((prev) => {
-        const cur = prev && typeof prev === 'object' ? prev : {};
-        if (!cur[p]) return cur;
-        const n = { ...cur };
-        delete n[p];
-        return n;
-      });
-      if (notifySuccess) {
-        toast.success('Marcado como lida');
-      }
-    } catch (e) {
-      try {
-        toast.error(e, 'action');
-      } catch {
-        void 0;
-      }
-    }
-  }
-  markSeenRef.current = markSeen;
-
-  async function markUnread(phone) {
-    const p = String(phone || '').trim();
-    if (!p) return;
-    if (!academyIdRef.current) return;
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'unread' })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao marcar como não lida'));
-      setItems((prev) => {
-        const arr = Array.isArray(prev) ? prev : [];
-        return arr.map((it) => {
-          const ph = String(it?.phone_number || '').trim();
-          if (ph !== p) return it;
-          const cur = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
-          return { ...it, unread_count: Math.max(1, cur) };
-        });
-      });
-      setSelected((prev) => {
-        if (!prev || String(prev.phone || '').trim() !== p) return prev;
-        return null;
-      });
-      setSelectedPhone((prevPhone) => (String(prevPhone || '').trim() === p ? '' : prevPhone));
-      setConversationSheet(null);
-      closeMenu();
-      toast.success('Marcado como não lida');
-    } catch (e) {
-      try {
-        toast.error(e, 'action');
-      } catch {
-        void 0;
-      }
-    }
-  }
-
-  async function unarchiveConversation(phone, { silent = false } = {}) {
-    const p = String(phone || '').trim();
-    if (!p || !academyIdRef.current) return false;
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'unarchive' })
-      });
-      if (blocked) return false;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao desarquivar'));
-      const curFilter = listFilterRef.current;
-      setSelected((prev) => {
-        if (!prev || String(prev.phone || '').trim() !== p) return prev;
-        return { ...prev, archived: false };
-      });
-      setItems((prev) => {
-        const arr = Array.isArray(prev) ? prev : [];
-        if (curFilter === 'archived') return arr.filter((it) => String(it?.phone_number || '').trim() !== p);
-        return arr.map((it) => {
-          const ph = String(it?.phone_number || '').trim();
-          if (ph !== p) return it;
-          return { ...it, archived: false };
-        });
-      });
-      if (curFilter === 'archived' && String(selectedPhoneRef.current || '').trim() === p) {
-        setSelectedPhone('');
-        setSelected(null);
-      }
-      const fn = loadListRef.current;
-      if (typeof fn === 'function') void fn({ reset: true, silent: true });
-      if (!silent) toast.success('Conversa desarquivada');
-      closeMenu();
-      return true;
-    } catch (e) {
-      try {
-        toast.error(e, 'action');
-      } catch {
-        void 0;
-      }
-      return false;
-    }
-  }
-
-  async function archiveConversation(phone) {
-    const p = String(phone || '').trim();
-    if (!p || !academyIdRef.current) return;
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'archive' })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao arquivar'));
-      const curFilter = listFilterRef.current;
-      setSelected((prev) => {
-        if (!prev || String(prev.phone || '').trim() !== p) return prev;
-        return { ...prev, archived: true };
-      });
-      setItems((prev) => {
-        const arr = Array.isArray(prev) ? prev : [];
-        if (curFilter !== 'archived') return arr.filter((it) => String(it?.phone_number || '').trim() !== p);
-        return arr.map((it) => {
-          const ph = String(it?.phone_number || '').trim();
-          if (ph !== p) return it;
-          return { ...it, archived: true };
-        });
-      });
-      if (curFilter !== 'archived' && String(selectedPhoneRef.current || '').trim() === p) {
-        setSelectedPhone('');
-        setSelected(null);
-      }
-      const fn = loadListRef.current;
-      if (typeof fn === 'function') void fn({ reset: true, silent: true });
-      toast.show({
-        type: 'info',
-        message: 'Conversa arquivada',
-        duration: 5000,
-        action: {
-          label: 'Desfazer',
-          onClick: () => {
-            void unarchiveConversation(p, { silent: true });
-          }
-        }
-      });
-      closeMenu();
-    } catch (e) {
-      try {
-        toast.error(e, 'action');
-      } catch {
-        void 0;
-      }
-    }
-  }
-
-  function openPromptSettings() {
-    navigate('/agente-ia');
-  }
-
-
-  useEffect(() => {
-    if (!academyId) return;
-    const connected = String(waStatus || '').trim() === 'connected';
-    if (!connected) return;
-    const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
-    if (done) return;
-    void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
-  }, [waStatus, academyId]);
-
-  async function loadList({ reset = false, silent = false } = {}) {
-    if (!academyIdRef.current) return;
-    if (reset && loadingListRef.current) return;
-    if (reset) {
-      setNextCursor(null);
-      setHasMore(true);
-    }
-    if (!reset && (!hasMore || loadingMore || loading)) return;
-    if (!silent) setError('');
-    loadingListRef.current = true;
-    if (reset && !silent) setLoading(true);
-    else if (!reset) setLoadingMore(true);
-    try {
-      const jwt = await getJwt();
-      const qs = new URLSearchParams();
-      qs.set('limit', '50');
-      const cursorToUse = reset ? '' : String(nextCursor || '').trim();
-      if (cursorToUse) qs.set('cursor', cursorToUse);
-      if (searchQuery) qs.set('search', searchQuery);
-      qs.set('archived', listFilterRef.current === 'archived' ? '1' : '0');
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversas'));
-      const data = safeParseJson(raw) || {};
-      const next = Array.isArray(data?.items) ? data.items : [];
-      const nextCur = data?.next_cursor ? String(data.next_cursor) : null;
-      const previousMeta = listMetaRef.current instanceof Map ? listMetaRef.current : new Map();
-      const nextMeta = reset ? new Map() : new Map(previousMeta);
-      for (const it of next) {
-        const phone = String(it?.phone_number || '').trim();
-        if (!phone) continue;
-        const ts = String(it?.last_message_timestamp || it?.updated_at || '').trim();
-        const curUnread = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
-        const curUpdated = String(it?.updated_at || '').trim();
-        const curLu = String(it?.last_user_msg_at || '').trim();
-        nextMeta.set(phone, {
-          ts,
-          role: String(it?.last_message_role || '').trim(),
-          sender: String(it?.last_message_sender || '').trim(),
-          unread_count: curUnread,
-          updated_at: curUpdated,
-          last_user_msg_at: curLu
-        });
-      }
-      setNextCursor(nextCur);
-      setHasMore(Boolean(nextCur) && next.length > 0 && !searchQuery);
-      setLastUpdatedAt(new Date().toISOString());
-      setItems((prev) => {
-        const incoming = reset ? next : [...(Array.isArray(prev) ? prev : []), ...next];
-        const seen = new Set();
-        const deduped = [];
-        for (const it of incoming) {
-          const phoneKey = String(it?.phone_number || '').trim();
-          const k = phoneKey || String(it?.id || '');
-          if (!k || seen.has(k)) continue;
-          seen.add(k);
-          deduped.push(it);
-        }
-        return capInboxListItems(deduped, selectedPhoneRef.current);
-      });
-      if (reset && notifiedOnceRef.current) {
-        const selected = String(selectedPhoneRef.current || '').trim();
-        for (const it of next) {
-          const phone = String(it?.phone_number || '').trim();
-          if (!phone || phone === selected) continue;
-          const curUnread = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
-          if (curUnread <= 0) continue;
-          const prev = previousMeta.get(phone);
-          const prevUnread = prev && Number.isFinite(Number(prev.unread_count)) ? Number(prev.unread_count) : 0;
-          const prevLu = prev && typeof prev.last_user_msg_at === 'string' ? prev.last_user_msg_at : '';
-          const curLu = String(it?.last_user_msg_at || '').trim();
-          const prevUpdated = prev && typeof prev.updated_at === 'string' ? prev.updated_at : '';
-          const curUpdated = String(it?.updated_at || '').trim();
-          const unreadIncreased = curUnread > prevUnread;
-          const userMsgRenewed = Boolean(curLu && curLu !== prevLu);
-          const updatedAdvanced = Boolean(curUpdated && curUpdated !== prevUpdated);
-          if (!unreadIncreased && !(userMsgRenewed && updatedAdvanced)) continue;
-          const preview = String(it?.last_preview || '').trim();
-          const name = pickDisplayName({
-            leadName: it?.lead_name,
-            manualContactName: it?.contact_name,
-            whatsappProfileName: it?.whatsapp_profile_name,
-            phone
-          });
-          playNotificationSound();
-          setHighlightedPhone(phone);
-          toast.show({
-            type: 'info',
-            message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`
-          });
-          tryDesktopNotify({ phone, name, preview });
-        }
-      } else if (reset) {
-        notifiedOnceRef.current = true;
-      }
-      listMetaRef.current = nextMeta;
-    } catch (e) {
-      if (!silent) setError(friendlyError(e, 'load'));
-    } finally {
-      loadingListRef.current = false;
-      if (reset && !silent) setLoading(false);
-      else if (!reset) setLoadingMore(false);
-    }
-  }
-
-  async function loadThread(phone, { silent = false, cursor = '', append = false } = {}) {
-    const p = String(phone || '').trim();
-    if (!p) return;
-    if (!silent) {
-      setError('');
-      setThreadError('');
-    }
-    const reqSeq = ++threadRequestSeqRef.current;
-    if (!append) {
-      try {
-        if (threadAbortRef.current) threadAbortRef.current.abort();
-      } catch {
-        void 0;
-      }
-      threadAbortRef.current = new AbortController();
-    }
-    const signal = !append && threadAbortRef.current ? threadAbortRef.current.signal : undefined;
-    const prevScroll = (() => {
-      if (!append) return null;
-      const el = threadScrollRef.current;
-      if (!el) return null;
-      return { height: el.scrollHeight, top: el.scrollTop };
-    })();
-    try {
-      if (append) setThreadPaging(true);
-      else setThreadLoading(true);
-      const jwt = await getJwt();
-      const params = new URLSearchParams();
-      params.set('limit', '35');
-      if (cursor) params.set('cursor', String(cursor));
-      const qs = params.toString();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`, {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
-        ...(signal ? { signal } : {})
-      });
-      if (blocked) return;
-      const contentType = resp.headers.get('content-type') || '';
-      const raw = await resp.text();
-      if (!contentType.includes('application/json')) {
-        console.error('[loadThread] resposta não é JSON', {
-          phone: p,
-          status: resp.status,
-          contentType,
-          bodyPreview: raw.slice(0, 100)
-        });
-        if (!silent) setThreadError('Erro ao carregar conversa. Tente novamente.');
-        return;
-      }
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao carregar conversa'));
-      const data = safeParseJson(raw) || {};
-      const incoming = Array.isArray(data?.messages) ? data.messages : [];
-      const nextCur = typeof data?.next_cursor === 'string' ? data.next_cursor : '';
-      const summary = data?.summary && typeof data.summary === 'object' ? data.summary : null;
-      const handoffUntil = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
-      const ticketStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : 'open';
-      const transferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
-      if (reqSeq !== threadRequestSeqRef.current) return;
-      setThreadCursor(nextCur || null);
-      setThreadHasMore(Boolean(nextCur));
-      setSelected((prev) => {
-        const convId =
-          typeof data?.conversation_id === 'string' && String(data.conversation_id).trim()
-            ? String(data.conversation_id).trim()
-            : append && prev && prev.phone === p
-              ? String(prev.conversation_id || '').trim()
-              : '';
-        const base = {
-          phone: p,
-          conversation_id: convId || null,
-          summary,
-          lead_id: typeof data?.lead_id === 'string' ? data.lead_id : null,
-          lead_name: typeof data?.lead_name === 'string' ? data.lead_name : '',
-          contact_name: typeof data?.contact_name === 'string' ? data.contact_name : '',
-          contact_name_source: typeof data?.contact_name_source === 'string' ? data.contact_name_source : '',
-          whatsapp_profile_name: typeof data?.whatsapp_profile_name === 'string' ? data.whatsapp_profile_name : '',
-          whatsapp_profile_image_url:
-            typeof data?.whatsapp_profile_image_url === 'string' ? data.whatsapp_profile_image_url : '',
-          need_human: Boolean(data?.need_human),
-          human_handoff_until: handoffUntil || null,
-          ticket_status: String(ticketStatus || 'open'),
-          transfer_to: transferTo || null,
-          archived: Boolean(data?.archived)
-        };
-        if (!append || !prev || prev.phone !== p) {
-          return { ...base, messages: incoming };
-        }
-        const existing = Array.isArray(prev.messages) ? prev.messages : [];
-        const combined = [...incoming, ...existing];
-        const seen = new Set();
-        const deduped = [];
-        for (const m of combined) {
-          const mid = String(m?.message_id || '').trim();
-          const key = mid || `${String(m?.role || '')}:${String(m?.timestamp || '')}:${String(m?.content || '')}`;
-          if (!key || seen.has(key)) continue;
-          seen.add(key);
-          deduped.push(m);
-        }
-        return { ...base, messages: deduped };
-      });
-      try {
-        const last = incoming.length > 0 ? incoming[incoming.length - 1] : null;
-        const textRaw = String(last?.content || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-        const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}…` : textRaw;
-        if (preview) {
-          setItems((prev) => {
-            const arr = Array.isArray(prev) ? prev : [];
-            return arr.map((it) => {
-              const ph = String(it?.phone_number || '').trim();
-              if (ph !== p) return it;
-              return { ...it, last_preview: preview };
-            });
-          });
-        }
-      } catch {
-        void 0;
-      }
-      try {
-        if (!append) {
-          setTimeout(() => {
-            if (reqSeq !== threadRequestSeqRef.current) return;
-            const el = threadScrollRef.current;
-            if (!el) return;
-            el.scrollTop = el.scrollHeight;
-            lastAutoScrollPhoneRef.current = p;
-          }, 0);
-        } else if (prevScroll) {
-          setTimeout(() => {
-            if (reqSeq !== threadRequestSeqRef.current) return;
-            const el = threadScrollRef.current;
-            if (!el) return;
-            const nextHeight = el.scrollHeight;
-            const delta = nextHeight - prevScroll.height;
-            el.scrollTop = prevScroll.top + delta;
-          }, 0);
-        }
-      } catch {
-        void 0;
-      }
-    } catch (e) {
-      if (e?.name === 'AbortError') return;
-      if (!silent) setError(friendlyError(e, 'load'));
-    } finally {
-      if (reqSeq === threadRequestSeqRef.current) {
-        setThreadLoading(false);
-        setThreadPaging(false);
-      }
-    }
-  }
-
-  useEffect(() => {
-    loadListRef.current = loadList;
-  }, [loadList]);
-
-  useEffect(() => {
-    loadThreadRef.current = loadThread;
-  }, [loadThread]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const inboxDebugEnabled = isInboxDebugEnabled();
-    const devLog = inboxDebugEnabled
-      ? (...args) => {
-          console.log(...args);
-        }
-      : () => {};
-
-    if (!DB_ID || !CONVERSATIONS_COL) {
-      if (inboxDebugEnabled) {
-        console.warn('[Inbox Realtime] DB_ID ou CONVERSATIONS_COL vazio — subscription não criada');
-      }
-      return;
-    }
-
-    const channel = `databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`;
-    if (inboxDebugEnabled) {
-      console.group('[Inbox Realtime] setup');
-      devLog('DB_ID:', DB_ID);
-      devLog('CONVERSATIONS_COL:', CONVERSATIONS_COL);
-      devLog('academyId (ref):', academyIdRef.current || '(vazio)');
-      devLog('canal:', channel);
-      console.groupEnd();
-    }
-
-    const cancelledRef = { current: false };
-    let subscription = null;
-    let subscribeTimer = null;
-
-    const onRealtimeEvent = (ev) => {
-      if (cancelledRef.current) return;
-      const payload = ev && typeof ev === 'object' ? ev.payload : null;
-      const academy =
-        payload && typeof payload === 'object'
-          ? String(payload.academy_id ?? payload.academyId ?? '').trim()
-          : '';
-      const expected = String(academyIdRef.current || '').trim();
-      const phone =
-        payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
-      const selectedNow = String(selectedPhoneRef.current || '').trim();
-
-      if (inboxDebugEnabled) {
-        console.group('[Inbox Realtime] evento');
-        devLog('events:', ev?.events);
-        devLog('phone:', phone || '(vazio)');
-        devLog('academy payload:', academy || '(vazio)', '| esperado:', expected || '(vazio)');
-        console.groupEnd();
-      }
-
-      if (academy && expected && academy !== expected) return;
-
-      if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
-      realtimeTimersRef.current.list = setTimeout(() => {
-        const fn = loadListRef.current;
-        if (typeof fn === 'function') void fn({ reset: true, silent: true });
-      }, 250);
-
-      if (phone && selectedNow && phone === selectedNow) {
-        if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
-        realtimeTimersRef.current.thread = setTimeout(() => {
-          const fn = loadThreadRef.current;
-          if (typeof fn === 'function') void fn(phone, { silent: true });
-        }, 250);
-      }
-    };
-
-    subscribeTimer = window.setTimeout(() => {
-      if (cancelledRef.current) return;
-      void realtime
-        .subscribe(channel, onRealtimeEvent)
-        .then((sub) => {
-          if (cancelledRef.current) {
-            void sub?.close?.();
-            return;
-          }
-          subscription = sub;
-          setRealtimeOn(true);
-          if (inboxDebugEnabled) {
-            devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
-          }
-        })
-        .catch((e) => {
-          if (!cancelledRef.current) {
-            console.error('[Inbox Realtime] falha ao subscrever:', e);
-            setRealtimeOn(false);
-          }
-        });
-    }, 300);
-
-    return () => {
-      cancelledRef.current = true;
-      if (subscribeTimer) clearTimeout(subscribeTimer);
-      if (inboxDebugEnabled) {
-        devLog('[Inbox Realtime] cleanup');
-      }
-      try {
-        if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
-        if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
-      } catch {
-        void 0;
-      }
-      try {
-        if (subscription && typeof subscription.close === 'function') void subscription.close();
-      } catch {
-        void 0;
-      }
-      setRealtimeOn(false);
-    };
-  }, []);
-
-  /** Fallback poll: 60s com Realtime ok; backoff quando aba inativa (visibilitychange). */
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!DB_ID || !CONVERSATIONS_COL) return;
-    let hidden = document.visibilityState === 'hidden';
-    let delayMs = realtimeOn ? 60000 : 28000;
-    let timer = null;
-    const schedule = () => {
-      if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(async () => {
-        if (!academyIdRef.current) {
-          schedule();
-          return;
-        }
-        const fn = loadListRef.current;
-        if (typeof fn === 'function') await fn({ reset: true, silent: true });
-        delayMs = hidden ? Math.min(delayMs * 2, 300000) : realtimeOn ? 60000 : 28000;
-        schedule();
-      }, delayMs);
-    };
-    const onVis = () => {
-      hidden = document.visibilityState === 'hidden';
-      if (!hidden) delayMs = realtimeOn ? 60000 : 28000;
-      schedule();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    schedule();
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [realtimeOn]);
-
-  async function setHandoffActive(ativo, { silent = false } = {}) {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    if (!phone) return false;
-    if (!silent) setError('');
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'handoff', ativo: Boolean(ativo) })
-      });
-      if (blocked) return false;
-      const raw = await resp.text();
-      if (!resp.ok) {
-        const msg = String(raw || '').trim()
-          ? normalizeApiError(raw, 'Falha ao atualizar o modo de atendimento')
-          : `Falha ao atualizar o modo de atendimento (HTTP ${resp.status})`;
-        throw new Error(msg);
-      }
-      const data = safeParseJson(raw) || {};
-      const until = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
-      const active = Boolean(data?.need_human);
-      setSelected((prev) => {
-        if (!prev || prev.phone !== phone) return prev;
-        return { ...prev, need_human: active, human_handoff_until: until || null };
-      });
-      setItems((prev) => {
-        const arr = Array.isArray(prev) ? prev : [];
-        return arr.map((it) => {
-          const p = String(it?.phone_number || '').trim();
-          if (p !== phone) return it;
-          return { ...it, need_human: active, human_handoff_until: until || null };
-        });
-      });
-      await loadList({ reset: true, silent: true });
-      if (!silent) {
-        toast.show({
-          type: 'success',
-          message: ativo ? 'Você assumiu esta conversa' : 'IA reativada',
-        });
-      }
-      if (!ativo) setHandoffReleaseHint(false);
-      return true;
-    } catch (e) {
-      if (!silent) setError(friendlyError(e, 'load'));
-      return false;
-    }
-  }
-
-  function toIsoFromLocalDatetime(value) {
-    const s = String(value || '').trim();
-    if (!s) return '';
-    const [d, t] = s.split('T');
-    if (!d || !t) return '';
-    const [yy, mm, dd] = d.split('-').map((v) => Number(v));
-    const [hh, mi] = t.split(':').map((v) => Number(v));
-    if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd) || !Number.isFinite(hh) || !Number.isFinite(mi)) return '';
-    const dt = new Date(yy, mm - 1, dd, hh, mi, 0, 0);
-    const ms = dt.getTime();
-    if (!Number.isFinite(ms)) return '';
-    return dt.toISOString();
-  }
-
-  function buildOutboundDisplayContent({ caption, text, mediaType }) {
-    return (
-      caption ||
-      text ||
-      (mediaType === 'image'
-        ? '[imagem]'
-        : mediaType === 'audio'
-          ? '🎵 [Áudio enviado]'
-          : mediaType === 'document'
-            ? '📄 [Documento enviado]'
-            : '')
-    );
-  }
-
-  function patchOutboundMessage(phone, tempId, updater) {
-    const p = String(phone || '').trim();
-    const tid = String(tempId || '').trim();
-    if (!p || !tid || typeof updater !== 'function') return;
-    setSelected((prev) => {
-      if (!prev || String(prev.phone || '').trim() !== p) return prev;
-      const msgs = Array.isArray(prev.messages) ? prev.messages : [];
-      let changed = false;
-      const next = msgs.map((m) => {
-        if (String(m?.message_id || '').trim() !== tid) return m;
-        changed = true;
-        return updater(m);
-      });
-      if (!changed) return prev;
-      return { ...prev, messages: next };
-    });
-  }
-
-  function markOutboundMessageFailed(phone, tempId) {
-    patchOutboundMessage(phone, tempId, (m) => ({ ...m, _optimistic: false, _sendFailed: true }));
-  }
-
-  async function postWhatsappOutbound({ phone, apiBody, tempId }) {
-    const jwt = await getJwt();
-    const resp = await fetch('/api/whatsapp?action=send', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        'x-academy-id': String(academyIdRef.current || ''),
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(apiBody),
-    });
-    const raw = await resp.text();
-    if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao enviar'));
-    const data = safeParseJson(raw) || {};
-    const waUrl = typeof data?.wa_me_url === 'string' ? data.wa_me_url.trim() : '';
-    if (String(data?.channel || '').trim() === 'wa_me' && waUrl) {
-      try {
-        window.open(waUrl, '_blank', 'noopener,noreferrer');
-      } catch {
-        void 0;
-      }
-    }
-    const status = String(data?.status || '').trim();
-    const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
-    const msgId = typeof data?.message_id === 'string' ? data.message_id : null;
-    const mime = String(apiBody?.mimeType || '').trim();
-    const mediaUrl = String(apiBody?.mediaUrl || '').trim();
-    const mediaType = mime.startsWith('image/')
-      ? 'image'
-      : mime.startsWith('audio/')
-        ? 'audio'
-        : mediaUrl
-          ? 'document'
-          : '';
-    patchOutboundMessage(phone, tempId, (m) => {
-      const { _optimistic, _sendFailed, _retryPayload, ...rest } = m;
-      return {
-        ...rest,
-        message_id: msgId || tempId,
-        ...(status ? { status } : {}),
-        ...(sendAt ? { send_at: sendAt } : {}),
-        ...(mediaUrl
-          ? {
-              type: mediaType,
-              mediaUrl,
-              mimeType: mime || null,
-              media_stored: true,
-              ...(mediaType === 'document' && apiBody?.fileName ? { fileName: apiBody.fileName } : {}),
-            }
-          : {}),
-      };
-    });
-    return { data, status, mediaUrl };
-  }
-
-  function outboundSuccessMessage({ data, status, mediaUrl }) {
-    if (String(data?.channel || '').trim() === 'wa_me') {
-      return 'Sem instância API: abrimos o WhatsApp para você concluir o envio.';
-    }
-    if (status === 'scheduled') return 'Agendado';
-    if (mediaUrl) return 'Mídia enviada';
-    return 'Enviado';
-  }
-
-  async function deliverOutboundMessage({
-    phone,
-    tempId,
-    apiBody,
-    displayContent,
-    mediaFields,
-  }) {
-    const nowIso = new Date().toISOString();
-    setSelected((prev) => {
-      if (!prev || String(prev.phone || '').trim() !== phone) return prev;
-      const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
-      msgs.push({
-        role: 'assistant',
-        content: displayContent,
-        timestamp: nowIso,
-        sender: 'human',
-        message_id: tempId,
-        _optimistic: true,
-        _retryPayload: { apiBody, displayContent, mediaFields },
-        ...mediaFields,
-      });
-      return { ...prev, messages: msgs.slice(-AGENT_HISTORY_WINDOW) };
-    });
-    setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
-
-    const shouldAssume = !selected?.need_human;
-    if (shouldAssume) {
-      await setHandoffActive(true);
-    }
-
-    try {
-      const { data, status, mediaUrl } = await postWhatsappOutbound({ phone, apiBody, tempId });
-      markSeen(phone);
-      toast.show({ type: 'success', message: outboundSuccessMessage({ data, status, mediaUrl }) });
-      await loadList({ reset: true, silent: true });
-      setTimeout(() => {
-        const el = threadScrollRef.current;
-        if (!el) return;
-        el.scrollTop = el.scrollHeight;
-        lastAutoScrollPhoneRef.current = phone;
-      }, 0);
-      return true;
-    } catch {
-      markOutboundMessageFailed(phone, tempId);
-      return false;
-    }
-  }
-
-  const retryFailedMessage = useCallback(
-    async (tempId) => {
-      const phone = String(selectedPhoneRef.current || '').trim();
-      const tid = String(tempId || '').trim();
-      if (!phone || !tid || sending) return;
-      const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-      const failed = msgs.find((m) => String(m?.message_id || '').trim() === tid && m?._sendFailed);
-      const payload = failed?._retryPayload;
-      if (!payload?.apiBody) return;
-
-      patchOutboundMessage(phone, tid, (m) => ({ ...m, _optimistic: true, _sendFailed: false }));
-      setSending(true);
-      try {
-        const shouldAssume = !selected?.need_human;
-        if (shouldAssume) {
-          await setHandoffActive(true);
-        }
-        const { data, status, mediaUrl } = await postWhatsappOutbound({
-          phone,
-          apiBody: payload.apiBody,
-          tempId: tid,
-        });
-        markSeen(phone);
-        toast.show({ type: 'success', message: outboundSuccessMessage({ data, status, mediaUrl }) });
-        await loadList({ reset: true, silent: true });
-      } catch {
-        markOutboundMessageFailed(phone, tid);
-      } finally {
-        setSending(false);
-      }
-    },
-    [sending, selected?.messages, selected?.need_human]
-  );
-
-  async function sendManual({ file, mediaUrl: mediaUrlArg, mimeType: mimeTypeArg, caption: captionArg, fileName: fileNameArg } = {}) {
-    const phone = String(selectedPhone || '').trim();
-    const text = String(draft || '').trim();
-    const caption = String(captionArg ?? '').trim();
-    let mediaUrl = String(mediaUrlArg || '').trim();
-    let mimeType = String(mimeTypeArg || '').trim();
-    let fileName = String(fileNameArg || '').trim();
-
-    if (!phone || (!text && !caption && !mediaUrl && !file)) return;
-    if (file && scheduleOn) {
-      toast.show({ type: 'error', message: 'Agendamento não está disponível para envio de mídia.' });
-      return;
-    }
-    setSending(true);
-    try {
-      if (file) {
-        try {
-          const uploaded = await uploadInboxMedia(file);
-          mediaUrl = uploaded.mediaUrl;
-          mimeType = uploaded.mimeType;
-          fileName = uploaded.fileName;
-        } catch (e) {
-          if (e instanceof InboxMediaUploadError) {
-            if (e.code === 'too_large') toast.show({ type: 'error', message: 'Arquivo muito grande. Máximo: 16MB.' });
-            else if (e.code === 'unsupported') toast.show({ type: 'error', message: 'Tipo de arquivo não suportado.' });
-            else toast.show({ type: 'error', message: e.message || 'Erro ao enviar arquivo.' });
-          } else {
-            toast.show({ type: 'error', message: 'Erro ao enviar arquivo. Tente novamente.' });
-          }
-          return;
-        }
-      }
-      const sendAtIso = scheduleOn && !mediaUrl ? toIsoFromLocalDatetime(scheduleAtLocal) : '';
-      if (scheduleOn && !mediaUrl && !sendAtIso) {
-        toast.show({ type: 'error', message: 'Escolha data e hora para agendar' });
-        return;
-      }
-      if (scheduleOn && !mediaUrl && sendAtIso) {
-        const sendMs = new Date(sendAtIso).getTime();
-        if (!Number.isFinite(sendMs) || sendMs <= Date.now()) {
-          toast.show({ type: 'error', message: 'Selecione um horário posterior ao atual para agendar.' });
-          return;
-        }
-      }
-
-      const mime = mimeType || '';
-      const mediaType = mime.startsWith('image/')
-        ? 'image'
-        : mime.startsWith('audio/')
-          ? 'audio'
-          : mediaUrl
-            ? 'document'
-            : '';
-      const displayContent = buildOutboundDisplayContent({ caption, text, mediaType });
-      const apiBody = mediaUrl
-        ? {
-            phone,
-            mediaUrl,
-            mimeType: mimeType || 'image/jpeg',
-            caption: caption || text,
-            ...(fileName ? { fileName } : {}),
-          }
-        : { phone, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) };
-      const mediaFields = mediaUrl
-        ? {
-            type: mediaType,
-            mediaUrl,
-            mimeType: mime || null,
-            media_stored: true,
-            ...(mediaType === 'document' && fileName ? { fileName } : {}),
-          }
-        : {};
-
-      const tempId = `opt-${Date.now()}`;
-      setDraft('');
-      setDraftBeforeImprove(null);
-      setScheduleOn(false);
-      setScheduleAtLocal('');
-
-      await deliverOutboundMessage({
-        phone,
-        tempId,
-        apiBody,
-        displayContent,
-        mediaFields,
-      });
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function improveDraftWithAi() {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    const current = String(draftRef.current || '');
-    if (!phone || current.trim().length <= 3) return;
-    setError('');
-    setImprovingDraft(true);
-    try {
-      const jwt = await getJwt();
-      const aid = String(academyIdRef.current || '').trim();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': aid,
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'improve_reply', draft: current, phone, academyId: aid })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao melhorar texto'));
-      const data = safeParseJson(raw) || {};
-      const improved = typeof data?.improved === 'string' ? data.improved.trim() : '';
-      if (!improved) throw new Error('Resposta inválida do servidor');
-      setDraftBeforeImprove(current);
-      setDraft(improved);
-      toast.success('Texto atualizado — revise antes de enviar');
-      try {
-        setTimeout(() => textareaRef.current?.focus?.(), 0);
-      } catch {
-        void 0;
-      }
-    } catch (e) {
-      setError(friendlyError(e, 'action'));
-    } finally {
-      setImprovingDraft(false);
-    }
-  }
-
-  function cancelScheduledMessage(messageId) {
-    const mid = String(messageId || '').trim();
-    if (!mid || cancelingMsgId) return;
-    setCancelConfirmMsgId(mid);
-  }
-
-  async function runCancelScheduledMessage() {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    const mid = String(cancelConfirmMsgId || '').trim();
-    if (!phone || !mid) return;
-    setCancelConfirmMsgId('');
-    setCancelingMsgId(mid);
-    try {
-      const jwt = await getJwt();
-      const resp = await fetch('/api/whatsapp?action=cancel', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ phone, message_id: mid })
-      });
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao cancelar'));
-      const data = safeParseJson(raw) || {};
-      const canceledAt = typeof data?.canceled_at === 'string' ? data.canceled_at : new Date().toISOString();
-      setSelected((prev) => {
-        if (!prev || prev.phone !== phone) return prev;
-        const msgs = Array.isArray(prev.messages) ? prev.messages.slice() : [];
-        const i = msgs.findIndex((m) => String(m?.message_id || '').trim() === mid);
-        if (i < 0) return prev;
-        msgs[i] = { ...(msgs[i] && typeof msgs[i] === 'object' ? msgs[i] : {}), status: 'canceled', canceled_at: canceledAt };
-        return { ...prev, messages: msgs };
-      });
-      toast.success('Agendamento cancelado');
-      await loadList({ reset: true, silent: true });
-    } catch (e) {
-      toast.error(e, 'action');
-    } finally {
-      setCancelingMsgId('');
-    }
-  }
-
-  async function linkLeadToConversation({ leadId }) {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    if (!phone || !leadId) return;
-    setLinkingLead(true);
-    setError('');
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'link_lead', lead_id: leadId })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao associar lead'));
-      const data = safeParseJson(raw) || {};
-      setSelected((prev) => {
-        if (!prev || prev.phone !== phone) return prev;
-        return {
-          ...prev,
-          lead_id: typeof data?.lead_id === 'string' ? data.lead_id : leadId,
-          lead_name: typeof data?.lead_name === 'string' ? data.lead_name : prev.lead_name
-        };
-      });
-      await loadList({ reset: true, silent: true });
-      toast.success(`${contactLabel} associado`);
-      setLeadPanel(null);
-      setLeadSearch('');
-    } catch (e) {
-      setError(friendlyError(e, 'action'));
-    } finally {
-      setLinkingLead(false);
-    }
-  }
-
-  async function saveContactName() {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    if (!phone || savingContactName) return;
-    const nextName = String(contactNameDraft || '').trim();
-    setSavingContactName(true);
-    setError('');
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'set_contact_name', contact_name: nextName })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao salvar nome do contato'));
-      const data = safeParseJson(raw) || {};
-      const savedName = String(data?.contact_name || '').trim();
-      const savedSource = String(data?.contact_name_source || '').trim();
-      const waProfileName = String(data?.whatsapp_profile_name || '').trim();
-      setSelected((prev) => {
-        if (!prev || prev.phone !== phone) return prev;
-        return {
-          ...prev,
-          contact_name: savedName,
-          contact_name_source: savedSource || (savedName ? 'manual' : ''),
-          whatsapp_profile_name: waProfileName || prev.whatsapp_profile_name || ''
-        };
-      });
-      setItems((prev) =>
-        (Array.isArray(prev) ? prev : []).map((it) => {
-          const rowPhone = String(it?.phone_number || '').trim();
-          if (rowPhone !== phone) return it;
-          return {
-            ...it,
-            contact_name: savedName,
-            contact_name_source: savedSource || (savedName ? 'manual' : ''),
-            whatsapp_profile_name: waProfileName || String(it?.whatsapp_profile_name || '').trim()
-          };
-        })
-      );
-      setEditingContactName(false);
-      toast.show({ type: 'success', message: savedName ? 'Nome do contato salvo' : 'Nome do contato removido' });
-    } catch (e) {
-      setError(friendlyError(e, 'save'));
-    } finally {
-      setSavingContactName(false);
-    }
-  }
-
-  async function convertToLead() {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    const name =
-      String(leadNameDraft || '').trim() ||
-      pickDisplayName({
-        leadName: selected?.lead_name,
-        manualContactName: selected?.contact_name,
-        whatsappProfileName: selected?.whatsapp_profile_name,
-        phone
-      });
-    if (!phone) return;
-    setLinkingLead(true);
-    setError('');
-    try {
-      const latestClass = (() => {
-        const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          const m = msgs[i];
-          if (m && m.classificacao && typeof m.classificacao === 'object') return m.classificacao;
-        }
-        return {};
-      })();
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard('/api/leads/convert', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          phone,
-          name,
-          type: String(leadTypeDraft || 'Adulto').trim(),
-          classificacao: {
-            intencao: String(latestClass?.intencao || '').trim(),
-            prioridade: String(latestClass?.prioridade || '').trim(),
-            lead_quente: String(latestClass?.lead_quente || '').trim(),
-            precisa_resposta_humana: String(latestClass?.precisa_resposta_humana || '').trim()
-          }
-        })
-      });
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeApiError(raw, 'Falha ao converter lead'));
-      const data = safeParseJson(raw) || {};
-      const leadId = String(data?.id || '').trim();
-      if (!leadId) throw new Error('ID do lead ausente');
-      await linkLeadToConversation({ leadId });
-      toast.show({
-        type: 'success',
-        message: data?.ja_existe ? `${contactLabel} já existente` : `${contactLabel} criado`,
-      });
-      navigate(`/lead/${encodeURIComponent(leadId)}`);
-    } catch (e) {
-      setError(friendlyError(e, 'action'));
-    } finally {
-      setLinkingLead(false);
-    }
-  }
 
   const applyWrapToDraft = (prefix, suffix = prefix) => {
     const cur = String(draftRef.current || '');
@@ -2496,7 +1274,7 @@ export default function Inbox() {
 
   useEffect(() => {
     loadList({ reset: true });
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   useEffect(() => {
     if (!academyId) return;
@@ -2519,6 +1297,7 @@ export default function Inbox() {
       setSelectedPhone('');
       setSelected(null);
       setItems([]);
+      setListCapped(false);
       setMsgFlags({});
       messageFlagsMigrationDoneRef.current = false;
       notifiedOnceRef.current = false;
@@ -2562,177 +1341,19 @@ export default function Inbox() {
     return map;
   }, [leads]);
 
-  const enrichedItems = useMemo(() => {
-    const arr = Array.isArray(items) ? items : [];
-    return arr.map((it) => {
-      const phone = String(it?.phone_number || '').trim();
-      const leadId = String(it?.lead_id || '').trim();
-      const leadFromId = leadId ? leadById.get(leadId) : null;
-      const leadFromPhone = phone ? leadByPhone.get(normalizePhone(phone)) : null;
-      const lead = leadFromId || leadFromPhone;
-      const leadName = String(lead?.name || '').trim() || String(it?.lead_name || '').trim();
-      const manualContactName = String(it?.contact_name || '').trim();
-      const waProfileName = String(it?.whatsapp_profile_name || '').trim();
-      const waProfileImageUrl = String(it?.whatsapp_profile_image_url || '').trim();
-      const displayTitle = pickDisplayName({ leadName, manualContactName, whatsappProfileName: waProfileName, phone });
-      const lastRole = String(it?.last_message_role || '').trim() || '';
-      const lastSender = String(it?.last_message_sender || '').trim() || '';
-      const unreadCount = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;
-      const handoffActive = Boolean(it?.need_human);
-      const aiSuggestHuman = Boolean(lead?.needHuman);
-      const hotLead = Boolean(lead?.hotLead);
-      const priority = String(lead?.priority || '').trim();
-      const intention = String(lead?.intention || '').trim();
-      const status = String(lead?.status || '').trim();
-      const contactType =
-        String(lead?.contact_type || '').trim() ||
-        (status === LEAD_STATUS.CONVERTED ? 'student' : 'lead');
-      const ticketStatus = String(it?.ticket_status || '').trim() || 'open';
-      const transferTo = String(it?.transfer_to || '').trim();
-      return {
-        ...it,
-        _phone: phone,
-        _displayTitle: displayTitle,
-        _displaySubtitle: displayTitle && phone && displayTitle !== phone ? phone : '',
-        _leadName: leadName,
-        _manualContactName: manualContactName,
-        _waProfileName: waProfileName,
-        _profileImageUrl: waProfileImageUrl,
-        _lead: lead || null,
-        _hotLead: hotLead,
-        _handoffActive: handoffActive,
-        _aiSuggestHuman: aiSuggestHuman,
-        _needsHuman: handoffActive,
-        _priority: priority,
-        _intention: intention,
-        _status: status,
-        _contactType: contactType,
-        _lastRole: lastRole,
-        _lastSender: lastSender,
-        _unreadCount: unreadCount,
-        _ticketStatus: ticketStatus,
-        _transferTo: transferTo,
-        _archived: Boolean(it?.archived),
-        _hasLinkedLead: Boolean(String(it?.lead_id || '').trim()),
-        _pipelineStage: String(lead?.pipelineStage || '').trim(),
-        _isHighlighted: Boolean(highlighted && typeof highlighted === 'object' && highlighted[phone] && Number(highlighted[phone]) > Date.now())
-      };
-    });
-  }, [items, leadById, leadByPhone, highlighted]);
-
-  const prioritizedItems = useMemo(() => {
-    const arr = Array.isArray(enrichedItems) ? enrichedItems : [];
-    // Modelo híbrido: Não lidas / Em atendimento / Resolvidas vêm de groupedFilteredItems; dentro de cada grupo
-    // a ordem é só por data (mais recente no topo). O score abaixo era usado para priorizar inbox inteiro — desativado.
-    // const score = (it) => {
-    //   let points = 0;
-    //   const unread = Number(it?._unreadCount || 0);
-    //   if (unread > 0) points += 40;
-    //   const ticketStatus = String(it?._ticketStatus || '').trim();
-    //   if (ticketStatus === 'waiting_customer') points += 20;
-    //   if (ticketStatus === 'transferred') points += 8;
-    //   if (ticketStatus === 'resolved') points -= 20;
-    //   if (it?._hotLead) points += 15;
-    //   if (it?._handoffActive) points += 10;
-    //   const updatedMs = parseTimestampMs(it?.updated_at);
-    //   const ageMinutes = updatedMs ? (Date.now() - updatedMs) / 60000 : 0;
-    //   if (ageMinutes > 30 && unread > 0) points += 15;
-    //   return points;
-    // };
-    const activityMs = (it) => {
-      const u = parseTimestampMs(it?.updated_at);
-      if (u) return u;
-      return parseTimestampMs(it?.last_message_timestamp);
-    };
-    return arr.slice().sort((a, b) => activityMs(b) - activityMs(a));
-  }, [enrichedItems]);
-
-  const filteredItems = useMemo(() => {
-    const arr = Array.isArray(prioritizedItems) ? prioritizedItems : [];
-    const normTicket = (it) =>
-      String(it?._ticketStatus ?? it?.ticket_status ?? '')
-        .trim()
-        .toLowerCase();
-    const unreadN = (it) => {
-      const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
-      return Number.isFinite(n) ? n : 0;
-    };
-    if (listFilter === 'needs_me') {
-      return arr.filter((it) => Boolean(it?._handoffActive) || unreadN(it) > 0);
-    }
-
-    const f = String(listFilter || 'all');
-    let result = arr;
-    if (f === 'archived') result = arr.filter((it) => Boolean(it?.archived));
-    else if (f === 'unread') result = arr.filter((it) => unreadN(it) > 0);
-    else if (f === 'hot') result = arr.filter((it) => Boolean(it?._hotLead));
-    else if (f === 'need_human') result = arr.filter((it) => Boolean(it?._handoffActive));
-    else if (f === 'waiting_customer') result = arr.filter((it) => normTicket(it) === 'waiting_customer');
-    else if (f === 'resolved') result = arr.filter((it) => normTicket(it) === 'resolved');
-    else if (f === 'transferred') result = arr.filter((it) => normTicket(it) === 'transferred');
-    if (f === 'all') {
-      const updatedMs = (it) => {
-        const u = parseTimestampMs(it?.updated_at);
-        if (u) return u;
-        return parseTimestampMs(it?.last_message_timestamp);
-      };
-      const unreadRank = (it) => (unreadN(it) > 0 ? 0 : 1);
-      result = result.slice().sort((a, b) => {
-        const ru = unreadRank(a) - unreadRank(b);
-        if (ru !== 0) return ru;
-        return updatedMs(b) - updatedMs(a);
-      });
-    }
-    return result;
-  }, [prioritizedItems, listFilter]);
-
-  const groupedFilteredItems = useMemo(() => {
-    const arr = Array.isArray(filteredItems) ? filteredItems : [];
-    const unreadN = (it) => {
-      const n = Number(it?._unreadCount ?? it?.unread_count ?? 0);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const isResolvedTicket = (it) =>
-      String(it?._ticketStatus ?? it?.ticket_status ?? '')
-        .trim()
-        .toLowerCase() === 'resolved';
-    const unread = [];
-    const resolved = [];
-    const open = [];
-    for (const it of arr) {
-      const u = unreadN(it);
-      if (u > 0) unread.push(it);
-      else if (isResolvedTicket(it)) resolved.push(it);
-      else open.push(it);
-    }
-    return [
-      { key: 'unread', label: 'Não lidas', items: unread },
-      { key: 'open', label: 'Em atendimento', items: open },
-      { key: 'resolved', label: 'Resolvidas', items: resolved },
-    ];
-  }, [filteredItems]);
-
-  const firstVisibleConversation = useMemo(() => {
-    const groups = Array.isArray(groupedFilteredItems) ? groupedFilteredItems : [];
-    for (const g of groups) {
-      const raw = Array.isArray(g?.items) ? g.items : [];
-      for (const it of raw) {
-        const phone = String(it?._phone || it?.phone_number || '').trim();
-        if (phone) return it;
-      }
-    }
-    return null;
-  }, [groupedFilteredItems]);
-
-  const flatVisibleConversations = useMemo(() => {
-    const groups = Array.isArray(groupedFilteredItems) ? groupedFilteredItems : [];
-    const out = [];
-    for (const g of groups) {
-      const raw = Array.isArray(g?.items) ? g.items : [];
-      for (const it of raw) out.push(it);
-    }
-    return out;
-  }, [groupedFilteredItems]);
+  const {
+    groupedFilteredItems,
+    firstVisibleConversation,
+    flatVisibleConversations,
+  } = useInboxListPipeline({
+    items,
+    leadById,
+    leadByPhone,
+    highlighted,
+    listFilter,
+    normalizePhone,
+    pickDisplayName,
+  });
 
   const handleSelectConversation = useCallback((it) => {
     const phone = String(it?._phone || it?.phone_number || '').trim();
@@ -2797,68 +1418,6 @@ export default function Inbox() {
     };
   }
 
-  async function updateTicket({ status, transferTo } = {}) {
-    const phone = String(selectedPhoneRef.current || '').trim();
-    if (!phone) return false;
-    const s = String(status || '').trim();
-    if (!s) return false;
-    if (ticketUpdating) return false;
-    setTicketUpdating(true);
-    setError('');
-    try {
-      const jwt = await getJwt();
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations/${encodeURIComponent(phone)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': String(academyIdRef.current || ''),
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'ticket', status: s, ...(transferTo ? { transfer_to: String(transferTo) } : {}) })
-      });
-      if (blocked) return false;
-      const raw = await resp.text();
-      if (!resp.ok) {
-        const msg = String(raw || '').trim() ? normalizeApiError(raw, 'Falha ao atualizar ticket') : `Falha ao atualizar ticket (HTTP ${resp.status})`;
-        throw new Error(msg);
-      }
-      const data = safeParseJson(raw) || {};
-      const nextStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : s;
-      const nextTransferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
-      setSelected((prev) => {
-        if (!prev || prev.phone !== phone) return prev;
-        return { ...prev, ticket_status: nextStatus, transfer_to: nextTransferTo || null };
-      });
-      setItems((prev) => {
-        const arr = Array.isArray(prev) ? prev : [];
-        return arr.map((it) => {
-          const p = String(it?.phone_number || '').trim();
-          if (p !== phone) return it;
-          return { ...it, ticket_status: nextStatus, transfer_to: nextTransferTo || null };
-        });
-      });
-      await loadList({ reset: true, silent: true });
-      if (s === 'resolved') {
-        toast.success('Conversa resolvida');
-      } else if (s === 'open') {
-        toast.success('Conversa reaberta');
-      } else if (s === 'waiting_customer') {
-        toast.success('Marcado como aguardando cliente');
-      } else if (s === 'transferred') {
-        toast.show({
-          type: 'success',
-          message: nextTransferTo ? `Conversa transferida para ${nextTransferTo}` : 'Conversa transferida',
-        });
-      }
-      return true;
-    } catch (e) {
-      setError(friendlyError(e, 'action'));
-      return false;
-    } finally {
-      setTicketUpdating(false);
-    }
-  }
-
   const confirmTransferConversation = useCallback(async () => {
     const dest = String(transferToDraft || '').trim();
     if (!dest) {
@@ -2870,97 +1429,17 @@ export default function Inbox() {
       setTransferToDraft('');
       setLeadPanel(null);
     }
-  }, [transferToDraft, toast]);
+  }, [transferToDraft, toast, updateTicket]);
 
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      const target = e.target;
-      const tag = String(target?.tagName || '').toLowerCase();
-      const editing = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
-      if (editing) return;
-
-      const flat = flatVisibleConversations;
-      const keyOne = e.key.length === 1 ? e.key.toLowerCase() : '';
-
-      if (!e.ctrlKey && !e.metaKey && (keyOne === 'j' || keyOne === 'k') && flat.length) {
-        e.preventDefault();
-        const cur = String(selectedPhoneRef.current || '').trim();
-        let idx = flat.findIndex((it) => String(it?._phone || it?.phone_number || '').trim() === cur);
-        if (idx < 0) {
-          const pick = keyOne === 'j' ? flat[0] : flat[flat.length - 1];
-          if (pick) handleSelectConversationRef.current(pick);
-          return;
-        }
-        const nextIdx = keyOne === 'j' ? Math.min(flat.length - 1, idx + 1) : Math.max(0, idx - 1);
-        if (nextIdx !== idx) {
-          const pick = flat[nextIdx];
-          if (pick) handleSelectConversationRef.current(pick);
-        }
-        return;
-      }
-
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && keyOne === 'r' && selectedPhoneRef.current) {
-        e.preventDefault();
-        try {
-          textareaRef.current?.focus?.();
-        } catch {
-          void 0;
-        }
-        return;
-      }
-
-      if (
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey &&
-        keyOne === 'e' &&
-        selectedPhoneRef.current &&
-        String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved'
-      ) {
-        e.preventDefault();
-        void updateTicket({ status: 'resolved' });
-        return;
-      }
-
-      if (!selectedPhoneRef.current) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
-        e.preventDefault();
-        loadThread(selectedPhoneRef.current);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        void updateTicket({ status: String(selected?.ticket_status || '') === 'resolved' ? 'open' : 'resolved' });
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [flatVisibleConversations, selected?.ticket_status]);
-
-  useEffect(() => {
-    const phone = String(selectedPhone || '').trim();
-    if (!phone) return;
-    threadMsgCountRef.current = Array.isArray(selected?.messages) ? selected.messages.length : 0;
-    setSelectedMsgKey('');
-    setExpandedMsgs({});
-    setDetailsOpen(false);
-    setNewMsgCount(0);
-    setThreadAtBottom(true);
-    setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
-  }, [selectedPhone]);
-
-  useEffect(() => {
-    const phone = String(selectedPhone || '').trim();
-    if (!phone) return;
-    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-    const nextCount = msgs.length;
-    const prevCount = Number(threadMsgCountRef.current || 0);
-    threadMsgCountRef.current = nextCount;
-    if (nextCount <= prevCount) return;
-    if (threadAtBottom) {
-      setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
-      return;
-    }
-    setNewMsgCount((v) => v + (nextCount - prevCount));
-  }, [selected?.messages?.length]); // Removed selectedPhone and threadAtBottom to prevent infinite re-renders
+  useInboxKeyboard({
+    flatVisibleConversations,
+    selectedPhoneRef,
+    selectedTicketStatus: selected?.ticket_status,
+    handleSelectConversationRef,
+    textareaRef,
+    updateTicket,
+    loadThread,
+  });
 
   const startResize = (ev) => {
     if (!ev) return;
@@ -3039,48 +1518,10 @@ export default function Inbox() {
     };
   }, [autoRefresh, realtimeOn]);
 
-  const threadBlocks = useMemo(() => {
-    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-    const out = [];
-    let lastDayKey = '';
-    let group = null;
-    let lastTs = 0;
-    for (const m of msgs) {
-      const ts = String(m?.timestamp || '').trim();
-      const d = ts ? new Date(ts) : null;
-      const ms = d && Number.isFinite(d.getTime()) ? d.getTime() : 0;
-      const dayKey = d && Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` : '';
-      if (dayKey && dayKey !== lastDayKey) {
-        out.push({ type: 'day', key: dayKey, label: formatDayLabel(ts) || d.toLocaleDateString('pt-BR') });
-        lastDayKey = dayKey;
-        group = null;
-        lastTs = 0;
-      }
-
-      const role = m?.role === 'assistant' ? 'assistant' : 'user';
-      const senderKind = senderKindFromMessage(m);
-      const bubbleKind =
-        role === 'assistant' ? (senderKind === 'human' ? 'human' : 'ai') : 'user';
-      const alignEnd = bubbleKind !== 'user';
-      const key = messageKey(m);
-      const gapOk = ms && lastTs ? ms - lastTs <= 2 * 60 * 1000 : false;
-      const canAppend = group && group.bubbleKind === bubbleKind && gapOk;
-      if (!canAppend) {
-        group = {
-          type: 'group',
-          id: `${out.length}-${bubbleKind}`,
-          bubbleKind,
-          alignEnd,
-          senderKind,
-          items: [],
-        };
-        out.push(group);
-      }
-      group.items.push({ key, m });
-      if (ms) lastTs = ms;
-    }
-    return out;
-  }, [selected?.messages]);
+  const threadBlocks = useMemo(
+    () => buildInboxThreadBlocks(selected?.messages),
+    [selected?.messages]
+  );
 
   const selectedPhoneFlags = useMemo(() => {
     const phone = String(selectedPhone || '').trim();
@@ -3096,7 +1537,7 @@ export default function Inbox() {
     const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
     const list = [];
     for (const m of msgs) {
-      const k = messageKey(m);
+      const k = inboxMessageKey(m);
       if (!pinned[k]) continue;
       const content = String(m?.content || '').trim();
       list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}…` : content });
@@ -3200,6 +1641,7 @@ export default function Inbox() {
       setConversationSheet={setConversationSheet}
       nowMs={nowMs}
       agentIaActive={agentIaActive}
+      searchPending={searchPending}
     />
   );
 
@@ -3256,6 +1698,53 @@ export default function Inbox() {
     toast,
   };
 
+  const contextPanelVisible = contextOpen && !isNarrowDesktop;
+
+  const scrollToMsgKey = (k) => {
+    const key = String(k || '').trim();
+    if (!key) return;
+    try {
+      threadMessagesApiRef.current?.scrollToMsgKey?.(key);
+    } catch {
+      void 0;
+    }
+  };
+
+  const threadActionsMenuProps = {
+    selectedPhone,
+    selected,
+    items,
+    listFilter,
+    isMobile,
+    isNarrowDesktop,
+    contextPanelVisible,
+    setDetailsOpen,
+    setContextOpen,
+    updateTicket,
+    ticketUpdating,
+    setLeadPanel,
+    archiveConversation,
+    unarchiveConversation,
+    loadThread,
+    markUnread,
+    openPromptSettings,
+    canConfigureAgenteIa,
+    linkingLead,
+    navigate,
+    contactLabel,
+  };
+
+  const messageMenuProps = {
+    setDraft,
+    textareaRef,
+    copyToClipboard,
+    toggleMsgFlag,
+    setSelectedMsgKey,
+    scrollToMsgKey,
+    selectedPhoneFlags,
+    cancelScheduledMessage,
+  };
+
   const threadPanel = (
     <InboxThreadPanel
       selectedPhone={selectedPhone}
@@ -3281,8 +1770,9 @@ export default function Inbox() {
       terms={terms}
       menu={menu}
       openMenu={openMenu}
-      closeMenu={closeMenu}
+      threadActionsMenuProps={threadActionsMenuProps}
       threadScrollRef={threadScrollRef}
+      threadMessagesApiRef={threadMessagesApiRef}
       onThreadScroll={onThreadScroll}
       threadHasMore={threadHasMore}
       threadLoading={threadLoading}
@@ -3333,24 +1823,6 @@ export default function Inbox() {
       retryFailedMessage={retryFailedMessage}
     />
   );
-
-  const scrollToMsgKey = (k) => {
-    const key = String(k || '').trim();
-    if (!key) return;
-    const el = threadScrollRef.current;
-    if (!el) return;
-    try {
-      const nodes = el.querySelectorAll('[data-msgkey]');
-      for (const node of nodes) {
-        const dk = node && node.dataset ? String(node.dataset.msgkey || '') : '';
-        if (dk !== key) continue;
-        node.scrollIntoView({ block: 'center' });
-        break;
-      }
-    } catch {
-      void 0;
-    }
-  };
 
   const contextPanelProps = {
     selectedPhone,
@@ -3405,10 +1877,18 @@ export default function Inbox() {
     />
   );
 
-  const contextPanelVisible = contextOpen && !isNarrowDesktop;
+  const inboxPageClassName = [
+    'container inbox-page',
+    selectedPhone ? 'inbox-page--compact' : '',
+    isMobile && selectedPhone ? 'inbox-page--mobile-thread' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const showInboxPageHeader = !(isMobile && selectedPhone);
 
   return (
-    <div className="container inbox-page">
+    <div className={inboxPageClassName}>
       {showWaDisconnectBanner ? (
         <StatusBanner
           variant="warning"
@@ -3419,429 +1899,93 @@ export default function Inbox() {
         </StatusBanner>
       ) : null}
 
-      <PageHeader
-        className="inbox-page-header"
-        title="Conversas"
-        subtitle="Responda e acompanhe threads do WhatsApp."
-        meta={
-          loading ? (
-            'Carregando…'
-          ) : (
-            <>
-              <span className="navi-ui-count">{items.length}</span> conversas
-              {lastUpdatedAt ? (
-                <>
-                  {' '}
-                  · atualizado às{' '}
-                  <span className="navi-ui-date">
-                    {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </>
-              ) : null}
-            </>
-          )
-        }
-        toolbar={
-          <div className="page-header-row navi-toolbar inbox-page-header__toolbar">
-            <SearchField
-              className="inbox-toolbar-search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por telefone ou nome…"
-              aria-label="Buscar conversas"
-              title="Atalhos: J/K conversas, R responder, E resolver"
-            />
-            <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
-              <button
-                type="button"
-                className="btn-action-ghost inbox-page-actions-menu__trigger"
-                aria-haspopup="menu"
-                aria-expanded={pageActionsOpen}
-                aria-label="Mais ações do inbox"
-                onClick={() => setPageActionsOpen((v) => !v)}
-              >
-                <MoreHorizontal size={18} aria-hidden />
-              </button>
-              {pageActionsOpen ? (
-                <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
-                  <DropdownMenuItem
-                    icon={<RefreshCw size={16} aria-hidden />}
-                    disabled={waSyncing}
-                    onClick={() => {
-                      setPageActionsOpen(false);
-                      void reconcileLast24h();
-                    }}
-                  >
-                    {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
-                  </DropdownMenuItem>
-                  <DropdownMenuDivider />
-                  <DropdownMenuItem
-                    icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-                    active={desktopNotify}
-                    onClick={() => {
-                      setPageActionsOpen(false);
-                      void toggleDesktopNotifyPreference();
-                    }}
-                  >
-                    {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
-                  </DropdownMenuItem>
-                </DropdownMenuPanel>
-              ) : null}
-            </DropdownMenu>
-          </div>
-        }
-      />
+      {showInboxPageHeader ? (
+        <PageHeader
+          className="inbox-page-header"
+          title="Conversas"
+          subtitle="Responda e acompanhe threads do WhatsApp."
+          meta={
+            loading || searchPending ? (
+              searchPending ? 'Buscando…' : 'Carregando…'
+            ) : (
+              <>
+                <span className="navi-ui-count">{items.length}</span> conversas
+                {lastUpdatedAt ? (
+                  <>
+                    {' '}
+                    · atualizado às{' '}
+                    <span className="navi-ui-date">
+                      {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </>
+                ) : null}
+              </>
+            )
+          }
+          toolbar={
+            <div className="page-header-row navi-toolbar inbox-page-header__toolbar">
+              <SearchField
+                className="inbox-toolbar-search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por telefone ou nome…"
+                aria-label="Buscar conversas"
+                aria-busy={searchPending || undefined}
+                title="Atalhos: J/K conversas, R responder, E resolver"
+              />
+              <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
+                <button
+                  type="button"
+                  className="btn-action-ghost inbox-page-actions-menu__trigger"
+                  aria-haspopup="menu"
+                  aria-expanded={pageActionsOpen}
+                  aria-label="Mais ações do inbox"
+                  onClick={() => setPageActionsOpen((v) => !v)}
+                >
+                  <MoreHorizontal size={18} aria-hidden />
+                </button>
+                {pageActionsOpen ? (
+                  <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
+                    <DropdownMenuItem
+                      icon={<RefreshCw size={16} aria-hidden />}
+                      disabled={waSyncing}
+                      onClick={() => {
+                        setPageActionsOpen(false);
+                        void reconcileLast24h();
+                      }}
+                    >
+                      {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
+                    </DropdownMenuItem>
+                    <DropdownMenuDivider />
+                    <DropdownMenuItem
+                      icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+                      active={desktopNotify}
+                      onClick={() => {
+                        setPageActionsOpen(false);
+                        void toggleDesktopNotifyPreference();
+                      }}
+                    >
+                      {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
+                    </DropdownMenuItem>
+                    <DropdownMenuDivider />
+                    <DropdownMenuLabel>Atalhos de teclado</DropdownMenuLabel>
+                    <DropdownMenuItemStatic>J / K — conversa anterior ou próxima</DropdownMenuItemStatic>
+                    <DropdownMenuItemStatic>R — focar resposta</DropdownMenuItemStatic>
+                    <DropdownMenuItemStatic>E — resolver conversa</DropdownMenuItemStatic>
+                    <DropdownMenuItemStatic>Ctrl+R — recarregar mensagens</DropdownMenuItemStatic>
+                    <DropdownMenuItemStatic>Ctrl+K — resolver / reabrir ticket</DropdownMenuItemStatic>
+                  </DropdownMenuPanel>
+                ) : null}
+              </DropdownMenu>
+            </div>
+          }
+        />
+      ) : null}
 
       <div className="inbox-body-grow">
 
-      {menu && (
-        <div className="inbox-menu-overlay" onClick={closeMenu} role="presentation">
-          <div
-            className="inbox-menu-panel navi-menu__panel navi-menu__panel--overlay"
-            style={{ left: Number(menu.x || 0), top: Number(menu.y || 0) }}
-            role="menu"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {menu.kind === 'message' && (() => {
-              const payload = menu.payload && typeof menu.payload === 'object' ? menu.payload : {};
-              const key = String(payload.key || '').trim();
-              const phone = String(payload.phone || '').trim();
-              const m = payload.m && typeof payload.m === 'object' ? payload.m : {};
-              const canCancel = Boolean(payload.canCancel);
-              const contentRaw = String(m?.content || '');
-              const mid = String(m?.message_id || '').trim();
-              return (
-                <>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      const base = contentRaw.replace(/\s+/g, ' ').trim();
-                      const snippet = base.length > 120 ? `${base.slice(0, 120)}…` : base;
-                      if (snippet) {
-                        setDraft((prev) => {
-                          const p = String(prev || '');
-                          const prefix = p.trim() ? `${p}\n\n` : '';
-                          return `${prefix}Respondendo: "${snippet}"\n\n`;
-                        });
-                      }
-                      closeMenu();
-                      try {
-                        textareaRef.current && textareaRef.current.focus && textareaRef.current.focus();
-                      } catch {
-                        void 0;
-                      }
-                    }}
-                  >
-                    Responder
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Enter
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      copyToClipboard(contentRaw);
-                      closeMenu();
-                    }}
-                  >
-                    Copiar
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Ctrl+C
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      const block = buildQuotedForwardBlock(contentRaw);
-                      setDraft((prev) => {
-                        const p = String(prev || '');
-                        const prefix = p.trim() ? `${p}\n\n` : '';
-                        return `${prefix}${block}`;
-                      });
-                      closeMenu();
-                      setTimeout(() => {
-                        const ta = textareaRef.current;
-                        if (!ta) return;
-                        ta.focus();
-                        const end = ta.value.length;
-                        ta.setSelectionRange(end, end);
-                      }, 0);
-                    }}
-                  >
-                    Encaminhar
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Cita no rascunho
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      void toggleMsgFlag(phone, key, 'pinned');
-                      closeMenu();
-                    }}
-                  >
-                    Fixar
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      {selectedPhoneFlags?.pinned && selectedPhoneFlags.pinned[key] ? 'On' : 'Off'}
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      void toggleMsgFlag(phone, key, 'important');
-                      closeMenu();
-                    }}
-                  >
-                    Importante
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      {selectedPhoneFlags?.important && selectedPhoneFlags.important[key] ? 'On' : 'Off'}
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item navi-menu__item--muted"
-                    type="button"
-                    onClick={() => {
-                      setSelectedMsgKey(key);
-                      scrollToMsgKey(key);
-                      closeMenu();
-                    }}
-                  >
-                    Ver detalhes
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Seleciona
-                    </span>
-                  </button>
-                  <span
-                    style={{ display: 'block' }}
-                    title={!canCancel || !mid ? 'Só é possível excluir mensagens agendadas' : undefined}
-                  >
-                    <button
-                      className={`inbox-menu-item navi-menu__item ${canCancel ? 'navi-menu__item--danger' : 'navi-menu__item--muted'}`}
-                      type="button"
-                      disabled={!canCancel || !mid}
-                      onClick={() => {
-                        if (canCancel && mid) cancelScheduledMessage(mid);
-                        closeMenu();
-                      }}
-                      style={{ width: '100%' }}
-                    >
-                      Excluir
-                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                        {canCancel ? 'Cancela agendamento' : '—'}
-                      </span>
-                    </button>
-                  </span>
-                </>
-              );
-            })()}
+      <InboxContextMenus menu={menu} closeMenu={closeMenu} messageMenuProps={messageMenuProps} />
 
-            {menu.kind === 'thread' && (() => {
-              const payload = menu.payload && typeof menu.payload === 'object' ? menu.payload : {};
-              const phone = String(payload.phone || '').trim();
-              const hasLead = Boolean(String(selected?.lead_id || '').trim());
-              const listArr = Array.isArray(items) ? items : [];
-              const listRow = listArr.find((row) => String(row?.phone_number || '').trim() === phone);
-              const isConvArchived = Boolean(listRow?.archived || selected?.archived);
-              const threadUnread = Number.isFinite(Number(listRow?.unread_count))
-                ? Number(listRow.unread_count)
-                : 0;
-              return (
-                <>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                      else setContextOpen((v) => !v);
-                      closeMenu();
-                    }}
-                  >
-                    {isMobile || isNarrowDesktop ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Detalhes
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      updateTicket({ status: 'waiting_customer' });
-                      closeMenu();
-                    }}
-                    disabled={!phone || ticketUpdating}
-                  >
-                    Aguardando cliente
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Ticket
-                    </span>
-                  </button>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      setLeadPanel('transfer');
-                      if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                      else setContextOpen(true);
-                      closeMenu();
-                    }}
-                    disabled={!phone || ticketUpdating}
-                  >
-                    Transferir conversa
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Equipe
-                    </span>
-                  </button>
-                  {listFilter !== 'archived' && !isConvArchived && (
-                    <button
-                      className="inbox-menu-item navi-menu__item"
-                      type="button"
-                      onClick={() => {
-                        void archiveConversation(phone);
-                      }}
-                      disabled={!phone}
-                    >
-                      Arquivar
-                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                        Inbox
-                      </span>
-                    </button>
-                  )}
-                  {(listFilter === 'archived' || isConvArchived) && (
-                    <button
-                      className="inbox-menu-item navi-menu__item"
-                      type="button"
-                      onClick={() => {
-                        void unarchiveConversation(phone);
-                      }}
-                      disabled={!phone}
-                    >
-                      Desarquivar
-                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                        Inbox
-                      </span>
-                    </button>
-                  )}
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      loadThread(phone);
-                      closeMenu();
-                    }}
-                    disabled={!phone}
-                  >
-                    Recarregar conversa
-                    <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                      Atualiza
-                    </span>
-                  </button>
-                  {threadUnread === 0 && (
-                    <button
-                      className="inbox-menu-item navi-menu__item"
-                      type="button"
-                      onClick={() => {
-                        void markUnread(phone);
-                      }}
-                      disabled={!phone}
-                    >
-                      Marcar como não lida
-                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                        Lista
-                      </span>
-                    </button>
-                  )}
-                  {canConfigureAgenteIa && (
-                    <button
-                      className="inbox-menu-item navi-menu__item"
-                      type="button"
-                      onClick={() => {
-                        openPromptSettings();
-                        closeMenu();
-                      }}
-                    >
-                      Configurar IA
-                      <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                        Prompt
-                      </span>
-                    </button>
-                  )}
-                  {!hasLead && (
-                    <>
-                      <button
-                        className="inbox-menu-item navi-menu__item"
-                        type="button"
-                        onClick={() => {
-                          setLeadPanel('convert');
-                          if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                          else setContextOpen(true);
-                          closeMenu();
-                        }}
-                        disabled={!phone || linkingLead}
-                      >
-                        Converter em contato
-                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                          CRM
-                        </span>
-                      </button>
-                      <button
-                        className="inbox-menu-item navi-menu__item"
-                        type="button"
-                        onClick={() => {
-                          setLeadPanel('associate');
-                          if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                          else setContextOpen(true);
-                          closeMenu();
-                        }}
-                        disabled={!phone || linkingLead}
-                      >
-                        Associar contato
-                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                          CRM
-                        </span>
-                      </button>
-                    </>
-                  )}
-                  {hasLead && (
-                    <>
-                  <button
-                    className="inbox-menu-item navi-menu__item"
-                    type="button"
-                    onClick={() => {
-                      navigate(`/lead/${encodeURIComponent(String(selected.lead_id))}`);
-                      closeMenu();
-                    }}
-                  >
-                    {`Ver ${contactLabel.toLowerCase()}`}
-                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                          Perfil
-                        </span>
-                      </button>
-                      <button
-                        className="inbox-menu-item navi-menu__item"
-                        type="button"
-                        onClick={() => {
-                          navigate('/pipeline');
-                          closeMenu();
-                        }}
-                      >
-                        Kanban
-                        <span className="text-small" style={{ color: 'var(--text-secondary)' }}>
-                          Funil
-                        </span>
-                      </button>
-                    </>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
 
       <InboxImageLightbox imageUrl={imageLightboxUrl} onClose={() => setImageLightboxUrl('')} />
 
@@ -3926,6 +2070,13 @@ export default function Inbox() {
 
 
       {error ? <StatusBanner variant="error" message={error} className="inbox-global-error" /> : null}
+
+      {listCapped ? (
+        <StatusBanner variant="info" className="inbox-global-error inbox-list-cap-banner">
+          Exibindo as {MAX_INBOX_LIST_ITEMS} conversas mais recentes em memória. Use a busca ou filtros para encontrar
+          contatos fora desta janela.
+        </StatusBanner>
+      ) : null}
 
       {
                 isMobile ? (

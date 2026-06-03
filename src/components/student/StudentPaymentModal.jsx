@@ -7,7 +7,7 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
-import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { resolveBankAccountForPayment, pickInitialBankAccountForPayment, accountWhenPaymentMethodChanges } from '../../lib/bankAccounts.js';
 import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
@@ -45,6 +45,7 @@ export function paymentFormFromDoc(payment, student, financeConfig = null) {
 export function buildDefaultPayForm(student, financeConfig = null) {
   const ym = new Date().toISOString().slice(0, 7);
   const preferredAccount = student?.preferredPaymentAccount || '';
+  const method = student?.preferredPaymentMethod || 'pix';
   return {
     payment_type: PAYMENT_CATEGORY.PLAN,
     reference_month: ym,
@@ -54,9 +55,9 @@ export function buildDefaultPayForm(student, financeConfig = null) {
       student?.plan_price != null && student.plan_price !== ''
         ? formatBRLFromCents(numberToCents(student.plan_price) ?? 0)
         : '',
-    method: student?.preferredPaymentMethod || 'pix',
+    method,
     account: financeConfig
-      ? resolveBankAccountForPayment(preferredAccount, financeConfig)
+      ? pickInitialBankAccountForPayment(financeConfig, preferredAccount, method)
       : preferredAccount,
     status: 'paid',
     paid_at: new Date().toISOString().slice(0, 10),
@@ -372,7 +373,14 @@ export default function StudentPaymentModal({
                   className="form-input"
                   style={{ ...inputStyle, width: '100%' }}
                   value={payForm.method}
-                  onChange={(e) => setPayForm((p) => ({ ...p, method: e.target.value }))}
+                  onChange={(e) => {
+                    const method = e.target.value;
+                    setPayForm((p) => ({
+                      ...p,
+                      method,
+                      account: accountWhenPaymentMethodChanges(financeConfig, method) || p.account,
+                    }));
+                  }}
                 >
                   {PAYMENT_METHODS.map((o) => (
                     <option key={o.value} value={o.value}>

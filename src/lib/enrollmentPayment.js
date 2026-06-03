@@ -1,5 +1,5 @@
 import { createPayment, PAYMENT_CATEGORY } from './studentPayments.js';
-import { validateBankAccountForPayment, resolveBankAccountForPayment } from './bankAccounts.js';
+import { validateBankAccountForPayment, resolveBankAccountForPayment, pickInitialBankAccountForPayment } from './bankAccounts.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 import { findPlanByName, planPriceToPayAmountString } from './academyPlans.js';
 
@@ -15,15 +15,16 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
   const refMonth = referenceMonthFromEnrollmentDate(enrollmentDateYmd);
   const plan = findPlanByName(financeConfig, planName);
   const preferredAccount = lead?.preferredPaymentAccount || lead?.preferred_payment_account || '';
+  const method = lead?.preferredPaymentMethod || lead?.preferred_payment_method || 'pix';
   return {
     payment_type: PAYMENT_CATEGORY.PLAN,
     reference_month: refMonth,
     bundle_start_month: refMonth,
     bundle_months: 12,
     amount: plan ? planPriceToPayAmountString(plan) : '',
-    method: lead?.preferredPaymentMethod || lead?.preferred_payment_method || 'pix',
+    method,
     account: financeConfig
-      ? resolveBankAccountForPayment(preferredAccount, financeConfig)
+      ? pickInitialBankAccountForPayment(financeConfig, preferredAccount, method)
       : preferredAccount,
     status: 'paid',
     paid_at: new Date().toISOString().slice(0, 10),

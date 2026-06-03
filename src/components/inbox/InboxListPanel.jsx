@@ -28,6 +28,7 @@ export default function InboxListPanel({
   setConversationSheet,
   nowMs,
   agentIaActive = false,
+  searchPending = false,
 }) {
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
   const needsMeBacklog = Number(stats?.needsMeBacklog || 0);
@@ -35,7 +36,12 @@ export default function InboxListPanel({
 
   return (
     <div className="inbox-list-panel">
-      {!searchQuery && hasMore ? (
+      {searchPending ? (
+        <div className="inbox-list-panel__scroll-hint" role="status">
+          <span className="text-small inbox-list-panel__scroll-hint-text">Buscando…</span>
+        </div>
+      ) : null}
+      {!searchPending && !searchQuery && hasMore ? (
         <div className="inbox-list-panel__scroll-hint" aria-hidden>
           <span className="text-small inbox-list-panel__scroll-hint-text">Role para carregar mais</span>
         </div>
@@ -56,9 +62,9 @@ export default function InboxListPanel({
           aria-selected={listFilter === 'needs_me'}
           className={`inbox-list-filters-segments__btn${listFilter === 'needs_me' ? ' is-active' : ''}`}
           onClick={() => setListFilter('needs_me')}
-          title="Handoff ativo ou mensagens não lidas"
+          title="Conversas em que você assumiu o atendimento (handoff ativo)"
         >
-          <span>Precisa de mim</span>
+          <span>Com você</span>
           {needsMeBacklog > 0 ? (
             <span
               className={`text-small inbox-unread-badge ${

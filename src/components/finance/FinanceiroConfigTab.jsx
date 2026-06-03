@@ -125,6 +125,7 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
       {activeSection === FINANCE_SETTINGS_SECTIONS.RECEBIMENTO ? (
         <FinanceSettingsBanksSection
           financeConfig={state.financeConfig}
+          setFinanceConfig={state.setFinanceConfig}
           onSaveBank={saveBank}
           onRemoveRequest={state.setPendingRemoveBank}
         />

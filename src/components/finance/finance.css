@@ -3744,6 +3744,23 @@
   flex-shrink: 0;
 }
 
+.finance-settings-method-accounts {
+  margin-top: var(--space-4);
+}
+
+.finance-settings-subtitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.finance-settings-method-accounts__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
 .finance-settings-sticky-save {
   position: fixed;
   left: 0;

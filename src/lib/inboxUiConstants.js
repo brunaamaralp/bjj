@@ -15,6 +15,9 @@ export const INBOX_LIST_DEFAULT_COLLAPSED_GROUPS = ['resolved'];
 /** Virtualizar lista acima deste número de linhas renderizadas. */
 export const INBOX_LIST_VIRTUALIZE_THRESHOLD = 35;
 
+/** Virtualizar thread acima deste número de blocos (dia + grupos de bolhas). */
+export const INBOX_THREAD_VIRTUALIZE_THRESHOLD = 40;
+
 export const INBOX_LIST_LEGEND_DISMISSED_KEY = 'inbox_list_legend_dismissed';
 
 /**

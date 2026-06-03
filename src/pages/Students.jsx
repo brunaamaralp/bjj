@@ -14,7 +14,8 @@ import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
 import ImportSheet from '../components/ImportSheet';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
-import { normalizeLeadProfileType, isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
+import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.js';
+import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import { useTerms } from '../lib/terminology.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -66,7 +67,6 @@ const Students = ({ embedded = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
     const listScrollRef = useRef(null);
-    const [filtroTipo, setFiltroTipo] = useState('Todos');
     const [filtroOrigem, setFiltroOrigem] = useState('Todas');
     const [filtroTurma, setFiltroTurma] = useState('Todas');
     const [filtroPlano, setFiltroPlano] = useState('Todos');
@@ -89,10 +89,9 @@ const Students = ({ embedded = false }) => {
         name: '',
         phone: '',
         email: '',
-        type: 'Adulto',
+        turmaSelect: '',
+        turmaOther: '',
         origin: LEAD_ORIGIN[0] || 'Cadastro manual',
-        parentName: '',
-        age: '',
         plan: '',
     });
     const [phoneError, setPhoneError] = useState('');
@@ -142,23 +141,20 @@ const Students = ({ embedded = false }) => {
 
         return students
             .filter((s) => {
+                const turmaVal = String(s.turma || s.className || '').trim();
                 const matchBusca =
                     serverSearchActive ||
                     (!q && !qPhone) ||
                     (qPhone && normalizePhone(s.phone || '').includes(qPhone)) ||
                     (q && String(s.name || '').toLowerCase().includes(q)) ||
-                    (q && String(s.type || '').toLowerCase().includes(q));
+                    (q && turmaVal.toLowerCase().includes(q));
 
-                const matchTipo =
-                    filtroTipo === 'Todos'
-                    || (filtroTipo === 'Criança' ? isCriancaProfileType(s.type) : s.type === filtroTipo);
                 const matchOrigem = filtroOrigem === 'Todas' || s.origin === filtroOrigem;
-                const turmaVal = String(s.turma || s.className || '').trim();
                 const matchTurma =
                     filtroTurma === 'Todas' || (filtroTurma === 'Sem turma' ? !turmaVal : turmaVal === filtroTurma);
                 const matchPlano = filtroPlano === 'Todos' || String(s.plan || '').trim() === filtroPlano;
 
-                return matchBusca && matchTipo && matchOrigem && matchTurma && matchPlano;
+                return matchBusca && matchOrigem && matchTurma && matchPlano;
             })
             .sort((a, b) => {
                 const nA = a.name || '';
@@ -171,7 +167,7 @@ const Students = ({ embedded = false }) => {
                 if (ordenacao === 'antigos') return dA.localeCompare(dB);
                 return 0;
             });
-    }, [students, debouncedSearch, serverSearchActive, filtroTipo, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
+    }, [students, debouncedSearch, serverSearchActive, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
 
     const shouldVirtualizeStudents = filteredStudents.length > 50;
     const studentCardGap = 12;
@@ -186,7 +182,6 @@ const Students = ({ embedded = false }) => {
 
     const limparFiltros = () => {
         setSearchTerm('');
-        setFiltroTipo('Todos');
         setFiltroOrigem('Todas');
         setFiltroTurma('Todas');
         setFiltroPlano('Todos');
@@ -196,7 +191,6 @@ const Students = ({ embedded = false }) => {
 
     const filtrosAtivos =
         Boolean(searchTerm.trim()) ||
-        filtroTipo !== 'Todos' ||
         filtroOrigem !== 'Todas' ||
         filtroTurma !== 'Todas' ||
         filtroPlano !== 'Todos' ||
@@ -205,13 +199,12 @@ const Students = ({ embedded = false }) => {
 
     const collapsibleFilterCount = useMemo(() => {
         let n = 0;
-        if (filtroTipo !== 'Todos') n += 1;
         if (filtroOrigem !== 'Todas') n += 1;
         if (filtroTurma !== 'Todas') n += 1;
         if (filtroPlano !== 'Todos') n += 1;
         if (ordenacao !== 'az') n += 1;
         return n;
-    }, [filtroTipo, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
+    }, [filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
 
     const openProfile = useCallback(
         (studentId) => navigate(`/student/${studentId}`),
@@ -262,13 +255,14 @@ const Students = ({ embedded = false }) => {
         setNewStudent({
             name: '',
             phone: '',
-            type: 'Adulto',
+            email: '',
+            turmaSelect: '',
+            turmaOther: '',
             origin: LEAD_ORIGIN[0] || 'Cadastro manual',
-            parentName: '',
-            age: '',
             plan: '',
         });
         setPhoneError('');
+        setEmailError('');
     };
 
     const handleCreateStudent = async (e) => {
@@ -298,14 +292,14 @@ const Students = ({ embedded = false }) => {
         setPhoneError('');
         setCreatingStudent(true);
         try {
+            const turma = turmaValueFromForm(newStudent.turmaSelect, newStudent.turmaOther);
             const created = await addStudent({
                 name,
                 phone: cleanPhone,
                 email: emailTrim,
-                type: normalizeLeadProfileType(newStudent.type || 'Adulto') || 'Adulto',
+                turma,
+                type: profileTypeFromTurma(turma),
                 origin: newStudent.origin || 'Cadastro manual',
-                parentName: String(newStudent.parentName || '').trim(),
-                age: String(newStudent.age || '').trim(),
                 plan: planName,
                 dueDay: new Date().getDate(),
                 enrollmentDate: new Date().toISOString().slice(0, 10),
@@ -388,7 +382,7 @@ const Students = ({ embedded = false }) => {
                 'Nome': l.name || '',
                 'Telefone': l.phone || '',
                 'CPF': maskCpfForExport(l.cpf || l.cpf_responsavel),
-                'Tipo': normalizeLeadProfileType(l.type) || l.type || '',
+                'Turma': String(l.turma || l.className || '').trim(),
                 'Origem': l.origin || l.source_origin || '',
                 'Situação aluno': l.student_status || l.studentStatus || 'active',
                 'Motivo saída': l.exit_reason || l.exitReason || '',
@@ -619,12 +613,6 @@ const Students = ({ embedded = false }) => {
                             </span>
                         </div>
                         <div className="filter-group students-mobile-filter-group">
-                            <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
-                                <option value="Todos">Todos os perfis</option>
-                                <option value="Adulto">Adulto</option>
-                                <option value="Criança">Criança</option>
-                                <option value="Juniores">Juniores</option>
-                            </select>
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
                                 <option value="Todas">Todas as origens</option>
                                 {LEAD_ORIGIN.map((o) => (
@@ -680,12 +668,6 @@ const Students = ({ embedded = false }) => {
                             Inativos
                         </span>
                         <div className="filter-group">
-                            <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
-                                <option value="Todos">Todos os perfis</option>
-                                <option value="Adulto">Adulto</option>
-                                <option value="Criança">Criança</option>
-                                <option value="Juniores">Juniores</option>
-                            </select>
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
                                 <option value="Todas">Todas as origens</option>
                                 {LEAD_ORIGIN.map((o) => (
@@ -790,7 +772,9 @@ const Students = ({ embedded = false }) => {
                                 }}
                             >
                                 <span>{s.name}</span>
-                                <span style={{ color: '#9A3412', opacity: 0.7 }}>{normalizeLeadProfileType(s.type) || s.type}</span>
+                                <span style={{ color: '#9A3412', opacity: 0.7 }}>
+                                    {String(s.turma || s.className || '').trim() || '—'}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -959,15 +943,18 @@ const Students = ({ embedded = false }) => {
                                 {emailError ? <FieldError>{emailError}</FieldError> : null}
                             </label>
                             <label>
-                                Perfil
-                                <select
-                                    value={newStudent.type}
-                                    onChange={(e) => setNewStudent((prev) => ({ ...prev, type: e.target.value }))}
-                                >
-                                    <option value="Adulto">Adulto</option>
-                                    <option value="Criança">Criança</option>
-                                    <option value="Juniores">Juniores</option>
-                                </select>
+                                Turma
+                                <TurmaSelect
+                                    id="new-student-turma"
+                                    otherId="new-student-turma-other"
+                                    turmas={turmasConfig}
+                                    selectValue={newStudent.turmaSelect}
+                                    otherText={newStudent.turmaOther}
+                                    onSelectChange={(v) => setNewStudent((prev) => ({ ...prev, turmaSelect: v }))}
+                                    onOtherChange={(v) => setNewStudent((prev) => ({ ...prev, turmaOther: v }))}
+                                    disabled={creatingStudent}
+                                    style={{ width: '100%', marginTop: 6 }}
+                                />
                             </label>
                             <label>
                                 Origem
@@ -991,29 +978,6 @@ const Students = ({ embedded = false }) => {
                                     style={{ width: '100%', marginTop: 6 }}
                                 />
                             </label>
-                            {(newStudent.type === 'Criança' || newStudent.type === 'Juniores') ? (
-                                <>
-                                    <label>
-                                        Responsável
-                                        <input
-                                            type="text"
-                                            value={newStudent.parentName}
-                                            onChange={(e) => setNewStudent((prev) => ({ ...prev, parentName: e.target.value }))}
-                                            placeholder="Ex: Maria Silva"
-                                        />
-                                    </label>
-                                    <label>
-                                        Idade
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={newStudent.age}
-                                            onChange={(e) => setNewStudent((prev) => ({ ...prev, age: e.target.value }))}
-                                            placeholder="Ex: 10"
-                                        />
-                                    </label>
-                                </>
-                            ) : null}
                         </div>
 
                         <div className="students-create-actions">

@@ -4,6 +4,7 @@ import {
   turmaValueFromForm,
   resolveTurmaFormState,
   studentTurmaGroupKey,
+  profileTypeFromTurma,
   sortTurmaGroupKeys,
   SEM_TURMA_GROUP_LABEL,
   TURMA_OUTRO_VALUE,
@@ -24,6 +25,13 @@ describe('academyTurmas', () => {
     const r = resolveTurmaFormState('Competição', ['Kids', 'Adultos']);
     expect(r.selectValue).toBe(TURMA_OUTRO_VALUE);
     expect(r.otherText).toBe('Competição');
+  });
+
+  it('profileTypeFromTurma infere perfil legado', () => {
+    expect(profileTypeFromTurma('Kids 18h')).toBe('Criança');
+    expect(profileTypeFromTurma('Juniores manhã')).toBe('Juniores');
+    expect(profileTypeFromTurma('Adultos')).toBe('Adulto');
+    expect(profileTypeFromTurma('')).toBe('Adulto');
   });
 
   it('studentTurmaGroupKey usa turma do aluno', () => {

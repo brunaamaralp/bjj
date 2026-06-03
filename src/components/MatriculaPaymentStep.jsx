@@ -5,6 +5,7 @@ import PlanSelect from './shared/PlanSelect.jsx';
 import { PAYMENT_CATEGORY } from '../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../lib/paymentCategories.js';
 import { PAYMENT_METHODS } from '../lib/paymentMethods.js';
+import { accountWhenPaymentMethodChanges } from '../lib/bankAccounts.js';
 import { findPlanByName, planPriceToPayAmountString } from '../lib/academyPlans.js';
 
 /**
@@ -181,7 +182,14 @@ export default function MatriculaPaymentStep({
           className="form-input"
           value={payForm.method}
           disabled={disabled}
-          onChange={(e) => setPayForm((p) => ({ ...p, method: e.target.value }))}
+          onChange={(e) => {
+            const method = e.target.value;
+            setPayForm((p) => ({
+              ...p,
+              method,
+              account: accountWhenPaymentMethodChanges(financeConfig, method) || p.account,
+            }));
+          }}
         >
           {PAYMENT_METHODS.map((m) => (
             <option key={m.value} value={m.value}>

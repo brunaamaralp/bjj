@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, ChevronRight } from 'lucide-react';
-import { normalizeLeadProfileType } from '../../../lib/leadTypeNormalize.js';
+import { formatPhone } from '../../lib/masks.js';
 import ControlIdSyncBadge from './ControlIdSyncBadge.jsx';
 import StudentStatusBadge from './StudentStatusBadge.jsx';
 import StudentOverdueBadge from './StudentOverdueBadge.jsx';
@@ -75,7 +75,10 @@ function StudentListCard({
             <ControlIdSyncBadge academyId={academyId} student={student} />
           ) : null}
           <p className="student-card-desktop-meta text-small" style={{ margin: '4px 0 0' }}>
-            {[normalizeLeadProfileType(student.type) || student.type, student.phone]
+            {[
+              String(student.turma || student.className || '').trim(),
+              formatPhone(student.phone) || String(student.phone || '').trim(),
+            ]
               .filter((p) => p && String(p).trim())
               .join(' • ') || '—'}
           </p>

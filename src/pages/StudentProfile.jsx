@@ -170,20 +170,8 @@ function humanizeTimelineStage(value, stages = [], terms) {
     return t.replace(/_/g, ' ');
 }
 
-const PROFILE_TYPE_OPTIONS = [
-    { value: 'Adulto', label: 'Adulto' },
-    { value: 'Criança', label: 'Criança' },
-    { value: 'Juniores', label: 'Juniores' },
-];
-
 const STUDENT_DATA_FIELDS = [
     { key: 'name', label: 'Nome', type: 'text', placeholder: 'Nome completo' },
-    {
-        key: 'type',
-        label: 'Perfil',
-        type: 'select',
-        options: PROFILE_TYPE_OPTIONS,
-    },
     { key: 'plan', label: 'Plano', type: 'plan' },
     { key: 'enrollmentDate', label: 'Ingresso', type: 'date', placeholder: '' },
     { key: 'birthDate', label: 'Nascimento', type: 'date', placeholder: '' },
@@ -1050,7 +1038,7 @@ export default function StudentProfile() {
 
             await updateStudent(leadId, {
                 name,
-                type: dataForm.type || 'Adulto',
+                type: student.type || 'Adulto',
                 turma: turmaValueFromForm(dataForm.turmaSelect, dataForm.turmaOther),
                 sexo: dataForm.sexo || '',
                 plan: dataForm.plan,
@@ -2081,11 +2069,6 @@ export default function StudentProfile() {
                                 ? ` · ${activeFreezeReasonFromHistory(planFreezes, student)}`
                                 : ''}
                         </p>
-                    ) : null}
-                    {student.type && String(student.type).trim() ? (
-                        <span className="badge-purple" style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px', marginTop: 8 }}>
-                            {student.type}
-                        </span>
                     ) : null}
 
                     </div>{/* fecha student-profile-hd__body */}

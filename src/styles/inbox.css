@@ -3,7 +3,7 @@
 /* —— Page shell —— */
 .inbox-page {
   padding-top: var(--space-4, 18px);
-  padding-bottom: var(--space-8, 30px);
+  padding-bottom: 0;
   max-width: 100%;
   width: 100%;
   flex: 1 1 0%;
@@ -13,12 +13,52 @@
   box-sizing: border-box;
 }
 
+.inbox-page > .navi-page-header {
+  flex-shrink: 0;
+}
+
+/* Cabeçalho compacto com conversa aberta (desktop) */
+.inbox-page--compact {
+  padding-top: var(--space-2, 10px);
+}
+
+.inbox-page--compact .navi-page-header__subtitle,
+.inbox-page--compact .navi-page-header__meta {
+  display: none;
+}
+
+.inbox-page--compact .navi-page-title {
+  font-size: var(--font-xl, 1.25rem);
+  line-height: 1.25;
+}
+
+.inbox-page--compact .page-header-card {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Mobile: thread em tela cheia sem cabeçalho da página */
+.inbox-page--mobile-thread {
+  padding-top: var(--space-2, 10px);
+}
+
+.inbox-page--mobile-thread > .navi-page-header {
+  display: none;
+}
+
+.inbox-list-cap-banner {
+  flex-shrink: 0;
+  margin-bottom: var(--space-2, 10px);
+}
+
 .inbox-body-grow {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 
 .inbox-list-panel__scroll-hint {
@@ -112,6 +152,26 @@
   left: auto;
 }
 
+.inbox-thread-actions-menu {
+  flex-shrink: 0;
+}
+
+.inbox-thread-actions-menu__panel {
+  min-width: 260px;
+  right: 0;
+  left: auto;
+}
+
+.inbox-floating-menu-anchor {
+  position: fixed;
+  z-index: calc(var(--z-overlay) + 1);
+  pointer-events: none;
+}
+
+.inbox-floating-menu-anchor .inbox-menu-panel {
+  pointer-events: auto;
+}
+
 .inbox-page-header .inbox-toolbar-search {
   flex: 1 1 auto;
   min-width: 180px;
@@ -186,8 +246,11 @@
   box-sizing: border-box;
   flex: 1;
   min-height: 0;
+  max-height: 100%;
   gap: 0;
   align-items: stretch;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .inbox-layout-list-col {
@@ -235,7 +298,9 @@
 .inbox-layout-context-col {
   padding-left: var(--space-2, 10px);
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .inbox-mobile-split {
@@ -448,6 +513,16 @@
   padding: 14px;
 }
 
+.inbox-thread-messages-virtual {
+  width: 100%;
+}
+
+.inbox-thread-messages-virtual__row {
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+
 .inbox-thread-composer {
   padding: 10px 12px 12px;
   border-top: 0.5px solid var(--border-light);
@@ -465,6 +540,11 @@
 /* —— Context panel —— */
 .inbox-context-panel {
   background: var(--surface);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 @media (min-width: 1024px) {
@@ -491,9 +571,10 @@
 }
 
 .inbox-context-panel-scroll {
-  max-height: 70vh;
-  max-height: 70dvh;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .inbox-context-panel__body {

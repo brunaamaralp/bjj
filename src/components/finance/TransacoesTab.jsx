@@ -68,6 +68,7 @@ import {
   listBankAccountLabels,
   resolveBankAccountForPayment,
   validateBankAccountForPayment,
+  accountWhenPaymentMethodChanges,
 } from '../../lib/bankAccounts.js';
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 
@@ -1462,7 +1463,12 @@ export default function TransacoesTab({
                   value={txForm.method}
                   onChange={(e) => {
                     const m = e.target.value;
-                    setTxForm({ ...txForm, method: m, installments: m === 'cartão_crédito' ? (txForm.installments || 1) : 1 });
+                    setTxForm({
+                      ...txForm,
+                      method: m,
+                      installments: m === 'cartão_crédito' ? (txForm.installments || 1) : 1,
+                      bankAccount: accountWhenPaymentMethodChanges(financeConfig, m) || txForm.bankAccount,
+                    });
                   }}
                 >
                   <option value="pix">PIX</option>

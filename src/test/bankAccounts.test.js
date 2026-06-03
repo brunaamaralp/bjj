@@ -38,4 +38,15 @@ describe('bankAccounts — conta inicial no pagamento', () => {
     };
     expect(pickInitialBankAccountForPayment(cfg, 'BB · 111')).toBe('BB · 111');
   });
+
+  it('pickInitialBankAccountForPayment — mapa método→conta tem prioridade', () => {
+    const cfgWithMap = {
+      bankAccounts: [
+        { bankName: 'BB', account: '111' },
+        { bankName: 'Caixa', account: '222' },
+      ],
+      defaultAccountByMethod: { pix: 'BB · 111' },
+    };
+    expect(pickInitialBankAccountForPayment(cfgWithMap, 'Caixa · 222', 'pix')).toBe('BB · 111');
+  });
 });

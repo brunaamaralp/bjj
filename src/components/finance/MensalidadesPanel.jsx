@@ -40,6 +40,7 @@ import {
   validateBankAccountForPayment,
   pickInitialBankAccountForPayment,
   hasConfiguredBankAccounts,
+  accountWhenPaymentMethodChanges,
 } from '../../lib/bankAccounts.js';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
@@ -566,16 +567,18 @@ export default function MensalidadesPanel({
     const dueDate = dueDateInMonth(refMonth, day);
     setSelectedStudent(student);
     const amountNum = Number(preset.amount);
+    const method = preset.method || student.preferredPaymentMethod || 'pix';
     setPayForm({
       reference_month: refMonth,
       amount:
         Number.isFinite(amountNum) && amountNum > 0
           ? maskCurrency(String(Math.round(amountNum * 100)))
           : '',
-      method: preset.method || student.preferredPaymentMethod || 'pix',
+      method,
       account: pickInitialBankAccountForPayment(
         financeConfig,
-        student.preferredPaymentAccount || ''
+        student.preferredPaymentAccount || '',
+        method
       ),
       status: 'paid',
       paid_at: new Date().toISOString().slice(0, 10),
@@ -1397,7 +1400,13 @@ export default function MensalidadesPanel({
                               key={o.value}
                               type="button"
                               aria-pressed={active}
-                              onClick={() => setPayForm((f) => ({ ...f, method: o.value }))}
+                              onClick={() =>
+                                setPayForm((f) => ({
+                                  ...f,
+                                  method: o.value,
+                                  account: accountWhenPaymentMethodChanges(financeConfig, o.value) || f.account,
+                                }))
+                              }
                               className={`mensal-modal-method-btn${active ? ' mensal-modal-method-btn--active' : ''}${idx === list.length - 1 ? ' mensal-modal-method-btn--full' : ''}`}
                             >
                               <span className={`ti ${iconClass} mensal-modal-method-btn__icon`} aria-hidden />

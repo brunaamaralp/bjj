@@ -23,6 +23,7 @@ import {
   mergeCollectionIntoFinanceConfig,
 } from '../lib/collectionRules.js';
 import { filterBankAccountsWithBank, hasConfiguredBankAccounts } from '../lib/bankAccounts.js';
+import { digestMethodBankDefaults, normalizeDefaultAccountByMethodMap, readDefaultAccountByMethod } from '../lib/paymentMethodBankDefaults.js';
 import {
   defaultWhatsappRemindersConfig,
   digestWhatsappReminders,
@@ -46,12 +47,17 @@ export const defaultFinanceConfig = () => ({
     },
   },
   bankAccounts: [],
+  defaultAccountByMethod: {},
   plans: [],
   whatsappReminders: defaultWhatsappRemindersConfig(),
 });
 
-export function digestBankAccounts(accounts) {
-  return JSON.stringify(accounts || []);
+export function digestBankAccounts(accounts, financeConfig = null) {
+  if (!financeConfig) return JSON.stringify(accounts || []);
+  return JSON.stringify({
+    accounts: accounts || [],
+    defaultAccountByMethod: digestMethodBankDefaults(financeConfig),
+  });
 }
 
 export function digestCardFees(cardFees) {
@@ -100,7 +106,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
   const [pendingRemoveBank, setPendingRemoveBank] = useState(null);
 
   const [savedDigests, setSavedDigests] = useState({
-    accounts: digestBankAccounts([]),
+    accounts: digestBankAccounts([], defaultFinanceConfig()),
     fees: digestCardFees(defaultFinanceConfig().cardFees),
     plans: digestPlans([]),
     collection: digestCollection(DEFAULT_COLLECTION_RULES, 'Inadimplente'),
@@ -119,7 +125,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     const labels = readExceptionStatusLabels(mergedCfg);
     setExceptionLabels(labels);
     setSavedDigests({
-      accounts: digestBankAccounts(cfg.bankAccounts),
+      accounts: digestBankAccounts(cfg.bankAccounts, cfg),
       fees: digestCardFees(cfg.cardFees),
       plans: digestPlans(cfg.plans),
       collection: digestCollection(coll.collectionRules, coll.overdueLabel),
@@ -258,7 +264,8 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
   const dirty = useMemo(
     () => ({
-      accounts: digestBankAccounts(financeConfig.bankAccounts) !== savedDigests.accounts,
+      accounts:
+        digestBankAccounts(financeConfig.bankAccounts, financeConfig) !== savedDigests.accounts,
       fees: digestCardFees(financeConfig.cardFees) !== savedDigests.fees,
       plans: digestPlans(financeConfig.plans) !== savedDigests.plans,
       collection: digestCollection(collectionRules, overdueLabel) !== savedDigests.collection,
@@ -280,6 +287,13 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       ...mergedCfg,
       bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
     });
+    mergedCfg = {
+      ...mergedCfg,
+      defaultAccountByMethod: normalizeDefaultAccountByMethodMap(
+        readDefaultAccountByMethod(mergedCfg),
+        mergedCfg
+      ),
+    };
     return mergedCfg;
   }, [financeConfig, collectionRules, overdueLabel, exceptionLabels]);
 
@@ -312,7 +326,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       const coll = readCollectionSettingsFromFinanceConfig(savedCfg);
       const labels = readExceptionStatusLabels(savedCfg);
       setSavedDigests({
-        accounts: digestBankAccounts(savedCfg.bankAccounts),
+        accounts: digestBankAccounts(savedCfg.bankAccounts, savedCfg),
         fees: digestCardFees(savedCfg.cardFees),
         plans: digestPlans(savedCfg.plans),
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),

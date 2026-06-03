@@ -39,7 +39,6 @@ import ReportSectionHeading from '../components/reports/shared/ReportSectionHead
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import StageBadge from '../components/shared/StageBadge.jsx';
 import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
-import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
@@ -893,11 +892,6 @@ const Dashboard = () => {
                     )}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
-                <p className="reception-hint">
-                    Do mais recente para o mais antigo. Após {FOLLOWUP_AGENDA_MAX_DAYS} dias da data da{' '}
-                    {vertical === 'physio' ? 'avaliação' : 'aula'}, o follow-up sai desta lista e fica só no Kanban.
-                </p>
-
                 <div className="fu-list-card">
                     {followUps.length > 0 ? followUps.map((lead, i) => {
                         const isPost = lead.status === LEAD_STATUS.COMPLETED;
@@ -1067,9 +1061,6 @@ const Dashboard = () => {
                     </div>
                 </div>
                 <div className="agenda-birthdays-section__body">
-                    <p className="reception-hint agenda-birthdays-hint">
-                        {terms.students} com aniversário nesta data. Toque no nome para abrir o perfil.
-                    </p>
                     <div className="bd-list-card">
                         {studentsLoading && students.length === 0 ? (
                             <div className="bd-list-loading" aria-busy="true">
@@ -1097,13 +1088,7 @@ const Dashboard = () => {
                                     <div className="bd-info">
                                         <div className="bd-name">{student.name}</div>
                                         <div className="bd-sub">
-                                            {normalizeLeadProfileType(student.type) || student.type || '—'}
-                                            {student.turma ? (
-                                                <>
-                                                    <span className="bd-sep">·</span>
-                                                    <span className="bd-turma">{student.turma}</span>
-                                                </>
-                                            ) : null}
+                                            {String(student.turma || student.className || '').trim() || '—'}
                                         </div>
                                     </div>
                                 </div>
