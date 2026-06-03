@@ -2,7 +2,7 @@ import '../styles/tasks.css';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { createPortal } from 'react-dom';
-import { useTaskStore } from '../store/useTaskStore';
+import { useTaskStore, serverTaskFilters, buildTasksFetchKey } from '../store/useTaskStore';
 import { useLeadStore } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import {
@@ -382,34 +382,34 @@ export default function Tasks() {
   }, [effectiveTeamId]);
 
   const filterLeadId = filters.lead_id;
-  const filterStatus = filters.status;
   const filterAssigned = filters.assigned_to;
-  const tasksLastFetchedAt = useTaskStore((s) => s.tasksLastFetchedAt);
+  const apiTaskFilters = useMemo(
+    () => serverTaskFilters({ assigned_to: filterAssigned, lead_id: filterLeadId }),
+    [filterAssigned, filterLeadId]
+  );
+  const tasksFetchKey = useMemo(
+    () => buildTasksFetchKey(academyId, apiTaskFilters),
+    [academyId, apiTaskFilters]
+  );
+  const lastTasksFetchKeyRef = useRef('');
   const STALE_MS = 5 * 60 * 1000;
 
   useEffect(() => {
     if (!academyId) return;
+    const { tasksLastFetchedAt, tasksFetchKey: cachedKey } = useTaskStore.getState();
     const stale = !tasksLastFetchedAt || Date.now() - tasksLastFetchedAt > STALE_MS;
-    const hasFilter =
-      (filterStatus && filterStatus !== 'all') ||
-      Boolean(filterAssigned) ||
-      Boolean(filterLeadId);
-    if (!stale && !hasFilter && tasks.length > 0) return;
-    void fetchTasks(academyId, { reset: true });
-  }, [
-    academyId,
-    filterLeadId,
-    filterStatus,
-    filterAssigned,
-    fetchTasks,
-    tasksLastFetchedAt,
-    tasks.length,
-  ]);
+    const keyChanged = lastTasksFetchKeyRef.current !== tasksFetchKey;
+    const scopeMismatch = cachedKey !== tasksFetchKey;
+    if (!keyChanged && !stale && !scopeMismatch) return;
+
+    lastTasksFetchKeyRef.current = tasksFetchKey;
+    void fetchTasks(academyId, { reset: true, filters: apiTaskFilters });
+  }, [academyId, tasksFetchKey, apiTaskFilters, fetchTasks]);
 
   const handleLoadMoreTasks = useCallback(() => {
     if (!academyId || loadingMore || !tasksHasMore) return;
-    void fetchMoreTasks(academyId);
-  }, [academyId, loadingMore, tasksHasMore, fetchMoreTasks]);
+    void fetchMoreTasks(academyId, { filters: apiTaskFilters });
+  }, [academyId, loadingMore, tasksHasMore, fetchMoreTasks, apiTaskFilters]);
 
   useEffect(() => {
     if (!showLeadDrop) return;
@@ -490,6 +490,20 @@ export default function Tasks() {
     }
     return list;
   }, [filteredTasksBase, estaSemanaOn, periodTodayOn, todayYmd]);
+
+  const hasActiveFilters =
+    filters.status !== 'all' || Boolean(filters.lead_id) || estaSemanaOn || periodTodayOn;
+
+  const emptyFilterTitle = useMemo(() => {
+    if (filters.status === 'vencidas') return 'Nenhuma tarefa vencida.';
+    if (filters.status === 'concluidas') return 'Nenhuma tarefa concluída.';
+    if (filters.status === 'minhas') return 'Nenhuma tarefa atribuída a você.';
+    if (filters.status === 'pendentes') return 'Nenhuma tarefa pendente.';
+    if (estaSemanaOn) return 'Nenhuma tarefa nesta semana.';
+    if (periodTodayOn) return 'Nenhuma tarefa para hoje.';
+    if (filters.lead_id) return 'Nenhuma tarefa para este aluno.';
+    return 'Nenhuma tarefa corresponde a este filtro.';
+  }, [filters.status, filters.lead_id, estaSemanaOn, periodTodayOn]);
 
   const semPrazoExcluidasCount = useMemo(
     () => filteredTasksBase.filter((t) => !t.due_date || !String(t.due_date).trim()).length,
@@ -1047,7 +1061,7 @@ export default function Tasks() {
       </header>
 
       {error ? (
-        <ErrorBanner className="mt-3" message={friendlyError(error, 'load')} onRetry={() => fetchTasks(academyId, { reset: true })} />
+        <ErrorBanner className="mt-3" message={friendlyError(error, 'load')} onRetry={() => fetchTasks(academyId, { reset: true, filters: apiTaskFilters })} />
       ) : null}
 
       {tasks.length >= 500 ? (
@@ -1062,7 +1076,7 @@ export default function Tasks() {
       <div className={`tasks-board mt-4${loading && tasks.length === 0 ? ' tasks-board--loading' : ''}`}>
         {loading && tasks.length === 0 ? (
           renderTasksLoadingSkeleton()
-        ) : tasks.length === 0 ? (
+        ) : tasks.length === 0 && !hasActiveFilters ? (
           <EmptyState
             variant="default"
             tone="dashed"
@@ -1076,13 +1090,14 @@ export default function Tasks() {
             }}
             role="status"
           />
-        ) : filteredTasks.length === 0 && viewMode !== 'calendar' ? (
+        ) : filteredTasks.length === 0 ? (
           <EmptyState
             variant="default"
             tone="dashed"
-            title="Nenhuma tarefa corresponde a este filtro."
+            icon={CheckSquare}
+            title={emptyFilterTitle}
             secondaryAction={
-              filters.status !== 'all' || filters.lead_id || estaSemanaOn || periodTodayOn
+              hasActiveFilters
                 ? {
                     label: 'Limpar filtros',
                     variant: 'link',

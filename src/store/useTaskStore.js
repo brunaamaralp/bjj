@@ -2,15 +2,42 @@ import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from './useLeadStore';
 
+/** Filtros de UI aplicados só no cliente — não existem como status no Appwrite. */
+const CLIENT_STATUS_FILTERS = new Set(['vencidas', 'minhas', 'pendentes', 'concluidas']);
+
+function apiStatusFromUiFilter(statusRaw) {
+  const status = String(statusRaw || '').trim();
+  if (!status || status === 'all') return '';
+  if (CLIENT_STATUS_FILTERS.has(status)) return '';
+  return status;
+}
+
+/** Filtros para a API na página de tarefas (ignora chips de UI). */
+export function serverTaskFilters(filters = {}) {
+  return {
+    status: 'all',
+    assigned_to: String(filters.assigned_to || '').trim() || null,
+    lead_id: String(filters.lead_id || '').trim() || null,
+  };
+}
+
+export function buildTasksFetchKey(academyId, filters = {}) {
+  const academy = String(academyId || '').trim();
+  const status = apiStatusFromUiFilter(filters.status);
+  const assignedTo = String(filters.assigned_to || '').trim();
+  const leadId = String(filters.lead_id || '').trim();
+  return `${academy}|${leadId}|${assignedTo}|${status}`;
+}
+
 function buildQueryString(academyId, filters, opts = {}) {
   const qs = new URLSearchParams();
   qs.set('academy_id', academyId);
   if (filters) {
-    const status = String(filters.status || '').trim();
+    const status = apiStatusFromUiFilter(filters.status);
     const assignedTo = String(filters.assigned_to || '').trim();
     const leadId = String(filters.lead_id || '').trim();
 
-    if (status && status !== 'all') qs.set('status', status);
+    if (status) qs.set('status', status);
     if (assignedTo) qs.set('assigned_to', assignedTo);
     if (leadId) qs.set('lead_id', leadId);
   }
@@ -32,6 +59,7 @@ export const useTaskStore = create((set, get) => ({
   tasksHasMore: false,
   tasksCursor: null,
   tasksLastFetchedAt: null,
+  tasksFetchKey: null,
   error: null,
   updatingTaskIds: [],
   filters: { status: 'all', assigned_to: null, lead_id: null },
@@ -94,6 +122,7 @@ export const useTaskStore = create((set, get) => ({
       const incoming = data.tasks || [];
       const nextCursor = data.next_cursor ? String(data.next_cursor) : null;
       const hasMore = Boolean(data.has_more);
+      const fetchKey = buildTasksFetchKey(academy, effectiveFilters);
 
       if (reset) {
         set({
@@ -104,6 +133,7 @@ export const useTaskStore = create((set, get) => ({
           loadingMore: false,
           error: null,
           tasksLastFetchedAt: Date.now(),
+          tasksFetchKey: fetchKey,
         });
       } else {
         set((state) => {
@@ -116,6 +146,7 @@ export const useTaskStore = create((set, get) => ({
             loadingMore: false,
             error: null,
             tasksLastFetchedAt: Date.now(),
+            tasksFetchKey: fetchKey,
           };
         });
       }
