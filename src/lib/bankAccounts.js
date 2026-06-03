@@ -21,19 +21,27 @@ export function normalizeBankAccountEntry(raw) {
   };
 }
 
-/** Mantém só contas com nome de banco preenchido (evita linha vazia na lista). */
+/** Conta utilizável em pagamentos (banco, PIX ou número de conta). */
+export function isUsableBankAccount(acc) {
+  const n = normalizeBankAccountEntry(acc);
+  return Boolean(n.bankName || n.pixKey || n.account);
+}
+
+/** Mantém só contas utilizáveis (evita linha vazia na lista). */
 export function filterBankAccountsWithBank(accounts) {
   const list = Array.isArray(accounts) ? accounts : [];
-  return list
-    .map((acc) => normalizeBankAccountEntry(acc))
-    .filter((acc) => acc.bankName);
+  return list.map((acc) => normalizeBankAccountEntry(acc)).filter(isUsableBankAccount);
 }
 
 export function formatBankAccountLabel(acc) {
   const bank = String(acc?.bankName || '').trim();
   const acct = String(acc?.account || '').trim();
+  const pix = String(acc?.pixKey || '').trim();
   if (bank && acct) return `${bank} · ${acct}`;
-  return bank || acct || '';
+  if (bank) return bank;
+  if (acct) return acct;
+  if (pix) return pix.length > 28 ? `PIX ${pix.slice(0, 14)}…` : `PIX ${pix}`;
+  return '';
 }
 
 export function listBankAccountLabels(financeConfig) {

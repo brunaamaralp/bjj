@@ -16,6 +16,7 @@ describe('bankAccounts — conta inicial no pagamento', () => {
   it('hasConfiguredBankAccounts', () => {
     expect(hasConfiguredBankAccounts({ bankAccounts: [] })).toBe(false);
     expect(hasConfiguredBankAccounts({ bankAccounts: [{ bankName: 'BB' }] })).toBe(true);
+    expect(hasConfiguredBankAccounts({ bankAccounts: [{ pixKey: 'email@test.com' }] })).toBe(true);
   });
 
   it('pickInitialBankAccountForPayment — única conta', () => {

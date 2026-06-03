@@ -291,7 +291,10 @@ export default function MensalidadesPanel({
   );
 
   useEffect(() => {
-    if (!academyId || financeConfigAcademyId === academyId) return;
+    if (!academyId) return;
+    const st = useLeadStore.getState();
+    const cachedForAcademy = st.financeConfigAcademyId === academyId && st.financeConfig;
+    if (cachedForAcademy && hasConfiguredBankAccounts(st.financeConfig)) return;
     let active = true;
     databases
       .getDocument(DB_ID, ACADEMIES_COL, academyId)
@@ -306,7 +309,7 @@ export default function MensalidadesPanel({
     return () => {
       active = false;
     };
-  }, [academyId, financeConfigAcademyId]);
+  }, [academyId]);
 
   useEffect(() => {
     let c = false;

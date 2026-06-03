@@ -16,6 +16,8 @@ import PlanSelect from './shared/PlanSelect.jsx';
 import StudentStatusBadge from './student/StudentStatusBadge.jsx';
 import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
 import { DateInputField } from './DateInput';
+import { useLeadStore } from '../store/useLeadStore.js';
+import { prefetchFinanceConfig } from '../lib/prefetchFinanceConfig.js';
 
 export default function MatriculaModal({
   isOpen,
@@ -38,6 +40,10 @@ export default function MatriculaModal({
   registeredByName = 'Usuário',
 }) {
   const terms = useTerms();
+  const storeFinanceConfig = useLeadStore((s) =>
+    s.financeConfigAcademyId === academyId ? s.financeConfig : null
+  );
+  const resolvedFinanceConfig = storeFinanceConfig || financeConfig;
   const [step, setStep] = useState('choose');
   const [answers, setAnswers] = useState({});
   const [enrolledLeadId, setEnrolledLeadId] = useState('');
@@ -52,7 +58,12 @@ export default function MatriculaModal({
   const hasQuestions = Array.isArray(enrollmentQuestions) && enrollmentQuestions.length > 0;
   const isMobile = useMatchMobile();
   const keyboardOffset = useVisualViewportKeyboardOffset(isOpen && isMobile);
-  const showPaymentStep = paymentEnabled && Boolean(financeConfig);
+  const showPaymentStep = paymentEnabled && Boolean(resolvedFinanceConfig);
+
+  useEffect(() => {
+    if (!isOpen || !academyId || !paymentEnabled) return;
+    void prefetchFinanceConfig(academyId);
+  }, [isOpen, academyId, paymentEnabled]);
 
   const resolvedLeadId = String(enrolledLeadId || leadId || lead?.id || '').trim();
 
@@ -78,9 +89,9 @@ export default function MatriculaModal({
     setEnrollmentPlan(defaultPlan);
     setStep(initialStep === 'payment' && showPaymentStep ? 'payment' : 'choose');
     if (initialStep === 'payment' && showPaymentStep) {
-      setPayForm(buildPayFormForEnrollment(lead, financeConfig, defaultDate, defaultPlan));
+      setPayForm(buildPayFormForEnrollment(lead, resolvedFinanceConfig, defaultDate, defaultPlan));
     }
-  }, [isOpen, lead, financeConfig, initialStep, showPaymentStep]);
+  }, [isOpen, lead, resolvedFinanceConfig, initialStep, showPaymentStep]);
 
   useEffect(() => {
     if (step !== 'payment') return;
@@ -109,7 +120,7 @@ export default function MatriculaModal({
         Plano <span style={{ color: 'var(--danger)' }}>*</span>
       </label>
       <PlanSelect
-        financeConfig={financeConfig}
+        financeConfig={resolvedFinanceConfig}
         value={enrollmentPlan}
         onChange={setEnrollmentPlan}
         disabled={modalBusy}
@@ -172,7 +183,7 @@ export default function MatriculaModal({
       return 'Informe um valor maior que zero.';
     }
     if (payForm.status === 'paid') {
-      const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
+      const accountCheck = validateBankAccountForPayment(payForm.account, resolvedFinanceConfig);
       if (!accountCheck.ok) return accountCheck.message;
     }
     const refMonth = referenceMonthFromEnrollmentDate(enrollmentDate);
@@ -205,7 +216,7 @@ export default function MatriculaModal({
           reference_month: referenceMonthFromEnrollmentDate(enrollmentDate),
           bundle_start_month: referenceMonthFromEnrollmentDate(enrollmentDate),
         },
-        financeConfig,
+        financeConfig: resolvedFinanceConfig,
         registeredByName,
       });
       onPaymentRegistered?.(doc);
@@ -238,7 +249,7 @@ export default function MatriculaModal({
     }
     try {
       setEnrollMode(mode);
-      setPayForm(buildPayFormForEnrollment(lead, financeConfig, enrollmentDate, enrollmentPlan));
+      setPayForm(buildPayFormForEnrollment(lead, resolvedFinanceConfig, enrollmentDate, enrollmentPlan));
       setStep('payment');
     } catch (e) {
       setPaymentError(e?.message || 'Erro ao preparar pagamento.');
@@ -373,7 +384,7 @@ export default function MatriculaModal({
               <MatriculaPaymentStep
                 payForm={payForm}
                 setPayForm={setPayForm}
-                financeConfig={financeConfig}
+                financeConfig={resolvedFinanceConfig}
                 academyId={academyId}
                 enrollmentPlan={enrollmentPlan}
                 onPlanChange={setEnrollmentPlan}
