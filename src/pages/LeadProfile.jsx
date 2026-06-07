@@ -7,7 +7,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
-import { ArrowLeft, ArrowRight, ChevronRight, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
+import { ArrowLeft, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -63,6 +63,7 @@ import StageBadge from '../components/shared/StageBadge.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import TaskCard from '../components/shared/TaskCard.jsx';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 import '../styles/lead-profile.css';
 
 function hasLeadDisplayValue(val) {
@@ -163,12 +164,6 @@ const TYPE_ICONS = {
 
 function showLeadProfileScheduleEditSection(status) {
     return status !== LEAD_STATUS.CONVERTED && status !== LEAD_STATUS.LOST;
-}
-
-function truncateBreadcrumbName(name, maxLen = 28) {
-    const s = String(name || '').trim();
-    if (s.length <= maxLen) return s;
-    return `${s.slice(0, maxLen - 1)}…`;
 }
 
 const LeadProfile = () => {
@@ -436,7 +431,6 @@ const LeadProfile = () => {
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
-    const [timelineOpen, setTimelineOpen] = useState(true);
     const [activeProfileTab, setActiveProfileTab] = useState('dados');
 
     const mapLeadEventDocToUi = useCallback((d) => {
@@ -574,14 +568,6 @@ const LeadProfile = () => {
     } = useWhatsappTemplates(academyId);
     const showConversationTab =
         modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
-
-    useEffect(() => {
-        if (activeProfileTab === 'timeline' || activeProfileTab === 'conversation') {
-            setTimelineOpen(true);
-        } else if (activeProfileTab === 'dados') {
-            setTimelineOpen(false);
-        }
-    }, [activeProfileTab]);
 
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -1276,28 +1262,37 @@ const LeadProfile = () => {
         })
     );
 
-    const profilePanelOpen =
-        activeProfileTab === 'timeline' || activeProfileTab === 'conversation' || timelineOpen;
+    const profileTabs = useMemo(() => {
+        const tabs = [
+            { id: 'dados', label: 'Dados' },
+            { id: 'timeline', label: 'Timeline' },
+        ];
+        if (showConversationTab) {
+            tabs.push({ id: 'conversation', label: 'Conversa' });
+        }
+        return tabs;
+    }, [showConversationTab]);
 
-    const profileTabBtn = (id, label) => (
-        <button
-            key={id}
-            type="button"
-            className={`profile-tab${activeProfileTab === id ? ' is-active' : ''}`}
-            onClick={() => setActiveProfileTab(id)}
-        >
-            {label}
-        </button>
-    );
+    const showSchedulePresence =
+        lead?.status === LEAD_STATUS.SCHEDULED && Boolean(String(lead?.scheduledDate || '').trim());
+
+    const leadInitials =
+        String(lead?.name || '')
+            .trim()
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((w) => w[0].toUpperCase())
+            .join('') || '?';
 
     return (
-        <div className={`lead-profile-container ${profilePanelOpen ? 'timeline-open' : 'timeline-closed'}`}>
-            <div className="lead-profile-left-col">
+        <div className={`lead-profile-container lead-profile-container--${activeProfileTab}`}>
+            <div className="lead-profile-chrome">
                 <div className="left-col-header lead-profile-left-col-header">
                     <button type="button" className="icon-btn" onClick={handleProfileBack} aria-label="Voltar">
                         <ArrowLeft size={20} />
                     </button>
-                    {profileBreadcrumb && lead ? (
+                    {profileBreadcrumb ? (
                         <nav className="lead-profile-breadcrumb" aria-label="Navegação">
                             <Link
                                 to={profileBreadcrumb.parentTo}
@@ -1306,76 +1301,135 @@ const LeadProfile = () => {
                             >
                                 {profileBreadcrumb.parentLabel}
                             </Link>
-                            <span className="lead-profile-breadcrumb__sep" aria-hidden>
-                                ›
-                            </span>
-                            <span className="lead-profile-breadcrumb__current" title={String(lead.name || '')}>
-                                {truncateBreadcrumbName(lead.name)}
-                            </span>
                         </nav>
-                    ) : lead ? (
-                        <span className="lead-profile-breadcrumb lead-profile-breadcrumb--solo" title={String(lead.name || '')}>
-                            {truncateBreadcrumbName(lead.name)}
-                        </span>
-                    ) : null}
+                    ) : (
+                        <span className="lead-profile-breadcrumb__fallback">{contactLabel}</span>
+                    )}
                     <div className="flex gap-2 lead-profile-header-actions">
-                        {!editing ? (
+                        {activeProfileTab === 'dados' && !editing ? (
                             <button type="button" className="btn-edit-header" onClick={startEdit}>
                                 <Pencil size={14} /> Editar
                             </button>
-                        ) : (
+                        ) : null}
+                        {activeProfileTab === 'dados' && editing ? (
                             <>
                                 <button type="button" className="btn-edit-header cancel" onClick={cancelEdit}><X size={14} /></button>
                                 <button type="button" className="btn-edit-header save" onClick={() => void handleSave()} disabled={saving}>
                                     {saving ? '...' : <Save size={14} />}
                                 </button>
                             </>
-                        )}
+                        ) : null}
                     </div>
                 </div>
 
-                <div className="lead-profile-tab-bar">
-                    {profileTabBtn('dados', 'Dados')}
-                    {profileTabBtn('timeline', 'Timeline')}
-                    {showConversationTab ? profileTabBtn('conversation', 'Conversa') : null}
-                </div>
+                <HubTabBar
+                    tabs={profileTabs}
+                    activeId={activeProfileTab}
+                    onChange={setActiveProfileTab}
+                    ariaLabel="Perfil do contato"
+                    className="lead-profile-hub-tabs"
+                    variant="secondary"
+                    fullWidth
+                />
+            </div>
 
+            <div className="lead-profile-main">
                 {activeProfileTab === 'dados' ? (
-                <div className="left-col-content">
-                    {/* Lead Header */}
-                    <div className="profile-main-header">
+                <div className="lead-profile-dados left-col-content">
+                    <div className="lead-profile-hero profile-main-header">
                         {!editing ? (
                             <>
-                            <div className="profile-avatar" aria-hidden>
-                                {String(lead.name || '')
-                                    .trim()
-                                    .split(' ')
-                                    .filter(Boolean)
-                                    .slice(0, 2)
-                                    .map((w) => w[0].toUpperCase())
-                                    .join('') || '?'}
+                            <div className="profile-avatar lead-profile-hero__avatar" aria-hidden>
+                                {leadInitials}
                             </div>
-                            <div className="profile-id-info">
-                                <h1 className="profile-name">{lead.name}</h1>
-                                {pipelineStageBadge ? (
-                                    <StageBadge
-                                        stage={pipelineStageBadge.stageId}
-                                        label={pipelineStageBadge.label}
-                                        size="md"
-                                        colorIndex={Math.max(
-                                            0,
-                                            stages.findIndex(
-                                                (s) => String(s?.id || '').trim() === pipelineStageBadge.stageId
-                                            )
-                                        )}
-                                    />
-                                ) : null}
-                                {lead.phone && (
-                                    <div className="profile-phone">
-                                        <Phone size={12} />
+                            <div className="profile-id-info lead-profile-hero__info">
+                                <h1 className="profile-name lead-profile-hero__name">{lead.name}</h1>
+                                {lead.phone ? (
+                                    <div className="profile-phone lead-profile-hero__phone">
+                                        <Phone size={14} aria-hidden />
                                         <span>{lead.phone}</span>
                                     </div>
-                                )}
+                                ) : null}
+                                <div className="lead-profile-hero__badges lead-status-row flex items-center gap-2 flex-wrap">
+                                    <span className="lead-contact-label">
+                                        {contactType === 'student' ? terms.student : contactLabel}
+                                    </span>
+                                    {pipelineStageBadge ? (
+                                        <StageBadge
+                                            stage={pipelineStageBadge.stageId}
+                                            label={pipelineStageBadge.label}
+                                            size="md"
+                                            colorIndex={Math.max(
+                                                0,
+                                                stages.findIndex(
+                                                    (s) => String(s?.id || '').trim() === pipelineStageBadge.stageId
+                                                )
+                                            )}
+                                        />
+                                    ) : null}
+                                    <span
+                                        className="status-tag lead-profile-status-tag"
+                                        style={statusBadgeStyle}
+                                    >
+                                        {operationalStatusDisplayLabel(terms, lead.status)}
+                                    </span>
+                                    {lead.origin ? (
+                                        <span className="status-tag origin-status-tag">{lead.origin}</span>
+                                    ) : null}
+                                </div>
+                                <div className="comm-actions-wrap lead-profile-comm-actions lead-profile-hero__actions">
+                                    <button
+                                        type="button"
+                                        className="comm-btn-primary btn-wa"
+                                        disabled={!normalizeLeadPhoneForInbox(lead.phone) || sendingWhatsapp}
+                                        onClick={() => handleWhatsAppPrimary()}
+                                    >
+                                        <MessageCircle size={16} aria-hidden />
+                                        {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
+                                    </button>
+                                    {normalizeLeadPhoneForInbox(lead.phone) ? (
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline lead-profile-inbox-btn"
+                                            onClick={() =>
+                                                navigate(`/inbox?phone=${encodeURIComponent(normalizeLeadPhoneForInbox(lead.phone))}`)
+                                            }
+                                        >
+                                            <MessageCircle size={16} aria-hidden />
+                                            Conversa
+                                        </button>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        className="comm-btn-dropdown"
+                                        disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
+                                        aria-label="Abrir opções de mensagem no WhatsApp"
+                                        title="Mais opções de WhatsApp"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setTemplateMenuOpen((o) => !o);
+                                        }}
+                                    >
+                                        <MoreVertical size={18} aria-hidden />
+                                    </button>
+                                    {templateMenuOpen ? (
+                                        <div className="navi-menu__panel comm-dropdown-menu">
+                                            {Object.entries(waCtx.templates)
+                                                .filter(([, text]) => typeof text === 'string' && String(text).trim())
+                                                .map(([key]) => (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        className="navi-menu__item comm-dropdown-item"
+                                                        onClick={() => void sendTemplateKey(key)}
+                                                    >
+                                                        {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
                             </>
                         ) : (
@@ -1548,93 +1602,21 @@ const LeadProfile = () => {
                         )}
                     </div>
 
-                    {/* Status e Tags */}
-                    <div className="profile-section">
-                        <div className="lead-status-row flex items-center gap-2 flex-wrap mb-3">
-                            <span
-                                className="lead-contact-label"
-                            >
-                                {contactType === 'student' ? terms.student : contactLabel}
-                            </span>
-                            <span
-                                className="status-tag lead-profile-status-tag"
-                                style={statusBadgeStyle}
-                            >
-                                {operationalStatusDisplayLabel(terms, lead.status)}
-                            </span>
-                            {!editing && lead.origin && (
-                                <span className="status-tag origin-status-tag">{lead.origin}</span>
-                            )}
-                        </div>
-
-                    </div>
-
-                    {/* Comunicação */}
-                    <div className="profile-section">
-                        <ReportSectionHeading title="Comunicação" className="lead-profile-section-heading" />
-                        <div className="comm-actions-wrap lead-profile-comm-actions">
-                            {normalizeLeadPhoneForInbox(lead.phone) ? (
-                                <button
-                                    type="button"
-                                    className="btn btn-outline lead-profile-inbox-btn"
-                                    onClick={() =>
-                                        navigate(`/inbox?phone=${encodeURIComponent(normalizeLeadPhoneForInbox(lead.phone))}`)
-                                    }
-                                >
-                                    <MessageCircle size={16} aria-hidden />
-                                    Abrir conversa
-                                </button>
-                            ) : null}
-                            <button
-                                type="button"
-                                className="comm-btn-primary btn-wa"
-                                disabled={!normalizeLeadPhoneForInbox(lead.phone) || sendingWhatsapp}
-                                onClick={() => handleWhatsAppPrimary()}
-                            >
-                                <MessageCircle size={16} /> {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
-                            </button>
-                            <button
-                                type="button"
-                                className="comm-btn-dropdown"
-                                disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                                aria-label="Abrir opções de mensagem no WhatsApp"
-                                title="Mais opções de WhatsApp"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setTemplateMenuOpen((o) => !o);
-                                }}
-                            >
-                                <MoreVertical size={18} aria-hidden />
-                            </button>
-
-                            {templateMenuOpen && (
-                                <div className="navi-menu__panel comm-dropdown-menu">
-                                    {Object.entries(waCtx.templates)
-                                        .filter(([, text]) => typeof text === 'string' && String(text).trim())
-                                        .map(([key]) => (
-                                            <button
-                                                key={key}
-                                                type="button"
-                                                className="navi-menu__item comm-dropdown-item"
-                                                onClick={() => void sendTemplateKey(key)}
-                                            >
-                                                {WHATSAPP_TEMPLATE_LABELS[key] || key}
-                                            </button>
-                                        ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Agendamento */}
-                    <div className="profile-section">
-                        <ReportSectionHeading title="Agendamento" className="lead-profile-section-heading" />
+                    {/* Próxima ação */}
+                    <div className="profile-section lead-profile-next-action">
+                        <ReportSectionHeading title="Próxima ação" className="lead-profile-section-heading" />
                         {lead.scheduledDate ? (
-                            <div className="schedule-card">
-                                <div className="schedule-info">
-                                    <Calendar size={14} />
-                                    <span>{new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} às {lead.scheduledTime || '--:--'}</span>
+                            <div className="schedule-card lead-profile-next-action__schedule">
+                                <div className="schedule-info lead-profile-next-action__datetime">
+                                    <Calendar size={16} aria-hidden />
+                                    <span>
+                                        {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR', {
+                                            weekday: 'short',
+                                            day: 'numeric',
+                                            month: 'short',
+                                        })}{' '}
+                                        · {lead.scheduledTime || '--:--'}
+                                    </span>
                                 </div>
                                 {leadAutomationBadges.length > 0 ? (
                                     <div className="flex gap-2 mt-2 flex-wrap">
@@ -1649,24 +1631,26 @@ const LeadProfile = () => {
                                         ))}
                                     </div>
                                 ) : null}
-                                <div className="flex gap-2 mt-3">
-                                    <button
-                                        type="button"
-                                        className="btn-state-attended btn-success-action"
-                                        onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}
-                                        disabled={updatingStatus}
-                                    >
-                                        Compareceu
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-state-missed"
-                                        onClick={() => void handleUpdateStatus(LEAD_STATUS.MISSED)}
-                                        disabled={updatingStatus}
-                                    >
-                                        Não compareceu
-                                    </button>
-                                </div>
+                                {showSchedulePresence ? (
+                                    <div className="flex gap-2 mt-3">
+                                        <button
+                                            type="button"
+                                            className="btn-state-attended btn-success-action"
+                                            onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}
+                                            disabled={updatingStatus}
+                                        >
+                                            Compareceu
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-state-missed"
+                                            onClick={() => void handleUpdateStatus(LEAD_STATUS.MISSED)}
+                                            disabled={updatingStatus}
+                                        >
+                                            Não compareceu
+                                        </button>
+                                    </div>
+                                ) : null}
                                 <button
                                     type="button"
                                     className="schedule-secondary-link"
@@ -1678,34 +1662,20 @@ const LeadProfile = () => {
                             </div>
                         ) : (
                             <div className="flex-col gap-2">
-                                <p className="text-muted text-xs">Sem {terms.trial.toLowerCase()} agendada.</p>
+                                <p className="lead-profile-next-action__empty">
+                                    Sem {terms.trial.toLowerCase()} agendada.
+                                </p>
                                 <button
                                     type="button"
-                                    className="btn-next-step"
+                                    className="btn-next-step highlight"
                                     onClick={() => setScheduleModalOpen(true)}
                                     disabled={updatingStatus}
                                 >
-                                    <Calendar size={14} /> Agendar primeira aula
+                                    <Calendar size={14} aria-hidden /> Agendar {terms.trialShort.toLowerCase()}
                                 </button>
                             </div>
                         )}
-                    </div>
-
-                    {/* Próximos Passos */}
-                    <div className="profile-section">
-                        <ReportSectionHeading title="Próximos Passos" className="lead-profile-section-heading" />
-                        <div className="flex-col gap-2">
-                            {lead.scheduledDate && (
-                                <button
-                                    type="button"
-                                    className="btn-next-step"
-                                    onClick={() => setScheduleModalOpen(true)}
-                                    disabled={updatingStatus}
-                                >
-                                    <Calendar size={14} /> Agendar nova data
-                                </button>
-                            )}
-                            
+                        <div className="flex-col gap-2 lead-profile-next-action__cta">
                             {canShowLeadCloseSale(lead) ? (
                                 <button
                                     type="button"
@@ -1713,30 +1683,30 @@ const LeadProfile = () => {
                                     onClick={() => openMatriculaModal({ paymentShortcut: true })}
                                     disabled={updatingStatus}
                                 >
-                                    <BadgeCheck size={14} /> Fechar venda
+                                    <BadgeCheck size={14} aria-hidden /> Fechar venda
                                 </button>
                             ) : null}
-                            {lead.status !== LEAD_STATUS.CONVERTED && (
+                            {lead.status !== LEAD_STATUS.CONVERTED ? (
                                 <button
                                     type="button"
-                                    className="btn-next-step btn-primary-action highlight"
+                                    className="btn-next-step highlight"
                                     onClick={handleMatricularClick}
                                     disabled={updatingStatus}
                                 >
-                                    <UserCheck size={14} /> {terms.enrollment}
+                                    <UserCheck size={14} aria-hidden /> {terms.enrollment}
                                 </button>
-                            )}
-                            {lead.status !== LEAD_STATUS.LOST && (
+                            ) : null}
+                            {lead.status !== LEAD_STATUS.LOST ? (
                                 <div className="next-step-danger-wrap">
                                     <button
                                         type="button"
                                         className="btn-next-step danger"
                                         onClick={handleMarkLost}
                                     >
-                                        <AlertTriangle size={14} /> Marcar como perdido
+                                        <AlertTriangle size={14} aria-hidden /> Marcar como perdido
                                     </button>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
                     </div>
 
@@ -1903,33 +1873,18 @@ const LeadProfile = () => {
                 </div>
                 ) : null}
 
-                {activeProfileTab === 'dados' ? (
-                <div className="left-col-footer">
-                    <button
-                        type="button"
-                        className="btn-toggle-timeline"
-                        onClick={() => {
-                            setActiveProfileTab('timeline');
-                            setTimelineOpen(true);
-                        }}
-                    >
-                        <span className="lead-profile-next-step-icon"><ArrowRight size={16} /></span>
-                        Abrir histórico →
-                    </button>
-                </div>
-                ) : null}
-            </div>
-
-            <div className={`lead-profile-right-panel ${profilePanelOpen ? 'open' : 'closed'}`}>
                 {activeProfileTab === 'conversation' && showConversationTab ? (
-                    <ProfileConversationTab
-                        phone={lead.phone}
-                        academyId={academyId}
-                        leadName={lead.name}
-                    />
+                    <div className="lead-profile-panel lead-profile-panel--conversation">
+                        <ProfileConversationTab
+                            phone={lead.phone}
+                            academyId={academyId}
+                            leadName={lead.name}
+                        />
+                    </div>
                 ) : null}
+
                 {activeProfileTab === 'timeline' ? (
-                <>
+                <div className="lead-profile-panel lead-profile-panel--timeline">
                 <div className="timeline-header">
                     <h2 className="timeline-title">Linha do tempo</h2>
                     <div className="filter-strip">
@@ -2054,7 +2009,7 @@ const LeadProfile = () => {
                         </div>
                     )}
                 </div>
-                </>
+                </div>
                 ) : null}
             </div>
 
