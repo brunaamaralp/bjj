@@ -5,11 +5,16 @@
   --color-primary-surface: #EDE9FB;
   --color-primary-dark: #4A2FA3;
 
-  /* Accent (verde sóbrio) */
-  --color-accent: #1FAA5E;
-  --color-accent-light: #9FE1CB;
-  --color-accent-surface: #E1F5EE;
-  --color-accent-dark: #085041;
+  /* Accent — teal vibrante, alinhado ao "n" do logo */
+  --color-accent: #2B9BAF;
+  --color-accent-light: #7DD4E0;
+  --color-accent-surface: #D6F2F6;
+  --color-accent-dark: #0D5F6E;
+
+  /* Highlight — fluor pontual (metas, badges de energia, notificações) */
+  --color-highlight: #B2F100;
+  --color-highlight-surface: #F0FFB8;
+
   --color-success: var(--color-accent);
   --color-success-surface: var(--color-accent-surface);
   --color-danger: #E24B4A;
@@ -21,15 +26,15 @@
   --color-surface-canvas: var(--color-content-bg);
 
   /* Sidebar / Topbar */
-  --color-sidebar-bg: #13111F;
-  --color-topbar-bg: #13111F;
-  --color-sidebar-text: #7A7595;
-  --color-sidebar-active-bg: rgba(108, 71, 216, 0.18);
+  --color-sidebar-bg: #0B3335;
+  --color-topbar-bg: #0B3335;
+  --color-sidebar-text: #7AACAA;
+  --color-sidebar-active-bg: rgba(108, 71, 216, 0.22);
   --color-sidebar-active-text: #C4B4F5;
   --color-sidebar-active-icon: #AFA9EC;
-  --color-sidebar-section: #6E6A88;
-  --color-sidebar-border: rgba(255, 255, 255, 0.06);
-  --color-sidebar-avatar-bg: #2A2640;
+  --color-sidebar-section: #5A8A8C;
+  --color-sidebar-border: rgba(255, 255, 255, 0.07);
+  --color-sidebar-avatar-bg: #0F3D3F;
   --color-sidebar-avatar-text: #AFA9EC;
 
   /* Conteúdo */
