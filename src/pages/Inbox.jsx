@@ -35,7 +35,6 @@ import { uploadInboxMedia, InboxMediaUploadError } from '../lib/uploadInboxMedia
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
-import SearchField from '../components/shared/SearchField.jsx';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
 import useDebounce from '../hooks/useDebounce.js';
 import { useInboxContextMenu } from '../hooks/useInboxContextMenu.js';
@@ -79,15 +78,6 @@ function readInitialInboxListFilter() {
     void 0;
   }
   return DEFAULT_INBOX_LIST_FILTER;
-}
-
-function readComposerExpandedFromStorage() {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(COMPOSER_EXPANDED_STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
 }
 
 function isInboxDebugEnabled() {
@@ -247,7 +237,7 @@ export default function Inbox() {
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
-  const [composerExpanded, setComposerExpanded] = useState(() => readComposerExpandedFromStorage());
+  const [composerExpanded, setComposerExpanded] = useState(false);
 
   const [searchParams] = useSearchParams();
   const [listFilter, setListFilter] = useState(() => readInitialInboxListFilter());
@@ -1615,6 +1605,8 @@ export default function Inbox() {
 
   const listPanel = (
     <InboxListPanel
+      search={search}
+      onSearchChange={setSearch}
       searchQuery={searchQuery}
       hasMore={hasMore}
       listFilter={listFilter}
@@ -1885,6 +1877,53 @@ export default function Inbox() {
     .filter(Boolean)
     .join(' ');
 
+  const inboxPageActionsMenu = (
+    <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
+      <button
+        type="button"
+        className="btn-action-ghost inbox-page-actions-menu__trigger"
+        aria-haspopup="menu"
+        aria-expanded={pageActionsOpen}
+        aria-label="Mais ações do inbox"
+        onClick={() => setPageActionsOpen((v) => !v)}
+      >
+        <MoreHorizontal size={18} aria-hidden />
+      </button>
+      {pageActionsOpen ? (
+        <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
+          <DropdownMenuItem
+            icon={<RefreshCw size={16} aria-hidden />}
+            disabled={waSyncing}
+            onClick={() => {
+              setPageActionsOpen(false);
+              void reconcileLast24h();
+            }}
+          >
+            {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
+          </DropdownMenuItem>
+          <DropdownMenuDivider />
+          <DropdownMenuItem
+            icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+            active={desktopNotify}
+            onClick={() => {
+              setPageActionsOpen(false);
+              void toggleDesktopNotifyPreference();
+            }}
+          >
+            {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
+          </DropdownMenuItem>
+          <DropdownMenuDivider />
+          <DropdownMenuLabel>Atalhos de teclado</DropdownMenuLabel>
+          <DropdownMenuItemStatic>J / K — conversa anterior ou próxima</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>R — focar resposta</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>E — resolver conversa</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>Ctrl+R — recarregar mensagens</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>Ctrl+K — resolver / reabrir ticket</DropdownMenuItemStatic>
+        </DropdownMenuPanel>
+      ) : null}
+    </DropdownMenu>
+  );
+
   const showInboxPageHeader = !(isMobile && selectedPhone);
 
   return (
@@ -1901,9 +1940,8 @@ export default function Inbox() {
 
       {showInboxPageHeader ? (
         <PageHeader
-          className="inbox-page-header"
+          className="inbox-page-header inbox-page-header--slim"
           title="Conversas"
-          subtitle="Responda e acompanhe threads do WhatsApp."
           meta={
             loading || searchPending ? (
               searchPending ? 'Buscando…' : 'Carregando…'
@@ -1922,63 +1960,7 @@ export default function Inbox() {
               </>
             )
           }
-          toolbar={
-            <div className="page-header-row navi-toolbar inbox-page-header__toolbar">
-              <SearchField
-                className="inbox-toolbar-search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por telefone ou nome…"
-                aria-label="Buscar conversas"
-                aria-busy={searchPending || undefined}
-                title="Atalhos: J/K conversas, R responder, E resolver"
-              />
-              <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
-                <button
-                  type="button"
-                  className="btn-action-ghost inbox-page-actions-menu__trigger"
-                  aria-haspopup="menu"
-                  aria-expanded={pageActionsOpen}
-                  aria-label="Mais ações do inbox"
-                  onClick={() => setPageActionsOpen((v) => !v)}
-                >
-                  <MoreHorizontal size={18} aria-hidden />
-                </button>
-                {pageActionsOpen ? (
-                  <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
-                    <DropdownMenuItem
-                      icon={<RefreshCw size={16} aria-hidden />}
-                      disabled={waSyncing}
-                      onClick={() => {
-                        setPageActionsOpen(false);
-                        void reconcileLast24h();
-                      }}
-                    >
-                      {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
-                    </DropdownMenuItem>
-                    <DropdownMenuDivider />
-                    <DropdownMenuItem
-                      icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-                      active={desktopNotify}
-                      onClick={() => {
-                        setPageActionsOpen(false);
-                        void toggleDesktopNotifyPreference();
-                      }}
-                    >
-                      {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
-                    </DropdownMenuItem>
-                    <DropdownMenuDivider />
-                    <DropdownMenuLabel>Atalhos de teclado</DropdownMenuLabel>
-                    <DropdownMenuItemStatic>J / K — conversa anterior ou próxima</DropdownMenuItemStatic>
-                    <DropdownMenuItemStatic>R — focar resposta</DropdownMenuItemStatic>
-                    <DropdownMenuItemStatic>E — resolver conversa</DropdownMenuItemStatic>
-                    <DropdownMenuItemStatic>Ctrl+R — recarregar mensagens</DropdownMenuItemStatic>
-                    <DropdownMenuItemStatic>Ctrl+K — resolver / reabrir ticket</DropdownMenuItemStatic>
-                  </DropdownMenuPanel>
-                ) : null}
-              </DropdownMenu>
-            </div>
-          }
+          actions={inboxPageActionsMenu}
         />
       ) : null}
 

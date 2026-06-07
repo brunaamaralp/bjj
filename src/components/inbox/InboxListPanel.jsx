@@ -1,7 +1,11 @@
 import React, { useRef } from 'react';
 import { Filter } from 'lucide-react';
 import ConversationList from './ConversationList';
+import SearchField from '../shared/SearchField.jsx';
+
 export default function InboxListPanel({
+  search = '',
+  onSearchChange,
   searchQuery,
   hasMore,
   listFilter,
@@ -36,14 +40,20 @@ export default function InboxListPanel({
 
   return (
     <div className="inbox-list-panel">
+      <div className="inbox-list-panel__search">
+        <SearchField
+          className="inbox-toolbar-search inbox-list-panel__search-field"
+          value={search}
+          onChange={(e) => onSearchChange?.(e.target.value)}
+          placeholder="Buscar por telefone ou nome…"
+          aria-label="Buscar conversas"
+          aria-busy={searchPending || undefined}
+          title="Atalhos: J/K conversas, R responder, E resolver"
+        />
+      </div>
       {searchPending ? (
         <div className="inbox-list-panel__scroll-hint" role="status">
           <span className="text-small inbox-list-panel__scroll-hint-text">Buscando…</span>
-        </div>
-      ) : null}
-      {!searchPending && !searchQuery && hasMore ? (
-        <div className="inbox-list-panel__scroll-hint" aria-hidden>
-          <span className="text-small inbox-list-panel__scroll-hint-text">Role para carregar mais</span>
         </div>
       ) : null}
       <div className="inbox-list-filters-segments" role="tablist" aria-label="Filtro principal da lista">
@@ -81,6 +91,7 @@ export default function InboxListPanel({
           aria-selected={listFilter === 'unread'}
           className={`inbox-list-filters-segments__btn${listFilter === 'unread' ? ' is-active' : ''}`}
           onClick={() => setListFilter('unread')}
+          title="Conversas com mensagens não lidas"
         >
           <span>Não lidas</span>
           {unreadBacklog > 0 ? (
@@ -202,6 +213,11 @@ export default function InboxListPanel({
           handoffNowMs={nowMs}
           agentIaActive={agentIaActive}
         />
+        {!searchPending && !searchQuery && hasMore ? (
+          <div className="inbox-list-panel__scroll-hint inbox-list-panel__scroll-hint--footer" aria-hidden>
+            <span className="text-small inbox-list-panel__scroll-hint-text">Role para carregar mais</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

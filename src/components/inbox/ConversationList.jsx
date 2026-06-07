@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import ConversationItem from './ConversationItem';
 import EmptyState from '../shared/EmptyState.jsx';
 import { buildInboxListRows, estimateInboxListRowHeight } from '../../lib/inboxListRows.js';
@@ -9,7 +9,6 @@ import {
   INBOX_LIST_SECTION_INITIAL,
   INBOX_LIST_SECTION_MORE_STEP,
   INBOX_LIST_VIRTUALIZE_THRESHOLD,
-  INBOX_LIST_LEGEND_DISMISSED_KEY,
 } from '../../lib/inboxUiConstants.js';
 
 function normalizeGroupItems(raw) {
@@ -40,15 +39,6 @@ function safeGrouped(groupedItems) {
 
 function conversationPhone(it) {
   return String(it?._phone || it?.phone_number || '').trim();
-}
-
-function readLegendDismissed() {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(INBOX_LIST_LEGEND_DISMISSED_KEY) === '1';
-  } catch {
-    return false;
-  }
 }
 
 function ListGroupHeader({ row, onToggle }) {
@@ -115,7 +105,6 @@ export default function ConversationList(props) {
     () => new Set(INBOX_LIST_DEFAULT_COLLAPSED_GROUPS)
   );
   const [visibleByGroup, setVisibleByGroup] = useState({});
-  const [legendDismissed, setLegendDismissed] = useState(() => readLegendDismissed());
 
   const rows = useMemo(
     () => buildInboxListRows(groups, collapsedGroups, visibleByGroup),
@@ -167,17 +156,7 @@ export default function ConversationList(props) {
     });
   }, []);
 
-  const dismissLegend = useCallback(() => {
-    setLegendDismissed(true);
-    try {
-      window.localStorage.setItem(INBOX_LIST_LEGEND_DISMISSED_KEY, '1');
-    } catch {
-      void 0;
-    }
-  }, []);
-
   const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
-  const showLegend = !legendDismissed && flatCount > 0 && !loading;
 
   const renderRow = (row) => {
     if (row.type === 'header') {
@@ -233,23 +212,6 @@ export default function ConversationList(props) {
 
   return (
     <div className="inbox-conversation-list-root" data-testid="inbox-conversation-list">
-      {showLegend ? (
-        <div className="inbox-list-legend" role="note">
-          <span className="inbox-list-legend__chip inbox-status-chip-handoff">Com você</span>
-          <span className="inbox-list-legend__text">handoff ativo</span>
-          <span className="inbox-list-legend__sep" aria-hidden>
-            ·
-          </span>
-          <span className="inbox-list-legend__text">Aguardando</span>
-          <span className="inbox-list-legend__sep" aria-hidden>
-            ·
-          </span>
-          <span className="inbox-list-legend__chip inbox-status-chip-ia">IA respondendo</span>
-          <button type="button" className="inbox-list-legend__dismiss" onClick={dismissLegend} aria-label="Fechar dica">
-            <X size={14} aria-hidden />
-          </button>
-        </div>
-      ) : null}
       {showSkeleton && (
         <div style={{ padding: 12 }}>
           {[0, 1, 2, 3, 4].map((idx) => (
