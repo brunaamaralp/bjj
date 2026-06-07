@@ -455,7 +455,7 @@ const Welcome = () => {
         --lp-dark: var(--navi-brand-img-bg-dark);
         --lp-light: var(--azul-gelo);
         --lp-violet: var(--petroleo);
-        --lp-violet-dark: var(--cosmos);
+        --lp-violet-dark: #13111F;
         --lp-pill-bg: color-mix(in srgb, var(--petroleo) 8%, var(--azul-gelo));
         --lp-neon: #25D366;
         min-height: 100vh;
@@ -535,7 +535,7 @@ const Welcome = () => {
         text-decoration: none; color: white; background: var(--lp-dark);
         transition: background 0.15s ease, transform 0.15s ease;
       }
-      .navi-lp-btn-nav-primary:hover { background: #1f1840; transform: translateY(-1px); }
+      .navi-lp-btn-nav-primary:hover { background: #1A1A2E; transform: translateY(-1px); }
       @media (max-width: 520px) {
         .navi-lp-btn-nav-ghost { display: none !important; }
         .navi-lp-btn-nav-primary { font-size: 13px; padding: 8px 14px; }
@@ -625,14 +625,14 @@ const Welcome = () => {
         border-radius: 100px; font-size: 15px; font-weight: 700;
         text-decoration: none; color: #fff;
         background: var(--color-accent);
-        box-shadow: 0 6px 22px rgba(31, 170, 94, 0.35);
+        box-shadow: 0 6px 22px rgba(34, 201, 138, 0.35);
         transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.2s ease;
         animation: navi-lp-fade-up 0.45s 0.1s ease both;
       }
       .navi-lp-btn-hero:hover {
         background: color-mix(in srgb, var(--color-accent) 90%, var(--color-accent-dark));
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(31, 170, 94, 0.4);
+        box-shadow: 0 8px 24px rgba(34, 201, 138, 0.4);
       }
       .navi-lp-btn-hero:active { transform: scale(0.98); }
       .navi-lp-hero-hint {
@@ -995,7 +995,7 @@ const Welcome = () => {
         gap: 10px; min-height: 52px; padding: 13px 30px;
         border-radius: 100px; font-size: 15px; font-weight: 700;
         text-decoration: none; color: #fff; background: var(--color-accent);
-        box-shadow: 0 6px 22px rgba(31, 170, 94, 0.35);
+        box-shadow: 0 6px 22px rgba(34, 201, 138, 0.35);
         transition: background 0.15s ease, transform 0.15s ease;
       }
       .navi-lp-btn-mid:hover { background: color-mix(in srgb, var(--color-accent) 90%, var(--color-accent-dark)); transform: translateY(-2px); }
@@ -1036,7 +1036,7 @@ const Welcome = () => {
 
       /* ── Final CTA ── */
       .navi-lp-final-cta {
-        background: var(--cosmos);
+        background: #13111F;
         padding: clamp(64px,9vw,104px) var(--nl-pad);
         position: relative; overflow: hidden; text-align: center;
       }
@@ -1057,7 +1057,7 @@ const Welcome = () => {
         padding: 15px 36px; border-radius: 100px;
         font-size: 16px; font-weight: 700; text-decoration: none;
         color: #fff; background: var(--color-accent);
-        box-shadow: 0 8px 28px rgba(31, 170, 94, 0.35);
+        box-shadow: 0 8px 28px rgba(34, 201, 138, 0.35);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
       .navi-lp-btn-final:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(31, 170, 94, 0.42); }
