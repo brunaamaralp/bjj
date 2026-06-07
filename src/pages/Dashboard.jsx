@@ -9,7 +9,7 @@ import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronRight, ChevronDown, MessageCircle, RefreshCcw, List, LayoutGrid, CheckSquare, Check, CheckCircle2, DoorOpen, Loader2, Cake } from 'lucide-react';
+import { Plus, Calendar, ChevronDown, MessageCircle, RefreshCcw, List, Check, CheckCircle2, DoorOpen, Loader2, Cake } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
@@ -17,7 +17,6 @@ import { useControlIdMonitor } from '../hooks/useControlIdMonitor.js';
 import { releaseControlIdGate } from '../lib/controlidApi.js';
 import { Link } from 'react-router-dom';
 import NaviLogo from '../components/NaviLogo.jsx';
-import Hint from '../components/shared/Hint.jsx';
 import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
@@ -34,7 +33,7 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
-import ReportKpiCard from '../components/reports/shared/ReportKpiCard.jsx';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import StageBadge from '../components/shared/StageBadge.jsx';
@@ -46,6 +45,83 @@ import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
+
+function formatTodayHeroDate(date = new Date()) {
+    const label = date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+    });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function groupFollowUpsByUrgency(followUps) {
+    const urgent = followUps.filter((l) => l.daysAgo >= 5);
+    const todayGroup = followUps.filter((l) => l.daysAgo === 0);
+    const week = followUps.filter((l) => l.daysAgo >= 1 && l.daysAgo <= 4);
+    const groups = [];
+    if (urgent.length > 0) {
+        groups.push({
+            key: 'urgent',
+            label: 'Urgente',
+            hint: '5–6 dias desde a aula',
+            items: urgent,
+            className: 'fu-group--urgent',
+        });
+    }
+    if (todayGroup.length > 0) {
+        groups.push({
+            key: 'today',
+            label: 'Hoje',
+            hint: 'Pós-aula de hoje',
+            items: todayGroup,
+            className: 'fu-group--today',
+        });
+    }
+    if (week.length > 0) {
+        groups.push({
+            key: 'week',
+            label: 'Esta semana',
+            hint: '1–4 dias desde a aula',
+            items: week,
+            className: 'fu-group--week',
+        });
+    }
+    return groups;
+}
+
+function groupTodayByPeriod(leads) {
+    const morning = [];
+    const afternoon = [];
+    const evening = [];
+    const noTime = [];
+    for (const lead of leads) {
+        const raw = String(lead?.scheduledTime || '').trim();
+        if (!raw || !/^\d{2}:\d{2}$/.test(raw)) {
+            noTime.push(lead);
+            continue;
+        }
+        const hour = Number(raw.split(':')[0]);
+        if (!Number.isFinite(hour)) {
+            noTime.push(lead);
+            continue;
+        }
+        if (hour < 12) morning.push(lead);
+        else if (hour < 18) afternoon.push(lead);
+        else evening.push(lead);
+    }
+    const sortByTime = (a, b) =>
+        String(a?.scheduledTime || '99:99').localeCompare(String(b?.scheduledTime || '99:99'));
+    morning.sort(sortByTime);
+    afternoon.sort(sortByTime);
+    evening.sort(sortByTime);
+    const groups = [];
+    if (morning.length > 0) groups.push({ key: 'morning', label: 'Manhã', items: morning });
+    if (afternoon.length > 0) groups.push({ key: 'afternoon', label: 'Tarde', items: afternoon });
+    if (evening.length > 0) groups.push({ key: 'evening', label: 'Noite', items: evening });
+    if (noTime.length > 0) groups.push({ key: 'notime', label: 'Sem horário', items: noTime });
+    return groups;
+}
 const Dashboard = () => {
     const navigate = useNavigate();
     const leads = useLeadStore((s) => s.leads);
@@ -104,8 +180,11 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(true);
+    const [mobileAgendaTab, setMobileAgendaTab] = useState('today');
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
+    const todaySectionRef = useRef(null);
+    const weekSectionRef = useRef(null);
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -115,6 +194,12 @@ const Dashboard = () => {
         mq.addEventListener('change', onChange);
         return () => mq.removeEventListener('change', onChange);
     }, []);
+
+    useEffect(() => {
+        if (isDashboardMobile && dashboardWeekOffset !== 0 && mobileAgendaTab === 'today') {
+            setMobileAgendaTab('week');
+        }
+    }, [isDashboardMobile, dashboardWeekOffset, mobileAgendaTab]);
 
     const closeListModal = () => setListModalType('');
 
@@ -375,6 +460,20 @@ const Dashboard = () => {
         });
     };
 
+    const scrollToTodaySection = () => {
+        if (isDashboardMobile) setMobileAgendaTab('today');
+        requestAnimationFrame(() => {
+            todaySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    };
+
+    const scrollToWeekSection = () => {
+        if (isDashboardMobile) setMobileAgendaTab('week');
+        requestAnimationFrame(() => {
+            weekSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    };
+
     const handleKpiClick = (cardKey) => {
         if (cardKey === 'followup') {
             scrollToFollowUps();
@@ -384,8 +483,108 @@ const Dashboard = () => {
             navigate('/tarefas?status=pendentes&period=today');
             return;
         }
+        if (cardKey === 'today') {
+            if (dashboardWeekOffset !== 0) {
+                setDashboardWeekOffset(0);
+            }
+            scrollToTodaySection();
+            return;
+        }
+        if (cardKey === 'week') {
+            if (isDashboardMobile) {
+                scrollToWeekSection();
+                return;
+            }
+        }
         setListModalType(cardKey);
     };
+
+    const todayHeroDate = useMemo(() => formatTodayHeroDate(today), [today]);
+
+    const daySummaryLine = useMemo(() => {
+        const parts = [];
+        if (todayScheduled.length === 0) {
+            parts.push(`Nenhuma ${terms.trialShort.toLowerCase()} hoje`);
+        } else {
+            parts.push(
+                `${todayScheduled.length} ${
+                    todayScheduled.length === 1 ? terms.trialShort.toLowerCase() : terms.trialShort.toLowerCase()
+                } hoje`
+            );
+        }
+        if (followUps.length > 0) {
+            parts.push(`${followUps.length} follow-up${followUps.length === 1 ? '' : 's'} pendente${followUps.length === 1 ? '' : 's'}`);
+        }
+        if (pendingTasks.length > 0) {
+            parts.push(`${pendingTasks.length} tarefa${pendingTasks.length === 1 ? '' : 's'}`);
+        }
+        if (parts.length === 1 && todayScheduled.length === 0 && followUps.length === 0 && pendingTasks.length === 0) {
+            return 'Seu dia está em dia';
+        }
+        return parts.join(' · ');
+    }, [todayScheduled.length, followUps.length, pendingTasks.length, terms.trialShort]);
+
+    const followUpGroups = useMemo(() => groupFollowUpsByUrgency(followUps), [followUps]);
+
+    const todayPeriodGroups = useMemo(() => groupTodayByPeriod(todayScheduled), [todayScheduled]);
+
+    const showTodayAgendaPanel =
+        !isZeroState && dashboardWeekOffset === 0 && (!isDashboardMobile || mobileAgendaTab === 'today');
+    const showWeekAgendaPanel = !isZeroState && (!isDashboardMobile || mobileAgendaTab === 'week');
+
+    const mobileAgendaTabs = useMemo(
+        () => [
+            {
+                id: 'today',
+                label: `Hoje${todayScheduled.length > 0 ? ` (${todayScheduled.length})` : ''}`,
+            },
+            {
+                id: 'week',
+                label: `Semana${weekScheduled.length > 0 ? ` (${weekScheduled.length})` : ''}`,
+            },
+        ],
+        [todayScheduled.length, weekScheduled.length]
+    );
+
+    const weekSectionTitle =
+        isDashboardMobile || dashboardWeekOffset !== 0 ? 'Agenda da semana' : 'Resto da semana';
+
+    const handleMobileAgendaTabChange = (tabId) => {
+        setMobileAgendaTab(tabId);
+        if (tabId === 'today' && dashboardWeekOffset !== 0) {
+            setDashboardWeekOffset(0);
+        }
+    };
+
+    const heroStats = useMemo(
+        () => [
+            {
+                key: 'today',
+                label: `${trialSeriesPlural} hoje`,
+                count: todayScheduled.length,
+                tone: todayScheduled.length > 0 ? 'primary' : 'muted',
+            },
+            {
+                key: 'week',
+                label: 'Esta semana',
+                count: weekScheduled.length,
+                tone: weekScheduled.length > 0 ? 'default' : 'muted',
+            },
+            {
+                key: 'followup',
+                label: 'Follow-ups',
+                count: followUps.length,
+                tone: followUps.length > 0 ? 'attention' : 'success',
+            },
+            {
+                key: 'tasks',
+                label: 'Tarefas',
+                count: pendingTasks.length,
+                tone: pendingTasks.length > 0 ? 'attention' : 'muted',
+            },
+        ],
+        [trialSeriesPlural, todayScheduled.length, weekScheduled.length, followUps.length, pendingTasks.length]
+    );
 
     const modalListItems =
         listModalType === 'today'
@@ -618,6 +817,171 @@ const Dashboard = () => {
         }
     };
 
+    const renderTodayCard = (lead) => {
+        const busyAttended = Boolean(savingPresence[`${lead.id}:attended`]);
+        const busyMissed = Boolean(savingPresence[`${lead.id}:missed`]);
+        const attendedSelected = lead?.status === LEAD_STATUS.COMPLETED;
+        const missedSelected = lead?.status === LEAD_STATUS.MISSED;
+        const showPresence = !attendedSelected && !missedSelected;
+
+        return (
+            <article key={lead.id} className="dashboard-today-card">
+                <button
+                    type="button"
+                    className="dashboard-today-card__main"
+                    onClick={() =>
+                        navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
+                    }
+                >
+                    <span className="dashboard-today-card__time">
+                        {lead.scheduledTime && String(lead.scheduledTime).trim()
+                            ? lead.scheduledTime
+                            : 'Horário a definir'}
+                    </span>
+                    <span className="dashboard-today-card__name">{lead.name}</span>
+                    {lead.type ? <span className="dashboard-today-card__meta">{lead.type}</span> : null}
+                </button>
+                {showPresence ? (
+                    <div className="dashboard-today-card__actions">
+                        <button
+                            type="button"
+                            className="dashboard-today-card__btn dashboard-today-card__btn--attended"
+                            disabled={busyAttended || busyMissed}
+                            onClick={() => void markLeadAttended(lead)}
+                        >
+                            {busyAttended ? 'Salvando…' : 'Compareceu'}
+                        </button>
+                        <button
+                            type="button"
+                            className="dashboard-today-card__btn dashboard-today-card__btn--missed"
+                            disabled={busyAttended || busyMissed}
+                            onClick={() => void markLeadMissed(lead)}
+                        >
+                            {busyMissed ? 'Salvando…' : 'Não compareceu'}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="dashboard-today-card__status">
+                        {attendedSelected ? 'Compareceu' : missedSelected ? 'Não compareceu' : null}
+                    </div>
+                )}
+            </article>
+        );
+    };
+
+    const renderFollowUpRow = (lead, rowIndex, isLastInGroup) => {
+        const isPost = lead.status === LEAD_STATUS.COMPLETED;
+        const leadId = String(lead.id || '').trim();
+        const waState = waStateByLead[leadId] || 'idle';
+        const elapsedLabel =
+            lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
+        const fuTimeClass =
+            lead.daysAgo <= 3
+                ? 'fu-time--recent'
+                : lead.daysAgo <= 5
+                  ? 'fu-time--warning'
+                  : 'fu-time--urgent';
+        const tagLabel = isPost
+            ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula')
+            : 'Recuperar';
+
+        return (
+            <div
+                key={lead.id}
+                className={`fu-row animate-in${
+                    flashingFollowupIds[leadId] ? ' fu-row--flashing' : ''
+                }${leavingFollowupIds[leadId] ? ' fu-row--leaving' : ''}${
+                    removingFollowupIds[lead.id] ? ' fu-row--removing' : ''
+                }${isLastInGroup ? ' fu-row--last' : ''}`}
+                style={{ animationDelay: `${0.04 * rowIndex}s` }}
+            >
+                <div
+                    className={`fu-dot ${isPost ? 'fu-dot--post' : 'fu-dot--recover'}`}
+                    aria-hidden
+                />
+                <div className="fu-info">
+                    <button
+                        type="button"
+                        className="fu-name"
+                        onClick={() =>
+                            navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
+                        }
+                    >
+                        {lead.name}
+                    </button>
+                    <div className="fu-sub">
+                        <span className="fu-phone">{lead.phone || '—'}</span>
+                        <span
+                            className={`fu-time ${fuTimeClass}`}
+                            title={
+                                lead.daysAgo === 0
+                                    ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
+                                    : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`
+                            }
+                        >
+                            {elapsedLabel}
+                        </span>
+                        <span className={`fu-tag ${isPost ? 'fu-tag--post' : 'fu-tag--recover'}`}>
+                            {tagLabel}
+                        </span>
+                        {lead.pipelineStage ? (
+                            <StageBadge stage={String(lead.pipelineStage)} size="sm" />
+                        ) : null}
+                    </div>
+                </div>
+                <div className="fu-btns">
+                    <button
+                        type="button"
+                        className={`btn-wa wa-btn${waState === 'loading' ? ' wa-btn--loading' : ''}${
+                            waState === 'sent' ? ' wa-btn--sent' : ''
+                        }`}
+                        disabled={waState === 'sent'}
+                        aria-busy={waState === 'loading'}
+                        onClick={(e) => handleFollowUpWhatsApp(lead, e)}
+                    >
+                        {waState === 'loading' ? (
+                            <>
+                                <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
+                                Enviando…
+                            </>
+                        ) : waState === 'sent' ? (
+                            <>
+                                <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
+                                Enviado
+                            </>
+                        ) : (
+                            <>
+                                {academyWaLoadFailed && (
+                                    <span
+                                        className="dashboard-wa-warning-badge"
+                                        title={`Não foi possível carregar a configuração da ${terms.workspaceNoun}. O WhatsApp pode não funcionar.`}
+                                        aria-hidden
+                                    >
+                                        ⚠️
+                                    </span>
+                                )}
+                                <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
+                                <span className="wa-btn__label">WhatsApp</span>
+                            </>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        className="mk-btn"
+                        disabled={Boolean(
+                            savingFollowupDone[leadId] ||
+                            flashingFollowupIds[leadId] ||
+                            leavingFollowupIds[leadId]
+                        )}
+                        onClick={(e) => void markFollowupDone(lead, e)}
+                    >
+                        {savingFollowupDone[leadId] ? 'Salvando…' : 'Marcar feito'}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="container reception-dashboard">
             <div className="reception-agenda-inner reception-agenda-inner--wide">
@@ -659,90 +1023,30 @@ const Dashboard = () => {
                 />
             )}
 
-            <div
-                className="reports-kpi-grid reports-kpi-grid--overview reception-kpi-grid animate-in"
-                style={{ animationDelay: '0.05s' }}
-                aria-busy={loading}
-            >
-                {loading ? (
-                    <SkeletonCard variant="kpi" count={4} className="reception-kpi-skeletons" />
-                ) : (
-                    [
-                        {
-                            key: 'today',
-                            title: `${trialSeriesPlural} hoje`,
-                            count: todayScheduled.length,
-                            cta: 'Ver agenda',
-                            Icon: Calendar,
-                            kind: 'info',
-                        },
-                        {
-                            key: 'week',
-                            title: `${trialSeriesPlural} esta semana`,
-                            count: weekScheduled.length,
-                            cta: 'Ver lista',
-                            Icon: LayoutGrid,
-                            kind: 'info',
-                        },
-                        {
-                            key: 'followup',
-                            title: 'Follow-ups pendentes',
-                            count: followUps.length,
-                            cta: 'Ver abaixo',
-                            Icon: ChevronDown,
-                            kind: 'attention',
-                        },
-                        {
-                            key: 'tasks',
-                            title: 'Próximas tarefas',
-                            count: pendingTasks.length,
-                            cta: 'Ver tarefas',
-                            Icon: CheckSquare,
-                            kind: 'attention',
-                        },
-                    ].map((card) => {
-                        const isAttention = card.kind === 'attention';
-                        const isOk = card.count === 0;
-                        const highlight = isOk ? 'success' : isAttention ? 'attention' : 'default';
-                        const trendLabel = !isOk && isAttention
-                            ? card.count === 1
-                                ? '1 pendente'
-                                : `${card.count} pendentes`
-                            : !isOk && !isAttention
-                              ? card.key === 'today'
-                                  ? 'agendadas para hoje'
-                                  : 'seg–sáb desta semana'
-                              : null;
-                        return (
-                            <ReportKpiCard
-                                key={card.key}
-                                label={
-                                    card.key === 'today' ? (
-                                        <span className="reception-kpi-label-wrap">
-                                            {card.title}
-                                            <Hint
-                                                text={`${contactLabel}s com ${terms.trialShort.toLowerCase()} agendada para hoje`}
-                                                position="top"
-                                                className="reception-kpi-hint"
-                                            />
-                                        </span>
-                                    ) : (
-                                        card.title
-                                    )
-                                }
-                                value={isOk ? 'Tudo em dia ✓' : card.count}
-                                valueVariant={isOk ? 'message' : 'metric'}
-                                highlight={highlight}
-                                trendLabel={trendLabel}
-                                icon={<card.Icon size={20} strokeWidth={2.25} />}
-                                onClick={() => handleKpiClick(card.key)}
-                                ctaLabel={isOk ? 'Ver detalhes' : card.cta}
-                                ctaIcon={<card.Icon size={16} strokeWidth={2} />}
-                            />
-                        );
-                    })
-                )}
-            </div>
+            <section className="dashboard-day-hero animate-in" style={{ animationDelay: '0.04s' }} aria-busy={loading}>
+                <div className="dashboard-day-hero__main">
+                    <p className="dashboard-day-hero__date">{todayHeroDate}</p>
+                    <p className="dashboard-day-hero__summary">{loading ? 'Carregando…' : daySummaryLine}</p>
+                </div>
+                <div className="dashboard-day-hero__stats" role="list">
+                    {loading ? (
+                        <SkeletonCard variant="kpi" count={4} className="dashboard-day-hero__skeletons" />
+                    ) : (
+                        heroStats.map((stat) => (
+                            <button
+                                key={stat.key}
+                                type="button"
+                                role="listitem"
+                                className={`dashboard-day-stat dashboard-day-stat--${stat.tone}`}
+                                onClick={() => handleKpiClick(stat.key)}
+                            >
+                                <span className="dashboard-day-stat__count">{stat.count}</span>
+                                <span className="dashboard-day-stat__label">{stat.label}</span>
+                            </button>
+                        ))
+                    )}
+                </div>
+            </section>
 
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
@@ -765,15 +1069,79 @@ const Dashboard = () => {
                 </section>
             ) : null}
 
-            <div className="agenda-page-stack">
-            <section className="animate-in agenda-week-section reception-section reception-week-panel" style={{ animationDelay: '0.15s' }}>
+            <div className={`agenda-page-stack${isDashboardMobile ? ' agenda-page-stack--mobile-tabs' : ''}`}>
+            {!isZeroState && isDashboardMobile ? (
+                <HubTabBar
+                    tabs={mobileAgendaTabs}
+                    activeId={mobileAgendaTab}
+                    onChange={handleMobileAgendaTabChange}
+                    ariaLabel="Agenda"
+                    className="dashboard-mobile-agenda-tabs"
+                    variant="secondary"
+                    fullWidth
+                />
+            ) : null}
+
+            {showTodayAgendaPanel ? (
+                <section
+                    ref={todaySectionRef}
+                    className="animate-in dashboard-today-section reception-section"
+                    style={{ animationDelay: '0.1s' }}
+                >
+                    <ReportSectionHeading
+                        className="reception-report-heading dashboard-today-section__heading"
+                        title={
+                            <>
+                                <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
+                                {`${trialSeriesPlural} hoje`}
+                            </>
+                        }
+                        action={
+                            todayScheduled.length > 0 ? (
+                                <span className="badge reception-week-count-badge">{todayScheduled.length}</span>
+                            ) : null
+                        }
+                    />
+                    {todayPeriodGroups.length > 0 ? (
+                        <div className="dashboard-today-periods">
+                            {todayPeriodGroups.map((group) => (
+                                <div key={group.key} className="dashboard-today-period">
+                                    <div className="dashboard-today-period__head">
+                                        <span className="dashboard-today-period__label">{group.label}</span>
+                                        <span className="dashboard-today-period__line" aria-hidden />
+                                    </div>
+                                    <div className="dashboard-today-cards">
+                                        {group.items.map((lead) => renderTodayCard(lead))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <EmptyState
+                            variant="compact"
+                            tone="dashed"
+                            icon={Calendar}
+                            title={`Nenhuma ${terms.trialShort.toLowerCase()} agendada para hoje.`}
+                            role="status"
+                        />
+                    )}
+                </section>
+            ) : null}
+
+            {showWeekAgendaPanel ? (
+            <section
+                ref={weekSectionRef}
+                className="animate-in agenda-week-section reception-section reception-week-panel reception-week-panel--secondary"
+                style={{ animationDelay: '0.15s' }}
+            >
                 <div className="reception-week-panel__head">
                     <div className="reception-week-panel__title-row">
                         <ReportSectionHeading
                             className="reception-report-heading reception-week-panel__title"
                             title={
                                 <>
-                                    <Calendar size={18} color="var(--petroleo)" strokeWidth={2} aria-hidden /> Agenda da semana
+                                    <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
+                                    {weekSectionTitle}
                                 </>
                             }
                             action={
@@ -836,6 +1204,7 @@ const Dashboard = () => {
                     <p className="reception-calendar-hint">Toque no nome para abrir o contato · use os botões para registrar presença</p>
                 ) : null}
             </section>
+            ) : null}
 
             <div className="agenda-bottom-row">
             <section
@@ -860,7 +1229,7 @@ const Dashboard = () => {
                                     className="reception-report-heading"
                                     title={
                                         <>
-                                            <List size={18} color="var(--v500)" strokeWidth={2} aria-hidden /> Follow-ups pendentes
+                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Follow-ups pendentes
                                         </>
                                     }
                                 />
@@ -882,7 +1251,7 @@ const Dashboard = () => {
                                     className="reception-report-heading"
                                     title={
                                         <>
-                                            <List size={18} color="var(--v500)" strokeWidth={2} aria-hidden /> Follow-ups pendentes
+                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Follow-ups pendentes
                                         </>
                                     }
                                 />
@@ -893,119 +1262,20 @@ const Dashboard = () => {
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
                 <div className="fu-list-card">
-                    {followUps.length > 0 ? followUps.map((lead, i) => {
-                        const isPost = lead.status === LEAD_STATUS.COMPLETED;
-                        const leadId = String(lead.id || '').trim();
-                        const waState = waStateByLead[leadId] || 'idle';
-                        const elapsedLabel =
-                            lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
-                        const fuTimeClass =
-                            lead.daysAgo <= 3
-                                ? 'fu-time--recent'
-                                : lead.daysAgo <= 5
-                                  ? 'fu-time--warning'
-                                  : 'fu-time--urgent';
-                        const tagLabel = isPost
-                            ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula')
-                            : 'Recuperar';
-                        return (
-                            <div
-                                key={lead.id}
-                                className={`fu-row animate-in${
-                                    flashingFollowupIds[leadId] ? ' fu-row--flashing' : ''
-                                }${leavingFollowupIds[leadId] ? ' fu-row--leaving' : ''}${
-                                    removingFollowupIds[lead.id] ? ' fu-row--removing' : ''
-                                }${i === followUps.length - 1 ? ' fu-row--last' : ''}`}
-                                style={{ animationDelay: `${0.04 * i}s` }}
-                            >
-                                <div
-                                    className={`fu-dot ${isPost ? 'fu-dot--post' : 'fu-dot--recover'}`}
-                                    aria-hidden
-                                />
-                                <div className="fu-info">
-                                    <button
-                                        type="button"
-                                        className="fu-name"
-                                        onClick={() =>
-                                            navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
-                                        }
-                                    >
-                                        {lead.name}
-                                    </button>
-                                    <div className="fu-sub">
-                                        <span className="fu-phone">{lead.phone || '—'}</span>
-                                        <span
-                                            className={`fu-time ${fuTimeClass}`}
-                                            title={
-                                                lead.daysAgo === 0
-                                                    ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
-                                                    : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`
-                                            }
-                                        >
-                                            {elapsedLabel}
-                                        </span>
-                                        <span
-                                            className={`fu-tag ${isPost ? 'fu-tag--post' : 'fu-tag--recover'}`}
-                                        >
-                                            {tagLabel}
-                                        </span>
-                                        {lead.pipelineStage ? (
-                                            <StageBadge stage={String(lead.pipelineStage)} size="sm" />
-                                        ) : null}
-                                    </div>
+                    {followUps.length > 0 ? (
+                        followUpGroups.map((group) => (
+                            <div key={group.key} className={`fu-group ${group.className}`}>
+                                <div className="fu-group__head">
+                                    <h3 className="fu-group__title">{group.label}</h3>
+                                    <span className="fu-group__hint">{group.hint}</span>
+                                    <span className="fu-group__count">{group.items.length}</span>
                                 </div>
-                                <div className="fu-btns">
-                                    <button
-                                        type="button"
-                                        className={`btn-wa wa-btn${waState === 'loading' ? ' wa-btn--loading' : ''}${
-                                            waState === 'sent' ? ' wa-btn--sent' : ''
-                                        }`}
-                                        disabled={waState === 'sent'}
-                                        aria-busy={waState === 'loading'}
-                                        onClick={(e) => handleFollowUpWhatsApp(lead, e)}
-                                    >
-                                        {waState === 'loading' ? (
-                                            <>
-                                                <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
-                                                …
-                                            </>
-                                        ) : waState === 'sent' ? (
-                                            <>
-                                                <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
-                                                OK
-                                            </>
-                                        ) : (
-                                            <>
-                                                {academyWaLoadFailed && (
-                                                    <span
-                                                        className="dashboard-wa-warning-badge"
-                                                        title={`Não foi possível carregar a configuração da ${terms.workspaceNoun}. O WhatsApp pode não funcionar.`}
-                                                        aria-hidden
-                                                    >
-                                                        ⚠️
-                                                    </span>
-                                                )}
-                                                <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
-                                                WA
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="mk-btn"
-                                        disabled={Boolean(
-                                            savingFollowupDone[leadId] ||
-                                            flashingFollowupIds[leadId] ||
-                                            leavingFollowupIds[leadId]
-                                        )}
-                                        onClick={(e) => void markFollowupDone(lead, e)}
-                                    >
-                                        {savingFollowupDone[leadId] ? 'Salvando…' : '✓ Feito'}
-                                    </button>
-                                </div>
+                                {group.items.map((lead, i) =>
+                                    renderFollowUpRow(lead, i, i === group.items.length - 1)
+                                )}
                             </div>
-                        );
-                    }) : (
+                        ))
+                    ) : (
                         <div className="fu-list-empty fu-list-empty--all-done" role="status">
                             <CheckCircle2 className="fu-list-empty__icon" size={24} strokeWidth={2} aria-hidden />
                             <p className="fu-list-empty__title">Todos os follow-ups concluídos!</p>
@@ -1053,7 +1323,7 @@ const Dashboard = () => {
                             className="reception-report-heading"
                             title={
                                 <>
-                                    <Cake size={18} color="#C47A00" strokeWidth={2} aria-hidden /> Aniversariantes hoje
+                                    <Cake size={18} color="var(--color-warning)" strokeWidth={2} aria-hidden /> Aniversariantes hoje
                                 </>
                             }
                             action={<span className="badge agenda-birthdays-badge">{todayBirthdays.length}</span>}

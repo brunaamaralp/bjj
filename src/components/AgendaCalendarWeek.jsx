@@ -241,6 +241,9 @@ export default function AgendaCalendarWeek({
                                     className={`day-col${isToday ? ' today' : ''}`}
                                 >
                                     <div className="day-col-head">
+                                        {isToday ? (
+                                            <span className="day-today-badge">Hoje</span>
+                                        ) : null}
                                         <span className="day-dow">{dow}</span>
                                         <span className={`day-num${isToday ? ' active' : ''}`}>{dayNum}</span>
                                     </div>
@@ -303,7 +306,7 @@ export default function AgendaCalendarWeek({
                                                                         onCompareceu(lead);
                                                                     }}
                                                                 >
-                                                                    {busyAttended ? '…' : '✓ Veio'}
+                                                                    {busyAttended ? '…' : 'Veio'}
                                                                 </button>
                                                             ) : null}
                                                             {typeof onNaoCompareceu === 'function' ? (
@@ -316,7 +319,7 @@ export default function AgendaCalendarWeek({
                                                                         onNaoCompareceu(lead);
                                                                     }}
                                                                 >
-                                                                    {busyMissed ? '…' : '✗ Faltou'}
+                                                                    {busyMissed ? '…' : 'Faltou'}
                                                                 </button>
                                                             ) : null}
                                                         </div>
