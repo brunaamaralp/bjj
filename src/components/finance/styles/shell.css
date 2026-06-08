@@ -207,3 +207,86 @@
 .finance-tab-notice a:hover {
   text-decoration: underline;
 }
+
+/* Painel de filtros unificado (Lançamentos, Conferência, Extrato) */
+.finance-hub-filters {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--finance-space-2, 10px);
+  padding: 10px 12px;
+  margin-bottom: var(--finance-space-3, 12px);
+  background: var(--color-background-secondary, var(--surface-hover, var(--v50)));
+  border: 0.5px solid var(--border-violet, var(--border-light));
+  border-radius: var(--radius-sm, 8px);
+}
+
+.finance-hub-filters__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--control-gap, 10px);
+  min-width: 0;
+  width: 100%;
+}
+
+.finance-hub-filters__row--actions {
+  justify-content: space-between;
+  padding-top: 2px;
+  border-top: 0.5px solid color-mix(in srgb, var(--border-light) 80%, transparent);
+}
+
+.finance-hub-filters__chip-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.finance-hub-filters__chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finance-hub-filters__chip-label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary, var(--color-text-secondary));
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.finance-hub-filters__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.finance-hub-filters__date {
+  width: 138px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.finance-hub-filters__meta {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .finance-hub-filters__row--actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--finance-space-2, 10px);
+  }
+
+  .finance-hub-filters__meta {
+    margin-left: 0;
+    width: 100%;
+  }
+}

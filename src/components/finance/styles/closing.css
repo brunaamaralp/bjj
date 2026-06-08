@@ -153,44 +153,14 @@
 
 .monthly-closing-filters.finance-filters-bar,
 .monthly-closing-filters {
-  align-items: center;
+  margin-bottom: var(--finance-space-3);
 }
 
 .monthly-closing-filters__search {
   margin: 0;
-  min-width: 220px;
+  min-width: 200px;
   flex: 1 1 200px;
-  max-width: 360px;
-}
-
-.monthly-closing-filters__pill-groups {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px 20px;
-  flex: 1 1 100%;
-}
-
-.monthly-closing-filters__pill-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.monthly-closing-filters__pill-label {
-  font-size: var(--font-2xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary, var(--color-text-secondary));
-  line-height: 1.2;
-}
-
-.monthly-closing-filters__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  max-width: 320px;
 }
 
 .monthly-closing-table-toolbar {

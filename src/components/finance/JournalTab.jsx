@@ -5,6 +5,8 @@ import { PlusCircle, Trash2, Receipt } from 'lucide-react';
 import { fmt } from './financeFmt.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import SearchField from '../shared/SearchField.jsx';
+import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { DateInputField } from '../DateInput';
 
 export default function JournalTab({
@@ -300,25 +302,41 @@ export default function JournalTab({
 
       <div className="finance-journal-history">
         <p className="finance-journal-history-title">Histórico</p>
-        <div className="finance-tx-filters">
-          <input
-            className="form-input finance-tx-filter-group--search"
-            type="search"
-            placeholder="Buscar por conta ou descrição"
+        <FinanceFiltersBar panel className="finance-journal-filters">
+          <SearchField
+            className="finance-filters-bar__search finance-journal-filters__search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por conta ou descrição"
+            aria-label="Buscar no histórico contábil"
           />
-          <DateInputField className="form-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          <DateInputField className="form-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          <select className="form-input" value={direction} onChange={(e) => setDirection(e.target.value)}>
+          <FinanceToolbarDate
+            id="finance-journal-from"
+            label="De"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+          <FinanceToolbarDate
+            id="finance-journal-to"
+            label="Até"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
+          <FinanceToolbarSelect
+            id="finance-journal-direction"
+            label="Lançamento"
+            className="finance-journal-filters__direction"
+            value={direction}
+            onChange={(e) => setDirection(e.target.value)}
+          >
             <option value="all">Todos</option>
             <option value="debit">Débito</option>
             <option value="credit">Crédito</option>
-          </select>
+          </FinanceToolbarSelect>
           {hasActiveFilters ? (
             <button
               type="button"
-              className="btn-ghost"
+              className="btn-outline btn-sm filter-clear navi-btn--toolbar"
               onClick={() => {
                 setSearch('');
                 setFromDate('');
@@ -329,7 +347,7 @@ export default function JournalTab({
               Limpar filtros
             </button>
           ) : null}
-        </div>
+        </FinanceFiltersBar>
         <div className="finance-table-wrap">
           <table className="finance-table finance-journal-table">
             <thead>

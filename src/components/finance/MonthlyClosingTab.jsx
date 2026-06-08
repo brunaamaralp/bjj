@@ -494,15 +494,6 @@ export default function MonthlyClosingTab({
           <Link to="/reports?tab=financeiro">Relatórios →</Link>
         </p>
       ) : null}
-      {academyId ? (
-        <FinanceRegimeToggle
-          academyId={academyId}
-          value={regime}
-          onChange={setRegime}
-          hintStyle="tooltip"
-          className="mb-2"
-        />
-      ) : null}
       {closingPartialWarning ? (
         <ErrorBanner
           className="mb-3"
@@ -644,21 +635,63 @@ export default function MonthlyClosingTab({
         </div>
       </div>
 
-      <FinanceFiltersBar className="monthly-closing-filters mb-2">
-        <SearchField
-          className="finance-filters-bar__search monthly-closing-filters__search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nome"
-          aria-label="Buscar na conferência"
-        />
-        <div className="monthly-closing-filters__pill-groups">
-          <div className="monthly-closing-filters__pill-group">
-            <span className="monthly-closing-filters__pill-label" id="monthly-closing-origin-label">
+      <FinanceFiltersBar panel className="monthly-closing-filters">
+        <div className="finance-hub-filters__row">
+          {academyId ? (
+            <FinanceRegimeToggle
+              academyId={academyId}
+              value={regime}
+              onChange={setRegime}
+              hintStyle="tooltip"
+              className="finance-regime-toggle--inline"
+            />
+          ) : null}
+          <SearchField
+            className="finance-filters-bar__search monthly-closing-filters__search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome"
+            aria-label="Buscar na conferência"
+          />
+          {methodOptions.length > 0 ? (
+            <FinanceToolbarSelect
+              id="monthly-closing-method"
+              label="Forma de pagamento"
+              className="monthly-closing-filters__method"
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+            >
+              <option value="all">Todas</option>
+              {methodOptions.map((k) => {
+                const methodKey = k.split('|')[0] || k;
+                return (
+                  <option key={k} value={k}>
+                    {formatPaymentMethodLabel(methodKey)}
+                  </option>
+                );
+              })}
+            </FinanceToolbarSelect>
+          ) : null}
+          <FinanceToolbarSelect
+            id="monthly-closing-sort"
+            label="Ordenar"
+            className="monthly-closing-filters__sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="date">Data (recente)</option>
+            <option value="name">Nome</option>
+            <option value="received">Valor recebido</option>
+            <option value="expected">Valor esperado</option>
+          </FinanceToolbarSelect>
+        </div>
+        <div className="finance-hub-filters__row finance-hub-filters__chip-groups">
+          <div className="finance-hub-filters__chip-group">
+            <span className="finance-hub-filters__chip-label" id="monthly-closing-origin-label">
               Tipo
             </span>
             <div
-              className="monthly-closing-filters__chips"
+              className="finance-hub-filters__chips"
               role="group"
               aria-labelledby="monthly-closing-origin-label"
             >
@@ -666,7 +699,7 @@ export default function MonthlyClosingTab({
                 <button
                   key={key}
                   type="button"
-                  className={`monthly-closing-filter-pill${originFilter.has(key) ? ' is-active' : ''}`}
+                  className={`finance-filter-pill${originFilter.has(key) ? ' is-active' : ''}`}
                   aria-pressed={originFilter.has(key)}
                   onClick={() => toggleOrigin(key)}
                 >
@@ -675,12 +708,12 @@ export default function MonthlyClosingTab({
               ))}
             </div>
           </div>
-          <div className="monthly-closing-filters__pill-group">
-            <span className="monthly-closing-filters__pill-label" id="monthly-closing-situation-label">
+          <div className="finance-hub-filters__chip-group">
+            <span className="finance-hub-filters__chip-label" id="monthly-closing-situation-label">
               Situação
             </span>
             <div
-              className="monthly-closing-filters__chips"
+              className="finance-hub-filters__chips"
               role="group"
               aria-labelledby="monthly-closing-situation-label"
             >
@@ -688,7 +721,7 @@ export default function MonthlyClosingTab({
                 <button
                   key={key}
                   type="button"
-                  className={`monthly-closing-filter-pill${situationFilter.has(key) ? ' is-active' : ''}`}
+                  className={`finance-filter-pill${situationFilter.has(key) ? ' is-active' : ''}`}
                   aria-pressed={situationFilter.has(key)}
                   onClick={() => toggleSituation(key)}
                 >
@@ -698,37 +731,6 @@ export default function MonthlyClosingTab({
             </div>
           </div>
         </div>
-        {methodOptions.length > 0 ? (
-          <FinanceToolbarSelect
-            id="monthly-closing-method"
-            label="Forma de pagamento"
-            className="monthly-closing-filters__method"
-            value={methodFilter}
-            onChange={(e) => setMethodFilter(e.target.value)}
-          >
-            <option value="all">Todas</option>
-            {methodOptions.map((k) => {
-              const methodKey = k.split('|')[0] || k;
-              return (
-                <option key={k} value={k}>
-                  {formatPaymentMethodLabel(methodKey)}
-                </option>
-              );
-            })}
-          </FinanceToolbarSelect>
-        ) : null}
-        <FinanceToolbarSelect
-          id="monthly-closing-sort"
-          label="Ordenar"
-          className="monthly-closing-filters__sort"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-        >
-          <option value="date">Data (recente)</option>
-          <option value="name">Nome</option>
-          <option value="received">Valor recebido</option>
-          <option value="expected">Valor esperado</option>
-        </FinanceToolbarSelect>
       </FinanceFiltersBar>
 
       <div className="finance-table-wrap monthly-closing-wrap">

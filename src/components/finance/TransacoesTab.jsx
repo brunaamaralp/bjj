@@ -62,7 +62,7 @@ import {
 } from '../shared/menu';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import SearchField from '../shared/SearchField.jsx';
-import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
+import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
@@ -1002,108 +1002,94 @@ export default function TransacoesTab({
   return (
     <>
       <FinanceTabShell panelClassName="finance-tx-section finance-tab-panel--compact">
-        <div className="card">
-          <FinanceFiltersBar className="finance-tx-toolbar">
-            <div className="finance-tx-toolbar__row">
-              {academyId ? (
-                <FinanceRegimeToggle
-                  academyId={academyId}
-                  value={regime}
-                  onChange={setRegime}
-                  hintStyle="tooltip"
-                  className="finance-regime-toggle--inline"
-                />
-              ) : null}
-              <div className="finance-filters-bar__field finance-tx-date-group">
-                <label htmlFor="finance-tx-from" className="finance-filters-bar__sr-label">
-                  De
-                </label>
-                <DateInputField
-                  id="finance-tx-from"
-                  className="form-input navi-date-filter navi-control--toolbar"
-                  type="date"
-                  aria-label="Data inicial"
-                  value={fromDate}
-                  onChange={handleFromDateChange}
-                />
-              </div>
-              <div className="finance-filters-bar__field finance-tx-date-group">
-                <label htmlFor="finance-tx-to" className="finance-filters-bar__sr-label">
-                  Até
-                </label>
-                <DateInputField
-                  id="finance-tx-to"
-                  className="form-input navi-date-filter navi-control--toolbar"
-                  type="date"
-                  aria-label="Data final"
-                  value={toDate}
-                  onChange={handleToDateChange}
-                />
-              </div>
-              <FinanceToolbarSelect
-                id="finance-tx-status"
-                label="Status"
-                className="finance-tx-filter-group--status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Todos</option>
-                <option value="pending">Pendente</option>
-                <option value="settled">Liquidado</option>
-                <option value="cancelled">Cancelado</option>
-              </FinanceToolbarSelect>
-              <FinanceToolbarSelect
-                id="finance-tx-nature"
-                label="Natureza"
-                className="finance-tx-filter-group--nature"
-                value={directionFilter}
-                onChange={(e) => setDirectionFilter(e.target.value)}
-              >
-                <option value="all">Todos</option>
-                <option value="in">Entrada</option>
-                <option value="out">Saída</option>
-              </FinanceToolbarSelect>
-              {bankAccountLabels.length > 0 ? (
-                <FinanceToolbarSelect
-                  id="finance-tx-bank"
-                  label="Conta"
-                  className="finance-tx-filter-group--bank"
-                  value={bankAccountFilter}
-                  onChange={(e) => setBankAccountFilter(e.target.value)}
-                >
-                  <option value="all">Todas as contas</option>
-                  {bankAccountLabels.map((lbl) => (
-                    <option key={lbl} value={lbl}>
-                      {lbl}
-                    </option>
-                  ))}
-                  <option value={BANK_FILTER_UNALLOCATED}>{UNALLOCATED_BANK_LABEL}</option>
-                </FinanceToolbarSelect>
-              ) : null}
-              <SearchField
-                className="finance-filters-bar__search finance-tx-toolbar__search"
-                value={txSearch}
-                onChange={(e) => setTxSearch(e.target.value)}
-                placeholder="Buscar aluno, categoria ou nota"
-                aria-label="Buscar lançamentos"
+        <FinanceFiltersBar panel className="finance-tx-toolbar">
+          <div className="finance-hub-filters__row finance-tx-toolbar__filters">
+            {academyId ? (
+              <FinanceRegimeToggle
+                academyId={academyId}
+                value={regime}
+                onChange={setRegime}
+                hintStyle="tooltip"
+                className="finance-regime-toggle--inline"
               />
-              {hasActiveTxFilters ? (
-                <button
-                  type="button"
-                  className="btn-outline btn-sm filter-clear navi-btn--toolbar"
-                  onClick={clearTxFilters}
-                >
-                  Limpar filtros
-                </button>
-              ) : null}
-              <div
-                className="finance-tx-period-balance-inline"
-                role="status"
-                title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+            ) : null}
+            <FinanceToolbarDate
+              id="finance-tx-from"
+              label="De"
+              value={fromDate}
+              onChange={handleFromDateChange}
+            />
+            <FinanceToolbarDate
+              id="finance-tx-to"
+              label="Até"
+              value={toDate}
+              onChange={handleToDateChange}
+            />
+            <FinanceToolbarSelect
+              id="finance-tx-status"
+              label="Status"
+              className="finance-tx-filter-group--status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="pending">Pendente</option>
+              <option value="settled">Liquidado</option>
+              <option value="cancelled">Cancelado</option>
+            </FinanceToolbarSelect>
+            <FinanceToolbarSelect
+              id="finance-tx-nature"
+              label="Natureza"
+              className="finance-tx-filter-group--nature"
+              value={directionFilter}
+              onChange={(e) => setDirectionFilter(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="in">Entrada</option>
+              <option value="out">Saída</option>
+            </FinanceToolbarSelect>
+            {bankAccountLabels.length > 0 ? (
+              <FinanceToolbarSelect
+                id="finance-tx-bank"
+                label="Conta"
+                className="finance-tx-filter-group--bank"
+                value={bankAccountFilter}
+                onChange={(e) => setBankAccountFilter(e.target.value)}
               >
-                <span className="finance-tx-period-balance-inline__label">Saldo do período</span>
-                <span className="finance-tx-period-balance-inline__value">{periodBalanceFormatted}</span>
-              </div>
+                <option value="all">Todas as contas</option>
+                {bankAccountLabels.map((lbl) => (
+                  <option key={lbl} value={lbl}>
+                    {lbl}
+                  </option>
+                ))}
+                <option value={BANK_FILTER_UNALLOCATED}>{UNALLOCATED_BANK_LABEL}</option>
+              </FinanceToolbarSelect>
+            ) : null}
+            <SearchField
+              className="finance-filters-bar__search finance-tx-toolbar__search"
+              value={txSearch}
+              onChange={(e) => setTxSearch(e.target.value)}
+              placeholder="Buscar aluno, categoria ou nota"
+              aria-label="Buscar lançamentos"
+            />
+            {hasActiveTxFilters ? (
+              <button
+                type="button"
+                className="btn-outline btn-sm filter-clear navi-btn--toolbar"
+                onClick={clearTxFilters}
+              >
+                Limpar filtros
+              </button>
+            ) : null}
+          </div>
+          <div className="finance-hub-filters__row finance-hub-filters__row--actions finance-tx-toolbar__actions-row">
+            <div
+              className="finance-tx-period-balance-inline finance-hub-filters__meta"
+              role="status"
+              title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+            >
+              <span className="finance-tx-period-balance-inline__label">Saldo do período</span>
+              <span className="finance-tx-period-balance-inline__value">{periodBalanceFormatted}</span>
             </div>
             <div className="finance-tx-toolbar__actions flex gap-2">
               {canManageAdvanced ? (
@@ -1172,7 +1158,9 @@ export default function TransacoesTab({
                 + Novo lançamento
               </button>
             </div>
-          </FinanceFiltersBar>
+          </div>
+        </FinanceFiltersBar>
+        <div className="card finance-tx-table-card">
           {listTruncated ? (
             <StatusBanner variant="warning" className="mb-3">
               Período com mais de 2.500 lançamentos — a lista e os totais podem estar incompletos. Reduza o
