@@ -71,15 +71,12 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 import { resolveHubTab } from '../lib/hubTabs.js';
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
+import { primaryInboxPhone as normalizeLeadPhoneForInbox } from '../lib/normalizeInboxPhone.js';
 import '../styles/lead-profile.css';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
     return Boolean(s) && s !== '-';
-}
-
-function normalizeLeadPhoneForInbox(v) {
-    return String(v || '').replace(/\D/g, '');
 }
 
 function expectedPipelineStageForStatus(status) {
@@ -2091,6 +2088,7 @@ const LeadProfile = () => {
                     >
                         <ProfileConversationTab
                             phone={lead.phone}
+                            leadId={lead.id}
                             academyId={academyId}
                             leadName={lead.name}
                         />

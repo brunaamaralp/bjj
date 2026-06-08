@@ -63,6 +63,7 @@ import {
   formatInboxPhone as formatPhone,
   pickInboxDisplayName as pickDisplayName,
 } from '../lib/inboxContactDisplay.js';
+import { inboxPhoneLookupVariants } from '../lib/normalizeInboxPhone.js';
 import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
 import { inboxMessageMediaUrl } from '../lib/inboxMediaUtils.js';
 import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
@@ -1083,14 +1084,18 @@ export default function Inbox() {
         selectedPhone: String(selectedPhoneRef.current || '').trim(),
       });
     }
-    await reconcileWhatsAppHistory(async () => {
-      await loadList({ reset: true, silent: true });
-      const phone = String(selectedPhoneRef.current || '').trim();
-      if (phone) await loadThread(phone);
-      if (inboxDebugEnabled) {
-        console.log('[Inbox Realtime] atualizar chat: lista/thread recarregados', { hasSelectedPhone: Boolean(phone) });
-      }
-    });
+    const phoneForSync = String(selectedPhoneRef.current || '').trim();
+    await reconcileWhatsAppHistory(
+      async () => {
+        await loadList({ reset: true, silent: true });
+        const phone = String(selectedPhoneRef.current || '').trim();
+        if (phone) await loadThread(phone);
+        if (inboxDebugEnabled) {
+          console.log('[Inbox Realtime] atualizar chat: lista/thread recarregados', { hasSelectedPhone: Boolean(phone) });
+        }
+      },
+      { phone: phoneForSync }
+    );
   }
 
   function playNotificationSound() {
@@ -1373,9 +1378,11 @@ export default function Inbox() {
     const map = new Map();
     const arr = Array.isArray(leads) ? leads : [];
     for (const l of arr) {
-      const phone = normalizePhone(l?.phone || '');
-      if (!phone) continue;
-      if (!map.has(phone)) map.set(phone, l);
+      const variants = inboxPhoneLookupVariants(l?.phone || '');
+      for (const phone of variants) {
+        if (!phone || map.has(phone)) continue;
+        map.set(phone, l);
+      }
     }
     return map;
   }, [leads]);

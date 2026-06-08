@@ -966,10 +966,11 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   }, [waInfo?.instance_id, fetchWaInfo, refreshWaQrCode]);
 
   /**
-   * Sincroniza API reconcile (24h).
+   * Sincroniza API reconcile (24h) e, opcionalmente, reidrata mídia da conversa aberta.
    * @param {((data: object) => void | Promise<void>)|undefined} afterSuccess — ex.: recarregar lista no Inbox
+   * @param {{ phone?: string }} [options]
    */
-  const reconcileWhatsAppHistory = useCallback(async (afterSuccess) => {
+  const reconcileWhatsAppHistory = useCallback(async (afterSuccess, options = {}) => {
     const debugOn = inboxDebugEnabled();
     if (!academyIdRef.current) {
       const message = 'Não foi possível sincronizar: academia não identificada.';
@@ -1038,13 +1039,56 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       const zapsterItems = Number.isFinite(Number(data?.zapster_items)) ? Number(data.zapster_items) : 0;
       const phones = Number.isFinite(Number(data?.phones)) ? Number(data.phones) : 0;
       const pages = Number.isFinite(Number(data?.pages)) ? Number(data.pages) : 0;
-      useUiStore.getState().addToast({
-        type: updated > 0 || created > 0 || merged > 0 ? 'success' : 'warning',
-        message:
-          updated > 0 || created > 0 || merged > 0
-            ? `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`
-            : `Sincronização sem novas conversas • Zapster: ${zapsterItems} itens • Telefones válidos: ${phones} • Páginas: ${pages}`
-      });
+      let mediaRehydrated = 0;
+      let mediaAttempted = 0;
+      const rehydratePhone = String(options?.phone || '').trim();
+      if (rehydratePhone) {
+        try {
+          const reJwt = await getJwt();
+          const { blocked, res: reResp } = await fetchWithBillingGuard(
+            `/api/conversations/${encodeURIComponent(rehydratePhone)}`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${reJwt}`,
+                'x-academy-id': String(academyIdRef.current || ''),
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'rehydrate_media' }),
+            }
+          );
+          if (!blocked && reResp.ok) {
+            const reRaw = await reResp.text();
+            const reData = safeParseJson(reRaw) || {};
+            mediaAttempted = Number.isFinite(Number(reData?.media_attempted)) ? Number(reData.media_attempted) : 0;
+            mediaRehydrated = Number.isFinite(Number(reData?.media_rehydrated)) ? Number(reData.media_rehydrated) : 0;
+            data.media_attempted = mediaAttempted;
+            data.media_rehydrated = mediaRehydrated;
+          }
+        } catch (reErr) {
+          if (debugOn) {
+            console.warn('[Inbox Reconcile] rehydrate_media falhou', reErr);
+          }
+        }
+      }
+      let toastMessage = '';
+      let toastType = 'warning';
+      if (updated > 0 || created > 0 || merged > 0) {
+        toastType = 'success';
+        toastMessage = `Sincronizado • ${updated} conversas${created ? ` (+${created})` : ''}${merged ? ` • ${merged} msgs` : ''}`;
+      } else if (mediaRehydrated > 0) {
+        toastType = 'success';
+        toastMessage = `Mídia recuperada nesta conversa • ${mediaRehydrated} anexo${mediaRehydrated === 1 ? '' : 's'}`;
+      } else if (zapsterItems === 0) {
+        toastMessage =
+          'Nenhuma mensagem na API Zapster nas últimas 23h. Isso é normal: o histórico do celular entra pelo webhook em tempo real, não por este botão.';
+        if (mediaAttempted > 0) {
+          toastMessage += ` Tentamos regravar ${mediaAttempted} anexo(s), mas o link já expirou.`;
+        }
+      } else {
+        toastMessage = `Sincronização sem novas conversas • Zapster: ${zapsterItems} itens • Telefones válidos: ${phones} • Páginas: ${pages}`;
+      }
+      useUiStore.getState().addToast({ type: toastType, message: toastMessage });
       if (debugOn) {
         console.log('[Inbox Reconcile] success', { updated, created, merged, zapsterItems, phones, pages });
       }

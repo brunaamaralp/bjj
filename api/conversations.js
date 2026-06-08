@@ -15,6 +15,8 @@ import { assertBillingActive, sendBillingGateError } from '../lib/server/billing
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
 import notificationsHandler from '../lib/server/notificationsHandler.js';
 import messageFlagsHandler from '../lib/server/messageFlagsHandler.js';
+import { rehydrateConversationMediaMessages } from '../lib/server/rehydrateConversationMedia.js';
+import { inboxPhoneLookupVariants } from '../src/lib/normalizeInboxPhone.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -173,13 +175,28 @@ function matchesSearch(doc, searchRaw) {
   return name.includes(q);
 }
 
-async function findConversationDoc(academyId, phoneDigits) {
-  const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-    Query.equal('academy_id', [academyId]),
-    Query.equal('phone_number', [phoneDigits]),
-    Query.limit(1)
-  ]);
-  return list.documents?.[0] || null;
+async function findConversationDoc(academyId, phoneDigits, leadId = '') {
+  const variants = inboxPhoneLookupVariants(phoneDigits);
+  const phonesToTry = variants.length ? variants : [String(phoneDigits || '').trim()].filter(Boolean);
+  for (const p of phonesToTry) {
+    const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
+      Query.equal('academy_id', [academyId]),
+      Query.equal('phone_number', [p]),
+      Query.limit(1),
+    ]);
+    const doc = list.documents?.[0] || null;
+    if (doc) return doc;
+  }
+  const lid = String(leadId || '').trim();
+  if (lid) {
+    const byLead = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
+      Query.equal('academy_id', [academyId]),
+      Query.equal('lead_id', [lid]),
+      Query.limit(1),
+    ]);
+    return byLead.documents?.[0] || null;
+  }
+  return null;
 }
 
 function ensureJsonBody(req, res) {
@@ -309,9 +326,10 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
     const cursor = String(req.query.cursor || '').trim();
+    const leadIdQuery = String(req.query.lead_id || '').trim();
 
     try {
-      const doc = await findConversationDoc(academyId, phoneDigits);
+      const doc = await findConversationDoc(academyId, phoneDigits, leadIdQuery);
       if (!doc) {
         return json(res, 200, {
           phone: phoneDigits,
@@ -333,7 +351,7 @@ export default async function handler(req, res) {
       const { slice, next_cursor } = paginateMessagesWindow(sorted, limit, cursor);
 
       return json(res, 200, {
-        phone: phoneDigits,
+        phone: String(doc.phone_number || '').trim() || phoneDigits,
         conversation_id: String(doc.$id || ''),
         archived: doc.archived === true,
         messages: slice,
@@ -367,7 +385,8 @@ export default async function handler(req, res) {
   const action = String(body.action || '').trim();
 
   try {
-    let doc = await findConversationDoc(academyId, phoneDigits);
+    const leadIdBody = String(body.lead_id || '').trim();
+    let doc = await findConversationDoc(academyId, phoneDigits, leadIdBody);
 
     if (action === 'read') {
       if (!doc) return json(res, 200, { ok: true, unread_count: 0 });
@@ -490,6 +509,24 @@ export default async function handler(req, res) {
         contact_name: String(updated?.contact_name || '').trim(),
         contact_name_source: String(updated?.contact_name_source || '').trim() || (nextName ? 'manual' : ''),
         whatsapp_profile_name: String(updated?.whatsapp_profile_name || '').trim()
+      });
+    }
+
+    if (action === 'rehydrate_media') {
+      if (!doc) return json(res, 404, { sucesso: false, erro: 'Conversa não encontrada' });
+      const history = safeParseMessages(doc.messages);
+      const { messages, attempted, updated } = await rehydrateConversationMediaMessages(history, {
+        academyId,
+      });
+      if (updated > 0) {
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+          messages: JSON.stringify(messages),
+        });
+      }
+      return json(res, 200, {
+        sucesso: true,
+        media_attempted: attempted,
+        media_rehydrated: updated,
       });
     }
 

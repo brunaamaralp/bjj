@@ -5,6 +5,7 @@ import { useInboxConversation } from '../../hooks/useInboxConversation';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import ThreadSkeleton from './ThreadSkeleton';
 import InboxComposer from './InboxComposer';
+import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 import MessageBubble, {
   messageBubbleSenderFromMessage,
   messageBubbleStatusFromMessage,
@@ -98,9 +99,19 @@ function HandoffBanner({ onDismiss }) {
   );
 }
 
-export default function ProfileConversationTab({ phone: rawPhone, academyId, leadName }) {
+function profileMessagePreview(m) {
+  const content = String(m?.content || '').trim();
+  if (content) return content;
+  const type = String(m?.type || '').trim().toLowerCase();
+  if (type === 'image') return '🖼️ Imagem';
+  if (type === 'audio' || type === 'ptt') return '🎵 Áudio';
+  return '';
+}
+
+export default function ProfileConversationTab({ phone: rawPhone, academyId, leadName, leadId }) {
   const displayName = String(leadName || '').trim() || 'o contato';
-  const phoneDigits = String(rawPhone || '').replace(/\D/g, '');
+  const phoneDigits = primaryInboxPhone(rawPhone);
+  const leadIdStr = String(leadId || '').trim();
 
   const {
     messages,
@@ -116,7 +127,12 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
     retryFailedMessage,
     markRead,
     refresh,
-  } = useInboxConversation({ phone: rawPhone, academyId, enabled: Boolean(phoneDigits && academyId) });
+  } = useInboxConversation({
+    phone: rawPhone,
+    leadId: leadIdStr,
+    academyId,
+    enabled: Boolean(academyId && (phoneDigits || leadIdStr)),
+  });
 
   const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
     statusPollWhileMounted: true,
@@ -181,12 +197,12 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
     setDraft(e.target.value);
   }, []);
 
-  if (!phoneDigits) {
+  if (!phoneDigits && !leadIdStr) {
     return (
       <ProfileConversationEmpty
         icon={MessageCircle}
         title="Nenhum telefone cadastrado"
-        description="Adicione o telefone do aluno para ver o histórico de mensagens."
+        description="Adicione o telefone do contato para ver o histórico de mensagens."
       />
     );
   }
@@ -263,7 +279,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
                   </div>
                 );
               }
-              const content = String(b.m?.content || '').trim();
+              const content = profileMessagePreview(b.m);
               if (!content) return null;
               const mid = String(b.m?.message_id || '').trim();
               const sendFailed = Boolean(b.m?._sendFailed);

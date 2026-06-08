@@ -2801,6 +2801,7 @@ export default function StudentProfile() {
                     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                         <ProfileConversationTab
                             phone={student.phone}
+                            leadId={student.id}
                             academyId={academyId}
                             leadName={student.name}
                         />

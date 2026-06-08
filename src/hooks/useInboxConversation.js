@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { account, realtime, DB_ID, CONVERSATIONS_COL } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
-import { normalizeInboxPhone } from '../lib/normalizeInboxPhone';
+import { inboxPhonesMatch, primaryInboxPhone } from '../lib/normalizeInboxPhone';
 import { AGENT_HISTORY_WINDOW } from '../../lib/constants.js';
 
 const PAGE_LIMIT = 30;
@@ -69,10 +69,11 @@ function mapSummaryFromApi(data, phone) {
 /**
  * Hook isolado para thread de conversa (perfil, etc.) — não depende de Inbox.jsx.
  */
-export function useInboxConversation({ phone: rawPhone, academyId, enabled = true } = {}) {
-  const phone = normalizeInboxPhone(rawPhone);
+export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLeadId, enabled = true } = {}) {
+  const phone = primaryInboxPhone(rawPhone);
+  const leadId = String(rawLeadId || '').trim();
   const academyIdStr = String(academyId || '').trim();
-  const isActive = Boolean(enabled && phone && academyIdStr);
+  const isActive = Boolean(enabled && academyIdStr && (phone || leadId));
 
   const [messages, setMessages] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -135,10 +136,12 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
         const params = new URLSearchParams();
         params.set('limit', String(PAGE_LIMIT));
         if (pageCursor) params.set('cursor', String(pageCursor));
+        if (leadId) params.set('lead_id', leadId);
         const qs = params.toString();
+        const phonePath = p || '0';
 
         const { blocked, res: resp } = await fetchWithBillingGuard(
-          `/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`,
+          `/api/conversations/${encodeURIComponent(phonePath)}${qs ? `?${qs}` : ''}`,
           {
             headers: {
               Authorization: `Bearer ${jwt}`,
@@ -165,12 +168,15 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
           return;
         }
 
+        const resolvedPhone = primaryInboxPhone(String(data?.phone || p || '').trim());
+        if (resolvedPhone) phoneRef.current = resolvedPhone;
+
         const incoming = Array.isArray(data?.messages) ? data.messages : [];
         const nextCur = typeof data?.next_cursor === 'string' ? data.next_cursor : '';
 
         setCursor(nextCur);
         setHasMore(Boolean(nextCur));
-        setSummary(mapSummaryFromApi(data, p));
+        setSummary(mapSummaryFromApi(data, resolvedPhone || p));
 
         setMessages((prev) => {
           const prevArr = Array.isArray(prev) ? prev : [];
@@ -191,7 +197,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
         }
       }
     },
-    [enabled]
+    [enabled, leadId]
   );
 
   useEffect(() => {
@@ -461,7 +467,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
         void 0;
       }
     };
-  }, [isActive, phone, academyIdStr, fetchThread]);
+  }, [isActive, phone, leadId, academyIdStr, fetchThread]);
 
   useEffect(() => {
     if (!isActive || typeof window === 'undefined') return undefined;
@@ -487,7 +493,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, enabled = tru
       const currentPhone = phoneRef.current;
 
       if (academy && expected && academy !== expected) return;
-      if (eventPhone && currentPhone && eventPhone !== currentPhone) return;
+      if (eventPhone && currentPhone && !inboxPhonesMatch(eventPhone, currentPhone)) return;
 
       if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
       realtimeTimerRef.current = setTimeout(() => {

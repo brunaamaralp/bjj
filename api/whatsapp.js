@@ -844,6 +844,19 @@ function isZapsterRetentionExceededError(err) {
   return msg.includes('messages_retention_exceeded') || msg.includes('message history up to 24h');
 }
 
+function extractZapsterMessagePageItems(page) {
+  if (!page || typeof page !== 'object') return [];
+  if (Array.isArray(page.data)) return page.data;
+  if (page.data && typeof page.data === 'object') {
+    const nested = page.data;
+    if (Array.isArray(nested.messages)) return nested.messages;
+    if (Array.isArray(nested.items)) return nested.items;
+  }
+  if (Array.isArray(page.messages)) return page.messages;
+  if (Array.isArray(page.items)) return page.items;
+  return [];
+}
+
 async function fetchZapsterMessagePages({ fromIso, toIso, instanceId, maxPages = 30, limit = 100 }) {
   const items = [];
   let after = '';
@@ -851,7 +864,7 @@ async function fetchZapsterMessagePages({ fromIso, toIso, instanceId, maxPages =
   for (;;) {
     pages += 1;
     const page = await listZapsterMessages({ from: fromIso, to: toIso, after, limit, instanceId });
-    const dataArr = Array.isArray(page?.data) ? page.data : [];
+    const dataArr = extractZapsterMessagePageItems(page);
     items.push(...dataArr);
     waDebug({
       step: 'reconcile_page',
@@ -916,7 +929,10 @@ async function listZapsterMessages({ from, to, after, limit, instanceId }) {
   if (after) qs.set('after', after);
   const url = `${urlBase}/v1/wa/messages?${qs.toString()}`;
 
-  const resp = await fetch(url, { headers: { authorization: `Bearer ${ZAPSTER_TOKEN}` } });
+  const headers = { authorization: `Bearer ${ZAPSTER_TOKEN}` };
+  const inst = String(instanceId || '').trim();
+  if (inst) headers['X-Instance-ID'] = inst;
+  const resp = await fetch(url, { headers });
   const raw = await resp.text();
   let data = null;
   try {
@@ -1380,12 +1396,17 @@ export default async function handler(req, res) {
         from: fromIso,
         to: toIso,
         reconcile_hours: reconcileHours,
+        instance_id_prefix: String(instanceId || '').slice(0, 8) || null,
         pages,
         zapster_items: items.length,
         phones: grouped.size,
         conversations_updated: conversationsUpdated,
         conversations_created: conversationsCreated,
         messages_merged: messagesMerged,
+        hint:
+          items.length === 0
+            ? 'A API Zapster não retornou mensagens no período. Isso é comum quando o histórico entrou só pelo webhook/celular — use reidratação de mídia na conversa aberta.'
+            : null,
         errors
       });
     } catch (e) {
