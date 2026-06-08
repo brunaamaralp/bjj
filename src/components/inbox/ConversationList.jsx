@@ -9,6 +9,7 @@ import {
   INBOX_LIST_SECTION_INITIAL,
   INBOX_LIST_SECTION_MORE_STEP,
   INBOX_LIST_VIRTUALIZE_THRESHOLD,
+  INBOX_LIST_ITEM_ROW_HEIGHT,
 } from '../../lib/inboxUiConstants.js';
 
 function normalizeGroupItems(raw) {
@@ -225,6 +226,8 @@ export default function ConversationList(props) {
             return (
               <div
                 key={row.id}
+                ref={virtualizer.measureElement}
+                data-index={vRow.index}
                 className="inbox-conversation-list-virtual__row"
                 style={{
                   position: 'absolute',
@@ -232,6 +235,7 @@ export default function ConversationList(props) {
                   left: 0,
                   width: '100%',
                   transform: `translateY(${vRow.start}px)`,
+                  ...(row.type === 'item' ? { height: INBOX_LIST_ITEM_ROW_HEIGHT } : undefined),
                 }}
               >
                 {renderRow(row)}

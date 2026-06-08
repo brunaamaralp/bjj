@@ -312,7 +312,7 @@ export default function InboxThreadPanel(props) {
         </div>
       ) : null}
 
-      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div className="inbox-thread-body">
         <div
           ref={threadScrollRef}
           onScroll={onThreadScroll}

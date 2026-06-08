@@ -1,5 +1,6 @@
 import {
   INBOX_LIST_SECTION_INITIAL,
+  INBOX_LIST_ITEM_ROW_HEIGHT,
 } from './inboxUiConstants.js';
 
 /** @typedef {'header'|'item'|'more'|'collapsed'} InboxListRowType */
@@ -74,7 +75,7 @@ export function buildInboxListRows(groups, collapsedGroups, visibleByGroup) {
 export function estimateInboxListRowHeight(row) {
   if (!row || typeof row !== 'object') return 40;
   if (row.type === 'header') return 28;
-  if (row.type === 'item') return 54;
+  if (row.type === 'item') return INBOX_LIST_ITEM_ROW_HEIGHT;
   if (row.type === 'more' || row.type === 'collapsed') return 36;
   return 40;
 }

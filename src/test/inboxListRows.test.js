@@ -44,7 +44,7 @@ describe('buildInboxListRows', () => {
 describe('estimateInboxListRowHeight', () => {
   it('estima alturas por tipo', () => {
     expect(estimateInboxListRowHeight({ type: 'header' })).toBe(28);
-    expect(estimateInboxListRowHeight({ type: 'item' })).toBe(54);
+    expect(estimateInboxListRowHeight({ type: 'item' })).toBe(58);
     expect(estimateInboxListRowHeight({ type: 'more' })).toBe(36);
   });
 });

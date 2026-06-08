@@ -58,8 +58,9 @@
 }
 
 .inbox-body-grow {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -350,9 +351,10 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   max-height: 100%;
+  height: 100%;
   gap: 0;
   align-items: stretch;
   grid-template-rows: minmax(0, 1fr);
@@ -363,6 +365,8 @@
   padding-right: var(--space-2, 10px);
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -398,9 +402,20 @@
 .inbox-layout-thread-col {
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.inbox-layout-list-col > .inbox-list-panel,
+.inbox-layout-thread-col > .inbox-thread-panel,
+.inbox-layout-thread-col > .inbox-empty-thread-placeholder {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 100%;
+  width: 100%;
 }
 
 .inbox-layout-thread-col--with-context {
@@ -564,12 +579,24 @@
 
 /* —— Thread panel —— */
 .inbox-thread-panel {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  max-height: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--surface);
+}
+
+.inbox-thread-body {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 @media (min-width: 1024px) {
@@ -622,11 +649,13 @@
 }
 
 .inbox-thread-messages {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: var(--inbox-thread-bg);
   padding: 14px;
 }
@@ -1405,8 +1434,12 @@
 }
 
 .inbox-conversation-item--compact {
-  padding: 8px 10px;
-  min-height: 40px;
+  box-sizing: border-box;
+  height: var(--inbox-list-item-height, 58px);
+  min-height: var(--inbox-list-item-height, 58px);
+  max-height: var(--inbox-list-item-height, 58px);
+  padding: 0 10px;
+  overflow: hidden;
 }
 
 .inbox-conversation-item:hover {
@@ -1452,6 +1485,9 @@
 
 .inbox-conversation-item__row--compact {
   gap: 6px;
+  align-items: center;
+  height: 100%;
+  min-height: 0;
 }
 
 .inbox-conversation-item__main {
@@ -1464,6 +1500,8 @@
 
 .inbox-conversation-item__main--compact {
   gap: 4px;
+  align-items: center;
+  min-height: 0;
 }
 
 .inbox-conversation-item__avatar {
@@ -1500,6 +1538,8 @@
 .inbox-conversation-item__content {
   min-width: 0;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .inbox-conversation-item__title-row {
@@ -1507,7 +1547,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .inbox-conversation-item__stage {
@@ -1574,7 +1614,7 @@
 }
 
 .inbox-conversation-item__preview-row--compact {
-  margin-top: 1px;
+  margin-top: 0;
 }
 
 .inbox-conversation-item__preview {
@@ -1627,6 +1667,8 @@
 
 .inbox-conversation-item__meta--compact {
   gap: 2px;
+  justify-content: center;
+  align-self: stretch;
 }
 
 .inbox-conversation-item__time {
@@ -2546,9 +2588,10 @@
 }
 
 .inbox-list-skeleton {
-  height: 58px;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  height: var(--inbox-list-item-height, 58px);
+  border-radius: 0;
+  margin-bottom: 0;
+  border-bottom: 0.5px solid var(--border-light);
   background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.24) 50%, rgba(148, 163, 184, 0.12) 75%);
   background-size: 200% 100%;
   animation: inboxSk 1.2s ease-in-out infinite;
