@@ -18,6 +18,7 @@
     "migrate:perms": "node scripts/migrate-permissions.mjs",
     "migrate:ai-plans": "node scripts/migrate-ai-plans-appwrite.mjs",
     "migrate:lead-stage-sync": "node scripts/fix-lead-stage-sync.js",
+    "migrate:plan-to-bundle": "node --env-file=.env scripts/convert-plan-payments-to-bundle.mjs",
     "migrate:kids-to-crianca": "node scripts/migrateLeadTypeKidsToCrianca.js",
     "provision:lead-payment-attrs": "node scripts/ensure-lead-payment-attrs.js",
     "provision:lead-triage-attrs": "node scripts/ensure-lead-triage-attrs.js",
