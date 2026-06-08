@@ -60,7 +60,9 @@ export default function NaviChatWidget({ academyId, commandBarOpen = false }) {
     return Boolean(isPinned && activePhone);
   }, [location.pathname, isPinned, activePhone]);
 
-  if (!isPinned || hideOnInbox) return null;
+  const hideOnLeadProfile = useMemo(() => /^\/lead\/[^/]+/.test(location.pathname), [location.pathname]);
+
+  if (!isPinned || hideOnInbox || hideOnLeadProfile) return null;
   if (typeof document === 'undefined') return null;
 
   const unreadCount = Number(summary?.unread_count || 0);

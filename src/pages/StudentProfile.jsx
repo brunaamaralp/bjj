@@ -73,7 +73,7 @@ import {
     applyRegisteredEmergencyToForm,
     emergencyMatchesRegistered,
 } from '../lib/studentEmergencyContact.js';
-import ProfileConversationTab from '../components/inbox/ProfileConversationTab.jsx';
+import NaviChatWidgetPanel from '../components/chat-widget/NaviChatWidgetPanel.jsx';
 import { validateBankAccountForPayment, validatePreferredPaymentAccount } from '../lib/bankAccounts.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
@@ -1454,6 +1454,7 @@ export default function StudentProfile() {
     const setProfileTab = useCallback(
         (tabId) => {
             setActiveTab(tabId);
+            setTimelineOpen(true);
             setSearchParams(
                 (prev) => {
                     const next = new URLSearchParams(prev);
@@ -1466,6 +1467,15 @@ export default function StudentProfile() {
         },
         [setSearchParams]
     );
+
+    const handleConversationClose = useCallback(() => {
+        setProfileTab('frequency');
+    }, [setProfileTab]);
+
+    const handleRequestEditPhone = useCallback(() => {
+        setTimelineOpen(false);
+        setEditingData(true);
+    }, []);
 
     const inputStyle = {
         padding: '9px 12px',
@@ -2798,12 +2808,18 @@ export default function StudentProfile() {
                 ) : null}
 
                 {activeTab === 'conversation' && showConversationTab && student ? (
-                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                        <ProfileConversationTab
-                            phone={student.phone}
-                            leadId={student.id}
+                    <div className="student-profile-conversation-panel">
+                        <NaviChatWidgetPanel
                             academyId={academyId}
+                            activePhone={student.phone}
+                            leadId={student.id}
                             leadName={student.name}
+                            embedded
+                            hideProfileLink
+                            isMobile={stackedLayout}
+                            onClose={handleConversationClose}
+                            onMinimize={handleConversationClose}
+                            onRequestEditPhone={handleRequestEditPhone}
                         />
                     </div>
                 ) : null}
@@ -2986,11 +3002,12 @@ export default function StudentProfile() {
 
     return (
         <div
-            className={`student-profile-page-root${stackedLayout && timelineOpen ? ' student-profile--panel-open' : ''}`}
+            className={`student-profile-page-root${timelineOpen ? ' student-profile--panel-open' : ''}`}
             style={{
                 display: 'flex',
-                height: '100%',
-                overflow: 'auto',
+                flex: 1,
+                minHeight: 0,
+                overflow: timelineOpen ? 'hidden' : 'auto',
                 width: '100%',
                 background: 'var(--surface)',
             }}

@@ -32,7 +32,14 @@ function HandoffBanner({ onDismiss }) {
   );
 }
 
-export default function ProfileConversationTab({ phone: rawPhone, academyId, leadName, leadId }) {
+export default function ProfileConversationTab({
+  phone: rawPhone,
+  academyId,
+  leadName,
+  leadId,
+  onSummaryChange,
+  onRequestEditPhone,
+}) {
   const displayName = String(leadName || '').trim() || 'o contato';
   const phoneDigits = primaryInboxPhone(rawPhone);
   const leadIdStr = String(leadId || '').trim();
@@ -82,6 +89,10 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
     }
   }, [loading, summary?.unread_count, markRead]);
 
+  useEffect(() => {
+    onSummaryChange?.(summary);
+  }, [summary, onSummaryChange]);
+
   const hasMessages = messages.length > 0;
   const showAiHandoffBanner = Boolean(summary?.handoff) && !handoffBannerDismissed;
   const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
@@ -103,6 +114,13 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
         icon={MessageCircle}
         title="Nenhum telefone cadastrado"
         description="Adicione o telefone do contato para ver o histórico de mensagens."
+        action={
+          onRequestEditPhone ? (
+            <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} onClick={onRequestEditPhone}>
+              Adicionar telefone
+            </button>
+          ) : null
+        }
       />
     );
   }
@@ -158,7 +176,7 @@ export default function ProfileConversationTab({ phone: rawPhone, academyId, lea
       <InboxComposer
         mode="compact"
         compactDisabled={!waConnected}
-        compactPlaceholder="Digite uma mensagem..."
+        compactPlaceholder="Digite uma mensagem…"
         draft={draft}
         setDraft={setDraft}
         handleDraftChange={handleDraftChange}

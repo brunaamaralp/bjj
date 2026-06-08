@@ -29,8 +29,12 @@ export default function NaviChatWidgetPanel({
   leadId,
   leadName,
   isMobile = false,
+  embedded = false,
+  hideProfileLink = false,
   onMinimize,
   onClose,
+  onSummaryChange,
+  onRequestEditPhone,
 }) {
   const navigate = useNavigate();
   const switchConversation = useChatWidgetStore((s) => s.switchConversation);
@@ -59,7 +63,7 @@ export default function NaviChatWidgetPanel({
     phone: activePhone,
     leadId: leadIdStr,
     academyId,
-    enabled: Boolean(academyId && phoneDigits),
+    enabled: Boolean(academyId && (phoneDigits || leadIdStr)),
   });
 
   const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
@@ -91,6 +95,10 @@ export default function NaviChatWidgetPanel({
       void markRead();
     }
   }, [loading, summary?.unread_count, markRead]);
+
+  useEffect(() => {
+    onSummaryChange?.(summary);
+  }, [summary, onSummaryChange]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -137,15 +145,68 @@ export default function NaviChatWidgetPanel({
     [switchConversation]
   );
 
+  if (!phoneDigits && !leadIdStr && embedded) {
+    return (
+      <div
+        className={`navi-chat-widget__panel navi-chat-widget__panel--embedded${isMobile ? ' navi-chat-widget__panel--mobile' : ''}`}
+        role="region"
+        aria-label="Conversa WhatsApp"
+      >
+        <header className="navi-chat-widget__header">
+          <span className="navi-chat-widget__header-name" style={{ flex: 1, padding: '4px 6px' }}>
+            Conversa
+          </span>
+          <div className="navi-chat-widget__header-actions">
+            <button
+              type="button"
+              className="navi-chat-widget__icon-btn"
+              title="Recolher"
+              aria-label="Recolher conversa"
+              onClick={onMinimize}
+            >
+              <Minus size={16} strokeWidth={2} aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="navi-chat-widget__icon-btn"
+              title="Fechar"
+              aria-label="Fechar conversa"
+              onClick={onClose}
+            >
+              <X size={16} strokeWidth={2} aria-hidden />
+            </button>
+          </div>
+        </header>
+        <div className="profile-conversation-empty">
+          <p className="profile-conversation-empty__title">Nenhum telefone cadastrado</p>
+          <p className="profile-conversation-empty__desc">
+            Adicione o telefone do contato para ver o histórico de mensagens.
+          </p>
+          {onRequestEditPhone ? (
+            <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} onClick={onRequestEditPhone}>
+              Adicionar telefone
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={panelRef}
-      className={`navi-chat-widget__panel${isMobile ? ' navi-chat-widget__panel--mobile' : ''}`}
-      role="dialog"
+      className={[
+        'navi-chat-widget__panel',
+        isMobile ? 'navi-chat-widget__panel--mobile' : '',
+        embedded ? 'navi-chat-widget__panel--embedded' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      role={embedded ? 'region' : 'dialog'}
       aria-label={`Conversa WhatsApp com ${resolvedName}`}
-      aria-modal="false"
+      aria-modal={embedded ? undefined : 'false'}
     >
-      {isMobile ? <div className="navi-chat-widget__sheet-handle" aria-hidden /> : null}
+      {isMobile && !embedded ? <div className="navi-chat-widget__sheet-handle" aria-hidden /> : null}
 
       <header className="navi-chat-widget__header">
         <NaviChatWidgetSwitcher
@@ -157,7 +218,7 @@ export default function NaviChatWidgetPanel({
           panelOpen
         />
         <div className="navi-chat-widget__header-actions">
-          {profileHref ? (
+          {profileHref && !hideProfileLink ? (
             <Link
               to={profileHref}
               className="navi-chat-widget__icon-btn"
@@ -235,7 +296,7 @@ export default function NaviChatWidgetPanel({
         <InboxComposer
           mode="compact"
           compactDisabled={!waConnected}
-          compactPlaceholder="Digite uma mensagem..."
+          compactPlaceholder="Digite uma mensagem…"
           draft={draft}
           setDraft={setDraft}
           handleDraftChange={handleDraftChange}

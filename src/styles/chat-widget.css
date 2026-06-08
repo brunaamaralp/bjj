@@ -164,38 +164,61 @@
   border-bottom: 1px solid var(--color-card-border);
   background: var(--color-card-bg);
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .navi-chat-widget__header-actions {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex: 0 0 auto;
   flex-shrink: 0;
+  margin-left: auto;
+  position: relative;
+  z-index: 2;
+  background: var(--color-card-bg);
+  padding-left: 4px;
 }
 
 .navi-chat-widget__icon-btn {
   width: 30px;
   height: 30px;
-  border: none;
+  border: 1px solid var(--color-card-border);
   border-radius: 8px;
-  background: transparent;
-  color: var(--color-text-secondary, #9896a8);
+  background: var(--color-card-bg);
+  color: var(--color-text-primary, #18162a);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   text-decoration: none;
-  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+  flex-shrink: 0;
+  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
 }
 
 .navi-chat-widget__icon-btn:hover {
   background: var(--color-primary-surface);
   color: var(--color-primary-dark);
+  border-color: var(--color-primary-light);
+}
+
+.navi-chat-widget__icon-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 35%, white);
+  outline-offset: 2px;
 }
 
 .navi-chat-widget__switcher {
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 0;
+  max-width: calc(100% - 132px);
+  overflow: hidden;
+}
+
+.navi-chat-widget__header .navi-menu.navi-chat-widget__switcher {
+  display: flex;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: calc(100% - 132px);
 }
 
 .navi-chat-widget__header-trigger {
@@ -332,4 +355,30 @@
 .navi-chat-widget__composer .inbox-composer--compact {
   border: none;
   border-radius: 0;
+}
+
+.navi-chat-widget__panel--embedded {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  min-height: 0;
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.lead-profile-conversation-rail .navi-chat-widget__panel--embedded {
+  display: flex;
+  flex-direction: column;
+}
+
+.lead-profile-conversation-rail .navi-chat-widget__panel--embedded.navi-chat-widget__panel--mobile {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  height: 100%;
+  max-height: none;
+  padding-bottom: 0;
 }

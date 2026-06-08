@@ -110,7 +110,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
     async ({ silent = false, cursor: pageCursor = '', append = false } = {}) => {
       const p = phoneRef.current;
       const aid = academyIdRef.current;
-      if (!p || !aid || !enabled) return;
+      if ((!p && !leadId) || !aid || !enabled) return;
 
       const reqSeq = ++requestSeqRef.current;
 

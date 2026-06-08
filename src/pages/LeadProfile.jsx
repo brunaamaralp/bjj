@@ -53,7 +53,7 @@ import {
     LEAD_PROFILE_FROM_DASHBOARD,
     LEAD_PROFILE_FROM_PIPELINE,
 } from '../lib/pipelineSessionState.js';
-import ProfileConversationTab from '../components/inbox/ProfileConversationTab.jsx';
+import NaviChatWidgetPanel from '../components/chat-widget/NaviChatWidgetPanel.jsx';
 import {
   useTerms,
   contactLabelSingular,
@@ -70,6 +70,12 @@ import FieldError from '../components/shared/FieldError.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
 import { resolveHubTab } from '../lib/hubTabs.js';
+import {
+    leadHistoryFilterFromUrlParam,
+    leadHistoryFilterToUrlParam,
+} from '../lib/leadProfileUrlState.js';
+import { buildCustomAnswersPatch } from '../lib/customLeadQuestions.js';
+import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx';
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { primaryInboxPhone as normalizeLeadPhoneForInbox } from '../lib/normalizeInboxPhone.js';
 import '../styles/lead-profile.css';
@@ -168,6 +174,11 @@ const TYPE_ICONS = {
 
 function showLeadProfileScheduleEditSection(status) {
     return status !== LEAD_STATUS.CONVERTED && status !== LEAD_STATUS.LOST;
+}
+
+function readInitialPanelOpen() {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(min-width: 1024px)').matches;
 }
 
 const LeadProfile = () => {
@@ -436,10 +447,19 @@ const LeadProfile = () => {
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
-    const [activeProfileTab, setActiveProfileTab] = useState('dados');
+    const [activeProfileTab, setActiveProfileTab] = useState('timeline');
+    const [panelOpen, setPanelOpen] = useState(readInitialPanelOpen);
+    const [viewportStacked, setViewportStacked] = useState(
+        () => typeof window !== 'undefined' && window.innerWidth < 1024
+    );
+    const stackedLayout = viewportStacked;
+    const [conversationUnreadCount, setConversationUnreadCount] = useState(0);
+    const [phoneCopied, setPhoneCopied] = useState(false);
     const [formErrors, setFormErrors] = useState({});
     const [editBaseline, setEditBaseline] = useState(null);
     const waMenuTriggerRef = useRef(null);
+    const phoneEditInputRef = useRef(null);
+    const startEditRef = useRef(null);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -522,6 +542,11 @@ const LeadProfile = () => {
         [timelineEvents, eventTypeFilter]
     );
 
+    const pinnedNotesCount = useMemo(
+        () => (timelineEvents || []).filter((e) => e.is_pinned).length,
+        [timelineEvents]
+    );
+
     useEffect(() => {
         void refreshTimeline();
     }, [refreshTimeline]);
@@ -537,7 +562,9 @@ const LeadProfile = () => {
     }, [id, refreshTimeline]);
 
     const [note, setNote] = useState('');
+    const [dadosQuickNoteOpen, setDadosQuickNoteOpen] = useState(false);
     const noteTextareaRef = useRef(null);
+    const dadosNoteTextareaRef = useRef(null);
     const createTask = useTaskStore((s) => s.createTask);
     const [inlineTaskOpen, setInlineTaskOpen] = useState(false);
     const [inlineTaskTitle, setInlineTaskTitle] = useState('');
@@ -578,15 +605,65 @@ const LeadProfile = () => {
         modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
 
     const profileTabIds = useMemo(() => {
-        const ids = ['dados', 'timeline'];
+        const ids = ['timeline'];
         if (showConversationTab) ids.push('conversation');
         return ids;
     }, [showConversationTab]);
 
     useEffect(() => {
-        const tab = resolveHubTab(searchParams.get('tab'), profileTabIds, 'dados');
+        const onResize = () => setViewportStacked(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    useEffect(() => {
+        const rawTab = String(searchParams.get('tab') || '').trim().toLowerCase();
+        const chatParam = searchParams.get('chat');
+
+        let tab = resolveHubTab(rawTab, profileTabIds, 'dados');
+        if (isDesktopSplit && rawTab === 'conversation') {
+            tab = 'dados';
+        }
         setActiveProfileTab(tab);
-    }, [searchParams, profileTabIds]);
+        setEventTypeFilter(leadHistoryFilterFromUrlParam(searchParams.get('history')));
+
+        if (isDesktopSplit) {
+            setConversationOpen(chatParam !== '0');
+        } else if (!stackedLayout && showConversationTab) {
+            setConversationOpen(true);
+        }
+    }, [searchParams, profileTabIds, isDesktopSplit, stackedLayout, showConversationTab]);
+
+    useEffect(() => {
+        if (!isDesktopSplit) return;
+        const rawTab = String(searchParams.get('tab') || '').trim().toLowerCase();
+        if (rawTab !== 'conversation') return;
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('tab');
+                return next;
+            },
+            { replace: true }
+        );
+    }, [isDesktopSplit, searchParams, setSearchParams]);
+
+    const setConversationOpenWithUrl = useCallback(
+        (open) => {
+            setConversationOpen(open);
+            if (!isDesktopSplit) return;
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (open) next.delete('chat');
+                    else next.set('chat', '0');
+                    return next;
+                },
+                { replace: true }
+            );
+        },
+        [isDesktopSplit, setSearchParams]
+    );
 
     const setProfileTab = useCallback(
         (tabId) => {
@@ -603,6 +680,37 @@ const LeadProfile = () => {
         },
         [setSearchParams]
     );
+
+    const setHistoryFilterWithUrl = useCallback(
+        (filterId) => {
+            setEventTypeFilter(filterId);
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    const urlVal = leadHistoryFilterToUrlParam(filterId);
+                    if (urlVal) next.set('history', urlVal);
+                    else next.delete('history');
+                    return next;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
+
+    const handleConversationSummaryChange = useCallback((summary) => {
+        const count = Number(summary?.unread_count ?? 0);
+        setConversationUnreadCount(Number.isFinite(count) && count > 0 ? count : 0);
+    }, []);
+
+    const handleRequestEditPhone = useCallback(() => {
+        if (stackedLayout) setProfileTab('dados');
+        startEditRef.current?.();
+        requestAnimationFrame(() => {
+            const el = phoneEditInputRef.current || document.getElementById('lead-profile-edit-phone');
+            el?.focus?.();
+        });
+    }, [stackedLayout, setProfileTab]);
 
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const waMenuStyle = useAnchoredMenuPosition(waMenuTriggerRef, templateMenuOpen, {
@@ -841,6 +949,7 @@ const LeadProfile = () => {
         setFormErrors({});
         setEditing(true);
     };
+    startEditRef.current = startEdit;
 
     const cancelEdit = () => {
         if (editBaseline && JSON.stringify(form) !== editBaseline) {
@@ -883,12 +992,19 @@ const LeadProfile = () => {
         setSaving(true);
         try {
             const digitsPhone = String(payload.phone || '').replace(/\D/g, '');
-            const { turmaSelect, turmaOther, ...rest } = payload;
+            const { turmaSelect, turmaOther, customAnswers: rawCustomAnswers, ...rest } = payload;
+            const existingCustom =
+                lead.customAnswers && typeof lead.customAnswers === 'object' ? lead.customAnswers : {};
+            const customAnswers = {
+                ...existingCustom,
+                ...buildCustomAnswersPatch(customQuestions, rawCustomAnswers),
+            };
             await updateLead(id, {
                 ...rest,
                 phone: digitsPhone,
                 turma: turmaValueFromForm(turmaSelect, turmaOther),
                 sexo: payload.sexo || '',
+                customAnswers,
             });
             setEditing(false);
             setEditBaseline(null);
@@ -1207,9 +1323,9 @@ const LeadProfile = () => {
 
     const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
 
-    const focusNoteTextarea = useCallback(() => {
+    const focusNoteField = useCallback((textareaRef = noteTextareaRef) => {
         requestAnimationFrame(() => {
-            const el = noteTextareaRef.current;
+            const el = textareaRef?.current;
             if (!el) return;
             el.focus();
             const len = el.value?.length ?? 0;
@@ -1222,14 +1338,14 @@ const LeadProfile = () => {
     }, []);
 
     const applyQuickNoteChip = useCallback(
-        (chipText) => {
+        (chipText, textareaRef = noteTextareaRef) => {
             setNote((prev) => {
                 const trimmed = String(prev || '').trim();
                 return trimmed ? `${trimmed} ${chipText}` : chipText;
             });
-            focusNoteTextarea();
+            focusNoteField(textareaRef);
         },
-        [focusNoteTextarea]
+        [focusNoteField]
     );
 
     const addNote = async () => {
@@ -1247,7 +1363,7 @@ const LeadProfile = () => {
             await updateLead(id, { lastNoteAt: new Date().toISOString() });
             setNote('');
             toast.success('Nota adicionada.');
-            focusNoteTextarea();
+            focusNoteField();
         } catch (e) {
             toast.error(e, 'save');
         } finally {
@@ -1345,18 +1461,133 @@ const LeadProfile = () => {
         })
     );
 
+    const showCloseSaleCta = canShowLeadCloseSale(lead);
+
     const profileTabs = useMemo(() => {
         const tabs = [
             { id: 'dados', label: 'Dados' },
-            { id: 'timeline', label: 'Timeline' },
+            { id: 'timeline', label: 'Histórico' },
         ];
-        if (showConversationTab) {
-            tabs.push({ id: 'conversation', label: 'Conversa' });
+        if (showConversationTab && stackedLayout) {
+            const convLabel =
+                conversationUnreadCount > 0 ? `Conversa (${conversationUnreadCount})` : 'Conversa';
+            tabs.push({ id: 'conversation', label: convLabel });
         }
         return tabs;
-    }, [showConversationTab]);
+    }, [showConversationTab, stackedLayout, conversationUnreadCount]);
 
-    const showCloseSaleCta = canShowLeadCloseSale(lead);
+    const conversationVisibleAside = Boolean(isDesktopSplit && conversationOpen);
+    const conversationVisibleOverlay = Boolean(
+        showConversationTab && stackedLayout && activeProfileTab === 'conversation'
+    );
+    const showConversationPanel = conversationVisibleAside || conversationVisibleOverlay;
+    const showInboxInHero =
+        Boolean(normalizeLeadPhoneForInbox(lead.phone)) &&
+        showConversationTab &&
+        !conversationVisibleAside &&
+        !conversationVisibleOverlay;
+
+    const leadTypeDisplay = normalizeLeadProfileType(lead.type || '');
+
+    const handleCopyPhone = async () => {
+        const display = String(lead.phone || '').trim();
+        const digits = display.replace(/\D/g, '');
+        if (!digits) return;
+        try {
+            await navigator.clipboard.writeText(display || digits);
+            setPhoneCopied(true);
+            toast.success('Telefone copiado.');
+            window.setTimeout(() => setPhoneCopied(false), 2000);
+        } catch {
+            toast.show({ type: 'error', message: 'Não foi possível copiar o telefone.' });
+        }
+    };
+
+    const nextActionCtas = useMemo(() => {
+        const secondary = [];
+        let primary = null;
+
+        if (showCloseSaleCta && lead.status === LEAD_STATUS.COMPLETED) {
+            primary = {
+                key: 'closeSale',
+                label: 'Fechar venda',
+                icon: BadgeCheck,
+                onClick: () => openMatriculaModal({ paymentShortcut: true }),
+            };
+            if (lead.status !== LEAD_STATUS.CONVERTED) {
+                secondary.push({
+                    key: 'enroll',
+                    label: terms.enrollment,
+                    icon: UserCheck,
+                    onClick: handleMatricularClick,
+                });
+            }
+        } else if (lead.status !== LEAD_STATUS.CONVERTED) {
+            primary = {
+                key: 'enroll',
+                label: terms.enrollment,
+                icon: UserCheck,
+                onClick: handleMatricularClick,
+            };
+            if (showCloseSaleCta) {
+                secondary.push({
+                    key: 'closeSale',
+                    label: 'Fechar venda',
+                    icon: BadgeCheck,
+                    onClick: () => openMatriculaModal({ paymentShortcut: true }),
+                });
+            }
+        }
+
+        return { primary, secondary };
+    }, [lead.status, showCloseSaleCta, terms.enrollment, openMatriculaModal, handleMatricularClick]);
+
+    const renderQuickNoteComposer = ({ idPrefix = 'timeline', textareaRef = noteTextareaRef, className = '' } = {}) => (
+        <div className={`note-container ${className}`.trim()}>
+            <textarea
+                ref={textareaRef}
+                id={`${idPrefix}-note`}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={`Adicione uma observação sobre este ${contactLabel.toLowerCase()}…`}
+                className="timeline-textarea"
+                rows={3}
+                aria-label="Nova observação"
+            />
+            <div className="lead-profile-quick-note-chips">
+                {LEAD_PROFILE_QUICK_NOTE_CHIPS.map((chip) => (
+                    <button
+                        key={chip}
+                        type="button"
+                        className="lead-profile-quick-note-chip"
+                        onClick={() => applyQuickNoteChip(chip, textareaRef)}
+                    >
+                        {chip}
+                    </button>
+                ))}
+            </div>
+            <button
+                type="button"
+                id={`${idPrefix}-send-note`}
+                className="btn-send-note"
+                onClick={() => void addNote()}
+                disabled={!note.trim() || addingNote}
+                aria-label={addingNote ? 'Enviando nota…' : 'Enviar nota'}
+            >
+                <Send size={16} aria-hidden className="send-note-icon" />
+            </button>
+        </div>
+    );
+
+    const containerClassName = [
+        'lead-profile-container',
+        `lead-profile-container--${activeProfileTab}`,
+        conversationVisibleAside ? 'lead-profile-container--split' : '',
+        isDesktopSplit && !conversationOpen ? 'lead-profile-container--chat-collapsed' : '',
+        conversationVisibleOverlay ? 'lead-profile--panel-open' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
 
     const showSchedulePresence =
         lead?.status === LEAD_STATUS.SCHEDULED && Boolean(String(lead?.scheduledDate || '').trim());
@@ -1390,78 +1621,133 @@ const LeadProfile = () => {
             .map((w) => w[0].toUpperCase())
             .join('') || '?';
 
-    return (
-        <div className={`lead-profile-container lead-profile-container--${activeProfileTab}`}>
-            <div className="lead-profile-chrome">
-                <div className="left-col-header lead-profile-left-col-header">
-                    <button type="button" className="icon-btn" onClick={handleProfileBack} aria-label="Voltar">
-                        <ArrowLeft size={20} />
-                    </button>
-                    {profileBreadcrumb ? (
-                        <nav className="lead-profile-breadcrumb" aria-label="Navegação">
-                            <Link
-                                to={profileBreadcrumb.parentTo}
-                                state={profileBreadcrumb.restorePipeline ? { fresh: false } : undefined}
-                                className="lead-profile-breadcrumb__parent"
-                            >
-                                {profileBreadcrumb.parentLabel}
-                            </Link>
-                        </nav>
-                    ) : (
-                        <span className="lead-profile-breadcrumb__fallback">{contactLabel}</span>
-                    )}
-                    <div className="flex gap-2 lead-profile-header-actions">
-                        {activeProfileTab === 'dados' && !editing ? (
-                            <button type="button" className="btn-edit-header" onClick={startEdit}>
-                                <Pencil size={14} /> Editar
-                            </button>
-                        ) : null}
-                        {activeProfileTab === 'dados' && editing ? (
-                            <>
-                                <button
-                                    type="button"
-                                    className="btn-edit-header cancel"
-                                    onClick={cancelEdit}
-                                    aria-label="Cancelar edição"
-                                >
-                                    <X size={14} aria-hidden />
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn-edit-header save"
-                                    onClick={() => void handleSave()}
-                                    disabled={saving}
-                                    aria-label={saving ? 'Salvando…' : 'Salvar alterações'}
-                                >
-                                    {saving ? 'Salvando…' : <Save size={14} aria-hidden />}
-                                </button>
-                            </>
-                        ) : null}
-                    </div>
-                </div>
+    const PrimaryCtaIcon = nextActionCtas.primary?.icon;
 
-                <HubTabBar
-                    tabs={profileTabs}
-                    activeId={activeProfileTab}
-                    onChange={setProfileTab}
-                    ariaLabel="Perfil do contato"
-                    className="lead-profile-hub-tabs"
-                    variant="secondary"
-                    fullWidth
+    const handleConversationMinimize = () => {
+        if (stackedLayout) {
+            setProfileTab('dados');
+            return;
+        }
+        setConversationOpenWithUrl(false);
+    };
+
+    const handleConversationClose = () => {
+        if (stackedLayout) {
+            setProfileTab('dados');
+            return;
+        }
+        setConversationOpenWithUrl(false);
+    };
+
+    const renderConversationRail = () => {
+        if (!showConversationPanel) return null;
+        return (
+            <aside
+                className="lead-profile-conversation-rail"
+                aria-label="Conversa WhatsApp"
+                {...(conversationVisibleOverlay
+                    ? {
+                          role: 'tabpanel',
+                          id: 'lead-profile-panel-conversation',
+                          'aria-labelledby': 'lead-profile-panel-tab-conversation',
+                      }
+                    : {})}
+            >
+                <NaviChatWidgetPanel
+                    academyId={academyId}
+                    activePhone={lead.phone}
+                    leadId={lead.id}
+                    leadName={lead.name}
+                    isMobile={conversationVisibleOverlay}
+                    embedded
+                    hideProfileLink
+                    onMinimize={handleConversationMinimize}
+                    onClose={handleConversationClose}
+                    onSummaryChange={handleConversationSummaryChange}
+                    onRequestEditPhone={handleRequestEditPhone}
                 />
+            </aside>
+        );
+    };
+
+    return (
+        <div className={containerClassName}>
+            <div className="lead-profile-chrome">
+                {!conversationVisibleOverlay ? (
+                    <div className="left-col-header lead-profile-left-col-header">
+                        <button type="button" className="icon-btn" onClick={handleProfileBack} aria-label="Voltar">
+                            <ArrowLeft size={20} />
+                        </button>
+                        {profileBreadcrumb ? (
+                            <nav className="lead-profile-breadcrumb" aria-label="Navegação">
+                                <Link
+                                    to={profileBreadcrumb.parentTo}
+                                    state={profileBreadcrumb.restorePipeline ? { fresh: false } : undefined}
+                                    className="lead-profile-breadcrumb__parent"
+                                >
+                                    {profileBreadcrumb.parentLabel}
+                                </Link>
+                            </nav>
+                        ) : (
+                            <span className="lead-profile-breadcrumb__fallback">{contactLabel}</span>
+                        )}
+                        <span className="lead-profile-chrome__name lead-profile-chrome__name--hidden-mobile">{lead.name}</span>
+                        <div className="flex gap-2 lead-profile-header-actions">
+                            {activeProfileTab === 'dados' && !editing ? (
+                                <button type="button" className="btn-edit-header" onClick={startEdit}>
+                                    <Pencil size={14} /> Editar
+                                </button>
+                            ) : null}
+                            {activeProfileTab === 'dados' && editing ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="btn-edit-header cancel"
+                                        onClick={cancelEdit}
+                                        aria-label="Cancelar edição"
+                                    >
+                                        <X size={14} aria-hidden />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-edit-header save"
+                                        onClick={() => void handleSave()}
+                                        disabled={saving}
+                                        aria-label={saving ? 'Salvando…' : 'Salvar alterações'}
+                                    >
+                                        {saving ? 'Salvando…' : <Save size={14} aria-hidden />}
+                                    </button>
+                                </>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : null}
+
+                {!conversationVisibleOverlay ? (
+                    <HubTabBar
+                        tabs={profileTabs}
+                        activeId={activeProfileTab}
+                        onChange={setProfileTab}
+                        ariaLabel="Perfil do contato"
+                        className="lead-profile-hub-tabs"
+                        variant="secondary"
+                        fullWidth
+                        panelIdPrefix="lead-profile-panel-"
+                    />
+                ) : null}
             </div>
 
-            <div className="lead-profile-main">
+            <div className="lead-profile-body">
+                <div className="lead-profile-left">
+                    <div className="lead-profile-left__scroll">
                 {activeProfileTab === 'dados' ? (
                 <div
                     className="lead-profile-dados left-col-content"
                     role="tabpanel"
                     id="lead-profile-panel-dados"
-                    aria-label="Dados"
+                    aria-labelledby="lead-profile-panel-tab-dados"
                 >
                     <div className="lead-profile-hero profile-main-header">
-                        {!editing ? (
-                            <>
                             <div className="profile-avatar lead-profile-hero__avatar" aria-hidden>
                                 {leadInitials}
                             </div>
@@ -1471,12 +1757,28 @@ const LeadProfile = () => {
                                     <div className="profile-phone lead-profile-hero__phone">
                                         <Phone size={14} aria-hidden />
                                         <span>{lead.phone}</span>
+                                        <button
+                                            type="button"
+                                            className="lead-profile-phone-copy"
+                                            onClick={() => void handleCopyPhone()}
+                                            aria-label="Copiar telefone"
+                                        >
+                                            {phoneCopied ? 'Copiado' : 'Copiar'}
+                                        </button>
                                     </div>
                                 ) : null}
                                 <div className="lead-profile-hero__badges lead-status-row flex items-center gap-2 flex-wrap">
                                     <span className="lead-contact-label">
                                         {contactType === 'student' ? terms.student : contactLabel}
                                     </span>
+                                    {leadTypeDisplay ? (
+                                        <span className="lead-profile-type-chip">
+                                            <span className="lead-profile-type-icon" aria-hidden>
+                                                {TYPE_ICONS[leadTypeDisplay]}
+                                            </span>
+                                            {leadTypeDisplay}
+                                        </span>
+                                    ) : null}
                                     {pipelineStageBadge ? (
                                         <StageBadge
                                             stage={pipelineStageBadge.stageId}
@@ -1515,7 +1817,7 @@ const LeadProfile = () => {
                                         <MessageCircle size={16} aria-hidden />
                                         {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
                                     </button>
-                                    {normalizeLeadPhoneForInbox(lead.phone) && !showConversationTab ? (
+                                    {showInboxInHero ? (
                                         <button
                                             type="button"
                                             className="btn btn-outline lead-profile-inbox-btn"
@@ -1570,10 +1872,11 @@ const LeadProfile = () => {
                                         : null}
                                 </DropdownMenu>
                             </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex-col gap-2 w-full mt-2 lead-profile-edit-fields">
+                    </div>
+
+                    {editing ? (
+                    <div className="lead-profile-edit-panel profile-section">
+                                <div className="flex-col gap-2 w-full lead-profile-edit-fields">
                                     <div className="flex-col gap-1">
                                         <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-name">
                                             Nome
@@ -1595,6 +1898,7 @@ const LeadProfile = () => {
                                             Telefone
                                         </label>
                                         <input
+                                            ref={phoneEditInputRef}
                                             id="lead-profile-edit-phone"
                                             name="phone"
                                             value={form.phone}
@@ -1779,10 +2083,20 @@ const LeadProfile = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    <CustomLeadQuestionFields
+                                        questions={customQuestions}
+                                        values={form.customAnswers || {}}
+                                        onChange={(qid, val) =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                customAnswers: { ...(f.customAnswers || {}), [qid]: val },
+                                            }))
+                                        }
+                                        disabled={saving}
+                                    />
                                 </div>
-                            </>
-                        )}
                     </div>
+                    ) : null}
 
                     {/* Próxima ação */}
                     <div className="profile-section lead-profile-next-action">
@@ -1858,26 +2172,30 @@ const LeadProfile = () => {
                             </div>
                         )}
                         <div className="flex-col gap-2 lead-profile-next-action__cta">
-                            {showCloseSaleCta ? (
+                            {nextActionCtas.primary && PrimaryCtaIcon ? (
                                 <button
                                     type="button"
                                     className="btn-next-step highlight"
-                                    onClick={() => openMatriculaModal({ paymentShortcut: true })}
+                                    onClick={nextActionCtas.primary.onClick}
                                     disabled={updatingStatus}
                                 >
-                                    <BadgeCheck size={14} aria-hidden /> Fechar venda
+                                    <PrimaryCtaIcon size={14} aria-hidden /> {nextActionCtas.primary.label}
                                 </button>
                             ) : null}
-                            {lead.status !== LEAD_STATUS.CONVERTED ? (
-                                <button
-                                    type="button"
-                                    className={`btn-next-step${showCloseSaleCta ? '' : ' highlight'}`}
-                                    onClick={handleMatricularClick}
-                                    disabled={updatingStatus}
-                                >
-                                    <UserCheck size={14} aria-hidden /> {terms.enrollment}
-                                </button>
-                            ) : null}
+                            {nextActionCtas.secondary.map((cta) => {
+                                const SecondaryIcon = cta.icon;
+                                return (
+                                    <button
+                                        key={cta.key}
+                                        type="button"
+                                        className="btn-next-step"
+                                        onClick={cta.onClick}
+                                        disabled={updatingStatus}
+                                    >
+                                        <SecondaryIcon size={14} aria-hidden /> {cta.label}
+                                    </button>
+                                );
+                            })}
                             {lead.status !== LEAD_STATUS.LOST ? (
                                 <div className="next-step-danger-wrap">
                                     <button
@@ -1890,6 +2208,32 @@ const LeadProfile = () => {
                                 </div>
                             ) : null}
                         </div>
+                    </div>
+
+                    <div className="profile-section lead-profile-quick-note-section">
+                        <button
+                            type="button"
+                            className="lead-profile-quick-note-toggle"
+                            aria-expanded={dadosQuickNoteOpen}
+                            onClick={() => setDadosQuickNoteOpen((open) => !open)}
+                        >
+                            <span className="lead-profile-quick-note-toggle__label">
+                                <StickyNote size={14} aria-hidden />
+                                Nota rápida
+                            </span>
+                            <ChevronDown
+                                size={16}
+                                aria-hidden
+                                className={`lead-profile-quick-note-toggle__chevron${dadosQuickNoteOpen ? ' lead-profile-quick-note-toggle__chevron--open' : ''}`}
+                            />
+                        </button>
+                        {dadosQuickNoteOpen
+                            ? renderQuickNoteComposer({
+                                  idPrefix: 'dados',
+                                  textareaRef: dadosNoteTextareaRef,
+                                  className: 'lead-profile-quick-note--dados',
+                              })
+                            : null}
                     </div>
 
                     {/* Tarefas */}
@@ -2079,73 +2423,31 @@ const LeadProfile = () => {
                 </div>
                 ) : null}
 
-                {activeProfileTab === 'conversation' && showConversationTab ? (
-                    <div
-                        className="lead-profile-panel lead-profile-panel--conversation"
-                        role="tabpanel"
-                        id="lead-profile-panel-conversation"
-                        aria-label="Conversa"
-                    >
-                        <ProfileConversationTab
-                            phone={lead.phone}
-                            leadId={lead.id}
-                            academyId={academyId}
-                            leadName={lead.name}
-                        />
-                    </div>
-                ) : null}
-
                 {activeProfileTab === 'timeline' ? (
                 <div
                     className="lead-profile-panel lead-profile-panel--timeline"
                     role="tabpanel"
                     id="lead-profile-panel-timeline"
-                    aria-label="Timeline"
+                    aria-labelledby="lead-profile-panel-tab-timeline"
                 >
                 <div className="timeline-header">
-                    <h2 className="timeline-title">Linha do tempo</h2>
-                    <div className="filter-strip">
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'all' ? ' active' : ''}`} onClick={() => setEventTypeFilter('all')}>Todos</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'message' ? ' active' : ''}`} onClick={() => setEventTypeFilter('message')}>Mensagens</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} onClick={() => setEventTypeFilter('schedule')}>Agendamentos</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} onClick={() => setEventTypeFilter('stage_change')}>Mudanças</button>
-                        <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} onClick={() => setEventTypeFilter('note')}>Notas</button>
+                    <div className="timeline-header__title-row">
+                        <h2 className="timeline-title">Histórico</h2>
+                        <span className="lead-profile-pin-counter" aria-label={`${pinnedNotesCount} de 3 notas fixadas`}>
+                            {pinnedNotesCount}/3 fixadas
+                        </span>
+                    </div>
+                    <div className="filter-strip" role="group" aria-label="Filtrar eventos">
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'all' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'all'} onClick={() => setHistoryFilterWithUrl('all')}>Todos</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'message' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'message'} onClick={() => setHistoryFilterWithUrl('message')}>Mensagens</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'schedule'} onClick={() => setHistoryFilterWithUrl('schedule')}>Agendamentos</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'stage_change'} onClick={() => setHistoryFilterWithUrl('stage_change')}>Mudanças</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'note'} onClick={() => setHistoryFilterWithUrl('note')}>Notas</button>
                     </div>
                 </div>
 
                 <div className="timeline-input-zone">
-                    <div className="note-container">
-                        <textarea
-                            ref={noteTextareaRef}
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            placeholder={`Adicione uma observação sobre este ${contactLabel.toLowerCase()}…`}
-                            className="timeline-textarea"
-                            rows={3}
-                            aria-label="Nova observação"
-                        />
-                        <div className="lead-profile-quick-note-chips">
-                            {LEAD_PROFILE_QUICK_NOTE_CHIPS.map((chip) => (
-                                <button
-                                    key={chip}
-                                    type="button"
-                                    className="lead-profile-quick-note-chip"
-                                    onClick={() => applyQuickNoteChip(chip)}
-                                >
-                                    {chip}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            type="button"
-                            className="btn-send-note"
-                            onClick={() => void addNote()}
-                            disabled={!note.trim() || addingNote}
-                            aria-label={addingNote ? 'Enviando nota…' : 'Enviar nota'}
-                        >
-                            <Send size={16} aria-hidden className="send-note-icon" />
-                        </button>
-                    </div>
+                    {renderQuickNoteComposer({ idPrefix: 'timeline', textareaRef: noteTextareaRef })}
                 </div>
 
                 <div className="timeline-content">
@@ -2233,6 +2535,25 @@ const LeadProfile = () => {
                 </div>
                 </div>
                 ) : null}
+                    </div>
+                    {isDesktopSplit && !conversationOpen ? (
+                        <div className="lead-profile-left__footer">
+                            <button
+                                type="button"
+                                className="btn-next-step highlight lead-profile-open-chat-btn"
+                                onClick={() => setConversationOpenWithUrl(true)}
+                            >
+                                <MessageCircle size={14} aria-hidden />
+                                Ver conversa
+                                {conversationUnreadCount > 0 ? (
+                                    <span className="lead-profile-conversation-rail__badge">{conversationUnreadCount}</span>
+                                ) : null}
+                            </button>
+                        </div>
+                    ) : null}
+                </div>
+
+                {renderConversationRail()}
             </div>
 
             <ConfirmDialog

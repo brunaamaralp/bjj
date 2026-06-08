@@ -2292,6 +2292,37 @@
   margin-bottom: 6px;
 }
 
+.mensal-modal-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mensal-modal-type-btn {
+  background: var(--surface-hover);
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 8px;
+  cursor: pointer;
+  color: var(--text-primary, var(--text));
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.mensal-modal-type-btn--active {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--surface));
+  border-color: var(--color-primary);
+  color: var(--v700);
+}
+
+.mensal-modal-bundle-hint {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
 .mensal-modal-method-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
