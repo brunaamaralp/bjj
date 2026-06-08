@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
@@ -64,6 +65,11 @@ import ReportSectionHeading from '../components/reports/shared/ReportSectionHead
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
+import FieldError from '../components/shared/FieldError.jsx';
+import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
+import { resolveHubTab } from '../lib/hubTabs.js';
+import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import '../styles/lead-profile.css';
 
 function hasLeadDisplayValue(val) {
@@ -98,7 +104,7 @@ const STATUS_CONFIG = {
     [LEAD_STATUS.COMPLETED]: { bg: 'var(--color-success-surface)', color: 'var(--color-success)' },
     [LEAD_STATUS.MISSED]: { bg: 'var(--color-danger-surface)', color: 'var(--color-danger)' },
     [LEAD_STATUS.CONVERTED]: { bg: 'rgba(228, 181, 93, 0.12)', color: 'var(--dourado)' },
-    [LEAD_STATUS.LOST]: { bg: '#f1f5f9', color: '#64748b' },
+    [LEAD_STATUS.LOST]: { bg: 'var(--color-background-secondary, var(--surface-hover))', color: 'var(--color-text-secondary)' },
 };
 
 /** Rótulo curto na faixa da timeline (tipo do evento na UI). */
@@ -170,6 +176,7 @@ const LeadProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const profileFrom = location.state?.from;
     const lead = useLeadStore((s) => s.leads.find((l) => l.id === id));
     const loading = useLeadStore((s) => s.loading);
@@ -432,6 +439,9 @@ const LeadProfile = () => {
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
     const [activeProfileTab, setActiveProfileTab] = useState('dados');
+    const [formErrors, setFormErrors] = useState({});
+    const [editBaseline, setEditBaseline] = useState(null);
+    const waMenuTriggerRef = useRef(null);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
@@ -569,7 +579,38 @@ const LeadProfile = () => {
     const showConversationTab =
         modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
 
+    const profileTabIds = useMemo(() => {
+        const ids = ['dados', 'timeline'];
+        if (showConversationTab) ids.push('conversation');
+        return ids;
+    }, [showConversationTab]);
+
+    useEffect(() => {
+        const tab = resolveHubTab(searchParams.get('tab'), profileTabIds, 'dados');
+        setActiveProfileTab(tab);
+    }, [searchParams, profileTabIds]);
+
+    const setProfileTab = useCallback(
+        (tabId) => {
+            setActiveProfileTab(tabId);
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (tabId === 'dados') next.delete('tab');
+                    else next.set('tab', tabId);
+                    return next;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
+
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+    const waMenuStyle = useAnchoredMenuPosition(waMenuTriggerRef, templateMenuOpen, {
+        align: 'end',
+        maxHeight: 320,
+    });
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [profileQuickTimes, setProfileQuickTimes] = useState([]);
 
@@ -702,50 +743,66 @@ const LeadProfile = () => {
             });
     }, [academyId]);
 
-    const fillFormFromLead = (src) => {
-        const existing = (src.customAnswers && typeof src.customAnswers === 'object') ? src.customAnswers : {};
-        const preserved = Object.fromEntries(Object.entries(existing).filter(([k]) => isUuidLike(k)));
-        const migratedAnswers = { ...preserved };
-        for (const q of (customQuestions || [])) {
-            const qid = String(q?.id || '').trim();
-            const label = String(q?.label || '').trim();
-            if (!qid || !label) continue;
-            const value = (existing[qid] ?? existing[label] ?? migratedAnswers[qid] ?? '');
-            migratedAnswers[qid] = value;
+    function normalizeDateToISO(dateStr) {
+        if (!dateStr) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            const [day, month, year] = dateStr.split('/');
+            return `${year}-${month}-${day}`;
         }
-        
-        function normalizeDateToISO(dateStr) {
-            if (!dateStr) return '';
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-            if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-                const [day, month, year] = dateStr.split('/');
-                return `${year}-${month}-${day}`;
-            }
-            return '';
-        }
+        return '';
+    }
 
-        setForm({
-            name: src.name || '',
-            phone: maskPhone(src.phone || ''),
-            type: normalizeLeadProfileType(src.type || 'Adulto') || 'Adulto',
-            origin: src.origin || '',
-            parentName: src.parentName || '',
-            age: src.age || '',
-            birthDate: normalizeDateToISO(src.birthDate),
-            isFirstExperience: src.isFirstExperience || 'Sim',
-            customAnswers: migratedAnswers,
-            scheduledDate: src.scheduledDate || '',
-            scheduledTime: src.scheduledTime || '',
-            plan: src.plan || '',
-            enrollmentDate: normalizeDateToISO(src.enrollmentDate),
-            emergencyContact: src.emergencyContact || '',
-            emergencyPhone: src.emergencyPhone || '',
-            sexo: src.sexo || '',
-            ...(() => {
-                const t = resolveTurmaFormState(src.turma || src.className, academyTurmas);
-                return { turmaSelect: t.selectValue, turmaOther: t.otherText };
-            })(),
-        });
+    const buildFormStateFromLead = useCallback(
+        (src) => {
+            const existing = (src.customAnswers && typeof src.customAnswers === 'object') ? src.customAnswers : {};
+            const preserved = Object.fromEntries(Object.entries(existing).filter(([k]) => isUuidLike(k)));
+            const migratedAnswers = { ...preserved };
+            for (const q of (customQuestions || [])) {
+                const qid = String(q?.id || '').trim();
+                const label = String(q?.label || '').trim();
+                if (!qid || !label) continue;
+                const value = (existing[qid] ?? existing[label] ?? migratedAnswers[qid] ?? '');
+                migratedAnswers[qid] = value;
+            }
+            const turma = resolveTurmaFormState(src.turma || src.className, academyTurmas);
+            return {
+                name: src.name || '',
+                phone: maskPhone(src.phone || ''),
+                type: normalizeLeadProfileType(src.type || 'Adulto') || 'Adulto',
+                origin: src.origin || '',
+                parentName: src.parentName || '',
+                age: src.age || '',
+                birthDate: normalizeDateToISO(src.birthDate),
+                isFirstExperience: src.isFirstExperience || 'Sim',
+                customAnswers: migratedAnswers,
+                scheduledDate: src.scheduledDate || '',
+                scheduledTime: src.scheduledTime || '',
+                plan: src.plan || '',
+                enrollmentDate: normalizeDateToISO(src.enrollmentDate),
+                emergencyContact: src.emergencyContact || '',
+                emergencyPhone: src.emergencyPhone || '',
+                sexo: src.sexo || '',
+                turmaSelect: turma.selectValue,
+                turmaOther: turma.otherText,
+            };
+        },
+        [customQuestions, academyTurmas]
+    );
+
+    const fillFormFromLead = (src) => {
+        setForm(buildFormStateFromLead(src));
+    };
+
+    const validateEditForm = (payload) => {
+        const errors = {};
+        if (!String(payload.name || '').trim()) errors.name = 'Informe o nome.';
+        if (!String(payload.phone || '').trim()) {
+            errors.phone = 'Informe o telefone.';
+        } else if (String(payload.phone).replace(/\D/g, '').length < 10) {
+            errors.phone = 'Telefone inválido — mínimo 10 dígitos.';
+        }
+        return errors;
     };
 
     if (loading && !lead) {
@@ -780,31 +837,49 @@ const LeadProfile = () => {
     };
 
     const startEdit = () => {
-        fillFormFromLead(lead);
+        const next = buildFormStateFromLead(lead);
+        setForm(next);
+        setEditBaseline(JSON.stringify(next));
+        setFormErrors({});
         setEditing(true);
     };
 
     const cancelEdit = () => {
+        if (editBaseline && JSON.stringify(form) !== editBaseline) {
+            setConfirmModal({
+                title: 'Descartar alterações?',
+                description: 'As alterações não salvas serão perdidas.',
+                confirmLabel: 'Descartar',
+                danger: true,
+                onConfirm: async () => {
+                    setEditing(false);
+                    setEditBaseline(null);
+                    setFormErrors({});
+                },
+            });
+            return;
+        }
         setEditing(false);
+        setEditBaseline(null);
+        setFormErrors({});
     };
 
     const onChange = (e) => {
         const { name, value } = e.target;
         setForm((f) => ({ ...f, [name]: value }));
+        if (formErrors[name]) {
+            setFormErrors((prev) => {
+                const next = { ...prev };
+                delete next[name];
+                return next;
+            });
+        }
     };
 
     const executeSaveLead = async (payload) => {
-        if (!String(payload.name || '').trim()) {
-            toast.show({ type: 'error', message: 'Nome é obrigatório' });
-            return;
-        }
-        if (!String(payload.phone || '').trim()) {
-            toast.show({ type: 'error', message: 'Telefone é obrigatório' });
-            return;
-        }
-        const digits = String(payload.phone || '').replace(/\D/g, '');
-        if (digits.length < 10) {
-            toast.show({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
+        const errors = validateEditForm(payload);
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
             return;
         }
         setSaving(true);
@@ -818,6 +893,8 @@ const LeadProfile = () => {
                 sexo: payload.sexo || '',
             });
             setEditing(false);
+            setEditBaseline(null);
+            setFormErrors({});
             toast.success('Dados salvos com sucesso.');
             await refreshTimeline();
         } catch (e) {
@@ -829,20 +906,13 @@ const LeadProfile = () => {
 
     const handleSave = async () => {
         if (saving) return;
-        if (!form.name?.trim()) {
-            toast.show({ type: 'error', message: 'Nome é obrigatório' });
-            return;
-        }
-        if (!form.phone?.trim()) {
-            toast.show({ type: 'error', message: 'Telefone é obrigatório' });
-            return;
-        }
         const digits = String(form.phone).replace(/\D/g, '');
-        if (digits.length < 10) {
-            toast.show({ type: 'error', message: 'Telefone inválido — mínimo 10 dígitos' });
+        const payload = { ...form, phone: digits };
+        const errors = validateEditForm(payload);
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
             return;
         }
-        const payload = { ...form, phone: digits };
         const hasDate = String(payload.scheduledDate || '').trim().length > 0;
         if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
             payload.status = LEAD_STATUS.SCHEDULED;
@@ -1243,9 +1313,9 @@ const LeadProfile = () => {
     const statusBadgeStyle =
         lead.status === LEAD_STATUS.SCHEDULED
             ? {
-                  background: '#F6EFE0',
-                  color: '#8A6A2B',
-                  border: '1px solid #E8D8B0',
+                  background: 'var(--color-warning-surface)',
+                  color: 'var(--color-warning)',
+                  border: '1px solid color-mix(in srgb, var(--color-warning) 25%, transparent)',
               }
             : {
                   background: statusStyle.bg,
@@ -1273,8 +1343,30 @@ const LeadProfile = () => {
         return tabs;
     }, [showConversationTab]);
 
+    const showCloseSaleCta = canShowLeadCloseSale(lead);
+
     const showSchedulePresence =
         lead?.status === LEAD_STATUS.SCHEDULED && Boolean(String(lead?.scheduledDate || '').trim());
+
+    const hasPersonalDetails = Boolean(
+        lead.sexo ||
+            lead.turma ||
+            lead.className ||
+            lead.birthDate ||
+            lead.isFirstExperience ||
+            lead.plan ||
+            lead.enrollmentDate
+    );
+
+    function formatLeadBirthDateDisplay(dateStr) {
+        const iso = normalizeDateToISO(dateStr);
+        if (!iso) return '';
+        try {
+            return new Date(`${iso}T12:00:00`).toLocaleDateString('pt-BR');
+        } catch {
+            return String(dateStr || '');
+        }
+    }
 
     const leadInitials =
         String(lead?.name || '')
@@ -1313,9 +1405,22 @@ const LeadProfile = () => {
                         ) : null}
                         {activeProfileTab === 'dados' && editing ? (
                             <>
-                                <button type="button" className="btn-edit-header cancel" onClick={cancelEdit}><X size={14} /></button>
-                                <button type="button" className="btn-edit-header save" onClick={() => void handleSave()} disabled={saving}>
-                                    {saving ? '...' : <Save size={14} />}
+                                <button
+                                    type="button"
+                                    className="btn-edit-header cancel"
+                                    onClick={cancelEdit}
+                                    aria-label="Cancelar edição"
+                                >
+                                    <X size={14} aria-hidden />
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-edit-header save"
+                                    onClick={() => void handleSave()}
+                                    disabled={saving}
+                                    aria-label={saving ? 'Salvando…' : 'Salvar alterações'}
+                                >
+                                    {saving ? 'Salvando…' : <Save size={14} aria-hidden />}
                                 </button>
                             </>
                         ) : null}
@@ -1325,7 +1430,7 @@ const LeadProfile = () => {
                 <HubTabBar
                     tabs={profileTabs}
                     activeId={activeProfileTab}
-                    onChange={setActiveProfileTab}
+                    onChange={setProfileTab}
                     ariaLabel="Perfil do contato"
                     className="lead-profile-hub-tabs"
                     variant="secondary"
@@ -1335,7 +1440,12 @@ const LeadProfile = () => {
 
             <div className="lead-profile-main">
                 {activeProfileTab === 'dados' ? (
-                <div className="lead-profile-dados left-col-content">
+                <div
+                    className="lead-profile-dados left-col-content"
+                    role="tabpanel"
+                    id="lead-profile-panel-dados"
+                    aria-label="Dados"
+                >
                     <div className="lead-profile-hero profile-main-header">
                         {!editing ? (
                             <>
@@ -1377,7 +1487,12 @@ const LeadProfile = () => {
                                         <span className="status-tag origin-status-tag">{lead.origin}</span>
                                     ) : null}
                                 </div>
-                                <div className="comm-actions-wrap lead-profile-comm-actions lead-profile-hero__actions">
+                                <DropdownMenu
+                                    open={templateMenuOpen}
+                                    onOpenChange={setTemplateMenuOpen}
+                                    className="comm-actions-wrap lead-profile-comm-actions lead-profile-hero__actions"
+                                    dismissExtraSelector="[data-lead-profile-wa-menu]"
+                                >
                                     <button
                                         type="button"
                                         className="comm-btn-primary btn-wa"
@@ -1387,7 +1502,7 @@ const LeadProfile = () => {
                                         <MessageCircle size={16} aria-hidden />
                                         {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
                                     </button>
-                                    {normalizeLeadPhoneForInbox(lead.phone) ? (
+                                    {normalizeLeadPhoneForInbox(lead.phone) && !showConversationTab ? (
                                         <button
                                             type="button"
                                             className="btn btn-outline lead-profile-inbox-btn"
@@ -1396,14 +1511,17 @@ const LeadProfile = () => {
                                             }
                                         >
                                             <MessageCircle size={16} aria-hidden />
-                                            Conversa
+                                            Abrir no Inbox
                                         </button>
                                     ) : null}
                                     <button
+                                        ref={waMenuTriggerRef}
                                         type="button"
                                         className="comm-btn-dropdown"
                                         disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                                        aria-label="Abrir opções de mensagem no WhatsApp"
+                                        aria-label="Mais templates de WhatsApp"
+                                        aria-haspopup="menu"
+                                        aria-expanded={templateMenuOpen}
                                         title="Mais opções de WhatsApp"
                                         onClick={(e) => {
                                             e.preventDefault();
@@ -1413,38 +1531,79 @@ const LeadProfile = () => {
                                     >
                                         <MoreVertical size={18} aria-hidden />
                                     </button>
-                                    {templateMenuOpen ? (
-                                        <div className="navi-menu__panel comm-dropdown-menu">
-                                            {Object.entries(waCtx.templates)
-                                                .filter(([, text]) => typeof text === 'string' && String(text).trim())
-                                                .map(([key]) => (
-                                                    <button
-                                                        key={key}
-                                                        type="button"
-                                                        className="navi-menu__item comm-dropdown-item"
-                                                        onClick={() => void sendTemplateKey(key)}
-                                                    >
-                                                        {WHATSAPP_TEMPLATE_LABELS[key] || key}
-                                                    </button>
-                                                ))}
-                                        </div>
-                                    ) : null}
-                                </div>
+                                    {templateMenuOpen && waMenuStyle
+                                        ? createPortal(
+                                            <DropdownMenuPanel
+                                                className="comm-dropdown-menu"
+                                                fixed
+                                                elevated
+                                                style={waMenuStyle}
+                                                aria-label="Templates de WhatsApp"
+                                                data-lead-profile-wa-menu
+                                            >
+                                                {Object.entries(waCtx.templates)
+                                                    .filter(([, text]) => typeof text === 'string' && String(text).trim())
+                                                    .map(([key]) => (
+                                                        <DropdownMenuItem
+                                                            key={key}
+                                                            onClick={() => void sendTemplateKey(key)}
+                                                        >
+                                                            {WHATSAPP_TEMPLATE_LABELS[key] || key}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                            </DropdownMenuPanel>,
+                                            document.body
+                                        )
+                                        : null}
+                                </DropdownMenu>
                             </div>
                             </>
                         ) : (
                             <>
                                 <div className="flex-col gap-2 w-full mt-2 lead-profile-edit-fields">
-                                    <input name="name" value={form.name} onChange={onChange} className="form-input-sm" placeholder="Nome" />
-                                    <input
-                                        name="phone"
-                                        value={form.phone}
-                                        onChange={(e) => setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))}
-                                        className="form-input-sm"
-                                        type="tel"
-                                        inputMode="numeric"
-                                        placeholder="Telefone"
-                                    />
+                                    <div className="flex-col gap-1">
+                                        <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-name">
+                                            Nome
+                                        </label>
+                                        <input
+                                            id="lead-profile-edit-name"
+                                            name="name"
+                                            value={form.name}
+                                            onChange={onChange}
+                                            className="form-input-sm"
+                                            autoComplete="name"
+                                            aria-invalid={formErrors.name ? true : undefined}
+                                            aria-describedby={formErrors.name ? 'lead-profile-edit-name-error' : undefined}
+                                        />
+                                        <FieldError id="lead-profile-edit-name-error">{formErrors.name}</FieldError>
+                                    </div>
+                                    <div className="flex-col gap-1">
+                                        <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-phone">
+                                            Telefone
+                                        </label>
+                                        <input
+                                            id="lead-profile-edit-phone"
+                                            name="phone"
+                                            value={form.phone}
+                                            onChange={(e) => {
+                                                setForm((f) => ({ ...f, phone: maskPhone(e.target.value) }));
+                                                if (formErrors.phone) {
+                                                    setFormErrors((prev) => {
+                                                        const next = { ...prev };
+                                                        delete next.phone;
+                                                        return next;
+                                                    });
+                                                }
+                                            }}
+                                            className="form-input-sm"
+                                            type="tel"
+                                            inputMode="numeric"
+                                            autoComplete="tel"
+                                            aria-invalid={formErrors.phone ? true : undefined}
+                                            aria-describedby={formErrors.phone ? 'lead-profile-edit-phone-error' : undefined}
+                                        />
+                                        <FieldError id="lead-profile-edit-phone-error">{formErrors.phone}</FieldError>
+                                    </div>
                                 </div>
                                 <div className="lead-profile-edit-sections w-full mt-3">
                                     <h3 className="section-title lead-profile-edit-section-title">Perfil</h3>
@@ -1476,30 +1635,40 @@ const LeadProfile = () => {
                                     {(form.type === 'Criança' || form.type === 'Juniores') && (
                                         <div className="flex-col gap-2 mt-3">
                                             <div className="flex-col gap-1">
-                                                <span className="info-mini-label info-mini-label--start">Responsável</span>
+                                                <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-parent">
+                                                    Responsável
+                                                </label>
                                                 <input
+                                                    id="lead-profile-edit-parent"
                                                     className="form-input-sm"
                                                     type="text"
                                                     value={form.parentName}
                                                     onChange={(e) => setForm((f) => ({ ...f, parentName: e.target.value }))}
-                                                    placeholder="Nome do responsável"
+                                                    autoComplete="name"
                                                 />
                                             </div>
                                             <div className="flex-col gap-1">
-                                                <span className="info-mini-label info-mini-label--start">Idade</span>
+                                                <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-age">
+                                                    Idade
+                                                </label>
                                                 <input
+                                                    id="lead-profile-edit-age"
                                                     className="form-input-sm"
                                                     type="number"
+                                                    inputMode="numeric"
                                                     value={form.age}
                                                     onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
-                                                    placeholder="Ex: 8"
+                                                    placeholder="Ex.: 8"
                                                 />
                                             </div>
                                         </div>
                                     )}
                                     <div className="flex-col gap-1 mt-3">
-                                        <span className="info-mini-label info-mini-label--start">Origem</span>
+                                        <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-origin">
+                                            Origem
+                                        </label>
                                         <select
+                                            id="lead-profile-edit-origin"
                                             className="form-input-sm"
                                             value={form.origin}
                                             onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value }))}
@@ -1676,10 +1845,10 @@ const LeadProfile = () => {
                             </div>
                         )}
                         <div className="flex-col gap-2 lead-profile-next-action__cta">
-                            {canShowLeadCloseSale(lead) ? (
+                            {showCloseSaleCta ? (
                                 <button
                                     type="button"
-                                    className="btn-next-step btn-primary-action"
+                                    className="btn-next-step highlight"
                                     onClick={() => openMatriculaModal({ paymentShortcut: true })}
                                     disabled={updatingStatus}
                                 >
@@ -1689,7 +1858,7 @@ const LeadProfile = () => {
                             {lead.status !== LEAD_STATUS.CONVERTED ? (
                                 <button
                                     type="button"
-                                    className="btn-next-step highlight"
+                                    className={`btn-next-step${showCloseSaleCta ? '' : ' highlight'}`}
                                     onClick={handleMatricularClick}
                                     disabled={updatingStatus}
                                 >
@@ -1736,10 +1905,10 @@ const LeadProfile = () => {
                                 <input
                                     type="text"
                                     className="input-field"
-                                    placeholder="Descrever a tarefa..."
+                                    placeholder="Descrever a tarefa…"
                                     value={inlineTaskTitle}
                                     onChange={(e) => setInlineTaskTitle(e.target.value)}
-                                    autoFocus
+                                    aria-label="Título da tarefa"
                                 />
                                 <DateInputField
                                     label="Vencimento"
@@ -1811,10 +1980,16 @@ const LeadProfile = () => {
                     </div>
 
                     {/* Dados Adicionais (Preservados do original, mas agora em lista) */}
-                    {!editing && (lead.sexo || lead.turma || lead.className) ? (
+                    {!editing && hasPersonalDetails ? (
                         <div className="profile-section extra-info">
                             <ReportSectionHeading title="Dados pessoais" className="lead-profile-section-heading" />
                             <div className="flex-col gap-2">
+                                {lead.birthDate ? (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Nascimento:</span>
+                                        <span className="info-mini-value">{formatLeadBirthDateDisplay(lead.birthDate)}</span>
+                                    </div>
+                                ) : null}
                                 {lead.sexo ? (
                                     <div className="info-mini-row">
                                         <span className="info-mini-label">Sexo:</span>
@@ -1825,6 +2000,24 @@ const LeadProfile = () => {
                                     <div className="info-mini-row">
                                         <span className="info-mini-label">Turma:</span>
                                         <span className="info-mini-value">{String(lead.turma || lead.className).trim()}</span>
+                                    </div>
+                                ) : null}
+                                {lead.isFirstExperience ? (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Primeira experiência:</span>
+                                        <span className="info-mini-value">{lead.isFirstExperience}</span>
+                                    </div>
+                                ) : null}
+                                {lead.plan ? (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">{terms.plan}:</span>
+                                        <span className="info-mini-value">{lead.plan}</span>
+                                    </div>
+                                ) : null}
+                                {lead.enrollmentDate ? (
+                                    <div className="info-mini-row">
+                                        <span className="info-mini-label">Data de matrícula:</span>
+                                        <span className="info-mini-value">{formatLeadBirthDateDisplay(lead.enrollmentDate)}</span>
                                     </div>
                                 ) : null}
                             </div>
@@ -1874,7 +2067,12 @@ const LeadProfile = () => {
                 ) : null}
 
                 {activeProfileTab === 'conversation' && showConversationTab ? (
-                    <div className="lead-profile-panel lead-profile-panel--conversation">
+                    <div
+                        className="lead-profile-panel lead-profile-panel--conversation"
+                        role="tabpanel"
+                        id="lead-profile-panel-conversation"
+                        aria-label="Conversa"
+                    >
                         <ProfileConversationTab
                             phone={lead.phone}
                             academyId={academyId}
@@ -1884,7 +2082,12 @@ const LeadProfile = () => {
                 ) : null}
 
                 {activeProfileTab === 'timeline' ? (
-                <div className="lead-profile-panel lead-profile-panel--timeline">
+                <div
+                    className="lead-profile-panel lead-profile-panel--timeline"
+                    role="tabpanel"
+                    id="lead-profile-panel-timeline"
+                    aria-label="Timeline"
+                >
                 <div className="timeline-header">
                     <h2 className="timeline-title">Linha do tempo</h2>
                     <div className="filter-strip">
@@ -1902,9 +2105,10 @@ const LeadProfile = () => {
                             ref={noteTextareaRef}
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
-                            placeholder={`Adicione uma observação sobre este ${contactLabel.toLowerCase()}...`}
+                            placeholder={`Adicione uma observação sobre este ${contactLabel.toLowerCase()}…`}
                             className="timeline-textarea"
                             rows={3}
+                            aria-label="Nova observação"
                         />
                         <div className="lead-profile-quick-note-chips">
                             {LEAD_PROFILE_QUICK_NOTE_CHIPS.map((chip) => (
@@ -1918,11 +2122,12 @@ const LeadProfile = () => {
                                 </button>
                             ))}
                         </div>
-                        <button 
-                            type="button" 
-                            className="btn-send-note" 
-                            onClick={() => void addNote()} 
+                        <button
+                            type="button"
+                            className="btn-send-note"
+                            onClick={() => void addNote()}
                             disabled={!note.trim() || addingNote}
+                            aria-label={addingNote ? 'Enviando nota…' : 'Enviar nota'}
                         >
                             <Send size={16} aria-hidden className="send-note-icon" />
                         </button>
@@ -1930,12 +2135,13 @@ const LeadProfile = () => {
                 </div>
 
                 <div className="timeline-content">
-                    {timelineError && (
-                        <div className="timeline-error-banner">
-                            <span>Não foi possível carregar o histórico.</span>
-                            <button type="button" className="btn-outline" onClick={() => void refreshTimeline()}>Tentar novamente</button>
-                        </div>
-                    )}
+                    {timelineError ? (
+                        <ErrorBanner
+                            className="lead-profile-timeline-error"
+                            message="Não foi possível carregar o histórico."
+                            onRetry={() => void refreshTimeline()}
+                        />
+                    ) : null}
 
                     {!timelineError && filteredTimelineEvents.length === 0 && (
                         <EmptyState variant="compact" tone="dashed" title="Nenhum evento registrado." role="status" />
@@ -1950,15 +2156,16 @@ const LeadProfile = () => {
                                 const tag =
                                     type === 'converted' ? terms.convertedStatusUi : TIMELINE_EVENT_LABELS[type] ?? type;
                                 
-                                let dotColor = '#8E8E8E';
-                                if (type === 'note' || type === 'inbox_note') dotColor = 'var(--petroleo)';
-                                else if (type === 'message' || type === 'whatsapp_template_sent') dotColor = '#25D366';
-                                else if (type === 'schedule') dotColor = '#0088CC';
-                                else if (type === 'followup_done') dotColor = '#2E7D32';
-                                else if (type === 'task_created') dotColor = 'var(--petroleo)';
-                                else if (type === 'task_done') dotColor = '#2E7D32';
-                                else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
-                                else if (type === 'pipeline_change') dotColor = '#F5A623';
+                                let dotColor = 'var(--color-text-secondary)';
+                                if (type === 'note' || type === 'inbox_note') dotColor = 'var(--color-primary)';
+                                else if (type === 'message' || type === 'whatsapp_template_sent') dotColor = 'var(--color-accent)';
+                                else if (type === 'schedule') dotColor = 'var(--color-primary)';
+                                else if (type === 'followup_done') dotColor = 'var(--color-accent-dark)';
+                                else if (type === 'task_created') dotColor = 'var(--color-primary)';
+                                else if (type === 'task_done') dotColor = 'var(--color-accent-dark)';
+                                else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) {
+                                    dotColor = 'var(--color-text-secondary)';
+                                } else if (type === 'pipeline_change') dotColor = 'var(--color-warning)';
 
                                 let label = n.text || '';
                                 if (type === 'schedule') {
@@ -1984,7 +2191,7 @@ const LeadProfile = () => {
                                 const canPin = type === 'note' || type === 'inbox_note';
 
                                 return (
-                                    <div key={i} className={`timeline-event-item ${isPinned ? 'pinned' : ''}`}>
+                                    <div key={n.$id || `${type}-${n.at || n.date}-${i}`} className={`timeline-event-item ${isPinned ? 'pinned' : ''}`}>
                                         <div className="event-dot" style={{ backgroundColor: dotColor }}></div>
                                         <div className="event-body">
                                             <div className="event-header">
@@ -1996,6 +2203,7 @@ const LeadProfile = () => {
                                                         onClick={() => handleTogglePin(n)}
                                                         className="event-pin-btn"
                                                         title={isPinned ? 'Desafixar' : 'Fixar'}
+                                                        aria-label={isPinned ? 'Desafixar nota' : 'Fixar nota'}
                                                     >
                                                         <Pin size={12} fill={isPinned ? 'currentColor' : 'none'} style={{ transform: isPinned ? 'none' : 'rotate(45deg)' }} />
                                                     </button>

@@ -1,6 +1,16 @@
 /* Lead profile (/lead/:id) */
 
 @keyframes leadProfileSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lead-profile-skeleton-bar {
+    animation: none;
+    background: rgba(148, 163, 184, 0.18);
+  }
+  .event-pin-btn {
+    transition: none;
+  }
+}
                 .lead-profile-skeleton-bar {
                     border-radius: 10px;
                     background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.24) 50%, rgba(148,163,184,0.12) 75%);
@@ -118,15 +128,15 @@
                     width: 52px;
                     height: 52px;
                     border-radius: 50%;
-                    background: var(--v100);
-                    border: 0.5px solid var(--border-violet);
+                    background: var(--color-primary-surface);
+                    border: 0.5px solid var(--color-card-border);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     flex-shrink: 0;
                     font-size: 18px;
                     font-weight: 700;
-                    color: var(--v700);
+                    color: var(--color-primary-dark);
                     letter-spacing: -0.02em;
                     overflow: hidden;
                 }
@@ -141,6 +151,10 @@
                     font-weight: 700;
                     color: var(--text);
                     margin: 0 0 4px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    max-width: 100%;
                 }
 
                 .profile-phone {
@@ -248,6 +262,10 @@
                 }
                 .btn-edit-header.save { background: var(--color-accent); color: white; border: none; }
                 .btn-edit-header.cancel { color: var(--danger); }
+                .btn-edit-header:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--color-primary) 35%, white);
+                    outline-offset: 2px;
+                }
 
                 .form-input-sm {
                     width: 100%;
@@ -555,6 +573,13 @@
                     resize: none;
                     outline: none;
                 }
+                .note-container:focus-within {
+                    border-color: var(--color-primary);
+                    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+                }
+                .timeline-textarea:focus-visible {
+                    outline: none;
+                }
 
                 .lead-profile-quick-note-chips {
                     display: flex;
@@ -601,6 +626,10 @@
                     gap: 4px;
                     cursor: pointer;
                     box-shadow: var(--shadow);
+                }
+                .btn-send-note:focus-visible {
+                    outline: 2px solid color-mix(in srgb, var(--color-primary) 45%, white);
+                    outline-offset: 2px;
                 }
                 .btn-send-note .send-note-icon {
                     color: #fff;
@@ -690,7 +719,13 @@
                     cursor: pointer;
                     color: var(--text-muted);
                     opacity: 0.4;
-                    transition: all 0.2s;
+                    transition: opacity 0.2s, color 0.2s;
+                }
+                .event-pin-btn:focus-visible {
+                    opacity: 1;
+                    outline: 2px solid color-mix(in srgb, var(--color-accent) 32%, white);
+                    outline-offset: 2px;
+                    border-radius: 6px;
                 }
                 .timeline-event-item:hover .event-pin-btn, .timeline-event-item.pinned .event-pin-btn {
                     opacity: 1;
@@ -1006,6 +1041,11 @@
 .lead-profile-hero__name {
   font-size: 1.25rem;
   line-height: 1.25;
+  text-wrap: balance;
+}
+
+.lead-profile-timeline-error {
+  margin-bottom: 16px;
 }
 
 .lead-profile-hero__phone {
