@@ -13,8 +13,10 @@ import { readControlIdConfig } from '../../lib/controlidSettings.js';
 import { syncControlIdStudentBackground } from './controlidApi.js';
 import { useTaskStore } from '../store/useTaskStore.js';
 import { moveLeadToStudent } from './moveLeadToStudent.js';
-import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
+import { buildLeadDocumentPermissions } from './clientDocumentPermissions.js';
 import { useLeadStore } from '../store/useLeadStore.js';
+import { assertClientBillingMutationsAllowed } from './billingGateClient.js';
+import { notifyAutomationFeedback } from './automationUx.js';
 
 /**
  * Efeitos pós-matrícula compartilhados (funil e cadastro direto na lista).
@@ -29,6 +31,7 @@ async function runEnrollmentSideEffects({
   academySettingsRaw,
   waAutomation,
   onToast,
+  addToast,
 }) {
   let toastMsg = '';
   try {
@@ -74,12 +77,26 @@ async function runEnrollmentSideEffects({
 
   if (waAutomation) {
     const { waOutbound, academyRaw } = waAutomation;
-    void triggerImmediateAutomation('converted', {
-      lead: { ...student, status: LEAD_STATUS.CONVERTED, contact_type: 'student' },
-      academyId,
-      waOutbound,
-      academyRaw,
-    }).catch((e) => console.warn('[performEnrollment] automation:', e?.message || e));
+    try {
+      const autoOut = await triggerImmediateAutomation('converted', {
+        lead: { ...student, status: LEAD_STATUS.CONVERTED, contact_type: 'student' },
+        academyId,
+        waOutbound,
+        academyRaw,
+        permissionContext,
+      });
+      if (addToast && autoOut) {
+        notifyAutomationFeedback(addToast, { immediate: [autoOut], scheduled: [] });
+      }
+    } catch (e) {
+      console.warn('[performEnrollment] automation:', e?.message || e);
+      if (addToast) {
+        notifyAutomationFeedback(addToast, {
+          immediate: [{ status: 'failed', automationKey: 'converted', reason: 'send_failed' }],
+          scheduled: [],
+        });
+      }
+    }
   }
 
   if (toastMsg && onToast) onToast(toastMsg.trim());
@@ -103,11 +120,16 @@ export async function performEnrollment({
   academySettingsRaw = null,
   waAutomation = null,
   onToast = null,
+  addToast = null,
   /** 'funnel' | 'direct' — direct = cadastro manual em Students.jsx */
   source = 'funnel',
 }) {
   const leadId = String(lead?.id || '').trim();
   if (!leadId) throw new Error('lead_missing');
+
+  if (source !== 'direct') {
+    assertClientBillingMutationsAllowed(useLeadStore.getState().billingAccess);
+  }
 
   const planName = String(plan || lead?.plan || '').trim();
   const enrollmentDateYmd = String(enrollmentDate || '').trim().slice(0, 10);
@@ -145,20 +167,27 @@ export async function performEnrollment({
     const acadDoc = academyList.find((a) => a.id === academyId) || {};
     const teamId = String(acadDoc.teamId || useLeadStore.getState().teamId || '').trim();
     const sessionUserId = String(userId || useLeadStore.getState().userId || '').trim();
-    const perms = buildClientDocumentPermissions({ teamId, userId: sessionUserId });
+    const perms = buildLeadDocumentPermissions({ teamId, userId: sessionUserId });
 
-    student = await moveLeadToStudent({
-      leadId,
-      lead,
-      overrides: {
-        plan: planName || lead.plan,
-        convertedAt: new Date().toISOString(),
-        studentStatus: 'active',
-        ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),
-        ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
-      },
-      permissions: perms,
-    });
+    try {
+      student = await moveLeadToStudent({
+        leadId,
+        lead,
+        overrides: {
+          plan: planName || lead.plan,
+          convertedAt: new Date().toISOString(),
+          studentStatus: 'active',
+          ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),
+          ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
+        },
+        permissions: perms,
+      });
+    } catch (e) {
+      if (String(e?.message || '') === 'enrollment_rollback_failed') {
+        throw new Error('Matrícula não concluída. Tente novamente.');
+      }
+      throw e;
+    }
 
     for (const q of customQuestions || []) {
       const qid = String(q?.id || '').trim();
@@ -198,6 +227,7 @@ export async function performEnrollment({
     academySettingsRaw,
     waAutomation,
     onToast,
+    addToast,
   });
 
   return student;

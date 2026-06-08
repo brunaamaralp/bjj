@@ -37,7 +37,7 @@ export default function Automacoes() {
     <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
       <PageHeader
         title="Automações"
-        subtitle="Configure processos, modelos de mensagem e gatilhos do funil."
+        subtitle="Os gatilhos do funil começam desligados — ative em Configurações após conectar o WhatsApp."
       />
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Automações" fullWidth />
       <div className="mt-3 animate-in">

@@ -6,7 +6,9 @@ const apMocks = vi.hoisted(() => ({
   createNotification: vi.fn().mockResolvedValue({ ok: true }),
   logStructured: vi.fn(),
   updateMerge: vi.fn(),
-  findConversation: vi.fn()
+  findConversation: vi.fn(),
+  tryAcquireAgentLock: vi.fn().mockResolvedValue({ acquired: true }),
+  releaseAgentLock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../../lib/server/zapsterSend.js', () => ({
@@ -46,6 +48,11 @@ vi.mock('../../src/services/planService.js', () => ({
 vi.mock('../../lib/server/billingGate.js', () => ({
   assertBillingActive: vi.fn(async () => {}),
   BillingGateError: class BillingGateError extends Error {}
+}));
+
+vi.mock('../../lib/server/agentProcessingLock.js', () => ({
+  tryAcquireAgentLock: (...args) => apMocks.tryAcquireAgentLock(...args),
+  releaseAgentLock: (...args) => apMocks.releaseAgentLock(...args),
 }));
 
 describe('agentProcess — falha no envio Zapster', () => {
@@ -119,5 +126,38 @@ describe('agentProcess — falha no envio Zapster', () => {
       expect.objectContaining({ event: 'agent_send_failed', phone: '5511999776655' })
     );
     expect(apMocks.updateMerge).not.toHaveBeenCalled();
+    expect(apMocks.releaseAgentLock).toHaveBeenCalledWith('conv-99');
+  });
+
+  it('ignora mensagem quando lock distribuído está ativo', async () => {
+    apMocks.tryAcquireAgentLock.mockReset();
+    apMocks.releaseAgentLock.mockReset();
+    apMocks.tryAcquireAgentLock.mockResolvedValueOnce({ acquired: false, reason: 'lock_active' });
+
+    const { default: handler } = await import('../../lib/server/agentProcess.js');
+    const { res, state } = createMockRes();
+    const req = createMockReq({
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-secret': 'internal-secret',
+      },
+      body: {
+        phone: '5511999776655',
+        name: 'Aluno',
+        academyId: 'acad-1',
+        message: 'Oi',
+        messageId: 'msg-2',
+        outInstanceId: 'inst-1',
+      },
+    });
+
+    await handler(req, res);
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.ignored).toBe(true);
+    expect(state.body?.reason).toBe('lock_active');
+    expect(apMocks.sendZapsterText).not.toHaveBeenCalled();
+    expect(apMocks.releaseAgentLock).not.toHaveBeenCalled();
   });
 });

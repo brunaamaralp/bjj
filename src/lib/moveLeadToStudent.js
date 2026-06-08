@@ -43,7 +43,12 @@ export async function moveLeadToStudent({ leadId, lead = null, overrides = {}, p
     await databases.deleteDocument(DB_ID, LEADS_COL, id);
   } catch (delErr) {
     console.error('[moveLeadToStudent] delete lead failed after student create:', delErr);
-    throw delErr;
+    try {
+      await databases.deleteDocument(DB_ID, STUDENTS_COL, id);
+    } catch (rollbackErr) {
+      console.error('[moveLeadToStudent] rollback student failed', { id, rollbackErr });
+    }
+    throw new Error('enrollment_rollback_failed');
   }
 
   const studentUi = mapAppwriteDocToStudent({ $id: id, ...payload, $createdAt: source.createdAt });

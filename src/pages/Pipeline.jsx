@@ -49,7 +49,11 @@ import {
     afterMissed,
     afterMovedToPipelineStage,
 } from '../lib/automationDispatch.js';
-import { getLeadAutomationBadges, notifyAutomationFeedback } from '../lib/automationUx.js';
+import {
+    getLeadAutomationBadges,
+    notifyAutomationFeedback,
+    safeAutomationDispatch,
+} from '../lib/automationUx.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import Hint from '../components/shared/Hint.jsx';
@@ -1637,14 +1641,17 @@ const Pipeline = () => {
         } catch {
             await updateLead(lead.id, patch);
         }
-        const autoResult = await afterExperimentalScheduled({
-            lead: { ...lead, ...patch },
-            ymd,
-            time,
-            ...automationCtxBase(),
-            getLead: () => getLeadById(lead.id) || { ...lead, ...patch },
-        }).catch(() => null);
-        if (autoResult) reportAutomations(autoResult);
+        const autoResult = await safeAutomationDispatch(
+            afterExperimentalScheduled({
+                lead: { ...lead, ...patch },
+                ymd,
+                time,
+                ...automationCtxBase(),
+                getLead: () => getLeadById(lead.id) || { ...lead, ...patch },
+            }),
+            'schedule_confirm'
+        );
+        reportAutomations(autoResult);
         toast.success(`Reagendado para ${ymd} ${time}`);
     };
 
@@ -1670,12 +1677,15 @@ const Pipeline = () => {
                 attendedAt: new Date().toISOString(),
                 statusChangedAt: new Date().toISOString()
             });
-            const autoResult = await afterPresenceConfirmed({
-                lead: { ...lead, status: LEAD_STATUS.COMPLETED, pipelineStage: PIPELINE_WAITING_DECISION_STAGE },
-                ...automationCtxBase(),
-                getLead: () => getLeadById(lead.id) || lead,
-            }).catch(() => null);
-            if (autoResult) reportAutomations(autoResult);
+            const autoResult = await safeAutomationDispatch(
+                afterPresenceConfirmed({
+                    lead: { ...lead, status: LEAD_STATUS.COMPLETED, pipelineStage: PIPELINE_WAITING_DECISION_STAGE },
+                    ...automationCtxBase(),
+                    getLead: () => getLeadById(lead.id) || lead,
+                }),
+                'presence_confirmed'
+            );
+            reportAutomations(autoResult);
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
@@ -1702,11 +1712,14 @@ const Pipeline = () => {
                 missed_reason: reason,
                 statusChangedAt: now
             });
-            const autoResult = await afterMissed({
-                lead: { ...lead, status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED },
-                ...automationCtxBase(),
-            }).catch(() => null);
-            if (autoResult) reportAutomations(autoResult);
+            const autoResult = await safeAutomationDispatch(
+                afterMissed({
+                    lead: { ...lead, status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED },
+                    ...automationCtxBase(),
+                }),
+                'missed'
+            );
+            reportAutomations(autoResult);
             await addLeadEvent({
                 academyId,
                 leadId: lead.id,
@@ -1743,6 +1756,7 @@ const Pipeline = () => {
                 onToast: (msg) => {
                     extraToast = msg;
                 },
+                addToast: toast.addToast,
             });
             toast.show({
                 type: 'success',
@@ -2332,13 +2346,16 @@ const Pipeline = () => {
                 return next;
             });
             await updateLead(leadId, payload);
-            const autoResult = await afterMovedToPipelineStage({
-                lead: getLeadById(leadId) || lead,
-                toStage: status,
-                ...automationCtxBase(),
-                getLead: () => getLeadById(leadId) || lead,
-            }).catch(() => null);
-            if (autoResult) reportAutomations(autoResult);
+            const autoResult = await safeAutomationDispatch(
+                afterMovedToPipelineStage({
+                    lead: getLeadById(leadId) || lead,
+                    toStage: status,
+                    ...automationCtxBase(),
+                    getLead: () => getLeadById(leadId) || lead,
+                }),
+                'waiting_decision'
+            );
+            reportAutomations(autoResult);
             toast.success('Movido no pipeline');
         } catch (err) {
             revertLeads(previousLeads);
@@ -2427,13 +2444,16 @@ const Pipeline = () => {
                     return next;
                 });
             await updateLead(leadId, payload);
-            const autoResult = await afterMovedToPipelineStage({
-                lead: getLeadById(leadId) || lead,
-                toStage,
-                ...automationCtxBase(),
-                getLead: () => getLeadById(leadId) || lead,
-            }).catch(() => null);
-            if (autoResult) reportAutomations(autoResult);
+            const autoResult = await safeAutomationDispatch(
+                afterMovedToPipelineStage({
+                    lead: getLeadById(leadId) || lead,
+                    toStage,
+                    ...automationCtxBase(),
+                    getLead: () => getLeadById(leadId) || lead,
+                }),
+                'waiting_decision'
+            );
+            reportAutomations(autoResult);
             toast.success('Movido no pipeline');
         } catch (err) {
             revertLeads(previousLeads);

@@ -29,7 +29,7 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
   return {
     id: doc.$id,
     name: doc.name,
-    phone: doc.phone,
+    phone: doc.phone || doc.phone_number || '',
     type: doc.type || 'Adulto',
     sexo: normalizeSexo(doc.sexo),
     origin: doc.origin || '',

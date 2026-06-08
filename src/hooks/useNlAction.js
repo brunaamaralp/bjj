@@ -31,7 +31,7 @@ import {
   afterMissed,
   afterMovedToPipelineStage,
 } from '../lib/automationDispatch.js';
-import { notifyAutomationFeedback } from '../lib/automationUx.js';
+import { notifyAutomationFeedback, safeAutomationDispatch } from '../lib/automationUx.js';
 
 /** Etapas que exigem fluxo próprio (matrícula, perda, não compareceu, agenda experimental). */
 const MOVE_PIPELINE_FORBIDDEN_TARGETS = new Set([
@@ -415,17 +415,20 @@ export function useNlAction() {
           statusChangedAt: now,
         };
         await updateLead(leadId, attendedPatch);
-        const attendedAuto = await afterPresenceConfirmed({
-          lead: lead ? { ...lead, ...attendedPatch } : { id: leadId, ...attendedPatch },
-          academyId,
-          waOutbound,
-          academyRaw: automationsRaw,
-          automationConfig,
-          permissionContext,
-          updateLead,
-          getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
-        }).catch(() => null);
-        if (attendedAuto) notifyAutomationFeedback(addToast, attendedAuto);
+        const attendedAuto = await safeAutomationDispatch(
+          afterPresenceConfirmed({
+            lead: lead ? { ...lead, ...attendedPatch } : { id: leadId, ...attendedPatch },
+            academyId,
+            waOutbound,
+            academyRaw: automationsRaw,
+            automationConfig,
+            permissionContext,
+            updateLead,
+            getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
+          }),
+          'presence_confirmed'
+        );
+        notifyAutomationFeedback(addToast, attendedAuto);
         const out = await addLeadEvent({
           academyId,
           leadId,
@@ -454,15 +457,18 @@ export function useNlAction() {
           statusChangedAt: now,
         };
         await updateLead(leadId, missedPatch);
-        const missedAuto = await afterMissed({
-          lead: lead ? { ...lead, ...missedPatch } : { id: leadId, ...missedPatch },
-          academyId,
-          waOutbound,
-          academyRaw: automationsRaw,
-          automationConfig,
-          permissionContext,
-        }).catch(() => null);
-        if (missedAuto) notifyAutomationFeedback(addToast, missedAuto);
+        const missedAuto = await safeAutomationDispatch(
+          afterMissed({
+            lead: lead ? { ...lead, ...missedPatch } : { id: leadId, ...missedPatch },
+            academyId,
+            waOutbound,
+            academyRaw: automationsRaw,
+            automationConfig,
+            permissionContext,
+          }),
+          'missed'
+        );
+        notifyAutomationFeedback(addToast, missedAuto);
         const out = await addLeadEvent({
           academyId,
           leadId,
@@ -586,19 +592,22 @@ export function useNlAction() {
         };
         const out = await updateLead(leadId, schedulePatch);
         const leadRow = (leads || []).find((l) => String(l.id || '').trim() === leadId);
-        const scheduleAuto = await afterExperimentalScheduled({
-          lead: leadRow ? { ...leadRow, ...schedulePatch } : { id: leadId, ...schedulePatch },
-          ymd,
-          time: timeNorm,
-          academyId,
-          waOutbound,
-          academyRaw: automationsRaw,
-          automationConfig,
-          permissionContext,
-          updateLead,
-          getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
-        }).catch(() => null);
-        if (scheduleAuto) notifyAutomationFeedback(addToast, scheduleAuto);
+        const scheduleAuto = await safeAutomationDispatch(
+          afterExperimentalScheduled({
+            lead: leadRow ? { ...leadRow, ...schedulePatch } : { id: leadId, ...schedulePatch },
+            ymd,
+            time: timeNorm,
+            academyId,
+            waOutbound,
+            academyRaw: automationsRaw,
+            automationConfig,
+            permissionContext,
+            updateLead,
+            getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
+          }),
+          'schedule_confirm'
+        );
+        notifyAutomationFeedback(addToast, scheduleAuto);
         notifyLeadsRefresh();
         return out;
       }
@@ -627,18 +636,21 @@ export function useNlAction() {
         });
         const payload = getStageUpdatePayload(toStage);
         const out = await updateLead(leadId, { ...payload, statusChangedAt: nowIso });
-        const moveAuto = await afterMovedToPipelineStage({
-          lead: lead ? { ...lead, ...payload, pipelineStage: toStage } : { id: leadId, ...payload },
-          toStage,
-          academyId,
-          waOutbound,
-          academyRaw: automationsRaw,
-          automationConfig,
-          permissionContext,
-          updateLead,
-          getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
-        }).catch(() => null);
-        if (moveAuto) notifyAutomationFeedback(addToast, moveAuto);
+        const moveAuto = await safeAutomationDispatch(
+          afterMovedToPipelineStage({
+            lead: lead ? { ...lead, ...payload, pipelineStage: toStage } : { id: leadId, ...payload },
+            toStage,
+            academyId,
+            waOutbound,
+            academyRaw: automationsRaw,
+            automationConfig,
+            permissionContext,
+            updateLead,
+            getLead: () => (leads || []).find((l) => String(l.id || '').trim() === leadId) || null,
+          }),
+          'waiting_decision'
+        );
+        notifyAutomationFeedback(addToast, moveAuto);
         notifyLeadsRefresh();
         return out;
       }

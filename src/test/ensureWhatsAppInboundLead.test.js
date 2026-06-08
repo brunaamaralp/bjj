@@ -128,4 +128,20 @@ describe('ensureWhatsAppInboundLead', () => {
       expect.objectContaining({ type: 'lead_criado', leadId: 'lead-new-1' })
     );
   });
+
+  it('não cria lead quando academia sem teamId', async () => {
+    mocks.listDocuments.mockResolvedValue({ documents: [] });
+
+    const result = await ensureWhatsAppInboundLead({
+      databases: testDatabases,
+      academyId: 'acad-1',
+      phone: '11977776666',
+      name: 'João',
+      academyDoc: { ownerId: 'owner-1' },
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.skippedReason).toBe('create_failed');
+    expect(mocks.createDocument).not.toHaveBeenCalled();
+  });
 });

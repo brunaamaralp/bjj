@@ -12,6 +12,7 @@ import {
     computeAutomationReadiness,
 } from '../../lib/automationUx.js';
 import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 
 function AutomationRow({
     automationKey,
@@ -275,6 +276,12 @@ const AutomacoesSection = ({
                 agendar aulas.
             </p>
             <AutomacoesReadinessBanner readiness={readiness} />
+            {readiness?.activeCount === 0 ? (
+                <StatusBanner variant="info" className="mb-3">
+                    Por padrão, todos os gatilhos vêm desligados. Isso é intencional — ative apenas os que sua
+                    academia precisa, depois de conectar o WhatsApp e revisar os modelos de mensagem.
+                </StatusBanner>
+            ) : null}
             {renderGroup('Captação', AUTOMATION_GROUPS.captacao)}
             {renderGroup('Pós-matrícula', AUTOMATION_GROUPS.posMatricula)}
             <div className="flex justify-end mt-4">

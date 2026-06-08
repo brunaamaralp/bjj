@@ -10,6 +10,7 @@ export const ONBOARDING_STEP_TITLES = {
   first_lead: 'Criar seu primeiro lead',
   connect_whatsapp: 'Conectar o WhatsApp',
   setup_ai: 'Configurar o assistente de IA',
+  setup_automations: 'Ativar automações do funil',
   setup_finance: 'Configurar financeiro',
   first_product: 'Cadastrar primeiro produto',
   first_stock_entry: 'Registrar estoque inicial',
@@ -21,6 +22,7 @@ export const ONBOARDING_STEP_DESCRIPTIONS = {
   first_lead: 'Adicione um contato para acompanhar até a matrícula.',
   connect_whatsapp: 'Receba e responda mensagens pelo Nave.',
   setup_ai: 'Defina como o assistente atende seus contatos.',
+  setup_automations: 'Os gatilhos começam desligados — ative mensagens automáticas do funil.',
   setup_finance: 'Adicione planos e configure as mensalidades.',
   first_product: 'Adicione produtos para usar nas vendas.',
   first_stock_entry: 'Informe as quantidades dos seus produtos.',
@@ -33,6 +35,7 @@ export const DEFAULT_ONBOARDING_CHECKLIST = [
   { id: 'first_lead', title: ONBOARDING_STEP_TITLES.first_lead, done: false },
   { id: 'connect_whatsapp', title: ONBOARDING_STEP_TITLES.connect_whatsapp, done: false },
   { id: 'setup_ai', title: ONBOARDING_STEP_TITLES.setup_ai, done: false },
+  { id: 'setup_automations', title: ONBOARDING_STEP_TITLES.setup_automations, done: false },
   { id: 'setup_finance', title: ONBOARDING_STEP_TITLES.setup_finance, done: false },
   { id: 'first_product', title: ONBOARDING_STEP_TITLES.first_product, done: false },
   { id: 'first_stock_entry', title: ONBOARDING_STEP_TITLES.first_stock_entry, done: false },
@@ -234,6 +237,8 @@ export function onboardingStepPath(stepId) {
       return '/agente-ia';
     case 'connect_whatsapp':
       return '/agente-ia';
+    case 'setup_automations':
+      return '/automacoes?tab=configuracoes';
     case 'setup_finance':
       return '/empresa?tab=financeiro';
     case 'company_tax':

@@ -1,4 +1,9 @@
-import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
+import { Client, Databases, Query, ID } from 'node-appwrite';
+import {
+  buildAcademyDocumentPermissions,
+  AcademyPermissionError,
+} from '../lib/server/academyDocumentPermissions.js';
+import { buildCanonicalLeadPayload } from '../src/lib/leadDocumentFields.js';
 import { sendZapsterText } from '../lib/server/zapsterSend.js';
 import {
   BIRTHDAY_CRON_DEFAULT_TEXT,
@@ -7,6 +12,7 @@ import {
 } from '../lib/whatsappTemplateDefaults.js';
 import { recordWhatsappTemplateSent } from '../lib/server/whatsappTemplateSent.js';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
+import { listAcademyStudentDocs } from '../lib/server/listAcademyStudents.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import inventoryHandler from '../lib/server/inventoryHandler.js';
@@ -120,22 +126,6 @@ async function listAllAcademyIds() {
   return out;
 }
 
-async function listStudentsForAcademy(academyId) {
-  const out = [];
-  let cursor = null;
-  const aid = String(academyId || '').trim();
-  if (!aid || !PEOPLE_COL) return out;
-  for (;;) {
-    const q = [Query.equal('academyId', [aid]), Query.limit(100)];
-    if (cursor) q.push(Query.cursorAfter(cursor));
-    const res = await databases.listDocuments(DB_ID, PEOPLE_COL, q);
-    out.push(...(res.documents || []));
-    if (!res.documents || res.documents.length < 100) break;
-    cursor = res.documents[res.documents.length - 1].$id;
-  }
-  return out;
-}
-
 function cronAuthOk(req) {
   const expected = String(process.env.CRON_SECRET || '').trim();
   if (!expected) return false;
@@ -169,7 +159,7 @@ async function runBirthdayCron() {
 
     let leads;
     try {
-      leads = await listStudentsForAcademy(academy.$id);
+      leads = await listAcademyStudentDocs(academy.$id);
     } catch (e) {
       errors += 1;
       details.push({ academyId: academy.$id, erro: e?.message || 'list_leads' });
@@ -306,28 +296,20 @@ export default async function handler(req, res) {
         return json(res, 200, { sucesso: true, ja_existe: true, id: existing.$id });
       }
 
-      const nowIso = new Date().toISOString();
-      const payload = {
-        name,
-        phone,
-        contact_type: 'lead',
-        type: req.body?.type || 'Adulto',
-        status: 'Novo',
-        origin: 'WhatsApp',
+      const payload = buildCanonicalLeadPayload({
         academyId,
-        notes: '',
-        pipeline_stage: 'Novo',
-        status_changed_at: nowIso,
-        pipeline_stage_changed_at: nowIso
-      };
+        phone,
+        name,
+        origin: 'WhatsApp',
+        extra: {
+          contact_type: 'lead',
+          type: req.body?.type || 'Adulto',
+          notes: '',
+        },
+      });
 
-      const created = await databases.createDocument(
-        DB_ID,
-        LEADS_COL,
-        ID.unique(),
-        payload,
-        [Permission.read(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]
-      );
+      const perms = buildAcademyDocumentPermissions(access.doc);
+      const created = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), payload, perms);
       await addLeadEventServer({
         academyId,
         leadId: created.$id,
@@ -338,6 +320,9 @@ export default async function handler(req, res) {
       });
       return json(res, 200, { sucesso: true, ja_existe: false, id: created.$id });
     } catch (e) {
+      if (e instanceof AcademyPermissionError) {
+        return json(res, 403, { sucesso: false, erro: e.message, code: e.code });
+      }
       return json(res, 500, { sucesso: false, erro: e.message });
     }
   }

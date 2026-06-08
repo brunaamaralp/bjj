@@ -43,6 +43,7 @@ import {
 } from '../lib/automationDispatch.js';
 import {
     notifyAutomationFeedback,
+    safeAutomationDispatch,
     formatWhatsappTemplateSentTimeline,
     getLeadAutomationBadges,
 } from '../lib/automationUx.js';
@@ -994,18 +995,24 @@ const LeadProfile = () => {
                 getLead: () => useLeadStore.getState().leads.find((l) => l.id === id) || { ...lead, ...patch },
             };
             if (newStatus === LEAD_STATUS.COMPLETED) {
-                const autoResult = await afterPresenceConfirmed({
-                    lead: { ...lead, ...patch },
-                    ...autoCtx,
-                }).catch(() => null);
-                if (autoResult) notifyAutomationFeedback(toast.addToast, autoResult);
+                const autoResult = await safeAutomationDispatch(
+                    afterPresenceConfirmed({
+                        lead: { ...lead, ...patch },
+                        ...autoCtx,
+                    }),
+                    'presence_confirmed'
+                );
+                notifyAutomationFeedback(toast.addToast, autoResult);
                 toast.success('Comparecimento registrado.');
             } else if (newStatus === LEAD_STATUS.MISSED) {
-                const autoResult = await afterMissed({
-                    lead: { ...lead, ...patch },
-                    ...autoCtx,
-                }).catch(() => null);
-                if (autoResult) notifyAutomationFeedback(toast.addToast, autoResult);
+                const autoResult = await safeAutomationDispatch(
+                    afterMissed({
+                        lead: { ...lead, ...patch },
+                        ...autoCtx,
+                    }),
+                    'missed'
+                );
+                notifyAutomationFeedback(toast.addToast, autoResult);
             } else if (newStatus === LEAD_STATUS.CONVERTED) {
                 toast.show({ type: 'success', message: terms.leadMarkedConvertedToast });
             }
@@ -1037,23 +1044,26 @@ const LeadProfile = () => {
             } catch {
                 await updateLead(id, patch);
             }
-            const autoResult = await afterExperimentalScheduled({
-                lead: { ...lead, ...patch },
-                ymd: date,
-                time,
-                academyId,
-                waOutbound: {
-                    name: waCtx.name,
-                    zapster_instance_id: waCtx.zapster,
-                    templates: waCtx.templates,
-                },
-                academyRaw: academyAutomationsRaw,
-                automationConfig,
-                permissionContext: permCtx,
-                updateLead,
-                getLead: () => useLeadStore.getState().leads.find((l) => l.id === id) || { ...lead, ...patch },
-            }).catch(() => null);
-            if (autoResult) notifyAutomationFeedback(toast.addToast, autoResult);
+            const autoResult = await safeAutomationDispatch(
+                afterExperimentalScheduled({
+                    lead: { ...lead, ...patch },
+                    ymd: date,
+                    time,
+                    academyId,
+                    waOutbound: {
+                        name: waCtx.name,
+                        zapster_instance_id: waCtx.zapster,
+                        templates: waCtx.templates,
+                    },
+                    academyRaw: academyAutomationsRaw,
+                    automationConfig,
+                    permissionContext: permCtx,
+                    updateLead,
+                    getLead: () => useLeadStore.getState().leads.find((l) => l.id === id) || { ...lead, ...patch },
+                }),
+                'schedule_confirm'
+            );
+            notifyAutomationFeedback(toast.addToast, autoResult);
             await refreshTimeline();
             toast.success('Aula agendada com sucesso.');
         } catch (e) {
@@ -1077,6 +1087,7 @@ const LeadProfile = () => {
 
     const runEnrollment = async (customAnswers = {}, plan = '', enrollmentDate = '') => {
         let extraToast = '';
+        try {
         await performEnrollment({
             lead,
             academyId,
@@ -1099,11 +1110,16 @@ const LeadProfile = () => {
             onToast: (msg) => {
                 extraToast = msg;
             },
+            addToast: toast.addToast,
         });
         toast.show({
             type: 'success',
             message: terms.leadMarkedConvertedToast + (extraToast ? ` ${extraToast}` : ''),
         });
+        } catch (err) {
+            toast.error(err, 'action');
+            throw err;
+        }
     };
 
     const confirmMarkLost = async (lostReason) => {

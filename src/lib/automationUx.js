@@ -104,6 +104,31 @@ export function notifyAutomationFeedback(addToast, result) {
   for (const t of toasts) addToast(t);
 }
 
+/**
+ * Envolve dispatch de automação para nunca engolir erros silenciosamente.
+ * @param {Promise<{ immediate?: object[]; scheduled?: object[] } | null | undefined>} promise
+ * @param {string} [fallbackKey]
+ * @returns {Promise<{ immediate: object[]; scheduled: object[] }>}
+ */
+export async function safeAutomationDispatch(promise, fallbackKey = 'unknown') {
+  try {
+    const result = await promise;
+    if (result && typeof result === 'object') {
+      return {
+        immediate: Array.isArray(result.immediate) ? result.immediate : [],
+        scheduled: Array.isArray(result.scheduled) ? result.scheduled : [],
+      };
+    }
+    return { immediate: [], scheduled: [] };
+  } catch (e) {
+    console.warn('[safeAutomationDispatch]', fallbackKey, e?.message || e);
+    return {
+      immediate: [{ status: 'failed', automationKey: fallbackKey, reason: 'send_failed' }],
+      scheduled: [],
+    };
+  }
+}
+
 export function computeAutomationReadiness({ automationsConfig, templatesMap, waConnected, hasZapsterInstance }) {
   const entries = Object.entries(automationsConfig || {});
   const activeCount = entries.filter(([, c]) => c?.active === true).length;
@@ -132,7 +157,7 @@ export function computeAutomationReadiness({ automationsConfig, templatesMap, wa
       label:
         activeCount > 0
           ? `${activeCount} gatilho${activeCount === 1 ? '' : 's'} ativo${activeCount === 1 ? '' : 's'}`
-          : 'Nenhum gatilho ativo — ligue os switches abaixo',
+          : 'Gatilhos desligados por padrão — ative os que precisar',
     },
   ];
 

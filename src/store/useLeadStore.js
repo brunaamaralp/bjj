@@ -3,7 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
 import { ID, Query } from 'appwrite';
 import { addLeadEvent } from '../lib/leadEvents.js';
-import { buildClientDocumentPermissions } from '../lib/clientDocumentPermissions.js';
+import { buildLeadDocumentPermissions } from '../lib/clientDocumentPermissions.js';
+import { assertClientBillingMutationsAllowed } from '../lib/billingGateClient.js';
 import { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 import { mapAppwriteDocToLead } from '../lib/mapAppwriteLeadDoc.js';
 import {
@@ -387,6 +388,8 @@ export const useLeadStore = create(
     const academyId = get().academyId;
     if (!academyId) return;
 
+    assertClientBillingMutationsAllowed(get().billingAccess);
+
     try {
       const wasEmpty = get().leads.length === 0;
       const userId = get().userId;
@@ -396,7 +399,7 @@ export const useLeadStore = create(
       const acadDoc = academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' };
       const teamId = String(acadDoc.teamId || get().teamId || '').trim();
       const sessionUserId = String(userId || '').trim();
-      const perms = buildClientDocumentPermissions({ teamId, userId: sessionUserId });
+      const perms = buildLeadDocumentPermissions({ teamId, userId: sessionUserId });
 
       const nowIso = new Date().toISOString();
       const docPayload = {
@@ -492,6 +495,8 @@ export const useLeadStore = create(
   },
 
   updateLead: async (id, updates) => {
+    assertClientBillingMutationsAllowed(get().billingAccess);
+
     try {
       const currentLead = get().leads.find((l) => l.id === id);
       if (!currentLead) {
@@ -539,6 +544,8 @@ export const useLeadStore = create(
   },
 
   deleteLead: async (id) => {
+    assertClientBillingMutationsAllowed(get().billingAccess);
+
     const previousLeads = get().leads;
     set((state) => ({
       leads: state.leads.filter((l) => l.id !== id)
@@ -556,6 +563,8 @@ export const useLeadStore = create(
     const academyId = get().academyId;
     if (!academyId) return;
 
+    assertClientBillingMutationsAllowed(get().billingAccess);
+
     const wasEmpty = get().leads.length === 0;
     const newLeads = [];
     const userId = get().userId;
@@ -563,7 +572,7 @@ export const useLeadStore = create(
     const acadDoc = academyList.find((a) => a.id === academyId) || {};
     const teamId = String(acadDoc.teamId || get().teamId || '').trim();
     const permCtx = permissionContextFromStore(get);
-    const perms = buildClientDocumentPermissions({ teamId, userId });
+    const perms = buildLeadDocumentPermissions({ teamId, userId });
 
     for (const lead of leadsArray) {
       try {

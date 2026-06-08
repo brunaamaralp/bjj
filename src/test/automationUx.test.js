@@ -4,6 +4,7 @@ import {
   computeAutomationReadiness,
   formatWhatsappTemplateSentTimeline,
   getLeadAutomationBadges,
+  safeAutomationDispatch,
 } from '../lib/automationUx.js';
 import { AUTOMATION_DEFAULTS } from '../lib/useAutomations.js';
 
@@ -40,6 +41,26 @@ describe('automationUx', () => {
     );
     expect(toasts.some((t) => t.type === 'success')).toBe(true);
     expect(toasts.some((t) => t.type === 'info')).toBe(true);
+  });
+
+  it('safeAutomationDispatch retorna failed em erro', async () => {
+    const result = await safeAutomationDispatch(
+      Promise.reject(new Error('network')),
+      'schedule_confirm'
+    );
+    expect(result.immediate[0]).toMatchObject({
+      status: 'failed',
+      automationKey: 'schedule_confirm',
+      reason: 'send_failed',
+    });
+  });
+
+  it('buildAutomationFeedbackToasts inclui warning em falha', () => {
+    const toasts = buildAutomationFeedbackToasts(
+      [{ status: 'failed', automationKey: 'missed', reason: 'send_failed' }],
+      []
+    );
+    expect(toasts.some((t) => t.type === 'warning')).toBe(true);
   });
 
   it('formatWhatsappTemplateSentTimeline', () => {

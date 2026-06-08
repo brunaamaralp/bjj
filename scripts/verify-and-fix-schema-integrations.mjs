@@ -356,6 +356,7 @@ const CONVERSATIONS_ATTRS = [
   { key: 'last_user_msg_at', type: 'string', size: 64 },
   { key: 'last_read_at', type: 'string', size: 64 },
   { key: 'human_handoff_until', type: 'string', size: 64 },
+  { key: 'agent_processing_until', type: 'string', size: 64 },
   { key: 'is_in_handoff', type: 'boolean' },
   { key: 'handoff_started_at', type: 'string', size: 64 },
   { key: 'handoff_started_by', type: 'string', size: 64 },
