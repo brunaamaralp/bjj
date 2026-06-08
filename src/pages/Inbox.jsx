@@ -313,7 +313,6 @@ export default function Inbox() {
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
-  const listExtraFiltersRef = useRef(null);
   const [agentIaActive, setAgentIaActive] = useState(false);
   const [stats, setStats] = useState({
     resolvedCount: 0,
@@ -1743,17 +1742,6 @@ export default function Inbox() {
     setSearch('');
   }, []);
 
-  useEffect(() => {
-    if (!extraFiltersMenuOpen) return undefined;
-    const onDoc = (e) => {
-      const root = listExtraFiltersRef.current;
-      if (!root || root.contains(e.target)) return;
-      setExtraFiltersMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [extraFiltersMenuOpen]);
-
   const waChatConnected = useMemo(
     () => !waStatusChecked || String(waStatus || '').trim() === 'connected',
     [waStatus, waStatusChecked]
@@ -1797,7 +1785,6 @@ export default function Inbox() {
       extraFiltersMenuOpen={extraFiltersMenuOpen}
       setExtraFiltersMenuOpen={setExtraFiltersMenuOpen}
       inboxExtraFilterActive={inboxExtraFilterActive}
-      listExtraFiltersRef={listExtraFiltersRef}
       setListFilter={setListFilter}
       onConversationListScroll={onConversationListScroll}
       groupedFilteredItems={groupedFilteredItems}

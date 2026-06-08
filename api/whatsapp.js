@@ -10,6 +10,7 @@ import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
 import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/server/zapsterInstanceLookup.js';
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
+import { recalcUnreadCount } from '../lib/server/conversationsStore.js';
 import { detectMediaTypeFromMime, sendZapsterMedia } from '../lib/server/zapsterSend.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -1138,6 +1139,8 @@ export default async function handler(req, res) {
           }
           const docPayload = { messages: JSON.stringify(merged), updated_at: updatedAt };
           if (lastUserMsgAt) docPayload.last_user_msg_at = lastUserMsgAt;
+          const lastReadAt = String(current?.last_read_at || '').trim();
+          docPayload.unread_count = recalcUnreadCount(merged, lastReadAt || null);
           const waName = String(bucket?.whatsappName || '').trim();
           const waPic = String(bucket?.whatsappProfileImageUrl || '').trim();
           const picOk = Boolean(waPic && /^https?:\/\//i.test(waPic));

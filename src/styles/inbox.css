@@ -37,11 +37,6 @@
   display: none;
 }
 
-.inbox-page--compact .navi-page-title {
-  font-size: var(--font-xl, 1.25rem);
-  line-height: 1.25;
-}
-
 .inbox-page--compact .page-header-card {
   margin-top: 0;
   padding-top: 0;
@@ -268,11 +263,6 @@
 
 .inbox-page-header--slim .navi-page-header__top {
   margin-bottom: 0;
-}
-
-.inbox-page-header--slim .navi-page-title {
-  font-size: var(--font-xl, 1.25rem);
-  line-height: 1.25;
 }
 
 .inbox-list-panel__search {
@@ -563,8 +553,8 @@
 }
 
 .inbox-unread-badge--inactive {
-  background: var(--danger-light);
-  color: var(--danger);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-white));
+  color: var(--color-primary-dark);
 }
 
 .inbox-unread-badge--active-chip {
@@ -992,6 +982,9 @@
 .inbox-mini-btn {
   min-height: 28px;
   padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
+  color: var(--text);
 }
 
 .inbox-mini-btn--menu {
@@ -1122,20 +1115,6 @@
 }
 
 .inbox-msg-actions {
-  opacity: 0;
-  pointer-events: none;
-  transition: var(--transition);
-}
-
-@media (max-width: 1023px) {
-  .inbox-msg-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-.inbox-msg:hover .inbox-msg-actions,
-.inbox-msg.selected .inbox-msg-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1611,11 +1590,20 @@
 }
 
 .inbox-conversation-item__unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
   background: var(--inbox-badge-unread-bg);
   color: var(--inbox-badge-unread-fg);
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-weight: 800;
+  font-size: var(--font-xs, 0.6875rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .inbox-ticket-chip-inline {

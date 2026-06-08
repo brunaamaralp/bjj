@@ -8,8 +8,8 @@
   --inbox-chip-info-bg: var(--color-info-surface, var(--inbox-info-badge-bg));
   --inbox-chip-info-fg: var(--inbox-info-badge-fg);
 
-  /* Badge não lida */
-  --inbox-badge-unread-bg: var(--color-danger);
+  /* Badge não lida — discreto (marca, não alerta) */
+  --inbox-badge-unread-bg: var(--color-primary);
   --inbox-badge-unread-fg: var(--color-white);
 
   /* Atenção: handoff, triagem, contato quente (warning) */

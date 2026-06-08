@@ -1,7 +1,10 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Filter } from 'lucide-react';
 import ConversationList from './ConversationList';
 import SearchField from '../shared/SearchField.jsx';
+import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
+import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
 
 export default function InboxListPanel({
   search = '',
@@ -13,7 +16,6 @@ export default function InboxListPanel({
   extraFiltersMenuOpen,
   setExtraFiltersMenuOpen,
   inboxExtraFilterActive,
-  listExtraFiltersRef,
   setListFilter,
   onConversationListScroll,
   groupedFilteredItems,
@@ -39,6 +41,13 @@ export default function InboxListPanel({
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
   const needsMeBacklog = Number(stats?.needsMeBacklog || 0);
   const listScrollRef = useRef(null);
+  const moreBtnRef = useRef(null);
+  const extraMenuStyle = useAnchoredMenuPosition(moreBtnRef, extraFiltersMenuOpen, {
+    align: 'start',
+    zIndex: 'var(--z-dropdown, 1200)',
+  });
+
+  const closeExtraMenu = () => setExtraFiltersMenuOpen(false);
 
   return (
     <div className="inbox-list-panel">
@@ -108,8 +117,15 @@ export default function InboxListPanel({
             ) : null}
           </button>
         </div>
-        <div ref={listExtraFiltersRef} className="inbox-list-filters__extra inbox-list-filters-segments__more">
+        <DropdownMenu
+          open={extraFiltersMenuOpen}
+          onOpenChange={setExtraFiltersMenuOpen}
+          className="inbox-list-filters__extra inbox-list-filters-segments__more"
+          elevated
+          dismissExtraSelector="[data-inbox-extra-filters-menu]"
+        >
           <button
+            ref={moreBtnRef}
             type="button"
             className={`inbox-list-filters-segments__btn inbox-list-filters-segments__btn--more${
               extraFiltersMenuOpen || inboxExtraFilterActive ? ' is-active' : ''
@@ -123,77 +139,83 @@ export default function InboxListPanel({
             <Filter size={14} strokeWidth={2} aria-hidden />
             Mais
           </button>
-          {extraFiltersMenuOpen ? (
-            <div
-              role="menu"
-              className="navi-menu__panel inbox-extra-filters-menu"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div className="inbox-list-filters__extra-menu-chips">
-                <button
-                  type="button"
-                  className={`filter-chip ${listFilter === 'need_human' ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setListFilter('need_human');
-                    setExtraFiltersMenuOpen(false);
-                  }}
+          {extraFiltersMenuOpen && extraMenuStyle
+            ? createPortal(
+                <DropdownMenuPanel
+                  fixed
+                  style={extraMenuStyle}
+                  className="inbox-extra-filters-menu"
+                  role="menu"
+                  aria-label="Mais filtros"
+                  data-inbox-extra-filters-menu
                 >
-                  Só handoff
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${listFilter === 'waiting_customer' ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setListFilter('waiting_customer');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Aguardando cliente
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${listFilter === 'resolved' ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setListFilter('resolved');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Resolvidos
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${listFilter === 'archived' ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setListFilter('archived');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Arquivadas
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${listFilter === 'hot' ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setListFilter('hot');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Contato quente
-                </button>
-                <button
-                  type="button"
-                  className={`filter-chip ${listFilter === 'transferred' ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setListFilter('transferred');
-                    setExtraFiltersMenuOpen(false);
-                  }}
-                >
-                  Transferidas
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
+                  <div className="inbox-list-filters__extra-menu-chips">
+                    <button
+                      type="button"
+                      className={`filter-chip ${listFilter === 'need_human' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setListFilter('need_human');
+                        closeExtraMenu();
+                      }}
+                    >
+                      Só handoff
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${listFilter === 'waiting_customer' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setListFilter('waiting_customer');
+                        closeExtraMenu();
+                      }}
+                    >
+                      Aguardando cliente
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${listFilter === 'resolved' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setListFilter('resolved');
+                        closeExtraMenu();
+                      }}
+                    >
+                      Resolvidos
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${listFilter === 'archived' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setListFilter('archived');
+                        closeExtraMenu();
+                      }}
+                    >
+                      Arquivadas
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${listFilter === 'hot' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setListFilter('hot');
+                        closeExtraMenu();
+                      }}
+                    >
+                      Contato quente
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${listFilter === 'transferred' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setListFilter('transferred');
+                        closeExtraMenu();
+                      }}
+                    >
+                      Transferidas
+                    </button>
+                  </div>
+                </DropdownMenuPanel>,
+                document.body,
+              )
+            : null}
+        </DropdownMenu>
       </div>
       {activeFilterLabel ? (
         <div className="inbox-list-filters-active" role="status">

@@ -41,8 +41,10 @@ vi.mock('../../lib/server/conversationsStore.js', () => ({
     }
   },
   getOrCreateConversationDoc: (...args) => whMocks.getOrCreate(...args),
+  findConversationDoc: vi.fn(async () => ({ $id: 'conv-1', unread_count: 2 })),
   updateConversationWithMerge: (...args) => whMocks.updateMerge(...args),
-  updateConversationLastDispatchMeta: vi.fn().mockResolvedValue({ ok: true })
+  updateConversationLastDispatchMeta: vi.fn().mockResolvedValue({ ok: true }),
+  clearConversationUnread: vi.fn(async () => ({ ok: true, last_read_at: '2026-06-08T12:00:00.000Z' })),
 }));
 
 vi.mock('../../lib/server/internalNotification.js', () => ({
@@ -300,5 +302,67 @@ describe('zapsterWebhook', () => {
         academy_id: 'acad-1'
       })
     );
+  });
+
+  it('message.sent origin whatsapp zera unread_count', async () => {
+    const { clearConversationUnread } = await import('../../lib/server/conversationsStore.js');
+    clearConversationUnread.mockClear();
+    whMocks.updateMerge.mockResolvedValueOnce({ ok: true });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      webhookReq({
+        type: 'message.sent',
+        instance_id: 'inst-1',
+        data: {
+          origin: 'whatsapp',
+          content: { text: 'Oi pelo celular' },
+          id: 'msg-sent-phone',
+          recipient: { id: '5511999887766', type: 'chat' },
+          sender: { id: '5511888776655' },
+          type: 'text',
+        },
+      }),
+      res,
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.sucesso).toBe(true);
+    expect(clearConversationUnread).toHaveBeenCalledWith('conv-1');
+  });
+
+  it('message.read zera unread da conversa', async () => {
+    const { clearConversationUnread, findConversationDoc } = await import('../../lib/server/conversationsStore.js');
+    clearConversationUnread.mockClear();
+    findConversationDoc.mockResolvedValueOnce({ $id: 'conv-read-1', unread_count: 3 });
+
+    whMocks.getDocument.mockResolvedValueOnce({
+      $id: 'acad-1',
+      zapster_instance_id: 'inst-1',
+      status: 'active',
+      wa_phone: '5511888776655',
+    });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      webhookReq({
+        type: 'message.read',
+        instance_id: 'inst-1',
+        data: {
+          id: 'msg-read-1',
+          sender: { id: '5511999887766', type: 'chat' },
+          recipient: { id: '5511888776655', type: 'chat' },
+          type: 'text',
+        },
+      }),
+      res,
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.tipo).toBe('message_read');
+    expect(findConversationDoc).toHaveBeenCalledWith('5511999887766', 'acad-1');
+    expect(clearConversationUnread).toHaveBeenCalledWith('conv-read-1');
   });
 });

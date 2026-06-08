@@ -193,16 +193,20 @@ export default function InboxThreadPanel(props) {
                     {showTicketLine ? (
                       <div className="inbox-thread-header__status-line">{ticket.label}</div>
                     ) : null}
-                    <div
-                      role="status"
-                      className={`inbox-thread-handoff-banner inbox-thread-handoff-banner--${banner.variant || 'ia'}${
-                        handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''
-                      }`}
-                    >
-                      {handoffReleaseHint
-                        ? 'A IA voltará a responder automaticamente'
-                        : banner.text}
-                    </div>
+                    {handoffReleaseHint ||
+                    banner.variant === 'human' ||
+                    banner.variant === 'soon' ? (
+                      <div
+                        role="status"
+                        className={`inbox-thread-handoff-banner inbox-thread-handoff-banner--${banner.variant || 'human'}${
+                          handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''
+                        }`}
+                      >
+                        {handoffReleaseHint
+                          ? 'A IA voltará a responder automaticamente'
+                          : banner.text}
+                      </div>
+                    ) : null}
                     {!selected?.need_human && aiSuggestHuman ? (
                       <p className="inbox-thread-header__hint">
                         Vale a pena alguém da equipe ver esta conversa
