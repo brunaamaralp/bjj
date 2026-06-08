@@ -65,11 +65,9 @@ import StageBadge from '../components/shared/StageBadge.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import TaskCard from '../components/shared/TaskCard.jsx';
-import HubTabBar from '../components/shared/HubTabBar.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
-import { resolveHubTab } from '../lib/hubTabs.js';
 import {
     leadHistoryFilterFromUrlParam,
     leadHistoryFilterToUrlParam,
@@ -618,60 +616,29 @@ const LeadProfile = () => {
 
     useEffect(() => {
         const rawTab = String(searchParams.get('tab') || '').trim().toLowerCase();
-        const chatParam = searchParams.get('chat');
-
-        let tab = resolveHubTab(rawTab, profileTabIds, 'dados');
-        if (isDesktopSplit && rawTab === 'conversation') {
-            tab = 'dados';
-        }
-        setActiveProfileTab(tab);
+        if (!rawTab) return;
+        const normalizedTab = rawTab === 'dados' ? 'timeline' : rawTab;
+        if (!profileTabIds.includes(normalizedTab)) return;
+        if (normalizedTab === 'conversation' && !showConversationTab) return;
+        setActiveProfileTab(normalizedTab);
+        setPanelOpen(true);
         setEventTypeFilter(leadHistoryFilterFromUrlParam(searchParams.get('history')));
-
-        if (isDesktopSplit) {
-            setConversationOpen(chatParam !== '0');
-        } else if (!stackedLayout && showConversationTab) {
-            setConversationOpen(true);
-        }
-    }, [searchParams, profileTabIds, isDesktopSplit, stackedLayout, showConversationTab]);
+    }, [searchParams, profileTabIds, showConversationTab]);
 
     useEffect(() => {
-        if (!isDesktopSplit) return;
-        const rawTab = String(searchParams.get('tab') || '').trim().toLowerCase();
-        if (rawTab !== 'conversation') return;
-        setSearchParams(
-            (prev) => {
-                const next = new URLSearchParams(prev);
-                next.delete('tab');
-                return next;
-            },
-            { replace: true }
-        );
-    }, [isDesktopSplit, searchParams, setSearchParams]);
-
-    const setConversationOpenWithUrl = useCallback(
-        (open) => {
-            setConversationOpen(open);
-            if (!isDesktopSplit) return;
-            setSearchParams(
-                (prev) => {
-                    const next = new URLSearchParams(prev);
-                    if (open) next.delete('chat');
-                    else next.set('chat', '0');
-                    return next;
-                },
-                { replace: true }
-            );
-        },
-        [isDesktopSplit, setSearchParams]
-    );
+        if (activeProfileTab === 'timeline' || activeProfileTab === 'conversation') {
+            setPanelOpen(true);
+        }
+    }, [activeProfileTab]);
 
     const setProfileTab = useCallback(
         (tabId) => {
             setActiveProfileTab(tabId);
+            setPanelOpen(true);
             setSearchParams(
                 (prev) => {
                     const next = new URLSearchParams(prev);
-                    if (tabId === 'dados') next.delete('tab');
+                    if (tabId === 'timeline') next.delete('tab');
                     else next.set('tab', tabId);
                     return next;
                 },
@@ -704,13 +671,13 @@ const LeadProfile = () => {
     }, []);
 
     const handleRequestEditPhone = useCallback(() => {
-        if (stackedLayout) setProfileTab('dados');
+        setPanelOpen(false);
         startEditRef.current?.();
         requestAnimationFrame(() => {
             const el = phoneEditInputRef.current || document.getElementById('lead-profile-edit-phone');
             el?.focus?.();
         });
-    }, [stackedLayout, setProfileTab]);
+    }, []);
 
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const waMenuStyle = useAnchoredMenuPosition(waMenuTriggerRef, templateMenuOpen, {
@@ -1463,29 +1430,7 @@ const LeadProfile = () => {
 
     const showCloseSaleCta = canShowLeadCloseSale(lead);
 
-    const profileTabs = useMemo(() => {
-        const tabs = [
-            { id: 'dados', label: 'Dados' },
-            { id: 'timeline', label: 'Histórico' },
-        ];
-        if (showConversationTab && stackedLayout) {
-            const convLabel =
-                conversationUnreadCount > 0 ? `Conversa (${conversationUnreadCount})` : 'Conversa';
-            tabs.push({ id: 'conversation', label: convLabel });
-        }
-        return tabs;
-    }, [showConversationTab, stackedLayout, conversationUnreadCount]);
-
-    const conversationVisibleAside = Boolean(isDesktopSplit && conversationOpen);
-    const conversationVisibleOverlay = Boolean(
-        showConversationTab && stackedLayout && activeProfileTab === 'conversation'
-    );
-    const showConversationPanel = conversationVisibleAside || conversationVisibleOverlay;
-    const showInboxInHero =
-        Boolean(normalizeLeadPhoneForInbox(lead.phone)) &&
-        showConversationTab &&
-        !conversationVisibleAside &&
-        !conversationVisibleOverlay;
+    const showInboxInHero = Boolean(normalizeLeadPhoneForInbox(lead.phone)) && showConversationTab;
 
     const leadTypeDisplay = normalizeLeadProfileType(lead.type || '');
 
@@ -1579,16 +1524,6 @@ const LeadProfile = () => {
         </div>
     );
 
-    const containerClassName = [
-        'lead-profile-container',
-        `lead-profile-container--${activeProfileTab}`,
-        conversationVisibleAside ? 'lead-profile-container--split' : '',
-        isDesktopSplit && !conversationOpen ? 'lead-profile-container--chat-collapsed' : '',
-        conversationVisibleOverlay ? 'lead-profile--panel-open' : '',
-    ]
-        .filter(Boolean)
-        .join(' ');
-
     const showSchedulePresence =
         lead?.status === LEAD_STATUS.SCHEDULED && Boolean(String(lead?.scheduledDate || '').trim());
 
@@ -1623,130 +1558,107 @@ const LeadProfile = () => {
 
     const PrimaryCtaIcon = nextActionCtas.primary?.icon;
 
-    const handleConversationMinimize = () => {
-        if (stackedLayout) {
-            setProfileTab('dados');
-            return;
-        }
-        setConversationOpenWithUrl(false);
+    const handleConversationPanelClose = () => {
+        setProfileTab('timeline');
     };
 
-    const handleConversationClose = () => {
-        if (stackedLayout) {
-            setProfileTab('dados');
-            return;
-        }
-        setConversationOpenWithUrl(false);
-    };
+    const panelTabBtn = (tabId, label) => (
+        <button
+            key={tabId}
+            type="button"
+            role="tab"
+            id={`lead-profile-panel-tab-${tabId}`}
+            aria-selected={activeProfileTab === tabId}
+            aria-controls={`lead-profile-panel-${tabId}`}
+            className={`lead-profile-panel-tab${activeProfileTab === tabId ? ' lead-profile-panel-tab--active' : ''}`}
+            onClick={() => setProfileTab(tabId)}
+        >
+            {label}
+        </button>
+    );
 
-    const renderConversationRail = () => {
-        if (!showConversationPanel) return null;
-        return (
-            <aside
-                className="lead-profile-conversation-rail"
-                aria-label="Conversa WhatsApp"
-                {...(conversationVisibleOverlay
-                    ? {
-                          role: 'tabpanel',
-                          id: 'lead-profile-panel-conversation',
-                          'aria-labelledby': 'lead-profile-panel-tab-conversation',
-                      }
-                    : {})}
-            >
-                <NaviChatWidgetPanel
-                    academyId={academyId}
-                    activePhone={lead.phone}
-                    leadId={lead.id}
-                    leadName={lead.name}
-                    isMobile={conversationVisibleOverlay}
-                    embedded
-                    hideProfileLink
-                    onMinimize={handleConversationMinimize}
-                    onClose={handleConversationClose}
-                    onSummaryChange={handleConversationSummaryChange}
-                    onRequestEditPhone={handleRequestEditPhone}
-                />
-            </aside>
-        );
-    };
+    const conversationTabLabel =
+        conversationUnreadCount > 0 ? `Conversa (${conversationUnreadCount})` : 'Conversa';
 
-    return (
-        <div className={containerClassName}>
-            <div className="lead-profile-chrome">
-                {!conversationVisibleOverlay ? (
-                    <div className="left-col-header lead-profile-left-col-header">
-                        <button type="button" className="icon-btn" onClick={handleProfileBack} aria-label="Voltar">
-                            <ArrowLeft size={20} />
+    const leftColumn = (
+        <div
+            className="lead-panel-left-col"
+            style={{
+                display: stackedLayout && panelOpen ? 'none' : 'flex',
+                width:
+                    stackedLayout && panelOpen
+                        ? 0
+                        : stackedLayout
+                          ? '100%'
+                          : panelOpen
+                            ? '360px'
+                            : 'auto',
+                flex:
+                    stackedLayout && panelOpen
+                        ? '0 0 0'
+                        : stackedLayout && !panelOpen
+                          ? '1 1 0%'
+                          : !stackedLayout && !panelOpen
+                            ? '1 1 0%'
+                            : '0 0 auto',
+                maxWidth: !stackedLayout && !panelOpen ? 560 : undefined,
+                flexShrink: 0,
+                overflowY: 'auto',
+                flexDirection: 'column',
+                borderRight: stackedLayout ? 'none' : '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                minHeight: 0,
+                minWidth: 0,
+            }}
+        >
+            <div className="left-col-header lead-profile-left-col-header">
+                <button type="button" className="icon-btn" onClick={handleProfileBack} aria-label="Voltar">
+                    <ArrowLeft size={20} />
+                </button>
+                {profileBreadcrumb ? (
+                    <nav className="lead-profile-breadcrumb" aria-label="Navegação">
+                        <Link
+                            to={profileBreadcrumb.parentTo}
+                            state={profileBreadcrumb.restorePipeline ? { fresh: false } : undefined}
+                            className="lead-profile-breadcrumb__parent"
+                        >
+                            {profileBreadcrumb.parentLabel}
+                        </Link>
+                    </nav>
+                ) : (
+                    <span className="lead-profile-breadcrumb__fallback">{contactLabel}</span>
+                )}
+                <div className="flex gap-2 lead-profile-header-actions">
+                    {!editing ? (
+                        <button type="button" className="btn-edit-header" onClick={startEdit}>
+                            <Pencil size={14} /> Editar
                         </button>
-                        {profileBreadcrumb ? (
-                            <nav className="lead-profile-breadcrumb" aria-label="Navegação">
-                                <Link
-                                    to={profileBreadcrumb.parentTo}
-                                    state={profileBreadcrumb.restorePipeline ? { fresh: false } : undefined}
-                                    className="lead-profile-breadcrumb__parent"
-                                >
-                                    {profileBreadcrumb.parentLabel}
-                                </Link>
-                            </nav>
-                        ) : (
-                            <span className="lead-profile-breadcrumb__fallback">{contactLabel}</span>
-                        )}
-                        <span className="lead-profile-chrome__name lead-profile-chrome__name--hidden-mobile">{lead.name}</span>
-                        <div className="flex gap-2 lead-profile-header-actions">
-                            {activeProfileTab === 'dados' && !editing ? (
-                                <button type="button" className="btn-edit-header" onClick={startEdit}>
-                                    <Pencil size={14} /> Editar
-                                </button>
-                            ) : null}
-                            {activeProfileTab === 'dados' && editing ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="btn-edit-header cancel"
-                                        onClick={cancelEdit}
-                                        aria-label="Cancelar edição"
-                                    >
-                                        <X size={14} aria-hidden />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-edit-header save"
-                                        onClick={() => void handleSave()}
-                                        disabled={saving}
-                                        aria-label={saving ? 'Salvando…' : 'Salvar alterações'}
-                                    >
-                                        {saving ? 'Salvando…' : <Save size={14} aria-hidden />}
-                                    </button>
-                                </>
-                            ) : null}
-                        </div>
-                    </div>
-                ) : null}
-
-                {!conversationVisibleOverlay ? (
-                    <HubTabBar
-                        tabs={profileTabs}
-                        activeId={activeProfileTab}
-                        onChange={setProfileTab}
-                        ariaLabel="Perfil do contato"
-                        className="lead-profile-hub-tabs"
-                        variant="secondary"
-                        fullWidth
-                        panelIdPrefix="lead-profile-panel-"
-                    />
-                ) : null}
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                className="btn-edit-header cancel"
+                                onClick={cancelEdit}
+                                aria-label="Cancelar edição"
+                            >
+                                <X size={14} aria-hidden />
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-edit-header save"
+                                onClick={() => void handleSave()}
+                                disabled={saving}
+                                aria-label={saving ? 'Salvando…' : 'Salvar alterações'}
+                            >
+                                {saving ? 'Salvando…' : <Save size={14} aria-hidden />}
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
-            <div className="lead-profile-body">
-                <div className="lead-profile-left">
-                    <div className="lead-profile-left__scroll">
-                {activeProfileTab === 'dados' ? (
-                <div
-                    className="lead-profile-dados left-col-content"
-                    role="tabpanel"
-                    id="lead-profile-panel-dados"
-                    aria-labelledby="lead-profile-panel-tab-dados"
-                >
+            <div className="lead-profile-left__scroll">
+                <div className="lead-profile-dados left-col-content">
                     <div className="lead-profile-hero profile-main-header">
                             <div className="profile-avatar lead-profile-hero__avatar" aria-hidden>
                                 {leadInitials}
@@ -2421,8 +2333,68 @@ const LeadProfile = () => {
                         {`Excluir ${contactLabel.toLowerCase()}`}
                     </button>
                 </div>
-                ) : null}
+            </div>
 
+            <div className="lead-profile-left__footer lead-profile-panel-toggle">
+                <button
+                    type="button"
+                    className="lead-profile-panel-toggle__btn"
+                    onClick={() => setPanelOpen((open) => !open)}
+                >
+                    {panelOpen ? <>← Voltar ao perfil</> : <>Abrir detalhes →</>}
+                </button>
+            </div>
+        </div>
+    );
+
+    const rightColumn = (
+        <div
+            className="lead-panel-right-col"
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                minWidth: 0,
+                flex: panelOpen ? 1 : 0,
+                flexBasis: panelOpen ? undefined : 0,
+                maxWidth: panelOpen ? (stackedLayout ? '100%' : 560) : 0,
+                opacity: panelOpen ? 1 : 0,
+                pointerEvents: panelOpen ? 'auto' : 'none',
+                width: stackedLayout && panelOpen ? '100%' : undefined,
+                background: 'var(--surface-hover)',
+            }}
+        >
+            {stackedLayout && panelOpen ? (
+                <div className="lead-profile-mobile-panel-chrome">
+                    <button
+                        type="button"
+                        className="lead-profile-mobile-conv-back"
+                        onClick={() => setPanelOpen(false)}
+                        aria-label="Voltar ao perfil do contato"
+                    >
+                        <ArrowLeft size={18} aria-hidden />
+                        Perfil
+                    </button>
+                    <span className="lead-profile-mobile-panel-chrome__name">{lead.name}</span>
+                    <span className="lead-profile-mobile-panel-chrome__spacer" aria-hidden />
+                </div>
+            ) : null}
+
+            <div className="lead-profile-panel-tabs" role="tablist" aria-label="Detalhes do contato">
+                {panelTabBtn('timeline', 'Histórico')}
+                {showConversationTab ? panelTabBtn('conversation', conversationTabLabel) : null}
+            </div>
+
+            <div
+                className="lead-profile-panel-body"
+                style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: activeProfileTab === 'conversation' ? 'hidden' : 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+            >
                 {activeProfileTab === 'timeline' ? (
                 <div
                     className="lead-profile-panel lead-profile-panel--timeline"
@@ -2535,26 +2507,63 @@ const LeadProfile = () => {
                 </div>
                 </div>
                 ) : null}
-                    </div>
-                    {isDesktopSplit && !conversationOpen ? (
-                        <div className="lead-profile-left__footer">
-                            <button
-                                type="button"
-                                className="btn-next-step highlight lead-profile-open-chat-btn"
-                                onClick={() => setConversationOpenWithUrl(true)}
-                            >
-                                <MessageCircle size={14} aria-hidden />
-                                Ver conversa
-                                {conversationUnreadCount > 0 ? (
-                                    <span className="lead-profile-conversation-rail__badge">{conversationUnreadCount}</span>
-                                ) : null}
-                            </button>
-                        </div>
-                    ) : null}
-                </div>
 
-                {renderConversationRail()}
+                {activeProfileTab === 'conversation' && showConversationTab ? (
+                    <div className="lead-profile-conversation-panel" role="tabpanel" id="lead-profile-panel-conversation" aria-labelledby="lead-profile-panel-tab-conversation">
+                        <NaviChatWidgetPanel
+                            academyId={academyId}
+                            activePhone={lead.phone}
+                            leadId={lead.id}
+                            leadName={lead.name}
+                            isMobile={stackedLayout}
+                            embedded
+                            hideProfileLink
+                            onMinimize={handleConversationPanelClose}
+                            onClose={handleConversationPanelClose}
+                            onSummaryChange={handleConversationSummaryChange}
+                            onRequestEditPhone={handleRequestEditPhone}
+                        />
+                    </div>
+                ) : null}
             </div>
+        </div>
+    );
+
+    return (
+        <div
+            className={`lead-profile-page-root${panelOpen ? ' lead-profile--panel-open' : ''}`}
+            style={{
+                display: 'flex',
+                flex: 1,
+                minHeight: 0,
+                overflow: panelOpen ? 'hidden' : 'auto',
+                width: '100%',
+                background: 'var(--color-content-bg)',
+            }}
+        >
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
+            @media (max-width: 1023px) {
+              .lead-profile--panel-open .lead-panel-right-col {
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                max-width: 100% !important;
+                flex: 1 1 auto !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                box-sizing: border-box;
+              }
+              .lead-profile--panel-open .lead-panel-left-col {
+                display: none !important;
+              }
+            }
+          `,
+                }}
+            />
+            {leftColumn}
+            {rightColumn}
 
             <ConfirmDialog
                 open={Boolean(confirmModal)}

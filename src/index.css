@@ -1490,18 +1490,38 @@ button:focus-visible {
   overflow: hidden;
 }
 
-.main-content:has(.lead-profile-container--split),
-.main-content:has(.lead-profile--panel-open) {
+.main-content:has(.lead-profile-page-root.lead-profile--panel-open) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.main-content > .lead-profile-container--split,
-.main-content > .lead-profile-container.lead-profile--panel-open {
+.main-content > .lead-profile-page-root.lead-profile--panel-open {
   flex: 1 1 0%;
   min-height: 0;
+  overflow: hidden;
+}
+
+.lead-profile-page-root.lead-profile--panel-open {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.lead-profile-conversation-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lead-profile-conversation-panel > .navi-chat-widget__panel {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .main-content:has(.student-profile-page-root.student-profile--panel-open) {
