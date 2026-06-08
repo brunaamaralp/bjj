@@ -8,6 +8,7 @@ export const TASK_TEMPLATE_TRIGGERS = {
   STUDENT_REACTIVATION: 'student_reactivation',
   STUDENT_BIRTHDAY: 'student_birthday',
   STUDENT_UNFREEZE: 'student_unfreeze',
+  STUDENT_FREEZE_LIMIT: 'student_freeze_limit',
 };
 
 export const TASK_TEMPLATE_TRIGGER_LABELS = {
@@ -18,6 +19,7 @@ export const TASK_TEMPLATE_TRIGGER_LABELS = {
   [TASK_TEMPLATE_TRIGGERS.STUDENT_REACTIVATION]: 'Reativação de aluno',
   [TASK_TEMPLATE_TRIGGERS.STUDENT_BIRTHDAY]: 'Aniversário do aluno',
   [TASK_TEMPLATE_TRIGGERS.STUDENT_UNFREEZE]: 'Encerramento de trancamento',
+  [TASK_TEMPLATE_TRIGGERS.STUDENT_FREEZE_LIMIT]: 'Limite de trancamento próximo',
 };
 
 const TEMPLATE_MARKER = '[task_template]';
@@ -67,6 +69,19 @@ export const DEFAULT_STUDENT_REACTIVATION_TEMPLATE = {
   ],
 };
 
+export const DEFAULT_STUDENT_FREEZE_LIMIT_TEMPLATE = {
+  name: 'Limite de trancamento próximo',
+  trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_FREEZE_LIMIT,
+  tasks: [
+    {
+      title: 'Ligar para aluno — retorno do trancamento',
+      offset_days: 0,
+      notes: 'Aluno com 75+ dias de trancamento no ano do plano (restam ≤15 dias da cota de 90).',
+      order: 0,
+    },
+  ],
+};
+
 export const DEFAULT_STUDENT_BIRTHDAY_TEMPLATE = {
   name: 'Aniversário do aluno',
   trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_BIRTHDAY,
@@ -78,6 +93,7 @@ export const DEFAULT_TASK_TEMPLATES = [
   DEFAULT_ENROLLMENT_TEMPLATE,
   DEFAULT_STUDENT_FREEZE_TEMPLATE,
   DEFAULT_STUDENT_REACTIVATION_TEMPLATE,
+  DEFAULT_STUDENT_FREEZE_LIMIT_TEMPLATE,
   DEFAULT_STUDENT_BIRTHDAY_TEMPLATE,
 ];
 

@@ -3,10 +3,13 @@ import { DateInput } from '../DateInput';
 import {
   FREEZE_MAX_DAYS_PER_YEAR,
   computeReturnYmd,
+  computeDurationDays,
   effectiveFreezeDaysUsed,
   freezeDaysRemaining,
+  minRetroactiveStartYmd,
   validateFreezeRequest,
   toYmd,
+  formatFreezeDateBr,
 } from '../../lib/planFreeze.js';
 
 function todayYmd() {
@@ -24,15 +27,23 @@ export default function PlanFreezeModal({
   const [startYmd, setStartYmd] = useState(todayYmd());
   const [endYmd, setEndYmd] = useState('');
   const [durationDays, setDurationDays] = useState(30);
+  const [indefinite, setIndefinite] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [error, setError] = useState('');
 
   const daysUsed = effectiveFreezeDaysUsed(student);
   const daysAvailable = freezeDaysRemaining(student);
+  const minStartYmd = minRetroactiveStartYmd(student);
   const isOther = String(selectedReason || '').trim().toLowerCase() === 'outro';
   const resolvedReason = isOther ? otherReason.trim() : String(selectedReason || '').trim();
   const reasons = freezeReasons.length > 0 ? freezeReasons : ['Viagem', 'Licença médica', 'Outro'];
+
+  const retroactiveDays = useMemo(() => {
+    const today = todayYmd();
+    if (!startYmd || startYmd >= today) return 0;
+    return computeDurationDays(startYmd, today);
+  }, [startYmd]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,15 +52,17 @@ export default function PlanFreezeModal({
     setStartYmd(start);
     setDurationDays(dur);
     setEndYmd(computeReturnYmd(start, dur));
+    setIndefinite(false);
     setSelectedReason('');
     setOtherReason('');
     setError('');
   }, [open, daysAvailable]);
 
   useEffect(() => {
+    if (!open || indefinite) return;
     if (!startYmd || durationDays < 1) return;
     setEndYmd(computeReturnYmd(startYmd, durationDays));
-  }, [startYmd, durationDays]);
+  }, [open, startYmd, durationDays, indefinite]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,8 +74,15 @@ export default function PlanFreezeModal({
   }, [open, onClose, busy]);
 
   const validation = useMemo(
-    () => validateFreezeRequest({ startYmd, endYmd, durationDays, student }),
-    [startYmd, endYmd, durationDays, student]
+    () =>
+      validateFreezeRequest({
+        startYmd,
+        endYmd: indefinite ? '' : endYmd,
+        durationDays: indefinite ? undefined : durationDays,
+        student,
+        indefinite,
+      }),
+    [startYmd, endYmd, durationDays, student, indefinite]
   );
 
   if (!open) return null;
@@ -98,6 +118,7 @@ export default function PlanFreezeModal({
         startYmd: validation.startYmd,
         endYmd: validation.endYmd,
         durationDays: validation.days,
+        indefinite: validation.indefinite === true,
         reason: resolvedReason,
       });
     } catch (err) {
@@ -150,29 +171,70 @@ export default function PlanFreezeModal({
           <label style={{ fontSize: 13 }}>
             <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Data de início</span>
             <DateInput value={startYmd} onChange={(e) => setStartYmd(e.target.value)} disabled={busy} />
+            <span style={{ display: 'block', marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+              Retroativo permitido desde {formatFreezeDateBr(minStartYmd)}
+            </span>
           </label>
-          <label style={{ fontSize: 13 }}>
-            <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Data de retorno</span>
-            <DateInput value={endYmd} onChange={(e) => setEndYmd(e.target.value)} disabled={busy} />
-          </label>
-          <label style={{ fontSize: 13 }}>
-            <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Duração (dias)</span>
+
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: 8,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              border: `1px solid ${indefinite ? 'var(--purple)' : 'var(--border)'}`,
+              background: indefinite ? 'var(--purple-light)' : 'transparent',
+              opacity: busy ? 0.7 : 1,
+            }}
+          >
             <input
-              type="number"
-              className="form-input"
-              min={1}
-              max={daysAvailable}
-              value={durationDays}
-              onChange={(e) => handleDurationChange(e.target.value)}
+              type="checkbox"
+              checked={indefinite}
               disabled={busy}
+              onChange={(e) => setIndefinite(e.target.checked)}
+              style={{ accentColor: 'var(--purple)', marginTop: 3 }}
             />
+            <span style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45 }}>
+              Retorno indefinido — reabrir manualmente quando o aluno voltar
+            </span>
           </label>
+
+          {!indefinite ? (
+            <>
+              <label style={{ fontSize: 13 }}>
+                <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Data de retorno</span>
+                <DateInput value={endYmd} onChange={(e) => setEndYmd(e.target.value)} disabled={busy} />
+              </label>
+              <label style={{ fontSize: 13 }}>
+                <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Duração (dias)</span>
+                <input
+                  type="number"
+                  className="form-input"
+                  min={1}
+                  max={daysAvailable}
+                  value={durationDays}
+                  onChange={(e) => handleDurationChange(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+            </>
+          ) : null}
         </div>
 
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
           Dias utilizados este ano: <strong>{daysUsed}</strong> de {FREEZE_MAX_DAYS_PER_YEAR}
           <br />
           Dias disponíveis: <strong>{daysAvailable}</strong> dias
+          {retroactiveDays > 0 ? (
+            <>
+              <br />
+              <span style={{ color: 'var(--warning)' }}>
+                Início retroativo: {retroactiveDays} dia{retroactiveDays === 1 ? '' : 's'} já decorridos entram na cota.
+              </span>
+            </>
+          ) : null}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
@@ -239,7 +301,9 @@ export default function PlanFreezeModal({
         >
           O acesso na catraca será bloqueado a partir de {startLabel}.
           <br />
-          O plano será estendido em {durationDays} dias ao final do período.
+          {indefinite
+            ? 'Sem data de retorno — encerre o trancamento manualmente quando o aluno voltar. O plano será estendido pelos dias efetivamente utilizados.'
+            : `O plano será estendido em ${durationDays} dias ao final do período.`}
         </p>
 
         {error ? (

@@ -702,7 +702,7 @@ export default function StudentProfile() {
     }, [loadPayments]);
 
     const handleConfirmFreeze = useCallback(
-        async ({ startYmd, endYmd, durationDays, reason }) => {
+        async ({ startYmd, endYmd, durationDays, reason, indefinite = false }) => {
             if (!student || !leadId || !academyId) return;
             setFreezeBusy(true);
             try {
@@ -715,6 +715,7 @@ export default function StudentProfile() {
                     endYmd,
                     durationDays,
                     reason,
+                    indefinite,
                     userId,
                     teamId: acad.teamId,
                     mergeStudent,
@@ -725,7 +726,9 @@ export default function StudentProfile() {
                 setFreezeModalOpen(false);
                 toast.show({
                     type: 'success',
-                    message: `Matrícula trancada até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado quando possível.`,
+                    message: indefinite
+                        ? `Matrícula trancada desde ${formatFreezeDateBr(startYmd)} (retorno indefinido).`
+                        : `Matrícula trancada até ${formatFreezeDateBr(endYmd)}. Acesso bloqueado quando possível.`,
                 });
                 void loadPayments();
                 void refreshStudentPaymentStatus(leadId, academyId);
@@ -2064,7 +2067,7 @@ export default function StudentProfile() {
                             Matrícula trancada
                             {String(student.freeze_end || '').slice(0, 10)
                                 ? ` até ${formatFreezeDateBr(String(student.freeze_end).slice(0, 10))}`
-                                : ''}
+                                : ' (retorno indefinido)'}
                             {activeFreezeReasonFromHistory(planFreezes, student)
                                 ? ` · ${activeFreezeReasonFromHistory(planFreezes, student)}`
                                 : ''}

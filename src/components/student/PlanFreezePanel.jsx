@@ -4,6 +4,8 @@ import {
   freezeDaysLeftInPeriod,
   formatFreezeDateBr,
   effectiveFreezeDaysUsed,
+  projectedFreezeDaysUsed,
+  isFreezeIndefinite,
   FREEZE_MAX_DAYS_PER_YEAR,
 } from '../../lib/planFreeze.js';
 
@@ -15,8 +17,10 @@ export default function PlanFreezePanel({
   busy = false,
 }) {
   const endYmd = String(student?.freeze_end || '').slice(0, 10);
+  const indefinite = isFreezeIndefinite(student);
   const daysLeft = freezeDaysLeftInPeriod(student);
   const used = effectiveFreezeDaysUsed(student);
+  const projected = projectedFreezeDaysUsed(student);
 
   return (
     <div
@@ -33,7 +37,7 @@ export default function PlanFreezePanel({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Matrícula trancada</div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            Retorno previsto: {formatFreezeDateBr(endYmd)}
+            Retorno previsto: {indefinite ? 'Indefinido' : formatFreezeDateBr(endYmd)}
             {freezeReason ? (
               <>
                 <br />
@@ -42,10 +46,16 @@ export default function PlanFreezePanel({
             ) : null}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-            Historico: {freezeHistoryCount} trancamento{freezeHistoryCount === 1 ? '' : 's'} · {used} dias utilizados de{' '}
+            Historico: {freezeHistoryCount} trancamento{freezeHistoryCount === 1 ? '' : 's'} · {used} dias confirmados de{' '}
             {FREEZE_MAX_DAYS_PER_YEAR}
+            {indefinite ? (
+              <>
+                <br />
+                Projeção atual: {projected} dias (inclui trancamento em andamento)
+              </>
+            ) : null}
             <br />
-            Dias restantes: {daysLeft}
+            {indefinite ? 'Dias restantes na cota' : 'Dias restantes no período'}: {daysLeft}
           </div>
         </div>
         <button

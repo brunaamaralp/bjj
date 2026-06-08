@@ -23,6 +23,8 @@ import {
   validateFreezeRequest,
   computeDurationDays,
   bundleExtensionMonthsFromDays,
+  paymentFreezeEndYmd,
+  isFreezeIndefinite,
   toYmd,
   parseYmdLocal,
   isFreezeActive,
@@ -39,15 +41,26 @@ export {
   canStartPlanFreeze,
   isAnnualPlanStudent,
   isFreezeActive,
+  isFreezeIndefinite,
   effectiveFreezeDaysUsed,
+  projectedFreezeDaysUsed,
+  activeFreezeElapsedDays,
+  minRetroactiveStartYmd,
   freezeDaysRemaining,
   freezeDaysLeftInPeriod,
   FREEZE_MAX_DAYS_PER_YEAR,
+  FREEZE_LIMIT_ALERT_DAYS_USED,
+  shouldAlertFreezeLimit,
+  paymentFreezeEndYmd,
   computeReturnYmd,
   computeDurationDays,
   validateFreezeRequest,
   toYmd,
+  FREEZE_LIMIT_ALERT_MARKER,
+  buildFreezeLimitAlertDescription,
 } from '../../lib/planFreezeCore.js';
+
+export { FREEZE_LIMIT_ALERT_MARKER, buildFreezeLimitAlertDescription };
 
 /** Motivo do trancamento ativo (histórico plan_freezes). */
 export function activeFreezeReasonFromHistory(planFreezes, student) {
@@ -211,6 +224,7 @@ export async function startPlanFreeze({
   endYmd,
   durationDays,
   reason = '',
+  indefinite = false,
   userId,
   userName,
   teamId,
@@ -226,16 +240,18 @@ export async function startPlanFreeze({
     end_ymd: endYmd,
     duration_days: durationDays,
     reason,
+    indefinite,
   });
 
   const sYmd = apiRes.startYmd;
   const eYmd = apiRes.endYmd;
   const days = apiRes.days;
+  const isIndefinite = apiRes.indefinite === true;
   const newDaysUsed = apiRes.freeze_days_used;
 
   const localPatch = {
     freeze_start: freezeIsoFromYmd(sYmd),
-    freeze_end: freezeIsoFromYmd(eYmd),
+    freeze_end: isIndefinite ? null : freezeIsoFromYmd(eYmd),
     freeze_status: FREEZE_STATUS_ACTIVE,
     freeze_days_used: newDaysUsed,
   };
@@ -245,11 +261,17 @@ export async function startPlanFreeze({
     await updateLead(leadId, localPatch);
   }
 
+  const paymentEndYmd = paymentFreezeEndYmd({
+    startYmd: sYmd,
+    endYmd: eYmd,
+    indefinite: isIndefinite,
+  });
+
   await markPaymentsFrozen({
     leadId,
     academyId,
     startYmd: sYmd,
-    endYmd: eYmd,
+    endYmd: paymentEndYmd,
     planName: student?.plan || '',
     teamId,
     userId,
@@ -282,7 +304,7 @@ export async function startPlanFreeze({
     console.warn('[planFreeze] template student_freeze:', e?.message || e);
   }
 
-  return { startYmd: sYmd, endYmd: eYmd, days, freeze_days_used: newDaysUsed };
+  return { startYmd: sYmd, endYmd: eYmd, days, indefinite: isIndefinite, freeze_days_used: newDaysUsed };
 }
 
 /**
@@ -307,19 +329,20 @@ export async function endPlanFreeze({
 
   const startYmd = String(student.freeze_start || '').slice(0, 10);
   const plannedEndYmd = String(student.freeze_end || '').slice(0, 10);
+  const indefinite = isFreezeIndefinite(student);
   const todayYmd = toYmd(new Date());
-  const actualEndYmd = early ? todayYmd : plannedEndYmd || todayYmd;
+  const actualEndYmd = early || indefinite ? todayYmd : plannedEndYmd || todayYmd;
 
   const actualDays = computeDurationDays(startYmd, actualEndYmd);
-  const plannedDays = computeDurationDays(startYmd, plannedEndYmd);
-  const daysCharged = early ? actualDays : plannedDays;
+  const plannedDays = indefinite ? 0 : computeDurationDays(startYmd, plannedEndYmd);
+  const daysCharged = early || indefinite ? actualDays : plannedDays;
 
   const enroll = String(student.enrollmentDate || '').trim().slice(0, 10);
   const quotaYear = enroll ? planYearStartYmd(enroll) : toYmd(new Date()).slice(0, 10);
   let baseUsed = effectiveFreezeDaysUsed(student);
   if (String(student.freeze_quota_year || '') !== quotaYear) baseUsed = 0;
 
-  const prevActiveDays = computeDurationDays(startYmd, plannedEndYmd);
+  const prevActiveDays = indefinite ? 0 : computeDurationDays(startYmd, plannedEndYmd);
   const adjustedUsed = Math.max(0, baseUsed - prevActiveDays + daysCharged);
 
   const unfreezePatch = {
@@ -363,7 +386,7 @@ export async function endPlanFreeze({
     leadId,
     academyId,
     startYmd,
-    endYmd: plannedEndYmd || actualEndYmd,
+    endYmd: indefinite ? actualEndYmd : plannedEndYmd || actualEndYmd,
   });
 
   const controlIdCfg = readControlIdConfig(academySettingsRaw);
@@ -376,7 +399,7 @@ export async function endPlanFreeze({
     academyId,
     actorUserId: userId || 'system',
     type: STUDENT_EVENT_TYPES.FREEZE_ENDED,
-    text: early
+    text: early || indefinite
       ? `Trancamento encerrado antecipadamente (${actualDays} dias utilizados).`
       : `Trancamento encerrado — retorno em ${formatFreezeDateBr(actualEndYmd)}.`,
     payload: {
