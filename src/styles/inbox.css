@@ -876,6 +876,25 @@
   color: var(--text-secondary);
 }
 
+.inbox-triage-callout--compact {
+  margin-top: 0;
+  padding: 8px 10px;
+}
+
+.inbox-triage-callout--compact .inbox-triage-callout__actions {
+  margin-top: 8px;
+}
+
+.inbox-triage-callout__hint--compact {
+  font-size: 0.75rem;
+}
+
+.inbox-thread-triage-banner {
+  flex-shrink: 0;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
 .inbox-thread-header__triage-badge {
   display: inline-flex;
   align-items: center;

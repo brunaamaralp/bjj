@@ -85,6 +85,7 @@ import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
 import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
 import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
 import LinkStudentModal from '../components/pipeline/LinkStudentModal.jsx';
+import InboxTriageCard from '../components/inbox/InboxTriageCard.jsx';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -255,10 +256,13 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                 </div>
             ) : null}
             {pendingTriage ? (
-                <div className="lead-meta mt-1 flex items-center gap-2 flex-wrap" data-no-dnd="true">
-                    <span className="lead-triage-badge" title="Contato criado automaticamente pelo WhatsApp — confirme ou vincule a um aluno">
-                        Triagem WhatsApp
-                    </span>
+                <div className="pipeline-lead-triage-wrap" data-no-dnd="true">
+                    <InboxTriageCard
+                        compact
+                        onConfirm={() => onConfirmTriage?.(lead)}
+                        onLinkStudent={() => onLinkStudent?.(lead)}
+                        onDismiss={() => onDismissTriage?.({ stopPropagation: () => {} }, lead)}
+                    />
                 </div>
             ) : null}
             {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
@@ -286,7 +290,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     {isWaMenuOpen && waMenuStyle
                         ? createPortal(
                             <div
-                                className="navi-menu__panel navi-menu--elevated wa-templates-dropdown pipeline-card-wa-menu"
+                                className="navi-menu__panel navi-menu__panel--fixed navi-menu--elevated wa-templates-dropdown pipeline-card-wa-menu"
                                 style={waMenuStyle}
                                 data-pipeline-card-menu
                                 role="menu"
@@ -351,7 +355,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     {isActionMenuOpen && actionMenuStyle
                         ? createPortal(
                         <div
-                            className="navi-menu__panel navi-menu--elevated action-menu-panel pipeline-card-action-menu"
+                            className="navi-menu__panel navi-menu__panel--fixed navi-menu--elevated action-menu-panel pipeline-card-action-menu"
                             style={actionMenuStyle}
                             data-pipeline-card-menu
                             role="menu"
@@ -397,7 +401,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                                                 onDismissTriage?.(e, lead);
                                             }}
                                         >
-                                            <Trash2 size={16} /> Descartar
+                                            <Trash2 size={16} /> Não é lead
                                         </button>
                                     </div>
                                     <hr className="navi-menu__divider" aria-hidden />
@@ -484,7 +488,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
             {isMoverOpen && moverMenuStyle
                 ? createPortal(
                     <div
-                        className="navi-menu__panel dropdown-panel navi-menu--elevated pipeline-card-mover-menu"
+                        className="navi-menu__panel navi-menu__panel--fixed dropdown-panel navi-menu--elevated pipeline-card-mover-menu"
                         style={moverMenuStyle}
                         data-pipeline-card-menu
                         role="menu"
@@ -1338,9 +1342,9 @@ const Pipeline = () => {
         const leadId = String(lead?.id || '').trim();
         if (!leadId) return;
         setConfirmModal({
-            title: 'Descartar contato?',
-            description: 'Este contato não é lead e será removido do funil.',
-            confirmLabel: 'Descartar',
+            title: 'Marcar que não é lead?',
+            description: 'Este contato será removido do funil.',
+            confirmLabel: 'Não é lead',
             onConfirm: async () => {
                 try {
                     const phone = String(lead?.phone || '').replace(/\D/g, '');

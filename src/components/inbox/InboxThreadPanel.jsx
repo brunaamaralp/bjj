@@ -6,6 +6,7 @@ import ThreadSkeleton from './ThreadSkeleton';
 import InboxComposer from './InboxComposer';
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 import InboxThreadMessages from './InboxThreadMessages.jsx';
+import InboxTriageCard from './InboxTriageCard.jsx';
 import { getThreadHandoffBanner } from '../../../lib/inboxHandoffPresentation.js';
 
 function inboxDisplayInitials(name) {
@@ -42,6 +43,13 @@ export default function InboxThreadPanel(props) {
     contactLabel,
     terms,
     pendingTriage = false,
+    activeContactLead = null,
+    onConfirmTriage,
+    onDismissTriage,
+    onOpenLinkStudent,
+    triageBusy = false,
+    setLeadPanel,
+    linkingLead = false,
     menu,
     openMenu,
     threadActionsMenuProps,
@@ -206,7 +214,7 @@ export default function InboxThreadPanel(props) {
                         Vale a pena alguém da equipe ver esta conversa
                       </p>
                     ) : null}
-                    {!selected?.lead_id ? (
+                    {!selected?.lead_id && !pendingTriage ? (
                       <div className="inbox-thread-header__unlink">
                         <span className="inbox-thread-header__unlink-badge">Sem contato</span>
                         {editingContactName ? (
@@ -259,6 +267,32 @@ export default function InboxThreadPanel(props) {
                             {String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
                           </button>
                         )}
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ padding: '4px 10px', minHeight: 30 }}
+                          disabled={linkingLead}
+                          onClick={() => {
+                            setLeadPanel?.('convert');
+                            if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                            else setContextOpen?.(true);
+                          }}
+                        >
+                          Converter em contato
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ padding: '4px 10px', minHeight: 30 }}
+                          disabled={linkingLead}
+                          onClick={() => {
+                            setLeadPanel?.('associate');
+                            if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                            else setContextOpen?.(true);
+                          }}
+                        >
+                          Associar contato
+                        </button>
                       </div>
                     ) : null}
                   </div>
@@ -345,6 +379,17 @@ export default function InboxThreadPanel(props) {
           <InboxThreadActionsMenu {...threadActionsMenuProps} />
         </div>
       </div>
+
+      {pendingTriage ? (
+        <div className="inbox-thread-triage-banner" data-no-dnd="true">
+          <InboxTriageCard
+            busy={triageBusy}
+            onConfirm={() => onConfirmTriage?.(activeContactLead)}
+            onLinkStudent={() => onOpenLinkStudent?.()}
+            onDismiss={() => onDismissTriage?.(activeContactLead)}
+          />
+        </div>
+      ) : null}
 
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div

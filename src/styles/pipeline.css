@@ -285,6 +285,16 @@
   z-index: var(--z-elevated, 13000);
 }
 
+.pipeline-card-action-menu,
+.pipeline-card-mover-menu,
+.pipeline-card-wa-menu {
+  position: fixed;
+  top: auto;
+  right: auto;
+  left: auto;
+  bottom: auto;
+}
+
 .pipeline-filters-panel__apply {
   flex: 1;
   display: inline-flex;
@@ -982,6 +992,66 @@
   border-radius: 6px;
   background: var(--pipeline-badge-warning-bg);
   color: var(--pipeline-badge-warning-text);
+}
+
+.pipeline-container .pipeline-lead-triage-wrap {
+  margin-top: 8px;
+}
+
+.pipeline-container .inbox-triage-callout {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(228, 181, 93, 0.35);
+  background: rgba(228, 181, 93, 0.08);
+}
+
+.pipeline-container .inbox-triage-callout__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pipeline-container .inbox-triage-callout__badge {
+  align-self: flex-start;
+  font-family: var(--ff-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--pipeline-badge-warning-bg);
+  color: var(--pipeline-badge-warning-text);
+}
+
+.pipeline-container .inbox-triage-callout__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.pipeline-container .inbox-triage-callout__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.pipeline-container .inbox-triage-callout__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+  justify-content: center;
+  padding: 5px 8px;
+  font-size: 0.75rem;
+  min-height: 30px;
+}
+
+.pipeline-container .inbox-triage-callout__btn--muted {
+  color: var(--text-secondary);
 }
 
 .pipeline-link-student-search {

@@ -1902,6 +1902,12 @@ export default function Inbox() {
     linkingLead,
     navigate,
     contactLabel,
+    pendingTriage,
+    activeContactLead,
+    onConfirmTriage: handleInboxConfirmTriage,
+    onDismissTriage: handleInboxDismissTriage,
+    onOpenLinkStudent: handleOpenLinkStudent,
+    triageBusy: linkingLead,
   };
 
   const messageMenuProps = {
@@ -1992,6 +1998,13 @@ export default function Inbox() {
       handoffDurationPhrase={handoffDurationPhrase}
       retryFailedMessage={retryFailedMessage}
       pendingTriage={pendingTriage}
+      activeContactLead={activeContactLead}
+      onConfirmTriage={handleInboxConfirmTriage}
+      onDismissTriage={handleInboxDismissTriage}
+      onOpenLinkStudent={handleOpenLinkStudent}
+      triageBusy={linkingLead}
+      setLeadPanel={setLeadPanel}
+      linkingLead={linkingLead}
     />
   );
 
@@ -2337,9 +2350,9 @@ export default function Inbox() {
 
       <ConfirmDialog
         open={Boolean(dismissTriageLead)}
-        title="Descartar contato?"
-        description="Este contato não é lead e será removido do funil."
-        confirmLabel="Descartar"
+        title="Marcar que não é lead?"
+        description="Este contato será removido do funil."
+        confirmLabel="Não é lead"
         onConfirm={() => void executeDismissTriage()}
         onClose={() => setDismissTriageLead(null)}
       />

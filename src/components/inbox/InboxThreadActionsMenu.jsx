@@ -24,6 +24,12 @@ export default function InboxThreadActionsMenu({
   linkingLead,
   navigate,
   contactLabel,
+  pendingTriage = false,
+  activeContactLead = null,
+  onConfirmTriage,
+  onDismissTriage,
+  onOpenLinkStudent,
+  triageBusy = false,
 }) {
   const [open, setOpen] = useState(false);
   const phone = String(selectedPhone || '').trim();
@@ -134,7 +140,40 @@ export default function InboxThreadActionsMenu({
               }}
             />
           ) : null}
-          {!hasLead ? (
+          {pendingTriage ? (
+            <>
+              <InboxMenuAction
+                label="Confirmar lead"
+                hint="Triagem"
+                disabled={triageBusy}
+                onClick={() => {
+                  void onConfirmTriage?.(activeContactLead);
+                  close();
+                }}
+              />
+              <InboxMenuAction
+                label="Vincular aluno"
+                hint="Triagem"
+                disabled={triageBusy}
+                onClick={() => {
+                  onOpenLinkStudent?.();
+                  if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                  else setContextOpen(true);
+                  close();
+                }}
+              />
+              <InboxMenuAction
+                label="Não é lead"
+                hint="Triagem"
+                disabled={triageBusy}
+                onClick={() => {
+                  onDismissTriage?.(activeContactLead);
+                  close();
+                }}
+              />
+            </>
+          ) : null}
+          {!hasLead && !pendingTriage ? (
             <>
               <InboxMenuAction
                 label="Converter em contato"
