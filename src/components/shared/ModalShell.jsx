@@ -18,6 +18,7 @@ export default function ModalShell({
   closeOnEsc = true,
   showCloseButton = true,
   ariaLabelledBy,
+  ariaDescribedBy,
 }) {
   useEffect(() => {
     if (!open || !closeOnEsc) return undefined;
@@ -43,6 +44,7 @@ export default function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? labelledBy : undefined}
+        aria-describedby={ariaDescribedBy || undefined}
         style={{ maxWidth }}
         onClick={(e) => e.stopPropagation()}
       >
