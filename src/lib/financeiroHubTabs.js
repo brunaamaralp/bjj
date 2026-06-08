@@ -43,7 +43,7 @@ const REDIRECT_TO_EMPRESA_CONFIG = new Set([
 const TAB_TO_SECTION = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: FINANCEIRO_SECTIONS.OVERVIEW,
   [FINANCEIRO_SECTIONS.A_RECEBER]: FINANCEIRO_SECTIONS.A_RECEBER,
-  [FINANCEIRO_SECTIONS.MENSALIDADES]: FINANCEIRO_SECTIONS.MENSALIDADES,
+  [FINANCEIRO_SECTIONS.MENSALIDADES]: FINANCEIRO_SECTIONS.A_RECEBER,
   [FINANCEIRO_SECTIONS.CONFIG]: FINANCEIRO_SECTIONS.CONFIG,
   movimentacoes: 'movimentacoes',
   previsao: 'previsao',
@@ -59,7 +59,6 @@ const TAB_TO_SECTION = {
 const HUB_TAB_LABELS = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
   [FINANCEIRO_SECTIONS.A_RECEBER]: 'A receber',
-  [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Mensalidades',
   movimentacoes: 'Lançamentos',
   previsao: 'Previsão',
   fechamento: 'Conferência do mês',
@@ -70,7 +69,6 @@ const HUB_TAB_LABELS = {
 const HUB_TAB_SHORT_LABELS = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
   [FINANCEIRO_SECTIONS.A_RECEBER]: 'A receber',
-  [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Mensalidades',
   movimentacoes: 'Lançamentos',
   previsao: 'Previsão',
   fechamento: 'Conferência',
@@ -84,6 +82,7 @@ export function financeiroLegacyTabToSlug(raw) {
   if (t === 'transactions') return 'movimentacoes';
   if (t === 'closing') return 'fechamento';
   if (t === 'razao') return FINANCEIRO_EXTRATO_TAB;
+  if (t === 'mensalidades') return FINANCEIRO_SECTIONS.A_RECEBER;
   if (REDIRECT_TO_EMPRESA_CONFIG.has(t)) return FINANCEIRO_SECTIONS.CONFIG;
   return t;
 }
@@ -122,10 +121,10 @@ export function getFinanceiroDefaultTab(navRoleOrAccess) {
   if (navRoleOrAccess && typeof navRoleOrAccess === 'object') {
     const { isOwner, isAdmin } = navRoleOrAccess;
     if (isOwner || isAdmin) return FINANCEIRO_SECTIONS.OVERVIEW;
-    return FINANCEIRO_SECTIONS.MENSALIDADES;
+    return FINANCEIRO_SECTIONS.A_RECEBER;
   }
   return navRoleOrAccess === 'member'
-    ? FINANCEIRO_SECTIONS.MENSALIDADES
+    ? FINANCEIRO_SECTIONS.A_RECEBER
     : FINANCEIRO_SECTIONS.OVERVIEW;
 }
 
@@ -160,7 +159,6 @@ export function buildFinanceiroAllowedLeafTabs({ navRole, financeModule, isOwner
   const base = [
     FINANCEIRO_SECTIONS.OVERVIEW,
     FINANCEIRO_SECTIONS.A_RECEBER,
-    FINANCEIRO_SECTIONS.MENSALIDADES,
   ];
   const operational = buildFinanceiroOperationalLeafTabs(role, financeModule);
   return [...base, ...operational];
@@ -174,7 +172,6 @@ export function buildFinanceiroManagerLeafTabs({ navRole, isOwner, financeModule
 function orderFinanceiroHubTabIds(navRole, tabIds) {
   if (navRole === 'member') {
     const memberOrder = [
-      FINANCEIRO_SECTIONS.MENSALIDADES,
       FINANCEIRO_SECTIONS.A_RECEBER,
       'movimentacoes',
       FINANCEIRO_SECTIONS.OVERVIEW,

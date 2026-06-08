@@ -23,9 +23,6 @@ import { expectedAmountForStudent, expectedAmountWithCardFee } from '../../lib/p
 import { formatBRL } from '../../lib/moneyBr.js';
 import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
-import StatusBanner from '../shared/StatusBanner.jsx';
-import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
-import { FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
 import './finance.css';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { useNlPageContext } from '../../hooks/useNlPageContext.js';
@@ -172,10 +169,11 @@ function formatMonthTitleCapitalized(ym) {
 
 /**
  * Conteúdo de mensalidades (grade, lista, pendências, régua).
- * @param {{ embedded?: boolean, referenceMonth?: string, onReferenceMonthChange?: (ym: string) => void }} props
+ * @param {{ embedded?: boolean, sectionMode?: boolean, referenceMonth?: string, onReferenceMonthChange?: (ym: string) => void }} props
  */
 export default function MensalidadesPanel({
   embedded = false,
+  sectionMode = false,
   referenceMonth: referenceMonthProp,
   onReferenceMonthChange,
 }) {
@@ -871,7 +869,7 @@ export default function MensalidadesPanel({
       className={`mensalidades-page animate-in${embedded ? ' mensalidades-panel--embedded mensalidades-page--embedded' : ' mensalidades-page--standalone'}`}
     >
       <header className="mensal-header">
-        {!embedded ? (
+        {!embedded && !sectionMode ? (
           <div className="mensal-header__top">
             <PageHeader
               className="navi-page-header--flush mensal-header__page-title"
@@ -886,11 +884,6 @@ export default function MensalidadesPanel({
             />
           </div>
         ) : null}
-
-        <StatusBanner variant="info" className="mensalidades-receivable-hint">
-          {FINANCE_TERM_HINTS.mensalidadePendenteCaixa}{' '}
-          <Link to={`/financeiro?tab=${FINANCEIRO_SECTIONS.A_RECEBER}`}>Ver em A receber →</Link>
-        </StatusBanner>
 
         {modules?.finance === true ? (
           <div className="mensal-page-tabs" role="tablist" aria-label="Visualização">

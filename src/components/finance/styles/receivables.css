@@ -1,0 +1,35 @@
+.receivables-tab__sections {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-bottom: 0.5px solid var(--border-light);
+  padding-bottom: 2px;
+}
+
+.receivables-tab__section {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.receivables-tab__section:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 88%, var(--text-primary) 12%);
+}
+
+.receivables-tab__section--active {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--surface, #fff));
+}
+
+.receivables-tab__action-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}

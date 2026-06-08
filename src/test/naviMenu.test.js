@@ -60,8 +60,20 @@ describe('naviMenu', () => {
     ).toBe(true);
     expect(
       isAccordionChildActive(
-        { id: 'mensalidades', to: '/financeiro?tab=mensalidades' },
+        { id: 'a-receber', to: '/financeiro?tab=a-receber&section=mensalidades' },
+        { pathname: '/financeiro', search: '?tab=a-receber&section=mensalidades' }
+      )
+    ).toBe(true);
+    expect(
+      isAccordionChildActive(
+        { id: 'a-receber', to: '/financeiro?tab=a-receber&section=mensalidades' },
         { pathname: '/financeiro', search: '?tab=mensalidades' }
+      )
+    ).toBe(true);
+    expect(
+      isAccordionChildActive(
+        { id: 'a-receber', to: '/financeiro?tab=a-receber&section=mensalidades' },
+        { pathname: '/mensalidades', search: '' }
       )
     ).toBe(true);
     expect(
@@ -102,7 +114,7 @@ describe('naviMenu', () => {
     const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
     expect(financeiro.label).toBe('Financeiro');
     expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
-    expect(financeiro.children.some((c) => c.id === 'mensalidades')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'a-receber')).toBe(true);
     expect(financeiro.children.some((c) => c.group === 'Operações' && c.id === 'movimentacoes')).toBe(true);
     expect(financeiro.children.some((c) => c.group === 'Contabilidade' && c.id === 'plano')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(false);

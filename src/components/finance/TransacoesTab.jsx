@@ -47,6 +47,7 @@ import {
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
@@ -228,6 +229,10 @@ export default function TransacoesTab({
   const [showReverseTxDialog, setShowReverseTxDialog] = useState(false);
   const [pendingReverseId, setPendingReverseId] = useState('');
   const [reverseLoadingId, setReverseLoadingId] = useState('');
+  const [assignBankTx, setAssignBankTx] = useState(null);
+  const [assignBankAccount, setAssignBankAccount] = useState('');
+  const [assignBankSaving, setAssignBankSaving] = useState(false);
+  const [bankBalancesRefreshKey, setBankBalancesRefreshKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
@@ -296,6 +301,16 @@ export default function TransacoesTab({
   const bankAccountLabels = useMemo(
     () => listBankAccountLabels(financeConfig),
     [financeConfig]
+  );
+
+  const canAssignBankOnTx = useCallback(
+    (tx) => {
+      if (String(tx?.status || '').toLowerCase() !== 'settled') return false;
+      if (!bankAccountLabels.length) return false;
+      if (canManageAdvanced) return true;
+      return txDirection(tx) !== 'out';
+    },
+    [bankAccountLabels.length, canManageAdvanced]
   );
 
   const filteredTransactions = useMemo(() => {
@@ -589,7 +604,60 @@ export default function TransacoesTab({
     if (c === 'already_reversed') return 'Este lançamento já foi estornado.';
     if (c === 'cannot_reverse_reversal') return 'Não é possível estornar um lançamento de estorno.';
     if (c === 'cannot_reverse_recurrence_template') return 'Não é possível estornar o modelo de recorrência.';
+    if (c === 'only_settled_can_assign_bank') return 'Só é possível atribuir conta em lançamentos liquidados.';
     return '';
+  };
+
+  const openAssignBankModal = (tx) => {
+    if (!tx || !canAssignBankOnTx(tx)) return;
+    setAssignBankTx(tx);
+    setAssignBankAccount(
+      String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
+        resolveBankAccountForPayment('', financeConfig)
+    );
+  };
+
+  const closeAssignBankModal = () => {
+    if (assignBankSaving) return;
+    setAssignBankTx(null);
+    setAssignBankAccount('');
+  };
+
+  const saveAssignBank = async () => {
+    if (!assignBankTx?.id || !academyId || assignBankSaving) return;
+    const accountCheck = validateBankAccountForPayment(assignBankAccount, financeConfig);
+    if (!accountCheck.ok) {
+      toast.show({ type: 'error', message: accountCheck.message });
+      return;
+    }
+    setAssignBankSaving(true);
+    try {
+      const row = await patchFinanceTx({
+        academyId,
+        id: assignBankTx.id,
+        payload: {
+          action: 'assign_bank_account',
+          bank_account: accountCheck.account || assignBankAccount,
+        },
+      });
+      setTransactions((prev) =>
+        prev.map((t) => (String(t.id) === String(assignBankTx.id) ? { ...t, ...row, bankAccount: row.bankAccount || accountCheck.account } : t))
+      );
+      setBankBalancesRefreshKey((k) => k + 1);
+      toast.success('Conta bancária atribuída.');
+      setAssignBankTx(null);
+      setAssignBankAccount('');
+      if (typeof onTxMutated === 'function') onTxMutated();
+    } catch (e) {
+      console.error(e);
+      const code = String(e?.message || '').trim();
+      toast.show({
+        type: 'error',
+        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+      });
+    } finally {
+      setAssignBankSaving(false);
+    }
   };
 
   const settle = async (id) => {
@@ -791,6 +859,7 @@ export default function TransacoesTab({
         {academyId ? (
           <div className="mb-3">
             <BankBalancesOverview
+              key={bankBalancesRefreshKey}
               academyId={academyId}
               compactLayout
               onSelectAccount={(label) => {
@@ -1047,7 +1116,8 @@ export default function TransacoesTab({
                 const rowBusy =
                   cancelLoadingId === tx.id ||
                   recurrenceCancelLoadingId === tx.id ||
-                  reverseLoadingId === tx.id;
+                  reverseLoadingId === tx.id ||
+                  (assignBankSaving && assignBankTx?.id === tx.id);
                 const rec = isRecurrenceTx(tx);
                 return (
                   <article
@@ -1118,16 +1188,28 @@ export default function TransacoesTab({
                         ) : null}
                       </div>
                     ) : null}
-                    {st === 'settled' && canManageAdvanced ? (
+                    {st === 'settled' && (canAssignBankOnTx(tx) || canManageAdvanced) ? (
                       <div className="finance-mobile-card__actions">
-                        <button
-                          type="button"
-                          className="btn-outline btn-sm finance-btn-danger-outline"
-                          disabled={rowBusy}
-                          onClick={() => requestReverseTx(tx.id)}
-                        >
-                          {reverseLoadingId === tx.id ? 'Estornando…' : 'Estornar'}
-                        </button>
+                        {canAssignBankOnTx(tx) ? (
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            disabled={rowBusy}
+                            onClick={() => openAssignBankModal(tx)}
+                          >
+                            Conta
+                          </button>
+                        ) : null}
+                        {canManageAdvanced ? (
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm finance-btn-danger-outline"
+                            disabled={rowBusy}
+                            onClick={() => requestReverseTx(tx.id)}
+                          >
+                            {reverseLoadingId === tx.id ? 'Estornando…' : 'Estornar'}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </article>
@@ -1244,7 +1326,8 @@ export default function TransacoesTab({
                   const rowBusy =
                     cancelLoadingId === tx.id ||
                     recurrenceCancelLoadingId === tx.id ||
-                    reverseLoadingId === tx.id;
+                    reverseLoadingId === tx.id ||
+                    (assignBankSaving && assignBankTx?.id === tx.id);
                   const rec = isRecurrenceTx(tx);
                   const recTip = recurrenceTooltip(tx);
                   const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
@@ -1298,6 +1381,7 @@ export default function TransacoesTab({
                           status={st}
                           direction={dir}
                           canManageAdvanced={canManageAdvanced}
+                          canAssignBank={canAssignBankOnTx(tx)}
                           showRecMenu={showRecMenu}
                           rowBusy={rowBusy}
                           menuOpen={menuOpenId}
@@ -1306,6 +1390,7 @@ export default function TransacoesTab({
                           onSettle={() => void settle(tx.id)}
                           onCancel={() => requestCancelTx(tx.id)}
                           onReverse={() => requestReverseTx(tx.id)}
+                          onAssignBank={() => openAssignBankModal(tx)}
                           onEditRecurrence={() => openEditRecurrenceModal(tx)}
                           onCancelRecurrence={() => requestCancelRecurrence(tx.id)}
                           recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
@@ -1752,6 +1837,50 @@ export default function TransacoesTab({
         document.body
       )
         : null}
+
+      <ModalShell
+        open={Boolean(assignBankTx)}
+        title="Atribuir conta bancária"
+        onClose={closeAssignBankModal}
+        maxWidth={440}
+        footer={
+          <div className="flex gap-2 justify-end">
+            <button type="button" className="btn-outline" disabled={assignBankSaving} onClick={closeAssignBankModal}>
+              Cancelar
+            </button>
+            <button type="button" className="btn-primary" disabled={assignBankSaving} onClick={() => void saveAssignBank()}>
+              {assignBankSaving ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
+        }
+      >
+        <p className="text-small text-muted" style={{ marginBottom: 12 }}>
+          Ajusta apenas a conta do lançamento liquidado. Valores e datas não são alterados.
+        </p>
+        {assignBankTx ? (
+          <p className="text-small" style={{ marginBottom: 12 }}>
+            <strong>{formatTxDateStr(txTemporalIso(assignBankTx))}</strong>
+            {' · '}
+            {formatSignedMoney(displayGross(assignBankTx), txDirection(assignBankTx))}
+            {assignBankTx.planName ? ` · ${assignBankTx.planName}` : ''}
+          </p>
+        ) : null}
+        {bankAccountLabels.length > 0 ? (
+          <BankAccountSelect
+            academyId={academyId}
+            financeConfig={financeConfig}
+            id="finance-tx-assign-bank-account"
+            label="Conta bancária"
+            required
+            value={assignBankAccount || ''}
+            onChange={setAssignBankAccount}
+          />
+        ) : (
+          <p className="text-small text-muted" role="alert">
+            Cadastre contas em Minha academia → Financeiro antes de atribuir.
+          </p>
+        )}
+      </ModalShell>
 
       <ConfirmDialog
         open={showCancelTxDialog}

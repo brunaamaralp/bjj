@@ -211,7 +211,7 @@ describe('legacy route redirects', () => {
     });
   });
 
-  it('/mensalidades → /financeiro?tab=mensalidades', async () => {
+  it('/mensalidades → /financeiro?tab=a-receber&section=mensalidades', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/mensalidades?search=joao']}>
         <Routes>
@@ -223,7 +223,7 @@ describe('legacy route redirects', () => {
     await waitFor(() => {
       const el = container.querySelector('[data-testid="location"]');
       expect(el?.getAttribute('data-pathname')).toBe('/financeiro');
-      expect(el?.getAttribute('data-search')).toContain('tab=mensalidades');
+      expect(el?.getAttribute('data-search')).toBe('?tab=a-receber&section=mensalidades&search=joao');
     });
   });
 });

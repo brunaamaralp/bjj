@@ -17,13 +17,13 @@ describe('financeiroHubTabs', () => {
     expect(hasExplicitFinanceiroTabParam('mensalidades')).toBe(true);
   });
 
-  it('getFinanceiroDefaultTab — gestores em visão geral, member em mensalidades', () => {
+  it('getFinanceiroDefaultTab — gestores em visão geral, member em a receber', () => {
     expect(getFinanceiroDefaultTab({ isOwner: true })).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
     expect(getFinanceiroDefaultTab({ isAdmin: true })).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
     expect(getFinanceiroDefaultTab({ isOwner: false, isAdmin: false })).toBe(
-      FINANCEIRO_SECTIONS.MENSALIDADES
+      FINANCEIRO_SECTIONS.A_RECEBER
     );
-    expect(getFinanceiroDefaultTab('member')).toBe(FINANCEIRO_SECTIONS.MENSALIDADES);
+    expect(getFinanceiroDefaultTab('member')).toBe(FINANCEIRO_SECTIONS.A_RECEBER);
     expect(getFinanceiroDefaultTab('admin')).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
   });
 
@@ -36,7 +36,7 @@ describe('financeiroHubTabs', () => {
     expect(allowed.has('conciliacao')).toBe(false);
     expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(false);
     expect(allowed.has('movimentacoes')).toBe(true);
-    expect(allowed.has(FINANCEIRO_SECTIONS.MENSALIDADES)).toBe(true);
+    expect(allowed.has(FINANCEIRO_SECTIONS.MENSALIDADES)).toBe(false);
     expect(allowed.has(FINANCEIRO_SECTIONS.A_RECEBER)).toBe(true);
   });
 
@@ -58,19 +58,19 @@ describe('financeiroHubTabs', () => {
     expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(true);
   });
 
-  it('member em ?tab=previsao redireciona para mensalidades', () => {
+  it('member em ?tab= legado redireciona para a receber', () => {
     const allowed = new Set(
       buildFinanceiroAllowedLeafTabs({ navRole: 'member', financeModule: true })
     );
     const fallback = getFinanceiroDefaultTab('member');
-    expect(resolveHubTab('previsao', allowed, fallback)).toBe(FINANCEIRO_SECTIONS.MENSALIDADES);
-    expect(resolveHubTab('fechamento', allowed, fallback)).toBe(FINANCEIRO_SECTIONS.MENSALIDADES);
+    expect(resolveHubTab('mensalidades', allowed, fallback)).toBe(FINANCEIRO_SECTIONS.A_RECEBER);
+    expect(resolveHubTab('previsao', allowed, fallback)).toBe(FINANCEIRO_SECTIONS.A_RECEBER);
+    expect(resolveHubTab('fechamento', allowed, fallback)).toBe(FINANCEIRO_SECTIONS.A_RECEBER);
   });
 
-  it('buildFinanceiroHubTabItems — ordem member prioriza mensalidades', () => {
+  it('buildFinanceiroHubTabItems — ordem member prioriza a receber', () => {
     const tabs = buildFinanceiroHubTabItems({ navRole: 'member', financeModule: true });
     expect(tabs.map((t) => t.id)).toEqual([
-      FINANCEIRO_SECTIONS.MENSALIDADES,
       FINANCEIRO_SECTIONS.A_RECEBER,
       'movimentacoes',
       FINANCEIRO_SECTIONS.OVERVIEW,

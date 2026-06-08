@@ -17,6 +17,7 @@ export default function FinanceTxRowActions({
   status,
   direction,
   canManageAdvanced,
+  canAssignBank,
   showRecMenu,
   rowBusy,
   menuOpen,
@@ -25,6 +26,7 @@ export default function FinanceTxRowActions({
   onSettle,
   onCancel,
   onReverse,
+  onAssignBank,
   onEditRecurrence,
   onCancelRecurrence,
   recurrenceCancelLoading,
@@ -34,7 +36,8 @@ export default function FinanceTxRowActions({
   const isSettled = st === 'settled';
   const showEdit = isPending && (canManageAdvanced || direction !== 'out');
   const editDisabled = isPending && direction === 'out' && !canManageAdvanced;
-  const hasPrimary = isPending || showRecMenu || (isSettled && canManageAdvanced);
+  const showAssignBank = isSettled && canAssignBank;
+  const hasPrimary = isPending || showRecMenu || (isSettled && canManageAdvanced) || showAssignBank;
 
   if (!hasPrimary) {
     return <span className="text-small finance-tx-no-actions">—</span>;
@@ -71,6 +74,18 @@ export default function FinanceTxRowActions({
             Liquidar
           </button>
         </>
+      ) : null}
+
+      {showAssignBank ? (
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={onAssignBank}
+          disabled={rowBusy}
+          title="Atribuir ou corrigir conta bancária"
+        >
+          Conta
+        </button>
       ) : null}
 
       {isSettled && canManageAdvanced ? (

@@ -1,5 +1,10 @@
 import { matchPath } from 'react-router-dom';
 import { FINANCEIRO_SECTIONS } from './financeiroHubTabs.js';
+import {
+  buildReceivablesSearchParams,
+  parseReceivablesSection,
+  RECEIVABLES_SECTIONS,
+} from './financeiroReceivablesSections.js';
 
 /** Labels e estrutura compartilhada entre sidebar desktop e drawer mobile. */
 
@@ -129,17 +134,28 @@ export function getAccordionIdForLocation({ pathname, search }) {
 export function isAccordionChildActive(child, location) {
   if (child.action) return false;
   if (child.id === 'agente' && location.pathname === '/agente-ia') return true;
-  if (child.id === 'mensalidades') {
+  if (child.id === 'a-receber') {
     if (location.pathname === '/mensalidades') return true;
     if (isFinanceiroHubPath(location.pathname)) {
-      const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
-      return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
+      const params = new URLSearchParams(location.search || '');
+      const tab = String(params.get('tab') || '').toLowerCase();
+      if (tab === FINANCEIRO_SECTIONS.MENSALIDADES) return true;
+      if (tab === FINANCEIRO_SECTIONS.A_RECEBER) {
+        return parseReceivablesSection(params) === RECEIVABLES_SECTIONS.MENSALIDADES;
+      }
     }
   }
   if (isFinanceiroHubPath(location.pathname)) {
     const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
     if (child.id === 'visao-geral') return tab === FINANCEIRO_SECTIONS.OVERVIEW || !tab;
-    if (child.id === 'mensalidades') return tab === FINANCEIRO_SECTIONS.MENSALIDADES;
+    if (child.id === 'a-receber') {
+      const params = new URLSearchParams(location.search || '');
+      if (tab === FINANCEIRO_SECTIONS.MENSALIDADES) return true;
+      if (tab === FINANCEIRO_SECTIONS.A_RECEBER) {
+        return parseReceivablesSection(params) === RECEIVABLES_SECTIONS.MENSALIDADES;
+      }
+      return false;
+    }
     if (child.id === 'extrato') return tab === 'extrato' || tab === 'razao';
     if (child.group === 'Contabilidade') return child.id === tab;
     if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) return child.id === tab;
@@ -215,9 +231,11 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       iconKey: 'visaoGeralFinanceiro',
     },
     {
-      id: 'mensalidades',
-      label: 'Mensalidades',
-      to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.MENSALIDADES}`,
+      id: 'a-receber',
+      label: 'A receber',
+      to: `${FINANCEIRO_HUB_PATH}?${buildReceivablesSearchParams({
+        section: RECEIVABLES_SECTIONS.MENSALIDADES,
+      }).toString()}`,
       iconKey: 'mensalidades',
     },
     {

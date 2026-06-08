@@ -38,6 +38,13 @@ import {
   hasExplicitFinanceiroTabParam,
 
 } from '../lib/financeiroHubTabs.js';
+import {
+  parseReceivablesSection,
+  getDefaultReceivablesSection,
+  normalizeLegacyFinanceiroTab,
+  RECEIVABLES_SECTIONS,
+  buildReceivablesSearchParams,
+} from '../lib/financeiroReceivablesSections.js';
 
 import { useUserRole } from '../lib/useUserRole';
 
@@ -52,7 +59,6 @@ import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
 import ReceivablesTab from '../components/finance/ReceivablesTab.jsx';
-import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
 import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
 import FinanceMonthPicker from '../components/finance/FinanceMonthPicker.jsx';
 
@@ -89,8 +95,6 @@ const defaultFinanceConfig = () => ({
 const TAB_SUBTITLES = {
 
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Resumo financeiro da academia',
-
-  [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Cobrança e controle de mensalidades',
 
   [FINANCEIRO_SECTIONS.A_RECEBER]: 'Tudo que a academia ainda deve receber — mensalidades, lançamentos e vendas',
 
@@ -184,6 +188,13 @@ export default function Caixa() {
   const activeTab = hasExplicitTab
     ? resolveHubTab(rawTab, allowedLeafTabs, defaultTab)
     : defaultTab;
+  const legacy = normalizeLegacyFinanceiroTab(searchParams);
+  const legacyChanged = legacy.changed;
+  const legacySection = legacy.section;
+  const legacySearch = legacy.search;
+  const legacyFiltro = legacy.filtro;
+  const receivablesSection = parseReceivablesSection(searchParams);
+  const defaultReceivablesSection = getDefaultReceivablesSection({ isOwner, isAdmin });
 
 
 
@@ -216,6 +227,45 @@ export default function Caixa() {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
   }, [activeTab, allowedLeafTabs, hasExplicitTab, tabParam, setSearchParams]);
+
+  useEffect(() => {
+    const currentQs = searchParams.toString();
+    if (legacyChanged) {
+      const next = buildReceivablesSearchParams({
+        section: legacySection,
+        search: legacySearch,
+        filtro: legacyFiltro,
+      });
+      const nextQs = next.toString();
+      if (nextQs !== currentQs) {
+        setSearchParams(next, { replace: true });
+      }
+      return;
+    }
+
+    if (activeTab !== FINANCEIRO_SECTIONS.A_RECEBER) return;
+    const hasSectionParam = String(searchParams.get('section') || '').trim().length > 0;
+    if (hasSectionParam) return;
+
+    const next = buildReceivablesSearchParams({
+      section: defaultReceivablesSection,
+      search: searchParams.get('search') || undefined,
+      filtro: searchParams.get('filtro') || searchParams.get('filter') || undefined,
+    });
+    const nextQs = next.toString();
+    if (nextQs !== currentQs) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [
+    activeTab,
+    defaultReceivablesSection,
+    legacyChanged,
+    legacySection,
+    legacySearch,
+    legacyFiltro,
+    searchParams,
+    setSearchParams,
+  ]);
 
   useEffect(() => {
     if (!academyId || !financeModule) return undefined;
@@ -269,6 +319,28 @@ export default function Caixa() {
 
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
+  const setReceivablesSection = useCallback(
+    (section, opts = {}) => {
+      const nextSection = section || RECEIVABLES_SECTIONS.VISAO;
+      const next = buildReceivablesSearchParams({
+        section: nextSection,
+        search:
+          opts.search !== undefined
+            ? opts.search
+            : searchParams.get('search') || undefined,
+        filtro:
+          opts.filtro !== undefined
+            ? opts.filtro
+            : searchParams.get('filtro') || searchParams.get('filter') || undefined,
+      });
+      const currentQs = searchParams.toString();
+      const nextQs = next.toString();
+      if (nextQs !== currentQs) {
+        setSearchParams(next, { replace: false });
+      }
+    },
+    [searchParams, setSearchParams]
+  );
 
   useEffect(() => {
     if (activeTab !== 'movimentacoes') return;
@@ -355,7 +427,8 @@ export default function Caixa() {
           meta={
             activeTab === 'movimentacoes' ||
             activeTab === 'fechamento' ||
-            activeTab === FINANCEIRO_SECTIONS.MENSALIDADES
+            activeTab === FINANCEIRO_SECTIONS.MENSALIDADES ||
+            activeTab === FINANCEIRO_SECTIONS.A_RECEBER
               ? undefined
               : `${subtitle}${academyName ? ` · ${academyName}` : ''}`
           }
@@ -404,19 +477,13 @@ export default function Caixa() {
             id={`finance-tabpanel-${FINANCEIRO_SECTIONS.A_RECEBER}`}
             aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.A_RECEBER}`}
           >
-            <ReceivablesTab academyId={academyId} referenceMonth={referenceMonth} />
-          </div>
-        ) : null}
-
-        {activeTab === FINANCEIRO_SECTIONS.MENSALIDADES && academyId ? (
-          <div
-            role="tabpanel"
-            id={`finance-tabpanel-${FINANCEIRO_SECTIONS.MENSALIDADES}`}
-            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.MENSALIDADES}`}
-          >
-            <MensalidadesPanel
-              embedded
+            <ReceivablesTab
+              academyId={academyId}
               referenceMonth={referenceMonth}
+              activeSection={receivablesSection}
+              defaultSection={defaultReceivablesSection}
+              navRole={navRole}
+              onSectionChange={setReceivablesSection}
               onReferenceMonthChange={setReferenceMonth}
             />
           </div>

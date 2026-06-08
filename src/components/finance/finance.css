@@ -26,6 +26,7 @@
 @import './styles/recon.css';
 @import './styles/mensal.css';
 @import './styles/closing.css';
+@import './styles/receivables.css';
 @import './styles/a11y.css';
 
 /* === Tokens semânticos do módulo financeiro === */
