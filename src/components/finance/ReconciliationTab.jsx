@@ -12,6 +12,7 @@ import {
   createTxFromBankItem,
   completeBankReconciliation,
 } from '../../lib/bankReconciliationApi.js';
+import { reconcileStudentPaymentMirrors } from '../../lib/financeTxApi.js';
 import { friendlyError } from '../../lib/errorMessages';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
@@ -100,6 +101,8 @@ export default function ReconciliationTab({ academyId }) {
   const [manualNote, setManualNote] = useState('');
   const [completeNote, setCompleteNote] = useState('');
   const [error, setError] = useState('');
+  const [mirrorReconcileResult, setMirrorReconcileResult] = useState(null);
+  const [mirrorReconcileBusy, setMirrorReconcileBusy] = useState(false);
 
   const loadList = useCallback(async () => {
     if (!academyId) return;
@@ -162,7 +165,7 @@ export default function ReconciliationTab({ academyId }) {
         auto.push({ item, tx: txById.get(item.matched_tx_id) });
         continue;
       }
-      if (item.suggested_tx_id && item.match_score >= 50 && item.match_score < 85) {
+      if (item.suggested_tx_id && item.match_score >= 50) {
         suggested.push({ item, tx: txById.get(item.suggested_tx_id) });
         continue;
       }
@@ -208,7 +211,36 @@ export default function ReconciliationTab({ academyId }) {
             <Upload size={16} className="bank-recon-btn-icon" />
             Importar extrato
           </button>
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            disabled={mirrorReconcileBusy}
+            onClick={() => {
+              setMirrorReconcileBusy(true);
+              setMirrorReconcileResult(null);
+              void reconcileStudentPaymentMirrors(academyId)
+                .then((r) => setMirrorReconcileResult(r))
+                .catch((e) => setError(String(e?.message || e)))
+                .finally(() => setMirrorReconcileBusy(false));
+            }}
+          >
+            {mirrorReconcileBusy ? 'Verificando…' : 'Verificar espelhos mensalidade → Caixa'}
+          </button>
         </div>
+
+        {mirrorReconcileResult ? (
+          <StatusBanner variant={mirrorReconcileResult.failed > 0 ? 'warning' : 'success'} className="mb-3">
+            {mirrorReconcileResult.repaired > 0
+              ? `${mirrorReconcileResult.repaired} espelho(s) reparado(s). `
+              : ''}
+            {mirrorReconcileResult.failed > 0
+              ? `${mirrorReconcileResult.failed} falha(s) — confira manualmente. `
+              : mirrorReconcileResult.repaired === 0
+                ? 'Nenhum espelho órfão encontrado nos pagamentos recentes.'
+                : ''}
+            ({mirrorReconcileResult.checked} verificados)
+          </StatusBanner>
+        ) : null}
 
         {loading ? <PageSkeleton variant="table" rows={4} columns={5} /> : null}
         {error ? <p className="text-small bank-recon-error">{error}</p> : null}
@@ -271,6 +303,8 @@ export default function ReconciliationTab({ academyId }) {
   }
 
   const summary = detail?.summary || {};
+  const balanceProof = summary.balance_proof || null;
+  const balanceGap = Number(balanceProof?.balance_gap ?? summary.balance_gap ?? summary.difference ?? 0);
   const st = detail?.statement;
 
   return (
@@ -305,25 +339,51 @@ export default function ReconciliationTab({ academyId }) {
                 </strong>
               </div>
               <div>
-                <span className="text-xs text-muted">Diferença</span>
-                <strong className="bank-recon-summary-value">{fmtMoney(summary.difference)}</strong>
+                <span className="text-xs text-muted">Diferença (extrato × conciliado)</span>
+                <strong
+                  className={`bank-recon-summary-value${Math.abs(balanceGap) > 0.02 ? ' bank-recon-summary-value--warn' : ''}`}
+                >
+                  {fmtMoney(balanceGap)}
+                </strong>
               </div>
+              {balanceProof ? (
+                <>
+                  <div>
+                    <span className="text-xs text-muted">Extrato líquido</span>
+                    <strong className="bank-recon-summary-value">{fmtMoney(balanceProof.statement_net)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted">Conciliado</span>
+                    <strong className="bank-recon-summary-value bank-recon-summary-value--ok">
+                      {fmtMoney(balanceProof.reconciled_net)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted">Pendente no extrato</span>
+                    <strong className="bank-recon-summary-value">{fmtMoney(balanceProof.pending_statement)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted">Nave sem extrato</span>
+                    <strong className="bank-recon-summary-value">{fmtMoney(balanceProof.orphan_navi_net)}</strong>
+                  </div>
+                </>
+              ) : null}
               <div>
-                <span className="text-xs text-muted">Nave sem extrato</span>
+                <span className="text-xs text-muted">Lançamentos órfãos (qtd.)</span>
                 <strong className="bank-recon-summary-value">{summary.navi_orphan_count}</strong>
               </div>
             </div>
           </div>
 
           <div className="flex gap-2 mb-3 bank-recon-actions-head">
-            {grouped.auto.length > 0 ? (
+            {grouped.suggested.length > 0 ? (
               <button
                 type="button"
                 className="btn-outline btn-sm"
                 disabled={busy || st.status === 'reconciled'}
                 onClick={() => run(() => confirmAllBankMatches(academyId, st.id))}
               >
-                Confirmar todos ({grouped.auto.length})
+                Confirmar sugestões ({grouped.suggested.length})
               </button>
             ) : null}
           </div>
@@ -333,7 +393,7 @@ export default function ReconciliationTab({ academyId }) {
               <h4 className="funil-section-subheading">Extrato bancário</h4>
 
               {grouped.auto.length > 0 ? (
-                <p className="text-xs text-muted mb-2">Matches automáticos (≥85%)</p>
+                <p className="text-xs text-muted mb-2">Já conciliados</p>
               ) : null}
               {grouped.auto.map(({ item, tx }) => (
                 <MatchRow
@@ -351,7 +411,7 @@ export default function ReconciliationTab({ academyId }) {
               ))}
 
               {grouped.suggested.length > 0 ? (
-                <p className="text-xs text-muted mb-2 mt-3">Sugestões (50–84%)</p>
+                <p className="text-xs text-muted mb-2 mt-3">Sugestões — confirme antes de conciliar</p>
               ) : null}
               {grouped.suggested.map(({ item, tx }) => (
                 <MatchRow
@@ -426,7 +486,11 @@ export default function ReconciliationTab({ academyId }) {
 
               <div className="card mt-3 bank-recon-manual-card">
                 <p className="text-xs text-muted mb-2">Conferir manualmente (sem linha no extrato)</p>
+                <label className="form-label text-xs" htmlFor="bank-recon-manual-tx">
+                  Lançamento
+                </label>
                 <select
+                  id="bank-recon-manual-tx"
                   className="form-input mb-2"
                   value={manualTxId}
                   onChange={(e) => setManualTxId(e.target.value)}
@@ -438,10 +502,14 @@ export default function ReconciliationTab({ academyId }) {
                     </option>
                   ))}
                 </select>
+                <label className="form-label text-xs" htmlFor="bank-recon-manual-note">
+                  Justificativa
+                </label>
                 <textarea
+                  id="bank-recon-manual-note"
                   className="form-input mb-2"
                   rows={2}
-                  placeholder="Justificativa (obrigatória)"
+                  placeholder="Obrigatória para conferência manual"
                   value={manualNote}
                   onChange={(e) => setManualNote(e.target.value)}
                 />

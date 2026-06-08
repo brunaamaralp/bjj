@@ -7,6 +7,7 @@ import {
 } from '../../lib/bankStatementParse.js';
 import { importBankStatement } from '../../lib/bankReconciliationApi.js';
 import { friendlyError } from '../../lib/errorMessages';
+import BankAccountSelect from './BankAccountSelect.jsx';
 
 function fmtMoney(v) {
   try {
@@ -28,6 +29,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
   const [parseError, setParseError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
 
   const summary = useMemo(() => summarizeParsedItems(items), [items]);
 
@@ -36,6 +38,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
     setItems([]);
     setParseError('');
     setImportError('');
+    setBankAccount('');
   };
 
   const handleClose = () => {
@@ -84,6 +87,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
         items,
         period_start: summary.period_start,
         period_end: summary.period_end,
+        bank_account: bankAccount || undefined,
       });
       onImported?.(result.statement_id);
       handleClose();
@@ -131,6 +135,20 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
           <p className="text-small text-muted import-statement-file">
             Arquivo: {fileName}
           </p>
+        ) : null}
+
+        {items.length > 0 ? (
+          <div className="form-group mt-2">
+            <BankAccountSelect
+              academyId={academyId}
+              value={bankAccount}
+              onChange={setBankAccount}
+              id="import-statement-bank-account"
+              label="Conta do extrato"
+              allowEmpty
+              emptyLabel="Selecione a conta (recomendado)"
+            />
+          </div>
         ) : null}
         {parseError ? (
           <p className="text-small import-statement-error">

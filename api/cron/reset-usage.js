@@ -16,6 +16,7 @@ import { runFinancePendingAlert } from '../../lib/server/runFinancePendingAlert.
 import { runSalesReconcileCron } from '../../lib/server/runSalesReconcileCron.js';
 import { runFinanceRecurrenceCron } from '../../lib/server/runFinanceRecurrenceCron.js';
 import { runFinanceWhatsappAlerts } from '../../lib/server/runFinanceWhatsappAlerts.js';
+import { runStudentPaymentReconcileCron } from '../../lib/server/runStudentPaymentReconcileCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -349,6 +350,10 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runFinanceWhatsappAlerts(databases, DB_ID);
     return res.status(200).json({ mode: 'finance-whatsapp-alerts', ...out });
+  }
+  if (action === 'student-payment-reconcile') {
+    const out = await runStudentPaymentReconcileCron();
+    return res.status(200).json({ mode: 'student-payment-reconcile', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

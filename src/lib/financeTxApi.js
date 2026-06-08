@@ -94,6 +94,16 @@ export async function fetchMonthlyClosing({ academyId, month, regime }) {
   return body;
 }
 
+export async function fetchReceivables({ academyId, month }) {
+  const params = new URLSearchParams({ route: 'receivables', month });
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar contas a receber');
+  return body;
+}
+
 export async function fetchFinanceForecast({ academyId, from, to, refresh = false }) {
   const params = new URLSearchParams({ route: 'forecast', from, to });
   if (refresh) params.set('_', String(Date.now()));
@@ -105,13 +115,33 @@ export async function fetchFinanceForecast({ academyId, from, to, refresh = fals
   return body;
 }
 
-export async function recordCashClosing({ academyId, referenceMonth, snapshot }) {
+export async function recordCashClosing({ academyId, referenceMonth, snapshot, regime }) {
   const res = await authedFetch('/api/finance?route=closing', {
     method: 'POST',
     headers: await financeHeaders(academyId),
-    body: JSON.stringify({ reference_month: referenceMonth, snapshot }),
+    body: JSON.stringify({
+      reference_month: referenceMonth,
+      snapshot,
+      regime: regime || snapshot?.regime,
+    }),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Erro ao registrar conferência');
+  if (!res.ok) {
+    const err = new Error(body.error || 'Erro ao registrar conferência');
+    err.code = body.error;
+    err.snapshotMismatch = body.error === 'snapshot_mismatch' ? body : null;
+    throw err;
+  }
+  return body;
+}
+
+export async function reconcileStudentPaymentMirrors(academyId) {
+  const res = await authedFetch('/api/finance?route=payment-reconcile', {
+    method: 'POST',
+    headers: await financeHeaders(academyId),
+    body: JSON.stringify({}),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao verificar espelhos');
   return body;
 }

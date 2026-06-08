@@ -1,21 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { aggregateOperationalSummary } from '../../lib/server/financeTxAggregate.js';
 import { computeClosingTotals, buildClosingRows } from '../lib/monthlyClosing.js';
-import { txDirection } from '../../lib/server/financeTxFields.js';
-
-/** Mesma lógica do resumo operacional em ReportsFinancePanel / reports-light. */
-function computeOperationalFromTxDocs(documents) {
-  let received = 0;
-  let expenses = 0;
-  for (const doc of documents || []) {
-    if (String(doc.status || '').toLowerCase() !== 'settled') continue;
-    const dir = txDirection(doc);
-    const gross = Math.abs(Number(doc.gross) || 0);
-    const net = Math.abs(Number(doc.net) || gross);
-    if (dir === 'out') expenses += gross;
-    else received += net;
-  }
-  return { received, expenses, balance: received - expenses };
-}
 
 function settledInPeriod(docs, fromYmd, toYmd) {
   const from = new Date(`${fromYmd}T00:00:00`).getTime();
@@ -71,7 +56,7 @@ describe('paridade Relatórios financeiro × Fechamento mensal', () => {
       from,
       to
     );
-    const op = computeOperationalFromTxDocs(inPeriod);
+    const op = aggregateOperationalSummary(inPeriod);
     expect(op.received).toBe(200);
     expect(op.expenses).toBe(50);
     expect(op.balance).toBe(150);
@@ -85,7 +70,9 @@ describe('paridade Relatórios financeiro × Fechamento mensal', () => {
       referenceMonth: '2026-04',
     });
     const closing = computeClosingTotals(rows.rows);
-    const op = computeOperationalFromTxDocs(settledInPeriod(txs.map((t) => ({ ...t, $createdAt: t.createdAt })), from, to));
+    const op = aggregateOperationalSummary(
+      settledInPeriod(txs.map((t) => ({ ...t, $createdAt: t.createdAt })), from, to)
+    );
     expect(closing.received).toBe(op.received);
   });
 });

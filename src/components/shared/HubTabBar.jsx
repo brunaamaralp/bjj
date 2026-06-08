@@ -2,11 +2,12 @@ import React from 'react';
 
 /**
  * Abas de hub interno (?tab=) — estilos globais em index.css (.navi-hub-tabs).
- * @param {{ id: string, label: string, disabled?: boolean, disabledTitle?: string }[]} tabs
+ * @param {{ id: string, label: string, shortLabel?: string, disabled?: boolean, disabledTitle?: string }[]} tabs
  * @param {'primary'|'secondary'|'underline'} [variant]
  * @param {'sm'|'md'} [size]
  * @param {boolean} [fullWidth]
  * @param {string} [className]
+ * @param {string} [panelIdPrefix] — prefixo para aria-controls (ex.: finance-tabpanel-)
  */
 export default function HubTabBar({
   tabs,
@@ -17,6 +18,7 @@ export default function HubTabBar({
   variant = 'primary',
   size = 'md',
   fullWidth = false,
+  panelIdPrefix = '',
 }) {
   if (!tabs?.length) return null;
   return (
@@ -34,29 +36,36 @@ export default function HubTabBar({
       role="tablist"
       aria-label={ariaLabel || 'Seções'}
     >
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={activeId === tab.id}
-          aria-disabled={tab.disabled ? true : undefined}
-          disabled={Boolean(tab.disabled)}
-          title={tab.disabled ? tab.disabledTitle || tab.label : undefined}
-          className={[
-            'navi-hub-tab',
-            activeId === tab.id ? 'navi-hub-tab--active' : '',
-            tab.disabled ? 'navi-hub-tab--disabled' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => {
-            if (!tab.disabled) onChange(tab.id);
-          }}
-        >
-          {tab.label}
-        </button>
-      ))}
+      {tabs.map((tab) => {
+        const tabId = panelIdPrefix ? `${panelIdPrefix}tab-${tab.id}` : undefined;
+        const panelId = panelIdPrefix ? `${panelIdPrefix}${tab.id}` : undefined;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={tabId}
+            aria-selected={activeId === tab.id}
+            aria-controls={panelId}
+            aria-disabled={tab.disabled ? true : undefined}
+            disabled={Boolean(tab.disabled)}
+            title={tab.disabled ? tab.disabledTitle || tab.label : undefined}
+            className={[
+              'navi-hub-tab',
+              activeId === tab.id ? 'navi-hub-tab--active' : '',
+              tab.disabled ? 'navi-hub-tab--disabled' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => {
+              if (!tab.disabled) onChange(tab.id);
+            }}
+          >
+            <span className="navi-hub-tab__label--long">{tab.label}</span>
+            <span className="navi-hub-tab__label--short">{tab.shortLabel || tab.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -1,0 +1,25 @@
+/* Conciliação bancária — mobile */
+
+@media (max-width: 640px) {
+  .bank-recon-pair {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .bank-recon-pair--unmatched {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-recon-pair__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .bank-recon-manual-card label {
+    display: block;
+    font-size: var(--font-sm);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+}

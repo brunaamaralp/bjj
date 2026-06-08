@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { realtime, DB_ID, CONVERSATIONS_COL } from '../lib/appwrite';
 
 const REALTIME_DEBOUNCE_MS = 250;
@@ -22,6 +22,7 @@ function isInboxDebugEnabled() {
  * Appwrite Realtime na coleção de conversas + poll de fallback com backoff em aba oculta.
  */
 export function useInboxRealtimeSync({
+  academyId,
   academyIdRef,
   selectedPhoneRef,
   loadListRef,
@@ -29,6 +30,14 @@ export function useInboxRealtimeSync({
   realtimeTimersRef,
 }) {
   const [realtimeOn, setRealtimeOn] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -108,13 +117,13 @@ export function useInboxRealtimeSync({
             return;
           }
           subscription = sub;
-          setRealtimeOn(true);
+          if (mountedRef.current) setRealtimeOn(true);
           if (inboxDebugEnabled) {
             devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
           }
         })
         .catch((e) => {
-          if (!cancelledRef.current) {
+          if (!cancelledRef.current && mountedRef.current) {
             console.error('[Inbox Realtime] falha ao subscrever:', e);
             setRealtimeOn(false);
           }
@@ -138,9 +147,9 @@ export function useInboxRealtimeSync({
       } catch {
         void 0;
       }
-      setRealtimeOn(false);
+      if (mountedRef.current) setRealtimeOn(false);
     };
-  }, [academyIdRef, selectedPhoneRef, loadListRef, loadThreadRef, realtimeTimersRef]);
+  }, [academyId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -172,7 +181,7 @@ export function useInboxRealtimeSync({
       document.removeEventListener('visibilitychange', onVis);
       if (timer) window.clearTimeout(timer);
     };
-  }, [realtimeOn, academyIdRef, loadListRef]);
+  }, [realtimeOn, academyIdRef]);
 
   return { realtimeOn };
 }

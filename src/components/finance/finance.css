@@ -10,6 +10,9 @@
  * 6. Estilos por aba (prefixo da aba: .financeiro-overview-*,
  *    .mensalidades-*, .movimentacoes-*, etc.)
  *
+ * Partials (barrel @import abaixo — migração incremental):
+ *   styles/overview.css, tx.css, recon.css, mensal.css, closing.css, a11y.css
+ *
  * Regra: nunca usar cor hardcoded fora dos tokens do :root.
  * Regra: nunca usar style={{ color/margin/padding }} inline
  *        quando existir classe equivalente neste arquivo.
@@ -18,6 +21,12 @@
  */
 
 @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.17.0/dist/tabler-icons.min.css');
+@import './styles/overview.css';
+@import './styles/tx.css';
+@import './styles/recon.css';
+@import './styles/mensal.css';
+@import './styles/closing.css';
+@import './styles/a11y.css';
 
 /* === Tokens semânticos do módulo financeiro === */
 :root {
@@ -526,9 +535,9 @@
 }
 
 .finance-tx-row--highlight {
-  outline: 2px solid var(--primary, #2563eb);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
-  background: color-mix(in srgb, var(--primary, #2563eb) 8%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .finance-bank-balances__card--selectable {
@@ -541,12 +550,12 @@
 }
 
 .finance-bank-balances__card--selectable:hover {
-  border-color: var(--primary, #2563eb);
+  border-color: var(--color-primary);
 }
 
 .finance-bank-balances__card--selected {
-  border-color: var(--primary, #2563eb);
-  box-shadow: 0 0 0 1px var(--primary, #2563eb);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .finance-bank-balances__filter-hint {
@@ -2357,6 +2366,173 @@
 
 .financeiro-overview-card--wide {
   grid-column: 1 / -1;
+}
+
+.financeiro-overview-card--receivables {
+  border-color: color-mix(in srgb, var(--color-primary) 18%, var(--border-light));
+}
+
+.financeiro-overview-hero--compact {
+  margin-bottom: 4px;
+}
+
+.financeiro-overview-hero__value--md {
+  font-size: var(--font-3xl);
+}
+
+.receivables-overview-breakdown {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.mensalidades-receivable-hint a {
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.mensalidades-receivable-hint a:hover {
+  text-decoration: underline;
+}
+
+.receivables-tab {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--finance-space-4);
+}
+
+.receivables-tab__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--finance-space-3);
+}
+
+.receivables-tab__period {
+  margin: 0 0 4px;
+}
+
+.receivables-tab__total {
+  margin: 0;
+  font-size: var(--font-lg);
+}
+
+.receivables-tab__count {
+  font-weight: 400;
+}
+
+.receivables-tab__hint {
+  margin: 0;
+}
+
+.receivables-tab__breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--finance-space-2);
+}
+
+.receivables-tab__chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  text-align: left;
+}
+
+.receivables-tab__chip--active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--surface, #fff));
+}
+
+.receivables-tab__chip-label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.receivables-tab__chip-value {
+  font-size: var(--font-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.receivables-tab__table-wrap {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.receivables-tab__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.receivables-tab__table th,
+.receivables-tab__table td {
+  padding: 12px 14px;
+  border-bottom: 0.5px solid var(--border-light);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.receivables-tab__table th {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.receivables-tab__col-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.receivables-tab__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.receivables-tab__badge--mensalidade {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.receivables-tab__badge--lancamento {
+  background: #f0f0f8;
+  color: var(--text-secondary);
+}
+
+.receivables-tab__badge--venda {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.receivables-tab__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: var(--font-xs);
+  color: var(--color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.receivables-tab__action:hover {
+  text-decoration: underline;
+}
+
+.receivables-tab__empty {
+  margin: 0;
 }
 
 .academy-finance-config--hub {

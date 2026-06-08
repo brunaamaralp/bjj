@@ -372,6 +372,8 @@ export default function Inbox() {
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
   const [expandedMsgs, setExpandedMsgs] = useState({});
   const [msgFlags, setMsgFlags] = useState({});
+  const [inboxVvInset, setInboxVvInset] = useState(0);
+  const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
 
   useEffect(() => {
     const url = String(imageLightboxUrl || '').trim();
@@ -435,6 +437,11 @@ export default function Inbox() {
   const messageFlagsMigrationDoneRef = useRef(false);
 
   const threadMessageCount = Array.isArray(selected?.messages) ? selected.messages.length : 0;
+  const handleThreadPhoneChange = useCallback(() => {
+    setSelectedMsgKey('');
+    setExpandedMsgs({});
+    setDetailsOpen(false);
+  }, []);
   const {
     threadAtBottom,
     setThreadAtBottom,
@@ -448,11 +455,7 @@ export default function Inbox() {
     selectedPhoneRef,
     threadMsgCountRef,
     lastAutoScrollPhoneRef,
-    onPhoneChange: () => {
-      setSelectedMsgKey('');
-      setExpandedMsgs({});
-      setDetailsOpen(false);
-    },
+    onPhoneChange: handleThreadPhoneChange,
   });
 
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
@@ -598,6 +601,7 @@ export default function Inbox() {
   }, [waStatus, academyId]);
 
   const { realtimeOn } = useInboxRealtimeSync({
+    academyId,
     academyIdRef,
     selectedPhoneRef,
     loadListRef,
@@ -1144,7 +1148,7 @@ export default function Inbox() {
       });
       tryDesktopNotify({ phone, name, preview });
     };
-  });
+  }, [toast]);
 
   async function toggleDesktopNotifyPreference() {
     if (desktopNotify) {
@@ -1755,8 +1759,6 @@ export default function Inbox() {
   );
   const showWaDisconnectBanner = waStatusChecked && String(waStatus || '').trim() !== 'connected';
 
-  const [inboxVvInset, setInboxVvInset] = useState(0);
-  const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     if (!isMobile) {

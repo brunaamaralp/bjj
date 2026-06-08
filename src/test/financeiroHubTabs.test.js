@@ -37,6 +37,7 @@ describe('financeiroHubTabs', () => {
     expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(false);
     expect(allowed.has('movimentacoes')).toBe(true);
     expect(allowed.has(FINANCEIRO_SECTIONS.MENSALIDADES)).toBe(true);
+    expect(allowed.has(FINANCEIRO_SECTIONS.A_RECEBER)).toBe(true);
   });
 
   it('buildFinanceiroAllowedLeafTabs — admin com previsão, sem conciliação', () => {
@@ -70,6 +71,7 @@ describe('financeiroHubTabs', () => {
     const tabs = buildFinanceiroHubTabItems({ navRole: 'member', financeModule: true });
     expect(tabs.map((t) => t.id)).toEqual([
       FINANCEIRO_SECTIONS.MENSALIDADES,
+      FINANCEIRO_SECTIONS.A_RECEBER,
       'movimentacoes',
       FINANCEIRO_SECTIONS.OVERVIEW,
     ]);
@@ -79,5 +81,15 @@ describe('financeiroHubTabs', () => {
     const tabs = buildFinanceiroHubTabItems({ navRole: 'owner', financeModule: true });
     expect(tabs[0].id).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
     expect(tabs.some((t) => t.id === 'conciliacao')).toBe(true);
+  });
+
+  it('buildFinanceiroHubTabItems — shortLabel em abas longas no mobile', () => {
+    const tabs = buildFinanceiroHubTabItems({ navRole: 'owner', financeModule: true });
+    const fechamento = tabs.find((t) => t.id === 'fechamento');
+    expect(fechamento?.label).toBe('Conferência do mês');
+    expect(fechamento?.shortLabel).toBe('Conferência');
+    const extrato = tabs.find((t) => t.id === FINANCEIRO_EXTRATO_TAB);
+    expect(extrato?.label).toBe('Extrato contábil');
+    expect(extrato?.shortLabel).toBe('Extrato');
   });
 });

@@ -400,7 +400,7 @@ export default function MonthlyClosingTab({
         regime,
         totals: computeClosingTotals(sortedRows),
       };
-      await recordCashClosing({ academyId, referenceMonth, snapshot });
+      await recordCashClosing({ academyId, referenceMonth, snapshot, regime });
       addToast({ type: 'success', message: 'Mês marcado como conferido.' });
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
@@ -412,7 +412,15 @@ export default function MonthlyClosingTab({
       setShowRegisterDialog(false);
       await loadData();
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      if (e?.code === 'snapshot_mismatch') {
+        addToast({
+          type: 'error',
+          message: 'Os totais mudaram desde o carregamento da página. Atualize e tente registrar novamente.',
+        });
+        void loadData();
+      } else {
+        addToast({ type: 'error', message: friendlyError(e, 'save') });
+      }
     } finally {
       setSavingClosing(false);
     }

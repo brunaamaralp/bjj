@@ -120,6 +120,10 @@
       "schedule": "30 7 * * *"
     },
     {
+      "path": "/api/cron/reset-usage?action=student-payment-reconcile",
+      "schedule": "45 7 * * *"
+    },
+    {
       "path": "/api/cron/reset-usage?action=finance-recurrence",
       "schedule": "0 6 * * *"
     },

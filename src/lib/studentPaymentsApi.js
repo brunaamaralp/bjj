@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite.js';
 import { authedFetch } from './authInterceptor.js';
+import { useUiStore } from '../store/useUiStore.js';
 
 export class StudentPaymentsApiError extends Error {
   constructor(message, { status } = {}) {
@@ -31,6 +32,15 @@ async function paymentsFetch(path, options = {}, academyId) {
     });
   }
   return data;
+}
+
+function notifyMirrorWarning(mirrorWarning) {
+  if (!mirrorWarning) return;
+  useUiStore.getState().addToast({
+    type: 'warning',
+    message:
+      'Pagamento salvo, mas o espelho no Caixa falhou. Use "Verificar espelhos" na conciliação bancária.',
+  });
 }
 
 export async function apiListStudentPayments({ referenceMonth, page = 1, limit = 100, cursor, academyId }) {
@@ -69,6 +79,7 @@ export async function apiCreateStudentPayment(payload) {
     payload?.academy_id
   );
   dispatchPaymentUpdated(payload);
+  if (data.mirror_warning) notifyMirrorWarning(data.mirror_warning);
   return data.payment;
 }
 
@@ -82,6 +93,7 @@ export async function apiUpdateStudentPayment(paymentId, patch) {
     patch?.academy_id
   );
   dispatchPaymentUpdated(patch);
+  if (data.mirror_warning) notifyMirrorWarning(data.mirror_warning);
   return data.payment;
 }
 

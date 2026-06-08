@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { DateInputField } from '../DateInput';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import { mapDbStatusFromGridForm } from '../../lib/paymentStatus';
+import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 
 const STATUS_OPTIONS = [
   { value: 'paid', label: 'Pago' },
@@ -97,6 +98,12 @@ export default function PaymentStatusPopover({
             </option>
           ))}
         </select>
+
+        {status === 'pending' || status === 'awaiting' ? (
+          <p className="text-xs text-muted payment-status-popover__hint" role="note">
+            {FINANCE_TERM_HINTS.mensalidadePendenteCaixa}
+          </p>
+        ) : null}
 
         {showAmount ? (
           <div>

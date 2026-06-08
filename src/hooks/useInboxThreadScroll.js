@@ -32,11 +32,14 @@ export function useInboxThreadScroll({
     const phone = String(selectedPhone || '').trim();
     if (!phone) return;
     threadMsgCountRef.current = Number(messageCount) || 0;
-    onPhoneChange?.();
     setNewMsgCount(0);
     setThreadAtBottom(true);
-    setTimeout(() => scrollThreadToBottom({ clearNew: true }), 0);
-  }, [selectedPhone]);
+    const id = window.setTimeout(() => {
+      onPhoneChange?.();
+      scrollThreadToBottom({ clearNew: true });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [selectedPhone, onPhoneChange, scrollThreadToBottom]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();

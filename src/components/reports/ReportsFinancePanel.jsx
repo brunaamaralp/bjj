@@ -15,6 +15,7 @@ import { downloadCsv } from '../../lib/reportsExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import './reports.css';
 
@@ -155,10 +156,9 @@ function OperationalFinanceReport({ academyId, from, to }) {
           : `Movimentações liquidadas · regime ${financeRegimeLabel(regime).toLowerCase()}`}
       </p>
       {!isLimited && totals.truncated ? (
-        <p className="text-small text-muted mb-2" role="status">
-          Mostrando até {totals.totalLoaded} lançamentos — o total pode estar incompleto. Reduza o período no
-          filtro.
-        </p>
+        <StatusBanner variant="warning" className="mb-2">
+          Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
+        </StatusBanner>
       ) : null}
       {!isLimited ? (
         <div className="flex justify-end mb-2">

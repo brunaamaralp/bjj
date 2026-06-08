@@ -7,6 +7,12 @@ export const FINANCE_TERM_HINTS = {
     'Valor esperado com base em mensalidades e lançamentos recorrentes ainda não recebidos.',
   realizado: 'Valor efetivamente recebido ou pago até hoje.',
   inadimplentes: 'Alunos com mensalidade em aberto após o vencimento.',
+  aReceber:
+    'Soma de mensalidades em aberto no mês, lançamentos de entrada pendentes no Caixa e vendas marcadas como a receber.',
+  mensalidadePendenteCaixa:
+    'Mensalidades pendentes ficam na grade de Mensalidades. Ao registrar o pagamento, a entrada é criada automaticamente no Caixa — não há lançamento pendente duplicado.',
+  lancamentoPendente:
+    'Lançamento manual criado sem marcar “Receber agora”. Liquide em Lançamentos para entrar no saldo do Caixa.',
 };
 
 /** Evento após marcar mês como conferido (MonthlyClosingTab → FinanceMonthPicker). */

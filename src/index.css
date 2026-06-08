@@ -4339,6 +4339,20 @@ button.funil-color-swatch {
   background: transparent;
 }
 
+.navi-hub-tab__label--short {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .navi-hub-tab__label--long {
+    display: none;
+  }
+
+  .navi-hub-tab__label--short {
+    display: inline;
+  }
+}
+
 .navi-hub-page__head {
   margin-bottom: 4px;
 }
@@ -4367,6 +4381,9 @@ button.funil-color-swatch {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    position: relative;
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   }
 
   .navi-hub-tabs::-webkit-scrollbar {

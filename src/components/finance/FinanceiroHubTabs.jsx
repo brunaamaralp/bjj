@@ -27,6 +27,7 @@ export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access 
         onChange={onLeafChange}
         ariaLabel="Financeiro"
         fullWidth
+        panelIdPrefix="finance-tabpanel-"
         className="financeiro-hub-tabs__primary"
       />
     </div>

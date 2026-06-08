@@ -51,6 +51,7 @@ import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
 
 import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
+import ReceivablesTab from '../components/finance/ReceivablesTab.jsx';
 import MensalidadesPanel from '../components/finance/MensalidadesPanel.jsx';
 import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
 import FinanceMonthPicker from '../components/finance/FinanceMonthPicker.jsx';
@@ -90,6 +91,8 @@ const TAB_SUBTITLES = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Resumo financeiro da academia',
 
   [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Cobrança e controle de mensalidades',
+
+  [FINANCEIRO_SECTIONS.A_RECEBER]: 'Tudo que a academia ainda deve receber — mensalidades, lançamentos e vendas',
 
   movimentacoes: 'Lançamentos do caixa — entradas, saídas e recorrências',
 
@@ -380,102 +383,140 @@ export default function Caixa() {
 
 
         {activeTab === FINANCEIRO_SECTIONS.OVERVIEW && academyId ? (
-          <VisaoGeralTab
-            academyId={academyId}
-            financeModule={financeModule}
-            modules={modules}
-            isOwner={isOwner}
-            referenceMonth={referenceMonth}
-          />
+          <div
+            role="tabpanel"
+            id={`finance-tabpanel-${FINANCEIRO_SECTIONS.OVERVIEW}`}
+            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.OVERVIEW}`}
+          >
+            <VisaoGeralTab
+              academyId={academyId}
+              financeModule={financeModule}
+              modules={modules}
+              isOwner={isOwner}
+              referenceMonth={referenceMonth}
+            />
+          </div>
+        ) : null}
+
+        {activeTab === FINANCEIRO_SECTIONS.A_RECEBER && academyId ? (
+          <div
+            role="tabpanel"
+            id={`finance-tabpanel-${FINANCEIRO_SECTIONS.A_RECEBER}`}
+            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.A_RECEBER}`}
+          >
+            <ReceivablesTab academyId={academyId} referenceMonth={referenceMonth} />
+          </div>
         ) : null}
 
         {activeTab === FINANCEIRO_SECTIONS.MENSALIDADES && academyId ? (
-          <MensalidadesPanel
-            embedded
-            referenceMonth={referenceMonth}
-            onReferenceMonthChange={setReferenceMonth}
-          />
+          <div
+            role="tabpanel"
+            id={`finance-tabpanel-${FINANCEIRO_SECTIONS.MENSALIDADES}`}
+            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.MENSALIDADES}`}
+          >
+            <MensalidadesPanel
+              embedded
+              referenceMonth={referenceMonth}
+              onReferenceMonthChange={setReferenceMonth}
+            />
+          </div>
         ) : null}
 
 
 
         {academyId && activeTab === 'movimentacoes' ? (
-
           <div
-            className="card finance-period-balance"
-            role="status"
-            title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+            role="tabpanel"
+            id="finance-tabpanel-movimentacoes"
+            aria-labelledby="finance-tabpanel-tab-movimentacoes"
           >
-            <div className="flex justify-between items-center gap-2 finance-period-balance__row">
-              <div>
-                <p className="text-small text-muted finance-period-balance__label">
-                  Saldo do período (entradas liquidadas − saídas)
-                </p>
-                <p className="navi-section-heading finance-period-balance__value">
-                  {summaryLoading
-                    ? '…'
-                    : periodBalance != null
-                      ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        })
-                      : '—'}
+            <div
+              className="card finance-period-balance"
+              role="status"
+              title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+            >
+              <div className="flex justify-between items-center gap-2 finance-period-balance__row">
+                <div>
+                  <p className="text-small text-muted finance-period-balance__label">
+                    Saldo do período (entradas liquidadas − saídas)
+                  </p>
+                  <p className="navi-section-heading finance-period-balance__value">
+                    {summaryLoading
+                      ? '…'
+                      : periodBalance != null
+                        ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          })
+                        : '—'}
+                  </p>
+                </div>
+                <p className="text-small text-muted finance-period-balance__hint">
+                  Atualiza com o período De/Até em Lançamentos.
                 </p>
               </div>
-              <p className="text-small text-muted finance-period-balance__hint">
-                Atualiza conforme o período De/Até em Lançamentos (o mês do cabeçalho define o intervalo inicial).
-              </p>
             </div>
+
+            <TransacoesTab
+              academyId={academyId}
+              financeConfig={financeConfig}
+              isOwner={isOwner}
+              isAdmin={isAdmin}
+              highlightTxId={String(searchParams.get('tx') || '').trim()}
+              onTransactionsChange={handleTransactionsChange}
+              periodFrom={periodFrom}
+              periodTo={periodTo}
+              onPeriodFiltersChange={handlePeriodFiltersChange}
+              onTxMutated={loadPeriodSummary}
+            />
           </div>
-
-        ) : null}
-
-
-
-        {academyId && activeTab === 'movimentacoes' ? (
-
-          <TransacoesTab
-            academyId={academyId}
-            financeConfig={financeConfig}
-            isOwner={isOwner}
-            isAdmin={isAdmin}
-            highlightTxId={String(searchParams.get('tx') || '').trim()}
-            onTransactionsChange={handleTransactionsChange}
-            periodFrom={periodFrom}
-            periodTo={periodTo}
-            onPeriodFiltersChange={handlePeriodFiltersChange}
-            onTxMutated={loadPeriodSummary}
-          />
-
         ) : null}
 
         {academyId && activeTab === 'previsao' && financeModule && navRole !== 'member' ? (
-
-          <ForecastTab academyId={academyId} />
-
+          <div
+            role="tabpanel"
+            id="finance-tabpanel-previsao"
+            aria-labelledby="finance-tabpanel-tab-previsao"
+          >
+            <ForecastTab academyId={academyId} />
+          </div>
         ) : null}
 
         {academyId && activeTab === 'conciliacao' && financeModule && isOwner ? (
-
-          <ReconciliationTab academyId={academyId} />
-
+          <div
+            role="tabpanel"
+            id="finance-tabpanel-conciliacao"
+            aria-labelledby="finance-tabpanel-tab-conciliacao"
+          >
+            <ReconciliationTab academyId={academyId} />
+          </div>
         ) : null}
 
         {academyId && activeTab === 'fechamento' && financeModule && navRole !== 'member' ? (
-
-          <MonthlyClosingTab
-            academyId={academyId}
-            academyName={academyName}
-            financeConfig={financeConfig}
-            modules={modules}
-            referenceMonth={referenceMonth}
-            onReferenceMonthChange={setReferenceMonth}
-          />
-
+          <div
+            role="tabpanel"
+            id="finance-tabpanel-fechamento"
+            aria-labelledby="finance-tabpanel-tab-fechamento"
+          >
+            <MonthlyClosingTab
+              academyId={academyId}
+              academyName={academyName}
+              financeConfig={financeConfig}
+              modules={modules}
+              referenceMonth={referenceMonth}
+              onReferenceMonthChange={setReferenceMonth}
+            />
+          </div>
         ) : null}
 
         {academyId && activeTab === FINANCEIRO_EXTRATO_TAB && isOwner && financeModule ? (
-          <CaixaAccountingPanel scope="operational" isOwner={isOwner} />
+          <div
+            role="tabpanel"
+            id={`finance-tabpanel-${FINANCEIRO_EXTRATO_TAB}`}
+            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_EXTRATO_TAB}`}
+          >
+            <CaixaAccountingPanel scope="operational" isOwner={isOwner} />
+          </div>
         ) : null}
 
       </div>

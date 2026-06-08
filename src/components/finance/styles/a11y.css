@@ -1,0 +1,16 @@
+/* Acessibilidade — motion e utilitários financeiros */
+
+@media (prefers-reduced-motion: reduce) {
+  .navi-async-btn__spin {
+    animation: none !important;
+  }
+
+  .mensal-priorities-skeleton__card,
+  [class*='mensal-pulse'] {
+    animation: none !important;
+  }
+
+  .accounts-drawer-collapse-trigger__chevron {
+    transition: none;
+  }
+}

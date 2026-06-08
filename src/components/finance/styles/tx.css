@@ -1,0 +1,60 @@
+/* Lançamentos (Caixa) — mobile/desktop toggle, toolbar, saldo do período */
+
+@media (max-width: 767px) {
+  .finance-tx-section .finance-desktop-table-wrap {
+    display: none !important;
+  }
+
+  .finance-tx-section .finance-mobile-list {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (min-width: 768px) {
+  .finance-tx-section .finance-mobile-list {
+    display: none !important;
+  }
+}
+
+.finance-tx-toolbar__overflow {
+  display: none;
+}
+
+.finance-tx-toolbar__cta--desktop-only {
+  display: inline-flex;
+}
+
+@media (max-width: 767px) {
+  .finance-tx-toolbar__overflow {
+    display: inline-flex;
+  }
+
+  .finance-tx-toolbar__cta--desktop-only {
+    display: none;
+  }
+
+  .finance-tx-section .finance-tx-table-toolbar {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .finance-period-balance__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .finance-period-balance__hint {
+    max-width: none;
+  }
+}
+
+.finance-guide summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.finance-guide summary::-webkit-details-marker {
+  display: none;
+}

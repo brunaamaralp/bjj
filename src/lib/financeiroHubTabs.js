@@ -5,6 +5,7 @@
 
 export const FINANCEIRO_SECTIONS = {
   OVERVIEW: 'visao-geral',
+  A_RECEBER: 'a-receber',
   MENSALIDADES: 'mensalidades',
   CAIXA: 'caixa',
   CONTABILIDADE: 'contabilidade',
@@ -41,6 +42,7 @@ const REDIRECT_TO_EMPRESA_CONFIG = new Set([
 
 const TAB_TO_SECTION = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: FINANCEIRO_SECTIONS.OVERVIEW,
+  [FINANCEIRO_SECTIONS.A_RECEBER]: FINANCEIRO_SECTIONS.A_RECEBER,
   [FINANCEIRO_SECTIONS.MENSALIDADES]: FINANCEIRO_SECTIONS.MENSALIDADES,
   [FINANCEIRO_SECTIONS.CONFIG]: FINANCEIRO_SECTIONS.CONFIG,
   movimentacoes: 'movimentacoes',
@@ -56,12 +58,24 @@ const TAB_TO_SECTION = {
 
 const HUB_TAB_LABELS = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
+  [FINANCEIRO_SECTIONS.A_RECEBER]: 'A receber',
   [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Mensalidades',
   movimentacoes: 'Lançamentos',
   previsao: 'Previsão',
   fechamento: 'Conferência do mês',
   conciliacao: 'Conciliação',
   [FINANCEIRO_EXTRATO_TAB]: 'Extrato contábil',
+};
+
+const HUB_TAB_SHORT_LABELS = {
+  [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
+  [FINANCEIRO_SECTIONS.A_RECEBER]: 'A receber',
+  [FINANCEIRO_SECTIONS.MENSALIDADES]: 'Mensalidades',
+  movimentacoes: 'Lançamentos',
+  previsao: 'Previsão',
+  fechamento: 'Conferência',
+  conciliacao: 'Conciliação',
+  [FINANCEIRO_EXTRATO_TAB]: 'Extrato',
 };
 
 /** Mapeia ?tab= legado do hub (ex-/caixa) para slug folha. */
@@ -143,7 +157,11 @@ export function buildFinanceiroAllowedLeafTabs({ navRole, financeModule, isOwner
   const role =
     navRole ||
     (isOwner === true ? 'owner' : isOwner === false ? 'member' : 'member');
-  const base = [FINANCEIRO_SECTIONS.OVERVIEW, FINANCEIRO_SECTIONS.MENSALIDADES];
+  const base = [
+    FINANCEIRO_SECTIONS.OVERVIEW,
+    FINANCEIRO_SECTIONS.A_RECEBER,
+    FINANCEIRO_SECTIONS.MENSALIDADES,
+  ];
   const operational = buildFinanceiroOperationalLeafTabs(role, financeModule);
   return [...base, ...operational];
 }
@@ -157,6 +175,7 @@ function orderFinanceiroHubTabIds(navRole, tabIds) {
   if (navRole === 'member') {
     const memberOrder = [
       FINANCEIRO_SECTIONS.MENSALIDADES,
+      FINANCEIRO_SECTIONS.A_RECEBER,
       'movimentacoes',
       FINANCEIRO_SECTIONS.OVERVIEW,
     ];
@@ -181,5 +200,6 @@ export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner }) 
   return ids.map((id) => ({
     id,
     label: HUB_TAB_LABELS[id] || id,
+    shortLabel: HUB_TAB_SHORT_LABELS[id] || HUB_TAB_LABELS[id] || id,
   }));
 }

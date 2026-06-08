@@ -14,6 +14,8 @@ import financeTxHandler from '../lib/server/financeTxHandler.js';
 import studentPaymentsHandler from '../lib/server/studentPaymentsHandler.js';
 import bankReconciliationHandler from '../lib/server/bankReconciliationHandler.js';
 import financeBankBalancesHandler from '../lib/server/financeBankBalancesHandler.js';
+import studentPaymentReconcileHandler from '../lib/server/studentPaymentReconcileHandler.js';
+import financeReceivablesHandler from '../lib/server/financeReceivablesHandler.js';
 
 export const config = {
   maxDuration: 60,
@@ -43,6 +45,12 @@ export default async function handler(req, res) {
   }
   if (route === 'bank-balances' || route === 'bank_balances') {
     return financeBankBalancesHandler(req, res);
+  }
+  if (route === 'payment-reconcile' || route === 'payment_reconcile') {
+    return studentPaymentReconcileHandler(req, res);
+  }
+  if (route === 'receivables' || route === 'a-receber') {
+    return financeReceivablesHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);

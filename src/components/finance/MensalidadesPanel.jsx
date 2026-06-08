@@ -23,6 +23,9 @@ import { expectedAmountForStudent, expectedAmountWithCardFee } from '../../lib/p
 import { formatBRL } from '../../lib/moneyBr.js';
 import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
+import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
+import { FINANCEIRO_SECTIONS } from '../../lib/financeiroHubTabs.js';
 import './finance.css';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { useNlPageContext } from '../../hooks/useNlPageContext.js';
@@ -883,6 +886,11 @@ export default function MensalidadesPanel({
             />
           </div>
         ) : null}
+
+        <StatusBanner variant="info" className="mensalidades-receivable-hint">
+          {FINANCE_TERM_HINTS.mensalidadePendenteCaixa}{' '}
+          <Link to={`/financeiro?tab=${FINANCEIRO_SECTIONS.A_RECEBER}`}>Ver em A receber →</Link>
+        </StatusBanner>
 
         {modules?.finance === true ? (
           <div className="mensal-page-tabs" role="tablist" aria-label="Visualização">

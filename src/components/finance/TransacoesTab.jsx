@@ -15,7 +15,7 @@ import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
-import { Receipt, Repeat, ChevronDown, Upload } from 'lucide-react';
+import { Receipt, Repeat, ChevronDown, Upload, MoreHorizontal } from 'lucide-react';
 import { DateInputField } from '../DateInput';
 import {
   RECURRENCE_TYPES,
@@ -49,6 +49,7 @@ import {
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
 import {
@@ -60,7 +61,6 @@ import {
 import FinanceTxRowActions, { EXPENSE_EDIT_TITLE } from './FinanceTxRowActions.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
-import useMatchMobile from '../../hooks/useMatchMobile.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
@@ -178,7 +178,6 @@ export default function TransacoesTab({
 }) {
   const leads = useStudentStore((s) => s.students);
   const toast = useToast();
-  const isMobile = useMatchMobile();
   const canManageAdvanced = isOwner || isAdmin;
   const [fromDate, setFromDate] = useState(periodFrom);
   const [toDate, setToDate] = useState(periodTo);
@@ -231,6 +230,7 @@ export default function TransacoesTab({
   const [reverseLoadingId, setReverseLoadingId] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState(() => defaultTxColumnVisibility());
   const loadReqRef = useRef(0);
   const lastNotifiedTxRef = useRef('');
@@ -822,10 +822,15 @@ export default function TransacoesTab({
               className="mb-3"
             />
           ) : null}
-          <p className="text-small text-muted finance-tx-period-hint mb-3">
-            O mês no cabeçalho da página define o período inicial. Ajuste <strong>De</strong> e <strong>Até</strong> para
-            refinar a lista e o saldo do período acima.
-          </p>
+          <details className="finance-guide mb-3">
+            <summary className="finance-guide__title">Como funciona o período De/Até</summary>
+            <ul className="finance-guide__list">
+              <li>
+                O mês no cabeçalho define o intervalo inicial de <strong>De</strong> e <strong>Até</strong>.
+              </li>
+              <li>Ajuste as datas para refinar a lista e o saldo do período acima.</li>
+            </ul>
+          </details>
           <FinanceFiltersBar className="finance-tx-toolbar">
             <div className="finance-tx-toolbar__row">
               <div className="finance-filters-bar__field finance-tx-date-group">
@@ -915,13 +920,61 @@ export default function TransacoesTab({
               {canManageAdvanced ? (
                 <button
                   type="button"
-                  className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta"
+                  className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta finance-tx-toolbar__cta--desktop-only"
                   onClick={() => setShowImportModal(true)}
                 >
                   <Upload size={16} aria-hidden />
                   Importar planilha
                 </button>
               ) : null}
+              <DropdownMenu
+                open={mobileToolsOpen}
+                onOpenChange={setMobileToolsOpen}
+                className="finance-tx-toolbar__overflow"
+                align="end"
+              >
+                <button
+                  type="button"
+                  className="btn-outline btn-sm navi-btn--toolbar finance-tx-toolbar__overflow-trigger"
+                  aria-expanded={mobileToolsOpen}
+                  aria-haspopup="menu"
+                  aria-label="Mais ações"
+                  onClick={() => setMobileToolsOpen((o) => !o)}
+                >
+                  <MoreHorizontal size={18} aria-hidden />
+                </button>
+                {mobileToolsOpen ? (
+                  <DropdownMenuPanel aria-label="Ações de lançamentos">
+                    {canManageAdvanced ? (
+                      <DropdownMenuItemStatic>
+                        <button
+                          type="button"
+                          className="navi-menu__item"
+                          onClick={() => {
+                            setShowImportModal(true);
+                            setMobileToolsOpen(false);
+                          }}
+                        >
+                          Importar planilha
+                        </button>
+                      </DropdownMenuItemStatic>
+                    ) : null}
+                    <DropdownMenuLabel>Exibir colunas</DropdownMenuLabel>
+                    {OPTIONAL_TX_COLUMNS.map((col) => (
+                      <DropdownMenuItemStatic key={col.key}>
+                        <label className="finance-tx-cols-option">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(visibleCols[col.key])}
+                            onChange={() => toggleTxColumn(col.key)}
+                          />
+                          <span>{col.label}</span>
+                        </label>
+                      </DropdownMenuItemStatic>
+                    ))}
+                  </DropdownMenuPanel>
+                ) : null}
+              </DropdownMenu>
               <button
                 type="button"
                 className="btn-primary navi-btn--toolbar finance-tx-toolbar__cta"
@@ -942,6 +995,12 @@ export default function TransacoesTab({
               </button>
             </div>
           </FinanceFiltersBar>
+          {listTruncated ? (
+            <StatusBanner variant="warning" className="mb-3">
+              Período com mais de 2.500 lançamentos — a lista e os totais podem estar incompletos. Reduza o
+              intervalo de datas.
+            </StatusBanner>
+          ) : null}
           {loadError ? (
             <ErrorBanner
               message="Não foi possível carregar os lançamentos. Verifique a conexão e tente novamente."
@@ -952,7 +1011,8 @@ export default function TransacoesTab({
           <div className="finance-table-wrap">
             {txLoading ? (
               <PageSkeleton variant="table" rows={6} columns={10} />
-            ) : loadError ? null : isMobile ? (
+            ) : loadError ? null : (
+            <>
             <div className="navi-mobile-list finance-mobile-list" aria-label="Lançamentos">
               {filteredTransactions.length === 0 ? (
                 <div className="finance-tx-empty-wrap">
@@ -1075,7 +1135,6 @@ export default function TransacoesTab({
               })
               )}
             </div>
-            ) : (
             <div className="navi-desktop-table-wrap finance-desktop-table-wrap">
             <div className="finance-tx-table-toolbar">
               <DropdownMenu
@@ -1258,6 +1317,7 @@ export default function TransacoesTab({
               </tbody>
             </table>
             </div>
+            </>
             )}
           </div>
           {!loadError && transactions.length > 0 ? (
@@ -1270,7 +1330,6 @@ export default function TransacoesTab({
                 {hasActiveTxFilters && hasMore
                   ? ' — carregue mais para ampliar a busca com os filtros ativos'
                   : ''}
-                {listTruncated ? ' · Período muito grande: refine as datas.' : ''}
               </p>
               {hasMore ? (
                 <button

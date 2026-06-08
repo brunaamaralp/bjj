@@ -11,7 +11,12 @@ import {
 } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
-import { fetchFinanceSummary, fetchFinanceForecast, fetchMonthlyClosing } from '../../lib/financeTxApi.js';
+import {
+  fetchFinanceSummary,
+  fetchFinanceForecast,
+  fetchMonthlyClosing,
+  fetchReceivables,
+} from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
@@ -33,7 +38,9 @@ import { fetchContracts } from '../../features/contracts/api.js';
 import { mapContractDisplayStatusForRecord } from '../../features/contracts/status.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
+import ReceivablesOverviewCard from './ReceivablesOverviewCard.jsx';
 
 function fmtMoney(v) {
   try {
@@ -110,6 +117,8 @@ export default function VisaoGeralTab({
   const [pendingTxCount, setPendingTxCount] = useState(0);
   const [contractsAwaiting, setContractsAwaiting] = useState(0);
   const [closingDivergences, setClosingDivergences] = useState(0);
+  const [receivables, setReceivables] = useState(null);
+  const [receivablesFailed, setReceivablesFailed] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
   const regime = useMemo(
@@ -124,6 +133,7 @@ export default function VisaoGeralTab({
     setSummaryFailed(false);
     setPaymentsFailed(false);
     setForecastFailed(false);
+    setReceivablesFailed(false);
     try {
       const regimeVal = getFinanceRegime(academyId);
       const studentsSnapshot = useStudentStore.getState().students || [];
@@ -134,6 +144,7 @@ export default function VisaoGeralTab({
         getMonthlyPayments(academyId, ym, {
           activeStudentCount: studentsSnapshot.filter((s) => String(s.plan || '').trim()).length,
         }),
+        fetchReceivables({ academyId, month: ym }),
       ];
 
       if (financeModule) {
@@ -154,7 +165,7 @@ export default function VisaoGeralTab({
       }
 
       const results = await Promise.allSettled(tasks);
-      const [curRes, prevRes, payRes, forecastRes, closingRes] = results;
+      const [curRes, prevRes, payRes, receivablesRes, forecastRes, closingRes] = results;
 
       if (curRes.status === 'fulfilled') {
         setSummary(curRes.value);
@@ -173,6 +184,14 @@ export default function VisaoGeralTab({
       } else {
         setPayments([]);
         setPaymentsFailed(true);
+      }
+
+      if (receivablesRes?.status === 'fulfilled') {
+        setReceivables(receivablesRes.value);
+        setReceivablesFailed(false);
+      } else {
+        setReceivables(null);
+        setReceivablesFailed(true);
       }
 
       if (financeModule) {
@@ -263,6 +282,7 @@ export default function VisaoGeralTab({
   const forecastItems = useMemo(() => flattenForecastItems(forecast), [forecast]);
   const forecastInflowTotal = useMemo(() => sumForecastInflow(forecastItems), [forecastItems]);
   const forecastTop = useMemo(() => forecastItems.filter((it) => it.flow !== 'out').slice(0, 5), [forecastItems]);
+  const receivablesTop = useMemo(() => (receivables?.items || []).slice(0, 5), [receivables]);
 
   const balanceDelta = useMemo(
     () => formatBalanceDelta(summary?.periodBalance, summaryPrev?.periodBalance),
@@ -273,9 +293,12 @@ export default function VisaoGeralTab({
 
   const showAccountsSetupAlert = isOwner && !hasConfiguredBankAccounts(financeConfig);
 
+  const receivablesTotal = receivables?.summary?.total ?? 0;
+
   const hasAlerts =
     mensalKpis.overdueCount > 0 ||
     pendingTxCount > 0 ||
+    receivablesTotal > 0 ||
     (modules?.finance && contractsAwaiting > 0) ||
     (financeModule && closingDivergences > 0);
 
@@ -307,9 +330,6 @@ export default function VisaoGeralTab({
     <div className="financeiro-overview">
       <header className="financeiro-overview__head">
         <div className="financeiro-overview__head-main">
-          <p className="text-small text-muted financeiro-overview__period" role="status">
-            Período: {fmtDateBr(from)} — {fmtDateBr(to)} ({monthLabel})
-          </p>
           <p className="text-small text-muted financeiro-overview__regime" role="status">
             <FinanceLabelWithHint
               hint={
@@ -329,6 +349,7 @@ export default function VisaoGeralTab({
             onClick={() => void load()}
             disabled={loading}
             aria-busy={loading}
+            aria-label="Atualizar resumo"
           >
             <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
             <span className="financeiro-overview-refresh__label">Atualizar</span>
@@ -343,8 +364,18 @@ export default function VisaoGeralTab({
         </div>
       ) : null}
 
-      <div className="financeiro-overview-grid">
-        <OverviewCard title="Saldo e movimentações" eyebrow="Caixa · mês atual">
+      {summary?.truncated ? (
+        <StatusBanner variant="warning" className="mb-3">
+          Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
+        </StatusBanner>
+      ) : null}
+
+      <div className="financeiro-overview-grid financeiro-overview-grid--hero-first">
+        <OverviewCard
+          title="Saldo e movimentações"
+          eyebrow="Caixa · mês atual"
+          className="financeiro-overview-card--hero"
+        >
           {summaryFailed ? (
             <CardLoadError message="Não foi possível carregar o saldo. Tente atualizar." />
           ) : null}
@@ -389,11 +420,14 @@ export default function VisaoGeralTab({
           </Link>
         </OverviewCard>
 
-        <OverviewCard title="Saldos por conta" eyebrow="Caixa · liquidado" className="financeiro-overview-card--wide">
-          <BankBalancesOverview academyId={academyId} />
-        </OverviewCard>
+        <ReceivablesOverviewCard
+          summary={receivables?.summary}
+          topItems={receivablesTop}
+          failed={receivablesFailed}
+          loading={loading}
+        />
 
-        <OverviewCard title="Mensalidades" eyebrow={`Referência ${monthLabel}`}>
+        <OverviewCard title="Mensalidades" eyebrow={`Referência ${monthLabel}`} className="financeiro-overview-card--pair">
           {paymentsFailed ? (
             <CardLoadError message="Não foi possível carregar as mensalidades. Tente atualizar." />
           ) : null}
@@ -428,43 +462,8 @@ export default function VisaoGeralTab({
           </Link>
         </OverviewCard>
 
-        {financeModule ? (
-          <OverviewCard title="Próximos recebimentos" eyebrow="Previsão · 30 dias">
-            {forecastFailed ? (
-              <CardLoadError message="Não foi possível carregar a previsão. Tente atualizar." />
-            ) : null}
-            <p className="financeiro-overview-forecast-total">
-              Total previsto (entradas):{' '}
-              <strong>{fmtMoneyOrUnavailable(forecastInflowTotal, forecastFailed)}</strong>
-            </p>
-            {!forecastFailed && forecastTop.length > 0 ? (
-              <ul className="financeiro-overview-list">
-                {forecastTop.map((item, idx) => (
-                  <li key={`${item.due_date}-${idx}`}>
-                    <span className="financeiro-overview-list__label">
-                      {item.student_name || item.label || 'Lançamento'}
-                    </span>
-                    <span className="financeiro-overview-list__meta">
-                      {fmtDateBr(item.due_date)} · {fmtMoney(item.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : !forecastFailed ? (
-              <p className="text-small text-muted">Nenhuma entrada prevista no período.</p>
-            ) : null}
-            <Link to="/financeiro?tab=previsao" className="btn-outline btn-sm financeiro-overview-cta">
-              Ver Previsão <ArrowRight size={14} />
-            </Link>
-          </OverviewCard>
-        ) : (
-          <OverviewCard title="Próximos recebimentos" eyebrow="Indisponível">
-            <p className="text-small text-muted">Ative o módulo financeiro para ver a previsão de caixa.</p>
-          </OverviewCard>
-        )}
-
-        <OverviewCard title="Alertas operacionais" eyebrow="Atenção">
-          <ul className="financeiro-overview-alerts">
+        <OverviewCard title="Alertas" eyebrow="Atenção" className="financeiro-overview-card--pair">
+          <ul className="financeiro-overview-alerts financeiro-overview-alerts--inline">
             {mensalKpis.overdueCount > 0 ? (
               <li>
                 <AlertCircle size={16} aria-hidden />
@@ -478,9 +477,18 @@ export default function VisaoGeralTab({
               <li>
                 <AlertCircle size={16} aria-hidden />
                 <span>
-                  <strong>{pendingTxCount}</strong> lançamento(s) pendente(s) de liquidação
+                  <strong>{pendingTxCount}</strong> lançamento(s) pendente(s)
                 </span>
                 <Link to="/financeiro?tab=movimentacoes">Ver</Link>
+              </li>
+            ) : null}
+            {!receivablesFailed && receivablesTotal > 0 ? (
+              <li>
+                <AlertCircle size={16} aria-hidden />
+                <span>
+                  <strong>{fmtMoney(receivablesTotal)}</strong> a receber nesta referência
+                </span>
+                <Link to={`/financeiro?tab=${FINANCEIRO_SECTIONS.A_RECEBER}`}>Ver</Link>
               </li>
             ) : null}
             {modules?.finance && contractsAwaiting > 0 ? (
@@ -496,8 +504,7 @@ export default function VisaoGeralTab({
               <li>
                 <AlertCircle size={16} aria-hidden />
                 <span>
-                  <strong>{closingDivergences}</strong> item(ns) com divergência na conferência de{' '}
-                  {monthLabel}
+                  <strong>{closingDivergences}</strong> divergência(s) em {monthLabel}
                 </span>
                 <Link to="/financeiro?tab=fechamento">Conferir</Link>
               </li>
@@ -507,6 +514,60 @@ export default function VisaoGeralTab({
             ) : null}
           </ul>
         </OverviewCard>
+
+        <details className="financeiro-overview-details financeiro-overview-details--banks">
+          <summary className="financeiro-overview-details__summary financeiro-overview-details__summary--mobile-only">
+            Saldos por conta
+          </summary>
+          <div className="financeiro-overview-details__body">
+            <BankBalancesOverview academyId={academyId} />
+          </div>
+        </details>
+
+        {financeModule ? (
+          <details className="financeiro-overview-details financeiro-overview-details--forecast">
+            <summary className="financeiro-overview-details__summary financeiro-overview-details__summary--mobile-only">
+              Previsão · 30 dias
+            </summary>
+            <div className="financeiro-overview-details__body">
+              {forecastFailed ? (
+                <CardLoadError message="Não foi possível carregar a previsão. Tente atualizar." />
+              ) : null}
+              <p className="financeiro-overview-forecast-total">
+                Total previsto (entradas):{' '}
+                <strong>{fmtMoneyOrUnavailable(forecastInflowTotal, forecastFailed)}</strong>
+              </p>
+              {!forecastFailed && forecastTop.length > 0 ? (
+                <ul className="financeiro-overview-list">
+                  {forecastTop.map((item, idx) => (
+                    <li key={`${item.due_date}-${idx}`}>
+                      <span className="financeiro-overview-list__label">
+                        {item.student_name || item.label || 'Lançamento'}
+                      </span>
+                      <span className="financeiro-overview-list__meta">
+                        {fmtDateBr(item.due_date)} · {fmtMoney(item.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : !forecastFailed ? (
+                <p className="text-small text-muted">Nenhuma entrada prevista no período.</p>
+              ) : null}
+              <Link to="/financeiro?tab=previsao" className="btn-outline btn-sm financeiro-overview-cta">
+                Ver Previsão <ArrowRight size={14} />
+              </Link>
+            </div>
+          </details>
+        ) : (
+          <details className="financeiro-overview-details financeiro-overview-details--forecast">
+            <summary className="financeiro-overview-details__summary financeiro-overview-details__summary--mobile-only">
+              Previsão de caixa
+            </summary>
+            <div className="financeiro-overview-details__body">
+              <p className="text-small text-muted">Ative o módulo financeiro para ver a previsão de caixa.</p>
+            </div>
+          </details>
+        )}
       </div>
 
       {isOwner ? (
