@@ -1,4 +1,137 @@
-/* Conciliação bancária — mobile */
+/* Conciliação bancária */
+
+.bank-recon-list-head {
+  flex-wrap: wrap;
+}
+
+.bank-recon-list-head__hint {
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.bank-recon-btn-icon {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.bank-recon-btn-icon--back {
+  margin-right: 4px;
+}
+
+.bank-recon-summary-title {
+  margin: 0 0 8px;
+}
+
+.bank-recon-summary-period {
+  margin: 0 0 10px;
+}
+
+.bank-recon-summary-value {
+  display: block;
+}
+
+.bank-recon-summary-value--ok {
+  color: var(--finance-color-positive);
+}
+
+.bank-recon-summary-value--warn {
+  color: var(--finance-color-pending);
+}
+
+.bank-recon-actions-head {
+  flex-wrap: wrap;
+}
+
+.bank-recon-manual-card {
+  padding: 12px;
+}
+
+.bank-recon-complete-card {
+  padding: 14px;
+}
+
+.bank-recon-complete-title {
+  margin-bottom: 8px;
+}
+
+.bank-recon-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.bank-recon-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .bank-recon-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bank-recon-col {
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: var(--surface);
+  min-height: 200px;
+}
+
+.bank-recon-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-light);
+}
+
+.bank-recon-pair--auto {
+  background: var(--finance-recon-auto-bg);
+  border-color: var(--finance-recon-auto-border);
+}
+
+.bank-recon-pair--suggested {
+  background: var(--finance-recon-suggested-bg);
+  border-color: var(--finance-recon-suggested-border);
+}
+
+.bank-recon-pair--unmatched {
+  background: var(--surface-hover);
+  grid-template-columns: 1fr auto;
+}
+
+.bank-recon-pair__title {
+  font-weight: 600;
+  font-size: var(--font-base);
+  margin: 0 0 4px;
+}
+
+.bank-recon-pair__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.bank-recon-confidence {
+  color: var(--finance-recon-confidence);
+  font-weight: 600;
+}
+
+.bank-recon-navi-row {
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+  border: 0.5px dashed var(--border-light);
+}
 
 @media (max-width: 640px) {
   .bank-recon-pair {

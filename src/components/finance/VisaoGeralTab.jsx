@@ -21,6 +21,8 @@ import { getMonthlyPayments } from '../../lib/studentPayments';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
+import FinanceTabShell from './FinanceTabShell.jsx';
+import EmptyState from '../shared/EmptyState.jsx';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 import { hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
@@ -312,9 +314,11 @@ export default function VisaoGeralTab({
 
   if (!academyId) {
     return (
-      <p className="text-small text-muted financeiro-overview__empty-academy">
-        Selecione uma academia para ver o resumo.
-      </p>
+      <EmptyState
+        variant="compact"
+        title="Selecione uma academia"
+        description="Escolha uma academia para ver o resumo financeiro."
+      />
     );
   }
 
@@ -334,43 +338,48 @@ export default function VisaoGeralTab({
     );
   }
 
-  return (
-    <div className="financeiro-overview">
-      <header className="financeiro-overview__head">
-        <div className="financeiro-overview__head-main">
-          <p className="text-small text-muted financeiro-overview__regime" role="status">
-            <FinanceLabelWithHint
-              hint={
-                regime === FINANCE_REGIME.COMPETENCE
-                  ? FINANCE_TERM_HINTS.regimeCompetence
-                  : FINANCE_TERM_HINTS.regimeCaixa
-              }
-            >
-              Régime {financeRegimeLabel(regime)}
-            </FinanceLabelWithHint>
-          </p>
-        </div>
-        <div className="financeiro-overview__head-actions">
-          <button
-            type="button"
-            className="btn-outline btn-sm financeiro-overview-refresh"
-            onClick={() => void load()}
-            disabled={loading}
-            aria-busy={loading}
-            aria-label="Atualizar resumo"
-          >
-            <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
-            <span className="financeiro-overview-refresh__label">Atualizar</span>
-          </button>
-        </div>
-      </header>
+  const refreshBtn = (
+    <button
+      type="button"
+      className="btn-outline btn-sm financeiro-overview-refresh"
+      onClick={() => void load()}
+      disabled={loading}
+      aria-busy={loading}
+      aria-label="Atualizar resumo"
+    >
+      <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
+      <span className="financeiro-overview-refresh__label">Atualizar</span>
+    </button>
+  );
 
-      {showAccountsSetupAlert ? (
-        <div className="financeiro-overview-accounts-alert" role="alert">
-          Configure ao menos uma conta de recebimento para que sua equipe consiga registrar pagamentos.{' '}
-          <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
-        </div>
-      ) : null}
+  const regimeBadge = (
+    <p className="text-small text-muted financeiro-overview__regime" role="status">
+      <FinanceLabelWithHint
+        hint={
+          regime === FINANCE_REGIME.COMPETENCE
+            ? FINANCE_TERM_HINTS.regimeCompetence
+            : FINANCE_TERM_HINTS.regimeCaixa
+        }
+      >
+        Régime {financeRegimeLabel(regime)}
+      </FinanceLabelWithHint>
+    </p>
+  );
+
+  return (
+    <FinanceTabShell
+      panelClassName="financeiro-overview"
+      badge={regimeBadge}
+      actions={refreshBtn}
+      intro={
+        showAccountsSetupAlert ? (
+          <StatusBanner variant="warning" className="finance-tab-intro">
+            Configure ao menos uma conta de recebimento para que sua equipe consiga registrar pagamentos.{' '}
+            <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
+          </StatusBanner>
+        ) : null
+      }
+    >
 
       {summary?.truncated ? (
         <StatusBanner variant="warning" className="mb-3">
@@ -555,7 +564,7 @@ export default function VisaoGeralTab({
                   ))}
                 </ul>
               ) : !forecastFailed ? (
-                <p className="text-small text-muted">Nenhuma entrada prevista no período.</p>
+                <EmptyState variant="embedded" title="Nenhuma entrada prevista no período" />
               ) : null}
               <Link to="/financeiro?tab=previsao" className="btn-outline btn-sm financeiro-overview-cta">
                 Ver Previsão <ArrowRight size={14} />
@@ -568,7 +577,11 @@ export default function VisaoGeralTab({
               Previsão de caixa
             </summary>
             <div className="financeiro-overview-details__body">
-              <p className="text-small text-muted">Ative o módulo financeiro para ver a previsão de caixa.</p>
+              <EmptyState
+                variant="embedded"
+                title="Previsão indisponível"
+                description="Ative o módulo financeiro para ver a previsão de caixa."
+              />
             </div>
           </details>
         )}
@@ -586,6 +599,6 @@ export default function VisaoGeralTab({
           <ArrowRight size={18} className="financeiro-overview-reports-card__arrow" aria-hidden />
         </Link>
       ) : null}
-    </div>
+    </FinanceTabShell>
   );
 }

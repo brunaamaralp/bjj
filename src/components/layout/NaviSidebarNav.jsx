@@ -40,6 +40,8 @@ import {
   matchNavTarget,
   NAV_ACCORDION_IDS,
   NOVA_VENDA_MENU_ACTION,
+  NOVO_LANCAMENTO_MENU_ACTION,
+  FINANCEIRO_NOVO_LANCAMENTO_PATH,
 } from '../../lib/naviMenu.js';
 
 const ICONS = {
@@ -65,6 +67,7 @@ const ICONS = {
   contabilidade: Calculator,
   vendas: Receipt,
   novaVenda: ShoppingCart,
+  novoLancamento: PlusCircle,
   produtos: Package,
   estoque: Boxes,
   relatorios: BarChart3,
@@ -187,6 +190,7 @@ function SideNavLink({
 
 /** Links diretos sob título de seção (Financeiro, Vendas) — sem accordion duplicado. */
 function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
+  const navigate = useNavigate();
   if (!items?.length) return null;
 
   return (
@@ -220,6 +224,25 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
               collapsed={collapsed}
               className={actionClassName}
               onClick={() => dispatchOpenNovaVendaModal()}
+            />
+          );
+        }
+
+        if (child.action === NOVO_LANCAMENTO_MENU_ACTION) {
+          const actionClassName = (state) =>
+            [linkClassName(state), 'navi-sidebar-link--section-action'].filter(Boolean).join(' ');
+          return (
+            <SideNavLink
+              key={child.id}
+              to={child.to || FINANCEIRO_NOVO_LANCAMENTO_PATH}
+              label={child.label}
+              Icon={Icon}
+              collapsed={collapsed}
+              className={actionClassName}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(child.to || FINANCEIRO_NOVO_LANCAMENTO_PATH);
+              }}
             />
           );
         }
@@ -417,7 +440,6 @@ export default function NaviSidebarNav({
   navRole = 'member',
   inboxUnread,
 }) {
-  const isOwner = navRole === 'owner';
   const location = useLocation();
   const navigate = useNavigate();
   const [expandedAccordionId, setExpandedAccordionId] = useState(null);
@@ -430,9 +452,10 @@ export default function NaviSidebarNav({
         pipelineLabel: labels.pipeline || 'Funil',
         navStudentsLabel,
         newLeadLabel,
-        isOwner,
+        navRole,
+        isOwner: navRole === 'owner',
       }),
-    [modules, canConfigureAgenteIa, labels.pipeline, navStudentsLabel, newLeadLabel, isOwner]
+    [modules, canConfigureAgenteIa, labels.pipeline, navStudentsLabel, newLeadLabel, navRole]
   );
 
   useEffect(() => {

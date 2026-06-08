@@ -424,13 +424,7 @@ export default function Caixa() {
           className="navi-page-header--flush navi-hub-page__head"
           title="Financeiro"
           subtitle="Controle entradas, saídas e fechamentos."
-          meta={
-            activeTab === 'movimentacoes' ||
-            activeTab === 'fechamento' ||
-            activeTab === FINANCEIRO_SECTIONS.A_RECEBER
-              ? undefined
-              : `${subtitle}${academyName ? ` · ${academyName}` : ''}`
-          }
+          meta={`${subtitle}${academyName ? ` · ${academyName}` : ''}`}
           actions={
             <FinanceMonthPicker
               value={referenceMonth}
@@ -452,8 +446,7 @@ export default function Caixa() {
 
         />
 
-
-
+        <div className="navi-hub-page__body">
         {activeTab === FINANCEIRO_SECTIONS.OVERVIEW && academyId ? (
           <div
             role="tabpanel"
@@ -496,33 +489,6 @@ export default function Caixa() {
             id="finance-tabpanel-movimentacoes"
             aria-labelledby="finance-tabpanel-tab-movimentacoes"
           >
-            <div
-              className="card finance-period-balance"
-              role="status"
-              title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
-            >
-              <div className="flex justify-between items-center gap-2 finance-period-balance__row">
-                <div>
-                  <p className="text-small text-muted finance-period-balance__label">
-                    Saldo do período (entradas liquidadas − saídas)
-                  </p>
-                  <p className="navi-section-heading finance-period-balance__value">
-                    {summaryLoading
-                      ? '…'
-                      : periodBalance != null
-                        ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                          })
-                        : '—'}
-                  </p>
-                </div>
-                <p className="text-small text-muted finance-period-balance__hint">
-                  Atualiza com o período De/Até em Lançamentos.
-                </p>
-              </div>
-            </div>
-
             <TransacoesTab
               academyId={academyId}
               financeConfig={financeConfig}
@@ -534,6 +500,8 @@ export default function Caixa() {
               periodTo={periodTo}
               onPeriodFiltersChange={handlePeriodFiltersChange}
               onTxMutated={loadPeriodSummary}
+              periodBalance={periodBalance}
+              periodBalanceLoading={summaryLoading}
             />
           </div>
         ) : null}
@@ -584,6 +552,7 @@ export default function Caixa() {
             <CaixaAccountingPanel scope="operational" isOwner={isOwner} />
           </div>
         ) : null}
+        </div>
 
       </div>
 

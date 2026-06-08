@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { FINANCE_TX_LIST_PAGE_SIZE } from '../../lib/financeListLimits.js';
@@ -64,6 +65,7 @@ import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
+import FinanceTabShell from './FinanceTabShell.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import {
   listBankAccountLabels,
@@ -176,9 +178,12 @@ export default function TransacoesTab({
   periodTo = '',
   onPeriodFiltersChange,
   onTxMutated,
+  periodBalance = null,
+  periodBalanceLoading = false,
 }) {
   const leads = useStudentStore((s) => s.students);
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canManageAdvanced = isOwner || isAdmin;
   const [fromDate, setFromDate] = useState(periodFrom);
   const [toDate, setToDate] = useState(periodTo);
@@ -281,6 +286,27 @@ export default function TransacoesTab({
     bankAccount: '',
     ...defaultRecurrenceForm(),
   });
+
+  const openNewTxModal = useCallback(() => {
+    setEditingTxId('');
+    setEditPreservedSaleId('');
+    setReceiveNow(false);
+    setTxForm({
+      ...initialTxForm(),
+      bankAccount: resolveBankAccountForPayment('', financeConfig),
+    });
+    setStudentQuery('');
+    setStudentPickerOpen(false);
+    setShowTxModal(true);
+  }, [financeConfig]);
+
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    openNewTxModal();
+    const next = new URLSearchParams(searchParams);
+    next.delete('new');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, openNewTxModal]);
 
   const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
 
@@ -852,10 +878,33 @@ export default function TransacoesTab({
     }
   };
 
+  const periodBalanceKpi = (
+    <div
+      className="finance-kpi finance-kpi--hero finance-period-balance"
+      role="status"
+      title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+    >
+      <p className="finance-kpi__label">Saldo do período (entradas liquidadas − saídas)</p>
+      <p className="finance-kpi__value finance-period-balance__value">
+        {periodBalanceLoading
+          ? '…'
+          : periodBalance != null
+            ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              })
+            : '—'}
+      </p>
+      <p className="finance-kpi__hint">Atualiza com o período De/Até abaixo.</p>
+    </div>
+  );
+
   return (
     <>
-      <section className="mt-4 animate-in finance-tx-section">
-        <h3 className="navi-section-heading mb-2">Lançamentos</h3>
+      <FinanceTabShell
+        panelClassName="finance-tx-section"
+        kpiStrip={periodBalanceKpi}
+      >
         {academyId ? (
           <div className="mb-3">
             <BankBalancesOverview
@@ -1047,18 +1096,7 @@ export default function TransacoesTab({
               <button
                 type="button"
                 className="btn-primary navi-btn--toolbar finance-tx-toolbar__cta"
-                onClick={() => {
-                  setEditingTxId('');
-                  setEditPreservedSaleId('');
-                  setReceiveNow(false);
-                  setTxForm({
-                    ...initialTxForm(),
-                    bankAccount: resolveBankAccountForPayment('', financeConfig),
-                  });
-                  setStudentQuery('');
-                  setStudentPickerOpen(false);
-                  setShowTxModal(true);
-                }}
+                onClick={openNewTxModal}
               >
                 + Nova transação
               </button>
@@ -1438,7 +1476,7 @@ export default function TransacoesTab({
             </p>
           ) : null}
         </div>
-      </section>
+      </FinanceTabShell>
 
       {showTxModal && typeof document !== 'undefined'
         ? createPortal(
@@ -1854,11 +1892,11 @@ export default function TransacoesTab({
           </div>
         }
       >
-        <p className="text-small text-muted" style={{ marginBottom: 12 }}>
+        <p className="text-small text-muted mb-3">
           Ajusta apenas a conta do lançamento liquidado. Valores e datas não são alterados.
         </p>
         {assignBankTx ? (
-          <p className="text-small" style={{ marginBottom: 12 }}>
+          <p className="text-small mb-3">
             <strong>{formatTxDateStr(txTemporalIso(assignBankTx))}</strong>
             {' · '}
             {formatSignedMoney(displayGross(assignBankTx), txDirection(assignBankTx))}

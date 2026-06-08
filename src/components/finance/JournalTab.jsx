@@ -15,6 +15,7 @@ export default function JournalTab({
   addEntry,
   deleteEntry,
   sectionTitle = 'Lançamentos contábeis',
+  embedded = false,
 }) {
   const [date, setDate] = useState('');
   const [memo, setMemo] = useState('');
@@ -146,19 +147,28 @@ export default function JournalTab({
 
   const hasActiveFilters = Boolean(search || fromDate || toDate || direction !== 'all');
 
+  const Wrapper = embedded ? 'div' : 'section';
+  const wrapperClass = embedded ? 'finance-journal-embedded' : 'finance-tab-panel animate-in';
+
   return (
-    <section className="mt-4 animate-in">
-      <div className="finance-journal-head">
-        <div className="finance-journal-head-icon" aria-hidden>
-          <Receipt size={22} strokeWidth={1.75} />
+    <Wrapper className={wrapperClass}>
+      {!embedded ? (
+        <div className="finance-journal-head">
+          <div className="finance-journal-head-icon" aria-hidden>
+            <Receipt size={22} strokeWidth={1.75} />
+          </div>
+          <div className="finance-journal-head-content">
+            <h3 className="navi-section-heading finance-journal-head-title">{sectionTitle}</h3>
+            <p className="finance-journal-lead">
+              Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
+            </p>
+          </div>
         </div>
-        <div className="finance-journal-head-content">
-          <h3 className="navi-section-heading finance-journal-head-title">{sectionTitle}</h3>
-          <p className="finance-journal-lead">
-            Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
-          </p>
-        </div>
-      </div>
+      ) : (
+        <p className="text-small text-muted finance-journal-lead finance-journal-lead--embedded">
+          Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
+        </p>
+      )}
 
       <div className="finance-journal-panel">
         <p className="finance-journal-panel-title">Novo lançamento</p>
@@ -411,6 +421,6 @@ export default function JournalTab({
           setPendingDeleteEntry(null);
         }}
       />
-    </section>
+    </Wrapper>
   );
 }

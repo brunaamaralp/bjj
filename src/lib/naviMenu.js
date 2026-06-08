@@ -190,6 +190,8 @@ export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
 }
 
 export const NOVA_VENDA_MENU_ACTION = 'openNovaVendaModal';
+export const NOVO_LANCAMENTO_MENU_ACTION = 'openNovoLancamento';
+export const FINANCEIRO_NOVO_LANCAMENTO_PATH = `${FINANCEIRO_HUB_PATH}?tab=movimentacoes&new=1`;
 
 export function buildLojaAccordion({ modules }) {
   const children = [];
@@ -218,18 +220,41 @@ export function buildLojaAccordion({ modules }) {
   };
 }
 
+function isFinanceiroManagerNavRole(navRole) {
+  return navRole === 'owner' || navRole === 'admin';
+}
+
 /**
  * Accordion do hub Financeiro (/financeiro).
- * @param {{ isOwner?: boolean, financeModule?: boolean }} opts
+ * Sidebar: atalhos do dia a dia. Abas avançadas (previsão, conciliação, extrato…) ficam no HubTabBar da página.
+ * @param {{ navRole?: string, isOwner?: boolean, financeModule?: boolean }} opts
  */
-export function buildFinanceiroAccordion({ isOwner = true, financeModule = true } = {}) {
+export function buildFinanceiroAccordion({
+  navRole,
+  isOwner = true,
+  financeModule = true,
+} = {}) {
+  const role = navRole || (isOwner ? 'owner' : 'member');
   const children = [
     {
+      id: 'novo-lancamento',
+      label: 'Novo lançamento',
+      iconKey: 'novoLancamento',
+      action: NOVO_LANCAMENTO_MENU_ACTION,
+      to: FINANCEIRO_NOVO_LANCAMENTO_PATH,
+    },
+  ];
+
+  if (isFinanceiroManagerNavRole(role)) {
+    children.push({
       id: 'visao-geral',
       label: 'Visão Geral',
       to: `${FINANCEIRO_HUB_PATH}?tab=${FINANCEIRO_SECTIONS.OVERVIEW}`,
       iconKey: 'visaoGeralFinanceiro',
-    },
+    });
+  }
+
+  children.push(
     {
       id: 'a-receber',
       label: 'A receber',
@@ -243,47 +268,8 @@ export function buildFinanceiroAccordion({ isOwner = true, financeModule = true 
       label: 'Lançamentos',
       to: `${FINANCEIRO_HUB_PATH}?tab=movimentacoes`,
       iconKey: 'movimentacoes',
-      group: FINANCEIRO_NAV_GROUP_OPERACOES,
-    },
-  ];
-
-  if (financeModule) {
-    children.push(
-      {
-        id: 'previsao',
-        label: 'Previsão',
-        to: `${FINANCEIRO_HUB_PATH}?tab=previsao`,
-        iconKey: 'previsao',
-        group: FINANCEIRO_NAV_GROUP_OPERACOES,
-      },
-      {
-        id: 'fechamento',
-        label: 'Conferência do mês',
-        to: `${FINANCEIRO_HUB_PATH}?tab=fechamento`,
-        iconKey: 'fechamento',
-        group: FINANCEIRO_NAV_GROUP_OPERACOES,
-      }
-    );
-  }
-
-  if (isOwner && financeModule) {
-    children.push(
-      {
-        id: 'conciliacao',
-        label: 'Conciliação',
-        to: `${FINANCEIRO_HUB_PATH}?tab=conciliacao`,
-        iconKey: 'conciliacao',
-        group: FINANCEIRO_NAV_GROUP_OPERACOES,
-      },
-      {
-        id: 'extrato',
-        label: 'Extrato contábil',
-        to: `${FINANCEIRO_HUB_PATH}?tab=extrato`,
-        iconKey: 'extratoContabil',
-        group: FINANCEIRO_NAV_GROUP_OPERACOES,
-      }
-    );
-  }
+    }
+  );
 
   return {
     id: NAV_ACCORDION_IDS.FINANCEIRO,
@@ -317,6 +303,7 @@ export function buildSidebarNavModel({
   pipelineLabel = 'Funil',
   navStudentsLabel = 'Alunos',
   newLeadLabel,
+  navRole,
   isOwner = true,
 }) {
   const accordions = [];
@@ -325,7 +312,11 @@ export function buildSidebarNavModel({
 
   if (modules.finance === true) {
     accordions.push(
-      buildFinanceiroAccordion({ isOwner, financeModule: modules.finance === true })
+      buildFinanceiroAccordion({
+        navRole: navRole || (isOwner ? 'owner' : 'member'),
+        isOwner,
+        financeModule: modules.finance === true,
+      })
     );
   }
 
@@ -408,6 +399,7 @@ export function buildMobileDrawerSections(opts) {
     pipelineLabel: opts.pipelineLabel,
     navStudentsLabel: opts.navStudentsLabel || 'Alunos',
     newLeadLabel: null,
+    navRole: opts.navRole,
     isOwner: opts.isOwner !== false,
   });
   const flat = flattenNavItemsForMobile(model);
@@ -418,10 +410,12 @@ export function buildMobileDrawerSections(opts) {
       sections.push({ title, items: [] });
     }
     sections[sections.length - 1].items.push({
-      to: row.to.split('?')[0],
+      id: row.id,
+      to: String(row.to || '').split('?')[0],
       toFull: row.to,
       label: row.label,
       iconKey: row.iconKey,
+      action: row.action,
     });
   }
   return sections;

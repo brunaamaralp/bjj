@@ -265,6 +265,7 @@ const App = () => {
         pipelineLabel: labels.pipeline || 'Funil',
         navStudentsLabel,
         newLeadLabel,
+        navRole,
         isOwner: navRole === 'owner',
       }),
     [

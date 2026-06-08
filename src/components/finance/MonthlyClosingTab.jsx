@@ -19,6 +19,7 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
+import FinanceTabShell from './FinanceTabShell.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
 import {
   buildClosingRows,
@@ -440,46 +441,52 @@ export default function MonthlyClosingTab({
     });
   }, [cashClosing?.closed_at]);
 
+  const closingBadge = (
+    <div className="monthly-closing-status-badge">
+      {cashClosing ? (
+        <>
+          <CheckCircle size={14} aria-hidden />
+          <span>Conferido em {cashClosingLabel}</span>
+        </>
+      ) : (
+        <>
+          <Clock size={14} aria-hidden />
+          <span>Não conferido</span>
+        </>
+      )}
+    </div>
+  );
+
+  const headActions = (
+    <>
+      <button type="button" className="btn-outline btn-sm" onClick={handleExport} disabled={!sortedRows.length}>
+        <Download size={14} className="monthly-closing-btn-icon" aria-hidden />
+        Exportar CSV
+      </button>
+      {canRegisterClosing ? (
+        <button
+          type="button"
+          className="btn-outline btn-sm"
+          onClick={() => setShowRegisterDialog(true)}
+          disabled={Boolean(cashClosing) || savingClosing}
+        >
+          Marcar mês como conferido
+        </button>
+      ) : null}
+      <button type="button" className="btn-secondary btn-sm" onClick={() => setShowManual((v) => !v)}>
+        <Plus size={14} className="monthly-closing-btn-icon--sm" aria-hidden />
+        Lançar recebimento
+      </button>
+    </>
+  );
+
   return (
-    <section className="mt-4 animate-in monthly-closing-tab">
-      <div className="monthly-closing-tab__head">
-        <div className="monthly-closing-tab__head-main">
-          <h3 className="navi-section-heading monthly-closing-tab__head-title">Conferência do mês</h3>
-          <div className="monthly-closing-status-badge">
-            {cashClosing ? (
-              <>
-                <CheckCircle size={14} aria-hidden />
-                <span>Conferido em {cashClosingLabel}</span>
-              </>
-            ) : (
-              <>
-                <Clock size={14} aria-hidden />
-                <span>Não conferido</span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="monthly-closing-tab__head-actions">
-          <button type="button" className="btn-outline btn-sm" onClick={handleExport} disabled={!sortedRows.length}>
-            <Download size={14} className="monthly-closing-btn-icon" aria-hidden />
-            Exportar CSV
-          </button>
-          {canRegisterClosing ? (
-            <button
-              type="button"
-              className="btn-outline btn-sm"
-              onClick={() => setShowRegisterDialog(true)}
-              disabled={Boolean(cashClosing) || savingClosing}
-            >
-              Marcar mês como conferido
-            </button>
-          ) : null}
-          <button type="button" className="btn-secondary btn-sm" onClick={() => setShowManual((v) => !v)}>
-            <Plus size={14} className="monthly-closing-btn-icon--sm" aria-hidden />
-            Lançar recebimento
-          </button>
-        </div>
-      </div>
+    <FinanceTabShell
+      panelClassName="monthly-closing-tab"
+      title="Conferência do mês"
+      badge={closingBadge}
+      actions={headActions}
+    >
 
       {cashClosing ? (
         <p className="text-small monthly-closing-dre-hint" role="status">
@@ -620,26 +627,22 @@ export default function MonthlyClosingTab({
         </div>
       ) : null}
 
-      <div className="monthly-closing-kpis">
-        <div className="card monthly-closing-kpi">
-          <div className="monthly-closing-kpi__value">{fmtMoney(totals.expected)}</div>
-          <div className="text-xs text-muted">Total esperado</div>
+      <div className="finance-kpi-strip monthly-closing-kpis">
+        <div className="finance-kpi">
+          <p className="finance-kpi__label">Total esperado</p>
+          <p className="finance-kpi__value">{fmtMoney(totals.expected)}</p>
         </div>
-        <div className="card monthly-closing-kpi">
-          <div className="monthly-closing-kpi__value monthly-closing-kpi__value--positive">
-            {fmtMoney(totals.received)}
-          </div>
-          <div className="text-xs text-muted">Total recebido</div>
+        <div className="finance-kpi">
+          <p className="finance-kpi__label">Total recebido</p>
+          <p className="finance-kpi__value finance-value-positive">{fmtMoney(totals.received)}</p>
         </div>
-        <div className="card monthly-closing-kpi">
-          <div className="monthly-closing-kpi__value monthly-closing-kpi__value--negative">
-            {fmtMoney(totals.pending)}
-          </div>
-          <div className="text-xs text-muted">Total pendente</div>
+        <div className="finance-kpi">
+          <p className="finance-kpi__label">Total pendente</p>
+          <p className="finance-kpi__value finance-value-negative">{fmtMoney(totals.pending)}</p>
         </div>
-        <div className="card monthly-closing-kpi monthly-closing-kpi--wide">
-          <div className="text-xs text-muted monthly-closing-kpi__methods-label">Por forma de pagamento</div>
-          <div className="text-small monthly-closing-kpi__methods">
+        <div className="finance-kpi monthly-closing-kpi--wide">
+          <p className="finance-kpi__label">Por forma de pagamento</p>
+          <p className="finance-kpi__hint monthly-closing-kpi__methods">
             {totals.byMethod.length === 0
               ? '—'
               : totals.byMethod.map((m, i) => (
@@ -648,7 +651,7 @@ export default function MonthlyClosingTab({
                     {m.label} {fmtMoney(m.amount)}
                   </span>
                 ))}
-          </div>
+          </p>
         </div>
       </div>
 
@@ -909,6 +912,6 @@ export default function MonthlyClosingTab({
           if (!savingClosing) setShowRegisterDialog(false);
         }}
       />
-    </section>
+    </FinanceTabShell>
   );
 }

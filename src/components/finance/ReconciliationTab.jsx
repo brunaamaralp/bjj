@@ -16,6 +16,9 @@ import { reconcileStudentPaymentMirrors } from '../../lib/financeTxApi.js';
 import { friendlyError } from '../../lib/errorMessages';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
+import EmptyState from '../shared/EmptyState.jsx';
+import FinanceTabShell from './FinanceTabShell.jsx';
 
 function fmtMoney(v) {
   try {
@@ -200,33 +203,42 @@ export default function ReconciliationTab({ academyId }) {
   if (!academyId) return null;
 
   if (!selectedId) {
+    const listActions = (
+      <>
+        <button type="button" className="btn-primary btn-sm" onClick={() => setShowImport(true)}>
+          <Upload size={16} className="bank-recon-btn-icon" />
+          Importar extrato
+        </button>
+        <button
+          type="button"
+          className="btn-outline btn-sm"
+          disabled={mirrorReconcileBusy}
+          onClick={() => {
+            setMirrorReconcileBusy(true);
+            setMirrorReconcileResult(null);
+            void reconcileStudentPaymentMirrors(academyId)
+              .then((r) => setMirrorReconcileResult(r))
+              .catch((e) => setError(String(e?.message || e)))
+              .finally(() => setMirrorReconcileBusy(false));
+          }}
+        >
+          {mirrorReconcileBusy ? 'Verificando…' : 'Verificar espelhos'}
+        </button>
+      </>
+    );
+
     return (
-      <section className="mt-4 bank-recon">
-        <StatusBanner variant="info" className="finance-tab-intro">
-          Importe o extrato do banco (OFX ou CSV), confira sugestões automáticas e vincule cada linha a um lançamento
-          do Caixa. Itens sem correspondência podem gerar um novo lançamento ou ser ignorados.
-        </StatusBanner>
-        <div className="flex justify-between items-center gap-2 mb-3 bank-recon-list-head">
-          <button type="button" className="btn-primary" onClick={() => setShowImport(true)}>
-            <Upload size={16} className="bank-recon-btn-icon" />
-            Importar extrato
-          </button>
-          <button
-            type="button"
-            className="btn-outline btn-sm"
-            disabled={mirrorReconcileBusy}
-            onClick={() => {
-              setMirrorReconcileBusy(true);
-              setMirrorReconcileResult(null);
-              void reconcileStudentPaymentMirrors(academyId)
-                .then((r) => setMirrorReconcileResult(r))
-                .catch((e) => setError(String(e?.message || e)))
-                .finally(() => setMirrorReconcileBusy(false));
-            }}
-          >
-            {mirrorReconcileBusy ? 'Verificando…' : 'Verificar espelhos mensalidade → Caixa'}
-          </button>
-        </div>
+      <FinanceTabShell
+        panelClassName="bank-recon"
+        title="Conciliação"
+        actions={listActions}
+        intro={
+          <StatusBanner variant="info" className="finance-tab-intro">
+            Importe o extrato do banco (OFX ou CSV), confira sugestões automáticas e vincule cada linha a um lançamento
+            do Caixa. Itens sem correspondência podem gerar um novo lançamento ou ser ignorados.
+          </StatusBanner>
+        }
+      >
 
         {mirrorReconcileResult ? (
           <StatusBanner variant={mirrorReconcileResult.failed > 0 ? 'warning' : 'success'} className="mb-3">
@@ -243,12 +255,18 @@ export default function ReconciliationTab({ academyId }) {
         ) : null}
 
         {loading ? <PageSkeleton variant="table" rows={4} columns={5} /> : null}
-        {error ? <p className="text-small bank-recon-error">{error}</p> : null}
+        {error ? (
+          <ErrorBanner message={error} onRetry={() => void loadList()} className="mb-3" />
+        ) : null}
 
-        {!loading && statements.length === 0 ? (
-          <div className="card bank-recon-empty-card">
-            <p className="text-muted">Nenhum extrato importado ainda.</p>
-          </div>
+        {!loading && statements.length === 0 && !error ? (
+          <EmptyState
+            variant="compact"
+            icon={Upload}
+            title="Nenhum extrato importado ainda"
+            description="Importe um arquivo OFX ou CSV do seu banco para começar a conciliar."
+            primaryAction={{ label: 'Importar extrato', onClick: () => setShowImport(true) }}
+          />
         ) : null}
 
         {!loading && statements.length > 0 ? (
@@ -298,7 +316,7 @@ export default function ReconciliationTab({ academyId }) {
           onClose={() => setShowImport(false)}
           onImported={onImported}
         />
-      </section>
+      </FinanceTabShell>
     );
   }
 
@@ -308,7 +326,7 @@ export default function ReconciliationTab({ academyId }) {
   const st = detail?.statement;
 
   return (
-    <section className="mt-4 bank-recon">
+    <FinanceTabShell panelClassName="bank-recon">
       <button type="button" className="btn-outline btn-sm mb-3" onClick={() => setSelectedId('')}>
         <ArrowLeft size={14} className="bank-recon-btn-icon bank-recon-btn-icon--back" />
         Voltar aos extratos
@@ -319,7 +337,7 @@ export default function ReconciliationTab({ academyId }) {
       {st && !detailLoading ? (
         <>
           <div className="card bank-recon-summary mb-3" role="status">
-            <h4 className="funil-section-subheading bank-recon-summary-title">
+            <h4 className="finance-tab__section-title bank-recon-summary-title">
               {st.filename} · {STATUS_LABELS[st.status] || st.status}
             </h4>
             <p className="text-small text-muted bank-recon-summary-period">
@@ -390,7 +408,7 @@ export default function ReconciliationTab({ academyId }) {
 
           <div className="bank-recon-columns">
             <div className="bank-recon-col">
-              <h4 className="funil-section-subheading">Extrato bancário</h4>
+              <h4 className="finance-tab__section-title">Extrato bancário</h4>
 
               {grouped.auto.length > 0 ? (
                 <p className="text-xs text-muted mb-2">Já conciliados</p>
@@ -466,7 +484,7 @@ export default function ReconciliationTab({ academyId }) {
             </div>
 
             <div className="bank-recon-col">
-              <h4 className="funil-section-subheading">Lançamentos Nave</h4>
+              <h4 className="finance-tab__section-title">Lançamentos Nave</h4>
               <p className="text-xs text-muted mb-2">Liquidados no período ainda não conciliados</p>
               {(detail.navi_unmatched || []).length === 0 ? (
                 <p className="text-small text-muted">Nenhum lançamento pendente de conferência.</p>
@@ -535,7 +553,7 @@ export default function ReconciliationTab({ academyId }) {
 
           {st.status !== 'reconciled' ? (
             <div className="card mt-4 bank-recon-complete-card">
-              <h4 className="funil-section-subheading bank-recon-complete-title">
+              <h4 className="finance-tab__section-title bank-recon-complete-title">
                 Finalizar conciliação
               </h4>
               <textarea
@@ -565,7 +583,9 @@ export default function ReconciliationTab({ academyId }) {
         </>
       ) : null}
 
-      {error ? <p className="text-small mt-2 bank-recon-error">{error}</p> : null}
-    </section>
+      {error ? (
+        <ErrorBanner message={error} onRetry={() => void loadDetail(selectedId)} className="mt-2" />
+      ) : null}
+    </FinanceTabShell>
   );
 }

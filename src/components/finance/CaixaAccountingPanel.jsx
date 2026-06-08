@@ -11,6 +11,8 @@ import ImportFinanceModal from './ImportFinanceModal.jsx';
 import { useTerms } from '../../lib/terminology.js';
 import { exportAccountsCsv } from '../../lib/exportAccountsCsv.js';
 import StatusBanner from '../shared/StatusBanner.jsx';
+import EmptyState from '../shared/EmptyState.jsx';
+import FinanceTabShell from './FinanceTabShell.jsx';
 
 const defaultFinanceConfig = () => ({
   cardFees: {
@@ -159,9 +161,11 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
 
   if (!String(academyId || '').trim()) {
     return (
-      <div className="finance-accounting-empty">
-        Selecione uma {terms.workspaceNoun} para visualizar os dados.
-      </div>
+      <EmptyState
+        variant="compact"
+        title={`Selecione uma ${terms.workspaceNoun}`}
+        description="Escolha uma academia para visualizar o extrato contábil."
+      />
     );
   }
 
@@ -199,11 +203,16 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
         </section>
       ) : null}
       {showExtrato ? (
-        <section id="finance-extrato" className="finance-config-section finance-config-section--accounting">
-          <StatusBanner variant="info" className="finance-tab-intro">
-            Visão contábil por conta: lançamentos gerados pelo Caixa e por mensalidades aparecem aqui conforme o plano
-            de contas. Para operação do dia a dia, use Caixa e Mensalidades.
-          </StatusBanner>
+        <FinanceTabShell
+          panelClassName="finance-extrato-panel"
+          title="Extrato contábil"
+          intro={
+            <StatusBanner variant="info" className="finance-tab-intro">
+              Visão contábil por conta: lançamentos gerados pelo Caixa e por mensalidades aparecem aqui conforme o plano
+              de contas. Para operação do dia a dia, use Lançamentos e A receber.
+            </StatusBanner>
+          }
+        >
           <JournalTab
             academyId={academyId}
             accounts={accounts}
@@ -212,8 +221,9 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
             addEntry={addEntry}
             deleteEntry={deleteEntry}
             sectionTitle="Extrato por conta"
+            embedded
           />
-        </section>
+        </FinanceTabShell>
       ) : null}
       {showPlano ? (
         <ImportFinanceModal

@@ -6,6 +6,7 @@ import {
   GraduationCap,
   CheckSquare,
   PlusCircle,
+  ArrowLeftRight,
   MessageCircle,
   Zap,
   Landmark,
@@ -13,7 +14,6 @@ import {
   BarChart3,
   Receipt,
   ShoppingCart,
-  ArrowLeftRight,
   TrendingUp,
   Lock,
   Scale,
@@ -22,7 +22,12 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { isSidebarNavItemActive, NOVA_VENDA_MENU_ACTION } from '../../lib/naviMenu.js';
+import {
+  isSidebarNavItemActive,
+  NOVA_VENDA_MENU_ACTION,
+  NOVO_LANCAMENTO_MENU_ACTION,
+  FINANCEIRO_NOVO_LANCAMENTO_PATH,
+} from '../../lib/naviMenu.js';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 
 const ICONS = {
@@ -45,6 +50,7 @@ const ICONS = {
   reports: BarChart3,
   relatorios: BarChart3,
   vendas: Receipt,
+  novoLancamento: PlusCircle,
 };
 
 const PIPELINE_PATH = '/pipeline';
@@ -70,6 +76,11 @@ export default function NaviMobileDrawer({
   const handleNovaVenda = () => {
     onClose();
     dispatchOpenNovaVendaModal();
+  };
+
+  const handleNovoLancamento = () => {
+    onClose();
+    navigate(FINANCEIRO_NOVO_LANCAMENTO_PATH);
   };
 
   return (
@@ -116,6 +127,19 @@ export default function NaviMobileDrawer({
                         type="button"
                         className="navi-mobile-drawer__link navi-mobile-drawer__link--section-action"
                         onClick={handleNovaVenda}
+                      >
+                        <Icon size={20} strokeWidth={1.75} aria-hidden />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  }
+                  if (item.action === NOVO_LANCAMENTO_MENU_ACTION) {
+                    return (
+                      <button
+                        key={`${item.id}-${item.label}`}
+                        type="button"
+                        className="navi-mobile-drawer__link navi-mobile-drawer__link--section-action"
+                        onClick={handleNovoLancamento}
                       >
                         <Icon size={20} strokeWidth={1.75} aria-hidden />
                         <span>{item.label}</span>

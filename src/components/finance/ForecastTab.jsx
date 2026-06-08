@@ -19,7 +19,10 @@ import {
 } from '../../lib/financeForecastCore.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import EmptyState from '../shared/EmptyState.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import FinanceFiltersBar from './FinanceFiltersBar.jsx';
+import FinanceTabShell from './FinanceTabShell.jsx';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import { buildReceivablesSearchParams, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
@@ -139,20 +142,21 @@ export default function ForecastTab({ academyId }) {
   if (!academyId) return null;
 
   return (
-    <section className="mt-4 animate-in finance-forecast">
-      <div className="card mb-3 finance-forecast-note" role="note">
-        <p className="text-small text-muted finance-forecast-note__text">
+    <FinanceTabShell
+      panelClassName="finance-forecast"
+      intro={
+        <StatusBanner variant="info" className="finance-tab-intro">
           Previsão baseada em lançamentos pendentes e mensalidades em aberto. Valores reais podem variar.
-        </p>
-      </div>
-
+        </StatusBanner>
+      }
+    >
       <FinanceFiltersBar className="finance-forecast-toolbar">
         <span className="text-small text-muted">Período:</span>
         {PRESETS.map((p) => (
           <button
             key={p.id}
             type="button"
-            className={`btn-outline btn-sm navi-btn--toolbar${preset === p.id ? ' finance-forecast-preset--active' : ''}`}
+            className={`finance-filter-pill${preset === p.id ? ' is-active' : ''}`}
             onClick={() => setPreset(p.id)}
             title={p.hint || undefined}
           >
@@ -196,61 +200,47 @@ export default function ForecastTab({ academyId }) {
             </div>
           ) : null}
           <div className="finance-forecast-body__content">
-            <div className="finance-forecast-summary">
-              <div className="card finance-forecast-summary__card">
-                <Wallet size={18} className="finance-forecast-summary__icon--primary" aria-hidden />
-                <div>
-                  <p className="text-xs text-muted">
-                    <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.realizado}>
-                      Saldo atual
-                    </FinanceLabelWithHint>
-                  </p>
-                  <p className="finance-forecast-summary__value">{fmtMoney(data.opening_balance)}</p>
-                </div>
+            <div className="finance-kpi-strip finance-forecast-summary">
+              <div className="finance-kpi finance-kpi--hero">
+                <p className="finance-kpi__label">
+                  <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.realizado}>
+                    Saldo atual
+                  </FinanceLabelWithHint>
+                </p>
+                <p className="finance-kpi__value">{fmtMoney(data.opening_balance)}</p>
               </div>
-              <div className="card finance-forecast-summary__card">
-                <TrendingUp size={18} className="finance-forecast-summary__value--positive" aria-hidden />
-                <div>
-                  <p className="text-xs text-muted">Entradas previstas</p>
-                  <p className="finance-forecast-summary__value finance-forecast-summary__value--positive">
-                    {fmtMoney(summary.expected_inflow)}
-                  </p>
-                </div>
+              <div className="finance-kpi">
+                <p className="finance-kpi__label">Entradas previstas</p>
+                <p className="finance-kpi__value finance-value-positive">{fmtMoney(summary.expected_inflow)}</p>
               </div>
-              <div className="card finance-forecast-summary__card">
-                <TrendingDown size={18} className="finance-forecast-summary__value--negative" aria-hidden />
-                <div>
-                  <p className="text-xs text-muted">Saídas previstas</p>
-                  <p className="finance-forecast-summary__value finance-forecast-summary__value--negative">
-                    {fmtMoney(summary.expected_outflow)}
-                  </p>
-                </div>
+              <div className="finance-kpi">
+                <p className="finance-kpi__label">Saídas previstas</p>
+                <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.expected_outflow)}</p>
               </div>
-              <div className="card finance-forecast-summary__card">
-                <Wallet size={18} aria-hidden />
-                <div>
-                  <p className="text-xs text-muted">
-                    <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.projetado}>
-                      Saldo projetado
-                    </FinanceLabelWithHint>
-                  </p>
-                  <p
-                    className={`finance-forecast-summary__value ${
-                      projectedPositive
-                        ? 'finance-forecast-summary__value--positive'
-                        : 'finance-forecast-summary__value--negative'
-                    }`}
-                  >
-                    {fmtMoney(projected)}
-                  </p>
-                </div>
+              <div className="finance-kpi">
+                <p className="finance-kpi__label">
+                  <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.projetado}>
+                    Saldo projetado
+                  </FinanceLabelWithHint>
+                </p>
+                <p
+                  className={`finance-kpi__value ${
+                    projectedPositive ? 'finance-value-positive' : 'finance-value-negative'
+                  }`}
+                >
+                  {fmtMoney(projected)}
+                </p>
               </div>
             </div>
 
-            <div className="card finance-forecast-chart-card mb-3">
-              <h4 className="funil-section-subheading finance-forecast-chart-title">Fluxo semanal</h4>
+            <div className="finance-card finance-forecast-chart-card mb-3">
+              <h4 className="finance-tab__section-title finance-forecast-chart-title">Fluxo semanal</h4>
               {chartRows.length === 0 ? (
-                <p className="text-small text-muted">Nenhuma movimentação prevista no período.</p>
+                <EmptyState
+                  variant="embedded"
+                  title="Nenhuma movimentação prevista no período"
+                  description="Ajuste o período ou aguarde novos lançamentos e mensalidades em aberto."
+                />
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <ComposedChart data={chartRows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
@@ -327,10 +317,10 @@ export default function ForecastTab({ academyId }) {
 
             <div className="finance-forecast-weeks">
               {(data.weeks || []).map((week) => (
-                <div key={week.week_start} className="card finance-forecast-week">
+                <div key={week.week_start} className="finance-card finance-forecast-week">
                   <div className="finance-forecast-week__head">
                     <div>
-                      <p className="funil-section-subheading finance-forecast-week__title">
+                      <p className="finance-tab__section-title finance-forecast-week__title">
                         {fmtDateBr(week.week_start)} — {fmtDateBr(week.week_end)}
                       </p>
                       <p className="text-xs text-muted finance-forecast-week__subtitle">
@@ -355,9 +345,10 @@ export default function ForecastTab({ academyId }) {
                     </div>
                   </div>
                   {week.items.length === 0 ? (
-                    <p className="text-small text-muted finance-forecast-week__empty">
-                      Sem movimentações previstas nesta semana.
-                    </p>
+                    <EmptyState
+                      variant="bare"
+                      title="Sem movimentações previstas nesta semana"
+                    />
                   ) : (
                     <ul className="finance-forecast-week__list">
                       {week.items.map((item, idx) => (
@@ -419,6 +410,6 @@ export default function ForecastTab({ academyId }) {
           </div>
         </div>
       ) : null}
-    </section>
+    </FinanceTabShell>
   );
 }

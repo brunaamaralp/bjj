@@ -10,7 +10,9 @@ import {
   isAccordionChildActive,
   NAV_ACCORDION_IDS,
   NOVA_VENDA_MENU_ACTION,
+  NOVO_LANCAMENTO_MENU_ACTION,
   buildLojaAccordion,
+  buildFinanceiroAccordion,
 } from '../lib/naviMenu.js';
 
 describe('naviMenu', () => {
@@ -115,10 +117,17 @@ describe('naviMenu', () => {
     expect(financeiro.label).toBe('Financeiro');
     expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
     expect(financeiro.children.some((c) => c.id === 'a-receber')).toBe(true);
-    expect(financeiro.children.some((c) => c.group === 'Operações' && c.id === 'movimentacoes')).toBe(true);
-    expect(financeiro.children.some((c) => c.group === 'Contabilidade' && c.id === 'plano')).toBe(false);
-    expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(false);
+    expect(financeiro.children[0]).toMatchObject({
+      id: 'novo-lancamento',
+      label: 'Novo lançamento',
+      action: NOVO_LANCAMENTO_MENU_ACTION,
+    });
+    expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
     expect(financeiro.children.some((c) => c.id === 'movimentacoes' && c.label === 'Lançamentos')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'previsao')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'fechamento')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'conciliacao')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'extrato')).toBe(false);
     expect(model.financeDirect).toEqual([]);
   });
 
@@ -129,16 +138,25 @@ describe('naviMenu', () => {
     expect(rel.defaultTo).toBe('/reports?tab=visao-geral');
   });
 
-  it('buildSidebarNavModel hides contabilidade for non-owner', () => {
+  it('buildSidebarNavModel — member sem visão geral nem abas avançadas na sidebar', () => {
     const model = buildSidebarNavModel({
       modules: { finance: true, inventory: false, sales: false },
       canConfigureAgenteIa: false,
+      navRole: 'member',
       isOwner: false,
     });
     const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
-    expect(financeiro.children.some((c) => c.group === 'Contabilidade')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'novo-lancamento')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'conciliacao')).toBe(false);
-    expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'extrato')).toBe(false);
+  });
+
+  it('buildFinanceiroAccordion — admin com visão geral, sem extrato na sidebar', () => {
+    const financeiro = buildFinanceiroAccordion({ navRole: 'admin', financeModule: true });
+    expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'extrato')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'previsao')).toBe(false);
   });
 
   it('buildMobileDrawerSections respects modules', () => {
