@@ -6,7 +6,10 @@ import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
 import { account } from '../../lib/appwrite';
 import { reverseFinanceTx } from '../../lib/financeTxApi.js';
-import { getMonthlyPayments, createPayment, updatePayment } from '../../lib/studentPayments';
+import { getMonthlyPayments, createPayment, updatePayment, PAYMENT_CATEGORY } from '../../lib/studentPayments';
+import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
+import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
+import { findPlanByName, planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
@@ -577,18 +580,27 @@ export default function MensalidadesPanel({
   const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
 
   const openPaymentModal = (student, preset = {}) => {
-    const refMonth = String(preset.reference_month || currentMonth).trim() || currentMonth;
+    const refMonth = String(preset.reference_month || preset.bundle_start_month || currentMonth).trim() || currentMonth;
     const day = studentDueDay(student);
     const dueDate = dueDateInMonth(refMonth, day);
+    const paymentType = preset.payment_type || PAYMENT_CATEGORY.PLAN;
+    const isBundle = paymentType === PAYMENT_CATEGORY.BUNDLE;
     setSelectedStudent(student);
     const amountNum = Number(preset.amount);
     const method = preset.method || student.preferredPaymentMethod || 'pix';
+    const planName = preset.plan_name || student.plan || '';
+    const plan = findPlanByName(financeConfig, planName);
     setPayForm({
+      payment_type: paymentType,
       reference_month: refMonth,
+      bundle_start_month: String(preset.bundle_start_month || refMonth).trim() || refMonth,
+      bundle_months: Number(preset.bundle_months) || 12,
       amount:
         Number.isFinite(amountNum) && amountNum > 0
           ? maskCurrency(String(Math.round(amountNum * 100)))
-          : '',
+          : isBundle && plan
+            ? planPriceToPayAmountString(plan)
+            : '',
       method,
       account: pickInitialBankAccountForPayment(
         financeConfig,
@@ -599,7 +611,7 @@ export default function MensalidadesPanel({
       paid_at: new Date().toISOString().slice(0, 10),
       due_date: dueDate ? dueDate.toISOString().slice(0, 10) : '',
       due_day: day ? String(day) : '',
-      plan_name: preset.plan_name || student.plan || '',
+      plan_name: planName,
       note: preset.note || '',
       saveAsPreferred: !String(student.preferredPaymentMethod || '').trim(),
     });
@@ -620,6 +632,14 @@ export default function MensalidadesPanel({
 
   const handleSavePayment = async () => {
     if (!selectedStudent || !academyId || savingPayment) return;
+    const isBundle = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
+    const bundleMonths = Number(payForm.bundle_months) || 12;
+    const coverageStart = String(payForm.bundle_start_month || '').trim();
+    if (isBundle && !/^\d{4}-\d{2}$/.test(coverageStart)) {
+      toast.show({ type: 'error', message: 'Informe o início da cobertura.' });
+      return;
+    }
+
     let amountNum = parseCurrencyBRL(payForm.amount);
     const withFee = expectedAmountWithCardFee(
       selectedStudent,
@@ -640,7 +660,7 @@ export default function MensalidadesPanel({
     }
     const dueDayNum = Number(String(payForm.due_day || '').replace(/[^\d]/g, ''));
     const dueDayValid = Number.isFinite(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
-    if (String(payForm.due_day || '').trim() && !dueDayValid) {
+    if (!isBundle && String(payForm.due_day || '').trim() && !dueDayValid) {
       toast.show({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
       return;
     }
@@ -663,6 +683,7 @@ export default function MensalidadesPanel({
     const previousPayments = payments;
     const optimisticId = `optimistic-${student.id}-${Date.now()}`;
     const paidAtIso = new Date(paidAtMs).toISOString();
+    const refMonth = isBundle ? coverageStart : currentMonth;
     const optimisticDoc = {
       $id: optimisticId,
       lead_id: student.id,
@@ -673,7 +694,9 @@ export default function MensalidadesPanel({
       method: payForm.method,
       account: paymentAccount,
       status: 'paid',
-      reference_month: currentMonth,
+      payment_category: isBundle ? PAYMENT_CATEGORY.BUNDLE : PAYMENT_CATEGORY.PLAN,
+      bundle_months: isBundle ? bundleMonths : null,
+      reference_month: refMonth,
       paid_at: paidAtIso,
       plan_name: payForm.plan_name || student.plan || '',
       note: payForm.note || '',
@@ -683,14 +706,15 @@ export default function MensalidadesPanel({
 
     setShowModal(false);
     setSelectedStudent(null);
-    setPayments((prev) => [
-      ...(prev || []).filter((p) => String(p.lead_id) !== String(student.id)),
-      optimisticDoc,
-    ]);
+    setPayments((prev) => {
+      const next = (prev || []).filter((p) => String(p.lead_id) !== String(student.id));
+      if (!isBundle || refMonth === currentMonth) next.push(optimisticDoc);
+      return next;
+    });
     setSavingPayment(true);
 
     try {
-      const doc = await createPayment({
+      const paymentPayload = {
         lead_id: student.id,
         academy_id: academyId,
         team_id: teamIdForPayments,
@@ -698,29 +722,43 @@ export default function MensalidadesPanel({
         method: payForm.method,
         account: paymentAccount,
         status: 'paid',
-        reference_month: currentMonth,
         paid_at: paidAtIso,
         due_date: null,
         registered_by: userId || '',
         registered_by_name: sessionUserName,
         plan_name: payForm.plan_name || student.plan || '',
         note: payForm.note || '',
-      });
-      setPayments((prev) => [
-        ...(prev || []).filter(
-          (p) => String(p.lead_id) !== String(student.id) && p.$id !== optimisticId
-        ),
-        doc,
-      ]);
+        payment_category: isBundle ? PAYMENT_CATEGORY.BUNDLE : PAYMENT_CATEGORY.PLAN,
+      };
+      if (isBundle) {
+        paymentPayload.bundle_months = bundleMonths;
+        paymentPayload.coverage_start_month = coverageStart;
+        paymentPayload.reference_month = coverageStart;
+      } else {
+        paymentPayload.reference_month = currentMonth;
+      }
+
+      const doc = await createPayment(paymentPayload);
+      if (isBundle) {
+        await recarregarMes();
+      } else {
+        setPayments((prev) => {
+          const next = (prev || []).filter(
+            (p) => String(p.lead_id) !== String(student.id) && p.$id !== optimisticId
+          );
+          next.push(doc);
+          return next;
+        });
+      }
       let studentPrefsWarning = '';
       try {
         if (payForm.saveAsPreferred) {
           await updateStudent(student.id, {
             preferredPaymentMethod: payForm.method,
             preferredPaymentAccount: paymentAccount,
-            dueDay: dueDayValid ? dueDayNum : null,
+            ...(!isBundle ? { dueDay: dueDayValid ? dueDayNum : null } : {}),
           });
-        } else if (dueDayValid || String(student?.dueDay || '').trim()) {
+        } else if (!isBundle && (dueDayValid || String(student?.dueDay || '').trim())) {
           await updateStudent(student.id, { dueDay: dueDayValid ? dueDayNum : null });
         }
       } catch (prefErr) {
@@ -728,9 +766,13 @@ export default function MensalidadesPanel({
         studentPrefsWarning =
           ' Pagamento salvo; preferências do aluno (forma de pagamento/vencimento) não foram gravadas no cadastro.';
       }
+      const bundleLabel = bundlePlanShortLabel(bundleMonths);
+      const successMsg = isBundle
+        ? `Plano ${bundleLabel} registrado — ${bundleMonths} meses cobertos a partir de ${formatMonthTitleCapitalized(coverageStart)}.${studentPrefsWarning}`
+        : `Pagamento registrado.${studentPrefsWarning}`;
       toast.show({
         type: studentPrefsWarning ? 'warning' : 'success',
-        message: `Pagamento registrado.${studentPrefsWarning}`,
+        message: successMsg,
       });
       if (doc?.warning) {
         toast.show({
@@ -1328,6 +1370,87 @@ export default function MensalidadesPanel({
                 </header>
 
                 <div className="mensalidades-modal-body">
+                  <div>
+                    <div className="mensal-modal-field-label mensal-modal-field-label--spaced">
+                      Tipo de pagamento
+                    </div>
+                    <div className="mensal-modal-type-grid" role="group" aria-label="Tipo de pagamento">
+                      <button
+                        type="button"
+                        aria-pressed={payForm.payment_type !== PAYMENT_CATEGORY.BUNDLE}
+                        className={`mensal-modal-type-btn${payForm.payment_type !== PAYMENT_CATEGORY.BUNDLE ? ' mensal-modal-type-btn--active' : ''}`}
+                        onClick={() =>
+                          setPayForm((f) => ({
+                            ...f,
+                            payment_type: PAYMENT_CATEGORY.PLAN,
+                          }))
+                        }
+                      >
+                        Mensalidade
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={payForm.payment_type === PAYMENT_CATEGORY.BUNDLE}
+                        className={`mensal-modal-type-btn${payForm.payment_type === PAYMENT_CATEGORY.BUNDLE ? ' mensal-modal-type-btn--active' : ''}`}
+                        onClick={() => {
+                          const plan = findPlanByName(
+                            financeConfig,
+                            payForm.plan_name || selectedStudent.plan
+                          );
+                          setPayForm((f) => ({
+                            ...f,
+                            payment_type: PAYMENT_CATEGORY.BUNDLE,
+                            bundle_start_month: f.bundle_start_month || currentMonth,
+                            amount: f.amount || (plan ? planPriceToPayAmountString(plan) : ''),
+                          }));
+                        }}
+                      >
+                        Plano com cobertura
+                      </button>
+                    </div>
+                    {payForm.payment_type === PAYMENT_CATEGORY.BUNDLE ? (
+                      <p className="text-xs text-muted mensal-modal-bundle-hint" role="note">
+                        O valor entra no Caixa agora; os meses cobertos não aparecem em A receber.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {payForm.payment_type === PAYMENT_CATEGORY.BUNDLE ? (
+                    <div className="mensal-pay-top-grid">
+                      <div className="mensal-modal-col">
+                        <label className="mensal-modal-field-label" htmlFor="mensal-bundle-months">
+                          Duração
+                        </label>
+                        <select
+                          id="mensal-bundle-months"
+                          className="mensal-modal-in"
+                          value={payForm.bundle_months || 12}
+                          onChange={(e) =>
+                            setPayForm((f) => ({ ...f, bundle_months: Number(e.target.value) }))
+                          }
+                        >
+                          {BUNDLE_DURATION_OPTIONS.map((o) => (
+                            <option key={o.months} value={o.months}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="mensal-modal-col">
+                        <DateInput
+                          label="Início da cobertura"
+                          type="month"
+                          value={payForm.bundle_start_month || currentMonth}
+                          onChange={(e) =>
+                            setPayForm((f) => ({ ...f, bundle_start_month: e.target.value }))
+                          }
+                          required
+                          className="mensal-modal-in"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="mensal-pay-top-grid">
                     <div className="mensal-modal-col">
                       <label className="mensal-modal-field-label" htmlFor="mensal-pay-amount">
@@ -1359,21 +1482,23 @@ export default function MensalidadesPanel({
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="mensal-modal-field-label" htmlFor="mensal-pay-due-day">
-                      Dia de vencimento
-                    </label>
-                    <input
-                      id="mensal-pay-due-day"
-                      className="mensal-modal-in"
-                      type="number"
-                      min={1}
-                      max={31}
-                      value={payForm.due_day || ''}
-                      onChange={(e) => setPayForm((f) => ({ ...f, due_day: e.target.value }))}
-                      placeholder="1 a 31"
-                    />
-                  </div>
+                  {payForm.payment_type !== PAYMENT_CATEGORY.BUNDLE ? (
+                    <div>
+                      <label className="mensal-modal-field-label" htmlFor="mensal-pay-due-day">
+                        Dia de vencimento
+                      </label>
+                      <input
+                        id="mensal-pay-due-day"
+                        className="mensal-modal-in"
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={payForm.due_day || ''}
+                        onChange={(e) => setPayForm((f) => ({ ...f, due_day: e.target.value }))}
+                        placeholder="1 a 31"
+                      />
+                    </div>
+                  ) : null}
                   <div>
                     <div className="mensal-modal-field-label mensal-modal-field-label--spaced">
                       Forma de pagamento
@@ -1466,7 +1591,11 @@ export default function MensalidadesPanel({
                     className={`btn-primary mensalidades-modal-footer__confirm${savingPayment || !hasBankAccounts ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
                   >
                     <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
-                    {savingPayment ? 'Salvando…' : 'Confirmar pagamento'}
+                    {savingPayment
+                      ? 'Salvando…'
+                      : payForm.payment_type === PAYMENT_CATEGORY.BUNDLE
+                        ? 'Confirmar plano'
+                        : 'Confirmar pagamento'}
                   </button>
                 </footer>
               </div>
