@@ -106,7 +106,7 @@ const Login = ({ onLogin }) => {
         }
         .login-card {
           width: 100%; max-width: 400px;
-          background: #F9F9F9;
+          background: #FFFFFF;
           border-radius: 16px; padding: 40px 30px;
           border: 0.5px solid var(--border-violet);
           box-shadow: 0 8px 32px rgba(0, 4, 53, 0.1); text-align: center;
@@ -115,7 +115,7 @@ const Login = ({ onLogin }) => {
         }
         .btn-exit {
           position: absolute; right: 0; top: 0; transform: translate(30%, -30%);
-          background: #F9F9F9; border: 1px solid var(--border); color: var(--text);
+          background: #FFFFFF; border: 1px solid var(--border); color: var(--text);
           border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
           box-shadow: var(--shadow-sm);
         }
@@ -124,14 +124,14 @@ const Login = ({ onLogin }) => {
           justify-content: center;
           margin-bottom: 16px;
           position: relative;
-          background: #F9F9F9;
+          background: #FFFFFF;
         }
         .login-card .form-input {
-          background: #F9F9F9;
+          background: #FFFFFF;
           border-color: var(--border-mid);
         }
         .login-card .form-input:focus {
-          background: #F9F9F9;
+          background: #FFFFFF;
         }
         .login-title {
           margin: 0 0 4px;

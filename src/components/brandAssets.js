@@ -1,10 +1,10 @@
 /** Versão única dos assets de marca — incrementar ao trocar PNGs em /public */
-export const NAVI_BRAND_ASSET_VERSION = '7';
+export const NAVI_BRAND_ASSET_VERSION = '8';
 
 /** Fundo embutido nos PNGs — o container deve usar a mesma cor exata */
 export const NAVI_BRAND_IMAGE_BG = {
-  dark: '#040B27',
-  light: '#F9F9F9',
+  dark: '#13111F',
+  light: '#FFFFFF',
 };
 
 export const NAVI_BRAND_ASSETS = {

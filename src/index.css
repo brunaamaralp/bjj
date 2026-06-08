@@ -27,7 +27,7 @@
 
   /* Fundo embutido nos PNGs de marca — usar nos containers onde o logo é aplicado */
   --navi-brand-img-bg-dark: #13111F;
-  --navi-brand-img-bg-light: #F9F9F9;
+  --navi-brand-img-bg-light: #FFFFFF;
 
   /* Escala legado (mapeada à paleta) */
   --v900: var(--cosmos);

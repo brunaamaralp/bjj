@@ -508,7 +508,7 @@ const Welcome = () => {
         position: sticky; top: 0; z-index: 100;
         min-height: 56px; display: flex; align-items: center;
         padding: 8px var(--nl-pad);
-        background: #F9F9F9;
+        background: #FFFFFF;
         border-bottom: 0.5px solid rgba(0,0,0,0.06);
       }
       .navi-lp-nav-inner {
@@ -693,7 +693,7 @@ const Welcome = () => {
         overflow: hidden;
         flex-shrink: 0;
         object-fit: cover;
-        background: var(--navi-brand-img-bg-dark, #040B27);
+        background: var(--navi-brand-img-bg-dark, #13111F);
       }
       .wapp-header-info { flex: 1; min-width: 0; }
       .wapp-name {
