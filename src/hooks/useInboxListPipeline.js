@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
   enrichInboxListItems,
+  filterInboxListBySearch,
   filterInboxListItems,
   firstVisibleInboxConversation,
   flattenInboxGroups,
@@ -17,6 +18,7 @@ export function useInboxListPipeline({
   leadByPhone,
   highlighted,
   listFilter,
+  searchQuery = '',
   normalizePhone,
   pickDisplayName,
 }) {
@@ -40,7 +42,12 @@ export function useInboxListPipeline({
     [prioritizedItems, listFilter]
   );
 
-  const groupedFilteredItems = useMemo(() => groupInboxListItems(filteredItems), [filteredItems]);
+  const searchFilteredItems = useMemo(
+    () => filterInboxListBySearch(filteredItems, searchQuery, normalizePhone),
+    [filteredItems, searchQuery, normalizePhone]
+  );
+
+  const groupedFilteredItems = useMemo(() => groupInboxListItems(searchFilteredItems), [searchFilteredItems]);
 
   const firstVisibleConversation = useMemo(
     () => firstVisibleInboxConversation(groupedFilteredItems),

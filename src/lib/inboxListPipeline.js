@@ -133,6 +133,33 @@ export function filterInboxListItems(prioritizedItems, listFilter) {
   return result;
 }
 
+/**
+ * Filtro client-side por nome ou telefone parcial (sobre itens já carregados).
+ * Complementa a busca por telefone no servidor quando há ≥2 dígitos.
+ */
+export function filterInboxListBySearch(items, searchQuery, normalizePhone) {
+  const arr = Array.isArray(items) ? items : [];
+  const q = String(searchQuery || '').trim();
+  if (!q) return arr;
+  const qLower = q.toLowerCase();
+  const qDigits = typeof normalizePhone === 'function' ? normalizePhone(q) : q.replace(/\D/g, '');
+  return arr.filter((it) => {
+    const phone = String(it?._phone || it?.phone_number || '').trim();
+    const phoneDigits =
+      typeof normalizePhone === 'function' ? normalizePhone(phone) : phone.replace(/\D/g, '');
+    if (qDigits.length >= 2 && phoneDigits.includes(qDigits)) return true;
+    const nameFields = [
+      it?._displayTitle,
+      it?._leadName,
+      it?._manualContactName,
+      it?._waProfileName,
+    ]
+      .map((s) => String(s || '').trim().toLowerCase())
+      .filter(Boolean);
+    return nameFields.some((name) => name.includes(qLower));
+  });
+}
+
 export function groupInboxListItems(filteredItems) {
   const arr = Array.isArray(filteredItems) ? filteredItems : [];
   const isResolvedTicket = (it) => normTicket(it) === 'resolved';

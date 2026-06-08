@@ -1,38 +1,79 @@
 :root {
-  /* Badges tipo “Transferido” / info no Inbox */
-  --inbox-info-badge-bg: color-mix(in srgb, var(--petroleo) 12%, var(--branco));
-  --inbox-info-badge-fg: var(--petroleo);
+  /* —— Semântica canônica (design system Nave) —— */
+  --inbox-focus-ring: var(--color-primary);
+
+  /* Info / transferido / IA informativa (roxo — marca) */
+  --inbox-info-badge-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-white));
+  --inbox-info-badge-fg: var(--color-primary-dark);
   --inbox-chip-info-bg: var(--color-info-surface, var(--inbox-info-badge-bg));
   --inbox-chip-info-fg: var(--inbox-info-badge-fg);
 
-  /* Badge não lida (lista + filtros) */
-  --inbox-badge-unread-bg: var(--color-danger, var(--danger));
-  --inbox-badge-unread-fg: #fff;
+  /* Badge não lida */
+  --inbox-badge-unread-bg: var(--color-danger);
+  --inbox-badge-unread-fg: var(--color-white);
 
-  /* Chips de status na lista */
-  --inbox-chip-handoff-bg: color-mix(in srgb, var(--dourado) 15%, var(--branco));
-  --inbox-chip-handoff-fg: color-mix(in srgb, var(--dourado) 70%, var(--cosmos));
-  --inbox-chip-unlinked-bg: var(--azul-gelo);
-  --inbox-chip-unlinked-fg: var(--petroleo);
-  --inbox-chip-ia-bg: var(--azul-gelo);
-  --inbox-chip-ia-fg: var(--petroleo);
-  --inbox-chip-hot-bg: color-mix(in srgb, var(--dourado) 18%, var(--branco));
-  --inbox-chip-hot-fg: color-mix(in srgb, var(--dourado) 65%, var(--cosmos));
+  /* Atenção: handoff, triagem, contato quente (warning) */
+  --inbox-attention-surface: color-mix(in srgb, var(--color-warning) 12%, var(--color-white));
+  --inbox-attention-border: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  --inbox-attention-text: color-mix(in srgb, var(--color-warning) 88%, var(--color-text-heading));
 
-  /* Bubbles de mensagem — WhatsApp green (#25D366) preservado onde aplicável */
-  --inbox-bubble-human-bg: #ebebee;
+  --inbox-chip-handoff-bg: var(--inbox-attention-surface);
+  --inbox-chip-handoff-fg: var(--inbox-attention-text);
+  --inbox-chip-hot-bg: color-mix(in srgb, var(--color-warning) 18%, var(--color-white));
+  --inbox-chip-hot-fg: var(--inbox-attention-text);
+
+  --inbox-handoff-row-bg: color-mix(in srgb, var(--color-warning) 10%, var(--color-white));
+  --inbox-handoff-row-bg-hover: color-mix(in srgb, var(--color-warning) 16%, var(--color-white));
+
+  --inbox-triage-surface: var(--inbox-attention-surface);
+  --inbox-triage-border: var(--inbox-attention-border);
+  --inbox-triage-badge-bg: color-mix(in srgb, var(--color-warning) 18%, var(--color-white));
+  --inbox-triage-badge-text: var(--inbox-attention-text);
+
+  /* IA respondendo / sem vínculo (primária suave) */
+  --inbox-chip-ia-bg: var(--color-primary-surface);
+  --inbox-chip-ia-fg: var(--color-primary-dark);
+  --inbox-chip-unlinked-bg: var(--color-primary-surface);
+  --inbox-chip-unlinked-fg: var(--color-primary-dark);
+
+  /* Bolhas — nomes consumidos em inbox.css */
+  --inbox-bubble-received-bg: #ebebee;
+  --inbox-bubble-received-text: var(--color-text-heading);
+  --inbox-bubble-sent-bg: var(--color-primary);
+  --inbox-bubble-sent-text: var(--color-white);
+  --inbox-bubble-radius: 18px;
+  --inbox-bubble-shadow: 0 1px 2px rgba(24, 22, 42, 0.06);
+
+  /* Aliases legados (compatibilidade) */
+  --inbox-bubble-human-bg: var(--inbox-bubble-received-bg);
   --inbox-bubble-human-border: transparent;
-  --inbox-bubble-ai-bg: var(--azul-gelo);
-  --inbox-bubble-ai-border: var(--border-violet);
-  --inbox-bubble-user-bg: var(--petroleo);
+  --inbox-bubble-ai-bg: var(--color-primary-surface);
+  --inbox-bubble-ai-border: var(--color-card-border);
+  --inbox-bubble-user-bg: var(--inbox-bubble-sent-bg);
   --inbox-bubble-user-border: transparent;
-  --inbox-bubble-user-text: var(--branco);
-  --inbox-section-bg: var(--azul-gelo);
-  --inbox-accent-bg: var(--creme);
-  --inbox-bubble-human-label: color-mix(in srgb, var(--dourado) 55%, var(--cosmos));
-  --inbox-msg-selected-outline: rgba(108, 71, 216, 0.35);
-  --inbox-row-hover-bg: rgba(108, 71, 216, 0.04);
-  --inbox-row-highlight-bg: rgba(108, 71, 216, 0.08);
+  --inbox-bubble-user-text: var(--inbox-bubble-sent-text);
+  --inbox-bubble-human-label: var(--inbox-attention-text);
+
+  /* Zonas de layout */
+  --inbox-section-bg: var(--color-primary-surface);
+  --inbox-accent-bg: color-mix(in srgb, var(--color-primary) 4%, var(--color-content-bg));
+  --inbox-thread-bg: var(--inbox-accent-bg);
+  --inbox-overlay-bg: color-mix(in srgb, var(--color-text-heading) 52%, transparent);
+
+  /* Faixa de handoff no thread */
+  --inbox-handoff-banner-bg: var(--warning-light, var(--inbox-attention-surface));
+  --inbox-handoff-banner-text: var(--warning-text, var(--inbox-attention-text));
+  --inbox-handoff-banner-border: var(--color-warning);
+  --inbox-handoff-banner-ia-bg: var(--inbox-info-badge-bg);
+  --inbox-handoff-banner-ia-text: var(--inbox-info-badge-fg);
+  --inbox-handoff-banner-ia-border: var(--color-primary);
+  --inbox-handoff-banner-soon-bg: var(--color-accent-surface);
+  --inbox-handoff-banner-soon-text: var(--color-accent-dark);
+  --inbox-handoff-banner-soon-border: var(--color-accent);
+
+  --inbox-msg-selected-outline: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  --inbox-row-hover-bg: color-mix(in srgb, var(--color-primary) 4%, transparent);
+  --inbox-row-highlight-bg: color-mix(in srgb, var(--color-primary) 8%, transparent);
 
   /* Atendimento (Inbox) — escala tipográfica */
   --inbox-font-meta: var(--font-xs);

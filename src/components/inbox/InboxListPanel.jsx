@@ -33,6 +33,8 @@ export default function InboxListPanel({
   nowMs,
   agentIaActive = false,
   searchPending = false,
+  activeFilterLabel = '',
+  onClearActiveFilter,
 }) {
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
   const needsMeBacklog = Number(stats?.needsMeBacklog || 0);
@@ -193,6 +195,20 @@ export default function InboxListPanel({
           ) : null}
         </div>
       </div>
+      {activeFilterLabel ? (
+        <div className="inbox-list-filters-active" role="status">
+          <span className="inbox-list-filters-active__label">
+            Filtro: <strong>{activeFilterLabel}</strong>
+          </span>
+          <button
+            type="button"
+            className="inbox-list-filters-active__clear"
+            onClick={() => onClearActiveFilter?.()}
+          >
+            Limpar filtro
+          </button>
+        </div>
+      ) : null}
       <div ref={listScrollRef} className="inbox-list-panel__scroll" onScroll={onConversationListScroll}>
         <ConversationList
           listScrollRef={listScrollRef}
@@ -215,6 +231,7 @@ export default function InboxListPanel({
           }}
           handoffNowMs={nowMs}
           agentIaActive={agentIaActive}
+          searchQuery={searchQuery}
         />
         {!searchPending && !searchQuery && hasMore ? (
           <div className="inbox-list-panel__scroll-hint inbox-list-panel__scroll-hint--footer" role="status">

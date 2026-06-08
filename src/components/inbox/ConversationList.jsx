@@ -93,6 +93,7 @@ export default function ConversationList(props) {
     onClearListFilters,
     agentIaActive = false,
     listScrollRef,
+    searchQuery = '',
   } = props;
 
   const fallbackScrollRef = useRef(null);
@@ -274,7 +275,11 @@ export default function ConversationList(props) {
           <EmptyState
             variant="compact"
             tone="dashed"
-            title="Nenhuma conversa encontrada para esse filtro."
+            title={
+              searchQuery
+                ? 'Nenhuma conversa encontrada para essa busca.'
+                : 'Nenhuma conversa encontrada para esse filtro.'
+            }
             secondaryAction={
               typeof onClearListFilters === 'function'
                 ? { label: 'Limpar filtros', onClick: () => onClearListFilters(), variant: 'link' }

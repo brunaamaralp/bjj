@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { filterInboxListItems, groupInboxListItems } from '../lib/inboxListPipeline.js';
+import { filterInboxListBySearch, filterInboxListItems, groupInboxListItems } from '../lib/inboxListPipeline.js';
+
+function normPhone(v) {
+  return String(v || '').replace(/\D/g, '');
+}
 
 describe('inboxListPipeline', () => {
   const items = [
@@ -19,5 +23,23 @@ describe('inboxListPipeline', () => {
     expect(groups.find((g) => g.key === 'unread')?.items).toHaveLength(1);
     expect(groups.find((g) => g.key === 'resolved')?.items).toHaveLength(1);
     expect(groups.find((g) => g.key === 'open')?.items).toHaveLength(1);
+  });
+
+  it('filterInboxListBySearch matches display title', () => {
+    const rows = [
+      { _displayTitle: 'Maria Silva', _phone: '5511999999999', _leadName: '', _manualContactName: '', _waProfileName: '' },
+      { _displayTitle: 'João', _phone: '5511888888888', _leadName: '', _manualContactName: '', _waProfileName: '' },
+    ];
+    const out = filterInboxListBySearch(rows, 'maria', normPhone);
+    expect(out).toHaveLength(1);
+    expect(out[0]._displayTitle).toBe('Maria Silva');
+  });
+
+  it('filterInboxListBySearch matches phone digits', () => {
+    const rows = [
+      { _displayTitle: 'Maria', _phone: '5511999999999', _leadName: '', _manualContactName: '', _waProfileName: '' },
+    ];
+    const out = filterInboxListBySearch(rows, '99999', normPhone);
+    expect(out).toHaveLength(1);
   });
 });

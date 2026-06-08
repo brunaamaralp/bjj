@@ -28,3 +28,21 @@ export function inboxFilterToUrlParam(filter) {
   if (!key || key === 'all') return null;
   return INBOX_URL_FILTERS.has(key) ? key : null;
 }
+
+/** Rótulos exibidos na UI para cada filtro da lista. */
+export const INBOX_FILTER_LABELS = {
+  all: 'Todas',
+  needs_me: 'Com você',
+  unread: 'Não lidas',
+  need_human: 'Só handoff',
+  waiting_customer: 'Aguardando cliente',
+  resolved: 'Resolvidos',
+  archived: 'Arquivadas',
+  hot: 'Contato quente',
+  transferred: 'Transferidas',
+};
+
+export function inboxFilterLabel(filter) {
+  const key = String(filter || 'all').trim();
+  return INBOX_FILTER_LABELS[key] || key;
+}

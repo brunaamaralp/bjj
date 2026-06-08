@@ -66,7 +66,7 @@ import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
 import { filterStudentCandidates } from '../lib/studentSearchFilter.js';
 import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
 import useDialogFocus from '../hooks/useDialogFocus.js';
-import { inboxFilterFromUrlParam, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
+import { inboxFilterFromUrlParam, inboxFilterLabel, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
@@ -1503,6 +1503,7 @@ export default function Inbox() {
     leadByPhone,
     highlighted,
     listFilter,
+    searchQuery: debouncedSearchQuery,
     normalizePhone,
     pickDisplayName,
   });
@@ -1782,6 +1783,8 @@ export default function Inbox() {
   }, [isMobile]);
 
   const inboxExtraFilterActive = !INBOX_PRIMARY_FILTERS.has(String(listFilter || ''));
+  const visibleConversationCount = flatVisibleConversations.length;
+  const listMetaShowsFiltered = listFilter !== 'all' || Boolean(searchQuery);
 
   const listPanel = (
     <InboxListPanel
@@ -1814,6 +1817,8 @@ export default function Inbox() {
       nowMs={nowMs}
       agentIaActive={agentIaActive}
       searchPending={searchPending}
+      activeFilterLabel={inboxExtraFilterActive ? inboxFilterLabel(listFilter) : ''}
+      onClearActiveFilter={() => setListFilter('all')}
     />
   );
 
@@ -1910,6 +1915,8 @@ export default function Inbox() {
     onDismissTriage: handleInboxDismissTriage,
     onOpenLinkStudent: handleOpenLinkStudent,
     triageBusy: linkingLead,
+    setEditingContactName,
+    setContactNameDraft,
   };
 
   const messageMenuProps = {
@@ -1989,14 +1996,11 @@ export default function Inbox() {
       ticketUpdating={ticketUpdating}
       updateTicket={updateTicket}
       showInboxKeyHints={showInboxKeyHints}
-      inboxThreadNarrow767={inboxThreadNarrow767}
       isNarrowDesktop={isNarrowDesktop}
       setContextOpen={setContextOpen}
       contextOpen={contextOpen}
       composerProps={composerProps}
       ticketChip={ticketChip}
-      listFilter={listFilter}
-      unarchiveConversation={unarchiveConversation}
       handoffDurationPhrase={handoffDurationPhrase}
       retryFailedMessage={retryFailedMessage}
       pendingTriage={pendingTriage}
@@ -2144,12 +2148,23 @@ export default function Inbox() {
         <PageHeader
           className="inbox-page-header inbox-page-header--slim"
           title="Conversas"
+          subtitle="WhatsApp e atendimento humano em um só lugar."
           meta={
             loading || searchPending ? (
               searchPending ? 'Buscando…' : 'Carregando…'
             ) : (
               <>
-                <span className="navi-ui-count">{items.length}</span> conversas
+                {listMetaShowsFiltered ? (
+                  <>
+                    <span className="navi-ui-count">{visibleConversationCount}</span> exibidas
+                    {' · '}
+                    <span className="navi-ui-count">{items.length}</span> carregadas
+                  </>
+                ) : (
+                  <>
+                    <span className="navi-ui-count">{items.length}</span> conversas
+                  </>
+                )}
                 {lastUpdatedAt ? (
                   <>
                     {' '}

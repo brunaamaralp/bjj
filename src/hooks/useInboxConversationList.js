@@ -3,7 +3,7 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { capInboxListItems } from '../lib/inboxListCap.js';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
-import { pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
+import { normalizeInboxPhone as normalizePhone, pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
 
 /**
  * Carrega e pagina a lista de conversas da inbox (/api/conversations).
@@ -61,7 +61,8 @@ export function useInboxConversationList({
       const cursorToUse = reset ? '' : String(nextCursorRef.current || '').trim();
       if (cursorToUse) qs.set('cursor', cursorToUse);
       const searchQ = String(debouncedSearchRef.current || '').trim();
-      if (searchQ) qs.set('search', searchQ);
+      const searchDigits = normalizePhone(searchQ);
+      if (searchDigits.length >= 2) qs.set('search', searchQ);
       qs.set('archived', listFilterRef.current === 'archived' ? '1' : '0');
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
@@ -91,7 +92,7 @@ export function useInboxConversationList({
         });
       }
       setNextCursor(nextCur);
-      setHasMore(Boolean(nextCur) && next.length > 0 && !searchQ);
+      setHasMore(Boolean(nextCur) && next.length > 0 && searchDigits.length < 2);
       setLastUpdatedAt(new Date().toISOString());
       setItems((prev) => {
         const incoming = reset ? next : [...(Array.isArray(prev) ? prev : []), ...next];

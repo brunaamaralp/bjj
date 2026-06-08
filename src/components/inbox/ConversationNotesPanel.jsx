@@ -366,7 +366,9 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
                         transition: 'color 0.2s',
                       }}
                       title="Excluir"
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--color-danger)';
+                      }}
                       onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
                     >
                       {deletingId === n.$id ? <Loader2 size={15} className="inbox-improve-spin" /> : <Trash2 size={15} />}

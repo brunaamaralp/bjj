@@ -93,14 +93,11 @@ export default function InboxThreadPanel(props) {
     ticketUpdating,
     updateTicket,
     showInboxKeyHints,
-    inboxThreadNarrow767,
     isNarrowDesktop,
     setContextOpen,
     contextOpen = false,
     composerProps,
     ticketChip,
-    listFilter,
-    unarchiveConversation,
     handoffDurationPhrase,
     retryFailedMessage,
   } = props;
@@ -198,12 +195,9 @@ export default function InboxThreadPanel(props) {
                     ) : null}
                     <div
                       role="status"
-                      className={`inbox-thread-handoff-banner${handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''}`}
-                      style={
-                        handoffReleaseHint
-                          ? undefined
-                          : { background: banner.bg, color: banner.color, borderLeftColor: 'var(--v500)' }
-                      }
+                      className={`inbox-thread-handoff-banner inbox-thread-handoff-banner--${banner.variant || 'ia'}${
+                        handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''
+                      }`}
                     >
                       {handoffReleaseHint
                         ? 'A IA voltará a responder automaticamente'
@@ -221,18 +215,16 @@ export default function InboxThreadPanel(props) {
                           <>
                             <input
                               id="inbox-contact-name-input"
-                              className="input"
+                              className="input inbox-thread-header__name-input"
                               aria-label="Nome do contato"
                               value={contactNameDraft}
                               onChange={(e) => setContactNameDraft(e.target.value)}
                               placeholder="Nome do contato"
                               autoComplete="name"
-                              style={{ minWidth: 170, height: 30, padding: '4px 8px' }}
                             />
                             <button
                               type="button"
-                              className="btn btn-outline"
-                              style={{ padding: '4px 8px', minHeight: 30 }}
+                              className="btn btn-outline inbox-thread-header__name-btn"
                               onClick={() => void saveContactName()}
                               disabled={savingContactName}
                             >
@@ -240,8 +232,7 @@ export default function InboxThreadPanel(props) {
                             </button>
                             <button
                               type="button"
-                              className="btn btn-outline"
-                              style={{ padding: '4px 8px', minHeight: 30 }}
+                              className="btn btn-outline inbox-thread-header__name-btn"
                               onClick={() => {
                                 setEditingContactName(false);
                                 setContactNameDraft('');
@@ -254,45 +245,17 @@ export default function InboxThreadPanel(props) {
                         ) : (
                           <button
                             type="button"
-                            className="btn btn-outline"
-                            style={{ padding: '4px 8px', minHeight: 30 }}
+                            className="btn btn-primary inbox-thread-header__link-btn"
+                            disabled={linkingLead}
                             onClick={() => {
-                              const seed =
-                                String(selected?.contact_name || '').trim() ||
-                                String(selected?.whatsapp_profile_name || '').trim();
-                              setContactNameDraft(seed);
-                              setEditingContactName(true);
+                              setLeadPanel?.('convert');
+                              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                              else setContextOpen?.(true);
                             }}
                           >
-                            {String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
+                            Vincular contato
                           </button>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ padding: '4px 10px', minHeight: 30 }}
-                          disabled={linkingLead}
-                          onClick={() => {
-                            setLeadPanel?.('convert');
-                            if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                            else setContextOpen?.(true);
-                          }}
-                        >
-                          Converter em contato
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          style={{ padding: '4px 10px', minHeight: 30 }}
-                          disabled={linkingLead}
-                          onClick={() => {
-                            setLeadPanel?.('associate');
-                            if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                            else setContextOpen?.(true);
-                          }}
-                        >
-                          Associar contato
-                        </button>
                       </div>
                     ) : null}
                   </div>
@@ -302,45 +265,10 @@ export default function InboxThreadPanel(props) {
             </div>
         </div>
 
-        <div
-          className="inbox-thread-header-actions"
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 8,
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}
-        >
-          {String(selected?.ticket_status || '') === 'resolved' ? (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => updateTicket({ status: 'open' })}
-              disabled={!selectedPhone || ticketUpdating}
-              type="button"
-              title="Reabre o ticket; use o filtro Em atendimento para acompanhar conversas abertas"
-            >
-              Reabrir
-            </button>
-          ) : null}
-          {listFilter === 'archived' && selectedPhone ? (
-            <button
-              className="btn btn-outline"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
-              onClick={() => void unarchiveConversation(selectedPhone)}
-              disabled={!selectedPhone}
-              type="button"
-            >
-              Desarquivar
-            </button>
-          ) : null}
+        <div className="inbox-thread-header-actions">
           {!selected?.need_human ? (
             <button
-              className="btn btn-primary"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
+              className="btn btn-primary inbox-thread-header__action-btn"
               onClick={() => setHandoffActive(true)}
               disabled={!selectedPhone}
               type="button"
@@ -350,8 +278,7 @@ export default function InboxThreadPanel(props) {
             </button>
           ) : (
             <button
-              className="btn btn-primary"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
+              className="btn btn-primary inbox-thread-header__action-btn"
               onClick={() => {
                 setHandoffReleaseHint(true);
                 void setHandoffActive(false);
@@ -364,8 +291,9 @@ export default function InboxThreadPanel(props) {
             </button>
           )}
           <button
-            className={`btn btn-outline inbox-thread-header__btn-context${contextOpen && !isMobile && !isNarrowDesktop ? ' is-active' : ''}`}
-            style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
+            className={`btn btn-outline inbox-thread-header__btn-context inbox-thread-header__action-btn${
+              contextOpen && !isMobile && !isNarrowDesktop ? ' is-active' : ''
+            }`}
             onClick={() => {
               if (isMobile || isNarrowDesktop) setDetailsOpen(true);
               else setContextOpen((v) => !v);
@@ -373,6 +301,7 @@ export default function InboxThreadPanel(props) {
             disabled={!selectedPhone}
             title="Abrir painel de detalhes"
             type="button"
+            aria-expanded={Boolean(contextOpen && !isMobile && !isNarrowDesktop)}
           >
             Detalhes
           </button>
@@ -521,41 +450,10 @@ export default function InboxThreadPanel(props) {
           >
             Resolver
             {showInboxKeyHints ? (
-              <span
-                aria-hidden
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
+              <span className="inbox-thread-quick-toolbar__key-hint" aria-hidden>
                 E
               </span>
             ) : null}
-          </button>
-          {!inboxThreadNarrow767 ? (
-            <button
-              type="button"
-              className="inbox-thread-quick-toolbar__btn"
-              disabled={!selectedPhone || ticketUpdating}
-              onClick={() => void updateTicket({ status: 'waiting_customer' })}
-              title="Marcar ticket como aguardando cliente"
-            >
-              Aguardando cliente
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="inbox-thread-quick-toolbar__btn"
-            disabled={!selectedPhone}
-            onClick={() => {
-              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-              else setContextOpen(true);
-            }}
-            title="Abrir painel de dados do contato"
-          >
-            Ver ficha
           </button>
         </div>
       ) : null}

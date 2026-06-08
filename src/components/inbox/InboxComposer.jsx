@@ -15,7 +15,7 @@ export default function InboxComposer(props) {
   const {
     mode = 'full',
     compactDisabled = false,
-    compactPlaceholder = 'Digite uma mensagem...',
+    compactPlaceholder = 'Digite uma mensagem…',
     isMobile,
     inboxVvInset,
     composerExpanded,

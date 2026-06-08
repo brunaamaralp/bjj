@@ -30,6 +30,8 @@ export default function InboxThreadActionsMenu({
   onDismissTriage,
   onOpenLinkStudent,
   triageBusy = false,
+  setEditingContactName,
+  setContactNameDraft,
 }) {
   const [open, setOpen] = useState(false);
   const phone = String(selectedPhone || '').trim();
@@ -38,6 +40,7 @@ export default function InboxThreadActionsMenu({
   const listRow = listArr.find((row) => String(row?.phone_number || '').trim() === phone);
   const isConvArchived = Boolean(listRow?.archived || selected?.archived);
   const threadUnread = Number.isFinite(Number(listRow?.unread_count)) ? Number(listRow.unread_count) : 0;
+  const isResolved = String(selected?.ticket_status || '').trim().toLowerCase() === 'resolved';
 
   const close = () => setOpen(false);
   const openDetails = () => {
@@ -63,6 +66,17 @@ export default function InboxThreadActionsMenu({
       </button>
       {open ? (
         <DropdownMenuPanel className="inbox-thread-actions-menu__panel" aria-label="Ações da conversa">
+          {isResolved ? (
+            <InboxMenuAction
+              label="Reabrir conversa"
+              hint="Ticket"
+              disabled={!phone || ticketUpdating}
+              onClick={() => {
+                updateTicket({ status: 'open' });
+                close();
+              }}
+            />
+          ) : null}
           <InboxMenuAction
             label={isMobile || isNarrowDesktop ? 'Abrir detalhes' : contextPanelVisible ? 'Ocultar detalhes' : 'Mostrar detalhes'}
             hint="Detalhes"
@@ -175,6 +189,19 @@ export default function InboxThreadActionsMenu({
           ) : null}
           {!hasLead && !pendingTriage ? (
             <>
+              <InboxMenuAction
+                label={String(selected?.contact_name || '').trim() ? 'Editar nome' : 'Salvar nome'}
+                hint="Contato"
+                disabled={!phone}
+                onClick={() => {
+                  const seed =
+                    String(selected?.contact_name || '').trim() ||
+                    String(selected?.whatsapp_profile_name || '').trim();
+                  setContactNameDraft?.(seed);
+                  setEditingContactName?.(true);
+                  close();
+                }}
+              />
               <InboxMenuAction
                 label="Converter em contato"
                 hint="CRM"
