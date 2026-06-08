@@ -511,18 +511,20 @@ export default function MonthlyClosingTab({
         />
       ) : null}
       {unclassifiedCount > 0 ? (
-        <div className="card mb-3 monthly-closing-alert" role="alert">
-          <strong>{unclassifiedCount}</strong> lançamento(s) com categoria não mapeada no plano fixo. Revise em
-          Movimentações ou ajuste o diário contábil.{' '}
-          <Link to={EMPRESA_FINANCE_CONFIG_PATH}>Ver Configuração →</Link>
-        </div>
+        <p className="finance-tab-notice finance-tab-notice--warning" role="status">
+          <span className="finance-tab-notice__text">
+            <strong>{unclassifiedCount}</strong> lançamento(s) sem categoria no plano fixo.{' '}
+            <Link to={EMPRESA_FINANCE_CONFIG_PATH}>Configuração →</Link>
+          </span>
+        </p>
       ) : null}
       {pendingInMonth > 0 ? (
-        <div className="card mb-3 monthly-closing-alert" role="alert">
-          <strong>{pendingInMonth}</strong> lançamento(s) ainda pendente(s) no caixa neste mês. Liquide ou cancele em
-          Movimentações antes de considerar o mês fechado.{' '}
-          <Link to="/financeiro?tab=movimentacoes">Ver lançamentos →</Link>
-        </div>
+        <p className="finance-tab-notice finance-tab-notice--warning" role="status">
+          <span className="finance-tab-notice__text">
+            <strong>{pendingInMonth}</strong> lançamento(s) pendente(s) no caixa.{' '}
+            <Link to="/financeiro?tab=movimentacoes">Ver lançamentos →</Link>
+          </span>
+        </p>
       ) : null}
 
       {showManual ? (
@@ -639,19 +641,6 @@ export default function MonthlyClosingTab({
         <div className="finance-kpi">
           <p className="finance-kpi__label">Total pendente</p>
           <p className="finance-kpi__value finance-value-negative">{fmtMoney(totals.pending)}</p>
-        </div>
-        <div className="finance-kpi monthly-closing-kpi--wide">
-          <p className="finance-kpi__label">Por forma de pagamento</p>
-          <p className="finance-kpi__hint monthly-closing-kpi__methods">
-            {totals.byMethod.length === 0
-              ? '—'
-              : totals.byMethod.map((m, i) => (
-                  <span key={m.label}>
-                    {i > 0 ? ' · ' : ''}
-                    {m.label} {fmtMoney(m.amount)}
-                  </span>
-                ))}
-          </p>
         </div>
       </div>
 

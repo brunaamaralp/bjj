@@ -1,7 +1,35 @@
 /* A receber — estilos específicos (shell em shell.css) */
 
-.receivables-tab__hint {
-  margin: 0;
+.receivables-tab__subnav-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--finance-space-3);
+  width: 100%;
+}
+
+.receivables-tab__subnav-tabs {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.receivables-tab__refresh {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.receivables-tab__refresh-label {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .receivables-tab__refresh-label {
+    display: inline;
+  }
+}
+
+.receivables-tab__total-kpi {
+  max-width: 420px;
 }
 
 .receivables-tab__table-wrap {
@@ -33,4 +61,20 @@
   background: transparent;
   padding: 0;
   cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .receivables-tab__subnav-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .receivables-tab__refresh {
+    margin-left: 0;
+    align-self: flex-end;
+  }
+
+  .receivables-tab__total-kpi {
+    max-width: none;
+  }
 }

@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { ArrowRight, RefreshCw } from 'lucide-react';
 import { fetchBankBalances } from '../../lib/financeTxApi.js';
+import { formatBalanceDelta } from '../../lib/financeiroOverview.js';
 import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
+import BalanceDeltaBadge from './BalanceDeltaBadge.jsx';
 
 function fmtMoney(v) {
   try {
@@ -14,6 +16,16 @@ function fmtMoney(v) {
   } catch {
     return `R$ ${Number(v || 0).toFixed(2)}`;
   }
+}
+
+function buildLancamentosAccountPath(label, unallocated) {
+  const params = new URLSearchParams({ tab: 'movimentacoes' });
+  if (unallocated) {
+    params.set('conta', UNALLOCATED_BANK_LABEL);
+  } else if (label) {
+    params.set('conta', label);
+  }
+  return `/financeiro?${params.toString()}`;
 }
 
 function BankBalanceCard({
@@ -25,6 +37,7 @@ function BankBalanceCard({
   selectable = false,
   onClick,
   compactLayout = false,
+  accountLinks = false,
   children,
 }) {
   const cardClass = [
@@ -35,9 +48,12 @@ function BankBalanceCard({
     selected ? ' finance-bank-balances__card--selected' : '',
     selectable ? ' finance-bank-balances__card--selectable' : '',
     compactLayout ? ' finance-bank-balances__card--compact' : '',
+    accountLinks ? ' finance-bank-balances__card--linked' : '',
   ]
     .filter(Boolean)
     .join('');
+
+  const accountLink = accountLinks ? buildLancamentosAccountPath(label, unallocated) : null;
 
   if (compactLayout) {
     const HeroTag = selectable ? 'button' : 'div';
@@ -76,6 +92,11 @@ function BankBalanceCard({
         <h3 className="finance-bank-balances__card-title">{label}</h3>
         <p className="finance-bank-balances__card-balance">{fmtMoney(balance)}</p>
         {children}
+        {accountLink ? (
+          <Link to={accountLink} className="finance-bank-balances__card-action">
+            Ver lançamentos <ArrowRight size={14} aria-hidden />
+          </Link>
+        ) : null}
       </div>
     </CardTag>
   );
@@ -111,29 +132,42 @@ export default function BankBalancesOverview({
   onSelectAccount,
   selectedAccountLabel = '',
   compactLayout = false,
+  embedded = false,
+  accountLinks = false,
+  refreshKey = 0,
+  compareAsOf = '',
+  showTotalDelta = false,
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [prevTotalBalance, setPrevTotalBalance] = useState(null);
 
   const load = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
     setError('');
     try {
-      const body = await fetchBankBalances({ academyId });
-      setData(body);
+      const compareDate = showTotalDelta && compareAsOf ? String(compareAsOf).trim() : '';
+      const requests = [fetchBankBalances({ academyId })];
+      if (compareDate) {
+        requests.push(fetchBankBalances({ academyId, asOf: compareDate }));
+      }
+      const [currentBody, prevBody] = await Promise.all(requests);
+      setData(currentBody);
+      setPrevTotalBalance(compareDate ? Number(prevBody?.totalBalance) || 0 : null);
     } catch (e) {
       setData(null);
+      setPrevTotalBalance(null);
       setError(e?.message || 'Não foi possível carregar os saldos.');
     } finally {
       setLoading(false);
     }
-  }, [academyId]);
+  }, [academyId, compareAsOf, showTotalDelta]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   if (!academyId) return null;
 
@@ -164,24 +198,43 @@ export default function BankBalancesOverview({
 
   const selectable = Boolean(onSelectAccount);
   const showUnallocated = compactLayout || (unallocated?.count > 0);
+  const asOfLabel = String(data?.asOf || '').split('-').reverse().join('/') || 'hoje';
+  const totalDelta = showTotalDelta
+    ? formatBalanceDelta(data?.totalBalance, prevTotalBalance)
+    : null;
 
   return (
-    <div className={`finance-bank-balances${compactLayout ? ' finance-bank-balances--compact' : ''}`}>
-      <div className="finance-bank-balances__head">
-        <p className="text-small text-muted" role="status">
-          Saldos liquidados até {String(data?.asOf || '').split('-').reverse().join('/') || 'hoje'}
+    <div
+      className={[
+        'finance-bank-balances',
+        compactLayout ? 'finance-bank-balances--compact' : '',
+        embedded ? 'finance-bank-balances--embedded' : '',
+        accountLinks ? 'finance-bank-balances--overview' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {!embedded ? (
+        <div className="finance-bank-balances__head">
+          <p className="text-small text-muted" role="status">
+            Saldos liquidados até {asOfLabel}
+          </p>
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-busy={loading}
+          >
+            <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
+            Atualizar
+          </button>
+        </div>
+      ) : (
+        <p className="text-small text-muted finance-bank-balances__as-of" role="status">
+          Saldos liquidados até {asOfLabel}
         </p>
-        <button
-          type="button"
-          className="btn-outline btn-sm"
-          onClick={() => void load()}
-          disabled={loading}
-          aria-busy={loading}
-        >
-          <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
-          Atualizar
-        </button>
-      </div>
+      )}
       <div
         className={`finance-bank-balances__grid${compactLayout ? ' finance-bank-balances__grid--quad' : ''}`}
       >
@@ -195,6 +248,7 @@ export default function BankBalancesOverview({
               selected={selected}
               selectable={selectable}
               compactLayout={compactLayout}
+              accountLinks={accountLinks}
               onClick={
                 selectable ? () => onSelectAccount(selected ? '' : row.label) : undefined
               }
@@ -216,6 +270,7 @@ export default function BankBalancesOverview({
             selected={selectedAccountLabel === UNALLOCATED_BANK_LABEL}
             selectable={selectable}
             compactLayout={compactLayout}
+            accountLinks={accountLinks}
             onClick={
               selectable
                 ? () =>
@@ -245,9 +300,18 @@ export default function BankBalancesOverview({
             : 'Clique em uma conta para filtrar a lista abaixo. Clique de novo para remover o filtro.'}
         </p>
       ) : null}
-      <p className="text-small text-muted finance-bank-balances__total">
-        Total (contas + não alocado): <strong>{fmtMoney(data?.totalBalance)}</strong>
-      </p>
+      <div className="text-small text-muted finance-bank-balances__total">
+        <span>
+          Total (contas + não alocado): <strong>{fmtMoney(data?.totalBalance)}</strong>
+        </span>
+        {totalDelta ? (
+          <BalanceDeltaBadge
+            delta={totalDelta}
+            compareLabel="vs fim do mês anterior"
+            className="finance-bank-balances__total-delta"
+          />
+        ) : null}
+      </div>
       <Link to={EMPRESA_FINANCE_CONFIG_PATH} className="finance-config-context-link">
         Ajustar saldo inicial das contas →
       </Link>

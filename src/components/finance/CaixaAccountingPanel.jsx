@@ -9,8 +9,8 @@ import AccountsTab from './AccountsTab.jsx';
 import JournalTab from './JournalTab.jsx';
 import ImportFinanceModal from './ImportFinanceModal.jsx';
 import { useTerms } from '../../lib/terminology.js';
+import { Link } from 'react-router-dom';
 import { exportAccountsCsv } from '../../lib/exportAccountsCsv.js';
-import StatusBanner from '../shared/StatusBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 
@@ -207,10 +207,14 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
           panelClassName="finance-extrato-panel"
           title="Extrato contábil"
           intro={
-            <StatusBanner variant="info" className="finance-tab-intro">
-              Visão contábil por conta: lançamentos gerados pelo Caixa e por mensalidades aparecem aqui conforme o plano
-              de contas. Para operação do dia a dia, use Lançamentos e A receber.
-            </StatusBanner>
+            <p className="finance-tab-notice" role="status">
+              <span className="finance-tab-notice__text">
+                Visão contábil por conta. Operação do dia a dia:{' '}
+                <Link to="/financeiro?tab=movimentacoes">Lançamentos</Link>
+                {' · '}
+                <Link to="/financeiro?tab=a-receber">A receber</Link>
+              </span>
+            </p>
           }
         >
           <JournalTab

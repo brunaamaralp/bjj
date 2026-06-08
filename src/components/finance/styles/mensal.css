@@ -1,1 +1,19 @@
 /* Mensalidades — partial (estilos principais permanecem em finance.css; migração incremental) */
+
+.mensalidades-panel__view-tabs {
+  margin: 0 0 var(--finance-space-3);
+}
+
+.mensalidades-panel__view-tabs--embedded {
+  margin-top: 0;
+  padding-bottom: var(--finance-space-2);
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.mensalidades-panel--embedded .mensal-header {
+  margin-top: 0;
+}
+
+.mensalidades-page--embedded .mensal-header {
+  margin-bottom: var(--finance-space-2);
+}

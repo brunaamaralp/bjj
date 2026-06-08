@@ -57,6 +57,17 @@ export function monthPeriodBounds(ym) {
   return { from, to };
 }
 
+/** Último dia civil do mês YYYY-MM como YYYY-MM-DD. */
+export function monthEndYmd(ym) {
+  const ref = String(ym || currentMonthYm()).trim();
+  const m = ref.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return '';
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const lastDay = new Date(y, mo, 0).getDate();
+  return `${ref}-${String(lastDay).padStart(2, '0')}`;
+}
+
 export function forecastNext30Range() {
   return forecast30DaysRange();
 }

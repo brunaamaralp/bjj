@@ -72,17 +72,6 @@
   margin: 0 0 var(--finance-space-2);
 }
 
-.monthly-closing-alert {
-  padding: var(--finance-space-3) var(--finance-space-4);
-  border-left: 4px solid var(--finance-color-pending);
-  background: var(--status-warning-bg, var(--warning-light));
-}
-
-.monthly-closing-alert__text {
-  margin: 6px 0 0;
-  line-height: 1.5;
-}
-
 .monthly-closing-manual {
   padding: var(--finance-space-4);
 }
@@ -160,24 +149,6 @@
 
 .monthly-closing-kpi__value--negative {
   color: var(--finance-color-negative);
-}
-
-.monthly-closing-kpi--wide {
-  grid-column: span 2;
-}
-
-@media (max-width: 640px) {
-  .monthly-closing-kpi--wide {
-    grid-column: span 1;
-  }
-}
-
-.monthly-closing-kpi__methods-label {
-  margin-bottom: 6px;
-}
-
-.monthly-closing-kpi__methods {
-  line-height: 1.5;
 }
 
 .monthly-closing-filters.finance-filters-bar,

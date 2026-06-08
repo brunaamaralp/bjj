@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { createPortal } from 'react-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { FINANCE_TX_LIST_PAGE_SIZE } from '../../lib/financeListLimits.js';
 import {
@@ -53,7 +52,8 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
-import BankBalancesOverview from './BankBalancesOverview.jsx';
+import FieldError from '../shared/FieldError.jsx';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 import {
   DropdownMenu,
   DropdownMenuPanel,
@@ -76,6 +76,21 @@ import {
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 
 const BANK_FILTER_UNALLOCATED = '__unallocated__';
+
+function bankFilterFromContaParam(conta) {
+  const value = String(conta || '').trim();
+  if (!value) return 'all';
+  if (value === UNALLOCATED_BANK_LABEL || value === BANK_FILTER_UNALLOCATED) {
+    return BANK_FILTER_UNALLOCATED;
+  }
+  return value;
+}
+
+function contaParamFromBankFilter(value) {
+  if (value === 'all') return '';
+  if (value === BANK_FILTER_UNALLOCATED) return UNALLOCATED_BANK_LABEL;
+  return String(value || '').trim();
+}
 
 const TX_COLUMNS_STORAGE_PREFIX = 'navi-finance-tx-cols';
 
@@ -167,6 +182,80 @@ function getTxTypeLabelDesktop(tx) {
   return labelForFinanceTxType(t);
 }
 
+const TX_FORM_ERROR_FOCUS_ORDER = ['category', 'planName', 'gross', 'bankAccount', 'recurrence'];
+
+const TX_FORM_FIELD_IDS = {
+  category: 'finance-tx-category',
+  planName: 'finance-tx-plan',
+  gross: 'finance-tx-gross',
+  bankAccount: 'finance-tx-bank-account',
+  recurrence: 'finance-tx-recurrence-toggle',
+};
+
+function getTxModalTitle({ editingRecurrenceOnly, editingTxId }) {
+  if (editingRecurrenceOnly) return 'Editar recorrência';
+  if (editingTxId) return 'Editar lançamento';
+  return 'Novo lançamento';
+}
+
+function getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow }) {
+  if (savingTx) return 'Salvando…';
+  if (editingRecurrenceOnly) return 'Salvar recorrência';
+  if (editingTxId) return 'Salvar alterações';
+  if (receiveNow) return 'Registrar e liquidar';
+  return 'Registrar lançamento';
+}
+
+function focusFirstTxFormError(errors) {
+  for (const key of TX_FORM_ERROR_FOCUS_ORDER) {
+    if (!errors[key]) continue;
+    const el = document.getElementById(TX_FORM_FIELD_IDS[key]);
+    if (el && typeof el.focus === 'function') {
+      el.focus();
+      return;
+    }
+  }
+}
+
+function validateTxFormFields({
+  txForm,
+  bankAccountLabels,
+  financeConfig,
+  editingRecurrenceOnly,
+}) {
+  const errors = {};
+  if (editingRecurrenceOnly) {
+    if (!txForm.repeat_enabled) {
+      errors.recurrence = 'Ative "Repetir automaticamente" para manter a recorrência.';
+    }
+    return errors;
+  }
+
+  const grossNum =
+    typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
+      ? txForm.gross
+      : parseCurrencyBRL(txForm.gross);
+  if (!Number.isFinite(grossNum) || grossNum <= 0) {
+    errors.gross = 'Informe um valor maior que zero.';
+  }
+
+  const cat = resolveFinanceCategory(txForm.category);
+  if (!cat) {
+    errors.category = 'Selecione uma categoria válida.';
+  } else if (cat.type === 'plan' && !String(txForm.planName || '').trim()) {
+    errors.planName = 'Selecione um plano.';
+  }
+
+  if (bankAccountLabels.length > 0) {
+    const accountCheck = validateBankAccountForPayment(txForm.bankAccount, financeConfig);
+    if (!accountCheck.ok) {
+      errors.bankAccount = accountCheck.message;
+    }
+  }
+
+  return errors;
+}
+
 export default function TransacoesTab({
   academyId,
   financeConfig,
@@ -190,6 +279,7 @@ export default function TransacoesTab({
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [showTxModal, setShowTxModal] = useState(false);
+  const [txFormErrors, setTxFormErrors] = useState({});
   const [txForm, setTxForm] = useState(() => ({
     direction: 'in',
     type: 'plan',
@@ -226,7 +316,6 @@ export default function TransacoesTab({
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
   const [txSearch, setTxSearch] = useState('');
-  const [bankAccountFilter, setBankAccountFilter] = useState('all');
   const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState('');
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
@@ -237,7 +326,6 @@ export default function TransacoesTab({
   const [assignBankTx, setAssignBankTx] = useState(null);
   const [assignBankAccount, setAssignBankAccount] = useState('');
   const [assignBankSaving, setAssignBankSaving] = useState(false);
-  const [bankBalancesRefreshKey, setBankBalancesRefreshKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
@@ -297,6 +385,7 @@ export default function TransacoesTab({
     });
     setStudentQuery('');
     setStudentPickerOpen(false);
+    setTxFormErrors({});
     setShowTxModal(true);
   }, [financeConfig]);
 
@@ -307,6 +396,27 @@ export default function TransacoesTab({
     next.delete('new');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, openNewTxModal]);
+
+  const bankAccountFilter = useMemo(
+    () => bankFilterFromContaParam(searchParams.get('conta')),
+    [searchParams]
+  );
+
+  const setBankAccountFilter = useCallback(
+    (value) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const conta = contaParamFromBankFilter(value);
+          if (conta) next.set('conta', conta);
+          else next.delete('conta');
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
 
@@ -378,7 +488,7 @@ export default function TransacoesTab({
     setDirectionFilter('all');
     setBankAccountFilter('all');
     setTxSearch('');
-  }, []);
+  }, [setBankAccountFilter]);
 
   const studentMatches = useMemo(() => {
     const q = String(studentQuery || '').trim().toLowerCase();
@@ -401,9 +511,19 @@ export default function TransacoesTab({
     setEditPreservedSaleId('');
     setReceiveNow(false);
     setTxForm(initialTxForm());
+    setTxFormErrors({});
     setStudentQuery('');
     setStudentPickerOpen(false);
   };
+
+  const clearTxFieldError = useCallback((field) => {
+    setTxFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
 
   const loadTransactions = useCallback(
     async (cursor = null, append = false) => {
@@ -484,19 +604,12 @@ export default function TransacoesTab({
     [notifyPeriodFiltersChange, fromDate]
   );
 
-  const requestCloseTxModal = () => {
+  const requestCloseTxModal = useCallback(() => {
     if (savingTx) return;
     resetTxModal();
-  };
+  }, [savingTx]); // eslint-disable-line react-hooks/exhaustive-deps -- resetTxModal is stable enough for modal close
 
-  useEffect(() => {
-    if (!showTxModal) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') requestCloseTxModal();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [showTxModal, savingTx]); // eslint-disable-line react-hooks/exhaustive-deps -- requestCloseTxModal checks savingTx
+  useModalA11y({ isOpen: showTxModal, onClose: requestCloseTxModal, lockScroll: true });
 
   const openEditModal = (tx) => {
     if (String(tx.status || '').toLowerCase() !== 'pending') return;
@@ -530,6 +643,7 @@ export default function TransacoesTab({
     const lead = (leads || []).find((l) => l.id === tx.lead_id);
     setStudentQuery(lead?.name ? String(lead.name) : '');
     setStudentPickerOpen(false);
+    setTxFormErrors({});
     setShowTxModal(true);
   };
 
@@ -669,7 +783,6 @@ export default function TransacoesTab({
       setTransactions((prev) =>
         prev.map((t) => (String(t.id) === String(assignBankTx.id) ? { ...t, ...row, bankAccount: row.bankAccount || accountCheck.account } : t))
       );
-      setBankBalancesRefreshKey((k) => k + 1);
       toast.success('Conta bancária atribuída.');
       setAssignBankTx(null);
       setAssignBankAccount('');
@@ -780,30 +893,33 @@ export default function TransacoesTab({
   };
 
   const saveManualTx = async () => {
-    const grossNum =
-      typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
-        ? txForm.gross
-        : parseCurrencyBRL(txForm.gross);
-    if (!academyId || !Number.isFinite(grossNum) || grossNum <= 0) {
-      toast.show({ type: 'error', message: 'Informe um valor bruto maior que zero.' });
-      return;
-    }
+    if (!academyId) return;
     if (txForm.direction === 'out' && !canManageAdvanced) {
       toast.show({ type: 'error', message: 'Apenas gestores podem registrar saída.' });
       return;
     }
-    const cat = resolveFinanceCategory(txForm.category);
-    if (!cat) {
-      toast.show({ type: 'error', message: 'Selecione uma categoria válida.' });
+
+    const fieldErrors = validateTxFormFields({
+      txForm,
+      bankAccountLabels,
+      financeConfig,
+      editingRecurrenceOnly,
+    });
+    if (Object.keys(fieldErrors).length > 0) {
+      setTxFormErrors(fieldErrors);
+      focusFirstTxFormError(fieldErrors);
       return;
     }
+    setTxFormErrors({});
+
+    const grossNum =
+      typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
+        ? txForm.gross
+        : parseCurrencyBRL(txForm.gross);
+    const cat = resolveFinanceCategory(txForm.category);
     let bankAccount = '';
     if (bankAccountLabels.length > 0) {
       const accountCheck = validateBankAccountForPayment(txForm.bankAccount, financeConfig);
-      if (!accountCheck.ok) {
-        toast.show({ type: 'error', message: accountCheck.message });
-        return;
-      }
       bankAccount = accountCheck.account || txForm.bankAccount || '';
     }
     const feePct =
@@ -830,11 +946,6 @@ export default function TransacoesTab({
       };
 
       if (editingTxId && editingRecurrenceOnly) {
-        if (!txForm.repeat_enabled) {
-          toast.show({ type: 'error', message: 'Ative "Repetir automaticamente" para manter a recorrência.' });
-          setSavingTx(false);
-          return;
-        }
         const row = await patchFinanceTx({
           academyId,
           id: editingTxId,
@@ -850,7 +961,7 @@ export default function TransacoesTab({
       } else if (editingTxId) {
         const row = await patchFinanceTx({ academyId, id: editingTxId, payload });
         setTransactions((prev) => prev.map((t) => (t.id === editingTxId ? row : t)));
-        toast.success('Transação atualizada.');
+        toast.success('Lançamento atualizado.');
       } else {
         if (txForm.repeat_enabled) {
           payload.is_recurrence_template = true;
@@ -863,7 +974,7 @@ export default function TransacoesTab({
         setTransactions((prev) => [row, ...prev]);
         toast.show({
           type: 'success',
-          message: receiveNow ? 'Lançamento registrado e liquidado.' : 'Transação registrada.',
+          message: receiveNow ? 'Lançamento registrado e liquidado.' : 'Lançamento registrado.',
         });
       }
       resetTxModal();
@@ -878,79 +989,40 @@ export default function TransacoesTab({
     }
   };
 
-  const periodBalanceKpi = (
-    <div
-      className="finance-kpi finance-kpi--hero finance-period-balance"
-      role="status"
-      title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
-    >
-      <p className="finance-kpi__label">Saldo do período (entradas liquidadas − saídas)</p>
-      <p className="finance-kpi__value finance-period-balance__value">
-        {periodBalanceLoading
-          ? '…'
-          : periodBalance != null
-            ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })
-            : '—'}
-      </p>
-      <p className="finance-kpi__hint">Atualiza com o período De/Até abaixo.</p>
-    </div>
-  );
+  const periodBalanceFormatted =
+    periodBalanceLoading
+      ? '…'
+      : periodBalance != null
+        ? Number(periodBalance.periodBalance || 0).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })
+        : '—';
 
   return (
     <>
-      <FinanceTabShell
-        panelClassName="finance-tx-section"
-        kpiStrip={periodBalanceKpi}
-      >
-        {academyId ? (
-          <div className="mb-3">
-            <BankBalancesOverview
-              key={bankBalancesRefreshKey}
-              academyId={academyId}
-              compactLayout
-              onSelectAccount={(label) => {
-                if (!label) {
-                  setBankAccountFilter('all');
-                  return;
-                }
-                setBankAccountFilter(
-                  label === UNALLOCATED_BANK_LABEL ? BANK_FILTER_UNALLOCATED : label
-                );
-              }}
-              selectedAccountLabel={
-                bankAccountFilter === 'all'
-                  ? ''
-                  : bankAccountFilter === BANK_FILTER_UNALLOCATED
-                    ? UNALLOCATED_BANK_LABEL
-                    : bankAccountFilter
-              }
-            />
-          </div>
-        ) : null}
+      <FinanceTabShell panelClassName="finance-tx-section finance-tab-panel--compact">
         <div className="card">
-          {academyId ? (
-            <FinanceRegimeToggle
-              academyId={academyId}
-              value={regime}
-              onChange={setRegime}
-              hintStyle="tooltip"
-              className="mb-3"
-            />
-          ) : null}
           <details className="finance-guide mb-3">
             <summary className="finance-guide__title">Como funciona o período De/Até</summary>
             <ul className="finance-guide__list">
               <li>
                 O mês no cabeçalho define o intervalo inicial de <strong>De</strong> e <strong>Até</strong>.
               </li>
-              <li>Ajuste as datas para refinar a lista e o saldo do período acima.</li>
+              <li>Ajuste as datas para refinar a lista e o saldo do período.</li>
             </ul>
           </details>
           <FinanceFiltersBar className="finance-tx-toolbar">
             <div className="finance-tx-toolbar__row">
+              {academyId ? (
+                <FinanceRegimeToggle
+                  academyId={academyId}
+                  value={regime}
+                  onChange={setRegime}
+                  hintStyle="tooltip"
+                  className="finance-regime-toggle--inline"
+                />
+              ) : null}
               <div className="finance-filters-bar__field finance-tx-date-group">
                 <label htmlFor="finance-tx-from" className="finance-filters-bar__sr-label">
                   De
@@ -1033,6 +1105,14 @@ export default function TransacoesTab({
                   Limpar filtros
                 </button>
               ) : null}
+              <div
+                className="finance-tx-period-balance-inline"
+                role="status"
+                title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+              >
+                <span className="finance-tx-period-balance-inline__label">Saldo do período</span>
+                <span className="finance-tx-period-balance-inline__value">{periodBalanceFormatted}</span>
+              </div>
             </div>
             <div className="finance-tx-toolbar__actions flex gap-2">
               {canManageAdvanced ? (
@@ -1098,7 +1178,7 @@ export default function TransacoesTab({
                 className="btn-primary navi-btn--toolbar finance-tx-toolbar__cta"
                 onClick={openNewTxModal}
               >
-                + Nova transação
+                + Novo lançamento
               </button>
             </div>
           </FinanceFiltersBar>
@@ -1134,7 +1214,7 @@ export default function TransacoesTab({
                     }
                     description={
                       transactions.length === 0
-                        ? "Use '+ Nova transação' para registrar um lançamento."
+                        ? "Use '+ Novo lançamento' para registrar uma entrada ou saída."
                         : 'Ajuste os filtros ou limpe a busca.'
                     }
                     secondaryAction={
@@ -1324,7 +1404,7 @@ export default function TransacoesTab({
                         }
                         description={
                           transactions.length === 0
-                            ? "Use '+ Nova transação' para registrar um lançamento."
+                            ? "Use '+ Novo lançamento' para registrar uma entrada ou saída."
                             : 'Ajuste os filtros ou limpe a busca.'
                         }
                         secondaryAction={
@@ -1478,34 +1558,52 @@ export default function TransacoesTab({
         </div>
       </FinanceTabShell>
 
-      {showTxModal && typeof document !== 'undefined'
-        ? createPortal(
-        <div className="navi-modal-overlay" role="presentation" onClick={requestCloseTxModal}>
-          <div
-            className="card navi-modal-dialog finance-tx-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="finance-tx-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="finance-tx-modal-title" className="navi-section-heading finance-tx-modal__title">
-              {editingRecurrenceOnly
-                ? 'Editar recorrência'
-                : editingTxId
-                  ? 'Editar transação'
-                  : 'Nova transação'}
-            </h3>
-            {editingTxId && !editingRecurrenceOnly ? (
-              <p className="text-small finance-tx-modal__hint">
-                Só é possível editar enquanto o lançamento estiver pendente. Valores liquidados no razão não são alterados automaticamente.
-              </p>
-            ) : null}
-            <div className="flex-col gap-3">
+      <ModalShell
+        open={showTxModal}
+        title={getTxModalTitle({ editingRecurrenceOnly, editingTxId })}
+        onClose={requestCloseTxModal}
+        closeOnEsc={false}
+        maxWidth={520}
+        dialogClassName="finance-tx-modal"
+        ariaLabelledBy="finance-tx-modal-title"
+        ariaDescribedBy={
+          !editingTxId || (editingTxId && !editingRecurrenceOnly) ? 'finance-tx-modal-desc' : undefined
+        }
+        footer={
+          <div className="flex gap-2 justify-end">
+            <button type="button" className="btn-outline" disabled={savingTx} onClick={requestCloseTxModal}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={savingTx}
+              onClick={() => void saveManualTx()}
+            >
+              {getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow })}
+            </button>
+          </div>
+        }
+      >
+        {!editingTxId && !editingRecurrenceOnly ? (
+          <p id="finance-tx-modal-desc" className="finance-tx-modal__intro">
+            Registre entrada ou saída no caixa do período. Pendente entra na lista até você liquidar; marque
+            «Recebido agora» para registrar já liquidado.
+          </p>
+        ) : null}
+        {editingTxId && !editingRecurrenceOnly ? (
+          <p id="finance-tx-modal-desc" className="finance-tx-modal__hint">
+            Só é possível editar enquanto o lançamento estiver pendente. Valores liquidados no razão não são
+            alterados automaticamente.
+          </p>
+        ) : null}
+        <div className="flex-col gap-3">
               {!editingRecurrenceOnly ? (
               <>
               <div className="form-group">
-                <label>Natureza</label>
+                <label htmlFor="finance-tx-direction">Tipo</label>
                 <select
+                  id="finance-tx-direction"
                   className="form-input"
                   value={txForm.direction}
                   onChange={(e) => {
@@ -1522,6 +1620,8 @@ export default function TransacoesTab({
                       installments: dir === 'out' ? 1 : prev.installments,
                       planName: cat.type === 'plan' ? prev.planName : '',
                     }));
+                    clearTxFieldError('category');
+                    clearTxFieldError('planName');
                   }}
                   disabled={Boolean(editingTxId)}
                 >
@@ -1530,10 +1630,13 @@ export default function TransacoesTab({
                 </select>
               </div>
               <div className="form-group">
-                <label>Categoria</label>
+                <label htmlFor="finance-tx-category">Categoria</label>
                 <select
+                  id="finance-tx-category"
                   className="form-input"
                   value={txForm.category}
+                  aria-invalid={txFormErrors.category ? 'true' : undefined}
+                  aria-describedby={txFormErrors.category ? 'finance-tx-category-error' : undefined}
                   onChange={(e) => {
                     const label = e.target.value;
                     const cat = resolveFinanceCategory(label);
@@ -1543,6 +1646,8 @@ export default function TransacoesTab({
                       type: cat?.type || prev.type,
                       planName: cat?.type === 'plan' ? prev.planName : '',
                     }));
+                    clearTxFieldError('category');
+                    clearTxFieldError('planName');
                   }}
                 >
                   {[...categoryOptionGroups.entries()].map(([group, items]) => (
@@ -1555,6 +1660,7 @@ export default function TransacoesTab({
                     </optgroup>
                   ))}
                 </select>
+                <FieldError id="finance-tx-category-error">{txFormErrors.category}</FieldError>
               </div>
               {!editingTxId ? (
                 <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
@@ -1568,10 +1674,13 @@ export default function TransacoesTab({
               ) : null}
               {resolveFinanceCategory(txForm.category)?.type === 'plan' && (
                 <div className="form-group">
-                  <label>Plano</label>
+                  <label htmlFor="finance-tx-plan">Plano</label>
                   <select
+                    id="finance-tx-plan"
                     className="form-input"
                     value={txForm.planName}
+                    aria-invalid={txFormErrors.planName ? 'true' : undefined}
+                    aria-describedby={txFormErrors.planName ? 'finance-tx-plan-error' : undefined}
                     onChange={(e) => {
                       const name = e.target.value;
                       const pl = (financeConfig.plans || []).find((p) => (p.name || '') === name);
@@ -1581,6 +1690,8 @@ export default function TransacoesTab({
                         planName: name,
                         gross: name && Number.isFinite(price) && price >= 0 ? price : '',
                       });
+                      clearTxFieldError('planName');
+                      if (name) clearTxFieldError('gross');
                     }}
                   >
                     <option value="">Selecione…</option>
@@ -1588,15 +1699,19 @@ export default function TransacoesTab({
                       <option key={p.name} value={p.name}>{`${p.name} · R$ ${Number(p.price ?? 0).toFixed(2)}`}</option>
                     ))}
                   </select>
+                  <FieldError id="finance-tx-plan-error">{txFormErrors.planName}</FieldError>
                 </div>
               )}
               <div className="form-group">
-                <label>Valor (R$)</label>
+                <label htmlFor="finance-tx-gross">Valor (R$)</label>
                 <input
+                  id="finance-tx-gross"
                   className="form-input"
                   type="text"
                   inputMode="numeric"
                   placeholder="0,00"
+                  aria-invalid={txFormErrors.gross ? 'true' : undefined}
+                  aria-describedby={txFormErrors.gross ? 'finance-tx-gross-error' : undefined}
                   value={
                     txForm.gross === '' || txForm.gross === null || txForm.gross === undefined
                       ? ''
@@ -1606,12 +1721,15 @@ export default function TransacoesTab({
                     const d = e.target.value.replace(/\D/g, '');
                     if (!d) {
                       setTxForm((f) => ({ ...f, gross: '' }));
+                      clearTxFieldError('gross');
                       return;
                     }
                     const n = parseInt(d, 10) / 100;
                     setTxForm((f) => ({ ...f, gross: n }));
+                    clearTxFieldError('gross');
                   }}
                 />
+                <FieldError id="finance-tx-gross-error">{txFormErrors.gross}</FieldError>
               </div>
               {txForm.direction !== 'out' ? (
                 <div className="form-group">
@@ -1628,15 +1746,21 @@ export default function TransacoesTab({
                 </div>
               ) : null}
               {bankAccountLabels.length > 0 ? (
-                <BankAccountSelect
-                  academyId={academyId}
-                  financeConfig={financeConfig}
-                  id="finance-tx-bank-account"
-                  label="Conta bancária"
-                  required
-                  value={txForm.bankAccount || ''}
-                  onChange={(v) => setTxForm((f) => ({ ...f, bankAccount: v }))}
-                />
+                <>
+                  <BankAccountSelect
+                    academyId={academyId}
+                    financeConfig={financeConfig}
+                    id="finance-tx-bank-account"
+                    label="Conta bancária"
+                    required
+                    value={txForm.bankAccount || ''}
+                    onChange={(v) => {
+                      setTxForm((f) => ({ ...f, bankAccount: v }));
+                      clearTxFieldError('bankAccount');
+                    }}
+                  />
+                  <FieldError id="finance-tx-bank-account-error">{txFormErrors.bankAccount}</FieldError>
+                </>
               ) : null}
               <div className="form-group">
                 <label>Método</label>
@@ -1744,30 +1868,36 @@ export default function TransacoesTab({
               {!editingTxId || editingRecurrenceOnly ? (
                 <div className={`form-group finance-tx-recurrence-group${editingRecurrenceOnly ? ' finance-tx-recurrence-group--editing-only' : ''}`}>
                   <button
+                    id="finance-tx-recurrence-toggle"
                     type="button"
                     className="btn-ghost finance-tx-recurrence-toggle"
+                    aria-expanded={recurrenceOpen}
+                    aria-controls="finance-tx-recurrence-panel"
                     onClick={() => setRecurrenceOpen((o) => !o)}
                   >
                     <span>Repetir lançamento</span>
                     <ChevronDown
                       size={18}
+                      aria-hidden
                       className={`finance-tx-recurrence-toggle__icon${recurrenceOpen ? ' finance-tx-recurrence-toggle__icon--open' : ''}`}
                     />
                   </button>
+                  <FieldError id="finance-tx-recurrence-error">{txFormErrors.recurrence}</FieldError>
                   {recurrenceOpen ? (
-                    <div className="flex-col gap-3 finance-tx-recurrence-body">
+                    <div id="finance-tx-recurrence-panel" className="flex-col gap-3 finance-tx-recurrence-body">
                       <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
                         <input
                           type="checkbox"
                           checked={Boolean(txForm.repeat_enabled)}
-                          onChange={(e) =>
+                          onChange={(e) => {
                             setTxForm((f) => ({
                               ...f,
                               repeat_enabled: e.target.checked,
                               recurrence_type: f.recurrence_type || RECURRENCE_TYPES.MONTHLY,
                               recurrence_day: f.recurrence_day || 1,
-                            }))
-                          }
+                            }));
+                            if (e.target.checked) clearTxFieldError('recurrence');
+                          }}
                         />
                         Repetir automaticamente
                       </label>
@@ -1845,36 +1975,8 @@ export default function TransacoesTab({
                   ) : null}
                 </div>
               ) : null}
-            </div>
-            <div className="flex gap-2 mt-3 finance-tx-modal__actions">
-              <button
-                type="button"
-                className="btn-outline"
-                disabled={savingTx}
-                onClick={() => {
-                  requestCloseTxModal();
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={savingTx}
-                onClick={() => void saveManualTx()}
-              >
-                {savingTx
-                  ? 'Salvando…'
-                  : editingRecurrenceOnly
-                    ? 'Salvar recorrência'
-                    : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )
-        : null}
+        </div>
+      </ModalShell>
 
       <ModalShell
         open={Boolean(assignBankTx)}

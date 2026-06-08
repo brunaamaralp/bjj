@@ -7,6 +7,14 @@
   gap: var(--finance-space-4);
 }
 
+.finance-tab-panel--compact {
+  gap: var(--finance-space-3);
+}
+
+.finance-tab-panel--compact .finance-tab-shell__subnav {
+  margin-top: 0;
+}
+
 .finance-tab-shell__body {
   display: flex;
   flex-direction: column;
@@ -103,6 +111,14 @@
   font-size: var(--font-3xl);
 }
 
+.finance-kpi--compact {
+  padding: var(--finance-space-3) var(--finance-space-4);
+}
+
+.finance-kpi--compact .finance-kpi__value {
+  font-size: var(--font-2xl);
+}
+
 .finance-kpi--clickable {
   cursor: pointer;
   text-align: left;
@@ -160,4 +176,34 @@
   background: var(--finance-card-bg);
   border: 1px solid var(--finance-card-border);
   border-radius: 12px;
+}
+
+.finance-tab-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 var(--finance-space-3);
+  padding: 0;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-secondary, var(--color-text-secondary));
+}
+
+.finance-tab-notice--warning {
+  padding: 6px 0;
+}
+
+.finance-tab-notice__text {
+  margin: 0;
+}
+
+.finance-tab-notice a {
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.finance-tab-notice a:hover {
+  text-decoration: underline;
 }

@@ -4,9 +4,8 @@ import {
   AlertCircle,
   ArrowRight,
   BarChart2,
+  Landmark,
   RefreshCw,
-  TrendingDown,
-  TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -33,6 +32,7 @@ import {
   forecastNext30Range,
   formatBalanceDelta,
   formatMonthTitleCapitalized,
+  monthEndYmd,
   monthPeriodBounds,
   previousMonthYm,
   sumForecastInflow,
@@ -44,6 +44,8 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
 import ReceivablesOverviewCard from './ReceivablesOverviewCard.jsx';
+import BalanceDeltaBadge from './BalanceDeltaBadge.jsx';
+import PeriodFlowMiniChart from './PeriodFlowMiniChart.jsx';
 
 function fmtMoney(v) {
   try {
@@ -105,6 +107,7 @@ export default function VisaoGeralTab({
   const { from, to } = useMemo(() => monthPeriodBounds(ym), [ym]);
   const prevMonth = useMemo(() => previousMonthYm(ym), [ym]);
   const prevBounds = useMemo(() => monthPeriodBounds(prevMonth), [prevMonth]);
+  const bankCompareAsOf = useMemo(() => monthEndYmd(prevMonth), [prevMonth]);
   const forecastRange = useMemo(() => forecastNext30Range(), []);
 
   const [loading, setLoading] = useState(true);
@@ -387,11 +390,11 @@ export default function VisaoGeralTab({
         </StatusBanner>
       ) : null}
 
-      <div className="financeiro-overview-grid financeiro-overview-grid--hero-first">
+      <div className="financeiro-overview-grid financeiro-overview-grid--dashboard">
         <OverviewCard
           title="Saldo e movimentações"
           eyebrow="Caixa · mês atual"
-          className="financeiro-overview-card--hero"
+          className="financeiro-overview-card--period"
         >
           {summaryFailed ? (
             <CardLoadError message="Não foi possível carregar o saldo. Tente atualizar." />
@@ -404,37 +407,39 @@ export default function VisaoGeralTab({
                 {fmtMoneyOrUnavailable(summary?.periodBalance, summaryFailed)}
               </p>
               {!summaryFailed ? (
-                <p className="text-small text-muted financeiro-overview-trend">
-                  {balanceDelta.type === 'pct' ? (
-                    <>
-                      {balanceDelta.pct >= 0 ? (
-                        <TrendingUp size={14} className="financeiro-overview-trend__icon" aria-hidden />
-                      ) : (
-                        <TrendingDown size={14} className="financeiro-overview-trend__icon" aria-hidden />
-                      )}
-                      {balanceDelta.pct >= 0 ? '+' : ''}
-                      {balanceDelta.pct}% vs mês anterior
-                    </>
-                  ) : (
-                    balanceDelta.text
-                  )}
-                </p>
+                <BalanceDeltaBadge delta={balanceDelta} className="financeiro-overview-trend" />
               ) : null}
             </div>
           </div>
-          <div className="financeiro-overview-metrics">
-            <MetricRow
-              label="Entradas liquidadas"
-              value={fmtMoneyOrUnavailable(summary?.settledIn, summaryFailed)}
-            />
-            <MetricRow
-              label="Saídas liquidadas"
-              value={fmtMoneyOrUnavailable(summary?.settledOut, summaryFailed)}
-            />
-          </div>
+          <PeriodFlowMiniChart
+            inflow={summary?.settledIn}
+            outflow={summary?.settledOut}
+            failed={summaryFailed}
+          />
           <Link to="/financeiro?tab=movimentacoes" className="btn-outline btn-sm financeiro-overview-cta">
             Ver lançamentos <ArrowRight size={14} />
           </Link>
+        </OverviewCard>
+
+        <OverviewCard
+          title="Saldos por conta"
+          eyebrow="Caixa · posição atual"
+          className="financeiro-overview-card--banks"
+        >
+          <div className="financeiro-overview-banks-intro">
+            <Landmark size={20} className="financeiro-overview-banks-intro__icon" aria-hidden />
+            <p className="text-small text-muted financeiro-overview-banks-intro__text">
+              Valores liquidados em cada conta bancária. Para filtrar lançamentos, use o link em cada conta.
+            </p>
+          </div>
+          <BankBalancesOverview
+            academyId={academyId}
+            embedded
+            accountLinks
+            refreshKey={refreshToken}
+            compareAsOf={bankCompareAsOf}
+            showTotalDelta
+          />
         </OverviewCard>
 
         <ReceivablesOverviewCard
@@ -528,62 +533,43 @@ export default function VisaoGeralTab({
           </ul>
         </OverviewCard>
 
-        <details className="financeiro-overview-details financeiro-overview-details--banks">
-          <summary className="financeiro-overview-details__summary financeiro-overview-details__summary--mobile-only">
-            Saldos por conta
-          </summary>
-          <div className="financeiro-overview-details__body">
-            <BankBalancesOverview academyId={academyId} />
-          </div>
-        </details>
-
         {financeModule ? (
-          <details className="financeiro-overview-details financeiro-overview-details--forecast">
-            <summary className="financeiro-overview-details__summary financeiro-overview-details__summary--mobile-only">
-              Previsão · 30 dias
-            </summary>
-            <div className="financeiro-overview-details__body">
-              {forecastFailed ? (
-                <CardLoadError message="Não foi possível carregar a previsão. Tente atualizar." />
-              ) : null}
-              <p className="financeiro-overview-forecast-total">
-                Total previsto (entradas):{' '}
-                <strong>{fmtMoneyOrUnavailable(forecastInflowTotal, forecastFailed)}</strong>
-              </p>
-              {!forecastFailed && forecastTop.length > 0 ? (
-                <ul className="financeiro-overview-list">
-                  {forecastTop.map((item, idx) => (
-                    <li key={`${item.due_date}-${idx}`}>
-                      <span className="financeiro-overview-list__label">
-                        {item.student_name || item.label || 'Lançamento'}
-                      </span>
-                      <span className="financeiro-overview-list__meta">
-                        {fmtDateBr(item.due_date)} · {fmtMoney(item.amount)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : !forecastFailed ? (
-                <EmptyState variant="embedded" title="Nenhuma entrada prevista no período" />
-              ) : null}
-              <Link to="/financeiro?tab=previsao" className="btn-outline btn-sm financeiro-overview-cta">
-                Ver Previsão <ArrowRight size={14} />
-              </Link>
-            </div>
-          </details>
+          <OverviewCard title="Previsão · 30 dias" eyebrow="Entradas futuras" className="financeiro-overview-card--pair">
+            {forecastFailed ? (
+              <CardLoadError message="Não foi possível carregar a previsão. Tente atualizar." />
+            ) : null}
+            <p className="financeiro-overview-forecast-total">
+              Total previsto (entradas):{' '}
+              <strong>{fmtMoneyOrUnavailable(forecastInflowTotal, forecastFailed)}</strong>
+            </p>
+            {!forecastFailed && forecastTop.length > 0 ? (
+              <ul className="financeiro-overview-list">
+                {forecastTop.map((item, idx) => (
+                  <li key={`${item.due_date}-${idx}`}>
+                    <span className="financeiro-overview-list__label">
+                      {item.student_name || item.label || 'Lançamento'}
+                    </span>
+                    <span className="financeiro-overview-list__meta">
+                      {fmtDateBr(item.due_date)} · {fmtMoney(item.amount)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : !forecastFailed ? (
+              <EmptyState variant="embedded" title="Nenhuma entrada prevista no período" />
+            ) : null}
+            <Link to="/financeiro?tab=previsao" className="btn-outline btn-sm financeiro-overview-cta">
+              Ver Previsão <ArrowRight size={14} />
+            </Link>
+          </OverviewCard>
         ) : (
-          <details className="financeiro-overview-details financeiro-overview-details--forecast">
-            <summary className="financeiro-overview-details__summary financeiro-overview-details__summary--mobile-only">
-              Previsão de caixa
-            </summary>
-            <div className="financeiro-overview-details__body">
-              <EmptyState
-                variant="embedded"
-                title="Previsão indisponível"
-                description="Ative o módulo financeiro para ver a previsão de caixa."
-              />
-            </div>
-          </details>
+          <OverviewCard title="Previsão de caixa" eyebrow="Módulo financeiro" className="financeiro-overview-card--pair">
+            <EmptyState
+              variant="embedded"
+              title="Previsão indisponível"
+              description="Ative o módulo financeiro para ver a previsão de caixa."
+            />
+          </OverviewCard>
         )}
       </div>
 

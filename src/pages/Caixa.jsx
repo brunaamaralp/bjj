@@ -92,26 +92,6 @@ const defaultFinanceConfig = () => ({
 
 
 
-const TAB_SUBTITLES = {
-
-  [FINANCEIRO_SECTIONS.OVERVIEW]: 'Resumo financeiro da academia',
-
-  [FINANCEIRO_SECTIONS.A_RECEBER]: 'Tudo que a academia ainda deve receber — mensalidades, lançamentos e vendas',
-
-  movimentacoes: 'Lançamentos do caixa — entradas, saídas e recorrências',
-
-  previsao: 'Previsão de caixa com base em mensalidades em aberto e lançamentos pendentes',
-
-  fechamento: 'Conferência do mês — não trava lançamentos',
-
-  conciliacao: 'Conciliação de extratos bancários com lançamentos do Nave',
-
-  [FINANCEIRO_EXTRATO_TAB]: 'Lançamentos contábeis e extrato por conta',
-
-};
-
-
-
 /** Hub Financeiro (rota /financeiro). */
 
 export default function Caixa() {
@@ -364,8 +344,6 @@ export default function Caixa() {
     });
   }, []);
 
-  const subtitle = TAB_SUBTITLES[activeTab] || TAB_SUBTITLES.movimentacoes;
-
 
 
   const loadPeriodSummary = useCallback(async () => {
@@ -424,7 +402,6 @@ export default function Caixa() {
           className="navi-page-header--flush navi-hub-page__head"
           title="Financeiro"
           subtitle="Controle entradas, saídas e fechamentos."
-          meta={`${subtitle}${academyName ? ` · ${academyName}` : ''}`}
           actions={
             <FinanceMonthPicker
               value={referenceMonth}

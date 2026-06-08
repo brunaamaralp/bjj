@@ -20,7 +20,6 @@ import {
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
-import StatusBanner from '../shared/StatusBanner.jsx';
 import FinanceFiltersBar from './FinanceFiltersBar.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
@@ -142,14 +141,7 @@ export default function ForecastTab({ academyId }) {
   if (!academyId) return null;
 
   return (
-    <FinanceTabShell
-      panelClassName="finance-forecast"
-      intro={
-        <StatusBanner variant="info" className="finance-tab-intro">
-          Previsão baseada em lançamentos pendentes e mensalidades em aberto. Valores reais podem variar.
-        </StatusBanner>
-      }
-    >
+    <FinanceTabShell panelClassName="finance-forecast">
       <FinanceFiltersBar className="finance-forecast-toolbar">
         <span className="text-small text-muted">Período:</span>
         {PRESETS.map((p) => (

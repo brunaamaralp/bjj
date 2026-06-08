@@ -47,6 +47,7 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import HubTabBar from '../shared/HubTabBar.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import {
@@ -548,6 +549,19 @@ export default function MensalidadesPanel({
     [students, paymentMap, currentMonth, financeConfig]
   );
 
+  const viewTabs = useMemo(
+    () => [
+      { id: 'list', label: 'Lista' },
+      { id: 'grid', label: 'Resumo' },
+      {
+        id: 'exceptions',
+        label: exceptionCount > 0 ? `Pendências (${exceptionCount})` : 'Pendências',
+        shortLabel: 'Pendências',
+      },
+    ],
+    [exceptionCount]
+  );
+
   const monthKpis = useMemo(
     () => computeMensalidadesMonthKpis(students, payments, financeConfig, currentMonth),
     [students, payments, financeConfig, currentMonth]
@@ -886,41 +900,15 @@ export default function MensalidadesPanel({
         ) : null}
 
         {modules?.finance === true ? (
-          <div className="mensal-page-tabs" role="tablist" aria-label="Visualização">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === 'list'}
-              className={`mensal-page-tab${viewMode === 'list' ? ' mensal-page-tab--active' : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              Lista
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === 'grid'}
-              className={`mensal-page-tab${viewMode === 'grid' ? ' mensal-page-tab--active' : ''}`}
-              onClick={() => setViewMode('grid')}
-            >
-              Resumo
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === 'exceptions'}
-              className={`mensal-page-tab${viewMode === 'exceptions' ? ' mensal-page-tab--active' : ''}`}
-              onClick={() => setViewMode('exceptions')}
-              title="Alunos com pagamento em atraso, parcial ou divergente"
-            >
-              Pendências
-              {exceptionCount > 0 ? (
-                <span className="mensal-page-tab__badge" title="Alunos com pagamento em atraso, parcial ou divergente">
-                  {exceptionCount}
-                </span>
-              ) : null}
-            </button>
-          </div>
+          <HubTabBar
+            tabs={viewTabs}
+            activeId={viewMode}
+            onChange={setViewMode}
+            ariaLabel="Visualização de mensalidades"
+            variant="underline"
+            size="sm"
+            className={`mensalidades-panel__view-tabs${embedded ? ' mensalidades-panel__view-tabs--embedded' : ''}`}
+          />
         ) : null}
 
         <FinanceFiltersBar className="mensal-toolbar">

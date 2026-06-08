@@ -1,5 +1,155 @@
-/* Visão Geral — hierarquia e colapsáveis */
+/* Visão Geral — hierarquia e layout dashboard */
 
+.financeiro-overview-grid--dashboard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.financeiro-overview-card--period,
+.financeiro-overview-card--banks {
+  grid-column: 1 / -1;
+}
+
+.financeiro-overview-card--period {
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--finance-card-border, var(--border-light)));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary-surface) 48%, var(--color-card-bg)) 0%,
+    var(--color-card-bg) 56%
+  );
+}
+
+.financeiro-overview-card--period .financeiro-overview-hero {
+  background: color-mix(in srgb, var(--color-card-bg) 72%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 16%, var(--border-light));
+}
+
+.financeiro-overview-card--banks {
+  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--finance-card-border, var(--border-light)));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent-surface) 42%, var(--color-card-bg)) 0%,
+    var(--color-card-bg) 52%
+  );
+}
+
+.financeiro-overview-banks-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-card-bg) 78%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--color-accent) 18%, var(--border-light));
+}
+
+.financeiro-overview-banks-intro__icon {
+  flex-shrink: 0;
+  color: var(--color-accent-dark);
+  margin-top: 1px;
+}
+
+.financeiro-overview-banks-intro__text {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.financeiro-overview-metrics--inline {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.financeiro-overview-flow-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--color-primary) 14%, var(--border-light));
+}
+
+.financeiro-overview-flow-chart__row {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.financeiro-overview-flow-chart__label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.financeiro-overview-flow-chart__track {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-light) 80%, transparent);
+  overflow: hidden;
+}
+
+.financeiro-overview-flow-chart__bar {
+  height: 100%;
+  width: var(--flow-bar-pct, 0%);
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+
+.financeiro-overview-flow-chart__bar--in {
+  background: var(--finance-chart-inflow, var(--color-accent));
+}
+
+.financeiro-overview-flow-chart__bar--out {
+  background: var(--finance-chart-outflow, var(--warning));
+}
+
+.financeiro-overview-flow-chart__value {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.finance-balance-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.finance-balance-delta--pct {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.finance-balance-delta--up {
+  color: var(--color-accent-dark);
+  background: var(--color-accent-surface);
+}
+
+.finance-balance-delta--down {
+  color: var(--danger, #b42318);
+  background: color-mix(in srgb, var(--danger, #b42318) 12%, var(--color-card-bg));
+}
+
+.finance-balance-delta--text {
+  display: block;
+  margin-top: 4px;
+}
+
+.finance-bank-balances__total-delta {
+  display: block;
+  margin-top: 6px;
+}
+
+.financeiro-overview-card--pair {
+  min-width: 0;
+}
+
+/* Legado: colapsáveis (mantido para compatibilidade) */
 .financeiro-overview-grid--hero-first {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8,10 +158,6 @@
 
 .financeiro-overview-card--hero {
   grid-column: 1 / -1;
-}
-
-.financeiro-overview-card--pair {
-  min-width: 0;
 }
 
 .financeiro-overview-details {
@@ -72,8 +218,24 @@
 }
 
 @media (max-width: 767px) {
+  .financeiro-overview-grid--dashboard,
   .financeiro-overview-grid--hero-first {
     grid-template-columns: 1fr;
+  }
+
+  .financeiro-overview-metrics--inline {
+    grid-template-columns: 1fr;
+  }
+
+  .financeiro-overview-flow-chart__row {
+    grid-template-columns: 64px 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .financeiro-overview-flow-chart__value {
+    grid-column: 1 / -1;
+    justify-self: start;
+    padding-left: 74px;
   }
 }
 

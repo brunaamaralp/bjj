@@ -716,11 +716,19 @@
 .finance-tx-menu-btn { width: 100%; text-align: left; padding: 8px 10px; }
 .finance-tx-menu-btn--danger { color: var(--danger); }
 .finance-tx-no-actions { opacity: 0.75; color: var(--text-secondary); }
-.finance-tx-modal { max-width: 520px; padding: 20px; }
-.finance-tx-modal__title { margin-bottom: 14px; }
-.finance-tx-modal__hint { color: var(--text-secondary); margin-bottom: 12px; }
+.navi-modal-shell.finance-tx-modal {
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.finance-tx-modal__intro,
+.finance-tx-modal__hint {
+  margin: 0;
+  color: var(--text-secondary, var(--color-text-secondary));
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
 .finance-tx-modal__checkbox { cursor: pointer; }
-.finance-tx-modal__actions { justify-content: flex-end; }
 .finance-tx-student-group { position: relative; }
 .finance-tx-student-group__hint { color: var(--text-secondary); margin-top: 6px; }
 .finance-tx-student-dropdown {
@@ -1934,6 +1942,42 @@
 
 .finance-bank-balances__total {
   margin: 14px 0 8px;
+}
+
+.finance-bank-balances__as-of {
+  margin: 0 0 12px;
+}
+
+.finance-bank-balances--embedded .finance-bank-balances__total {
+  margin-top: 8px;
+}
+
+.finance-bank-balances--overview .finance-bank-balances__grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.finance-bank-balances--overview .finance-bank-balances__card {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.finance-bank-balances--overview .finance-bank-balances__card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 32%, var(--border-light));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.finance-bank-balances__card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.finance-bank-balances__card-action:hover {
+  text-decoration: underline;
 }
 
 .finance-bank-balances--compact .finance-bank-balances__grid--quad {

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Wallet } from 'lucide-react';
 import { fetchReceivables } from '../../lib/financeTxApi.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
-import { RECEIVABLE_SOURCE, RECEIVABLE_SOURCE_LABELS } from '../../lib/receivablesAggregate.js';
+import { RECEIVABLE_SOURCE } from '../../lib/receivablesAggregate.js';
 import {
   RECEIVABLES_SECTIONS,
   RECEIVABLES_SECTION_LABELS,
@@ -24,6 +24,18 @@ function fmtMoney(v) {
   } catch {
     return `R$ ${Number(v || 0).toFixed(2)}`;
   }
+}
+
+function fmtCompactMoney(v) {
+  const n = Number(v) || 0;
+  if (n >= 1000) {
+    try {
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
+    } catch {
+      /* fall through */
+    }
+  }
+  return fmtMoney(n);
 }
 
 function fmtDateBr(ymd) {
@@ -49,11 +61,6 @@ function statusLabel(status) {
 }
 
 const VALID_SECTIONS = new Set(Object.values(RECEIVABLES_SECTIONS));
-const SOURCE_TO_SECTION = {
-  [RECEIVABLE_SOURCE.MENSALIDADE]: RECEIVABLES_SECTIONS.MENSALIDADES,
-  [RECEIVABLE_SOURCE.LANCAMENTO]: RECEIVABLES_SECTIONS.OUTROS,
-  [RECEIVABLE_SOURCE.VENDA]: RECEIVABLES_SECTIONS.OUTROS,
-};
 
 const SOURCE_BADGE_CLASS = {
   [RECEIVABLE_SOURCE.MENSALIDADE]: 'finance-badge-pago',
@@ -84,15 +91,6 @@ export default function ReceivablesTab({
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
-
-  const sectionTabs = useMemo(
-    () =>
-      Object.entries(RECEIVABLES_SECTION_LABELS).map(([id, label]) => ({
-        id,
-        label,
-      })),
-    []
-  );
 
   const load = useCallback(async () => {
     if (!academyId || !ym) return;
@@ -125,13 +123,40 @@ export default function ReceivablesTab({
     };
   }, []);
 
+  const summary = data?.summary || { total: 0, bySource: {}, count: 0 };
+  const bySource = summary.bySource || {};
+
+  const sectionTabs = useMemo(() => {
+    const outrosTotal =
+      (Number(bySource[RECEIVABLE_SOURCE.LANCAMENTO]) || 0) +
+      (Number(bySource[RECEIVABLE_SOURCE.VENDA]) || 0);
+    const withAmount = (baseLabel, amount) => `${baseLabel} · ${fmtCompactMoney(amount)}`;
+    return [
+      {
+        id: RECEIVABLES_SECTIONS.VISAO,
+        label: withAmount(RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.VISAO], summary.total),
+        shortLabel: RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.VISAO],
+      },
+      {
+        id: RECEIVABLES_SECTIONS.MENSALIDADES,
+        label: withAmount(
+          RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.MENSALIDADES],
+          bySource[RECEIVABLE_SOURCE.MENSALIDADE] || 0
+        ),
+        shortLabel: RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.MENSALIDADES],
+      },
+      {
+        id: RECEIVABLES_SECTIONS.OUTROS,
+        label: withAmount(RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.OUTROS], outrosTotal),
+        shortLabel: RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.OUTROS],
+      },
+    ];
+  }, [summary.total, bySource]);
+
   const items = useMemo(
     () => filterReceivablesForSection(resolvedSection, data?.items || []),
     [resolvedSection, data?.items]
   );
-
-  const summary = data?.summary || { total: 0, bySource: {}, count: 0 };
-  const bySource = summary.bySource || {};
 
   if (!academyId) {
     return <p className="text-small text-muted">Selecione uma academia.</p>;
@@ -152,71 +177,54 @@ export default function ReceivablesTab({
   const refreshBtn = (
     <button
       type="button"
-      className="btn-outline btn-sm"
+      className="btn-outline btn-sm receivables-tab__refresh"
       onClick={() => setRefreshToken((t) => t + 1)}
       disabled={loading}
       aria-busy={loading}
+      aria-label="Atualizar contas a receber"
     >
       <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
-      Atualizar
+      <span className="receivables-tab__refresh-label">Atualizar</span>
     </button>
   );
 
   const kpiStrip = (
-    <>
-      <div className="finance-kpi finance-kpi--hero">
-        <p className="finance-kpi__label">
-          <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.aReceber}>
-            Total a receber · {monthLabel}
-          </FinanceLabelWithHint>
-        </p>
-        <p className="finance-kpi__value">{fmtMoney(summary.total)}</p>
-        {summary.count > 0 ? (
-          <p className="finance-kpi__hint">{summary.count} item(ns) em aberto</p>
-        ) : null}
-      </div>
-      {Object.entries(RECEIVABLE_SOURCE_LABELS).map(([key, label]) => {
-        const targetSection = SOURCE_TO_SECTION[key];
-        const isActive =
-          resolvedSection === targetSection ||
-          (resolvedSection === RECEIVABLES_SECTIONS.VISAO && key === RECEIVABLE_SOURCE.MENSALIDADE);
-        return (
-          <button
-            key={key}
-            type="button"
-            className={`finance-kpi finance-kpi--clickable${isActive ? ' is-active' : ''}`}
-            onClick={() => handleSectionChange(targetSection)}
-          >
-            <span className="finance-kpi__label">{label}</span>
-            <span className="finance-kpi__value">{fmtMoney(bySource[key] || 0)}</span>
-          </button>
-        );
-      })}
-    </>
+    <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+      <p className="finance-kpi__label">
+        <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.aReceber}>
+          Total a receber · {monthLabel}
+        </FinanceLabelWithHint>
+      </p>
+      <p className="finance-kpi__value">{fmtMoney(summary.total)}</p>
+      {summary.count > 0 ? (
+        <p className="finance-kpi__hint">{summary.count} item(ns) em aberto</p>
+      ) : null}
+    </div>
   );
 
   const subNav = (
-    <HubTabBar
-      tabs={sectionTabs}
-      activeId={resolvedSection}
-      onChange={handleSectionChange}
-      ariaLabel="Seções de contas a receber"
-      variant="secondary"
-      size="sm"
-      fullWidth
-      panelIdPrefix="receivables-"
-    />
+    <div className="receivables-tab__subnav-bar">
+      <HubTabBar
+        tabs={sectionTabs}
+        activeId={resolvedSection}
+        onChange={handleSectionChange}
+        ariaLabel="Seções de contas a receber"
+        variant="secondary"
+        size="sm"
+        fullWidth
+        panelIdPrefix="receivables-"
+        className="receivables-tab__subnav-tabs"
+      />
+      {refreshBtn}
+    </div>
   );
 
   return (
     <FinanceTabShell
-      panelClassName="receivables-tab"
-      actions={refreshBtn}
+      panelClassName="receivables-tab finance-tab-panel--compact"
       kpiStrip={kpiStrip}
       subNav={subNav}
     >
-      <p className="text-small text-muted receivables-tab__hint">{FINANCE_TERM_HINTS.aReceber}</p>
-
       {resolvedSection === RECEIVABLES_SECTIONS.MENSALIDADES ? (
         <MensalidadesPanel
           embedded
