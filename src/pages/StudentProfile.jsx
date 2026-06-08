@@ -89,6 +89,7 @@ import {
     isPaymentDateInFuture,
     isValidCPF,
 } from '../lib/validations.js';
+import { buildReceivablesPath } from '../lib/financeiroReceivablesSections.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -2773,8 +2774,8 @@ export default function StudentProfile() {
                         onRetry={() => void loadPayments()}
                         onRegisterPayment={(presetType) => openPaymentModal(presetType)}
                         onGoMensalidades={() => {
-                            const q = encodeURIComponent(String(student.name || '').trim());
-                            navigate(q ? `/financeiro?tab=mensalidades&search=${q}` : '/financeiro?tab=mensalidades');
+                            const search = String(student.name || '').trim() || undefined;
+                            navigate(buildReceivablesPath({ section: 'mensalidades', search }));
                         }}
                         onGoSales={() => navigate('/loja?tab=vendas&subtab=history')}
                         onCancelCoverage={handleCancelCoverage}

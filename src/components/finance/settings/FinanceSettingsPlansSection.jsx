@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { templatesForPurpose } from '../../../lib/contractPlanTemplates.js';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../../lib/financeiroReceivablesSections.js';
 import EmptyState from '../../shared/EmptyState.jsx';
 
 function formatPlanPrice(value) {
@@ -194,7 +195,10 @@ export default function FinanceSettingsPlansSection({
         </button>
       ) : null}
 
-      <Link to="/financeiro?tab=mensalidades" className="finance-config-context-link">
+      <Link
+        to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.MENSALIDADES })}
+        className="finance-config-context-link"
+      >
         Ver em Mensalidades →
       </Link>
     </div>

@@ -1,6 +1,7 @@
 import { LEAD_STATUS } from './leadStatus.js';
 import { isStudentRecord, isActiveStudent } from './studentStatus.js';
 import { getPaymentRowStatus } from './collectionOverdue.js';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from './financeiroReceivablesSections.js';
 
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 
@@ -69,7 +70,10 @@ export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, f
       items.push({
         id: 'payments_overdue',
         label: overdue === 1 ? '1 pagamento em atraso' : `${overdue} pagamentos em atraso`,
-        href: '/financeiro?tab=mensalidades&filtro=pending',
+        href: buildReceivablesPath({
+          section: RECEIVABLES_SECTIONS.MENSALIDADES,
+          filtro: 'pending',
+        }),
         count: overdue,
       });
     }

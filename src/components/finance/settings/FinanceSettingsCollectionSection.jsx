@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import CollectionRulesSection from '../CollectionRulesSection.jsx';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../../lib/financeiroReceivablesSections.js';
 
 export default function FinanceSettingsCollectionSection({
   collectionRules,
@@ -12,7 +13,13 @@ export default function FinanceSettingsCollectionSection({
         collectionRules={collectionRules}
         onRulesChange={onRulesChange}
       />
-      <Link to="/financeiro?tab=mensalidades&filtro=overdue" className="finance-config-context-link">
+      <Link
+        to={buildReceivablesPath({
+          section: RECEIVABLES_SECTIONS.MENSALIDADES,
+          filtro: 'overdue',
+        })}
+        className="finance-config-context-link"
+      >
         Ver inadimplentes →
       </Link>
     </div>

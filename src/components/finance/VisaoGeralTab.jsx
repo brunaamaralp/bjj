@@ -21,7 +21,8 @@ import { getMonthlyPayments } from '../../lib/studentPayments';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
-import { FINANCEIRO_SECTIONS, EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
+import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 import { hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
 import {
   computeMensalidadesMonthKpis,
@@ -294,6 +295,13 @@ export default function VisaoGeralTab({
   const showAccountsSetupAlert = isOwner && !hasConfiguredBankAccounts(financeConfig);
 
   const receivablesTotal = receivables?.summary?.total ?? 0;
+  const receivablesSectionPath = buildReceivablesPath({
+    section: RECEIVABLES_SECTIONS.MENSALIDADES,
+  });
+  const receivablesPendingPath = buildReceivablesPath({
+    section: RECEIVABLES_SECTIONS.MENSALIDADES,
+    filtro: 'pending',
+  });
 
   const hasAlerts =
     mensalKpis.overdueCount > 0 ||
@@ -455,7 +463,7 @@ export default function VisaoGeralTab({
             />
           </div>
           <Link
-            to={`/financeiro?tab=${FINANCEIRO_SECTIONS.MENSALIDADES}`}
+            to={receivablesSectionPath}
             className="btn-primary btn-sm financeiro-overview-cta"
           >
             Ver Mensalidades <ArrowRight size={14} />
@@ -464,13 +472,18 @@ export default function VisaoGeralTab({
 
         <OverviewCard title="Alertas" eyebrow="Atenção" className="financeiro-overview-card--pair">
           <ul className="financeiro-overview-alerts financeiro-overview-alerts--inline">
-            {mensalKpis.overdueCount > 0 ? (
+            {!receivablesFailed && (mensalKpis.overdueCount > 0 || receivablesTotal > 0) ? (
               <li>
                 <AlertCircle size={16} aria-hidden />
                 <span>
-                  <strong>{mensalKpis.overdueCount}</strong> aluno(s) em atraso
+                  {mensalKpis.overdueCount > 0 ? (
+                    <>
+                      <strong>{mensalKpis.overdueCount}</strong> aluno(s) em atraso ·{' '}
+                    </>
+                  ) : null}
+                  <strong>{fmtMoney(receivablesTotal)}</strong> a receber nesta referência
                 </span>
-                <Link to="/financeiro?tab=mensalidades&filtro=pending">Ver</Link>
+                <Link to={receivablesPendingPath}>Ver</Link>
               </li>
             ) : null}
             {pendingTxCount > 0 ? (
@@ -480,15 +493,6 @@ export default function VisaoGeralTab({
                   <strong>{pendingTxCount}</strong> lançamento(s) pendente(s)
                 </span>
                 <Link to="/financeiro?tab=movimentacoes">Ver</Link>
-              </li>
-            ) : null}
-            {!receivablesFailed && receivablesTotal > 0 ? (
-              <li>
-                <AlertCircle size={16} aria-hidden />
-                <span>
-                  <strong>{fmtMoney(receivablesTotal)}</strong> a receber nesta referência
-                </span>
-                <Link to={`/financeiro?tab=${FINANCEIRO_SECTIONS.A_RECEBER}`}>Ver</Link>
               </li>
             ) : null}
             {modules?.finance && contractsAwaiting > 0 ? (

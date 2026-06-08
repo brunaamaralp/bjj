@@ -45,6 +45,7 @@ import {
   mergeCollectionIntoFinanceConfig,
 } from '../../lib/collectionRules.js';
 import { filterBankAccountsWithBank } from '../../lib/bankAccounts.js';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 
 const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -601,7 +602,10 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
               onSave={() => persistConfig('plans', 'Planos de mensalidade salvos.')}
             />
             {lastSavedSection === 'plans' ? (
-              <Link to="/financeiro?tab=mensalidades" className="finance-config-context-link">
+              <Link
+                to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.MENSALIDADES })}
+                className="finance-config-context-link"
+              >
                 Ver em Mensalidades →
               </Link>
             ) : null}
@@ -835,7 +839,13 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
             onSave={() => persistConfig('collection', 'Régua de cobrança salva.')}
           />
           {lastSavedSection === 'collection' ? (
-            <Link to="/financeiro?tab=mensalidades&filtro=overdue" className="finance-config-context-link">
+            <Link
+              to={buildReceivablesPath({
+                section: RECEIVABLES_SECTIONS.MENSALIDADES,
+                filtro: 'overdue',
+              })}
+              className="finance-config-context-link"
+            >
               Ver inadimplentes →
             </Link>
           ) : null}
@@ -853,7 +863,10 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
             onSave={() => persistConfig('exceptions', 'Rótulos de exceção salvos.')}
           />
           {lastSavedSection === 'exceptions' ? (
-            <Link to="/financeiro?tab=mensalidades" className="finance-config-context-link">
+            <Link
+              to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.MENSALIDADES })}
+              className="finance-config-context-link"
+            >
               Ver Pendências →
             </Link>
           ) : null}

@@ -427,7 +427,6 @@ export default function Caixa() {
           meta={
             activeTab === 'movimentacoes' ||
             activeTab === 'fechamento' ||
-            activeTab === FINANCEIRO_SECTIONS.MENSALIDADES ||
             activeTab === FINANCEIRO_SECTIONS.A_RECEBER
               ? undefined
               : `${subtitle}${academyName ? ` · ${academyName}` : ''}`

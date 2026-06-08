@@ -1,13 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import ExceptionStatusLabelsSection from '../ExceptionStatusLabelsSection.jsx';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../../lib/financeiroReceivablesSections.js';
 
 export default function FinanceSettingsExceptionsSection({ labels, onChange }) {
   return (
     <div className="finance-settings-section-body finance-settings-section-body--flush">
       <ExceptionRulesIntro />
       <ExceptionStatusLabelsSection labels={labels} onChange={onChange} />
-      <Link to="/financeiro?tab=mensalidades" className="finance-config-context-link">
+      <Link
+        to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.MENSALIDADES })}
+        className="finance-config-context-link"
+      >
         Ver pendências →
       </Link>
     </div>

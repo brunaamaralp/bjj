@@ -118,7 +118,7 @@ describe('naviMenu', () => {
     expect(financeiro.children.some((c) => c.group === 'Operações' && c.id === 'movimentacoes')).toBe(true);
     expect(financeiro.children.some((c) => c.group === 'Contabilidade' && c.id === 'plano')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'configuracao')).toBe(false);
-    expect(financeiro.children.some((c) => c.id === 'movimentacoes' && c.label === 'Caixa')).toBe(true);
+    expect(financeiro.children.some((c) => c.id === 'movimentacoes' && c.label === 'Lançamentos')).toBe(true);
     expect(model.financeDirect).toEqual([]);
   });
 

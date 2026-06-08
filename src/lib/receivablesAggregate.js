@@ -92,7 +92,8 @@ export function buildMensalidadeReceivableItems({
       lead_id: s.id,
       reference_month: referenceMonth,
       status,
-      linkTab: 'mensalidades',
+      linkTab: 'a-receber',
+      linkSection: 'mensalidades',
     });
   }
   return items;

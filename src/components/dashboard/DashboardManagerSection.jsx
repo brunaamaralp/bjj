@@ -25,6 +25,7 @@ import {
   countSlaCriticalFromStages,
   currentMonthRange,
 } from '../../lib/dashboardManagerMetrics.js';
+import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 
 const MANAGER_FETCH_STALE_MS = 5 * 60 * 1000;
 
@@ -166,7 +167,13 @@ export default function DashboardManagerSection({
         tone: 'danger',
         icon: CircleDollarSign,
         text: `${metrics.overdueStudents} ${metrics.overdueStudents === 1 ? 'aluno com' : 'alunos com'} mensalidade em atraso`,
-        onClick: () => navigate('/financeiro?tab=mensalidades&filtro=overdue'),
+        onClick: () =>
+          navigate(
+            buildReceivablesPath({
+              section: RECEIVABLES_SECTIONS.MENSALIDADES,
+              filtro: 'overdue',
+            })
+          ),
       });
     }
     if (metrics.overdueTasks > 0) {

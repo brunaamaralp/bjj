@@ -22,6 +22,7 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 import FinanceFiltersBar from './FinanceFiltersBar.jsx';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
+import { buildReceivablesSearchParams, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 
 const PRESETS = [
   { id: '30d', label: '30 dias' },
@@ -367,7 +368,10 @@ export default function ForecastTab({ academyId }) {
                           <div className="finance-forecast-week__body">
                             {item.type === 'mensalidade' ? (
                               <Link
-                                to={`/financeiro?tab=mensalidades&search=${encodeURIComponent(item.student_name || item.label || '')}`}
+                                to={`/financeiro?${buildReceivablesSearchParams({
+                                  section: RECEIVABLES_SECTIONS.MENSALIDADES,
+                                  search: item.student_name || item.label || '',
+                                }).toString()}`}
                                 className="finance-forecast-week__link"
                               >
                                 {item.label}
