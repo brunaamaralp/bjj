@@ -13,6 +13,7 @@
 @import './styles/tokens/finance.css';
 @import './styles/equipe.css';
 @import './components/reports/reports.css';
+@import './styles/auth-pages.css';
 
 :root {
   /* Nave — brand palette */

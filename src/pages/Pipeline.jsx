@@ -7,7 +7,7 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2 } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2, MessageSquare } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
@@ -76,6 +76,11 @@ import {
     DropdownMenuItem,
     DropdownMenuDivider,
 } from '../components/shared/menu';
+import {
+    formatLeadScheduledLine,
+    formatLeadLastInteractionLine,
+    pluralizeContactLabel,
+} from '../lib/pipelineLeadDisplay.js';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -142,6 +147,8 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
         () => getLeadAutomationBadges(lead, automationConfig),
         [lead, automationConfig]
     );
+    const scheduledLine = useMemo(() => formatLeadScheduledLine(lead), [lead]);
+    const lastInteractionLine = useMemo(() => formatLeadLastInteractionLine(lead), [lead]);
     const { visible: attrPills, hiddenCount: hiddenAttrPillCount } = useMemo(
         () => partitionLeadAttributePills(lead),
         [lead]
@@ -219,11 +226,16 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     ) : null}
                 </div>
             ) : null}
-            {lead.scheduledDate && (
-                <div className="lead-meta mt-1 flex items-center gap-2">
-                    <Calendar size={12} /> {new Date(lead.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {lead.scheduledTime && `às ${lead.scheduledTime}`}
+            {scheduledLine ? (
+                <div className={`lead-meta mt-1 flex items-center gap-2 lead-scheduled-line lead-scheduled-line--${scheduledLine.variant}`}>
+                    <Calendar size={12} aria-hidden /> {scheduledLine.text}
                 </div>
-            )}
+            ) : null}
+            {lastInteractionLine ? (
+                <div className="lead-meta mt-1 flex items-center gap-2 lead-last-interaction">
+                    <MessageSquare size={12} aria-hidden /> {lastInteractionLine}
+                </div>
+            ) : null}
             {automationBadges.length > 0 ? (
                 <div className="lead-meta mt-1 flex items-center gap-2 flex-wrap" data-no-dnd="true">
                     {automationBadges.map((b) => (
@@ -558,8 +570,18 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
             ref={setColumnRef}
             data-pipeline-stage-id={id}
             className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
+            style={{
+                '--kanban-col-accent': color.color,
+                '--kanban-col-accent-bg': color.bg,
+            }}
         >
-            <div className="col-header">
+            <div
+                className="col-header"
+                style={{
+                    background: color.bg,
+                    borderBottomColor: `color-mix(in srgb, ${color.color} 22%, var(--pipeline-border))`,
+                }}
+            >
                 <div className="col-header-titles">
                     <div className="flex items-center gap-2">
                         <span className="col-dot" style={{ background: color.color }} />
@@ -567,7 +589,7 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
                         <Hint text={hintForPipelineStage(col.id, col.label)} position="top" />
                     </div>
                 </div>
-                <span className="col-count" style={{ background: color.bg, color: color.color }}>
+                <span className="col-count" style={{ background: 'rgba(255,255,255,0.72)', color: color.color }}>
                     {leads.length}
                 </span>
             </div>
@@ -1871,7 +1893,7 @@ const Pipeline = () => {
     ) : (
         <>
             <span className="navi-ui-count">{pipelineHeaderMeta.total}</span>{' '}
-            {singular(labels.leads || 'Leads').toLowerCase()}
+            {pluralizeContactLabel(pipelineHeaderMeta.total, labels.leads || 'Leads')}
             {pipelineHeaderMeta.slaCriticalCount > 0 ? (
                 <>
                     {' '}
@@ -1916,6 +1938,34 @@ const Pipeline = () => {
         }
         clearAdvancedFilters();
     }, [clearAdvancedFilters, invalidatePipelineSession]);
+
+    const toggleSlaCriticalFilter = useCallback(() => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (next.get('sla') === 'critical') next.delete('sla');
+            else next.set('sla', 'critical');
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
+
+    const renderPeriodFilterChips = () => (
+        <>
+            <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
+            <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
+            <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
+            <button type="button" className={`filter-chip${!quickFilter && !filterDateFrom && !filterDateTo && !enrollmentMonthFilter ? ' is-active' : ''}`} onClick={() => applyPeriodChip('all')}>Todos</button>
+            {pipelineHeaderMeta.slaCriticalCount > 0 ? (
+                <button
+                    type="button"
+                    className={`filter-chip filter-chip--alert${slaCriticalFilter ? ' is-active' : ''}`}
+                    onClick={toggleSlaCriticalFilter}
+                    title="Mostrar apenas leads com SLA crítico"
+                >
+                    SLA crítico ({pipelineHeaderMeta.slaCriticalCount})
+                </button>
+            ) : null}
+        </>
+    );
 
     const renderAdvancedFiltersPanel = () => (
         <PipelineAdvancedFilters
@@ -2364,7 +2414,7 @@ const Pipeline = () => {
                             meta={pipelineHeaderMetaNode}
                             toolbar={
                             <>
-                            <div className="page-header-row navi-toolbar">
+                            <div className="page-header-row navi-toolbar pipeline-toolbar-unified">
                                 <SearchField
                                     title="Filtra por nome ou telefone"
                                     value={kanbanSearch}
@@ -2375,6 +2425,9 @@ const Pipeline = () => {
                                 {searchingServer ? (
                                     <span className="pipeline-search-status" role="status">Buscando…</span>
                                 ) : null}
+                                <FilterBar className="filter-bar--compact pipeline-period-chips">
+                                    {renderPeriodFilterChips()}
+                                </FilterBar>
                                 <div className="pipeline-header-spacer" />
                                 <DropdownMenu
                                     open={filtersMenuOpen}
@@ -2412,12 +2465,6 @@ const Pipeline = () => {
                                     <PlusCircle size={14} /> Novo lead
                                 </button>
                             </div>
-                            <FilterBar className="page-header-row">
-                                <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
-                                <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
-                                <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
-                                <button type="button" className={`filter-chip${!quickFilter && !filterDateFrom && !filterDateTo && !enrollmentMonthFilter ? ' is-active' : ''}`} onClick={() => applyPeriodChip('all')}>Todos</button>
-                            </FilterBar>
                             </>
                             }
                         />
@@ -2475,11 +2522,8 @@ const Pipeline = () => {
                                 <PlusCircle size={14} aria-hidden /> Novo lead
                             </button>
                         </div>
-                        <FilterBar className="page-header-row pipeline-filter-bar">
-                            <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
-                            <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
-                            <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
-                            <button type="button" className={`filter-chip${!quickFilter && !filterDateFrom && !filterDateTo && !enrollmentMonthFilter ? ' is-active' : ''}`} onClick={() => applyPeriodChip('all')}>Todos</button>
+                        <FilterBar className="page-header-row pipeline-filter-bar filter-bar--compact">
+                            {renderPeriodFilterChips()}
                         </FilterBar>
                     </div>
                 )}

@@ -41,7 +41,15 @@ const Register = ({ onLogin }) => {
 
   return (
     <div className="login-page">
-      <div className="login-card">
+      <div className="login-page__backdrop" aria-hidden="true">
+        <span className="login-page__blob login-page__blob--a" />
+        <span className="login-page__blob login-page__blob--b" />
+        <span className="login-page__blob login-page__blob--c" />
+        <span className="login-page__spark login-page__spark--1" />
+        <span className="login-page__spark login-page__spark--2" />
+      </div>
+
+      <div className="login-card login-card--register">
         <div className="login-logo">
           <button
             type="button"
@@ -52,7 +60,7 @@ const Register = ({ onLogin }) => {
           >
             <X size={18} />
           </button>
-          <NaviBrandLockup height={44} variant="light" />
+          <NaviBrandLockup height={72} variant="light" className="navi-brand-lockup--auth" />
         </div>
         <h1 className="login-title" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Criar conta na nave</h1>
         <p className="login-subtitle">Crie sua conta</p>
@@ -131,74 +139,6 @@ const Register = ({ onLogin }) => {
           <Link className="toggle-mode" to="/">Voltar ao início</Link>
         </div>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .login-page {
-          min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(180deg, var(--creme) 0%, var(--azul-gelo) 55%, var(--azul-gelo) 100%); padding: 20px;
-        }
-        .login-card {
-          width: 100%; max-width: 400px;
-          background: #FFFFFF;
-          border-radius: 16px; padding: 40px 30px;
-          border: 0.5px solid var(--border-violet);
-          box-shadow: 0 8px 32px rgba(0, 4, 53, 0.1); text-align: center;
-          animation: fadeInUp 0.5s ease;
-          overflow: hidden;
-        }
-        .btn-exit {
-          position: absolute; right: 0; top: 0; transform: translate(30%, -30%);
-          background: #FFFFFF; border: 1px solid var(--border); color: var(--text);
-          border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
-          box-shadow: var(--shadow-sm);
-        }
-        .login-logo {
-          display: flex;
-          justify-content: center;
-          margin-bottom: 16px;
-          position: relative;
-          background: #FFFFFF;
-        }
-        .login-card .form-input {
-          background: #FFFFFF;
-          border-color: var(--border-mid);
-        }
-        .login-card .form-input:focus {
-          background: #FFFFFF;
-        }
-        .login-title { margin: 0 0 4px; display: flex; align-items: center; justify-content: center; }
-        .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
-        .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }
-        .login-card .password-wrapper { position: relative; }
-        .login-card .password-wrapper .form-input { padding-right: 44px; }
-        .login-card button.password-toggle {
-          position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-          z-index: 2;
-          background: none; border: none; color: var(--text-muted); padding: 0;
-          min-height: auto; width: 40px; height: 40px; cursor: pointer;
-          display: inline-flex; align-items: center; justify-content: center;
-        }
-        .login-card button.password-toggle:active {
-          transform: translateY(-50%) scale(0.98);
-        }
-        .login-error {
-          padding: 10px 14px; background: var(--danger-light); color: var(--danger);
-          border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 500;
-        }
-        .login-btn { margin-top: 4px; }
-        .login-btn:disabled { opacity: 0.6; cursor: wait; }
-        .toggle-mode {
-          background: none; border: none; color: var(--accent); font-weight: 600;
-          font-size: 0.85rem; margin-top: 20px; cursor: pointer; padding: 0; min-height: auto;
-        }
-        .link-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
-        .sep { color: var(--text-muted); }
-        .spinner {
-          width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: white; border-radius: 50%;
-          animation: spin 0.6s linear infinite; display: inline-block;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}} />
     </div>
   );
 };

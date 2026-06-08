@@ -64,7 +64,7 @@ function groupFollowUpsByUrgency(followUps) {
         groups.push({
             key: 'urgent',
             label: 'Urgente',
-            hint: '5–6 dias desde a aula',
+            hint: '5+ dias desde a aula',
             items: urgent,
             className: 'fu-group--urgent',
         });
@@ -73,7 +73,7 @@ function groupFollowUpsByUrgency(followUps) {
         groups.push({
             key: 'today',
             label: 'Hoje',
-            hint: 'Pós-aula de hoje',
+            hint: 'Aula de hoje',
             items: todayGroup,
             className: 'fu-group--today',
         });
@@ -82,7 +82,7 @@ function groupFollowUpsByUrgency(followUps) {
         groups.push({
             key: 'week',
             label: 'Esta semana',
-            hint: '1–4 dias desde a aula',
+            hint: '1–4 dias',
             items: week,
             className: 'fu-group--week',
         });
@@ -875,15 +875,14 @@ const Dashboard = () => {
         const waState = waStateByLead[leadId] || 'idle';
         const elapsedLabel =
             lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
-        const fuTimeClass =
-            lead.daysAgo <= 3
-                ? 'fu-time--recent'
-                : lead.daysAgo <= 5
-                  ? 'fu-time--warning'
-                  : 'fu-time--urgent';
-        const tagLabel = isPost
+        const fuTimeClass = lead.daysAgo >= 5 ? 'fu-time--urgent' : '';
+        const statusFallback = isPost
             ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula')
             : 'Recuperar';
+        const elapsedTitle =
+            lead.daysAgo === 0
+                ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
+                : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`;
 
         return (
             <div
@@ -895,10 +894,6 @@ const Dashboard = () => {
                 }${isLastInGroup ? ' fu-row--last' : ''}`}
                 style={{ animationDelay: `${0.04 * rowIndex}s` }}
             >
-                <div
-                    className={`fu-dot ${isPost ? 'fu-dot--post' : 'fu-dot--recover'}`}
-                    aria-hidden
-                />
                 <div className="fu-info">
                     <button
                         type="button"
@@ -911,44 +906,50 @@ const Dashboard = () => {
                     </button>
                     <div className="fu-sub">
                         <span className="fu-phone">{lead.phone || '—'}</span>
-                        <span
-                            className={`fu-time ${fuTimeClass}`}
-                            title={
-                                lead.daysAgo === 0
-                                    ? (vertical === 'physio' ? 'Dia da avaliação' : 'Dia da aula experimental')
-                                    : `Há ${lead.daysAgo} dias desde a data da ${vertical === 'physio' ? 'avaliação' : 'aula'}`
-                            }
-                        >
+                        <span className="fu-meta-sep" aria-hidden>
+                            ·
+                        </span>
+                        <span className={`fu-time${fuTimeClass ? ` ${fuTimeClass}` : ''}`} title={elapsedTitle}>
                             {elapsedLabel}
                         </span>
-                        <span className={`fu-tag ${isPost ? 'fu-tag--post' : 'fu-tag--recover'}`}>
-                            {tagLabel}
+                        <span className="fu-meta-sep" aria-hidden>
+                            ·
                         </span>
                         {lead.pipelineStage ? (
-                            <StageBadge stage={String(lead.pipelineStage)} size="sm" />
-                        ) : null}
+                            <StageBadge stage={String(lead.pipelineStage)} size="sm" showDot={false} />
+                        ) : (
+                            <span className="fu-meta-status">{statusFallback}</span>
+                        )}
                     </div>
                 </div>
                 <div className="fu-btns">
                     <button
                         type="button"
-                        className={`btn-wa wa-btn${waState === 'loading' ? ' wa-btn--loading' : ''}${
+                        className={`btn-wa wa-btn wa-btn--icon-only${waState === 'loading' ? ' wa-btn--loading' : ''}${
                             waState === 'sent' ? ' wa-btn--sent' : ''
                         }`}
                         disabled={waState === 'sent'}
                         aria-busy={waState === 'loading'}
+                        aria-label={
+                            waState === 'loading'
+                                ? 'Enviando WhatsApp'
+                                : waState === 'sent'
+                                  ? 'WhatsApp enviado'
+                                  : 'Abrir WhatsApp'
+                        }
+                        title={
+                            waState === 'loading'
+                                ? 'Enviando…'
+                                : waState === 'sent'
+                                  ? 'Enviado'
+                                  : 'Abrir WhatsApp'
+                        }
                         onClick={(e) => handleFollowUpWhatsApp(lead, e)}
                     >
                         {waState === 'loading' ? (
-                            <>
-                                <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
-                                Enviando…
-                            </>
+                            <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
                         ) : waState === 'sent' ? (
-                            <>
-                                <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
-                                Enviado
-                            </>
+                            <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
                         ) : (
                             <>
                                 {academyWaLoadFailed && (
@@ -961,21 +962,26 @@ const Dashboard = () => {
                                     </span>
                                 )}
                                 <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
-                                <span className="wa-btn__label">WhatsApp</span>
                             </>
                         )}
                     </button>
                     <button
                         type="button"
-                        className="mk-btn"
+                        className="mk-btn mk-btn--icon"
                         disabled={Boolean(
                             savingFollowupDone[leadId] ||
                             flashingFollowupIds[leadId] ||
                             leavingFollowupIds[leadId]
                         )}
+                        aria-label="Marcar follow-up como feito"
+                        title={savingFollowupDone[leadId] ? 'Salvando…' : 'Marcar feito'}
                         onClick={(e) => void markFollowupDone(lead, e)}
                     >
-                        {savingFollowupDone[leadId] ? 'Salvando…' : 'Marcar feito'}
+                        {savingFollowupDone[leadId] ? (
+                            <Loader2 className="mk-btn__icon mk-btn__icon--spin" size={14} aria-hidden />
+                        ) : (
+                            <Check className="mk-btn__icon" size={14} strokeWidth={2.5} aria-hidden />
+                        )}
                     </button>
                 </div>
             </div>
@@ -1266,9 +1272,11 @@ const Dashboard = () => {
                         followUpGroups.map((group) => (
                             <div key={group.key} className={`fu-group ${group.className}`}>
                                 <div className="fu-group__head">
-                                    <h3 className="fu-group__title">{group.label}</h3>
+                                    <h3 className="fu-group__title">
+                                        {group.label}
+                                        {followUpGroups.length > 1 ? ` (${group.items.length})` : ''}
+                                    </h3>
                                     <span className="fu-group__hint">{group.hint}</span>
-                                    <span className="fu-group__count">{group.items.length}</span>
                                 </div>
                                 {group.items.map((lead, i) =>
                                     renderFollowUpRow(lead, i, i === group.items.length - 1)
@@ -1298,15 +1306,14 @@ const Dashboard = () => {
                         <button
                             type="button"
                             className="fu-kanban-link"
+                            title={`Follow-ups com ${FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a ${
+                                vertical === 'physio' ? 'avaliação' : 'aula'
+                            }`}
                             onClick={() => navigate('/pipeline?followup=kanban')}
                         >
                             + {followUpsKanbanOnlyCount} no Kanban
                         </button>
-                        <span className="fu-kanban-more-hint">
-                            {' '}
-                            (follow-up com {FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a{' '}
-                            {vertical === 'physio' ? 'avaliação' : 'aula'})
-                        </span>
+                        <span className="fu-kanban-more-hint"> — há mais de {FOLLOWUP_AGENDA_MAX_DAYS} dias</span>
                     </p>
                 )}
                 </div>
@@ -1326,8 +1333,8 @@ const Dashboard = () => {
                                     <Cake size={18} color="var(--color-warning)" strokeWidth={2} aria-hidden /> Aniversariantes hoje
                                 </>
                             }
-                            action={<span className="badge agenda-birthdays-badge">{todayBirthdays.length}</span>}
                         />
+                        <span className="badge badge-secondary reception-section-badge">{todayBirthdays.length}</span>
                     </div>
                 </div>
                 <div className="agenda-birthdays-section__body">
@@ -1337,32 +1344,39 @@ const Dashboard = () => {
                                 <SkeletonCard variant="list-row" count={2} />
                             </div>
                         ) : todayBirthdays.length > 0 ? (
-                            todayBirthdays.map((student, i) => (
-                                <div
-                                    key={student.id}
-                                    className={`bd-row animate-in${i === todayBirthdays.length - 1 ? ' bd-row--last' : ''}`}
-                                    style={{ animationDelay: `${0.04 * i}s` }}
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => navigate(`/student/${student.id}`)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            navigate(`/student/${student.id}`);
-                                        }
-                                    }}
-                                >
-                                    <span className="bd-emoji" aria-hidden>
-                                        <Cake size={14} />
-                                    </span>
-                                    <div className="bd-info">
-                                        <div className="bd-name">{student.name}</div>
-                                        <div className="bd-sub">
-                                            {String(student.turma || student.className || '').trim() || '—'}
+                            todayBirthdays.map((student, i) => {
+                                const turma =
+                                    String(student.turma || student.className || '').trim() || '—';
+                                return (
+                                    <div
+                                        key={student.id}
+                                        className={`bd-row animate-in${
+                                            i === todayBirthdays.length - 1 ? ' bd-row--last' : ''
+                                        }`}
+                                        style={{ animationDelay: `${0.04 * i}s` }}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => navigate(`/student/${student.id}`)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                navigate(`/student/${student.id}`);
+                                            }
+                                        }}
+                                    >
+                                        <div className="bd-info">
+                                            <div className="bd-name">{student.name}</div>
+                                            <div className="bd-sub">
+                                                <span className="bd-meta-label">Turma</span>
+                                                <span className="bd-meta-sep" aria-hidden>
+                                                    ·
+                                                </span>
+                                                <span className="bd-meta-value">{turma}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         ) : (
                             <div className="bd-list-empty" role="status">
                                 <Cake className="bd-list-empty__icon" size={24} strokeWidth={2} aria-hidden />

@@ -6,7 +6,7 @@ const STAGE_COLOR_BY_ID = {
   Novo: { color: '#000435', bg: 'rgba(117, 84, 104, 0.12)' },
   'Aula experimental': { color: '#8A6020', bg: 'rgba(228, 181, 93, 0.15)' },
   [LEAD_STATUS.MISSED]: { color: '#CC4444', bg: 'rgba(255, 128, 128, 0.12)' },
-  [PIPELINE_WAITING_DECISION_STAGE]: { color: '#8A6020', bg: 'rgba(228, 181, 93, 0.15)' },
+  [PIPELINE_WAITING_DECISION_STAGE]: { color: '#4A2FA3', bg: 'rgba(108, 71, 216, 0.12)' },
   Matriculado: { color: '#085041', bg: 'rgba(31, 170, 94, 0.12)' },
   [LEAD_STATUS.LOST]: { color: '#4A3040', bg: 'rgba(117, 84, 104, 0.12)' },
 };
