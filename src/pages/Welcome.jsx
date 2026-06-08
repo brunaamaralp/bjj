@@ -163,7 +163,7 @@ const Welcome = () => {
     <nav className="navi-lp-nav" aria-label="Principal">
       <div className="navi-lp-nav-inner">
         <Link to="/" className="navi-lp-nav-brand">
-          <NaviBrandLockup height={64} variant="light" className="navi-brand-lockup--lp-nav" />
+          <NaviBrandLockup height={88} variant="light" className="navi-brand-lockup--lp-nav" />
         </Link>
         <div className="navi-lp-nav-cta">
           <Link to="/login" className="navi-lp-btn-nav-ghost">Entrar</Link>
@@ -506,8 +506,8 @@ const Welcome = () => {
       /* ── Navbar ── */
       .navi-lp-nav {
         position: sticky; top: 0; z-index: 100;
-        min-height: 88px; display: flex; align-items: center;
-        padding: 12px var(--nl-pad);
+        min-height: 112px; display: flex; align-items: center;
+        padding: 14px var(--nl-pad);
         background: #FFFFFF;
         border-bottom: 0.5px solid rgba(0,0,0,0.06);
       }
@@ -523,7 +523,7 @@ const Welcome = () => {
       .navi-lp-nav-brand .navi-brand-lockup,
       .navi-lp-nav-brand .navi-brand-lockup--lp-nav {
         display: block;
-        height: 64px !important;
+        height: 88px !important;
         width: auto !important;
         max-width: none !important;
         object-fit: contain;
@@ -548,10 +548,10 @@ const Welcome = () => {
       @media (max-width: 520px) {
         .navi-lp-btn-nav-ghost { display: none !important; }
         .navi-lp-btn-nav-primary { font-size: 13px; padding: 8px 14px; }
-        .navi-lp-nav { min-height: 68px; padding: 10px var(--nl-pad); }
+        .navi-lp-nav { min-height: 84px; padding: 12px var(--nl-pad); }
         .navi-lp-nav-brand .navi-brand-lockup,
         .navi-lp-nav-brand .navi-brand-lockup--lp-nav {
-          height: 44px !important;
+          height: 56px !important;
         }
       }
 

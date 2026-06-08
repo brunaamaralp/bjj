@@ -33,6 +33,14 @@ const Login = ({ onLogin }) => {
 
     return (
         <div className="login-page">
+            <div className="login-page__backdrop" aria-hidden="true">
+                <span className="login-page__blob login-page__blob--a" />
+                <span className="login-page__blob login-page__blob--b" />
+                <span className="login-page__blob login-page__blob--c" />
+                <span className="login-page__spark login-page__spark--1" />
+                <span className="login-page__spark login-page__spark--2" />
+            </div>
+
             <div className="login-card">
                 <div className="login-logo">
                     <button
@@ -44,7 +52,7 @@ const Login = ({ onLogin }) => {
                     >
                         <X size={18} />
                     </button>
-                    <NaviBrandLockup height={44} variant="light" />
+                    <NaviBrandLockup height={72} variant="light" className="navi-brand-lockup--login" />
                 </div>
                 <h1 className="login-title" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Entrar na nave</h1>
                 <p className="login-subtitle">Acesse sua conta</p>
@@ -101,37 +109,149 @@ const Login = ({ onLogin }) => {
             <style dangerouslySetInnerHTML={{
                 __html: `
         .login-page {
-          min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(180deg, var(--creme) 0%, var(--azul-gelo) 55%, var(--azul-gelo) 100%); padding: 20px;
+          position: relative;
+          isolation: isolate;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 20px;
+          overflow: hidden;
+          background: #0c0a14;
+        }
+        .login-page__backdrop {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(ellipse 120% 80% at 50% -20%, rgba(93, 226, 193, 0.14) 0%, transparent 55%),
+            radial-gradient(ellipse 90% 70% at 100% 100%, rgba(139, 141, 250, 0.18) 0%, transparent 50%),
+            linear-gradient(165deg, #0c0a14 0%, #13111f 42%, #18152a 100%);
+        }
+        .login-page__backdrop::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          opacity: 0.35;
+          background-image:
+            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+          background-size: 48px 48px;
+          mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, black 20%, transparent 78%);
+        }
+        .login-page__blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(72px);
+        }
+        .login-page__blob--a {
+          width: min(520px, 90vw);
+          height: min(520px, 90vw);
+          top: -18%;
+          left: -12%;
+          background: radial-gradient(circle, rgba(93, 226, 193, 0.35) 0%, transparent 68%);
+          animation: loginBlobDriftA 18s ease-in-out infinite;
+        }
+        .login-page__blob--b {
+          width: min(440px, 80vw);
+          height: min(440px, 80vw);
+          bottom: -22%;
+          right: -10%;
+          background: radial-gradient(circle, rgba(139, 141, 250, 0.32) 0%, transparent 70%);
+          animation: loginBlobDriftB 22s ease-in-out infinite;
+        }
+        .login-page__blob--c {
+          width: min(280px, 55vw);
+          height: min(280px, 55vw);
+          top: 38%;
+          right: 18%;
+          background: radial-gradient(circle, rgba(108, 71, 216, 0.28) 0%, transparent 65%);
+          animation: loginBlobDriftC 14s ease-in-out infinite;
+        }
+        .login-page__spark {
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #8b8dfa;
+          box-shadow: 0 0 12px rgba(139, 141, 250, 0.9), 0 0 24px rgba(139, 141, 250, 0.4);
+        }
+        .login-page__spark--1 { top: 22%; right: 24%; opacity: 0.85; }
+        .login-page__spark--2 {
+          bottom: 28%; left: 18%;
+          width: 4px; height: 4px;
+          background: #5de2c1;
+          box-shadow: 0 0 10px rgba(93, 226, 193, 0.85);
+          opacity: 0.7;
+        }
+        @keyframes loginBlobDriftA {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(4%, 6%) scale(1.06); }
+        }
+        @keyframes loginBlobDriftB {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-5%, -4%) scale(1.05); }
+        }
+        @keyframes loginBlobDriftC {
+          0%, 100% { transform: translate(0, 0); opacity: 0.75; }
+          50% { transform: translate(-3%, 5%); opacity: 1; }
         }
         .login-card {
-          width: 100%; max-width: 400px;
-          background: #FFFFFF;
-          border-radius: 16px; padding: 40px 30px;
-          border: 0.5px solid var(--border-violet);
-          box-shadow: 0 8px 32px rgba(0, 4, 53, 0.1); text-align: center;
-          animation: fadeInUp 0.5s ease;
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          max-width: 420px;
+          background: #ffffff;
+          border-radius: 20px;
+          padding: 44px 32px 36px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow:
+            0 0 0 1px rgba(139, 141, 250, 0.08),
+            0 24px 64px rgba(0, 0, 0, 0.45),
+            0 8px 24px rgba(93, 226, 193, 0.08);
+          text-align: center;
+          animation: fadeInUp 0.55s ease;
           overflow: hidden;
         }
         .btn-exit {
-          position: absolute; right: 0; top: 0; transform: translate(30%, -30%);
-          background: #FFFFFF; border: 1px solid var(--border); color: var(--text);
-          border-radius: 999px; padding: 6px; min-height: auto; cursor: pointer;
+          position: absolute;
+          right: 0;
+          top: 0;
+          transform: translate(30%, -30%);
+          background: #ffffff;
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 999px;
+          padding: 6px;
+          min-height: auto;
+          cursor: pointer;
           box-shadow: var(--shadow-sm);
         }
         .login-logo {
           display: flex;
           justify-content: center;
-          margin-bottom: 16px;
+          margin-bottom: 8px;
           position: relative;
-          background: #FFFFFF;
+          background: #ffffff;
+        }
+        .login-logo .navi-brand-lockup,
+        .login-logo .navi-brand-lockup--login {
+          display: block;
+          height: 72px !important;
+          width: auto !important;
+          max-width: none !important;
+          object-fit: contain;
         }
         .login-card .form-input {
-          background: #FFFFFF;
+          background: #fafafa;
           border-color: var(--border-mid);
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
         .login-card .form-input:focus {
-          background: #FFFFFF;
+          background: #ffffff;
+          border-color: rgba(108, 71, 216, 0.45);
+          box-shadow: 0 0 0 3px rgba(108, 71, 216, 0.12);
         }
         .login-title {
           margin: 0 0 4px;
@@ -139,7 +259,12 @@ const Login = ({ onLogin }) => {
           align-items: center;
           justify-content: center;
         }
-        .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+        .login-subtitle {
+          color: var(--text-muted);
+          font-size: 0.95rem;
+          margin: 0 0 28px;
+          letter-spacing: -0.01em;
+        }
         .login-form { text-align: left; display: flex; flex-direction: column; gap: 16px; }
         .login-card .password-wrapper { position: relative; }
         .login-card .password-wrapper .form-input { padding-right: 44px; }
@@ -160,10 +285,13 @@ const Login = ({ onLogin }) => {
         .login-btn { margin-top: 4px; }
         .login-btn:disabled { opacity: 0.6; cursor: wait; }
         .toggle-mode {
-          background: none; border: none; color: var(--accent); font-weight: 600;
+          background: none; border: none; color: var(--color-primary);
+          font-weight: 600;
           font-size: 0.85rem; margin-top: 20px; cursor: pointer; padding: 0; min-height: auto;
+          text-decoration: none;
         }
-        .link-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+        .toggle-mode:hover { color: var(--color-primary-dark); }
+        .link-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
         .sep { color: var(--text-muted); }
         .spinner {
           width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3);
@@ -171,6 +299,14 @@ const Login = ({ onLogin }) => {
           animation: spin 0.6s linear infinite; display: inline-block;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 480px) {
+          .login-card { padding: 36px 22px 28px; border-radius: 16px; }
+          .login-logo .navi-brand-lockup,
+          .login-logo .navi-brand-lockup--login { height: 60px !important; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .login-page__blob { animation: none; }
+        }
       `}} />
         </div>
     );

@@ -880,7 +880,7 @@ const App = () => {
         <OfflineBanner />
         <div className="navi-bootstrap-loader" role="status" aria-live="polite" aria-label="Iniciando">
         <div className="navi-bootstrap-loader__brand">
-          <NaviBrandLockup height={36} variant="dark" />
+          <NaviBrandLockup height={88} variant="dark" className="navi-brand-lockup--bootstrap" />
         </div>
         <div className="navi-bootstrap-loader__track" aria-hidden>
           <div className="navi-bootstrap-loader__bar" />
@@ -903,6 +903,14 @@ const App = () => {
             align-items: center;
             gap: 14px;
             animation: naviBootstrapPulse 2s ease-in-out infinite;
+          }
+          .navi-bootstrap-loader__brand .navi-brand-lockup,
+          .navi-bootstrap-loader__brand .navi-brand-lockup--bootstrap {
+            display: block;
+            height: 88px !important;
+            width: auto !important;
+            max-width: min(92vw, 420px) !important;
+            object-fit: contain;
           }
           @keyframes naviBootstrapPulse {
             0%, 100% { opacity: 1; }
