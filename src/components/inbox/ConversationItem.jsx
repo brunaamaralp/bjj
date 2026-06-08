@@ -1,68 +1,24 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
-import StageBadge from '../shared/StageBadge.jsx';
-import StatusBadge from '../shared/StatusBadge.jsx';
-import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
-
-/** Máximo 1 chip acionável por item na lista. */
-function resolvePrimaryChip({ showHandoffChip, showWaitingChip, showIaChip, ticket }) {
-  if (showHandoffChip) {
-    return { kind: 'handoff', label: 'Com você', className: 'inbox-status-chip-handoff' };
-  }
-  if (showWaitingChip) {
-    const label = String(ticket?.label || '').trim() || 'Aguardando cliente';
-    const statusKey = String(ticket?.status || 'waiting_customer').trim();
-    return {
-      kind: 'waiting',
-      label,
-      status: statusKey,
-      tone: ticket?.tone || 'warning',
-    };
-  }
-  if (showIaChip) {
-    return { kind: 'ia', label: 'IA respondendo', className: 'inbox-status-chip-ia' };
-  }
-  return null;
-}
 
 function ConversationItem({
   item,
   active,
   onSelectConversation,
-  ticketChip,
   formatTimeOnly,
   formatWhen,
   formatActivityLabel,
   compact = false,
   enableLongPress = false,
   onLongPress,
-  agentIaActive = false,
 }) {
   const needHuman = Boolean(item?.need_human ?? item?._handoffActive);
   const unreadCount = Number(item?._unreadCount || 0);
   const isHighlighted = Boolean(item?._isHighlighted);
-  const ticket = ticketChip(item?._ticketStatus, item?._transferTo);
-  const ticketStatusLower = String(item?._ticketStatus ?? item?.ticket_status ?? '')
-    .trim()
-    .toLowerCase();
-  const isResolved = ticketStatusLower === 'resolved';
-  const isWaitingCustomer = ticketStatusLower === 'waiting_customer';
-  const lastRole = String(item?._lastRole || '').trim();
-  const lastSender = String(item?._lastSender || '').trim();
-
-  const showHandoffChip = needHuman && !isResolved;
-  const showWaitingChip = !needHuman && isWaitingCustomer && !isResolved;
-  const showIaChip =
-    !needHuman &&
-    !isResolved &&
-    !isWaitingCustomer &&
-    agentIaActive &&
-    lastRole === 'assistant' &&
-    lastSender !== 'human';
 
   const rawPrev = String(item?.last_preview || '').replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
   const previewMax = compact ? INBOX_LIST_PREVIEW_MAX_COMPACT : 52;
@@ -73,15 +29,6 @@ function ConversationItem({
   useEffect(() => {
     setAvatarOk(true);
   }, [profileUrl]);
-
-  const primaryChip = resolvePrimaryChip({
-    showHandoffChip,
-    showWaitingChip,
-    showIaChip,
-    ticket,
-  });
-
-  const pipelineStage = String(item?._pipelineStage || '').trim();
 
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
@@ -161,7 +108,6 @@ function ConversationItem({
   const listTitle = String(item?._displayTitle || '-').trim() || 'Conversa';
   const ariaLabelParts = [listTitle];
   if (unreadCount > 0) ariaLabelParts.push(`${unreadCount} não lidas`);
-  if (primaryChip?.label) ariaLabelParts.push(primaryChip.label);
 
   return (
     <button
@@ -207,29 +153,6 @@ function ConversationItem({
               >
                 {String(item?._displayTitle || '-')}
               </span>
-              {pipelineStage ? (
-                <StageBadge stage={pipelineStage} size="sm" className="inbox-conversation-item__stage" />
-              ) : null}
-              {primaryChip ? (
-                primaryChip.kind === 'waiting' ? (
-                  <StatusBadge
-                    status={primaryChip.status}
-                    map={{
-                      ...INBOX_TICKET_BADGE_MAP,
-                      [primaryChip.status]: {
-                        label: primaryChip.label,
-                        tone: primaryChip.tone,
-                      },
-                    }}
-                    size="sm"
-                    className="inbox-status-chip"
-                  />
-                ) : (
-                  <span className={`inbox-status-chip ${primaryChip.className}`}>
-                    {primaryChip.label}
-                  </span>
-                )
-              ) : null}
             </div>
             <div
               className={`inbox-conversation-item__preview-row${compact ? ' inbox-conversation-item__preview-row--compact' : ''}`}

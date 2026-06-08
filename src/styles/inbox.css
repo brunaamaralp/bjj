@@ -980,15 +980,48 @@
 }
 
 .inbox-mini-btn {
-  min-height: 28px;
-  padding: 0 10px;
-  background: var(--surface);
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: var(--font-sm, 0.8125rem);
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--ff-ui, inherit);
+  background: var(--color-white, #fff);
   border: 1px solid var(--border-mid);
-  color: var(--text);
+  color: var(--color-text-heading, var(--text));
+  box-shadow: 0 1px 2px rgba(24, 22, 42, 0.08);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.inbox-bubble .inbox-mini-btn:hover {
+  background: var(--color-primary-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  box-shadow: 0 1px 3px rgba(24, 22, 42, 0.12);
 }
 
 .inbox-mini-btn--menu {
-  font-weight: 900;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  min-width: 32px;
+  padding: 0 8px;
+}
+
+@media (max-width: 1023px) {
+  .inbox-mini-btn {
+    min-height: 44px;
+    padding: 0 14px;
+  }
+
+  .inbox-mini-btn--menu {
+    min-width: 44px;
+  }
 }
 
 .profile-conversation-tab {
@@ -1115,8 +1148,15 @@
 }
 
 .inbox-msg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
   opacity: 1;
   pointer-events: auto;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .inbox-msg-text {
@@ -1177,9 +1217,10 @@
 .inbox-msg-meta {
   margin-top: 6px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--space-2, 10px);
-  align-items: center;
+  gap: 6px var(--space-2, 10px);
+  align-items: flex-end;
 }
 
 .inbox-msg--optimistic {
@@ -1299,13 +1340,23 @@
   color: rgba(255, 255, 255, 0.8);
 }
 .inbox-bubble--user .inbox-mini-btn {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-white, #fff);
+  border-color: rgba(255, 255, 255, 0.95);
+  color: var(--color-primary-dark, #4c1d95);
+  box-shadow: 0 1px 3px rgba(24, 22, 42, 0.16);
 }
+
 .inbox-bubble--user .inbox-mini-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: #f3f0ff;
+  border-color: #fff;
+  color: var(--color-primary-dark, #4c1d95);
+}
+
+.inbox-bubble--human .inbox-mini-btn,
+.inbox-bubble--ai .inbox-mini-btn {
+  background: var(--color-white, #fff);
+  border-color: var(--border-mid);
+  color: var(--color-text-heading, var(--text));
 }
 
 .inbox-bubble .inbox-msg + .inbox-msg {

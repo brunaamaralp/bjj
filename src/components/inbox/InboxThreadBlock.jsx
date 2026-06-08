@@ -137,7 +137,7 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
               actions={
                 <>
                   <button
-                    className="btn btn-outline inbox-mini-btn"
+                    className="inbox-mini-btn"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
@@ -161,7 +161,7 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
                     Responder
                   </button>
                   <button
-                    className="btn btn-outline inbox-mini-btn"
+                    className="inbox-mini-btn"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
@@ -172,7 +172,7 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
                     Copiar
                   </button>
                   <button
-                    className="btn btn-outline inbox-mini-btn inbox-mini-btn--menu"
+                    className="inbox-mini-btn inbox-mini-btn--menu"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();

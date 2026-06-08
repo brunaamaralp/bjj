@@ -197,14 +197,12 @@ export default function ConversationList(props) {
           item={it}
           active={phone === selectedPhone}
           onSelectConversation={handleSelectConversation}
-          ticketChip={ticketChip}
           formatTimeOnly={formatTimeOnly}
           formatWhen={formatWhen}
           formatActivityLabel={formatActivityLabel}
           compact
           enableLongPress={Boolean(isMobile && typeof onConversationLongPress === 'function')}
           onLongPress={() => onConversationLongPress?.(it)}
-          agentIaActive={agentIaActive}
         />
       );
     }

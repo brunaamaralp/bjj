@@ -7,7 +7,6 @@ import InboxComposer from './InboxComposer';
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 import InboxThreadMessages from './InboxThreadMessages.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
-import { getThreadHandoffBanner } from '../../../lib/inboxHandoffPresentation.js';
 
 function inboxDisplayInitials(name) {
   const parts = String(name || '')
@@ -150,11 +149,6 @@ export default function InboxThreadPanel(props) {
                 selected?.whatsapp_profile_image_url || lead?.whatsapp_profile_image_url || ''
               ).trim();
               const ticket = ticketChip(selected?.ticket_status, selected?.transfer_to);
-              const banner = getThreadHandoffBanner({
-                needHuman: Boolean(selected?.need_human),
-                humanHandoffUntil: selected?.human_handoff_until,
-                nowMs,
-              });
               const leadIdForHint = String(selected?.lead_id || '').trim();
               const leadForHint = leadIdForHint ? leadById.get(leadIdForHint) : leadByPhone.get(normalizePhone(phone));
               const aiSuggestHuman = Boolean(leadForHint?.needHuman);
@@ -193,18 +187,12 @@ export default function InboxThreadPanel(props) {
                     {showTicketLine ? (
                       <div className="inbox-thread-header__status-line">{ticket.label}</div>
                     ) : null}
-                    {handoffReleaseHint ||
-                    banner.variant === 'human' ||
-                    banner.variant === 'soon' ? (
+                    {handoffReleaseHint ? (
                       <div
                         role="status"
-                        className={`inbox-thread-handoff-banner inbox-thread-handoff-banner--${banner.variant || 'human'}${
-                          handoffReleaseHint ? ' inbox-thread-handoff-banner--release' : ''
-                        }`}
+                        className="inbox-thread-handoff-banner inbox-thread-handoff-banner--release"
                       >
-                        {handoffReleaseHint
-                          ? 'A IA voltará a responder automaticamente'
-                          : banner.text}
+                        A IA voltará a responder automaticamente
                       </div>
                     ) : null}
                     {!selected?.need_human && aiSuggestHuman ? (
