@@ -7,7 +7,7 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
-import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2, MessageSquare } from 'lucide-react';
+import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2, MessageSquare, UserCheck } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
@@ -81,6 +81,10 @@ import {
     formatLeadLastInteractionLine,
     pluralizeContactLabel,
 } from '../lib/pipelineLeadDisplay.js';
+import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
+import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
+import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
+import LinkStudentModal from '../components/pipeline/LinkStudentModal.jsx';
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -116,10 +120,11 @@ const dropAnimationConfig = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
+    const pendingTriage = !isEnrolledCard && isLeadPendingTriage(lead);
     const isActionMenuOpen = openMenuId === lead.id;
     const isWaMenuOpen = waDropdownOpenId === lead.id;
     const isMoverOpen = moverOpenId === lead.id;
@@ -249,6 +254,13 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     ))}
                 </div>
             ) : null}
+            {pendingTriage ? (
+                <div className="lead-meta mt-1 flex items-center gap-2 flex-wrap" data-no-dnd="true">
+                    <span className="lead-triage-badge" title="Contato criado automaticamente pelo WhatsApp — confirme ou vincule a um aluno">
+                        Triagem WhatsApp
+                    </span>
+                </div>
+            ) : null}
             {lead.status === LEAD_STATUS.LOST && lead.lostReason ? (
                 <div className="lead-meta mt-1">
                     <span className="lead-lost-reason-badge">
@@ -347,6 +359,50 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                             onClick={(e) => e.stopPropagation()}
                             onMouseDown={(e) => e.stopPropagation()}
                         >
+                            {pendingTriage ? (
+                                <>
+                                    <div className="navi-menu__label">Triagem WhatsApp</div>
+                                    <div className="menu-group">
+                                        <button
+                                            type="button"
+                                            className="navi-menu__item navi-menu__item--success"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenMenuId(null);
+                                                setWaDropdownOpenId(null);
+                                                onConfirmTriage?.(lead);
+                                            }}
+                                        >
+                                            <UserCheck size={16} /> Confirmar lead
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="navi-menu__item"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenMenuId(null);
+                                                setWaDropdownOpenId(null);
+                                                onLinkStudent?.(lead);
+                                            }}
+                                        >
+                                            <GraduationCap size={16} /> Vincular a aluno
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="navi-menu__item navi-menu__item--danger"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenMenuId(null);
+                                                setWaDropdownOpenId(null);
+                                                onDismissTriage?.(e, lead);
+                                            }}
+                                        >
+                                            <Trash2 size={16} /> Descartar
+                                        </button>
+                                    </div>
+                                    <hr className="navi-menu__divider" aria-hidden />
+                                </>
+                            ) : null}
                             <div className="menu-group">
                                 {canShowPipelineCloseSale(lead) && !isEnrolledCard ? (
                                     <button
@@ -560,15 +616,10 @@ function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movin
 const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => {
     const scrollRef = useRef(null);
     const { setNodeRef } = useDroppable({ id });
-    const setColumnRef = useCallback((node) => {
-        setNodeRef(node);
-        scrollRef.current = node;
-    }, [setNodeRef]);
 
     return (
         <div
-            ref={setColumnRef}
-            data-pipeline-stage-id={id}
+            ref={setNodeRef}
             className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
             style={{
                 '--kanban-col-accent': color.color,
@@ -1008,6 +1059,7 @@ const Pipeline = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const followupKanbanFilter = searchParams.get('followup') === 'kanban';
     const slaCriticalFilter = searchParams.get('sla') === 'critical';
+    const triageKanbanFilter = searchParams.get('triage') === 'pending';
     const [kanbanSearch, setKanbanSearch] = useState(() => String(initialSaved?.searchTerm ?? ''));
     const [profileFilter, setProfileFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).profileFilter);
     const [searchStageScope, setSearchStageScope] = useState(() => pipelineSessionInitialFilters(initialSaved).searchStageScope);
@@ -1021,6 +1073,9 @@ const Pipeline = () => {
     const [matriculaModalOpen, setMatriculaModalOpen] = useState(false);
     const [dragTargetLead, setDragTargetLead] = useState(null);
     const [lostModalLead, setLostModalLead] = useState(null);
+    const [linkStudentLead, setLinkStudentLead] = useState(null);
+    const [linkStudentSaving, setLinkStudentSaving] = useState(false);
+    const studentsLoading = useStudentStore((s) => s.loading);
     const [filterDateFrom, setFilterDateFrom] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateFrom);
     const [filterDateTo, setFilterDateTo] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateTo);
     const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState(
@@ -1265,6 +1320,69 @@ const Pipeline = () => {
             }
         });
     }, [contactLabel, deleteLead, toast]);
+
+    const handleConfirmTriage = useCallback(async (lead) => {
+        const leadId = String(lead?.id || '').trim();
+        if (!leadId) return;
+        try {
+            await updateLead(leadId, { triageStatus: LEAD_TRIAGE_STATUS.CONFIRMED });
+            toast.success('Lead confirmado');
+        } catch (err) {
+            toast.error(err, 'update');
+        }
+    }, [toast, updateLead]);
+
+    const handleDismissTriage = useCallback((e, lead) => {
+        e.stopPropagation();
+        setOpenMenuId(null);
+        const leadId = String(lead?.id || '').trim();
+        if (!leadId) return;
+        setConfirmModal({
+            title: 'Descartar contato?',
+            description: 'Este contato não é lead e será removido do funil.',
+            confirmLabel: 'Descartar',
+            onConfirm: async () => {
+                try {
+                    const phone = String(lead?.phone || '').replace(/\D/g, '');
+                    await deleteLead(leadId);
+                    if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId });
+                    toast.success('Contato descartado');
+                } catch (err) {
+                    toast.error(err, 'delete');
+                } finally {
+                    setConfirmModal(null);
+                }
+            },
+        });
+    }, [academyId, deleteLead, toast]);
+
+    const handleLinkStudent = useCallback((lead) => {
+        setOpenMenuId(null);
+        setLinkStudentLead(lead);
+        if (!students.length && !useStudentStore.getState().loading) {
+            void fetchStudents({ reset: true });
+        }
+    }, [fetchStudents, students.length]);
+
+    const handleLinkStudentConfirm = useCallback(async (studentId) => {
+        const lead = linkStudentLead;
+        if (!lead?.id || !studentId || linkStudentSaving) return;
+        setLinkStudentSaving(true);
+        try {
+            await resolvePipelineLeadToStudent({
+                lead,
+                studentId,
+                academyId,
+                deleteLead,
+            });
+            toast.success('Aluno vinculado — contato removido do funil');
+            setLinkStudentLead(null);
+        } catch (err) {
+            toast.error(err, 'update');
+        } finally {
+            setLinkStudentSaving(false);
+        }
+    }, [academyId, deleteLead, linkStudentLead, linkStudentSaving, toast]);
 
     const stepKanbanScrollFromClientX = (clientX) => {
         const el = kanbanWrapperRef.current;
@@ -1766,8 +1884,12 @@ const Pipeline = () => {
             );
         }
 
+        if (triageKanbanFilter) {
+            list = list.filter((l) => isLeadPendingTriage(l));
+        }
+
         return list;
-    }, [leads, profileFilter, originFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter, applyBoardSearchFilter]);
+    }, [leads, profileFilter, originFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter, triageKanbanFilter, applyBoardSearchFilter]);
 
     /** Alunos matriculados (coleção students) + legado ainda em leads com status Matriculado. */
     const enrolledForBoard = useMemo(() => {
@@ -1813,12 +1935,21 @@ const Pipeline = () => {
         return leadsForBoard.filter((l) => slaAlerts[l.id]?.urgency === 'critical');
     }, [leadsForBoard, slaAlerts, slaCriticalFilter]);
 
+    const triagePendingCount = useMemo(
+        () =>
+            (leads || [])
+                .filter((l) => leadIsPipelineFunnel(l))
+                .filter((l) => leadMatchesContactType(l))
+                .filter((l) => isLeadPendingTriage(l)).length,
+        [leads]
+    );
+
     const pipelineHeaderMeta = useMemo(() => {
         const total = leadsForBoard.length;
         const needHumanCount = leadsForBoard.filter((l) => l.needHuman).length;
         const slaCriticalCount = Object.values(slaAlerts).filter((a) => a?.urgency === 'critical').length;
-        return { total, needHumanCount, slaCriticalCount };
-    }, [leadsForBoard, slaAlerts]);
+        return { total, needHumanCount, slaCriticalCount, triagePendingCount };
+    }, [leadsForBoard, slaAlerts, triagePendingCount]);
 
     useEffect(() => {
         const saved = pendingScrollRestoreRef.current;
@@ -1906,6 +2037,12 @@ const Pipeline = () => {
                     · <span className="navi-ui-count">{pipelineHeaderMeta.needHumanCount}</span> precisam resposta
                 </>
             ) : null}
+            {pipelineHeaderMeta.triagePendingCount > 0 ? (
+                <>
+                    {' '}
+                    · <span className="navi-ui-count">{pipelineHeaderMeta.triagePendingCount}</span> triagem WhatsApp
+                </>
+            ) : null}
         </>
     );
 
@@ -1948,6 +2085,15 @@ const Pipeline = () => {
         }, { replace: true });
     }, [setSearchParams]);
 
+    const toggleTriageFilter = useCallback(() => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (next.get('triage') === 'pending') next.delete('triage');
+            else next.set('triage', 'pending');
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
+
     const renderPeriodFilterChips = () => (
         <>
             <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
@@ -1962,6 +2108,16 @@ const Pipeline = () => {
                     title="Mostrar apenas leads com SLA crítico"
                 >
                     SLA crítico ({pipelineHeaderMeta.slaCriticalCount})
+                </button>
+            ) : null}
+            {triagePendingCount > 0 ? (
+                <button
+                    type="button"
+                    className={`filter-chip filter-chip--alert${triageKanbanFilter ? ' is-active' : ''}`}
+                    onClick={toggleTriageFilter}
+                    title="Mostrar apenas contatos aguardando triagem WhatsApp"
+                >
+                    Triagem WhatsApp ({triagePendingCount})
                 </button>
             ) : null}
         </>
@@ -2360,6 +2516,9 @@ const Pipeline = () => {
             handleMarkAsLost,
             handleDeleteLead,
             canDeleteLead,
+            onConfirmTriage: handleConfirmTriage,
+            onDismissTriage: handleDismissTriage,
+            onLinkStudent: handleLinkStudent,
             onOpenScheduleModal: setScheduleModalLead,
             onCloseSale: (lead) => openMatriculaModal(lead, { paymentShortcut: true }),
             onOpenMatricula: openMatriculaModal,
@@ -2391,6 +2550,9 @@ const Pipeline = () => {
             handleMarkAsLost,
             handleDeleteLead,
             canDeleteLead,
+            handleConfirmTriage,
+            handleDismissTriage,
+            handleLinkStudent,
             handleWaCardClick,
             handleConfirmPresence,
             openMover,
@@ -2961,6 +3123,19 @@ const Pipeline = () => {
                     </div>
                 </div>
             )}
+
+            <LinkStudentModal
+                open={Boolean(linkStudentLead)}
+                lead={linkStudentLead}
+                students={students}
+                studentsLoading={studentsLoading}
+                saving={linkStudentSaving}
+                onClose={() => {
+                    if (linkStudentSaving) return;
+                    setLinkStudentLead(null);
+                }}
+                onConfirm={handleLinkStudentConfirm}
+            />
             {noteOpen && (
                 <div className="note-overlay" onClick={() => setNoteOpen(false)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>

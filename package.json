@@ -20,6 +20,7 @@
     "migrate:lead-stage-sync": "node scripts/fix-lead-stage-sync.js",
     "migrate:kids-to-crianca": "node scripts/migrateLeadTypeKidsToCrianca.js",
     "provision:lead-payment-attrs": "node scripts/ensure-lead-payment-attrs.js",
+    "provision:lead-triage-attrs": "node scripts/ensure-lead-triage-attrs.js",
     "provision:student-overdue-attrs": "node scripts/ensure-student-overdue-attrs.mjs",
     "recover:bank-accounts": "node --env-file=.env scripts/recover-bank-accounts.mjs",
     "unify:bank-labels": "node --env-file=.env scripts/unify-bank-account-labels.mjs",

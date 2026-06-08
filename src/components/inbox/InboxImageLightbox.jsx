@@ -1,31 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import useDialogFocus from '../../hooks/useDialogFocus.js';
 
 export default function InboxImageLightbox({ imageUrl, onClose }) {
   const url = String(imageUrl || '').trim();
   const [zoomed, setZoomed] = useState(false);
+  const dialogRef = useDialogFocus(Boolean(url), onClose);
 
   useEffect(() => {
     setZoomed(false);
   }, [url]);
 
-  useEffect(() => {
-    if (!url) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [url, onClose]);
-
   if (!url) return null;
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Imagem ampliada"
       className="inbox-image-lightbox"
+      tabIndex={-1}
       onClick={() => onClose?.()}
     >
       <div className="inbox-image-lightbox__toolbar">
@@ -53,7 +48,9 @@ export default function InboxImageLightbox({ imageUrl, onClose }) {
       </div>
       <img
         src={url}
-        alt=""
+        alt="Imagem ampliada da conversa"
+        width={960}
+        height={720}
         className={`inbox-image-lightbox__img${zoomed ? ' inbox-image-lightbox__img--zoomed' : ''}`}
         onClick={(e) => e.stopPropagation()}
         onDoubleClick={(e) => {

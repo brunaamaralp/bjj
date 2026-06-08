@@ -340,7 +340,7 @@
   display: flex;
   gap: 0.625rem;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   padding: 0.375rem 0 0.75rem;
   flex: 1 1 0;
   min-height: 0;
@@ -437,7 +437,7 @@
   background: var(--color-white);
   border: 1px solid var(--pipeline-border);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pipeline-mobile-stage-toggle {
@@ -452,6 +452,7 @@
   background: transparent;
   font-family: inherit;
   text-align: left;
+  overflow: visible;
 }
 
 .pipeline-mobile-stage-label {
@@ -580,8 +581,7 @@
   flex-direction: column;
   gap: var(--pipeline-element-gap);
   scroll-snap-align: start;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
   padding-bottom: 12px;
   border-radius: 12px;
   transition: background 0.12s ease, border-color 0.2s, box-shadow 0.15s ease;
@@ -679,6 +679,10 @@
   gap: var(--pipeline-element-gap);
   border-bottom: 1px solid var(--pipeline-border);
   border-radius: 12px 12px 0 0;
+  position: relative;
+  z-index: 3;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .col-header-titles {
@@ -690,14 +694,29 @@
 }
 
 .pipeline-container .col-content {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   min-width: 0;
-  min-height: 40px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--pipeline-element-gap);
   padding: 0 0.625rem 0.625rem;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pipeline-container .col-header .navi-hint__bubble {
+  z-index: var(--z-elevated, 13000);
+}
+
+.pipeline-container .kanban-column:has(.col-header .navi-hint:hover),
+.pipeline-container .kanban-column:has(.col-header .navi-hint:focus-visible) {
+  z-index: 4;
+}
+
+.pipeline-mobile-stage-label .navi-hint__bubble {
+  z-index: var(--z-elevated, 13000);
 }
 
 .pipeline-container .pipeline-col-leads-virtual {
@@ -951,6 +970,59 @@
 .pipeline-container .lead-automation-badge--overdue {
   background: var(--pipeline-badge-warning-bg);
   color: var(--pipeline-badge-warning-text);
+}
+
+.pipeline-container .lead-triage-badge {
+  font-family: var(--ff-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--pipeline-badge-warning-bg);
+  color: var(--pipeline-badge-warning-text);
+}
+
+.pipeline-link-student-search {
+  margin-bottom: 0.75rem;
+}
+
+.pipeline-link-student-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 0.75rem;
+}
+
+.pipeline-link-student-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+}
+
+.pipeline-link-student-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pipeline-link-student-item__name {
+  font-weight: 600;
+  color: var(--pipeline-text);
+}
+
+.pipeline-link-student-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .pipeline-container .stage-editor {

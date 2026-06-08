@@ -67,5 +67,7 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     hasPendingAutomations: doc.has_pending_automations === true,
     createdAt: doc.$createdAt,
     lostReason: doc.lostReason || '',
+    triageStatus: String(doc.triage_status || '').trim(),
+    inboundAuto: doc.inbound_auto === true || String(doc.inbound_auto || '').trim().toLowerCase() === 'true',
   };
 }

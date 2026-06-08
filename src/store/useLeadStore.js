@@ -133,6 +133,8 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.whatsappPriority !== undefined) copyIf('whatsapp_priority', u.whatsappPriority);
   if (u.whatsappLeadQuente !== undefined) copyIf('whatsapp_lead_quente', u.whatsappLeadQuente);
   if (u.needHuman !== undefined) copyIf('need_human', Boolean(u.needHuman));
+  if (u.triageStatus !== undefined) copyIf('triage_status', String(u.triageStatus || '').trim().slice(0, 32));
+  if (u.inboundAuto !== undefined) copyIf('inbound_auto', Boolean(u.inboundAuto));
 
   const nowIso = new Date().toISOString();
   if (typeof u.status !== 'undefined' && u.status !== currentLead.status) {

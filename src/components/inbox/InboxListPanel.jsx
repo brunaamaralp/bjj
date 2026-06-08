@@ -56,54 +56,56 @@ export default function InboxListPanel({
           <span className="text-small inbox-list-panel__scroll-hint-text">Buscando…</span>
         </div>
       ) : null}
-      <div className="inbox-list-filters-segments" role="tablist" aria-label="Filtro principal da lista">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={listFilter === 'all'}
-          className={`inbox-list-filters-segments__btn${listFilter === 'all' ? ' is-active' : ''}`}
-          onClick={() => setListFilter('all')}
-        >
-          Todas
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={listFilter === 'needs_me'}
-          className={`inbox-list-filters-segments__btn${listFilter === 'needs_me' ? ' is-active' : ''}`}
-          onClick={() => setListFilter('needs_me')}
-          title="Conversas em que você assumiu o atendimento (handoff ativo)"
-        >
-          <span>Com você</span>
-          {needsMeBacklog > 0 ? (
-            <span
-              className={`text-small inbox-unread-badge ${
-                listFilter === 'needs_me' ? 'inbox-unread-badge--active-chip' : 'inbox-unread-badge--inactive'
-              }`}
-            >
-              {needsMeBacklog}
-            </span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={listFilter === 'unread'}
-          className={`inbox-list-filters-segments__btn${listFilter === 'unread' ? ' is-active' : ''}`}
-          onClick={() => setListFilter('unread')}
-          title="Conversas com mensagens não lidas"
-        >
-          <span>Não lidas</span>
-          {unreadBacklog > 0 ? (
-            <span
-              className={`text-small inbox-unread-badge ${
-                listFilter === 'unread' ? 'inbox-unread-badge--active-chip' : 'inbox-unread-badge--inactive'
-              }`}
-            >
-              {unreadBacklog}
-            </span>
-          ) : null}
-        </button>
+      <div className="inbox-list-filters-segments">
+        <div className="inbox-list-filters-segments__tabs" role="tablist" aria-label="Filtro principal da lista">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listFilter === 'all'}
+            className={`inbox-list-filters-segments__btn${listFilter === 'all' ? ' is-active' : ''}`}
+            onClick={() => setListFilter('all')}
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listFilter === 'needs_me'}
+            className={`inbox-list-filters-segments__btn${listFilter === 'needs_me' ? ' is-active' : ''}`}
+            onClick={() => setListFilter('needs_me')}
+            title="Conversas em que você assumiu o atendimento (handoff ativo)"
+          >
+            <span>Com você</span>
+            {needsMeBacklog > 0 ? (
+              <span
+                className={`text-small inbox-unread-badge ${
+                  listFilter === 'needs_me' ? 'inbox-unread-badge--active-chip' : 'inbox-unread-badge--inactive'
+                }`}
+              >
+                {needsMeBacklog}
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listFilter === 'unread'}
+            className={`inbox-list-filters-segments__btn${listFilter === 'unread' ? ' is-active' : ''}`}
+            onClick={() => setListFilter('unread')}
+            title="Conversas com mensagens não lidas"
+          >
+            <span>Não lidas</span>
+            {unreadBacklog > 0 ? (
+              <span
+                className={`text-small inbox-unread-badge ${
+                  listFilter === 'unread' ? 'inbox-unread-badge--active-chip' : 'inbox-unread-badge--inactive'
+                }`}
+              >
+                {unreadBacklog}
+              </span>
+            ) : null}
+          </button>
+        </div>
         <div ref={listExtraFiltersRef} className="inbox-list-filters__extra inbox-list-filters-segments__more">
           <button
             type="button"
@@ -113,6 +115,7 @@ export default function InboxListPanel({
             onClick={() => setExtraFiltersMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={extraFiltersMenuOpen}
+            aria-label="Mais filtros"
             title="Mais filtros"
           >
             <Filter size={14} strokeWidth={2} aria-hidden />
@@ -214,7 +217,7 @@ export default function InboxListPanel({
           agentIaActive={agentIaActive}
         />
         {!searchPending && !searchQuery && hasMore ? (
-          <div className="inbox-list-panel__scroll-hint inbox-list-panel__scroll-hint--footer" aria-hidden>
+          <div className="inbox-list-panel__scroll-hint inbox-list-panel__scroll-hint--footer" role="status">
             <span className="text-small inbox-list-panel__scroll-hint-text">Role para carregar mais</span>
           </div>
         ) : null}

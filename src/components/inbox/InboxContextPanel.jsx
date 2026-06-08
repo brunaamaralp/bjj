@@ -3,7 +3,9 @@ import { Flame } from 'lucide-react';
 import ConversationNotesPanel from './ConversationNotesPanel';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBadge from '../shared/StatusBadge.jsx';
+import InboxTriageCard from './InboxTriageCard.jsx';
 import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
+import { isLeadPendingTriage } from '../../lib/leadTriage.js';
 
 export function InboxContextPanelContent(props) {
   const {
@@ -42,6 +44,14 @@ export function InboxContextPanelContent(props) {
     leadsLoading,
     leadCandidates,
     linkLeadToConversation,
+    studentCandidates,
+    studentsLoading,
+    fetchStudents,
+    onConfirmTriage,
+    onDismissTriage,
+    onOpenLinkStudent,
+    onLinkStudentConfirm,
+    triageBusy,
     pinnedMessages,
     setSelectedMsgKey,
     scrollToMsgKey,
@@ -139,6 +149,7 @@ export function InboxContextPanelContent(props) {
         const intention = String(lead?.intention || '').trim();
         const priority = String(lead?.priority || '').trim();
         const hotLead = Boolean(lead?.hotLead);
+        const pendingTriage = Boolean(lead?.id && isLeadPendingTriage(lead));
         return (
           <div className="inbox-context-card">
             <div className="navi-section-heading inbox-context-card__heading">{`Contato / ${contactLabel}`}</div>
@@ -146,7 +157,7 @@ export function InboxContextPanelContent(props) {
               <div className="inbox-context-contact-name">{name || phone || '—'}</div>
               {!!phone && <div className="navi-subtitle navi-subtitle--flush">{phone}</div>}
               <div className="inbox-context-chip-row">
-                {!!status && <span className="text-small inbox-context-neutral-chip">{status}</span>}
+                {!!status && !pendingTriage && <span className="text-small inbox-context-neutral-chip">{status}</span>}
                 {!!intention && <span className="text-small inbox-context-neutral-chip">{intention}</span>}
                 {!!priority && <span className="text-small inbox-context-neutral-chip">{priority}</span>}
                 {hotLead && (
@@ -156,8 +167,16 @@ export function InboxContextPanelContent(props) {
                   </span>
                 )}
               </div>
+              {pendingTriage ? (
+                <InboxTriageCard
+                  busy={triageBusy || linkingLead}
+                  onConfirm={() => onConfirmTriage?.(lead)}
+                  onLinkStudent={() => onOpenLinkStudent?.()}
+                  onDismiss={() => onDismissTriage?.(lead)}
+                />
+              ) : null}
               <div className="inbox-context-btn-row">
-                {!selected?.lead_id && (
+                {!pendingTriage && !selected?.lead_id && (
                   <>
                     <button
                       className="btn btn-primary inbox-btn--ctx"
@@ -168,7 +187,7 @@ export function InboxContextPanelContent(props) {
                       Converter em contato
                     </button>
                     <button
-                      className="btn btn-primary inbox-btn--ctx"
+                      className="btn btn-outline inbox-btn--ctx"
                       type="button"
                       onClick={() => setLeadPanel((v) => (v === 'associate' ? null : 'associate'))}
                       disabled={!selectedPhone || linkingLead}
@@ -186,12 +205,12 @@ export function InboxContextPanelContent(props) {
                     >
                       {`Ver ${contactLabel.toLowerCase()}`}
                     </button>
-                    <button className="btn btn-secondary inbox-btn--ctx" onClick={() => navigate('/pipeline')} type="button">
-                      Kanban
+                    <button className="btn btn-outline inbox-btn--ctx" onClick={() => navigate('/pipeline')} type="button">
+                      Funil
                     </button>
                   </>
                 )}
-                {!!lead?.id && (
+                {!!lead?.id && !pendingTriage ? (
                   <button
                     className="btn btn-outline inbox-btn--ctx"
                     onClick={() => navigate(`/lead/${encodeURIComponent(String(lead.id))}`)}
@@ -199,7 +218,7 @@ export function InboxContextPanelContent(props) {
                   >
                     Perfil completo
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -334,6 +353,64 @@ export function InboxContextPanelContent(props) {
           )}
           <div className="inbox-context-btn-row inbox-context-btn-row--end inbox-context-footer-note">
             <button className="btn btn-outline inbox-btn--ctx" type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {leadPanel === 'link_student' && (
+        <div className="inbox-context-card">
+          <div className="navi-section-heading inbox-context-card__heading">Vincular a aluno</div>
+          <p className="navi-subtitle navi-subtitle--spaced">
+            Escolha o aluno correspondente. O contato sai do funil e fica vinculado a esta conversa.
+          </p>
+          <div className="inbox-context-search-row">
+            <input
+              className="input"
+              value={leadSearch}
+              onChange={(e) => setLeadSearch(e.target.value)}
+              placeholder="Buscar por nome ou telefone"
+            />
+            <button
+              className="btn btn-outline inbox-btn--ctx"
+              onClick={() => fetchStudents?.()}
+              disabled={studentsLoading || triageBusy || linkingLead}
+              type="button"
+            >
+              Atualizar
+            </button>
+          </div>
+          {studentsLoading && <div className="text-small inbox-context-muted">Carregando alunos…</div>}
+          {!studentsLoading && studentCandidates.length === 0 && (
+            <EmptyState variant="compact" tone="dashed" title="Nenhum aluno encontrado." role="status" />
+          )}
+          {!studentsLoading && studentCandidates.length > 0 && (
+            <div className="inbox-context-list">
+              {studentCandidates.map((s) => (
+                <button
+                  key={s.id}
+                  className="btn btn-outline inbox-context-list-item"
+                  onClick={() => onLinkStudentConfirm?.(s.id)}
+                  disabled={triageBusy || linkingLead}
+                  type="button"
+                >
+                  <span className="inbox-context-list-item__main">
+                    <span className="inbox-context-list-item__title">{s.name || 'Sem nome'}</span>
+                    <span className="text-small inbox-context-muted">{s.phone || ''}</span>
+                  </span>
+                  {s.plan ? <span className="text-small inbox-context-muted">{s.plan}</span> : null}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="inbox-context-btn-row inbox-context-btn-row--end inbox-context-footer-note">
+            <button
+              className="btn btn-outline inbox-btn--ctx"
+              type="button"
+              onClick={() => setLeadPanel(null)}
+              disabled={triageBusy || linkingLead}
+            >
               Fechar
             </button>
           </div>

@@ -41,6 +41,7 @@ export default function InboxThreadPanel(props) {
     navigate,
     contactLabel,
     terms,
+    pendingTriage = false,
     menu,
     openMenu,
     threadActionsMenuProps,
@@ -157,13 +158,28 @@ export default function InboxThreadPanel(props) {
                 <>
                   <div className="inbox-thread-header__avatar" aria-hidden>
                     {profileUrl ? (
-                      <img src={profileUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                      <img
+                        src={profileUrl}
+                        alt=""
+                        width={40}
+                        height={40}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       inboxDisplayInitials(displayName)
                     )}
                   </div>
                   <div className="inbox-thread-header__intro">
-                    <div className="inbox-thread-header__title">{displayName}</div>
+                    <div className="inbox-thread-header__title">
+                      {displayName}
+                      {pendingTriage ? (
+                        <span className="inbox-thread-header__triage-badge" title="Aguardando triagem WhatsApp">
+                          Triagem
+                        </span>
+                      ) : null}
+                    </div>
                     {phone ? (
                       <div className="inbox-thread-header__phone">
                         {typeof formatPhone === 'function' ? formatPhone(phone) : phone}
@@ -196,10 +212,13 @@ export default function InboxThreadPanel(props) {
                         {editingContactName ? (
                           <>
                             <input
+                              id="inbox-contact-name-input"
                               className="input"
+                              aria-label="Nome do contato"
                               value={contactNameDraft}
                               onChange={(e) => setContactNameDraft(e.target.value)}
                               placeholder="Nome do contato"
+                              autoComplete="name"
                               style={{ minWidth: 170, height: 30, padding: '4px 8px' }}
                             />
                             <button
@@ -427,13 +446,18 @@ export default function InboxThreadPanel(props) {
         </div>
 
         {!threadAtBottom && newMsgCount > 0 && (
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div
+            style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <button
               className="btn btn-secondary"
-              style={{ padding: '6px 12px', minHeight: 34, pointerEvents: 'auto' }}
+              style={{ padding: '6px 12px', minHeight: 34, pointerEvents: 'auto', fontVariantNumeric: 'tabular-nums' }}
               type="button"
               onClick={() => scrollThreadToBottom({ clearNew: true })}
               title="Ir para o mais recente"
+              aria-label={`${newMsgCount} mensagens novas. Ir para o mais recente`}
             >
               {newMsgCount} novas • Ir para o mais recente
             </button>

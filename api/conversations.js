@@ -413,6 +413,18 @@ export default async function handler(req, res) {
       return json(res, 200, { lead_id: leadId, lead_name: leadName });
     }
 
+    if (action === 'unlink_lead') {
+      if (!doc) {
+        doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
+      }
+      if (!doc) return json(res, 200, { lead_id: null, lead_name: '' });
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+        lead_id: '',
+        lead_name: '',
+      });
+      return json(res, 200, { lead_id: null, lead_name: '' });
+    }
+
     if (action === 'set_contact_name') {
       const nextName = String(body.contact_name || '').trim();
       if (!doc) {

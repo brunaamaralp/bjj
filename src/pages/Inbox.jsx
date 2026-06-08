@@ -13,6 +13,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { resolveInboxTicketBadge } from '../lib/inboxTicketBadges.js';
 import { useLeadStore } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
@@ -61,6 +62,11 @@ import {
 import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
 import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
 import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
+import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
+import { filterStudentCandidates } from '../lib/studentSearchFilter.js';
+import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
+import useDialogFocus from '../hooks/useDialogFocus.js';
+import { inboxFilterFromUrlParam, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
@@ -152,15 +158,20 @@ export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { fetchLeads, leads, loading: leadsLoading, academyId, academyList: academyListRaw } = useLeadStore(
+  const { fetchLeads, leads, loading: leadsLoading, academyId, academyList: academyListRaw, updateLead, deleteLead } = useLeadStore(
     useShallow((state) => ({
       fetchLeads: state.fetchLeads,
       leads: state.leads,
       loading: state.loading,
       academyId: state.academyId,
       academyList: state.academyList,
+      updateLead: state.updateLead,
+      deleteLead: state.deleteLead,
     }))
   );
+  const students = useStudentStore((s) => s.students);
+  const fetchStudents = useStudentStore((s) => s.fetchStudents);
+  const studentsLoading = useStudentStore((s) => s.loading);
   const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
 
@@ -198,7 +209,10 @@ export default function Inbox() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
-  const [selectedPhone, setSelectedPhone] = useState('');
+  const [selectedPhone, setSelectedPhone] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return normalizePhone(new URLSearchParams(window.location.search).get('phone') || '');
+  });
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
@@ -239,18 +253,64 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(false);
 
-  const [searchParams] = useSearchParams();
-  const [listFilter, setListFilter] = useState(() => readInitialInboxListFilter());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [listFilter, setListFilter] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const fromUrl = inboxFilterFromUrlParam(new URLSearchParams(window.location.search).get('filter'));
+      if (fromUrl) return fromUrl;
+    }
+    return readInitialInboxListFilter();
+  });
+  const listFilterRef = useRef(listFilter);
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
 
   useEffect(() => {
-    const f = String(searchParams.get('filter') || '').trim().toLowerCase();
-    if (f === 'pending' || f === 'need_human') {
-      setListFilter('need_human');
+    const fromUrl = inboxFilterFromUrlParam(searchParams.get('filter'));
+    if (fromUrl && fromUrl !== listFilterRef.current) {
+      setListFilter(fromUrl);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const param = inboxFilterToUrlParam(listFilter);
+        const cur = String(next.get('filter') || '').trim();
+        if (param) {
+          if (cur === param) return prev;
+          next.set('filter', param);
+        } else if (!cur) {
+          return prev;
+        } else {
+          next.delete('filter');
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }, [listFilter, setSearchParams]);
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const phone = normalizePhone(selectedPhone);
+        const cur = normalizePhone(next.get('phone') || '');
+        if (phone) {
+          if (cur === phone) return prev;
+          next.set('phone', phone);
+        } else if (!cur) {
+          return prev;
+        } else {
+          next.delete('phone');
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }, [selectedPhone, setSearchParams]);
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
-  const listFilterRef = useRef(DEFAULT_INBOX_LIST_FILTER);
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const listExtraFiltersRef = useRef(null);
@@ -268,6 +328,7 @@ export default function Inbox() {
     return Math.max(300, Math.min(480, n));
   });
   const [leadPanel, setLeadPanel] = useState(null);
+  const [dismissTriageLead, setDismissTriageLead] = useState(null);
   const [transferToDraft, setTransferToDraft] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [leadNameDraft, setLeadNameDraft] = useState('');
@@ -304,6 +365,10 @@ export default function Inbox() {
   const [imageLightboxUrl, setImageLightboxUrl] = useState('');
   /** Mobile: bottom sheet após long press na lista (só ação "marcar não lida" quando aplicável). */
   const [conversationSheet, setConversationSheet] = useState(null);
+  const detailsModalOpen = Boolean((isMobile || isNarrowDesktop) && detailsOpen && selectedPhone);
+  const detailsModalRef = useDialogFocus(detailsModalOpen, () => setDetailsOpen(false));
+  const conversationSheetOpen = Boolean(conversationSheet && isMobile);
+  const conversationSheetRef = useDialogFocus(conversationSheetOpen, () => setConversationSheet(null));
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
   const [expandedMsgs, setExpandedMsgs] = useState({});
   const [msgFlags, setMsgFlags] = useState({});
@@ -711,6 +776,13 @@ export default function Inbox() {
     if (Array.isArray(leads) && leads.length > 0) return;
     fetchLeads();
   }, [leadPanel, leadsLoading, leads, fetchLeads]);
+
+  useEffect(() => {
+    if (leadPanel !== 'link_student') return;
+    if (studentsLoading) return;
+    if (Array.isArray(students) && students.length > 0) return;
+    void fetchStudents({ reset: true });
+  }, [leadPanel, studentsLoading, students, fetchStudents]);
 
   useEffect(() => {
     if (!isNarrowDesktop) return;
@@ -1331,6 +1403,92 @@ export default function Inbox() {
     return map;
   }, [leads]);
 
+  const activeContactLead = useMemo(() => {
+    const phone = normalizePhone(selectedPhone);
+    const leadId = String(selected?.lead_id || '').trim();
+    if (leadId && leadById.has(leadId)) return leadById.get(leadId);
+    if (phone && leadByPhone.has(phone)) return leadByPhone.get(phone);
+    return null;
+  }, [selectedPhone, selected?.lead_id, leadById, leadByPhone]);
+
+  const pendingTriage = isLeadPendingTriage(activeContactLead);
+
+  const studentCandidates = useMemo(
+    () => filterStudentCandidates(students, { query: leadSearch, phoneHint: selectedPhone, limit: 20 }),
+    [students, leadSearch, selectedPhone]
+  );
+
+  const handleInboxConfirmTriage = useCallback(async (lead) => {
+    const id = String(lead?.id || '').trim();
+    if (!id) return;
+    setLinkingLead(true);
+    try {
+      await updateLead(id, { triageStatus: LEAD_TRIAGE_STATUS.CONFIRMED });
+      toast.success('Lead confirmado');
+    } catch (e) {
+      toast.error(e, 'update');
+    } finally {
+      setLinkingLead(false);
+    }
+  }, [toast, updateLead]);
+
+  const handleInboxDismissTriage = useCallback((lead) => {
+    setDismissTriageLead(lead);
+  }, []);
+
+  const executeDismissTriage = useCallback(async () => {
+    const lead = dismissTriageLead;
+    const id = String(lead?.id || '').trim();
+    const phone = String(selectedPhone || '').trim();
+    if (!id) return;
+    setLinkingLead(true);
+    try {
+      await deleteLead(id);
+      if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId });
+      setSelected((prev) => {
+        if (!prev || String(prev.phone || '').trim() !== phone) return prev;
+        return { ...prev, lead_id: null, lead_name: '' };
+      });
+      setItems((prev) =>
+        (Array.isArray(prev) ? prev : []).map((it) => {
+          if (String(it?.phone_number || '').trim() !== phone) return it;
+          return { ...it, lead_id: null, lead_name: '' };
+        })
+      );
+      toast.success('Contato descartado');
+      setDismissTriageLead(null);
+      setLeadPanel(null);
+    } catch (e) {
+      toast.error(e, 'delete');
+    } finally {
+      setLinkingLead(false);
+    }
+  }, [academyId, deleteLead, dismissTriageLead, selectedPhone, toast]);
+
+  const handleOpenLinkStudent = useCallback(() => {
+    setLeadSearch('');
+    setLeadPanel('link_student');
+  }, []);
+
+  const handleInboxLinkStudentConfirm = useCallback(async (studentId) => {
+    const lead = activeContactLead;
+    const leadId = String(lead?.id || '').trim();
+    const sid = String(studentId || '').trim();
+    if (!leadId || !sid) return;
+    setLinkingLead(true);
+    try {
+      await linkLeadToConversation({ leadId: sid });
+      await deleteLead(leadId);
+      toast.success('Aluno vinculado — removido do funil');
+      setLeadPanel(null);
+      setLeadSearch('');
+    } catch (e) {
+      toast.error(e, 'action');
+    } finally {
+      setLinkingLead(false);
+    }
+  }, [activeContactLead, deleteLead, linkLeadToConversation, toast]);
+
   const {
     groupedFilteredItems,
     firstVisibleConversation,
@@ -1447,6 +1605,26 @@ export default function Inbox() {
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  };
+
+  const nudgeListWidth = (delta) => {
+    setListWidth((w) => Math.max(300, Math.min(480, w + delta)));
+  };
+
+  const onListResizeKeyDown = (e) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      nudgeListWidth(-12);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      nudgeListWidth(12);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setListWidth(300);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setListWidth(480);
+    }
   };
 
   useEffect(() => {
@@ -1813,6 +1991,7 @@ export default function Inbox() {
       unarchiveConversation={unarchiveConversation}
       handoffDurationPhrase={handoffDurationPhrase}
       retryFailedMessage={retryFailedMessage}
+      pendingTriage={pendingTriage}
     />
   );
 
@@ -1852,6 +2031,14 @@ export default function Inbox() {
     leadsLoading,
     leadCandidates,
     linkLeadToConversation,
+    studentCandidates,
+    studentsLoading,
+    fetchStudents,
+    onConfirmTriage: handleInboxConfirmTriage,
+    onDismissTriage: handleInboxDismissTriage,
+    onOpenLinkStudent: handleOpenLinkStudent,
+    onLinkStudentConfirm: handleInboxLinkStudentConfirm,
+    triageBusy: linkingLead,
     pinnedMessages,
     setSelectedMsgKey,
     scrollToMsgKey,
@@ -1971,15 +2158,25 @@ export default function Inbox() {
 
       <InboxImageLightbox imageUrl={imageLightboxUrl} onClose={() => setImageLightboxUrl('')} />
 
-      {(isMobile || isNarrowDesktop) && detailsOpen && selectedPhone && (
+      {detailsModalOpen ? (
         <div
           className="inbox-details-modal-overlay"
           onClick={() => setDetailsOpen(false)}
           role="presentation"
         >
-          <div className="inbox-details-modal-shell inbox-details-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={detailsModalRef}
+            className="inbox-details-modal-shell inbox-details-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inbox-details-modal-title"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="inbox-details-modal__header">
-              <div className="inbox-details-modal__title">Detalhes</div>
+              <h2 id="inbox-details-modal-title" className="inbox-details-modal__title">
+                Detalhes
+              </h2>
               <button className="btn btn-outline navi-btn--toolbar" type="button" onClick={() => setDetailsOpen(false)}>
                 Fechar
               </button>
@@ -1989,7 +2186,7 @@ export default function Inbox() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {conversationSheet && isMobile && (() => {
         const it = conversationSheet.item;
@@ -1999,9 +2196,19 @@ export default function Inbox() {
         if (!phone) return null;
         return (
           <div className="inbox-sheet-overlay" onClick={() => setConversationSheet(null)} role="presentation">
-            <div className="inbox-sheet" onClick={(e) => e.stopPropagation()}>
+            <div
+              ref={conversationSheetRef}
+              className="inbox-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="inbox-conversation-sheet-title"
+              tabIndex={-1}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="inbox-sheet__handle" aria-hidden />
-              <div className="inbox-sheet__title">{title}</div>
+              <h2 id="inbox-conversation-sheet-title" className="inbox-sheet__title">
+                {title}
+              </h2>
               {sheetUnread === 0 ? (
                 <button
                   type="button"
@@ -2066,14 +2273,14 @@ export default function Inbox() {
                     <div
                       className="inbox-mobile-list-slot"
                       style={{ display: selectedPhone ? 'none' : 'flex' }}
-                      aria-hidden={selectedPhone ? true : undefined}
+                      inert={selectedPhone ? true : undefined}
                     >
                       {listPanel}
                     </div>
                     <div
                       className="inbox-mobile-thread-slot"
                       style={{ display: selectedPhone ? 'flex' : 'none' }}
-                      aria-hidden={!selectedPhone ? true : undefined}
+                      inert={!selectedPhone ? true : undefined}
                     >
                       {threadPanel}
                     </div>
@@ -2091,10 +2298,16 @@ export default function Inbox() {
                     <div
                       role="separator"
                       aria-orientation="vertical"
+                      aria-label="Ajustar largura da lista de conversas"
+                      aria-valuemin={300}
+                      aria-valuemax={480}
+                      aria-valuenow={listWidth}
+                      tabIndex={0}
                       onMouseDown={startResize}
+                      onKeyDown={onListResizeKeyDown}
                       onDoubleClick={() => setListWidth(420)}
                       className="inbox-layout-resize-handle"
-                      title="Arraste para ajustar a largura"
+                      title="Arraste ou use as setas para ajustar a largura"
                     >
                       <div className="inbox-layout-resize-handle__bar" />
                     </div>
@@ -2120,6 +2333,15 @@ export default function Inbox() {
         confirmLabel="Cancelar agendamento"
         onConfirm={() => void runCancelScheduledMessage()}
         onClose={() => setCancelConfirmMsgId('')}
+      />
+
+      <ConfirmDialog
+        open={Boolean(dismissTriageLead)}
+        title="Descartar contato?"
+        description="Este contato não é lead e será removido do funil."
+        confirmLabel="Descartar"
+        onConfirm={() => void executeDismissTriage()}
+        onClose={() => setDismissTriageLead(null)}
       />
     </div>
   );

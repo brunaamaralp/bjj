@@ -168,6 +168,8 @@ export default function InboxComposer(props) {
         <div className="inbox-composer-compact-row">
           <textarea
             ref={textareaRef}
+            id="inbox-composer-message-compact"
+            aria-label="Mensagem"
             value={draft}
             onChange={handleDraftChange}
             onKeyDown={(e) => {
@@ -265,6 +267,8 @@ export default function InboxComposer(props) {
                   }}
                   type="button"
                   title="Mensagens prontas"
+                  aria-label="Mensagens prontas"
+                  aria-expanded={templatesOpen}
                 >
                   {'\u26A1'}
                 </button>
@@ -323,6 +327,7 @@ export default function InboxComposer(props) {
                 }}
                 type="button"
                 aria-expanded={emojiOpen}
+                aria-label="Inserir emoji"
                 title="Inserir emoji"
               >
                 {'\u{1F60A}'}
@@ -335,12 +340,13 @@ export default function InboxComposer(props) {
                         key={em}
                         type="button"
                         className="inbox-composer-emoji-grid-btn"
+                        aria-label={`Inserir emoji ${em}`}
                         onClick={() => {
                           insertAtCursor(em);
                           setEmojiOpen(false);
                         }}
                       >
-                        <span>{em}</span>
+                        <span aria-hidden>{em}</span>
                       </button>
                     ))}
                   </div>
@@ -439,7 +445,9 @@ export default function InboxComposer(props) {
                   : 'inbox-composer-char-count--ok'
               }`}
             >
-              {String(draft || '').length} chars
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {String(draft || '').length} caracteres
+              </span>
             </div>
           )}
         </div>
@@ -454,6 +462,7 @@ export default function InboxComposer(props) {
                 className="btn btn-outline inbox-composer-format-btn"
                 onClick={() => applyWrapToDraft('*')}
                 title="Negrito (*)"
+                aria-label="Negrito"
               >
                 <Bold size={13} strokeWidth={2.5} aria-hidden />
                 <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Negrito</span>
@@ -463,6 +472,7 @@ export default function InboxComposer(props) {
                 className="btn btn-outline inbox-composer-format-btn"
                 onClick={() => applyWrapToDraft('_')}
                 title="Itálico (_)"
+                aria-label="Itálico"
               >
                 <Italic size={13} strokeWidth={2.5} aria-hidden />
                 <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Itálico</span>
@@ -477,6 +487,7 @@ export default function InboxComposer(props) {
                     setTemplatesOpen(false);
                   }}
                   aria-expanded={emojiOpen}
+                  aria-label="Emoji"
                   title="Emoji"
                 >
                   <Smile size={13} strokeWidth={2.5} aria-hidden />
@@ -490,12 +501,13 @@ export default function InboxComposer(props) {
                           key={em}
                           type="button"
                           className="inbox-composer-emoji-grid-btn"
+                          aria-label={`Inserir emoji ${em}`}
                           onClick={() => {
                             insertAtCursor(em);
                             setEmojiOpen(false);
                           }}
                         >
-                          <span>{em}</span>
+                          <span aria-hidden>{em}</span>
                         </button>
                       ))}
                     </div>
@@ -537,6 +549,8 @@ export default function InboxComposer(props) {
           )}
           <textarea
             ref={textareaRef}
+            id="inbox-composer-message"
+            aria-label="Mensagem"
             value={draft}
             onChange={handleDraftChange}
             onKeyDown={(e) => {
@@ -607,7 +621,10 @@ export default function InboxComposer(props) {
                 const el = e.currentTarget;
                 setTimeout(() => {
                   try {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    const reduceMotion =
+                      typeof window !== 'undefined' &&
+                      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
                   } catch {
                     void 0;
                   }

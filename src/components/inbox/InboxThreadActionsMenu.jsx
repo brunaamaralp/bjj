@@ -48,11 +48,12 @@ export default function InboxThreadActionsMenu({
         type="button"
         disabled={!selectedPhone}
         title={!selectedPhone ? 'Selecione uma conversa para ver as ações' : 'Mais ações'}
+        aria-label="Mais ações da conversa"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {'\u22EF'}
+        <span aria-hidden>{'\u22EF'}</span>
       </button>
       {open ? (
         <DropdownMenuPanel className="inbox-thread-actions-menu__panel" aria-label="Ações da conversa">

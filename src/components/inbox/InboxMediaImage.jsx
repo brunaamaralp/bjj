@@ -77,24 +77,34 @@ export default function InboxMediaImage({
     );
   }
 
+  const imageLabel = caption ? `Ampliar imagem: ${caption}` : 'Ampliar imagem';
+
   return (
     <div className="inbox-media-image">
       {loadState === 'loading' ? <div className="inbox-media-image__skeleton" aria-hidden /> : null}
       {url ? (
-        <img
-          src={url}
-          alt="Imagem"
-          className={`inbox-media-image__img${loadState === 'loaded' ? ' inbox-media-image__img--visible' : ''}`}
-          loading="lazy"
-          decoding="async"
+        <button
+          type="button"
+          className="inbox-media-image__open-btn"
+          aria-label={imageLabel}
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
             onOpenLightbox?.(url);
           }}
-          onLoad={() => setLoadState('loaded')}
-          onError={() => setLoadState('error')}
-        />
+        >
+          <img
+            src={url}
+            alt={caption || 'Imagem da conversa'}
+            width={280}
+            height={210}
+            className={`inbox-media-image__img${loadState === 'loaded' ? ' inbox-media-image__img--visible' : ''}`}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoadState('loaded')}
+            onError={() => setLoadState('error')}
+          />
+        </button>
       ) : null}
       {caption ? <p className="inbox-media-caption">{caption}</p> : null}
     </div>
