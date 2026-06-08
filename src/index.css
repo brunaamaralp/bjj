@@ -5,6 +5,7 @@
 @import './styles/tokens/menu.css';
 @import './styles/tokens/inbox.css';
 @import './styles/inbox.css';
+@import './styles/chat-widget.css';
 @import './styles/pipeline.css';
 @import './styles/dashboard.css';
 @import './styles/lead-profile.css';

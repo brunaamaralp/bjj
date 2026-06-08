@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, PictureInPicture2 } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import ThreadState from './ThreadState';
 import ThreadSkeleton from './ThreadSkeleton';
@@ -98,6 +98,7 @@ export default function InboxThreadPanel(props) {
     ticketChip,
     handoffDurationPhrase,
     retryFailedMessage,
+    onPinToWidget,
   } = props;
 
   if (!selectedPhone) {
@@ -297,6 +298,18 @@ export default function InboxThreadPanel(props) {
           >
             Detalhes
           </button>
+          {typeof onPinToWidget === 'function' ? (
+            <button
+              className="btn btn-outline inbox-thread-header__action-btn"
+              onClick={() => onPinToWidget()}
+              disabled={!selectedPhone}
+              title="Continuar conversando enquanto navega no sistema"
+              type="button"
+            >
+              <PictureInPicture2 size={16} strokeWidth={2} aria-hidden style={{ marginRight: 6 }} />
+              Continuar navegando
+            </button>
+          ) : null}
           <InboxThreadActionsMenu {...threadActionsMenuProps} />
         </div>
       </div>

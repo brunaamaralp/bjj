@@ -13,6 +13,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { resolveInboxTicketBadge } from '../lib/inboxTicketBadges.js';
 import { useLeadStore } from '../store/useLeadStore';
+import { useChatWidgetStore } from '../store/useChatWidgetStore';
+import { primaryInboxPhone } from '../lib/normalizeInboxPhone.js';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
@@ -631,6 +633,55 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
+
+  const pinConversation = useChatWidgetStore((s) => s.pinConversation);
+  const switchConversation = useChatWidgetStore((s) => s.switchConversation);
+  const isWidgetPinned = useChatWidgetStore((s) => s.isPinned);
+  const widgetActivePhone = useChatWidgetStore((s) => s.activePhone);
+
+  useEffect(() => {
+    if (!isWidgetPinned) return;
+    const phone = normalizePhone(selectedPhone);
+    const widgetPhone = primaryInboxPhone(widgetActivePhone);
+    if (!phone || phone === widgetPhone) return;
+    const leadId = String(selected?.lead_id || '').trim();
+    const name = pickDisplayName({
+      leadName: String(selected?.lead_name || '').trim(),
+      manualContactName: selected?.contact_name,
+      whatsappProfileName: selected?.whatsapp_profile_name,
+      phone,
+    });
+    switchConversation({ phone, leadId, leadName: name });
+  }, [
+    selectedPhone,
+    selected,
+    isWidgetPinned,
+    widgetActivePhone,
+    switchConversation,
+    pickDisplayName,
+  ]);
+
+  useEffect(() => {
+    const widgetPhone = primaryInboxPhone(widgetActivePhone);
+    const cur = normalizePhone(selectedPhone);
+    if (!widgetPhone || widgetPhone === cur) return;
+    setSelectedPhone(widgetPhone);
+  }, [widgetActivePhone, selectedPhone]);
+
+  const handlePinToWidget = useCallback(() => {
+    const phone = normalizePhone(selectedPhone);
+    if (!phone) return;
+    const leadId = String(selected?.lead_id || '').trim();
+    const name = pickDisplayName({
+      leadName: String(selected?.lead_name || '').trim(),
+      manualContactName: selected?.contact_name,
+      whatsappProfileName: selected?.whatsapp_profile_name,
+      phone,
+    });
+    pinConversation({ phone, leadId, leadName: name, academyId, openPanel: false });
+    if (typeof window !== 'undefined' && window.history.length > 1) navigate(-1);
+    else navigate('/');
+  }, [selectedPhone, selected, academyId, pinConversation, navigate, pickDisplayName]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
@@ -1912,6 +1963,7 @@ export default function Inbox() {
       triageBusy={linkingLead}
       setLeadPanel={setLeadPanel}
       linkingLead={linkingLead}
+      onPinToWidget={handlePinToWidget}
     />
   );
 
