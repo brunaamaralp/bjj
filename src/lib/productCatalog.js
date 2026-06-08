@@ -262,11 +262,12 @@ export function variantComboKey(size, color) {
 }
 
 /** Índices de linhas com combinação duplicada (tamanho + cor). */
-export function findDuplicateVariantIndexes(rows) {
+export function findDuplicateVariantIndexes(rows, { skipPendingDelete = true } = {}) {
   const dup = new Set();
   const seen = new Map();
   (rows || []).forEach((row, idx) => {
-    if (row._deleted) return;
+    if (row._deleted || row._removed) return;
+    if (skipPendingDelete && row._pendingDelete) return;
     const key = variantComboKey(row.size, row.color);
     if (seen.has(key)) {
       dup.add(idx);
@@ -276,6 +277,24 @@ export function findDuplicateVariantIndexes(rows) {
     }
   });
   return dup;
+}
+
+/** Detecta combinações tamanho+cor repetidas entre variantes já persistidas. */
+export function findDuplicateVariantIds(variants) {
+  const dupIds = new Set();
+  const seen = new Map();
+  for (const v of variants || []) {
+    const id = v?.id;
+    if (!id) continue;
+    const key = variantComboKey(v.size ?? v.Tamanho, v.color);
+    if (seen.has(key)) {
+      dupIds.add(id);
+      dupIds.add(seen.get(key));
+    } else {
+      seen.set(key, id);
+    }
+  }
+  return dupIds;
 }
 
 export function variantLabelForRow(row) {
@@ -303,6 +322,7 @@ export function emptyEditVariantRow() {
     _deleted: false,
     _error: '',
     _duplicate: false,
+    _pendingDelete: false,
     _savedSuccess: false,
     _initial: null,
   };
@@ -346,6 +366,7 @@ export function variantRowsFromProduct(product) {
       _deleted: false,
       _error: '',
       _duplicate: false,
+      _pendingDelete: false,
       _initial: {
         size,
         color,
@@ -425,7 +446,9 @@ export function buildVariantsSavePayload(editVariants) {
 
 export function hasVariantsToSave(editVariants, pendingDeleteIds = []) {
   if (pendingDeleteIds.length > 0) return true;
-  return (editVariants || []).some((r) => !r._removed && (r._isNew || variantRowIsDirty(r)));
+  return (editVariants || []).some(
+    (r) => !r._removed && !r._pendingDelete && (r._isNew || variantRowIsDirty(r))
+  );
 }
 
 export function normalizeVariantEditRow(row) {

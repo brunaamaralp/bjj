@@ -6,6 +6,7 @@ import {
   legacyStockItemsAsParents,
   filterParentCatalog,
   findDuplicateVariantIndexes,
+  findDuplicateVariantIds,
   variantComboKey,
   duplicateVariantRowsFromProduct,
   findParentByProductOrVariantId,
@@ -50,6 +51,25 @@ describe('productCatalog', () => {
     expect(dup.has(0)).toBe(true);
     expect(dup.has(2)).toBe(true);
     expect(variantComboKey('M', 'Azul')).toBe(variantComboKey('m', 'azul'));
+  });
+
+  it('findDuplicateVariantIndexes ignores rows marked for deletion', () => {
+    const rows = [
+      { id: 'a', size: 'M', color: '' },
+      { id: 'b', size: 'M', color: '', _pendingDelete: true },
+    ];
+    expect(findDuplicateVariantIndexes(rows).size).toBe(0);
+  });
+
+  it('findDuplicateVariantIds detects persisted duplicates', () => {
+    const dupIds = findDuplicateVariantIds([
+      { id: 'v1', size: 'P' },
+      { id: 'v2', size: 'M' },
+      { id: 'v3', size: 'p' },
+    ]);
+    expect(dupIds.has('v1')).toBe(true);
+    expect(dupIds.has('v3')).toBe(true);
+    expect(dupIds.has('v2')).toBe(false);
   });
 
   it('duplicateVariantRowsFromProduct copies sizes without stock', () => {

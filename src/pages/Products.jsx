@@ -433,11 +433,18 @@ export default function Products() {
       }
       const errCount = (result.errors || []).length;
       const savedN = result.saved ?? 0;
+      const deleteCount = (payload.delete_variant_ids || []).length;
       if (errCount > 0) {
         const first = result.errors[0];
         addToast({
           type: 'warning',
           message: `${savedN} variante(s) salva(s), ${errCount} erro(s)${first?.label ? ` em ${first.label}` : ''}`,
+          duration: 8000,
+        });
+      } else if (savedN === 0 && deleteCount > 0) {
+        addToast({
+          type: 'warning',
+          message: 'Nenhuma exclusão foi aplicada. Verifique se o saldo está zerado.',
           duration: 8000,
         });
       } else {

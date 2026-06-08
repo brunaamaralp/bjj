@@ -8,6 +8,7 @@ import {
   variantRowsFromProduct,
   emptyEditVariantRow,
   findDuplicateVariantIndexes,
+  findDuplicateVariantIds,
   variantLabelForRow,
   variantLifecycleLabel,
   buildVariantsSavePayload,
@@ -343,6 +344,15 @@ export default function ProductFormModal({
     [variants]
   );
 
+  const persistedDuplicateIds = useMemo(
+    () => findDuplicateVariantIds(parentRow?.variants),
+    [parentRow?.variants]
+  );
+
+  useEffect(() => {
+    setServerDupIndexes([]);
+  }, [editVariants, pendingDeleteIds]);
+
   /* eslint-disable react-hooks/set-state-in-effect */
   // This effect resets local UI state when opening the modal.
   useEffect(() => {
@@ -446,7 +456,10 @@ export default function ProductFormModal({
   }, [categories, parentForm.categoria, legacyForm.categoria, useVariantWizard, useEditWizard]);
 
   const existingEditVariants = useMemo(
-    () => editVariants.map((row, idx) => ({ row, idx })).filter(({ row }) => !row._isNew),
+    () =>
+      editVariants
+        .map((row, idx) => ({ row, idx }))
+        .filter(({ row }) => !row._isNew && !row._pendingDelete),
     [editVariants]
   );
   const newEditVariants = useMemo(
@@ -656,10 +669,15 @@ export default function ProductFormModal({
   const applyDeleteVariant = () => {
     if (!deleteConfirm) return;
     const { row, idx } = deleteConfirm;
-    if (row.id) {
-      setPendingDeleteIds((ids) => [...ids, row.id]);
+    if (row._isNew) {
+      setEditVariants((rows) => rows.filter((_, i) => i !== idx));
+      setDeleteConfirm(null);
+      return;
     }
-    setEditVariants((rows) => rows.filter((_, i) => i !== idx));
+    if (row.id) {
+      setPendingDeleteIds((ids) => (ids.includes(row.id) ? ids : [...ids, row.id]));
+      patchVariantRow(idx, { _pendingDelete: true, _error: '' });
+    }
     setDeleteConfirm(null);
   };
 
@@ -679,6 +697,7 @@ export default function ProductFormModal({
       const dup = findDuplicateVariantIndexes(editVariants);
       if (dup.size > 0) {
         setServerDupIndexes(dup);
+        setSaveSummary('Remova os tamanhos duplicados antes de salvar.');
         return;
       }
 
@@ -697,6 +716,12 @@ export default function ProductFormModal({
 
       if (result?.duplicate_indexes?.length) {
         setServerDupIndexes(new Set(result.duplicate_indexes));
+        setSaveSummary('Combinação tamanho/cor duplicada. Ajuste as linhas marcadas.');
+        return;
+      }
+
+      if (!result?.ok) {
+        setSaveSummary(result?.erro || 'Não foi possível salvar as alterações.');
         return;
       }
 
@@ -717,32 +742,51 @@ export default function ProductFormModal({
           variantPayload.map((p) => (p.id ? p.id : `new:${payloadLabel(p)}`))
         );
 
-        const nextRows = editVariants.map((r) => {
-          const label = variantLabelForRow(r);
-          const key = r.id ? r.id : `new:${label}`;
-          const inPayload =
-            payloadKeys.has(key) ||
-            variantPayload.some(
-              (p) =>
-                (p.id && p.id === r.id) ||
-                (!p.id && r._isNew && payloadLabel(p) === label)
-            );
-          if (!inPayload) return { ...r, _savedSuccess: false };
+        const failedDeleteIds = new Set(
+          result.errors
+            .filter((err) => err.variant_id && (err.code === 'has_stock' || err.code === 'delete_failed'))
+            .map((err) => err.variant_id)
+        );
 
-          const errMsg =
-            (r.id && errById.get(r.id)) || errByLabel.get(label) || null;
-          if (errMsg) {
-            return { ...r, _error: errMsg, _savedSuccess: false };
-          }
-          return {
-            ...r,
-            _error: '',
-            _savedSuccess: true,
-            _dirty: false,
-            _initial: snapshotEditRowInitial(r),
-          };
-        });
+        const nextRows = editVariants
+          .filter((r) => !(r._pendingDelete && r.id && !failedDeleteIds.has(r.id)))
+          .map((r) => {
+            const label = variantLabelForRow(r);
+            const key = r.id ? r.id : `new:${label}`;
+            const inPayload =
+              payloadKeys.has(key) ||
+              variantPayload.some(
+                (p) =>
+                  (p.id && p.id === r.id) ||
+                  (!p.id && r._isNew && payloadLabel(p) === label)
+              );
+
+            if (r.id && failedDeleteIds.has(r.id)) {
+              return {
+                ...r,
+                _pendingDelete: false,
+                _error: errById.get(r.id) || 'Não foi possível excluir esta variante',
+                _savedSuccess: false,
+              };
+            }
+
+            if (!inPayload) return { ...r, _savedSuccess: false };
+
+            const errMsg =
+              (r.id && errById.get(r.id)) || errByLabel.get(label) || null;
+            if (errMsg) {
+              return { ...r, _error: errMsg, _savedSuccess: false };
+            }
+            return {
+              ...r,
+              _error: '',
+              _savedSuccess: true,
+              _dirty: false,
+              _initial: snapshotEditRowInitial(r),
+            };
+          });
         setEditVariants(nextRows);
+        setPendingDeleteIds((ids) => ids.filter((id) => failedDeleteIds.has(id)));
         const savedN = result.saved ?? 0;
         const errN = result.errors.length;
         setPartialSaveNotice(savedN > 0 && errN > 0);
@@ -751,7 +795,11 @@ export default function ProductFormModal({
             ? ''
             : `${savedN} variante(s) salva(s), ${errN} erro(s)${errN === 1 && result.errors[0]?.label ? ` em ${result.errors[0].label}` : ''}`
         );
+        return;
       }
+
+      setPendingDeleteIds([]);
+      setSaveSummary('');
       return;
     }
 
@@ -1090,6 +1138,13 @@ export default function ProductFormModal({
                 {partialSaveNotice ? (
                   <p className="product-form-partial-save-banner" role="status">
                     Alguns tamanhos foram salvos. Veja os itens com erro abaixo.
+                  </p>
+                ) : null}
+
+                {useEditWizard && persistedDuplicateIds.size > 0 ? (
+                  <p className="product-form-partial-save-banner" role="status">
+                    Este produto tem tamanhos duplicados no cadastro. Remova as cópias extras
+                    (o saldo precisa estar zerado em Estoque) e salve as alterações.
                   </p>
                 ) : null}
 
