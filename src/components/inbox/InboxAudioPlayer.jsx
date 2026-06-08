@@ -87,6 +87,19 @@ export default function InboxAudioPlayer({
               ? 'Áudio indisponível — link expirado ou bloqueado'
               : 'Seu navegador não reproduz este formato'}
           </div>
+          {onReconcile && mediaStored !== true ? (
+            <button
+              type="button"
+              className="btn btn-outline inbox-media-fallback__btn"
+              disabled={reconciling}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReconcile();
+              }}
+            >
+              {reconciling ? 'Sincronizando…' : '↺ Sincronizar WhatsApp'}
+            </button>
+          ) : null}
           {openUrl ? (
             <button
               type="button"

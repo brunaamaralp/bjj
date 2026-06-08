@@ -5,6 +5,12 @@ import { getHumanHandoffHoursForServer, assertHumanHandoffEnvOnBoot } from '../l
 
 assertHumanHandoffEnvOnBoot();
 import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
+import {
+  deriveLastMessageMeta,
+  hasStoredLastMessageMeta,
+  readStoredLastMessageMeta,
+  sortMessagesChrono,
+} from '../lib/server/conversationListMeta.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
 import notificationsHandler from '../lib/server/notificationsHandler.js';
@@ -37,6 +43,60 @@ function normalizePhone(v) {
   return raw.replace(/[^\d]/g, '');
 }
 
+const LIST_SELECT_ATTRS = [
+  '$id',
+  'phone_number',
+  'updated_at',
+  'unread_count',
+  'human_handoff_until',
+  'ticket_status',
+  'transfer_to',
+  'lead_id',
+  'lead_name',
+  'contact_name',
+  'contact_name_source',
+  'whatsapp_profile_name',
+  'whatsapp_profile_image_url',
+  'last_read_at',
+  'last_user_msg_at',
+  'archived',
+  'last_preview',
+  'last_message_role',
+  'last_message_sender',
+  'last_message_timestamp',
+];
+
+const SERVER_LIST_FILTERS = new Set(['unread', 'needs_me', 'resolved', 'transferred']);
+
+async function listConversationDocs(queries) {
+  const withSelect = [...queries, Query.select(LIST_SELECT_ATTRS)];
+  try {
+    return await databases.listDocuments(DB_ID, CONVERSATIONS_COL, withSelect);
+  } catch {
+    return await databases.listDocuments(DB_ID, CONVERSATIONS_COL, queries);
+  }
+}
+
+async function countConversations(queries) {
+  try {
+    const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [...queries, Query.limit(1)]);
+    return Number(list?.total || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function appendListFilterQueries(queries, filterRaw) {
+  const filter = String(filterRaw || '').trim().toLowerCase();
+  if (!SERVER_LIST_FILTERS.has(filter)) return filter;
+  const nowIso = new Date().toISOString();
+  if (filter === 'unread') queries.push(Query.greaterThan('unread_count', 0));
+  else if (filter === 'needs_me') queries.push(Query.greaterThan('human_handoff_until', nowIso));
+  else if (filter === 'resolved') queries.push(Query.equal('ticket_status', ['resolved']));
+  else if (filter === 'transferred') queries.push(Query.equal('ticket_status', ['transferred']));
+  return filter;
+}
+
 function ensureConfig(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !CONVERSATIONS_COL || !ACADEMIES_COL) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
@@ -62,39 +122,6 @@ function paginateMessagesWindow(sorted, limit, cursor) {
   return { slice: sorted.slice(from, startIdx), next_cursor: from > 0 ? String(from) : '' };
 }
 
-function sortMessagesChrono(msgs) {
-  const arr = Array.isArray(msgs) ? msgs.slice() : [];
-  return arr.sort((a, b) => {
-    const ta = new Date(String(a?.timestamp || '')).getTime();
-    const tb = new Date(String(b?.timestamp || '')).getTime();
-    const na = Number.isFinite(ta) ? ta : 0;
-    const nb = Number.isFinite(tb) ? tb : 0;
-    if (na !== nb) return na - nb;
-    return 0;
-  });
-}
-
-function lastMessageMeta(msgs) {
-  const arr = sortMessagesChrono(msgs);
-  if (arr.length === 0) {
-    return {
-      last_preview: '',
-      last_message_role: '',
-      last_message_sender: '',
-      last_message_timestamp: ''
-    };
-  }
-  const last = arr[arr.length - 1];
-  const content = String(last?.content || '').trim();
-  const preview = content.replace(/_{2,}/g, ' ').replace(/\s+/g, ' ').trim();
-  return {
-    last_preview: preview,
-    last_message_role: last?.role === 'assistant' ? 'assistant' : 'user',
-    last_message_sender: String(last?.sender || '').trim() || (last?.role === 'assistant' ? 'ai' : ''),
-    last_message_timestamp: String(last?.timestamp || '').trim()
-  };
-}
-
 function parseSummaryField(raw) {
   if (raw == null || raw === '') return null;
   if (typeof raw === 'object') return raw;
@@ -107,8 +134,9 @@ function parseSummaryField(raw) {
 }
 
 function docToListItem(doc) {
-  const msgs = safeParseMessages(doc.messages);
-  const meta = lastMessageMeta(msgs);
+  const meta = hasStoredLastMessageMeta(doc)
+    ? readStoredLastMessageMeta(doc)
+    : deriveLastMessageMeta(safeParseMessages(doc.messages));
   const unread = Number.isFinite(Number(doc.unread_count)) ? Number(doc.unread_count) : 0;
   const updatedAt = String(doc.updated_at || doc.$updatedAt || '').trim();
   return {
@@ -208,15 +236,24 @@ export default async function handler(req, res) {
       String(req.query.archived || '').trim() === '1' || String(req.query.archived || '').trim().toLowerCase() === 'true';
     const statsOnly = String(req.query.stats || '').trim() === '1';
 
+    const listFilterParam = String(req.query.filter || '').trim().toLowerCase();
+
     if (statsOnly) {
       try {
-        const unreadList = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-          Query.equal('academy_id', [academyId]),
-          archivedOnly ? Query.equal('archived', [true]) : Query.notEqual('archived', [true]),
-          Query.greaterThan('unread_count', 0),
-          Query.limit(1)
+        const baseQueries = [Query.equal('academy_id', [academyId])];
+        if (archivedOnly) {
+          baseQueries.push(Query.equal('archived', [true]));
+        } else {
+          baseQueries.push(Query.notEqual('archived', [true]));
+        }
+        const nowIso = new Date().toISOString();
+        const [unread_conversations, needs_me, resolved, transferred] = await Promise.all([
+          countConversations([...baseQueries, Query.greaterThan('unread_count', 0)]),
+          countConversations([...baseQueries, Query.greaterThan('human_handoff_until', nowIso)]),
+          countConversations([...baseQueries, Query.equal('ticket_status', ['resolved'])]),
+          countConversations([...baseQueries, Query.equal('ticket_status', ['transferred'])]),
         ]);
-        return json(res, 200, { unread_conversations: Number(unreadList?.total || 0) });
+        return json(res, 200, { unread_conversations, needs_me, resolved, transferred });
       } catch (e) {
         return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar estatísticas' });
       }
@@ -228,6 +265,7 @@ export default async function handler(req, res) {
     } else {
       queries.push(Query.notEqual('archived', [true]));
     }
+    appendListFilterQueries(queries, listFilterParam);
     queries.push(Query.orderDesc('updated_at'));
     queries.push(Query.limit(limit + 1));
     if (searchDigits.length >= 2) {
@@ -238,16 +276,18 @@ export default async function handler(req, res) {
     }
 
     try {
-      const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, queries);
+      const list = await listConversationDocs(queries);
       let docs = list.documents || [];
 
       if (search.trim() && !searchDigits) {
-        const wide = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
+        const wideQueries = [
           Query.equal('academy_id', [academyId]),
           archivedOnly ? Query.equal('archived', [true]) : Query.notEqual('archived', [true]),
           Query.orderDesc('updated_at'),
-          Query.limit(120)
-        ]);
+          Query.limit(120),
+        ];
+        appendListFilterQueries(wideQueries, listFilterParam);
+        const wide = await listConversationDocs(wideQueries);
         docs = (wide.documents || []).filter((d) => matchesSearch(d, search));
         const page = docs.slice(0, limit);
         return json(res, 200, {

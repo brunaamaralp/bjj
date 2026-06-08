@@ -32,7 +32,6 @@ export default function InboxListPanel({
   isMobile,
   handleClearInboxListFilters,
   setConversationSheet,
-  nowMs,
   agentIaActive = false,
   searchPending = false,
   activeFilterLabel = '',
@@ -251,7 +250,6 @@ export default function InboxListPanel({
             if (!isMobile) return;
             setConversationSheet({ item: it });
           }}
-          handoffNowMs={nowMs}
           agentIaActive={agentIaActive}
           searchQuery={searchQuery}
         />

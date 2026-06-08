@@ -35,7 +35,10 @@ export function useInboxListPipeline({
     [items, leadById, leadByPhone, highlighted, normalizePhone, pickDisplayName]
   );
 
-  const prioritizedItems = useMemo(() => sortInboxByActivity(enrichedItems), [enrichedItems]);
+  const prioritizedItems = useMemo(() => {
+    if (String(listFilter || '') === 'all') return enrichedItems;
+    return sortInboxByActivity(enrichedItems);
+  }, [enrichedItems, listFilter]);
 
   const filteredItems = useMemo(
     () => filterInboxListItems(prioritizedItems, listFilter),

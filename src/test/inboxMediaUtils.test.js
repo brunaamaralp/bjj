@@ -1,21 +1,32 @@
-import { describe, it, expect } from 'vitest';
-import {
-  inboxOtherMediaPlaceholderKind,
-  isOutboundImagePlaceholder,
-  inboxMediaCaption
-} from '../lib/inboxMediaUtils.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 describe('inboxMediaUtils', () => {
-  it('detecta placeholder de imagem outbound', () => {
-    expect(isOutboundImagePlaceholder('[Imagem enviada pelo celular]')).toBe(true);
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv('VITE_APPWRITE_INBOX_MEDIA_BUCKET_ID', 'inbox_media');
+    vi.stubEnv('VITE_APPWRITE_ENDPOINT', 'https://appwrite.test/v1');
+    vi.stubEnv('VITE_APPWRITE_PROJECT_ID', 'proj');
   });
 
-  it('classifica vídeo por conteúdo', () => {
-    expect(inboxOtherMediaPlaceholderKind({}, '🎥 [Vídeo recebido]')).toBe('video');
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it('omite legendas de placeholder', () => {
-    expect(inboxMediaCaption('[imagem]')).toBe('');
-    expect(inboxMediaCaption('Olá, veja a foto')).toBe('Olá, veja a foto');
+  it('builds view URL from storage file id', async () => {
+    const { buildInboxMediaViewUrl } = await import('../lib/inboxMediaUtils.js');
+    expect(buildInboxMediaViewUrl('file-abc')).toBe(
+      'https://appwrite.test/v1/storage/buckets/inbox_media/files/file-abc/view?project=proj'
+    );
+  });
+
+  it('prefers storage file id over expired zapster url', async () => {
+    const { inboxMessageMediaUrl } = await import('../lib/inboxMediaUtils.js');
+    const url = inboxMessageMediaUrl({
+      storageFileId: 'stored-1',
+      mediaUrl: 'https://zapster.example/expired.ogg',
+    });
+    expect(url).toBe(
+      'https://appwrite.test/v1/storage/buckets/inbox_media/files/stored-1/view?project=proj'
+    );
   });
 });

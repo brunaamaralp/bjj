@@ -1,8 +1,27 @@
 import { account } from './appwrite';
 
-export async function getInboxJwt() {
+const JWT_CACHE_TTL_MS = 45_000;
+
+/** @type {{ jwt: string, expiresAt: number } | null} */
+let jwtCache = null;
+
+export function clearInboxJwtCache() {
+  jwtCache = null;
+}
+
+/**
+ * @param {{ forceRefresh?: boolean }} [opts]
+ */
+export async function getInboxJwt(opts = {}) {
+  const forceRefresh = Boolean(opts?.forceRefresh);
+  const now = Date.now();
+  if (!forceRefresh && jwtCache && jwtCache.expiresAt > now) {
+    return jwtCache.jwt;
+  }
   const jwt = await account.createJWT();
-  return String(jwt?.jwt || '').trim();
+  const token = String(jwt?.jwt || '').trim();
+  jwtCache = { jwt: token, expiresAt: now + JWT_CACHE_TTL_MS };
+  return token;
 }
 
 export function safeParseInboxJson(raw) {

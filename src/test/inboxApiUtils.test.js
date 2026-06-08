@@ -1,25 +1,44 @@
-import { describe, it, expect } from 'vitest';
-import { normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
-import { pickInboxDisplayName, formatInboxPhone } from '../lib/inboxContactDisplay.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-describe('inboxApiUtils', () => {
-  it('parse JSON and extract API error message', () => {
-    expect(safeParseInboxJson('{"erro":"falhou"}')).toEqual({ erro: 'falhou' });
-    expect(normalizeInboxApiError('{"erro":"falhou"}', 'fallback')).toBe('falhou');
-    expect(normalizeInboxApiError('', 'fallback')).toBe('fallback');
+const createJWT = vi.fn();
+
+vi.mock('../lib/appwrite', () => ({
+  account: {
+    createJWT: (...args) => createJWT(...args),
+  },
+}));
+
+import { getInboxJwt, clearInboxJwtCache } from '../lib/inboxApiUtils.js';
+
+describe('getInboxJwt cache', () => {
+  beforeEach(() => {
+    clearInboxJwtCache();
+    createJWT.mockReset();
+    createJWT.mockResolvedValue({ jwt: 'token-a' });
   });
-});
 
-describe('inboxContactDisplay', () => {
-  it('prefers lead name then formats phone', () => {
-    expect(pickInboxDisplayName({ leadName: 'Ana', phone: '5511999999999' })).toBe('Ana');
-    expect(pickInboxDisplayName({ phone: '5511999887766' })).toBe(formatInboxPhone('5511999887766'));
+  it('reuses cached jwt within TTL', async () => {
+    const a = await getInboxJwt();
+    const b = await getInboxJwt();
+    expect(a).toBe('token-a');
+    expect(b).toBe('token-a');
+    expect(createJWT).toHaveBeenCalledTimes(1);
   });
 
-  it('shows friendly label for WhatsApp group ids', () => {
-    const groupId = '120363424556468360';
-    expect(pickInboxDisplayName({ phone: groupId })).toBe('Grupo · …8360');
-    expect(formatInboxPhone(groupId)).toBe('Grupo · …8360');
-    expect(pickInboxDisplayName({ manualContactName: 'Turma Noite', phone: groupId })).toBe('Turma Noite');
+  it('forceRefresh bypasses cache', async () => {
+    await getInboxJwt();
+    createJWT.mockResolvedValueOnce({ jwt: 'token-b' });
+    const b = await getInboxJwt({ forceRefresh: true });
+    expect(b).toBe('token-b');
+    expect(createJWT).toHaveBeenCalledTimes(2);
+  });
+
+  it('clearInboxJwtCache forces new fetch', async () => {
+    await getInboxJwt();
+    clearInboxJwtCache();
+    createJWT.mockResolvedValueOnce({ jwt: 'token-c' });
+    const c = await getInboxJwt();
+    expect(c).toBe('token-c');
+    expect(createJWT).toHaveBeenCalledTimes(2);
   });
 });

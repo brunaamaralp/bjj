@@ -45,6 +45,10 @@ import { useInboxRealtimeSync } from '../hooks/useInboxRealtimeSync.js';
 import { useInboxThreadScroll } from '../hooks/useInboxThreadScroll.js';
 import { useInboxViewport } from '../hooks/useInboxViewport.js';
 import { useInboxConversationList } from '../hooks/useInboxConversationList.js';
+import { useInboxInitialLoad } from '../hooks/useInboxInitialLoad.js';
+import { useInboxAutoRefresh } from '../hooks/useInboxAutoRefresh.js';
+import { useInboxListStats } from '../hooks/useInboxListStats.js';
+import { useInboxScrollLoadMore } from '../hooks/useInboxScrollLoadMore.js';
 import { useInboxThreadLoader } from '../hooks/useInboxThreadLoader.js';
 import { useInboxConversationActions } from '../hooks/useInboxConversationActions.js';
 import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js';
@@ -60,6 +64,7 @@ import {
   pickInboxDisplayName as pickDisplayName,
 } from '../lib/inboxContactDisplay.js';
 import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
+import { inboxMessageMediaUrl } from '../lib/inboxMediaUtils.js';
 import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
 import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
 import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
@@ -139,14 +144,6 @@ function formatListActivityLabel(iso) {
   yesterday.setDate(yesterday.getDate() - 1);
   if (startOfMsg.getTime() === yesterday.getTime()) return 'Ontem';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
-
-function inboxMessageMediaUrl(m) {
-  if (!m || typeof m !== 'object') return '';
-  const nested = m.media && typeof m.media === 'object' ? String(m.media.url || '').trim() : '';
-  const u = String(m.mediaUrl || m.media_url || m.url || nested || '').trim();
-  if (u && /^https?:\/\//i.test(u)) return u;
-  return '';
 }
 
 function inboxContentIsAudioPlaceholder(content) {
@@ -244,7 +241,6 @@ export default function Inbox() {
   const [hasMore, setHasMore] = useState(true);
   const autoRefresh = true;
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const { isMobile, isNarrowDesktop, inboxThreadNarrow767, showInboxKeyHints } = useInboxViewport();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -314,11 +310,7 @@ export default function Inbox() {
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const [agentIaActive, setAgentIaActive] = useState(false);
-  const [stats, setStats] = useState({
-    resolvedCount: 0,
-    transferredCount: 0,
-    needsMeBacklog: 0,
-  });
+  const { stats, refreshStats } = useInboxListStats({ academyId, listFilter });
   const [listWidth, setListWidth] = useState(() => {
     if (typeof window === 'undefined') return 360;
     const raw = window.localStorage.getItem('inbox_list_width');
@@ -429,11 +421,10 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
-  const prevAcademyIdForInboxRef = useRef('');
-  const inboxAutoSelectDoneRef = useRef(false);
   const handleSelectConversationRef = useRef(() => {});
   const markSeenRef = useRef(null);
   const messageFlagsMigrationDoneRef = useRef(false);
+  const inboxAutoSelectDoneRef = useRef(false);
 
   const threadMessageCount = Array.isArray(selected?.messages) ? selected.messages.length : 0;
   const handleThreadPhoneChange = useCallback(() => {
@@ -608,6 +599,30 @@ export default function Inbox() {
     realtimeTimersRef,
   });
 
+  useInboxInitialLoad({
+    academyId,
+    debouncedSearchQuery,
+    loadListRef,
+    setSelectedPhone,
+    setSelected,
+    setItems,
+    setListCapped,
+    setMsgFlags,
+    messageFlagsMigrationDoneRef,
+    notifiedOnceRef,
+    inboxAutoSelectDoneRef,
+  });
+
+  useInboxAutoRefresh({
+    autoRefresh,
+    realtimeOn,
+    loadListRef,
+    loadThreadRef,
+    selectedPhoneRef,
+    draftRef,
+    onListRefresh: refreshStats,
+  });
+
   useEffect(() => {
     draftRef.current = String(draft || '');
   }, [draft]);
@@ -617,25 +632,26 @@ export default function Inbox() {
   }, [selectedPhone]);
 
   useEffect(() => {
-    const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
-    if (!selected?.need_human || untilMs <= 0) return;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [selected?.need_human, selected?.human_handoff_until]);
-
-  useEffect(() => {
     const phone = String(selectedPhone || '').trim();
     const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
     if (!phone || !selected?.need_human || untilMs <= 0) {
       handoffExpiryToastRef.current = '';
       return;
     }
-    if (untilMs > nowMs) return;
-    const key = `${phone}:${untilMs}`;
-    if (handoffExpiryToastRef.current === key) return;
-    handoffExpiryToastRef.current = key;
-    toast.warning('Tempo do atendimento manual acabou. A IA pode retomar neste atendimento.');
-  }, [toast, nowMs, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
+    const showExpiryToast = () => {
+      const key = `${phone}:${untilMs}`;
+      if (handoffExpiryToastRef.current === key) return;
+      handoffExpiryToastRef.current = key;
+      toast.warning('Tempo do atendimento manual acabou. A IA pode retomar neste atendimento.');
+    };
+    const delay = untilMs - Date.now();
+    if (delay <= 0) {
+      showExpiryToast();
+      return;
+    }
+    const id = setTimeout(showExpiryToast, delay);
+    return () => clearTimeout(id);
+  }, [toast, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
 
   useEffect(() => {
     setSlashOpen(false);
@@ -757,13 +773,6 @@ export default function Inbox() {
   }, [selectedPhone]);
 
   useEffect(() => {
-    if (leadsLoading) return;
-    const arr = Array.isArray(leads) ? leads : [];
-    if (arr.length > 0) return;
-    fetchLeads();
-  }, [leadsLoading, leads, fetchLeads]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('inbox_list_width', String(listWidth));
   }, [listWidth]);
@@ -792,17 +801,6 @@ export default function Inbox() {
     if (!contextOpen) return;
     setContextOpen(false);
   }, [isNarrowDesktop, contextOpen]);
-
-  useEffect(() => {
-    if (listFilter === 'archived') return;
-    const arr = Array.isArray(items) ? items : [];
-    const unreadBacklog = arr.reduce((acc, it) => acc + (Number(it?.unread_count || 0) > 0 ? 1 : 0), 0);
-    const needsMeBacklog = arr.filter((it) => Boolean(it?.need_human)).length;
-    const resolvedCount = arr.filter((it) => String(it?.ticket_status || '') === 'resolved').length;
-    const transferredCount = arr.filter((it) => String(it?.ticket_status || '') === 'transferred').length;
-    setStats((prev) => ({ ...prev, unreadBacklog, needsMeBacklog, resolvedCount, transferredCount }));
-    useLeadStore.getState().setInboxUnreadConversations(unreadBacklog);
-  }, [items, listFilter]);
 
   const senderKindFromMessage = senderKindFromInboxMessage;
 
@@ -1338,10 +1336,6 @@ export default function Inbox() {
   }, [leads, leadSearch, selectedPhone]);
 
   useEffect(() => {
-    loadList({ reset: true });
-  }, [debouncedSearchQuery]);
-
-  useEffect(() => {
     if (!academyId) return;
     if (prevListFilterForReloadRef.current === null) {
       prevListFilterForReloadRef.current = listFilter;
@@ -1352,26 +1346,6 @@ export default function Inbox() {
     const fn = loadListRef.current;
     if (typeof fn === 'function') void fn({ reset: true, silent: true });
   }, [listFilter, academyId]);
-
-  useEffect(() => {
-    const cur = String(academyId || '').trim();
-    if (!cur) return;
-    const prev = prevAcademyIdForInboxRef.current;
-    if (prev === cur) return;
-    if (prev) {
-      setSelectedPhone('');
-      setSelected(null);
-      setItems([]);
-      setListCapped(false);
-      setMsgFlags({});
-      messageFlagsMigrationDoneRef.current = false;
-      notifiedOnceRef.current = false;
-      inboxAutoSelectDoneRef.current = false;
-    }
-    prevAcademyIdForInboxRef.current = cur;
-    const fn = loadListRef.current;
-    if (typeof fn === 'function') void fn({ reset: true });
-  }, [academyId]);
 
   useEffect(() => {
     if (selectedPhone) loadThread(selectedPhone);
@@ -1631,65 +1605,6 @@ export default function Inbox() {
     }
   };
 
-  useEffect(() => {
-    if (!autoRefresh) return undefined;
-
-    const INTERVAL_ACTIVE_LIST_MS = realtimeOn ? 30_000 : 15_000;
-    const INTERVAL_ACTIVE_THREAD_MS = realtimeOn ? 15_000 : 15_000;
-    const INTERVAL_INACTIVE_MS = 60_000;
-
-    const runListRefresh = () => {
-      const fn = loadListRef.current;
-      if (typeof fn === 'function') fn({ reset: true, silent: true });
-    };
-
-    const runThreadRefresh = () => {
-      const phone = selectedPhoneRef.current;
-      if (!phone || String(draftRef.current || '').trim()) return;
-      const fnThread = loadThreadRef.current;
-      if (typeof fnThread === 'function') fnThread(phone, { silent: true });
-    };
-
-    const runAutoRefresh = () => {
-      runListRefresh();
-      runThreadRefresh();
-    };
-
-    let listTimer = null;
-    let threadTimer = null;
-
-    const clearTimers = () => {
-      if (listTimer) clearInterval(listTimer);
-      if (threadTimer) clearInterval(threadTimer);
-      listTimer = null;
-      threadTimer = null;
-    };
-
-    const startTimers = () => {
-      clearTimers();
-      const hidden = typeof document !== 'undefined' && document.hidden;
-      const listMs = hidden ? INTERVAL_INACTIVE_MS : INTERVAL_ACTIVE_LIST_MS;
-      const threadMs = hidden ? INTERVAL_INACTIVE_MS : INTERVAL_ACTIVE_THREAD_MS;
-      listTimer = setInterval(runListRefresh, listMs);
-      threadTimer = setInterval(runThreadRefresh, threadMs);
-    };
-
-    const onVisibility = () => {
-      if (!document.hidden) {
-        runAutoRefresh();
-      }
-      startTimers();
-    };
-
-    runAutoRefresh();
-    startTimers();
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      clearTimers();
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [autoRefresh, realtimeOn]);
-
   const threadBlocks = useMemo(
     () => buildInboxThreadBlocks(selected?.messages),
     [selected?.messages]
@@ -1717,24 +1632,18 @@ export default function Inbox() {
     return list;
   }, [selected?.messages, selectedPhoneFlags]);
 
-  const onThreadScroll = (e) => {
-    const el = e && e.currentTarget ? e.currentTarget : null;
-    if (!el) return;
-    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = remaining < 40;
-    setThreadAtBottom(atBottom);
-    if (atBottom && newMsgCount) setNewMsgCount(0);
-    if (el.scrollTop < 140 && threadHasMore && !threadPaging && threadCursor) {
-      loadThread(selectedPhoneRef.current, { silent: true, cursor: String(threadCursor || ''), append: true });
-    }
-  };
-
-  const onConversationListScroll = (e) => {
-    if (searchQuery) return;
-    const el = e.currentTarget;
-    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (remaining < 240) loadList({ reset: false, silent: true });
-  };
+  const { onConversationListScroll, onThreadScroll } = useInboxScrollLoadMore({
+    searchQuery,
+    loadList,
+    loadThread,
+    selectedPhoneRef,
+    threadHasMore,
+    threadPaging,
+    threadCursor,
+    setThreadAtBottom,
+    setNewMsgCount,
+    newMsgCount,
+  });
 
   const handleClearInboxListFilters = useCallback(() => {
     setListFilter('all');
@@ -1801,7 +1710,6 @@ export default function Inbox() {
       isMobile={isMobile}
       handleClearInboxListFilters={handleClearInboxListFilters}
       setConversationSheet={setConversationSheet}
-      nowMs={nowMs}
       agentIaActive={agentIaActive}
       searchPending={searchPending}
       activeFilterLabel={inboxExtraFilterActive ? inboxFilterLabel(listFilter) : ''}
@@ -1929,7 +1837,6 @@ export default function Inbox() {
       normalizePhone={normalizePhone}
       pickDisplayName={pickDisplayName}
       formatPhone={formatPhone}
-      nowMs={nowMs}
       handoffReleaseHint={handoffReleaseHint}
       editingContactName={editingContactName}
       contactNameDraft={contactNameDraft}

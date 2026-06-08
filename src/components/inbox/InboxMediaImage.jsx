@@ -19,7 +19,6 @@ export default function InboxMediaImage({
 
   const [loadState, setLoadState] = useState(() => {
     if (outbound) return 'outbound';
-    if (mediaStored === false) return 'unavailable';
     if (!url) return 'unavailable';
     return 'loading';
   });

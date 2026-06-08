@@ -1,3 +1,33 @@
+const INBOX_MEDIA_BUCKET = String(import.meta.env.VITE_APPWRITE_INBOX_MEDIA_BUCKET_ID || '').trim();
+const APPWRITE_ENDPOINT = String(import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1').replace(
+  /\/+$/,
+  ''
+);
+const APPWRITE_PROJECT = String(
+  import.meta.env.VITE_APPWRITE_PROJECT_ID || import.meta.env.VITE_APPWRITE_PROJECT || ''
+).trim();
+
+export function buildInboxMediaViewUrl(fileId) {
+  const id = String(fileId || '').trim();
+  if (!INBOX_MEDIA_BUCKET || !id) return '';
+  if (!APPWRITE_PROJECT) return '';
+  return `${APPWRITE_ENDPOINT}/storage/buckets/${INBOX_MEDIA_BUCKET}/files/${id}/view?project=${APPWRITE_PROJECT}`;
+}
+
+/** @param {unknown} m */
+export function inboxMessageMediaUrl(m) {
+  if (!m || typeof m !== 'object') return '';
+  const fileId = String(m.storageFileId || m.storage_file_id || '').trim();
+  if (fileId) {
+    const stored = buildInboxMediaViewUrl(fileId);
+    if (stored) return stored;
+  }
+  const nested = m.media && typeof m.media === 'object' ? String(m.media.url || '').trim() : '';
+  const u = String(m.mediaUrl || m.media_url || m.url || nested || '').trim();
+  if (u && /^https?:\/\//i.test(u)) return u;
+  return '';
+}
+
 /** @param {unknown} m */
 export function inboxMessageMimeType(m) {
   if (!m || typeof m !== 'object') return '';

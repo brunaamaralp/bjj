@@ -16,6 +16,8 @@ import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
 import { recalcUnreadCount } from '../lib/server/conversationsStore.js';
+import { lastMessageMetaPayload } from '../lib/server/conversationListMeta.js';
+import { enrichInboundMedia } from '../lib/server/inboxMediaService.js';
 import { detectMediaTypeFromMime, sendZapsterMedia } from '../lib/server/zapsterSend.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -120,28 +122,74 @@ function buildWaMeUrl(phone, text) {
 }
 
 
+function normalizeStoredInboxMessage(m) {
+  if (!m || typeof m !== 'object') return null;
+  const row = {
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: typeof m.content === 'string' ? m.content : String(m.content || ''),
+    timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+  };
+  for (const key of [
+    'sender',
+    'in_reply_to',
+    'message_id',
+    'status',
+    'send_at',
+    'canceled_at',
+    'type',
+    'mediaUrl',
+    'storageFileId',
+    'mimeType',
+    'fileName',
+  ]) {
+    const val = m[key];
+    if (typeof val === 'string' && val.trim()) row[key] = val.trim();
+  }
+  const mediaUrlAlt = String(m.media_url || '').trim();
+  if (!row.mediaUrl && mediaUrlAlt) row.mediaUrl = mediaUrlAlt;
+  const storageAlt = String(m.storage_file_id || '').trim();
+  if (!row.storageFileId && storageAlt) row.storageFileId = storageAlt;
+  const mimeAlt = String(m.mime_type || '').trim();
+  if (!row.mimeType && mimeAlt) row.mimeType = mimeAlt;
+  if (m.media_stored === true) row.media_stored = true;
+  else if (m.media_stored === false) row.media_stored = false;
+  if (m.classificacao && typeof m.classificacao === 'object') row.classificacao = m.classificacao;
+  const duration = Number(m.duration);
+  if (Number.isFinite(duration) && duration > 0) row.duration = duration;
+  return row;
+}
+
 function safeParseMessages(raw) {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((m) => m && typeof m === 'object')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: typeof m.content === 'string' ? m.content : String(m.content || ''),
-        timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
-        sender: typeof m.sender === 'string' ? m.sender : undefined,
-        in_reply_to: typeof m.in_reply_to === 'string' ? m.in_reply_to : undefined,
-        message_id: typeof m.message_id === 'string' ? m.message_id : undefined,
-        status: typeof m.status === 'string' ? m.status : undefined,
-        send_at: typeof m.send_at === 'string' ? m.send_at : undefined,
-        canceled_at: typeof m.canceled_at === 'string' ? m.canceled_at : undefined,
-        classificacao: m.classificacao && typeof m.classificacao === 'object' ? m.classificacao : undefined
-      }));
+    return parsed.map(normalizeStoredInboxMessage).filter(Boolean);
   } catch {
     return [];
   }
+}
+
+function inboxMessageHasStoredMedia(m) {
+  return Boolean(m && m.media_stored === true && String(m.mediaUrl || m.storageFileId || '').trim());
+}
+
+function mergeInboundMediaFields(existing, incoming) {
+  if (!existing || !incoming || typeof existing !== 'object' || typeof incoming !== 'object') return existing;
+  if (inboxMessageHasStoredMedia(existing)) return existing;
+  if (!inboxMessageHasStoredMedia(incoming) && !String(incoming.mediaUrl || '').trim()) return existing;
+  return {
+    ...existing,
+    ...(incoming.type ? { type: incoming.type } : {}),
+    ...(incoming.mediaUrl ? { mediaUrl: incoming.mediaUrl } : {}),
+    ...(incoming.storageFileId ? { storageFileId: incoming.storageFileId } : {}),
+    ...(incoming.mimeType ? { mimeType: incoming.mimeType } : {}),
+    ...(incoming.media_stored === true
+      ? { media_stored: true }
+      : incoming.media_stored === false
+        ? { media_stored: false }
+        : {}),
+  };
 }
 
 function safeParseJson(raw) {
@@ -473,9 +521,11 @@ async function appendOutboundToConversation(
       : {})
   };
   messages.push(row);
+  const sliced = messages.slice(-AGENT_HISTORY_WINDOW);
   await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-    messages: JSON.stringify(messages.slice(-AGENT_HISTORY_WINDOW)),
-    updated_at: nowIso
+    messages: JSON.stringify(sliced),
+    updated_at: nowIso,
+    ...lastMessageMetaPayload(sliced),
   });
   try {
     const leadDoc = await findLeadByPhone(phone, academyId);
@@ -526,17 +576,31 @@ function toTsMs(v) {
 
 function mergeMessages(existing, additions) {
   const out = Array.isArray(existing) ? existing.slice() : [];
+  const indexByMessageId = new Map();
+  for (let i = 0; i < out.length; i += 1) {
+    const mid = String(out[i]?.message_id || '').trim();
+    if (mid) indexByMessageId.set(mid, i);
+  }
   const seenMessageIds = new Set(out.map((m) => String(m?.message_id || '').trim()).filter(Boolean));
   const seenKeys = new Set(out.map((m) => messageKey(m)).filter(Boolean));
 
   for (const a of additions || []) {
     if (!a || typeof a !== 'object') continue;
     const mid = String(a.message_id || '').trim();
-    if (mid && seenMessageIds.has(mid)) continue;
+    if (mid && seenMessageIds.has(mid)) {
+      const idx = indexByMessageId.get(mid);
+      if (Number.isInteger(idx) && idx >= 0) {
+        out[idx] = mergeInboundMediaFields(out[idx], a);
+      }
+      continue;
+    }
     const k = messageKey(a);
     if (k && seenKeys.has(k)) continue;
     out.push(a);
-    if (mid) seenMessageIds.add(mid);
+    if (mid) {
+      seenMessageIds.add(mid);
+      indexByMessageId.set(mid, out.length - 1);
+    }
     if (k) seenKeys.add(k);
   }
 
@@ -673,6 +737,52 @@ function pickMediaUrlFromZapster(v) {
   const u = String(c?.media?.url || v?.media?.url || v?.url || '').trim();
   if (u && /^https?:\/\//i.test(u)) return u;
   return '';
+}
+
+function pickZapsterMime(v, fallback) {
+  if (!v || typeof v !== 'object') return String(fallback || '').trim();
+  const c = v.content && typeof v.content === 'object' ? v.content : {};
+  return (
+    String(c?.media?.mimetype || c?.media?.mime_type || v?.mime_type || v?.mimeType || fallback || '').trim() ||
+    String(fallback || '').trim()
+  );
+}
+
+async function buildReconcileMediaExtras(it, zType, mediaUrl, messageId, academyId) {
+  const url = String(mediaUrl || '').trim();
+  if (!url) return {};
+  const type = String(zType || '').trim().toLowerCase();
+  if (type === 'audio' || type === 'ptt') {
+    const stored = await enrichInboundMedia({
+      mediaUrl: url,
+      mimeType: pickZapsterMime(it, 'audio/ogg'),
+      messageId,
+      academyId,
+    });
+    return {
+      type: 'audio',
+      mediaUrl: stored.mediaUrl,
+      storageFileId: stored.storageFileId,
+      media_stored: stored.media_stored,
+      mimeType: stored.mimeType,
+    };
+  }
+  if (type === 'image') {
+    const stored = await enrichInboundMedia({
+      mediaUrl: url,
+      mimeType: pickZapsterMime(it, 'image/jpeg'),
+      messageId,
+      academyId,
+    });
+    return {
+      type: 'image',
+      mediaUrl: stored.mediaUrl,
+      storageFileId: stored.storageFileId,
+      media_stored: stored.media_stored,
+      mimeType: stored.mimeType,
+    };
+  }
+  return {};
 }
 
 /**
@@ -1118,19 +1228,19 @@ export default async function handler(req, res) {
         let text = String(pickText(it) || '').trim();
         const zType = String(it?.type || it?.content?.type || '').trim().toLowerCase();
         const mediaUrl = pickMediaUrlFromZapster(it);
+        const messageId = pickMessageIdFromZapster(it);
         let mediaExtras = {};
-        if (!text && mediaUrl && (zType === 'audio' || zType === 'ptt')) {
-          text = '🎵 [Áudio recebido]';
-          mediaExtras = { type: 'audio', mediaUrl };
-        } else if (!text && mediaUrl && zType === 'image') {
-          text = '[imagem]';
-          mediaExtras = { type: 'image', mediaUrl };
+        if (mediaUrl && (zType === 'audio' || zType === 'ptt' || zType === 'image')) {
+          mediaExtras = await buildReconcileMediaExtras(it, zType, mediaUrl, messageId, academyId);
+          if (!text) {
+            if (zType === 'audio' || zType === 'ptt') text = '🎵 [Áudio recebido]';
+            else if (zType === 'image') text = '[imagem]';
+          }
         }
         if (!text) continue;
         const phone = pickConversationPhone(it, inbound);
         if (!phone) continue;
         const timestamp = pickTimestamp(it) || new Date().toISOString();
-        const messageId = pickMessageIdFromZapster(it);
         const status = typeof it?.status === 'string' ? String(it.status).trim() : '';
         const sendAt = typeof it?.send_at === 'string' ? String(it.send_at).trim() : '';
         const canceledAt = typeof it?.canceled_at === 'string' ? String(it.canceled_at).trim() : '';
@@ -1195,7 +1305,11 @@ export default async function handler(req, res) {
               break;
             }
           }
-          const docPayload = { messages: JSON.stringify(merged), updated_at: updatedAt };
+          const docPayload = {
+            messages: JSON.stringify(merged),
+            updated_at: updatedAt,
+            ...lastMessageMetaPayload(merged),
+          };
           if (lastUserMsgAt) docPayload.last_user_msg_at = lastUserMsgAt;
           const lastReadAt = String(current?.last_read_at || '').trim();
           docPayload.unread_count = recalcUnreadCount(merged, lastReadAt || null);
@@ -1353,9 +1467,11 @@ export default async function handler(req, res) {
         status: 'canceled',
         canceled_at: nowIso
       };
+      const sliced = updated.slice(-AGENT_HISTORY_WINDOW);
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-        messages: JSON.stringify(updated.slice(-AGENT_HISTORY_WINDOW)),
-        updated_at: nowIso
+        messages: JSON.stringify(sliced),
+        updated_at: nowIso,
+        ...lastMessageMetaPayload(sliced),
       });
 
       return res.status(200).json({ sucesso: true, id: messageId, status: 'canceled', canceled_at: nowIso });

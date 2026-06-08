@@ -4,6 +4,7 @@ import { friendlyError } from '../lib/errorMessages';
 import { capInboxListItems } from '../lib/inboxListCap.js';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
 import { normalizeInboxPhone as normalizePhone, pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
+import { inboxListFilterToServerParam } from './useInboxInitialLoad.js';
 
 /**
  * Carrega e pagina a lista de conversas da inbox (/api/conversations).
@@ -64,6 +65,8 @@ export function useInboxConversationList({
       const searchDigits = normalizePhone(searchQ);
       if (searchDigits.length >= 2) qs.set('search', searchQ);
       qs.set('archived', listFilterRef.current === 'archived' ? '1' : '0');
+      const serverFilter = inboxListFilterToServerParam(listFilterRef.current);
+      if (serverFilter) qs.set('filter', serverFilter);
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
       });

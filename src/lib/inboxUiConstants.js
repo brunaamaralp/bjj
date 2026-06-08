@@ -16,7 +16,7 @@ export const INBOX_MSG_TRUNCATE_CHARS = 600;
 export const INBOX_LIST_DEFAULT_COLLAPSED_GROUPS = ['resolved'];
 
 /** Virtualizar lista acima deste número de linhas renderizadas. */
-export const INBOX_LIST_VIRTUALIZE_THRESHOLD = 35;
+export const INBOX_LIST_VIRTUALIZE_THRESHOLD = 20;
 
 /** Virtualizar thread acima deste número de blocos (dia + grupos de bolhas). */
 export const INBOX_THREAD_VIRTUALIZE_THRESHOLD = 40;

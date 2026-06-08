@@ -30,7 +30,6 @@ export default function InboxThreadPanel(props) {
     normalizePhone,
     pickDisplayName,
     formatPhone,
-    nowMs,
     handoffReleaseHint,
     editingContactName,
     contactNameDraft,
