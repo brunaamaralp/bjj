@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { CheckCircle2, Landmark, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuPanel,
@@ -9,8 +9,23 @@ import {
 
 const EXPENSE_EDIT_TITLE = 'Despesas só podem ser editadas por titular ou administrador.';
 
+function TxIconButton({ label, onClick, disabled, danger, title, children }) {
+  return (
+    <button
+      type="button"
+      className={`finance-tx-icon-btn${danger ? ' finance-tx-icon-btn--danger' : ''}`}
+      aria-label={label}
+      title={title || label}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+}
+
 /**
- * Ações de linha (desktop) para lançamento pendente, liquidado ou recorrência.
+ * Ações de linha (desktop e mobile) para lançamento pendente, liquidado ou recorrência.
  */
 export default function FinanceTxRowActions({
   txId,
@@ -30,6 +45,7 @@ export default function FinanceTxRowActions({
   onEditRecurrence,
   onCancelRecurrence,
   recurrenceCancelLoading,
+  reverseLoading,
 }) {
   const st = String(status || '').toLowerCase();
   const isPending = st === 'pending';
@@ -51,52 +67,41 @@ export default function FinanceTxRowActions({
       {isPending ? (
         <>
           {showEdit ? (
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={onEdit}
-              disabled={rowBusy}
-              title={editDisabled ? EXPENSE_EDIT_TITLE : undefined}
-            >
-              Editar
-            </button>
+            <TxIconButton label="Editar" onClick={onEdit} disabled={rowBusy} title={editDisabled ? EXPENSE_EDIT_TITLE : 'Editar'}>
+              <Pencil size={16} aria-hidden />
+            </TxIconButton>
           ) : editDisabled ? (
-            <button
-              type="button"
-              className="btn-outline"
-              disabled
-              title={EXPENSE_EDIT_TITLE}
-            >
-              Editar
-            </button>
+            <TxIconButton label="Editar" disabled title={EXPENSE_EDIT_TITLE}>
+              <Pencil size={16} aria-hidden />
+            </TxIconButton>
           ) : null}
-          <button type="button" className="btn-outline" onClick={onSettle} disabled={rowBusy}>
-            Liquidar
-          </button>
+          <TxIconButton label="Liquidar" onClick={onSettle} disabled={rowBusy} title="Liquidar">
+            <CheckCircle2 size={16} aria-hidden />
+          </TxIconButton>
         </>
       ) : null}
 
       {showAssignBank ? (
-        <button
-          type="button"
-          className="btn-outline"
+        <TxIconButton
+          label="Conta bancária"
           onClick={onAssignBank}
           disabled={rowBusy}
           title="Atribuir ou corrigir conta bancária"
         >
-          Conta
-        </button>
+          <Landmark size={16} aria-hidden />
+        </TxIconButton>
       ) : null}
 
       {isSettled && canManageAdvanced ? (
-        <button
-          type="button"
-          className="btn-outline finance-btn-danger-outline"
+        <TxIconButton
+          label={reverseLoading ? 'Estornando…' : 'Estornar'}
           onClick={onReverse}
           disabled={rowBusy}
+          danger
+          title={reverseLoading ? 'Estornando…' : 'Estornar'}
         >
-          {rowBusy ? 'Estornando…' : 'Estornar'}
-        </button>
+          <RotateCcw size={16} aria-hidden />
+        </TxIconButton>
       ) : null}
 
       {hasMoreItems ? (
@@ -107,10 +112,11 @@ export default function FinanceTxRowActions({
         >
           <button
             type="button"
-            className="btn-outline"
+            className="finance-tx-icon-btn"
             aria-label="Mais opções"
             aria-expanded={moreOpen}
             aria-haspopup="menu"
+            title="Mais opções"
             disabled={rowBusy}
             onClick={() => onMenuOpenChange(moreOpen ? '' : txId)}
           >

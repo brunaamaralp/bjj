@@ -1,5 +1,9 @@
 /* Lançamentos (Caixa) — mobile/desktop toggle, toolbar, saldo do período */
 
+.finance-tx-section {
+  --finance-table-max-height: calc(100vh - 140px);
+}
+
 .finance-regime-toggle--inline {
   flex: 0 0 auto;
   align-items: center;
@@ -89,11 +93,49 @@
   }
 }
 
-.finance-guide summary {
-  cursor: pointer;
-  list-style: none;
+.finance-tx-actions-cell {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 2px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
-.finance-guide summary::-webkit-details-marker {
-  display: none;
+.finance-tx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.finance-tx-icon-btn:hover:not(:disabled) {
+  background: var(--v50);
+  color: var(--text);
+}
+
+.finance-tx-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.finance-tx-icon-btn--danger {
+  color: var(--color-danger, #c53030);
+}
+
+.finance-tx-icon-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger, #c53030) 12%, transparent);
+  color: var(--color-danger, #c53030);
+}
+
+.finance-mobile-card__actions .finance-tx-actions-cell {
+  justify-content: flex-start;
 }

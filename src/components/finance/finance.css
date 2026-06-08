@@ -695,13 +695,12 @@
 .finance-tx-empty-wrap { padding: 16px; }
 .finance-mobile-card__date--with-icon { display: inline-flex; align-items: center; gap: 6px; }
 .finance-btn-danger-outline { border-color: var(--danger); color: var(--danger); }
-.finance-tx-th-action { min-width: 148px; }
+.finance-tx-th-action { min-width: 88px; width: 88px; }
 .finance-tx-empty-cell { padding: 16px; vertical-align: middle; }
 .finance-tx-date-cell { display: inline-flex; align-items: center; gap: 6px; }
 .finance-tx-date-cell__icon { color: var(--text-secondary); flex-shrink: 0; }
 .finance-tx-competence-missing { display: block; color: var(--finance-color-pending); margin-top: 2px; }
 .finance-tx-nature-label { font-weight: 600; }
-.finance-tx-actions-cell { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 .finance-tx-menu-wrap { position: relative; }
 .finance-tx-menu-panel {
   position: absolute;

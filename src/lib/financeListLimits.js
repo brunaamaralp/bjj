@@ -1,5 +1,5 @@
 /** Lançamentos por requisição na lista do Caixa (Transações, relatórios de movimentação, etc.) */
-export const FINANCE_TX_LIST_PAGE_SIZE = 100;
+export const FINANCE_TX_LIST_PAGE_SIZE = 200;
 
 /** Teto aceito pela API ao pedir `?limit=` */
 export const FINANCE_TX_LIST_MAX_PAGE_SIZE = 200;

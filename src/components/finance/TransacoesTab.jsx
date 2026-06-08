@@ -60,7 +60,7 @@ import {
   DropdownMenuItemStatic,
   DropdownMenuLabel,
 } from '../shared/menu';
-import FinanceTxRowActions, { EXPENSE_EDIT_TITLE } from './FinanceTxRowActions.jsx';
+import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
@@ -1003,15 +1003,6 @@ export default function TransacoesTab({
     <>
       <FinanceTabShell panelClassName="finance-tx-section finance-tab-panel--compact">
         <div className="card">
-          <details className="finance-guide mb-3">
-            <summary className="finance-guide__title">Como funciona o período De/Até</summary>
-            <ul className="finance-guide__list">
-              <li>
-                O mês no cabeçalho define o intervalo inicial de <strong>De</strong> e <strong>Até</strong>.
-              </li>
-              <li>Ajuste as datas para refinar a lista e o saldo do período.</li>
-            </ul>
-          </details>
           <FinanceFiltersBar className="finance-tx-toolbar">
             <div className="finance-tx-toolbar__row">
               {academyId ? (
@@ -1255,81 +1246,38 @@ export default function TransacoesTab({
                     <div className="finance-mobile-card__name">{displayName}</div>
                     <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
                     {badge ? <span className={badge.className}>{badge.label}</span> : null}
-                    {canManageAdvanced && tx.is_recurrence_template ? (
-                      <div className="finance-mobile-card__actions">
-                        <button type="button" className="btn-outline btn-sm" onClick={() => openEditRecurrenceModal(tx)}>
-                          Editar recorrência
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-outline btn-sm finance-btn-danger-outline"
-                          disabled={rowBusy}
-                          onClick={() => requestCancelRecurrence(tx.id)}
-                        >
-                          Cancelar recorrência
-                        </button>
-                      </div>
-                    ) : null}
-                    {st === 'pending' ? (
-                      <div className="finance-mobile-card__actions">
-                        {(canManageAdvanced || txDirection(tx) !== 'out') ? (
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm"
-                            onClick={() => openEditModal(tx)}
-                            disabled={rowBusy}
-                          >
-                            Editar
-                          </button>
-                        ) : txDirection(tx) === 'out' ? (
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm"
-                            disabled
-                            title={EXPENSE_EDIT_TITLE}
-                          >
-                            Editar
-                          </button>
-                        ) : null}
-                        <button type="button" className="btn-outline btn-sm" onClick={() => void settle(tx.id)} disabled={rowBusy}>
-                          Liquidar
-                        </button>
-                        {canManageAdvanced ? (
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm finance-btn-danger-outline"
-                            onClick={() => requestCancelTx(tx.id)}
-                            disabled={rowBusy}
-                          >
-                            {rowBusy ? '…' : 'Cancelar'}
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {st === 'settled' && (canAssignBankOnTx(tx) || canManageAdvanced) ? (
-                      <div className="finance-mobile-card__actions">
-                        {canAssignBankOnTx(tx) ? (
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm"
-                            disabled={rowBusy}
-                            onClick={() => openAssignBankModal(tx)}
-                          >
-                            Conta
-                          </button>
-                        ) : null}
-                        {canManageAdvanced ? (
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm finance-btn-danger-outline"
-                            disabled={rowBusy}
-                            onClick={() => requestReverseTx(tx.id)}
-                          >
-                            {reverseLoadingId === tx.id ? 'Estornando…' : 'Estornar'}
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    {(() => {
+                      const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
+                      const hasRowActions =
+                        st === 'pending' ||
+                        (st === 'settled' && (canAssignBankOnTx(tx) || canManageAdvanced)) ||
+                        showRecMenu;
+                      if (!hasRowActions) return null;
+                      return (
+                        <div className="finance-mobile-card__actions">
+                          <FinanceTxRowActions
+                            txId={tx.id}
+                            status={st}
+                            direction={txDirection(tx)}
+                            canManageAdvanced={canManageAdvanced}
+                            canAssignBank={canAssignBankOnTx(tx)}
+                            showRecMenu={showRecMenu}
+                            rowBusy={rowBusy}
+                            menuOpen={menuOpenId}
+                            onMenuOpenChange={setMenuOpenId}
+                            onEdit={() => openEditModal(tx)}
+                            onSettle={() => void settle(tx.id)}
+                            onCancel={() => requestCancelTx(tx.id)}
+                            onReverse={() => requestReverseTx(tx.id)}
+                            onAssignBank={() => openAssignBankModal(tx)}
+                            onEditRecurrence={() => openEditRecurrenceModal(tx)}
+                            onCancelRecurrence={() => requestCancelRecurrence(tx.id)}
+                            recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
+                            reverseLoading={reverseLoadingId === tx.id}
+                          />
+                        </div>
+                      );
+                    })()}
                   </article>
                 );
               })
@@ -1512,6 +1460,7 @@ export default function TransacoesTab({
                           onEditRecurrence={() => openEditRecurrenceModal(tx)}
                           onCancelRecurrence={() => requestCancelRecurrence(tx.id)}
                           recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
+                          reverseLoading={reverseLoadingId === tx.id}
                         />
                       </td>
                     </tr>
