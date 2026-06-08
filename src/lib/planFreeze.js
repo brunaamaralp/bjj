@@ -60,8 +60,6 @@ export {
   buildFreezeLimitAlertDescription,
 } from '../../lib/planFreezeCore.js';
 
-export { FREEZE_LIMIT_ALERT_MARKER, buildFreezeLimitAlertDescription };
-
 /** Motivo do trancamento ativo (histórico plan_freezes). */
 export function activeFreezeReasonFromHistory(planFreezes, student) {
   if (!isFreezeActive(student)) return '';
