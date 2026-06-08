@@ -1,4 +1,5 @@
 import { LEAD_STATUS } from '../store/useLeadStore';
+import { formatInboxPhone } from './inboxContactDisplay.js';
 import { parseInboxTimestampMs } from './inboxTimestamps.js';
 
 /**
@@ -48,7 +49,8 @@ export function enrichInboxListItems({
       ...it,
       _phone: phone,
       _displayTitle: displayTitle,
-      _displaySubtitle: displayTitle && phone && displayTitle !== phone ? phone : '',
+      _displaySubtitle:
+        displayTitle && phone && displayTitle !== phone ? formatInboxPhone(phone) : '',
       _leadName: leadName,
       _manualContactName: manualContactName,
       _waProfileName: waProfileName,

@@ -7,6 +7,11 @@ import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from '
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
 import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
+import {
+  formatWhatsAppGroupLabel,
+  isWhatsAppGroupId,
+  rawWhatsAppChatId,
+} from '../lib/whatsappGroupId.js';
 import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/server/zapsterInstanceLookup.js';
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
@@ -572,21 +577,66 @@ function pickMessageIdFromZapster(v) {
   return '';
 }
 
-function pickRecipient(v) {
+function pickRecipientRaw(v) {
   if (!v || typeof v !== 'object') return '';
-  const candidates = [v.recipient, v.to, v.recipient_id, v.recipientId, v.recipient?.id];
+  const candidates = [v.recipient, v.to, v.recipient_id, v.recipientId];
   for (const c of candidates) {
-    const s = normalizePhone(c);
+    const s = rawWhatsAppChatId(c);
     if (s) return s;
   }
   return '';
 }
 
-function pickSender(v) {
+function pickSenderRaw(v) {
   if (!v || typeof v !== 'object') return '';
-  const candidates = [v.sender, v.from, v.sender_id, v.senderId, v.sender?.id];
+  const candidates = [v.sender, v.from, v.sender_id, v.senderId];
   for (const c of candidates) {
-    const s = normalizePhone(c);
+    const s = rawWhatsAppChatId(c);
+    if (s) return s;
+  }
+  return '';
+}
+
+function pickRecipient(v) {
+  const raw = pickRecipientRaw(v);
+  return raw ? normalizePhone(raw) : '';
+}
+
+function pickSender(v) {
+  const raw = pickSenderRaw(v);
+  return raw ? normalizePhone(raw) : '';
+}
+
+function pickConversationPhone(v, inbound) {
+  if (!v || typeof v !== 'object') return '';
+  const senderRaw = pickSenderRaw(v);
+  const recipientRaw = pickRecipientRaw(v);
+  if (isWhatsAppGroupId(senderRaw) || isWhatsAppGroupId(recipientRaw)) {
+    const groupRaw = isWhatsAppGroupId(senderRaw) ? senderRaw : recipientRaw;
+    return normalizePhone(groupRaw);
+  }
+  return inbound ? pickSender(v) : pickRecipient(v);
+}
+
+function pickGroupName(v) {
+  if (!v || typeof v !== 'object') return '';
+  const senderRaw = pickSenderRaw(v);
+  const recipientRaw = pickRecipientRaw(v);
+  const groupSide = isWhatsAppGroupId(recipientRaw) ? 'recipient' : isWhatsAppGroupId(senderRaw) ? 'sender' : '';
+  const candidates = [
+    groupSide === 'recipient' ? v?.recipient?.name : '',
+    groupSide === 'sender' ? v?.sender?.name : '',
+    v?.chat?.name,
+    v?.chat?.subject,
+    v?.group?.name,
+    v?.group?.subject,
+    v?.group_name,
+    v?.groupName,
+    v?.conversation?.name,
+    v?.conversation?.subject,
+  ];
+  for (const c of candidates) {
+    const s = String(c || '').trim();
     if (s) return s;
   }
   return '';
@@ -594,6 +644,14 @@ function pickSender(v) {
 
 function pickSenderName(v) {
   if (!v || typeof v !== 'object') return '';
+  const senderRaw = pickSenderRaw(v);
+  const recipientRaw = pickRecipientRaw(v);
+  if (isWhatsAppGroupId(senderRaw) || isWhatsAppGroupId(recipientRaw)) {
+    const groupName = pickGroupName(v);
+    if (groupName) return groupName;
+    const phone = pickConversationPhone(v, true);
+    return phone ? formatWhatsAppGroupLabel(phone) : '';
+  }
   const candidates = [
     v?.sender?.name,
     v?.sender_name,
@@ -1069,7 +1127,7 @@ export default async function handler(req, res) {
           mediaExtras = { type: 'image', mediaUrl };
         }
         if (!text) continue;
-        const phone = inbound ? pickSender(it) : pickRecipient(it);
+        const phone = pickConversationPhone(it, inbound);
         if (!phone) continue;
         const timestamp = pickTimestamp(it) || new Date().toISOString();
         const messageId = pickMessageIdFromZapster(it);

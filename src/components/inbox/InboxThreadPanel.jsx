@@ -145,6 +145,9 @@ export default function InboxThreadPanel(props) {
                 phone,
               });
               const displayName = name || phone || '—';
+              const formattedPhone =
+                phone && typeof formatPhone === 'function' ? String(formatPhone(phone) || '').trim() : '';
+              const showPhoneLine = Boolean(formattedPhone && formattedPhone !== displayName);
               const profileUrl = String(
                 selected?.whatsapp_profile_image_url || lead?.whatsapp_profile_image_url || ''
               ).trim();
@@ -179,10 +182,8 @@ export default function InboxThreadPanel(props) {
                         </span>
                       ) : null}
                     </div>
-                    {phone ? (
-                      <div className="inbox-thread-header__phone">
-                        {typeof formatPhone === 'function' ? formatPhone(phone) : phone}
-                      </div>
+                    {showPhoneLine ? (
+                      <div className="inbox-thread-header__phone">{formattedPhone}</div>
                     ) : null}
                     {showTicketLine ? (
                       <div className="inbox-thread-header__status-line">{ticket.label}</div>

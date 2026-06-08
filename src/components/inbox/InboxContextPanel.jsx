@@ -6,6 +6,7 @@ import StatusBadge from '../shared/StatusBadge.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
 import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 import { isLeadPendingTriage } from '../../lib/leadTriage.js';
+import { formatInboxPhone, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
 
 export function InboxContextPanelContent(props) {
   const {
@@ -155,7 +156,9 @@ export function InboxContextPanelContent(props) {
             <div className="navi-section-heading inbox-context-card__heading">{`Contato / ${contactLabel}`}</div>
             <div className="inbox-context-stack">
               <div className="inbox-context-contact-name">{name || phone || '—'}</div>
-              {!!phone && <div className="navi-subtitle navi-subtitle--flush">{phone}</div>}
+              {!!phone && (isInboxGroupPhone(phone) ? name && name !== formatInboxPhone(phone) : true) ? (
+                <div className="navi-subtitle navi-subtitle--flush">{formatInboxPhone(phone)}</div>
+              ) : null}
               <div className="inbox-context-chip-row">
                 {!!status && !pendingTriage && <span className="text-small inbox-context-neutral-chip">{status}</span>}
                 {!!intention && <span className="text-small inbox-context-neutral-chip">{intention}</span>}
