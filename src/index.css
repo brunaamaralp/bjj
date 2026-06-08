@@ -847,7 +847,7 @@ button:focus-visible {
 .navi-sidebar-brand .navi-brand-lockup--sidebar {
   display: block;
   width: auto !important;
-  height: 72px !important;
+  height: 96px !important;
   max-width: none !important;
   object-fit: contain;
   object-position: left center;
@@ -875,8 +875,13 @@ button:focus-visible {
 }
 
 .navi-sidebar-brand--collapsed .navi-logo {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
+}
+
+.navi-sidebar-brand--collapsed .navi-logo--app {
+  border-radius: 22%;
+  object-fit: cover;
 }
 
 .navi-sidebar-toggle {
