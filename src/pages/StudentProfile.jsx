@@ -75,6 +75,7 @@ import {
 } from '../lib/studentEmergencyContact.js';
 import NaviChatWidgetPanel from '../components/chat-widget/NaviChatWidgetPanel.jsx';
 import { validateBankAccountForPayment, validatePreferredPaymentAccount } from '../lib/bankAccounts.js';
+import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../lib/studentPaymentTroco.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
@@ -1310,6 +1311,12 @@ export default function StudentProfile() {
             return;
         }
 
+        const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+        if (!trocoCheck.ok) {
+            toast.show({ type: 'error', message: trocoCheck.message });
+            return;
+        }
+
         const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
         if (!accountCheck.ok) {
             toast.show({ type: 'error', message: accountCheck.message });
@@ -1348,6 +1355,7 @@ export default function StudentProfile() {
             registered_by: userId || '',
             registered_by_name: sessionUserName,
             note: desc,
+            ...trocoFieldsForPaymentPayload(payForm, amountNum),
         };
 
         if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

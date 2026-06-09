@@ -9,6 +9,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { createPayment, PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
 import { centsToNumber, parseMaskToCents } from '../../lib/moneyBr';
 import { validateBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../../lib/studentPaymentTroco.js';
 import { prefetchFinanceConfig } from '../../lib/prefetchFinanceConfig.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import StudentPaymentModal, {
@@ -121,6 +122,12 @@ export default function NovaVendaPlanPanel({
       addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
       return;
     }
+    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+    if (!trocoCheck.ok) {
+      addToast({ type: 'error', message: trocoCheck.message });
+      return;
+    }
+
     const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
     if (!accountCheck.ok) {
       addToast({ type: 'error', message: accountCheck.message });
@@ -151,6 +158,7 @@ export default function NovaVendaPlanPanel({
       registered_by: userId || '',
       registered_by_name: 'Usuário',
       note: String(payForm.note || '').trim(),
+      ...trocoFieldsForPaymentPayload(payForm, amountNum),
     };
 
     if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

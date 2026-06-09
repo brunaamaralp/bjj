@@ -7,6 +7,9 @@ import { BUNDLE_DURATION_OPTIONS } from '../lib/paymentCategories.js';
 import { PAYMENT_METHODS } from '../lib/paymentMethods.js';
 import { accountWhenPaymentMethodChanges } from '../lib/bankAccounts.js';
 import { findPlanByName, planPriceToPayAmountString } from '../lib/academyPlans.js';
+import CashTrocoFields from './finance/CashTrocoFields.jsx';
+import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';
+import { centsToNumber, parseMaskToCents } from '../lib/moneyBr.js';
 
 /**
  * Pagamento opcional pós-matrícula (mensalidade ou pacote).
@@ -188,6 +191,11 @@ export default function MatriculaPaymentStep({
               ...p,
               method,
               account: accountWhenPaymentMethodChanges(financeConfig, method) || p.account,
+              ...(isCashPaymentMethod(method) && !p.cash_received
+                ? { cash_received: p.amount || '' }
+                : !isCashPaymentMethod(method)
+                  ? { cash_received: '', formaTroco: 'pix' }
+                  : {}),
             }));
           }}
         >
@@ -198,6 +206,15 @@ export default function MatriculaPaymentStep({
           ))}
         </select>
       </div>
+
+      {showPaidDate && isCashPaymentMethod(payForm.method) ? (
+        <CashTrocoFields
+          payForm={payForm}
+          setPayForm={setPayForm}
+          amountNum={centsToNumber(parseMaskToCents(payForm.amount))}
+          disabled={disabled}
+        />
+      ) : null}
 
       {financeConfig ? (
         <BankAccountSelect

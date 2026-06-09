@@ -9,7 +9,9 @@ import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { resolveBankAccountForPayment, pickInitialBankAccountForPayment, accountWhenPaymentMethodChanges } from '../../lib/bankAccounts.js';
 import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
-import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
+import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } from '../../lib/moneyBr';
+import CashTrocoFields from '../finance/CashTrocoFields.jsx';
+import { isCashPaymentMethod } from '../../lib/studentPaymentTroco.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -63,6 +65,8 @@ export function buildDefaultPayForm(student, financeConfig = null) {
     due_date: '',
     plan_name: student?.plan || '',
     note: '',
+    cash_received: '',
+    formaTroco: 'pix',
   };
 }
 
@@ -105,6 +109,7 @@ export default function StudentPaymentModal({
   const isOther = payForm.payment_type === PAYMENT_CATEGORY.OTHER;
   const showPaidDate = payForm.status === 'paid' || isFee || isBundle || isOther;
   const showPlanFields = isPlan || isBundle;
+  const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
 
   const typeOptions = [
     { value: PAYMENT_CATEGORY.PLAN, label: 'Mensalidade' },
@@ -392,6 +397,11 @@ export default function StudentPaymentModal({
                       ...p,
                       method,
                       account: accountWhenPaymentMethodChanges(financeConfig, method) || p.account,
+                      ...(isCashPaymentMethod(method) && !p.cash_received
+                        ? { cash_received: p.amount || '' }
+                        : !isCashPaymentMethod(method)
+                          ? { cash_received: '', formaTroco: 'pix' }
+                          : {}),
                     }));
                   }}
                 >
@@ -402,6 +412,17 @@ export default function StudentPaymentModal({
                   ))}
                 </select>
               </div>
+
+              {showPaidDate && isCashPaymentMethod(payForm.method) ? (
+                <CashTrocoFields
+                  payForm={payForm}
+                  setPayForm={setPayForm}
+                  amountNum={amountNum}
+                  disabled={saving}
+                  inputClassName="form-input"
+                  labelClassName="form-label"
+                />
+              ) : null}
 
               <BankAccountSelect
                 id="student-pay-account"

@@ -61,6 +61,8 @@ import {
 } from '../../lib/paymentExceptions.js';
 import { formatPaymentDateLabel, isPaymentDateInFuture } from '../../lib/validations.js';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
+import CashTrocoFields from './CashTrocoFields.jsx';
+import { isCashPaymentMethod, trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../../lib/studentPaymentTroco.js';
 
 const PAY_METHODS = [
   { value: 'pix', label: 'PIX' },
@@ -614,6 +616,8 @@ export default function MensalidadesPanel({
       plan_name: planName,
       note: preset.note || '',
       saveAsPreferred: !String(student.preferredPaymentMethod || '').trim(),
+      cash_received: '',
+      formaTroco: 'pix',
     });
     setShowModal(true);
   };
@@ -664,6 +668,12 @@ export default function MensalidadesPanel({
       toast.show({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
       return;
     }
+    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+    if (!trocoCheck.ok) {
+      toast.show({ type: 'error', message: trocoCheck.message });
+      return;
+    }
+
     const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
     if (!accountCheck.ok) {
       toast.show({ type: 'error', message: accountCheck.message });
@@ -729,6 +739,7 @@ export default function MensalidadesPanel({
         plan_name: payForm.plan_name || student.plan || '',
         note: payForm.note || '',
         payment_category: isBundle ? PAYMENT_CATEGORY.BUNDLE : PAYMENT_CATEGORY.PLAN,
+        ...trocoFieldsForPaymentPayload(payForm, amountNum),
       };
       if (isBundle) {
         paymentPayload.bundle_months = bundleMonths;
@@ -1522,6 +1533,11 @@ export default function MensalidadesPanel({
                                   ...f,
                                   method: o.value,
                                   account: accountWhenPaymentMethodChanges(financeConfig, o.value) || f.account,
+                                  ...(isCashPaymentMethod(o.value) && !f.cash_received
+                                    ? { cash_received: f.amount || '' }
+                                    : !isCashPaymentMethod(o.value)
+                                      ? { cash_received: '', formaTroco: 'pix' }
+                                      : {}),
                                 }))
                               }
                               className={`mensal-modal-method-btn${active ? ' mensal-modal-method-btn--active' : ''}${idx === list.length - 1 ? ' mensal-modal-method-btn--full' : ''}`}
@@ -1534,6 +1550,17 @@ export default function MensalidadesPanel({
                       })()}
                     </div>
                   </div>
+                  {isCashPaymentMethod(payForm.method) ? (
+                    <CashTrocoFields
+                      payForm={payForm}
+                      setPayForm={setPayForm}
+                      amountNum={parseCurrencyBRL(payForm.amount)}
+                      disabled={savingPayment}
+                      className="mensal-modal-troco"
+                      inputClassName="mensal-modal-in"
+                      labelClassName="mensal-modal-field-label"
+                    />
+                  ) : null}
                   {hasBankAccounts ? (
                     <BankAccountSelect
                       id="mensal-pay-account"

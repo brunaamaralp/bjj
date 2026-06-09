@@ -44,6 +44,8 @@ const OPTIONAL_ATTRS = [
   'bundle_months',
   'bundle_origin_id',
   'financial_tx_sync_pending',
+  'troco',
+  'forma_troco',
 ];
 
 const MIRROR_SYNC_WARNING =
@@ -99,6 +101,12 @@ function buildPaymentPayload(data) {
   }
   if (data.bundle_origin_id != null && String(data.bundle_origin_id).trim()) {
     payload.bundle_origin_id = String(data.bundle_origin_id).trim();
+  }
+
+  const troco = Math.round(Number(data.troco || 0) * 100) / 100;
+  if (troco > 0) {
+    payload.troco = troco;
+    payload.forma_troco = String(data.forma_troco || 'pix').trim() || 'pix';
   }
 
   return payload;

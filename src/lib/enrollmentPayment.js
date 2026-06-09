@@ -2,6 +2,7 @@ import { createPayment, PAYMENT_CATEGORY } from './studentPayments.js';
 import { validateBankAccountForPayment, resolveBankAccountForPayment, pickInitialBankAccountForPayment } from './bankAccounts.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 import { findPlanByName, planPriceToPayAmountString } from './academyPlans.js';
+import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from './studentPaymentTroco.js';
 
 /** Mês de referência (YYYY-MM) a partir da data de matrícula. */
 export function referenceMonthFromEnrollmentDate(enrollmentDateYmd) {
@@ -31,6 +32,8 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
     due_date: '',
     plan_name: String(planName || lead?.plan || '').trim(),
     note: '',
+    cash_received: '',
+    formaTroco: 'pix',
   };
 }
 
@@ -59,6 +62,11 @@ export async function registerEnrollmentPayment({
   const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
     throw new Error('Informe um valor maior que zero.');
+  }
+
+  const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+  if (!trocoCheck.ok) {
+    throw new Error(trocoCheck.message);
   }
 
   const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
@@ -91,6 +99,7 @@ export async function registerEnrollmentPayment({
     registered_by: userId || '',
     registered_by_name: registeredByName,
     note: String(payForm.note || '').trim(),
+    ...trocoFieldsForPaymentPayload(payForm, amountNum),
   };
 
   if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

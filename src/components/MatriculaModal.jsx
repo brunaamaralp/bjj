@@ -20,6 +20,7 @@ import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
 import { DateInputField } from './DateInput';
 import { useLeadStore } from '../store/useLeadStore.js';
 import { refreshFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
+import { validateStudentPaymentTroco } from '../lib/studentPaymentTroco.js';
 
 export default function MatriculaModal({
   isOpen,
@@ -182,6 +183,9 @@ export default function MatriculaModal({
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
       return 'Informe um valor maior que zero.';
     }
+    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+    if (!trocoCheck.ok) return trocoCheck.message;
+
     if (payForm.status === 'paid') {
       const accountCheck = validateBankAccountForPayment(payForm.account, resolvedFinanceConfig);
       if (!accountCheck.ok) return accountCheck.message;
