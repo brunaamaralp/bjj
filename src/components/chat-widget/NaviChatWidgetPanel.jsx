@@ -148,7 +148,7 @@ export default function NaviChatWidgetPanel({
   if (!phoneDigits && !leadIdStr && embedded) {
     return (
       <div
-        className={`navi-chat-widget__panel navi-chat-widget__panel--embedded${isMobile ? ' navi-chat-widget__panel--mobile' : ''}`}
+        className={`navi-chat-widget__panel navi-chat-widget__panel--embedded${isMobile && !embedded ? ' navi-chat-widget__panel--mobile' : ''}`}
         role="region"
         aria-label="Conversa WhatsApp"
       >
@@ -197,7 +197,7 @@ export default function NaviChatWidgetPanel({
       ref={panelRef}
       className={[
         'navi-chat-widget__panel',
-        isMobile ? 'navi-chat-widget__panel--mobile' : '',
+        isMobile && !embedded ? 'navi-chat-widget__panel--mobile' : '',
         embedded ? 'navi-chat-widget__panel--embedded' : '',
       ]
         .filter(Boolean)

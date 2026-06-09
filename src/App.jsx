@@ -8,6 +8,7 @@ import {
   ChevronRight,
   GraduationCap,
   Grid2x2,
+  Building2,
 } from 'lucide-react';
 import { authService } from './lib/auth';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
@@ -20,6 +21,7 @@ import {
   applyAcademyDocToLeadStore,
 } from './lib/getAcademyDocument.js';
 import { cleanOldAccountingCache } from './store/useAccountingStore';
+import { resetStoresForAcademyChange } from './lib/resetStoresForAcademyChange.js';
 import { useUiStore } from './store/useUiStore';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -297,16 +299,19 @@ const App = () => {
       bootstrapAbortRef.current = ac;
       const { signal } = ac;
 
+      setAcademyReady(false);
       setAcademyId(id);
-      useStudentStore.getState().resetForAcademyChange();
+      resetStoresForAcademyChange(id);
       useLeadStore.getState().setDataReady(false);
       useLeadStore.getState().setInboxUnreadConversations(0);
       localStorage.setItem('activeAcademyId', id);
       useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
+      let switchedName = '';
       try {
         const doc = await getAcademyDocument(id);
         if (signal.aborted) return;
         applyAcademyDocToLeadStore(doc, { setLabels, setModules });
+        switchedName = String(doc?.name || '').trim();
       } catch (e) {
         void e;
         if (signal.aborted) return;
@@ -320,9 +325,22 @@ const App = () => {
       const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
       if (financeEnabled) void prefetchFinanceConfig(id);
       await syncBilling(id);
-      if (!signal.aborted) useLeadStore.getState().setDataReady(true);
+      if (!signal.aborted) {
+        useLeadStore.getState().setDataReady(true);
+        setAcademyReady(true);
+        const label = switchedName || (academyList || []).find((a) => a.id === id)?.name || id;
+        try {
+          useUiStore.getState().addToast({
+            type: 'success',
+            message: `Academia alterada para ${label}`,
+            duration: 4000,
+          });
+        } catch (toastErr) {
+          void toastErr;
+        }
+      }
     },
-    [setAcademyId, setLabels, setModules, cancelBootstrap]
+    [setAcademyId, setLabels, setModules, cancelBootstrap, academyList]
   );
 
   /** Garante trial no servidor (chamar uma vez após definir academia). */
@@ -1055,6 +1073,12 @@ const App = () => {
               </button>
             ) : null}
             <div className="navi-topbar-spacer" aria-hidden="true" />
+            {academyReady && academyIdStore && academyName && academyList.length > 1 ? (
+              <span className="navi-topbar-academy-chip" title={`Academia ativa: ${academyName}`}>
+                <Building2 size={14} strokeWidth={2} aria-hidden />
+                <span className="navi-topbar-academy-chip__label">{academyName}</span>
+              </span>
+            ) : null}
             {academyReady && academyIdStore ? (
               <div className="navi-topbar-search">
                 <NlCommandBarTrigger onClick={() => setNlOpen(true)} />

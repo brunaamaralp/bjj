@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { DateInput } from '../DateInput';
+import ModalShell from '../shared/ModalShell.jsx';
 import BankAccountSelect from '../finance/BankAccountSelect.jsx';
 import { PAYMENT_CATEGORY, normalizePaymentCategory } from '../../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
@@ -10,7 +10,6 @@ import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { resolveBankAccountForPayment, pickInitialBankAccountForPayment, accountWhenPaymentMethodChanges } from '../../lib/bankAccounts.js';
 import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents } from '../../lib/moneyBr';
-import { useModalA11y } from '../../hooks/useModalA11y.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -97,9 +96,7 @@ export default function StudentPaymentModal({
     handleClose();
   }, [saving, handleClose]);
 
-  useModalA11y({ isOpen: open && Boolean(student), onClose: requestClose });
-
-  if (!open || !student || typeof document === 'undefined') return null;
+  if (!open || !student) return null;
 
   const isProduct = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
   const isPlan = payForm.payment_type === PAYMENT_CATEGORY.PLAN;
@@ -117,29 +114,45 @@ export default function StudentPaymentModal({
     { value: PAYMENT_CATEGORY.OTHER, label: 'Outro' },
   ];
 
-  const dismissOnOverlayClick = !isProduct && !saving;
+  const modalTitle = isProduct ? 'Venda de produto' : editingPaymentId ? 'Editar pagamento' : 'Registrar pagamento';
 
-  return createPortal(
-    <div
-      className="navi-modal-overlay"
-      role="presentation"
-      onClick={dismissOnOverlayClick ? requestClose : undefined}
+  return (
+    <ModalShell
+      open={open && Boolean(student)}
+      title={modalTitle}
+      onClose={requestClose}
+      closeOnOverlay={!isProduct && !saving}
+      closeOnEsc={!saving}
+      showCloseButton={!saving}
+      maxWidth={isProduct ? 560 : 480}
+      className="navi-modal-overlay--form"
+      dialogClassName="student-payment-modal"
+      ariaLabelledBy="student-payment-modal-title"
+      footer={
+        !isProduct ? (
+          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleClose}
+              className="btn-outline"
+              style={{ flex: 1 }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onSave()}
+              className="btn-primary"
+              style={{ flex: 1 }}
+            >
+              {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
+            </button>
+          </div>
+        ) : null
+      }
     >
-      <div
-        className="card navi-modal-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="student-payment-modal-title"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: isProduct ? 560 : 480, padding: 20 }}
-      >
-        <h3
-          id="student-payment-modal-title"
-          style={{ margin: '0 0 14px', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}
-        >
-          {isProduct ? 'Venda de produto' : editingPaymentId ? 'Editar pagamento' : 'Registrar pagamento'}
-        </h3>
-
         {formError ? (
           <p
             role="alert"
@@ -435,30 +448,8 @@ export default function StudentPaymentModal({
                 </div>
               ) : null}
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={handleClose}
-                className="btn-outline"
-                style={{ flex: 1 }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void onSave()}
-                className="btn-primary"
-                style={{ flex: 1 }}
-              >
-                {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
-              </button>
-            </div>
           </>
         )}
-      </div>
-    </div>,
-    document.body
+    </ModalShell>
   );
 }

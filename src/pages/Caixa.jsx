@@ -189,9 +189,9 @@ export default function Caixa() {
   const nlPageCtx = useMemo(
     () => ({
       context: 'financeiro',
-      pendingTransactions: activeTab === 'movimentacoes' ? transactionsForNl : [],
+      pendingTransactions: transactionsForNl,
     }),
-    [activeTab, transactionsForNl]
+    [transactionsForNl]
   );
   useNlPageContext(nlPageCtx);
 

@@ -157,7 +157,8 @@
 }
 
 .navi-chat-widget__header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 10px 10px 10px 12px;
@@ -171,9 +172,8 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 0 0 auto;
   flex-shrink: 0;
-  margin-left: auto;
+  grid-column: 2;
   position: relative;
   z-index: 2;
   background: var(--color-card-bg);
@@ -208,17 +208,16 @@
 }
 
 .navi-chat-widget__switcher {
-  flex: 1 1 0%;
   min-width: 0;
-  max-width: calc(100% - 132px);
+  max-width: 100%;
   overflow: hidden;
+  grid-column: 1;
 }
 
 .navi-chat-widget__header .navi-menu.navi-chat-widget__switcher {
   display: flex;
-  flex: 1 1 0%;
   min-width: 0;
-  max-width: calc(100% - 132px);
+  max-width: 100%;
 }
 
 .navi-chat-widget__header-trigger {
@@ -373,7 +372,9 @@
   flex-direction: column;
 }
 
-.lead-profile-conversation-rail .navi-chat-widget__panel--embedded.navi-chat-widget__panel--mobile {
+.lead-profile-conversation-rail .navi-chat-widget__panel--embedded.navi-chat-widget__panel--mobile,
+.lead-profile-conversation-panel .navi-chat-widget__panel--embedded.navi-chat-widget__panel--mobile,
+.student-profile-conversation-panel .navi-chat-widget__panel--embedded.navi-chat-widget__panel--mobile {
   position: static;
   left: auto;
   right: auto;

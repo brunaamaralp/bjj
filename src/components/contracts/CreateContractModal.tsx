@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import ModalShell from '../shared/ModalShell.jsx';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { X, Plus, Trash2, FileText, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import ContractSignerDeliveryPicker, {
@@ -640,28 +640,19 @@ export default function CreateContractModal({
     send: '3. Enviar',
   };
 
-  return createPortal(
-    <div className="contracts-modal-backdrop" role="presentation" onClick={close}>
-      <div
-        className="contracts-modal card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-contract-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="contracts-modal-header">
-          <div>
-            <h2 id="create-contract-title" className="navi-section-heading contracts-modal-title">
-              {isRescission ? 'Termo de rescisão' : 'Novo contrato'}
-            </h2>
-            <p className="text-small text-muted contracts-modal-steps">
-              {stepLabels.template} → {stepLabels.signers} → {stepLabels.send}
-            </p>
-          </div>
-          <button type="button" className="btn-ghost" onClick={close} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </div>
+  return (
+    <ModalShell
+      open={open}
+      title={isRescission ? 'Termo de rescisão' : 'Novo contrato'}
+      onClose={close}
+      className="contracts-modal-backdrop navi-modal-overlay--form"
+      dialogClassName="contracts-modal card"
+      maxWidth={560}
+      ariaLabelledBy="create-contract-title"
+    >
+        <p className="text-small text-muted contracts-modal-steps">
+          {stepLabels.template} → {stepLabels.signers} → {stepLabels.send}
+        </p>
 
         {blockInactive ? (
           <p className="contracts-form-error contracts-modal-inactive">
@@ -1173,8 +1164,6 @@ export default function CreateContractModal({
             ) : null}
           </div>
         </form>
-      </div>
-    </div>,
-    document.body
+    </ModalShell>
   );
 }

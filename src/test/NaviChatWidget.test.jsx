@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import NaviChatWidget from '../components/chat-widget/NaviChatWidget.jsx';
+import NaviChatWidgetPanel from '../components/chat-widget/NaviChatWidgetPanel.jsx';
 import { useChatWidgetStore } from '../store/useChatWidgetStore';
 
 vi.mock('../hooks/useInboxConversation.js', () => ({
@@ -126,5 +127,42 @@ describe('NaviChatWidget', () => {
     await user.click(screen.getByLabelText('Minimizar conversa'));
     expect(useChatWidgetStore.getState().isOpen).toBe(false);
     expect(screen.getByLabelText(/Abrir conversa com Maria/i)).toBeInTheDocument();
+  });
+});
+
+describe('NaviChatWidgetPanel embedded', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query) => ({
+        matches: query.includes('1023px'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    });
+  });
+
+  it('mostra ações do cabeçalho no perfil embutido', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <NaviChatWidgetPanel
+          academyId="acad-1"
+          activePhone="5511999999999"
+          leadId="lead-1"
+          leadName="Maria"
+          embedded
+          hideProfileLink
+          isMobile
+          onMinimize={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByLabelText('Abrir no Inbox')).toBeVisible();
+    expect(screen.getByLabelText('Minimizar conversa')).toBeVisible();
+    expect(screen.getByLabelText('Fechar conversa fixada')).toBeVisible();
+    expect(container.querySelector('.navi-chat-widget__panel--mobile')).toBeNull();
   });
 });

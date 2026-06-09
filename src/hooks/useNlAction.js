@@ -24,6 +24,7 @@ import { getStageUpdatePayload } from '../lib/leadStageRules.js';
 import { emitLeadAttendanceChanged, emitLeadsRefresh } from '../lib/leadTimelineEvents.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
+import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import {
   afterExperimentalScheduled,
@@ -96,6 +97,7 @@ export function useNlAction() {
   const academyList = useLeadStore((s) => s.academyList);
   const storeTeamId = useLeadStore((s) => s.teamId);
   const financeConfig = useLeadStore((s) => s.financeConfig);
+  const modules = useLeadStore((s) => s.modules);
   const updateLead = useLeadStore((s) => s.updateLead);
   const addLead = useLeadStore((s) => s.addLead);
   const addToast = useUiStore((s) => s.addToast);
@@ -517,19 +519,60 @@ export function useNlAction() {
         const d = parsed.data || {};
         const leadId = String(d.lead_id || '').trim();
         if (!leadId) throw new Error('Lead não identificado');
+        const lead = (leads || []).find((l) => String(l.id || '').trim() === leadId);
         const now = new Date().toISOString();
         const messageDescription = String(d.message_description || '').trim();
+        const waEnabled =
+          modules?.whatsapp === true && Boolean(String(waZapId || '').trim()) && Boolean(lead?.phone);
+
+        if (waEnabled && lead) {
+          const templateKey = 'dashboard_contact';
+          const sendResult = await sendWhatsappTemplateOutbound({
+            lead,
+            academyId,
+            academyName: waAcademyName || academyName,
+            templateKey,
+            templatesMap: waTemplates || DEFAULT_WHATSAPP_TEMPLATES,
+            zapsterInstanceId: waZapId,
+            onToast: (t) => addToast(t),
+            suppressToasts: false,
+            permissionContext,
+            createdBy: userId || 'user',
+          });
+          if (sendResult?.ok) {
+            await addLeadEvent({
+              academyId,
+              leadId,
+              type: 'message',
+              text: messageDescription
+                ? `WhatsApp: ${messageDescription}`
+                : 'WhatsApp: template de contato enviado',
+              createdBy: userId || 'user',
+              permissionContext,
+            });
+            const out = await updateLead(leadId, { lastWhatsappActivityAt: now });
+            notifyLeadsRefresh();
+            return { ...out, whatsapp_sent: true };
+          }
+        }
+
         await addLeadEvent({
           academyId,
           leadId,
           type: 'message',
-          text: messageDescription ? `WhatsApp: ${messageDescription}` : 'WhatsApp enviado',
+          text: messageDescription
+            ? `WhatsApp (registro): ${messageDescription}`
+            : 'WhatsApp registrado no histórico (envio automático indisponível)',
           createdBy: userId || 'user',
-          permissionContext
+          permissionContext,
         });
-        const out = await updateLead(leadId, {
-          lastWhatsappActivityAt: now
-        });
+        const out = await updateLead(leadId, { lastWhatsappActivityAt: now });
+        if (!waEnabled) {
+          addToast({
+            type: 'info',
+            message: 'Registro salvo no histórico. WhatsApp não configurado ou telefone ausente.',
+          });
+        }
         notifyLeadsRefresh();
         return out;
       }
@@ -800,6 +843,11 @@ export function useNlAction() {
       waOutbound,
       automationsRaw,
       automationConfig,
+      modules,
+      waZapId,
+      waAcademyName,
+      waTemplates,
+      academyName,
       addToast,
     ]
   );

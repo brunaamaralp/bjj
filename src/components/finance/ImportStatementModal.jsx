@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Upload } from 'lucide-react';
 import {
   detectAndParseBankFile,
@@ -8,6 +7,7 @@ import {
 import { importBankStatement } from '../../lib/bankReconciliationApi.js';
 import { friendlyError } from '../../lib/errorMessages';
 import BankAccountSelect from './BankAccountSelect.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
 
 function fmtMoney(v) {
   try {
@@ -99,113 +99,18 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
     }
   };
 
-  if (!open || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
-      className="navi-modal-overlay"
-      role="presentation"
-      onClick={handleClose}
-    >
-      <div
-        className="card import-statement-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-statement-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 id="import-statement-title" className="navi-section-heading import-statement-title">
-          Importar extrato bancário
-        </h3>
-        <p className="text-small text-muted import-statement-lead">
-          Envie um arquivo OFX ou CSV. Revise as transações detectadas antes de confirmar a importação.
-        </p>
-
-        <label className="btn-outline import-statement-upload">
-          <Upload size={16} />
-          Selecionar arquivo
-          <input
-            type="file"
-            accept=".csv,.ofx,.qfx,text/csv"
-            className="import-statement-upload-input"
-            onChange={onFile}
-          />
-        </label>
-        {fileName ? (
-          <p className="text-small text-muted import-statement-file">
-            Arquivo: {fileName}
-          </p>
-        ) : null}
-
-        {items.length > 0 ? (
-          <div className="form-group mt-2">
-            <BankAccountSelect
-              academyId={academyId}
-              value={bankAccount}
-              onChange={setBankAccount}
-              id="import-statement-bank-account"
-              label="Conta do extrato"
-              allowEmpty
-              emptyLabel="Selecione a conta (recomendado)"
-            />
-          </div>
-        ) : null}
-        {parseError ? (
-          <p className="text-small import-statement-error">
-            {parseError}
-          </p>
-        ) : null}
-
-        {items.length > 0 ? (
-          <>
-            <div
-              className="card import-statement-summary"
-              role="status"
-            >
-              <p className="text-small import-statement-summary-text">
-                <strong>{summary.creditCount}</strong> créditos ({fmtMoney(summary.credit)}) ·{' '}
-                <strong>{summary.debitCount}</strong> débitos ({fmtMoney(summary.debit)})
-                {summary.period_start && summary.period_end ? (
-                  <>
-                    {' '}
-                    · Período {fmtDate(summary.period_start)} — {fmtDate(summary.period_end)}
-                  </>
-                ) : null}
-              </p>
-            </div>
-
-            <div className="finance-table-wrap finance-table-wrap--modal import-statement-table">
-              <table className="finance-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Descrição</th>
-                    <th>Direção</th>
-                    <th className="finance-num">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row, idx) => (
-                    <tr key={`${row.date}-${idx}`}>
-                      <td>{fmtDate(row.date)}</td>
-                      <td>{row.description}</td>
-                      <td>{row.direction === 'credit' ? 'Crédito' : 'Débito'}</td>
-                      <td className="finance-num">{fmtMoney(row.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : null}
-
-        {importError ? (
-          <p className="text-small import-statement-import-error">
-            {importError}
-          </p>
-        ) : null}
-
-        <div className="flex gap-2 mt-3 import-statement-actions">
+  return (
+    <ModalShell
+      open={open}
+      title="Importar extrato bancário"
+      onClose={handleClose}
+      closeOnOverlay={!importing}
+      closeOnEsc={!importing}
+      maxWidth={560}
+      className="navi-modal-overlay--form"
+      dialogClassName="import-statement-dialog"
+      footer={
+        <div className="flex gap-2 import-statement-actions" style={{ width: '100%', justifyContent: 'flex-end' }}>
           <button type="button" className="btn-outline" disabled={importing} onClick={handleClose}>
             Cancelar
           </button>
@@ -218,8 +123,95 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
             {importing ? 'Importando…' : 'Confirmar importação'}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+      }
+    >
+      <p className="text-small text-muted import-statement-lead">
+        Envie um arquivo OFX ou CSV. Revise as transações detectadas antes de confirmar a importação.
+      </p>
+
+      <label className="btn-outline import-statement-upload">
+        <Upload size={16} />
+        Selecionar arquivo
+        <input
+          type="file"
+          accept=".csv,.ofx,.qfx,text/csv"
+          className="import-statement-upload-input"
+          onChange={onFile}
+        />
+      </label>
+      {fileName ? (
+        <p className="text-small text-muted import-statement-file">
+          Arquivo: {fileName}
+        </p>
+      ) : null}
+
+      {items.length > 0 ? (
+        <div className="form-group mt-2">
+          <BankAccountSelect
+            academyId={academyId}
+            value={bankAccount}
+            onChange={setBankAccount}
+            id="import-statement-bank-account"
+            label="Conta do extrato"
+            allowEmpty
+            emptyLabel="Selecione a conta (recomendado)"
+          />
+        </div>
+      ) : null}
+      {parseError ? (
+        <p className="text-small import-statement-error">
+          {parseError}
+        </p>
+      ) : null}
+
+      {items.length > 0 ? (
+        <>
+          <div
+            className="card import-statement-summary"
+            role="status"
+          >
+            <p className="text-small import-statement-summary-text">
+              <strong>{summary.creditCount}</strong> créditos ({fmtMoney(summary.credit)}) ·{' '}
+              <strong>{summary.debitCount}</strong> débitos ({fmtMoney(summary.debit)})
+              {summary.period_start && summary.period_end ? (
+                <>
+                  {' '}
+                  · Período {fmtDate(summary.period_start)} — {fmtDate(summary.period_end)}
+                </>
+              ) : null}
+            </p>
+          </div>
+
+          <div className="finance-table-wrap finance-table-wrap--modal import-statement-table">
+            <table className="finance-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Direção</th>
+                  <th className="finance-num">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row, idx) => (
+                  <tr key={`${row.date}-${idx}`}>
+                    <td>{fmtDate(row.date)}</td>
+                    <td>{row.description}</td>
+                    <td>{row.direction === 'credit' ? 'Crédito' : 'Débito'}</td>
+                    <td className="finance-num">{fmtMoney(row.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
+
+      {importError ? (
+        <p className="text-small import-statement-import-error">
+          {importError}
+        </p>
+      ) : null}
+    </ModalShell>
   );
 }

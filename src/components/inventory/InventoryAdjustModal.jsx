@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Minus, Plus, ArrowRight } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Minus, Plus, ArrowRight } from 'lucide-react';
+import ModalShell from '../shared/ModalShell.jsx';
 import {
   ADJUSTMENT_SUBTYPES,
   ADJUSTMENT_SUBTYPE_LABELS,
@@ -9,7 +9,6 @@ import {
   subtypeSuggestsRemoval,
 } from '../../lib/inventoryAdjust';
 import { variantInventoryLabel } from '../../lib/stockInventory';
-import { useModalA11y } from '../../hooks/useModalA11y.js';
 import FieldError from '../shared/FieldError.jsx';
 
 export default function InventoryAdjustModal({ open, item, loading, onClose, onSubmit }) {
@@ -20,14 +19,12 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
   const [saldoCorreto, setSaldoCorreto] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-  const suppressOverlayCloseUntil = useRef(0);
 
   const currentQty = Number(item?.current_quantity);
   const saldoAtual = Number.isFinite(currentQty) ? currentQty : 0;
 
   useEffect(() => {
     if (!open) return;
-    suppressOverlayCloseUntil.current = Date.now() + 400;
     const q = Number(item?.current_quantity);
     const cur = Number.isFinite(q) ? q : 0;
     setSubtype('avaria');
@@ -43,17 +40,6 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
     if (loading) return;
     onClose();
   }, [loading, onClose]);
-
-  const handleOverlayPointerUp = useCallback(
-    (e) => {
-      if (e.target !== e.currentTarget) return;
-      if (Date.now() < suppressOverlayCloseUntil.current) return;
-      requestClose();
-    },
-    [requestClose]
-  );
-
-  useModalA11y({ isOpen: open && Boolean(item), onClose: requestClose });
 
   const previewOpts = useMemo(() => {
     if (inputMode === 'target') {
@@ -71,7 +57,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
 
   const preview = useMemo(() => previewBalanceAfterAdjustment(previewOpts), [previewOpts]);
 
-  if (!open || !item || typeof document === 'undefined') return null;
+  if (!item) return null;
 
   const label =
     item.display_label ||
@@ -125,24 +111,34 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
     return `Adicionar ${n} ${unit}`;
   })();
 
-  return createPortal(
-    <div className="navi-modal-overlay" role="presentation" onMouseUp={handleOverlayPointerUp}>
-      <div
-        className="card navi-modal-dialog inventory-adjust-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="inventory-adjust-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center gap-2 inventory-adjust-dialog__header">
-          <h3 id="inventory-adjust-title" className="navi-section-heading" style={{ margin: 0 }}>
-            Ajustar saldo
-          </h3>
-          <button type="button" className="btn-outline btn-sm" onClick={onClose} aria-label="Fechar">
-            <X size={16} />
+  return (
+    <ModalShell
+      open={open && Boolean(item)}
+      title="Ajustar saldo"
+      onClose={requestClose}
+      closeOnOverlay={!loading}
+      closeOnEsc={!loading}
+      overlayCloseSuppressMs={400}
+      maxWidth={420}
+      className="navi-modal-overlay--form"
+      dialogClassName="inventory-adjust-dialog"
+      ariaLabelledBy="inventory-adjust-title"
+      footer={
+        <div className="flex gap-2 justify-end inventory-adjust-form__actions" style={{ width: '100%' }}>
+          <button type="button" className="btn-outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="inventory-adjust-form"
+            className={`btn-action-primary${preview?.change < 0 ? ' inventory-adjust-submit--remove' : ''}`}
+            disabled={loading || !preview || preview.change === 0}
+          >
+            {loading ? 'Registrando…' : submitLabel}
           </button>
         </div>
-
+      }
+    >
         <p className="text-small text-muted inventory-adjust-dialog__product">{label}</p>
         <p className="inventory-adjust-dialog__balance" aria-live="polite">
           Saldo atual: <strong>{saldoAtual}</strong>
@@ -156,7 +152,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
           ) : null}
         </p>
 
-        <form onSubmit={handleSubmit} className="inventory-adjust-form">
+        <form id="inventory-adjust-form" onSubmit={handleSubmit} className="inventory-adjust-form">
           <div className="form-group">
             <label htmlFor="adjust-subtype">O que aconteceu?</label>
             <select
@@ -307,21 +303,7 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
             />
           </div>
 
-          <div className="flex gap-2 justify-end inventory-adjust-form__actions">
-            <button type="button" className="btn-outline" onClick={onClose} disabled={loading}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className={`btn-action-primary${preview?.change < 0 ? ' inventory-adjust-submit--remove' : ''}`}
-              disabled={loading || !preview || preview.change === 0}
-            >
-              {loading ? 'Registrando…' : submitLabel}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>,
-    document.body
+    </ModalShell>
   );
 }

@@ -1,7 +1,6 @@
 import { useLeadStore } from '../store/useLeadStore.js';
-import { useStudentStore } from '../store/useStudentStore.js';
-import { useAccountingStore } from '../store/useAccountingStore.js';
 import { syncAcademyContext } from './academyContext.js';
+import { resetStoresForAcademyChange } from './resetStoresForAcademyChange.js';
 
 let initialized = false;
 
@@ -27,11 +26,6 @@ export function initStores() {
     if (id === prevAcademyId) return;
     prevAcademyId = id;
 
-    useStudentStore.getState().resetForAcademyChange();
-
-    if (id) {
-      const load = useAccountingStore.getState().loadByAcademy;
-      if (typeof load === 'function') load(id);
-    }
+    resetStoresForAcademyChange(id);
   });
 }

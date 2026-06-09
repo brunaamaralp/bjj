@@ -76,8 +76,9 @@ const Inventory = () => {
   );
 
   useEffect(() => {
+    if (!academyId) return;
     void refresh();
-  }, [refresh]);
+  }, [academyId, refresh]);
 
   const handleRegisterEntry = (item) => {
     setEntryItem(item);

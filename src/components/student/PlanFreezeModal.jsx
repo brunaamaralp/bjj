@@ -1,5 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateInput } from '../DateInput';
+import FieldError from '../shared/FieldError.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
 import {
   FREEZE_MAX_DAYS_PER_YEAR,
   computeReturnYmd,
@@ -64,14 +67,12 @@ export default function PlanFreezeModal({
     setEndYmd(computeReturnYmd(startYmd, durationDays));
   }, [open, startYmd, durationDays, indefinite]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose, busy]);
+  const handleClose = useCallback(() => {
+    if (busy) return;
+    onClose();
+  }, [busy, onClose]);
+
+  useModalA11y({ isOpen: open, onClose: handleClose });
 
   const validation = useMemo(
     () =>
@@ -84,8 +85,6 @@ export default function PlanFreezeModal({
       }),
     [startYmd, endYmd, durationDays, student, indefinite]
   );
-
-  if (!open) return null;
 
   const handleDurationChange = (raw) => {
     const n = Number(raw);
@@ -130,38 +129,36 @@ export default function PlanFreezeModal({
     ? new Date(`${startYmd}T12:00:00`).toLocaleDateString('pt-BR')
     : '—';
 
+  const canSubmit = !busy && daysAvailable >= 1 && resolvedReason && (!isOther || otherReason.trim());
+
   return (
-    <div
-      role="presentation"
-      className="navi-modal-overlay"
-      style={{ zIndex: 9999, padding: 16 }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+    <ModalShell
+      open={open}
+      title="Trancar matrícula (pausa temporária)"
+      onClose={handleClose}
+      closeOnOverlay={!busy}
+      closeOnEsc={!busy}
+      showCloseButton={!busy}
+      maxWidth={460}
+      className="navi-modal-overlay--form"
+      dialogClassName="plan-freeze-modal"
+      footer={
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', width: '100%' }}>
+          <button type="button" className="btn-outline" onClick={handleClose} disabled={busy}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="plan-freeze-form"
+            className="btn-primary"
+            disabled={!canSubmit}
+          >
+            {busy ? 'Salvando…' : 'Confirmar trancamento'}
+          </button>
+        </div>
+      }
     >
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="plan-freeze-title"
-        style={{
-          background: 'var(--surface)',
-          borderRadius: 16,
-          padding: 24,
-          width: '100%',
-          maxWidth: 460,
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: 'var(--shadow)',
-          border: '1px solid var(--border)',
-          margin: 16,
-          boxSizing: 'border-box',
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
-      >
-        <h3 id="plan-freeze-title" style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>
-          Trancar matrícula (pausa temporária)
-        </h3>
+      <form id="plan-freeze-form" onSubmit={handleSubmit}>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
           O aluno permanece cadastrado. Cobranças do período são pausadas e o acesso na catraca pode ser bloqueado. Para
           saída definitiva, use <strong>Desligar aluno</strong>.
@@ -306,23 +303,8 @@ export default function PlanFreezeModal({
             : `O plano será estendido em ${durationDays} dias ao final do período.`}
         </p>
 
-        {error ? (
-          <p style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 12px' }}>{error}</p>
-        ) : null}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" className="btn-outline" onClick={onClose} disabled={busy}>
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={busy || daysAvailable < 1 || !resolvedReason || (isOther && !otherReason.trim())}
-          >
-            {busy ? 'Salvando…' : 'Confirmar trancamento'}
-          </button>
-        </div>
+        <FieldError id="plan-freeze-error">{error}</FieldError>
       </form>
-    </div>
+    </ModalShell>
   );
 }

@@ -5,17 +5,26 @@ const nlMocks = vi.hoisted(() => ({
   createSessionJwt: vi.fn(),
   accountGet: vi.fn(),
   createPayment: vi.fn(),
+  updatePayment: vi.fn(),
   createSale: vi.fn(),
   addLeadEvent: vi.fn(),
   updateLead: vi.fn(),
   addLead: vi.fn(),
+  createExpenseTransaction: vi.fn(),
+  createCheckin: vi.fn(),
+  adjustStock: vi.fn(),
+  sendWhatsappTemplateOutbound: vi.fn(),
+  addToast: vi.fn(),
   useLeadState: {
     leads: [],
     academyId: 'acad-1',
     userId: 'user-1',
     teamId: 'team-1',
+    financeConfig: { plans: [] },
+    modules: { whatsapp: false },
     academyList: [{ id: 'acad-1', name: 'Academia Teste', teamId: 'team-1' }]
   },
+  inventoryState: { error: null, sucesso: true, quantity_before: 5, quantity_after: 3 },
   ensureAuth: vi.fn(),
   ensureAcademyAccess: vi.fn()
 }));
@@ -26,10 +35,25 @@ vi.mock('../store/useLeadStore.js', () => ({
     academyId: nlMocks.useLeadState.academyId,
     userId: nlMocks.useLeadState.userId,
     teamId: nlMocks.useLeadState.teamId,
+    financeConfig: nlMocks.useLeadState.financeConfig,
+    modules: nlMocks.useLeadState.modules,
     academyList: nlMocks.useLeadState.academyList,
     updateLead: nlMocks.updateLead,
     addLead: nlMocks.addLead
   })
+}));
+
+vi.mock('../store/useUiStore.js', () => ({
+  useUiStore: (selector) => selector({ addToast: nlMocks.addToast })
+}));
+
+vi.mock('../store/useInventoryStore.js', () => ({
+  useInventoryStore: {
+    getState: () => ({
+      adjustStock: nlMocks.adjustStock,
+      error: null,
+    }),
+  },
 }));
 
 vi.mock('../lib/appwrite', () => ({
@@ -39,7 +63,7 @@ vi.mock('../lib/appwrite', () => ({
 
 vi.mock('../lib/studentPayments', () => ({
   createPayment: nlMocks.createPayment,
-  updatePayment: vi.fn()
+  updatePayment: nlMocks.updatePayment
 }));
 
 vi.mock('../lib/leadEvents', () => ({
@@ -47,12 +71,48 @@ vi.mock('../lib/leadEvents', () => ({
 }));
 
 vi.mock('../lib/financeExpense', () => ({
-  createExpenseTransaction: vi.fn()
+  createExpenseTransaction: nlMocks.createExpenseTransaction
 }));
 
 vi.mock('../lib/attendance.js', () => ({
-  createCheckin: vi.fn(),
+  createCheckin: nlMocks.createCheckin,
   isAttendanceConfigured: vi.fn(() => true)
+}));
+
+vi.mock('../lib/outboundWhatsappTemplate.js', () => ({
+  sendWhatsappTemplateOutbound: nlMocks.sendWhatsappTemplateOutbound
+}));
+
+vi.mock('../lib/useWhatsappTemplates.js', () => ({
+  useWhatsappTemplates: () => ({
+    templates: {},
+    academyName: 'Academia Teste',
+    zapsterInstanceId: '',
+    automationsRaw: '',
+  }),
+}));
+
+vi.mock('../lib/useAutomations.js', () => ({
+  parseAutomationsConfig: () => ({}),
+}));
+
+vi.mock('../lib/automationDispatch.js', () => ({
+  afterExperimentalScheduled: vi.fn(),
+  afterPresenceConfirmed: vi.fn(),
+  afterMissed: vi.fn(),
+  afterMovedToPipelineStage: vi.fn(),
+}));
+
+vi.mock('../lib/automationUx.js', () => ({
+  notifyAutomationFeedback: vi.fn(),
+  safeAutomationDispatch: vi.fn(async (fn) => fn),
+}));
+
+vi.mock('../lib/terminology.js', () => ({
+  useTerms: () => ({
+    nlCommandBarMarkEnrolledResult: 'Matriculado',
+    nlPipelineMoveForbiddenHint: 'Use comando específico',
+  }),
 }));
 
 vi.mock('../lib/financeTxSettle.js', () => ({
@@ -81,6 +141,14 @@ vi.mock('../../lib/server/academyAccess.js', () => ({
   ensureAcademyAccess: nlMocks.ensureAcademyAccess
 }));
 
+vi.mock('../../lib/server/nlActionContextFetch.js', () => ({
+  enrichNlActionContext: vi.fn(async () => ({
+    pendingForNl: [],
+    recentPaymentsNorm: [],
+    pipelineStages: [{ id: 'Novo', label: 'Novo' }],
+  })),
+}));
+
 import { useNlAction } from '../hooks/useNlAction.js';
 import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 
@@ -107,6 +175,17 @@ describe('Assistente de linguagem natural', () => {
     nlMocks.createPayment.mockResolvedValue({ $id: 'pay-1' });
     nlMocks.createSale.mockResolvedValue({ venda_id: 'sale-1' });
     nlMocks.addLeadEvent.mockResolvedValue({ $id: 'evt-1' });
+    nlMocks.updateLead.mockResolvedValue({ id: 'l1' });
+    nlMocks.addLead.mockResolvedValue({ id: 'l2' });
+    nlMocks.createExpenseTransaction.mockResolvedValue({ id: 'exp-1' });
+    nlMocks.createCheckin.mockResolvedValue({ $id: 'chk-1' });
+    nlMocks.updatePayment.mockResolvedValue({ $id: 'pay-upd-1' });
+    nlMocks.adjustStock.mockResolvedValue({
+      sucesso: true,
+      quantity_before: 5,
+      quantity_after: 3,
+    });
+    nlMocks.sendWhatsappTemplateOutbound.mockResolvedValue({ ok: false });
     nlMocks.useLeadState.leads = [
       { id: 's1', name: 'Aluno 1', status: 'CONVERTED', contact_type: 'student', plan: 'Mensal' },
       { id: 'l1', name: 'Lead 1', status: 'NEW', contact_type: 'lead', pipelineStage: 'Novo' }
@@ -346,6 +425,186 @@ describe('Assistente de linguagem natural', () => {
       expect(res.statusCode).toBe(200);
       expect(res.jsonData.action).toBe('add_note');
       expect(res.jsonData.data.student_id).toBe('s1');
+    });
+
+    it('bloqueia mark_enrolled no contexto financeiro', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              content: [
+                {
+                  text: JSON.stringify({
+                    action: 'mark_enrolled',
+                    confidence: 'high',
+                    data: { lead_id: 'l1' },
+                    summary: 'matricular',
+                    missing: [],
+                  }),
+                },
+              ],
+            }),
+        })
+      );
+      const { default: handler } = await import('../../lib/server/nlActionHandler.js');
+      const res = makeMockRes();
+      await handler({
+        method: 'POST',
+        body: {
+          text: 'matricular lead',
+          context: 'financeiro',
+          students: [],
+          leads: [{ id: 'l1', name: 'Lead 1', status: 'NEW', pipelineStage: 'Novo' }],
+        },
+      }, res);
+      expect(res.statusCode).toBe(200);
+      expect(res.jsonData.action).toBeNull();
+    });
+  });
+
+  describe('execute — demais ações', () => {
+    it('adjust_stock chama useInventoryStore.adjustStock', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'adjust_stock',
+        data: { variant_id: 'v1', quantity_change: -2, subtype: 'avaria' },
+      });
+      expect(nlMocks.adjustStock).toHaveBeenCalledWith(
+        expect.objectContaining({ variant_id: 'v1', quantity_change: -2 })
+      );
+    });
+
+    it('inventory_query retorna resposta', async () => {
+      const { result } = renderHook(() => useNlAction());
+      const out = await result.current.execute({
+        action: 'inventory_query',
+        data: { resposta: 'Top vendas: Kimono' },
+      });
+      expect(out.resposta).toContain('Kimono');
+    });
+
+    it('academy_query retorna resposta e rows', async () => {
+      const { result } = renderHook(() => useNlAction());
+      const out = await result.current.execute({
+        action: 'academy_query',
+        data: { resposta: '3 matrículas', rows: [{ id: 's1', name: 'Aluno' }] },
+      });
+      expect(out.rows).toHaveLength(1);
+    });
+
+    it('register_expense chama createExpenseTransaction', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'register_expense',
+        data: { amount: 50, expense_description: 'Frutas' },
+      });
+      expect(nlMocks.createExpenseTransaction).toHaveBeenCalled();
+    });
+
+    it('register_checkin chama createCheckin', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'register_checkin',
+        data: { student_id: 's1' },
+      });
+      expect(nlMocks.createCheckin).toHaveBeenCalled();
+    });
+
+    it('update_payment chama updatePayment', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'update_payment',
+        data: { payment_id: 'p1', updates: { note: 'obs' } },
+      });
+      expect(nlMocks.updatePayment).toHaveBeenCalledWith('p1', expect.objectContaining({ note: 'obs' }));
+    });
+
+    it('update_student chama updateLead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'update_student',
+        data: { student_id: 's1', updates: { plan: 'Premium' } },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalledWith('s1', expect.objectContaining({ plan: 'Premium' }));
+    });
+
+    it('create_lead chama addLead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'create_lead',
+        data: { name: 'Novo Lead', phone: '11999998888' },
+      });
+      expect(nlMocks.addLead).toHaveBeenCalled();
+    });
+
+    it('mark_attended atualiza lead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'mark_attended',
+        data: { lead_id: 'l1' },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalledWith('l1', expect.objectContaining({ status: 'Compareceu' }));
+    });
+
+    it('mark_missed atualiza lead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'mark_missed',
+        data: { lead_id: 'l1', reason: 'Trabalho' },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalledWith('l1', expect.objectContaining({ status: 'Não Compareceu' }));
+    });
+
+    it('mark_enrolled atualiza lead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'mark_enrolled',
+        data: { lead_id: 'l1' },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalledWith('l1', expect.objectContaining({ contact_type: 'student' }));
+    });
+
+    it('mark_lost atualiza lead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'mark_lost',
+        data: { lead_id: 'l1', lost_reason: 'Preço' },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalledWith('l1', expect.objectContaining({ status: 'Não fechou' }));
+    });
+
+    it('schedule_experimental agenda lead', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'schedule_experimental',
+        data: { lead_id: 'l1', scheduled_date: '2026-06-15', scheduled_time: '18:30' },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalledWith(
+        'l1',
+        expect.objectContaining({ scheduledDate: '2026-06-15', scheduledTime: '18:30' })
+      );
+    });
+
+    it('move_pipeline_stage move lead', async () => {
+      nlMocks.useLeadState.leads[1].pipelineStage = 'Aguardando decisão';
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'move_pipeline_stage',
+        data: { lead_id: 'l1', target_stage_id: 'Novo' },
+      });
+      expect(nlMocks.updateLead).toHaveBeenCalled();
+      nlMocks.useLeadState.leads[1].pipelineStage = 'Novo';
+    });
+
+    it('register_whatsapp registra evento', async () => {
+      const { result } = renderHook(() => useNlAction());
+      await result.current.execute({
+        action: 'register_whatsapp',
+        data: { lead_id: 'l1', message_description: 'Follow-up' },
+      });
+      expect(nlMocks.addLeadEvent).toHaveBeenCalled();
     });
   });
 });

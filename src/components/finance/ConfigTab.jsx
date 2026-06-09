@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -235,6 +235,8 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
   const contractTemplatesConfigured =
     contractTemplatesReady && contractTemplatesData?.configured !== false;
   const ensureContractSetup = useEnsureAcademyContractSetup();
+  const { mutateAsync: mutateEnsureContractSetup } = ensureContractSetup;
+  const ensureSetupEffectStartedRef = useRef(false);
   const enrollmentTemplates = useMemo(
     () => templatesForPurpose(contractTemplates, 'enrollment'),
     [contractTemplates]
@@ -349,11 +351,14 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
     [collectionRules, overdueLabel, exceptionLabels]
   );
 
+  const applyEnsureSetupResultRef = useRef(applyEnsureSetupResult);
+  applyEnsureSetupResultRef.current = applyEnsureSetupResult;
+
   const runEnsureContractSetup = useCallback(
     async ({ showToast = true } = {}) => {
       if (!academyId || !isOwner || !contractTemplatesConfigured) return null;
       try {
-        const result = await ensureContractSetup.mutateAsync();
+        const result = await mutateEnsureContractSetup();
         applyEnsureSetupResult(result);
         if (showToast) {
           const parts = [];
@@ -386,22 +391,56 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
       academyId,
       isOwner,
       contractTemplatesConfigured,
-      ensureContractSetup,
+      mutateEnsureContractSetup,
       applyEnsureSetupResult,
       addToast,
     ]
   );
 
   useEffect(() => {
+    ensureSetupEffectStartedRef.current = false;
+  }, [academyId]);
+
+  useEffect(() => {
     if (!isOwner || !academyId || !contractTemplatesConfigured) return;
     const key = `contractSetupEnsured:${academyId}`;
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
-    void runEnsureContractSetup({ showToast: true }).then((result) => {
-      if (result && typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(key, '1');
+    if (ensureSetupEffectStartedRef.current) return;
+    ensureSetupEffectStartedRef.current = true;
+
+    void (async () => {
+      let result = null;
+      try {
+        result = await mutateEnsureContractSetup();
+        applyEnsureSetupResultRef.current(result);
+        const parts = [];
+        if (result.summary.templatesCreated?.length) {
+          parts.push(
+            result.summary.templatesCreated
+              .map((p) => CONTRACT_TEMPLATE_PURPOSE_LABELS[p] || p)
+              .join(' e ')
+          );
+        }
+        if (result.summary.plansLinked > 0) {
+          parts.push(`${result.summary.plansLinked} plano(s) vinculado(s)`);
+        }
+        const detail = parts.length ? parts.join(' · ') : 'Nada pendente — já estava configurado.';
+        addToast({
+          type: result.summary.financeConfigUpdated || result.summary.templatesCreated?.length
+            ? 'success'
+            : 'info',
+          message: `Contratos: ${detail}`,
+        });
+      } catch (e) {
+        console.error(e);
+        addToast({ type: 'error', message: friendlyError(e, 'action') });
+      } finally {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(key, result ? '1' : '0');
+        }
       }
-    });
-  }, [isOwner, academyId, contractTemplatesConfigured, runEnsureContractSetup]);
+    })();
+  }, [isOwner, academyId, contractTemplatesConfigured, mutateEnsureContractSetup, addToast]);
 
   const dirty = useMemo(
     () => ({

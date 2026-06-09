@@ -1411,7 +1411,34 @@ button:focus-visible {
   color: #fff;
 }
 
+.navi-topbar-academy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(220px, 28vw);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--ff-ui);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navi-topbar-academy-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 640px) {
+  .navi-topbar-academy-chip {
+    max-width: 120px;
+    padding: 4px 8px;
+  }
+
   .navi-user-menu-name,
   .navi-user-menu-chevron {
     display: none;
@@ -4562,6 +4589,51 @@ button.funil-color-swatch {
   overflow-y: auto;
   padding: 12px;
   padding-top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
+/* Form modals: top-biased so title is visible without overlay scroll */
+.navi-modal-overlay--form {
+  align-items: flex-start;
+  padding-top: max(24px, calc(12px + env(safe-area-inset-top, 0px)));
+}
+
+.navi-modal-shell.deactivate-student-modal,
+.navi-modal-shell.schedule-modal-dialog {
+  max-height: min(90vh, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.navi-modal-shell.deactivate-student-modal .navi-modal-shell__body,
+.navi-modal-shell.schedule-modal-dialog .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.navi-modal-shell.matricula-modal-shell,
+.navi-modal-shell.plan-freeze-modal {
+  max-height: min(90vh, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.navi-modal-shell.matricula-modal-shell .navi-modal-shell__body,
+.navi-modal-shell.plan-freeze-modal .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.navi-modal-shell.matricula-modal-shell .navi-modal-shell__footer,
+.navi-modal-shell.plan-freeze-modal .navi-modal-shell__footer {
+  flex-shrink: 0;
+  margin-top: 0;
+  width: 100%;
 }
 
 .navi-modal-dialog {

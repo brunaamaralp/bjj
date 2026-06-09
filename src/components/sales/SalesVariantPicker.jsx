@@ -1,15 +1,11 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { variantOptionLabel } from '../../lib/salesCatalog';
-import { useModalA11y } from '../../hooks/useModalA11y.js';
+import ModalShell from '../shared/ModalShell.jsx';
 import ProductThumb from '../products/ProductThumb';
 
 export default function SalesVariantPicker({ parent, onSelect, onClose }) {
-  useModalA11y({ isOpen: Boolean(parent), onClose });
-
-  if (!parent || typeof document === 'undefined') return null;
+  if (!parent) return null;
 
   const variants = (parent.variants || []).slice().sort((a, b) => {
     const la = variantOptionLabel(a);
@@ -17,59 +13,54 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
     return la.localeCompare(lb, 'pt-BR', { numeric: true });
   });
 
-  return createPortal(
-    <div className="navi-modal-overlay sales-variant-picker-overlay" role="presentation">
-      <div
-        className="card navi-modal-dialog sales-variant-picker"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Escolher tamanho"
-      >
-        <div className="sales-variant-picker__head">
-          <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={48} />
-          <div className="sales-variant-picker__head-text">
-            <h4 className="navi-section-heading sales-variant-picker__title">{parent.nome}</h4>
-            <p className="text-small text-muted sales-variant-picker__subtitle">
-              Toque no tamanho vendido
-            </p>
-          </div>
-          <button type="button" className="btn-action-ghost" onClick={onClose} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="sales-variant-picker__chips" role="list">
-          {variants.length === 0 ? (
-            <p className="text-small text-muted">Nenhuma variante cadastrada para este produto.</p>
-          ) : (
-            variants.map((v) => {
-              const label = variantOptionLabel(v);
-              const out = !v.canAdd;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  role="listitem"
-                  className={`sales-variant-picker__chip${out ? ' sales-variant-picker__chip--out' : ''}`}
-                  disabled={out}
-                  onClick={() => !out && onSelect(v)}
-                >
-                  <span className="sales-variant-picker__chip-label">{label}</span>
-                  <span className="sales-variant-picker__chip-meta text-small text-muted">
-                    {out ? 'Esgotado' : `Disp. ${v.current_quantity}`}
-                    {v.sale_price != null ? ` · ${formatBRL(v.sale_price)}` : ''}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-        <div className="sales-variant-picker__footer">
-          <button type="button" className="btn-outline sales-variant-picker__cancel" onClick={onClose}>
-            Cancelar
-          </button>
-        </div>
+  return (
+    <ModalShell
+      open={Boolean(parent)}
+      title={parent.nome}
+      onClose={onClose}
+      closeOnOverlay
+      maxWidth={480}
+      className="sales-variant-picker-overlay"
+      dialogClassName="sales-variant-picker"
+      ariaLabelledBy="sales-variant-picker-title"
+      footer={
+        <button type="button" className="btn-outline sales-variant-picker__cancel" onClick={onClose}>
+          Cancelar
+        </button>
+      }
+    >
+      <div className="sales-variant-picker__head">
+        <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={48} />
+        <p className="text-small text-muted sales-variant-picker__subtitle">
+          Toque no tamanho vendido
+        </p>
       </div>
-    </div>,
-    document.body
+      <div className="sales-variant-picker__chips" role="list">
+        {variants.length === 0 ? (
+          <p className="text-small text-muted">Nenhuma variante cadastrada para este produto.</p>
+        ) : (
+          variants.map((v) => {
+            const label = variantOptionLabel(v);
+            const out = !v.canAdd;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                role="listitem"
+                className={`sales-variant-picker__chip${out ? ' sales-variant-picker__chip--out' : ''}`}
+                disabled={out}
+                onClick={() => !out && onSelect(v)}
+              >
+                <span className="sales-variant-picker__chip-label">{label}</span>
+                <span className="sales-variant-picker__chip-meta text-small text-muted">
+                  {out ? 'Esgotado' : `Disp. ${v.current_quantity}`}
+                  {v.sale_price != null ? ` · ${formatBRL(v.sale_price)}` : ''}
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </ModalShell>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import ModalShell from '../shared/ModalShell.jsx';
 import Papa from 'papaparse';
 import {
   AlertCircle,
@@ -457,9 +457,16 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
 
   const stepLabel = STEPS[Math.min(step, STEPS.length - 1)];
 
-  return createPortal(
-    <div className="product-import-overlay" role="dialog" aria-modal="true" aria-labelledby="finance-tx-import-title">
-      <div className="product-import-modal">
+  return (
+    <ModalShell
+      open={open}
+      onClose={handleClose}
+      showCloseButton={false}
+      closeOnOverlay={false}
+      className="product-import-overlay"
+      dialogClassName="product-import-modal"
+      ariaLabelledBy="finance-tx-import-title"
+    >
         <div className="product-import-progress" aria-hidden="true">
           <div
             className="product-import-progress-bar product-import-progress-bar--determinate"
@@ -732,8 +739,6 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
             </button>
           ) : null}
         </footer>
-      </div>
-    </div>,
-    document.body
+    </ModalShell>
   );
 }

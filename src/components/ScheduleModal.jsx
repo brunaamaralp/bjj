@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DateInput } from './DateInput';
+import ModalShell from './shared/ModalShell.jsx';
 
 /**
  * @param {{
@@ -38,7 +39,7 @@ export default function ScheduleModal({
     }
   }, [open, initialDate, initialTime]);
 
-  const handleOverlayClick = useCallback(() => {
+  const handleClose = useCallback(() => {
     if (!saving) onClose();
   }, [onClose, saving]);
 
@@ -62,155 +63,26 @@ export default function ScheduleModal({
     }
   }, [date, time, note, onConfirm, onClose]);
 
-  if (!open) return null;
-
   const leadName = String(lead?.name || '').trim() || '—';
 
   return (
-    <div
-      role="presentation"
-      onClick={handleOverlayClick}
-      className="navi-modal-overlay"
-      style={{ zIndex: 9999, padding: 16 }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="schedule-modal-title"
-        onClick={(e) => e.stopPropagation()}
-        className="card"
-        style={{
-          borderRadius: 'var(--radius-sm, 12px)',
-          width: 'min(400px, calc(100vw - 32px))',
-          overflow: 'hidden',
-          padding: 0,
-          boxShadow: 'var(--shadow-lg)',
-          animation: 'navi-modal-in 220ms cubic-bezier(0, 0, 0.2, 1) both',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: '16px 20px',
-            borderBottom: '0.5px solid var(--border-light)',
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <h2 id="schedule-modal-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-              {title}
-            </h2>
-            <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{leadName}</p>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            disabled={saving}
-            onClick={() => !saving && onClose()}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontSize: 20,
-              lineHeight: 1,
-              color: 'var(--text-muted)',
-              padding: 4,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div style={{ padding: 20 }}>
-          <div style={{ marginBottom: 16 }}>
-            <DateInput
-              ref={dateRef}
-              label="Data"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            {quickTimes?.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                {quickTimes.map((chip) => {
-                  const active = time === chip;
-                  return (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => setTime(chip)}
-                      style={{
-                        border: 'none',
-                        borderRadius: 8,
-                        padding: '8px 12px',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        background: active ? 'var(--petroleo)' : 'var(--accent-light)',
-                        color: active ? '#fff' : 'var(--cosmos)',
-                      }}
-                    >
-                      {chip}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-            <DateInput
-              ref={timeRef}
-              label="Horário"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              Observação <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opcional)</span>
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Ex: Veio com o pai, prefere treinar à noite..."
-              rows={3}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                height: 64,
-                resize: 'none',
-                fontSize: 14,
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--surface)',
-                color: 'var(--text)',
-                fontFamily: 'inherit',
-              }}
-            />
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            padding: '12px 20px 20px',
-          }}
-        >
+    <ModalShell
+      open={open}
+      title={title}
+      onClose={handleClose}
+      closeOnOverlay={!saving}
+      closeOnEsc={!saving}
+      showCloseButton={!saving}
+      maxWidth={400}
+      className="navi-modal-overlay--form"
+      dialogClassName="schedule-modal-dialog"
+      footer={
+        <div style={{ display: 'flex', gap: 8, width: '100%' }}>
           <button
             type="button"
             className="btn-outline"
             disabled={saving}
-            onClick={() => !saving && onClose()}
+            onClick={handleClose}
             style={{ flex: 1, fontWeight: 700 }}
           >
             Cancelar
@@ -231,7 +103,72 @@ export default function ScheduleModal({
             {saving ? 'Salvando...' : 'Confirmar agendamento'}
           </button>
         </div>
+      }
+    >
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{leadName}</p>
+
+      <div>
+        <DateInput
+          ref={dateRef}
+          label="Data"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+        />
       </div>
-    </div>
+
+      <div>
+        {quickTimes?.length > 0 ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {quickTimes.map((chip) => {
+              const active = time === chip;
+              return (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => setTime(chip)}
+                  style={{
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    background: active ? 'var(--petroleo)' : 'var(--accent-light)',
+                    color: active ? '#fff' : 'var(--cosmos)',
+                  }}
+                >
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        <DateInput
+          ref={timeRef}
+          label="Horário"
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">
+          Observação <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opcional)</span>
+        </label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Ex: Veio com o pai, prefere treinar à noite..."
+          rows={3}
+          className="form-input"
+          style={{ resize: 'none', minHeight: 64 }}
+        />
+      </div>
+    </ModalShell>
   );
 }

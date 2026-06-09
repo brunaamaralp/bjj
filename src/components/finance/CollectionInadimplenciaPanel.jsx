@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FINANCE_INADIMPLENCIA_LIST_LIMIT } from '../../lib/financeListLimits.js';
-import { createPortal } from 'react-dom';
 import { MessageCircle, Handshake, Clock } from 'lucide-react';
+import ModalShell from '../shared/ModalShell.jsx';
 import { useTaskStore } from '../../store/useTaskStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
@@ -170,57 +170,50 @@ export default function CollectionInadimplenciaPanel({
         })}
       </ul>
 
-      {negotiateRow && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              className="navi-modal-overlay mensal-negotiate-overlay"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="mensal-negotiate-title"
+      <ModalShell
+        open={Boolean(negotiateRow)}
+        title={negotiateRow ? `Negociar · ${negotiateRow.student.name}` : ''}
+        onClose={closeNegotiateModal}
+        closeOnOverlay={!savingNegotiate}
+        closeOnEsc={!savingNegotiate}
+        maxWidth={480}
+        className="navi-modal-overlay--form mensal-negotiate-overlay"
+        dialogClassName="mensal-negotiate-modal"
+        ariaLabelledBy="mensal-negotiate-title"
+        footer={
+          <div className="mensal-negotiate-modal__actions" style={{ width: '100%' }}>
+            <button
+              type="button"
+              className="btn-outline"
               onClick={closeNegotiateModal}
+              disabled={savingNegotiate}
             >
-              <div
-                className="card mensal-negotiate-modal"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h2 id="mensal-negotiate-title" className="navi-section-heading mensal-negotiate-modal__title">
-                  Negociar · {negotiateRow.student.name}
-                </h2>
-                <label className="mensal-modal-field-label" htmlFor="mensal-negotiate-note">
-                  Nota da negociação (opcional)
-                </label>
-                <textarea
-                  id="mensal-negotiate-note"
-                  className="mensal-modal-textarea"
-                  rows={4}
-                  value={negotiateNote}
-                  onChange={(e) => setNegotiateNote(e.target.value)}
-                  placeholder="Ex.: combinado parcelamento em 2x até dia 15"
-                  disabled={savingNegotiate}
-                />
-                <div className="mensal-negotiate-modal__actions">
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={closeNegotiateModal}
-                    disabled={savingNegotiate}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => void submitNegotiate()}
-                    disabled={savingNegotiate}
-                  >
-                    {savingNegotiate ? 'Salvando…' : 'Salvar e criar tarefa'}
-                  </button>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void submitNegotiate()}
+              disabled={savingNegotiate}
+            >
+              {savingNegotiate ? 'Salvando…' : 'Salvar e criar tarefa'}
+            </button>
+          </div>
+        }
+      >
+        <label className="mensal-modal-field-label" htmlFor="mensal-negotiate-note">
+          Nota da negociação (opcional)
+        </label>
+        <textarea
+          id="mensal-negotiate-note"
+          className="mensal-modal-textarea"
+          rows={4}
+          value={negotiateNote}
+          onChange={(e) => setNegotiateNote(e.target.value)}
+          placeholder="Ex.: combinado parcelamento em 2x até dia 15"
+          disabled={savingNegotiate}
+        />
+      </ModalShell>
     </section>
   );
 }

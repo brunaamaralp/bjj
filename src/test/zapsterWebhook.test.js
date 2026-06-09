@@ -365,4 +365,132 @@ describe('zapsterWebhook', () => {
     expect(findConversationDoc).toHaveBeenCalledWith('5511999887766', 'acad-1');
     expect(clearConversationUnread).toHaveBeenCalledWith('conv-read-1');
   });
+
+  it('rejeita message.received com ?academyId= sem instance vinculada', async () => {
+    whMocks.listDocuments.mockResolvedValue({ documents: [] });
+    whMocks.getDocument.mockResolvedValue({
+      $id: 'acad-victim',
+      status: 'active',
+      ia_ativa: true,
+    });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      createMockReq({
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-webhook-token': 'wh-secret' },
+        query: { token: 'wh-secret', academyId: 'acad-victim' },
+        body: {
+          event: 'message.received',
+          message: {
+            id: 'msg-spoof-no-inst',
+            type: 'text',
+            sender: { id: '5511999887766', name: 'Atacante' },
+            content: { text: 'injetado' },
+          },
+        },
+      }),
+      res
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.reason).toBe('instance_not_mapped');
+    expect(whMocks.updateMerge).not.toHaveBeenCalled();
+  });
+
+  it('não vincula instance de outra academia ao academyId da query', async () => {
+    whMocks.listDocuments.mockImplementation(async (_db, _col, queries) => {
+      const field = queries?.[0]?.a;
+      if (field === 'zapster_instance_id') {
+        return {
+          documents: [
+            {
+              $id: 'acad-other',
+              zapster_instance_id: 'inst-taken',
+              status: 'active',
+              ia_ativa: true,
+              teamId: 'team-1',
+            },
+          ],
+        };
+      }
+      return { documents: [] };
+    });
+    whMocks.getDocument.mockResolvedValue({
+      $id: 'acad-other',
+      zapster_instance_id: 'inst-taken',
+      status: 'active',
+      ia_ativa: true,
+      teamId: 'team-1',
+    });
+    whMocks.updateMerge.mockResolvedValueOnce({ ok: true, duplicate: false, docId: 'conv-1' });
+    whMocks.agentFetch.mockResolvedValue({ ok: true, status: 200, text: async () => '{}' });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      createMockReq({
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-webhook-token': 'wh-secret' },
+        query: { token: 'wh-secret', academyId: 'acad-1' },
+        body: {
+          event: 'message.received',
+          instance_id: 'inst-taken',
+          message: {
+            id: 'msg-conflict',
+            type: 'text',
+            sender: { id: '5511999887766' },
+            content: { text: 'cross-tenant' },
+          },
+        },
+      }),
+      res
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(whMocks.updateDocument).not.toHaveBeenCalledWith(
+      'db-1',
+      'acad-col',
+      'acad-1',
+      expect.objectContaining({ zapster_instance_id: 'inst-taken' })
+    );
+    expect(whMocks.getOrCreate).toHaveBeenCalledWith(
+      expect.any(String),
+      'acad-other',
+      expect.anything()
+    );
+  });
+
+  it('ignora inbound quando instanceId não bate com academia resolvida', async () => {
+    whMocks.listDocuments.mockResolvedValue({
+      documents: [{ $id: 'acad-1', zapster_instance_id: 'inst-1', status: 'active', ia_ativa: true }],
+    });
+    whMocks.getDocument.mockResolvedValue({
+      $id: 'acad-1',
+      zapster_instance_id: 'inst-other',
+      status: 'active',
+      ia_ativa: true,
+    });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      webhookReq({
+        event: 'message.received',
+        instance_id: 'inst-1',
+        message: {
+          id: 'msg-mismatch',
+          type: 'text',
+          sender: { id: '5511999887766' },
+          content: { text: 'Oi' },
+        },
+      }),
+      res
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.motivo).toBe('instance_mismatch');
+    expect(whMocks.updateMerge).not.toHaveBeenCalled();
+  });
 });

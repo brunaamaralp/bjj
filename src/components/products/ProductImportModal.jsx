@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Papa from 'papaparse';
+import ModalShell from '../shared/ModalShell.jsx';
 import {
   AlertCircle,
   Check,
@@ -473,8 +474,15 @@ export default function ProductImportModal({ open, onClose, onImported }) {
   const hasSelectedFile = Boolean(fileName);
 
   return (
-    <div className="product-import-overlay" role="dialog" aria-modal="true" aria-labelledby="product-import-title">
-      <div className="product-import-modal">
+    <ModalShell
+      open={open}
+      onClose={handleClose}
+      showCloseButton={false}
+      closeOnOverlay={false}
+      className="product-import-overlay"
+      dialogClassName="product-import-modal"
+      ariaLabelledBy="product-import-title"
+    >
         {isProcessing ? (
           <div className="product-import-progress" aria-hidden="true">
             <div className="product-import-progress-bar" />
@@ -813,7 +821,6 @@ export default function ProductImportModal({ open, onClose, onImported }) {
             </>
           ) : null}
         </footer>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

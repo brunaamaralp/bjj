@@ -65,10 +65,10 @@ export function NlCommandBarTrigger({ onClick }) {
 const ASK_SUGGESTIONS = [
   'Quem fez matrícula esse mês?',
   'Quem ainda não pagou?',
-  'Quantos leads novos essa semana?',
-  'Quem faltou na experimental?',
+  'Quem veio hoje?',
+  'Tarefas atrasadas',
   'Quanto entrou esse mês?',
-  'O que mais vendeu esse mês?',
+  'O João está em dia?',
 ];
 
 const ACTION_SUGGESTIONS = [
@@ -96,6 +96,18 @@ const ASK_HELP_SECTIONS = [
   {
     title: 'Caixa e estoque',
     examples: ['Quanto entrou esse mês?', 'O que mais vendeu esse mês?', 'Quais produtos estão parados?'],
+  },
+  {
+    title: 'Consultas pontuais',
+    examples: ['O João está em dia?', 'Quem veio hoje?', 'Tarefas atrasadas'],
+  },
+  {
+    title: 'Pré-requisitos de comandos',
+    examples: [
+      'Liquidar transação: cite a nota ou valor do lançamento pendente',
+      'Editar mensalidade: informe aluno e mês',
+      'Check-in: presença precisa estar configurada na academia',
+    ],
   },
 ];
 
@@ -214,6 +226,53 @@ export default function NlCommandBar({
       if (parsed.action === 'inventory_query' && result?.resposta) {
         successSummary = result.resposta;
       }
+      if (parsed.action === 'academy_query' && result?.resposta) {
+        successSummary = result.resposta.split('\n')[0] || parsed.summary || '';
+      }
+      if (parsed.action === 'register_expense') {
+        successSummary = `Despesa registrada: ${parsed.data?.expense_description || parsed.summary || 'ok'} ✓`;
+      }
+      if (parsed.action === 'register_checkin') {
+        successSummary = `Check-in registrado para ${parsed.data?.student_name || 'aluno'} ✓`;
+      }
+      if (parsed.action === 'update_student') {
+        successSummary = `Dados de ${parsed.data?.student_name || 'aluno'} atualizados ✓`;
+      }
+      if (parsed.action === 'update_payment') {
+        successSummary = `Mensalidade atualizada ✓`;
+      }
+      if (parsed.action === 'mark_attended') {
+        successSummary = `${parsed.data?.lead_name || 'Lead'} marcado como compareceu ✓`;
+      }
+      if (parsed.action === 'mark_missed') {
+        successSummary = `${parsed.data?.lead_name || 'Lead'} marcado como não compareceu ✓`;
+      }
+      if (parsed.action === 'mark_enrolled') {
+        successSummary = `${parsed.data?.lead_name || 'Lead'} matriculado ✓`;
+      }
+      if (parsed.action === 'mark_lost') {
+        successSummary = `${parsed.data?.lead_name || 'Lead'} marcado como perdido ✓`;
+      }
+      if (parsed.action === 'schedule_experimental') {
+        successSummary = `Experimental agendada para ${parsed.data?.lead_name || 'lead'} ✓`;
+      }
+      if (parsed.action === 'move_pipeline_stage') {
+        successSummary = `${parsed.data?.lead_name || 'Lead'} movido de etapa ✓`;
+      }
+      if (parsed.action === 'create_lead') {
+        successSummary = `Lead ${parsed.data?.name || parsed.data?.lead_name || ''} cadastrado ✓`;
+      }
+      if (parsed.action === 'register_whatsapp') {
+        successSummary = result?.whatsapp_sent
+          ? `WhatsApp enviado para ${parsed.data?.lead_name || 'lead'} ✓`
+          : `WhatsApp registrado no histórico de ${parsed.data?.lead_name || 'lead'} ✓`;
+      }
+      if (parsed.action === 'add_note') {
+        successSummary = 'Nota adicionada ✓';
+      }
+      if (parsed.action === 'settle_transaction') {
+        successSummary = 'Transação liquidada ✓';
+      }
       setParsed((prev) => (prev ? { ...prev, summary: successSummary } : prev));
       setState('success');
       setTimeout(() => onOpenChange(false), 2500);
@@ -242,6 +301,7 @@ export default function NlCommandBar({
   const canConfirm =
     parsed &&
     parsed.action != null &&
+    parsed.confidence !== 'low' &&
     !missingBlock &&
     (
       parsed.action === 'register_payment' ||
@@ -901,6 +961,9 @@ export default function NlCommandBar({
                       <li>
                         <strong style={{ color: 'var(--text)' }}>Mensagem:</strong>{' '}
                         {parsed.data?.message_description ? String(parsed.data.message_description) : 'não especificada'}
+                      </li>
+                      <li style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        Envia template de contato se WhatsApp estiver configurado; caso contrário, só registra no histórico.
                       </li>
                     </>
                   ) : (

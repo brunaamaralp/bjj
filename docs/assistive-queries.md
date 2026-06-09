@@ -5,9 +5,11 @@ Assistente em linguagem natural: **Pergunte ou descreva uma ação…** na barra
 Fluxo: [`NlCommandBar.jsx`](../src/components/NlCommandBar.jsx) → `/api/agent?route=nl-action` → [`nlActionHandler.js`](../lib/server/nlActionHandler.js).
 
 - **Consultas** (`academy_query`, `inventory_query`): resposta imediata + lista com links.
-- **Comandos** (ex.: registrar pagamento): pedem **Confirmar** antes de gravar.
+- **Comandos** (ex.: registrar pagamento): pedem **Confirmar** antes de gravar (bloqueado se confiança `low` ou campos faltantes).
 
 Requisito: `ANTHROPIC_API_KEY` configurada no servidor.
+
+Contexto enriquecido no servidor via [`nlActionContextFetch.js`](../lib/server/nlActionContextFetch.js): transações pendentes, mensalidades do mês e etapas do funil são buscadas no Appwrite quando a página não envia listas — `settle_transaction` e `update_payment` funcionam de qualquer tela.
 
 ---
 
@@ -26,6 +28,9 @@ Requisito: `ANTHROPIC_API_KEY` configurada no servidor.
 | Quem perdemos esse mês? | `lost_leads` |
 | Quem está em aguardando decisão? | `pipeline_stage` |
 | Quanto entrou / faturamento esse mês? | `finance_summary` |
+| O João está em dia? | `student_payment_status` |
+| Quem veio hoje? | `checkins_today` |
+| Tarefas atrasadas | `overdue_tasks` |
 
 Período: cite o mês (“em maio”) ou “essa semana” / “esse mês”. Funil usa semana como padrão quando não especificado.
 
@@ -54,15 +59,33 @@ Compareceu / não compareceu, matricular, perder lead, agendar experimental, mov
 
 Comandos de funil não rodam no contexto exclusivo do Caixa; comandos financeiros não rodam no contexto exclusivo do Funil. Consultas read-only funcionam em qualquer tela.
 
+**WhatsApp (`register_whatsapp`)**: envia template de contato se o módulo WhatsApp estiver ativo; caso contrário, registra apenas no histórico do lead.
+
 ---
 
 ## Ainda não suportado
 
-- Status de pagamento de **um** aluno pelo nome (“João está em dia?”)
-- Tarefas atrasadas
-- Histórico de check-in (“quem veio hoje?”)
-- Cancelar / estornar venda
+- Cancelar / estornar venda (faça manualmente em Vendas)
 - Importação de planilha / conciliação bancária
+
+---
+
+## Test plan (staging)
+
+Checklist manual — uma pergunta/comando por tipo:
+
+- [ ] Consulta: quem não pagou
+- [ ] Consulta: O [nome] está em dia?
+- [ ] Consulta: quem veio hoje
+- [ ] Consulta: tarefas atrasadas
+- [ ] Comando: registrar pagamento
+- [ ] Comando: liquidar transação (fora do Caixa)
+- [ ] Comando: editar mensalidade (fora de Mensalidades)
+- [ ] Comando: marcar compareceu (Pipeline ou Dashboard)
+- [ ] Comando: registrar WhatsApp com módulo ativo
+- [ ] Confirmação bloqueada com confiança baixa
+
+Automatizado: `npm test -- --run src/test/nlAction.test.js lib/server/nlAcademyQuery.test.js lib/server/nlActionContextFetch.test.js`
 
 ---
 

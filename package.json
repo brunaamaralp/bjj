@@ -48,6 +48,8 @@
     "build:next": "next build",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
+    "audit:multi-tenant": "node --env-file=.env scripts/audit-multi-tenant-appwrite.mjs",
+    "audit:multi-tenant:write": "node --env-file=.env scripts/audit-multi-tenant-appwrite.mjs --write",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
   },

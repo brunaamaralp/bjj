@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, XCircle, ExternalLink } from 'lucide-react';
+import { XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { formatDateTimeBr, SALE_STATUS_BADGE_MAP } from '../../lib/salesHistory';
 import StatusBadge from '../shared/StatusBadge.jsx';
-import { useModalA11y } from '../../hooks/useModalA11y.js';
+import ModalShell from '../shared/ModalShell.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useUiStore } from '../../store/useUiStore';
 import SalesPaymentBlock from './SalesPaymentBlock';
@@ -38,8 +38,6 @@ export default function SaleDetailModal({
     () => Math.max(0, Math.round((Number(sale?.total) || 0) * 100)),
     [sale?.total]
   );
-
-  useModalA11y({ isOpen: open && Boolean(sale), onClose });
 
   useEffect(() => {
     if (!open || !sale) {
@@ -96,17 +94,14 @@ export default function SaleDetailModal({
   };
 
   return (
-    <div className="sales-modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="sales-modal card sales-modal--wide" role="dialog" aria-modal onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="navi-section-heading sales-modal__title">
-            Venda {sale.id_short}
-          </h3>
-          <button type="button" className="btn-ghost" onClick={onClose} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </div>
-
+    <ModalShell
+      open={open && Boolean(sale)}
+      title={`Venda ${sale.id_short}`}
+      onClose={onClose}
+      maxWidth={560}
+      className="sales-modal-backdrop"
+      dialogClassName="sales-modal card sales-modal--wide"
+    >
         {loading ? (
           <div className="sale-detail-skeleton" role="status" aria-live="polite" aria-label="Carregando detalhes da venda">
             <div className="sale-detail-skeleton-bar sale-detail-skeleton-bar--client" aria-hidden />
@@ -244,7 +239,6 @@ export default function SaleDetailModal({
             ) : null}
           </>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }

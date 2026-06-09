@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import ModalShell from '../shared/ModalShell.jsx';
 import {
   emptyVariantRow,
   duplicateVariantRowsFromProduct,
@@ -435,18 +435,6 @@ export default function ProductFormModal({
       onClose();
     }
   }, [loading, isFormDirty, onClose]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    function onKey(e) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        requestClose();
-      }
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, requestClose]);
 
   const categoryOptions = useMemo(() => {
     const set = new Set(categories || []);
@@ -1070,33 +1058,28 @@ export default function ProductFormModal({
     </div>
   );
 
-  return createPortal(
+  return (
     <>
-      <div className="navi-modal-overlay" role="presentation" onClick={requestClose}>
-        <div
-          className={`card navi-modal-dialog product-form-modal-dialog${wideModal ? ' product-form-modal-dialog--wide' : ''}`}
-          role="dialog"
-          aria-modal="true"
-          onClick={(ev) => ev.stopPropagation()}
-        >
-          <div className="flex justify-between items-center gap-2 product-form-modal-header">
-            <div className="product-form-modal-header__main">
-              <h3 className="navi-section-heading product-form-modal-title">{modalTitle}</h3>
-              {showWizardChrome ? (
-                <ProductFormStepper
-                  step={step}
-                  canGoToStep1
-                  onStepClick={(n) => {
-                    if (n === 1) setStep(1);
-                  }}
-                />
-              ) : null}
-            </div>
-            <button type="button" className="btn-action-ghost" onClick={requestClose} disabled={loading} aria-label="Fechar">
-              <X size={18} />
-            </button>
-          </div>
-
+      <ModalShell
+        open={open}
+        title={modalTitle}
+        onClose={requestClose}
+        closeOnOverlay={!loading}
+        closeOnEsc={!loading}
+        showCloseButton={!loading}
+        maxWidth={wideModal ? 720 : 420}
+        className="navi-modal-overlay--form"
+        dialogClassName={`product-form-modal-dialog${wideModal ? ' product-form-modal-dialog--wide' : ''}`}
+      >
+        {showWizardChrome ? (
+          <ProductFormStepper
+            step={step}
+            canGoToStep1
+            onStepClick={(n) => {
+              if (n === 1) setStep(1);
+            }}
+          />
+        ) : null}
           <form onSubmit={handleSubmit} className="product-form-modal-form">
             {((useVariantWizard || useEditWizard) && step === 1) ? (
               <>
@@ -1249,8 +1232,7 @@ export default function ProductFormModal({
               </>
             ) : null}
           </form>
-        </div>
-      </div>
+      </ModalShell>
 
       <ConfirmDialog
         open={discardOpen}
@@ -1291,7 +1273,6 @@ export default function ProductFormModal({
         onClose={() => setDeactivateConfirm(null)}
         onConfirm={applyDeactivateVariant}
       />
-    </>,
-    document.body
+    </>
   );
 }

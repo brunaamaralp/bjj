@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { createPortal } from 'react-dom';
+import ModalShell from '../shared/ModalShell.jsx';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
@@ -1328,46 +1328,49 @@ export default function MensalidadesPanel({
       </>
       ) : null}
 
-      {showModal && selectedStudent && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              className="navi-modal-overlay mensalidades-modal-overlay"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="mensalidades-modal-title"
-              onClick={() => {
-                if (!savingPayment) setShowModal(false);
-              }}
+      <ModalShell
+        open={showModal && Boolean(selectedStudent)}
+        title={selectedStudent?.name || ''}
+        onClose={() => {
+          if (!savingPayment) setShowModal(false);
+        }}
+        closeOnOverlay={!savingPayment}
+        closeOnEsc={!savingPayment}
+        showCloseButton={!savingPayment}
+        maxWidth={480}
+        className="navi-modal-overlay--form mensalidades-modal-overlay"
+        dialogClassName="mensalidades-modal-scope"
+        ariaLabelledBy="mensalidades-modal-title"
+        footer={
+          <footer className="mensalidades-modal-footer">
+            <button
+              type="button"
+              className={`btn-outline mensalidades-modal-footer__cancel${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
+              onClick={() => setShowModal(false)}
+              disabled={savingPayment}
             >
-              <div
-                className="mensalidades-modal-scope"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="mensalidades-modal-header">
-                  <div className="mensalidades-modal-header__main">
-                    <div
-                      id="mensalidades-modal-title"
-                      className="mensalidades-modal-header__title"
-                    >
-                      {selectedStudent.name}
-                    </div>
-                    <div className="mensalidades-modal-header__month">
-                      <span className="ti ti-calendar mensalidades-modal-header__month-icon" aria-hidden />
-                      {formatMonthTitleCapitalized(currentMonth)}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Fechar"
-                    disabled={savingPayment}
-                    onClick={() => {
-                      if (!savingPayment) setShowModal(false);
-                    }}
-                    className={`mensalidades-modal-close${savingPayment ? ' mensalidades-modal-close--disabled' : ''}`}
-                  >
-                    <span className="ti ti-x mensalidades-modal-close__icon" aria-hidden />
-                  </button>
-                </header>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={savingPayment || !hasBankAccounts}
+              onClick={() => void handleSavePayment()}
+              className={`btn-primary mensalidades-modal-footer__confirm${savingPayment || !hasBankAccounts ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
+            >
+              <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
+              {savingPayment
+                ? 'Salvando…'
+                : payForm.payment_type === PAYMENT_CATEGORY.BUNDLE
+                  ? 'Confirmar plano'
+                  : 'Confirmar pagamento'}
+            </button>
+          </footer>
+        }
+      >
+                <div className="mensalidades-modal-header__month" id="mensalidades-modal-title">
+                  <span className="ti ti-calendar mensalidades-modal-header__month-icon" aria-hidden />
+                  {formatMonthTitleCapitalized(currentMonth)}
+                </div>
 
                 <div className="mensalidades-modal-body">
                   <div>
@@ -1572,37 +1575,7 @@ export default function MensalidadesPanel({
                     />
                   </div>
                 </div>
-
-                <footer
-                  className="mensalidades-modal-footer"
-                >
-                  <button
-                    type="button"
-                    className={`btn-outline mensalidades-modal-footer__cancel${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
-                    onClick={() => setShowModal(false)}
-                    disabled={savingPayment}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={savingPayment || !hasBankAccounts}
-                    onClick={() => void handleSavePayment()}
-                    className={`btn-primary mensalidades-modal-footer__confirm${savingPayment || !hasBankAccounts ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
-                  >
-                    <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
-                    {savingPayment
-                      ? 'Salvando…'
-                      : payForm.payment_type === PAYMENT_CATEGORY.BUNDLE
-                        ? 'Confirmar plano'
-                        : 'Confirmar pagamento'}
-                  </button>
-                </footer>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      </ModalShell>
       <ConfirmDialog
         open={Boolean(futurePaidDateLabel)}
         title="Data de pagamento futura"

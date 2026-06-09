@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -17,9 +17,13 @@ export default function ModalShell({
   closeOnOverlay = true,
   closeOnEsc = true,
   showCloseButton = true,
+  lockScroll = true,
+  overlayCloseSuppressMs = 0,
   ariaLabelledBy,
   ariaDescribedBy,
 }) {
+  const suppressOverlayCloseUntil = useRef(0);
+
   useEffect(() => {
     if (!open || !closeOnEsc) return undefined;
     const onKeyDown = (event) => {
@@ -29,15 +33,36 @@ export default function ModalShell({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, closeOnEsc, onClose]);
 
+  useEffect(() => {
+    if (!open || !lockScroll || typeof document === 'undefined') return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open, lockScroll]);
+
+  useEffect(() => {
+    if (open && overlayCloseSuppressMs > 0) {
+      suppressOverlayCloseUntil.current = Date.now() + overlayCloseSuppressMs;
+    }
+  }, [open, overlayCloseSuppressMs]);
+
   if (!open || typeof document === 'undefined') return null;
 
   const labelledBy = ariaLabelledBy || 'navi-modal-shell-title';
+
+  const handleOverlayClick = () => {
+    if (!closeOnOverlay) return;
+    if (Date.now() < suppressOverlayCloseUntil.current) return;
+    onClose?.();
+  };
 
   return createPortal(
     <div
       className={['navi-modal-overlay', className].filter(Boolean).join(' ')}
       role="presentation"
-      onClick={closeOnOverlay ? onClose : undefined}
+      onClick={handleOverlayClick}
     >
       <div
         className={['card', 'navi-modal-shell', dialogClassName].filter(Boolean).join(' ')}
