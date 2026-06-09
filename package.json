@@ -38,6 +38,7 @@
     "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
     "provision:controlid": "node --env-file=.env scripts/provision-controlid-full.mjs",
     "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",
+    "repair:orphan-students": "node --env-file=.env scripts/repair-orphan-students.mjs",
     "cleanup:lead-student-attrs": "node --env-file=.env scripts/delete-lead-student-attrs.mjs",
     "provision:contract-templates": "node --env-file=.env scripts/provision-contract-templates-schema.mjs",
     "ensure:contract-setup": "node --env-file=.env scripts/ensure-academy-contract-setup.mjs",

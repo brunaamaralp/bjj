@@ -30,6 +30,7 @@ import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import { getBirthMonthDay } from '../lib/birthDate.js';
+import { apiFindStudentsByPhone } from '../lib/studentsApi.js';
 
 function normalizePhone(v) {
     return String(v || '').replace(/\D/g, '');
@@ -51,7 +52,7 @@ const Students = ({ embedded = false }) => {
     const studentPlural = terms.students;
     const studentSingular = terms.student;
     const addToast = useUiStore((s) => s.addToast);
-    const { students, importStudents, fetchStudents, fetchMoreStudents, addStudent } = useStudentStore();
+    const { students, importStudents, fetchStudents, fetchMoreStudents, addStudent, mergeStudent } = useStudentStore();
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
@@ -132,6 +133,35 @@ const Students = ({ embedded = false }) => {
         if (!stale && !hasServerFilters && students.length > 0) return;
         void fetchStudents({ reset: true, ...serverFetchOpts });
     }, [academyId, serverFetchOpts, fetchStudents, lastFetchedAt, hasServerFilters, students.length]);
+
+    /** Recupera alunos órfãos (sem academyId) ao buscar por telefone. */
+    useEffect(() => {
+        const phoneQ = normalizePhone(debouncedSearch);
+        if (!academyId || phoneQ.length < 8 || studentsLoading) return;
+
+        const localHit = students.some((s) => normalizePhone(s.phone).includes(phoneQ));
+        if (localHit) return;
+
+        let cancelled = false;
+        void apiFindStudentsByPhone(debouncedSearch, academyId)
+            .then((matches) => {
+                if (cancelled || !matches?.length) return;
+                for (const m of matches) {
+                    if (m?.student?.id) mergeStudent(m.student.id, m.student);
+                }
+                if (matches.some((m) => m.repaired)) {
+                    addToast({
+                        type: 'success',
+                        message: 'Aluno recuperado e vinculado à academia.',
+                    });
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            cancelled = true;
+        };
+    }, [academyId, debouncedSearch, students, studentsLoading, mergeStudent, addToast]);
 
     const serverSearchActive = debouncedSearch.trim().length >= 2;
 
