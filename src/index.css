@@ -5258,11 +5258,32 @@ button.funil-color-swatch {
 /* —— Formulário produto / variantes —— */
 .product-form-modal-dialog {
   max-width: 560px;
-  max-height: 90vh;
+  max-height: min(90vh, calc(100dvh - 48px));
   padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.navi-modal-shell.product-form-modal-dialog .navi-modal-shell__header {
+  flex-shrink: 0;
+  padding: 20px 20px 0;
+  margin-bottom: 0;
+}
+
+.navi-modal-shell.product-form-modal-dialog .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.navi-modal-shell.product-form-modal-dialog .product-form-stepper {
+  flex-shrink: 0;
+  padding: 8px 20px 0;
+  margin-top: 0;
 }
 
 .product-form-modal-dialog--wide {
@@ -5422,8 +5443,10 @@ button.funil-color-swatch {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 0 20px;
+  touch-action: pan-y;
+  padding: 12px 20px 8px;
 }
 
 .product-form-footer {
@@ -9171,21 +9194,6 @@ input.navi-typable-date.form-input:focus {
 
 .matricula-modal-footer {
   padding: 12px 24px 16px;
-}
-
-.product-form-modal__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0 20px 8px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.product-form-modal-dialog form {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 @media (max-width: 480px) {
