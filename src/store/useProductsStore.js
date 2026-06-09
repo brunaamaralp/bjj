@@ -144,6 +144,7 @@ export const useProductsStore = create((set, get) => ({
             is_for_sale: payload.is_for_sale,
             is_active: payload.is_active,
             image_url: payload.image_url,
+            supplier: payload.supplier,
           }
         : { action: 'update', ...pickProductApiBody(payload, { isEdit: true }) };
 

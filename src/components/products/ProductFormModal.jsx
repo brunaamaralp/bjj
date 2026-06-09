@@ -287,6 +287,14 @@ function isCatalogParentRow(row) {
   return Boolean(row?.id) && !String(row.id).startsWith('legacy-group:');
 }
 
+function resolveLegacyEditItemId(product) {
+  const id = String(product?.id || '').trim();
+  if (!id) return '';
+  if (!id.startsWith('legacy-group:')) return id;
+  const first = (product?.variants || []).find((v) => v?.id && !String(v.id).startsWith('legacy-group:'));
+  return String(first?.id || first?.legacy_stock_item_id || '').trim();
+}
+
 export default function ProductFormModal({
   open,
   onClose,
@@ -814,7 +822,10 @@ export default function ProductFormModal({
       notes: f.notes.trim(),
     };
     if (!isEdit) payload.initial_quantity = Math.max(0, Math.trunc(Number(f.initial_quantity) || 0));
-    if (isEdit && product?.id) payload.item_id = product.id;
+    if (isEdit) {
+      const itemId = resolveLegacyEditItemId(product);
+      if (itemId) payload.item_id = itemId;
+    }
     onSave(payload, { isEdit });
   };
 
