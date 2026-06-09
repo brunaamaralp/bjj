@@ -25,6 +25,7 @@ vi.mock('../store/useLeadStore.js', () => ({
     getState: () => ({
       getLeadById: mocks.getLeadById,
       leads: [],
+      academyId: 'academy-1',
     }),
     setState: (fn) => mocks.setLeadState(fn),
   },
@@ -52,6 +53,21 @@ describe('moveLeadToStudent rollback', () => {
       if (col === 'leads') return Promise.reject(new Error('delete lead failed'));
       return Promise.resolve();
     });
+  });
+
+  it('grava academyId do contexto quando o lead da UI não traz academia', async () => {
+    mocks.deleteDocument.mockResolvedValue(undefined);
+    const { moveLeadToStudent } = await import('../lib/moveLeadToStudent.js');
+
+    await moveLeadToStudent({ leadId: 'lead-1' });
+
+    expect(mocks.createDocument).toHaveBeenCalledWith(
+      'db',
+      'students',
+      'lead-1',
+      expect.objectContaining({ academyId: 'academy-1' }),
+      undefined
+    );
   });
 
   it('remove student criado quando delete do lead falha', async () => {

@@ -1192,10 +1192,12 @@ const LeadProfile = () => {
             },
             addToast: toast.addToast,
         });
+        void useStudentStore.getState().fetchStudents({ reset: true });
         toast.show({
             type: 'success',
             message: terms.leadMarkedConvertedToast + (extraToast ? ` ${extraToast}` : ''),
         });
+        navigate(`/student/${id}`, { replace: true });
         } catch (err) {
             toast.error(err, 'action');
             throw err;

@@ -174,6 +174,7 @@ export async function performEnrollment({
         leadId,
         lead,
         overrides: {
+          academyId,
           plan: planName || lead.plan,
           convertedAt: new Date().toISOString(),
           studentStatus: 'active',

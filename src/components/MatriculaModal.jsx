@@ -3,7 +3,7 @@ import useMatchMobile from '../hooks/useMatchMobile.js';
 import useVisualViewportKeyboardOffset from '../hooks/useVisualViewportKeyboardOffset.js';
 import { useModalA11y } from '../hooks/useModalA11y.js';
 import { useTerms } from '../lib/terminology.js';
-import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
+import { enrollmentIngressYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 import {
   buildPayFormForEnrollment,
   registerEnrollmentPayment,
@@ -85,7 +85,7 @@ export default function MatriculaModal({
       setEnrolledStudent(false);
       return;
     }
-    const defaultDate = defaultEnrollmentDateIso(lead);
+    const defaultDate = enrollmentIngressYmd(lead) || formatLocalYmd(new Date());
     const defaultPlan = String(lead?.plan || '').trim();
     setEnrollmentDate(defaultDate);
     setEnrollmentPlan(defaultPlan);

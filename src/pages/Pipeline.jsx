@@ -1758,6 +1758,7 @@ const Pipeline = () => {
                 },
                 addToast: toast.addToast,
             });
+            void fetchStudents({ reset: true });
             toast.show({
                 type: 'success',
                 message: terms.pipelineEnrollmentSuccessToast + (extraToast ? ` ${extraToast}` : ''),
