@@ -40,4 +40,26 @@ describe('studentPaymentTroco', () => {
       )
     ).toEqual({ troco: 10, forma_troco: 'pix' });
   });
+
+  it('inclui conta do troco quando há contas cadastradas', () => {
+    const financeConfig = {
+      bankAccounts: [{ bankName: 'Nubank', account: '1234-5' }],
+    };
+    expect(
+      trocoFieldsForPaymentPayload(
+        {
+          method: 'dinheiro',
+          cash_received: 'R$ 130,00',
+          formaTroco: 'pix',
+          trocoAccount: 'Nubank · 1234-5',
+        },
+        120,
+        financeConfig
+      )
+    ).toEqual({
+      troco: 10,
+      forma_troco: 'pix',
+      troco_account: 'Nubank · 1234-5',
+    });
+  });
 });

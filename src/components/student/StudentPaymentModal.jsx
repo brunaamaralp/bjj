@@ -67,6 +67,7 @@ export function buildDefaultPayForm(student, financeConfig = null) {
     note: '',
     cash_received: '',
     formaTroco: 'pix',
+    trocoAccount: '',
   };
 }
 
@@ -400,7 +401,7 @@ export default function StudentPaymentModal({
                       ...(isCashPaymentMethod(method) && !p.cash_received
                         ? { cash_received: p.amount || '' }
                         : !isCashPaymentMethod(method)
-                          ? { cash_received: '', formaTroco: 'pix' }
+                          ? { cash_received: '', formaTroco: 'pix', trocoAccount: '' }
                           : {}),
                     }));
                   }}
@@ -418,6 +419,8 @@ export default function StudentPaymentModal({
                   payForm={payForm}
                   setPayForm={setPayForm}
                   amountNum={amountNum}
+                  academyId={academyId}
+                  financeConfig={financeConfig}
                   disabled={saving}
                   inputClassName="form-input"
                   labelClassName="form-label"

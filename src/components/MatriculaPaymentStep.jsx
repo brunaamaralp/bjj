@@ -194,7 +194,7 @@ export default function MatriculaPaymentStep({
               ...(isCashPaymentMethod(method) && !p.cash_received
                 ? { cash_received: p.amount || '' }
                 : !isCashPaymentMethod(method)
-                  ? { cash_received: '', formaTroco: 'pix' }
+                  ? { cash_received: '', formaTroco: 'pix', trocoAccount: '' }
                   : {}),
             }));
           }}
@@ -212,6 +212,8 @@ export default function MatriculaPaymentStep({
           payForm={payForm}
           setPayForm={setPayForm}
           amountNum={centsToNumber(parseMaskToCents(payForm.amount))}
+          academyId={academyId}
+          financeConfig={financeConfig}
           disabled={disabled}
         />
       ) : null}

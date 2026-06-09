@@ -34,6 +34,7 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
     note: '',
     cash_received: '',
     formaTroco: 'pix',
+    trocoAccount: '',
   };
 }
 
@@ -64,7 +65,7 @@ export async function registerEnrollmentPayment({
     throw new Error('Informe um valor maior que zero.');
   }
 
-  const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+  const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
   if (!trocoCheck.ok) {
     throw new Error(trocoCheck.message);
   }
@@ -99,7 +100,7 @@ export async function registerEnrollmentPayment({
     registered_by: userId || '',
     registered_by_name: registeredByName,
     note: String(payForm.note || '').trim(),
-    ...trocoFieldsForPaymentPayload(payForm, amountNum),
+    ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
   };
 
   if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

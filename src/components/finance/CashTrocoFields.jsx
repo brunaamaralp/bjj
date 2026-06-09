@@ -1,11 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr.js';
 import { TROCO_FORM_OPTIONS } from '../../lib/salePayments.js';
 import {
   computeTrocoFromPayForm,
+  defaultTrocoAccount,
   isCashPaymentMethod,
   parseCashReceivedAmount,
 } from '../../lib/studentPaymentTroco.js';
+import { accountWhenPaymentMethodChanges } from '../../lib/paymentMethodBankDefaults.js';
+import { hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
+import BankAccountSelect from './BankAccountSelect.jsx';
 
 /**
  * Campos de troco para pagamento em dinheiro (mensalidade / matrícula).
@@ -14,6 +18,8 @@ export default function CashTrocoFields({
   payForm,
   setPayForm,
   amountNum,
+  academyId = '',
+  financeConfig = null,
   disabled = false,
   className = '',
   inputClassName = 'form-input',
@@ -27,8 +33,16 @@ export default function CashTrocoFields({
   const received = parseCashReceivedAmount(payForm);
   const insuficiente =
     Number.isFinite(amount) && amount > 0 && received != null && received + 0.004 < amount;
+  const showTrocoAccount = troco > 0 && hasConfiguredBankAccounts(financeConfig);
 
   const cashReceivedDisplay = payForm?.cash_received ?? '';
+
+  useEffect(() => {
+    if (troco <= 0 || payForm?.trocoAccount) return;
+    const suggested = defaultTrocoAccount(payForm, financeConfig);
+    if (!suggested) return;
+    setPayForm((p) => ({ ...p, trocoAccount: suggested }));
+  }, [troco, payForm?.trocoAccount, payForm, financeConfig, setPayForm]);
 
   return (
     <div className={`cash-troco-fields${className ? ` ${className}` : ''}`}>
@@ -58,13 +72,21 @@ export default function CashTrocoFields({
           <span style={{ color: 'var(--danger)', marginLeft: 8 }}>Valor insuficiente</span>
         ) : null}
       </p>
-      <div className="form-group" style={{ marginBottom: 0 }}>
+      <div className="form-group">
         <label className={labelClassName}>Devolver troco via</label>
         <select
           className={inputClassName}
           disabled={disabled}
           value={payForm?.formaTroco || 'pix'}
-          onChange={(e) => setPayForm((p) => ({ ...p, formaTroco: e.target.value }))}
+          onChange={(e) => {
+            const formaTroco = e.target.value;
+            setPayForm((p) => ({
+              ...p,
+              formaTroco,
+              trocoAccount:
+                accountWhenPaymentMethodChanges(financeConfig, formaTroco) || p.trocoAccount || p.account || '',
+            }));
+          }}
         >
           {TROCO_FORM_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -73,6 +95,19 @@ export default function CashTrocoFields({
           ))}
         </select>
       </div>
+      {showTrocoAccount ? (
+        <BankAccountSelect
+          id="troco-account"
+          academyId={academyId}
+          financeConfig={financeConfig}
+          value={payForm?.trocoAccount || ''}
+          onChange={(v) => setPayForm((p) => ({ ...p, trocoAccount: v }))}
+          label="Conta do troco"
+          required
+          disabled={disabled}
+          className={inputClassName}
+        />
+      ) : null}
     </div>
   );
 }

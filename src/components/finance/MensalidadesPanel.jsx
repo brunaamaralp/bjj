@@ -618,6 +618,7 @@ export default function MensalidadesPanel({
       saveAsPreferred: !String(student.preferredPaymentMethod || '').trim(),
       cash_received: '',
       formaTroco: 'pix',
+      trocoAccount: '',
     });
     setShowModal(true);
   };
@@ -668,7 +669,7 @@ export default function MensalidadesPanel({
       toast.show({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
       return;
     }
-    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
     if (!trocoCheck.ok) {
       toast.show({ type: 'error', message: trocoCheck.message });
       return;
@@ -739,7 +740,7 @@ export default function MensalidadesPanel({
         plan_name: payForm.plan_name || student.plan || '',
         note: payForm.note || '',
         payment_category: isBundle ? PAYMENT_CATEGORY.BUNDLE : PAYMENT_CATEGORY.PLAN,
-        ...trocoFieldsForPaymentPayload(payForm, amountNum),
+        ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
       };
       if (isBundle) {
         paymentPayload.bundle_months = bundleMonths;
@@ -1536,7 +1537,7 @@ export default function MensalidadesPanel({
                                   ...(isCashPaymentMethod(o.value) && !f.cash_received
                                     ? { cash_received: f.amount || '' }
                                     : !isCashPaymentMethod(o.value)
-                                      ? { cash_received: '', formaTroco: 'pix' }
+                                      ? { cash_received: '', formaTroco: 'pix', trocoAccount: '' }
                                       : {}),
                                 }))
                               }
@@ -1555,6 +1556,8 @@ export default function MensalidadesPanel({
                       payForm={payForm}
                       setPayForm={setPayForm}
                       amountNum={parseCurrencyBRL(payForm.amount)}
+                      academyId={academyId}
+                      financeConfig={financeConfig}
                       disabled={savingPayment}
                       className="mensal-modal-troco"
                       inputClassName="mensal-modal-in"

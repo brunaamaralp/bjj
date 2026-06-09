@@ -1311,7 +1311,7 @@ export default function StudentProfile() {
             return;
         }
 
-        const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+        const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
         if (!trocoCheck.ok) {
             toast.show({ type: 'error', message: trocoCheck.message });
             return;
@@ -1355,7 +1355,7 @@ export default function StudentProfile() {
             registered_by: userId || '',
             registered_by_name: sessionUserName,
             note: desc,
-            ...trocoFieldsForPaymentPayload(payForm, amountNum),
+            ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
         };
 
         if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

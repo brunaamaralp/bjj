@@ -183,7 +183,7 @@ export default function MatriculaModal({
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
       return 'Informe um valor maior que zero.';
     }
-    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, resolvedFinanceConfig);
     if (!trocoCheck.ok) return trocoCheck.message;
 
     if (payForm.status === 'paid') {

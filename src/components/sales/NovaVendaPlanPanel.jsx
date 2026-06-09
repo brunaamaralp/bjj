@@ -122,7 +122,7 @@ export default function NovaVendaPlanPanel({
       addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
       return;
     }
-    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum);
+    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
     if (!trocoCheck.ok) {
       addToast({ type: 'error', message: trocoCheck.message });
       return;
@@ -158,7 +158,7 @@ export default function NovaVendaPlanPanel({
       registered_by: userId || '',
       registered_by_name: 'Usuário',
       note: String(payForm.note || '').trim(),
-      ...trocoFieldsForPaymentPayload(payForm, amountNum),
+      ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
     };
 
     if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

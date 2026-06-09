@@ -1,4 +1,9 @@
 import { parseMaskToCents, centsToNumber } from './moneyBr.js';
+import {
+  hasConfiguredBankAccounts,
+  validateBankAccountForPayment,
+} from './bankAccounts.js';
+import { accountWhenPaymentMethodChanges } from './paymentMethodBankDefaults.js';
 
 export function isCashPaymentMethod(method) {
   return String(method || '').trim().toLowerCase() === 'dinheiro';
@@ -22,7 +27,14 @@ export function computeTrocoFromPayForm(payForm, amountNum) {
   return Math.max(0, Math.round((received - amount) * 100) / 100);
 }
 
-export function validateStudentPaymentTroco(payForm, amountNum) {
+export function defaultTrocoAccount(payForm, financeConfig) {
+  const formaTroco = String(payForm?.formaTroco || payForm?.forma_troco || 'pix').trim() || 'pix';
+  const fromMethod = accountWhenPaymentMethodChanges(financeConfig, formaTroco);
+  if (fromMethod) return fromMethod;
+  return String(payForm?.trocoAccount || payForm?.troco_account || payForm?.account || '').trim();
+}
+
+export function validateStudentPaymentTroco(payForm, amountNum, financeConfig = null) {
   if (!isCashPaymentMethod(payForm?.method)) return { ok: true };
   const amount = Number(amountNum);
   if (!Number.isFinite(amount) || amount <= 0) return { ok: true };
@@ -31,12 +43,37 @@ export function validateStudentPaymentTroco(payForm, amountNum) {
   if (received + 0.004 < amount) {
     return { ok: false, message: 'Valor recebido em dinheiro é menor que o valor da mensalidade.' };
   }
+
+  const troco = computeTrocoFromPayForm(payForm, amount);
+  if (troco > 0 && hasConfiguredBankAccounts(financeConfig)) {
+    const trocoAccount = String(
+      payForm?.trocoAccount || payForm?.troco_account || defaultTrocoAccount(payForm, financeConfig)
+    ).trim();
+    const accountCheck = validateBankAccountForPayment(trocoAccount, financeConfig);
+    if (!accountCheck.ok) {
+      return {
+        ok: false,
+        message: accountCheck.message || 'Selecione a conta de onde saiu o troco.',
+      };
+    }
+  }
+
   return { ok: true };
 }
 
-export function trocoFieldsForPaymentPayload(payForm, amountNum) {
+export function trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig = null) {
   const troco = computeTrocoFromPayForm(payForm, amountNum);
   if (troco <= 0) return {};
   const formaTroco = String(payForm?.formaTroco || payForm?.forma_troco || 'pix').trim() || 'pix';
-  return { troco, forma_troco: formaTroco };
+  const trocoAccountRaw = String(
+    payForm?.trocoAccount || payForm?.troco_account || defaultTrocoAccount(payForm, financeConfig)
+  ).trim();
+  const accountCheck = validateBankAccountForPayment(trocoAccountRaw, financeConfig);
+  const trocoAccount = accountCheck.ok ? accountCheck.account || trocoAccountRaw : trocoAccountRaw;
+
+  return {
+    troco,
+    forma_troco: formaTroco,
+    ...(trocoAccount ? { troco_account: trocoAccount } : {}),
+  };
 }

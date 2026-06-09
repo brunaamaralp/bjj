@@ -46,6 +46,7 @@ const OPTIONAL_ATTRS = [
   'financial_tx_sync_pending',
   'troco',
   'forma_troco',
+  'troco_account',
 ];
 
 const MIRROR_SYNC_WARNING =
@@ -107,6 +108,8 @@ function buildPaymentPayload(data) {
   if (troco > 0) {
     payload.troco = troco;
     payload.forma_troco = String(data.forma_troco || 'pix').trim() || 'pix';
+    const trocoAccount = String(data.troco_account || '').trim();
+    if (trocoAccount) payload.troco_account = trocoAccount.slice(0, 128);
   }
 
   return payload;
