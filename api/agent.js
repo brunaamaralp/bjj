@@ -19,6 +19,7 @@ import academyCreateHandler from '../lib/server/academiesCreate.js';
 import teamMembersHandler from '../lib/server/teamMembers.js';
 import academyWhatsappTemplatesHandler from '../lib/server/academyWhatsappTemplatesHandler.js';
 import academySettingsHandler from '../lib/server/academySettingsHandler.js';
+import followupCopilotHandler from '../lib/server/followupCopilotHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -73,6 +74,9 @@ export default async function handler(req, res) {
     }
     if (route === 'academy-settings' || url.includes('/academy/settings')) {
       return academySettingsHandler(req, res);
+    }
+    if (route === 'followup-copilot' || route === 'followup_summary' || route === 'followup_draft') {
+      return followupCopilotHandler(req, res);
     }
     return res.status(404).json({ error: 'invalid_agent_action' });
   } catch (error) {

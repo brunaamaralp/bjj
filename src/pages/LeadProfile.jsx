@@ -77,6 +77,23 @@ import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { primaryInboxPhone as normalizeLeadPhoneForInbox } from '../lib/normalizeInboxPhone.js';
 import '../styles/lead-profile.css';
+import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
+import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
+import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
+import {
+    buildOutcomeLeadPatch,
+    buildSnoozeUntilYmd,
+    FOLLOWUP_OUTCOMES,
+    OUTCOMES_WITH_SNOOZE,
+} from '../lib/followupOutcomes.js';
+import {
+    patchFollowupContactCache,
+    patchFollowupDoneCache,
+    patchFollowupSnoozeCache,
+} from '../lib/followupEventsCache.js';
+import LeadFollowupBand from '../components/followup/LeadFollowupBand.jsx';
+import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
+import { openWhatsappDraft } from '../lib/followupCopilotApi.js';
 
 function hasLeadDisplayValue(val) {
     const s = String(val ?? '').trim();
@@ -127,6 +144,8 @@ const TIMELINE_EVENT_LABELS = {
     lost: 'Perda',
     venda: 'Venda registrada',
     followup_done: 'Follow-up concluído',
+    followup_contact: 'Contato de retorno',
+    followup_snooze: 'Retorno adiado',
     inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
     whatsapp_template_sent: 'WhatsApp automático',
@@ -277,6 +296,27 @@ const LeadProfile = () => {
         const cur = (academyList || []).find((a) => a.id === academyId);
         return String(cur?.name || '').trim();
     }, [academyList, academyId]);
+
+    const followupPlaybook = useMemo(() => {
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        return readFollowupPlaybook(acad.settings);
+    }, [academyList, academyId]);
+    const {
+        followupDoneByLead,
+        followupContactByLead,
+        followupSnoozeUntilByLead,
+    } = useFollowupEventsByLead(academyId);
+    const followupState = useMemo(() => {
+        if (!lead || !isFollowUpLead(lead)) return null;
+        return computeFollowupState(lead, {
+            playbook: followupPlaybook,
+            followupDoneByLead,
+            followupContactByLead,
+            followupSnoozeUntilByLead,
+        });
+    }, [lead, followupPlaybook, followupDoneByLead, followupContactByLead, followupSnoozeUntilByLead]);
+    const [followupOutcomeOpen, setFollowupOutcomeOpen] = useState(false);
+    const [savingFollowupOutcome, setSavingFollowupOutcome] = useState(false);
 
     const [studentPayments, setStudentPayments] = useState([]);
     const [leadTasks, setLeadTasks] = useState([]);
@@ -1256,7 +1296,7 @@ const LeadProfile = () => {
         });
     };
 
-    const sendTemplateKey = async (key) => {
+    const sendTemplateKey = async (key, { recordFollowupContact = false } = {}) => {
         if (sendingWhatsapp) return;
         setSendingWhatsapp(true);
         setTemplateMenuOpen(false);
@@ -1281,12 +1321,109 @@ const LeadProfile = () => {
                     createdBy: userId || 'user',
                     permissionContext: permCtx
                 });
+                if (recordFollowupContact || (isFollowUpLead(lead) && followupState && !followupState.doneForCurrentClass)) {
+                    const nowIso = new Date().toISOString();
+                    await addLeadEvent({
+                        academyId,
+                        leadId: id,
+                        type: 'followup_contact',
+                        text: 'Contato de retorno via WhatsApp',
+                        createdBy: userId || 'user',
+                        permissionContext: permCtx,
+                        payloadJson: {
+                            source: 'lead_profile',
+                            templateKey: key,
+                            scheduledDate: lead.scheduledDate || '',
+                        },
+                    });
+                    patchFollowupContactCache(academyId, id, nowIso);
+                }
                 await updateLead(id, { lastWhatsappActivityAt: new Date().toISOString() });
             } catch (err) {
                 console.error('Erro ao registrar evento WhatsApp', err);
             }
         } finally {
             setSendingWhatsapp(false);
+        }
+    };
+
+    const handleFollowupWhatsApp = () => {
+        const key =
+            followupState?.nextStep?.template_key ||
+            (lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'dashboard_contact');
+        void sendTemplateKey(key, { recordFollowupContact: true });
+    };
+
+    const confirmFollowupOutcome = async ({ outcome, objectionType, note, snooze, snoozeDays }) => {
+        if (!lead || savingFollowupOutcome) return;
+        setSavingFollowupOutcome(true);
+        try {
+            const nowIso = new Date().toISOString();
+            const scheduledDate = lead.scheduledDate || '';
+            const snoozeOnly = snooze && OUTCOMES_WITH_SNOOZE.has(outcome);
+            const untilYmd = snooze ? buildSnoozeUntilYmd(snoozeDays) : '';
+
+            if (snooze) {
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
+                    type: 'followup_snooze',
+                    text: 'Retorno adiado',
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: { scheduledDate, untilYmd, reason: outcome },
+                });
+                patchFollowupSnoozeCache(academyId, id, untilYmd);
+            }
+
+            if (!snoozeOnly) {
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
+                    type: 'followup_done',
+                    text: 'Follow-up concluído',
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: {
+                        source: 'lead_profile',
+                        status: lead.status || '',
+                        scheduledDate,
+                        outcome,
+                        objectionType: objectionType || undefined,
+                        note: note || undefined,
+                        snoozeUntil: untilYmd || undefined,
+                    },
+                });
+                patchFollowupDoneCache(academyId, id, nowIso);
+            }
+
+            const patch = buildOutcomeLeadPatch(outcome, { objectionType });
+            if (patch) await updateLead(id, patch);
+
+            if (outcome === FOLLOWUP_OUTCOMES.LOST) {
+                await addLeadEvent({
+                    academyId,
+                    leadId: id,
+                    type: 'lost',
+                    from: lead?.status || '',
+                    to: LEAD_STATUS.LOST,
+                    text: note || 'Sem interesse (retorno)',
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                });
+            }
+
+            setFollowupOutcomeOpen(false);
+            toast.success(snoozeOnly ? 'Retorno adiado.' : 'Retorno registrado.');
+            if (outcome === FOLLOWUP_OUTCOMES.ENROLLED) {
+                setMatriculaModalOpen(true);
+            } else if (outcome === FOLLOWUP_OUTCOMES.RESCHEDULE) {
+                setScheduleModalOpen(true);
+            }
+        } catch (e) {
+            toast.error(e, 'save');
+        } finally {
+            setSavingFollowupOutcome(false);
         }
     };
 
@@ -1658,6 +1795,23 @@ const LeadProfile = () => {
                     )}
                 </div>
             </div>
+
+            {followupState ? (
+                <LeadFollowupBand
+                    followupState={followupState}
+                    leadId={id}
+                    academyId={academyId}
+                    onWhatsApp={handleFollowupWhatsApp}
+                    onComplete={() => setFollowupOutcomeOpen(true)}
+                    onDraftReady={(text) => {
+                        if (!openWhatsappDraft(lead?.phone, text)) {
+                            toast.warning('Não foi possível abrir o WhatsApp.');
+                        }
+                    }}
+                    completing={savingFollowupOutcome}
+                    sendingWhatsapp={sendingWhatsapp}
+                />
+            ) : null}
 
             <div className="lead-profile-left__scroll">
                 <div className="lead-profile-dados left-col-content">
@@ -2451,6 +2605,8 @@ const LeadProfile = () => {
                                 else if (type === 'message' || type === 'whatsapp_template_sent') dotColor = 'var(--color-accent)';
                                 else if (type === 'schedule') dotColor = 'var(--color-primary)';
                                 else if (type === 'followup_done') dotColor = 'var(--color-accent-dark)';
+                                else if (type === 'followup_contact') dotColor = 'var(--color-accent)';
+                                else if (type === 'followup_snooze') dotColor = 'var(--color-warning)';
                                 else if (type === 'task_created') dotColor = 'var(--color-primary)';
                                 else if (type === 'task_done') dotColor = 'var(--color-accent-dark)';
                                 else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) {
@@ -2462,6 +2618,10 @@ const LeadProfile = () => {
                                     label = `Agendado para ${n.date} ${n.time || ''}`.trim();
                                 } else if (type === 'followup_done') {
                                     label = n.text || 'Follow-up marcado como concluído';
+                                } else if (type === 'followup_contact') {
+                                    label = n.text || 'Contato de retorno registrado';
+                                } else if (type === 'followup_snooze') {
+                                    label = n.text || 'Retorno adiado';
                                 } else if (type === 'task_done') {
                                     label = n.text || 'Tarefa marcada como concluída';
                                 } else if (type === 'stage_change' || type === 'pipeline_change') {
@@ -2682,6 +2842,16 @@ const LeadProfile = () => {
                 quickTimes={profileQuickTimes}
                 initialDate={lead?.scheduledDate || ''}
                 initialTime={lead?.scheduledTime || ''}
+            />
+
+            <FollowupOutcomeDialog
+                open={followupOutcomeOpen}
+                leadName={lead?.name}
+                saving={savingFollowupOutcome}
+                onClose={() => {
+                    if (!savingFollowupOutcome) setFollowupOutcomeOpen(false);
+                }}
+                onConfirm={(payload) => void confirmFollowupOutcome(payload)}
             />
 </div>
     );

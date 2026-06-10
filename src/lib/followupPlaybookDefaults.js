@@ -100,6 +100,39 @@ export function readFollowupPlaybook(settingsRaw) {
  * @param {unknown} settingsRaw
  * @param {FollowupPlaybook} playbook
  */
+/**
+ * @param {FollowupPlaybook} playbook
+ * @returns {string[]} validation errors (empty = ok)
+ */
+export function validateFollowupPlaybook(playbook) {
+  const errors = [];
+  for (const track of ['attended', 'missed']) {
+    const steps = Array.isArray(playbook?.[track]) ? playbook[track] : [];
+    const offsets = steps.map((s) => Number(s?.offset_days));
+    const seen = new Set();
+    for (const o of offsets) {
+      if (!Number.isFinite(o) || o < 0) {
+        errors.push(`Trilha "${track}": offset_days inválido`);
+        break;
+      }
+      if (seen.has(o)) {
+        errors.push(`Trilha "${track}": cada D+N deve ser único`);
+        break;
+      }
+      seen.add(o);
+    }
+    for (const step of steps) {
+      if (step.action_type === 'whatsapp_template') {
+        const key = String(step.template_key || '').trim();
+        if (!TEMPLATE_KEY_SET.has(key)) {
+          errors.push(`Template inválido: ${key || '(vazio)'}`);
+        }
+      }
+    }
+  }
+  return errors;
+}
+
 export function mergeFollowupPlaybookIntoSettings(settingsRaw, playbook) {
   const base = parseAcademySettings(settingsRaw);
   if (!playbook) {

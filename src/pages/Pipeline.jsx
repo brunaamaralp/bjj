@@ -1086,6 +1086,7 @@ const Pipeline = () => {
     const [originFilter, setOriginFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).originFilter);
     const [searchParams, setSearchParams] = useSearchParams();
     const followupKanbanFilter = searchParams.get('followup') === 'kanban';
+    const followupCoolingFilter = searchParams.get('followup') === 'cooling';
     const slaCriticalFilter = searchParams.get('sla') === 'critical';
     const triageKanbanFilter = searchParams.get('triage') === 'pending';
     const [kanbanSearch, setKanbanSearch] = useState(() => String(initialSaved?.searchTerm ?? ''));
@@ -1942,7 +1943,7 @@ const Pipeline = () => {
         applyBoardSearchFilter,
     ]);
 
-    const leadsForBoard = useMemo(() => {
+    const leadsForBoardPreCooling = useMemo(() => {
         let list = leadsForBoardCore;
 
         if (followupKanbanFilter) {
@@ -1957,6 +1958,31 @@ const Pipeline = () => {
 
         return list;
     }, [leadsForBoardCore, followupKanbanFilter, triageKanbanFilter]);
+
+    const followupTempByLead = useMemo(() => {
+        const map = {};
+        for (const lead of leadsForBoardPreCooling) {
+            const kind = getFollowupKind(lead);
+            if (!kind) continue;
+            const daysAgo = getFollowupDaysAgo(lead);
+            const temp = computeFallbackTemperature(lead, kind, daysAgo, false);
+            if (temp !== 'on_track') map[lead.id] = temp;
+        }
+        return map;
+    }, [leadsForBoardPreCooling]);
+
+    const followupCoolingCount = useMemo(
+        () => Object.values(followupTempByLead).filter((t) => t === 'cooling' || t === 'critical').length,
+        [followupTempByLead]
+    );
+
+    const leadsForBoard = useMemo(() => {
+        if (!followupCoolingFilter) return leadsForBoardPreCooling;
+        return leadsForBoardPreCooling.filter((l) => {
+            const t = followupTempByLead[l.id];
+            return t === 'cooling' || t === 'critical';
+        });
+    }, [leadsForBoardPreCooling, followupCoolingFilter, followupTempByLead]);
 
     /** Alunos matriculados (coleção students) + legado ainda em leads com status Matriculado. */
     const enrolledForBoard = useMemo(() => {
@@ -1996,18 +2022,6 @@ const Pipeline = () => {
         applyBoardSearchFilter,
     ]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
-
-    const followupTempByLead = useMemo(() => {
-        const map = {};
-        for (const lead of leadsForBoard) {
-            const kind = getFollowupKind(lead);
-            if (!kind) continue;
-            const daysAgo = getFollowupDaysAgo(lead);
-            const temp = computeFallbackTemperature(lead, kind, daysAgo, false);
-            if (temp !== 'on_track') map[lead.id] = temp;
-        }
-        return map;
-    }, [leadsForBoard]);
 
     const leadsForBoardDisplay = useMemo(() => {
         if (!slaCriticalFilter) return leadsForBoard;
@@ -2169,6 +2183,15 @@ const Pipeline = () => {
         }, { replace: true });
     }, [setSearchParams]);
 
+    const toggleFollowupCoolingFilter = useCallback(() => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (next.get('followup') === 'cooling') next.delete('followup');
+            else next.set('followup', 'cooling');
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
+
     const renderPeriodFilterChips = () => (
         <>
             <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
@@ -2193,6 +2216,16 @@ const Pipeline = () => {
                     title="Mostrar apenas contatos aguardando triagem WhatsApp"
                 >
                     Triagem WhatsApp ({triagePendingCount})
+                </button>
+            ) : null}
+            {followupCoolingCount > 0 ? (
+                <button
+                    type="button"
+                    className={`filter-chip filter-chip--alert${followupCoolingFilter ? ' is-active' : ''}`}
+                    onClick={toggleFollowupCoolingFilter}
+                    title="Mostrar leads com retorno esfriando ou crítico"
+                >
+                    Esfriando ({followupCoolingCount})
                 </button>
             ) : null}
         </>

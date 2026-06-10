@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { validateFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
 import {
   computeFollowupState,
@@ -80,5 +81,20 @@ describe('getFollowupDaysAgo', () => {
   it('calcula dias desde a aula', () => {
     const days = getFollowupDaysAgo(baseLead, new Date(2026, 5, 10));
     expect(days).toBe(2);
+  });
+});
+
+describe('validateFollowupPlaybook', () => {
+  it('rejeita offset_days duplicado', () => {
+    const errors = validateFollowupPlaybook({
+      version: 1,
+      enabled: true,
+      attended: [
+        { offset_days: 0, action_type: 'whatsapp_template', template_key: 'post_class' },
+        { offset_days: 0, action_type: 'whatsapp_template', template_key: 'missed' },
+      ],
+      missed: [],
+    });
+    expect(errors.some((e) => /único/i.test(e))).toBe(true);
   });
 });

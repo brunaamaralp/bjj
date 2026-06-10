@@ -90,7 +90,9 @@ import {
 import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
+import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
 import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
+import { openWhatsappDraft } from '../lib/followupCopilotApi.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 
 function groupTodayByPeriod(leads) {
@@ -1200,6 +1202,17 @@ const Dashboard = () => {
                             ) : null}
                         </p>
                     ) : null}
+                    <FollowupCopilotButtons
+                        academyId={academyId}
+                        leadId={leadId}
+                        templateKey={lead?.nextStep?.template_key}
+                        nextAction={lead.nextActionLabel}
+                        compact
+                        onDraftReady={(text) => {
+                            if (openWhatsappDraft(lead.phone, text)) return;
+                            addToast({ type: 'warning', message: 'Não foi possível abrir o WhatsApp.' });
+                        }}
+                    />
                 </div>
                 <div className="fu-btns">
                     <button
