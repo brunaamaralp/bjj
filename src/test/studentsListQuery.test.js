@@ -51,5 +51,15 @@ describe('buildStudentsListDocumentQueries', () => {
     expect(serialized.some((q) => q.includes('source_origin'))).toBe(true);
     expect(STUDENT_LIST_SELECT).toContain('name');
     expect(STUDENT_LIST_SELECT).toContain('phone');
+    expect(STUDENT_LIST_SELECT).not.toContain('origin');
+    expect(STUDENT_LIST_SELECT).not.toContain('class_name');
+  });
+
+  it('permite omitir select para fallback do handler', () => {
+    const opts = parseStudentsListQueryParams({});
+    const withSelect = buildStudentsListDocumentQueries('acad1', opts, 'turma');
+    const withoutSelect = buildStudentsListDocumentQueries('acad1', opts, 'turma', { withSelect: false });
+    expect(withSelect.some((q) => String(q).includes('select'))).toBe(true);
+    expect(withoutSelect.some((q) => String(q).includes('select'))).toBe(false);
   });
 });
