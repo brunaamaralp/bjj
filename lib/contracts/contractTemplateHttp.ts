@@ -11,6 +11,7 @@ import {
   type ContractTemplatePurpose,
 } from './contractTemplateService.js';
 import { ensureAcademyContractSetup } from './ensureAcademyContractSetup.js';
+import { friendlyError } from '../../src/lib/errorMessages.js';
 
 function parseBoolField(raw: unknown): boolean {
   if (raw == null) return false;
@@ -25,14 +26,8 @@ function requireOwner(auth: ContractAuthContext): Response | null {
   return null;
 }
 
-function apiErrorMessage(err: unknown): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (err && typeof err === 'object') {
-    const row = err as { message?: unknown; type?: unknown };
-    if (typeof row.message === 'string' && row.message.trim()) return row.message;
-    if (typeof row.type === 'string' && row.type.trim()) return row.type;
-  }
-  return String(err);
+function apiErrorMessage(err: unknown, context: 'load' | 'save' | 'delete' | 'action' = 'action'): string {
+  return friendlyError(err, context);
 }
 
 export async function handleGetContractTemplates(
@@ -66,7 +61,7 @@ export async function handleGetContractTemplates(
     return jsonResponse({ ok: true, templates, configured: true });
   } catch (err) {
     console.error('[contract-templates GET]', err);
-    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err, 'load') }, 500);
   }
 }
 
@@ -120,7 +115,7 @@ export async function handlePostContractTemplate(
     return jsonResponse({ ok: true, template });
   } catch (err) {
     console.error('[contract-templates POST]', err);
-    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err, 'save') }, 500);
   }
 }
 
@@ -166,7 +161,7 @@ export async function handlePatchContractTemplate(
     return jsonResponse({ ok: true, template });
   } catch (err) {
     console.error('[contract-templates PATCH]', err);
-    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err, 'save') }, 500);
   }
 }
 
@@ -187,6 +182,6 @@ export async function handleDeleteContractTemplate(
     return jsonResponse({ ok: true });
   } catch (err) {
     console.error('[contract-templates DELETE]', err);
-    return jsonResponse({ ok: false, error: apiErrorMessage(err) }, 500);
+    return jsonResponse({ ok: false, error: apiErrorMessage(err, 'delete') }, 500);
   }
 }

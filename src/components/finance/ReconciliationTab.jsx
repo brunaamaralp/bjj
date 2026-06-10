@@ -194,7 +194,7 @@ export default function ReconciliationTab({ academyId }) {
       await refresh();
     } catch (e) {
       console.error(e);
-      setError(String(e?.message || friendlyError(e, 'action')));
+      setError(friendlyError(e, 'action'));
     } finally {
       setBusy(false);
     }
@@ -218,7 +218,7 @@ export default function ReconciliationTab({ academyId }) {
             setMirrorReconcileResult(null);
             void reconcileStudentPaymentMirrors(academyId)
               .then((r) => setMirrorReconcileResult(r))
-              .catch((e) => setError(String(e?.message || e)))
+              .catch((e) => setError(friendlyError(e, 'action')))
               .finally(() => setMirrorReconcileBusy(false));
           }}
         >

@@ -1,5 +1,8 @@
+import { friendlyError } from './errorMessages.js';
+
 /**
  * Mensagens amigáveis para o chat de teste e carregamento do assistente.
+ * Códigos específicos primeiro; fallback sempre via friendlyError (nunca texto técnico cru).
  * @param {{ status?: number; code?: string; erro?: string; message?: string }} ctx
  */
 export function mapAgentTestErrorMessage(ctx = {}) {
@@ -7,25 +10,28 @@ export function mapAgentTestErrorMessage(ctx = {}) {
   const status = Number(ctx.status) || 0;
 
   if (code === 'prompt_nao_configurado' || code.includes('prompt_nao_configurado')) {
-    return 'Configure o assistente na configuração guiada antes de testar.';
+    return friendlyError({ message: 'prompt_nao_configurado' }, 'action');
   }
   if (code === 'timeout' || status === 504 || String(ctx.erro || '').includes('Timeout')) {
     return 'Resposta demorou; tente uma mensagem mais curta.';
   }
   if (status === 502 || code === 'upstream_error') {
-    return 'Erro no assistente. Tente novamente; se o problema persistir, fale com o suporte.';
+    return friendlyError({ message: 'upstream_error' }, 'action');
   }
   if (status === 429 || code === 'limite_diario') {
-    return String(ctx.message || '').trim() || 'Limite diário de testes atingido.';
+    const custom = String(ctx.message || '').trim();
+    return custom && !/failed|error|exception/i.test(custom)
+      ? custom
+      : friendlyError({ message: 'limite_diario' }, 'action');
   }
-  if (status === 500) {
+  if (status >= 500) {
     return 'Erro interno ao testar o assistente. Tente novamente; se o problema persistir, fale com o suporte.';
   }
-  const msg = String(ctx.message || ctx.erro || '').trim();
-  if (!msg || status >= 500) {
-    return 'Não foi possível obter resposta do assistente. Tente novamente; se o problema persistir, fale com o suporte.';
-  }
-  return msg;
+
+  return friendlyError(
+    { message: String(ctx.message || ctx.erro || '').trim(), code: ctx.code || ctx.erro },
+    'action'
+  );
 }
 
 /**
@@ -37,7 +43,7 @@ export function mapAgentSettingsErrorMessage(ctx = {}) {
   const msg = String(ctx.message || ctx.erro || '').trim();
 
   if (ctx.network === true || status === 0 || /failed to fetch|networkerror|load failed/i.test(msg)) {
-    return 'Não foi possível conectar. Verifique sua internet e tente novamente; se o problema persistir, fale com o suporte.';
+    return friendlyError({ message: 'Failed to fetch' }, 'network');
   }
   if (status === 500) {
     return 'Erro interno ao processar as configurações. Tente novamente; se o problema persistir, fale com o suporte.';
@@ -45,6 +51,6 @@ export function mapAgentSettingsErrorMessage(ctx = {}) {
   if (status === 502 || status === 503 || status === 504) {
     return 'Serviço temporariamente indisponível. Tente novamente em alguns minutos; se persistir, fale com o suporte.';
   }
-  if (msg) return msg;
-  return 'Não foi possível concluir a operação. Tente novamente; se o problema persistir, fale com o suporte.';
+
+  return friendlyError({ message: msg, status }, msg ? 'save' : 'action');
 }

@@ -16,6 +16,7 @@ import { createSessionJwt } from '../../lib/appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { pickProductApiBody } from '../../lib/stockProducts';
 import { formatBRL } from '../../lib/moneyBr';
+import { friendlyError } from '../../lib/errorMessages.js';
 import {
   MAX_IMPORT_ROWS,
   IMPORT_FIELD_OPTIONS,
@@ -358,7 +359,7 @@ export default function ProductImportModal({ open, onClose, onImported }) {
         for (const h of parsed.headers) empty[h] = '';
         setColumnToField(empty);
         setColumnConfidence(Object.fromEntries(parsed.headers.map((h) => [h, 'unmapped'])));
-        setAiSuggestions(e?.message || 'Não foi possível obter sugestão da IA. Mapeie as colunas manualmente.');
+        setAiSuggestions(friendlyError(e, 'load'));
       } finally { setAiLoading(false); }
     } catch (err) {
       setError(err?.message || 'Erro ao processar a planilha.');
@@ -539,7 +540,7 @@ export default function ProductImportModal({ open, onClose, onImported }) {
                     <AlertCircle size={18} aria-hidden />
                     <div className="product-import-error-banner-text">
                       <strong>Não consegui processar esse arquivo.</strong>
-                      <span>{extractHintFromErrorMessage(error) || error}</span>
+                      <span>{extractHintFromErrorMessage(error) || friendlyError(error, 'load')}</span>
                       <button
                         type="button"
                         className="product-import-link"

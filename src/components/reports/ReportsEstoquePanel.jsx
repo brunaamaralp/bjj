@@ -95,7 +95,7 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
         if (active) setData(body);
       } catch (e) {
         if (active) {
-          setError(String(e?.message || e));
+          setError(friendlyError(e, 'load'));
           setData(null);
         }
       } finally {

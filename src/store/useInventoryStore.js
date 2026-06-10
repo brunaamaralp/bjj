@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from './useLeadStore';
+import { friendlyError } from '../lib/errorMessages.js';
 
 async function inventoryFetch(path, options = {}) {
   const jwt = await createSessionJwt();
@@ -37,7 +38,7 @@ export const useInventoryStore = create((set) => ({
       set({ items: data.items || [], loading: false });
       return data.items || [];
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false, items: [] });
+      set({ error: friendlyError(e, 'load'), loading: false, items: [] });
       return [];
     }
   },
@@ -52,7 +53,7 @@ export const useInventoryStore = create((set) => ({
       set({ lastResult: data, loading: false });
       return data;
     } catch (e) {
-      set({ error: String(e?.message || e), lastResult: null, loading: false });
+      set({ error: friendlyError(e, 'action'), lastResult: null, loading: false });
       return null;
     }
   },
@@ -67,7 +68,7 @@ export const useInventoryStore = create((set) => ({
       set({ loading: false });
       return data.item;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
+      set({ error: friendlyError(e, 'save'), loading: false });
       return null;
     }
   },
@@ -82,7 +83,7 @@ export const useInventoryStore = create((set) => ({
       set({ loading: false });
       return data;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
+      set({ error: friendlyError(e, 'save'), loading: false });
       return null;
     }
   },
@@ -97,7 +98,7 @@ export const useInventoryStore = create((set) => ({
       set({ loading: false });
       return data;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
+      set({ error: friendlyError(e, 'action'), loading: false });
       return null;
     }
   },

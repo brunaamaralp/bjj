@@ -6,6 +6,7 @@ import { Loader2, Trash2, Pencil, Check, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import EmptyState from '../shared/EmptyState.jsx';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 const MAX_LEN = 4000;
 
@@ -75,7 +76,7 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
         setNotes(Array.isArray(data.notes) ? data.notes : []);
       } catch (e) {
         if (!cancelled) {
-          addToast?.({ type: 'error', message: e?.message || 'Erro ao carregar notas' });
+          addToast?.({ type: 'error', message: friendlyError(e, 'load') });
           setNotes([]);
         }
       } finally {
@@ -122,7 +123,7 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
       setNotes((prev) => [note, ...prev]);
       addToast?.({ type: 'success', message: 'Nota salva' });
     } catch (e) {
-      addToast?.({ type: 'error', message: e?.message || 'Erro ao salvar nota' });
+      addToast?.({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSaving(false);
     }
@@ -160,7 +161,7 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
                       setNotes((prev) => [note, ...prev]);
                       addToast?.({ type: 'success', message: 'Nota restaurada' });
                     } catch (e) {
-                      addToast?.({ type: 'error', message: e?.message || 'Não foi possível desfazer.' });
+                      addToast?.({ type: 'error', message: friendlyError(e, 'action') });
                     }
                   })();
                 },
@@ -169,7 +170,7 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
           : {}),
       });
     } catch (e) {
-      addToast?.({ type: 'error', message: e?.message || 'Erro ao excluir' });
+      addToast?.({ type: 'error', message: friendlyError(e, 'delete') });
     } finally {
       setDeletingId('');
     }
@@ -205,7 +206,7 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
       setEditingNoteId(null);
       setEditingContent('');
     } catch (e) {
-      addToast?.({ type: 'error', message: e?.message || 'Erro ao editar nota' });
+      addToast?.({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setEditingBusy(false);
     }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { account } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
+import { friendlyError } from '../lib/errorMessages.js';
 
 async function authHeaders(academyId) {
   const jwt = await account.createJWT();
@@ -60,7 +61,7 @@ export const useWhatsappTemplatesStore = create((set, get) => ({
         automationsRaw: '',
         academyName: '',
         loading: false,
-        error: e?.message || 'Erro',
+        error: friendlyError(e, 'load'),
         fetchedAt: Date.now(),
       };
       set((s) => ({ byAcademy: { ...s.byAcademy, [id]: entry } }));

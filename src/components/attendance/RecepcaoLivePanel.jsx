@@ -12,6 +12,7 @@ import {
   pollControlIdMonitor,
 } from '../../lib/controlidApi';
 import { avatarInitial, todayStartIso } from './controlIdAttendanceUtils.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 const POLL_INTERVAL_MS = 6000;
 const MAX_FEED_ITEMS = 30;
@@ -121,7 +122,7 @@ export default function RecepcaoLivePanel() {
         ].slice(0, MAX_FEED_ITEMS)
       );
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao liberar catraca' });
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setReleasing(false);
     }

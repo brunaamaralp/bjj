@@ -36,6 +36,8 @@ export default function InboxListPanel({
   searchPending = false,
   activeFilterLabel = '',
   onClearActiveFilter,
+  listTopbarMeta = null,
+  pageActionsMenu = null,
 }) {
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
   const needsMeBacklog = Number(stats?.needsMeBacklog || 0);
@@ -50,6 +52,19 @@ export default function InboxListPanel({
 
   return (
     <div className="inbox-list-panel">
+      <div className="inbox-list-panel__topbar">
+        <div>
+          <h2 className="inbox-list-panel__topbar-title">Conversas</h2>
+          {listTopbarMeta ? (
+            <div className="inbox-list-panel__topbar-meta" role="status">
+              {listTopbarMeta}
+            </div>
+          ) : null}
+        </div>
+        {pageActionsMenu ? (
+          <div className="inbox-list-panel__topbar-actions">{pageActionsMenu}</div>
+        ) : null}
+      </div>
       <div className="inbox-list-panel__search">
         <SearchField
           className="inbox-toolbar-search inbox-list-panel__search-field"

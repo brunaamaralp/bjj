@@ -72,7 +72,7 @@ export function useInboxConversationList({
       });
       if (blocked) return;
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao carregar conversas'));
+      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao carregar conversas', 'load'));
       const data = safeParseInboxJson(raw) || {};
       const next = Array.isArray(data?.items) ? data.items : [];
       const nextCur = data?.next_cursor ? String(data.next_cursor) : null;

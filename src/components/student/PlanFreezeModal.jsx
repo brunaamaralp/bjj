@@ -129,7 +129,8 @@ export default function PlanFreezeModal({
     ? new Date(`${startYmd}T12:00:00`).toLocaleDateString('pt-BR')
     : '—';
 
-  const canSubmit = !busy && daysAvailable >= 1 && resolvedReason && (!isOther || otherReason.trim());
+  const canSubmit =
+    !busy && daysAvailable >= 1 && resolvedReason && validation.ok && (!isOther || otherReason.trim());
 
   return (
     <ModalShell

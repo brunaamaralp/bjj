@@ -21,6 +21,7 @@ import { useTerms } from '../lib/terminology.js';
 import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import { friendlyError } from '../lib/errorMessages.js';
 import '../lib/whatsappTemplates.css';
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
@@ -217,7 +218,7 @@ export default function AutomacoesModelosTab() {
       await refetch();
       addToast({ type: 'success', message: 'Templates salvos' });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao salvar templates' });
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSaving(false);
     }
@@ -234,7 +235,7 @@ export default function AutomacoesModelosTab() {
       await refetch();
       addToast({ type: 'success', message: 'Template restaurado' });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao restaurar' });
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSaving(false);
     }
@@ -251,7 +252,7 @@ export default function AutomacoesModelosTab() {
       await refetch();
       addToast({ type: 'success', message: 'Templates restaurados ao padrão' });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao restaurar' });
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSaving(false);
     }

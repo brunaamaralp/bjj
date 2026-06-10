@@ -190,7 +190,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         }
         setNextCursor(body.pagination?.next_cursor || null);
       } catch (e) {
-        setError(String(e?.message || e));
+        setError(friendlyError(e, 'load'));
         if (!append) {
           setRows([]);
           setTotals({ total_unidades: 0, total_faturado: 0, total_devolucoes: 0, registros: 0 });
@@ -221,7 +221,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
       setConcRows(data.rows || []);
       setConcSummary(data.summary || null);
     } catch (e) {
-      setConcError(String(e?.message || e));
+      setConcError(friendlyError(e, 'load'));
       setConcRows([]);
       setConcSummary(null);
     } finally {

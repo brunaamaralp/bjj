@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bold, ChevronDown, ChevronUp, Italic, Loader2, Paperclip, Smile, Sparkles, X } from 'lucide-react';
+import { Bold, ChevronDown, ChevronUp, Italic, Loader2, Paperclip, Plus, Send, Smile, Sparkles, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import { DateInputField } from '../DateInput';
 import { applyWhatsappTemplatePlaceholders } from '../../../lib/whatsappTemplateDefaults.js';
@@ -318,62 +318,6 @@ export default function InboxComposer(props) {
                 )}
               </div>
             )}
-            <div className="inbox-composer-popover-anchor">
-              <button
-                className="btn btn-outline inbox-composer-action-btn inbox-composer-action-btn--emoji"
-                onClick={() => {
-                  setEmojiOpen((v) => !v);
-                  setTemplatesOpen(false);
-                }}
-                type="button"
-                aria-expanded={emojiOpen}
-                aria-label="Inserir emoji"
-                title="Inserir emoji"
-              >
-                {'\u{1F60A}'}
-              </button>
-              {emojiOpen && (
-                <div className="inbox-composer-popover inbox-composer-popover--emoji">
-                  <div className="inbox-composer-emoji-grid">
-                    {emojis.map((em) => (
-                      <button
-                        key={em}
-                        type="button"
-                        className="inbox-composer-emoji-grid-btn"
-                        aria-label={`Inserir emoji ${em}`}
-                        onClick={() => {
-                          insertAtCursor(em);
-                          setEmojiOpen(false);
-                        }}
-                      >
-                        <span aria-hidden>{em}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            {selectedPhone ? (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,audio/*,application/pdf"
-                  hidden
-                  onChange={handleFileChange}
-                />
-                <button
-                  className="btn btn-outline inbox-composer-action-btn inbox-composer-action-btn--attach"
-                  type="button"
-                  title="Anexar imagem, áudio ou PDF"
-                  aria-label="Anexar arquivo"
-                  disabled={sending}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip size={16} strokeWidth={2} aria-hidden />
-                </button>
-              </>
-            ) : null}
           </div>
         </div>
       )}
@@ -453,9 +397,66 @@ export default function InboxComposer(props) {
         </div>
       )}
 
-      <div className="inbox-composer-main-row">
-        <div className="inbox-composer-input-wrap">
-          {selectedPhone && (
+      <div className="inbox-composer-wa-row">
+        {selectedPhone ? (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,audio/*,application/pdf"
+              hidden
+              onChange={handleFileChange}
+            />
+            <button
+              className="inbox-composer-wa-icon-btn"
+              type="button"
+              title="Anexar imagem, áudio ou PDF"
+              aria-label="Anexar arquivo"
+              disabled={sending}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip size={22} strokeWidth={1.75} aria-hidden />
+            </button>
+          </>
+        ) : null}
+        <div className="inbox-composer-popover-anchor">
+          <button
+            className="inbox-composer-wa-icon-btn"
+            onClick={() => {
+              setEmojiOpen((v) => !v);
+              setTemplatesOpen(false);
+            }}
+            type="button"
+            aria-expanded={emojiOpen}
+            aria-label="Inserir emoji"
+            title="Inserir emoji"
+            disabled={!selectedPhone}
+          >
+            <Smile size={22} strokeWidth={1.75} aria-hidden />
+          </button>
+          {emojiOpen && (
+            <div className={`inbox-composer-popover inbox-composer-popover--emoji${isMobile ? ' inbox-composer-popover--emoji-mobile' : ''}`}>
+              <div className="inbox-composer-emoji-grid">
+                {emojis.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    className="inbox-composer-emoji-grid-btn"
+                    aria-label={`Inserir emoji ${em}`}
+                    onClick={() => {
+                      insertAtCursor(em);
+                      setEmojiOpen(false);
+                    }}
+                  >
+                    <span aria-hidden>{em}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="inbox-composer-wa-input-wrap">
+          {composerExpanded && selectedPhone ? (
             <div className="inbox-composer-format-toolbar">
               <button
                 type="button"
@@ -477,46 +478,9 @@ export default function InboxComposer(props) {
                 <Italic size={13} strokeWidth={2.5} aria-hidden />
                 <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Itálico</span>
               </button>
-
-              <div className="inbox-composer-popover-anchor">
-                <button
-                  type="button"
-                  className={`btn inbox-composer-format-btn ${emojiOpen ? 'btn-secondary' : 'btn-outline'}`}
-                  onClick={() => {
-                    setEmojiOpen((v) => !v);
-                    setTemplatesOpen(false);
-                  }}
-                  aria-expanded={emojiOpen}
-                  aria-label="Emoji"
-                  title="Emoji"
-                >
-                  <Smile size={13} strokeWidth={2.5} aria-hidden />
-                  <span className="text-small font-medium inbox-composer-format-btn__label--hide-mobile">Emoji</span>
-                </button>
-                {emojiOpen && (
-                  <div className="inbox-composer-popover inbox-composer-emoji-popover--toolbar">
-                    <div className="inbox-composer-emoji-grid">
-                      {emojis.map((em) => (
-                        <button
-                          key={em}
-                          type="button"
-                          className="inbox-composer-emoji-grid-btn"
-                          aria-label={`Inserir emoji ${em}`}
-                          onClick={() => {
-                            insertAtCursor(em);
-                            setEmojiOpen(false);
-                          }}
-                        >
-                          <span aria-hidden>{em}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
-          )}
-          {slashOpen && selectedPhone && (
+          ) : null}
+          {slashOpen && selectedPhone ? (
             <div ref={slashPopupRef} className="inbox-slash-templates" style={{ maxHeight: inboxSlashMaxHeight }} role="listbox" aria-label="Templates rápidos">
               {slashFilteredTemplates.length === 0 ? (
                 <EmptyState variant="bare" title="Nenhum template encontrado" role="status" className="inbox-slash-empty" />
@@ -546,7 +510,7 @@ export default function InboxComposer(props) {
                 })
               )}
             </div>
-          )}
+          ) : null}
           <textarea
             ref={textareaRef}
             id="inbox-composer-message"
@@ -613,10 +577,9 @@ export default function InboxComposer(props) {
               }
             }}
             placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
-            className="form-input inbox-composer-textarea"
-            rows={3}
+            className="inbox-composer-wa-textarea"
+            rows={1}
             onFocus={(e) => {
-              if (!isMobile) setComposerExpanded(true);
               if (isMobile) {
                 const el = e.currentTarget;
                 setTimeout(() => {
@@ -633,52 +596,49 @@ export default function InboxComposer(props) {
             }}
           />
         </div>
-        <div className="inbox-composer-side-col">
-          {draftBeforeImprove != null && !composerExpanded && (
-            <button
-              className="btn btn-outline inbox-composer-btn--undo"
-              onClick={() => {
-                setDraft(String(draftBeforeImprove));
-                setDraftBeforeImprove(null);
-                try {
-                  setTimeout(() => textareaRef.current?.focus?.(), 0);
-                } catch {
-                  void 0;
-                }
-              }}
-              disabled={sending || improvingDraft}
-              type="button"
-              title="Voltar ao texto antes da melhoria"
-            >
-              {'\u21A9'} Desfazer
-            </button>
+        {draftBeforeImprove != null && !composerExpanded ? (
+          <button
+            className="inbox-composer-wa-icon-btn"
+            onClick={() => {
+              setDraft(String(draftBeforeImprove));
+              setDraftBeforeImprove(null);
+              try {
+                setTimeout(() => textareaRef.current?.focus?.(), 0);
+              } catch {
+                void 0;
+              }
+            }}
+            disabled={sending || improvingDraft}
+            type="button"
+            title="Voltar ao texto antes da melhoria"
+            aria-label="Desfazer melhoria com IA"
+          >
+            {'\u21A9'}
+          </button>
+        ) : null}
+        <button
+          className="inbox-composer-wa-send"
+          onClick={handleComposerSend}
+          disabled={sending || !canSend}
+          type="button"
+          aria-label={sending ? 'Enviando mensagem' : 'Enviar mensagem'}
+        >
+          {sending ? (
+            <Loader2 size={20} className="navi-async-btn__spin" aria-hidden />
+          ) : (
+            <Send size={20} strokeWidth={2} aria-hidden />
           )}
-          <button
-            className="btn btn-primary"
-            onClick={handleComposerSend}
-            disabled={sending || !canSend}
-            type="button"
-          >
-            {sending ? (
-              <span className="inbox-composer-send-loading">
-                <Loader2 size={16} className="navi-async-btn__spin" aria-hidden />
-                Enviar
-              </span>
-            ) : (
-              'Enviar'
-            )}
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline inbox-composer-action-btn inbox-composer-expand-btn"
-            aria-label="Mais opções"
-            aria-expanded={composerExpanded}
-            onClick={() => setComposerExpanded((v) => !v)}
-            title={composerExpanded ? 'Ocultar opções avançadas' : 'Mais opções: templates, emoji, agendar, IA'}
-          >
-            {composerExpanded ? <ChevronDown size={20} strokeWidth={2} aria-hidden /> : <ChevronUp size={20} strokeWidth={2} aria-hidden />}
-          </button>
-        </div>
+        </button>
+        <button
+          type="button"
+          className="inbox-composer-wa-icon-btn inbox-composer-wa-expand"
+          aria-label="Mais opções"
+          aria-expanded={composerExpanded}
+          onClick={() => setComposerExpanded((v) => !v)}
+          title={composerExpanded ? 'Ocultar opções avançadas' : 'Mais opções: templates, agendar, IA'}
+        >
+          {composerExpanded ? <ChevronDown size={22} strokeWidth={2} aria-hidden /> : <Plus size={22} strokeWidth={2} aria-hidden />}
+        </button>
       </div>
     </div>
   );

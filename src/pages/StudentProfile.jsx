@@ -379,8 +379,8 @@ export default function StudentProfile() {
     });
     const { templates: waTemplatesHook, academyName: waNameHook, zapsterInstanceId: waZapHook } =
         useWhatsappTemplates(academyId);
-    const showConversationTab =
-        modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
+    // Alinhado ao menu /inbox: aba sempre visível; estados vazios ficam no painel de chat.
+    const showConversationTab = true;
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [note, setNote] = useState('');
@@ -1394,8 +1394,7 @@ export default function StudentProfile() {
                 String(e?.message || '').includes('Já existe um lançamento');
             if (isDup) {
                 setPayFormError(
-                    e?.message ||
-                        'Já existe um lançamento com este valor e data para este aluno.'
+                    'Já existe um lançamento com este valor e data para este aluno.'
                 );
                 return;
             }

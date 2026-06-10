@@ -40,7 +40,7 @@ export function humanizeAutentiqueError(
   }
 
   if (detail) return detail;
-  return raw;
+  return 'Não foi possível concluir a operação com a Autentique. Verifique os dados e tente novamente.';
 }
 
 export function isAutentiqueClientError(message: string): boolean {

@@ -28,7 +28,7 @@ import {
 } from '../../lib/financeRecurrence.js';
 import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
-import { friendlyError } from '../../lib/errorMessages';
+import { friendlyError, financeTxFriendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
@@ -734,20 +734,6 @@ export default function TransacoesTab({
     return () => window.removeEventListener('navi-financial-tx-settled', onSettled);
   }, []);
 
-  const financeTxErrorMessage = (code) => {
-    const c = String(code || '').trim();
-    if (c === 'cannot_settle_cancelled') return 'Não é possível liquidar um lançamento cancelado.';
-    if (c === 'cannot_cancel_settled') return 'Não é possível cancelar um lançamento já liquidado.';
-    if (c === 'already_cancelled') return 'Este lançamento já está cancelado.';
-    if (c === 'already_settled') return 'Este lançamento já foi liquidado.';
-    if (c === 'only_settled_can_reverse') return 'Só é possível estornar lançamentos liquidados.';
-    if (c === 'already_reversed') return 'Este lançamento já foi estornado.';
-    if (c === 'cannot_reverse_reversal') return 'Não é possível estornar um lançamento de estorno.';
-    if (c === 'cannot_reverse_recurrence_template') return 'Não é possível estornar o modelo de recorrência.';
-    if (c === 'only_settled_can_assign_bank') return 'Só é possível atribuir conta em lançamentos liquidados.';
-    return '';
-  };
-
   const openAssignBankModal = (tx) => {
     if (!tx || !canAssignBankOnTx(tx)) return;
     setAssignBankTx(tx);
@@ -792,7 +778,7 @@ export default function TransacoesTab({
       const code = String(e?.message || '').trim();
       toast.show({
         type: 'error',
-        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+        message: financeTxFriendlyError(code, 'action'),
       });
     } finally {
       setAssignBankSaving(false);
@@ -815,7 +801,7 @@ export default function TransacoesTab({
       const code = String(e?.message || '').trim();
       toast.show({
         type: 'error',
-        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+        message: financeTxFriendlyError(code, 'action'),
       });
     }
   };
@@ -862,7 +848,7 @@ export default function TransacoesTab({
       const code = String(e?.message || '').trim();
       toast.show({
         type: 'error',
-        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+        message: financeTxFriendlyError(code, 'action'),
       });
     } finally {
       setReverseLoadingId('');
@@ -885,7 +871,7 @@ export default function TransacoesTab({
       const code = String(e?.message || '').trim();
       toast.show({
         type: 'error',
-        message: financeTxErrorMessage(code) || code || friendlyError(e, 'action'),
+        message: financeTxFriendlyError(code, 'action'),
       });
     } finally {
       setCancelLoadingId('');
@@ -983,7 +969,7 @@ export default function TransacoesTab({
       void loadTransactions();
     } catch (e) {
       console.error(e);
-      toast.show({ type: 'error', message: String(e?.message || friendlyError(e, 'save')) });
+      toast.show({ type: 'error', message: financeTxFriendlyError(e, 'save') });
     } finally {
       setSavingTx(false);
     }

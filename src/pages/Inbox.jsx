@@ -37,7 +37,6 @@ import InboxImageLightbox from '../components/inbox/InboxImageLightbox.jsx';
 import { uploadInboxMedia, InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
-import PageHeader from '../components/layout/PageHeader.jsx';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
 import useDebounce from '../hooks/useDebounce.js';
 import { useInboxContextMenu } from '../hooks/useInboxContextMenu.js';
@@ -1741,6 +1740,53 @@ export default function Inbox() {
   const visibleConversationCount = flatVisibleConversations.length;
   const listMetaShowsFiltered = listFilter !== 'all' || Boolean(searchQuery);
 
+  const inboxPageActionsMenu = (
+    <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
+      <button
+        type="button"
+        className="inbox-list-panel__topbar-btn inbox-page-actions-menu__trigger"
+        aria-haspopup="menu"
+        aria-expanded={pageActionsOpen}
+        aria-label="Mais ações do inbox"
+        onClick={() => setPageActionsOpen((v) => !v)}
+      >
+        <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
+      </button>
+      {pageActionsOpen ? (
+        <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
+          <DropdownMenuItem
+            icon={<RefreshCw size={16} aria-hidden />}
+            disabled={waSyncing}
+            onClick={() => {
+              setPageActionsOpen(false);
+              void reconcileLast24h();
+            }}
+          >
+            {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
+          </DropdownMenuItem>
+          <DropdownMenuDivider />
+          <DropdownMenuItem
+            icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+            active={desktopNotify}
+            onClick={() => {
+              setPageActionsOpen(false);
+              void toggleDesktopNotifyPreference();
+            }}
+          >
+            {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
+          </DropdownMenuItem>
+          <DropdownMenuDivider />
+          <DropdownMenuLabel>Atalhos de teclado</DropdownMenuLabel>
+          <DropdownMenuItemStatic>J / K — conversa anterior ou próxima</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>R — focar resposta</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>E — resolver conversa</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>Ctrl+R — recarregar mensagens</DropdownMenuItemStatic>
+          <DropdownMenuItemStatic>Ctrl+K — resolver / reabrir ticket</DropdownMenuItemStatic>
+        </DropdownMenuPanel>
+      ) : null}
+    </DropdownMenu>
+  );
+
   const listPanel = (
     <InboxListPanel
       search={search}
@@ -1772,6 +1818,27 @@ export default function Inbox() {
       searchPending={searchPending}
       activeFilterLabel={inboxExtraFilterActive ? inboxFilterLabel(listFilter) : ''}
       onClearActiveFilter={() => setListFilter('all')}
+      listTopbarMeta={
+        loading || searchPending ? (
+          searchPending ? 'Buscando…' : 'Carregando…'
+        ) : listMetaShowsFiltered ? (
+          <>
+            {visibleConversationCount} exibidas · {items.length} carregadas
+          </>
+        ) : (
+          <>
+            {items.length} conversas
+            {lastUpdatedAt ? (
+              <>
+                {' '}
+                · atualizado às{' '}
+                {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </>
+            ) : null}
+          </>
+        )
+      }
+      pageActionsMenu={inboxPageActionsMenu}
     />
   );
 
@@ -1949,6 +2016,7 @@ export default function Inbox() {
       updateTicket={updateTicket}
       showInboxKeyHints={showInboxKeyHints}
       isNarrowDesktop={isNarrowDesktop}
+      inboxThreadNarrow767={inboxThreadNarrow767}
       setContextOpen={setContextOpen}
       contextOpen={contextOpen}
       composerProps={composerProps}
@@ -2036,55 +2104,6 @@ export default function Inbox() {
     .filter(Boolean)
     .join(' ');
 
-  const inboxPageActionsMenu = (
-    <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
-      <button
-        type="button"
-        className="btn-action-ghost inbox-page-actions-menu__trigger"
-        aria-haspopup="menu"
-        aria-expanded={pageActionsOpen}
-        aria-label="Mais ações do inbox"
-        onClick={() => setPageActionsOpen((v) => !v)}
-      >
-        <MoreHorizontal size={18} aria-hidden />
-      </button>
-      {pageActionsOpen ? (
-        <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
-          <DropdownMenuItem
-            icon={<RefreshCw size={16} aria-hidden />}
-            disabled={waSyncing}
-            onClick={() => {
-              setPageActionsOpen(false);
-              void reconcileLast24h();
-            }}
-          >
-            {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
-          </DropdownMenuItem>
-          <DropdownMenuDivider />
-          <DropdownMenuItem
-            icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-            active={desktopNotify}
-            onClick={() => {
-              setPageActionsOpen(false);
-              void toggleDesktopNotifyPreference();
-            }}
-          >
-            {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
-          </DropdownMenuItem>
-          <DropdownMenuDivider />
-          <DropdownMenuLabel>Atalhos de teclado</DropdownMenuLabel>
-          <DropdownMenuItemStatic>J / K — conversa anterior ou próxima</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>R — focar resposta</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>E — resolver conversa</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>Ctrl+R — recarregar mensagens</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>Ctrl+K — resolver / reabrir ticket</DropdownMenuItemStatic>
-        </DropdownMenuPanel>
-      ) : null}
-    </DropdownMenu>
-  );
-
-  const showInboxPageHeader = !(isMobile && selectedPhone);
-
   return (
     <div className={inboxPageClassName}>
       {showWaDisconnectBanner ? (
@@ -2095,43 +2114,6 @@ export default function Inbox() {
         >
           WhatsApp desconectado — as mensagens não estão chegando.
         </StatusBanner>
-      ) : null}
-
-      {showInboxPageHeader ? (
-        <PageHeader
-          className="inbox-page-header inbox-page-header--slim"
-          title="Conversas"
-          subtitle="WhatsApp e atendimento humano em um só lugar."
-          meta={
-            loading || searchPending ? (
-              searchPending ? 'Buscando…' : 'Carregando…'
-            ) : (
-              <>
-                {listMetaShowsFiltered ? (
-                  <>
-                    <span className="navi-ui-count">{visibleConversationCount}</span> exibidas
-                    {' · '}
-                    <span className="navi-ui-count">{items.length}</span> carregadas
-                  </>
-                ) : (
-                  <>
-                    <span className="navi-ui-count">{items.length}</span> conversas
-                  </>
-                )}
-                {lastUpdatedAt ? (
-                  <>
-                    {' '}
-                    · atualizado às{' '}
-                    <span className="navi-ui-date">
-                      {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </>
-                ) : null}
-              </>
-            )
-          }
-          actions={inboxPageActionsMenu}
-        />
       ) : null}
 
       <div className="inbox-body-grow">

@@ -16,6 +16,7 @@ import { FINANCE_TX_LIST_MAX_PAGE_SIZE } from '../../lib/financeListLimits.js';
 import { apiListStudentPayments } from '../../lib/studentPaymentsApi.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 import {
   MAX_FINANCE_TX_IMPORT_ROWS,
   FINANCE_TX_IMPORT_FIELD_OPTIONS,
@@ -363,7 +364,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
         nextColumnToField = empty;
         setColumnToField(empty);
         setColumnConfidence(Object.fromEntries(parsed.headers.map((h) => [h, 'unmapped'])));
-        setAiSuggestions(e?.message || 'Mapeie data e valor manualmente.');
+        setAiSuggestions(friendlyError(e, 'load'));
       } finally {
         setAiLoading(false);
         setStep(2);

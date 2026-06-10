@@ -85,7 +85,7 @@ export function useInboxOutboundMessaging({
         body: JSON.stringify(apiBody),
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao enviar'));
+      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao enviar', 'send'));
       const data = safeParseInboxJson(raw) || {};
       const waUrl = typeof data?.wa_me_url === 'string' ? data.wa_me_url.trim() : '';
       if (String(data?.channel || '').trim() === 'wa_me' && waUrl) {
@@ -213,7 +213,7 @@ export function useInboxOutboundMessaging({
             if (e instanceof InboxMediaUploadError) {
               if (e.code === 'too_large') toast.show({ type: 'error', message: 'Arquivo muito grande. Máximo: 16MB.' });
               else if (e.code === 'unsupported') toast.show({ type: 'error', message: 'Tipo de arquivo não suportado.' });
-              else toast.show({ type: 'error', message: e.message || 'Erro ao enviar arquivo.' });
+              else toast.show({ type: 'error', message: friendlyError(e, 'send') });
             } else {
               toast.show({ type: 'error', message: 'Erro ao enviar arquivo. Tente novamente.' });
             }
@@ -367,7 +367,7 @@ export function useInboxOutboundMessaging({
         body: JSON.stringify({ phone, message_id: mid }),
       });
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao cancelar'));
+      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao cancelar', 'action'));
       const data = safeParseInboxJson(raw) || {};
       const canceledAt = typeof data?.canceled_at === 'string' ? data.canceled_at : new Date().toISOString();
       setSelected((prev) => {
@@ -420,7 +420,7 @@ export function useInboxOutboundMessaging({
       });
       if (blocked) return;
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao melhorar texto'));
+      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao melhorar texto', 'action'));
       const data = safeParseInboxJson(raw) || {};
       const improved = typeof data?.improved === 'string' ? data.improved.trim() : '';
       if (!improved) throw new Error('Resposta inválida do servidor');

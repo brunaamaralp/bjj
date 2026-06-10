@@ -24,7 +24,7 @@ export async function postInboxConversation({ phone, academyId, body, fallbackEr
   if (blocked) return { blocked: true, ok: false, data: {}, status: 0 };
   const raw = await resp.text();
   if (!resp.ok) {
-    throw new Error(normalizeInboxApiError(raw, fallbackError));
+    throw new Error(normalizeInboxApiError(raw, fallbackError, 'action'));
   }
   return { blocked: false, ok: true, data: safeParseInboxJson(raw) || {}, status: resp.status, raw };
 }

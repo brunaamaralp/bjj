@@ -1,16 +1,25 @@
 :root {
-  /* —— Semântica canônica (design system Nave) —— */
-  --inbox-focus-ring: var(--color-primary);
+  /* —— WhatsApp Web (escopo inbox) —— */
+  --inbox-wa-app-bg: #e9edef;
+  --inbox-wa-panel-bg: #f0f2f5;
+  --inbox-wa-text-secondary: #667781;
+  --inbox-wa-accent: #00a884;
+  --inbox-wa-accent-dark: #008069;
+  --inbox-wa-list-bg: #ffffff;
+  --inbox-wa-thread-bg: #efeae2;
+  --inbox-wa-thread-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='%23d4cfc6' fill-opacity='0.22'%3E%3Ccircle cx='40' cy='40' r='3'/%3E%3Ccircle cx='120' cy='80' r='2'/%3E%3Ccircle cx='200' cy='50' r='2.5'/%3E%3Ccircle cx='80' cy='160' r='2'/%3E%3Ccircle cx='180' cy='140' r='3'/%3E%3Ccircle cx='220' cy='220' r='2'/%3E%3Ccircle cx='30' cy='220' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
 
-  /* Info / transferido / IA informativa (roxo — marca) */
-  --inbox-info-badge-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-white));
-  --inbox-info-badge-fg: var(--color-primary-dark);
-  --inbox-chip-info-bg: var(--color-info-surface, var(--inbox-info-badge-bg));
+  --inbox-focus-ring: var(--inbox-wa-accent);
+
+  /* Info / transferido */
+  --inbox-info-badge-bg: color-mix(in srgb, var(--inbox-wa-accent) 12%, var(--color-white));
+  --inbox-info-badge-fg: var(--inbox-wa-accent-dark);
+  --inbox-chip-info-bg: var(--inbox-info-badge-bg);
   --inbox-chip-info-fg: var(--inbox-info-badge-fg);
 
-  /* Badge não lida — discreto (marca, não alerta) */
-  --inbox-badge-unread-bg: var(--color-primary);
-  --inbox-badge-unread-fg: var(--color-white);
+  /* Badge não lida — verde WA */
+  --inbox-badge-unread-bg: #25d366;
+  --inbox-badge-unread-fg: #ffffff;
 
   /* Atenção: handoff, triagem, contato quente (warning) */
   --inbox-attention-surface: color-mix(in srgb, var(--color-warning) 12%, var(--color-white));
@@ -22,42 +31,42 @@
   --inbox-chip-hot-bg: color-mix(in srgb, var(--color-warning) 18%, var(--color-white));
   --inbox-chip-hot-fg: var(--inbox-attention-text);
 
-  --inbox-handoff-row-bg: color-mix(in srgb, var(--color-warning) 10%, var(--color-white));
-  --inbox-handoff-row-bg-hover: color-mix(in srgb, var(--color-warning) 16%, var(--color-white));
+  --inbox-handoff-row-bg: color-mix(in srgb, var(--color-warning) 8%, var(--inbox-wa-list-bg));
+  --inbox-handoff-row-bg-hover: color-mix(in srgb, var(--color-warning) 14%, var(--inbox-wa-list-bg));
 
   --inbox-triage-surface: var(--inbox-attention-surface);
   --inbox-triage-border: var(--inbox-attention-border);
   --inbox-triage-badge-bg: color-mix(in srgb, var(--color-warning) 18%, var(--color-white));
   --inbox-triage-badge-text: var(--inbox-attention-text);
 
-  /* IA respondendo / sem vínculo (primária suave) */
-  --inbox-chip-ia-bg: var(--color-primary-surface);
-  --inbox-chip-ia-fg: var(--color-primary-dark);
-  --inbox-chip-unlinked-bg: var(--color-primary-surface);
-  --inbox-chip-unlinked-fg: var(--color-primary-dark);
+  /* IA / sem vínculo */
+  --inbox-chip-ia-bg: #fff8e6;
+  --inbox-chip-ia-fg: #7a5c00;
+  --inbox-chip-unlinked-bg: var(--inbox-wa-panel-bg);
+  --inbox-chip-unlinked-fg: var(--inbox-wa-text-secondary);
 
-  /* Bolhas — nomes consumidos em inbox.css */
-  --inbox-bubble-received-bg: #ebebee;
-  --inbox-bubble-received-text: var(--color-text-heading);
-  --inbox-bubble-sent-bg: var(--color-primary);
-  --inbox-bubble-sent-text: var(--color-white);
-  --inbox-bubble-radius: 18px;
-  --inbox-bubble-shadow: 0 1px 2px rgba(24, 22, 42, 0.06);
+  /* Bolhas */
+  --inbox-bubble-received-bg: #ffffff;
+  --inbox-bubble-received-text: #111b21;
+  --inbox-bubble-sent-bg: #d9fdd3;
+  --inbox-bubble-sent-text: #111b21;
+  --inbox-bubble-radius: 8px;
+  --inbox-bubble-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
 
-  /* Aliases legados (compatibilidade) */
+  /* Aliases legados */
   --inbox-bubble-human-bg: var(--inbox-bubble-received-bg);
   --inbox-bubble-human-border: transparent;
-  --inbox-bubble-ai-bg: var(--color-primary-surface);
-  --inbox-bubble-ai-border: var(--color-card-border);
+  --inbox-bubble-ai-bg: #fff8e6;
+  --inbox-bubble-ai-border: color-mix(in srgb, var(--color-warning) 25%, transparent);
   --inbox-bubble-user-bg: var(--inbox-bubble-sent-bg);
   --inbox-bubble-user-border: transparent;
   --inbox-bubble-user-text: var(--inbox-bubble-sent-text);
   --inbox-bubble-human-label: var(--inbox-attention-text);
 
   /* Zonas de layout */
-  --inbox-section-bg: var(--color-primary-surface);
-  --inbox-accent-bg: color-mix(in srgb, var(--color-primary) 4%, var(--color-content-bg));
-  --inbox-thread-bg: var(--inbox-accent-bg);
+  --inbox-section-bg: var(--inbox-wa-panel-bg);
+  --inbox-accent-bg: var(--inbox-wa-thread-bg);
+  --inbox-thread-bg: var(--inbox-wa-thread-bg);
   --inbox-overlay-bg: color-mix(in srgb, var(--color-text-heading) 52%, transparent);
 
   /* Faixa de handoff no thread */
@@ -66,14 +75,17 @@
   --inbox-handoff-banner-border: var(--color-warning);
   --inbox-handoff-banner-ia-bg: var(--inbox-info-badge-bg);
   --inbox-handoff-banner-ia-text: var(--inbox-info-badge-fg);
-  --inbox-handoff-banner-ia-border: var(--color-primary);
+  --inbox-handoff-banner-ia-border: var(--inbox-wa-accent);
   --inbox-handoff-banner-soon-bg: var(--color-accent-surface);
   --inbox-handoff-banner-soon-text: var(--color-accent-dark);
   --inbox-handoff-banner-soon-border: var(--color-accent);
 
-  --inbox-msg-selected-outline: color-mix(in srgb, var(--color-primary) 35%, transparent);
-  --inbox-row-hover-bg: color-mix(in srgb, var(--color-primary) 4%, transparent);
-  --inbox-row-highlight-bg: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  --inbox-msg-selected-outline: color-mix(in srgb, var(--inbox-wa-accent) 35%, transparent);
+  --inbox-row-hover-bg: #f5f6f6;
+  --inbox-row-highlight-bg: #f0f2f5;
+
+  /* Lista — altura de linha (virtualizer) */
+  --inbox-list-item-height: 72px;
 
   /* Atendimento (Inbox) — escala tipográfica */
   --inbox-font-meta: var(--font-xs);

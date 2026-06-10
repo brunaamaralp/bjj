@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from './useLeadStore';
+import { friendlyError } from '../lib/errorMessages.js';
 
 /** Filtros de UI aplicados só no cliente — não existem como status no Appwrite. */
 const CLIENT_STATUS_FILTERS = new Set(['vencidas', 'minhas', 'pendentes', 'concluidas']);
@@ -155,7 +156,7 @@ export const useTaskStore = create((set, get) => ({
       set({
         loading: false,
         loadingMore: false,
-        error: e?.message || 'Erro ao buscar tarefas',
+        error: friendlyError(e, 'load'),
       });
     }
   },
@@ -208,7 +209,7 @@ export const useTaskStore = create((set, get) => ({
       return created;
     } catch (e) {
       console.error('[useTaskStore] createTask error:', e);
-      set({ loading: false, error: e?.message || 'Erro ao criar tarefa' });
+      set({ loading: false, error: friendlyError(e, 'save') });
       throw e;
     }
   },
@@ -254,7 +255,7 @@ export const useTaskStore = create((set, get) => ({
       console.error('[useTaskStore] updateTask error:', e);
       set((state) => ({
         updatingTaskIds: withoutUpdatingId(state.updatingTaskIds, taskId),
-        error: e?.message || 'Erro ao atualizar tarefa',
+        error: friendlyError(e, 'save'),
       }));
       throw e;
     }
@@ -286,7 +287,7 @@ export const useTaskStore = create((set, get) => ({
       set({ loading: false, error: null });
     } catch (e) {
       console.error('[useTaskStore] deleteTask error:', e);
-      set({ tasks: previous, loading: false, error: e?.message || 'Erro ao excluir tarefa' });
+      set({ tasks: previous, loading: false, error: friendlyError(e, 'delete') });
       throw e;
     }
   },

@@ -36,6 +36,7 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 import ReportsOperadorPanel from '../components/reports/ReportsOperadorPanel.jsx';
 import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
 import ReportsVisaoGeralSection from '../components/reports/ReportsVisaoGeralSection.jsx';
+import { friendlyError } from '../lib/errorMessages.js';
 import ReportKpiCard, { ReportKpiCardSkeleton } from '../components/reports/shared/ReportKpiCard.jsx';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import { fetchReportsFinanceLightResult } from '../lib/reportsLightApi.js';
@@ -381,7 +382,7 @@ const Reports = () => {
             if (!controller.signal.aborted) setReportData(data);
         } catch (e) {
             if (e?.name === 'AbortError') return;
-            setError(String(e?.message || 'Não foi possível carregar o relatório. Tente novamente.'));
+            setError(friendlyError(e, 'load'));
             setReportData(null);
             console.error(e);
         } finally {

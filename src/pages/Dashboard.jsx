@@ -15,6 +15,7 @@ import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import { useControlIdMonitor } from '../hooks/useControlIdMonitor.js';
 import { releaseControlIdGate } from '../lib/controlidApi.js';
+import { friendlyError } from '../lib/errorMessages.js';
 import { Link } from 'react-router-dom';
 import NaviLogo from '../components/NaviLogo.jsx';
 import { contactLabelSingular } from '../lib/terminology.js';
@@ -797,7 +798,7 @@ const Dashboard = () => {
             addToast({ type: 'success', message: 'Catraca liberada.' });
             setGateReleaseOpen(false);
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao liberar catraca' });
+            addToast({ type: 'error', message: friendlyError(e, 'action') });
         } finally {
             setGateReleasing(false);
         }

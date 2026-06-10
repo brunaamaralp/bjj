@@ -16,6 +16,7 @@ import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { afterExperimentalScheduled } from '../lib/automationDispatch.js';
 import { notifyAutomationFeedback } from '../lib/automationUx.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { friendlyError } from '../lib/errorMessages.js';
 import FieldError from '../components/shared/FieldError.jsx';
 import { DateInputField } from '../components/DateInput';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
@@ -192,7 +193,7 @@ const NewLead = () => {
         } catch (e) {
             addToast({
                 type: 'error',
-                message: e?.message || 'Não foi possível cadastrar o lead. Tente novamente.'
+                message: friendlyError(e, 'save')
             });
         } finally {
             setSubmitting(false);

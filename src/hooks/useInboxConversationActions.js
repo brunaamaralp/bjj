@@ -493,7 +493,7 @@ export function useInboxConversationActions({
       });
       if (blocked) return;
       const raw = await resp.text();
-      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao converter lead'));
+      if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao converter lead', 'save'));
       const data = safeParseInboxJson(raw) || {};
       const leadId = String(data?.id || '').trim();
       if (!leadId) throw new Error('ID do lead ausente');

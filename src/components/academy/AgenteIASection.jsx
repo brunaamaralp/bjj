@@ -11,6 +11,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { canEditAgentPrompt, canViewAgentSettings } from '../../lib/canEditAgentPrompt.js';
 import { mapAgentTestErrorMessage, mapAgentSettingsErrorMessage } from '../../lib/agentTestErrorMessage.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
 import AgenteChatSetup from '../inbox/AgenteChatSetup';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
@@ -469,7 +470,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
             if (debugOn) {
                 console.error('[AI Agent Debug] toggle exception', e);
             }
-            addToast({ type: 'error', message: e?.message || 'Erro ao atualizar a IA' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
             return false;
         } finally {
             setTogglingIa(false);
@@ -499,7 +500,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
             }
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setSavingBirthdayMessage(false);
         }
@@ -531,7 +532,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
             }
         } catch (e) {
-            addToast({ type: 'error', message: e?.message || 'Erro ao salvar' });
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setSavingFaq(false);
         }

@@ -1,4 +1,5 @@
 import { account } from './appwrite';
+import { friendlyError } from './errorMessages.js';
 
 const JWT_CACHE_TTL_MS = 45_000;
 
@@ -32,13 +33,23 @@ export function safeParseInboxJson(raw) {
   }
 }
 
-export function normalizeInboxApiError(raw, fallback) {
+/**
+ * Extrai mensagem amigável de respostas da API do inbox.
+ * @param {string} raw
+ * @param {string} [fallback]
+ * @param {'load'|'send'|'save'|'action'} [context]
+ */
+export function normalizeInboxApiError(raw, fallback, context = 'action') {
   const s = String(raw || '').trim();
-  if (!s) return fallback;
   const parsed = safeParseInboxJson(s);
   if (parsed && typeof parsed === 'object') {
-    if (typeof parsed.erro === 'string' && parsed.erro.trim()) return parsed.erro.trim();
-    if (typeof parsed.error === 'string' && parsed.error.trim()) return parsed.error.trim();
+    if (typeof parsed.erro === 'string' && parsed.erro.trim()) {
+      return friendlyError({ message: parsed.erro.trim(), erro: parsed.erro }, context);
+    }
+    if (typeof parsed.error === 'string' && parsed.error.trim()) {
+      return friendlyError({ message: parsed.error.trim(), error: parsed.error }, context);
+    }
   }
-  return s;
+  if (!s) return friendlyError(fallback || null, context);
+  return friendlyError({ message: s }, context);
 }

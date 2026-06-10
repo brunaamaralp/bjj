@@ -3,6 +3,7 @@ import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from '../store/useLeadStore';
 import { normalizeSalesCatalogFromApi } from '../lib/salesCatalog';
 import { REFRESH_SALES_CATALOG_EVENT } from '../lib/salesCatalogRefresh';
+import { friendlyError } from '../lib/errorMessages.js';
 
 async function fetchProductsViaApi(academyId) {
   const jwt = await createSessionJwt();
@@ -56,7 +57,7 @@ export function useSalesCatalog(academyId) {
       setProducts(mapped);
       return mapped;
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(friendlyError(e, 'load'));
       setProducts([]);
       return [];
     } finally {

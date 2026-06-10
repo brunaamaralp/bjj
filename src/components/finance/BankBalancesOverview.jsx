@@ -9,6 +9,7 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import BalanceDeltaBadge from './BalanceDeltaBadge.jsx';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 function fmtMoney(v) {
   try {
@@ -159,7 +160,7 @@ export default function BankBalancesOverview({
     } catch (e) {
       setData(null);
       setPrevTotalBalance(null);
-      setError(e?.message || 'Não foi possível carregar os saldos.');
+      setError(friendlyError(e, 'load'));
     } finally {
       setLoading(false);
     }

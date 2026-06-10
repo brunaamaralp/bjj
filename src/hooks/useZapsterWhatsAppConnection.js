@@ -3,6 +3,7 @@ import { account, realtime, ACADEMIES_COL, DB_ID } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useUiStore } from '../store/useUiStore';
 import { normalizeWaPhoneDigits } from '../../lib/zapsterInstancePhone.js';
+import { friendlyError } from '../lib/errorMessages.js';
 
 function waPhoneForStatus(status, phoneRaw, prevPhone) {
   const st = String(status || '').trim().toLowerCase();
@@ -70,19 +71,23 @@ function isZapsterTokenMissingPayload(data) {
 
 function normalizeApiError(raw, fallback) {
   const s = String(raw || '').trim();
-  if (!s) return fallback;
+  if (!s) return friendlyError(fallback || null, 'action');
   const parsed = safeParseJson(s);
   if (parsed && typeof parsed === 'object') {
     if (parsed.codigo === 'zapster_timeout') {
       return 'Zapster não respondeu. Tente novamente em alguns instantes.';
     }
-    if (typeof parsed.erro === 'string' && parsed.erro.trim()) return parsed.erro.trim();
-    if (typeof parsed.error === 'string' && parsed.error.trim()) return parsed.error.trim();
+    if (typeof parsed.erro === 'string' && parsed.erro.trim()) {
+      return friendlyError({ message: parsed.erro.trim(), erro: parsed.erro }, 'action');
+    }
+    if (typeof parsed.error === 'string' && parsed.error.trim()) {
+      return friendlyError({ message: parsed.error.trim(), error: parsed.error }, 'action');
+    }
   }
   if (s === 'zapster_timeout' || /zapster\s+n[aã]o\s+respondeu/i.test(s)) {
     return 'Zapster não respondeu. Tente novamente em alguns instantes.';
   }
-  return s;
+  return friendlyError({ message: s }, 'action');
 }
 
 function resolveWaStatus(academyZapsterStatus, apiStatus, instanceId) {
@@ -520,7 +525,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       ) {
         setWaTokenMissing(true);
       }
-      if (!silent) setConnectionError(msg || 'Erro');
+      if (!silent) setConnectionError(friendlyError({ message: msg }, 'action'));
     } finally {
       isFetchingWaInfoRef.current = false;
       if (!quiet) setWaLoading(false);
@@ -775,12 +780,12 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       }
       const errMsg = String(data.erro || '').trim();
       if (errMsg) {
-        useUiStore.getState().addToast({ type: 'error', message: errMsg });
+        useUiStore.getState().addToast({ type: 'error', message: friendlyError({ message: errMsg }, 'action') });
       } else {
         useUiStore.getState().addToast({ type: 'warning', message: 'Nenhuma conexão pendente encontrada para esta academia.' });
       }
     } catch (e) {
-      useUiStore.getState().addToast({ type: 'error', message: e?.message || 'Erro ao recuperar' });
+      useUiStore.getState().addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setWaLoading(false);
     }
@@ -884,7 +889,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       if (!hookMountedRef.current) return;
       refreshWaQrCode();
     } catch (e) {
-      setConnectionError(String(e?.message || '') || 'Erro');
+      setConnectionError(friendlyError(e, 'action'));
     } finally {
       if (hookMountedRef.current) setWaLoading(false);
     }
@@ -916,7 +921,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       useUiStore.getState().addToast({ type: 'success', message: 'WhatsApp desconectado' });
       await fetchWaInfo({ silent: true });
     } catch (e) {
-      setConnectionError(String(e?.message || '') || 'Erro');
+      setConnectionError(friendlyError(e, 'action'));
     } finally {
       setWaLoading(false);
     }
@@ -959,7 +964,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       }, 4000);
       deferredTimersRef.current.push(t1, t2);
     } catch (e) {
-      setConnectionError(String(e?.message || '') || 'Erro');
+      setConnectionError(friendlyError(e, 'action'));
     } finally {
       setWaLoading(false);
     }
@@ -1103,7 +1108,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       if (debugOn) {
         console.error('[Inbox Reconcile] error', e);
       }
-      useUiStore.getState().addToast({ type: 'error', message: e?.message || 'Erro ao atualizar' });
+      useUiStore.getState().addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setWaSyncing(false);
     }

@@ -599,8 +599,8 @@ const LeadProfile = () => {
         zapsterInstanceId: waZapHook,
         automationsRaw: waAutoHook,
     } = useWhatsappTemplates(academyId);
-    const showConversationTab =
-        modules?.whatsapp === true || Boolean(String(waZapHook || waCtx.zapster || '').trim());
+    // Alinhado ao menu /inbox: aba sempre visível; estados vazios ficam no painel de chat.
+    const showConversationTab = true;
 
     const profileTabIds = useMemo(() => {
         const ids = ['timeline'];

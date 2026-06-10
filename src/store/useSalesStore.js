@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { functions, SALES_CANCEL_FN_ID, createSessionJwt } from '../lib/appwrite';
 import { salesFetch, SalesApiError } from '../lib/salesApi';
 import { useLeadStore } from './useLeadStore';
+import { friendlySaleError } from '../lib/errorMessages.js';
 
 export const useSalesStore = create((set) => ({
   creating: false,
@@ -139,7 +140,7 @@ export const useSalesStore = create((set) => ({
       set({ lastSale: body, cancelling: false });
       return body;
     } catch (e) {
-      set({ error: String(e && e.message ? e.message : e), cancelling: false });
+      set({ error: friendlySaleError(e) || 'Não foi possível cancelar a venda.', cancelling: false });
       return null;
     }
   },

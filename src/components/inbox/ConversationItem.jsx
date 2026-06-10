@@ -139,7 +139,7 @@ function ConversationItem({
               />
             ) : (
               <User
-                size={compact ? 16 : 18}
+                size={compact ? 22 : 24}
                 strokeWidth={1.75}
                 className="inbox-conversation-item__avatar-icon"
                 aria-hidden

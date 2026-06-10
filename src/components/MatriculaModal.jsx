@@ -18,6 +18,7 @@ import ModalShell from './shared/ModalShell.jsx';
 import StudentStatusBadge from './student/StudentStatusBadge.jsx';
 import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
 import { DateInputField } from './DateInput';
+import { friendlyError } from '../lib/errorMessages.js';
 import { useLeadStore } from '../store/useLeadStore.js';
 import { refreshFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 import { validateStudentPaymentTroco } from '../lib/studentPaymentTroco.js';
@@ -226,7 +227,7 @@ export default function MatriculaModal({
       onPaymentRegistered?.(doc);
       goToSuccess(resolvedLeadId);
     } catch (e) {
-      setPaymentError(e?.message || 'Não foi possível registrar o pagamento.');
+      setPaymentError(friendlyError(e, 'save'));
       if (enrolledStudent && !enrolledLeadId) {
         setEnrolledLeadId(String(leadId || lead?.id || '').trim());
       }
@@ -241,7 +242,7 @@ export default function MatriculaModal({
       await runEnroll(mode);
       goToSuccess(resolvedLeadId);
     } catch (e) {
-      setPaymentError(e?.message || 'Não foi possível concluir a matrícula.');
+      setPaymentError(friendlyError(e, 'save'));
     }
   };
 
@@ -256,7 +257,7 @@ export default function MatriculaModal({
       setPayForm(buildPayFormForEnrollment(lead, resolvedFinanceConfig, enrollmentDate, enrollmentPlan));
       setStep('payment');
     } catch (e) {
-      setPaymentError(e?.message || 'Erro ao preparar pagamento.');
+      setPaymentError(friendlyError(e, 'action'));
     }
   };
 
@@ -276,7 +277,7 @@ export default function MatriculaModal({
       }
       goToSuccess(resolvedLeadId);
     } catch (e) {
-      setPaymentError(e?.message || 'Não foi possível concluir a matrícula.');
+      setPaymentError(friendlyError(e, 'save'));
     }
   };
 

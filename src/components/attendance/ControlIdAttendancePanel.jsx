@@ -5,6 +5,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useAcademyControlId } from '../../hooks/useAcademyControlId.js';
 import { fetchControlIdAttendance, syncAllControlId, releaseControlIdGate } from '../../lib/controlidApi';
+import { friendlyError } from '../../lib/errorMessages.js';
 import { useTerms } from '../../lib/terminology.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -45,7 +46,7 @@ export default function ControlIdAttendancePanel({
         const data = await fetchControlIdAttendance(academyId, { start, end, limit: 200 });
         setRecords(data.records || []);
       } catch (e) {
-        addToast({ type: 'error', message: e?.message || 'Erro ao carregar presenças' });
+        addToast({ type: 'error', message: friendlyError(e, 'load') });
       } finally {
         setLoading(false);
       }
@@ -78,7 +79,7 @@ export default function ControlIdAttendancePanel({
             : 'Nenhum aluno precisava de sincronização.';
       addToast({ type: data.failed > 0 ? 'warning' : 'success', message: msg });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao sincronizar alunos' });
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setSyncing(false);
     }
@@ -92,7 +93,7 @@ export default function ControlIdAttendancePanel({
       if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar');
       addToast({ type: 'success', message: 'Catraca liberada.' });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao liberar catraca' });
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setReleasing(false);
     }

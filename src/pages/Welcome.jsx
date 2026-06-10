@@ -630,7 +630,7 @@ const Welcome = () => {
       <footer className="navi-lp-footer">
         <div className="navi-lp-footer-inner">
           <div className="navi-lp-footer-brand">
-            <NaviBrandLockup height={22} variant="dark" />
+            <NaviBrandLockup height={44} variant="dark" className="navi-brand-lockup--lp-footer" />
           </div>
           <p className="navi-lp-footer-copy">
             <span>© 2026 Nave</span>
@@ -1315,11 +1315,21 @@ const LP_STYLES = `
         margin: 0; font-size: 12px; color: rgba(255,255,255,0.5);
       }
 
-      .navi-lp-footer { background: var(--lp-dark); padding: 26px var(--nl-pad); }
+      .navi-lp-footer { background: var(--lp-dark); padding: 32px var(--nl-pad); }
       .navi-lp-footer-inner {
         max-width: var(--lp-max); margin: 0 auto;
         display: flex; justify-content: space-between;
         align-items: center; flex-wrap: wrap; gap: 14px;
+      }
+      .navi-lp-footer-brand {
+        display: flex; align-items: center;
+      }
+      .navi-lp-footer-brand .navi-brand-lockup--lp-footer {
+        height: 44px !important;
+        width: auto !important;
+        max-width: min(200px, 52vw);
+        object-fit: contain;
+        object-position: left center;
       }
       .navi-lp-footer-copy {
         font-family: var(--ff-mono); font-size: 10px;

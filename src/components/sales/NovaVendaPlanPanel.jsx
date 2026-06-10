@@ -186,7 +186,7 @@ export default function NovaVendaPlanPanel({
     } catch (e) {
       const msg = String(e?.message || '');
       if (msg.includes('Já existe um lançamento')) {
-        setFormError(msg);
+        setFormError('Já existe um lançamento com este valor e data para este aluno.');
         return;
       }
       addToast({ type: 'error', message: friendlyError(e, 'save') });

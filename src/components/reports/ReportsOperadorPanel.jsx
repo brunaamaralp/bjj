@@ -136,7 +136,7 @@ export default function ReportsOperadorPanel({ academyId, from, to, hasSales }) 
       });
       setOperators(data.operators || []);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(friendlyError(e, 'load'));
       setOperators([]);
     } finally {
       setLoading(false);

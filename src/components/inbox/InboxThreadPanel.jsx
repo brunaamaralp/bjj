@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, PictureInPicture2 } from 'lucide-react';
+import { ArrowLeft, Info, MessageSquare, PanelRightOpen, PictureInPicture2 } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import ThreadState from './ThreadState';
 import ThreadSkeleton from './ThreadSkeleton';
@@ -92,6 +92,7 @@ export default function InboxThreadPanel(props) {
     updateTicket,
     showInboxKeyHints,
     isNarrowDesktop,
+    inboxThreadNarrow767 = false,
     setContextOpen,
     contextOpen = false,
     composerProps,
@@ -100,6 +101,8 @@ export default function InboxThreadPanel(props) {
     retryFailedMessage,
     onPinToWidget,
   } = props;
+
+  const showPinInHeader = typeof onPinToWidget === 'function' && !isMobile && !inboxThreadNarrow767;
 
   if (!selectedPhone) {
     return (
@@ -119,20 +122,20 @@ export default function InboxThreadPanel(props) {
   return (
     <div className="inbox-thread-panel">
       <div className="inbox-thread-header">
-        <div className="inbox-thread-header__row">
-          {isMobile && (
+        <div className="inbox-thread-header__row inbox-thread-header__row--primary">
+          {isMobile ? (
             <button
-              className="btn btn-secondary"
-              style={{ padding: '6px 10px', minHeight: 34, flexShrink: 0 }}
+              className="inbox-thread-header__back"
               onClick={() => {
                 setSelectedPhone('');
                 setDetailsOpen(false);
               }}
               type="button"
+              aria-label="Voltar para lista de conversas"
             >
-              Voltar
+              <ArrowLeft size={22} strokeWidth={2} aria-hidden />
             </button>
-          )}
+          ) : null}
             <div className="inbox-thread-header__identity">
             {(() => {
               const phone = String(selectedPhone || '').trim();
@@ -238,7 +241,7 @@ export default function InboxThreadPanel(props) {
                         ) : (
                           <button
                             type="button"
-                            className="btn btn-primary inbox-thread-header__link-btn"
+                            className="inbox-thread-header__link-btn--subtle"
                             disabled={linkingLead}
                             onClick={() => {
                               setLeadPanel?.('convert');
@@ -256,61 +259,65 @@ export default function InboxThreadPanel(props) {
               );
             })()}
             </div>
-        </div>
-
-        <div className="inbox-thread-header-actions">
-          {!selected?.need_human ? (
+          <div className="inbox-thread-header-actions inbox-thread-header-actions--wa">
+            {!selected?.need_human ? (
+              <button
+                className="btn btn-primary inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
+                onClick={() => setHandoffActive(true)}
+                disabled={!selectedPhone}
+                type="button"
+                title={`Pausa o agente por ${handoffDurationPhrase}`}
+              >
+                Assumir
+              </button>
+            ) : (
+              <button
+                className="btn btn-primary inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
+                onClick={() => {
+                  setHandoffReleaseHint(true);
+                  void setHandoffActive(false);
+                }}
+                disabled={!selectedPhone}
+                type="button"
+                title="Reativa o agente agora"
+              >
+                Devolver
+              </button>
+            )}
             <button
-              className="btn btn-primary inbox-thread-header__action-btn"
-              onClick={() => setHandoffActive(true)}
-              disabled={!selectedPhone}
-              type="button"
-              title={`Pausa o agente por ${handoffDurationPhrase}`}
-            >
-              Assumir
-            </button>
-          ) : (
-            <button
-              className="btn btn-primary inbox-thread-header__action-btn"
+              className={`inbox-thread-header__icon-btn inbox-thread-header__btn-context${
+                contextOpen && !isMobile && !isNarrowDesktop ? ' is-active' : ''
+              }`}
               onClick={() => {
-                setHandoffReleaseHint(true);
-                void setHandoffActive(false);
+                if (isMobile || isNarrowDesktop) setDetailsOpen(true);
+                else setContextOpen((v) => !v);
               }}
               disabled={!selectedPhone}
+              title="Abrir painel de detalhes"
               type="button"
-              title="Reativa o agente agora"
+              aria-label="Detalhes da conversa"
+              aria-expanded={Boolean(contextOpen && !isMobile && !isNarrowDesktop)}
             >
-              Devolver
+              {isMobile || inboxThreadNarrow767 ? (
+                <Info size={20} strokeWidth={2} aria-hidden />
+              ) : (
+                <PanelRightOpen size={20} strokeWidth={2} aria-hidden />
+              )}
             </button>
-          )}
-          <button
-            className={`btn btn-outline inbox-thread-header__btn-context inbox-thread-header__action-btn${
-              contextOpen && !isMobile && !isNarrowDesktop ? ' is-active' : ''
-            }`}
-            onClick={() => {
-              if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-              else setContextOpen((v) => !v);
-            }}
-            disabled={!selectedPhone}
-            title="Abrir painel de detalhes"
-            type="button"
-            aria-expanded={Boolean(contextOpen && !isMobile && !isNarrowDesktop)}
-          >
-            Detalhes
-          </button>
-          {typeof onPinToWidget === 'function' ? (
-            <button
-              className="btn btn-outline inbox-thread-header__action-btn"
-              onClick={() => onPinToWidget()}
-              disabled={!selectedPhone}
-              title="Continuar conversando enquanto navega no sistema"
-              type="button"
-            >
-              <PictureInPicture2 size={16} strokeWidth={2} aria-hidden style={{ marginRight: 6 }} />
-              Continuar navegando
-            </button>
-          ) : null}
-          <InboxThreadActionsMenu {...threadActionsMenuProps} />
+            {showPinInHeader ? (
+              <button
+                className="inbox-thread-header__icon-btn"
+                onClick={() => onPinToWidget()}
+                disabled={!selectedPhone}
+                title="Continuar conversando enquanto navega no sistema"
+                type="button"
+                aria-label="Continuar navegando"
+              >
+                <PictureInPicture2 size={20} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            <InboxThreadActionsMenu {...threadActionsMenuProps} onPinToWidget={onPinToWidget} showPinInMenu={!showPinInHeader && typeof onPinToWidget === 'function'} />
+          </div>
         </div>
       </div>
 

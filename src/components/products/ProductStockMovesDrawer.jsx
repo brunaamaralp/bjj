@@ -4,6 +4,7 @@ import { X, Loader2 } from 'lucide-react';
 import { fetchProductStockMoves } from '../../lib/stockMovesApi.js';
 import { stockMoveKindLabel, STOCK_MOVE_TYPE_LABELS } from '../../lib/stockInventory.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 function formatMoveDate(iso) {
   if (!iso) return '—';
@@ -44,7 +45,7 @@ export default function ProductStockMovesDrawer({ open, product, onClose }) {
         if (!cancelled) setMoves(rows);
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e?.message || e));
+        if (!cancelled) setError(friendlyError(e, 'load'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

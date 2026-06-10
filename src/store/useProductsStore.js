@@ -5,6 +5,7 @@ import { legacyStockItemsAsParents } from '../lib/productCatalog';
 import { useLeadStore } from './useLeadStore';
 import { useInventoryStore } from './useInventoryStore';
 import { dispatchRefreshSalesCatalog } from '../lib/salesCatalogRefresh.js';
+import { friendlyError } from '../lib/errorMessages.js';
 
 async function productsFetch(path, options = {}) {
   const jwt = await createSessionJwt();
@@ -88,7 +89,7 @@ export const useProductsStore = create((set, get) => ({
       });
       return normalized.parentProducts;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false, products: [], variants: [] });
+      set({ error: friendlyError(e, 'load'), loading: false, products: [], variants: [] });
       return [];
     }
   },
@@ -122,7 +123,7 @@ export const useProductsStore = create((set, get) => ({
       await get().loadProducts();
       return data.product;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
+      set({ error: friendlyError(e, 'save'), loading: false });
       return null;
     }
   },
@@ -156,7 +157,7 @@ export const useProductsStore = create((set, get) => ({
       await get().loadProducts();
       return data.product;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
+      set({ error: friendlyError(e, 'save'), loading: false });
       return null;
     }
   },
@@ -183,7 +184,7 @@ export const useProductsStore = create((set, get) => ({
       }
       return data.product;
     } catch (e) {
-      set({ error: String(e?.message || e), loading: false });
+      set({ error: friendlyError(e, 'save'), loading: false });
       return null;
     }
   },
@@ -200,7 +201,7 @@ export const useProductsStore = create((set, get) => ({
         current_quantity: Number(data.current_quantity) || 0,
       };
     } catch (e) {
-      set({ error: String(e?.message || e) });
+      set({ error: friendlyError(e, 'action') });
       return null;
     }
   },
@@ -236,7 +237,7 @@ export const useProductsStore = create((set, get) => ({
         product: data.product,
       };
     } catch (e) {
-      const err = String(e?.message || e);
+      const err = friendlyError(e, 'save');
       set({ error: err, loading: false });
       return { ok: false, erro: err };
     }
@@ -250,7 +251,7 @@ export const useProductsStore = create((set, get) => ({
         body: JSON.stringify({ action: 'delete', item_id }),
       });
       if (data?.sucesso === false) {
-        const err = String(data.erro || data.error || 'Erro ao excluir produto');
+        const err = friendlyError(data.erro || data.error || 'delete_failed', 'delete');
         set({ error: err, loading: false });
         return { ok: false, error: err, has_sales: Boolean(data.has_sales) };
       }
@@ -261,7 +262,7 @@ export const useProductsStore = create((set, get) => ({
       }));
       return { ok: true };
     } catch (e) {
-      const err = String(e?.message || e);
+      const err = friendlyError(e, 'delete');
       set({ error: err, loading: false });
       return { ok: false, error: err };
     }

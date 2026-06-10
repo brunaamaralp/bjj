@@ -8,6 +8,7 @@ import { useLeadStore } from '../../store/useLeadStore.js';
 import { apiSnoozeCollectionRegua } from '../../lib/studentPaymentsApi.js';
 import { buildCollectionTaskTitle, buildCollectionTaskDescription } from '../../lib/collectionRules.js';
 import { formatBRL } from '../../lib/moneyBr.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 function waMeUrl(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -83,7 +84,7 @@ export default function CollectionInadimplenciaPanel({
       addToast({ type: 'success', message: 'Tarefa de negociação criada.' });
       closeNegotiateModal();
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao criar tarefa' });
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
       setSavingNegotiate(false);
       setBusyId(null);
@@ -100,7 +101,7 @@ export default function CollectionInadimplenciaPanel({
         message: 'Régua adiada para este aluno até o fim do mês — o cron não criará novas tarefas.',
       });
     } catch (e) {
-      addToast({ type: 'error', message: e?.message || 'Falha ao adiar régua' });
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setBusyId(null);
     }

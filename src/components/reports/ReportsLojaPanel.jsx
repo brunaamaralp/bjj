@@ -58,7 +58,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
         if (active) setData(body);
       } catch (e) {
         if (active) {
-          setError(String(e?.message || e));
+          setError(friendlyError(e, 'load'));
           setData(null);
         }
       } finally {

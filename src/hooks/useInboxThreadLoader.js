@@ -73,7 +73,7 @@ export function useInboxThreadLoader({
           if (!silent) setThreadError('Erro ao carregar conversa. Tente novamente.');
           return;
         }
-        if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao carregar conversa'));
+        if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao carregar conversa', 'load'));
         const data = safeParseInboxJson(raw) || {};
         const incoming = Array.isArray(data?.messages) ? data.messages : [];
         const nextCur = typeof data?.next_cursor === 'string' ? data.next_cursor : '';

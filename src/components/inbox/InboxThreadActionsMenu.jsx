@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MoreVertical } from 'lucide-react';
 import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
 import { InboxMenuAction } from './inboxMenuUi.jsx';
 
@@ -32,6 +33,8 @@ export default function InboxThreadActionsMenu({
   triageBusy = false,
   setEditingContactName,
   setContactNameDraft,
+  onPinToWidget,
+  showPinInMenu = false,
 }) {
   const [open, setOpen] = useState(false);
   const phone = String(selectedPhone || '').trim();
@@ -52,8 +55,7 @@ export default function InboxThreadActionsMenu({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} className="inbox-thread-actions-menu">
       <button
-        className="btn btn-outline"
-        style={{ padding: '6px 10px', minHeight: 34, fontWeight: 900, flexShrink: 0 }}
+        className="inbox-thread-header__icon-btn"
         type="button"
         disabled={!selectedPhone}
         title={!selectedPhone ? 'Selecione uma conversa para ver as ações' : 'Mais ações'}
@@ -62,7 +64,7 @@ export default function InboxThreadActionsMenu({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span aria-hidden>{'\u22EF'}</span>
+        <MoreVertical size={20} strokeWidth={2} aria-hidden />
       </button>
       {open ? (
         <DropdownMenuPanel className="inbox-thread-actions-menu__panel" aria-label="Ações da conversa">
@@ -82,6 +84,17 @@ export default function InboxThreadActionsMenu({
             hint="Detalhes"
             onClick={openDetails}
           />
+          {showPinInMenu ? (
+            <InboxMenuAction
+              label="Continuar navegando"
+              hint="Widget"
+              disabled={!phone}
+              onClick={() => {
+                onPinToWidget?.();
+                close();
+              }}
+            />
+          ) : null}
           <InboxMenuAction
             label="Aguardando cliente"
             hint="Ticket"

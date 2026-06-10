@@ -70,6 +70,13 @@ import ConfirmDialog from '../components/shared/ConfirmDialog';
 ## Mensagens de texto
 
 - **API/rede/Appwrite:** `friendlyError(e, context)` ou `friendlySaleError(e)` — nunca `e.message` cru.
+- **Servidor (JSON):** `apiErro(e, context)` em `lib/server/friendlyError.js`; log técnico com `logApiError(tag, e)`.
+- **Domínios especializados** (agente IA, inbox, Autentique, finance-tx) delegam ao mesmo núcleo:
+  - `mapAgentTestErrorMessage` / `mapAgentSettingsErrorMessage`
+  - `normalizeInboxApiError(raw, fallback, context)`
+  - `humanizeAutentiqueError` (contratos)
+  - `financeTxFriendlyError(code)`
+- **Contextos:** `load` | `save` | `delete` | `send` | `action` | `sale` | `network`
 - **Validação local:** frase curta imperativa — «Informe o nome.», «Selecione um plano.»
 - **Falhas genéricas:** «Não foi possível…»
 - Não mostrar toast + banner com o mesmo texto para o mesmo erro.

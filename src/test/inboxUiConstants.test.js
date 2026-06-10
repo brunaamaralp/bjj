@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { INBOX_MSG_TRUNCATE_CHARS, truncateInboxMessageText, isInboxTruncatableTextMessage } from '../lib/inboxUiConstants.js';
+import {
+  INBOX_LIST_ITEM_ROW_HEIGHT,
+  INBOX_MSG_TRUNCATE_CHARS,
+  truncateInboxMessageText,
+  isInboxTruncatableTextMessage,
+} from '../lib/inboxUiConstants.js';
+
+describe('INBOX_LIST_ITEM_ROW_HEIGHT', () => {
+  it('alinha com altura da linha compacta da lista (virtualizer)', () => {
+    expect(INBOX_LIST_ITEM_ROW_HEIGHT).toBe(72);
+  });
+});
 
 describe('truncateInboxMessageText', () => {
   it('não trunca abaixo do limite', () => {

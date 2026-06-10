@@ -97,7 +97,6 @@ export function useNlAction() {
   const academyList = useLeadStore((s) => s.academyList);
   const storeTeamId = useLeadStore((s) => s.teamId);
   const financeConfig = useLeadStore((s) => s.financeConfig);
-  const modules = useLeadStore((s) => s.modules);
   const updateLead = useLeadStore((s) => s.updateLead);
   const addLead = useLeadStore((s) => s.addLead);
   const addToast = useUiStore((s) => s.addToast);
@@ -522,8 +521,7 @@ export function useNlAction() {
         const lead = (leads || []).find((l) => String(l.id || '').trim() === leadId);
         const now = new Date().toISOString();
         const messageDescription = String(d.message_description || '').trim();
-        const waEnabled =
-          modules?.whatsapp === true && Boolean(String(waZapId || '').trim()) && Boolean(lead?.phone);
+        const waEnabled = Boolean(String(waZapId || '').trim()) && Boolean(lead?.phone);
 
         if (waEnabled && lead) {
           const templateKey = 'dashboard_contact';
@@ -843,7 +841,6 @@ export function useNlAction() {
       waOutbound,
       automationsRaw,
       automationConfig,
-      modules,
       waZapId,
       waAcademyName,
       waTemplates,
