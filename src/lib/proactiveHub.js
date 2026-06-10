@@ -2,8 +2,8 @@ import { LEAD_STATUS } from './leadStatus.js';
 import { isStudentRecord, isActiveStudent } from './studentStatus.js';
 import { getPaymentRowStatus } from './collectionOverdue.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from './financeiroReceivablesSections.js';
-
-const FOLLOWUP_AGENDA_MAX_DAYS = 7;
+import { FOLLOWUP_AGENDA_MAX_DAYS, getFollowupDaysAgo, getFollowupKind } from './followupState.js';
+import { computeFallbackTemperature } from './followupTemperature.js';
 
 function ymdToday() {
   const d = new Date();
@@ -18,15 +18,28 @@ function isTaskDueTodayOrOverdue(task) {
 
 /** Follow-ups pendentes na agenda (mesma lógica do Dashboard). */
 export function countPendingFollowUps(leads = []) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   let n = 0;
   for (const l of leads) {
     if (String(l?.origin || '').trim() === 'Planilha') continue;
-    if (l.status !== LEAD_STATUS.COMPLETED && l.status !== LEAD_STATUS.MISSED) continue;
-    const classDate = l.scheduledDate ? new Date(`${l.scheduledDate}T00:00:00`) : new Date(l.createdAt);
-    const daysAgo = Math.floor((today - classDate) / 86400000);
+    const kind = getFollowupKind(l);
+    if (!kind) continue;
+    const daysAgo = getFollowupDaysAgo(l);
     if (daysAgo >= 0 && daysAgo < FOLLOWUP_AGENDA_MAX_DAYS) n += 1;
+  }
+  return n;
+}
+
+/** Estimativa conservadora (sem eventos): leads possivelmente esfriando. */
+export function countCoolingFollowUps(leads = []) {
+  let n = 0;
+  for (const l of leads) {
+    if (String(l?.origin || '').trim() === 'Planilha') continue;
+    const kind = getFollowupKind(l);
+    if (!kind) continue;
+    const daysAgo = getFollowupDaysAgo(l);
+    if (daysAgo < 0 || daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS) continue;
+    const temp = computeFallbackTemperature(l, kind, daysAgo, false);
+    if (temp === 'cooling' || temp === 'critical') n += 1;
   }
   return n;
 }
@@ -79,14 +92,24 @@ export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, f
     }
   }
 
-  const followUps = countPendingFollowUps(leads);
-  if (followUps > 0) {
+  const cooling = countCoolingFollowUps(leads);
+  if (cooling > 0) {
     items.push({
-      id: 'followups',
-      label: followUps === 1 ? '1 follow-up pendente' : `${followUps} follow-ups pendentes`,
+      id: 'followups_cooling',
+      label: cooling === 1 ? '1 retorno esfriando' : `${cooling} retornos esfriando`,
       href: '/#follow-ups',
-      count: followUps,
+      count: cooling,
     });
+  } else {
+    const followUps = countPendingFollowUps(leads);
+    if (followUps > 0) {
+      items.push({
+        id: 'followups',
+        label: followUps === 1 ? '1 follow-up pendente' : `${followUps} follow-ups pendentes`,
+        href: '/#follow-ups',
+        count: followUps,
+      });
+    }
   }
 
   return items;

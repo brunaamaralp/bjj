@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
+import FollowupPlaybookSection from '../components/academy/FollowupPlaybookSection.jsx';
 
 /** Aba Processos em Automações — templates e aviso de tarefa legada pós-matrícula. */
 export default function AutomacoesProcessosTab() {
@@ -19,6 +20,7 @@ export default function AutomacoesProcessosTab() {
   return (
     <>
       <TaskTemplatesSection academyId={academyId} teamId={academy?.teamId || ''} />
+      <FollowupPlaybookSection academyId={academyId} />
       <EnrollmentFollowUpSection academyId={academyId} />
     </>
   );

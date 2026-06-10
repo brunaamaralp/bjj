@@ -364,8 +364,22 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
   }, []);
 
   const handleSuspendCart = () => {
-    if (!academyId || cart.length === 0) return;
-    suspendCart(academyId, buildCheckoutSnapshot());
+    if (!academyId) {
+      addToast({ type: 'error', message: 'Selecione uma academia para suspender a venda.' });
+      return;
+    }
+    if (cart.length === 0) {
+      addToast({ type: 'error', message: 'Adicione itens ao carrinho antes de suspender.' });
+      return;
+    }
+    const entry = suspendCart(academyId, buildCheckoutSnapshot());
+    if (!entry) {
+      addToast({
+        type: 'error',
+        message: 'Não foi possível suspender o carrinho. Verifique o armazenamento do navegador.',
+      });
+      return;
+    }
     setCart([]);
     setPayments([createEmptyPaymentRow(0)]);
     setDescGeralCents(0);
@@ -373,7 +387,8 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
     setDeferredSale(false);
     setDueDate('');
     setSuspendedList(listSuspendedCarts(academyId));
-    addToast({ type: 'success', message: 'Venda suspensa' });
+    setSuspendedOpen(true);
+    addToast({ type: 'success', message: 'Venda suspensa — use Retomar para continuar' });
     skuInputRef.current?.focus();
   };
 

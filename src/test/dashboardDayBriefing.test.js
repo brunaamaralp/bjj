@@ -82,7 +82,7 @@ describe('getDayPriority', () => {
           status: LEAD_STATUS.SCHEDULED,
         },
       ],
-      followUps: [{ id: 'f1', name: 'Maria', daysAgo: 6 }],
+      followUps: [{ id: 'f1', name: 'Maria', daysAgo: 6, temperature: 'critical' }],
       todayBirthdays: [],
     });
     expect(priority.type).toBe('upcoming_class');
@@ -94,11 +94,12 @@ describe('getDayPriority', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
-      followUps: [{ id: 'f1', name: 'Maria', daysAgo: 6 }],
+      followUps: [{ id: 'f1', name: 'Maria', daysAgo: 6, temperature: 'critical' }],
       todayBirthdays: [{ id: 's1', name: 'Lucas' }],
     });
     expect(priority.type).toBe('urgent_followup');
     expect(priority.message).toContain('Maria');
+    expect(priority.message).toMatch(/esfriando|crítico/i);
   });
 
   it('sugere aniversário quando não há urgências', () => {

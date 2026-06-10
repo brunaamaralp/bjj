@@ -18,7 +18,7 @@ async function fetchProductsViaApi(academyId) {
 
   let res = await fetch('/api/products', { headers });
   let data = await res.json().catch(() => ({}));
-  if (!res.ok) {
+  if (!res.ok || data.sucesso === false) {
     throw new Error(data.erro || data.error || `error_${res.status}`);
   }
 

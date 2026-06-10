@@ -18,11 +18,13 @@ function readRaw(academyId) {
 }
 
 function writeRaw(academyId, list) {
-  if (typeof window === 'undefined' || !academyId) return;
+  if (typeof window === 'undefined' || !academyId) return false;
   try {
-    window.localStorage.setItem(storageKey(academyId), JSON.stringify(list.slice(0, MAX_SUSPENDED)));
+    const payload = JSON.stringify(list.slice(0, MAX_SUSPENDED));
+    window.localStorage.setItem(storageKey(academyId), payload);
+    return window.localStorage.getItem(storageKey(academyId)) === payload;
   } catch {
-    void 0;
+    return false;
   }
 }
 
@@ -51,7 +53,7 @@ export function suspendCart(academyId, snapshot) {
     ...snapshot,
   };
   const list = [entry, ...readRaw(academyId)].slice(0, MAX_SUSPENDED);
-  writeRaw(academyId, list);
+  if (!writeRaw(academyId, list)) return null;
   return entry;
 }
 

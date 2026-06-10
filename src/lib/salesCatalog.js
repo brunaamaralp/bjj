@@ -187,16 +187,39 @@ export function catalogParentsFromVariants(variants) {
     .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
 }
 
+function parentEligibleForSale(parent) {
+  if (!parent || parent.is_for_sale === false) return false;
+  const type = String(parent.type || 'sale').trim().toLowerCase();
+  return type !== 'supply' && type !== 'insumo';
+}
+
 function parentsFromNestedCatalogProducts(products) {
   return (products || [])
-    .filter((p) => p.is_for_sale !== false && p.is_active !== false)
-    .map((p) => ({
-      ...p,
-      variants: saleVariantsFromRows(p.variants || []),
-    }))
-    .filter((p) => p.variants.length > 0)
-    .map(enrichSalesParentRow)
-    .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+    .filter(parentEligibleForSale)
+    .map((p) => {
+      const variants = saleVariantsFromRows(p.variants || []);
+      if (!variants.length) return null;
+      return enrichSalesParentRow({ ...p, variants });
+    })
+    .filter(Boolean)
+    .sort((a, b) =>
+      String(a.display_label || a.nome).localeCompare(String(b.display_label || b.nome), 'pt-BR')
+    );
+}
+
+function mergeSalesParents(primary, secondary) {
+  const byId = new Map();
+  for (const parent of [...(primary || []), ...(secondary || [])]) {
+    const id = String(parent?.id || '').trim();
+    if (!id) continue;
+    const prev = byId.get(id);
+    const nextCount = (parent.variants || []).length;
+    const prevCount = (prev?.variants || []).length;
+    if (!prev || nextCount >= prevCount) byId.set(id, parent);
+  }
+  return Array.from(byId.values()).sort((a, b) =>
+    String(a.display_label || a.nome).localeCompare(String(b.display_label || b.nome), 'pt-BR')
+  );
 }
 
 /** Normaliza resposta de GET /api/products para o catálogo de vendas. */
@@ -206,15 +229,18 @@ export function normalizeSalesCatalogFromApi(data) {
   const rawProducts = Array.isArray(data?.products) ? data.products : [];
 
   if (catalogMode === 'parent_variant') {
-    const nestedHasVariants = rawProducts.some(
-      (p) => Array.isArray(p?.variants) && p.variants.length > 0
-    );
-    if (nestedHasVariants) {
-      const fromNested = parentsFromNestedCatalogProducts(rawProducts);
-      if (fromNested.length > 0) return fromNested;
-    }
-    if (flatVariants.length > 0) {
-      return catalogParentsFromVariants(flatVariants);
+    const fromNested = parentsFromNestedCatalogProducts(rawProducts);
+    const fromFlat = flatVariants.length ? catalogParentsFromVariants(flatVariants) : [];
+    const merged = mergeSalesParents(fromNested, fromFlat);
+    if (merged.length > 0) return merged;
+
+    const legacyLike = rawProducts.length && !rawProducts.some((p) => (p?.variants || []).length > 0);
+    if (legacyLike) {
+      return legacyStockItemsAsParents(saleVariantsFromRows(rawProducts))
+        .map(enrichSalesParentRow)
+        .sort((a, b) =>
+          String(a.display_label || a.nome).localeCompare(String(b.display_label || b.nome), 'pt-BR')
+        );
     }
     return [];
   }
@@ -223,7 +249,9 @@ export function normalizeSalesCatalogFromApi(data) {
   const forSale = saleVariantsFromRows(rawList);
   return legacyStockItemsAsParents(forSale)
     .map(enrichSalesParentRow)
-    .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+    .sort((a, b) =>
+      String(a.display_label || a.nome).localeCompare(String(b.display_label || b.nome), 'pt-BR')
+    );
 }
 
 export function groupByCategory(products) {

@@ -13,10 +13,9 @@ import { Plus, Calendar, ChevronDown, MessageCircle, RefreshCcw, List, Check, Ch
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import DashboardBirthdayBanner from '../components/dashboard/DashboardBirthdayBanner.jsx';
-import { useSessionUser } from '../hooks/useSessionUser.js';
 import {
-    buildGreetingLine,
-    buildHeroContextLine,
+    buildHeroDateLine,
+    buildHeroAcademyLine,
     buildDaySummaryLine,
     getDayPriority,
     getTimeOfDayPeriod,
@@ -44,6 +43,7 @@ import { Link } from 'react-router-dom';
 import NaviLogo from '../components/NaviLogo.jsx';
 import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
+import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
@@ -66,45 +66,32 @@ import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
-import { patchFollowupDoneCache, getFollowupDoneCache, setFollowupDoneCache } from '../lib/followupDoneCache.js';
+import {
+    patchFollowupDoneCache,
+    patchFollowupContactCache,
+    patchFollowupSnoozeCache,
+    getFollowupEventsCache,
+    setFollowupEventsCache,
+} from '../lib/followupEventsCache.js';
+import {
+    FOLLOWUP_AGENDA_MAX_DAYS,
+    enrichFollowUpLeads,
+    sortFollowupsByTemperature,
+    groupFollowUpsByTemperature,
+    countFollowupsByTemperature,
+} from '../lib/followupState.js';
+import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
+import {
+    buildOutcomeLeadPatch,
+    buildSnoozeUntilYmd,
+    FOLLOWUP_OUTCOMES,
+    OUTCOMES_WITH_SNOOZE,
+} from '../lib/followupOutcomes.js';
+import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
+import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
+import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
+import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
 const DEFAULT_STAGE_SLA_DAYS = 3;
-/** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
-const FOLLOWUP_AGENDA_MAX_DAYS = 7;
-
-function groupFollowUpsByUrgency(followUps) {
-    const urgent = followUps.filter((l) => l.daysAgo >= 5);
-    const todayGroup = followUps.filter((l) => l.daysAgo === 0);
-    const week = followUps.filter((l) => l.daysAgo >= 1 && l.daysAgo <= 4);
-    const groups = [];
-    if (urgent.length > 0) {
-        groups.push({
-            key: 'urgent',
-            label: 'Urgente',
-            hint: '5+ dias desde a aula',
-            items: urgent,
-            className: 'fu-group--urgent',
-        });
-    }
-    if (todayGroup.length > 0) {
-        groups.push({
-            key: 'today',
-            label: 'Hoje',
-            hint: 'Aula de hoje',
-            items: todayGroup,
-            className: 'fu-group--today',
-        });
-    }
-    if (week.length > 0) {
-        groups.push({
-            key: 'week',
-            label: 'Esta semana',
-            hint: '1–4 dias',
-            items: week,
-            className: 'fu-group--week',
-        });
-    }
-    return groups;
-}
 
 function groupTodayByPeriod(leads) {
     const morning = [];
@@ -186,6 +173,9 @@ const Dashboard = () => {
     const [savingPresence, setSavingPresence] = useState({});
     const [listModalType, setListModalType] = useState('');
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
+    const [followupContactAtByLead, setFollowupContactAtByLead] = useState({});
+    const [followupSnoozeUntilByLead, setFollowupSnoozeUntilByLead] = useState({});
+    const [followupOutcomeLead, setFollowupOutcomeLead] = useState(null);
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds, setRemovingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
@@ -203,7 +193,6 @@ const Dashboard = () => {
     const todaySectionRef = useRef(null);
     const weekSectionRef = useRef(null);
     const birthdaysSectionRef = useRef(null);
-    const { firstName: sessionFirstName } = useSessionUser();
     const [followupStreak, setFollowupStreak] = useState(0);
     const [sendingBirthdayWa, setSendingBirthdayWa] = useState('');
 
@@ -349,26 +338,42 @@ const Dashboard = () => {
     useEffect(() => {
         if (!academyId || !LEAD_EVENTS_COL) {
             setFollowupDoneAtByLead({});
+            setFollowupContactAtByLead({});
+            setFollowupSnoozeUntilByLead({});
             return;
         }
-        const cached = getFollowupDoneCache(academyId);
+        const cached = getFollowupEventsCache(academyId);
         if (cached) {
-            setFollowupDoneAtByLead(cached);
+            setFollowupDoneAtByLead(cached.doneByLead || {});
+            setFollowupContactAtByLead(cached.contactByLead || {});
+            setFollowupSnoozeUntilByLead(cached.snoozeUntilByLead || {});
             return;
         }
         let cancelled = false;
-        const loadDoneEvents = async () => {
+        const loadFollowupEvents = async () => {
             try {
                 let cursor = null;
                 let pageCount = 0;
-                const byLead = {};
+                const doneByLead = {};
+                const contactByLead = {};
+                const snoozeUntilByLead = {};
                 const cutoff = new Date();
                 cutoff.setDate(cutoff.getDate() - FOLLOWUP_AGENDA_MAX_DAYS);
                 const cutoffIso = cutoff.toISOString();
+                const parsePayload = (doc) => {
+                    const raw = doc?.payload_json ?? doc?.payloadJson;
+                    if (!raw) return {};
+                    if (typeof raw === 'object') return raw;
+                    try {
+                        return JSON.parse(raw);
+                    } catch {
+                        return {};
+                    }
+                };
                 do {
                     const queries = [
                         Query.equal('academy_id', [String(academyId || '').trim()]),
-                        Query.equal('type', ['followup_done']),
+                        Query.equal('type', ['followup_done', 'followup_contact', 'followup_snooze']),
                         Query.greaterThan('at', cutoffIso),
                         Query.orderDesc('at'),
                         Query.limit(100),
@@ -379,21 +384,34 @@ const Dashboard = () => {
                     for (const d of docs) {
                         const leadId = String(d?.lead_id || '').trim();
                         const at = String(d?.at || '').trim();
-                        if (!leadId || !at || byLead[leadId]) continue;
-                        byLead[leadId] = at;
+                        const type = String(d?.type || '').trim();
+                        if (!leadId || !at) continue;
+                        const payload = parsePayload(d);
+                        if (type === 'followup_done' && !doneByLead[leadId]) doneByLead[leadId] = at;
+                        if (type === 'followup_contact' && !contactByLead[leadId]) contactByLead[leadId] = at;
+                        if (type === 'followup_snooze' && !snoozeUntilByLead[leadId]) {
+                            const until = String(payload.untilYmd || '').slice(0, 10);
+                            if (until) snoozeUntilByLead[leadId] = until;
+                        }
                     }
                     cursor = docs.length === 100 ? docs[docs.length - 1]?.$id : null;
                     pageCount += 1;
                 } while (cursor && pageCount < 10);
                 if (!cancelled) {
-                    setFollowupDoneAtByLead(byLead);
-                    setFollowupDoneCache(academyId, byLead);
+                    setFollowupDoneAtByLead(doneByLead);
+                    setFollowupContactAtByLead(contactByLead);
+                    setFollowupSnoozeUntilByLead(snoozeUntilByLead);
+                    setFollowupEventsCache(academyId, { doneByLead, contactByLead, snoozeUntilByLead });
                 }
             } catch {
-                if (!cancelled) setFollowupDoneAtByLead({});
+                if (!cancelled) {
+                    setFollowupDoneAtByLead({});
+                    setFollowupContactAtByLead({});
+                    setFollowupSnoozeUntilByLead({});
+                }
             }
         };
-        void loadDoneEvents();
+        void loadFollowupEvents();
         return () => {
             cancelled = true;
         };
@@ -449,28 +467,56 @@ const Dashboard = () => {
         [allScheduled]
     );
 
-    // Follow-ups: dias desde a data da aula experimental; na agenda, só os primeiros 7 dias; mais recentes no topo
-    const followUpsAll = leads
-        .filter(l => excludeImportedOrigin(l) && (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED))
-        .map(l => {
-            const classDate = l.scheduledDate ? new Date(l.scheduledDate + 'T00:00:00') : new Date(l.createdAt);
-            const diffMs = new Date() - classDate;
-            const daysAgo = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            const doneAtIso = String(followupDoneAtByLead[String(l.id || '').trim()] || '').trim();
-            const doneAtMs = doneAtIso ? new Date(doneAtIso).getTime() : 0;
-            const classMs = classDate.getTime();
-            const doneForCurrentClass = Number.isFinite(doneAtMs) && doneAtMs > 0 && doneAtMs >= classMs;
-            return { ...l, daysAgo, classDate, doneForCurrentClass };
-        });
-    const followUpsKanbanOnlyCount = followUpsAll.filter((l) => !l.doneForCurrentClass && l.daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS).length;
-    const followUps = followUpsAll
-        .filter((l) => !l.doneForCurrentClass && l.daysAgo < FOLLOWUP_AGENDA_MAX_DAYS)
-        .sort((a, b) => {
-            if (a.daysAgo !== b.daysAgo) return a.daysAgo - b.daysAgo;
-            const ta = new Date(a.statusChangedAt || a.pipelineStageChangedAt || a.createdAt || 0).getTime();
-            const tb = new Date(b.statusChangedAt || b.pipelineStageChangedAt || b.createdAt || 0).getTime();
-            return tb - ta;
-        });
+    const followupPlaybook = useMemo(() => {
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        return readFollowupPlaybook(acad.settings);
+    }, [academyList, academyId]);
+
+    const followupEventsCtx = useMemo(
+        () => ({
+            playbook: followupPlaybook,
+            followupDoneByLead: followupDoneAtByLead,
+            followupContactByLead: followupContactAtByLead,
+            followupSnoozeUntilByLead: followupSnoozeUntilByLead,
+        }),
+        [followupPlaybook, followupDoneAtByLead, followupContactAtByLead, followupSnoozeUntilByLead]
+    );
+
+    const followUpsAll = useMemo(
+        () =>
+            enrichFollowUpLeads(
+                leads.filter(
+                    (l) =>
+                        excludeImportedOrigin(l) &&
+                        (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
+                ),
+                followupEventsCtx
+            ),
+        [leads, followupEventsCtx]
+    );
+
+    const followUpsKanbanOnlyCount = followUpsAll.filter(
+        (l) => !l.doneForCurrentClass && !l.isSnoozed && l.daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS
+    ).length;
+
+    const followUps = useMemo(
+        () =>
+            followUpsAll
+                .filter((l) => !l.doneForCurrentClass && !l.isSnoozed && l.daysAgo < FOLLOWUP_AGENDA_MAX_DAYS)
+                .sort(sortFollowupsByTemperature),
+        [followUpsAll]
+    );
+
+    const followupTemperatureCounts = useMemo(() => countFollowupsByTemperature(followUps), [followUps]);
+
+    const followupHealthSummary = useMemo(
+        () =>
+            computeFollowupHealthSummary(followUpsAll, {
+                followupDoneByLead: followupDoneAtByLead,
+                followupContactByLead: followupContactAtByLead,
+            }),
+        [followUpsAll, followupDoneAtByLead, followupContactAtByLead]
+    );
 
     const todayBirthdays = useMemo(() => {
         const mesEDia = getTodayMonthDay();
@@ -591,22 +637,22 @@ const Dashboard = () => {
                 followUps,
                 todayBirthdays,
                 vertical,
-                daySummaryLine,
             }),
-        [todayScheduled, followUps, todayBirthdays, vertical, daySummaryLine]
+        [todayScheduled, followUps, todayBirthdays, vertical]
     );
 
-    const heroGreetingLine = useMemo(
-        () => buildGreetingLine(sessionFirstName, new Date()),
-        [sessionFirstName]
-    );
-
-    const heroContextLine = useMemo(
-        () => buildHeroContextLine(academyDisplayName, new Date()),
+    const heroDateLine = useMemo(() => buildHeroDateLine(new Date()), []);
+    const heroAcademyLine = useMemo(
+        () => buildHeroAcademyLine(academyDisplayName),
         [academyDisplayName]
     );
 
     const heroPeriod = useMemo(() => getTimeOfDayPeriod(new Date()), []);
+
+    const showDayPriority =
+        !loading &&
+        dayPriority.type !== 'fallback' &&
+        Boolean(dayPriority.message);
 
     useEffect(() => {
         if (!academyId || loading) return;
@@ -614,7 +660,7 @@ const Dashboard = () => {
         setFollowupStreak(streak);
     }, [academyId, loading, followUps.length]);
 
-    const followUpGroups = useMemo(() => groupFollowUpsByUrgency(followUps), [followUps]);
+    const followUpGroups = useMemo(() => groupFollowUpsByTemperature(followUps), [followUps]);
 
     const todayPeriodGroups = useMemo(() => groupTodayByPeriod(todayScheduled), [todayScheduled]);
 
@@ -664,7 +710,16 @@ const Dashboard = () => {
                 key: 'followup',
                 label: followupKpiLabel(),
                 count: followUps.length,
-                tone: followUps.length > 0 ? 'attention' : 'success',
+                sub:
+                    followupTemperatureCounts.cooling + followupTemperatureCounts.critical > 0
+                        ? `${followupTemperatureCounts.cooling + followupTemperatureCounts.critical} esfriando`
+                        : '',
+                tone:
+                    followupTemperatureCounts.critical > 0
+                        ? 'attention'
+                        : followUps.length > 0
+                          ? 'default'
+                          : 'success',
             },
             {
                 key: 'tasks',
@@ -673,7 +728,15 @@ const Dashboard = () => {
                 tone: pendingTasks.length > 0 ? 'attention' : 'muted',
             },
         ],
-        [trialSeriesPlural, todayScheduled.length, weekScheduled.length, followUps.length, pendingTasks.length]
+        [
+            trialSeriesPlural,
+            todayScheduled.length,
+            weekScheduled.length,
+            followUps.length,
+            pendingTasks.length,
+            followupTemperatureCounts.cooling,
+            followupTemperatureCounts.critical,
+        ]
     );
 
     const modalListItems =
@@ -734,10 +797,12 @@ const Dashboard = () => {
 
         const startedAt = Date.now();
         setWaStateByLead((prev) => ({ ...prev, [leadId]: 'loading' }));
-        const key = lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'post_class';
+        const templateKey =
+            lead?.nextStep?.template_key ||
+            (lead?.status === LEAD_STATUS.MISSED ? 'missed' : 'post_class');
 
         void (async () => {
-            const result = await sendDashboardTemplate(lead, key);
+            const result = await sendDashboardTemplate(lead, templateKey);
             if (!result?.ok) {
                 setWaStateByLead((prev) => {
                     const next = { ...prev };
@@ -745,6 +810,29 @@ const Dashboard = () => {
                     return next;
                 });
                 return;
+            }
+            const nowIso = new Date().toISOString();
+            try {
+                const st = useLeadStore.getState();
+                const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+                const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+                await addLeadEvent({
+                    academyId: st.academyId,
+                    leadId: lead.id,
+                    type: 'followup_contact',
+                    text: 'Contato de retorno via WhatsApp',
+                    createdBy: st.userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: {
+                        source: 'dashboard',
+                        templateKey,
+                        scheduledDate: lead.scheduledDate || '',
+                    },
+                });
+                patchFollowupContactCache(st.academyId, leadId, nowIso);
+                setFollowupContactAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
+            } catch {
+                void 0;
             }
             const delay = Math.max(0, 1200 - (Date.now() - startedAt));
             window.setTimeout(() => {
@@ -823,21 +911,21 @@ const Dashboard = () => {
         }
     };
 
-    const markFollowupDone = async (lead, e) => {
+    const openFollowupOutcome = (lead, e) => {
         const leadId = String(lead?.id || '').trim();
-        if (
-            !leadId ||
-            savingFollowupDone[leadId] ||
-            flashingFollowupIds[leadId] ||
-            leavingFollowupIds[leadId]
-        ) {
-            return;
-        }
+        if (!leadId || savingFollowupDone[leadId]) return;
         if (e?.currentTarget) addRipple(e.currentTarget, e);
+        setFollowupOutcomeLead(lead);
+    };
 
+    const confirmFollowupOutcome = async ({ outcome, objectionType, note, snooze, snoozeDays }) => {
+        const lead = followupOutcomeLead;
+        const leadId = String(lead?.id || '').trim();
+        if (!leadId) return;
+
+        setSavingFollowupDone((prev) => ({ ...prev, [leadId]: true }));
         const startedAt = Date.now();
         setFlashingFollowupIds((prev) => ({ ...prev, [leadId]: true }));
-        setSavingFollowupDone((prev) => ({ ...prev, [leadId]: true }));
 
         const flashTimer = window.setTimeout(() => {
             setFlashingFollowupIds((prev) => {
@@ -860,11 +948,7 @@ const Dashboard = () => {
                 delete next[leadId];
                 return next;
             });
-            setRemovingFollowupIds((prev) => {
-                const next = { ...prev };
-                delete next[leadId];
-                return next;
-            });
+            setFollowupOutcomeLead(null);
         };
 
         try {
@@ -872,28 +956,85 @@ const Dashboard = () => {
             const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
             const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
             const nowIso = new Date().toISOString();
-            await addLeadEvent({
-                academyId: st.academyId,
-                leadId: lead.id,
-                type: 'followup_done',
-                text: 'Follow-up marcado como concluído',
-                createdBy: st.userId || 'user',
-                permissionContext: permCtx,
-                payloadJson: { source: 'dashboard', status: lead.status || '', scheduledDate: lead.scheduledDate || '' },
-            });
+            const scheduledDate = lead.scheduledDate || '';
+
+            const snoozeOnly = snooze && OUTCOMES_WITH_SNOOZE.has(outcome);
+            const untilYmd = snooze ? buildSnoozeUntilYmd(snoozeDays) : '';
+
+            if (snooze) {
+                await addLeadEvent({
+                    academyId: st.academyId,
+                    leadId: lead.id,
+                    type: 'followup_snooze',
+                    text: 'Retorno adiado',
+                    createdBy: st.userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: { scheduledDate, untilYmd, reason: outcome },
+                });
+                patchFollowupSnoozeCache(st.academyId, leadId, untilYmd);
+                setFollowupSnoozeUntilByLead((prev) => ({ ...prev, [leadId]: untilYmd }));
+            }
+
+            if (!snoozeOnly) {
+                await addLeadEvent({
+                    academyId: st.academyId,
+                    leadId: lead.id,
+                    type: 'followup_done',
+                    text: 'Follow-up concluído',
+                    createdBy: st.userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: {
+                        source: 'dashboard',
+                        status: lead.status || '',
+                        scheduledDate,
+                        outcome,
+                        objectionType: objectionType || undefined,
+                        note: note || undefined,
+                        snoozeUntil: untilYmd || undefined,
+                    },
+                });
+            }
+
+            const patch = buildOutcomeLeadPatch(outcome, { objectionType });
+            if (patch) {
+                await st.updateLead(leadId, patch);
+            }
+
+            if (outcome === FOLLOWUP_OUTCOMES.LOST) {
+                await addLeadEvent({
+                    academyId: st.academyId,
+                    leadId: lead.id,
+                    type: 'lost',
+                    from: lead?.status || '',
+                    to: LEAD_STATUS.LOST,
+                    text: note || 'Sem interesse (retorno)',
+                    createdBy: st.userId || 'user',
+                    permissionContext: permCtx,
+                });
+            }
 
             const applySuccess = () => {
-                patchFollowupDoneCache(st.academyId, leadId, nowIso);
-                setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
+                if (!snoozeOnly) {
+                    patchFollowupDoneCache(st.academyId, leadId, nowIso);
+                    setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
+                }
                 setFollowUpMicroToastOpen(true);
                 clearFollowupVisuals();
+
+                if (outcome === FOLLOWUP_OUTCOMES.ENROLLED) {
+                    navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
+                    addToast({ type: 'info', message: 'Abra a matrícula no perfil do lead.' });
+                } else if (outcome === FOLLOWUP_OUTCOMES.RESCHEDULE) {
+                    navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
+                    addToast({ type: 'info', message: 'Reagende a experimental no perfil do lead.' });
+                }
             };
 
             const elapsed = Date.now() - startedAt;
             window.setTimeout(applySuccess, Math.max(0, 1050 - elapsed));
         } catch {
             clearFollowupVisuals();
-            addToast({ type: 'error', message: 'Erro ao marcar follow-up como feito.' });
+            addToast({ type: 'error', message: 'Erro ao registrar retorno.' });
         } finally {
             setSavingFollowupDone((prev) => {
                 const next = { ...prev };
@@ -994,7 +1135,8 @@ const Dashboard = () => {
         const waState = waStateByLead[leadId] || 'idle';
         const elapsedLabel =
             lead.daysAgo === 0 ? 'hoje' : lead.daysAgo === 1 ? 'há 1 dia' : `há ${lead.daysAgo} dias`;
-        const fuTimeClass = lead.daysAgo >= 5 ? 'fu-time--urgent' : '';
+        const fuTimeClass =
+            lead.temperature === 'critical' ? 'fu-time--urgent' : lead.temperature === 'cooling' ? 'fu-time--cooling' : '';
         const statusFallback = isPost
             ? (vertical === 'physio' ? 'Pós-avaliação' : 'Pós-aula')
             : 'Recuperar';
@@ -1024,6 +1166,10 @@ const Dashboard = () => {
                         {lead.name}
                     </button>
                     <div className="fu-sub">
+                        <FollowupTemperatureBadge temperature={lead.temperature} />
+                        <span className="fu-meta-sep" aria-hidden>
+                            ·
+                        </span>
                         <span className="fu-phone">{lead.phone || '—'}</span>
                         <span className="fu-meta-sep" aria-hidden>
                             ·
@@ -1040,6 +1186,20 @@ const Dashboard = () => {
                             <span className="fu-meta-status">{statusFallback}</span>
                         )}
                     </div>
+                    {lead.nextActionLabel ? (
+                        <p className="fu-next-action text-small">
+                            Próxima ação: <span>{lead.nextActionLabel}</span>
+                            {lead.phone ? (
+                                <>
+                                    {' '}
+                                    ·{' '}
+                                    <Link className="fu-inbox-link" to={`/inbox?phone=${encodeURIComponent(lead.phone)}`}>
+                                        Abrir conversa
+                                    </Link>
+                                </>
+                            ) : null}
+                        </p>
+                    ) : null}
                 </div>
                 <div className="fu-btns">
                     <button
@@ -1092,9 +1252,9 @@ const Dashboard = () => {
                             flashingFollowupIds[leadId] ||
                             leavingFollowupIds[leadId]
                         )}
-                        aria-label="Marcar follow-up como feito"
-                        title={savingFollowupDone[leadId] ? 'Salvando…' : 'Marcar feito'}
-                        onClick={(e) => void markFollowupDone(lead, e)}
+                        aria-label="Concluir retorno"
+                        title={savingFollowupDone[leadId] ? 'Salvando…' : 'Concluir retorno'}
+                        onClick={(e) => openFollowupOutcome(lead, e)}
                     >
                         {savingFollowupDone[leadId] ? (
                             <Loader2 className="mk-btn__icon mk-btn__icon--spin" size={14} aria-hidden />
@@ -1154,10 +1314,14 @@ const Dashboard = () => {
                 aria-busy={loading}
             >
                 <div className="dashboard-day-hero__main">
-                    <p className="dashboard-day-hero__greeting">{heroGreetingLine}</p>
-                    <p className="dashboard-day-hero__date">{heroContextLine}</p>
-                    <p className="dashboard-day-hero__summary">{loading ? 'Carregando…' : daySummaryLine}</p>
-                    {!loading && dayPriority.message ? (
+                    <p className="dashboard-day-hero__date">{loading ? 'Carregando…' : heroDateLine}</p>
+                    {!loading && heroAcademyLine ? (
+                        <p className="dashboard-day-hero__academy">{heroAcademyLine}</p>
+                    ) : null}
+                    {!loading ? (
+                        <p className="dashboard-day-hero__summary">{daySummaryLine}</p>
+                    ) : null}
+                    {showDayPriority ? (
                         <div className="dashboard-day-hero__priority">
                             <p className="dashboard-day-hero__priority-text">{dayPriority.message}</p>
                             {dayPriority.scrollTarget ? (
@@ -1201,11 +1365,18 @@ const Dashboard = () => {
                             >
                                 <span className="dashboard-day-stat__count">{stat.count}</span>
                                 <span className="dashboard-day-stat__label">{stat.label}</span>
+                                {stat.sub ? (
+                                    <span className="dashboard-day-stat__sub">{stat.sub}</span>
+                                ) : null}
                             </button>
                         ))
                     )}
                 </div>
             </section>
+
+            {!loading && !isZeroState ? (
+                <FollowupHealthPanel summary={followupHealthSummary} />
+            ) : null}
 
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
@@ -1664,6 +1835,17 @@ const Dashboard = () => {
                 loading={gateReleasing}
                 onConfirm={() => void confirmGateRelease()}
                 onClose={() => !gateReleasing && setGateReleaseOpen(false)}
+            />
+
+            <FollowupOutcomeDialog
+                open={Boolean(followupOutcomeLead)}
+                leadName={followupOutcomeLead?.name || ''}
+                saving={Boolean(followupOutcomeLead && savingFollowupDone[String(followupOutcomeLead.id || '').trim()])}
+                onClose={() => {
+                    const lid = String(followupOutcomeLead?.id || '').trim();
+                    if (!lid || !savingFollowupDone[lid]) setFollowupOutcomeLead(null);
+                }}
+                onConfirm={(payload) => void confirmFollowupOutcome(payload)}
             />
 </div>
         </div>

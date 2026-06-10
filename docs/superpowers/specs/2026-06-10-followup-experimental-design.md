@@ -1,7 +1,7 @@
 # Follow-up pós-aula experimental — Design v1
 
 **Data:** 2026-06-10  
-**Status:** Aguardando revisão  
+**Status:** Implementado (fases 1–3 + painel gestor; fases 4b IA/Inbox e 5 automação pendentes)  
 **Problemas-alvo:** consistência operacional (C) e visibilidade de leads esfriando (D)
 
 ---

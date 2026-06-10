@@ -66,3 +66,16 @@ export async function apiFindStudentsByPhone(phone, academyId) {
   );
   return Array.isArray(data.matches) ? data.matches : [];
 }
+
+/** Busca alunos por nome ou telefone para checkout de vendas (via API, evita 401 no client). */
+export async function searchStudentsForSaleApi(query, academyId, { limit = 8 } = {}) {
+  const q = String(query || '').trim();
+  if (q.length < 2) return [];
+  const lim = Math.min(Math.max(1, limit), 20);
+  const data = await studentsFetch(
+    `/api/leads?route=students&action=search&q=${encodeURIComponent(q)}&limit=${lim}`,
+    {},
+    academyId
+  );
+  return Array.isArray(data.students) ? data.students : [];
+}

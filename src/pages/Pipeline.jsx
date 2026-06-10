@@ -34,6 +34,9 @@ import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
+import { getFollowupKind, getFollowupDaysAgo } from '../lib/followupState.js';
+import { computeFallbackTemperature } from '../lib/followupTemperature.js';
+import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { useTerms, TERMS, contactLabelSingular } from '../lib/terminology.js';
@@ -131,7 +134,7 @@ const dropAnimation = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
@@ -201,6 +204,11 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
                     title={`Há ${slaAlert.daysInStage} dia(s) nesta etapa (SLA ${slaAlert.slaDays}d)`}
                 >
                     {`${slaAlert.daysInStage}d`}
+                </span>
+            ) : null}
+            {followupTemperature ? (
+                <span className="lead-card-followup-temp">
+                    <FollowupTemperatureBadge temperature={followupTemperature} size="sm" />
                 </span>
             ) : null}
             <div className="lead-card-title-row lead-card-title-row--name-only flex items-center gap-2">
@@ -560,7 +568,7 @@ const SortableLeadCard = React.memo(function SortableLeadCard({ lead, ...props }
 
 const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
-const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, pipelineStageId, pipelineStageColorIndex }) {
+const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, followupTempByLead, pipelineStageId, pipelineStageColorIndex }) {
     const shouldVirtualize = leads.length > PIPELINE_VIRTUAL_THRESHOLD;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
@@ -576,6 +584,7 @@ const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef,
             lead={lead}
             isMoving={savingLeadIds.has(lead.id) || movingLeadIds.has(lead.id)}
             slaAlert={slaAlerts[lead.id]}
+            followupTemperature={followupTempByLead[lead.id]}
             pipelineStageId={pipelineStageId}
             pipelineStageColorIndex={pipelineStageColorIndex}
             {...cardProps}
@@ -1988,6 +1997,18 @@ const Pipeline = () => {
     ]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
+    const followupTempByLead = useMemo(() => {
+        const map = {};
+        for (const lead of leadsForBoard) {
+            const kind = getFollowupKind(lead);
+            if (!kind) continue;
+            const daysAgo = getFollowupDaysAgo(lead);
+            const temp = computeFallbackTemperature(lead, kind, daysAgo, false);
+            if (temp !== 'on_track') map[lead.id] = temp;
+        }
+        return map;
+    }, [leadsForBoard]);
+
     const leadsForBoardDisplay = useMemo(() => {
         if (!slaCriticalFilter) return leadsForBoard;
         return leadsForBoard.filter((l) => slaAlerts[l.id]?.urgency === 'critical');
@@ -2929,6 +2950,7 @@ const Pipeline = () => {
                                         savingLeadIds={savingLeadIds}
                                         movingLeadIds={movingLeadIds}
                                         slaAlerts={slaAlerts}
+                                        followupTempByLead={followupTempByLead}
                                         cardProps={cardProps}
                                         pipelineStageId={col.id}
                                         pipelineStageColorIndex={idx}
@@ -2973,6 +2995,7 @@ const Pipeline = () => {
                         <LeadCard
                             lead={getLeadById(activeId)}
                             slaAlert={slaAlerts[activeId]}
+                            followupTemperature={followupTempByLead[activeId]}
                             isOverlay
                             navigate={navigate}
                             openNote={openNote}

@@ -29,16 +29,16 @@
         .dashboard-day-hero--evening {
           background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-dark) 8%, var(--color-primary-surface)) 0%, #fff 52%);
         }
-        .dashboard-day-hero__greeting {
-          margin: 0 0 4px;
+        .dashboard-day-hero__date {
+          margin: 0 0 6px;
           font-size: clamp(1.35rem, 2.6vw, 1.65rem);
           font-weight: 800;
           letter-spacing: -0.03em;
           color: var(--color-text-heading);
           line-height: 1.15;
         }
-        .dashboard-day-hero__date {
-          margin: 0 0 8px;
+        .dashboard-day-hero__academy {
+          margin: 0 0 10px;
           font-size: 0.875rem;
           font-weight: 600;
           line-height: 1.35;
@@ -606,6 +606,15 @@
           color: var(--color-text-secondary);
           opacity: 0.75;
         }
+        .fu-group--critical .fu-group__title {
+          color: var(--color-danger);
+        }
+        .fu-group--cooling .fu-group__title {
+          color: #b45309;
+        }
+        .fu-group--on-track .fu-group__title {
+          color: var(--color-accent-dark);
+        }
         .fu-group--urgent .fu-group__title {
           color: var(--color-danger);
         }
@@ -658,9 +667,141 @@
             margin-bottom: 0;
           }
         }
+        .fu-time--urgent,
+        .fu-time--cooling {
+          font-weight: 600;
+        }
         .fu-time--urgent {
           color: var(--color-danger);
+        }
+        .fu-time--cooling {
+          color: #b45309;
+        }
+        .fu-next-action {
+          margin: 4px 0 0;
+          color: var(--color-text-secondary);
+        }
+        .fu-next-action span {
+          color: var(--color-text-heading);
           font-weight: 600;
+        }
+        .fu-inbox-link {
+          color: var(--color-primary);
+          font-weight: 600;
+          text-decoration: none;
+        }
+        .fu-inbox-link:hover {
+          text-decoration: underline;
+        }
+        .dashboard-day-stat__sub {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          color: #b45309;
+          margin-top: 2px;
+        }
+        .followup-temp {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          vertical-align: middle;
+        }
+        .followup-temp__dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .followup-temp--on_track .followup-temp__dot {
+          background: #16a34a;
+        }
+        .followup-temp--cooling .followup-temp__dot {
+          background: #f59e0b;
+        }
+        .followup-temp--critical .followup-temp__dot {
+          background: var(--color-danger);
+        }
+        .followup-temp--sm .followup-temp__label {
+          font-size: 11px;
+          font-weight: 600;
+        }
+        .followup-temp--md .followup-temp__label {
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .followup-health-panel {
+          margin-top: 12px;
+          padding: 14px 16px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px);
+          background: var(--color-bg);
+        }
+        .followup-health-panel__title {
+          margin: 0 0 10px;
+          font-size: 15px;
+          font-weight: 700;
+        }
+        .followup-health-panel__counts {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px 20px;
+          margin-bottom: 10px;
+        }
+        .followup-health-panel__count {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .followup-health-panel__num {
+          font-size: 18px;
+          font-weight: 800;
+        }
+        .followup-health-panel__list {
+          list-style: none;
+          margin: 8px 0 0;
+          padding: 0;
+        }
+        .followup-health-panel__link {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          width: 100%;
+          padding: 8px 0;
+          border: none;
+          border-top: 1px solid var(--color-border);
+          background: none;
+          cursor: pointer;
+          font: inherit;
+          text-align: left;
+        }
+        .followup-outcome-dialog__options {
+          border: none;
+          margin: 0 0 12px;
+          padding: 0;
+          display: grid;
+          gap: 8px;
+        }
+        .followup-outcome-dialog__option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+        }
+        .followup-playbook-section__head {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .followup-playbook-track__list {
+          margin: 0 0 12px;
+          padding-left: 1.1rem;
+        }
+        .followup-playbook-track__day {
+          font-weight: 700;
+          margin-right: 6px;
         }
         .fu-info {
           flex: 1;

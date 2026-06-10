@@ -871,6 +871,17 @@
   color: var(--pipeline-badge-error-text);
 }
 
+.lead-card-followup-temp {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+.lead-card:has(.lead-sla-badge) .lead-card-followup-temp {
+  top: 30px;
+}
+
 .lead-card-title-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

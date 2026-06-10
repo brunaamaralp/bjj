@@ -36,11 +36,14 @@ export function buildGreetingLine(firstName, date = new Date()) {
   return greeting;
 }
 
-export function buildHeroContextLine(academyName, date = new Date()) {
-  const dateLabel = formatTodayHeroDate(date);
-  const academy = String(academyName || '').trim();
-  if (academy) return `${academy} · ${dateLabel}`;
-  return dateLabel;
+/** Data em destaque no hero (sem saudação). */
+export function buildHeroDateLine(date = new Date()) {
+  return formatTodayHeroDate(date);
+}
+
+/** Nome da academia como linha secundária no hero. */
+export function buildHeroAcademyLine(academyName) {
+  return String(academyName || '').trim();
 }
 
 function parseLeadDateTime(lead, dayStart) {
@@ -178,17 +181,24 @@ export function getDayPriority(ctx) {
     };
   }
 
-  const urgent = [...(ctx.followUps || [])]
-    .filter((l) => (l.daysAgo ?? 0) >= 5)
-    .sort((a, b) => (b.daysAgo ?? 0) - (a.daysAgo ?? 0));
+  const cooling = [...(ctx.followUps || [])]
+    .filter((l) => l.temperature === 'cooling' || l.temperature === 'critical')
+    .sort((a, b) => {
+      const order = { critical: 0, cooling: 1 };
+      const ta = order[a.temperature] ?? 2;
+      const tb = order[b.temperature] ?? 2;
+      if (ta !== tb) return ta - tb;
+      return (b.daysAgo ?? 0) - (a.daysAgo ?? 0);
+    });
 
-  if (urgent.length > 0) {
-    const lead = urgent[0];
+  if (cooling.length > 0) {
+    const lead = cooling[0];
     const name = String(lead.name || 'Interessado').trim();
     const days = lead.daysAgo ?? 0;
+    const verb = lead.temperature === 'critical' ? 'está crítico' : 'está esfriando';
     return {
       type: 'urgent_followup',
-      message: `${name} está há ${days} dias sem retorno — vale uma mensagem.`,
+      message: `${name} ${verb} — ${days} dia${days === 1 ? '' : 's'} desde a aula. Vale uma mensagem.`,
       scrollTarget: 'follow-ups',
       leadId: String(lead.id || '').trim() || undefined,
     };
@@ -216,11 +226,14 @@ export function getDayPriority(ctx) {
     };
   }
 
-  const summary = String(ctx.daySummaryLine || '').trim();
   const followCount = (ctx.followUps || []).length;
+  const message =
+    followCount > 0
+      ? 'Priorize quem está há mais tempo aguardando retorno.'
+      : 'Revise a agenda da semana e prepare os próximos contatos.';
   return {
     type: 'fallback',
-    message: summary || 'Revise os retornos da semana e prepare a agenda.',
+    message,
     scrollTarget: followCount > 0 ? 'follow-ups' : undefined,
   };
 }
