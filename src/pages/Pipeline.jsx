@@ -119,6 +119,12 @@ import { CSS } from '@dnd-kit/utilities';
 /** Acima de colunas kanban com overlay (--z-elevated). */
 const PIPELINE_MENU_Z = 'var(--z-elevated, 13000)';
 
+const KANBAN_INSERT_END = '__end__';
+
+function KanbanDropSlot() {
+    return <div className="kanban-drop-slot" aria-hidden />;
+}
+
 const dropAnimation = {
     sideEffects: defaultDropAnimationSideEffects({
         styles: {
@@ -568,8 +574,22 @@ const SortableLeadCard = React.memo(function SortableLeadCard({ lead, ...props }
 
 const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
-const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, followupTempByLead, pipelineStageId, pipelineStageColorIndex }) {
-    const shouldVirtualize = leads.length > PIPELINE_VIRTUAL_THRESHOLD;
+const PipelineColumnLeads = React.memo(function PipelineColumnLeads({
+    scrollRef,
+    leads,
+    cardProps,
+    savingLeadIds,
+    movingLeadIds,
+    slaAlerts,
+    followupTempByLead,
+    pipelineStageId,
+    pipelineStageColorIndex,
+    showInsertSlots = false,
+    insertOverId = null,
+    disableVirtualization = false,
+}) {
+    const shouldVirtualize =
+        !disableVirtualization && leads.length > PIPELINE_VIRTUAL_THRESHOLD;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
         getScrollElement: () => scrollRef?.current ?? null,
@@ -579,20 +599,27 @@ const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef,
     });
 
     const renderLead = (lead) => (
-        <SortableLeadCard
-            key={lead.id}
-            lead={lead}
-            isMoving={savingLeadIds.has(lead.id) || movingLeadIds.has(lead.id)}
-            slaAlert={slaAlerts[lead.id]}
-            followupTemperature={followupTempByLead[lead.id]}
-            pipelineStageId={pipelineStageId}
-            pipelineStageColorIndex={pipelineStageColorIndex}
-            {...cardProps}
-        />
+        <React.Fragment key={lead.id}>
+            {showInsertSlots && insertOverId === String(lead.id) ? <KanbanDropSlot /> : null}
+            <SortableLeadCard
+                lead={lead}
+                isMoving={savingLeadIds.has(lead.id) || movingLeadIds.has(lead.id)}
+                slaAlert={slaAlerts[lead.id]}
+                followupTemperature={followupTempByLead[lead.id]}
+                pipelineStageId={pipelineStageId}
+                pipelineStageColorIndex={pipelineStageColorIndex}
+                {...cardProps}
+            />
+        </React.Fragment>
     );
 
     if (!shouldVirtualize) {
-        return leads.map((lead) => renderLead(lead));
+        return (
+            <>
+                {leads.map((lead) => renderLead(lead))}
+                {showInsertSlots && insertOverId === KANBAN_INSERT_END ? <KanbanDropSlot /> : null}
+            </>
+        );
     }
 
     return (
@@ -628,14 +655,14 @@ const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef,
     );
 });
 
-const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => {
+const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, isDragActive, children }) => {
     const scrollRef = useRef(null);
     const { setNodeRef } = useDroppable({ id });
 
     return (
         <div
             ref={setNodeRef}
-            className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
+            className={`kanban-column ${isOver ? 'kanban-col--drag-over' : ''} ${isDragActive && isOver ? 'kanban-col--drag-active' : ''} ${hasOverlayOpen ? 'kanban-column--overlay-open' : ''}`}
             style={{
                 '--kanban-col-accent': color.color,
                 '--kanban-col-accent-bg': color.bg,
@@ -660,6 +687,11 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => 
                 </span>
             </div>
             <div className="col-content">
+                {isDragActive && isOver ? (
+                    <div className="kanban-col-drop-zone" aria-hidden>
+                        <span className="kanban-col-drop-zone__label">Soltar nesta coluna</span>
+                    </div>
+                ) : null}
                 {typeof children === 'function' ? children(scrollRef) : children}
             </div>
         </div>
@@ -1058,6 +1090,7 @@ const Pipeline = () => {
     const [savingLeadIds, setSavingLeadIds] = useState(() => new Set());
     const [scheduleModalLead, setScheduleModalLead] = useState(null);
     const [dragOver, setDragOver] = useState(null);
+    const [dragInsertOverId, setDragInsertOverId] = useState(null);
     const [noteOpen, setNoteOpen] = useState(false);
     const [noteLead, setNoteLead] = useState(null);
     const [noteText, setNoteText] = useState('');
@@ -2336,8 +2369,16 @@ const Pipeline = () => {
         </>
     );
 
+    const clearDragUiState = useCallback(() => {
+        setActiveId(null);
+        setDragOver(null);
+        setDragInsertOverId(null);
+    }, []);
+
     const handleDragStart = (event) => {
         setActiveId(event.active.id);
+        setDragOver(null);
+        setDragInsertOverId(null);
     };
 
     const resolveDropStageId = useCallback((over) => {
@@ -2376,8 +2417,7 @@ const Pipeline = () => {
 
     const handleDragEnd = async (event) => {
         const { active, over } = event;
-        setActiveId(null);
-        setDragOver(null);
+        clearDragUiState();
 
         if (!over) return;
 
@@ -2485,9 +2525,20 @@ const Pipeline = () => {
 
     const handleDragOver = useCallback((event) => {
         const { over } = event;
+        if (!over) {
+            setDragOver((prev) => (prev === null ? prev : null));
+            setDragInsertOverId((prev) => (prev === null ? prev : null));
+            return;
+        }
+
         const newOver = resolveDropStageId(over);
         setDragOver((prev) => (prev === newOver ? prev : newOver));
-    }, [resolveDropStageId]);
+
+        const overId = String(over.id || '');
+        const isColumnTarget = stages.some((s) => String(s.id) === overId);
+        const nextInsert = isColumnTarget ? KANBAN_INSERT_END : overId;
+        setDragInsertOverId((prev) => (prev === nextInsert ? prev : nextInsert));
+    }, [resolveDropStageId, stages]);
 
     const moveToStatus = useCallback(async (e, leadId, stageId) => {
         e.stopPropagation();
@@ -2927,6 +2978,7 @@ const Pipeline = () => {
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
+                onDragCancel={clearDragUiState}
             >
                 <div
                     ref={kanbanWrapperRef}
@@ -2971,6 +3023,7 @@ const Pipeline = () => {
                                 col={col}
                                 color={color}
                                 isOver={dragOver === col.id}
+                                isDragActive={Boolean(activeId)}
                                 hasOverlayOpen={colLeads.some((l) => l.id === openMenuId || l.id === scheduleModalLead?.id || l.id === moverOpenId)}
                                 leads={colLeads}
                             >
@@ -2987,6 +3040,9 @@ const Pipeline = () => {
                                         cardProps={cardProps}
                                         pipelineStageId={col.id}
                                         pipelineStageColorIndex={idx}
+                                        showInsertSlots={Boolean(activeId) && dragOver === col.id}
+                                        insertOverId={dragOver === col.id ? dragInsertOverId : null}
+                                        disableVirtualization={Boolean(activeId)}
                                     />
                                 </SortableContext>
 

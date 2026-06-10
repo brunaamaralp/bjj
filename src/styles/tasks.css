@@ -295,6 +295,47 @@ select.task-select option {
 }
 .tasks-kanban-col-body { padding: 10px; flex: 1; overflow-y: auto; max-height: min(62vh, 520px); }
 
+.tasks-kanban-col-drop-host {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tasks-kanban-col--drag-over {
+  border-color: color-mix(in srgb, var(--v500) 45%, var(--border-mid));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--v500) 16%, transparent);
+}
+
+.tasks-kanban-col--late.tasks-kanban-col--drag-over {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border-mid));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.tasks-kanban-col--done.tasks-kanban-col--drag-over {
+  border-color: color-mix(in srgb, var(--success-text) 45%, var(--border-mid));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success-text) 16%, transparent);
+}
+
+.tasks-kanban-col--drag-active {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--v500) 20%, transparent),
+    0 8px 22px rgba(0, 4, 53, 0.08);
+}
+
+.tasks-kanban-col--late.tasks-kanban-col--drag-active {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent),
+    0 8px 22px rgba(220, 38, 38, 0.08);
+}
+
+.tasks-kanban-col--done.tasks-kanban-col--drag-active {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--success-text) 20%, transparent),
+    0 8px 22px rgba(22, 163, 74, 0.08);
+}
+
 .tasks-kanban-sortable-item {
   touch-action: none;
   cursor: grab;
@@ -302,6 +343,55 @@ select.task-select option {
 
 .tasks-kanban-sortable-item:active {
   cursor: grabbing;
+}
+
+.tasks-kanban-col-drop-host .kanban-col-drop-zone {
+  --kanban-col-accent: var(--v500);
+  --kanban-col-accent-bg: rgba(108, 71, 216, 0.08);
+}
+
+.tasks-kanban-col--late .kanban-col-drop-zone {
+  --kanban-col-accent: var(--danger);
+  --kanban-col-accent-bg: rgba(220, 38, 38, 0.08);
+}
+
+.tasks-kanban-col--done .kanban-col-drop-zone {
+  --kanban-col-accent: var(--success-text);
+  --kanban-col-accent-bg: rgba(22, 163, 74, 0.1);
+}
+
+.tasks-kanban-col-drop-host .kanban-col-drop-zone {
+  position: absolute;
+  inset: 6px;
+  border: 2px dashed color-mix(in srgb, var(--kanban-col-accent, var(--v500)) 55%, var(--border-mid));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--kanban-col-accent-bg, rgba(108, 71, 216, 0.08)) 70%, transparent);
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+}
+
+.tasks-kanban-col-drop-host .kanban-col-drop-zone__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--kanban-col-accent, var(--v500)) 85%, var(--ink));
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--kanban-col-accent, var(--v500)) 30%, var(--border-mid));
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: 0 2px 8px rgba(0, 4, 53, 0.08);
+}
+
+.tasks-kanban-col-body .kanban-drop-slot {
+  flex-shrink: 0;
+  height: 48px;
+  margin: 4px 0;
+  border-radius: 10px;
+  border: 2px dashed color-mix(in srgb, var(--v500) 50%, var(--border-mid));
+  background: rgba(108, 71, 216, 0.06);
 }
 
 .tasks-cal-layout {

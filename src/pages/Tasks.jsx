@@ -145,6 +145,12 @@ const TASK_KANBAN_COLUMN_IDS = new Set([
   TASK_KANBAN_COLUMN.CONCLUIDAS,
 ]);
 
+const KANBAN_INSERT_END = '__end__';
+
+function KanbanDropSlot() {
+  return <div className="kanban-drop-slot" aria-hidden />;
+}
+
 const TASK_KANBAN_DROP_ANIMATION = {
   duration: 180,
   easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
@@ -209,21 +215,23 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   );
 });
 
-function TasksKanbanColumn({ columnId, className, head, children }) {
-  const { setNodeRef, isOver } = useDroppable({ id: columnId });
+function TasksKanbanColumn({ columnId, className, head, children, isDropTarget, isDragActive }) {
+  const { setNodeRef } = useDroppable({ id: columnId });
 
   return (
     <div
       ref={setNodeRef}
-      className={className}
-      style={
-        isOver
-          ? { background: 'rgba(0, 4, 53, 0.04)', transition: 'background 120ms' }
-          : { transition: 'background 120ms' }
-      }
+      className={`${className}${isDropTarget ? ' tasks-kanban-col--drag-over' : ''}${isDragActive && isDropTarget ? ' tasks-kanban-col--drag-active' : ''}`}
     >
       {head}
-      {children}
+      <div className="tasks-kanban-col-drop-host">
+        {isDragActive && isDropTarget ? (
+          <div className="kanban-col-drop-zone" aria-hidden>
+            <span className="kanban-col-drop-zone__label">Soltar nesta coluna</span>
+          </div>
+        ) : null}
+        {children}
+      </div>
     </div>
   );
 }
@@ -235,6 +243,8 @@ function TasksKanbanColumnBody({
   loadingMore,
   onLoadMore,
   disableVirtualization = false,
+  showInsertSlots = false,
+  insertOverId = null,
 }) {
   const scrollRef = useRef(null);
   const shouldVirtualize =
@@ -281,7 +291,15 @@ function TasksKanbanColumnBody({
           })}
         </div>
       ) : (
-        tasks.map((t) => <React.Fragment key={t.id}>{renderCard(t)}</React.Fragment>)
+        <>
+          {tasks.map((t) => (
+            <React.Fragment key={t.id}>
+              {showInsertSlots && insertOverId === String(t.id) ? <KanbanDropSlot /> : null}
+              {renderCard(t)}
+            </React.Fragment>
+          ))}
+          {showInsertSlots && insertOverId === KANBAN_INSERT_END ? <KanbanDropSlot /> : null}
+        </>
       )}
       {hasMore ? (
         <button
@@ -545,6 +563,8 @@ export default function Tasks() {
   const [quickError, setQuickError] = useState('');
   const [quickSaving, setQuickSaving] = useState(false);
   const [kanbanActiveId, setKanbanActiveId] = useState(null);
+  const [kanbanDragOver, setKanbanDragOver] = useState(null);
+  const [kanbanInsertOverId, setKanbanInsertOverId] = useState(null);
 
   const todayYmd = useMemo(() => {
     const n = new Date();
@@ -936,12 +956,36 @@ export default function Tasks() {
     );
   }, [members, isUpdating, toggleDone, openEdit, handleDelete]);
 
-  const handleKanbanDragStart = useCallback((event) => {
-    setKanbanActiveId(event.active.id);
+  const clearKanbanDragUi = useCallback(() => {
+    setKanbanActiveId(null);
+    setKanbanDragOver(null);
+    setKanbanInsertOverId(null);
   }, []);
 
+  const handleKanbanDragStart = useCallback((event) => {
+    setKanbanActiveId(event.active.id);
+    setKanbanDragOver(null);
+    setKanbanInsertOverId(null);
+  }, []);
+
+  const handleKanbanDragOver = useCallback((event) => {
+    const { over } = event;
+    if (!over) {
+      setKanbanDragOver((prev) => (prev === null ? prev : null));
+      setKanbanInsertOverId((prev) => (prev === null ? prev : null));
+      return;
+    }
+
+    const columnId = resolveTaskKanbanColumnId(over, kanbanColumns);
+    setKanbanDragOver((prev) => (prev === columnId ? prev : columnId));
+
+    const overId = String(over.id || '');
+    const nextInsert = TASK_KANBAN_COLUMN_IDS.has(overId) ? KANBAN_INSERT_END : overId;
+    setKanbanInsertOverId((prev) => (prev === nextInsert ? prev : nextInsert));
+  }, [kanbanColumns]);
+
   const handleKanbanDragEnd = useCallback(({ active, over }) => {
-    setKanbanActiveId(null);
+    clearKanbanDragUi();
     if (!over) return;
 
     const task = tasks.find((t) => String(t.id) === String(active.id));
@@ -1332,13 +1376,17 @@ export default function Tasks() {
             sensors={kanbanSensors}
             collisionDetection={closestCorners}
             onDragStart={handleKanbanDragStart}
+            onDragOver={handleKanbanDragOver}
             onDragEnd={handleKanbanDragEnd}
+            onDragCancel={clearKanbanDragUi}
           >
             <div className="tasks-kanban">
               {kanbanColumns.atrasadas.length > 0 ? (
                 <TasksKanbanColumn
                   columnId={TASK_KANBAN_COLUMN.ATRASADAS}
                   className="tasks-kanban-col tasks-kanban-col--late"
+                  isDropTarget={kanbanDragOver === TASK_KANBAN_COLUMN.ATRASADAS}
+                  isDragActive={kanbanDragging}
                   head={(
                     <div className="tasks-kanban-col-head">
                       <span className="tasks-kanban-col-title">Atrasadas</span>
@@ -1357,6 +1405,8 @@ export default function Tasks() {
                       loadingMore={loadingMore}
                       onLoadMore={handleLoadMoreTasks}
                       disableVirtualization={kanbanDragging}
+                      showInsertSlots={kanbanDragging && kanbanDragOver === TASK_KANBAN_COLUMN.ATRASADAS}
+                      insertOverId={kanbanDragOver === TASK_KANBAN_COLUMN.ATRASADAS ? kanbanInsertOverId : null}
                     />
                   </SortableContext>
                 </TasksKanbanColumn>
@@ -1364,6 +1414,8 @@ export default function Tasks() {
               <TasksKanbanColumn
                 columnId={TASK_KANBAN_COLUMN.A_FAZER}
                 className="tasks-kanban-col tasks-kanban-col--todo"
+                isDropTarget={kanbanDragOver === TASK_KANBAN_COLUMN.A_FAZER}
+                isDragActive={kanbanDragging}
                 head={(
                   <>
                     <div className="tasks-kanban-col-head">
@@ -1422,12 +1474,16 @@ export default function Tasks() {
                     loadingMore={loadingMore}
                     onLoadMore={handleLoadMoreTasks}
                     disableVirtualization={kanbanDragging}
+                    showInsertSlots={kanbanDragging && kanbanDragOver === TASK_KANBAN_COLUMN.A_FAZER}
+                    insertOverId={kanbanDragOver === TASK_KANBAN_COLUMN.A_FAZER ? kanbanInsertOverId : null}
                   />
                 </SortableContext>
               </TasksKanbanColumn>
               <TasksKanbanColumn
                 columnId={TASK_KANBAN_COLUMN.CONCLUIDAS}
                 className="tasks-kanban-col tasks-kanban-col--done"
+                isDropTarget={kanbanDragOver === TASK_KANBAN_COLUMN.CONCLUIDAS}
+                isDragActive={kanbanDragging}
                 head={(
                   <div className="tasks-kanban-col-head">
                     <span className="tasks-kanban-col-title">Concluídas</span>
@@ -1446,6 +1502,8 @@ export default function Tasks() {
                     loadingMore={loadingMore}
                     onLoadMore={handleLoadMoreTasks}
                     disableVirtualization={kanbanDragging}
+                    showInsertSlots={kanbanDragging && kanbanDragOver === TASK_KANBAN_COLUMN.CONCLUIDAS}
+                    insertOverId={kanbanDragOver === TASK_KANBAN_COLUMN.CONCLUIDAS ? kanbanInsertOverId : null}
                   />
                 </SortableContext>
               </TasksKanbanColumn>
