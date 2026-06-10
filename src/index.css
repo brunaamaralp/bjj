@@ -4640,6 +4640,56 @@ button.funil-color-swatch {
   width: 100%;
 }
 
+/* Tall modals: header fixo, rolagem só no corpo */
+.navi-modal-shell.navi-modal-shell--scroll-body,
+.navi-modal-shell.nova-venda-modal,
+.navi-modal-shell.sales-modal,
+.navi-modal-shell.contracts-modal {
+  max-height: min(90vh, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.navi-modal-shell.nova-venda-modal {
+  max-height: min(92vh, calc(100dvh - 32px));
+}
+
+.navi-modal-shell.navi-modal-shell--scroll-body .navi-modal-shell__header,
+.navi-modal-shell.nova-venda-modal .navi-modal-shell__header,
+.navi-modal-shell.sales-modal .navi-modal-shell__header,
+.navi-modal-shell.contracts-modal .navi-modal-shell__header {
+  flex-shrink: 0;
+}
+
+.navi-modal-shell.navi-modal-shell--scroll-body .navi-modal-shell__body,
+.navi-modal-shell.nova-venda-modal .navi-modal-shell__body,
+.navi-modal-shell.sales-modal .navi-modal-shell__body,
+.navi-modal-shell.contracts-modal .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.navi-modal-shell.navi-modal-shell--scroll-body .navi-modal-shell__footer,
+.navi-modal-shell.nova-venda-modal .navi-modal-shell__footer,
+.navi-modal-shell.sales-modal .navi-modal-shell__footer,
+.navi-modal-shell.contracts-modal .navi-modal-shell__footer {
+  flex-shrink: 0;
+}
+
+.navi-modal-shell.product-import-modal .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
 .navi-modal-dialog {
   position: relative;
   max-height: 90vh;

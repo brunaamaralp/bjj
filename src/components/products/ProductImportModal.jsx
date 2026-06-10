@@ -480,7 +480,7 @@ export default function ProductImportModal({ open, onClose, onImported }) {
       onClose={handleClose}
       showCloseButton={false}
       closeOnOverlay={false}
-      className="product-import-overlay"
+      className="product-import-overlay navi-modal-overlay--form"
       dialogClassName="product-import-modal"
       ariaLabelledBy="product-import-title"
     >

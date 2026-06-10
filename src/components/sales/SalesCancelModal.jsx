@@ -38,7 +38,7 @@ export default function SalesCancelModal({ open, sale, loading, onClose, onConfi
       closeOnOverlay={!loading}
       closeOnEsc={!loading}
       maxWidth={420}
-      className="sales-modal-backdrop"
+      className="sales-modal-backdrop navi-modal-overlay--form"
       dialogClassName="sales-modal card"
       footer={
         <div className="flex gap-2" style={{ justifyContent: 'flex-end', flexWrap: 'wrap', width: '100%' }}>

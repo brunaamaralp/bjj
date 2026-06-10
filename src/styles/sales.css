@@ -214,8 +214,6 @@
 .sales-modal {
   max-width: 420px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
 }
 
 .sales-modal--wide {
@@ -238,10 +236,6 @@
 .nova-venda-modal {
   max-width: min(960px, 96vw);
   width: 100%;
-  max-height: min(92vh, 900px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
   padding: 0;
 }
 
@@ -281,9 +275,6 @@
 }
 
 .nova-venda-modal__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   padding: 14px 18px 18px;
 }
 

@@ -305,8 +305,6 @@
 
 .contracts-modal {
   width: min(720px, 100%);
-  max-height: min(90vh, 900px);
-  overflow: auto;
   padding: 0;
 }
 

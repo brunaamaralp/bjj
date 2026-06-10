@@ -14,7 +14,7 @@ export default function NovaVendaModal({ open, onClose }) {
       onClose={onClose}
       closeOnOverlay={false}
       maxWidth={960}
-      className="nova-venda-modal-backdrop"
+      className="nova-venda-modal-backdrop navi-modal-overlay--form"
       dialogClassName="sales-modal card nova-venda-modal"
       ariaLabelledBy="nova-venda-modal-title"
     >

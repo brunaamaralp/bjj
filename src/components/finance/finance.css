@@ -712,9 +712,26 @@
 .finance-tx-menu-btn--danger { color: var(--danger); }
 .finance-tx-no-actions { opacity: 0.75; color: var(--text-secondary); }
 .navi-modal-shell.finance-tx-modal {
-  max-height: min(90vh, 720px);
+  max-height: min(90vh, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.navi-modal-shell.finance-tx-modal .navi-modal-shell__header {
+  flex-shrink: 0;
+}
+
+.navi-modal-shell.finance-tx-modal .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+.navi-modal-shell.finance-tx-modal .navi-modal-shell__footer {
+  flex-shrink: 0;
 }
 .finance-tx-modal__intro,
 .finance-tx-modal__hint {

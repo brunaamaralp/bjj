@@ -38,7 +38,7 @@ export default function LeadCloseSaleModal({
       onClose={onClose}
       closeOnOverlay={false}
       maxWidth={560}
-      className="sales-modal-backdrop"
+      className="sales-modal-backdrop navi-modal-overlay--form"
       dialogClassName="sales-modal card sales-modal--wide"
       ariaLabelledBy="lead-close-sale-title"
     >

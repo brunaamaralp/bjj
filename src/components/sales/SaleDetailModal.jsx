@@ -99,7 +99,7 @@ export default function SaleDetailModal({
       title={`Venda ${sale.id_short}`}
       onClose={onClose}
       maxWidth={560}
-      className="sales-modal-backdrop"
+      className="sales-modal-backdrop navi-modal-overlay--form"
       dialogClassName="sales-modal card sales-modal--wide"
     >
         {loading ? (
