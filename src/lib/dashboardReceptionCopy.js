@@ -8,20 +8,16 @@ export function missedButtonLabel() {
   return 'Não veio';
 }
 
+export function attendedButtonShort(vertical) {
+  return vertical === 'physio' ? 'Compareceu' : 'Veio';
+}
+
 export function attendedStatusLabel(vertical) {
   return vertical === 'physio' ? 'Compareceu à avaliação' : 'Compareceu';
 }
 
 export function missedStatusLabel() {
   return 'Não veio';
-}
-
-export function emptyTodayTitle(vertical, trialShort) {
-  const trial = String(trialShort || 'aula experimental').toLowerCase();
-  if (vertical === 'physio') {
-    return `Nenhuma ${trial} hoje. Bom momento para retomar quem está aguardando retorno.`;
-  }
-  return `Nenhuma ${trial} hoje. Bom momento para retomar quem está aguardando retorno.`;
 }
 
 export function followupsAllDoneTitle() {

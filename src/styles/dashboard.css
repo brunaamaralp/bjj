@@ -29,6 +29,12 @@
         .dashboard-day-hero--evening {
           background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-dark) 8%, var(--color-primary-surface)) 0%, #fff 52%);
         }
+        .dashboard-day-hero__head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
         .dashboard-day-hero__date {
           margin: 0 0 6px;
           font-size: clamp(1.35rem, 2.6vw, 1.65rem);
@@ -37,12 +43,30 @@
           color: var(--color-text-heading);
           line-height: 1.15;
         }
-        .dashboard-day-hero__academy {
-          margin: 0 0 10px;
-          font-size: 0.875rem;
-          font-weight: 600;
-          line-height: 1.35;
+        .dashboard-day-hero__refresh {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          margin-top: 2px;
+          padding: 0;
+          border-radius: 10px;
+          border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+          background: var(--color-bg-primary);
           color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+        .dashboard-day-hero__refresh:hover:not(:disabled) {
+          border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+          color: var(--color-primary-dark);
+          background: color-mix(in srgb, var(--color-primary-surface) 50%, #fff);
+        }
+        .dashboard-day-hero__refresh:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
         .dashboard-day-hero__summary {
           margin: 0;
@@ -212,127 +236,6 @@
           color: var(--color-accent-dark);
         }
 
-        /* —— Bloco "Hoje" —— */
-        .dashboard-today-section {
-          background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary-surface) 80%, #fff) 0%, var(--color-bg-primary) 100%);
-          border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
-        }
-        .dashboard-today-section__heading {
-          margin-bottom: 14px;
-        }
-        .dashboard-today-periods {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-        }
-        .dashboard-today-period__head {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-        .dashboard-today-period__label {
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: var(--color-primary-dark);
-          flex-shrink: 0;
-        }
-        .dashboard-today-period__line {
-          flex: 1;
-          height: 1px;
-          background: color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
-        }
-        .dashboard-today-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 12px;
-        }
-        .dashboard-today-card {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          padding: 14px 16px;
-          border-radius: 12px;
-          border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
-          background: var(--color-bg-primary);
-          box-shadow: 0 2px 10px rgba(108, 71, 216, 0.06);
-        }
-        .dashboard-today-card__main {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 4px;
-          padding: 0;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-family: inherit;
-          text-align: left;
-          width: 100%;
-        }
-        .dashboard-today-card__time {
-          font-size: 14px;
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-          color: var(--color-primary);
-        }
-        .dashboard-today-card__name {
-          font-size: 1.05rem;
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: var(--color-text-heading);
-          line-height: 1.25;
-        }
-        .dashboard-today-card__meta {
-          font-size: 12px;
-          color: var(--color-text-secondary);
-        }
-        .dashboard-today-card__actions {
-          display: flex;
-          gap: 8px;
-        }
-        .dashboard-today-card__btn {
-          flex: 1;
-          min-height: 36px;
-          padding: 0 12px;
-          border-radius: 10px;
-          font-size: 13px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-        }
-        .dashboard-today-card__btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-        .dashboard-today-card__btn--attended {
-          border: none;
-          background: var(--color-accent-surface);
-          color: var(--color-accent-dark);
-        }
-        .dashboard-today-card__btn--attended:hover:not(:disabled) {
-          background: var(--color-accent);
-          color: #fff;
-        }
-        .dashboard-today-card__btn--missed {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-secondary);
-        }
-        .dashboard-today-card__btn--missed:hover:not(:disabled) {
-          background: #FDECEA;
-          border-color: #F09595;
-          color: #A32D2D;
-        }
-        .dashboard-today-card__status {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--color-text-secondary);
-        }
-
         .reception-week-panel--secondary {
           background: var(--color-bg-primary);
           border-color: var(--color-border);
@@ -349,21 +252,10 @@
           .dashboard-day-hero {
             padding: 16px;
           }
-          .dashboard-today-cards {
-            grid-template-columns: 1fr;
-          }
         }
 
-        /* —— Mobile: tabs Hoje / Semana —— */
-        .dashboard-mobile-agenda-tabs {
-          margin-bottom: 4px;
-        }
-        .agenda-page-stack--mobile-tabs {
-          gap: 16px;
-        }
-        .agenda-page-stack--mobile-tabs .dashboard-today-section,
-        .agenda-page-stack--mobile-tabs .agenda-week-section {
-          margin-top: 0;
+        .dashboard-retornos-chip {
+          display: none;
         }
         @media (max-width: 767px) {
           .reception-dashboard-page-header .navi-page-header__actions {
@@ -373,8 +265,26 @@
             flex: 1;
             justify-content: center;
           }
-          .agenda-page-stack--mobile-tabs .dashboard-today-cards {
-            grid-template-columns: 1fr;
+          .dashboard-retornos-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            margin: 0 0 12px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+            background: color-mix(in srgb, var(--color-primary-surface) 70%, #fff);
+            color: var(--color-primary-dark);
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          }
+          .dashboard-retornos-chip:hover {
+            border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+            box-shadow: 0 4px 12px rgba(108, 71, 216, 0.12);
           }
         }
         .reception-dashboard-page-header {
@@ -730,16 +640,18 @@
           font-weight: 700;
         }
         .followup-health-panel {
-          margin-top: 12px;
+          margin-top: 0;
           padding: 14px 16px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg, 12px);
           background: var(--color-bg);
         }
-        .followup-health-panel__title {
-          margin: 0 0 10px;
-          font-size: 15px;
-          font-weight: 700;
+        .followup-health-panel__heading {
+          margin-bottom: 10px;
+        }
+        .followup-health-panel__legend {
+          margin-top: 10px;
+          margin-bottom: 0;
         }
         .followup-health-panel__counts {
           display: flex;
@@ -1117,10 +1029,23 @@
           color: var(--color-text-secondary);
         }
         .fu-list-empty__streak {
-          margin: 6px 0 0;
-          font-size: 13px;
+          margin: 8px 0 0;
+        }
+        .fu-list-empty__streak-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
           font-weight: 700;
           color: var(--color-accent-dark);
+          background: color-mix(in srgb, var(--color-accent-surface) 85%, #fff);
+          border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+        }
+        .fu-list-card--scrollable {
+          max-height: min(420px, 52vh);
+          overflow-y: auto;
+          overscroll-behavior: contain;
         }
         .fu-list-empty__hint {
           margin: 0;
@@ -1245,13 +1170,17 @@
         .agenda-bottom-row {
           order: 1;
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+          grid-template-columns: minmax(0, 1fr) minmax(220px, 280px) minmax(260px, 320px);
           gap: 22px;
           align-items: start;
           width: 100%;
         }
+        .agenda-bottom-row--two-col {
+          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+        }
         .agenda-bottom-row > .agenda-followups-section,
-        .agenda-bottom-row > .agenda-birthdays-section {
+        .agenda-bottom-row > .agenda-birthdays-section,
+        .agenda-bottom-row > .followup-health-panel {
           width: 100%;
           max-width: 100%;
           position: static;
@@ -1262,7 +1191,7 @@
           min-width: 0;
           box-sizing: border-box;
         }
-        .agenda-bottom-row > .agenda-followups-section .fu-list-card {
+        .agenda-bottom-row > .agenda-followups-section .fu-list-card:not(.fu-list-card--scrollable) {
           max-height: none;
         }
         .agenda-birthdays-section__head {

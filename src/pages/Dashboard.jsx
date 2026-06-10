@@ -24,9 +24,6 @@ import {
 import {
     attendedButtonLabel,
     missedButtonLabel,
-    attendedStatusLabel,
-    missedStatusLabel,
-    emptyTodayTitle,
     followupsAllDoneTitle,
     followupKpiLabel,
     toastAttendedSuccess,
@@ -61,7 +58,6 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
-import HubTabBar from '../components/shared/HubTabBar.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import StageBadge from '../components/shared/StageBadge.jsx';
@@ -84,45 +80,12 @@ import {
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
-import FollowupTemperatureLegend from '../components/followup/FollowupTemperatureLegend.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
 import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 
-function groupTodayByPeriod(leads) {
-    const morning = [];
-    const afternoon = [];
-    const evening = [];
-    const noTime = [];
-    for (const lead of leads) {
-        const raw = String(lead?.scheduledTime || '').trim();
-        if (!raw || !/^\d{2}:\d{2}$/.test(raw)) {
-            noTime.push(lead);
-            continue;
-        }
-        const hour = Number(raw.split(':')[0]);
-        if (!Number.isFinite(hour)) {
-            noTime.push(lead);
-            continue;
-        }
-        if (hour < 12) morning.push(lead);
-        else if (hour < 18) afternoon.push(lead);
-        else evening.push(lead);
-    }
-    const sortByTime = (a, b) =>
-        String(a?.scheduledTime || '99:99').localeCompare(String(b?.scheduledTime || '99:99'));
-    morning.sort(sortByTime);
-    afternoon.sort(sortByTime);
-    evening.sort(sortByTime);
-    const groups = [];
-    if (morning.length > 0) groups.push({ key: 'morning', label: 'Manhã', items: morning });
-    if (afternoon.length > 0) groups.push({ key: 'afternoon', label: 'Tarde', items: afternoon });
-    if (evening.length > 0) groups.push({ key: 'evening', label: 'Noite', items: evening });
-    if (noTime.length > 0) groups.push({ key: 'notime', label: 'Sem horário', items: noTime });
-    return groups;
-}
 const Dashboard = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -139,8 +102,7 @@ const Dashboard = () => {
     const labels = useLeadStore((s) => s.labels);
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
-    const receptionSubtitle =
-        vertical === 'physio' ? 'Controle de avaliações e retornos' : 'Controle de aulas experimentais e retornos';
+    const receptionSubtitle = 'Recepção e retornos do dia';
     const tasks = useTaskStore((s) => s.tasks);
     const fetchTasks = useTaskStore((s) => s.fetchTasks);
     const updateTask = useTaskStore((s) => s.updateTask);
@@ -185,10 +147,9 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(true);
-    const [mobileAgendaTab, setMobileAgendaTab] = useState('today');
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
-    const todaySectionRef = useRef(null);
+    const retornosRowRef = useRef(null);
     const weekSectionRef = useRef(null);
     const birthdaysSectionRef = useRef(null);
     const [followupStreak, setFollowupStreak] = useState(0);
@@ -202,12 +163,6 @@ const Dashboard = () => {
         mq.addEventListener('change', onChange);
         return () => mq.removeEventListener('change', onChange);
     }, []);
-
-    useEffect(() => {
-        if (isDashboardMobile && dashboardWeekOffset !== 0 && mobileAgendaTab === 'today') {
-            setMobileAgendaTab('week');
-        }
-    }, [isDashboardMobile, dashboardWeekOffset, mobileAgendaTab]);
 
     const closeListModal = () => setListModalType('');
 
@@ -525,6 +480,14 @@ const Dashboard = () => {
         [followUpsAll, followupDoneAtByLead, followupContactAtByLead]
     );
 
+    const showFollowupHealthPanel = useMemo(() => {
+        if (!followupHealthSummary) return false;
+        const { on_track, cooling, critical, d1RatePercent, attendedInWeek } = followupHealthSummary;
+        const hasTemperatureActivity = on_track + cooling + critical > 0;
+        const hasD1Metric = attendedInWeek > 0 && d1RatePercent !== null;
+        return hasTemperatureActivity || hasD1Metric;
+    }, [followupHealthSummary]);
+
     const todayBirthdays = useMemo(() => {
         const mesEDia = getTodayMonthDay();
         return (students || [])
@@ -556,7 +519,10 @@ const Dashboard = () => {
     const scrollToFollowUps = () => {
         setFollowUpsPanelOpen(true);
         requestAnimationFrame(() => {
-            followUpsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            (retornosRowRef.current || followUpsSectionRef.current)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
         });
     };
 
@@ -587,17 +553,15 @@ const Dashboard = () => {
         },
     });
 
-    const scrollToTodaySection = () => {
-        if (isDashboardMobile) setMobileAgendaTab('today');
-        requestAnimationFrame(() => {
-            todaySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    };
-
-    const scrollToWeekSection = () => {
-        if (isDashboardMobile) setMobileAgendaTab('week');
+    const scrollToWeekSection = (focusToday = false) => {
         requestAnimationFrame(() => {
             weekSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (focusToday && dashboardWeekOffset === 0) {
+                requestAnimationFrame(() => {
+                    const todayCol = weekSectionRef.current?.querySelector('.day-col.today');
+                    todayCol?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                });
+            }
         });
     };
 
@@ -609,8 +573,10 @@ const Dashboard = () => {
 
     const handleDayPriorityAction = () => {
         const target = dayPriority.scrollTarget;
-        if (target === 'today') scrollToTodaySection();
-        else if (target === 'follow-ups') scrollToFollowUps();
+        if (target === 'today') {
+            if (dashboardWeekOffset !== 0) setDashboardWeekOffset(0);
+            scrollToWeekSection(true);
+        } else if (target === 'follow-ups') scrollToFollowUps();
         else if (target === 'birthdays') scrollToBirthdaysSection();
     };
 
@@ -623,18 +589,12 @@ const Dashboard = () => {
             navigate('/tarefas?status=pendentes&period=today');
             return;
         }
-        if (cardKey === 'today') {
+        if (cardKey === 'today' || cardKey === 'week') {
             if (dashboardWeekOffset !== 0) {
                 setDashboardWeekOffset(0);
             }
-            scrollToTodaySection();
+            scrollToWeekSection();
             return;
-        }
-        if (cardKey === 'week') {
-            if (isDashboardMobile) {
-                scrollToWeekSection();
-                return;
-            }
         }
         setListModalType(cardKey);
     };
@@ -651,18 +611,6 @@ const Dashboard = () => {
         [students]
     );
 
-    const daySummaryLine = useMemo(
-        () =>
-            buildDaySummaryLine({
-                todayScheduled,
-                followUps,
-                pendingTasks,
-                trialShort: terms.trialShort,
-                weeklyEnrollments: weeklyEnrollmentsCount,
-            }),
-        [todayScheduled, followUps, pendingTasks, terms.trialShort, weeklyEnrollmentsCount]
-    );
-
     const dayPriority = useMemo(
         () =>
             getDayPriority({
@@ -673,6 +621,26 @@ const Dashboard = () => {
                 vertical,
             }),
         [todayScheduled, followUps, todayBirthdays, vertical]
+    );
+
+    const daySummaryLine = useMemo(
+        () =>
+            buildDaySummaryLine({
+                todayScheduled,
+                followUps,
+                pendingTasks,
+                trialShort: terms.trialShort,
+                weeklyEnrollments: weeklyEnrollmentsCount,
+                omitTodaySchedule: dayPriority.type === 'upcoming_class',
+            }),
+        [
+            todayScheduled,
+            followUps,
+            pendingTasks,
+            terms.trialShort,
+            weeklyEnrollmentsCount,
+            dayPriority.type,
+        ]
     );
 
     const heroDateLine = useMemo(() => buildHeroDateLine(new Date()), []);
@@ -696,35 +664,7 @@ const Dashboard = () => {
 
     const followUpGroups = useMemo(() => groupFollowUpsByTemperature(followUps), [followUps]);
 
-    const todayPeriodGroups = useMemo(() => groupTodayByPeriod(todayScheduled), [todayScheduled]);
-
-    const showTodayAgendaPanel =
-        !isZeroState && dashboardWeekOffset === 0 && (!isDashboardMobile || mobileAgendaTab === 'today');
-    const showWeekAgendaPanel = !isZeroState && (!isDashboardMobile || mobileAgendaTab === 'week');
-
-    const mobileAgendaTabs = useMemo(
-        () => [
-            {
-                id: 'today',
-                label: `Hoje${todayScheduled.length > 0 ? ` (${todayScheduled.length})` : ''}`,
-            },
-            {
-                id: 'week',
-                label: `Semana${weekScheduled.length > 0 ? ` (${weekScheduled.length})` : ''}`,
-            },
-        ],
-        [todayScheduled.length, weekScheduled.length]
-    );
-
-    const weekSectionTitle =
-        isDashboardMobile || dashboardWeekOffset !== 0 ? 'Agenda da semana' : 'Resto da semana';
-
-    const handleMobileAgendaTabChange = (tabId) => {
-        setMobileAgendaTab(tabId);
-        if (tabId === 'today' && dashboardWeekOffset !== 0) {
-            setDashboardWeekOffset(0);
-        }
-    };
+    const showWeekAgendaPanel = !isZeroState;
 
     const heroStats = useMemo(
         () => [
@@ -746,7 +686,7 @@ const Dashboard = () => {
                 count: followUps.length,
                 sub:
                     followupTemperatureCounts.cooling + followupTemperatureCounts.critical > 0
-                        ? `${followupTemperatureCounts.cooling + followupTemperatureCounts.critical} esfriando`
+                        ? 'ver abaixo'
                         : '',
                 tone:
                     followupTemperatureCounts.critical > 0
@@ -1028,62 +968,6 @@ const Dashboard = () => {
         }
     };
 
-    const renderTodayCard = (lead) => {
-        const busyAttended = Boolean(savingPresence[`${lead.id}:attended`]);
-        const busyMissed = Boolean(savingPresence[`${lead.id}:missed`]);
-        const attendedSelected = lead?.status === LEAD_STATUS.COMPLETED;
-        const missedSelected = lead?.status === LEAD_STATUS.MISSED;
-        const showPresence = !attendedSelected && !missedSelected;
-
-        return (
-            <article key={lead.id} className="dashboard-today-card">
-                <button
-                    type="button"
-                    className="dashboard-today-card__main"
-                    onClick={() =>
-                        navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
-                    }
-                >
-                    <span className="dashboard-today-card__time">
-                        {lead.scheduledTime && String(lead.scheduledTime).trim()
-                            ? lead.scheduledTime
-                            : 'Horário a definir'}
-                    </span>
-                    <span className="dashboard-today-card__name">{lead.name}</span>
-                    {lead.type ? <span className="dashboard-today-card__meta">{lead.type}</span> : null}
-                </button>
-                {showPresence ? (
-                    <div className="dashboard-today-card__actions">
-                        <button
-                            type="button"
-                            className="dashboard-today-card__btn dashboard-today-card__btn--attended"
-                            disabled={busyAttended || busyMissed}
-                            onClick={() => void markLeadAttended(lead)}
-                        >
-                            {busyAttended ? 'Salvando…' : attendedButtonLabel(vertical)}
-                        </button>
-                        <button
-                            type="button"
-                            className="dashboard-today-card__btn dashboard-today-card__btn--missed"
-                            disabled={busyAttended || busyMissed}
-                            onClick={() => void markLeadMissed(lead)}
-                        >
-                            {busyMissed ? 'Salvando…' : missedButtonLabel()}
-                        </button>
-                    </div>
-                ) : (
-                    <div className="dashboard-today-card__status">
-                        {attendedSelected
-                            ? attendedStatusLabel(vertical)
-                            : missedSelected
-                              ? missedStatusLabel()
-                              : null}
-                    </div>
-                )}
-            </article>
-        );
-    };
-
     const renderFollowUpRow = (lead, rowIndex, isLastInGroup) => {
         const isPost = lead.status === LEAD_STATUS.COMPLETED;
         const leadId = String(lead.id || '').trim();
@@ -1240,6 +1124,7 @@ const Dashboard = () => {
                 className="reception-page-header reception-dashboard-page-header"
                 title="Hoje"
                 subtitle={receptionSubtitle}
+                meta={!loading && heroAcademyLine ? heroAcademyLine : null}
                 actions={
                     <>
                         {controlIdCfg.enabled && (
@@ -1280,10 +1165,25 @@ const Dashboard = () => {
                 aria-busy={loading}
             >
                 <div className="dashboard-day-hero__main">
-                    <p className="dashboard-day-hero__date">{loading ? 'Carregando…' : heroDateLine}</p>
-                    {!loading && heroAcademyLine ? (
-                        <p className="dashboard-day-hero__academy">{heroAcademyLine}</p>
-                    ) : null}
+                    <div className="dashboard-day-hero__head">
+                        <p className="dashboard-day-hero__date">{loading ? 'Carregando…' : heroDateLine}</p>
+                        {!loading ? (
+                            <button
+                                type="button"
+                                className="dashboard-day-hero__refresh"
+                                onClick={() => void handleRefresh()}
+                                disabled={loading || isRefreshing}
+                                aria-label="Atualizar dados do dia"
+                            >
+                                <RefreshCcw
+                                    size={16}
+                                    className={isRefreshing ? 'spin-refresh' : ''}
+                                    strokeWidth={2}
+                                    aria-hidden
+                                />
+                            </button>
+                        ) : null}
+                    </div>
                     {!loading ? (
                         <p className="dashboard-day-hero__summary">{daySummaryLine}</p>
                     ) : null}
@@ -1340,10 +1240,6 @@ const Dashboard = () => {
                 </div>
             </section>
 
-            {!loading && !isZeroState ? (
-                <FollowupHealthPanel summary={followupHealthSummary} />
-            ) : null}
-
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
                     <div className="dashboard-zero-welcome__icon" aria-hidden>
@@ -1365,65 +1261,7 @@ const Dashboard = () => {
                 </section>
             ) : null}
 
-            <div className={`agenda-page-stack${isDashboardMobile ? ' agenda-page-stack--mobile-tabs' : ''}`}>
-            {!isZeroState && isDashboardMobile ? (
-                <HubTabBar
-                    tabs={mobileAgendaTabs}
-                    activeId={mobileAgendaTab}
-                    onChange={handleMobileAgendaTabChange}
-                    ariaLabel="Agenda"
-                    className="dashboard-mobile-agenda-tabs"
-                    variant="secondary"
-                    fullWidth
-                />
-            ) : null}
-
-            {showTodayAgendaPanel ? (
-                <section
-                    ref={todaySectionRef}
-                    className="animate-in dashboard-today-section reception-section"
-                    style={{ animationDelay: '0.1s' }}
-                >
-                    <ReportSectionHeading
-                        className="reception-report-heading dashboard-today-section__heading"
-                        title={
-                            <>
-                                <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-                                {`${trialSeriesPlural} hoje`}
-                            </>
-                        }
-                        action={
-                            todayScheduled.length > 0 ? (
-                                <span className="badge reception-week-count-badge">{todayScheduled.length}</span>
-                            ) : null
-                        }
-                    />
-                    {todayPeriodGroups.length > 0 ? (
-                        <div className="dashboard-today-periods">
-                            {todayPeriodGroups.map((group) => (
-                                <div key={group.key} className="dashboard-today-period">
-                                    <div className="dashboard-today-period__head">
-                                        <span className="dashboard-today-period__label">{group.label}</span>
-                                        <span className="dashboard-today-period__line" aria-hidden />
-                                    </div>
-                                    <div className="dashboard-today-cards">
-                                        {group.items.map((lead) => renderTodayCard(lead))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <EmptyState
-                            variant="compact"
-                            tone="dashed"
-                            icon={Calendar}
-                            title={emptyTodayTitle(vertical, terms.trialShort)}
-                            role="status"
-                        />
-                    )}
-                </section>
-            ) : null}
-
+            <div className="agenda-page-stack">
             {showWeekAgendaPanel ? (
             <section
                 ref={weekSectionRef}
@@ -1437,7 +1275,7 @@ const Dashboard = () => {
                             title={
                                 <>
                                     <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-                                    {weekSectionTitle}
+                                    Agenda da semana
                                 </>
                             }
                             action={
@@ -1494,15 +1332,35 @@ const Dashboard = () => {
                         onWeekOffsetChange={setDashboardWeekOffset}
                         hideNav
                         prioritizeTodayOnMobile={isDashboardMobile}
+                        vertical={vertical}
                     />
                 </div>
                 {scheduledInVisibleWeekCount > 0 ? (
-                    <p className="reception-calendar-hint">Toque no nome para abrir o contato · use os botões para registrar presença</p>
+                    <p className="reception-calendar-hint">
+                        Toque no card para abrir o contato · use Veio / Não veio para registrar presença
+                    </p>
                 ) : null}
             </section>
             ) : null}
 
-            <div className="agenda-bottom-row">
+            {isDashboardMobile && !loading && followUps.length > 0 ? (
+                <button
+                    type="button"
+                    className="dashboard-retornos-chip"
+                    onClick={scrollToFollowUps}
+                >
+                    <List size={14} strokeWidth={2} aria-hidden />
+                    {`${followUps.length} retorno${followUps.length === 1 ? '' : 's'} pendente${followUps.length === 1 ? '' : 's'}`}
+                </button>
+            ) : null}
+
+            <div
+                id="retornos-row"
+                ref={retornosRowRef}
+                className={`agenda-bottom-row${
+                    showFollowupHealthPanel ? '' : ' agenda-bottom-row--two-col'
+                }`}
+            >
             <section
                 id="follow-ups"
                 ref={followUpsSectionRef}
@@ -1557,8 +1415,11 @@ const Dashboard = () => {
                     )}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
-                {followUps.length > 0 ? <FollowupTemperatureLegend /> : null}
-                <div className="fu-list-card">
+                <div
+                    className={`fu-list-card${
+                        followUps.length >= 6 ? ' fu-list-card--scrollable' : ''
+                    }`}
+                >
                     {followUps.length > 0 ? (
                         followUpGroups.map((group) => (
                             <div key={group.key} className={`fu-group ${group.className}`}>
@@ -1579,7 +1440,11 @@ const Dashboard = () => {
                             <CheckCircle2 className="fu-list-empty__icon" size={24} strokeWidth={2} aria-hidden />
                             <p className="fu-list-empty__title">{followupsAllDoneTitle()}</p>
                             {followupStreakMessage(followupStreak) ? (
-                                <p className="fu-list-empty__streak">{followupStreakMessage(followupStreak)}</p>
+                                <p className="fu-list-empty__streak" role="status">
+                                    <span className="fu-list-empty__streak-badge">
+                                        {followupStreakMessage(followupStreak)}
+                                    </span>
+                                </p>
                             ) : null}
                             {followUpsKanbanOnlyCount > 0 ? (
                                 <p className="fu-list-empty__hint">
@@ -1613,6 +1478,13 @@ const Dashboard = () => {
                 </div>
             </section>
 
+            {!loading && !isZeroState && showFollowupHealthPanel ? (
+                <FollowupHealthPanel
+                    summary={followupHealthSummary}
+                    className="agenda-bottom-row__health"
+                />
+            ) : null}
+
             <section
                 id="birthdays"
                 ref={birthdaysSectionRef}
@@ -1625,8 +1497,14 @@ const Dashboard = () => {
                             className="reception-report-heading"
                             title={
                                 <>
-                                    <Cake size={18} color="var(--color-warning)" strokeWidth={2} aria-hidden /> Aniversariantes hoje
+                                    <Cake size={18} color="var(--color-warning)" strokeWidth={2} aria-hidden />{' '}
+                                    {todayBirthdays.length > 0 ? 'Aniversariantes' : 'Aniversariantes hoje'}
                                 </>
+                            }
+                            subtitle={
+                                todayBirthdays.length > 0 && !loading
+                                    ? 'Detalhes, turmas e mensagens'
+                                    : undefined
                             }
                         />
                         <span className="badge badge-secondary reception-section-badge">{todayBirthdays.length}</span>

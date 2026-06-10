@@ -1,6 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { LEAD_STATUS } from '../store/useLeadStore';
+import {
+    attendedButtonShort,
+    attendedStatusLabel,
+    missedButtonLabel,
+    missedStatusLabel,
+} from '../lib/dashboardReceptionCopy.js';
 import EmptyState from './shared/EmptyState.jsx';
 import '../styles/agenda-calendar-week.css';
 
@@ -101,6 +107,7 @@ function timeSortMinutes(lead) {
  * @param {boolean} [props.hideSunday] — se true, exibe só seg–sáb (padrão: true)
  * @param {Record<string, boolean>} [props.savingPresence]
  * @param {boolean} [props.prioritizeTodayOnMobile] — no mobile, coluna de hoje primeiro
+ * @param {string} [props.vertical] — 'physio' | martial arts (rótulos de presença)
  */
 export default function AgendaCalendarWeek({
     leads,
@@ -113,6 +120,7 @@ export default function AgendaCalendarWeek({
     hideNav = false,
     hideSunday = true,
     prioritizeTodayOnMobile = false,
+    vertical = '',
 }) {
     const [weekOffsetInternal, setWeekOffsetInternal] = useState(0);
     const controlled =
@@ -294,19 +302,33 @@ export default function AgendaCalendarWeek({
                                                     </div>
                                                     <div className="aula-name">{lead.name}</div>
                                                     {modality ? <div className="aula-tipo">{modality}</div> : null}
+                                                    {attendedSelected || missedSelected ? (
+                                                        <p
+                                                            className={`aula-card__status${
+                                                                attendedSelected
+                                                                    ? ' aula-card__status--attended'
+                                                                    : ' aula-card__status--missed'
+                                                            }`}
+                                                        >
+                                                            {attendedSelected
+                                                                ? attendedStatusLabel(vertical)
+                                                                : missedStatusLabel()}
+                                                        </p>
+                                                    ) : null}
                                                     {showPresence ? (
                                                         <div className="aula-btns">
                                                             {typeof onCompareceu === 'function' ? (
                                                                 <button
                                                                     type="button"
                                                                     className="btn-veio"
+                                                                    title={attendedStatusLabel(vertical)}
                                                                     disabled={busyAttended || busyMissed}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         onCompareceu(lead);
                                                                     }}
                                                                 >
-                                                                    {busyAttended ? '…' : 'Veio'}
+                                                                    {busyAttended ? '…' : attendedButtonShort(vertical)}
                                                                 </button>
                                                             ) : null}
                                                             {typeof onNaoCompareceu === 'function' ? (
@@ -319,7 +341,7 @@ export default function AgendaCalendarWeek({
                                                                         onNaoCompareceu(lead);
                                                                     }}
                                                                 >
-                                                                    {busyMissed ? '…' : 'Faltou'}
+                                                                    {busyMissed ? '…' : missedButtonLabel()}
                                                                 </button>
                                                             ) : null}
                                                         </div>

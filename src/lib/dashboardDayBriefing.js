@@ -78,11 +78,12 @@ function firstTrialTimeLabel(leads) {
  *   pendingTasks: object[];
  *   trialShort: string;
  *   weeklyEnrollments?: number;
+ *   omitTodaySchedule?: boolean;
  * }} ctx
  */
 export function buildDaySummaryLine(ctx) {
   const trial = String(ctx.trialShort || 'aula experimental').toLowerCase();
-  const todayCount = ctx.todayScheduled?.length || 0;
+  const todayCount = ctx.omitTodaySchedule ? 0 : ctx.todayScheduled?.length || 0;
   const followCount = ctx.followUps?.length || 0;
   const taskCount = ctx.pendingTasks?.length || 0;
   const weekly = Number(ctx.weeklyEnrollments) || 0;
