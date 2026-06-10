@@ -1,3 +1,4 @@
+import '../../styles/stock-settings.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';

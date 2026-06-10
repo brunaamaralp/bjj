@@ -34,9 +34,16 @@ export default function ReportsStudentsPanel({
   studentMetrics,
   loading,
 }) {
-  const [prevMetrics, setPrevMetrics] = useState(null);
-  const [chartRows, setChartRows] = useState([]);
-  const [chartLoading, setChartLoading] = useState(false);
+  const prevFetchKey =
+    academyId && rangeFrom && rangeTo && !loading
+      ? `${academyId}|${rangeFrom}|${rangeTo}|${preset}`
+      : '';
+  const chartFetchKey = academyId && rangeTo && !loading ? `${academyId}|${rangeTo}` : '';
+  const [prevState, setPrevState] = useState({ key: '', metrics: null });
+  const [chartState, setChartState] = useState({ key: '', rows: [], loading: false });
+  const prevMetrics = prevFetchKey && prevState.key === prevFetchKey ? prevState.metrics : null;
+  const chartRows = chartFetchKey && chartState.key === chartFetchKey ? chartState.rows : [];
+  const chartLoading = Boolean(chartFetchKey) && (chartState.key !== chartFetchKey || chartState.loading);
 
   const m = studentMetrics || {};
   const active = Number(m.activeAtStart) || 0;
@@ -53,32 +60,25 @@ export default function ReportsStudentsPanel({
   const prevRetention = Number(pm.retentionRate) ?? Math.max(0, 100 - prevChurn);
 
   useEffect(() => {
-    if (!academyId || !rangeFrom || !rangeTo || loading) {
-      setPrevMetrics(null);
-      return undefined;
-    }
+    if (!prevFetchKey) return undefined;
     let active = true;
     const prev = previousPeriodRange(preset, { from: rangeFrom, to: rangeTo });
     fetchStudentMetricsForRange({ academyId, from: prev.from, to: prev.to })
       .then((sm) => {
-        if (active) setPrevMetrics(sm);
+        if (active) setPrevState({ key: prevFetchKey, metrics: sm });
       })
       .catch(() => {
-        if (active) setPrevMetrics(null);
+        if (active) setPrevState({ key: prevFetchKey, metrics: null });
       });
     return () => {
       active = false;
     };
-  }, [academyId, rangeFrom, rangeTo, preset, loading]);
+  }, [prevFetchKey, academyId, rangeFrom, rangeTo, preset]);
 
   useEffect(() => {
-    if (!academyId || !rangeTo || loading) {
-      setChartRows([]);
-      return undefined;
-    }
+    if (!chartFetchKey) return undefined;
     let active = true;
     const months = buildLastSixMonthRanges(rangeTo);
-    setChartLoading(true);
     Promise.all(
       months.map(async ({ from, to, label }) => {
         try {
@@ -90,15 +90,15 @@ export default function ReportsStudentsPanel({
       })
     )
       .then((rows) => {
-        if (active) setChartRows(rows);
+        if (active) setChartState({ key: chartFetchKey, rows, loading: false });
       })
-      .finally(() => {
-        if (active) setChartLoading(false);
+      .catch(() => {
+        if (active) setChartState({ key: chartFetchKey, rows: [], loading: false });
       });
     return () => {
       active = false;
     };
-  }, [academyId, rangeTo, loading]);
+  }, [chartFetchKey, academyId, rangeTo]);
 
   const hasChartData = useMemo(
     () => chartRows.some((r) => r.ativos > 0 || r.novos > 0 || r.cancelamentos > 0),

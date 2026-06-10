@@ -1,35 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import FieldError from '../shared/FieldError.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 
-export default function InventoryEntryModal({
-  open,
-  item,
-  loading,
-  modulesFinance,
-  onClose,
-  onSubmit,
-}) {
+function InventoryEntryModalForm({ item, loading, modulesFinance, onClose, onSubmit }) {
   const [quantidade, setQuantidade] = useState(1);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (open) {
-      setQuantidade(1);
-      setPurchasePrice('');
-      setPaymentMethod('pix');
-      setError('');
-    }
-  }, [open, item?.id]);
-
   const requestClose = useCallback(() => {
     if (loading) return;
     onClose();
   }, [loading, onClose]);
-
-  if (!item) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -58,7 +40,7 @@ export default function InventoryEntryModal({
 
   return (
     <ModalShell
-      open={open && Boolean(item)}
+      open
       title="Registrar entrada"
       onClose={requestClose}
       closeOnOverlay={!loading}
@@ -127,5 +109,26 @@ export default function InventoryEntryModal({
         ) : null}
       </form>
     </ModalShell>
+  );
+}
+
+export default function InventoryEntryModal({
+  open,
+  item,
+  loading,
+  modulesFinance,
+  onClose,
+  onSubmit,
+}) {
+  if (!open || !item) return null;
+  return (
+    <InventoryEntryModalForm
+      key={item.id}
+      item={item}
+      loading={loading}
+      modulesFinance={modulesFinance}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    />
   );
 }

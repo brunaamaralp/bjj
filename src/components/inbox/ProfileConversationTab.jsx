@@ -71,15 +71,37 @@ export default function ProfileConversationTab({
   });
   const waConnected = !waStatusChecked || String(waStatus || '').trim() === 'connected';
 
-  const [draft, setDraft] = useState('');
-  const [handoffBannerDismissed, setHandoffBannerDismissed] = useState(false);
+  const [composerState, setComposerState] = useState({
+    key: phoneDigits,
+    draft: '',
+    handoffBannerDismissed: false,
+  });
+  const draft = composerState.key === phoneDigits ? composerState.draft : '';
+  const handoffBannerDismissed =
+    composerState.key === phoneDigits ? composerState.handoffBannerDismissed : false;
+  const setDraft = (value) => {
+    setComposerState((prev) => ({
+      key: phoneDigits,
+      draft: typeof value === 'function' ? value(prev.key === phoneDigits ? prev.draft : '') : value,
+      handoffBannerDismissed: prev.key === phoneDigits ? prev.handoffBannerDismissed : false,
+    }));
+  };
+  const setHandoffBannerDismissed = (value) => {
+    setComposerState((prev) => ({
+      key: phoneDigits,
+      draft: prev.key === phoneDigits ? prev.draft : '',
+      handoffBannerDismissed: typeof value === 'function'
+        ? value(prev.key === phoneDigits ? prev.handoffBannerDismissed : false)
+        : value,
+    }));
+  };
   const textareaRef = useRef(null);
   const markedReadRef = useRef(false);
-
-  useEffect(() => {
+  const markedReadPhoneRef = useRef(phoneDigits);
+  if (markedReadPhoneRef.current !== phoneDigits) {
+    markedReadPhoneRef.current = phoneDigits;
     markedReadRef.current = false;
-    setHandoffBannerDismissed(false);
-  }, [phoneDigits]);
+  }
 
   useEffect(() => {
     if (loading || markedReadRef.current) return;

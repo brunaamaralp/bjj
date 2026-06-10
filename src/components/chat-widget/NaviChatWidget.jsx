@@ -1,5 +1,6 @@
 import '../../styles/tokens/inbox.css';
 import '../../styles/inbox.css';
+import '../../styles/chat-widget.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';

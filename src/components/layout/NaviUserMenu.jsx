@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, LogOut, Plug, User, Users } from 'lucide-react';
 import { matchNavTarget } from '../../lib/naviMenu.js';
@@ -27,7 +27,13 @@ export default function NaviUserMenu({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [open, setOpen] = useState(false);
+  const locationSig = `${location.pathname}${location.search}`;
+  const [menuSession, setMenuSession] = useState({ sig: locationSig, open: false });
+  const open = menuSession.sig === locationSig && menuSession.open;
+  const setOpen = (next) => {
+    const resolved = typeof next === 'function' ? next(open) : next;
+    setMenuSession({ sig: locationSig, open: Boolean(resolved) });
+  };
   const rootRef = useDismissibleMenu(open, setOpen);
 
   const displayName = useMemo(() => {
@@ -41,10 +47,6 @@ export default function NaviUserMenu({
   const email = String(user?.email || '').trim();
   const initials = useMemo(() => initialsFromUser(user), [user]);
   const showAcademySwitcher = Array.isArray(academyList) && academyList.length > 1;
-
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname, location.search]);
 
   const go = (path) => {
     setOpen(false);

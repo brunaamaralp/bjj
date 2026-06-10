@@ -79,9 +79,25 @@ export default function DashboardManagerSection({
 }) {
   const navigate = useNavigate();
   const monthRange = useMemo(() => currentMonthRange(), []);
-  const [financeReceived, setFinanceReceived] = useState(null);
-  const [financeLoading, setFinanceLoading] = useState(false);
+  const showFinanceKpi = modules?.finance === true && isOwner;
   const financeCacheRef = useRef({ academyId: '', at: 0, received: null });
+  const fetchKey = showFinanceKpi && academyId ? `${academyId}:${monthRange.ym}` : '';
+  const cachedFinance =
+    fetchKey &&
+    financeCacheRef.current.academyId === fetchKey &&
+    financeCacheRef.current.at &&
+    Date.now() - financeCacheRef.current.at < MANAGER_FETCH_STALE_MS
+      ? financeCacheRef.current.received
+      : undefined;
+  const [financeState, setFinanceState] = useState({ key: '', received: null, loading: false });
+  const financeReceived =
+    cachedFinance != null
+      ? cachedFinance
+      : financeState.key === fetchKey
+        ? financeState.received
+        : null;
+  const financeLoading =
+    Boolean(fetchKey) && cachedFinance == null && (financeState.key !== fetchKey || financeState.loading);
 
   const metrics = useMemo(() => {
     const leadsInMonth = countLeadsCreatedInMonth(leads, monthRange);
@@ -97,49 +113,28 @@ export default function DashboardManagerSection({
     };
   }, [leads, students, tasks, pipelineStages, monthRange]);
 
-  const showFinanceKpi = modules?.finance === true && isOwner;
-
   useEffect(() => {
-    if (!showFinanceKpi || !academyId) {
-      setFinanceReceived(null);
-      setFinanceLoading(false);
-      return undefined;
-    }
-
-    const cache = financeCacheRef.current;
-    const cacheKey = `${academyId}:${monthRange.ym}`;
-    if (
-      cache.academyId === cacheKey &&
-      cache.at &&
-      Date.now() - cache.at < MANAGER_FETCH_STALE_MS &&
-      cache.received != null
-    ) {
-      setFinanceReceived(cache.received);
-      setFinanceLoading(false);
-      return undefined;
-    }
+    if (!fetchKey || cachedFinance != null) return undefined;
 
     let cancelled = false;
     const { from, to } = monthPeriodBounds(monthRange.ym);
     const regime = getFinanceRegime(academyId);
 
-    setFinanceLoading(true);
     void fetchReportsFinanceLightResult({ academyId, from, to, regime }).then((result) => {
       if (cancelled) return;
       if (result.ok && result.data) {
         const received = Number(result.data.received ?? result.data.totalReceived ?? 0) || 0;
-        financeCacheRef.current = { academyId: cacheKey, at: Date.now(), received };
-        setFinanceReceived(received);
+        financeCacheRef.current = { academyId: fetchKey, at: Date.now(), received };
+        setFinanceState({ key: fetchKey, received, loading: false });
       } else {
-        setFinanceReceived(null);
+        setFinanceState({ key: fetchKey, received: null, loading: false });
       }
-      setFinanceLoading(false);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [showFinanceKpi, academyId, monthRange.ym]);
+  }, [fetchKey, cachedFinance, academyId, monthRange.ym]);
 
   const alerts = useMemo(() => {
     const rows = [];

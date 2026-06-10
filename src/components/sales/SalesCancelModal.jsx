@@ -1,25 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { CANCEL_REASON_OPTIONS, formatCancelMotivo } from '../../lib/salesHistory';
 import ModalShell from '../shared/ModalShell.jsx';
 
-export default function SalesCancelModal({ open, sale, loading, onClose, onConfirm }) {
+function SalesCancelModalForm({ sale, loading, onClose, onConfirm }) {
   const [categoria, setCategoria] = useState('desistencia');
   const [outroTexto, setOutroTexto] = useState('');
-
-  useEffect(() => {
-    if (open) {
-      setCategoria('desistencia');
-      setOutroTexto('');
-    }
-  }, [open]);
 
   const requestClose = useCallback(() => {
     if (loading) return;
     onClose();
   }, [loading, onClose]);
-
-  if (!sale) return null;
 
   const motivo = formatCancelMotivo(categoria, outroTexto);
   const canSubmit = categoria !== 'outro' ? Boolean(categoria) : Boolean(outroTexto.trim());
@@ -32,7 +23,7 @@ export default function SalesCancelModal({ open, sale, loading, onClose, onConfi
 
   return (
     <ModalShell
-      open={open && Boolean(sale)}
+      open
       title="Cancelar venda"
       onClose={requestClose}
       closeOnOverlay={!loading}
@@ -81,21 +72,24 @@ export default function SalesCancelModal({ open, sale, loading, onClose, onConfi
           </div>
         )}
 
-        <div
-          className="flex gap-2 mt-3 p-3"
-          style={{
-            background: 'var(--surface-2)',
-            borderRadius: 8,
-            fontSize: 13,
-            alignItems: 'flex-start',
-          }}
-        >
-          <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--warning)' }} />
-          <span>
-            Esta ação reverterá o estoque e estornará o valor no Caixa.
-          </span>
-        </div>
+        <p className="text-small mt-3" style={{ color: 'var(--warning)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <AlertTriangle size={16} aria-hidden style={{ flexShrink: 0, marginTop: 2 }} />
+          Esta ação não pode ser desfeita. O estoque e o financeiro serão ajustados conforme a política da venda.
+        </p>
       </form>
     </ModalShell>
+  );
+}
+
+export default function SalesCancelModal({ open, sale, loading, onClose, onConfirm }) {
+  if (!open || !sale) return null;
+  return (
+    <SalesCancelModalForm
+      key={sale.id}
+      sale={sale}
+      loading={loading}
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
   );
 }

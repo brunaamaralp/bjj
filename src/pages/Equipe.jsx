@@ -1,3 +1,4 @@
+import '../styles/equipe.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
@@ -5,22 +6,12 @@ import EquipeSection from '../components/academy/EquipeSection';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 
-export default function Equipe() {
-  const academyId = useLeadStore((s) => s.academyId);
-  const academyList = useLeadStore((s) => s.academyList);
-  const [loadState, setLoadState] = useState('idle');
+function EquipePageBody({ academyId, academyList, onMetaChange }) {
+  const [loadState, setLoadState] = useState('loading');
   const [academy, setAcademy] = useState({ teamId: '', ownerId: '' });
-  const [pageMeta, setPageMeta] = useState(null);
 
   useEffect(() => {
-    if (!academyId) {
-      setLoadState('idle');
-      setAcademy({ teamId: '', ownerId: '' });
-      setPageMeta(null);
-      return undefined;
-    }
     let cancelled = false;
-    setLoadState('loading');
     (async () => {
       try {
         const doc = await getAcademyDocument(academyId);
@@ -54,6 +45,24 @@ export default function Equipe() {
     };
   }, [academy, academyList, academyId]);
 
+  if (loadState === 'loading') {
+    return <PageSkeleton variant="list" rows={3} />;
+  }
+
+  return (
+    <EquipeSection
+      academy={academyForSection}
+      academyId={academyId}
+      onMetaChange={onMetaChange}
+    />
+  );
+}
+
+export default function Equipe() {
+  const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const [pageMeta, setPageMeta] = useState(null);
+
   return (
     <div className="container navi-hub-page">
       <div className="navi-hub-page__head">
@@ -65,21 +74,16 @@ export default function Equipe() {
       </div>
 
       <div className="navi-hub-page__body equipe-page">
-        {loadState === 'loading' ? (
-          <PageSkeleton variant="list" rows={3} />
-        ) : null}
-
-        {loadState !== 'loading' && academyId ? (
-          <EquipeSection
-            academy={academyForSection}
+        {academyId ? (
+          <EquipePageBody
+            key={academyId}
             academyId={academyId}
+            academyList={academyList}
             onMetaChange={setPageMeta}
           />
-        ) : null}
-
-        {!academyId ? (
+        ) : (
           <p className="text-small text-muted">Selecione uma academia para gerenciar a equipe.</p>
-        ) : null}
+        )}
       </div>
     </div>
   );

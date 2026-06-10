@@ -1,3 +1,4 @@
+import '../styles/sales.css';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { Settings, Monitor, History } from 'lucide-react';
@@ -24,7 +25,8 @@ const Sales = () => {
   const configRef = useRef(null);
   const appliedNavStateRef = useRef(false);
   const appliedPdvPrefRef = useRef(false);
-  const [historyPeriodFromNav, setHistoryPeriodFromNav] = useState(null);
+  const historyPeriodFromNavRef = useRef(null);
+  const navStateConsumedRef = useRef(false);
   const tabs = useMemo(
     () => [
       { id: 'new', label: 'Nova venda' },
@@ -35,20 +37,28 @@ const Sales = () => {
   const subtab = resolveSalesSubtab(searchParams);
   const pdvMode = resolveSalesPdvMode(searchParams);
   const wantsConfig = String(searchParams.get('config') || '').trim() === '1';
-  const [salesConfigOpen, setSalesConfigOpen] = useState(wantsConfig);
+  const [salesConfigUserOpen, setSalesConfigUserOpen] = useState(false);
+  const salesConfigOpen = salesConfigUserOpen || wantsConfig;
+
+  if (!navStateConsumedRef.current) {
+    const st = location.state;
+    if (st?.dateFrom && st?.dateTo) {
+      navStateConsumedRef.current = true;
+      historyPeriodFromNavRef.current = { from: st.dateFrom, to: st.dateTo };
+    }
+  }
+  const historyPeriodFromNav = historyPeriodFromNavRef.current;
 
   useEffect(() => {
-    if (appliedNavStateRef.current) return;
+    if (!historyPeriodFromNav) return undefined;
     const st = location.state;
-    if (!st?.dateFrom || !st?.dateTo) return;
-    appliedNavStateRef.current = true;
-    const subtabId = st.subtab === 'historico' ? 'history' : resolveSalesSubtab(searchParams);
+    const subtabId = st?.subtab === 'historico' ? 'history' : resolveSalesSubtab(searchParams);
     if (subtabId !== resolveSalesSubtab(searchParams)) {
       setSearchParams(lojaVendasTabParams(subtabId, searchParams), { replace: true });
     }
-    setHistoryPeriodFromNav({ from: st.dateFrom, to: st.dateTo });
     navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
-  }, [location, navigate, searchParams, setSearchParams]);
+    return undefined;
+  }, [historyPeriodFromNav, location.pathname, location.search, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (appliedPdvPrefRef.current) return;
@@ -66,14 +76,11 @@ const Sales = () => {
   }, [searchParams, setSearchParams, subtab]);
 
   useEffect(() => {
-    if (wantsConfig) {
-      setSalesConfigOpen(true);
-      const t = window.setTimeout(() => {
-        configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 80);
-      return () => window.clearTimeout(t);
-    }
-    return undefined;
+    if (!wantsConfig) return undefined;
+    const t = window.setTimeout(() => {
+      configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(t);
   }, [wantsConfig]);
 
   useEffect(() => {
@@ -106,7 +113,7 @@ const Sales = () => {
   };
 
   const openConfig = () => {
-    setSalesConfigOpen(true);
+    setSalesConfigUserOpen(true);
     window.setTimeout(() => {
       configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
 const VIEWPORT_PAD = 8;
 const FLIP_BELOW_THRESHOLD = 220;
@@ -72,28 +72,22 @@ export function useAnchoredMenuPosition(
   open,
   { align = 'end', gap = 8, maxHeight = 520, zIndex = 'var(--menu-z-elevated, 9000)' } = {},
 ) {
-  const [style, setStyle] = useState(null);
+  const [positionTick, setPositionTick] = useState(0);
+
+  const style = useMemo(() => {
+    if (!open || !triggerRef?.current) return null;
+    const rect = triggerRef.current.getBoundingClientRect();
+    return computeAnchoredMenuStyle(
+      rect,
+      { viewportW: window.innerWidth, viewportH: window.innerHeight },
+      { align, gap, maxHeight, zIndex },
+    );
+  }, [open, align, gap, maxHeight, zIndex, positionTick, triggerRef]);
 
   useLayoutEffect(() => {
-    if (!open || !triggerRef?.current) {
-      setStyle(null);
-      return undefined;
-    }
+    if (!open || !triggerRef?.current) return undefined;
 
-    const update = () => {
-      const el = triggerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setStyle(
-        computeAnchoredMenuStyle(
-          rect,
-          { viewportW: window.innerWidth, viewportH: window.innerHeight },
-          { align, gap, maxHeight, zIndex },
-        ),
-      );
-    };
-
-    update();
+    const update = () => setPositionTick((tick) => tick + 1);
     const scrollTargets = collectScrollContainers(triggerRef.current);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);

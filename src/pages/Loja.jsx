@@ -1,3 +1,4 @@
+import '../styles/sales.css';
 import React, { useEffect, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';

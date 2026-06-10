@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import {
@@ -186,13 +186,13 @@ const AutomacoesSection = ({
     savingAutomations,
     onSave,
 }) => {
-    const [savedDigest, setSavedDigest] = useState(() =>
-        serializeAutomationsConfig(automationsConfigRaw)
+    const serverDigest = useMemo(
+        () => serializeAutomationsConfig(automationsConfigRaw),
+        [automationsConfigRaw, academyDataVersion]
     );
-
-    useEffect(() => {
-        setSavedDigest(serializeAutomationsConfig(automationsConfigRaw));
-    }, [automationsConfigRaw, academyDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+    const [savedAfterEdit, setSavedAfterEdit] = useState(null);
+    const savedDigest =
+        savedAfterEdit?.version === academyDataVersion ? savedAfterEdit.digest : serverDigest;
 
     const hasUnsavedChanges = useMemo(
         () => serializeAutomationsConfig(automationsConfig) !== savedDigest,
@@ -201,7 +201,10 @@ const AutomacoesSection = ({
 
     const handleSave = async () => {
         await onSave();
-        setSavedDigest(serializeAutomationsConfig(automationsConfig));
+        setSavedAfterEdit({
+            version: academyDataVersion,
+            digest: serializeAutomationsConfig(automationsConfig),
+        });
     };
 
     const renderGroup = (title, keys) => (

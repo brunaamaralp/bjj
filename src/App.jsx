@@ -224,6 +224,13 @@ const App = () => {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (!academyReady || !academyIdStore) return;
+    void prefetchRouteBootstrapData(location.pathname).catch((e) => {
+      console.error('Route prefetch:', e);
+    });
+  }, [academyReady, academyIdStore, location.pathname]);
+
+  useEffect(() => {
     const onNavPush = (e) => {
       const path = String(e?.detail || '').trim();
       if (path) navigate(path);
@@ -323,7 +330,6 @@ const App = () => {
       const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
       if (financeEnabled) void prefetchFinanceConfig(id);
       setAcademyReady(true);
-      useLeadStore.getState().setDataReady(true);
       void syncBilling(id);
       void prefetchRouteBootstrapData(location.pathname, { signal });
       if (signal.aborted) return;
@@ -801,7 +807,6 @@ const App = () => {
     if (!academyId || signal?.aborted) return;
     const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
     if (financeEnabled) void prefetchFinanceConfig(academyId);
-    useLeadStore.getState().setDataReady(true);
     try {
       await syncBilling(academyId);
     } catch (e) {

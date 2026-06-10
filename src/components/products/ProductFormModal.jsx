@@ -334,6 +334,7 @@ export default function ProductFormModal({
   const [saveSummary, setSaveSummary] = useState('');
   const [partialSaveNotice, setPartialSaveNotice] = useState(false);
   const [expandedVariantIds, setExpandedVariantIds] = useState(() => new Set());
+  const [collapsedVariantIds, setCollapsedVariantIds] = useState(() => new Set());
   const initialSnapshotRef = useRef(null);
   const lastAddedRowRef = useRef(null);
   const scrollToLastRowRef = useRef(false);
@@ -354,10 +355,6 @@ export default function ProductFormModal({
     [parentRow?.variants]
   );
 
-  useEffect(() => {
-    setServerDupIndexes([]);
-  }, [editVariants, pendingDeleteIds]);
-
   /* eslint-disable react-hooks/set-state-in-effect */
   // This effect resets local UI state when opening the modal.
   useEffect(() => {
@@ -367,6 +364,7 @@ export default function ProductFormModal({
     setSaveSummary('');
     setPartialSaveNotice(false);
     setExpandedVariantIds(new Set());
+    setCollapsedVariantIds(new Set());
     setDeleteConfirm(null);
     setDeactivateConfirm(null);
 
@@ -461,17 +459,22 @@ export default function ProductFormModal({
   );
   const canSaveVariants = hasVariantsToSave(editVariants, pendingDeleteIds);
 
-  useEffect(() => {
-    if (step !== 2 || !useEditWizard) return;
-    setExpandedVariantIds((prev) => {
-      const next = new Set(prev);
-      for (const row of editVariants) {
-        if (row._isNew || !row.id) continue;
-        if (row._error || row._dirty || row._savedSuccess) next.add(row.id);
-      }
-      return next;
-    });
+  const autoExpandedVariantIds = useMemo(() => {
+    if (step !== 2 || !useEditWizard) return null;
+    const next = new Set();
+    for (const row of editVariants) {
+      if (row._isNew || !row.id) continue;
+      if (row._error || row._dirty || row._savedSuccess) next.add(row.id);
+    }
+    return next;
   }, [step, useEditWizard, editVariants]);
+
+  const isVariantExpanded = (variantId) => {
+    if (!variantId) return true;
+    if (collapsedVariantIds.has(variantId)) return false;
+    if (expandedVariantIds.has(variantId)) return true;
+    return autoExpandedVariantIds?.has(variantId) ?? false;
+  };
 
   const modalTitle = useMemo(() => {
     if ((useVariantWizard || useEditWizard) && step === 2) {
@@ -596,15 +599,22 @@ export default function ProductFormModal({
 
   const toggleVariantCardExpanded = (variantId) => {
     if (!variantId) return;
-    setExpandedVariantIds((prev) => {
-      if (prev.has(variantId)) {
+    if (isVariantExpanded(variantId)) {
+      setCollapsedVariantIds((prev) => new Set(prev).add(variantId));
+      setExpandedVariantIds((prev) => {
         const next = new Set(prev);
         next.delete(variantId);
         return next;
-      }
-      // Um card aberto por vez — evita lista alta e problemas de scroll aninhado.
-      return new Set([variantId]);
+      });
+      return;
+    }
+    setCollapsedVariantIds((prev) => {
+      const next = new Set(prev);
+      next.delete(variantId);
+      return next;
     });
+    // Um card aberto por vez — evita lista alta e problemas de scroll aninhado.
+    setExpandedVariantIds(new Set([variantId]));
   };
 
   const patchVariantRow = (idx, patch) => {
@@ -650,6 +660,7 @@ export default function ProductFormModal({
   const confirmDeleteVariant = (row, idx) => {
     if (row._isNew) {
       setEditVariants((rows) => rows.filter((_, i) => i !== idx));
+      setServerDupIndexes([]);
       return;
     }
     setDeleteConfirm({ row, idx });
@@ -660,6 +671,7 @@ export default function ProductFormModal({
     const { row, idx } = deleteConfirm;
     if (row._isNew) {
       setEditVariants((rows) => rows.filter((_, i) => i !== idx));
+      setServerDupIndexes([]);
       setDeleteConfirm(null);
       return;
     }
@@ -831,7 +843,7 @@ export default function ProductFormModal({
     const label = variantLabelForRow(row);
     const statusLabel = variantLifecycleLabel(row.lifecycle);
     const canDelete = Number(row.current_quantity) === 0;
-    const expanded = row.id ? expandedVariantIds.has(row.id) : true;
+    const expanded = isVariantExpanded(row.id);
 
     return (
       <article

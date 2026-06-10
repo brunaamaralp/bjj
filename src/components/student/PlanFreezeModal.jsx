@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { DateInput } from '../DateInput';
 import FieldError from '../shared/FieldError.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
@@ -19,24 +19,25 @@ function todayYmd() {
   return toYmd(new Date());
 }
 
-export default function PlanFreezeModal({
-  open,
+function PlanFreezeModalForm({
   student,
   freezeReasons = [],
   onClose,
   onConfirm,
   busy = false,
+  daysAvailable,
 }) {
-  const [startYmd, setStartYmd] = useState(todayYmd());
-  const [endYmd, setEndYmd] = useState('');
-  const [durationDays, setDurationDays] = useState(30);
+  const initialStart = todayYmd();
+  const initialDuration = Math.min(30, Math.max(1, daysAvailable || 1));
+  const [startYmd, setStartYmd] = useState(initialStart);
+  const [endYmd, setEndYmd] = useState(() => computeReturnYmd(initialStart, initialDuration));
+  const [durationDays, setDurationDays] = useState(initialDuration);
   const [indefinite, setIndefinite] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [error, setError] = useState('');
 
   const daysUsed = effectiveFreezeDaysUsed(student);
-  const daysAvailable = freezeDaysRemaining(student);
   const minStartYmd = minRetroactiveStartYmd(student);
   const isOther = String(selectedReason || '').trim().toLowerCase() === 'outro';
   const resolvedReason = isOther ? otherReason.trim() : String(selectedReason || '').trim();
@@ -48,31 +49,26 @@ export default function PlanFreezeModal({
     return computeDurationDays(startYmd, today);
   }, [startYmd]);
 
-  useEffect(() => {
-    if (!open) return;
-    const start = todayYmd();
-    const dur = Math.min(30, Math.max(1, daysAvailable || 1));
-    setStartYmd(start);
-    setDurationDays(dur);
-    setEndYmd(computeReturnYmd(start, dur));
-    setIndefinite(false);
-    setSelectedReason('');
-    setOtherReason('');
-    setError('');
-  }, [open, daysAvailable]);
+  const handleStartChange = (nextStart) => {
+    setStartYmd(nextStart);
+    if (!indefinite) {
+      setEndYmd(computeReturnYmd(nextStart, durationDays));
+    }
+  };
 
-  useEffect(() => {
-    if (!open || indefinite) return;
-    if (!startYmd || durationDays < 1) return;
-    setEndYmd(computeReturnYmd(startYmd, durationDays));
-  }, [open, startYmd, durationDays, indefinite]);
+  const handleIndefiniteChange = (checked) => {
+    setIndefinite(checked);
+    if (!checked) {
+      setEndYmd(computeReturnYmd(startYmd, durationDays));
+    }
+  };
 
   const handleClose = useCallback(() => {
     if (busy) return;
     onClose();
   }, [busy, onClose]);
 
-  useModalA11y({ isOpen: open, onClose: handleClose });
+  useModalA11y({ isOpen: true, onClose: handleClose });
 
   const validation = useMemo(
     () =>
@@ -90,14 +86,18 @@ export default function PlanFreezeModal({
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 1) {
       setDurationDays(1);
+      if (!indefinite) setEndYmd(computeReturnYmd(startYmd, 1));
       return;
     }
     if (n > daysAvailable) {
       setDurationDays(daysAvailable);
+      if (!indefinite) setEndYmd(computeReturnYmd(startYmd, daysAvailable));
       setError(`Limite de ${FREEZE_MAX_DAYS_PER_YEAR} dias atingido. Disponível: ${daysAvailable} dias.`);
       return;
     }
-    setDurationDays(Math.trunc(n));
+    const next = Math.trunc(n);
+    setDurationDays(next);
+    if (!indefinite) setEndYmd(computeReturnYmd(startYmd, next));
     setError('');
   };
 
@@ -134,7 +134,7 @@ export default function PlanFreezeModal({
 
   return (
     <ModalShell
-      open={open}
+      open
       title="Trancar matrícula (pausa temporária)"
       onClose={handleClose}
       closeOnOverlay={!busy}
@@ -168,7 +168,7 @@ export default function PlanFreezeModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
           <label style={{ fontSize: 13 }}>
             <span style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)' }}>Data de início</span>
-            <DateInput value={startYmd} onChange={(e) => setStartYmd(e.target.value)} disabled={busy} />
+            <DateInput value={startYmd} onChange={(e) => handleStartChange(e.target.value)} disabled={busy} />
             <span style={{ display: 'block', marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
               Retroativo permitido desde {formatFreezeDateBr(minStartYmd)}
             </span>
@@ -191,7 +191,7 @@ export default function PlanFreezeModal({
               type="checkbox"
               checked={indefinite}
               disabled={busy}
-              onChange={(e) => setIndefinite(e.target.checked)}
+              onChange={(e) => handleIndefiniteChange(e.target.checked)}
               style={{ accentColor: 'var(--purple)', marginTop: 3 }}
             />
             <span style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45 }}>
@@ -307,5 +307,28 @@ export default function PlanFreezeModal({
         <FieldError id="plan-freeze-error">{error}</FieldError>
       </form>
     </ModalShell>
+  );
+}
+
+export default function PlanFreezeModal({
+  open,
+  student,
+  freezeReasons = [],
+  onClose,
+  onConfirm,
+  busy = false,
+}) {
+  const daysAvailable = freezeDaysRemaining(student);
+  if (!open) return null;
+  return (
+    <PlanFreezeModalForm
+      key={`${student?.id || 'student'}-${daysAvailable}`}
+      student={student}
+      freezeReasons={freezeReasons}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      busy={busy}
+      daysAvailable={daysAvailable}
+    />
   );
 }

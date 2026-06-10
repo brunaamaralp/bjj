@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
 import { filterCatalogProducts, groupByCategory } from '../../lib/salesCatalog';
@@ -58,7 +58,13 @@ export default function SalesCatalogPicker({
 }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
-  const [visibleLimit, setVisibleLimit] = useState(CATALOG_PAGE_SIZE);
+  const filterKey = `${search}|${category}|${products.length}`;
+  const [limitState, setLimitState] = useState({ key: filterKey, limit: CATALOG_PAGE_SIZE });
+  const visibleLimit = limitState.key === filterKey ? limitState.limit : CATALOG_PAGE_SIZE;
+  const setVisibleLimit = (next) => {
+    const resolved = typeof next === 'function' ? next(visibleLimit) : next;
+    setLimitState({ key: filterKey, limit: resolved });
+  };
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -90,10 +96,6 @@ export default function SalesCatalogPicker({
   const usePagination = products.length > CATALOG_PAGE_SIZE;
   const visibleRows = usePagination ? flatProducts.slice(0, visibleLimit) : flatProducts;
   const hasMore = usePagination && flatProducts.length > visibleLimit;
-
-  useEffect(() => {
-    setVisibleLimit(CATALOG_PAGE_SIZE);
-  }, [search, category, products.length]);
 
   const catalogEmpty = !loading && products.length === 0;
   const filterEmpty = !loading && products.length > 0 && displayGroups.length === 0;

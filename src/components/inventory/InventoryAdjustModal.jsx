@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Minus, Plus, ArrowRight } from 'lucide-react';
 import ModalShell from '../shared/ModalShell.jsx';
 import {
@@ -11,30 +11,17 @@ import {
 import { variantInventoryLabel } from '../../lib/stockInventory';
 import FieldError from '../shared/FieldError.jsx';
 
-export default function InventoryAdjustModal({ open, item, loading, onClose, onSubmit }) {
+function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
+  const currentQty = Number(item?.current_quantity);
+  const saldoAtual = Number.isFinite(currentQty) ? currentQty : 0;
+
   const [subtype, setSubtype] = useState('avaria');
   const [inputMode, setInputMode] = useState('units');
   const [direction, setDirection] = useState('remove');
   const [quantidade, setQuantidade] = useState('1');
-  const [saldoCorreto, setSaldoCorreto] = useState('');
+  const [saldoCorreto, setSaldoCorreto] = useState(() => String(saldoAtual));
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-
-  const currentQty = Number(item?.current_quantity);
-  const saldoAtual = Number.isFinite(currentQty) ? currentQty : 0;
-
-  useEffect(() => {
-    if (!open) return;
-    const q = Number(item?.current_quantity);
-    const cur = Number.isFinite(q) ? q : 0;
-    setSubtype('avaria');
-    setInputMode('units');
-    setDirection('remove');
-    setQuantidade('1');
-    setSaldoCorreto(String(cur));
-    setNote('');
-    setError('');
-  }, [open, item?.id, item?.current_quantity]);
 
   const requestClose = useCallback(() => {
     if (loading) return;
@@ -305,5 +292,19 @@ export default function InventoryAdjustModal({ open, item, loading, onClose, onS
 
         </form>
     </ModalShell>
+  );
+}
+
+export default function InventoryAdjustModal({ open, item, loading, onClose, onSubmit }) {
+  if (!open || !item) return null;
+  return (
+    <InventoryAdjustModalForm
+      key={`${item.id}-${item.current_quantity}`}
+      open={open}
+      item={item}
+      loading={loading}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    />
   );
 }

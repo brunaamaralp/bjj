@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import {
   FOLLOWUP_OUTCOMES,
@@ -19,19 +19,11 @@ const OUTCOME_OPTIONS = [
   FOLLOWUP_OUTCOMES.LOST,
 ];
 
-export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfirm, saving = false }) {
+function FollowupOutcomeDialogForm({ leadName, onClose, onConfirm, saving }) {
   const [outcome, setOutcome] = useState(FOLLOWUP_OUTCOMES.INTERESTED);
   const [objectionType, setObjectionType] = useState(OBJECTION_TYPES.PRICE);
   const [note, setNote] = useState('');
   const [snooze, setSnooze] = useState(true);
-
-  useEffect(() => {
-    if (!open) return;
-    setOutcome(FOLLOWUP_OUTCOMES.INTERESTED);
-    setObjectionType(OBJECTION_TYPES.PRICE);
-    setNote('');
-    setSnooze(true);
-  }, [open, leadName]);
 
   const showObjection = outcome === FOLLOWUP_OUTCOMES.OBJECTION;
   const showSnooze = OUTCOMES_WITH_SNOOZE.has(outcome);
@@ -49,7 +41,7 @@ export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfi
 
   return (
     <ModalShell
-      open={open}
+      open
       onClose={onClose}
       title="Concluir retorno"
       footer={
@@ -131,5 +123,18 @@ export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfi
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfirm, saving = false }) {
+  if (!open) return null;
+  return (
+    <FollowupOutcomeDialogForm
+      key={String(leadName || '')}
+      leadName={leadName}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      saving={saving}
+    />
   );
 }

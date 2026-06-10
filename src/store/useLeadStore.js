@@ -191,7 +191,10 @@ export const useLeadStore = create(
   billingAccess: null,
   academyList: [],
   onboardingChecklistReopenNonce: 0,
-  /** @deprecated Preferir leadsReady; mantido para compat. */
+  /**
+   * @deprecated Preferir `leadsReady` / `studentsReady`. Sincronizado quando `fetchLeads` conclui.
+   * Não marcar manualmente no bootstrap — o shell usa `academyReady`.
+   */
   dataReady: false,
   /** Primeira página de leads carregada para a academia atual. */
   leadsReady: false,

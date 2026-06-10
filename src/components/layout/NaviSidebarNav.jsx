@@ -442,7 +442,7 @@ export default function NaviSidebarNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [expandedAccordionId, setExpandedAccordionId] = useState(null);
+  const [userAccordionId, setUserAccordionId] = useState(null);
 
   const navModel = useMemo(
     () =>
@@ -458,21 +458,17 @@ export default function NaviSidebarNav({
     [modules, canConfigureAgenteIa, labels.pipeline, navStudentsLabel, newLeadLabel, navRole]
   );
 
-  useEffect(() => {
-    const routeAccordion = getAccordionIdForLocation(location);
-    if (routeAccordion) {
-      setExpandedAccordionId(routeAccordion);
-      return;
-    }
-    if (isDirectNavPath(location.pathname)) {
-      setExpandedAccordionId(null);
-    }
-  }, [location.pathname, location.search]);
+  const routeAccordion = useMemo(
+    () => getAccordionIdForLocation(location),
+    [location.pathname, location.search]
+  );
+  const expandedAccordionId =
+    routeAccordion ?? (isDirectNavPath(location.pathname) ? null : userAccordionId);
 
-  const expandExclusive = (id) => setExpandedAccordionId(id);
+  const expandExclusive = (id) => setUserAccordionId(id);
 
   const toggleAccordion = (id) => {
-    setExpandedAccordionId((prev) => (prev === id ? null : id));
+    setUserAccordionId((prev) => (prev === id ? null : id));
   };
 
   const automacoesAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);

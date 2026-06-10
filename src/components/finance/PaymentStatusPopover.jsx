@@ -1,4 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
+
+function normalizeGridStatus(initialStatus) {
+  return initialStatus === 'soon' || initialStatus === 'none' ? 'pending' : initialStatus;
+}
+
+function buildInitialPaidAmount(initialPaidAmount, expectedAmount) {
+  const amt = initialPaidAmount > 0 ? initialPaidAmount : expectedAmount;
+  return maskCurrency(String(Math.round(amt * 100)));
+}
+
+function buildInitialPaidAt(initialPaidAt) {
+  return initialPaidAt ? String(initialPaidAt).slice(0, 10) : new Date().toISOString().slice(0, 10);
+}
 import { DateInputField } from '../DateInput';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import { mapDbStatusFromGridForm } from '../../lib/paymentStatus';
@@ -11,7 +24,7 @@ const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendente' },
 ];
 
-export default function PaymentStatusPopover({
+function PaymentStatusPopoverForm({
   anchorRect,
   initialStatus,
   initialPaidAmount,
@@ -23,18 +36,10 @@ export default function PaymentStatusPopover({
   onClose,
 }) {
   const popRef = useRef(null);
-  const [status, setStatus] = useState(initialStatus === 'soon' || initialStatus === 'none' ? 'pending' : initialStatus);
-  const [paidAmount, setPaidAmount] = useState('');
-  const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
-  const [note, setNote] = useState(initialNote || '');
-
-  useEffect(() => {
-    const amt = initialPaidAmount > 0 ? initialPaidAmount : expectedAmount;
-    setPaidAmount(maskCurrency(String(Math.round(amt * 100))));
-    setStatus(initialStatus === 'soon' || initialStatus === 'none' ? 'pending' : initialStatus);
-    setNote(initialNote || '');
-    setPaidAt(initialPaidAt ? String(initialPaidAt).slice(0, 10) : new Date().toISOString().slice(0, 10));
-  }, [initialStatus, initialPaidAmount, expectedAmount, initialNote, initialPaidAt]);
+  const [status, setStatus] = useState(() => normalizeGridStatus(initialStatus));
+  const [paidAmount, setPaidAmount] = useState(() => buildInitialPaidAmount(initialPaidAmount, expectedAmount));
+  const [paidAt, setPaidAt] = useState(() => buildInitialPaidAt(initialPaidAt));
+  const [note, setNote] = useState(() => initialNote || '');
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -154,4 +159,15 @@ export default function PaymentStatusPopover({
       </form>
     </div>
   );
+}
+
+export default function PaymentStatusPopover(props) {
+  const popoverKey = [
+    props.initialStatus,
+    props.initialPaidAmount,
+    props.expectedAmount,
+    props.initialNote,
+    props.initialPaidAt,
+  ].join('|');
+  return <PaymentStatusPopoverForm key={popoverKey} {...props} />;
 }

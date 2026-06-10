@@ -256,7 +256,15 @@ const Dashboard = () => {
     useEffect(() => {
         if (!academyId) return undefined;
         const STALE_MS = 5 * 60 * 1000;
-        const { leads, leadsLastFetchedAt } = useLeadStore.getState();
+        const { leads, leadsLastFetchedAt, loading: leadsLoading } = useLeadStore.getState();
+        if (leadsLoading) {
+            return () => {
+                const { loading } = useLeadStore.getState();
+                if (loading) {
+                    useLeadStore.setState({ loading: false });
+                }
+            };
+        }
         if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) {
             return () => {
                 const { loading } = useLeadStore.getState();
@@ -300,7 +308,9 @@ const Dashboard = () => {
     useEffect(() => {
         if (!academyId) return;
         const STALE_MS = 5 * 60 * 1000;
-        if (students.length > 0 && studentsLastFetchedAt && Date.now() - studentsLastFetchedAt < STALE_MS) {
+        const { loading: studentsLoading, lastFetchedAt } = useStudentStore.getState();
+        if (studentsLoading) return;
+        if (students.length > 0 && lastFetchedAt && Date.now() - lastFetchedAt < STALE_MS) {
             return;
         }
         void fetchStudents({ reset: true });

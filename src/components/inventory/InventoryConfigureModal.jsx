@@ -1,24 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 
-export default function InventoryConfigureModal({ open, item, loading, onClose, onSave }) {
-  const [form, setForm] = useState({ minimum_level: 0, unit: 'unidade', notes: '' });
-
-  useEffect(() => {
-    if (!item) return;
-    setForm({
-      minimum_level: item.minimum_level || 0,
-      unit: item.unit || 'unidade',
-      notes: item.notes || '',
-    });
-  }, [item]);
+function InventoryConfigureModalForm({ item, loading, onClose, onSave }) {
+  const [form, setForm] = useState({
+    minimum_level: item.minimum_level || 0,
+    unit: item.unit || 'unidade',
+    notes: item.notes || '',
+  });
 
   const requestClose = useCallback(() => {
     if (loading) return;
     onClose();
   }, [loading, onClose]);
-
-  if (!item) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,7 +24,7 @@ export default function InventoryConfigureModal({ open, item, loading, onClose, 
 
   return (
     <ModalShell
-      open={open && Boolean(item)}
+      open
       title="Ajustar mínimo e unidade"
       onClose={requestClose}
       closeOnOverlay={!loading}
@@ -82,5 +75,18 @@ export default function InventoryConfigureModal({ open, item, loading, onClose, 
         </div>
       </form>
     </ModalShell>
+  );
+}
+
+export default function InventoryConfigureModal({ open, item, loading, onClose, onSave }) {
+  if (!open || !item) return null;
+  return (
+    <InventoryConfigureModalForm
+      key={item.id}
+      item={item}
+      loading={loading}
+      onClose={onClose}
+      onSave={onSave}
+    />
   );
 }

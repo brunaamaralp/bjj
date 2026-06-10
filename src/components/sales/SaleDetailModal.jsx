@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
@@ -17,8 +17,7 @@ import {
 import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 
-export default function SaleDetailModal({
-  open,
+function SaleDetailModalContent({
   sale,
   loading,
   onClose,
@@ -39,26 +38,11 @@ export default function SaleDetailModal({
     [sale?.total]
   );
 
-  useEffect(() => {
-    if (!open || !sale) {
-      setLiquidateOpen(false);
-      setLiquidateError('');
-      return;
-    }
+  const openLiquidatePanel = useCallback(() => {
+    setLiquidateError('');
     setPayments([createEmptyPaymentRow(totalCents)]);
-  }, [open, sale?.id, totalCents]);
-
-  useEffect(() => {
-    if (!liquidateOpen) return;
-    setPayments((prev) => {
-      if (prev.length === 1) {
-        return [{ ...prev[0], valorCents: totalCents, recebidoCents: totalCents }];
-      }
-      return rebalancePaymentsForTotal(prev, totalCents);
-    });
-  }, [liquidateOpen, totalCents]);
-
-  if (!open || !sale) return null;
+    setLiquidateOpen(true);
+  }, [totalCents]);
 
   const statusLower = String(sale.status).toLowerCase();
   const isConcluida = statusLower === 'concluida';
@@ -95,7 +79,7 @@ export default function SaleDetailModal({
 
   return (
     <ModalShell
-      open={open && Boolean(sale)}
+      open
       title={`Venda ${sale.id_short}`}
       onClose={onClose}
       maxWidth={560}
@@ -185,7 +169,7 @@ export default function SaleDetailModal({
               <button
                 type="button"
                 className="btn-primary mt-4 sales-modal__full-width"
-                onClick={() => setLiquidateOpen(true)}
+                onClick={openLiquidatePanel}
               >
                 Registrar pagamento
               </button>
@@ -240,5 +224,28 @@ export default function SaleDetailModal({
           </>
         )}
     </ModalShell>
+  );
+}
+
+export default function SaleDetailModal({
+  open,
+  sale,
+  loading,
+  onClose,
+  onCancelClick,
+  canCancelSale = false,
+  onLiquidated,
+}) {
+  if (!open || !sale) return null;
+  return (
+    <SaleDetailModalContent
+      key={sale.id}
+      sale={sale}
+      loading={loading}
+      onClose={onClose}
+      onCancelClick={onCancelClick}
+      canCancelSale={canCancelSale}
+      onLiquidated={onLiquidated}
+    />
   );
 }

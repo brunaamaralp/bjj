@@ -28,18 +28,14 @@ function responsibleLabel(usuarioId) {
   return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
-export default function ProductStockMovesDrawer({ open, product, onClose }) {
-  const academyId = useLeadStore((s) => s.academyId);
+function ProductStockMovesDrawerContent({ product, academyId, onClose }) {
   const [moves, setMoves] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!open || !product?.id || !academyId) return undefined;
+    if (!product?.id || !academyId) return undefined;
     let cancelled = false;
-    setLoading(true);
-    setError('');
-    setMoves([]);
     fetchProductStockMoves(product.id, academyId)
       .then((rows) => {
         if (!cancelled) setMoves(rows);
@@ -53,18 +49,9 @@ export default function ProductStockMovesDrawer({ open, product, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [open, product?.id, academyId]);
+  }, [product?.id, academyId]);
 
-  useEffect(() => {
-    if (!open || typeof document === 'undefined') return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!open || !product || typeof document === 'undefined') return null;
+  if (!product || typeof document === 'undefined') return null;
 
   const title = `Movimentações — ${product.nome || product.display_label || 'Produto'}`;
 
@@ -121,5 +108,29 @@ export default function ProductStockMovesDrawer({ open, product, onClose }) {
       </aside>
     </>,
     document.body
+  );
+}
+
+export default function ProductStockMovesDrawer({ open, product, onClose }) {
+  const academyId = useLeadStore((s) => s.academyId);
+
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !product || typeof document === 'undefined') return null;
+
+  return (
+    <ProductStockMovesDrawerContent
+      key={`${product.id}-${academyId}`}
+      product={product}
+      academyId={academyId}
+      onClose={onClose}
+    />
   );
 }

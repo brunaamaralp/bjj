@@ -7,23 +7,18 @@ import { normalizeCustomLeadQuestions } from '../lib/customLeadQuestions.js';
  * @param {string} academyId
  */
 export function useCustomLeadQuestions(academyId) {
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const aid = String(academyId || '').trim();
+  const [fetchState, setFetchState] = useState({ key: '', questions: [], loading: false });
 
   useEffect(() => {
-    const aid = String(academyId || '').trim();
-    if (!aid) {
-      setQuestions([]);
-      return undefined;
-    }
+    if (!aid) return undefined;
     let cancelled = false;
-    setLoading(true);
     databases
       .getDocument(DB_ID, ACADEMIES_COL, aid)
       .then((doc) => {
         if (cancelled) return;
         const normalized = normalizeCustomLeadQuestions(doc.customLeadQuestions);
-        setQuestions(normalized.questions);
+        setFetchState({ key: aid, questions: normalized.questions, loading: false });
         if (normalized.migrated) {
           databases
             .updateDocument(DB_ID, ACADEMIES_COL, aid, {
@@ -33,15 +28,14 @@ export function useCustomLeadQuestions(academyId) {
         }
       })
       .catch(() => {
-        if (!cancelled) setQuestions([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setFetchState({ key: aid, questions: [], loading: false });
       });
     return () => {
       cancelled = true;
     };
-  }, [academyId]);
+  }, [aid]);
 
-  return { questions, loading };
+  if (!aid) return { questions: [], loading: false };
+  if (fetchState.key !== aid) return { questions: [], loading: true };
+  return { questions: fetchState.questions, loading: fetchState.loading };
 }

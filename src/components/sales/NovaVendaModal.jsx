@@ -1,3 +1,4 @@
+import '../../styles/sales.css';
 import React, { useCallback } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import SalesNewSaleTab from './SalesNewSaleTab.jsx';

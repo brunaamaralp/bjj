@@ -1,3 +1,4 @@
+import '../styles/sales.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, ChevronUp, ChevronDown, ChevronRight, Upload, ArrowLeftRight, MoreHorizontal, Package } from 'lucide-react';

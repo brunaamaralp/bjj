@@ -21,25 +21,32 @@ export function useCanViewStudentFinance(academyDoc) {
     academyDoc ||
     (academyList || []).find((a) => a.id === academyId) ||
     null;
-  const [membership, setMembership] = useState(null);
+  const teamId = resolvedDoc?.teamId;
+  const isOwner = String(resolvedDoc?.ownerId || '') === String(userId || '');
+  const shouldFetch = Boolean(teamId && userId && !isOwner);
+  const fetchKey = shouldFetch ? `${teamId}:${userId}` : '';
+  const [membershipState, setMembershipState] = useState({ key: '', value: null });
 
   useEffect(() => {
-    if (!resolvedDoc?.teamId || !userId) {
-      setMembership(null);
-      return;
-    }
-    if (String(resolvedDoc.ownerId || '') === String(userId)) {
-      setMembership(null);
-      return;
-    }
+    if (!shouldFetch) return undefined;
+    let cancelled = false;
     teams
-      .listMemberships(resolvedDoc.teamId)
+      .listMemberships(teamId)
       .then((res) => {
+        if (cancelled) return;
         const m = (res.memberships || []).find((x) => String(x.userId) === String(userId));
-        setMembership(m || null);
+        setMembershipState({ key: fetchKey, value: m || null });
       })
-      .catch(() => setMembership(null));
-  }, [resolvedDoc?.teamId, resolvedDoc?.ownerId, userId]);
+      .catch(() => {
+        if (!cancelled) setMembershipState({ key: fetchKey, value: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldFetch, teamId, userId, fetchKey]);
+
+  const membership =
+    membershipState.key === fetchKey ? membershipState.value : null;
 
   return canViewStudentFinance(userId, resolvedDoc, membership);
 }

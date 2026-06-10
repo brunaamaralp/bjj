@@ -166,12 +166,11 @@ export default function InventoryBalanceView({
   onAdjustItem,
 }) {
   const highlightRef = useRef(null);
-  const autoExpandedRef = useRef(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [forSaleOnly, setForSaleOnly] = useState(false);
-  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [manualExpandedIds, setManualExpandedIds] = useState(null);
   const [actionsMenuId, setActionsMenuId] = useState(null);
   const [variantMenuId, setVariantMenuId] = useState(null);
 
@@ -207,12 +206,12 @@ export default function InventoryBalanceView({
     [filtered]
   );
 
-  useEffect(() => {
-    if (loading || autoExpandedRef.current || !parentRows.length) return;
-    autoExpandedRef.current = true;
-    const ids = parentRows.filter((p) => (p.variants || []).length > 1).map((p) => p.id);
-    setExpandedIds(new Set(ids));
+  const autoExpandedIds = useMemo(() => {
+    if (loading || !parentRows.length) return null;
+    return new Set(parentRows.filter((p) => (p.variants || []).length > 1).map((p) => p.id));
   }, [loading, parentRows]);
+
+  const expandedIds = manualExpandedIds ?? autoExpandedIds ?? new Set();
 
   const showUnitColumn = useMemo(
     () =>
@@ -230,8 +229,9 @@ export default function InventoryBalanceView({
   const showMinColumn = anyExpanded || filtered.some((row) => (row.variants || []).length <= 1);
 
   const toggleExpanded = (parentId) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
+    setManualExpandedIds((prev) => {
+      const base = prev ?? autoExpandedIds ?? new Set();
+      const next = new Set(base);
       if (next.has(parentId)) next.delete(parentId);
       else next.add(parentId);
       return next;
