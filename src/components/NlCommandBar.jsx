@@ -12,6 +12,9 @@ import {
 import { paymentFormLabel } from '../lib/salePayments.js';
 import NlResponseMarkdown from './NlResponseMarkdown.jsx';
 import { buildNlQuerySummary, nlQueryMarkdownBody } from '../lib/nlQuerySummary.js';
+import { NlCommandBarTrigger } from './NlCommandBarTrigger.jsx';
+
+export { NlCommandBarTrigger };
 
 function formatRefMonth(ym) {
   if (!ym) return '—';
@@ -45,21 +48,6 @@ const PAYMENT_METHOD_LABELS = {
 function formatNlPaymentMethod(method) {
   const k = String(method || '').trim().toLowerCase();
   return PAYMENT_METHOD_LABELS[k] || (k ? k : '—');
-}
-
-export function NlCommandBarTrigger({ onClick }) {
-  const label = 'Pergunte ou descreva uma ação…';
-  const title =
-    'Consultas e comandos: matrículas, mensalidades, funil, caixa ou estoque (⌘K / Ctrl+K)';
-  return (
-    <button type="button" className="nl-command-bar-trigger" onClick={onClick} title={title}>
-      <span className="nl-command-bar-trigger__icon" aria-hidden>
-        ✦
-      </span>
-      <span className="nl-command-bar-trigger__label">{label}</span>
-      <kbd className="nl-command-bar-trigger__kbd">⌘K</kbd>
-    </button>
-  );
 }
 
 const ASK_SUGGESTIONS = [

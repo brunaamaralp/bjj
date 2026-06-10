@@ -102,8 +102,6 @@ import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
-const DASHBOARD_FU_HINT_KEY = 'nave:dashboard-fu-hint-v1';
-
 const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
 
 function heroKpiHighlight(tone) {
@@ -224,14 +222,6 @@ const Dashboard = () => {
     const [followupStreak, setFollowupStreak] = useState(0);
     const [sendingBirthdayWa, setSendingBirthdayWa] = useState('');
     const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
-    const [showFollowupHint, setShowFollowupHint] = useState(() => {
-        try {
-            return !localStorage.getItem(DASHBOARD_FU_HINT_KEY);
-        } catch {
-            return true;
-        }
-    });
-
     useEffect(() => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
         const mq = window.matchMedia('(max-width: 767px)');
@@ -575,15 +565,6 @@ const Dashboard = () => {
             return;
         }
         scrollToBirthdayBanner();
-    };
-
-    const dismissFollowupHint = () => {
-        setShowFollowupHint(false);
-        try {
-            localStorage.setItem(DASHBOARD_FU_HINT_KEY, '1');
-        } catch {
-            /* ignore */
-        }
     };
 
     const handleDayPriorityAction = () => {
@@ -1044,6 +1025,7 @@ const Dashboard = () => {
                     <button
                         type="button"
                         className="fu-name"
+                        title={lead.name}
                         onClick={() =>
                             navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
                         }
@@ -1072,18 +1054,15 @@ const Dashboard = () => {
                         )}
                     </div>
                     {lead.nextActionLabel ? (
-                        <p className="fu-next-action text-small">
-                            Próxima ação: <span>{lead.nextActionLabel}</span>
+                        <div className="fu-next-action">
+                            <span className="fu-next-action__label">Próxima ação</span>
+                            <span className="fu-next-action__value">{lead.nextActionLabel}</span>
                             {lead.phone ? (
-                                <>
-                                    {' '}
-                                    ·{' '}
-                                    <Link className="fu-inbox-link" to={`/inbox?phone=${encodeURIComponent(lead.phone)}`}>
-                                        Abrir conversa
-                                    </Link>
-                                </>
+                                <Link className="fu-inbox-link" to={`/inbox?phone=${encodeURIComponent(lead.phone)}`}>
+                                    Abrir conversa
+                                </Link>
                             ) : null}
-                        </p>
+                        </div>
                     ) : null}
                 </div>
                 <div className="fu-row__actions-bar">
@@ -1478,20 +1457,6 @@ const Dashboard = () => {
                     )}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
-                {followUps.length > 0 && showFollowupHint ? (
-                    <div className="followup-section-hint-banner" role="note">
-                        <p className="followup-copilot__hint followup-section-hint">
-                            Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
-                        </p>
-                        <button
-                            type="button"
-                            className="followup-section-hint-banner__dismiss"
-                            onClick={dismissFollowupHint}
-                        >
-                            Entendi
-                        </button>
-                    </div>
-                ) : null}
                 <div
                     className={`fu-list-card${
                         followUps.length >= 6 ? ' fu-list-card--scrollable' : ''
@@ -1538,7 +1503,7 @@ const Dashboard = () => {
                     )}
                 </div>
                 {followUpsKanbanOnlyCount > 0 && (
-                    <p className="fu-kanban-more mt-2">
+                    <div className="fu-kanban-more" role="note">
                         <button
                             type="button"
                             className="fu-kanban-link"
@@ -1549,8 +1514,10 @@ const Dashboard = () => {
                         >
                             + {followUpsKanbanOnlyCount} no Kanban
                         </button>
-                        <span className="fu-kanban-more-hint"> — há mais de {FOLLOWUP_AGENDA_MAX_DAYS} dias</span>
-                    </p>
+                        <span className="fu-kanban-more-hint">
+                            há mais de {FOLLOWUP_AGENDA_MAX_DAYS} dias
+                        </span>
+                    </div>
                 )}
                 </div>
             </section>

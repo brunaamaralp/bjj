@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Sparkles, Loader2, ChevronDown } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import { fetchFollowupCopilot, openWhatsappDraft } from '../../lib/followupCopilotApi.js';
 import { useToast } from '../../hooks/useToast';
+import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/menu';
 
 export default function FollowupCopilotButtons({
@@ -24,6 +25,13 @@ export default function FollowupCopilotButtons({
   const [draftPreview, setDraftPreview] = useState('');
   const [draftOpen, setDraftOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuTriggerRef = useRef(null);
+  const menuPanelStyle = useAnchoredMenuPosition(menuTriggerRef, menuOpen, {
+    align: 'start',
+    gap: 6,
+    maxHeight: 200,
+    zIndex: 'var(--menu-z-elevated, 9000)',
+  });
 
   const lid = String(leadId || '').trim();
   const aid = String(academyId || '').trim();
@@ -98,23 +106,30 @@ export default function FollowupCopilotButtons({
           align="start"
         >
           <button
+            ref={menuTriggerRef}
             type="button"
-            className={`${btnClass} followup-copilot-menu__trigger`}
+            className="fu-ia-btn"
             disabled={loadingSummary || loadingDraft}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
+            aria-label="Ações de IA"
+            title="Resumo e rascunho com IA"
             onClick={() => setMenuOpen((open) => !open)}
           >
             {loadingSummary || loadingDraft ? (
-              <Loader2 size={14} className="wa-icon--spin" aria-hidden />
+              <Loader2 size={14} className="fu-ia-btn__icon fu-ia-btn__icon--spin" aria-hidden />
             ) : (
-              <Sparkles size={14} aria-hidden />
+              <Sparkles size={14} className="fu-ia-btn__icon" aria-hidden />
             )}
-            IA
-            <ChevronDown size={14} aria-hidden />
           </button>
           {menuOpen ? (
-            <DropdownMenuPanel aria-label="Ações de IA">
+            <DropdownMenuPanel
+              fixed
+              elevated
+              aria-label="Ações de IA"
+              className="followup-copilot-menu__panel"
+              style={menuPanelStyle || undefined}
+            >
               <DropdownMenuItem
                 icon={<Sparkles size={14} aria-hidden />}
                 disabled={loadingSummary || loadingDraft}

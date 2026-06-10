@@ -38,6 +38,20 @@ export default function NotificationBell({ academyId, userId }) {
     return () => stopPolling();
   }, [academyId, userId, startPolling, stopPolling]);
 
+  useEffect(() => {
+    if (!academyId) return undefined;
+    const scheduleIdleWork = window.requestIdleCallback ?? ((cb) => window.setTimeout(cb, 2000));
+    const idleId = scheduleIdleWork(() => {
+      const { leadsLastFetchedAt, loading, fetchLeads } = useLeadStore.getState();
+      if (!leadsLastFetchedAt && !loading) void fetchLeads({ reset: true });
+    });
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && typeof idleId === 'number') {
+        window.cancelIdleCallback(idleId);
+      }
+    };
+  }, [academyId]);
+
   const handleItemClick = (n) => {
     markAsRead([n.id]);
     setIsOpen(false);

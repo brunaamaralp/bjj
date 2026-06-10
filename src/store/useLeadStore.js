@@ -191,14 +191,17 @@ export const useLeadStore = create(
   billingAccess: null,
   academyList: [],
   onboardingChecklistReopenNonce: 0,
-  /** Leads/alunos carregados após bootstrap fase 2. */
+  /** @deprecated Preferir leadsReady; mantido para compat. */
   dataReady: false,
+  /** Primeira página de leads carregada para a academia atual. */
+  leadsReady: false,
   /** Cache de financeConfig (documento academia); invalidar ao trocar academia. */
   financeConfig: null,
   financeConfigAcademyId: null,
 
   setAcademyList: (list) => set({ academyList: Array.isArray(list) ? list : [] }),
   setDataReady: (ready) => set({ dataReady: Boolean(ready) }),
+  setLeadsReady: (ready) => set({ leadsReady: Boolean(ready) }),
 
   setFinanceConfig: (config) =>
     set({
@@ -225,6 +228,7 @@ export const useLeadStore = create(
         financeConfig: null,
         financeConfigAcademyId: null,
         dataReady: false,
+        leadsReady: false,
       });
     } else if (!id) {
        cancelFetchLeads();
@@ -242,6 +246,7 @@ export const useLeadStore = create(
          financeConfig: null,
          financeConfigAcademyId: null,
          dataReady: false,
+         leadsReady: false,
        });
     }
   },
@@ -359,6 +364,8 @@ export const useLeadStore = create(
             leadsHasMore: pageFull,
             leadsCursor: pageFull && lastId ? lastId : null,
             leadsLastFetchedAt: Date.now(),
+            leadsReady: true,
+            dataReady: true,
           };
         });
       } else {
@@ -402,7 +409,7 @@ export const useLeadStore = create(
         return;
       }
       console.error('fetchLeads error:', e);
-      set({ loading: false, loadingMore: false, leadsError: true });
+      set({ loading: false, loadingMore: false, leadsError: true, leadsReady: false });
     }
   },
 

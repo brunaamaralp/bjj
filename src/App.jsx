@@ -27,6 +27,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
 import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
+import { prefetchRouteBootstrapData } from './lib/bootstrapRoutePrefetch.js';
 import NaviUserMenu from './components/layout/NaviUserMenu.jsx';
 import ErrorBanner from './components/shared/ErrorBanner.jsx';
 import { OfflineBanner } from './components/shared/OfflineBanner.jsx';
@@ -84,8 +85,10 @@ import NaviMobileDrawer from './components/layout/NaviMobileDrawer.jsx';
 import { NAV_PUSH_EVENT } from './lib/navPush.js';
 import { OPEN_NOVA_VENDA_MODAL_EVENT } from './lib/novaVendaModal.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
-import NovaVendaModal from './components/sales/NovaVendaModal.jsx';
-import NlCommandBar, { NlCommandBarTrigger } from './components/NlCommandBar.jsx';
+import { NlCommandBarTrigger } from './components/NlCommandBarTrigger.jsx';
+
+const NovaVendaModal = lazyWithRetry(() => import('./components/sales/NovaVendaModal.jsx'));
+const NlCommandBar = lazyWithRetry(() => import('./components/NlCommandBar.jsx'));
 import { resolveNlContext } from './lib/nlCommandRouteContext.js';
 import { useNlCommandStore } from './store/useNlCommandStore.js';
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
@@ -317,17 +320,14 @@ const App = () => {
         if (signal.aborted) return;
         useLeadStore.getState().setOnboardingChecklist(parseOnboardingChecklist(null));
       }
-      await Promise.all([
-        useLeadStore.getState().fetchLeads({ signal }),
-        useStudentStore.getState().fetchStudents({ signal }),
-      ]);
-      if (signal.aborted) return;
       const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
       if (financeEnabled) void prefetchFinanceConfig(id);
-      await syncBilling(id);
+      setAcademyReady(true);
+      useLeadStore.getState().setDataReady(true);
+      void syncBilling(id);
+      void prefetchRouteBootstrapData(location.pathname, { signal });
+      if (signal.aborted) return;
       if (!signal.aborted) {
-        useLeadStore.getState().setDataReady(true);
-        setAcademyReady(true);
         const label = switchedName || (academyList || []).find((a) => a.id === id)?.name || id;
         try {
           useUiStore.getState().addToast({
@@ -340,7 +340,7 @@ const App = () => {
         }
       }
     },
-    [setAcademyId, setLabels, setModules, cancelBootstrap, academyList]
+    [setAcademyId, setLabels, setModules, cancelBootstrap, academyList, location.pathname]
   );
 
   /** Garante trial no servidor (chamar uma vez após definir academia). */
@@ -472,11 +472,13 @@ const App = () => {
       void syncInboxUnreadBadge();
     };
 
+    const INBOX_BADGE_POLL_MS = 90_000;
+
     const startTimer = () => {
       if (timer) clearInterval(timer);
       timer = setInterval(() => {
         void syncInboxUnreadBadge();
-      }, 60000);
+      }, INBOX_BADGE_POLL_MS);
     };
 
     const onVisibility = () => {
@@ -492,8 +494,12 @@ const App = () => {
       startTimer();
     };
 
+    const scheduleIdleWork = window.requestIdleCallback ?? ((cb) => window.setTimeout(cb, 1500));
+
     if (typeof document !== 'undefined' && !document.hidden) {
-      void syncInboxUnreadBadge();
+      scheduleIdleWork(() => {
+        if (!cancelled) void syncInboxUnreadBadge();
+      });
       startTimer();
     }
     if (typeof window !== 'undefined') {
@@ -544,7 +550,7 @@ const App = () => {
             if (ac.signal.aborted) return;
             setAcademyReady(true);
             setSessionChecking(false);
-            void setupAcademyPhase2(currentUser, ac.signal);
+            void setupAcademyPhase2(currentUser, ac.signal, window.location.pathname);
           } catch (e) {
             if (!ac.signal.aborted) {
               console.error('Bootstrap fase 1:', e);
@@ -789,35 +795,22 @@ const App = () => {
     }
   };
 
-  /** Fase 2: leads, alunos, finance config e billing (background). */
-  const setupAcademyPhase2 = async (u, signal) => {
+  /** Fase 2: billing + prefetch por rota (background; leads/alunos sob demanda). */
+  const setupAcademyPhase2 = async (u, signal, pathname) => {
     const academyId = useLeadStore.getState().academyId;
     if (!academyId || signal?.aborted) return;
+    const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
+    if (financeEnabled) void prefetchFinanceConfig(academyId);
+    useLeadStore.getState().setDataReady(true);
     try {
-      const financeEnabled = Boolean(useLeadStore.getState().modules?.finance);
-      await Promise.all([
-        useLeadStore.getState().fetchLeads({ signal }),
-        useStudentStore.getState().fetchStudents({ signal }),
-      ]);
-      if (signal?.aborted) return;
-      if (financeEnabled) void prefetchFinanceConfig(academyId);
       await syncBilling(academyId);
-      if (!signal?.aborted) useLeadStore.getState().setDataReady(true);
     } catch (e) {
-      if (!signal?.aborted) {
-        console.error('Bootstrap fase 2:', e);
-        try {
-          useUiStore.getState().addToast({
-            type: 'warning',
-            message: 'Alguns dados não carregaram. Recarregue a página se as listas estiverem vazias.',
-            duration: 8000,
-          });
-        } catch {
-          void 0;
-        }
-        useLeadStore.getState().setDataReady(true);
-      }
+      if (!signal?.aborted) console.error('Bootstrap billing:', e);
     }
+    if (signal?.aborted) return;
+    void prefetchRouteBootstrapData(pathname || '/', { signal }).catch((e) => {
+      if (!signal?.aborted) console.error('Bootstrap prefetch:', e);
+    });
   };
 
   const handleLogin = async (u, opts) => {
@@ -836,7 +829,7 @@ const App = () => {
     await setupAcademyPhase1(u, ac.signal, opts);
     if (ac.signal.aborted) return;
     setAcademyReady(true);
-    void setupAcademyPhase2(u, ac.signal);
+    void setupAcademyPhase2(u, ac.signal, '/');
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { void e; }
     navigate('/', { replace: true });
   };
@@ -1209,17 +1202,23 @@ const App = () => {
         </>
       ) : null}
 
-      <NovaVendaModal open={novaVendaOpen} onClose={() => setNovaVendaOpen(false)} />
+      {novaVendaOpen ? (
+        <Suspense fallback={null}>
+          <NovaVendaModal open={novaVendaOpen} onClose={() => setNovaVendaOpen(false)} />
+        </Suspense>
+      ) : null}
       {academyReady && academyIdStore ? (
-        <NlCommandBar
-          open={nlOpen}
-          onOpenChange={setNlOpen}
-          academyName={academyName}
-          context={nlContext}
-          pipelineStages={nlPageOverrides.pipelineStages}
-          pendingTransactions={nlPageOverrides.pendingTransactions}
-          recentPayments={nlPageOverrides.recentPayments}
-        />
+        <Suspense fallback={null}>
+          <NlCommandBar
+            open={nlOpen}
+            onOpenChange={setNlOpen}
+            academyName={academyName}
+            context={nlContext}
+            pipelineStages={nlPageOverrides.pipelineStages}
+            pendingTransactions={nlPageOverrides.pendingTransactions}
+            recentPayments={nlPageOverrides.recentPayments}
+          />
+        </Suspense>
       ) : null}
       {academyReady && academyIdStore ? (
         <Suspense fallback={null}>

@@ -231,6 +231,7 @@ export const useStudentStore = create((set, get) => ({
   studentsTotal: null,
   lastFetchOpts: {},
   lastFetchedAt: null,
+  studentsReady: false,
   paymentStatusByStudentId: {},
 
   get academyId() {
@@ -249,6 +250,7 @@ export const useStudentStore = create((set, get) => ({
       loading: false,
       loadingMore: false,
       studentsError: false,
+      studentsReady: false,
     });
   },
 
@@ -398,6 +400,7 @@ export const useStudentStore = create((set, get) => ({
           studentsCursor: nextCursor,
           studentsTotal: total,
           lastFetchedAt: Date.now(),
+          studentsReady: true,
         });
       } else {
         set((state) => ({
@@ -412,7 +415,7 @@ export const useStudentStore = create((set, get) => ({
     } catch (e) {
       if (signal?.aborted) return;
       console.error('[fetchStudents]', academyId, e?.message || e);
-      set({ loading: false, loadingMore: false, studentsError: true });
+      set({ loading: false, loadingMore: false, studentsError: true, studentsReady: false });
     }
   },
 
