@@ -72,6 +72,34 @@ export function forecastNext30Range() {
   return forecast30DaysRange();
 }
 
+export const OVERVIEW_RECEIVABLES_TOP_N = 5;
+export const OVERVIEW_FORECAST_TOP_N = 5;
+
+/** Resumo enxuto de recebíveis para Visão Geral (top N por vencimento). */
+export function trimReceivablesForOverview(snapshot, limit = OVERVIEW_RECEIVABLES_TOP_N) {
+  if (!snapshot) return null;
+  const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+  const topItems = [...items]
+    .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')))
+    .slice(0, limit);
+  return {
+    referenceMonth: snapshot.referenceMonth,
+    summary: snapshot.summary,
+    topItems,
+    totalItems: items.length,
+  };
+}
+
+/** Previsão enxuta para Visão Geral (total de entradas + top N itens). */
+export function trimForecastForOverview(forecastBody, limit = OVERVIEW_FORECAST_TOP_N) {
+  if (!forecastBody) return null;
+  const allItems = flattenForecastItems(forecastBody);
+  return {
+    inflowTotal: sumForecastInflow(allItems),
+    topItems: allItems.filter((it) => it.flow !== 'out').slice(0, limit),
+  };
+}
+
 /**
  * KPIs de mensalidades do mês (mesma base da página de mensalidades).
  */

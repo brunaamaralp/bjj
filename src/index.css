@@ -5513,6 +5513,57 @@ button.funil-color-swatch {
   flex-wrap: wrap;
 }
 
+.product-image-field {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.product-image-field__preview {
+  flex-shrink: 0;
+}
+
+.product-image-field__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  border: 1px dashed var(--border-light, var(--v100));
+  background: var(--surface-hover, var(--v50));
+  color: var(--text-muted);
+}
+
+.product-image-field__controls {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-image-field__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.product-image-field__upload-btn {
+  flex-shrink: 0;
+}
+
+.product-image-field__remove-btn {
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.product-image-field__url-input {
+  margin: 0;
+}
+
 .product-form-modal__body {
   flex: 1;
   min-height: 0;

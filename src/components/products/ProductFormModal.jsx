@@ -19,6 +19,7 @@ import { centsToNumber, formatBRLFromCents, maskFromNumber, parseMaskToCents } f
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import useVisualViewportKeyboardOffset from '../../hooks/useVisualViewportKeyboardOffset.js';
+import ProductImageField from './ProductImageField.jsx';
 
 const NEW_CAT = '__nova__';
 
@@ -270,15 +271,10 @@ function ProductBaseFields({ form, setForm, categoryOptions }) {
         checked={form.is_for_sale}
         onChange={(v) => setForm((f) => ({ ...f, is_for_sale: v }))}
       />
-      <Field label="URL da imagem">
-        <input
-          className="form-input"
-          type="url"
-          placeholder="https://…"
-          value={form.image_url}
-          onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
-        />
-      </Field>
+      <ProductImageField
+        imageUrl={form.image_url}
+        onImageUrlChange={(image_url) => setForm((f) => ({ ...f, image_url }))}
+      />
     </>
   );
 }

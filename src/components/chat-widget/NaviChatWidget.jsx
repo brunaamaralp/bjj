@@ -85,6 +85,7 @@ export default function NaviChatWidget({ academyId, commandBarOpen = false }) {
       ) : (
         <NaviChatWidgetBubble
           leadName={resolvedName}
+          profileImageUrl={String(summary?.whatsapp_profile_image_url || '').trim()}
           unreadCount={unreadCount}
           isMobile={isMobile}
           onOpen={openPanel}

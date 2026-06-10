@@ -1,5 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
+import { inboxProfileImageUrl } from '../../lib/inboxContactDisplay.js';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
 
 const LONG_PRESS_MS = 520;
@@ -148,7 +149,11 @@ function ConversationItem({
             className={`inbox-conversation-item__avatar${compact ? ' inbox-conversation-item__avatar--compact' : ''}`}
             aria-hidden
           >
-            <ContactAvatar contact={{ name: listTitle }} fill size={compact ? 40 : 49} />
+            <ContactAvatar
+              contact={{ name: listTitle, avatar_url: inboxProfileImageUrl(item) }}
+              fill
+              size={compact ? 40 : 49}
+            />
           </div>
           <div className="inbox-conversation-item__content">
             <div className="inbox-conversation-item__title-row">

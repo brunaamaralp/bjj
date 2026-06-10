@@ -19,6 +19,12 @@ export function formatInboxPhone(raw) {
   return raw;
 }
 
+/** URL da foto de perfil WhatsApp já persistida na conversa (lista ou thread). */
+export function inboxProfileImageUrl(source) {
+  if (!source || typeof source !== 'object') return '';
+  return String(source._profileImageUrl || source.whatsapp_profile_image_url || '').trim();
+}
+
 export function pickInboxDisplayName({
   leadName = '',
   manualContactName = '',

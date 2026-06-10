@@ -216,7 +216,7 @@ export async function processAutentiqueWebhook(
   const secret = String(process.env.AUTENTIQUE_WEBHOOK_SECRET || '').trim();
   const signatureValid =
     opts.skipSignature === true ||
-    (secret && verifyAutentiqueSignature(rawBody, opts.signatureHeader, secret));
+    Boolean(secret && verifyAutentiqueSignature(rawBody, opts.signatureHeader, secret));
 
   const eventType = String(parsedBody?.event?.type || '').trim();
   const log = await saveWebhookLog({

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && next build",
     "lint": "eslint src",
     "preview": "vite preview",
     "provision:stock": "node scripts/provision_stock_schema.js",
@@ -40,6 +40,7 @@
     "cleanup:conversation-unused-attrs": "node --env-file=.env scripts/delete-conversation-unused-attrs.mjs",
     "provision:conversation-agent-state": "node --env-file=.env scripts/provision-conversation-agent-state.mjs",
     "provision:inbox-media-bucket": "node --env-file=.env scripts/ensure-inbox-media-bucket.mjs",
+    "provision:product-images-bucket": "node --env-file=.env scripts/ensure-product-images-bucket.mjs",
     "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
     "provision:controlid": "node --env-file=.env scripts/provision-controlid-full.mjs",
     "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",

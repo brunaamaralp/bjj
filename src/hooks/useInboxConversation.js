@@ -60,6 +60,8 @@ function mapSummaryFromApi(data, phone) {
     transfer_to: typeof data?.transfer_to === 'string' ? data.transfer_to : '',
     unread_count: Number.isFinite(Number(data?.unread_count)) ? Number(data.unread_count) : 0,
     archived: Boolean(data?.archived),
+    whatsapp_profile_image_url:
+      typeof data?.whatsapp_profile_image_url === 'string' ? data.whatsapp_profile_image_url : '',
     /** Agente IA ativo (não está em atendimento humano). */
     handoff: !needHuman,
     aiActive: !needHuman,

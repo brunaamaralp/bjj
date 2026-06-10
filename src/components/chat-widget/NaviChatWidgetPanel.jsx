@@ -212,6 +212,7 @@ export default function NaviChatWidgetPanel({
           academyId={academyId}
           activePhone={phoneDigits}
           leadName={resolvedName}
+          profileImageUrl={String(summary?.whatsapp_profile_image_url || '').trim()}
           onSelect={handleSwitch}
           panelOpen
         />

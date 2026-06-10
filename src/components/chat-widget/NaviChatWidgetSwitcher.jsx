@@ -8,6 +8,7 @@ import {
   DropdownMenuItemStatic,
 } from '../shared/menu';
 import { useChatWidgetConversationPicker, pickerItemMatchesPhone } from '../../hooks/useChatWidgetConversationPicker.js';
+import { inboxProfileImageUrl } from '../../lib/inboxContactDisplay.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
 
@@ -59,6 +60,7 @@ export default function NaviChatWidgetSwitcher({
   academyId,
   activePhone,
   leadName,
+  profileImageUrl = '',
   onSelect,
   panelOpen = false,
 }) {
@@ -84,6 +86,7 @@ export default function NaviChatWidgetSwitcher({
   );
 
   const displayName = String(leadName || '').trim() || 'Conversa';
+  const avatarUrl = inboxProfileImageUrl({ whatsapp_profile_image_url: profileImageUrl });
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} elevated className="navi-chat-widget__switcher">
@@ -99,7 +102,7 @@ export default function NaviChatWidgetSwitcher({
         aria-haspopup="menu"
       >
         <span className="navi-chat-widget__header-avatar" aria-hidden>
-          <ContactAvatar contact={{ name: displayName }} size={36} fill />
+          <ContactAvatar contact={{ name: displayName, avatar_url: avatarUrl }} size={36} fill />
         </span>
         <span className="navi-chat-widget__header-text">
           <span className="navi-chat-widget__header-name">{displayName}</span>

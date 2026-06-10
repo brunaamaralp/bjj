@@ -43,7 +43,7 @@ function getApiToken(): string {
 
 function toUploadBlob(file: Buffer | Blob): Blob {
   if (file instanceof Blob) return file;
-  if (Buffer.isBuffer(file)) return new Blob([file], { type: 'application/pdf' });
+  if (Buffer.isBuffer(file)) return new Blob([new Uint8Array(file)], { type: 'application/pdf' });
   throw new Error('file_must_be_buffer_or_blob');
 }
 

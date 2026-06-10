@@ -9,6 +9,7 @@ import InboxThreadMessages from './InboxThreadMessages.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
 import InboxFollowupBanner from './InboxFollowupBanner.jsx';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
+import { inboxProfileImageUrl } from '../../lib/inboxContactDisplay.js';
 
 export default function InboxThreadPanel(props) {
   const {
@@ -142,6 +143,7 @@ export default function InboxThreadPanel(props) {
               const formattedPhone =
                 phone && typeof formatPhone === 'function' ? String(formatPhone(phone) || '').trim() : '';
               const displayName = name || formattedPhone || phone || '—';
+              const profileImageUrl = inboxProfileImageUrl(selected);
               const showPhoneLine = Boolean(name && formattedPhone && formattedPhone !== name);
               const ticket = ticketChip(selected?.ticket_status, selected?.transfer_to);
               const leadIdForHint = String(selected?.lead_id || '').trim();
@@ -151,7 +153,11 @@ export default function InboxThreadPanel(props) {
               return (
                 <>
                   <div className="inbox-thread-header__avatar" aria-hidden>
-                    <ContactAvatar contact={{ name: displayName }} size={36} fill />
+                    <ContactAvatar
+                      contact={{ name: displayName, avatar_url: profileImageUrl }}
+                      size={36}
+                      fill
+                    />
                   </div>
                   <div className="inbox-thread-header__intro">
                     <div className="inbox-thread-header__title">

@@ -1,4 +1,68 @@
-import React from 'react';  const {
+import React from 'react';
+import { Copy, MoreHorizontal, Reply } from 'lucide-react';
+import MessageBubble, { messageBubbleStatusFromMessage } from './MessageBubble.jsx';
+import MediaBubble, { resolveInboxMessageDisplayType } from './MediaBubble.jsx';
+import InboxMediaTempLinkBadge from './InboxMediaTempLinkBadge.jsx';
+import {
+  buildWhatsAppChatUrl,
+  inboxMessageMediaStored,
+  inboxMessageMediaUrl,
+} from '../../lib/inboxMediaUtils.js';
+import {
+  INBOX_MSG_TRUNCATE_CHARS,
+  isInboxTruncatableTextMessage,
+  truncateInboxMessageText,
+} from '../../lib/inboxUiConstants.js';
+
+function blockExpandedEqual(block, prevExpanded, nextExpanded) {
+  if (block?.type === 'day') return true;
+  const items = Array.isArray(block?.items) ? block.items : [];
+  for (const entry of items) {
+    const key = String(entry?.key || '');
+    if (Boolean(prevExpanded?.[key]) !== Boolean(nextExpanded?.[key])) return false;
+  }
+  return true;
+}
+
+function blockFlagsEqual(block, prevFlags, nextFlags) {
+  if (block?.type === 'day') return true;
+  const items = Array.isArray(block?.items) ? block.items : [];
+  const prevPinned = prevFlags?.pinned || {};
+  const nextPinned = nextFlags?.pinned || {};
+  const prevImportant = prevFlags?.important || {};
+  const nextImportant = nextFlags?.important || {};
+  for (const entry of items) {
+    const key = String(entry?.key || '');
+    if (Boolean(prevPinned[key]) !== Boolean(nextPinned[key])) return false;
+    if (Boolean(prevImportant[key]) !== Boolean(nextImportant[key])) return false;
+  }
+  return true;
+}
+
+function blockHasSelectedMsg(block, selectedMsgKey) {
+  if (!selectedMsgKey || block?.type === 'day') return false;
+  const items = Array.isArray(block?.items) ? block.items : [];
+  return items.some((entry) => String(entry?.key || '') === selectedMsgKey);
+}
+
+function inboxThreadBlockPropsEqual(prev, next) {
+  if (prev.block !== next.block) return false;
+  if (prev.selectedPhone !== next.selectedPhone) return false;
+  if (prev.cancelingMsgId !== next.cancelingMsgId) return false;
+  if (prev.waSyncing !== next.waSyncing) return false;
+  if (prev.menu !== next.menu) return false;
+  if (!blockExpandedEqual(prev.block, prev.expandedMsgs, next.expandedMsgs)) return false;
+  if (!blockFlagsEqual(prev.block, prev.selectedPhoneFlags, next.selectedPhoneFlags)) return false;
+  const prevSelected = blockHasSelectedMsg(prev.block, prev.selectedMsgKey);
+  const nextSelected = blockHasSelectedMsg(next.block, next.selectedMsgKey);
+  if (prevSelected || nextSelected) {
+    if (prev.selectedMsgKey !== next.selectedMsgKey) return false;
+  }
+  return true;
+}
+
+function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
+  const {
     selectedPhone,
     selectedPhoneRef,
     selectedMsgKey,
@@ -241,3 +305,5 @@ import React from 'react';  const {
     </div>
   );
 }
+
+export default React.memo(InboxThreadBlock, inboxThreadBlockPropsEqual);

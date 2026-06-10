@@ -13,6 +13,7 @@ vi.mock('../lib/billingBlockedFetch', () => ({
 }));
 
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch.js';
+import { invalidateInboxThreadCache } from '../lib/inboxThreadCache.js';
 
 function createThreadHarness() {
   const academyIdRef = { current: 'acad-1' };
@@ -40,6 +41,7 @@ function createThreadHarness() {
 describe('useInboxThreadLoader', () => {
   beforeEach(() => {
     vi.mocked(fetchWithBillingGuard).mockReset();
+    invalidateInboxThreadCache('acad-1', '5511999887766');
   });
 
   it('passes conversation_id from list item', async () => {
@@ -88,5 +90,122 @@ describe('useInboxThreadLoader', () => {
     });
 
     expect(capturedUrl).toContain('conversation_id=conv-99');
+  });
+
+  it('retries fetch when inflight prefetch finishes without cache', async () => {
+    let callCount = 0;
+    vi.mocked(fetchWithBillingGuard).mockImplementation(async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return {
+          blocked: false,
+          res: {
+            ok: false,
+            headers: { get: () => 'application/json' },
+            text: async () => JSON.stringify({ erro: 'prefetch fail' }),
+          },
+        };
+      }
+      return {
+        blocked: false,
+        res: {
+          ok: true,
+          headers: { get: () => 'application/json' },
+          text: async () =>
+            JSON.stringify({
+              conversation_id: 'conv-99',
+              messages: [{ message_id: 'm1', role: 'user', content: 'ok' }],
+              next_cursor: '',
+              ticket_status: 'open',
+            }),
+        },
+      };
+    });
+
+    const h = createThreadHarness();
+    const { result } = renderHook(() =>
+      useInboxThreadLoader({
+        academyIdRef: h.academyIdRef,
+        threadScrollRef: h.threadScrollRef,
+        threadAbortRef: h.threadAbortRef,
+        threadRequestSeqRef: h.threadRequestSeqRef,
+        lastAutoScrollPhoneRef: h.lastAutoScrollPhoneRef,
+        itemsRef: h.itemsRef,
+        selectedRef: h.selectedRef,
+        setError: h.setError,
+        setThreadError: h.setThreadError,
+        setThreadPaging: h.setThreadPaging,
+        setThreadLoading: h.setThreadLoading,
+        setThreadCursor: h.setThreadCursor,
+        setThreadHasMore: h.setThreadHasMore,
+        setSelected: h.setSelected,
+        setItems: h.setItems,
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadThread('5511999887766', { prefetch: true });
+    });
+
+    await act(async () => {
+      await result.current.loadThread('5511999887766');
+    });
+
+    expect(callCount).toBe(2);
+    expect(h.setSelected).toHaveBeenCalled();
+  });
+
+  it('skips setSelected on silent refresh when messages unchanged', async () => {
+    const messages = [{ message_id: 'm1', role: 'user', content: 'stable', status: 'sent' }];
+    vi.mocked(fetchWithBillingGuard).mockResolvedValue({
+      blocked: false,
+      res: {
+        ok: true,
+        headers: { get: () => 'application/json' },
+        text: async () =>
+          JSON.stringify({
+            conversation_id: 'conv-99',
+            messages,
+            next_cursor: '',
+            ticket_status: 'open',
+          }),
+      },
+    });
+
+    const h = createThreadHarness();
+    h.selectedRef.current = { phone: '5511999887766', messages };
+
+    let selectedUpdaterResult;
+    h.setSelected.mockImplementation((fn) => {
+      if (typeof fn === 'function') {
+        selectedUpdaterResult = fn(h.selectedRef.current);
+      }
+    });
+
+    const { result } = renderHook(() =>
+      useInboxThreadLoader({
+        academyIdRef: h.academyIdRef,
+        threadScrollRef: h.threadScrollRef,
+        threadAbortRef: h.threadAbortRef,
+        threadRequestSeqRef: h.threadRequestSeqRef,
+        lastAutoScrollPhoneRef: h.lastAutoScrollPhoneRef,
+        itemsRef: h.itemsRef,
+        selectedRef: h.selectedRef,
+        setError: h.setError,
+        setThreadError: h.setThreadError,
+        setThreadPaging: h.setThreadPaging,
+        setThreadLoading: h.setThreadLoading,
+        setThreadCursor: h.setThreadCursor,
+        setThreadHasMore: h.setThreadHasMore,
+        setSelected: h.setSelected,
+        setItems: h.setItems,
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadThread('5511999887766', { silent: true });
+    });
+
+    expect(selectedUpdaterResult).toBe(h.selectedRef.current);
   });
 });

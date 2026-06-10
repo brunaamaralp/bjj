@@ -50,7 +50,7 @@ export function buildSelectedFromListItem(listItem, prevSelected, cached = null)
         phone,
         conversation_id: convId || null,
         summary: cs?.summary ?? (isSamePhone ? prevSelected?.summary ?? null : null),
-        lead_id: cs?.lead_id ?? String(listItem?.lead_id || '').trim() || null,
+        lead_id: cs?.lead_id ?? (String(listItem?.lead_id || '').trim() || null),
         lead_name: cs?.lead_name ?? String(listItem?._leadName || listItem?.lead_name || '').trim(),
         contact_name: cs?.contact_name ?? String(listItem?._manualContactName || listItem?.contact_name || '').trim(),
         contact_name_source:
@@ -65,7 +65,7 @@ export function buildSelectedFromListItem(listItem, prevSelected, cached = null)
         human_handoff_until: cs?.human_handoff_until ?? (isSamePhone ? prevSelected?.human_handoff_until ?? null : null),
         ticket_status: cs?.ticket_status ?? String(listItem?._ticketStatus || listItem?.ticket_status || 'open'),
         transfer_to:
-            cs?.transfer_to ?? String(listItem?._transferTo || listItem?.transfer_to || '').trim() || null,
+            cs?.transfer_to ?? (String(listItem?._transferTo || listItem?.transfer_to || '').trim() || null),
         archived: cs?.archived ?? Boolean(listItem?._archived ?? listItem?.archived),
     };
 

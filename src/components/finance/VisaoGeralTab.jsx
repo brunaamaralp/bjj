@@ -22,14 +22,13 @@ import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 import { hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
 import {
-  flattenForecastItems,
   formatBalanceDelta,
   formatMonthTitleCapitalized,
   monthEndYmd,
   previousMonthYm,
-  sumForecastInflow,
 } from '../../lib/financeiroOverview.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
 
 const EMPTY_MENSAL_KPIS = {
   activeWithPlan: 0,
@@ -38,7 +37,6 @@ const EMPTY_MENSAL_KPIS = {
   overdueCount: 0,
   overdueOpen: 0,
 };
-import ErrorBanner from '../shared/ErrorBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
 import ReceivablesOverviewCard from './ReceivablesOverviewCard.jsx';
@@ -113,7 +111,7 @@ export default function VisaoGeralTab({
   const [forecastFailed, setForecastFailed] = useState(false);
   const [summary, setSummary] = useState(null);
   const [summaryPrev, setSummaryPrev] = useState(null);
-  const [forecast, setForecast] = useState(null);
+  const [forecastPreview, setForecastPreview] = useState(null);
   const [pendingTxCount, setPendingTxCount] = useState(0);
   const [contractsAwaiting, setContractsAwaiting] = useState(0);
   const [closingDivergences, setClosingDivergences] = useState(0);
@@ -164,15 +162,15 @@ export default function VisaoGeralTab({
       }
 
       if (financeModule) {
-        if (overview.forecast) {
-          setForecast(overview.forecast);
+        if (overview.forecastPreview) {
+          setForecastPreview(overview.forecastPreview);
           setForecastFailed(false);
         } else {
-          setForecast(null);
+          setForecastPreview(null);
           setForecastFailed(true);
         }
       } else {
-        setForecast(null);
+        setForecastPreview(null);
         setForecastFailed(false);
       }
 
@@ -180,13 +178,9 @@ export default function VisaoGeralTab({
       setClosingDivergences(Number(overview.closingDivergenceCount) || 0);
       setContractsAwaiting(Number(overview.contractsAwaitingCount) || 0);
       onMonthConferred?.(ym, Boolean(overview.isMonthConferred));
-
-      const closingBody = overview.closing;
-      if (closingBody) {
-        setPendingTxCount(Number(closingBody.pendingInMonth) || 0);
-      } else {
-        setPendingTxCount(Number(overview.summary?.countPending) || 0);
-      }
+      setPendingTxCount(
+        Number(overview.pendingInMonth ?? overview.summary?.countPending) || 0
+      );
 
       setBankBalancesData(overview.bankBalances ?? null);
       setBankBalancesCompare(overview.bankBalancesCompare ?? null);
@@ -220,10 +214,9 @@ export default function VisaoGeralTab({
     };
   }, []);
 
-  const forecastItems = useMemo(() => flattenForecastItems(forecast), [forecast]);
-  const forecastInflowTotal = useMemo(() => sumForecastInflow(forecastItems), [forecastItems]);
-  const forecastTop = useMemo(() => forecastItems.filter((it) => it.flow !== 'out').slice(0, 5), [forecastItems]);
-  const receivablesTop = useMemo(() => (receivables?.items || []).slice(0, 5), [receivables]);
+  const forecastInflowTotal = forecastPreview?.inflowTotal ?? 0;
+  const forecastTop = forecastPreview?.topItems ?? [];
+  const receivablesTop = receivables?.topItems ?? [];
 
   const balanceDelta = useMemo(
     () => formatBalanceDelta(summary?.periodBalance, summaryPrev?.periodBalance),
