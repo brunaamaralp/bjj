@@ -4,10 +4,8 @@ function bytesToBase64Url(bytes) {
   let binary = '';
   const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   for (let i = 0; i < arr.length; i += 1) binary += String.fromCharCode(arr[i]);
-  const b64 =
-    typeof btoa === 'function'
-      ? btoa(binary)
-      : Buffer.from(arr).toString('base64');
+  if (typeof btoa !== 'function') throw new Error('btoa_unavailable');
+  const b64 = btoa(binary);
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
@@ -17,10 +15,8 @@ function base64UrlToBytes(value) {
   const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
   const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
   try {
-    const binary =
-      typeof atob === 'function'
-        ? atob(b64 + pad)
-        : Buffer.from(b64 + pad, 'base64').toString('binary');
+    if (typeof atob !== 'function') throw new Error('atob_unavailable');
+    const binary = atob(b64 + pad);
     const out = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
     return out;

@@ -43,10 +43,10 @@ export default function StatusBadge({
 }) {
   const key = String(status || '').trim().toLowerCase();
   const config = map[key] || map[status] || null;
-  if (!config?.label) return null;
+  const tone = String(config?.tone || 'neutral').toLowerCase();
 
-  const tone = String(config.tone || 'neutral').toLowerCase();
   const toneStyle = useMemo(() => {
+    if (!config?.label) return TONE_VARS.neutral;
     if (config.color) {
       return {
         '--status-badge-color': config.color,
@@ -54,7 +54,9 @@ export default function StatusBadge({
       };
     }
     return TONE_VARS[tone] || TONE_VARS.neutral;
-  }, [config.color, tone]);
+  }, [config?.color, config?.label, tone]);
+
+  if (!config?.label) return null;
 
   return (
     <span

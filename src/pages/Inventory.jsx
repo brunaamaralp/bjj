@@ -146,10 +146,6 @@ const Inventory = () => {
     await refreshStockStores();
   };
 
-  if (modules?.inventory !== true) {
-    return null;
-  }
-
   const inventoryTabs = useMemo(
     () => [
       { id: 'saldo', label: 'Inventário' },
@@ -157,6 +153,10 @@ const Inventory = () => {
     ],
     []
   );
+
+  if (modules?.inventory !== true) {
+    return null;
+  }
 
   const toggleStockConfig = () => {
     setStockConfigOpen((open) => {

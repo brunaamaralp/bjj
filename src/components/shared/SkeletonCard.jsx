@@ -1,11 +1,12 @@
 import React from 'react';
 import { ReportKpiCardSkeleton } from '../reports/shared/ReportKpiCard.jsx';
+import { DashboardHeroKpiSkeleton } from '../dashboard/DashboardHeroKpi.jsx';
 import './skeleton-card.css';
 
 /**
  * Skeleton unificado para KPI, linhas de lista e cards.
  *
- * @param {'kpi' | 'list-row' | 'card'} variant
+ * @param {'kpi' | 'hero-kpi' | 'list-row' | 'card'} variant
  * @param {number} count
  * @param {string} [className]
  */
@@ -17,6 +18,16 @@ export default function SkeletonCard({ variant = 'card', count = 1, className = 
       <div className={['skeleton-card-group skeleton-card-group--kpi', className].filter(Boolean).join(' ')}>
         {Array.from({ length: n }, (_, i) => (
           <ReportKpiCardSkeleton key={i} />
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === 'hero-kpi') {
+    return (
+      <div className={['skeleton-card-group skeleton-card-group--hero-kpi', className].filter(Boolean).join(' ')}>
+        {Array.from({ length: n }, (_, i) => (
+          <DashboardHeroKpiSkeleton key={i} />
         ))}
       </div>
     );

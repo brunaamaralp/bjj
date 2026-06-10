@@ -1,4 +1,4 @@
-import { addStudentLifecycleEvent } from './leadEvents.js';
+import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 import { STUDENT_STATUS } from './studentStatus.js';
 import { todayYmdLocal } from './studentOffboarding.js';

@@ -336,6 +336,7 @@ export default function ProductFormModal({
   const [expandedVariantIds, setExpandedVariantIds] = useState(() => new Set());
   const initialSnapshotRef = useRef(null);
   const lastAddedRowRef = useRef(null);
+  const scrollToLastRowRef = useRef(false);
 
   const duplicateIndexes = useMemo(() => {
     const local = findDuplicateVariantIndexes(editVariants);
@@ -482,14 +483,6 @@ export default function ProductFormModal({
     return 'Novo produto';
   }, [useVariantWizard, useEditWizard, step, parentForm.nome, isEdit, isDuplicate]);
 
-  const renderVariantAddActions = ({ onAddRow, addLabel }) => (
-    <div className="product-form-variants-actions">
-      <button type="button" className="btn-outline" onClick={onAddRow}>
-        <Plus size={14} aria-hidden /> {addLabel}
-      </button>
-    </div>
-  );
-
   const renderVariantsStepFooter = ({
     submitLabel,
     submitDisabled,
@@ -550,6 +543,24 @@ export default function ProductFormModal({
     </div>
   );
 
+  const addCreateVariantRow = useCallback(() => {
+    scrollToLastRowRef.current = true;
+    setVariants((rows) => [...rows, emptyVariantRow()]);
+  }, []);
+
+  const addEditVariantRow = useCallback(() => {
+    scrollToLastRowRef.current = true;
+    setEditVariants((rows) => [...rows, emptyEditVariantRow()]);
+  }, []);
+
+  useEffect(() => {
+    if (!scrollToLastRowRef.current) return;
+    scrollToLastRowRef.current = false;
+    requestAnimationFrame(() => {
+      lastAddedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [variants.length, editVariants.length]);
+
   if (!open || typeof document === 'undefined') return null;
 
   const resolvedCategoria = () =>
@@ -593,20 +604,6 @@ export default function ProductFormModal({
       }
       // Um card aberto por vez — evita lista alta e problemas de scroll aninhado.
       return new Set([variantId]);
-    });
-  };
-
-  const addCreateVariantRow = () => {
-    setVariants((rows) => [...rows, emptyVariantRow()]);
-    requestAnimationFrame(() => {
-      lastAddedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-  };
-
-  const addEditVariantRow = () => {
-    setEditVariants((rows) => [...rows, emptyEditVariantRow()]);
-    requestAnimationFrame(() => {
-      lastAddedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   };
 
@@ -1164,10 +1161,15 @@ export default function ProductFormModal({
                   }
                   className={useEditWizard ? 'product-form-variants-section--add' : ''}
                 >
-                  {renderVariantAddActions({
-                    addLabel: 'Adicionar tamanho',
-                    onAddRow: useEditWizard ? addEditVariantRow : addCreateVariantRow,
-                  })}
+                  <div className="product-form-variants-actions">
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={useEditWizard ? addEditVariantRow : addCreateVariantRow}
+                    >
+                      <Plus size={14} aria-hidden /> Adicionar tamanho
+                    </button>
+                  </div>
 
                   {useVariantWizard ? (
                     renderNewVariantsGrid({

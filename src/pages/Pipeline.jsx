@@ -577,7 +577,7 @@ const SortableLeadCard = React.memo(function SortableLeadCard({ lead, ...props }
 const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
 const PipelineColumnLeads = React.memo(function PipelineColumnLeads({
-    scrollRef,
+    scrollElement,
     leads,
     cardProps,
     savingLeadIds,
@@ -594,7 +594,7 @@ const PipelineColumnLeads = React.memo(function PipelineColumnLeads({
         !disableVirtualization && leads.length > PIPELINE_VIRTUAL_THRESHOLD;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
-        getScrollElement: () => scrollRef?.current ?? null,
+        getScrollElement: () => scrollElement ?? null,
         estimateSize: () => 140,
         gap: 8,
         overscan: 4,
@@ -659,6 +659,11 @@ const PipelineColumnLeads = React.memo(function PipelineColumnLeads({
 
 const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, isDragActive, children }) => {
     const scrollRef = useRef(null);
+    const [scrollElement, setScrollElement] = useState(null);
+    const handleScrollRef = useCallback((node) => {
+        scrollRef.current = node;
+        setScrollElement(node);
+    }, []);
     const { setNodeRef } = useDroppable({ id });
 
     return (
@@ -688,13 +693,13 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, isDragActive, c
                     {leads.length}
                 </span>
             </div>
-            <div className="col-content" ref={scrollRef}>
+            <div className="col-content" ref={handleScrollRef}>
                 {isDragActive && isOver ? (
                     <div className="kanban-col-drop-zone" aria-hidden>
                         <span className="kanban-col-drop-zone__label">Soltar nesta coluna</span>
                     </div>
                 ) : null}
-                {typeof children === 'function' ? children(scrollRef) : children}
+                {typeof children === 'function' ? children(scrollElement) : children}
             </div>
         </div>
     );
@@ -3112,11 +3117,11 @@ const Pipeline = () => {
                                 hasOverlayOpen={colLeads.some((l) => l.id === openMenuId || l.id === scheduleModalLead?.id || l.id === moverOpenId)}
                                 leads={colLeads}
                             >
-                                {(scrollRef) => (
+                                {(scrollElement) => (
                                     <>
                                 <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                                     <PipelineColumnLeads
-                                        scrollRef={scrollRef}
+                                        scrollElement={scrollElement}
                                         leads={colLeads}
                                         savingLeadIds={savingLeadIds}
                                         movingLeadIds={movingLeadIds}

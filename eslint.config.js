@@ -59,7 +59,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/test/**/*.js', '**/*.{test,spec}.js'],
+    files: ['src/test/**/*.{js,jsx}', '**/*.{test,spec}.{js,jsx}'],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -68,6 +68,7 @@ export default defineConfig([
         it: 'readonly',
         expect: 'readonly',
         beforeEach: 'readonly',
+        beforeAll: 'readonly',
         afterEach: 'readonly',
         vi: 'readonly',
       },

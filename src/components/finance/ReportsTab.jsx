@@ -44,11 +44,13 @@ export default function ReportsTab({
   const from = embedded && periodFrom != null ? periodFrom : fromLocal;
   const to = embedded && periodTo != null ? periodTo : toLocal;
   const [method, setMethod] = useState('indireto');
-  const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
-
-  useEffect(() => {
-    if (academyId) setRegime(getFinanceRegime(academyId));
-  }, [academyId]);
+  const [regimeOverride, setRegimeOverride] = useState(null);
+  const regime =
+    regimeOverride?.academyId === academyId
+      ? regimeOverride.value
+      : academyId
+        ? getFinanceRegime(academyId)
+        : FINANCE_REGIME.CASH;
 
   useEffect(() => {
     if (academyId) loadByAcademy(academyId);
@@ -137,7 +139,7 @@ export default function ReportsTab({
           <FinanceRegimeToggle
             academyId={academyId}
             value={regime}
-            onChange={setRegime}
+            onChange={(value) => setRegimeOverride({ academyId, value })}
             className="mb-2"
           />
         ) : null}

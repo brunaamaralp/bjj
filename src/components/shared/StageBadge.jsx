@@ -24,12 +24,14 @@ export default function StageBadge({
   className = '',
 }) {
   const stageKey = String(stage || '').trim();
-  if (!stageKey) return null;
 
   const colors = useMemo(() => {
+    if (!stageKey) return getPipelineStageColor('', 0);
     const resolved = getPipelineStageColor(stageKey, colorIndex);
     return resolved?.color ? resolved : getPipelineStageColor(stageKey, 0);
   }, [stageKey, colorIndex]);
+
+  if (!stageKey) return null;
 
   const displayLabel = String(label ?? stageKey).trim();
   const title = displayLabel ? `Etapa: ${displayLabel}` : undefined;

@@ -14,7 +14,12 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 /**
  * Campos de troco para pagamento em dinheiro (mensalidade / matrícula).
  */
-export default function CashTrocoFields({
+export default function CashTrocoFields(props) {
+  if (!isCashPaymentMethod(props.payForm?.method)) return null;
+  return <CashTrocoFieldsInner {...props} />;
+}
+
+function CashTrocoFieldsInner({
   payForm,
   setPayForm,
   amountNum,
@@ -25,9 +30,6 @@ export default function CashTrocoFields({
   inputClassName = 'form-input',
   labelClassName = 'form-label',
 }) {
-  const method = payForm?.method;
-  if (!isCashPaymentMethod(method)) return null;
-
   const amount = Number(amountNum);
   const troco = useMemo(() => computeTrocoFromPayForm(payForm, amount), [payForm, amount]);
   const received = parseCashReceivedAmount(payForm);

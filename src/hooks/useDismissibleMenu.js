@@ -10,7 +10,10 @@ export function useDismissibleMenu(open, onOpenChange, options = {}) {
   const { dismissExtraSelector } = options;
   const rootRef = useRef(null);
   const onOpenChangeRef = useRef(onOpenChange);
-  onOpenChangeRef.current = onOpenChange;
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
 
   useEffect(() => {
     if (!open) return undefined;

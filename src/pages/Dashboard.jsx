@@ -78,7 +78,7 @@ import ModalShell from '../components/shared/ModalShell.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
-import ReportKpiCard from '../components/reports/shared/ReportKpiCard.jsx';
+import DashboardHeroKpi from '../components/dashboard/DashboardHeroKpi.jsx';
 import StageBadge from '../components/shared/StageBadge.jsx';
 import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
@@ -104,20 +104,12 @@ import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
 
-function heroKpiHighlight(tone) {
-    if (tone === 'success') return 'success';
-    if (tone === 'attention') return 'attention';
+function heroKpiTone(stat) {
+    if (stat.tone === 'primary') return 'primary';
+    if (stat.tone === 'success') return 'success';
+    if (stat.tone === 'attention') return 'attention';
+    if (stat.tone === 'muted') return 'muted';
     return 'default';
-}
-
-function heroKpiClassNames(stat, highlightKpiKey) {
-    const classes = ['dashboard-hero-kpi'];
-    if (stat.tone === 'primary') classes.push('dashboard-hero-kpi--primary');
-    if (stat.tone === 'muted') classes.push('dashboard-hero-kpi--muted');
-    if (stat.tone === 'success') classes.push('dashboard-hero-kpi--success-surface');
-    if (stat.footnoteTone === 'positive') classes.push('dashboard-hero-kpi--footnote-positive');
-    if (highlightKpiKey === stat.key) classes.push('dashboard-hero-kpi--spotlight');
-    return classes.join(' ');
 }
 
 function buildTodayKpiFootnote(count) {
@@ -215,6 +207,7 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(true);
+    const [showFollowupHint, setShowFollowupHint] = useState(false);
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
     const retornosRowRef = useRef(null);
@@ -1242,18 +1235,18 @@ const Dashboard = () => {
                 <div className="dashboard-day-hero__metrics" aria-label="Indicadores do dia">
                     <div className="dashboard-day-hero__stats" role="list">
                         {loading ? (
-                            <SkeletonCard variant="kpi" count={4} className="dashboard-day-hero__skeletons" />
+                            <SkeletonCard variant="hero-kpi" count={4} className="dashboard-day-hero__skeletons" />
                         ) : (
                             heroStats.map((stat) => (
                                 <div key={stat.key} role="listitem" className="dashboard-day-hero__stat-cell">
-                                    <ReportKpiCard
-                                        className={heroKpiClassNames(stat, dayPriority.highlightKpi)}
+                                    <DashboardHeroKpi
                                         label={stat.label}
                                         value={stat.count}
-                                        trendLabel={stat.footnote}
+                                        footnote={stat.footnote}
+                                        footnoteTone={stat.footnoteTone}
                                         icon={stat.icon}
-                                        highlight={heroKpiHighlight(stat.tone)}
-                                        showCta={false}
+                                        tone={heroKpiTone(stat)}
+                                        spotlight={dayPriority.highlightKpi === stat.key}
                                         onClick={() => handleKpiClick(stat.key)}
                                     />
                                 </div>
@@ -1411,6 +1404,7 @@ const Dashboard = () => {
                                         className="agenda-followups-section__hint-btn"
                                         aria-label="Ajuda sobre retornos e IA"
                                         title="Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar"
+                                        aria-expanded={showFollowupHint}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setShowFollowupHint((open) => !open);
@@ -1447,6 +1441,7 @@ const Dashboard = () => {
                                         className="agenda-followups-section__hint-btn"
                                         aria-label="Ajuda sobre retornos e IA"
                                         title="Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar"
+                                        aria-expanded={showFollowupHint}
                                         onClick={() => setShowFollowupHint((open) => !open)}
                                     >
                                         <Info size={16} strokeWidth={2} aria-hidden />
@@ -1455,6 +1450,11 @@ const Dashboard = () => {
                             </span>
                         </div>
                     )}
+                    {showFollowupHint ? (
+                        <p className="text-small text-muted agenda-followups-section__hint-text" role="status">
+                            Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
+                        </p>
+                    ) : null}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
                 <div

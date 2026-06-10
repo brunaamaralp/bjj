@@ -93,6 +93,22 @@ const defaultFinanceConfig = () => ({
 /** Hub Financeiro (rota /financeiro). */
 
 export default function Caixa() {
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const rawTab = financeiroLegacyTabToSlug(tabParam);
+
+  if (isFinanceiroConfigTabSlug(rawTab)) {
+    return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
+  }
+
+  if (isFinanceiroDreLegacyTab(rawTab)) {
+    return <Navigate to="/reports?tab=financeiro" replace />;
+  }
+
+  return <CaixaPage />;
+}
+
+function CaixaPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const academyId = useLeadStore((s) => s.academyId);
@@ -154,14 +170,6 @@ export default function Caixa() {
   const hasExplicitTab = hasExplicitFinanceiroTabParam(tabParam);
   const defaultTab = getFinanceiroDefaultTab({ isOwner, isAdmin });
   const rawTab = financeiroLegacyTabToSlug(tabParam);
-
-  if (isFinanceiroConfigTabSlug(rawTab)) {
-    return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
-  }
-
-  if (isFinanceiroDreLegacyTab(rawTab)) {
-    return <Navigate to="/reports?tab=financeiro" replace />;
-  }
 
   const activeTab = hasExplicitTab
     ? resolveHubTab(rawTab, allowedLeafTabs, defaultTab)

@@ -944,6 +944,100 @@ const LeadProfile = () => {
         return errors;
     };
 
+    const openMatriculaModal = useCallback(({ paymentShortcut = false } = {}) => {
+        setMatriculaInitialStep(paymentShortcut ? 'payment' : 'choose');
+        setMatriculaModalOpen(true);
+    }, []);
+
+    const handleMatricularClick = useCallback(() => {
+        openMatriculaModal();
+    }, [openMatriculaModal]);
+
+    const focusNoteField = useCallback((textareaRef = noteTextareaRef) => {
+        requestAnimationFrame(() => {
+            const el = textareaRef?.current;
+            if (!el) return;
+            el.focus();
+            const len = el.value?.length ?? 0;
+            try {
+                el.setSelectionRange(len, len);
+            } catch {
+                /* ignore */
+            }
+        });
+    }, []);
+
+    const applyQuickNoteChip = useCallback(
+        (chipText, textareaRef = noteTextareaRef) => {
+            setNote((prev) => {
+                const trimmed = String(prev || '').trim();
+                return trimmed ? `${trimmed} ${chipText}` : chipText;
+            });
+            focusNoteField(textareaRef);
+        },
+        [focusNoteField]
+    );
+
+    const resetInlineTaskForm = useCallback(() => {
+        setInlineTaskTitle('');
+        setInlineTaskDue('');
+        setInlineTaskOpen(false);
+    }, []);
+
+    const inlineTaskHasContent = Boolean(
+        String(inlineTaskTitle || '').trim() || String(inlineTaskDue || '').trim()
+    );
+
+    const requestCloseInlineTask = useCallback(() => {
+        if (inlineTaskHasContent) {
+            setInlineTaskDiscardOpen(true);
+            return;
+        }
+        resetInlineTaskForm();
+    }, [inlineTaskHasContent, resetInlineTaskForm]);
+
+    const nextActionCtas = useMemo(() => {
+        if (!lead) return { primary: null, secondary: [] };
+
+        const showCloseSaleCta = canShowLeadCloseSale(lead);
+        const secondary = [];
+        let primary = null;
+
+        if (showCloseSaleCta && lead.status === LEAD_STATUS.COMPLETED) {
+            primary = {
+                key: 'closeSale',
+                label: 'Fechar venda',
+                icon: BadgeCheck,
+                onClick: () => openMatriculaModal({ paymentShortcut: true }),
+            };
+            if (lead.status !== LEAD_STATUS.CONVERTED) {
+                secondary.push({
+                    key: 'enroll',
+                    label: terms.enrollment,
+                    icon: UserCheck,
+                    onClick: handleMatricularClick,
+                });
+            }
+        } else if (lead.status !== LEAD_STATUS.CONVERTED) {
+            primary = {
+                key: 'enroll',
+                label: terms.enrollment,
+                icon: UserCheck,
+                onClick: handleMatricularClick,
+            };
+            if (showCloseSaleCta) {
+                secondary.push({
+                    key: 'closeSale',
+                    label: 'Fechar venda',
+                    icon: BadgeCheck,
+                    onClick: () => openMatriculaModal({ paymentShortcut: true }),
+                });
+            }
+        }
+
+        return { primary, secondary };
+    }, [lead, terms.enrollment, openMatriculaModal, handleMatricularClick]);
+
     if (loading && !lead) {
         return (
             <div className="container lead-profile-loading">
@@ -1222,15 +1316,6 @@ const LeadProfile = () => {
         setLostModalOpen(true);
     };
 
-    const openMatriculaModal = useCallback(({ paymentShortcut = false } = {}) => {
-        setMatriculaInitialStep(paymentShortcut ? 'payment' : 'choose');
-        setMatriculaModalOpen(true);
-    }, []);
-
-    const handleMatricularClick = () => {
-        openMatriculaModal();
-    };
-
     const runEnrollment = async (customAnswers = {}, plan = '', enrollmentDate = '') => {
         let extraToast = '';
         try {
@@ -1382,31 +1467,6 @@ const LeadProfile = () => {
 
     const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
 
-    const focusNoteField = useCallback((textareaRef = noteTextareaRef) => {
-        requestAnimationFrame(() => {
-            const el = textareaRef?.current;
-            if (!el) return;
-            el.focus();
-            const len = el.value?.length ?? 0;
-            try {
-                el.setSelectionRange(len, len);
-            } catch {
-                /* ignore */
-            }
-        });
-    }, []);
-
-    const applyQuickNoteChip = useCallback(
-        (chipText, textareaRef = noteTextareaRef) => {
-            setNote((prev) => {
-                const trimmed = String(prev || '').trim();
-                return trimmed ? `${trimmed} ${chipText}` : chipText;
-            });
-            focusNoteField(textareaRef);
-        },
-        [focusNoteField]
-    );
-
     const addNote = async () => {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
@@ -1429,22 +1489,6 @@ const LeadProfile = () => {
             setAddingNote(false);
         }
     };
-
-    const resetInlineTaskForm = useCallback(() => {
-        setInlineTaskTitle('');
-        setInlineTaskDue('');
-        setInlineTaskOpen(false);
-    }, []);
-
-    const inlineTaskHasContent = Boolean(String(inlineTaskTitle || '').trim() || String(inlineTaskDue || '').trim());
-
-    const requestCloseInlineTask = useCallback(() => {
-        if (inlineTaskHasContent) {
-            setInlineTaskDiscardOpen(true);
-            return;
-        }
-        resetInlineTaskForm();
-    }, [inlineTaskHasContent, resetInlineTaskForm]);
 
     const saveInlineTask = async () => {
         const title = String(inlineTaskTitle || '').trim();
@@ -1520,8 +1564,6 @@ const LeadProfile = () => {
         })
     );
 
-    const showCloseSaleCta = canShowLeadCloseSale(lead);
-
     const showInboxInHero = Boolean(normalizeLeadPhoneForInbox(lead.phone)) && showConversationTab;
 
     const leadTypeDisplay = normalizeLeadProfileType(lead.type || '');
@@ -1539,45 +1581,6 @@ const LeadProfile = () => {
             toast.show({ type: 'error', message: 'Não foi possível copiar o telefone.' });
         }
     };
-
-    const nextActionCtas = useMemo(() => {
-        const secondary = [];
-        let primary = null;
-
-        if (showCloseSaleCta && lead.status === LEAD_STATUS.COMPLETED) {
-            primary = {
-                key: 'closeSale',
-                label: 'Fechar venda',
-                icon: BadgeCheck,
-                onClick: () => openMatriculaModal({ paymentShortcut: true }),
-            };
-            if (lead.status !== LEAD_STATUS.CONVERTED) {
-                secondary.push({
-                    key: 'enroll',
-                    label: terms.enrollment,
-                    icon: UserCheck,
-                    onClick: handleMatricularClick,
-                });
-            }
-        } else if (lead.status !== LEAD_STATUS.CONVERTED) {
-            primary = {
-                key: 'enroll',
-                label: terms.enrollment,
-                icon: UserCheck,
-                onClick: handleMatricularClick,
-            };
-            if (showCloseSaleCta) {
-                secondary.push({
-                    key: 'closeSale',
-                    label: 'Fechar venda',
-                    icon: BadgeCheck,
-                    onClick: () => openMatriculaModal({ paymentShortcut: true }),
-                });
-            }
-        }
-
-        return { primary, secondary };
-    }, [lead.status, showCloseSaleCta, terms.enrollment, openMatriculaModal, handleMatricularClick]);
 
     const renderQuickNoteComposer = ({ idPrefix = 'timeline', textareaRef = noteTextareaRef, className = '' } = {}) => (
         <div className={`note-container ${className}`.trim()}>

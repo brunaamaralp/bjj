@@ -1,17 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import useDialogFocus from '../../hooks/useDialogFocus.js';
 
-export default function InboxImageLightbox({ imageUrl, onClose }) {
-  const url = String(imageUrl || '').trim();
+function InboxImageLightboxContent({ url, onClose }) {
   const [zoomed, setZoomed] = useState(false);
-  const dialogRef = useDialogFocus(Boolean(url), onClose);
-
-  useEffect(() => {
-    setZoomed(false);
-  }, [url]);
-
-  if (!url) return null;
+  const dialogRef = useDialogFocus(true, onClose);
 
   return (
     <div
@@ -60,4 +53,10 @@ export default function InboxImageLightbox({ imageUrl, onClose }) {
       />
     </div>
   );
+}
+
+export default function InboxImageLightbox({ imageUrl, onClose }) {
+  const url = String(imageUrl || '').trim();
+  if (!url) return null;
+  return <InboxImageLightboxContent key={url} url={url} onClose={onClose} />;
 }
