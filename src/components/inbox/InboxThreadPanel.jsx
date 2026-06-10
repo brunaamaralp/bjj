@@ -40,6 +40,8 @@ export default function InboxThreadPanel(props) {
     triageBusy = false,
     followupState = null,
     onFollowupSendTemplate,
+    onCompleteFollowup,
+    completingFollowup = false,
     leadPanel = null,
     setLeadPanel,
     linkingLead = false,
@@ -299,6 +301,8 @@ export default function InboxThreadPanel(props) {
           followupState={followupState}
           leadId={String(activeContactLead?.id || selected?.lead_id || '').trim()}
           onSendTemplate={onFollowupSendTemplate}
+          onCompleteFollowup={onCompleteFollowup}
+          completing={completingFollowup}
         />
       ) : null}
 

@@ -1088,6 +1088,20 @@
   background: var(--surface-muted, rgba(0, 0, 0, 0.02));
 }
 
+.inbox-followup-banner--cooling {
+  background: var(--color-warning-surface, rgba(251, 191, 36, 0.12));
+}
+
+.inbox-followup-banner--critical {
+  background: var(--color-danger-surface, rgba(239, 68, 68, 0.08));
+}
+
+.inbox-followup-banner__btn--primary {
+  background: var(--color-accent, #2563eb);
+  color: #fff;
+  border: none;
+}
+
 .inbox-followup-banner__main {
   display: flex;
   align-items: center;

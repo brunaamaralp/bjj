@@ -6,7 +6,7 @@ const TOAST_MS = 2500;
 /**
  * Toast fixo no rodapé para feedback de follow-up concluído (somente UX).
  */
-export default function FollowUpMicroToast({ open, message = 'Follow-up concluído!', onClose }) {
+export default function FollowUpMicroToast({ open, message = 'Retorno registrado!', onClose }) {
   useEffect(() => {
     if (!open) return undefined;
     const t = window.setTimeout(() => onClose?.(), TOAST_MS);

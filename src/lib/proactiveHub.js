@@ -97,7 +97,7 @@ export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, f
     items.push({
       id: 'followups_cooling',
       label: cooling === 1 ? '1 retorno esfriando' : `${cooling} retornos esfriando`,
-      href: '/#follow-ups',
+      href: '/?retornos=1',
       count: cooling,
     });
   } else {
@@ -105,8 +105,8 @@ export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, f
     if (followUps > 0) {
       items.push({
         id: 'followups',
-        label: followUps === 1 ? '1 follow-up pendente' : `${followUps} follow-ups pendentes`,
-        href: '/#follow-ups',
+        label: followUps === 1 ? '1 retorno pendente' : `${followUps} retornos pendentes`,
+        href: '/?retornos=1',
         count: followUps,
       });
     }

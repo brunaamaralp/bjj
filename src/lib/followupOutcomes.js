@@ -20,6 +20,16 @@ export const FOLLOWUP_OUTCOME_LABELS = {
   [FOLLOWUP_OUTCOMES.ENROLLED]: 'Matriculou',
 };
 
+/** Uma linha de consequência exibida no modal de conclusão. */
+export const FOLLOWUP_OUTCOME_HINTS = {
+  [FOLLOWUP_OUTCOMES.INTERESTED]: 'Mantém em Aguardando decisão. Pode adiar o lembrete na lista.',
+  [FOLLOWUP_OUTCOMES.THINKING]: 'Mantém no funil e pode sumir da lista por alguns dias (adiar lembrete).',
+  [FOLLOWUP_OUTCOMES.OBJECTION]: 'Registra a objeção e mantém em Aguardando decisão.',
+  [FOLLOWUP_OUTCOMES.RESCHEDULE]: 'Abre o fluxo para remarcar a experimental.',
+  [FOLLOWUP_OUTCOMES.LOST]: 'Move o contato para Perdidos.',
+  [FOLLOWUP_OUTCOMES.ENROLLED]: 'Abre o fluxo de matrícula.',
+};
+
 export const OBJECTION_TYPES = {
   PRICE: 'price',
   SCHEDULE: 'schedule',

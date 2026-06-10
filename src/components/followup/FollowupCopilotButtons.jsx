@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
-import { fetchFollowupCopilot } from '../../lib/followupCopilotApi.js';
+import { fetchFollowupCopilot, openWhatsappDraft } from '../../lib/followupCopilotApi.js';
 import { useToast } from '../../hooks/useToast';
 
 export default function FollowupCopilotButtons({
   academyId,
   leadId,
+  leadPhone,
   templateKey,
   nextAction,
   onDraftReady,
   compact = false,
+  showTemplateHint = false,
 }) {
   const toast = useToast();
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -17,13 +19,18 @@ export default function FollowupCopilotButtons({
   const [summaryBullets, setSummaryBullets] = useState([]);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
+  const [draftPreview, setDraftPreview] = useState('');
+  const [draftOpen, setDraftOpen] = useState(false);
 
   const lid = String(leadId || '').trim();
   const aid = String(academyId || '').trim();
   if (!lid || !aid) return null;
 
+  const btnClass = compact ? 'btn-outline followup-copilot-btn followup-copilot-btn--sm' : 'btn-outline followup-copilot-btn';
+
   const loadSummary = async () => {
     setLoadingSummary(true);
+    setDraftOpen(false);
     try {
       const data = await fetchFollowupCopilot({
         academyId: aid,
@@ -36,6 +43,7 @@ export default function FollowupCopilotButtons({
       setSummaryOpen(true);
     } catch (e) {
       toast.error(e, 'action');
+      toast.info('Use o botão verde de WhatsApp para o template padrão.');
     } finally {
       setLoadingSummary(false);
     }
@@ -43,6 +51,7 @@ export default function FollowupCopilotButtons({
 
   const loadDraft = async () => {
     setLoadingDraft(true);
+    setSummaryOpen(false);
     try {
       const data = await fetchFollowupCopilot({
         academyId: aid,
@@ -53,19 +62,31 @@ export default function FollowupCopilotButtons({
       });
       const draft = String(data.draft || '').trim();
       if (!draft) throw new Error('Resposta vazia');
+      setDraftPreview(draft);
+      setDraftOpen(true);
       onDraftReady?.(draft);
-      toast.success('Texto sugerido — revise antes de enviar');
     } catch (e) {
       toast.error(e, 'action');
+      toast.info('Use o botão verde de WhatsApp para o template padrão.');
     } finally {
       setLoadingDraft(false);
     }
   };
 
-  const btnClass = compact ? 'btn-outline followup-copilot-btn followup-copilot-btn--sm' : 'btn-outline followup-copilot-btn';
+  const openDraftInWhatsapp = () => {
+    const text = String(draftPreview || '').trim();
+    if (!text) return;
+    if (openWhatsappDraft(leadPhone, text)) return;
+    toast.warning('Telefone ausente ou inválido.');
+  };
 
   return (
     <div className="followup-copilot">
+      {showTemplateHint ? (
+        <p className="followup-copilot__hint">
+          Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
+        </p>
+      ) : null}
       <div className="followup-copilot__actions">
         <button
           type="button"
@@ -74,7 +95,7 @@ export default function FollowupCopilotButtons({
           onClick={() => void loadSummary()}
         >
           {loadingSummary ? <Loader2 size={14} className="wa-icon--spin" aria-hidden /> : <Sparkles size={14} aria-hidden />}
-          Resumo
+          Resumo IA
         </button>
         <button
           type="button"
@@ -83,11 +104,16 @@ export default function FollowupCopilotButtons({
           onClick={() => void loadDraft()}
         >
           {loadingDraft ? <Loader2 size={14} className="wa-icon--spin" aria-hidden /> : <Sparkles size={14} aria-hidden />}
-          Sugerir texto
+          Rascunho IA
         </button>
       </div>
+      {loadingSummary ? (
+        <div className="followup-copilot__panel" role="status" aria-live="polite" aria-busy="true">
+          Gerando resumo…
+        </div>
+      ) : null}
       {summaryOpen && summaryText ? (
-        <div className="followup-copilot__panel" role="region" aria-label="Resumo do lead">
+        <div className="followup-copilot__panel" role="region" aria-label="Resumo do lead" aria-live="polite">
           <p className="followup-copilot__summary">{summaryText}</p>
           {summaryBullets.length > 0 ? (
             <ul className="followup-copilot__bullets">
@@ -99,6 +125,25 @@ export default function FollowupCopilotButtons({
           <button type="button" className="followup-copilot__close" onClick={() => setSummaryOpen(false)}>
             Fechar
           </button>
+        </div>
+      ) : null}
+      {draftOpen && draftPreview ? (
+        <div className="followup-copilot__panel" role="region" aria-label="Rascunho sugerido" aria-live="polite">
+          <span className="followup-copilot__draft-label">Revise antes de enviar</span>
+          <textarea
+            className="input followup-copilot__draft-preview"
+            value={draftPreview}
+            onChange={(e) => setDraftPreview(e.target.value)}
+            rows={4}
+          />
+          <div className="followup-copilot__draft-actions">
+            <button type="button" className="btn btn-outline" onClick={openDraftInWhatsapp}>
+              Abrir no WhatsApp
+            </button>
+            <button type="button" className="followup-copilot__close" onClick={() => setDraftOpen(false)}>
+              Fechar
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

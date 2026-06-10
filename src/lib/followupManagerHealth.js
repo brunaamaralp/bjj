@@ -32,7 +32,13 @@ export function computeFollowupHealthSummary(leads, ctx) {
     }
   }
 
-  coolingLeads.sort((a, b) => (b.daysAgo ?? 0) - (a.daysAgo ?? 0));
+  const tempOrder = { critical: 0, cooling: 1 };
+  coolingLeads.sort((a, b) => {
+    const ta = tempOrder[a.temperature] ?? 2;
+    const tb = tempOrder[b.temperature] ?? 2;
+    if (ta !== tb) return ta - tb;
+    return (b.daysAgo ?? 0) - (a.daysAgo ?? 0);
+  });
 
   const { startMs, endMs } = getCivilWeekBounds(0);
   const weekStart = ymdFromDate(new Date(startMs));

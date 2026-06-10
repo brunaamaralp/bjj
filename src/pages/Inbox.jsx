@@ -79,8 +79,10 @@ import { filterStudentCandidates } from '../lib/studentSearchFilter.js';
 import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
 import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
-import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
+import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
+import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
+import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import useDialogFocus from '../hooks/useDialogFocus.js';
 import { inboxFilterFromUrlParam, inboxFilterLabel, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
@@ -1544,12 +1546,17 @@ export default function Inbox() {
 
   const activeFollowupState = useMemo(() => {
     if (!activeContactLead || !isFollowUpLead(activeContactLead)) return null;
-    return computeFollowupState(activeContactLead, {
+    const state = computeFollowupState(activeContactLead, {
       playbook: followupPlaybook,
       followupDoneByLead,
       followupContactByLead,
       followupSnoozeUntilByLead,
     });
+    if (!state) return null;
+    return {
+      ...state,
+      nextActionLabel: describePlaybookStep(state.nextStep),
+    };
   }, [
     activeContactLead,
     followupPlaybook,
@@ -1557,6 +1564,14 @@ export default function Inbox() {
     followupContactByLead,
     followupSnoozeUntilByLead,
   ]);
+
+  const {
+    outcomeLead: followupOutcomeLead,
+    saving: savingFollowupOutcome,
+    openOutcome: openFollowupOutcome,
+    closeOutcome: closeFollowupOutcome,
+    confirmOutcome: confirmFollowupOutcome,
+  } = useFollowupOutcome({ source: 'inbox' });
 
   const handleFollowupSendTemplate = useCallback(
     (templateKey) => {
@@ -2182,6 +2197,8 @@ export default function Inbox() {
       triageBusy={linkingLead}
       followupState={activeFollowupState}
       onFollowupSendTemplate={handleFollowupSendTemplate}
+      onCompleteFollowup={() => activeContactLead && openFollowupOutcome(activeContactLead)}
+      completingFollowup={savingFollowupOutcome}
       leadPanel={leadPanel}
       setLeadPanel={setLeadPanel}
       linkingLead={linkingLead}
@@ -2469,6 +2486,14 @@ export default function Inbox() {
         confirmLabel="Não é lead"
         onConfirm={() => void executeDismissTriage()}
         onClose={() => setDismissTriageLead(null)}
+      />
+
+      <FollowupOutcomeDialog
+        open={Boolean(followupOutcomeLead)}
+        leadName={followupOutcomeLead?.name || ''}
+        saving={savingFollowupOutcome}
+        onClose={closeFollowupOutcome}
+        onConfirm={(payload) => void confirmFollowupOutcome(payload)}
       />
     </div>
   );

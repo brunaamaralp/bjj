@@ -273,7 +273,12 @@ export default function FollowupPlaybookSection({ academyId }) {
               Playbook de retorno pós-aula
             </h3>
             <p className="text-small text-muted" style={{ marginTop: 6 }}>
-              Padroniza as ações sugeridas no Dashboard para quem compareceu ou faltou à experimental.
+              Padroniza as ações sugeridas na recepção (Hoje → Retornos pendentes) para quem compareceu ou
+              faltou à experimental. Cada passo aparece como &quot;próxima ação&quot; na lista.
+            </p>
+            <p className="text-small text-muted followup-playbook-reception-note" style={{ marginTop: 4 }}>
+              O passo D+1 com template pode ser enviado automaticamente pela automação{' '}
+              <strong>Retorno D+1</strong> (Configurações → Automações), se ainda não houver contato no ciclo.
             </p>
           </div>
           <label className="followup-playbook-section__toggle text-small">
@@ -315,8 +320,8 @@ export default function FollowupPlaybookSection({ academyId }) {
             </div>
             {activeTab === 'attended' ? renderEditTrack('attended', 'Compareceu') : renderEditTrack('missed', 'Faltou')}
             <p className="text-small text-muted followup-playbook-preview">
-              Ex.: se compareceu hoje (D+0), amanhã (D+1) o sistema sugere o template de retorno — desde que ainda não
-              haja contato.
+              Ex.: se compareceu hoje (D+0), amanhã (D+1) o Hoje sugere o template de retorno — e a automação D+1
+              pode enviar, desde que ainda não haja contato.
             </p>
             <div className="followup-playbook-section__actions">
               <button type="button" className="btn-outline" disabled={saving} onClick={() => setDraft(null)}>

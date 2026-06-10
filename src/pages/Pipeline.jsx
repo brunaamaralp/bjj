@@ -34,8 +34,9 @@ import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
-import { getFollowupKind, getFollowupDaysAgo } from '../lib/followupState.js';
-import { computeFallbackTemperature } from '../lib/followupTemperature.js';
+import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
+import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
+import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
@@ -2045,17 +2046,37 @@ const Pipeline = () => {
         return list;
     }, [leadsForBoardCore, followupKanbanFilter, triageKanbanFilter]);
 
+    const {
+        followupDoneByLead,
+        followupContactByLead,
+        followupSnoozeUntilByLead,
+    } = useFollowupEventsByLead(academyId);
+    const followupPlaybook = useMemo(
+        () => readFollowupPlaybook(academySettingsRaw),
+        [academySettingsRaw]
+    );
     const followupTempByLead = useMemo(() => {
+        const ctx = {
+            playbook: followupPlaybook,
+            followupDoneByLead,
+            followupContactByLead,
+            followupSnoozeUntilByLead,
+        };
         const map = {};
         for (const lead of leadsForBoardPreCooling) {
-            const kind = getFollowupKind(lead);
-            if (!kind) continue;
-            const daysAgo = getFollowupDaysAgo(lead);
-            const temp = computeFallbackTemperature(lead, kind, daysAgo, false);
-            if (temp !== 'on_track') map[lead.id] = temp;
+            if (!isFollowUpLead(lead)) continue;
+            const state = computeFollowupState(lead, ctx);
+            if (state.doneForCurrentClass || state.isSnoozed) continue;
+            if (state.temperature !== 'on_track') map[lead.id] = state.temperature;
         }
         return map;
-    }, [leadsForBoardPreCooling]);
+    }, [
+        leadsForBoardPreCooling,
+        followupPlaybook,
+        followupDoneByLead,
+        followupContactByLead,
+        followupSnoozeUntilByLead,
+    ]);
 
     const followupCoolingCount = useMemo(
         () => Object.values(followupTempByLead).filter((t) => t === 'cooling' || t === 'critical').length,
@@ -2817,7 +2838,7 @@ const Pipeline = () => {
                         <PageHeader
                             className="navi-page-header--flush"
                             title={labels.pipeline || 'Funil'}
-                            subtitle="Mova leads entre etapas e registre follow-ups."
+                            subtitle="Mova leads entre etapas e registre retornos."
                             meta={pipelineHeaderMetaNode}
                             toolbar={
                             <>
@@ -2881,7 +2902,7 @@ const Pipeline = () => {
                         <PageHeader
                             className="navi-page-header--flush"
                             title={labels.pipeline || 'Funil'}
-                            subtitle="Mova leads entre etapas e registre follow-ups."
+                            subtitle="Mova leads entre etapas e registre retornos."
                             meta={pipelineHeaderMetaNode}
                         />
                         <div className="navi-toolbar pipeline-mobile-toolbar">

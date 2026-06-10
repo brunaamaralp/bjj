@@ -3,7 +3,7 @@ import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Query } from 'appwrite';
 import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
@@ -67,9 +67,7 @@ import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import {
-    patchFollowupDoneCache,
     patchFollowupContactCache,
-    patchFollowupSnoozeCache,
     getFollowupEventsCache,
     setFollowupEventsCache,
 } from '../lib/followupEventsCache.js';
@@ -81,18 +79,13 @@ import {
     countFollowupsByTemperature,
 } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
-import {
-    buildOutcomeLeadPatch,
-    buildSnoozeUntilYmd,
-    FOLLOWUP_OUTCOMES,
-    OUTCOMES_WITH_SNOOZE,
-} from '../lib/followupOutcomes.js';
 import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
+import FollowupTemperatureLegend from '../components/followup/FollowupTemperatureLegend.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
 import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
-import { openWhatsappDraft } from '../lib/followupCopilotApi.js';
+import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 
 function groupTodayByPeriod(leads) {
@@ -129,6 +122,7 @@ function groupTodayByPeriod(leads) {
 }
 const Dashboard = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const leads = useLeadStore((s) => s.leads);
     const loading = useLeadStore((s) => s.loading);
     const fetchLeads = useLeadStore((s) => s.fetchLeads);
@@ -177,7 +171,6 @@ const Dashboard = () => {
     const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
     const [followupContactAtByLead, setFollowupContactAtByLead] = useState({});
     const [followupSnoozeUntilByLead, setFollowupSnoozeUntilByLead] = useState({});
-    const [followupOutcomeLead, setFollowupOutcomeLead] = useState(null);
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds, setRemovingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
@@ -555,6 +548,33 @@ const Dashboard = () => {
         });
     };
 
+    useEffect(() => {
+        if (searchParams.get('retornos') !== '1') return;
+        scrollToFollowUps();
+        const next = new URLSearchParams(searchParams);
+        next.delete('retornos');
+        setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scroll once when ?retornos=1
+    }, [searchParams]);
+
+    const {
+        outcomeLead: followupOutcomeLead,
+        openOutcome: openFollowupOutcomeDialog,
+        closeOutcome: closeFollowupOutcomeDialog,
+        confirmOutcome: hookConfirmFollowupOutcome,
+    } = useFollowupOutcome({
+        source: 'dashboard',
+        onSuccess: () => {
+            const cached = getFollowupEventsCache(academyId);
+            if (cached) {
+                setFollowupDoneAtByLead(cached.doneByLead || {});
+                setFollowupContactAtByLead(cached.contactByLead || {});
+                setFollowupSnoozeUntilByLead(cached.snoozeUntilByLead || {});
+            }
+            setFollowUpMicroToastOpen(true);
+        },
+    });
+
     const scrollToTodaySection = () => {
         if (isDashboardMobile) setMobileAgendaTab('today');
         requestAnimationFrame(() => {
@@ -917,10 +937,10 @@ const Dashboard = () => {
         const leadId = String(lead?.id || '').trim();
         if (!leadId || savingFollowupDone[leadId]) return;
         if (e?.currentTarget) addRipple(e.currentTarget, e);
-        setFollowupOutcomeLead(lead);
+        openFollowupOutcomeDialog(lead);
     };
 
-    const confirmFollowupOutcome = async ({ outcome, objectionType, note, snooze, snoozeDays }) => {
+    const confirmFollowupOutcome = async (payload) => {
         const lead = followupOutcomeLead;
         const leadId = String(lead?.id || '').trim();
         if (!leadId) return;
@@ -950,93 +970,14 @@ const Dashboard = () => {
                 delete next[leadId];
                 return next;
             });
-            setFollowupOutcomeLead(null);
         };
 
         try {
-            const st = useLeadStore.getState();
-            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
-            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
-            const nowIso = new Date().toISOString();
-            const scheduledDate = lead.scheduledDate || '';
-
-            const snoozeOnly = snooze && OUTCOMES_WITH_SNOOZE.has(outcome);
-            const untilYmd = snooze ? buildSnoozeUntilYmd(snoozeDays) : '';
-
-            if (snooze) {
-                await addLeadEvent({
-                    academyId: st.academyId,
-                    leadId: lead.id,
-                    type: 'followup_snooze',
-                    text: 'Retorno adiado',
-                    createdBy: st.userId || 'user',
-                    permissionContext: permCtx,
-                    payloadJson: { scheduledDate, untilYmd, reason: outcome },
-                });
-                patchFollowupSnoozeCache(st.academyId, leadId, untilYmd);
-                setFollowupSnoozeUntilByLead((prev) => ({ ...prev, [leadId]: untilYmd }));
-            }
-
-            if (!snoozeOnly) {
-                await addLeadEvent({
-                    academyId: st.academyId,
-                    leadId: lead.id,
-                    type: 'followup_done',
-                    text: 'Follow-up concluído',
-                    createdBy: st.userId || 'user',
-                    permissionContext: permCtx,
-                    payloadJson: {
-                        source: 'dashboard',
-                        status: lead.status || '',
-                        scheduledDate,
-                        outcome,
-                        objectionType: objectionType || undefined,
-                        note: note || undefined,
-                        snoozeUntil: untilYmd || undefined,
-                    },
-                });
-            }
-
-            const patch = buildOutcomeLeadPatch(outcome, { objectionType });
-            if (patch) {
-                await st.updateLead(leadId, patch);
-            }
-
-            if (outcome === FOLLOWUP_OUTCOMES.LOST) {
-                await addLeadEvent({
-                    academyId: st.academyId,
-                    leadId: lead.id,
-                    type: 'lost',
-                    from: lead?.status || '',
-                    to: LEAD_STATUS.LOST,
-                    text: note || 'Sem interesse (retorno)',
-                    createdBy: st.userId || 'user',
-                    permissionContext: permCtx,
-                });
-            }
-
-            const applySuccess = () => {
-                if (!snoozeOnly) {
-                    patchFollowupDoneCache(st.academyId, leadId, nowIso);
-                    setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
-                }
-                setFollowUpMicroToastOpen(true);
-                clearFollowupVisuals();
-
-                if (outcome === FOLLOWUP_OUTCOMES.ENROLLED) {
-                    navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
-                    addToast({ type: 'info', message: 'Abra a matrícula no perfil do lead.' });
-                } else if (outcome === FOLLOWUP_OUTCOMES.RESCHEDULE) {
-                    navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
-                    addToast({ type: 'info', message: 'Reagende a experimental no perfil do lead.' });
-                }
-            };
-
+            await hookConfirmFollowupOutcome(payload);
             const elapsed = Date.now() - startedAt;
-            window.setTimeout(applySuccess, Math.max(0, 1050 - elapsed));
+            window.setTimeout(clearFollowupVisuals, Math.max(0, 1050 - elapsed));
         } catch {
             clearFollowupVisuals();
-            addToast({ type: 'error', message: 'Erro ao registrar retorno.' });
         } finally {
             setSavingFollowupDone((prev) => {
                 const next = { ...prev };
@@ -1202,19 +1143,18 @@ const Dashboard = () => {
                             ) : null}
                         </p>
                     ) : null}
+                </div>
+                <div className="fu-row__actions-bar">
                     <FollowupCopilotButtons
                         academyId={academyId}
                         leadId={leadId}
+                        leadPhone={lead.phone}
                         templateKey={lead?.nextStep?.template_key}
                         nextAction={lead.nextActionLabel}
                         compact
-                        onDraftReady={(text) => {
-                            if (openWhatsappDraft(lead.phone, text)) return;
-                            addToast({ type: 'warning', message: 'Não foi possível abrir o WhatsApp.' });
-                        }}
+                        showTemplateHint
                     />
-                </div>
-                <div className="fu-btns">
+                    <div className="fu-btns">
                     <button
                         type="button"
                         className={`btn-wa wa-btn wa-btn--icon-only${waState === 'loading' ? ' wa-btn--loading' : ''}${
@@ -1275,6 +1215,7 @@ const Dashboard = () => {
                             <Check className="mk-btn__icon" size={14} strokeWidth={2.5} aria-hidden />
                         )}
                     </button>
+                    </div>
                 </div>
             </div>
         );
@@ -1572,7 +1513,7 @@ const Dashboard = () => {
                                     className="reception-report-heading"
                                     title={
                                         <>
-                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Follow-ups pendentes
+                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Retornos pendentes
                                         </>
                                     }
                                 />
@@ -1594,7 +1535,7 @@ const Dashboard = () => {
                                     className="reception-report-heading"
                                     title={
                                         <>
-                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Follow-ups pendentes
+                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Retornos pendentes
                                         </>
                                     }
                                 />
@@ -1604,6 +1545,7 @@ const Dashboard = () => {
                     )}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
+                {followUps.length > 0 ? <FollowupTemperatureLegend /> : null}
                 <div className="fu-list-card">
                     {followUps.length > 0 ? (
                         followUpGroups.map((group) => (
@@ -1646,7 +1588,7 @@ const Dashboard = () => {
                         <button
                             type="button"
                             className="fu-kanban-link"
-                            title={`Follow-ups com ${FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a ${
+                            title={`Retornos com ${FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a ${
                                 vertical === 'physio' ? 'avaliação' : 'aula'
                             }`}
                             onClick={() => navigate('/pipeline?followup=kanban')}
@@ -1854,10 +1796,7 @@ const Dashboard = () => {
                 open={Boolean(followupOutcomeLead)}
                 leadName={followupOutcomeLead?.name || ''}
                 saving={Boolean(followupOutcomeLead && savingFollowupDone[String(followupOutcomeLead.id || '').trim()])}
-                onClose={() => {
-                    const lid = String(followupOutcomeLead?.id || '').trim();
-                    if (!lid || !savingFollowupDone[lid]) setFollowupOutcomeLead(null);
-                }}
+                onClose={closeFollowupOutcomeDialog}
                 onConfirm={(payload) => void confirmFollowupOutcome(payload)}
             />
 </div>

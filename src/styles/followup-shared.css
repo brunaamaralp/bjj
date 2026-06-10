@@ -1,0 +1,215 @@
+/* Componentes compartilhados de retorno pós-aula (Hoje, Perfil, Inbox) */
+
+.followup-temp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.followup-temp-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.followup-temp-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.followup-temp-legend__dot--on_track {
+  background: var(--color-success, #16a34a);
+}
+
+.followup-temp-legend__dot--cooling {
+  background: var(--color-warning, #f59e0b);
+}
+
+.followup-temp-legend__dot--critical {
+  background: var(--color-danger);
+}
+
+.followup-temp-legend__sep {
+  opacity: 0.45;
+}
+
+.followup-copilot {
+  margin-top: 6px;
+}
+
+.followup-copilot__hint {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.followup-copilot__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.followup-copilot-btn--sm {
+  padding: 3px 8px;
+  min-height: 28px;
+  font-size: 0.75rem;
+}
+
+.followup-copilot__panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-muted, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.followup-copilot__panel[aria-busy='true'] {
+  opacity: 0.85;
+}
+
+.followup-copilot__summary {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.followup-copilot__bullets {
+  margin: 0 0 8px;
+  padding-left: 1.1rem;
+  font-size: 0.8125rem;
+}
+
+.followup-copilot__draft-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.followup-copilot__draft-preview {
+  width: 100%;
+  min-height: 72px;
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+  resize: vertical;
+}
+
+.followup-copilot__draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.followup-copilot__close {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--color-accent, #2563eb);
+  cursor: pointer;
+}
+
+.lead-followup-band {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lead-followup-band--cooling {
+  background: var(--color-warning-surface, rgba(251, 191, 36, 0.12));
+}
+
+.lead-followup-band--critical {
+  background: var(--color-danger-surface, rgba(239, 68, 68, 0.08));
+}
+
+.lead-followup-band__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.lead-followup-band__text {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.lead-followup-band__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.lead-followup-band__btn {
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 0.8125rem;
+}
+
+.lead-followup-band__btn--primary {
+  background: var(--color-accent, #2563eb);
+  color: #fff;
+  border: none;
+}
+
+.lead-followup-band__link {
+  font-size: 0.8125rem;
+  color: var(--color-accent, #2563eb);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.lead-followup-band__link:hover {
+  text-decoration: underline;
+}
+
+.followup-outcome-dialog__hint {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.04));
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 720px) {
+  .fu-row__actions-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .fu-row__actions-bar .followup-copilot {
+    margin-top: 0;
+  }
+
+  .fu-row__actions-bar .fu-btns {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fu-row--leaving {
+    transition: none;
+  }
+}

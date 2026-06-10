@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import {
   FOLLOWUP_OUTCOMES,
   FOLLOWUP_OUTCOME_LABELS,
+  FOLLOWUP_OUTCOME_HINTS,
   OBJECTION_TYPES,
   OBJECTION_TYPE_LABELS,
   OUTCOMES_WITH_SNOOZE,
@@ -24,8 +25,17 @@ export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfi
   const [note, setNote] = useState('');
   const [snooze, setSnooze] = useState(true);
 
+  useEffect(() => {
+    if (!open) return;
+    setOutcome(FOLLOWUP_OUTCOMES.INTERESTED);
+    setObjectionType(OBJECTION_TYPES.PRICE);
+    setNote('');
+    setSnooze(true);
+  }, [open, leadName]);
+
   const showObjection = outcome === FOLLOWUP_OUTCOMES.OBJECTION;
   const showSnooze = OUTCOMES_WITH_SNOOZE.has(outcome);
+  const consequenceHint = FOLLOWUP_OUTCOME_HINTS[outcome] || '';
 
   const handleConfirm = () => {
     onConfirm?.({
@@ -73,6 +83,12 @@ export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfi
           ))}
         </fieldset>
 
+        {consequenceHint ? (
+          <p className="followup-outcome-dialog__hint" role="status">
+            {consequenceHint}
+          </p>
+        ) : null}
+
         {showObjection ? (
           <div className="followup-outcome-dialog__sub">
             <label className="text-small" htmlFor="followup-objection-type">
@@ -96,7 +112,7 @@ export default function FollowupOutcomeDialog({ open, leadName, onClose, onConfi
         {showSnooze ? (
           <label className="followup-outcome-dialog__snooze text-small">
             <input type="checkbox" checked={snooze} onChange={(e) => setSnooze(e.target.checked)} />
-            Lembrar em {DEFAULT_SNOOZE_DAYS} dias
+            Lembrar em {DEFAULT_SNOOZE_DAYS} dias (some da lista até lá)
           </label>
         ) : null}
 

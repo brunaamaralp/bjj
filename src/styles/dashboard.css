@@ -675,7 +675,7 @@
           color: var(--color-danger);
         }
         .fu-time--cooling {
-          color: #b45309;
+          color: var(--color-warning, #b45309);
         }
         .fu-next-action {
           margin: 4px 0 0;
@@ -697,7 +697,7 @@
           display: block;
           font-size: 11px;
           font-weight: 600;
-          color: #b45309;
+          color: var(--color-warning, #b45309);
           margin-top: 2px;
         }
         .followup-temp {

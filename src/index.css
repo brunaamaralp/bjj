@@ -7,6 +7,7 @@
 @import './styles/inbox.css';
 @import './styles/chat-widget.css';
 @import './styles/pipeline.css';
+@import './styles/followup-shared.css';
 @import './styles/dashboard.css';
 @import './styles/lead-profile.css';
 @import './styles/sales.css';

@@ -6,22 +6,25 @@ import { temperatureLabel } from '../../lib/followupTemperature.js';
 
 export default function LeadFollowupBand({
   followupState,
+  lead,
   leadId,
   academyId,
   onWhatsApp,
   onComplete,
-  onDraftReady,
   completing = false,
   sendingWhatsapp = false,
 }) {
   if (!followupState || followupState.doneForCurrentClass || followupState.isSnoozed) return null;
+  if (followupState.temperature === 'on_track') return null;
 
   const days = followupState.daysAgo ?? 0;
   const daysLabel = days === 0 ? 'hoje' : days === 1 ? 'há 1 dia' : `há ${days} dias`;
   const templateKey = followupState.nextStep?.template_key || 'dashboard_contact';
+  const tempClass =
+    followupState.temperature === 'critical' ? 'lead-followup-band--critical' : 'lead-followup-band--cooling';
 
   return (
-    <div className="lead-followup-band" role="status">
+    <div className={`lead-followup-band ${tempClass}`} role="status">
       <div className="lead-followup-band__main">
         <FollowupTemperatureBadge temperature={followupState.temperature} size="sm" />
         <div className="lead-followup-band__text">
@@ -42,9 +45,9 @@ export default function LeadFollowupBand({
         <FollowupCopilotButtons
           academyId={academyId}
           leadId={leadId}
+          leadPhone={lead?.phone}
           templateKey={templateKey}
           nextAction={followupState.nextActionLabel}
-          onDraftReady={onDraftReady}
           compact
         />
         <button
@@ -53,7 +56,7 @@ export default function LeadFollowupBand({
           disabled={sendingWhatsapp}
           onClick={onWhatsApp}
         >
-          {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
+          {sendingWhatsapp ? 'Enviando…' : 'Template padrão'}
         </button>
         <button
           type="button"
@@ -63,7 +66,7 @@ export default function LeadFollowupBand({
         >
           {completing ? 'Salvando…' : 'Concluir retorno'}
         </button>
-        <Link to="/" className="lead-followup-band__link">
+        <Link to="/?retornos=1" className="lead-followup-band__link">
           Ver na agenda
         </Link>
       </div>
