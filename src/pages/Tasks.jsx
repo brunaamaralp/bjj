@@ -92,18 +92,38 @@ function sortTasksForStudentGroup(tasks, isOverdue) {
 
 function buildStudentTaskGroup(leadId, leadName, tasks, isOverdue) {
   const tasksSorted = sortTasksForStudentGroup(tasks, isOverdue);
-  let pendingCount = 0;
-  let doneCount = 0;
+  const pendingTasks = [];
+  const doneTasks = [];
   let overdueCount = 0;
   for (const t of tasksSorted) {
     if (t.status === 'done') {
-      doneCount += 1;
+      doneTasks.push(t);
     } else {
-      pendingCount += 1;
+      pendingTasks.push(t);
       if (isOverdue(t.due_date)) overdueCount += 1;
     }
   }
-  return { leadId, leadName, tasks: tasksSorted, pendingCount, doneCount, overdueCount };
+  return {
+    leadId,
+    leadName,
+    tasks: tasksSorted,
+    pendingTasks,
+    doneTasks,
+    pendingCount: pendingTasks.length,
+    doneCount: doneTasks.length,
+    overdueCount,
+  };
+}
+
+function compareStudentGroupsByUrgency(a, b) {
+  if (b.overdueCount !== a.overdueCount) return b.overdueCount - a.overdueCount;
+  if (b.pendingCount !== a.pendingCount) return b.pendingCount - a.pendingCount;
+  return String(a.leadName).localeCompare(String(b.leadName), 'pt-BR');
+}
+
+function studentGroupVisibleInByStudentView(group, showCompletedOnly) {
+  if (showCompletedOnly) return group.doneCount > 0;
+  return group.pendingCount > 0;
 }
 
 function pad2(n) {
@@ -437,6 +457,7 @@ export default function Tasks() {
   const [estaSemanaOn, setEstaSemanaOn] = useState(false);
   const [periodTodayOn, setPeriodTodayOn] = useState(false);
   const [expandedStudentIds, setExpandedStudentIds] = useState(() => new Set());
+  const [expandedCompletedStudentIds, setExpandedCompletedStudentIds] = useState(() => new Set());
   const [detailTask, setDetailTask] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [calMonth, setCalMonth] = useState(() => {
@@ -522,19 +543,19 @@ export default function Tasks() {
     [academyId, apiTaskFilters]
   );
   const lastTasksFetchKeyRef = useRef('');
-  const STALE_MS = 5 * 60 * 1000;
+  const staleMs = 5 * 60 * 1000;
 
   useEffect(() => {
     if (!academyId) return;
     const { tasksLastFetchedAt, tasksFetchKey: cachedKey } = useTaskStore.getState();
-    const stale = !tasksLastFetchedAt || Date.now() - tasksLastFetchedAt > STALE_MS;
+    const stale = !tasksLastFetchedAt || Date.now() - tasksLastFetchedAt > staleMs;
     const keyChanged = lastTasksFetchKeyRef.current !== tasksFetchKey;
     const scopeMismatch = cachedKey !== tasksFetchKey;
     if (!keyChanged && !stale && !scopeMismatch) return;
 
     lastTasksFetchKeyRef.current = tasksFetchKey;
     void fetchTasks(academyId, { reset: true, filters: apiTaskFilters });
-  }, [academyId, tasksFetchKey, apiTaskFilters, fetchTasks]);
+  }, [academyId, tasksFetchKey, apiTaskFilters, fetchTasks, staleMs]);
 
   const handleLoadMoreTasks = useCallback(() => {
     if (!academyId || loadingMore || !tasksHasMore) return;
@@ -659,6 +680,8 @@ export default function Tasks() {
     return map;
   }, [filteredTasks]);
 
+  const byStudentShowCompletedOnly = filters.status === 'concluidas';
+
   const tasksByLead = useMemo(() => {
     const map = {};
     for (const t of filteredTasks) {
@@ -675,14 +698,30 @@ export default function Tasks() {
     }
     return Object.values(map)
       .map((group) => buildStudentTaskGroup(group.leadId, group.leadName, group.tasks, isVencida))
-      .sort((a, b) => String(a.leadName).localeCompare(String(b.leadName), 'pt-BR'));
-  }, [filteredTasks, linkableById]);
+      .filter((group) => studentGroupVisibleInByStudentView(group, byStudentShowCompletedOnly))
+      .sort((a, b) =>
+        byStudentShowCompletedOnly
+          ? String(a.leadName).localeCompare(String(b.leadName), 'pt-BR')
+          : compareStudentGroupsByUrgency(a, b)
+      );
+  }, [filteredTasks, linkableById, byStudentShowCompletedOnly]);
 
   const unlinkedTasksGroup = useMemo(() => {
     const tasks = filteredTasks.filter((t) => !String(t.lead_id || '').trim());
     if (tasks.length === 0) return null;
-    return buildStudentTaskGroup(UNLINKED_STUDENT_GROUP_ID, 'Sem aluno vinculado', tasks, isVencida);
-  }, [filteredTasks]);
+    const group = buildStudentTaskGroup(UNLINKED_STUDENT_GROUP_ID, 'Sem aluno vinculado', tasks, isVencida);
+    return studentGroupVisibleInByStudentView(group, byStudentShowCompletedOnly) ? group : null;
+  }, [filteredTasks, byStudentShowCompletedOnly]);
+
+  const byStudentEmptyHint = useMemo(() => {
+    if (byStudentShowCompletedOnly) return null;
+    const hasPending = filteredTasks.some((t) => t.status !== 'done');
+    const hasDone = filteredTasks.some((t) => t.status === 'done');
+    if (!hasPending && hasDone) {
+      return 'Nenhuma tarefa em aberto. Use o filtro Concluídas para ver o histórico.';
+    }
+    return null;
+  }, [filteredTasks, byStudentShowCompletedOnly]);
 
   const kanbanColumns = useMemo(() => {
     const atrasadas = [];
@@ -796,7 +835,7 @@ export default function Tasks() {
     }
   };
 
-  const openEdit = (t) => {
+  const openEdit = useCallback((t) => {
     setEditingTask(t);
     setForm({
       title: t.title || '',
@@ -808,7 +847,7 @@ export default function Tasks() {
     const person = linkableById.get(t.lead_id);
     setLeadSearch(person?.name || '');
     setShowModal(true);
-  };
+  }, [linkableById]);
 
   const openEditFromDetail = () => {
     const t = detailTask;
@@ -829,7 +868,7 @@ export default function Tasks() {
     return { ownerId: acad.ownerId, teamId: acad.teamId || teamId, userId: userId || '' };
   }, [academyList, academyId, teamId, userId]);
 
-  const toggleDone = async (t) => {
+  const toggleDone = useCallback(async (t) => {
     if (t.status !== 'done' && isCollectionTask(t)) {
       setCollectionModalTask(t);
       return;
@@ -844,7 +883,7 @@ export default function Tasks() {
       patchTaskLocal(t.id, { status: previousStatus });
       addToast({ type: 'error', message: 'Erro ao atualizar status' });
     }
-  };
+  }, [isUpdating, patchTaskLocal, updateTask, addToast]);
 
   const handleCollectionConfirm = async ({ result, notes }) => {
     const t = collectionModalTask;
@@ -884,9 +923,9 @@ export default function Tasks() {
     }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = useCallback((id) => {
     setDeleteConfirmId(id);
-  };
+  }, []);
 
   const runDeleteConfirmed = async () => {
     const id = deleteConfirmId;
@@ -910,12 +949,21 @@ export default function Tasks() {
     });
   }, []);
 
-  const assigneeForTask = (t) => {
+  const toggleStudentCompletedExpanded = useCallback((leadId) => {
+    setExpandedCompletedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(leadId)) next.delete(leadId);
+      else next.add(leadId);
+      return next;
+    });
+  }, []);
+
+  const assigneeForTask = useCallback((t) => {
     if (!t?.assigned_to) return { label: null, initials: null };
     const member = members.find((m) => m.userId === t.assigned_to);
     const label = membershipPrimaryLabel(member || {}) || t.assigned_to;
     return { label, initials: String(label).slice(0, 2).toUpperCase() };
-  };
+  }, [members]);
 
   const renderOneTaskCard = (t, opts = {}) => {
     const compact = Boolean(opts.compact);
@@ -954,7 +1002,7 @@ export default function Tasks() {
         onOpen={() => setDetailTask(t)}
       />
     );
-  }, [members, isUpdating, toggleDone, openEdit, handleDelete]);
+  }, [assigneeForTask, isUpdating, toggleDone, openEdit, handleDelete]);
 
   const clearKanbanDragUi = useCallback(() => {
     setKanbanActiveId(null);
@@ -1009,7 +1057,7 @@ export default function Tasks() {
       patchTaskLocal(task.id, { status: previousStatus });
       addToast({ type: 'error', message: 'Erro ao atualizar status' });
     });
-  }, [tasks, kanbanColumns, patchTaskLocal, updateTask, isUpdating, addToast]);
+  }, [tasks, kanbanColumns, patchTaskLocal, updateTask, isUpdating, addToast, clearKanbanDragUi]);
 
   const renderTasksLoadingSkeleton = () => (
     <div
@@ -1060,11 +1108,17 @@ export default function Tasks() {
   };
 
   const renderStudentTasksGroupCard = (group, { unlinked = false } = {}) => {
-    const canCollapse = group.tasks.length > STUDENT_TASKS_PREVIEW;
-    const isExpanded = expandedStudentIds.has(group.leadId);
-    const visibleTasks =
-      canCollapse && !isExpanded ? group.tasks.slice(0, STUDENT_TASKS_PREVIEW) : group.tasks;
-    const hiddenCount = Math.max(0, group.tasks.length - STUDENT_TASKS_PREVIEW);
+    const showCompletedOnly = byStudentShowCompletedOnly;
+    const primaryTasks = showCompletedOnly ? group.doneTasks : group.pendingTasks;
+    const canCollapsePrimary = primaryTasks.length > STUDENT_TASKS_PREVIEW;
+    const isPrimaryExpanded = expandedStudentIds.has(group.leadId);
+    const visiblePrimary =
+      canCollapsePrimary && !isPrimaryExpanded
+        ? primaryTasks.slice(0, STUDENT_TASKS_PREVIEW)
+        : primaryTasks;
+    const hiddenPrimaryCount = Math.max(0, primaryTasks.length - STUDENT_TASKS_PREVIEW);
+    const isCompletedExpanded = expandedCompletedStudentIds.has(group.leadId);
+    const visibleDone = !showCompletedOnly && isCompletedExpanded ? group.doneTasks : [];
     const countsMarkup = (
       <span className="tasks-student-card__counts">
         {group.pendingCount > 0 ? (
@@ -1090,7 +1144,7 @@ export default function Tasks() {
     return (
       <article
         key={group.leadId}
-        className={`tasks-student-card${unlinked ? ' tasks-student-card--unlinked' : ''}${canCollapse && !isExpanded ? ' tasks-student-card--collapsed' : ''}`}
+        className={`tasks-student-card${unlinked ? ' tasks-student-card--unlinked' : ''}${canCollapsePrimary && !isPrimaryExpanded ? ' tasks-student-card--collapsed' : ''}`}
         role="listitem"
       >
         <header className="tasks-student-card__head">
@@ -1170,18 +1224,18 @@ export default function Tasks() {
         </header>
         <div className="tasks-student-card__body">
           <div className="task-list tasks-student-card__tasks">
-            {visibleTasks.map((t) =>
+            {visiblePrimary.map((t) =>
               renderOneTaskCard(t, { compact: true, hideLead: true, showMeta: true })
             )}
           </div>
-          {canCollapse ? (
+          {canCollapsePrimary ? (
             <button
               type="button"
               className="tasks-student-card__toggle"
               onClick={() => toggleStudentTasksExpanded(group.leadId)}
-              aria-expanded={isExpanded}
+              aria-expanded={isPrimaryExpanded}
             >
-              {isExpanded ? (
+              {isPrimaryExpanded ? (
                 <>
                   <ChevronUp size={16} aria-hidden="true" />
                   Recolher tarefas
@@ -1189,10 +1243,42 @@ export default function Tasks() {
               ) : (
                 <>
                   <ChevronDown size={16} aria-hidden="true" />
-                  Ver mais {hiddenCount} tarefa{hiddenCount === 1 ? '' : 's'}
+                  Ver mais {hiddenPrimaryCount} tarefa{hiddenPrimaryCount === 1 ? '' : 's'}
                 </>
               )}
             </button>
+          ) : null}
+          {!showCompletedOnly && group.doneCount > 0 ? (
+            <>
+              {isCompletedExpanded && visibleDone.length > 0 ? (
+                <div className="tasks-student-card__done-block">
+                  <p className="tasks-student-card__done-label">Concluídas</p>
+                  <div className="task-list tasks-student-card__tasks tasks-student-card__tasks--done">
+                    {visibleDone.map((t) =>
+                      renderOneTaskCard(t, { compact: true, hideLead: true, showMeta: true })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className="tasks-student-card__toggle tasks-student-card__toggle--done"
+                onClick={() => toggleStudentCompletedExpanded(group.leadId)}
+                aria-expanded={isCompletedExpanded}
+              >
+                {isCompletedExpanded ? (
+                  <>
+                    <ChevronUp size={16} aria-hidden="true" />
+                    Ocultar concluídas
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={16} aria-hidden="true" />
+                    Ver {group.doneCount} concluída{group.doneCount === 1 ? '' : 's'}
+                  </>
+                )}
+              </button>
+            </>
           ) : null}
         </div>
       </article>
@@ -1244,14 +1330,20 @@ export default function Tasks() {
         />
         
         <div className="filter-bar task-filters">
-          {['all', 'minhas', 'vencidas', 'concluidas'].map(f => (
-            <button 
-              key={f}
-              type="button" 
-              className={`filter-chip ${filters.status === f ? 'is-active' : ''}`}
-              onClick={() => setFilter('status', f)}
+          {[
+            { id: 'all', label: 'Todas' },
+            { id: 'pendentes', label: 'Pendentes' },
+            { id: 'minhas', label: 'Minhas' },
+            { id: 'vencidas', label: 'Vencidas' },
+            { id: 'concluidas', label: 'Concluídas' },
+          ].map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              className={`filter-chip ${filters.status === id ? 'is-active' : ''}`}
+              onClick={() => setFilter('status', id)}
             >
-              {f === 'all' ? 'Todas' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {label}
             </button>
           ))}
           <button
@@ -1340,7 +1432,20 @@ export default function Tasks() {
         ) : viewMode === 'by_student' ? (
           <div className="tasks-by-student">
             {tasksByLead.length === 0 && !unlinkedTasksGroup ? (
-              <EmptyState variant="compact" tone="dashed" title="Nenhuma tarefa neste filtro." />
+              <EmptyState
+                variant="compact"
+                tone="dashed"
+                title={byStudentEmptyHint || 'Nenhuma tarefa neste filtro.'}
+                secondaryAction={
+                  byStudentEmptyHint
+                    ? {
+                        label: 'Ver concluídas',
+                        variant: 'link',
+                        onClick: () => setFilter('status', 'concluidas'),
+                      }
+                    : undefined
+                }
+              />
             ) : (
               <>
                 {unlinkedTasksGroup ? (

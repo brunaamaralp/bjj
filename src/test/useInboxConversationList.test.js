@@ -63,6 +63,8 @@ function createListHarness() {
     notifiedOnceRef,
     loadingListRef,
     onListItemNotifyRef,
+    onListReadyRef,
+    onStatsFromListRef,
     get state() {
       return { nextCursor, hasMore, loading, loadingMore, items, listCapped };
     },

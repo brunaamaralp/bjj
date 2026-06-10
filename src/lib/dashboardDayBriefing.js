@@ -206,7 +206,11 @@ export function getDayPriority(ctx) {
   }
 
   const cooling = [...(ctx.followUps || [])]
-    .filter((l) => l.temperature === 'cooling' || l.temperature === 'critical')
+    .filter(
+      (l) =>
+        !l.hasContactInCycle &&
+        (l.temperature === 'cooling' || l.temperature === 'critical')
+    )
     .sort((a, b) => {
       const order = { critical: 0, cooling: 1 };
       const ta = order[a.temperature] ?? 2;
@@ -220,6 +224,21 @@ export function getDayPriority(ctx) {
     return {
       type: 'urgent_followup',
       message: buildUrgentFollowupPriorityMessage(lead),
+      scrollTarget: 'follow-ups',
+      leadId: String(lead.id || '').trim() || undefined,
+    };
+  }
+
+  const responded = [...(ctx.followUps || [])]
+    .filter((l) => l.hasContactInCycle && !l.doneForCurrentClass)
+    .sort((a, b) => (a.daysAgo ?? 0) - (b.daysAgo ?? 0));
+
+  if (responded.length > 0) {
+    const lead = responded[0];
+    const name = String(lead.name || 'Interessado').trim();
+    return {
+      type: 'urgent_followup',
+      message: `${name} já respondeu no WhatsApp. Acompanhe o próximo passo no retorno.`,
       scrollTarget: 'follow-ups',
       leadId: String(lead.id || '').trim() || undefined,
     };
@@ -260,7 +279,7 @@ export function getDayPriority(ctx) {
 }
 
 /** Conta matrículas (ingresso) na semana civil atual. */
-export function countWeeklyEnrollments(students, now = new Date()) {
+export function countWeeklyEnrollments(students) {
   const { startMs, endMs } = getCivilWeekBounds(0, true);
   let count = 0;
   for (const student of students || []) {

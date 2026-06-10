@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../../lib/humanHandoffUntil.js';
 import { getHumanHandoffHoursForServer } from '../../lib/constants.js';
 

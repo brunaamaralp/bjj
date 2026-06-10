@@ -1,6 +1,6 @@
 const CACHE_TTL_MS = 5 * 60 * 1000;
 /** Bump quando o formato do bundle mudar (ex.: inbound WhatsApp). */
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 /** @type {Map<string, { data: object; fetchedAt: number }>} */
 const cache = new Map();

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -270,7 +270,7 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
 
 function SideNavAccordion({
   accordion,
-  Icon,
+  icon,
   collapsed,
   expanded,
   onExpandExclusive,
@@ -278,6 +278,7 @@ function SideNavAccordion({
   sideLinkClass,
   location,
 }) {
+  const Icon = icon;
   const navigate = useNavigate();
   const panelId = `navi-accordion-panel-${accordion.id}`;
   const linkOnly = accordion.linkOnly === true || accordion.children.length === 0;
@@ -460,7 +461,7 @@ export default function NaviSidebarNav({
 
   const routeAccordion = useMemo(
     () => getAccordionIdForLocation(location),
-    [location.pathname, location.search]
+    [location]
   );
   const expandedAccordionId =
     routeAccordion ?? (isDirectNavPath(location.pathname) ? null : userAccordionId);
@@ -539,7 +540,7 @@ export default function NaviSidebarNav({
         ) : automacoesAccordion ? (
           <SideNavAccordion
             accordion={automacoesAccordion}
-            Icon={ICONS.automacoes}
+            icon={ICONS.automacoes}
             collapsed={collapsed}
             expanded={expandedAccordionId === automacoesAccordion.id}
             onExpandExclusive={expandExclusive}

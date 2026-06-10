@@ -485,10 +485,12 @@ const Welcome = () => {
               </p>
             </div>
             <div className="navi-lp-modules-grid">
-              {MODULE_CARDS.map(({ id, icon: Icon, title, text, footnote }) => (
+              {MODULE_CARDS.map(({ id, icon, title, text, footnote }) => {
+                const ModuleIcon = icon;
+                return (
                 <article key={id} className="navi-lp-module-card">
                   <div className="navi-lp-module-icon" aria-hidden="true">
-                    <Icon size={22} strokeWidth={2} />
+                    <ModuleIcon size={22} strokeWidth={2} />
                   </div>
                   <h3 className="navi-lp-module-title">{title}</h3>
                   <p className="navi-lp-module-text">{text}</p>
@@ -496,7 +498,8 @@ const Welcome = () => {
                     <p className="navi-lp-module-footnote">* Módulo de loja disponível conforme o plano da academia.</p>
                   ) : null}
                 </article>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>

@@ -87,7 +87,6 @@ export default function ReportsVisaoGeralPanel({
   funnelStages,
   ratesCards,
   setDrillKey,
-  convertedLabel,
   hasFinance,
   canViewFinance,
   academyId,

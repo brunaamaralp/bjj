@@ -15,7 +15,7 @@ import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID,
 import { isBillingLive } from './lib/billingEnabled';
 import { Query } from 'appwrite';
 import { useLeadStore, cancelFetchLeads } from './store/useLeadStore';
-import { useStudentStore, cancelFetchStudents } from './store/useStudentStore';
+import { cancelFetchStudents } from './store/useStudentStore';
 import {
   getAcademyDocument,
   applyAcademyDocToLeadStore,
@@ -594,6 +594,8 @@ const App = () => {
       }
     };
     init();
+    // Bootstrap de sessão roda uma vez no mount; incluir navigate/setupAcademy* reexecutaria o fluxo inteiro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only session bootstrap
   }, []);
 
   const migrateCustomLeadQuestionsIfNeeded = async (doc, academyId) => {

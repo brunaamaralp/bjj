@@ -28,6 +28,9 @@ function buildSlotTooltip(lead, modalityLabel) {
 
 const WEEKDAY_SHORT = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const ymdOf = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
 /** Segunda-feira da semana civil que contém “hoje”, com offset em semanas. */
 export function getWeekStart(offset = 0) {
     const today = new Date();
@@ -178,9 +181,6 @@ export default function AgendaCalendarWeek({
             todayYmd: tYmd,
         };
     }, [leads, weekOffset]);
-
-    const pad = (n) => String(n).padStart(2, '0');
-    const ymdOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
     const displayDayDates = useMemo(
         () => (hideSunday ? dayDates.slice(0, 6) : dayDates),

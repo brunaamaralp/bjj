@@ -128,7 +128,6 @@ export default function MonthlyClosingTab({
   financeConfig,
   modules,
   referenceMonth: referenceMonthProp,
-  onReferenceMonthChange,
 }) {
   const leads = useStudentStore((s) => s.students);
   const academyList = useLeadStore((s) => s.academyList);
@@ -138,9 +137,8 @@ export default function MonthlyClosingTab({
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState(() => defaultClosingColumnVisibility());
 
-  const [referenceMonthInternal, setReferenceMonthInternal] = useState(currentYm);
+  const [referenceMonthInternal] = useState(currentYm);
   const referenceMonth = referenceMonthProp ?? referenceMonthInternal;
-  const setReferenceMonth = onReferenceMonthChange ?? setReferenceMonthInternal;
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState([]);

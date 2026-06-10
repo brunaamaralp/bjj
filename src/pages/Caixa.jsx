@@ -11,10 +11,6 @@ import { loadMergedFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.
 
 import { useLeadStore } from '../store/useLeadStore';
 
-import { useUiStore } from '../store/useUiStore';
-
-import { friendlyError } from '../lib/errorMessages';
-
 import { resolveHubTab } from '../lib/hubTabs';
 
 import {
@@ -116,8 +112,6 @@ function CaixaPage() {
   const academyList = useLeadStore((s) => s.academyList);
 
   const modules = useLeadStore((s) => s.modules);
-
-  const addToast = useUiStore((s) => s.addToast);
 
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
 

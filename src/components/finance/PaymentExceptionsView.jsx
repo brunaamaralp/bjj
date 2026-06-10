@@ -44,7 +44,6 @@ export default function PaymentExceptionsView({
   platformFilter = 'all',
   onlyWithDiff = false,
   sortBy = 'difference',
-  terms,
   addToast,
   friendlyError,
   loading,
@@ -190,7 +189,7 @@ export default function PaymentExceptionsView({
     [currentMonth, financeConfig]
   );
 
-  const handlePopoverSave = async ({ gridStatus, dbStatus, paid_amount, expected_amount, paid_at, note }) => {
+  const handlePopoverSave = async ({ dbStatus, paid_amount, expected_amount, paid_at, note }) => {
     if (!popover) return;
     const { student, payment } = popover.row;
     setSavingId(student.id);

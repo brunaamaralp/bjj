@@ -1,5 +1,37 @@
 import { inboxPhoneLookupVariants } from './normalizeInboxPhone.js';
 
+function parseMessageArray(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Última mensagem inbound da lead — usa `last_user_msg_at` ou varre o histórico recente.
+ * @param {Record<string, unknown> | null | undefined} doc
+ */
+export function extractLastUserMessageAt(doc) {
+  const stored = String(doc?.last_user_msg_at || '').trim();
+  if (stored) return stored;
+
+  let latest = '';
+  for (const raw of [doc?.messages_recent, doc?.messages]) {
+    for (const m of parseMessageArray(raw)) {
+      if (!m || typeof m !== 'object') continue;
+      if (m.role !== 'user') continue;
+      const ts = String(m.timestamp || m.send_at || '').trim();
+      if (!ts) continue;
+      latest = pickLatestInboundIso(latest, ts);
+    }
+    if (latest) break;
+  }
+  return latest;
+}
+
 /** @param {string} current @param {string} next */
 export function pickLatestInboundIso(current, next) {
   const a = String(current || '').trim();
@@ -39,7 +71,7 @@ export function buildInboundMapsFromConversations(docs) {
       {
         leadId: doc?.lead_id ?? doc?.leadId,
         phone: doc?.phone_number ?? doc?.phone,
-        lastUserMsgAt: doc?.last_user_msg_at,
+        lastUserMsgAt: extractLastUserMessageAt(doc),
       }
     );
   }

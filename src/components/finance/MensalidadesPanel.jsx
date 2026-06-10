@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom';
 import ModalShell from '../shared/ModalShell.jsx';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
-import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
 import { account } from '../../lib/appwrite';
 import { reverseFinanceTx } from '../../lib/financeTxApi.js';
@@ -22,7 +21,7 @@ import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
 import MensalidadesStatusFilter from './MensalidadesStatusFilter.jsx';
-import { expectedAmountForStudent, expectedAmountWithCardFee } from '../../lib/paymentStatus.js';
+import { expectedAmountWithCardFee } from '../../lib/paymentStatus.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
@@ -190,7 +189,6 @@ export default function MensalidadesPanel({
   const userId = useLeadStore((s) => s.userId);
   const updateStudent = useStudentStore((s) => s.updateStudent);
   const financeConfig = useLeadStore((s) => s.financeConfig);
-  const financeConfigAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
   const modules = useLeadStore((s) => s.modules);
   const toast = useToast();
   const terms = useTerms();
@@ -271,8 +269,6 @@ export default function MensalidadesPanel({
     [allStudents]
   );
 
-  const isCurrentMonth = currentMonth === new Date().toISOString().slice(0, 7);
-
   const recarregarMes = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
@@ -289,7 +285,7 @@ export default function MensalidadesPanel({
     } finally {
       setLoading(false);
     }
-  }, [academyId, currentMonth]);
+  }, [academyId, currentMonth, students.length]);
 
   const { collectionRules } = useMemo(
     () => readCollectionSettingsFromFinanceConfig(financeConfig),
@@ -346,7 +342,7 @@ export default function MensalidadesPanel({
     return () => {
       active = false;
     };
-  }, [academyId, currentMonth]);
+  }, [academyId, currentMonth, students.length]);
 
   useEffect(() => {
     function onStudentPaymentUpdated(e) {
@@ -474,7 +470,7 @@ export default function MensalidadesPanel({
         return filter === 'all' || getStatus(s) === filter;
       })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, debouncedSearch, getStatus, studentOverdueMeta]);
+  }, [students, filter, debouncedSearch, getStatus, studentOverdueMeta, paymentMap, currentMonth]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -581,7 +577,7 @@ export default function MensalidadesPanel({
   const linkStudentProfile = navRole === 'owner' || navRole === 'admin';
   const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
 
-  const openPaymentModal = (student, preset = {}) => {
+  const openPaymentModal = useCallback((student, preset = {}) => {
     const refMonth = String(preset.reference_month || preset.bundle_start_month || currentMonth).trim() || currentMonth;
     const day = studentDueDay(student);
     const dueDate = dueDateInMonth(refMonth, day);
@@ -621,7 +617,7 @@ export default function MensalidadesPanel({
       trocoAccount: '',
     });
     setShowModal(true);
-  };
+  }, [currentMonth, financeConfig]);
 
   useEffect(() => {
     const onNlPaymentPrefill = (ev) => {
@@ -633,7 +629,7 @@ export default function MensalidadesPanel({
     };
     window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
     return () => window.removeEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
-  }, [students, currentMonth]);
+  }, [students, currentMonth, openPaymentModal]);
 
   const handleSavePayment = async () => {
     if (!selectedStudent || !academyId || savingPayment) return;
@@ -793,7 +789,7 @@ export default function MensalidadesPanel({
           duration: 10000,
         });
       }
-    } catch (e) {
+    } catch {
       setPayments(previousPayments);
       setSelectedStudent(student);
       setPayForm(payFormSnapshot);

@@ -5,7 +5,6 @@ import { Download, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { fetchInventoryMovements, fetchStockMovesConciliation } from '../../lib/inventoryMovementsApi.js';
 import { createSessionJwt } from '../../lib/appwrite';
-import { useLeadStore } from '../../store/useLeadStore';
 import { fetchTeamMemberships } from '../../lib/teamApi.js';
 import { downloadCsv } from '../../lib/reportsExport.js';
 import { formatSaleIdShort } from '../../lib/salesHistory';
@@ -145,7 +144,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
     };
   }, [academyId]);
 
-  const openSaleDetail = async (saleId) => {
+  const openSaleDetail = useCallback(async (saleId) => {
     if (!saleId) return;
     setSaleDetailLoading(true);
     setSaleDetail(null);
@@ -157,7 +156,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
     } finally {
       setSaleDetailLoading(false);
     }
-  };
+  }, [fetchSaleDetail]);
 
   const loadPage = useCallback(
     async ({ append = false, cursor = null } = {}) => {
@@ -368,7 +367,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
   const renderMoveBody = useCallback(
     ({ rows: bodyRows, columns }) => {
       if (!shouldVirtualizeMoves) {
-        return bodyRows.map((r, index) => (
+        return bodyRows.map((r) => (
           <tr key={r.move_id}>
             {columns.map((col) => (
               <td key={col.key}>{typeof col.render === 'function' ? col.render(r) : r[col.key] ?? '—'}</td>

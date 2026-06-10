@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import InboxThreadBlock from './InboxThreadBlock.jsx';
 import {
@@ -10,7 +10,10 @@ import { INBOX_THREAD_VIRTUALIZE_THRESHOLD } from '../../lib/inboxUiConstants.js
 
 const InboxThreadMessages = forwardRef(function InboxThreadMessages(props, ref) {
   const { threadBlocks, expandedMsgs, scrollElementRef, ...blockCtx } = props;
-  const blocks = Array.isArray(threadBlocks) ? threadBlocks : [];
+  const blocks = useMemo(
+    () => (Array.isArray(threadBlocks) ? threadBlocks : []),
+    [threadBlocks]
+  );
   const shouldVirtualize = blocks.length > INBOX_THREAD_VIRTUALIZE_THRESHOLD;
 
   const virtualizer = useVirtualizer({
@@ -24,7 +27,7 @@ const InboxThreadMessages = forwardRef(function InboxThreadMessages(props, ref) 
   useEffect(() => {
     if (!shouldVirtualize) return;
     virtualizer.measure();
-  }, [expandedMsgs, blocks.length, shouldVirtualize]);
+  }, [expandedMsgs, blocks.length, shouldVirtualize, virtualizer]);
 
   useImperativeHandle(
     ref,

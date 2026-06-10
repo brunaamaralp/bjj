@@ -28,13 +28,6 @@ import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import { Users } from 'lucide-react';
 
-function truncateNote(note, max = 40) {
-  const s = String(note || '').trim();
-  if (!s) return '';
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
-}
-
 const GRID_COLUMNS_STORAGE_PREFIX = 'navi-mensal-grid-cols';
 
 const OPTIONAL_GRID_COLUMNS = [
@@ -84,7 +77,6 @@ function studentTurma(student) {
 export default function MonthlyPaymentGrid({
   students,
   paymentMap,
-  payments,
   setPayments,
   currentMonth,
   financeConfig,
@@ -265,7 +257,7 @@ export default function MonthlyPaymentGrid({
     }
   }, [setPayments, currentMonth]);
 
-  const handlePopoverSave = async ({ gridStatus, dbStatus, paid_amount, expected_amount, paid_at, note }) => {
+  const handlePopoverSave = async ({ dbStatus, paid_amount, expected_amount, paid_at, note }) => {
     if (!popover) return;
     const { student, payment } = popover.row;
     setSavingId(student.id);

@@ -56,7 +56,7 @@ export const OUTCOMES_WITH_SNOOZE = new Set([
  * @param {boolean} [opts.snooze]
  * @param {number} [opts.snoozeDays]
  */
-export function buildOutcomeLeadPatch(outcome, opts = {}) {
+export function buildOutcomeLeadPatch(outcome) {
   const key = String(outcome || '').trim();
   if (key === FOLLOWUP_OUTCOMES.LOST) {
     return {

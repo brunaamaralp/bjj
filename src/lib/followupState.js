@@ -42,17 +42,6 @@ export function getFollowupKind(lead) {
   return null;
 }
 
-function parsePayloadJson(doc) {
-  const raw = doc?.payload_json ?? doc?.payloadJson;
-  if (!raw) return {};
-  if (typeof raw === 'object') return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
 function eventMatchesCycle(atIso, payload, scheduledDate, classMs) {
   const atMs = new Date(atIso).getTime();
   if (!Number.isFinite(atMs) || atMs < classMs) return false;

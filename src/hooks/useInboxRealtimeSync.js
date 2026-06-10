@@ -41,6 +41,7 @@ export function useInboxRealtimeSync({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!String(academyId || '').trim()) return;
 
     const inboxDebugEnabled = isInboxDebugEnabled();
     const devLog = inboxDebugEnabled
@@ -62,6 +63,7 @@ export function useInboxRealtimeSync({
       devLog('DB_ID:', DB_ID);
       devLog('CONVERSATIONS_COL:', CONVERSATIONS_COL);
       devLog('academyId (ref):', academyIdRef.current || '(vazio)');
+      devLog('academyId (prop):', academyId || '(vazio)');
       devLog('canal:', channel);
       console.groupEnd();
     }
@@ -130,6 +132,7 @@ export function useInboxRealtimeSync({
         });
     }, REALTIME_SUBSCRIBE_DELAY_MS);
 
+    const timersRef = realtimeTimersRef;
     return () => {
       cancelledRef.current = true;
       if (subscribeTimer) clearTimeout(subscribeTimer);
@@ -137,8 +140,9 @@ export function useInboxRealtimeSync({
         devLog('[Inbox Realtime] cleanup');
       }
       try {
-        if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
-        if (realtimeTimersRef.current?.thread) clearTimeout(realtimeTimersRef.current.thread);
+        const timers = timersRef.current;
+        if (timers?.list) clearTimeout(timers.list);
+        if (timers?.thread) clearTimeout(timers.thread);
       } catch {
         void 0;
       }
@@ -149,6 +153,8 @@ export function useInboxRealtimeSync({
       }
       if (mountedRef.current) setRealtimeOn(false);
     };
+    // Refs são lidos em tempo de evento; reconecta só quando academyId muda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- realtime subscription scoped to academyId
   }, [academyId]);
 
   useEffect(() => {
@@ -181,7 +187,7 @@ export function useInboxRealtimeSync({
       document.removeEventListener('visibilitychange', onVis);
       if (timer) window.clearTimeout(timer);
     };
-  }, [realtimeOn, academyIdRef]);
+  }, [realtimeOn, academyIdRef, loadListRef]);
 
   return { realtimeOn };
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, HelpCircle } from 'lucide-react';
+import { Activity, ArrowRight, HelpCircle } from 'lucide-react';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import FollowupTemperatureBadge from '../followup/FollowupTemperatureBadge.jsx';
 
@@ -102,9 +102,16 @@ export default function FollowupHealthPanel({
         </>
       ) : null}
       {!showLeadList && hasTemperatureActivity ? (
-        <p className="followup-health-panel__footnote text-small">
-          Detalhes e ações na lista de retornos ao lado.
-        </p>
+        <div className="followup-health-panel__funnel">
+          <button
+            type="button"
+            className="followup-health-panel__funnel-link"
+            onClick={() => navigate('/pipeline?followup=kanban')}
+          >
+            Ver no funil
+            <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
+          </button>
+        </div>
       ) : null}
     </section>
   );

@@ -6,7 +6,6 @@ import InboxMediaTempLinkBadge from './InboxMediaTempLinkBadge.jsx';
 import {
   buildWhatsAppChatUrl,
   inboxMessageMediaStored,
-  inboxMessageMediaUrl,
 } from '../../lib/inboxMediaUtils.js';
 import {
   INBOX_MSG_TRUNCATE_CHARS,

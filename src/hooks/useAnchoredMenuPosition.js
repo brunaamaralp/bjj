@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 const VIEWPORT_PAD = 8;
 const FLIP_BELOW_THRESHOLD = 220;
@@ -25,20 +25,26 @@ function collectScrollContainers(el) {
 export function computeAnchoredMenuStyle(
   rect,
   { viewportW, viewportH },
-  { align = 'end', gap = 8, maxHeight = 520, zIndex = 'var(--menu-z-elevated, 9000)' } = {},
+  {
+    align = 'end',
+    gap = 8,
+    maxHeight = 520,
+    minWidth = 280,
+    zIndex = 'var(--menu-z-elevated, 9000)',
+  } = {},
 ) {
   const panelMaxH = Math.min(maxHeight, Math.floor(viewportH * 0.72));
   const spaceBelow = viewportH - rect.bottom - gap;
   const spaceAbove = rect.top - gap;
   const preferAbove = spaceBelow < FLIP_BELOW_THRESHOLD && spaceAbove > spaceBelow;
 
-  const minWidth = 280;
+  const panelMinWidth = Math.max(120, Number(minWidth) || 280);
   const next = {
     position: 'fixed',
     overflowY: 'auto',
     overflowX: 'hidden',
     zIndex,
-    minWidth,
+    minWidth: panelMinWidth,
   };
 
   if (preferAbove && spaceAbove >= MIN_PANEL_HEIGHT) {
@@ -56,7 +62,7 @@ export function computeAnchoredMenuStyle(
     next.left = 'auto';
     next.maxWidth = Math.min(360, viewportW - VIEWPORT_PAD * 2);
   } else {
-    next.left = Math.max(VIEWPORT_PAD, Math.min(rect.left, viewportW - minWidth - VIEWPORT_PAD));
+    next.left = Math.max(VIEWPORT_PAD, Math.min(rect.left, viewportW - panelMinWidth - VIEWPORT_PAD));
     next.right = 'auto';
     next.maxWidth = Math.min(360, viewportW - next.left - VIEWPORT_PAD);
   }
@@ -70,24 +76,33 @@ export function computeAnchoredMenuStyle(
 export function useAnchoredMenuPosition(
   triggerRef,
   open,
-  { align = 'end', gap = 8, maxHeight = 520, zIndex = 'var(--menu-z-elevated, 9000)' } = {},
+  { align = 'end', gap = 8, maxHeight = 520, minWidth = 280, zIndex = 'var(--menu-z-elevated, 9000)' } = {},
 ) {
-  const [positionTick, setPositionTick] = useState(0);
-
-  const style = useMemo(() => {
-    if (!open || !triggerRef?.current) return null;
-    const rect = triggerRef.current.getBoundingClientRect();
-    return computeAnchoredMenuStyle(
-      rect,
-      { viewportW: window.innerWidth, viewportH: window.innerHeight },
-      { align, gap, maxHeight, zIndex },
-    );
-  }, [open, align, gap, maxHeight, zIndex, positionTick, triggerRef]);
+  const [style, setStyle] = useState(null);
 
   useLayoutEffect(() => {
-    if (!open || !triggerRef?.current) return undefined;
+    if (!open || !triggerRef?.current) {
+      setStyle(null);
+      return undefined;
+    }
 
-    const update = () => setPositionTick((tick) => tick + 1);
+    const update = () => {
+      const el = triggerRef?.current;
+      if (!el) {
+        setStyle(null);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      setStyle(
+        computeAnchoredMenuStyle(
+          rect,
+          { viewportW: window.innerWidth, viewportH: window.innerHeight },
+          { align, gap, maxHeight, minWidth, zIndex },
+        ),
+      );
+    };
+
+    update();
     const scrollTargets = collectScrollContainers(triggerRef.current);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
@@ -101,7 +116,7 @@ export function useAnchoredMenuPosition(
         node.removeEventListener('scroll', update);
       }
     };
-  }, [open, align, gap, maxHeight, zIndex, triggerRef]);
+  }, [open, align, gap, maxHeight, minWidth, zIndex, triggerRef]);
 
   return style;
 }

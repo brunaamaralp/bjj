@@ -1,27 +1,23 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-function throttle(fn, waitMs) {
-  let lastRun = 0;
-  let timer = null;
-  return (...args) => {
-    const now = Date.now();
-    const remaining = waitMs - (now - lastRun);
-    if (remaining <= 0) {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      lastRun = now;
-      fn(...args);
-      return;
+function runThrottled(ref, waitMs, fn) {
+  const now = Date.now();
+  const elapsed = now - ref.current.lastRun;
+  if (elapsed >= waitMs) {
+    if (ref.current.timer) {
+      clearTimeout(ref.current.timer);
+      ref.current.timer = null;
     }
-    if (timer) return;
-    timer = setTimeout(() => {
-      timer = null;
-      lastRun = Date.now();
-      fn(...args);
-    }, remaining);
-  };
+    ref.current.lastRun = now;
+    fn();
+    return;
+  }
+  if (ref.current.timer) return;
+  ref.current.timer = setTimeout(() => {
+    ref.current.timer = null;
+    ref.current.lastRun = Date.now();
+    fn();
+  }, waitMs - elapsed);
 }
 
 /**
@@ -34,18 +30,24 @@ export function useStudentsListScrollLoadMore({
   onLoadMore,
 }) {
   const loadMoreRef = useRef(onLoadMore);
-  loadMoreRef.current = onLoadMore;
 
+  useEffect(() => {
+    loadMoreRef.current = onLoadMore;
+  }, [onLoadMore]);
+
+  const throttleRef = useRef({ lastRun: 0, timer: null });
   const onListScroll = useCallback(
-    throttle((e) => {
-      if (!studentsHasMore || loadingMore || studentsLoading) return;
-      const el = e?.currentTarget;
-      if (!el) return;
-      const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (remaining < 240) {
-        void loadMoreRef.current?.();
-      }
-    }, 120),
+    (e) => {
+      runThrottled(throttleRef, 120, () => {
+        if (!studentsHasMore || loadingMore || studentsLoading) return;
+        const el = e?.currentTarget;
+        if (!el) return;
+        const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+        if (remaining < 240) {
+          void loadMoreRef.current?.();
+        }
+      });
+    },
     [studentsHasMore, loadingMore, studentsLoading]
   );
 

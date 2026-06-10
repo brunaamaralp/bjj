@@ -1,4 +1,4 @@
-import { channelLabel, paymentLabel } from './salesSettings.js';
+import { channelLabel } from './salesSettings.js';
 import { formatSalePaymentHistoryLabel } from './salePayments.js';
 import { formatBRL } from './moneyBr.js';
 import { productDisplayLabel } from './stockProducts.js';

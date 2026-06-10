@@ -71,7 +71,9 @@ export default function Recepcao() {
 
       <div style={{ flex: 1, padding: '16px 24px 24px', maxWidth: 720, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         <div className="mensal-page-tabs" role="tablist" aria-label="Recepção" style={{ marginBottom: 20 }}>
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {TABS.map(({ id, label, icon }) => {
+            const TabIcon = icon;
+            return (
             <button
               key={id}
               type="button"
@@ -80,10 +82,11 @@ export default function Recepcao() {
               className={`mensal-page-tab${tab === id ? ' mensal-page-tab--active' : ''}`}
               onClick={() => setTab(id)}
             >
-              <Icon size={14} aria-hidden />
+              <TabIcon size={14} aria-hidden />
               {label}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {tab === 'ao-vivo' ? (

@@ -87,13 +87,15 @@ export default function ReportsTab({
   const dreData = useMemo(() => dre(from, to), [from, to, dre]);
   const dfcData = useMemo(() => (method === 'indireto' ? dfcIndireto(from, to) : dfcDireto(from, to)), [method, from, to, dfcIndireto, dfcDireto]);
   const dreRows = useMemo(() => buildDreDisplayRows(dreData), [dreData]);
-  const variacaoCaixa = (dfcData.operacional || 0) + (dfcData.investimento || 0) + (dfcData.financiamento || 0);
-  const dfcRows = [
-    ['Operacional', dfcData.operacional || 0],
-    ['Investimento', dfcData.investimento || 0],
-    ['Financiamento', dfcData.financiamento || 0],
-    ['Variação de Caixa', variacaoCaixa],
-  ];
+  const dfcRows = useMemo(() => {
+    const variacaoCaixa = (dfcData.operacional || 0) + (dfcData.investimento || 0) + (dfcData.financiamento || 0);
+    return [
+      ['Operacional', dfcData.operacional || 0],
+      ['Investimento', dfcData.investimento || 0],
+      ['Financiamento', dfcData.financiamento || 0],
+      ['Variação de Caixa', variacaoCaixa],
+    ];
+  }, [dfcData]);
 
   const hasMovement =
     dreRows.some((r) => Number(r.value) !== 0) ||

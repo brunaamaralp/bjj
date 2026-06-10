@@ -3,7 +3,7 @@ import '../styles/inbox.css';
 import '../styles/followup-shared.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { account, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
+import { teams, CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
@@ -21,7 +21,6 @@ import { primaryInboxPhone } from '../lib/normalizeInboxPhone.js';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
-import { friendlyError } from '../lib/errorMessages';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
 import { Bell, BellOff, MoreHorizontal, RefreshCw, X } from 'lucide-react';
@@ -42,7 +41,7 @@ const InboxContextPanelContent = lazy(() =>
   import('../components/inbox/InboxContextPanel').then((m) => ({ default: m.InboxContextPanelContent }))
 );
 const InboxImageLightbox = lazyWithRetry(() => import('../components/inbox/InboxImageLightbox.jsx'));
-import { uploadInboxMedia, InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
+import { InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
@@ -62,11 +61,7 @@ import { useInboxThreadLoader } from '../hooks/useInboxThreadLoader.js';
 import { useInboxConversationActions } from '../hooks/useInboxConversationActions.js';
 import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
-import {
-  getInboxJwt as getJwt,
-  normalizeInboxApiError as normalizeApiError,
-  safeParseInboxJson as safeParseJson,
-} from '../lib/inboxApiUtils.js';
+import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
   normalizeInboxPhone as normalizePhone,
   formatInboxPhone as formatPhone,
@@ -227,7 +222,7 @@ export default function Inbox() {
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
   const fetchWaInfoDeferredRef = useRef(null);
-  const { waInfo, waStatus, waSyncing, waStatusChecked, reconcileWhatsAppHistory, fetchWaInfoDeferred } =
+  const { waStatus, waSyncing, waStatusChecked, reconcileWhatsAppHistory, fetchWaInfoDeferred } =
     useZapsterWhatsAppConnection(academyId, {
       statusPollWhileMounted: true,
       watchAcademyStatus: true,
@@ -470,6 +465,8 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
+  // Sincroniza no render para efeitos/hooks na mesma passagem verem o academyId atual.
+  academyIdRef.current = String(academyId || '').trim();
   const handleSelectConversationRef = useRef(() => {});
   const markSeenRef = useRef(null);
   const messageFlagsMigrationDoneRef = useRef(false);
@@ -595,7 +592,7 @@ export default function Inbox() {
       const convId = String(row?.id || firstConversationId || '').trim();
       void loadThreadRef.current?.(targetPhone, { conversationId: convId, prefetch: true });
     };
-  }, []);
+  }, [loadThreadRef]);
 
   const {
     markSeen,
@@ -730,7 +727,6 @@ export default function Inbox() {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
 
-  const pinConversation = useChatWidgetStore((s) => s.pinConversation);
   const switchConversation = useChatWidgetStore((s) => s.switchConversation);
   const isWidgetPinned = useChatWidgetStore((s) => s.isPinned);
   const widgetActivePhone = useChatWidgetStore((s) => s.activePhone);
@@ -748,14 +744,7 @@ export default function Inbox() {
       phone,
     });
     switchConversation({ phone, leadId, leadName: name });
-  }, [
-    selectedPhone,
-    selected,
-    isWidgetPinned,
-    widgetActivePhone,
-    switchConversation,
-    pickDisplayName,
-  ]);
+  }, [selectedPhone, selected, isWidgetPinned, widgetActivePhone, switchConversation]);
 
   useEffect(() => {
     const widgetPhone = primaryInboxPhone(widgetActivePhone);
@@ -763,21 +752,6 @@ export default function Inbox() {
     if (!widgetPhone || widgetPhone === cur) return;
     setSelectedPhone(widgetPhone);
   }, [widgetActivePhone, selectedPhone]);
-
-  const handlePinToWidget = useCallback(() => {
-    const phone = normalizePhone(selectedPhone);
-    if (!phone) return;
-    const leadId = String(selected?.lead_id || '').trim();
-    const name = pickDisplayName({
-      leadName: String(selected?.lead_name || '').trim(),
-      manualContactName: selected?.contact_name,
-      whatsappProfileName: selected?.whatsapp_profile_name,
-      phone,
-    });
-    pinConversation({ phone, leadId, leadName: name, academyId, openPanel: false });
-    if (typeof window !== 'undefined' && window.history.length > 1) navigate(-1);
-    else navigate('/');
-  }, [selectedPhone, selected, academyId, pinConversation, navigate, pickDisplayName]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
@@ -874,18 +848,15 @@ export default function Inbox() {
   }, [composerExpanded]);
 
   useEffect(() => {
+    const threadAbort = threadAbortRef;
     return () => {
       try {
-        if (threadAbortRef.current) threadAbortRef.current.abort();
+        if (threadAbort.current) threadAbort.current.abort();
       } catch {
         void 0;
       }
     };
   }, []);
-
-  useEffect(() => {
-    academyIdRef.current = String(academyId || '').trim();
-  }, [academyId]);
 
   useEffect(() => {
     const id = String(academyId || '').trim();
@@ -1543,7 +1514,7 @@ export default function Inbox() {
     prevListFilterForReloadRef.current = listFilter;
     const fn = loadListRef.current;
     if (typeof fn === 'function') void fn({ reset: true, silent: true });
-  }, [listFilter, academyId]);
+  }, [listFilter, academyId, loadListRef]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();
@@ -1629,7 +1600,7 @@ export default function Inbox() {
     if (String(selectedPhoneRef.current || '').trim() === phone) return;
     const convId = String(it?.id || '').trim();
     void loadThreadRef.current?.(phone, { prefetch: true, conversationId: convId });
-  }, []);
+  }, [loadThreadRef]);
 
   handleSelectConversationRef.current = handleSelectConversation;
 

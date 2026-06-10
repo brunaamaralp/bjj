@@ -492,7 +492,6 @@ export async function cancelBundleCoverageFromMonth({
   from_reference_month,
   payments = [],
   registered_by,
-  registered_by_name,
   refundAmount = 0,
   method = 'pix',
   note = '',
@@ -561,7 +560,7 @@ export async function getStudentPayments(leadId, academyId, limit = 120) {
 /**
  * Lista pagamentos do mês para a grade de Mensalidades (exclui taxa/outro).
  */
-export async function getMonthlyPayments(academyId, referenceMonth, opts = {}) {
+export async function getMonthlyPayments(academyId, referenceMonth) {
   const ym = String(referenceMonth || '').trim();
   if (!academyId || !ym) return [];
 

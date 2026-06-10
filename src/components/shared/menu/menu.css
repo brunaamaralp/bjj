@@ -15,6 +15,9 @@
 
 .navi-menu__panel--fixed {
   position: fixed;
+  top: auto;
+  right: auto;
+  bottom: auto;
 }
 
 .navi-menu__backdrop {

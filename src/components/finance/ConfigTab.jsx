@@ -231,16 +231,15 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
   const isStacked = layout === 'stacked';
   const addToast = useUiStore((s) => s.addToast);
   const { data: contractTemplatesData, isSuccess: contractTemplatesReady } = useContractTemplates(true);
-  const contractTemplates = contractTemplatesData?.templates || [];
+  const contractTemplates = useMemo(
+    () => contractTemplatesData?.templates || [],
+    [contractTemplatesData?.templates]
+  );
   const contractTemplatesConfigured =
     contractTemplatesReady && contractTemplatesData?.configured !== false;
   const ensureContractSetup = useEnsureAcademyContractSetup();
   const { mutateAsync: mutateEnsureContractSetup } = ensureContractSetup;
   const ensureSetupEffectStartedRef = useRef(false);
-  const enrollmentTemplates = useMemo(
-    () => templatesForPurpose(contractTemplates, 'enrollment'),
-    [contractTemplates]
-  );
   const rescissionTemplates = useMemo(
     () => templatesForPurpose(contractTemplates, 'rescission'),
     [contractTemplates]

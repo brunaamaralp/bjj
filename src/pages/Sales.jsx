@@ -23,9 +23,7 @@ const Sales = () => {
   const navigate = useNavigate();
   const academyId = useLeadStore((s) => s.academyId);
   const configRef = useRef(null);
-  const appliedNavStateRef = useRef(false);
   const appliedPdvPrefRef = useRef(false);
-  const historyPeriodFromNavRef = useRef(null);
   const navStateConsumedRef = useRef(false);
   const tabs = useMemo(
     () => [
@@ -39,20 +37,25 @@ const Sales = () => {
   const wantsConfig = String(searchParams.get('config') || '').trim() === '1';
   const [salesConfigUserOpen, setSalesConfigUserOpen] = useState(false);
   const salesConfigOpen = salesConfigUserOpen || wantsConfig;
+  const [historyPeriodFromNav, setHistoryPeriodFromNav] = useState(null);
 
-  if (!navStateConsumedRef.current) {
+  useEffect(() => {
+    if (navStateConsumedRef.current) return;
     const st = location.state;
     if (st?.dateFrom && st?.dateTo) {
       navStateConsumedRef.current = true;
-      historyPeriodFromNavRef.current = { from: st.dateFrom, to: st.dateTo };
+      setHistoryPeriodFromNav({
+        from: st.dateFrom,
+        to: st.dateTo,
+        subtab: st.subtab,
+      });
     }
-  }
-  const historyPeriodFromNav = historyPeriodFromNavRef.current;
+  }, [location.state]);
 
   useEffect(() => {
     if (!historyPeriodFromNav) return undefined;
-    const st = location.state;
-    const subtabId = st?.subtab === 'historico' ? 'history' : resolveSalesSubtab(searchParams);
+    const subtabId =
+      historyPeriodFromNav.subtab === 'historico' ? 'history' : resolveSalesSubtab(searchParams);
     if (subtabId !== resolveSalesSubtab(searchParams)) {
       setSearchParams(lojaVendasTabParams(subtabId, searchParams), { replace: true });
     }

@@ -89,7 +89,7 @@ function TimelineBadge({ badge }) {
 }
 
 function TimelineRow({
-  icon: Icon,
+  icon,
   iconColor,
   item,
   expanded,
@@ -129,7 +129,12 @@ function TimelineRow({
           fontFamily: 'inherit',
         }}
       >
-        <Icon size={20} color={iconColor} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
+        {React.createElement(icon, {
+          size: 20,
+          color: iconColor,
+          style: { flexShrink: 0, marginTop: 2 },
+          'aria-hidden': true,
+        })}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{item.title}</div>

@@ -1,4 +1,4 @@
-import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
+import { addLeadEvent } from './leadEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 import { STUDENT_STATUS } from './studentStatus.js';
 import { todayYmdLocal } from './studentOffboarding.js';
@@ -18,8 +18,6 @@ export async function deactivateStudent({
   student,
   leadId,
   academyId,
-  userId,
-  permCtx,
   exitReason,
   exitDate,
   exitNotes = '',
@@ -100,7 +98,6 @@ export async function reactivateStudent({
   permCtx,
   updateStudent,
   mergeStudent,
-  refreshPaymentStatus,
 }) {
   const patchFn = mergeStudent || updateStudent;
   if (!patchFn) throw new Error('updateStudent_required');

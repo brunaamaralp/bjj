@@ -125,7 +125,7 @@ function permissionContextFromStore() {
   return permissionContextFromAcademy();
 }
 
-function updatesToStudentPatch(updates, current) {
+function updatesToStudentPatch(updates) {
   const patch = {};
   const u = updates;
 
@@ -454,7 +454,6 @@ export const useStudentStore = create((set, get) => ({
     const teamId = String(acadDoc.teamId || storeTeamId || '').trim();
     const userId = String(storeUserId || '').trim();
     const perms = buildClientDocumentPermissions({ teamId, userId });
-    const permCtx = permissionContextFromStore();
 
     const payload = buildStudentPayloadFromDoc({ ...student, academyId });
     const doc = await databases.createDocument(DB_ID, STUDENTS_COL, ID.unique(), payload, perms);
@@ -472,7 +471,7 @@ export const useStudentStore = create((set, get) => ({
     for (const [k, v] of Object.entries(updates)) {
       if (!CLIENT_ONLY_KEYS.has(k)) filtered[k] = v;
     }
-    const patch = updatesToStudentPatch(filtered, current);
+    const patch = updatesToStudentPatch(filtered);
     if (Object.keys(patch).length > 0) {
       try {
         await databases.updateDocument(DB_ID, STUDENTS_COL, id, patch);

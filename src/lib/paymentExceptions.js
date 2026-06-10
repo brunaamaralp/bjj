@@ -209,7 +209,7 @@ export function exceptionDiffClass(row) {
 
 export function formatExceptionDueLabel(student, row, currentMonth) {
   const day = studentDueDay(student);
-  const due = row?.dueDate || (currentMonth && day ? dueDateInMonth(currentMonth, day) : null);
+  const _due = row?.dueDate || (currentMonth && day ? dueDateInMonth(currentMonth, day) : null);
   if (!day && !row?.dueDate) return '—';
   const base = day ? `dia ${day}` : '';
   if (row?.daysOverdue > 0) {

@@ -21,9 +21,7 @@ export default function CollectionInadimplenciaPanel({
   students,
   studentOverdueMeta,
   paymentMap,
-  collectionRules,
   currentMonth,
-  financeConfig,
 }) {
   const createTask = useTaskStore((s) => s.createTask);
   const addToast = useUiStore((s) => s.addToast);

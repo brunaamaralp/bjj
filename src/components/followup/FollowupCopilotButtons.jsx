@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { fetchFollowupCopilot, openWhatsappDraft } from '../../lib/followupCopilotApi.js';
 import { useToast } from '../../hooks/useToast';
@@ -30,6 +31,7 @@ export default function FollowupCopilotButtons({
     align: 'start',
     gap: 6,
     maxHeight: 200,
+    minWidth: 168,
     zIndex: 'var(--menu-z-elevated, 9000)',
   });
 
@@ -104,6 +106,7 @@ export default function FollowupCopilotButtons({
           onOpenChange={setMenuOpen}
           className="followup-copilot-menu"
           align="start"
+          dismissExtraSelector="[data-followup-copilot-menu]"
         >
           <button
             ref={menuTriggerRef}
@@ -122,36 +125,40 @@ export default function FollowupCopilotButtons({
               <Sparkles size={14} className="fu-ia-btn__icon" aria-hidden />
             )}
           </button>
-          {menuOpen ? (
-            <DropdownMenuPanel
-              fixed
-              elevated
-              aria-label="Ações de IA"
-              className="followup-copilot-menu__panel"
-              style={menuPanelStyle || undefined}
-            >
-              <DropdownMenuItem
-                icon={<Sparkles size={14} aria-hidden />}
-                disabled={loadingSummary || loadingDraft}
-                onClick={() => {
-                  setMenuOpen(false);
-                  void loadSummary();
-                }}
-              >
-                Resumo IA
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                icon={<Sparkles size={14} aria-hidden />}
-                disabled={loadingSummary || loadingDraft}
-                onClick={() => {
-                  setMenuOpen(false);
-                  void loadDraft();
-                }}
-              >
-                Rascunho IA
-              </DropdownMenuItem>
-            </DropdownMenuPanel>
-          ) : null}
+          {menuOpen && menuPanelStyle
+            ? createPortal(
+                <DropdownMenuPanel
+                  fixed
+                  elevated
+                  aria-label="Ações de IA"
+                  className="followup-copilot-menu__panel"
+                  style={menuPanelStyle}
+                  data-followup-copilot-menu
+                >
+                  <DropdownMenuItem
+                    icon={<Sparkles size={14} aria-hidden />}
+                    disabled={loadingSummary || loadingDraft}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void loadSummary();
+                    }}
+                  >
+                    Resumo IA
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    icon={<Sparkles size={14} aria-hidden />}
+                    disabled={loadingSummary || loadingDraft}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void loadDraft();
+                    }}
+                  >
+                    Rascunho IA
+                  </DropdownMenuItem>
+                </DropdownMenuPanel>,
+                document.body
+              )
+            : null}
         </DropdownMenu>
       ) : (
         <div className="followup-copilot__actions">

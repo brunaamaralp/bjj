@@ -748,11 +748,15 @@
           grid-column: 1;
           grid-row: 1 / span 2;
           align-self: start;
+          justify-self: start;
+          width: fit-content;
+          max-width: 100%;
           min-width: 0;
           margin-top: 0;
         }
         .fu-row__actions-bar .followup-copilot-menu {
           flex: 0 0 auto;
+          width: fit-content;
           min-width: 0;
         }
         .fu-row__actions-bar .followup-copilot__actions {
@@ -1021,9 +1025,29 @@
           color: var(--color-text-secondary);
           font-weight: 600;
         }
-        .followup-health-panel__footnote {
-          margin: 10px 0 0;
-          color: var(--color-text-secondary);
+        .followup-health-panel__funnel {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid var(--color-border);
+        }
+        .followup-health-panel__funnel-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: none;
+          border: none;
+          padding: 0;
+          font: inherit;
+          font-size: var(--font-sm);
+          font-weight: 700;
+          color: var(--color-primary-dark);
+          cursor: pointer;
+          text-decoration: none;
+        }
+        .followup-health-panel__funnel-link:hover {
+          color: var(--color-primary);
+          text-decoration: underline;
+          text-underline-offset: 2px;
         }
         .followup-health-panel__list {
           list-style: none;

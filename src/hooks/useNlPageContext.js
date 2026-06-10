@@ -16,12 +16,5 @@ export function useNlPageContext(overrides) {
   useEffect(() => {
     if (overrides) setPageOverrides(overrides);
     return () => clearPageOverrides();
-  }, [
-    overrides?.context,
-    overrides?.pipelineStages,
-    overrides?.pendingTransactions,
-    overrides?.recentPayments,
-    setPageOverrides,
-    clearPageOverrides,
-  ]);
+  }, [overrides, setPageOverrides, clearPageOverrides]);
 }

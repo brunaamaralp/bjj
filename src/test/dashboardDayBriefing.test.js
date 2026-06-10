@@ -111,6 +111,28 @@ describe('getDayPriority', () => {
     );
   });
 
+  it('não prioriza lead que já respondeu no WhatsApp como sem retorno', () => {
+    const priority = getDayPriority({
+      now,
+      todayScheduled: [],
+      followUps: [
+        {
+          id: 'f2',
+          name: 'Sabrina Brum',
+          daysAgo: 1,
+          temperature: 'cooling',
+          hasContactInCycle: true,
+          doneForCurrentClass: false,
+          status: LEAD_STATUS.COMPLETED,
+        },
+      ],
+      todayBirthdays: [],
+    });
+    expect(priority.message).toBe(
+      'Sabrina Brum já respondeu no WhatsApp. Acompanhe o próximo passo no retorno.'
+    );
+  });
+
   it('mensagem de cooling descreve visita e falta de retorno', () => {
     const priority = getDayPriority({
       now,

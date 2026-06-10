@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   buildCoverageMonthSpecs,
   resolveBundleMonthAction,
-  enumerateCoverageMonths,
   groupStudentPaymentsForProfile,
   listCancellableCoveredMonths,
 } from '../lib/bundleCoverage.js';

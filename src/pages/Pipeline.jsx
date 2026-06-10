@@ -5,7 +5,6 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
-import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal, PlusCircle, StickyNote, GraduationCap, BadgeCheck, MoreHorizontal, Download, Trash2, MessageSquare, UserCheck } from 'lucide-react';
@@ -20,7 +19,6 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
 import { getStageUpdatePayload } from '../lib/leadStageRules.js';
-import { friendlyError } from '../lib/errorMessages.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
 import { enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
@@ -142,7 +140,7 @@ const dropAnimation = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, setDragTargetLead, mapLeadToStageId, openNote, stageColor, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, mapLeadToStageId, openNote, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
@@ -1152,9 +1150,6 @@ const Pipeline = () => {
     const [originFilter, setOriginFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).originFilter);
     const [searchParams, setSearchParams] = useSearchParams();
     const followupKanbanFilter = searchParams.get('followup') === 'kanban';
-    const followupCoolingFilter = searchParams.get('followup') === 'cooling';
-    const slaCriticalFilter = searchParams.get('sla') === 'critical';
-    const triageKanbanFilter = searchParams.get('triage') === 'pending';
     const [kanbanSearch, setKanbanSearch] = useState(() => String(initialSaved?.searchTerm ?? ''));
     const [profileFilter, setProfileFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).profileFilter);
     const [searchStageScope, setSearchStageScope] = useState(() => pipelineSessionInitialFilters(initialSaved).searchStageScope);
@@ -1776,10 +1771,10 @@ const Pipeline = () => {
         e.stopPropagation();
         setMoverOpenId(prev => prev === leadId ? null : leadId);
     }, []);
-    const openLostModal = (leadId, onConfirm) => {
+    const openLostModal = useCallback((leadId, onConfirm) => {
         const lead = getLeadById(leadId);
         setLostModal({ leadId, leadName: lead?.name || contactLabel, onConfirm });
-    };
+    }, [getLeadById, contactLabel]);
     const handleConfirmPresence = useCallback(async (e, lead) => {
         e.stopPropagation();
         try {
@@ -1812,7 +1807,7 @@ const Pipeline = () => {
         } catch (err) {
             toast.error(err, 'action');
         }
-    }, [updateLead, academyId, automationCtxBase, reportAutomations, userId, permCtx, terms.attendance, toast]);
+    }, [updateLead, academyId, automationCtxBase, reportAutomations, userId, permCtx, terms.attendance, toast, getLeadById]);
 
     const handleMissedWithReason = async (lead, reason) => {
         try {
@@ -2019,7 +2014,7 @@ const Pipeline = () => {
 
         list = applyBoardSearchFilter(list);
 
-        if (searchStageScope !== 'all' && !triageKanbanFilter) {
+        if (searchStageScope !== 'all') {
             const scopeId = normalizePipelineStageId(searchStageScope);
             list = list.filter((l) => normalizePipelineStageId(mapLeadToStageId(l)) === scopeId);
         }
@@ -2030,7 +2025,6 @@ const Pipeline = () => {
         profileFilter,
         originFilter,
         searchStageScope,
-        triageKanbanFilter,
         mapLeadToStageId,
         passesBoardDateFilter,
         applyBoardSearchFilter,
@@ -2045,12 +2039,8 @@ const Pipeline = () => {
             );
         }
 
-        if (triageKanbanFilter) {
-            list = list.filter((l) => isLeadPendingTriage(l));
-        }
-
         return list;
-    }, [leadsForBoardCore, followupKanbanFilter, triageKanbanFilter]);
+    }, [leadsForBoardCore, followupKanbanFilter]);
 
     const {
         followupDoneByLead,
@@ -2090,19 +2080,7 @@ const Pipeline = () => {
         inboundAfterByPhone,
     ]);
 
-    const followupCoolingCount = useMemo(
-        () => Object.values(followupTempByLead).filter((t) => t === 'cooling' || t === 'critical').length,
-        [followupTempByLead]
-    );
-
-    const leadsForBoard = useMemo(() => {
-        if (!followupCoolingFilter) return leadsForBoardPreCooling;
-        return leadsForBoardPreCooling.filter((l) => {
-            if (isLeadPendingTriage(l)) return true;
-            const t = followupTempByLead[l.id];
-            return t === 'cooling' || t === 'critical';
-        });
-    }, [leadsForBoardPreCooling, followupCoolingFilter, followupTempByLead]);
+    const leadsForBoard = leadsForBoardPreCooling;
 
     /** Alunos matriculados (coleção students) + legado ainda em leads com status Matriculado. */
     const enrolledForBoard = useMemo(() => {
@@ -2143,24 +2121,11 @@ const Pipeline = () => {
     ]);
     const slaAlerts = useSlaAlerts(leadsForBoard, stages);
 
-    const leadsForBoardDisplay = useMemo(() => {
-        if (!slaCriticalFilter) return leadsForBoard;
-        return leadsForBoard.filter(
-            (l) => isLeadPendingTriage(l) || slaAlerts[l.id]?.urgency === 'critical'
-        );
-    }, [leadsForBoard, slaAlerts, slaCriticalFilter]);
-
-    const triagePendingCount = useMemo(
-        () => leadsForBoard.filter((l) => isLeadPendingTriage(l)).length,
-        [leadsForBoard]
-    );
-
     const pipelineHeaderMeta = useMemo(() => {
         const total = leadsForBoard.length;
         const needHumanCount = leadsForBoard.filter((l) => l.needHuman).length;
-        const slaCriticalCount = Object.values(slaAlerts).filter((a) => a?.urgency === 'critical').length;
-        return { total, needHumanCount, slaCriticalCount, triagePendingCount };
-    }, [leadsForBoard, slaAlerts, triagePendingCount]);
+        return { total, needHumanCount };
+    }, [leadsForBoard]);
 
     useEffect(() => {
         const saved = pendingScrollRestoreRef.current;
@@ -2236,22 +2201,10 @@ const Pipeline = () => {
         <>
             <span className="navi-ui-count">{pipelineHeaderMeta.total}</span>{' '}
             {pluralizeContactLabel(pipelineHeaderMeta.total, labels.leads || 'Leads')}
-            {pipelineHeaderMeta.slaCriticalCount > 0 ? (
-                <>
-                    {' '}
-                    · <span className="navi-ui-count">{pipelineHeaderMeta.slaCriticalCount}</span> SLA crítico
-                </>
-            ) : null}
             {pipelineHeaderMeta.needHumanCount > 0 ? (
                 <>
                     {' '}
                     · <span className="navi-ui-count">{pipelineHeaderMeta.needHumanCount}</span> precisam resposta
-                </>
-            ) : null}
-            {pipelineHeaderMeta.triagePendingCount > 0 ? (
-                <>
-                    {' '}
-                    · <span className="navi-ui-count">{pipelineHeaderMeta.triagePendingCount}</span> triagem WhatsApp
                 </>
             ) : null}
         </>
@@ -2287,69 +2240,12 @@ const Pipeline = () => {
         clearAdvancedFilters();
     }, [clearAdvancedFilters, invalidatePipelineSession]);
 
-    const toggleSlaCriticalFilter = useCallback(() => {
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            if (next.get('sla') === 'critical') next.delete('sla');
-            else next.set('sla', 'critical');
-            return next;
-        }, { replace: true });
-    }, [setSearchParams]);
-
-    const toggleTriageFilter = useCallback(() => {
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            if (next.get('triage') === 'pending') next.delete('triage');
-            else next.set('triage', 'pending');
-            return next;
-        }, { replace: true });
-    }, [setSearchParams]);
-
-    const toggleFollowupCoolingFilter = useCallback(() => {
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            if (next.get('followup') === 'cooling') next.delete('followup');
-            else next.set('followup', 'cooling');
-            return next;
-        }, { replace: true });
-    }, [setSearchParams]);
-
     const renderPeriodFilterChips = () => (
         <>
             <button type="button" className={`filter-chip${quickFilter === 'today' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('today')}>Hoje</button>
             <button type="button" className={`filter-chip${quickFilter === 'week' ? ' is-active' : ''}`} onClick={() => applyPeriodChip('week')}>Esta sem.</button>
             <button type="button" className={`filter-chip${quickFilter === 'month' || isCurrentEnrollmentMonth ? ' is-active' : ''}`} onClick={() => applyPeriodChip('month')}>Este mês</button>
             <button type="button" className={`filter-chip${!quickFilter && !filterDateFrom && !filterDateTo && !enrollmentMonthFilter ? ' is-active' : ''}`} onClick={() => applyPeriodChip('all')}>Todos</button>
-            {pipelineHeaderMeta.slaCriticalCount > 0 ? (
-                <button
-                    type="button"
-                    className={`filter-chip filter-chip--alert${slaCriticalFilter ? ' is-active' : ''}`}
-                    onClick={toggleSlaCriticalFilter}
-                    title="Mostrar apenas leads com SLA crítico"
-                >
-                    SLA crítico ({pipelineHeaderMeta.slaCriticalCount})
-                </button>
-            ) : null}
-            {triagePendingCount > 0 ? (
-                <button
-                    type="button"
-                    className={`filter-chip filter-chip--alert${triageKanbanFilter ? ' is-active' : ''}`}
-                    onClick={toggleTriageFilter}
-                    title="Mostrar apenas contatos aguardando triagem WhatsApp"
-                >
-                    Triagem WhatsApp ({triagePendingCount})
-                </button>
-            ) : null}
-            {followupCoolingCount > 0 ? (
-                <button
-                    type="button"
-                    className={`filter-chip filter-chip--alert${followupCoolingFilter ? ' is-active' : ''}`}
-                    onClick={toggleFollowupCoolingFilter}
-                    title="Mostrar leads com retorno esfriando ou crítico"
-                >
-                    Esfriando ({followupCoolingCount})
-                </button>
-            ) : null}
         </>
     );
 
@@ -2497,12 +2393,12 @@ const Pipeline = () => {
 
     const getColLeadsForStage = useCallback((stageId) => {
         const isEnrolledCol = String(stageId || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
-        const source = isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay;
+        const source = isEnrolledCol ? enrolledForBoard : leadsForBoard;
         return source
             .filter((l) => isEnrolledCol || leadBelongsInPipelineColumn(l, stageId, mapLeadToStageId, displayStageIds))
             .filter((l) => (originFilter === 'all' ? true : boardContactOrigin(l) === originFilter))
             .sort((a, b) => comparePipelineColLeads(a, b, isEnrolledCol));
-    }, [enrolledForBoard, leadsForBoardDisplay, originFilter, mapLeadToStageId, displayStageIds]);
+    }, [enrolledForBoard, leadsForBoard, originFilter, mapLeadToStageId, displayStageIds]);
 
     const handleDragEnd = async (event) => {
         const { active, over } = event;
@@ -2599,7 +2495,7 @@ const Pipeline = () => {
             );
             reportAutomations(autoResult);
             toast.success('Movido no pipeline');
-        } catch (err) {
+        } catch {
             revertLeads(previousLeads);
             toast.show({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
         } finally {
@@ -2709,7 +2605,7 @@ const Pipeline = () => {
             );
             reportAutomations(autoResult);
             toast.success('Movido no pipeline');
-        } catch (err) {
+        } catch {
             revertLeads(previousLeads);
             toast.show({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
             setMoverOpenId(null);
@@ -2737,6 +2633,8 @@ const Pipeline = () => {
         automationCtxBase,
         reportAutomations,
         toast,
+        openLostModal,
+        openMatriculaModal,
     ]);
 
     const openNote = useCallback((e, lead) => {
@@ -3048,7 +2946,7 @@ const Pipeline = () => {
             {isMobile ? (
                 <MobileLeadList
                     stages={displayStages}
-                    leadsForBoard={leadsForBoardDisplay}
+                    leadsForBoard={leadsForBoard}
                     enrolledForBoard={enrolledForBoard}
                     originFilter={originFilter}
                     navigate={navigate}
@@ -3101,7 +2999,7 @@ const Pipeline = () => {
                         }
 
                         const isEnrolledCol = normalizePipelineStageId(col.id) === ENROLLED_PIPELINE_STAGE_ID;
-                        const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay
+                        const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoard
                             .filter((l) => leadBelongsInPipelineColumn(l, col.id, mapLeadToStageId, displayStageIds)))
                             .filter(l => originFilter === 'all' ? true : boardContactOrigin(l) === originFilter)
                             .sort((a, b) => comparePipelineColLeads(a, b, isEnrolledCol));
@@ -3258,7 +3156,7 @@ const Pipeline = () => {
                         toast.show({ type: 'success', message: 'Pagamento registrado.' });
                     }
                 }}
-                onEnroll={async ({ plan, enrollmentDate, answers, mode }) => {
+                onEnroll={async ({ plan, enrollmentDate, answers }) => {
                     if (!dragTargetLead) return;
                     setMatriculaSubmitting(true);
                     try {

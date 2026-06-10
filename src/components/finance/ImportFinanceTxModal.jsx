@@ -245,7 +245,7 @@ export default function ImportFinanceTxModal({ open, onClose, onImported, academ
   const [rowLimitWarning, setRowLimitWarning] = useState('');
   const [columnToField, setColumnToField] = useState({});
   const [columnConfidence, setColumnConfidence] = useState({});
-  const [aiLoading, setAiLoading] = useState(false);
+  const [, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState('');
   const [dedupLoading, setDedupLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);

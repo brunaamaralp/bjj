@@ -46,7 +46,8 @@ export function useInboxConversationList({
   debouncedSearchRef.current = debouncedSearchQuery;
 
   const loadList = useCallback(async ({ reset = false, silent = false, includeStats = false } = {}) => {
-    if (!academyIdRef.current) return;
+    const aid = String(academyIdRef.current || '').trim();
+    if (!aid) return;
     if (reset && loadingListRef.current) return;
     if (reset) {
       setNextCursor(null);
@@ -73,7 +74,7 @@ export function useInboxConversationList({
         qs.set('include_stats', '1');
       }
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
-        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
+        headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid },
       });
       if (blocked) return;
       const raw = await resp.text();

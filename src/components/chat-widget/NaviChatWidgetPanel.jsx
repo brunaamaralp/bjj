@@ -81,13 +81,13 @@ export default function NaviChatWidgetPanel({
   const draft = composerState.key === phoneDigits ? composerState.draft : '';
   const handoffBannerDismissed =
     composerState.key === phoneDigits ? composerState.handoffBannerDismissed : false;
-  const setDraft = (value) => {
+  const setDraft = useCallback((value) => {
     setComposerState((prev) => ({
       key: phoneDigits,
       draft: typeof value === 'function' ? value(prev.key === phoneDigits ? prev.draft : '') : value,
       handoffBannerDismissed: prev.key === phoneDigits ? prev.handoffBannerDismissed : false,
     }));
-  };
+  }, [phoneDigits]);
   const setHandoffBannerDismissed = (value) => {
     setComposerState((prev) => ({
       key: phoneDigits,
@@ -100,10 +100,13 @@ export default function NaviChatWidgetPanel({
   const textareaRef = useRef(null);
   const markedReadRef = useRef(false);
   const markedReadPhoneRef = useRef(phoneDigits);
-  if (markedReadPhoneRef.current !== phoneDigits) {
-    markedReadPhoneRef.current = phoneDigits;
-    markedReadRef.current = false;
-  }
+
+  useEffect(() => {
+    if (markedReadPhoneRef.current !== phoneDigits) {
+      markedReadPhoneRef.current = phoneDigits;
+      markedReadRef.current = false;
+    }
+  }, [phoneDigits]);
 
   useEffect(() => {
     const fromSummary = String(summary?.lead_name || '').trim();
@@ -153,11 +156,11 @@ export default function NaviChatWidgetPanel({
     if (!text) return;
     const ok = await sendMessage(text);
     if (ok) setDraft('');
-  }, [draft, sendMessage]);
+  }, [draft, sendMessage, setDraft]);
 
   const handleDraftChange = useCallback((e) => {
     setDraft(e.target.value);
-  }, []);
+  }, [setDraft]);
 
   const handleSwitch = useCallback(
     (next) => {

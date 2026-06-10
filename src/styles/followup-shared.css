@@ -52,6 +52,13 @@
 .followup-copilot-menu {
   display: inline-flex;
   flex-shrink: 0;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.followup-copilot-menu__panel {
+  width: max-content;
+  min-width: 168px;
 }
 
 .followup-copilot-menu__trigger {

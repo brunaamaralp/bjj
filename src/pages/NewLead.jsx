@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -86,7 +86,7 @@ const NewLead = () => {
 
     // Aviso de duplicata só com telefone completo e igualdade exata (após normalizar).
     // Não usar “últimos 8 dígitos”: gera falso positivo entre DDDs diferentes e com alunos importados com lixo/CPF no campo.
-    const findDuplicate = (phone) => {
+    const findDuplicate = useCallback((phone) => {
         const inputNorm = normalizePhoneDedup(phone);
         if (inputNorm.length < 8) return null;
         return leads.find((l) => {
@@ -94,7 +94,7 @@ const NewLead = () => {
             if (exNorm.length < 8) return false;
             return exNorm === inputNorm;
         });
-    };
+    }, [leads]);
 
     useEffect(() => {
         const d = String(phoneValue || '').replace(/\D/g, '');
@@ -112,7 +112,7 @@ const NewLead = () => {
         return debouncedPhone !== phoneValue;
     }, [phoneValue, debouncedPhone]);
 
-    const duplicate = useMemo(() => findDuplicate(debouncedPhone), [debouncedPhone, leads]);
+    const duplicate = useMemo(() => findDuplicate(debouncedPhone), [debouncedPhone, findDuplicate]);
 
     const onSubmit = async (data) => {
         if (!academyId) {

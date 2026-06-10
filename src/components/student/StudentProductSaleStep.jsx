@@ -204,7 +204,7 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       setFlashProductId(flashId);
       window.setTimeout(() => setFlashProductId(null), 420);
     },
-    [salesSettings.lockPriceEdit, addToast, buildCartLine]
+    [salesSettings.lockPriceEdit, addToast, buildCartLine, cart]
   );
 
   const handleCatalogPick = useCallback(

@@ -74,7 +74,6 @@ export default function ReceivablesTab({
   referenceMonth,
   activeSection,
   defaultSection,
-  navRole,
   onSectionChange,
   onReferenceMonthChange,
 }) {
@@ -125,7 +124,7 @@ export default function ReceivablesTab({
   }, []);
 
   const summary = data?.summary || { total: 0, bySource: {}, count: 0 };
-  const bySource = summary.bySource || {};
+  const bySource = useMemo(() => summary.bySource || {}, [summary.bySource]);
 
   const sectionTabs = useMemo(() => {
     const outrosTotal =

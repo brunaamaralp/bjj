@@ -10,7 +10,8 @@ import React from 'react';
  * @param {React.ReactNode} [props.actions]
  * @param {string} [props.className]
  */
-export default function SectionHeader({ as: Tag = 'h2', title, subtitle, actions, className = '' }) {
+export default function SectionHeader({ as = 'h2', title, subtitle, actions, className = '' }) {
+  const Tag = as;
   const rootClass = ['navi-section-header', className].filter(Boolean).join(' ');
 
   return (

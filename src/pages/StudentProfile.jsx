@@ -43,7 +43,6 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, selectStudentById } from '../store/useStudentStore';
 import '../styles/student-profile.css';
-import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { friendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
@@ -251,15 +250,6 @@ function formatReferenceMonthLong(ym) {
     try {
         const raw = new Date(`${String(ym).slice(0, 7)}-02`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         return capitalizePtBrMonthYear(raw);
-    } catch {
-        return '';
-    }
-}
-
-function formatDdMmYyyyFromIso(iso) {
-    if (!iso) return '';
-    try {
-        return new Date(`${String(iso).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR');
     } catch {
         return '';
     }
@@ -795,11 +785,6 @@ export default function StudentProfile() {
         }
     }, [student, leadId, academyId, academyList, userId, mergeStudent, academySettingsDoc, payments, toast, loadPayments, refreshStudentPaymentStatus]);
 
-    const academyNameDisplay = useMemo(() => {
-        const cur = (academyList || []).find((a) => a.id === academyId);
-        return String(cur?.name || '').trim();
-    }, [academyList, academyId]);
-
     const recentPaymentsForNl = useMemo(() => {
         if (!student) return [];
         const nm = String(student.name || '').trim();
@@ -1015,7 +1000,7 @@ export default function StudentProfile() {
             })
         );
         setEditingData(false);
-    }, [student]);
+    }, [student, academyTurmas]);
 
     const handleSaveData = useCallback(async () => {
         if (!student || savingData) return;
@@ -1438,6 +1423,7 @@ export default function StudentProfile() {
         financeConfig,
         loadPayments,
         closePaymentModal,
+        fetchStudentById,
     ]);
 
     const handleConfirmDeletePayment = useCallback(async () => {
@@ -1612,7 +1598,6 @@ export default function StudentProfile() {
         const raw = field.key === 'turma' ? student.turma || student.className : student[field.key];
         const shown = displayStudentFieldValue(field.key, raw);
         const empty = !shown;
-        const isTurma = field.key === 'turma';
         return (
             <div
                 key={field.key}

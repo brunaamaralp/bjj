@@ -27,9 +27,8 @@ import {
   recurrenceTooltip,
   normalizeRecurrenceDay,
 } from '../../lib/financeRecurrence.js';
-import { useUiStore } from '../../store/useUiStore';
 import { useToast } from '../../hooks/useToast';
-import { friendlyError, financeTxFriendlyError } from '../../lib/errorMessages';
+import { financeTxFriendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';

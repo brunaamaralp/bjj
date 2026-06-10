@@ -122,7 +122,7 @@ function isFinanceiroHubPath(pathname) {
 /**
  * Retorna id do accordion que deve estar aberto para a rota atual (ou null).
  */
-export function getAccordionIdForLocation({ pathname, search }) {
+export function getAccordionIdForLocation({ pathname }) {
   const p = String(pathname || '');
   if (p === '/automacoes' || p === '/agente-ia') return NAV_ACCORDION_IDS.AUTOMACOES;
   if (p === '/equipe' || p === '/integracoes') return null;
@@ -234,7 +234,6 @@ function isFinanceiroManagerNavRole(navRole) {
 export function buildFinanceiroAccordion({
   navRole,
   isOwner = true,
-  financeModule = true,
 } = {}) {
   const role = navRole || (isOwner ? 'owner' : 'member');
   const children = [

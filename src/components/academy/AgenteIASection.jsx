@@ -174,6 +174,8 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         return () => {
             cancelled = true;
         };
+    // zap inteiro é instável; métodos e instance_id já cobrem o fetch de QR.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- QR keyed on instance_id/tick + stable zap methods
     }, [
         shouldLoadWaQr,
         zap.waInfo?.instance_id,

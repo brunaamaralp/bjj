@@ -1,6 +1,5 @@
 import { ID, Query } from 'appwrite';
 import { databases, DB_ID } from './appwrite.js';
-import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
 import { freezeStudentApi, listPlanFreezesApi } from './studentsApi.js';
@@ -20,7 +19,6 @@ import {
   effectiveFreezeDaysUsed,
   planYearStartYmd,
   referenceMonthsInRange,
-  validateFreezeRequest,
   computeDurationDays,
   bundleExtensionMonthsFromDays,
   paymentFreezeEndYmd,
@@ -224,13 +222,11 @@ export async function startPlanFreeze({
   reason = '',
   indefinite = false,
   userId,
-  userName,
   teamId,
   updateLead,
   mergeStudent,
   onAfterFreeze,
   academySettingsRaw = null,
-  financeConfig = null,
 }) {
   const apiRes = await freezeStudentApi({
     student_id: leadId,

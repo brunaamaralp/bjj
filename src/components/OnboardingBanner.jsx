@@ -58,7 +58,10 @@ export default function OnboardingBanner() {
     }
   }, [academyId, reopenNonce]);
 
-  const list = Array.isArray(checklist) ? checklist : [];
+  const list = useMemo(
+    () => (Array.isArray(checklist) ? checklist : []),
+    [checklist]
+  );
   const installPwaRow = list.find((it) => it.id === 'install_pwa');
   const installPwaPending = Boolean(installPwaRow && !installPwaRow.done);
 

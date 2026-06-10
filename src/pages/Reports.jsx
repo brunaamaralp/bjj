@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect, lazy, Suspense } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
@@ -37,6 +37,17 @@ const ReportsEstoquePanel = lazy(() => import('../components/reports/ReportsEsto
 const ReportsMovimentacoesPanel = lazy(() => import('../components/reports/ReportsMovimentacoesPanel.jsx'));
 const ReportsOperadorPanel = lazy(() => import('../components/reports/ReportsOperadorPanel.jsx'));
 const ReportsStudentsPanel = lazy(() => import('../components/reports/ReportsStudentsPanel.jsx'));
+const HEATMAP_SLOTS = [8, 10, 14, 17, 19, 20];
+const HEATMAP_DAYS = [
+    { key: 1, label: 'Seg' },
+    { key: 2, label: 'Ter' },
+    { key: 3, label: 'Qua' },
+    { key: 4, label: 'Qui' },
+    { key: 5, label: 'Sex' },
+    { key: 6, label: 'Sáb' },
+    { key: 0, label: 'Dom' },
+];
+
 const ReportsFunilBarChart = lazy(() =>
     import('../components/reports/ReportsFunilCharts.jsx').then((m) => ({ default: m.ReportsFunilBarChart }))
 );
@@ -279,7 +290,7 @@ const Reports = () => {
         return { from, to };
     }, [preset, from, to]);
 
-    const fetchReport = async (forceRefresh = false) => {
+    const fetchReport = useCallback(async (forceRefresh = false) => {
         if (!academyId) return;
         if (preset === 'custom') {
             const fa = parseYMD(range.from);
@@ -379,12 +390,12 @@ const Reports = () => {
         } finally {
             if (!controller.signal.aborted) setLoading(false);
         }
-    };
+    }, [academyId, preset, range.from, range.to, originFilter, profileFilter, chartMode]);
 
     useEffect(() => {
         if (!needsFunnelReport) return;
         void fetchReport(false);
-    }, [range, chartMode, academyId, preset, needsFunnelReport]);
+    }, [range, chartMode, academyId, preset, needsFunnelReport, fetchReport]);
 
     const prevRangeYmd = useMemo(() => previousPeriodRange(preset, range), [preset, range]);
 
@@ -434,7 +445,7 @@ const Reports = () => {
         }
         const t = window.setTimeout(() => void fetchReport(false), 300);
         return () => window.clearTimeout(t);
-    }, [originFilter, profileFilter, needsFunnelReport]);
+    }, [originFilter, profileFilter, needsFunnelReport, fetchReport]);
 
     const rangeSlug = `${range.from}_${range.to}`;
     const prettyRange = useMemo(() => formatRangeLongPt(range.from, range.to), [range.from, range.to]);
@@ -538,21 +549,11 @@ const Reports = () => {
         [reportData]
     );
     const lastConversionPoint = conversionChartData.length > 0 ? conversionChartData[conversionChartData.length - 1] : null;
-    const heatmapSlots = [8, 10, 14, 17, 19, 20];
-    const heatmapDays = [
-        { key: 1, label: 'Seg' },
-        { key: 2, label: 'Ter' },
-        { key: 3, label: 'Qua' },
-        { key: 4, label: 'Qui' },
-        { key: 5, label: 'Sex' },
-        { key: 6, label: 'Sáb' },
-        { key: 0, label: 'Dom' },
-    ];
     const heatmapMax = useMemo(() => {
         if (!reportData?.heatmapData) return 0;
-        return heatmapDays.reduce((maxAcc, day) => {
+        return HEATMAP_DAYS.reduce((maxAcc, day) => {
             const dayMap = reportData.heatmapData?.[day.key] || {};
-            return heatmapSlots.reduce((slotAcc, h) => Math.max(slotAcc, Number(dayMap[h] || 0)), maxAcc);
+            return HEATMAP_SLOTS.reduce((slotAcc, h) => Math.max(slotAcc, Number(dayMap[h] || 0)), maxAcc);
         }, 0);
     }, [reportData]);
     const heatmapLevelClass = (count) => {
@@ -568,8 +569,8 @@ const Reports = () => {
     const heatmapTableRows = useMemo(() => {
         if (!reportData?.heatmapData) return [];
         const rows = [];
-        for (const d of heatmapDays) {
-            for (const h of heatmapSlots) {
+        for (const d of HEATMAP_DAYS) {
+            for (const h of HEATMAP_SLOTS) {
                 rows.push({
                     dia: d.label,
                     hora: `${String(h).padStart(2, '0')}h`,
@@ -578,7 +579,7 @@ const Reports = () => {
             }
         }
         return rows;
-    }, [reportData, heatmapDays, heatmapSlots]);
+    }, [reportData]);
 
     return (
         <div className="container navi-hub-page" style={{ paddingBottom: 20 }}>
@@ -1025,14 +1026,14 @@ const Reports = () => {
                         <div className="reports-heatmap">
                             <div className="reports-heatmap-head">
                                 <span />
-                                {heatmapDays.map((d) => (
+                                {HEATMAP_DAYS.map((d) => (
                                     <span key={d.label} className="reports-heatmap-day">{d.label}</span>
                                 ))}
                             </div>
-                            {heatmapSlots.map((hour) => (
+                            {HEATMAP_SLOTS.map((hour) => (
                                 <div key={hour} className="reports-heatmap-row">
                                     <span className="reports-heatmap-hour">{String(hour).padStart(2, '0')}h</span>
-                                    {heatmapDays.map((d) => {
+                                    {HEATMAP_DAYS.map((d) => {
                                         const count = Number(reportData.heatmapData?.[d.key]?.[hour] || 0);
                                         return (
                                             <span

@@ -12,7 +12,6 @@ import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
   paymentsUiValid,
-  rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
 import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';

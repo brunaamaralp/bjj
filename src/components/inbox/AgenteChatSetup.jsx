@@ -653,7 +653,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         setGenerating(false);
       }
     },
-    [academyId, getJwt, onComplete, pushNave, saveProgress, terms]
+    [academyId, getJwt, onComplete, pushNave, terms]
   );
 
   const commitAndAdvance = useCallback(

@@ -20,7 +20,6 @@ import {
     Loader2,
     Users,
     CheckSquare,
-    Info,
 } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
@@ -150,7 +149,6 @@ const Dashboard = () => {
     const fetchLeads = useLeadStore((s) => s.fetchLeads);
     const academyId = useLeadStore((s) => s.academyId);
     const academyList = useLeadStore((s) => s.academyList);
-    const modules = useLeadStore((s) => s.modules);
     const leadsError = useLeadStore((s) => s.leadsError);
     const leadsLastFetchedAt = useLeadStore((s) => s.leadsLastFetchedAt);
     const vertical = useLeadStore((s) => s.vertical);
@@ -197,7 +195,7 @@ const Dashboard = () => {
         refreshFromCache: refreshFollowupFromCache,
     } = useFollowupEventsByLead(academyId);
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
-    const [removingFollowupIds, setRemovingFollowupIds] = useState({});
+    const [removingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
     const [leavingFollowupIds, setLeavingFollowupIds] = useState({});
     const [waStateByLead, setWaStateByLead] = useState({});
@@ -207,7 +205,6 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(true);
-    const [showFollowupHint, setShowFollowupHint] = useState(false);
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
     const retornosRowRef = useRef(null);
@@ -1408,21 +1405,6 @@ const Dashboard = () => {
                                     }
                                 />
                                 <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
-                                {followUps.length > 0 ? (
-                                    <button
-                                        type="button"
-                                        className="agenda-followups-section__hint-btn"
-                                        aria-label="Ajuda sobre retornos e IA"
-                                        title="Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar"
-                                        aria-expanded={showFollowupHint}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowFollowupHint((open) => !open);
-                                        }}
-                                    >
-                                        <Info size={16} strokeWidth={2} aria-hidden />
-                                    </button>
-                                ) : null}
                             </span>
                             <ChevronDown
                                 size={18}
@@ -1445,26 +1427,9 @@ const Dashboard = () => {
                                     }
                                 />
                                 <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
-                                {followUps.length > 0 ? (
-                                    <button
-                                        type="button"
-                                        className="agenda-followups-section__hint-btn"
-                                        aria-label="Ajuda sobre retornos e IA"
-                                        title="Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar"
-                                        aria-expanded={showFollowupHint}
-                                        onClick={() => setShowFollowupHint((open) => !open)}
-                                    >
-                                        <Info size={16} strokeWidth={2} aria-hidden />
-                                    </button>
-                                ) : null}
                             </span>
                         </div>
                     )}
-                    {showFollowupHint ? (
-                        <p className="text-small text-muted agenda-followups-section__hint-text" role="status">
-                            Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
-                        </p>
-                    ) : null}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
                 <div

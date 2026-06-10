@@ -100,10 +100,6 @@ const LEAD_TURMA_APPWRITE_KEY = (() => {
   return raw || 'turma';
 })();
 
-function sanitizePreferredPaymentAccount(value) {
-  return String(value || '').trim().slice(0, 128);
-}
-
 /**
  * Converte updates camelCase (UI) → payload Appwrite (snake novos + camel legados).
  * Não inclui `notes` (deprecado).

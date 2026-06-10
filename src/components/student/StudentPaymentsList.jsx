@@ -168,7 +168,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
   );
 }
 
-function SinglePaymentRow({ payment, formatDdMmYyyyFromIso, METHOD_PAYMENT_LABELS }) {
+function SinglePaymentRow({ payment, METHOD_PAYMENT_LABELS }) {
   const st = String(payment.status || '');
   const leftBorder =
     st === 'pending'
@@ -220,7 +220,6 @@ function SinglePaymentRow({ payment, formatDdMmYyyyFromIso, METHOD_PAYMENT_LABEL
 
 export default function StudentPaymentsList({
   payments,
-  formatDdMmYyyyFromIso,
   METHOD_PAYMENT_LABELS,
   onCancelCoverage,
   cancellingCoverage,
@@ -243,7 +242,6 @@ export default function StudentPaymentsList({
           <SinglePaymentRow
             key={g.payment.$id}
             payment={g.payment}
-            formatDdMmYyyyFromIso={formatDdMmYyyyFromIso}
             METHOD_PAYMENT_LABELS={METHOD_PAYMENT_LABELS}
           />
         )

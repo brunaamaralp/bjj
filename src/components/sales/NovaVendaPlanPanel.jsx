@@ -63,7 +63,7 @@ export default function NovaVendaPlanPanel({
     setStudent(prefilledStudent);
     setPayForm(buildPayFormForContact(prefilledStudent, financeConfig));
     setFormError('');
-  }, [prefilledStudent?.id, financeConfig]);
+  }, [prefilledStudent, financeConfig]);
 
   useEffect(() => {
     if (prefilledStudent) return undefined;

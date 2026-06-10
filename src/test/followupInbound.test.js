@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildInboundMapsFromConversations,
+  extractLastUserMessageAt,
   resolveInboundAfterForLead,
   resolveInboundAfterForPhone,
 } from '../lib/followupInbound.js';
 
 describe('followupInbound', () => {
+  it('extrai última mensagem do cliente de messages_recent quando last_user_msg_at está vazio', () => {
+    const at = extractLastUserMessageAt({
+      messages_recent: JSON.stringify([
+        { role: 'assistant', content: 'Oi!', timestamp: '2026-06-10T12:00:00.000Z' },
+        { role: 'user', content: 'Gostei, amanhã alinho os detalhes', timestamp: '2026-06-10T14:30:00.000Z' },
+      ]),
+    });
+    expect(at).toBe('2026-06-10T14:30:00.000Z');
+  });
+
   it('indexa inbound por lead_id e variantes de telefone', () => {
     const maps = buildInboundMapsFromConversations([
       {

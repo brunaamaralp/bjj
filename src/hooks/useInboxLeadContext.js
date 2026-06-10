@@ -16,7 +16,6 @@ export function useInboxLeadContext({
   selected,
   leadById,
   leadByPhone,
-  leadPanel,
   leadSearch,
   leadsForAssociate,
   followupPlaybook,

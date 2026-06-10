@@ -6,11 +6,10 @@ import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
-import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { ArrowLeft, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
-import { databases, DB_ID, ACADEMIES_COL, account, createSessionJwt } from '../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
@@ -24,7 +23,6 @@ import { getStudentPayments } from '../lib/studentPayments';
 import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { LEAD_PROFILE_QUICK_NOTE_CHIPS } from '../lib/leadProfileQuickNotes.js';
-import { friendlyError } from '../lib/errorMessages.js';
 import { maskPhone } from '../lib/masks.js';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
@@ -282,12 +280,7 @@ const LeadProfile = () => {
         const dynamic = stages.find((s) => String(s?.id || '').trim() === stageId);
         const label = dynamic?.label || pipelineStageDisplayLabel(terms, stageId);
         return { stageId, label, color };
-    }, [lead, lead?.pipelineStage, lead?.stage, stages, terms]);
-
-    const academyNameDisplay = useMemo(() => {
-        const cur = (academyList || []).find((a) => a.id === academyId);
-        return String(cur?.name || '').trim();
-    }, [academyList, academyId]);
+    }, [lead, stages, terms]);
 
     const followupPlaybook = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -427,7 +420,7 @@ const LeadProfile = () => {
         setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: newStatus } : x));
         try {
             await useTaskStore.getState().updateTask(t.id, { status: newStatus });
-        } catch(e) {
+        } catch {
             setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x));
             toast.show({ type: 'error', message: 'Erro ao atualizar tarefa' });
         }
@@ -455,7 +448,7 @@ const LeadProfile = () => {
         return () => {
             cancelled = true;
         };
-    }, [id, academyId, lead?.id, lead?.status, lead?.contact_type]);
+    }, [id, academyId, lead]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -468,7 +461,7 @@ const LeadProfile = () => {
         }
         window.addEventListener('navi-student-payment-updated', onPaymentUpdated);
         return () => window.removeEventListener('navi-student-payment-updated', onPaymentUpdated);
-    }, [id, academyId, lead?.id, lead?.status, lead?.contact_type]);
+    }, [id, academyId, lead]);
 
     const recentPaymentsForNl = useMemo(() => {
         if (!lead) return [];
@@ -880,6 +873,8 @@ const LeadProfile = () => {
                 setCustomQuestions([]);
                 setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
             });
+    // normalizeQuestions é helper puro; recarrega só quando a academia muda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- academy-scoped question load
     }, [academyId]);
 
     function normalizeDateToISO(dateStr) {
@@ -928,10 +923,6 @@ const LeadProfile = () => {
         },
         [customQuestions, academyTurmas]
     );
-
-    const fillFormFromLead = (src) => {
-        setForm(buildFormStateFromLead(src));
-    };
 
     const validateEditForm = (payload) => {
         const errors = {};

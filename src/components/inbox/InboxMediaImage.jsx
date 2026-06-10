@@ -7,7 +7,6 @@ import {
 
 export default function InboxMediaImage({
   mediaUrl,
-  mediaStored,
   content,
   caption: captionProp,
   onOpenLightbox,

@@ -52,10 +52,11 @@ function ManagerKpiCard({ title, value, subtitle, onClick, loading }) {
   );
 }
 
-function ManagerAlertRow({ icon: Icon, tone, text, onClick }) {
+function ManagerAlertRow({ icon, tone, text, onClick }) {
+  const AlertIcon = icon;
   return (
     <button type="button" className={`dashboard-manager-alert dashboard-manager-alert--${tone}`} onClick={onClick}>
-      <Icon size={18} strokeWidth={2} aria-hidden />
+      <AlertIcon size={18} strokeWidth={2} aria-hidden />
       <span className="dashboard-manager-alert__text">{text}</span>
       <span className="dashboard-manager-alert__cta" aria-hidden>
         →
@@ -153,7 +154,7 @@ export default function DashboardManagerSection({
         tone: 'danger',
         icon: AlertTriangle,
         text: `${metrics.slaCritical} ${metrics.slaCritical === 1 ? 'lead com' : 'leads com'} SLA crítico no funil`,
-        onClick: () => navigate('/pipeline?sla=critical'),
+        onClick: () => navigate('/pipeline'),
       });
     }
     if (showFinanceKpi && metrics.overdueStudents > 0) {

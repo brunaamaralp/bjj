@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
 import { friendlyError } from '../lib/errorMessages';
@@ -292,6 +292,8 @@ const AcademySettings = () => {
             }
         })();
         return () => { cancelled = true; };
+    // normalizeQuestions/addToast são helpers estáveis; fetch keyed em academyId/reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- academy document load
     }, [academyId, academyReloadNonce]);
 
     const handleSave = async (saveOptions = {}) => {

@@ -22,6 +22,8 @@ import Hint from '../shared/Hint.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/menu';
 
+const EMPTY_EXPANDED_IDS = new Set();
+
 function isDefaultUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
   return !u || u === 'unidade';
@@ -211,7 +213,7 @@ export default function InventoryBalanceView({
     return new Set(parentRows.filter((p) => (p.variants || []).length > 1).map((p) => p.id));
   }, [loading, parentRows]);
 
-  const expandedIds = manualExpandedIds ?? autoExpandedIds ?? new Set();
+  const expandedIds = manualExpandedIds ?? autoExpandedIds ?? EMPTY_EXPANDED_IDS;
 
   const showUnitColumn = useMemo(
     () =>

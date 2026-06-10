@@ -46,14 +46,13 @@ export function formatSendAtShort(iso) {
   });
 }
 
-export function getLeadAutomationBadges(lead, automationConfig) {
+export function getLeadAutomationBadges(lead) {
   const pending = Array.isArray(lead?.pendingAutomations) ? lead.pendingAutomations : [];
   const now = Date.now();
   return pending
     .filter((p) => p && p.sent !== true && p.key && p.sendAt)
     .map((p) => {
       const sendMs = new Date(p.sendAt).getTime();
-      const cfg = automationConfig?.[p.key];
       const short = formatSendAtShort(p.sendAt);
       const labelKey = automationLabelForKey(p.key);
       const overdue = Number.isFinite(sendMs) && sendMs <= now;

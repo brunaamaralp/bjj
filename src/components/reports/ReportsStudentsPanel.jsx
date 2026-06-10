@@ -42,7 +42,10 @@ export default function ReportsStudentsPanel({
   const [prevState, setPrevState] = useState({ key: '', metrics: null });
   const [chartState, setChartState] = useState({ key: '', rows: [], loading: false });
   const prevMetrics = prevFetchKey && prevState.key === prevFetchKey ? prevState.metrics : null;
-  const chartRows = chartFetchKey && chartState.key === chartFetchKey ? chartState.rows : [];
+  const stableChartRows = useMemo(
+    () => (chartFetchKey && chartState.key === chartFetchKey ? chartState.rows : []),
+    [chartFetchKey, chartState.key, chartState.rows]
+  );
   const chartLoading = Boolean(chartFetchKey) && (chartState.key !== chartFetchKey || chartState.loading);
 
   const m = studentMetrics || {};
@@ -101,8 +104,8 @@ export default function ReportsStudentsPanel({
   }, [chartFetchKey, academyId, rangeTo]);
 
   const hasChartData = useMemo(
-    () => chartRows.some((r) => r.ativos > 0 || r.novos > 0 || r.cancelamentos > 0),
-    [chartRows]
+    () => stableChartRows.some((r) => r.ativos > 0 || r.novos > 0 || r.cancelamentos > 0),
+    [stableChartRows]
   );
 
   if (loading) {
@@ -178,7 +181,7 @@ export default function ReportsStudentsPanel({
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartRows} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+            <LineChart data={stableChartRows} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border, #e8e5f5)" />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />

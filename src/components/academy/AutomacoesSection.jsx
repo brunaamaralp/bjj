@@ -9,7 +9,6 @@ import {
 import {
     previewAutomationMessage,
     delayHintForAutomation,
-    computeAutomationReadiness,
 } from '../../lib/automationUx.js';
 import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
@@ -186,10 +185,10 @@ const AutomacoesSection = ({
     savingAutomations,
     onSave,
 }) => {
-    const serverDigest = useMemo(
-        () => serializeAutomationsConfig(automationsConfigRaw),
-        [automationsConfigRaw, academyDataVersion]
-    );
+    const serverDigest = useMemo(() => {
+        void academyDataVersion;
+        return serializeAutomationsConfig(automationsConfigRaw);
+    }, [automationsConfigRaw, academyDataVersion]);
     const [savedAfterEdit, setSavedAfterEdit] = useState(null);
     const savedDigest =
         savedAfterEdit?.version === academyDataVersion ? savedAfterEdit.digest : serverDigest;

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Query } from 'appwrite';
-import { databases, DB_ID, LEAD_EVENTS_COL, CONVERSATIONS_COL } from '../lib/appwrite';
+import { account, databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
+import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import {
   getFollowupEventsCache,
   setFollowupEventsCache,
 } from '../lib/followupEventsCache.js';
-import { buildInboundMapsFromConversations } from '../lib/followupInbound.js';
 import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
 
 function parsePayload(doc) {
@@ -87,44 +87,37 @@ async function loadFollowupEvents(academyId) {
   return { doneByLead, contactByLead, snoozeUntilByLead };
 }
 
-async function loadInboundAfterMaps(academyId) {
-  if (!CONVERSATIONS_COL) {
-    return { inboundAfterByLead: {}, inboundAfterByPhone: {} };
+async function loadInboundAfterMapsFromApi(academyId) {
+  try {
+    const jwt = await account.createJWT();
+    const token = String(jwt?.jwt || '').trim();
+    const aid = String(academyId || '').trim();
+    if (!token || !aid) return null;
+
+    const { blocked, res } = await fetchWithBillingGuard('/api/agent?route=followup-inbound', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'x-academy-id': aid,
+      },
+    });
+    if (blocked || !res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    return {
+      inboundAfterByLead: data.inboundAfterByLead || {},
+      inboundAfterByPhone: data.inboundAfterByPhone || {},
+    };
+  } catch {
+    return null;
   }
+}
 
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - FOLLOWUP_AGENDA_MAX_DAYS);
-  const cutoffIso = cutoff.toISOString();
-  const docs = [];
-  let cursor = null;
-  let pageCount = 0;
-
-  do {
-    const queries = [
-      Query.equal('academy_id', [String(academyId || '').trim()]),
-      Query.greaterThan('last_user_msg_at', cutoffIso),
-      Query.orderDesc('last_user_msg_at'),
-      Query.limit(100),
-    ];
-    if (cursor) queries.push(Query.cursorAfter(cursor));
-
-    let res;
-    try {
-      res = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-        ...queries,
-        Query.select(['lead_id', 'phone_number', 'last_user_msg_at']),
-      ]);
-    } catch {
-      res = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, queries);
-    }
-
-    const page = Array.isArray(res?.documents) ? res.documents : [];
-    docs.push(...page);
-    cursor = page.length === 100 ? page[page.length - 1]?.$id : null;
-    pageCount += 1;
-  } while (cursor && pageCount < 10);
-
-  return buildInboundMapsFromConversations(docs);
+async function loadInboundAfterMaps(academyId) {
+  const fromApi = await loadInboundAfterMapsFromApi(academyId);
+  if (fromApi) return fromApi;
+  // Fallback client-side exige permissões de leitura na coleção conversations no browser;
+  // sem elas gera 401 ruidoso — retorno vazio e copilot usa só eventos de lead.
+  return { inboundAfterByLead: {}, inboundAfterByPhone: {} };
 }
 
 /**
