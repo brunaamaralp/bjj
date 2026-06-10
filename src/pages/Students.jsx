@@ -103,7 +103,7 @@ const Students = ({ embedded = false }) => {
         studentsHasMore,
         listRefreshing,
         handleRefreshList,
-        handleLoadMore,
+        onListScroll,
         fetchStudents,
     } = listData;
 
@@ -587,7 +587,7 @@ const Students = ({ embedded = false }) => {
                     </div>
             ) : null}
 
-            <div className="students-list-scroll" ref={listScrollRef}>
+            <div className="students-list-scroll" ref={listScrollRef} onScroll={onListScroll}>
                 <div className={shouldVirtualizeStudents ? 'students-list-virtual' : 'students-list'}>
                 {studentsLoading && studentCount === 0 ? (
                     <div className="students-skeleton-list mt-4" role="status" aria-live="polite" aria-busy="true">
@@ -658,20 +658,14 @@ const Students = ({ embedded = false }) => {
                 </div>
             </div>
 
-            {studentsHasMore ? (
-                <div className="students-load-more-wrap animate-in">
-                    <button
-                        type="button"
-                        className="students-load-more"
-                        onClick={handleLoadMore}
-                        disabled={loadingMore || studentsLoading}
-                    >
-                        {loadingMore ? 'Carregando…' : `Carregar mais ${studentPlural.toLowerCase()}`}
-                    </button>
-                    <p className="text-xs text-light mt-1">
-                        {terms.studentsLoadMoreFootnote
-                            .replace(/\{students\}/g, studentPlural.toLowerCase())
-                            .replace(/\{pipeline\}/g, pipelineName)}
+            {loadingMore || studentsHasMore ? (
+                <div className="students-load-more-wrap animate-in" role="status" aria-live="polite">
+                    <p className="text-xs text-light mt-1" style={{ textAlign: 'center', padding: '8px 0' }}>
+                        {loadingMore
+                            ? `Carregando mais ${studentPlural.toLowerCase()}…`
+                            : terms.studentsLoadMoreFootnote
+                                .replace(/\{students\}/g, studentPlural.toLowerCase())
+                                .replace(/\{pipeline\}/g, pipelineName)}
                     </p>
                 </div>
             ) : null}

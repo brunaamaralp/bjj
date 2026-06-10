@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import './finance.css';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Plus, Upload } from 'lucide-react';
 import ImportStatementModal from './ImportStatementModal.jsx';

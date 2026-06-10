@@ -12,7 +12,7 @@ export default function DashboardBirthdayBanner({
   templatesMap,
   zapsterInstanceId,
   onToast,
-  onScrollToSection,
+  onOpenList,
 }) {
   const list = students || [];
   const [sendingId, setSendingId] = useState('');
@@ -46,18 +46,14 @@ export default function DashboardBirthdayBanner({
       : `${list.length} aniversariantes hoje`;
 
   return (
-    <div className="dashboard-birthday-banner" role="status">
+    <div id="dashboard-birthday-banner" className="dashboard-birthday-banner" role="status">
       <div className="dashboard-birthday-banner__main">
         <Cake size={20} strokeWidth={2} className="dashboard-birthday-banner__icon" aria-hidden />
         <div className="dashboard-birthday-banner__text">
           <p className="dashboard-birthday-banner__title">{title}</p>
-          {list.length === 1 ? (
-            <button
-              type="button"
-              className="dashboard-birthday-banner__link"
-              onClick={onScrollToSection}
-            >
-              Ver na lista
+          {list.length > 1 ? (
+            <button type="button" className="dashboard-birthday-banner__link" onClick={onOpenList}>
+              Ver todos
             </button>
           ) : null}
         </div>
@@ -89,8 +85,8 @@ export default function DashboardBirthdayBanner({
             Mandar parabéns
           </button>
         ) : (
-          <button type="button" className="btn-secondary" onClick={onScrollToSection}>
-            Ver aniversariantes
+          <button type="button" className="btn-secondary" onClick={onOpenList}>
+            Ver todos
           </button>
         )}
       </div>

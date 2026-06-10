@@ -157,7 +157,7 @@ describe('getDayPriority', () => {
       todayBirthdays: [{ id: 's1', name: 'Lucas', turma: 'Kids' }],
     });
     expect(priority.type).toBe('birthday');
-    expect(priority.scrollTarget).toBe('birthdays');
+    expect(priority.scrollTarget).toBe('birthday-banner');
   });
 });
 

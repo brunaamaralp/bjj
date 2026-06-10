@@ -325,7 +325,9 @@ export default function InboxThreadPanel(props) {
               </button>
             </div>
           )}
-          {threadLoading && <ThreadSkeleton />}
+          {threadLoading && (!Array.isArray(threadBlocks) || threadBlocks.length === 0) ? (
+            <ThreadSkeleton />
+          ) : null}
           {!threadLoading && (error || threadError) && (
             <ThreadState
               type="error"

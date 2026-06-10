@@ -23,6 +23,18 @@ export function inboxMessageKey(m) {
   return `${role}:${ts}:${content.slice(0, 80)}`;
 }
 
+/** Detecta mudança na lista de mensagens (poll silencioso / refresh). */
+export function inboxMessagesChanged(prev, incoming) {
+  const a = Array.isArray(prev) ? prev : [];
+  const b = Array.isArray(incoming) ? incoming : [];
+  if (a.length !== b.length) return true;
+  for (let i = 0; i < a.length; i += 1) {
+    if (inboxMessageKey(a[i]) !== inboxMessageKey(b[i])) return true;
+    if (String(a[i]?.status || '').trim() !== String(b[i]?.status || '').trim()) return true;
+  }
+  return false;
+}
+
 /** Origem da bolha assistant: humano vs IA. */
 export function senderKindFromInboxMessage(m) {
   const role = m?.role === 'assistant' ? 'assistant' : 'user';

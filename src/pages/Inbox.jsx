@@ -76,6 +76,11 @@ import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
 import { inboxMessageMediaUrl } from '../lib/inboxMediaUtils.js';
 import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
 import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
+import {
+  buildSelectedFromListItem,
+  getInboxThreadCache,
+  threadPaginationFromCache,
+} from '../lib/inboxThreadCache.js';
 import { useInboxStudentLink } from '../hooks/useInboxStudentLink.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { useInboxLeadMaps } from '../hooks/useInboxLeadMaps.js';
@@ -1602,36 +1607,28 @@ export default function Inbox() {
     const phone = String(it?._phone || it?.phone_number || '').trim();
     if (!phone) return;
 
-    setThreadCursor(null);
-    setThreadHasMore(false);
-    setSelected((prev) => {
-      const prevPhone = String(prev?.phone || '').trim();
-      const isSamePhone = prevPhone === phone;
-      const convId = String(it?.id || '').trim() || (isSamePhone ? String(prev?.conversation_id || '').trim() : '');
-      return {
-        phone,
-        conversation_id: convId || null,
-        summary: isSamePhone ? prev.summary : null,
-        lead_id: String(it?.lead_id || '').trim() || null,
-        lead_name: String(it?._leadName || it?.lead_name || '').trim(),
-        contact_name: String(it?._manualContactName || it?.contact_name || '').trim(),
-        contact_name_source: String(it?.contact_name_source || '').trim(),
-        whatsapp_profile_name: String(it?._waProfileName || it?.whatsapp_profile_name || '').trim(),
-        whatsapp_profile_image_url: String(it?._profileImageUrl || it?.whatsapp_profile_image_url || '').trim(),
-        need_human: Boolean(it?._handoffActive || it?.need_human),
-        human_handoff_until: isSamePhone ? prev.human_handoff_until : null,
-        ticket_status: String(it?._ticketStatus || it?.ticket_status || 'open'),
-        transfer_to: String(it?._transferTo || it?.transfer_to || '').trim() || null,
-        archived: Boolean(it?._archived ?? it?.archived),
-        messages: isSamePhone && Array.isArray(prev?.messages) ? prev.messages : []
-      };
-    });
-    setSelectedPhone(phone); // Atualizar o phone por último, ou isoladamente, após as mudanças de ref/state
+    const academyIdCur = String(academyIdRef.current || '').trim();
+    const cached = getInboxThreadCache(academyIdCur, phone);
+    const { cursor, hasMore } = threadPaginationFromCache(cached);
+    setThreadCursor(cursor);
+    setThreadHasMore(hasMore);
+
+    setSelected((prev) => buildSelectedFromListItem(it, prev, cached));
+
+    setSelectedPhone(phone);
 
     const unreadCount = Number(it?._unreadCount ?? it?.unread_count ?? 0);
     if (unreadCount > 0) {
       markSeenRef.current?.(phone);
     }
+  }, []);
+
+  const handlePrefetchConversation = useCallback((it) => {
+    const phone = String(it?._phone || it?.phone_number || '').trim();
+    if (!phone) return;
+    if (String(selectedPhoneRef.current || '').trim() === phone) return;
+    const convId = String(it?.id || '').trim();
+    void loadThreadRef.current?.(phone, { prefetch: true, conversationId: convId });
   }, []);
 
   handleSelectConversationRef.current = handleSelectConversation;
@@ -1866,6 +1863,7 @@ export default function Inbox() {
       waChatConnected={waChatConnected}
       loadingMore={loadingMore}
       handleSelectConversation={handleSelectConversation}
+      onPrefetchConversation={handlePrefetchConversation}
       selectedPhone={selectedPhone}
       ticketChip={ticketChip}
       formatTimeOnly={formatTimeOnly}

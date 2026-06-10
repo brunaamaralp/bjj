@@ -64,7 +64,7 @@ import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import { currentMonthYm, monthPeriodBounds } from '../lib/financeiroOverview.js';
 
-import '../components/finance/finance.css';
+import '../components/finance/finance-shell.css';
 
 
 
@@ -245,8 +245,20 @@ export default function Caixa() {
     setSearchParams,
   ]);
 
+  const handleOverviewMonthConferred = useCallback((ym, conferred) => {
+    const month = String(ym || '').trim();
+    if (!month) return;
+    setConferredMonths((prev) => {
+      const next = new Set(prev);
+      if (conferred) next.add(month);
+      else next.delete(month);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (!academyId || !financeModule) return undefined;
+    if (activeTab === FINANCEIRO_SECTIONS.OVERVIEW) return undefined;
     let active = true;
     const ym = String(referenceMonth || '').trim();
     if (!ym) return undefined;
@@ -265,7 +277,7 @@ export default function Caixa() {
     return () => {
       active = false;
     };
-  }, [academyId, referenceMonth, financeModule]);
+  }, [academyId, referenceMonth, financeModule, activeTab]);
 
   useEffect(() => {
     function onClosingUpdated(ev) {
@@ -435,6 +447,7 @@ export default function Caixa() {
               modules={modules}
               isOwner={isOwner}
               referenceMonth={referenceMonth}
+              onMonthConferred={handleOverviewMonthConferred}
             />
           </div>
         ) : null}

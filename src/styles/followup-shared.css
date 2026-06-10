@@ -49,6 +49,17 @@
   color: var(--color-text-secondary);
 }
 
+.followup-copilot-menu {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.followup-copilot-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .followup-copilot__actions {
   display: flex;
   flex-wrap: wrap;

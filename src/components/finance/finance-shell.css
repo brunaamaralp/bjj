@@ -1,0 +1,7 @@
+/**
+ * CSS mínimo do hub Financeiro (Caixa): month picker, layout e abas.
+ * Abas lazy importam finance.css ou visao-geral.css conforme necessário.
+ */
+@import '../../styles/tokens/finance.css';
+@import './styles/finance-module-tokens.css';
+@import './styles/hub-chrome.css';

@@ -1,0 +1,10 @@
+/**
+ * Visão Geral financeira — bundle enxuto (sem Tabler CDN nem CSS das outras abas).
+ */
+@import '../../styles/tokens/finance.css';
+@import './styles/finance-module-tokens.css';
+@import './styles/shell.css';
+@import './styles/hub-chrome.css';
+@import './styles/overview-base.css';
+@import './styles/overview.css';
+@import './styles/bank-balances.css';

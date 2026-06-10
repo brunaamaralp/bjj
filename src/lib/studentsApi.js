@@ -67,6 +67,34 @@ export async function apiFindStudentsByPhone(phone, academyId) {
   return Array.isArray(data.matches) ? data.matches : [];
 }
 
+/**
+ * Listagem paginada de alunos (campos mínimos para a lista).
+ */
+export async function fetchStudentsList(opts = {}) {
+  const academyId = String(opts.academyId || useLeadStore.getState().academyId || '').trim();
+  if (!academyId) throw new Error('academy_required');
+
+  const params = new URLSearchParams();
+  if (opts.search) params.set('search', String(opts.search).trim());
+  if (opts.plan) params.set('plan', String(opts.plan).trim());
+  if (opts.turma) params.set('turma', String(opts.turma).trim());
+  if (opts.turmaEmpty) params.set('turma_empty', '1');
+  if (opts.origin) params.set('origin', String(opts.origin).trim());
+  if (opts.studentStatus) params.set('student_status', String(opts.studentStatus).trim());
+  if (opts.cursor) params.set('cursor', String(opts.cursor).trim());
+  if (opts.limit) params.set('limit', String(opts.limit));
+
+  const qs = params.toString();
+  const path = qs ? `/api/students/list?${qs}` : '/api/students/list';
+  const data = await studentsFetch(path, { signal: opts.signal }, academyId);
+
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    next_cursor: data.next_cursor ? String(data.next_cursor) : null,
+    total: typeof data.total === 'number' ? data.total : null,
+  };
+}
+
 /** Busca alunos por nome ou telefone para checkout de vendas (via API, evita 401 no client). */
 export async function searchStudentsForSaleApi(query, academyId, { limit = 8 } = {}) {
   const q = String(query || '').trim();

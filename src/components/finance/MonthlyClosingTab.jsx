@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import './finance.css';
 import { Link } from 'react-router-dom';
 import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../../lib/financeTermHints.js';

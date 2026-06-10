@@ -8,6 +8,7 @@ import { buildStudentPayloadFromDoc } from '../lib/leadStudentPayload.js';
 import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyContext.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import { stripUnknownStudentPatch } from '../lib/studentAppwritePatch.js';
+import { fetchStudentsList } from '../lib/studentsApi.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
 
@@ -330,45 +331,71 @@ export const useStudentStore = create((set, get) => ({
     else set({ loadingMore: true, studentsError: false });
 
     try {
-      const queries = [
-        Query.equal('academyId', academyId),
-        Query.orderDesc('$createdAt'),
-        Query.limit(STUDENTS_PAGE_SIZE),
-      ];
-      const search = String(queryOpts.search || '').trim();
-      if (search.length >= 2) queries.push(Query.contains('name', search));
-      if (queryOpts.plan) queries.push(Query.equal('plan', String(queryOpts.plan).trim()));
-      if (queryOpts.studentStatus === STUDENT_STATUS.INACTIVE) {
-        queries.push(Query.equal('student_status', STUDENT_STATUS.INACTIVE));
-      } else if (queryOpts.studentStatus !== 'all') {
-        queries.push(Query.equal('student_status', STUDENT_STATUS.ACTIVE));
-      }
-      if (queryOpts.turma && STUDENT_TURMA_KEY) {
-        queries.push(Query.equal(STUDENT_TURMA_KEY, String(queryOpts.turma).trim()));
-      } else if (queryOpts.turmaEmpty && STUDENT_TURMA_KEY) {
-        queries.push(Query.equal(STUDENT_TURMA_KEY, ''));
-      }
-      if (queryOpts.origin) {
-        queries.push(Query.equal('source_origin', String(queryOpts.origin).trim()));
-      }
-      if (!reset && get().studentsCursor) {
-        queries.push(Query.cursorAfter(get().studentsCursor));
-      }
+      let students;
+      let total;
+      let nextCursor;
+      let hasMore;
 
-      const response = await databases.listDocuments(DB_ID, STUDENTS_COL, queries);
-      const total = typeof response.total === 'number' ? response.total : null;
-      const docs = response.documents || [];
-      const students = docs.map((doc) => mapAppwriteDocToStudent(doc));
-      const lastId = docs.length ? docs[docs.length - 1].$id : null;
-      const pageFull = docs.length === STUDENTS_PAGE_SIZE;
+      if (typeof window !== 'undefined') {
+        const listRes = await fetchStudentsList({
+          academyId,
+          search: queryOpts.search,
+          plan: queryOpts.plan,
+          turma: queryOpts.turma,
+          turmaEmpty: queryOpts.turmaEmpty,
+          origin: queryOpts.origin,
+          studentStatus: queryOpts.studentStatus,
+          cursor: reset ? undefined : get().studentsCursor || undefined,
+          limit: STUDENTS_PAGE_SIZE,
+          signal,
+        });
+        students = listRes.items;
+        total = listRes.total;
+        nextCursor = listRes.next_cursor;
+        hasMore = Boolean(nextCursor);
+      } else {
+        const queries = [
+          Query.equal('academyId', academyId),
+          Query.orderDesc('$createdAt'),
+          Query.limit(STUDENTS_PAGE_SIZE),
+        ];
+        const search = String(queryOpts.search || '').trim();
+        if (search.length >= 2) queries.push(Query.contains('name', search));
+        if (queryOpts.plan) queries.push(Query.equal('plan', String(queryOpts.plan).trim()));
+        if (queryOpts.studentStatus === STUDENT_STATUS.INACTIVE) {
+          queries.push(Query.equal('student_status', STUDENT_STATUS.INACTIVE));
+        } else if (queryOpts.studentStatus !== 'all') {
+          queries.push(Query.equal('student_status', STUDENT_STATUS.ACTIVE));
+        }
+        if (queryOpts.turma && STUDENT_TURMA_KEY) {
+          queries.push(Query.equal(STUDENT_TURMA_KEY, String(queryOpts.turma).trim()));
+        } else if (queryOpts.turmaEmpty && STUDENT_TURMA_KEY) {
+          queries.push(Query.equal(STUDENT_TURMA_KEY, ''));
+        }
+        if (queryOpts.origin) {
+          queries.push(Query.equal('source_origin', String(queryOpts.origin).trim()));
+        }
+        if (!reset && get().studentsCursor) {
+          queries.push(Query.cursorAfter(get().studentsCursor));
+        }
+
+        const response = await databases.listDocuments(DB_ID, STUDENTS_COL, queries);
+        total = typeof response.total === 'number' ? response.total : null;
+        const docs = response.documents || [];
+        students = docs.map((doc) => mapAppwriteDocToStudent(doc));
+        const lastId = docs.length ? docs[docs.length - 1].$id : null;
+        const pageFull = docs.length === STUDENTS_PAGE_SIZE;
+        nextCursor = pageFull && lastId ? lastId : null;
+        hasMore = pageFull;
+      }
 
       if (reset) {
         set({
           ...withStudentsIndex(students),
           loading: false,
           studentsError: false,
-          studentsHasMore: pageFull,
-          studentsCursor: pageFull && lastId ? lastId : null,
+          studentsHasMore: hasMore,
+          studentsCursor: nextCursor,
           studentsTotal: total,
           lastFetchedAt: Date.now(),
         });
@@ -377,8 +404,8 @@ export const useStudentStore = create((set, get) => ({
           ...appendStudents(state, students),
           loadingMore: false,
           studentsError: false,
-          studentsHasMore: pageFull,
-          studentsCursor: pageFull && lastId ? lastId : null,
+          studentsHasMore: hasMore,
+          studentsCursor: nextCursor,
           studentsTotal: total ?? state.studentsTotal,
         }));
       }

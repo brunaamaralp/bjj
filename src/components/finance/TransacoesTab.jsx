@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import './finance.css';
 import { useSearchParams } from 'react-router-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { FINANCE_TX_LIST_PAGE_SIZE } from '../../lib/financeListLimits.js';

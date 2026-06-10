@@ -83,6 +83,7 @@ export default function ConversationList(props) {
     whatsAppConnected = true,
     loadingMore,
     onSelectConversation,
+    onPrefetchConversation,
     selectedPhone,
     ticketChip,
     formatTimeOnly,
@@ -198,6 +199,7 @@ export default function ConversationList(props) {
           item={it}
           active={phone === selectedPhone}
           onSelectConversation={handleSelectConversation}
+          onPrefetchConversation={onPrefetchConversation}
           formatTimeOnly={formatTimeOnly}
           formatWhen={formatWhen}
           formatActivityLabel={formatActivityLabel}

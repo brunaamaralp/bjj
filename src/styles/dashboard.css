@@ -175,6 +175,65 @@
           align-items: center;
           gap: 6px;
         }
+        .dashboard-birthday-modal__title {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .dashboard-birthday-modal__list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .dashboard-birthday-modal__item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 0;
+          border-bottom: 1px solid var(--color-border);
+        }
+        .dashboard-birthday-modal__item:last-child {
+          border-bottom: none;
+        }
+        .dashboard-birthday-modal__info {
+          flex: 1;
+          min-width: 0;
+          padding: 0;
+          border: none;
+          background: none;
+          font-family: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        .dashboard-birthday-modal__info:hover .dashboard-birthday-modal__name {
+          color: var(--color-primary-dark);
+          text-decoration: underline;
+        }
+        .dashboard-birthday-modal__name {
+          display: block;
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: var(--color-text-heading);
+        }
+        .dashboard-birthday-modal__meta {
+          display: block;
+          margin-top: 2px;
+          font-size: 12px;
+          color: var(--color-text-secondary);
+        }
+        .dashboard-birthday-modal__wa {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .dashboard-birthday-modal__empty {
+          margin: 0;
+          color: var(--color-text-secondary);
+        }
         .dashboard-day-hero__stats {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -220,16 +279,16 @@
         .dashboard-hero-kpi--spotlight .report-kpi-card__value {
           color: var(--color-accent-dark);
         }
-        .dashboard-hero-kpi--sub-neutral .report-kpi-card__trend-label {
-          color: var(--color-text-secondary);
+        .dashboard-hero-kpi .report-kpi-card__trend-label {
+          min-height: 1.35em;
+          margin-top: 6px;
+          font-size: 11px;
           font-weight: 600;
+          line-height: 1.35;
+          color: var(--color-text-secondary);
         }
-        .dashboard-hero-kpi--sub-positive .report-kpi-card__trend-label {
+        .dashboard-hero-kpi--footnote-positive .report-kpi-card__trend-label {
           color: var(--color-accent-dark);
-          font-weight: 700;
-        }
-        .dashboard-hero-kpi--sub-attention .report-kpi-card__trend-label {
-          color: var(--warn-text, #854d0e);
           font-weight: 700;
         }
 
@@ -500,8 +559,27 @@
           align-items: baseline;
           flex-wrap: wrap;
           gap: 6px 8px;
-          margin-bottom: 6px;
-          padding: 0 4px;
+          margin-bottom: 8px;
+          padding: 6px 8px 6px 10px;
+          border-radius: 8px;
+          background: color-mix(in srgb, var(--color-content-bg) 92%, var(--color-primary-surface));
+          border-left: 3px solid var(--color-border);
+        }
+        .fu-group--critical .fu-group__head {
+          border-left-color: var(--color-danger);
+          background: color-mix(in srgb, var(--color-danger) 6%, var(--color-content-bg));
+        }
+        .fu-group--cooling .fu-group__head {
+          border-left-color: var(--color-warning, #f59e0b);
+          background: color-mix(in srgb, var(--color-warning) 8%, var(--color-content-bg));
+        }
+        .fu-group--on-track .fu-group__head,
+        .fu-group--today .fu-group__head {
+          border-left-color: var(--color-accent);
+          background: color-mix(in srgb, var(--color-accent-surface) 45%, var(--color-content-bg));
+        }
+        .fu-group--urgent .fu-group__head {
+          border-left-color: var(--color-danger);
         }
         .fu-group__title {
           margin: 0;
@@ -553,8 +631,9 @@
           width: 100%;
           min-width: 0;
         }
-        .fu-row__actions-bar .followup-copilot {
-          flex: 1 1 160px;
+        .fu-row__actions-bar .followup-copilot,
+        .fu-row__actions-bar .followup-copilot-menu {
+          flex: 0 0 auto;
           min-width: 0;
           margin-top: 0;
         }
@@ -566,7 +645,47 @@
           margin-left: auto;
         }
         .followup-section-hint {
-          margin: 0 4px 10px;
+          margin: 0;
+        }
+        .followup-section-hint-banner {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          margin: 0 4px 12px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: color-mix(in srgb, var(--color-primary-surface) 50%, var(--color-content-bg));
+          border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border));
+        }
+        .followup-section-hint-banner__dismiss {
+          flex-shrink: 0;
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+          background: var(--color-content-bg);
+          color: var(--color-primary-dark);
+          font-size: 11px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+        }
+        .agenda-followups-section__hint-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border-radius: 8px;
+          border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+          background: var(--color-content-bg);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+        .agenda-followups-section__hint-btn:hover {
+          color: var(--color-primary-dark);
+          border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
         }
         .fu-row:hover {
           background: var(--color-bg-secondary);
@@ -668,38 +787,100 @@
           font-size: var(--font-base);
           line-height: 1.4;
         }
+        .followup-health-panel__head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
         .followup-health-panel .reception-report-heading .report-section-heading__title {
           font-size: var(--font-lg);
         }
         .followup-health-panel__heading {
-          margin-bottom: 8px;
-        }
-        .followup-health-panel__legend {
-          margin-top: 8px;
           margin-bottom: 0;
-          font-size: var(--font-sm);
         }
-        .followup-health-panel__counts {
+        .followup-health-panel__help {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border: none;
+          border-radius: 8px;
+          background: transparent;
+          color: var(--color-text-secondary);
+          cursor: help;
+        }
+        .followup-health-panel__pills {
           display: flex;
           flex-wrap: wrap;
-          gap: 10px 14px;
-          margin-bottom: 8px;
+          gap: 8px;
+          margin-bottom: 12px;
         }
-        .followup-health-panel__count {
-          display: flex;
+        .followup-health-panel__pill {
+          display: inline-flex;
           align-items: center;
           gap: 6px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-content-bg);
         }
-        .followup-health-panel__num {
-          font-size: var(--font-xl);
+        .followup-health-panel__pill-num {
+          font-size: 1rem;
           font-weight: 800;
           font-variant-numeric: tabular-nums;
           line-height: 1;
+          color: var(--color-text-heading);
         }
-        .followup-health-panel__d1 {
-          margin: 0 0 6px;
-          font-size: var(--font-sm);
-          line-height: 1.4;
+        .followup-health-panel__d1-block {
+          margin-bottom: 10px;
+        }
+        .followup-health-panel__d1-head {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+        .followup-health-panel__d1-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+        }
+        .followup-health-panel__d1-value {
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--color-text-heading);
+        }
+        .followup-health-panel__d1-bar {
+          height: 6px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-primary) 10%, var(--color-border));
+          overflow: hidden;
+        }
+        .followup-health-panel__d1-fill {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+          transition: width 0.25s ease;
+        }
+        .followup-health-panel__d1-meta {
+          margin: 6px 0 0;
+          color: var(--color-text-secondary);
+        }
+        .followup-health-panel__list-label {
+          margin: 0 0 4px;
+          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+        .followup-health-panel__footnote {
+          margin: 10px 0 0;
+          color: var(--color-text-secondary);
         }
         .followup-health-panel__list {
           list-style: none;
@@ -1221,16 +1402,12 @@
         .agenda-bottom-row {
           order: 1;
           display: grid;
-          grid-template-columns: minmax(300px, 1.1fr) minmax(200px, 260px) minmax(240px, 300px);
-          gap: 22px;
+          grid-template-columns: minmax(320px, 1.45fr) minmax(220px, 0.55fr);
+          gap: 20px;
           align-items: start;
           width: 100%;
         }
-        .agenda-bottom-row--two-col {
-          grid-template-columns: minmax(300px, 1fr) minmax(260px, 320px);
-        }
         .agenda-bottom-row > .agenda-followups-section,
-        .agenda-bottom-row > .agenda-birthdays-section,
         .agenda-bottom-row > .followup-health-panel {
           width: 100%;
           max-width: 100%;

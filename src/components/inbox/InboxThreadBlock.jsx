@@ -1,21 +1,4 @@
-import React from 'react';
-import { Copy, MoreHorizontal, Reply } from 'lucide-react';
-import MessageBubble, { messageBubbleStatusFromMessage } from './MessageBubble.jsx';
-import MediaBubble, { resolveInboxMessageDisplayType } from './MediaBubble.jsx';
-import InboxMediaTempLinkBadge from './InboxMediaTempLinkBadge.jsx';
-import {
-  buildWhatsAppChatUrl,
-  inboxMessageMediaStored,
-  inboxMessageMediaUrl,
-} from '../../lib/inboxMediaUtils.js';
-import {
-  INBOX_MSG_TRUNCATE_CHARS,
-  isInboxTruncatableTextMessage,
-  truncateInboxMessageText,
-} from '../../lib/inboxUiConstants.js';
-
-export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
-  const {
+import React from 'react';  const {
     selectedPhone,
     selectedPhoneRef,
     selectedMsgKey,

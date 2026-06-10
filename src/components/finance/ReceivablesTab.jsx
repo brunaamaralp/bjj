@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import './finance.css';
 import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Wallet } from 'lucide-react';
 import { fetchReceivables } from '../../lib/financeTxApi.js';

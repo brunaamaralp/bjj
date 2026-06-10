@@ -3,6 +3,7 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
 import { getInboxThreadCache, setInboxThreadCache } from '../lib/inboxThreadCache.js';
+import { inboxMessagesChanged } from '../lib/inboxMessageUtils.js';
 
 /**
  * Carrega o thread de uma conversa (/api/conversations/:phone) com abort e paginação.
@@ -55,9 +56,9 @@ export function useInboxThreadLoader({
           await inflight;
           if (prefetch) return;
           if (applyThreadCache(academyId, p)) return;
+        } else if (applyThreadCache(academyId, p)) {
           return;
         }
-        if (applyThreadCache(academyId, p)) return;
       }
 
       if (!silent && !prefetch) {
@@ -185,6 +186,12 @@ export function useInboxThreadLoader({
             transfer_to: transferTo || null,
             archived: Boolean(data?.archived),
           };
+          if (!append && !cursor && silent && prev && prev.phone === p) {
+            const existing = Array.isArray(prev.messages) ? prev.messages : [];
+            if (!inboxMessagesChanged(existing, incoming)) {
+              return prev;
+            }
+          }
           if (!append || !prev || prev.phone !== p) {
             return { ...base, messages: incoming };
           }

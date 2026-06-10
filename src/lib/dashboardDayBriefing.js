@@ -151,7 +151,7 @@ function buildUrgentFollowupPriorityMessage(lead) {
  * @typedef {{
  *   type: 'upcoming_class' | 'urgent_followup' | 'birthday' | 'fallback';
  *   message: string;
- *   scrollTarget?: 'today' | 'follow-ups' | 'birthdays';
+ *   scrollTarget?: 'today' | 'follow-ups' | 'birthday-banner';
  *   highlightKpi?: 'today';
  *   leadId?: string;
  *   studentId?: string;
@@ -235,14 +235,14 @@ export function getDayPriority(ctx) {
       return {
         type: 'birthday',
         message: `Hoje é aniversário de ${name}${turmaPart}.`,
-        scrollTarget: 'birthdays',
+        scrollTarget: 'birthday-banner',
         studentId: String(student.id || '').trim() || undefined,
       };
     }
     return {
       type: 'birthday',
       message: `${birthdays.length} aniversariantes hoje. Comece por ${name}${turmaPart}.`,
-      scrollTarget: 'birthdays',
+      scrollTarget: 'birthday-banner',
       studentId: String(student.id || '').trim() || undefined,
     };
   }

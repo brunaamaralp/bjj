@@ -24,6 +24,7 @@ export default function InboxListPanel({
   waChatConnected,
   loadingMore,
   handleSelectConversation,
+  onPrefetchConversation,
   selectedPhone,
   ticketChip,
   formatTimeOnly,
@@ -286,6 +287,7 @@ export default function InboxListPanel({
           whatsAppConnected={waChatConnected}
           loadingMore={loadingMore}
           onSelectConversation={handleSelectConversation}
+          onPrefetchConversation={onPrefetchConversation}
           selectedPhone={selectedPhone}
           ticketChip={ticketChip}
           formatTimeOnly={formatTimeOnly}

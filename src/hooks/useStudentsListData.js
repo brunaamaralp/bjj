@@ -9,6 +9,7 @@ import {
 } from '../lib/studentsListFilters.js';
 import { getBirthMonthDay } from '../lib/birthDate.js';
 import { apiFindStudentsByPhone } from '../lib/studentsApi.js';
+import { useStudentsListScrollLoadMore } from './useStudentsListScrollLoadMore.js';
 
 const STALE_MS = 2 * 60 * 1000;
 
@@ -143,7 +144,7 @@ export function useStudentsListData({
       return `Mostrando ${shown} de ${total} ${studentPlural.toLowerCase()}`;
     }
     if (studentsHasMore) {
-      return `Mostrando ${shown} ${studentPlural.toLowerCase()} (carregue mais para ver todos)`;
+      return `Mostrando ${shown} ${studentPlural.toLowerCase()} (role para carregar mais)`;
     }
     return `${shown} ${studentPlural.toLowerCase()} cadastrados`;
   }, [filteredStudents.length, studentsTotal, studentsHasMore, studentPlural]);
@@ -163,6 +164,13 @@ export function useStudentsListData({
     await fetchMoreStudents();
   };
 
+  const { onListScroll } = useStudentsListScrollLoadMore({
+    studentsHasMore,
+    loadingMore,
+    studentsLoading,
+    onLoadMore: handleLoadMore,
+  });
+
   return {
     students,
     studentCount,
@@ -178,6 +186,7 @@ export function useStudentsListData({
     listRefreshing,
     handleRefreshList,
     handleLoadMore,
+    onListScroll,
     fetchStudents,
   };
 }

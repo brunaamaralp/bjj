@@ -5,10 +5,13 @@ import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
 const LONG_PRESS_MS = 520;
 const MOVE_CANCEL_PX = 12;
 
+const PREFETCH_HOVER_MS = 150;
+
 function ConversationItem({
   item,
   active,
   onSelectConversation,
+  onPrefetchConversation,
   formatTimeOnly,
   formatWhen,
   formatActivityLabel,
@@ -28,6 +31,27 @@ function ConversationItem({
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
   const touchStartRef = useRef(null);
+  const prefetchTimerRef = useRef(null);
+
+  const clearPrefetchTimer = useCallback(() => {
+    if (prefetchTimerRef.current != null) {
+      clearTimeout(prefetchTimerRef.current);
+      prefetchTimerRef.current = null;
+    }
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    if (active || typeof onPrefetchConversation !== 'function') return;
+    clearPrefetchTimer();
+    prefetchTimerRef.current = setTimeout(() => {
+      prefetchTimerRef.current = null;
+      onPrefetchConversation(item);
+    }, PREFETCH_HOVER_MS);
+  }, [active, clearPrefetchTimer, item, onPrefetchConversation]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearPrefetchTimer();
+  }, [clearPrefetchTimer]);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current != null) {
@@ -110,6 +134,8 @@ function ConversationItem({
       aria-label={ariaLabelParts.join(', ')}
       aria-current={active ? 'true' : undefined}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onTouchStart={enableLongPress ? handleTouchStart : undefined}
       onTouchMove={enableLongPress ? handleTouchMove : undefined}
       onTouchEnd={enableLongPress ? handleTouchEnd : undefined}

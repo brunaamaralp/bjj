@@ -1,0 +1,15 @@
+/* Tokens de espaçamento e gráficos do módulo financeiro (hub + abas). */
+:root {
+  --finance-space-1: 4px;
+  --finance-space-2: 8px;
+  --finance-space-3: 12px;
+  --finance-space-4: 16px;
+  --finance-space-5: 20px;
+  --finance-space-6: 24px;
+  --finance-space-8: 32px;
+  --finance-space-10: 40px;
+  --finance-space-12: 48px;
+  --finance-chart-inflow: var(--finance-color-positive);
+  --finance-chart-outflow: var(--warning, #c2410c);
+  --finance-chart-balance: var(--color-primary);
+}

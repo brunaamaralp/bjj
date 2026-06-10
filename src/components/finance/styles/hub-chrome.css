@@ -1,0 +1,226 @@
+﻿/* === Month picker genÃ©rico === */
+.finance-month-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap, 8px);
+  min-height: var(--control-height-toolbar, 36px);
+  padding: 0 var(--control-pad-x, 12px);
+  border-radius: var(--control-radius, var(--radius-sm));
+  border: var(--control-border, 1px solid var(--v200));
+  background: var(--v50);
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+.finance-month-picker__label {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  min-width: 150px;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.finance-month-picker__btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-width: var(--control-height-toolbar, 36px);
+  width: var(--control-height-toolbar, 36px);
+  min-height: var(--control-height-toolbar, 36px);
+  height: var(--control-height-toolbar, 36px);
+  cursor: pointer;
+  color: var(--color-primary);
+  border-radius: var(--control-radius-sm, 8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.finance-month-picker__btn:hover:not(:disabled) {
+  background: var(--v50);
+}
+
+.finance-month-picker__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* === Badges de status financeiro === */
+.finance-badge-pago,
+.finance-badge-parcial,
+.finance-badge-pendente,
+.finance-badge-atrasado,
+.finance-badge-cancelado,
+.finance-badge-aguardando,
+.finance-badge-projetado,
+.finance-badge-recorrente {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.finance-badge-pago {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.finance-badge-parcial {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.finance-badge-pendente {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.finance-badge-atrasado {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.finance-badge-cancelado {
+  background: var(--neutral-bg);
+  color: var(--neutral);
+}
+
+.finance-badge-aguardando {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.finance-badge-projetado {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.finance-badge-recorrente {
+  background: var(--neutral-bg);
+  color: var(--neutral);
+}
+
+.finance-badge-neutro {
+  background: var(--neutral-bg, var(--surface));
+  color: var(--neutral, var(--text-muted));
+  border: 1px solid var(--border-light);
+}
+
+.financeiro-overview-accounts-alert {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--warning-bg, var(--finance-card-bg-alert));
+  border: 1px solid var(--finance-card-border-alert);
+  color: var(--warning, var(--finance-color-pending));
+  font-size: var(--font-sm);
+}
+.financeiro-overview-accounts-alert a {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+}
+.mensal-modal-no-accounts {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--warning-bg, var(--finance-card-bg-alert));
+  border: 1px solid var(--finance-card-border-alert);
+  color: var(--warning, var(--finance-color-pending));
+}
+.mensal-modal-no-accounts a {
+  font-weight: 600;
+  color: inherit;
+}
+
+.finance-label-with-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.navi-hint--info {
+  margin-left: 2px;
+}
+
+.financeiro-overview-reports-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.financeiro-overview-reports-card:hover {
+  border-color: var(--border-mid);
+  box-shadow: 0 4px 16px rgba(0, 4, 53, 0.06);
+}
+.financeiro-overview-reports-card__icon {
+  flex-shrink: 0;
+  color: var(--petroleo, var(--v700));
+}
+.financeiro-overview-reports-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.financeiro-overview-reports-card__title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: var(--font-md);
+}
+.financeiro-overview-reports-card__desc {
+  margin: 0;
+}
+.financeiro-overview-reports-card__arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.finance-month-picker__label-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.finance-month-picker__conferred {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--finance-color-positive);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.finance-tab-intro {
+  margin: var(--finance-space-4) 0 var(--finance-space-3);
+}
+.mensalidades-embedded-hint {
+  margin: var(--finance-space-2) 0 0;
+  flex: 1 1 100%;
+}
+.mensalidades-panel--embedded .mensal-header { margin-top: 4px; }
+.financeiro-hub-tabs { margin-bottom: 16px; }
+.financeiro-hub-tabs__secondary { margin-top: 10px; }
+.navi-hub-tabs--nested .navi-hub-tab { font-size: var(--font-sm); padding: 6px 12px; }
+.finance-page-root {
+  width: 100%;
+  box-sizing: border-box;
+  --finance-table-max-height: calc(100vh - 200px);
+}
+.finance-page-inner { max-width: 1100px; margin: 0 auto; padding: 0; box-sizing: border-box; }
+.finance-label-with-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.navi-hint--info {
+  margin-left: 2px;
+}

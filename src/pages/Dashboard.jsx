@@ -18,16 +18,16 @@ import {
     CheckCircle2,
     DoorOpen,
     Loader2,
-    Cake,
     Users,
     CheckSquare,
+    Info,
 } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import DashboardBirthdayBanner from '../components/dashboard/DashboardBirthdayBanner.jsx';
+import DashboardBirthdayModal from '../components/dashboard/DashboardBirthdayModal.jsx';
 import {
     buildHeroDateLine,
-    buildHeroAcademyLine,
     buildDaySummaryLine,
     getDayPriority,
     getTimeOfDayPeriod,
@@ -102,6 +102,7 @@ import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
+const DASHBOARD_FU_HINT_KEY = 'nave:dashboard-fu-hint-v1';
 
 const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
 
@@ -116,11 +117,39 @@ function heroKpiClassNames(stat, highlightKpiKey) {
     if (stat.tone === 'primary') classes.push('dashboard-hero-kpi--primary');
     if (stat.tone === 'muted') classes.push('dashboard-hero-kpi--muted');
     if (stat.tone === 'success') classes.push('dashboard-hero-kpi--success-surface');
-    if (stat.subTone === 'neutral' && stat.sub) classes.push('dashboard-hero-kpi--sub-neutral');
-    if (stat.subTone === 'positive') classes.push('dashboard-hero-kpi--sub-positive');
-    if (stat.subTone === 'attention') classes.push('dashboard-hero-kpi--sub-attention');
+    if (stat.footnoteTone === 'positive') classes.push('dashboard-hero-kpi--footnote-positive');
     if (highlightKpiKey === stat.key) classes.push('dashboard-hero-kpi--spotlight');
     return classes.join(' ');
+}
+
+function buildTodayKpiFootnote(count) {
+    return count > 0
+        ? { footnote: 'Ver agenda da semana', footnoteTone: 'neutral' }
+        : { footnote: 'Nenhuma agendada', footnoteTone: 'neutral' };
+}
+
+function buildEnrollmentKpiFootnote(metrics) {
+    if (metrics.sub) {
+        return {
+            footnote: metrics.sub,
+            footnoteTone: metrics.subTone === 'positive' ? 'positive' : 'neutral',
+        };
+    }
+    return metrics.enrolledInMonth > 0
+        ? { footnote: 'Neste mês civil', footnoteTone: 'neutral' }
+        : { footnote: 'Nenhuma neste mês', footnoteTone: 'neutral' };
+}
+
+function buildFollowupKpiFootnote(count, urgentCount) {
+    if (count === 0) return { footnote: 'Tudo em dia', footnoteTone: 'neutral' };
+    if (urgentCount > 0) return { footnote: 'Prioridade na lista', footnoteTone: 'neutral' };
+    return { footnote: 'Retornos na lista', footnoteTone: 'neutral' };
+}
+
+function buildTasksKpiFootnote(count) {
+    return count > 0
+        ? { footnote: 'Pendentes hoje', footnoteTone: 'neutral' }
+        : { footnote: 'Nenhuma pendente', footnoteTone: 'neutral' };
 }
 
 const Dashboard = () => {
@@ -147,7 +176,6 @@ const Dashboard = () => {
     const isUpdatingTask = useTaskStore((s) => s.isUpdating);
     const students = useStudentStore((s) => s.students);
     const fetchStudents = useStudentStore((s) => s.fetchStudents);
-    const studentsLoading = useStudentStore((s) => s.loading);
     const studentsLastFetchedAt = useStudentStore((s) => s.lastFetchedAt);
     const addToast = useUiStore((s) => s.addToast);
     const [controlIdFetchEnabled, setControlIdFetchEnabled] = useState(false);
@@ -193,9 +221,16 @@ const Dashboard = () => {
     const followUpsSectionRef = useRef(null);
     const retornosRowRef = useRef(null);
     const weekSectionRef = useRef(null);
-    const birthdaysSectionRef = useRef(null);
     const [followupStreak, setFollowupStreak] = useState(0);
     const [sendingBirthdayWa, setSendingBirthdayWa] = useState('');
+    const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+    const [showFollowupHint, setShowFollowupHint] = useState(() => {
+        try {
+            return !localStorage.getItem(DASHBOARD_FU_HINT_KEY);
+        } catch {
+            return true;
+        }
+    });
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -526,10 +561,29 @@ const Dashboard = () => {
         });
     };
 
-    const scrollToBirthdaysSection = () => {
+    const scrollToBirthdayBanner = () => {
         requestAnimationFrame(() => {
-            birthdaysSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document
+                .getElementById('dashboard-birthday-banner')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
+    };
+
+    const openBirthdayList = () => {
+        if (todayBirthdays.length > 1) {
+            setBirthdayModalOpen(true);
+            return;
+        }
+        scrollToBirthdayBanner();
+    };
+
+    const dismissFollowupHint = () => {
+        setShowFollowupHint(false);
+        try {
+            localStorage.setItem(DASHBOARD_FU_HINT_KEY, '1');
+        } catch {
+            /* ignore */
+        }
     };
 
     const handleDayPriorityAction = () => {
@@ -538,7 +592,10 @@ const Dashboard = () => {
             if (dashboardWeekOffset !== 0) setDashboardWeekOffset(0);
             scrollToWeekSection(true);
         } else if (target === 'follow-ups') scrollToFollowUps();
-        else if (target === 'birthdays') scrollToBirthdaysSection();
+        else if (target === 'birthday-banner') {
+            if (todayBirthdays.length > 1) setBirthdayModalOpen(true);
+            else scrollToBirthdayBanner();
+        }
     };
 
     const handleKpiClick = (cardKey) => {
@@ -631,10 +688,6 @@ const Dashboard = () => {
     );
 
     const heroDateLine = useMemo(() => buildHeroDateLine(new Date()), []);
-    const heroAcademyLine = useMemo(
-        () => buildHeroAcademyLine(academyDisplayName),
-        [academyDisplayName]
-    );
 
     const heroPeriod = useMemo(() => getTimeOfDayPeriod(new Date()), []);
 
@@ -654,35 +707,34 @@ const Dashboard = () => {
     const showWeekAgendaPanel = !isZeroState;
 
     const heroStats = useMemo(() => {
-        const followupSub =
-            followupTemperatureCounts.cooling + followupTemperatureCounts.critical > 0
-                ? 'ver abaixo'
-                : '';
+        const followupUrgent =
+            followupTemperatureCounts.cooling + followupTemperatureCounts.critical;
+        const todayFootnote = buildTodayKpiFootnote(todayScheduled.length);
+        const enrollmentFootnote = buildEnrollmentKpiFootnote(monthEnrollmentMetrics);
+        const followupFootnote = buildFollowupKpiFootnote(followUps.length, followupUrgent);
+        const tasksFootnote = buildTasksKpiFootnote(pendingTasks.length);
+
         return [
             {
                 key: 'today',
                 label: `${trialSeriesPlural} hoje`,
                 count: todayScheduled.length,
                 tone: todayScheduled.length > 0 ? 'primary' : 'muted',
-                sub: '',
-                subTone: '',
                 icon: <Calendar {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...todayFootnote,
             },
             {
                 key: 'enrollments',
                 label: 'Matrículas no mês',
                 count: monthEnrollmentMetrics.enrolledInMonth,
-                sub: monthEnrollmentMetrics.sub,
-                subTone: monthEnrollmentMetrics.subTone,
                 tone: monthEnrollmentMetrics.enrolledInMonth > 0 ? 'success' : 'muted',
                 icon: <Users {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...enrollmentFootnote,
             },
             {
                 key: 'followup',
                 label: followupKpiLabel(),
                 count: followUps.length,
-                sub: followupSub,
-                subTone: followupSub ? 'attention' : '',
                 tone:
                     followupTemperatureCounts.critical > 0
                         ? 'attention'
@@ -690,15 +742,15 @@ const Dashboard = () => {
                           ? 'default'
                           : 'success',
                 icon: <MessageCircle {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...followupFootnote,
             },
             {
                 key: 'tasks',
                 label: 'Tarefas',
                 count: pendingTasks.length,
-                sub: '',
-                subTone: '',
                 tone: pendingTasks.length > 0 ? 'attention' : 'muted',
                 icon: <CheckSquare {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...tasksFootnote,
             },
         ];
     }, [
@@ -1042,6 +1094,7 @@ const Dashboard = () => {
                         templateKey={lead?.nextStep?.template_key}
                         nextAction={lead.nextActionLabel}
                         compact
+                        menuMode
                     />
                     <div className="fu-btns">
                     <button
@@ -1117,7 +1170,6 @@ const Dashboard = () => {
                 className="reception-page-header reception-dashboard-page-header"
                 title="Hoje"
                 subtitle={receptionSubtitle}
-                meta={!loading && heroAcademyLine ? heroAcademyLine : null}
                 actions={
                     <>
                         {controlIdCfg.enabled && (
@@ -1204,7 +1256,7 @@ const Dashboard = () => {
                             templatesMap={academyWa.templates}
                             zapsterInstanceId={academyWa.zapster_instance_id}
                             onToast={(t) => addToast(t)}
-                            onScrollToSection={scrollToBirthdaysSection}
+                            onOpenList={openBirthdayList}
                         />
                     ) : null}
                 </div>
@@ -1219,7 +1271,7 @@ const Dashboard = () => {
                                         className={heroKpiClassNames(stat, dayPriority.highlightKpi)}
                                         label={stat.label}
                                         value={stat.count}
-                                        trendLabel={stat.sub || null}
+                                        trendLabel={stat.footnote}
                                         icon={stat.icon}
                                         highlight={heroKpiHighlight(stat.tone)}
                                         showCta={false}
@@ -1346,13 +1398,7 @@ const Dashboard = () => {
                 </button>
             ) : null}
 
-            <div
-                id="retornos-row"
-                ref={retornosRowRef}
-                className={`agenda-bottom-row${
-                    showFollowupHealthPanel ? '' : ' agenda-bottom-row--two-col'
-                }`}
-            >
+            <div id="retornos-row" ref={retornosRowRef} className="agenda-bottom-row">
             <section
                 id="follow-ups"
                 ref={followUpsSectionRef}
@@ -1380,6 +1426,20 @@ const Dashboard = () => {
                                     }
                                 />
                                 <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
+                                {followUps.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        className="agenda-followups-section__hint-btn"
+                                        aria-label="Ajuda sobre retornos e IA"
+                                        title="Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowFollowupHint((open) => !open);
+                                        }}
+                                    >
+                                        <Info size={16} strokeWidth={2} aria-hidden />
+                                    </button>
+                                ) : null}
                             </span>
                             <ChevronDown
                                 size={18}
@@ -1402,15 +1462,35 @@ const Dashboard = () => {
                                     }
                                 />
                                 <span className="badge badge-secondary reception-section-badge">{followUps.length}</span>
+                                {followUps.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        className="agenda-followups-section__hint-btn"
+                                        aria-label="Ajuda sobre retornos e IA"
+                                        title="Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar"
+                                        onClick={() => setShowFollowupHint((open) => !open)}
+                                    >
+                                        <Info size={16} strokeWidth={2} aria-hidden />
+                                    </button>
+                                ) : null}
                             </span>
                         </div>
                     )}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
-                {followUps.length > 0 ? (
-                    <p className="followup-copilot__hint followup-section-hint" role="note">
-                        Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
-                    </p>
+                {followUps.length > 0 && showFollowupHint ? (
+                    <div className="followup-section-hint-banner" role="note">
+                        <p className="followup-copilot__hint followup-section-hint">
+                            Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
+                        </p>
+                        <button
+                            type="button"
+                            className="followup-section-hint-banner__dismiss"
+                            onClick={dismissFollowupHint}
+                        >
+                            Entendi
+                        </button>
+                    </div>
                 ) : null}
                 <div
                     className={`fu-list-card${
@@ -1478,113 +1558,10 @@ const Dashboard = () => {
             {!loading && !isZeroState && showFollowupHealthPanel ? (
                 <FollowupHealthPanel
                     summary={followupHealthSummary}
+                    showLeadList={followUps.length === 0}
                     className="agenda-bottom-row__health"
                 />
             ) : null}
-
-            <section
-                id="birthdays"
-                ref={birthdaysSectionRef}
-                className="animate-in agenda-birthdays-section reception-section"
-                style={{ animationDelay: '0.22s' }}
-            >
-                <div className="reception-section-head agenda-birthdays-section__head">
-                    <div className="agenda-birthdays-section__title-row flex items-center gap-2 flex-wrap min-w-0">
-                        <ReportSectionHeading
-                            className="reception-report-heading"
-                            title={
-                                <>
-                                    <Cake size={18} color="var(--color-warning)" strokeWidth={2} aria-hidden />{' '}
-                                    {todayBirthdays.length > 0 ? 'Aniversariantes' : 'Aniversariantes hoje'}
-                                </>
-                            }
-                            subtitle={
-                                todayBirthdays.length > 0 && !loading
-                                    ? 'Detalhes, turmas e mensagens'
-                                    : undefined
-                            }
-                        />
-                        <span className="badge badge-secondary reception-section-badge">{todayBirthdays.length}</span>
-                    </div>
-                </div>
-                <div className="agenda-birthdays-section__body">
-                    <div
-                        className={`bd-list-card${
-                            todayBirthdays.length > 0 ? ' bd-list-card--celebrate' : ''
-                        }`}
-                    >
-                        {studentsLoading && students.length === 0 ? (
-                            <div className="bd-list-loading" aria-busy="true">
-                                <SkeletonCard variant="list-row" count={2} />
-                            </div>
-                        ) : todayBirthdays.length > 0 ? (
-                            todayBirthdays.map((student, i) => {
-                                const turma =
-                                    String(student.turma || student.className || '').trim() || '—';
-                                const studentId = String(student.id || '').trim();
-                                const hasPhone = Boolean(String(student.phone || '').trim());
-                                const waBusy = sendingBirthdayWa === studentId;
-                                const canBirthdayWa = Boolean(
-                                    String(academyWa.zapster_instance_id || '').trim() && hasPhone
-                                );
-                                return (
-                                    <div
-                                        key={student.id}
-                                        className={`bd-row animate-in${
-                                            i === todayBirthdays.length - 1 ? ' bd-row--last' : ''
-                                        }`}
-                                        style={{ animationDelay: `${0.04 * i}s` }}
-                                    >
-                                        <button
-                                            type="button"
-                                            className="bd-info bd-info--btn"
-                                            onClick={() => navigate(`/student/${student.id}`)}
-                                        >
-                                            <div className="bd-name">{student.name}</div>
-                                            <div className="bd-sub">
-                                                <span className="bd-meta-label">Turma</span>
-                                                <span className="bd-meta-sep" aria-hidden>
-                                                    ·
-                                                </span>
-                                                <span className="bd-meta-value">{turma}</span>
-                                            </div>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="bd-row__wa-btn"
-                                            disabled={!canBirthdayWa || waBusy}
-                                            title={
-                                                !hasPhone
-                                                    ? 'Sem telefone cadastrado'
-                                                    : !String(academyWa.zapster_instance_id || '').trim()
-                                                      ? 'WhatsApp não configurado'
-                                                      : 'Mandar parabéns'
-                                            }
-                                            aria-label="Mandar parabéns por WhatsApp"
-                                            onClick={(e) => void handleBirthdayWhatsApp(student, e)}
-                                        >
-                                            {waBusy ? (
-                                                <Loader2 size={14} className="spin-refresh" aria-hidden />
-                                            ) : (
-                                                <MessageCircle size={14} aria-hidden />
-                                            )}
-                                            <span className="bd-row__wa-label">Parabéns</span>
-                                        </button>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="bd-list-empty" role="status">
-                                <Cake className="bd-list-empty__icon" size={24} strokeWidth={2} aria-hidden />
-                                <p className="bd-list-empty__title">Nenhum aniversariante hoje</p>
-                                <p className="bd-list-empty__hint">
-                                    Quando algum {terms.student.toLowerCase()} fizer aniversário, aparece aqui.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </section>
             </div>
             </div>
 
@@ -1685,6 +1662,15 @@ const Dashboard = () => {
                 saving={Boolean(followupOutcomeLead && savingFollowupDone[String(followupOutcomeLead.id || '').trim()])}
                 onClose={closeFollowupOutcomeDialog}
                 onConfirm={(payload) => void confirmFollowupOutcome(payload)}
+            />
+
+            <DashboardBirthdayModal
+                open={birthdayModalOpen}
+                onClose={() => setBirthdayModalOpen(false)}
+                students={todayBirthdays}
+                sendingStudentId={sendingBirthdayWa}
+                canSendWa={Boolean(String(academyWa.zapster_instance_id || '').trim())}
+                onSendWhatsApp={(student) => void handleBirthdayWhatsApp(student)}
             />
 </div>
         </div>

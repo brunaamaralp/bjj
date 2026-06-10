@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import './finance.css';
 import { ID, Query } from 'appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useAccountingStore } from '../../store/useAccountingStore';

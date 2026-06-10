@@ -1,0 +1,227 @@
+﻿.finance-bank-balances__card--selectable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border, #e5e7eb);
+  font: inherit;
+  color: inherit;
+}
+
+.finance-bank-balances__card--selectable:hover {
+  border-color: var(--color-primary);
+}
+
+.finance-bank-balances__card--selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.finance-bank-balances__filter-hint {
+  margin: 0.5rem 0 0;
+}
+.finance-bank-balances__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.finance-bank-balances__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.finance-bank-balances__card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px;
+}
+
+.finance-bank-balances__card--selectable.card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.finance-bank-balances__card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.finance-bank-balances__card--muted {
+  border-style: dashed;
+}
+
+.finance-bank-balances__card h3.finance-bank-balances__card-title {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: normal;
+  color: var(--text-secondary, var(--color-text-secondary));
+}
+
+.finance-bank-balances__card-balance {
+  margin: 0;
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink, var(--color-text-primary));
+}
+
+.finance-bank-balances__card-breakdown {
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 0.5px solid var(--border-light, var(--color-card-border));
+  display: grid;
+  gap: 6px;
+}
+
+.finance-bank-balances__card-breakdown > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--font-xs);
+  line-height: 1.35;
+}
+
+.finance-bank-balances__card-breakdown dt {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-secondary, var(--color-text-secondary));
+}
+
+.finance-bank-balances__card-breakdown dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink, var(--color-text-primary));
+  text-align: right;
+}
+
+.finance-bank-balances__card-breakdown--in {
+  color: var(--finance-color-positive, var(--success));
+}
+
+.finance-bank-balances__card-breakdown--out {
+  color: var(--finance-color-negative, var(--danger));
+}
+
+.finance-bank-balances__total {
+  margin: 14px 0 8px;
+}
+
+.finance-bank-balances__as-of {
+  margin: 0 0 12px;
+}
+
+.finance-bank-balances--embedded .finance-bank-balances__total {
+  margin-top: 8px;
+}
+
+.finance-bank-balances--overview .finance-bank-balances__grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.finance-bank-balances--overview .finance-bank-balances__card {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.finance-bank-balances--overview .finance-bank-balances__card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 32%, var(--border-light));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.finance-bank-balances__card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.finance-bank-balances__card-action:hover {
+  text-decoration: underline;
+}
+
+.finance-bank-balances--compact .finance-bank-balances__grid--quad {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.finance-bank-balances__card--compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 14px 16px;
+  min-height: 0;
+}
+
+.finance-bank-balances__card-hero {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.finance-bank-balances__card--selectable .finance-bank-balances__card-hero:hover {
+  opacity: 0.92;
+}
+
+.finance-bank-balances__card-balance--hero {
+  font-size: clamp(1.35rem, 3vw, 1.65rem);
+  margin-top: 4px;
+}
+
+.finance-bank-balances__card--unallocated {
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.02));
+  border: 1px dashed var(--border-light, var(--color-card-border));
+}
+
+.finance-bank-balances__card-details {
+  margin-top: 8px;
+}
+
+.finance-bank-balances__card-details-summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--text-secondary, var(--color-text-secondary));
+  padding: 4px 0;
+  user-select: none;
+}
+
+.finance-bank-balances__card-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.finance-bank-balances__card-details-summary::before {
+  content: 'â–¸ ';
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.finance-bank-balances__card-details[open] .finance-bank-balances__card-details-summary::before {
+  transform: rotate(90deg);
+}
+
+.finance-bank-balances__card-details-body .finance-bank-balances__card-breakdown {
+  padding-top: 8px;
+  border-top: 0.5px solid var(--border-light, var(--color-card-border));
+}

@@ -42,6 +42,7 @@ import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, selectStudentById } from '../store/useStudentStore';
+import '../styles/student-profile.css';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { friendlyError } from '../lib/errorMessages.js';
@@ -3042,44 +3043,6 @@ export default function StudentProfile() {
                 background: 'var(--surface)',
             }}
         >
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-            .student-profile-page-root {
-              min-height: calc(100vh - env(safe-area-inset-bottom, 0px));
-            }
-            @supports (min-height: 100dvh) {
-              .student-profile-page-root {
-                min-height: 100dvh;
-              }
-            }
-            .student-profile-data-input:focus {
-              outline: none;
-              border: 1px solid var(--petroleo) !important;
-            }
-            @media (max-width: 1023px) {
-              .student-profile--panel-open .student-panel-right-col {
-                position: fixed;
-                inset: 0;
-                z-index: 200;
-                max-width: 100% !important;
-                flex: 1 1 auto !important;
-                opacity: 1 !important;
-                pointer-events: auto !important;
-                box-sizing: border-box;
-              }
-              .student-profile--panel-open .student-panel-left-col {
-                display: none !important;
-              }
-            }
-            @media (max-width: 1023px) {
-              .student-panel-right-col .student-freq-stats-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-              }
-            }
-          `,
-                }}
-            />
             {leftColumn}
             {rightColumn}
 

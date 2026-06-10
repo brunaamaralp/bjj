@@ -73,6 +73,7 @@
     { "source": "/api/reports-light", "destination": "/api/reports.js?route=light" },
     { "source": "/api/reports/by-operator", "destination": "/api/reports.js?route=by-operator" },
     { "source": "/api/reports/by-student", "destination": "/api/reports.js?route=by-student" },
+    { "source": "/api/students/list", "destination": "/api/leads.js?route=students&action=list" },
     { "source": "/api/students/:id/profile", "destination": "/api/leads.js?route=students&action=profile&student_id=$1" },
     { "source": "/api/academy/whatsapp-templates", "destination": "/api/agent.js?route=whatsapp-templates" },
 
