@@ -4,12 +4,24 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Query } from 'appwrite';
-import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
-import { Plus, Calendar, ChevronDown, MessageCircle, RefreshCcw, List, Check, CheckCircle2, DoorOpen, Loader2, Cake } from 'lucide-react';
+import {
+    Plus,
+    Calendar,
+    ChevronDown,
+    MessageCircle,
+    RefreshCcw,
+    List,
+    Check,
+    CheckCircle2,
+    DoorOpen,
+    Loader2,
+    Cake,
+    Users,
+    CheckSquare,
+} from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import DashboardBirthdayBanner from '../components/dashboard/DashboardBirthdayBanner.jsx';
@@ -21,6 +33,12 @@ import {
     getTimeOfDayPeriod,
     countWeeklyEnrollments,
 } from '../lib/dashboardDayBriefing.js';
+import {
+    countEnrollmentsInMonth,
+    countLeadsCreatedInMonth,
+    currentMonthRange,
+    previousMonthRange,
+} from '../lib/dashboardManagerMetrics.js';
 import {
     attendedButtonLabel,
     missedButtonLabel,
@@ -60,17 +78,14 @@ import ModalShell from '../components/shared/ModalShell.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
+import ReportKpiCard from '../components/reports/shared/ReportKpiCard.jsx';
 import StageBadge from '../components/shared/StageBadge.jsx';
 import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import '../styles/followup-shared.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
-import {
-    patchFollowupContactCache,
-    getFollowupEventsCache,
-    setFollowupEventsCache,
-} from '../lib/followupEventsCache.js';
+import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
 import {
     FOLLOWUP_AGENDA_MAX_DAYS,
     enrichFollowUpLeads,
@@ -85,7 +100,28 @@ import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.
 import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
 import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
+import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
+
+const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
+
+function heroKpiHighlight(tone) {
+    if (tone === 'success') return 'success';
+    if (tone === 'attention') return 'attention';
+    return 'default';
+}
+
+function heroKpiClassNames(stat, highlightKpiKey) {
+    const classes = ['dashboard-hero-kpi'];
+    if (stat.tone === 'primary') classes.push('dashboard-hero-kpi--primary');
+    if (stat.tone === 'muted') classes.push('dashboard-hero-kpi--muted');
+    if (stat.tone === 'success') classes.push('dashboard-hero-kpi--success-surface');
+    if (stat.subTone === 'neutral' && stat.sub) classes.push('dashboard-hero-kpi--sub-neutral');
+    if (stat.subTone === 'positive') classes.push('dashboard-hero-kpi--sub-positive');
+    if (stat.subTone === 'attention') classes.push('dashboard-hero-kpi--sub-attention');
+    if (highlightKpiKey === stat.key) classes.push('dashboard-hero-kpi--spotlight');
+    return classes.join(' ');
+}
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -134,9 +170,14 @@ const Dashboard = () => {
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
     const [listModalType, setListModalType] = useState('');
-    const [followupDoneAtByLead, setFollowupDoneAtByLead] = useState({});
-    const [followupContactAtByLead, setFollowupContactAtByLead] = useState({});
-    const [followupSnoozeUntilByLead, setFollowupSnoozeUntilByLead] = useState({});
+    const {
+        followupDoneByLead: followupDoneAtByLead,
+        followupContactByLead: followupContactAtByLead,
+        followupSnoozeUntilByLead,
+        inboundAfterByLead,
+        inboundAfterByPhone,
+        refreshFromCache: refreshFollowupFromCache,
+    } = useFollowupEventsByLead(academyId);
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds, setRemovingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
@@ -289,88 +330,6 @@ const Dashboard = () => {
         });
     }, [dashWaTemplates, dashWaName, dashWaZap, dashWaError]);
 
-    useEffect(() => {
-        if (!academyId || !LEAD_EVENTS_COL) {
-            setFollowupDoneAtByLead({});
-            setFollowupContactAtByLead({});
-            setFollowupSnoozeUntilByLead({});
-            return;
-        }
-        const cached = getFollowupEventsCache(academyId);
-        if (cached) {
-            setFollowupDoneAtByLead(cached.doneByLead || {});
-            setFollowupContactAtByLead(cached.contactByLead || {});
-            setFollowupSnoozeUntilByLead(cached.snoozeUntilByLead || {});
-            return;
-        }
-        let cancelled = false;
-        const loadFollowupEvents = async () => {
-            try {
-                let cursor = null;
-                let pageCount = 0;
-                const doneByLead = {};
-                const contactByLead = {};
-                const snoozeUntilByLead = {};
-                const cutoff = new Date();
-                cutoff.setDate(cutoff.getDate() - FOLLOWUP_AGENDA_MAX_DAYS);
-                const cutoffIso = cutoff.toISOString();
-                const parsePayload = (doc) => {
-                    const raw = doc?.payload_json ?? doc?.payloadJson;
-                    if (!raw) return {};
-                    if (typeof raw === 'object') return raw;
-                    try {
-                        return JSON.parse(raw);
-                    } catch {
-                        return {};
-                    }
-                };
-                do {
-                    const queries = [
-                        Query.equal('academy_id', [String(academyId || '').trim()]),
-                        Query.equal('type', ['followup_done', 'followup_contact', 'followup_snooze']),
-                        Query.greaterThan('at', cutoffIso),
-                        Query.orderDesc('at'),
-                        Query.limit(100),
-                    ];
-                    if (cursor) queries.push(Query.cursorAfter(cursor));
-                    const res = await databases.listDocuments(DB_ID, LEAD_EVENTS_COL, queries);
-                    const docs = Array.isArray(res?.documents) ? res.documents : [];
-                    for (const d of docs) {
-                        const leadId = String(d?.lead_id || '').trim();
-                        const at = String(d?.at || '').trim();
-                        const type = String(d?.type || '').trim();
-                        if (!leadId || !at) continue;
-                        const payload = parsePayload(d);
-                        if (type === 'followup_done' && !doneByLead[leadId]) doneByLead[leadId] = at;
-                        if (type === 'followup_contact' && !contactByLead[leadId]) contactByLead[leadId] = at;
-                        if (type === 'followup_snooze' && !snoozeUntilByLead[leadId]) {
-                            const until = String(payload.untilYmd || '').slice(0, 10);
-                            if (until) snoozeUntilByLead[leadId] = until;
-                        }
-                    }
-                    cursor = docs.length === 100 ? docs[docs.length - 1]?.$id : null;
-                    pageCount += 1;
-                } while (cursor && pageCount < 10);
-                if (!cancelled) {
-                    setFollowupDoneAtByLead(doneByLead);
-                    setFollowupContactAtByLead(contactByLead);
-                    setFollowupSnoozeUntilByLead(snoozeUntilByLead);
-                    setFollowupEventsCache(academyId, { doneByLead, contactByLead, snoozeUntilByLead });
-                }
-            } catch {
-                if (!cancelled) {
-                    setFollowupDoneAtByLead({});
-                    setFollowupContactAtByLead({});
-                    setFollowupSnoozeUntilByLead({});
-                }
-            }
-        };
-        void loadFollowupEvents();
-        return () => {
-            cancelled = true;
-        };
-    }, [academyId]);
-
     const handleRefresh = async () => {
         if (isRefreshing) return;
         setIsRefreshing(true);
@@ -425,11 +384,6 @@ const Dashboard = () => {
         return leadDate.toDateString() === today.toDateString();
     });
 
-    const weekScheduled = useMemo(
-        () => filterLeadsInCivilWeek(agendaWeekLeads, 0),
-        [agendaWeekLeads]
-    );
-
     const followupPlaybook = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return readFollowupPlaybook(acad.settings);
@@ -440,9 +394,18 @@ const Dashboard = () => {
             playbook: followupPlaybook,
             followupDoneByLead: followupDoneAtByLead,
             followupContactByLead: followupContactAtByLead,
-            followupSnoozeUntilByLead: followupSnoozeUntilByLead,
+            followupSnoozeUntilByLead,
+            inboundAfterByLead,
+            inboundAfterByPhone,
         }),
-        [followupPlaybook, followupDoneAtByLead, followupContactAtByLead, followupSnoozeUntilByLead]
+        [
+            followupPlaybook,
+            followupDoneAtByLead,
+            followupContactAtByLead,
+            followupSnoozeUntilByLead,
+            inboundAfterByLead,
+            inboundAfterByPhone,
+        ]
     );
 
     const followUpsAll = useMemo(
@@ -477,8 +440,10 @@ const Dashboard = () => {
             computeFollowupHealthSummary(followUpsAll, {
                 followupDoneByLead: followupDoneAtByLead,
                 followupContactByLead: followupContactAtByLead,
+                inboundAfterByLead,
+                inboundAfterByPhone,
             }),
-        [followUpsAll, followupDoneAtByLead, followupContactAtByLead]
+        [followUpsAll, followupDoneAtByLead, followupContactAtByLead, inboundAfterByLead, inboundAfterByPhone]
     );
 
     const showFollowupHealthPanel = useMemo(() => {
@@ -544,12 +509,7 @@ const Dashboard = () => {
     } = useFollowupOutcome({
         source: 'dashboard',
         onSuccess: () => {
-            const cached = getFollowupEventsCache(academyId);
-            if (cached) {
-                setFollowupDoneAtByLead(cached.doneByLead || {});
-                setFollowupContactAtByLead(cached.contactByLead || {});
-                setFollowupSnoozeUntilByLead(cached.snoozeUntilByLead || {});
-            }
+            refreshFollowupFromCache();
             setFollowUpMicroToastOpen(true);
         },
     });
@@ -590,7 +550,11 @@ const Dashboard = () => {
             navigate('/tarefas?status=pendentes&period=today');
             return;
         }
-        if (cardKey === 'today' || cardKey === 'week') {
+        if (cardKey === 'enrollments') {
+            navigate('/reports?tab=funil');
+            return;
+        }
+        if (cardKey === 'today') {
             if (dashboardWeekOffset !== 0) {
                 setDashboardWeekOffset(0);
             }
@@ -611,6 +575,28 @@ const Dashboard = () => {
         () => countWeeklyEnrollments(students, new Date()),
         [students]
     );
+
+    const monthEnrollmentMetrics = useMemo(() => {
+        const monthRange = currentMonthRange();
+        const prevRange = previousMonthRange();
+        const enrolledInMonth = countEnrollmentsInMonth(leads, students, monthRange);
+        const leadsInMonth = countLeadsCreatedInMonth(leads, monthRange);
+        const enrolledPrevMonth = countEnrollmentsInMonth(leads, students, prevRange);
+        const delta = enrolledInMonth - enrolledPrevMonth;
+        let sub = '';
+        let subTone = '';
+        if (leadsInMonth > 0) {
+            sub = `de ${leadsInMonth} leads`;
+            subTone = 'neutral';
+        } else if (delta > 0) {
+            sub = `+${delta} vs mês passado`;
+            subTone = 'positive';
+        } else if (delta < 0) {
+            sub = `${delta} vs mês passado`;
+            subTone = 'neutral';
+        }
+        return { enrolledInMonth, sub, subTone };
+    }, [leads, students]);
 
     const dayPriority = useMemo(
         () =>
@@ -667,70 +653,77 @@ const Dashboard = () => {
 
     const showWeekAgendaPanel = !isZeroState;
 
-    const heroStats = useMemo(
-        () => [
+    const heroStats = useMemo(() => {
+        const followupSub =
+            followupTemperatureCounts.cooling + followupTemperatureCounts.critical > 0
+                ? 'ver abaixo'
+                : '';
+        return [
             {
                 key: 'today',
                 label: `${trialSeriesPlural} hoje`,
                 count: todayScheduled.length,
                 tone: todayScheduled.length > 0 ? 'primary' : 'muted',
+                sub: '',
+                subTone: '',
+                icon: <Calendar {...HERO_KPI_ICON_PROPS} aria-hidden />,
             },
             {
-                key: 'week',
-                label: 'Esta semana',
-                count: weekScheduled.length,
-                tone: weekScheduled.length > 0 ? 'default' : 'muted',
+                key: 'enrollments',
+                label: 'Matrículas no mês',
+                count: monthEnrollmentMetrics.enrolledInMonth,
+                sub: monthEnrollmentMetrics.sub,
+                subTone: monthEnrollmentMetrics.subTone,
+                tone: monthEnrollmentMetrics.enrolledInMonth > 0 ? 'success' : 'muted',
+                icon: <Users {...HERO_KPI_ICON_PROPS} aria-hidden />,
             },
             {
                 key: 'followup',
                 label: followupKpiLabel(),
                 count: followUps.length,
-                sub:
-                    followupTemperatureCounts.cooling + followupTemperatureCounts.critical > 0
-                        ? 'ver abaixo'
-                        : '',
+                sub: followupSub,
+                subTone: followupSub ? 'attention' : '',
                 tone:
                     followupTemperatureCounts.critical > 0
                         ? 'attention'
                         : followUps.length > 0
                           ? 'default'
                           : 'success',
+                icon: <MessageCircle {...HERO_KPI_ICON_PROPS} aria-hidden />,
             },
             {
                 key: 'tasks',
                 label: 'Tarefas',
                 count: pendingTasks.length,
+                sub: '',
+                subTone: '',
                 tone: pendingTasks.length > 0 ? 'attention' : 'muted',
+                icon: <CheckSquare {...HERO_KPI_ICON_PROPS} aria-hidden />,
             },
-        ],
-        [
-            trialSeriesPlural,
-            todayScheduled.length,
-            weekScheduled.length,
-            followUps.length,
-            pendingTasks.length,
-            followupTemperatureCounts.cooling,
-            followupTemperatureCounts.critical,
-        ]
-    );
+        ];
+    }, [
+        trialSeriesPlural,
+        todayScheduled.length,
+        monthEnrollmentMetrics,
+        followUps.length,
+        pendingTasks.length,
+        followupTemperatureCounts.cooling,
+        followupTemperatureCounts.critical,
+    ]);
 
     const modalListItems =
         listModalType === 'today'
             ? todayScheduled
-            : listModalType === 'week'
-              ? weekScheduled
-              : listModalType === 'tasks'
-                ? pendingTasks
-                : [];
+            : listModalType === 'tasks'
+              ? pendingTasks
+              : [];
 
     const modalTitle =
         listModalType === 'today'
             ? `${trialSeriesPlural} hoje`
-            : listModalType === 'week'
-              ? `${trialSeriesPlural} esta semana`
-              : listModalType === 'tasks'
-                ? 'Próximas tarefas'
-                : '';
+            : listModalType === 'tasks'
+              ? 'Próximas tarefas'
+              : '';
 
     const handleBirthdayWhatsApp = async (student, e) => {
         e?.stopPropagation?.();
@@ -805,7 +798,7 @@ const Dashboard = () => {
                     },
                 });
                 patchFollowupContactCache(st.academyId, leadId, nowIso);
-                setFollowupContactAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
+                refreshFollowupFromCache();
             } catch {
                 void 0;
             }
@@ -1164,79 +1157,78 @@ const Dashboard = () => {
                 style={{ animationDelay: '0.04s' }}
                 aria-busy={loading}
             >
-                <div className="dashboard-day-hero__main">
-                    <div className="dashboard-day-hero__head">
-                        <p className="dashboard-day-hero__date">{loading ? 'Carregando…' : heroDateLine}</p>
-                        {!loading ? (
-                            <button
-                                type="button"
-                                className="dashboard-day-hero__refresh"
-                                onClick={() => void handleRefresh()}
-                                disabled={loading || isRefreshing}
-                                aria-label="Atualizar dados do dia"
-                            >
-                                <RefreshCcw
-                                    size={16}
-                                    className={isRefreshing ? 'spin-refresh' : ''}
-                                    strokeWidth={2}
-                                    aria-hidden
-                                />
-                            </button>
-                        ) : null}
-                    </div>
-                    {!loading ? (
-                        <p className="dashboard-day-hero__summary">{daySummaryLine}</p>
-                    ) : null}
-                    {showDayPriority ? (
-                        <div className="dashboard-day-hero__priority">
-                            <p className="dashboard-day-hero__priority-text">{dayPriority.message}</p>
-                            {dayPriority.scrollTarget ? (
+                <div className="dashboard-day-hero__briefing">
+                    <div className="dashboard-day-hero__main">
+                        <div className="dashboard-day-hero__head">
+                            <p className="dashboard-day-hero__date">{loading ? 'Carregando…' : heroDateLine}</p>
+                            {!loading ? (
                                 <button
                                     type="button"
-                                    className="dashboard-day-hero__priority-btn"
-                                    onClick={handleDayPriorityAction}
+                                    className="dashboard-day-hero__refresh"
+                                    onClick={() => void handleRefresh()}
+                                    disabled={loading || isRefreshing}
+                                    aria-label="Atualizar dados do dia"
                                 >
-                                    Ver agora
+                                    <RefreshCcw
+                                        size={16}
+                                        className={isRefreshing ? 'spin-refresh' : ''}
+                                        strokeWidth={2}
+                                        aria-hidden
+                                    />
                                 </button>
                             ) : null}
                         </div>
+                        {!loading ? (
+                            <p className="dashboard-day-hero__summary">{daySummaryLine}</p>
+                        ) : null}
+                        {showDayPriority ? (
+                            <div className="dashboard-day-hero__priority">
+                                <p className="dashboard-day-hero__priority-text">{dayPriority.message}</p>
+                                {dayPriority.scrollTarget ? (
+                                    <button
+                                        type="button"
+                                        className="dashboard-day-hero__priority-btn"
+                                        onClick={handleDayPriorityAction}
+                                    >
+                                        Ver agora
+                                    </button>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+                    {!loading && todayBirthdays.length > 0 ? (
+                        <DashboardBirthdayBanner
+                            students={todayBirthdays}
+                            academyId={academyId}
+                            academyName={academyDisplayName}
+                            templatesMap={academyWa.templates}
+                            zapsterInstanceId={academyWa.zapster_instance_id}
+                            onToast={(t) => addToast(t)}
+                            onScrollToSection={scrollToBirthdaysSection}
+                        />
                     ) : null}
                 </div>
-                {!loading && todayBirthdays.length > 0 ? (
-                    <DashboardBirthdayBanner
-                        students={todayBirthdays}
-                        academyId={academyId}
-                        academyName={academyDisplayName}
-                        templatesMap={academyWa.templates}
-                        zapsterInstanceId={academyWa.zapster_instance_id}
-                        onToast={(t) => addToast(t)}
-                        onScrollToSection={scrollToBirthdaysSection}
-                    />
-                ) : null}
-                <div className="dashboard-day-hero__stats" role="list">
-                    {loading ? (
-                        <SkeletonCard variant="kpi" count={4} className="dashboard-day-hero__skeletons" />
-                    ) : (
-                        heroStats.map((stat) => (
-                            <button
-                                key={stat.key}
-                                type="button"
-                                role="listitem"
-                                className={`dashboard-day-stat dashboard-day-stat--${stat.tone}${
-                                    dayPriority.highlightKpi === stat.key
-                                        ? ' dashboard-day-stat--highlight'
-                                        : ''
-                                }`}
-                                onClick={() => handleKpiClick(stat.key)}
-                            >
-                                <span className="dashboard-day-stat__count">{stat.count}</span>
-                                <span className="dashboard-day-stat__label">{stat.label}</span>
-                                {stat.sub ? (
-                                    <span className="dashboard-day-stat__sub">{stat.sub}</span>
-                                ) : null}
-                            </button>
-                        ))
-                    )}
+                <div className="dashboard-day-hero__metrics" aria-label="Indicadores do dia">
+                    <div className="dashboard-day-hero__stats" role="list">
+                        {loading ? (
+                            <SkeletonCard variant="kpi" count={4} className="dashboard-day-hero__skeletons" />
+                        ) : (
+                            heroStats.map((stat) => (
+                                <div key={stat.key} role="listitem" className="dashboard-day-hero__stat-cell">
+                                    <ReportKpiCard
+                                        className={heroKpiClassNames(stat, dayPriority.highlightKpi)}
+                                        label={stat.label}
+                                        value={stat.count}
+                                        trendLabel={stat.sub || null}
+                                        icon={stat.icon}
+                                        highlight={heroKpiHighlight(stat.tone)}
+                                        showCta={false}
+                                        onClick={() => handleKpiClick(stat.key)}
+                                    />
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </section>
 

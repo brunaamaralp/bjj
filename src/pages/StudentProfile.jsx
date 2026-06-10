@@ -41,7 +41,7 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
-import { useStudentStore } from '../store/useStudentStore';
+import { useStudentStore, selectStudentById } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useToast } from '../hooks/useToast';
 import { friendlyError } from '../lib/errorMessages.js';
@@ -276,13 +276,15 @@ export default function StudentProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const student = useStudentStore((s) => s.students.find((l) => l.id === id));
+    const student = useStudentStore((s) => selectStudentById(s, id));
     const loading = useStudentStore((s) => s.loading);
     const fetchStudentById = useStudentStore((s) => s.fetchStudentById);
     const mergeStudent = useStudentStore((s) => s.mergeStudent);
     const refreshStudentPaymentStatus = useStudentStore((s) => s.refreshStudentPaymentStatus);
     const canViewFinance = useCanViewStudentFinance();
-    const [profileResolving, setProfileResolving] = useState(() => !useStudentStore.getState().students.some((l) => l.id === id));
+    const [profileResolving, setProfileResolving] = useState(
+        () => !selectStudentById(useStudentStore.getState(), id)
+    );
     const academyId = useLeadStore((s) => s.academyId);
     const modules = useLeadStore((s) => s.modules);
     const financeConfig = useLeadStore((s) => s.financeConfig);
@@ -435,7 +437,7 @@ export default function StudentProfile() {
     useEffect(() => {
         if (!id) return undefined;
         let cancelled = false;
-        if (useStudentStore.getState().students.some((l) => l.id === id)) {
+        if (selectStudentById(useStudentStore.getState(), id)) {
             setProfileResolving(false);
             return undefined;
         }

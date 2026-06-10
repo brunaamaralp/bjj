@@ -297,6 +297,8 @@ const LeadProfile = () => {
         followupDoneByLead,
         followupContactByLead,
         followupSnoozeUntilByLead,
+        inboundAfterByLead,
+        inboundAfterByPhone,
     } = useFollowupEventsByLead(academyId);
     const followupState = useMemo(() => {
         if (!lead || !isFollowUpLead(lead)) return null;
@@ -305,13 +307,23 @@ const LeadProfile = () => {
             followupDoneByLead,
             followupContactByLead,
             followupSnoozeUntilByLead,
+            inboundAfterByLead,
+            inboundAfterByPhone,
         });
         if (!state) return null;
         return {
             ...state,
             nextActionLabel: describePlaybookStep(state.nextStep),
         };
-    }, [lead, followupPlaybook, followupDoneByLead, followupContactByLead, followupSnoozeUntilByLead]);
+    }, [
+        lead,
+        followupPlaybook,
+        followupDoneByLead,
+        followupContactByLead,
+        followupSnoozeUntilByLead,
+        inboundAfterByLead,
+        inboundAfterByPhone,
+    ]);
     const showFollowupBand =
         followupState &&
         !followupState.doneForCurrentClass &&

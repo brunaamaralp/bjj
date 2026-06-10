@@ -2050,6 +2050,8 @@ const Pipeline = () => {
         followupDoneByLead,
         followupContactByLead,
         followupSnoozeUntilByLead,
+        inboundAfterByLead,
+        inboundAfterByPhone,
     } = useFollowupEventsByLead(academyId);
     const followupPlaybook = useMemo(
         () => readFollowupPlaybook(academySettingsRaw),
@@ -2061,6 +2063,8 @@ const Pipeline = () => {
             followupDoneByLead,
             followupContactByLead,
             followupSnoozeUntilByLead,
+            inboundAfterByLead,
+            inboundAfterByPhone,
         };
         const map = {};
         for (const lead of leadsForBoardPreCooling) {
@@ -2076,6 +2080,8 @@ const Pipeline = () => {
         followupDoneByLead,
         followupContactByLead,
         followupSnoozeUntilByLead,
+        inboundAfterByLead,
+        inboundAfterByPhone,
     ]);
 
     const followupCoolingCount = useMemo(

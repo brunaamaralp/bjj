@@ -1,21 +1,17 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, STUDENTS_PAGE_SIZE } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X, DoorOpen, Users } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronDown, Upload, RefreshCw, Download, UserPlus, X, DoorOpen, Users } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 
 const ControlIdAttendancePanel = lazy(() => import('../components/attendance/ControlIdAttendancePanel.jsx'));
 const ImportSheet = lazy(() => import('../components/ImportSheet'));
 
-const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
 import { databases, DB_ID, STUDENTS_COL } from '../lib/appwrite';
-import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
-import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.js';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import { useTerms } from '../lib/terminology.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
@@ -25,18 +21,12 @@ import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
+import { useStudentsListFilters, STUDENTS_FILTERS_EXPANDED_KEY } from '../hooks/useStudentsListFilters.js';
+import { useStudentsListData } from '../hooks/useStudentsListData.js';
+import { useStudentsCreateForm } from '../hooks/useStudentsCreateForm.js';
 import StudentListCard from '../components/student/StudentListCard.jsx';
-import { performEnrollment } from '../lib/performEnrollment.js';
 import { maskCpfForExport } from '../lib/maskCpf.js';
-import { maskPhone } from '../lib/masks.js';
-import { friendlyError } from '../lib/errorMessages.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
-import { getBirthMonthDay } from '../lib/birthDate.js';
-import { apiFindStudentsByPhone } from '../lib/studentsApi.js';
-
-function normalizePhone(v) {
-    return String(v || '').replace(/\D/g, '');
-}
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -54,207 +44,94 @@ const Students = ({ embedded = false }) => {
     const studentPlural = terms.students;
     const studentSingular = terms.student;
     const addToast = useUiStore((s) => s.addToast);
-    const { students, importStudents, fetchStudents, fetchMoreStudents, addStudent, mergeStudent } = useStudentStore();
+    const importStudents = useStudentStore((s) => s.importStudents);
+    const studentsError = useStudentStore((s) => s.studentsError);
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
+    const userId = useLeadStore((s) => s.userId);
+    const academyList = useLeadStore((s) => s.academyList);
 
     const { turmas: turmasConfig } = useAcademyTurmas(academyId);
     const controlIdCfg = useAcademyControlId(academyId, { fetch: viewMode === 'presenca' });
-    const studentsLoading = useStudentStore((s) => s.loading);
-    const loadingMore = useStudentStore((s) => s.loadingMore);
-    const studentsHasMore = useStudentStore((s) => s.studentsHasMore);
-    const studentsTotal = useStudentStore((s) => s.studentsTotal);
-    const studentsError = useStudentStore((s) => s.studentsError);
-    const userId = useLeadStore((s) => s.userId);
-    const academyList = useLeadStore((s) => s.academyList);
-    const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearch = useDebounce(searchTerm, 300);
     const listScrollRef = useRef(null);
-    const [filtroOrigem, setFiltroOrigem] = useState('Todas');
-    const [filtroTurma, setFiltroTurma] = useState('Todas');
-    const [filtroPlano, setFiltroPlano] = useState('Todos');
-    const [ordenacao, setOrdenacao] = useState('az');
     const [showImport, setShowImport] = useState(false);
-    const [showCreateStudent, setShowCreateStudent] = useState(false);
-    const [listRefreshing, setListRefreshing] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [creatingStudent, setCreatingStudent] = useState(false);
     const [exporting, setExporting] = useState(false);
-    const [showInactive, setShowInactive] = useState(false);
-    const [filtersExpanded, setFiltersExpanded] = useState(() => {
-        try {
-            return sessionStorage.getItem(STUDENTS_FILTERS_EXPANDED_KEY) === '1';
-        } catch {
-            return false;
-        }
+
+    const filters = useStudentsListFilters({ financeConfig });
+    const {
+        searchTerm,
+        setSearchTerm,
+        filtroOrigem,
+        setFiltroOrigem,
+        filtroTurma,
+        setFiltroTurma,
+        filtroPlano,
+        setFiltroPlano,
+        ordenacao,
+        setOrdenacao,
+        showInactive,
+        setShowInactive,
+        filtersExpanded,
+        setFiltersExpanded,
+        planOptions,
+        filterState,
+        serverFetchOpts,
+        hasServerFilters,
+        limparFiltros,
+        filtrosAtivos,
+        collapsibleFilterCount,
+    } = filters;
+
+    const listData = useStudentsListData({
+        academyId,
+        filterState,
+        serverFetchOpts,
+        hasServerFilters,
+        serverSearchActive: filters.serverSearchActive,
+        studentPlural,
+        listScrollRef,
     });
-    const [newStudent, setNewStudent] = useState({
-        name: '',
-        phone: '',
-        email: '',
-        turmaSelect: '',
-        turmaOther: '',
-        origin: LEAD_ORIGIN[0] || 'Cadastro manual',
-        plan: '',
+    const {
+        studentCount,
+        filteredStudents,
+        aniversariantesHoje,
+        shouldVirtualizeStudents,
+        studentVirtualizer,
+        studentsLoading,
+        loadingMore,
+        studentsHasMore,
+        listRefreshing,
+        handleRefreshList,
+        handleLoadMore,
+        fetchStudents,
+    } = listData;
+
+    const createForm = useStudentsCreateForm({
+        academyId,
+        academyList,
+        userId,
+        terms,
+        onCreated: (id) => navigate(`/student/${id}`),
     });
-    const [phoneError, setPhoneError] = useState('');
-    const [emailError, setEmailError] = useState('');
-
-    const planOptions = useMemo(() => {
-        const names = (financeConfig?.plans || [])
-            .map((p) => String(p?.name || '').trim())
-            .filter(Boolean);
-        return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'pt'));
-    }, [financeConfig?.plans]);
-
-    const serverFetchOpts = useMemo(
-        () => ({
-            search: debouncedSearch.trim().length >= 2 ? debouncedSearch.trim() : undefined,
-            plan: filtroPlano !== 'Todos' ? filtroPlano : undefined,
-            turma:
-                filtroTurma !== 'Todas' && filtroTurma !== 'Sem turma' ? filtroTurma : undefined,
-            studentStatus: showInactive ? STUDENT_STATUS.INACTIVE : STUDENT_STATUS.ACTIVE,
-        }),
-        [debouncedSearch, filtroPlano, filtroTurma, showInactive]
-    );
-
-    const lastFetchedAt = useStudentStore((s) => s.lastFetchedAt);
-    const STALE_MS = 2 * 60 * 1000;
-    const hasServerFilters = useMemo(
-        () =>
-            debouncedSearch.trim().length >= 2 ||
-            filtroPlano !== 'Todos' ||
-            (filtroTurma !== 'Todas' && filtroTurma !== 'Sem turma') ||
-            showInactive,
-        [debouncedSearch, filtroPlano, filtroTurma, showInactive]
-    );
-
-    useEffect(() => {
-        if (!academyId) return;
-        if (useStudentStore.getState().loading) return;
-        const stale = !lastFetchedAt || Date.now() - lastFetchedAt > STALE_MS;
-        if (!stale && !hasServerFilters && students.length > 0) return;
-        void fetchStudents({ reset: true, ...serverFetchOpts });
-    }, [academyId, serverFetchOpts, fetchStudents, lastFetchedAt, hasServerFilters, students.length]);
-
-    /** Recupera alunos órfãos (sem academyId) ao buscar por telefone. */
-    useEffect(() => {
-        const phoneQ = normalizePhone(debouncedSearch);
-        if (!academyId || phoneQ.length < 8 || studentsLoading) return;
-
-        const localHit = students.some((s) => normalizePhone(s.phone).includes(phoneQ));
-        if (localHit) return;
-
-        let cancelled = false;
-        void apiFindStudentsByPhone(debouncedSearch, academyId)
-            .then((matches) => {
-                if (cancelled || !matches?.length) return;
-                for (const m of matches) {
-                    if (m?.student?.id) mergeStudent(m.student.id, m.student);
-                }
-                if (matches.some((m) => m.repaired)) {
-                    addToast({
-                        type: 'success',
-                        message: 'Aluno recuperado e vinculado à academia.',
-                    });
-                }
-            })
-            .catch(() => {});
-
-        return () => {
-            cancelled = true;
-        };
-    }, [academyId, debouncedSearch, students, studentsLoading, mergeStudent, addToast]);
-
-    const serverSearchActive = debouncedSearch.trim().length >= 2;
-
-    const filteredStudents = useMemo(() => {
-        const q = debouncedSearch.trim().toLowerCase();
-        const qPhone = normalizePhone(debouncedSearch);
-
-        return students
-            .filter((s) => {
-                const turmaVal = String(s.turma || s.className || '').trim();
-                const matchBusca =
-                    serverSearchActive ||
-                    (!q && !qPhone) ||
-                    (qPhone && normalizePhone(s.phone || '').includes(qPhone)) ||
-                    (q && String(s.name || '').toLowerCase().includes(q)) ||
-                    (q && turmaVal.toLowerCase().includes(q));
-
-                const matchOrigem = filtroOrigem === 'Todas' || s.origin === filtroOrigem;
-                const matchTurma =
-                    filtroTurma === 'Todas' || (filtroTurma === 'Sem turma' ? !turmaVal : turmaVal === filtroTurma);
-                const matchPlano = filtroPlano === 'Todos' || String(s.plan || '').trim() === filtroPlano;
-
-                return matchBusca && matchOrigem && matchTurma && matchPlano;
-            })
-            .sort((a, b) => {
-                const nA = a.name || '';
-                const nB = b.name || '';
-                const dA = a.createdAt || '';
-                const dB = b.createdAt || '';
-                if (ordenacao === 'az') return nA.localeCompare(nB, 'pt');
-                if (ordenacao === 'za') return nB.localeCompare(nA, 'pt');
-                if (ordenacao === 'recentes') return dB.localeCompare(dA);
-                if (ordenacao === 'antigos') return dA.localeCompare(dB);
-                return 0;
-            });
-    }, [students, debouncedSearch, serverSearchActive, filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
-
-    const shouldVirtualizeStudents = filteredStudents.length > 50;
-    const studentCardGap = 12;
-    const studentCardEstimate = 100;
-    const studentVirtualizer = useVirtualizer({
-        count: shouldVirtualizeStudents ? filteredStudents.length : 0,
-        getScrollElement: () => listScrollRef.current,
-        estimateSize: () => studentCardEstimate,
-        gap: studentCardGap,
-        overscan: 8,
-    });
-
-    const limparFiltros = () => {
-        setSearchTerm('');
-        setFiltroOrigem('Todas');
-        setFiltroTurma('Todas');
-        setFiltroPlano('Todos');
-        setOrdenacao('az');
-        setShowInactive(false);
-    };
-
-    const filtrosAtivos =
-        Boolean(searchTerm.trim()) ||
-        filtroOrigem !== 'Todas' ||
-        filtroTurma !== 'Todas' ||
-        filtroPlano !== 'Todos' ||
-        ordenacao !== 'az' ||
-        showInactive;
-
-    const collapsibleFilterCount = useMemo(() => {
-        let n = 0;
-        if (filtroOrigem !== 'Todas') n += 1;
-        if (filtroTurma !== 'Todas') n += 1;
-        if (filtroPlano !== 'Todos') n += 1;
-        if (ordenacao !== 'az') n += 1;
-        return n;
-    }, [filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
+    const {
+        showCreateStudent,
+        setShowCreateStudent,
+        creatingStudent,
+        newStudent,
+        setNewStudent,
+        phoneError,
+        setPhoneError,
+        emailError,
+        setEmailError,
+        handleCreateStudent,
+        maskPhone,
+    } = createForm;
 
     const openProfile = useCallback(
         (studentId) => navigate(`/student/${studentId}`),
         [navigate]
     );
-
-    const listCountLabel = useMemo(() => {
-        const shown = filteredStudents.length;
-        const total = studentsTotal;
-        if (total != null && total > shown) {
-            return `Mostrando ${shown} de ${total} ${studentPlural.toLowerCase()}`;
-        }
-        if (studentsHasMore) {
-            return `Mostrando ${shown} ${studentPlural.toLowerCase()} (carregue mais para ver todos)`;
-        }
-        return `${shown} ${studentPlural.toLowerCase()} cadastrados`;
-    }, [filteredStudents.length, studentsTotal, studentsHasMore, studentPlural]);
 
     useEffect(() => {
         try {
@@ -281,95 +158,6 @@ const Students = ({ embedded = false }) => {
         } finally {
             setImporting(false);
             setShowImport(false);
-        }
-    };
-
-    const resetNewStudentForm = () => {
-        setNewStudent({
-            name: '',
-            phone: '',
-            email: '',
-            turmaSelect: '',
-            turmaOther: '',
-            origin: LEAD_ORIGIN[0] || 'Cadastro manual',
-            plan: '',
-        });
-        setPhoneError('');
-        setEmailError('');
-    };
-
-    const handleCreateStudent = async (e) => {
-        e.preventDefault();
-        if (creatingStudent) return;
-        const name = String(newStudent.name || '').trim();
-        const planName = String(newStudent.plan || '').trim();
-        if (!name) {
-            addToast({ type: 'warning', message: `Informe o nome do ${terms.student.toLowerCase()}.` });
-            return;
-        }
-        if (!planName) {
-            addToast({ type: 'warning', message: 'Selecione o plano para matricular o aluno.' });
-            return;
-        }
-        const cleanPhone = normalizePhone(newStudent.phone);
-        if (!cleanPhone || cleanPhone.length < 10) {
-            setPhoneError('Telefone obrigatório (mínimo 10 dígitos)');
-            return;
-        }
-        const emailTrim = String(newStudent.email || '').trim();
-        if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-            setEmailError('E-mail inválido');
-            return;
-        }
-        setEmailError('');
-        setPhoneError('');
-        setCreatingStudent(true);
-        try {
-            const turma = turmaValueFromForm(newStudent.turmaSelect, newStudent.turmaOther);
-            const created = await addStudent({
-                name,
-                phone: cleanPhone,
-                email: emailTrim,
-                turma,
-                type: profileTypeFromTurma(turma),
-                origin: newStudent.origin || 'Cadastro manual',
-                plan: planName,
-                dueDay: new Date().getDate(),
-                enrollmentDate: new Date().toISOString().slice(0, 10),
-                studentStatus: STUDENT_STATUS.ACTIVE,
-            });
-            const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
-            await performEnrollment({
-                lead: created,
-                academyId,
-                userId,
-                plan: planName,
-                source: 'direct',
-                permissionContext: {
-                    teamId: acadDoc.teamId || '',
-                    userId: userId || '',
-                },
-                academySettingsRaw: acadDoc.settings,
-                onToast: (msg) => addToast({ type: 'info', message: msg }),
-            });
-            addToast({ type: 'success', message: `${terms.student} cadastrado com sucesso.` });
-            setShowCreateStudent(false);
-            resetNewStudentForm();
-            if (created?.id) navigate(`/student/${created.id}`);
-        } catch (err) {
-            addToast({ type: 'error', message: friendlyError(err, 'save') });
-        } finally {
-            setCreatingStudent(false);
-        }
-    };
-
-    const handleRefreshList = async () => {
-        if (listRefreshing || studentsLoading) return;
-        setListRefreshing(true);
-        try {
-            await fetchStudents({ reset: true, ...serverFetchOpts });
-        } finally {
-            setListRefreshing(false);
         }
     };
 
@@ -448,11 +236,6 @@ const Students = ({ embedded = false }) => {
         }
     };
 
-    const handleLoadMore = async () => {
-        if (loadingMore || studentsLoading || !studentsHasMore) return;
-        await fetchMoreStudents();
-    };
-
     const studentLabel = terms.students;
     const pipelineName = labels.pipeline || 'Funil';
 
@@ -467,6 +250,7 @@ const Students = ({ embedded = false }) => {
             academyId={academyId}
             controlIdEnabled={controlIdCfg.enabled}
             studentSingular={studentSingular}
+            financeConfig={financeConfig}
             onOpenProfile={openProfile}
             style={shouldVirtualizeStudents ? undefined : { animationDelay: `${0.03 * animIndex}s` }}
         />
@@ -499,8 +283,8 @@ const Students = ({ embedded = false }) => {
                             <>
                                 <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
                                 {studentPlural.toLowerCase()} cadastrados
-                                {filtrosAtivos && students.length !== filteredStudents.length
-                                    ? ` (de ${students.length})`
+                                {filtrosAtivos && studentCount !== filteredStudents.length
+                                    ? ` (de ${studentCount})`
                                     : ''}
                                 {studentsHasMore
                                     ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
@@ -536,8 +320,8 @@ const Students = ({ embedded = false }) => {
                     <p className="navi-eyebrow students-page-embedded-count navi-page-header__meta" style={{ marginTop: 0, marginBottom: 14 }}>
                         <span className="navi-ui-count">{filteredStudents.length}</span>{' '}
                         {studentPlural.toLowerCase()} cadastrados
-                        {filtrosAtivos && students.length !== filteredStudents.length
-                            ? ` (de ${students.length})`
+                        {filtrosAtivos && studentCount !== filteredStudents.length
+                            ? ` (de ${studentCount})`
                             : ''}
                         {studentsHasMore
                             ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
@@ -753,19 +537,7 @@ const Students = ({ embedded = false }) => {
             ) : null}
 
             <div className="students-page-body">
-            {(() => {
-                const hoje = new Date();
-                const mesHoje = String(hoje.getMonth() + 1).padStart(2, '0');
-                const diaHoje = String(hoje.getDate()).padStart(2, '0');
-                const mesEDia = `${mesHoje}-${diaHoje}`;
-
-                const aniversariantes = students.filter(
-                    (s) => getBirthMonthDay(s.birthDate) === mesEDia
-                );
-
-                if (aniversariantes.length === 0) return null;
-
-                return (
+            {aniversariantesHoje.length > 0 ? (
                     <div
                         style={{
                             margin: '16px 0',
@@ -783,9 +555,9 @@ const Students = ({ embedded = false }) => {
                                 color: '#9A3412',
                             }}
                         >
-                            🎂 Aniversariantes hoje ({aniversariantes.length})
+                            🎂 Aniversariantes hoje ({aniversariantesHoje.length})
                         </p>
-                        {aniversariantes.map((s) => (
+                        {aniversariantesHoje.map((s) => (
                             <div
                                 key={s.id}
                                 role="button"
@@ -813,18 +585,17 @@ const Students = ({ embedded = false }) => {
                             </div>
                         ))}
                     </div>
-                );
-            })()}
+            ) : null}
 
             <div className="students-list-scroll" ref={listScrollRef}>
                 <div className={shouldVirtualizeStudents ? 'students-list-virtual' : 'students-list'}>
-                {studentsLoading && students.length === 0 ? (
+                {studentsLoading && studentCount === 0 ? (
                     <div className="students-skeleton-list mt-4" role="status" aria-live="polite" aria-busy="true">
                         {[1, 2, 3].map((i) => (
                             <div key={i} className="card student-card students-skeleton-row" style={{ height: 72 }} />
                         ))}
                     </div>
-                ) : students.length === 0 ? (
+                ) : studentCount === 0 ? (
                     <div className="card students-empty-root mt-4 animate-in">
                         {filtrosAtivos ? (
                             <EmptyState
@@ -1037,470 +808,6 @@ const Students = ({ embedded = false }) => {
                     </form>
                 </div>
             ) : null}
-
-            <style dangerouslySetInnerHTML={{
-                __html: `
-        @keyframes studentsSkeletonShimmer {
-          from { background-position: 200% 0; }
-          to { background-position: -200% 0; }
-        }
-        .dashboard-error-banner {
-          display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
-          padding: 12px 14px; border-radius: 10px;
-          background: rgba(220, 38, 38, 0.08);
-          border: 1px solid rgba(220, 38, 38, 0.35);
-          color: var(--text);
-          font-size: 0.9rem;
-        }
-        .students-skeleton-row {
-          border-left: 4px solid var(--border);
-          background: linear-gradient(90deg, rgba(148,163,184,0.12) 25%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.12) 75%);
-          background-size: 200% 100%;
-          animation: studentsSkeletonShimmer 1.2s ease-in-out infinite;
-        }
-        .search-wrapper { position: relative; }
-        .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
-        .search-input { 
-          width: 100%; padding: 14px 16px 14px 44px; border-radius: var(--radius-sm); 
-          border: 1.5px solid var(--border); font-size: 0.95rem; background: var(--surface);
-          outline: none; transition: var(--transition); color: var(--text);
-        }
-        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
-
-        .students-filters-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          box-shadow: var(--shadow-sm);
-          padding: 16px 18px 18px;
-        }
-        .students-filters-card-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 14px;
-          flex-wrap: wrap;
-        }
-        .students-filters-card-title {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 0.8rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: var(--text-secondary);
-        }
-        .students-filters-card-icon { color: var(--accent); flex-shrink: 0; }
-        .students-filters-clear {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: var(--radius-full);
-          border: none;
-          background: var(--accent-light);
-          color: var(--accent);
-          font-size: 0.78rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: var(--transition);
-        }
-        .students-filters-clear:hover { filter: brightness(0.97); box-shadow: 0 1px 0 var(--border); }
-        .students-filters-search { margin-bottom: 14px; }
-        .students-filters-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 12px 14px;
-          align-items: end;
-        }
-        .students-filter-field {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          margin: 0;
-          min-width: 0;
-        }
-        .students-filter-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: var(--text-muted);
-        }
-        .students-filter-label-icon { color: var(--accent); flex-shrink: 0; }
-        .students-filter-select {
-          width: 100%;
-          min-height: 42px;
-          padding: 0 36px 0 12px;
-          border-radius: var(--radius-sm);
-          border: 1.5px solid var(--border);
-          background-color: var(--surface);
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b6b88' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 12px center;
-          color: var(--text);
-          font-size: 0.875rem;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          appearance: none;
-          -webkit-appearance: none;
-          transition: var(--transition);
-        }
-        .students-filter-select:hover { border-color: var(--border-mid); }
-        .students-filter-select:focus {
-          outline: none;
-          border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-light);
-        }
-        .students-tipo-chips-wrap {
-          margin-top: 16px;
-          padding-top: 14px;
-          border-top: 1px solid var(--border-light);
-        }
-        .students-tipo-chips-hint {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: var(--text-muted);
-          margin-bottom: 10px;
-        }
-        .students-tipo-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        .students-tipo-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px 8px 14px;
-          border-radius: var(--radius-full);
-          border: 1.5px solid var(--border);
-          background: var(--surface-hover);
-          color: var(--text-secondary);
-          font-size: 0.8125rem;
-          font-weight: 700;
-          font-family: inherit;
-          cursor: pointer;
-          transition: var(--transition);
-        }
-        .students-tipo-chip:hover {
-          border-color: var(--accent);
-          color: var(--accent);
-          background: var(--accent-light);
-        }
-        .students-tipo-chip-count {
-          min-width: 1.5rem;
-          padding: 2px 7px;
-          border-radius: var(--radius-full);
-          background: var(--surface);
-          border: 1px solid var(--border);
-          font-size: 0.7rem;
-          font-weight: 800;
-          color: var(--text-muted);
-        }
-        .students-tipo-chip:hover .students-tipo-chip-count {
-          border-color: var(--accent);
-          color: var(--accent);
-          background: var(--accent-light);
-        }
-        .students-tipo-chip--active {
-          background: var(--accent);
-          color: #fff;
-          border-color: var(--accent);
-        }
-        .students-tipo-chip--active .students-tipo-chip-count {
-          background: rgba(255,255,255,0.2);
-          border-color: rgba(255,255,255,0.35);
-          color: #fff;
-        }
-        .students-page {
-          padding-top: 0;
-          padding-bottom: 16px;
-          flex: 1 1 0%;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-        }
-        .students-page-body {
-          flex: 1 1 0%;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-          margin-top: 8px;
-        }
-        .students-list-scroll {
-          flex: 1 1 0%;
-          min-height: 0;
-          overflow-y: auto;
-          overflow-x: hidden;
-          -webkit-overflow-scrolling: touch;
-        }
-        .students-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding: 4px 2px 12px;
-        }
-        .students-list-virtual {
-          min-height: 100%;
-          padding: 4px 2px 12px;
-        }
-        .students-list-virtual-inner {
-          width: 100%;
-        }
-        .students-list-virtual-row {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          box-sizing: border-box;
-        }
-        .students-load-more-wrap {
-          flex-shrink: 0;
-          margin-top: 12px;
-          padding-bottom: 4px;
-        }
-        .students-skeleton-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .student-card { 
-          padding: 16px 16px; 
-          border-left: 4px solid var(--purple); 
-          transition: var(--transition);
-          margin: 0;
-        }
-        .student-card:hover { box-shadow: var(--shadow); }
-        .student-profile-chevron {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          color: var(--text-muted);
-        }
-        .student-profile-chevron:hover { background: var(--border-light); color: var(--accent); }
-        .student-inbox-link {
-          font-size: 0.72rem; font-weight: 700; color: var(--accent);
-          text-decoration: none; margin-right: 2px;
-        }
-        .student-inbox-link:hover { text-decoration: underline; }
-        .student-card .students-touch-hit {
-          min-width: 44px;
-          min-height: 44px;
-          box-sizing: border-box;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .student-card .student-inbox-link.students-touch-hit {
-          padding: 0 10px;
-          border-radius: 10px;
-        }
-        .student-card .student-profile-chevron.students-touch-hit {
-          border-radius: 12px;
-        }
-        .quick-action-btn {
-          border-radius: 50%;
-          background: var(--border-light); padding: 0;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .quick-action-btn:hover:not(:disabled) { background: var(--border); }
-        .quick-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .import-btn {
-          background: var(--accent); color: white; padding: 0 14px; min-height: 38px;
-          border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
-          gap: 6px;
-        }
-        .import-btn:hover { filter: brightness(1.1); }
-        .students-refresh-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: var(--surface); border: 1.5px solid var(--border);
-          color: var(--text-secondary); padding: 0 14px; min-height: 38px;
-          border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
-        }
-        .students-refresh-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-        .students-refresh-btn:disabled { opacity: 0.65; cursor: not-allowed; }
-        .spin-students { animation: studentsSpin 0.7s linear infinite; }
-        @keyframes studentsSpin { to { transform: rotate(360deg); } }
-        .export-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: var(--surface); border: 1.5px solid var(--border);
-          color: var(--text-secondary); padding: 0 14px; min-height: 38px;
-          border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
-          transition: var(--transition);
-        }
-        .export-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-        .export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .students-load-more {
-          background: var(--surface-hover); border: 1px solid var(--border);
-          color: var(--text-secondary); padding: 8px 14px; border-radius: var(--radius-sm);
-          font-size: 0.82rem; font-weight: 700;
-        }
-        .students-load-more:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-        .students-load-more:disabled { opacity: 0.6; cursor: not-allowed; }
-        .students-create-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 4, 53, 0.35);
-          backdrop-filter: blur(12px) saturate(1.4);
-          -webkit-backdrop-filter: blur(12px) saturate(1.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 3000;
-          padding: 16px;
-        }
-        .students-create-modal {
-          width: min(640px, 100%);
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          box-shadow: var(--shadow);
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .students-create-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        .students-create-head h3 {
-          margin: 0;
-          font-size: 1rem;
-          color: var(--text);
-        }
-        .students-create-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-        .students-create-grid label {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          font-size: 0.78rem;
-          color: var(--text-secondary);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .students-create-grid input,
-        .students-create-grid select {
-          height: 40px;
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 0 10px;
-          color: var(--text);
-          background: var(--surface);
-          font-size: 0.9rem;
-          font-weight: 500;
-          text-transform: none;
-          letter-spacing: normal;
-        }
-        .students-create-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-        }
-        .students-mobile-filter-bar,
-        .students-mobile-filters-panel { display: none; }
-        .students-filters-toggle {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 12px;
-          border-radius: var(--radius-sm);
-          border: 0.5px solid var(--border-light);
-          background: var(--surface);
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .students-filters-toggle__chev { transition: transform 0.2s ease; }
-        .students-filters-toggle__chev--open { transform: rotate(180deg); }
-        .students-filters-clear-mobile {
-          padding: 8px 12px;
-          border: none;
-          background: transparent;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--accent);
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .students-mobile-filters-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-        .students-mobile-filter-group { width: 100%; flex-direction: column; align-items: stretch; }
-        .students-mobile-filter-group select { border-right: none; border-bottom: 0.5px solid var(--border-light); width: 100%; }
-        .students-mobile-filter-group select:last-child { border-bottom: none; }
-        .students-mobile-sort {
-          width: 100%;
-          padding: 8px 10px;
-          font-size: 12px;
-          border: 0.5px solid var(--border-light);
-          border-radius: 8px;
-          color: var(--text-secondary);
-          background: var(--surface);
-        }
-        @media (max-width: 767px) {
-          .students-header-row-filters { display: none !important; }
-          .students-mobile-filter-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding-top: 4px;
-            border-top: 0.5px solid var(--border-light);
-          }
-          .students-mobile-filters-panel {
-            display: none;
-            flex-direction: column;
-            gap: 10px;
-            padding-top: 10px;
-            border-top: 0.5px solid var(--border-light);
-          }
-          .students-mobile-filters-panel.is-open { display: flex; }
-          .students-header-row-search { flex-direction: column; align-items: stretch; }
-          .students-header-search { flex: 1 1 100%; max-width: none; min-width: 0; }
-          .students-header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-          .students-register-btn {
-            flex: 1 1 100%;
-            justify-content: center;
-            padding: 10px 18px;
-            font-size: 14px;
-          }
-        }
-        .students-register-btn {
-          font-weight: 600;
-          box-shadow: 0 1px 4px rgba(108, 71, 216, 0.28);
-        }
-        .students-register-btn:hover {
-          box-shadow: 0 2px 8px rgba(108, 71, 216, 0.32);
-        }
-        @media (max-width: 640px) {
-          .students-create-grid {
-            grid-template-columns: 1fr;
-          }
-          .student-card-desktop-meta { display: none !important; }
-        }
-        @media (min-width: 641px) {
-          .student-card-subline + .student-card-desktop-meta { margin-top: 0; }
-        }
-      `}} />
         </div>
     );
 };

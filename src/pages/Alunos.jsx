@@ -1,12 +1,15 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
-import ContractsPageContent from '../components/contracts/ContractsPageContent';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import Students from './Students';
 import { useLeadStore } from '../store/useLeadStore';
 import { useTerms } from '../lib/terminology';
+import '../styles/students.css';
+
+const ContractsPageContent = lazy(() => import('../components/contracts/ContractsPageContent'));
 
 const TAB_LISTA = 'lista';
 const TAB_CONTRATOS = 'contratos';
@@ -63,7 +66,11 @@ export default function Alunos() {
       <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel={studentPlural} fullWidth />
       <div className="navi-hub-page__body">
         {activeTab === TAB_LISTA ? <Students embedded /> : null}
-        {activeTab === TAB_CONTRATOS && financeOn ? <ContractsPageContent embedded /> : null}
+        {activeTab === TAB_CONTRATOS && financeOn ? (
+          <Suspense fallback={<PageSkeleton variant="table" rows={4} />}>
+            <ContractsPageContent embedded />
+          </Suspense>
+        ) : null}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { LEAD_STATUS } from './leadStatus.js';
 import { getCivilWeekBounds } from '../components/AgendaCalendarWeek.jsx';
-import { getFollowupClassDate, hasContactInCycle } from './followupState.js';
+import { resolveInboundAfterForLead } from './followupInbound.js';
+import { getFollowupClassDate } from './followupState.js';
 
 function ymdFromDate(d) {
   return d.toISOString().slice(0, 10);
@@ -60,13 +61,14 @@ export function computeFollowupHealthSummary(leads, ctx) {
 
     const doneAt = ctx.followupDoneByLead?.[String(lead.id || '').trim()];
     const contactAt = ctx.followupContactByLead?.[String(lead.id || '').trim()];
+    const inboundAt = resolveInboundAfterForLead(lead, ctx);
     const contactMs = Math.max(
       doneAt ? new Date(doneAt).getTime() : 0,
-      contactAt ? new Date(contactAt).getTime() : 0
+      contactAt ? new Date(contactAt).getTime() : 0,
+      inboundAt ? new Date(inboundAt).getTime() : 0
     );
 
     if (contactMs > 0 && contactMs <= deadline.getTime()) contactedD1 += 1;
-    else if (hasContactInCycle(lead, ctx) && contactMs <= deadline.getTime()) contactedD1 += 1;
   }
 
   const d1RatePercent = attendedInWeek > 0 ? Math.round((contactedD1 / attendedInWeek) * 100) : null;

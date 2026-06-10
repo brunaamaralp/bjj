@@ -6,6 +6,7 @@ import {
   FOLLOWUP_TEMPERATURE_ORDER,
 } from './followupTemperature.js';
 import { readFollowupPlaybook } from './followupPlaybookDefaults.js';
+import { inboundCountsAsContact, resolveInboundAfterForLead } from './followupInbound.js';
 
 export const FOLLOWUP_AGENDA_MAX_DAYS = 7;
 
@@ -66,6 +67,7 @@ function eventMatchesCycle(atIso, payload, scheduledDate, classMs) {
  * @param {Record<string, string>} [ctx.followupDoneByLead]
  * @param {Record<string, string>} [ctx.followupContactByLead]
  * @param {Record<string, string>} [ctx.followupSnoozeUntilByLead]
+ * @param {Record<string, string>} [ctx.inboundAfterByLead]
  * @param {Record<string, string>} [ctx.inboundAfterByPhone]
  * @param {import('./followupPlaybookDefaults.js').FollowupPlaybook} [ctx.playbook]
  * @param {Date} [ctx.now]
@@ -81,11 +83,8 @@ export function hasContactInCycle(lead, ctx = {}) {
   const contactAt = ctx.followupContactByLead?.[leadId];
   if (contactAt && eventMatchesCycle(contactAt, { scheduledDate }, scheduledDate, classMs)) return true;
 
-  const phone = String(lead?.phone || '').replace(/\D/g, '');
-  if (phone && ctx.inboundAfterByPhone?.[phone]) {
-    const inboundMs = new Date(ctx.inboundAfterByPhone[phone]).getTime();
-    if (Number.isFinite(inboundMs) && inboundMs >= classMs) return true;
-  }
+  const inboundAt = resolveInboundAfterForLead(lead, ctx);
+  if (inboundAt && inboundCountsAsContact(inboundAt, classMs)) return true;
 
   return false;
 }

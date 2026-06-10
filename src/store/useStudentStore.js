@@ -20,6 +20,79 @@ export function cancelFetchStudents() {
   }
 }
 
+/** Índice id → aluno para lookup O(1). */
+export function buildStudentsById(students) {
+  const byId = Object.create(null);
+  for (const s of Array.isArray(students) ? students : []) {
+    const id = String(s?.id || '').trim();
+    if (id) byId[id] = s;
+  }
+  return byId;
+}
+
+export function selectStudentById(state, id) {
+  const sid = String(id || '').trim();
+  if (!sid) return null;
+  return state.studentsById?.[sid] ?? state.students?.find((s) => s.id === sid) ?? null;
+}
+
+function withStudentsIndex(students) {
+  const list = Array.isArray(students) ? students : [];
+  return {
+    students: list,
+    studentsById: buildStudentsById(list),
+    studentIds: list.map((s) => s.id),
+  };
+}
+
+function mergeStudentInState(state, id, updates) {
+  const sid = String(id || '').trim();
+  if (!sid) return state;
+  const current = state.studentsById[sid] ?? state.students.find((s) => s.id === sid);
+  if (!current) return state;
+  const updated = { ...current, ...updates };
+  return {
+    students: state.students.map((s) => (s.id === sid ? updated : s)),
+    studentsById: { ...state.studentsById, [sid]: updated },
+    studentIds: state.studentIds,
+  };
+}
+
+function prependStudent(state, student) {
+  const sid = String(student?.id || '').trim();
+  if (!sid) return state;
+  if (state.studentsById[sid]) {
+    return mergeStudentInState(state, sid, student);
+  }
+  const students = [student, ...state.students];
+  return {
+    students,
+    studentsById: { ...state.studentsById, [sid]: student },
+    studentIds: [sid, ...state.studentIds],
+  };
+}
+
+function appendStudents(state, newStudents) {
+  const appended = [];
+  const byId = { ...state.studentsById };
+  const ids = [...state.studentIds];
+  const existing = new Set(ids);
+  for (const s of newStudents) {
+    const sid = String(s?.id || '').trim();
+    if (!sid || existing.has(sid)) continue;
+    existing.add(sid);
+    appended.push(s);
+    byId[sid] = s;
+    ids.push(sid);
+  }
+  if (!appended.length) return state;
+  return {
+    students: [...state.students, ...appended],
+    studentsById: byId,
+    studentIds: ids,
+  };
+}
+
 const CLIENT_ONLY_KEYS = new Set([
   'id',
   'createdAt',
@@ -147,6 +220,8 @@ export { STUDENT_TURMA_KEY };
 
 export const useStudentStore = create((set, get) => ({
   students: [],
+  studentsById: {},
+  studentIds: [],
   loading: false,
   studentsError: false,
   loadingMore: false,
@@ -164,7 +239,7 @@ export const useStudentStore = create((set, get) => ({
   resetForAcademyChange: () => {
     cancelFetchStudents();
     set({
-      students: [],
+      ...withStudentsIndex([]),
       studentsCursor: null,
       studentsHasMore: false,
       studentsTotal: null,
@@ -177,25 +252,17 @@ export const useStudentStore = create((set, get) => ({
   },
 
   mergeStudent: (id, updates) => {
-    set((state) => ({
-      students: state.students.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-    }));
+    set((state) => mergeStudentInState(state, id, updates));
   },
 
   setStudentPaymentStatus: (studentId, paymentStatus) => {
     const sid = String(studentId || '').trim();
     if (!sid) return;
-    const hint = paymentStatus
-      ? { key: paymentStatus.status || paymentStatus.key, status: paymentStatus.status }
-      : null;
     set((state) => ({
       paymentStatusByStudentId: {
         ...state.paymentStatusByStudentId,
         [sid]: paymentStatus,
       },
-      students: state.students.map((s) =>
-        s.id === sid ? { ...s, _paymentStatus: hint } : s
-      ),
     }));
   },
 
@@ -210,17 +277,15 @@ export const useStudentStore = create((set, get) => ({
   },
 
   fetchStudentById: async (id) => {
-    const found = get().students.find((s) => s.id === id);
+    const found = selectStudentById(get(), id);
     if (found) return found;
     if (!STUDENTS_COL || !id) return null;
     try {
       const doc = await databases.getDocument(DB_ID, STUDENTS_COL, id);
       const student = mapAppwriteDocToStudent(doc);
       set((state) => {
-        const exists = state.students.some((s) => s.id === id);
-        return exists
-          ? { students: state.students.map((s) => (s.id === id ? student : s)) }
-          : { students: [student, ...state.students] };
+        const exists = Boolean(state.studentsById[id]);
+        return exists ? mergeStudentInState(state, id, student) : prependStudent(state, student);
       });
       return student;
     } catch (e) {
@@ -252,6 +317,8 @@ export const useStudentStore = create((set, get) => ({
           search: queryOpts.search,
           plan: queryOpts.plan,
           turma: queryOpts.turma,
+          turmaEmpty: queryOpts.turmaEmpty,
+          origin: queryOpts.origin,
           studentStatus: queryOpts.studentStatus,
         },
       });
@@ -278,6 +345,11 @@ export const useStudentStore = create((set, get) => ({
       }
       if (queryOpts.turma && STUDENT_TURMA_KEY) {
         queries.push(Query.equal(STUDENT_TURMA_KEY, String(queryOpts.turma).trim()));
+      } else if (queryOpts.turmaEmpty && STUDENT_TURMA_KEY) {
+        queries.push(Query.equal(STUDENT_TURMA_KEY, ''));
+      }
+      if (queryOpts.origin) {
+        queries.push(Query.equal('source_origin', String(queryOpts.origin).trim()));
       }
       if (!reset && get().studentsCursor) {
         queries.push(Query.cursorAfter(get().studentsCursor));
@@ -292,7 +364,7 @@ export const useStudentStore = create((set, get) => ({
 
       if (reset) {
         set({
-          students,
+          ...withStudentsIndex(students),
           loading: false,
           studentsError: false,
           studentsHasMore: pageFull,
@@ -301,18 +373,14 @@ export const useStudentStore = create((set, get) => ({
           lastFetchedAt: Date.now(),
         });
       } else {
-        set((state) => {
-          const existingIds = new Set(state.students.map((s) => s.id));
-          const appended = students.filter((s) => !existingIds.has(s.id));
-          return {
-            students: [...state.students, ...appended],
-            loadingMore: false,
-            studentsError: false,
-            studentsHasMore: pageFull,
-            studentsCursor: pageFull && lastId ? lastId : null,
-            studentsTotal: total ?? state.studentsTotal,
-          };
-        });
+        set((state) => ({
+          ...appendStudents(state, students),
+          loadingMore: false,
+          studentsError: false,
+          studentsHasMore: pageFull,
+          studentsCursor: pageFull && lastId ? lastId : null,
+          studentsTotal: total ?? state.studentsTotal,
+        }));
       }
     } catch (e) {
       if (signal?.aborted) return;
@@ -339,12 +407,12 @@ export const useStudentStore = create((set, get) => ({
     const doc = await databases.createDocument(DB_ID, STUDENTS_COL, ID.unique(), payload, perms);
 
     const newStudent = mapAppwriteDocToStudent(doc);
-    set((state) => ({ students: [newStudent, ...state.students] }));
+    set((state) => prependStudent(state, newStudent));
     return newStudent;
   },
 
   updateStudent: async (id, updates) => {
-    const current = get().students.find((s) => s.id === id);
+    const current = selectStudentById(get(), id);
     if (!current) throw new Error('Aluno não encontrado. Recarregue a página.');
 
     const filtered = {};
@@ -366,18 +434,28 @@ export const useStudentStore = create((set, get) => ({
 
     const merged = { ...current, ...updates };
 
-    set((state) => ({
-      students: state.students.map((s) => (s.id === id ? merged : s)),
-    }));
+    set((state) => mergeStudentInState(state, id, merged));
   },
 
   deleteStudent: async (id) => {
-    const previous = get().students;
-    set((state) => ({ students: state.students.filter((s) => s.id !== id) }));
+    const previous = {
+      students: get().students,
+      studentsById: get().studentsById,
+      studentIds: get().studentIds,
+    };
+    set((state) => {
+      const sid = String(id || '').trim();
+      const { [sid]: _removed, ...studentsById } = state.studentsById;
+      return {
+        students: state.students.filter((s) => s.id !== sid),
+        studentsById,
+        studentIds: state.studentIds.filter((x) => x !== sid),
+      };
+    });
     try {
       await databases.deleteDocument(DB_ID, STUDENTS_COL, id);
     } catch (e) {
-      set({ students: previous });
+      set(previous);
       throw e;
     }
   },
@@ -417,11 +495,17 @@ export const useStudentStore = create((set, get) => ({
     }
 
     if (newStudents.length) {
-      set((state) => ({ students: [...newStudents, ...state.students] }));
+      set((state) => {
+        let next = state;
+        for (const s of newStudents) {
+          next = prependStudent(next, s);
+        }
+        return next;
+      });
     }
   },
 
-  getStudentById: (id) => get().students.find((s) => s.id === id),
+  getStudentById: (id) => selectStudentById(get(), id),
 }));
 
 if (typeof window !== 'undefined') {

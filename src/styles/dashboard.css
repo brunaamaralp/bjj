@@ -11,23 +11,34 @@
         .dashboard-day-hero {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 0;
           margin-top: 4px;
           margin-bottom: 18px;
-          padding: 20px 22px;
           border-radius: var(--radius);
-          background: linear-gradient(135deg, var(--color-primary-surface) 0%, #fff 58%);
           border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
           box-shadow: 0 8px 28px rgba(108, 71, 216, 0.08);
+          overflow: hidden;
         }
-        .dashboard-day-hero--morning {
-          background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-surface) 90%, #fff) 0%, #fff 62%);
+        .dashboard-day-hero__briefing {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding: 20px 22px;
+          background: linear-gradient(135deg, var(--color-primary-surface) 0%, #fff 58%);
         }
-        .dashboard-day-hero--afternoon {
+        .dashboard-day-hero--morning .dashboard-day-hero__briefing {
+          background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-surface) 92%, #fff) 0%, #fff 64%);
+        }
+        .dashboard-day-hero--afternoon .dashboard-day-hero__briefing {
           background: linear-gradient(135deg, var(--color-primary-surface) 0%, #fff 55%);
         }
-        .dashboard-day-hero--evening {
-          background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-dark) 8%, var(--color-primary-surface)) 0%, #fff 52%);
+        .dashboard-day-hero--evening .dashboard-day-hero__briefing {
+          background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-dark) 10%, var(--color-primary-surface)) 0%, #fff 50%);
+        }
+        .dashboard-day-hero__metrics {
+          padding: 14px 16px 16px;
+          background: var(--color-content-bg);
+          border-top: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--color-border));
         }
         .dashboard-day-hero__head {
           display: flex;
@@ -80,10 +91,12 @@
           align-items: center;
           gap: 10px 14px;
           margin-top: 12px;
-          padding: 10px 12px;
+          padding: 10px 12px 10px 14px;
           border-radius: 10px;
-          background: color-mix(in srgb, var(--color-primary) 6%, var(--color-content-bg));
+          background: color-mix(in srgb, var(--color-content-bg) 88%, var(--color-primary-surface));
           border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--color-border));
+          border-left: 3px solid var(--color-primary);
+          box-shadow: 0 2px 8px rgba(108, 71, 216, 0.06);
         }
         .dashboard-day-hero__priority-text {
           margin: 0;
@@ -96,8 +109,8 @@
         }
         .dashboard-day-hero__priority-btn {
           flex-shrink: 0;
-          padding: 6px 12px;
-          border-radius: 8px;
+          padding: 6px 14px;
+          border-radius: 999px;
           border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
           background: var(--color-content-bg);
           color: var(--color-primary-dark);
@@ -105,11 +118,12 @@
           font-weight: 700;
           font-family: inherit;
           cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease;
+          transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .dashboard-day-hero__priority-btn:hover {
           background: var(--color-primary-surface);
           border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+          box-shadow: 0 2px 8px rgba(108, 71, 216, 0.1);
         }
         .dashboard-birthday-banner {
           display: flex;
@@ -166,74 +180,57 @@
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
         }
+        .dashboard-day-hero__stat-cell {
+          min-width: 0;
+        }
+        .dashboard-day-hero__stat-cell .report-kpi-card {
+          height: 100%;
+        }
         .dashboard-day-hero__skeletons {
           grid-column: 1 / -1;
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
         }
-        .dashboard-day-stat {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-          padding: 12px 14px;
-          border-radius: 12px;
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-primary);
-          cursor: pointer;
-          font-family: inherit;
-          text-align: left;
-          transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        .dashboard-hero-kpi.report-kpi-card {
+          background: var(--color-card-bg);
         }
-        .dashboard-day-stat:hover {
-          border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
-          box-shadow: 0 4px 14px rgba(108, 71, 216, 0.1);
-          transform: translateY(-1px);
+        .dashboard-hero-kpi--primary.report-kpi-card {
+          border-color: color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
+          background: color-mix(in srgb, var(--color-primary-surface) 55%, var(--color-card-bg));
         }
-        .dashboard-day-stat__count {
-          font-size: 1.5rem;
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          letter-spacing: -0.03em;
-          line-height: 1;
-          color: var(--color-text-heading);
-        }
-        .dashboard-day-stat__label {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.03em;
-          text-transform: uppercase;
-          color: var(--color-text-secondary);
-          line-height: 1.3;
-        }
-        .dashboard-day-stat--primary {
-          border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
-          background: color-mix(in srgb, var(--color-primary-surface) 65%, #fff);
-        }
-        .dashboard-day-stat--primary .dashboard-day-stat__count {
+        .dashboard-hero-kpi--primary .report-kpi-card__value {
           color: var(--color-primary-dark);
         }
-        .dashboard-day-stat--attention {
-          border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
-          background: color-mix(in srgb, var(--color-warning) 8%, #fff);
+        .dashboard-hero-kpi--primary .report-kpi-card__icon {
+          color: var(--color-primary);
         }
-        .dashboard-day-stat--attention .dashboard-day-stat__count {
-          color: #8a5a00;
+        .dashboard-hero-kpi--success-surface.report-kpi-card--success {
+          border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+          background: color-mix(in srgb, var(--color-accent-surface) 72%, var(--color-card-bg));
         }
-        .dashboard-day-stat--success .dashboard-day-stat__count {
-          color: var(--color-accent-dark);
-        }
-        .dashboard-day-stat--muted .dashboard-day-stat__count {
+        .dashboard-hero-kpi--muted .report-kpi-card__value {
           color: var(--color-text-secondary);
         }
-        .dashboard-day-stat--highlight {
+        .dashboard-hero-kpi--spotlight.report-kpi-card {
           border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-          background: color-mix(in srgb, var(--color-accent-surface) 70%, #fff);
+          background: color-mix(in srgb, var(--color-accent-surface) 70%, var(--color-card-bg));
           box-shadow: 0 4px 16px rgba(31, 170, 94, 0.12);
         }
-        .dashboard-day-stat--highlight .dashboard-day-stat__count {
+        .dashboard-hero-kpi--spotlight .report-kpi-card__value {
           color: var(--color-accent-dark);
+        }
+        .dashboard-hero-kpi--sub-neutral .report-kpi-card__trend-label {
+          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+        .dashboard-hero-kpi--sub-positive .report-kpi-card__trend-label {
+          color: var(--color-accent-dark);
+          font-weight: 700;
+        }
+        .dashboard-hero-kpi--sub-attention .report-kpi-card__trend-label {
+          color: var(--warn-text, #854d0e);
+          font-weight: 700;
         }
 
         .reception-week-panel--secondary {
@@ -249,8 +246,11 @@
           }
         }
         @media (max-width: 520px) {
-          .dashboard-day-hero {
+          .dashboard-day-hero__briefing {
             padding: 16px;
+          }
+          .dashboard-day-hero__metrics {
+            padding: 12px;
           }
         }
 
@@ -629,13 +629,6 @@
         }
         .fu-inbox-link:hover {
           text-decoration: underline;
-        }
-        .dashboard-day-stat__sub {
-          display: block;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--color-warning, #b45309);
-          margin-top: 2px;
         }
         .followup-temp {
           display: inline-flex;

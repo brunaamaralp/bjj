@@ -376,6 +376,8 @@ export default function Inbox() {
     followupDoneByLead,
     followupContactByLead,
     followupSnoozeUntilByLead,
+    inboundAfterByLead,
+    inboundAfterByPhone,
   } = useFollowupEventsByLead(academyId, { defer: true });
   const followupPlaybook = useMemo(
     () => readFollowupPlaybook(academyDoc?.settings),
@@ -1515,6 +1517,8 @@ export default function Inbox() {
     followupDoneByLead,
     followupContactByLead,
     followupSnoozeUntilByLead,
+    inboundAfterByLead,
+    inboundAfterByPhone,
     quickTemplates,
     whatsappTemplatesObj,
     applySlashTemplate,

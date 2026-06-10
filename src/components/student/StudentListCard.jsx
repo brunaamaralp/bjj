@@ -5,7 +5,6 @@ import { maskPhone } from '../../lib/masks.js';
 import ControlIdSyncBadge from './ControlIdSyncBadge.jsx';
 import StudentStatusBadge from './StudentStatusBadge.jsx';
 import StudentOverdueBadge from './StudentOverdueBadge.jsx';
-import { useLeadStore } from '../../store/useLeadStore.js';
 import { resolveStudentListStatus } from '../../lib/studentDisplayStatus.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
 import { preloadStudentProfile } from '../../lib/preloadRoutes.js';
@@ -15,12 +14,12 @@ function StudentListCard({
   academyId,
   controlIdEnabled,
   studentSingular,
+  financeConfig,
   onOpenProfile,
   style,
 }) {
   const digits = String(student.phone || '').replace(/\D/g, '');
   const paymentHint = useStudentStore((s) => s.paymentStatusByStudentId[student.id]);
-  const financeConfig = useLeadStore((s) => s.financeConfig);
   const displayStatus = resolveStudentListStatus(student, paymentHint);
 
   return (

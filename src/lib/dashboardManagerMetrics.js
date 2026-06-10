@@ -11,6 +11,19 @@ export function currentMonthRange() {
   return { from, to, ym };
 }
 
+/** Limites do mês civil anterior. */
+export function previousMonthRange() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const prevM = m === 0 ? 11 : m - 1;
+  const prevY = m === 0 ? y - 1 : y;
+  const from = new Date(prevY, prevM, 1, 0, 0, 0, 0);
+  const to = new Date(prevY, prevM + 1, 0, 23, 59, 59, 999);
+  const ym = `${prevY}-${String(prevM + 1).padStart(2, '0')}`;
+  return { from, to, ym };
+}
+
 function parseLeadTime(iso) {
   if (!iso) return NaN;
   const t = new Date(iso).getTime();

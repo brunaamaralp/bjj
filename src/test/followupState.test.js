@@ -52,6 +52,23 @@ describe('computeFollowupState', () => {
     expect(state.temperature).toBe('on_track');
   });
 
+  it('detecta contato via inbound WhatsApp após a aula', () => {
+    const state = computeFollowupState(baseLead, {
+      now,
+      inboundAfterByLead: { l1: '2026-06-10T09:00:00.000Z' },
+    });
+    expect(state.hasContactInCycle).toBe(true);
+    expect(state.temperature).toBe('on_track');
+  });
+
+  it('ignora inbound anterior à aula experimental', () => {
+    const state = computeFollowupState(baseLead, {
+      now,
+      inboundAfterByPhone: { 5511999999999: '2026-06-07T09:00:00.000Z' },
+    });
+    expect(state.hasContactInCycle).toBe(false);
+  });
+
   it('respeita snooze ativo', () => {
     const state = computeFollowupState(baseLead, {
       now,

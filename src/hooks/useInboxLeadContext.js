@@ -23,6 +23,8 @@ export function useInboxLeadContext({
   followupDoneByLead,
   followupContactByLead,
   followupSnoozeUntilByLead,
+  inboundAfterByLead,
+  inboundAfterByPhone,
   quickTemplates,
   whatsappTemplatesObj,
   applySlashTemplate,
@@ -64,6 +66,8 @@ export function useInboxLeadContext({
       followupDoneByLead,
       followupContactByLead,
       followupSnoozeUntilByLead,
+      inboundAfterByLead,
+      inboundAfterByPhone,
     });
     if (!state) return null;
     return {
@@ -76,6 +80,8 @@ export function useInboxLeadContext({
     followupDoneByLead,
     followupContactByLead,
     followupSnoozeUntilByLead,
+    inboundAfterByLead,
+    inboundAfterByPhone,
   ]);
 
   const {

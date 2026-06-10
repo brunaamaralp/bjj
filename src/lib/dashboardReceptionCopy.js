@@ -21,7 +21,7 @@ export function missedStatusLabel() {
 }
 
 export function followupsAllDoneTitle() {
-  return 'Retornos em dia — a recepção mandou bem.';
+  return 'Retornos em dia. A recepção mandou bem.';
 }
 
 export function followupKpiLabel() {
@@ -50,6 +50,6 @@ export function followupStreakMessage(streak) {
 export function weeklyEnrollmentsLine(count) {
   const n = Number(count) || 0;
   if (n <= 0) return '';
-  if (n === 1) return '1 matrícula esta semana — continue assim.';
-  return `${n} matrículas esta semana — continue assim.`;
+  if (n === 1) return '1 matrícula esta semana. Continue assim.';
+  return `${n} matrículas esta semana. Continue assim.`;
 }

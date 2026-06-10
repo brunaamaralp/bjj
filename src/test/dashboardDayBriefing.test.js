@@ -94,12 +94,59 @@ describe('getDayPriority', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
-      followUps: [{ id: 'f1', name: 'Maria', daysAgo: 6, temperature: 'critical' }],
+      followUps: [
+        {
+          id: 'f1',
+          name: 'Maria',
+          daysAgo: 6,
+          temperature: 'critical',
+          status: LEAD_STATUS.COMPLETED,
+        },
+      ],
       todayBirthdays: [{ id: 's1', name: 'Lucas' }],
     });
     expect(priority.type).toBe('urgent_followup');
-    expect(priority.message).toContain('Maria');
-    expect(priority.message).toMatch(/esfriando|crítico/i);
+    expect(priority.message).toBe(
+      'Maria está há 6 dias sem retorno desde a aula. Vale retomar com urgência.'
+    );
+  });
+
+  it('mensagem de cooling descreve visita e falta de retorno', () => {
+    const priority = getDayPriority({
+      now,
+      todayScheduled: [],
+      followUps: [
+        {
+          id: 'f2',
+          name: 'Sabrina Brum',
+          daysAgo: 1,
+          temperature: 'cooling',
+          status: LEAD_STATUS.COMPLETED,
+        },
+      ],
+      todayBirthdays: [],
+    });
+    expect(priority.message).toBe(
+      'Sabrina Brum veio ontem. Ainda sem retorno. Vale uma mensagem.'
+    );
+  });
+
+  it('mensagem de cooling para falta usa faltou ontem', () => {
+    const priority = getDayPriority({
+      now,
+      todayScheduled: [],
+      followUps: [
+        {
+          id: 'f3',
+          name: 'Pedro',
+          daysAgo: 1,
+          temperature: 'cooling',
+          status: LEAD_STATUS.MISSED,
+        },
+      ],
+      todayBirthdays: [],
+    });
+    expect(priority.message).toBe('Pedro faltou ontem. Ainda sem retorno. Vale uma mensagem.');
   });
 
   it('sugere aniversário quando não há urgências', () => {

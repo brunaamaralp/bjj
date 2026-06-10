@@ -1,6 +1,7 @@
 import { LEAD_STATUS } from '../store/useLeadStore';
 import { enrollmentIngressYmd } from './studentEnrollmentDate.js';
 import { getCivilWeekBounds } from '../components/AgendaCalendarWeek.jsx';
+import { getFollowupKind } from './followupState.js';
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -95,9 +96,7 @@ export function buildDaySummaryLine(ctx) {
     const noun =
       todayCount === 1 ? trial : trial.endsWith('s') ? trial : `${trial}s`;
     if (firstTime) {
-      parts.push(
-        `${todayCount} ${noun} hoje — a primeira é às ${firstTime}.`
-      );
+      parts.push(`${todayCount} ${noun} hoje. A primeira é às ${firstTime}.`);
     } else {
       parts.push(`${todayCount} ${noun} hoje.`);
     }
@@ -107,7 +106,7 @@ export function buildDaySummaryLine(ctx) {
     );
   } else if (taskCount > 0) {
     parts.push(
-      `${taskCount} tarefa${taskCount === 1 ? '' : 's'} para hoje — comece pela que vence primeiro.`
+      `${taskCount} tarefa${taskCount === 1 ? '' : 's'} para hoje. Comece pela que vence mais cedo.`
     );
   } else {
     parts.push('Agenda e retornos em dia. Bom momento para revisar a semana.');
@@ -116,12 +115,36 @@ export function buildDaySummaryLine(ctx) {
   if (weekly > 0 && todayCount > 0) {
     parts.push(
       weekly === 1
-        ? '1 matrícula esta semana — continue assim.'
-        : `${weekly} matrículas esta semana — continue assim.`
+        ? '1 matrícula esta semana. Continue assim.'
+        : `${weekly} matrículas esta semana. Continue assim.`
     );
   }
 
   return parts.join(' ');
+}
+
+/** @param {object} lead @param {number} days */
+function followupVisitLine(lead, days) {
+  const kind = getFollowupKind(lead);
+  if (days === 1) {
+    return kind === 'missed' ? 'faltou ontem' : 'veio ontem';
+  }
+  const daysPart = `${days} dia${days === 1 ? '' : 's'}`;
+  return kind === 'missed' ? `faltou há ${daysPart}` : `veio há ${daysPart}`;
+}
+
+/** @param {object} lead */
+function buildUrgentFollowupPriorityMessage(lead) {
+  const name = String(lead.name || 'Interessado').trim();
+  const days = lead.daysAgo ?? 0;
+  const daysLabel = days === 1 ? '1 dia' : `${days} dias`;
+
+  if (lead.temperature === 'critical') {
+    return `${name} está há ${daysLabel} sem retorno desde a aula. Vale retomar com urgência.`;
+  }
+
+  const visit = followupVisitLine(lead, days);
+  return `${name} ${visit}. Ainda sem retorno. Vale uma mensagem.`;
 }
 
 /**
@@ -175,7 +198,7 @@ export function getDayPriority(ctx) {
     const name = String(nearest.name || 'Interessado').trim();
     return {
       type: 'upcoming_class',
-      message: `${name} chega às ${time} — confirme a recepção.`,
+      message: `${name} chega às ${time}. Confirme a recepção.`,
       scrollTarget: 'today',
       highlightKpi: 'today',
       leadId: String(nearest.id || '').trim() || undefined,
@@ -194,12 +217,9 @@ export function getDayPriority(ctx) {
 
   if (cooling.length > 0) {
     const lead = cooling[0];
-    const name = String(lead.name || 'Interessado').trim();
-    const days = lead.daysAgo ?? 0;
-    const verb = lead.temperature === 'critical' ? 'está crítico' : 'está esfriando';
     return {
       type: 'urgent_followup',
-      message: `${name} ${verb} — ${days} dia${days === 1 ? '' : 's'} desde a aula. Vale uma mensagem.`,
+      message: buildUrgentFollowupPriorityMessage(lead),
       scrollTarget: 'follow-ups',
       leadId: String(lead.id || '').trim() || undefined,
     };
@@ -221,7 +241,7 @@ export function getDayPriority(ctx) {
     }
     return {
       type: 'birthday',
-      message: `${birthdays.length} aniversariantes hoje — comece por ${name}${turmaPart}.`,
+      message: `${birthdays.length} aniversariantes hoje. Comece por ${name}${turmaPart}.`,
       scrollTarget: 'birthdays',
       studentId: String(student.id || '').trim() || undefined,
     };
