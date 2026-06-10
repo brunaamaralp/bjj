@@ -686,7 +686,7 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, isDragActive, c
                     {leads.length}
                 </span>
             </div>
-            <div className="col-content">
+            <div className="col-content" ref={scrollRef}>
                 {isDragActive && isOver ? (
                     <div className="kanban-col-drop-zone" aria-hidden>
                         <span className="kanban-col-drop-zone__label">Soltar nesta coluna</span>
@@ -731,6 +731,23 @@ const leadMatchesContactType = (lead) => {
 };
 
 const ENROLLED_PIPELINE_STAGE_ID = 'Matriculado';
+const PIPELINE_NOVO_STAGE_ID = 'Novo';
+
+function normalizePipelineStageId(stageId) {
+    const id = String(stageId ?? '').trim();
+    if (!id) return '';
+    if (id.toLowerCase() === 'novo') return PIPELINE_NOVO_STAGE_ID;
+    return id;
+}
+
+function leadBelongsInPipelineColumn(lead, columnId, mapLeadToStageId, displayStageIds) {
+    const colId = normalizePipelineStageId(columnId);
+    const stageId = normalizePipelineStageId(mapLeadToStageId(lead));
+    if (stageId === colId) return true;
+    if (colId === PIPELINE_NOVO_STAGE_ID && isLeadPendingTriage(lead)) return true;
+    if (colId === PIPELINE_NOVO_STAGE_ID && stageId && !displayStageIds.has(stageId)) return true;
+    return false;
+}
 
 const boardContactOrigin = (contact) =>
     String(contact?.origin || contact?.sourceOrigin || '').trim();
@@ -791,6 +808,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
     navigate,
     onOpenLeadProfile,
     mapLeadToStageId,
+    displayStageIds,
     handleWaCardClick,
     emptyStageHint,
     showLoading,
@@ -822,7 +840,11 @@ const MobileLeadList = React.memo(function MobileLeadList({
             ) : null}
             {stages.map((stage, idx) => {
                 const isEnrolledStage = String(stage?.id || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
-                const stageLeads = (isEnrolledStage ? enrolledForBoard : leadsForBoard.filter((l) => mapLeadToStageId(l) === stage.id))
+                const stageLeads = (isEnrolledStage
+                    ? enrolledForBoard
+                    : leadsForBoard.filter((l) =>
+                        leadBelongsInPipelineColumn(l, stage.id, mapLeadToStageId, displayStageIds)
+                    ))
                     .filter((l) => (originFilter === 'all' ? true : boardContactOrigin(l) === originFilter))
                     .sort((a, b) =>
                         isEnrolledStage
@@ -1106,6 +1128,10 @@ const Pipeline = () => {
                 String(s?.id || '').trim() === 'Aula experimental' ? { ...s, label: terms.trialShort } : s
             ),
         [stages, terms.trialShort]
+    );
+    const displayStageIds = useMemo(
+        () => new Set(displayStages.map((s) => normalizePipelineStageId(s?.id)).filter(Boolean)),
+        [displayStages]
     );
     const nlPageCtx = useMemo(
         () => ({ context: 'funil', pipelineStages: displayStages }),
@@ -1549,9 +1575,26 @@ const Pipeline = () => {
 
     useEffect(() => {
         if (!academyId) return;
+        const normalizeStageList = (cols) => {
+            const seen = new Set();
+            const out = [];
+            for (const raw of cols || []) {
+                if (!raw) continue;
+                const id = normalizePipelineStageId(raw.id);
+                if (!id || seen.has(id)) continue;
+                seen.add(id);
+                out.push({
+                    ...raw,
+                    id,
+                    label: String(raw.label || id).trim(),
+                    slaDays: Number.isFinite(raw.slaDays) ? raw.slaDays : DEFAULT_STAGE_SLA_DAYS,
+                });
+            }
+            return out;
+        };
         const ensureSpecialColumns = (cols) => {
             const base = Array.isArray(cols) ? cols.filter(Boolean) : [];
-            const ids = new Set(base.map((c) => String(c?.id || '').trim()).filter(Boolean));
+            const ids = new Set(base.map((c) => normalizePipelineStageId(c?.id)).filter(Boolean));
             const out = [...base];
             if (!ids.has('Novo')) {
                 out.unshift({ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS });
@@ -1582,7 +1625,8 @@ const Pipeline = () => {
                     : c
             );
         };
-        const finalizeStages = (cols) => applyMatriculadoLabel(ensureSpecialColumns(mergeWaitingDecisionStage(cols)));
+        const finalizeStages = (cols) =>
+            applyMatriculadoLabel(ensureSpecialColumns(mergeWaitingDecisionStage(normalizeStageList(cols))));
         databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
             .then(doc => {
                 setAcademySettingsRaw(doc?.settings ?? null);
@@ -1838,13 +1882,17 @@ const Pipeline = () => {
 
     const saveStages = async () => {
         try {
-            const cleaned = tempStages
+            let cleaned = tempStages
                 .filter(s => s && String(s.id).trim())
                 .map((s) => ({
                     id: String(s.id).trim(),
                     label: String(s.label || s.id).trim(),
                     slaDays: Number.isFinite(s.slaDays) ? s.slaDays : DEFAULT_STAGE_SLA_DAYS,
                 }));
+            const stageIds = new Set(cleaned.map((s) => s.id));
+            if (!stageIds.has('Novo')) {
+                cleaned = [{ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS }, ...cleaned];
+            }
             await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
                 stagesConfig: JSON.stringify(cleaned),
             });
@@ -1863,6 +1911,9 @@ const Pipeline = () => {
         setTempStages(prev => [...prev, { id, label: 'Nova etapa', slaDays: DEFAULT_STAGE_SLA_DAYS }]);
     };
     const mapLeadToStageId = useCallback((lead) => {
+        // Triagem WhatsApp pendente sempre na coluna Novo até confirmar no funil.
+        if (isLeadPendingTriage(lead)) return PIPELINE_NOVO_STAGE_ID;
+
         if (lead?.status === LEAD_STATUS.MISSED) return LEAD_STATUS.MISSED;
         if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
         if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
@@ -1888,8 +1939,9 @@ const Pipeline = () => {
             if (stage === 'Aula experimental' && lead.status !== LEAD_STATUS.SCHEDULED) {
                 return stageFromStatusOnly(lead);
             }
-            const known = stages.some((col) => col.id === stage);
-            if (known) return stage;
+            const normalizedStage = normalizePipelineStageId(stage);
+            const known = stages.some((col) => normalizePipelineStageId(col.id) === normalizedStage);
+            if (known) return normalizedStage;
             const st = (lead.status || '').toLowerCase();
             if (st.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
             if (st.includes('agendado')) return 'Aula experimental';
@@ -1961,7 +2013,8 @@ const Pipeline = () => {
         list = applyBoardSearchFilter(list);
 
         if (searchStageScope !== 'all' && !triageKanbanFilter) {
-            list = list.filter((l) => mapLeadToStageId(l) === searchStageScope);
+            const scopeId = normalizePipelineStageId(searchStageScope);
+            list = list.filter((l) => normalizePipelineStageId(mapLeadToStageId(l)) === scopeId);
         }
 
         return list;
@@ -2012,6 +2065,7 @@ const Pipeline = () => {
     const leadsForBoard = useMemo(() => {
         if (!followupCoolingFilter) return leadsForBoardPreCooling;
         return leadsForBoardPreCooling.filter((l) => {
+            if (isLeadPendingTriage(l)) return true;
             const t = followupTempByLead[l.id];
             return t === 'cooling' || t === 'critical';
         });
@@ -2058,12 +2112,14 @@ const Pipeline = () => {
 
     const leadsForBoardDisplay = useMemo(() => {
         if (!slaCriticalFilter) return leadsForBoard;
-        return leadsForBoard.filter((l) => slaAlerts[l.id]?.urgency === 'critical');
+        return leadsForBoard.filter(
+            (l) => isLeadPendingTriage(l) || slaAlerts[l.id]?.urgency === 'critical'
+        );
     }, [leadsForBoard, slaAlerts, slaCriticalFilter]);
 
     const triagePendingCount = useMemo(
-        () => leadsForBoardCore.filter((l) => isLeadPendingTriage(l)).length,
-        [leadsForBoardCore]
+        () => leadsForBoard.filter((l) => isLeadPendingTriage(l)).length,
+        [leadsForBoard]
     );
 
     const pipelineHeaderMeta = useMemo(() => {
@@ -2410,10 +2466,10 @@ const Pipeline = () => {
         const isEnrolledCol = String(stageId || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
         const source = isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay;
         return source
-            .filter((l) => isEnrolledCol || mapLeadToStageId(l) === stageId)
+            .filter((l) => isEnrolledCol || leadBelongsInPipelineColumn(l, stageId, mapLeadToStageId, displayStageIds))
             .filter((l) => (originFilter === 'all' ? true : boardContactOrigin(l) === originFilter))
             .sort((a, b) => comparePipelineColLeads(a, b, isEnrolledCol));
-    }, [enrolledForBoard, leadsForBoardDisplay, originFilter, mapLeadToStageId]);
+    }, [enrolledForBoard, leadsForBoardDisplay, originFilter, mapLeadToStageId, displayStageIds]);
 
     const handleDragEnd = async (event) => {
         const { active, over } = event;
@@ -2965,6 +3021,7 @@ const Pipeline = () => {
                     navigate={navigate}
                     onOpenLeadProfile={openLeadProfile}
                     mapLeadToStageId={mapLeadToStageId}
+                    displayStageIds={displayStageIds}
                     handleWaCardClick={handleWaCardClick}
                     emptyStageHint={`Nenhum ${singular(labels.leads).toLowerCase()} nesta etapa`}
                     showLoading={showKanbanInitialLoading}
@@ -3010,9 +3067,9 @@ const Pipeline = () => {
                             );
                         }
 
-                        const isEnrolledCol = String(col.id || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
+                        const isEnrolledCol = normalizePipelineStageId(col.id) === ENROLLED_PIPELINE_STAGE_ID;
                         const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay
-                            .filter(l => mapLeadToStageId(l) === col.id))
+                            .filter((l) => leadBelongsInPipelineColumn(l, col.id, mapLeadToStageId, displayStageIds)))
                             .filter(l => originFilter === 'all' ? true : boardContactOrigin(l) === originFilter)
                             .sort((a, b) => comparePipelineColLeads(a, b, isEnrolledCol));
 
