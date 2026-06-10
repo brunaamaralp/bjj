@@ -50,7 +50,13 @@ function CatalogCard({ p, flashProductId, onPick }) {
   );
 }
 
-export default function SalesCatalogPicker({ products, loading, onPick, flashProductId }) {
+export default function SalesCatalogPicker({
+  products,
+  loading,
+  onPick,
+  flashProductId,
+  skuInput = null,
+}) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [visibleLimit, setVisibleLimit] = useState(CATALOG_PAGE_SIZE);
@@ -104,6 +110,7 @@ export default function SalesCatalogPicker({ products, loading, onPick, flashPro
 
   return (
     <section className="sales-catalog" aria-label="Catálogo de produtos">
+      {skuInput}
       <div className="sales-catalog__search form-group">
         <label>Busca rápida</label>
         <div className="sales-catalog__search-wrap">

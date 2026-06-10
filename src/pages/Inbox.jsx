@@ -2083,9 +2083,7 @@ export default function Inbox() {
       updateTicket={updateTicket}
       showInboxKeyHints={showInboxKeyHints}
       isNarrowDesktop={isNarrowDesktop}
-      inboxThreadNarrow767={inboxThreadNarrow767}
       setContextOpen={setContextOpen}
-      contextOpen={contextOpen}
       composerProps={composerProps}
       ticketChip={ticketChip}
       handoffDurationPhrase={handoffDurationPhrase}
@@ -2098,7 +2096,6 @@ export default function Inbox() {
       triageBusy={linkingLead}
       setLeadPanel={setLeadPanel}
       linkingLead={linkingLead}
-      onPinToWidget={handlePinToWidget}
     />
   );
 

@@ -24,11 +24,13 @@ const TEMPLATE_VARIABLES = [
   { key: 'footer', label: 'Rodapé dos comprovantes (vendas e pagamentos)' },
 ];
 
-function buildDigest(receiptTemplate, receiptFooter, lockPriceEdit) {
+function buildDigest(receiptTemplate, receiptFooter, lockPriceEdit, autoPrintReceipt, requireCashShift) {
   return JSON.stringify({
     receiptTemplate: String(receiptTemplate || '').trim(),
     receiptFooter: String(receiptFooter || '').trim(),
     lockPriceEdit: lockPriceEdit === true,
+    autoPrintReceipt: autoPrintReceipt === true,
+    requireCashShift: requireCashShift === true,
   });
 }
 
@@ -38,6 +40,8 @@ export default function SalesSettingsSection({ academyId }) {
   const [receiptTemplate, setReceiptTemplate] = useState(DEFAULT_SALES_RECEIPT_TEMPLATE);
   const [receiptFooter, setReceiptFooter] = useState(DEFAULT_SALES_FOOTER);
   const [lockPriceEdit, setLockPriceEdit] = useState(false);
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
+  const [requireCashShift, setRequireCashShift] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedDigest, setSavedDigest] = useState('');
   const [copiedKey, setCopiedKey] = useState(null);
@@ -53,7 +57,11 @@ export default function SalesSettingsSection({ academyId }) {
         setReceiptTemplate(s.receiptTemplate);
         setReceiptFooter(s.receiptFooter);
         setLockPriceEdit(s.lockPriceEdit);
-        setSavedDigest(buildDigest(s.receiptTemplate, s.receiptFooter, s.lockPriceEdit));
+        setAutoPrintReceipt(s.autoPrintReceipt);
+        setRequireCashShift(s.requireCashShift);
+        setSavedDigest(
+          buildDigest(s.receiptTemplate, s.receiptFooter, s.lockPriceEdit, s.autoPrintReceipt, s.requireCashShift)
+        );
       } catch (e) {
         console.error('[SalesSettings]', e);
       } finally {
@@ -68,8 +76,9 @@ export default function SalesSettingsSection({ academyId }) {
   const hasUnsaved = useMemo(
     () =>
       loaded &&
-      buildDigest(receiptTemplate, receiptFooter, lockPriceEdit) !== savedDigest,
-    [loaded, receiptTemplate, receiptFooter, lockPriceEdit, savedDigest]
+      buildDigest(receiptTemplate, receiptFooter, lockPriceEdit, autoPrintReceipt, requireCashShift) !==
+        savedDigest,
+    [loaded, receiptTemplate, receiptFooter, lockPriceEdit, autoPrintReceipt, requireCashShift, savedDigest]
   );
 
   const copyVariable = async (key) => {
@@ -94,11 +103,15 @@ export default function SalesSettingsSection({ academyId }) {
         receiptTemplate,
         receiptFooter,
         lockPriceEdit,
+        autoPrintReceipt,
+        requireCashShift,
       });
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         settings: JSON.stringify(merged),
       });
-      setSavedDigest(buildDigest(receiptTemplate, receiptFooter, lockPriceEdit));
+      setSavedDigest(
+        buildDigest(receiptTemplate, receiptFooter, lockPriceEdit, autoPrintReceipt, requireCashShift)
+      );
       addToast({ type: 'success', message: 'Configurações de vendas salvas.' });
     } catch (e) {
       console.error('[SalesSettings] save:', e);
@@ -172,6 +185,24 @@ export default function SalesSettingsSection({ academyId }) {
         <label className="flex items-center gap-2 mt-3" style={{ fontSize: 14 }}>
           <input type="checkbox" checked={lockPriceEdit} onChange={(e) => setLockPriceEdit(e.target.checked)} />
           Bloquear edição de preço no carrinho (somente preço do cadastro)
+        </label>
+
+        <label className="flex items-center gap-2 mt-2" style={{ fontSize: 14 }}>
+          <input
+            type="checkbox"
+            checked={autoPrintReceipt}
+            onChange={(e) => setAutoPrintReceipt(e.target.checked)}
+          />
+          Imprimir comprovante automaticamente após cada venda (modo PDV)
+        </label>
+
+        <label className="flex items-center gap-2 mt-2" style={{ fontSize: 14 }}>
+          <input
+            type="checkbox"
+            checked={requireCashShift}
+            onChange={(e) => setRequireCashShift(e.target.checked)}
+          />
+          Exigir abertura de caixa antes de registrar vendas
         </label>
 
         <div className="flex justify-end items-center gap-2 mt-4" style={{ flexWrap: 'wrap' }}>

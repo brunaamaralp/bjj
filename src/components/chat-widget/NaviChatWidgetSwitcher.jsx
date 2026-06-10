@@ -9,6 +9,7 @@ import {
 } from '../shared/menu';
 import { useChatWidgetConversationPicker, pickerItemMatchesPhone } from '../../hooks/useChatWidgetConversationPicker.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
+import ContactAvatar from '../shared/ContactAvatar.jsx';
 
 function formatTimeOnly(iso) {
   const s = String(iso || '').trim();
@@ -58,7 +59,6 @@ export default function NaviChatWidgetSwitcher({
   academyId,
   activePhone,
   leadName,
-  profileImageUrl = '',
   onSelect,
   panelOpen = false,
 }) {
@@ -99,11 +99,7 @@ export default function NaviChatWidgetSwitcher({
         aria-haspopup="menu"
       >
         <span className="navi-chat-widget__header-avatar" aria-hidden>
-          {profileImageUrl ? (
-            <img src={profileImageUrl} alt="" width={36} height={36} loading="lazy" decoding="async" />
-          ) : (
-            displayName.slice(0, 2).toUpperCase()
-          )}
+          <ContactAvatar contact={{ name: displayName }} size={36} fill />
         </span>
         <span className="navi-chat-widget__header-text">
           <span className="navi-chat-widget__header-name">{displayName}</span>

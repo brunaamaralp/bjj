@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
-import { resolveSalesSubtab } from '../lib/lojaSalesTabs';
+import { resolveSalesSubtab, resolveSalesPdvMode } from '../lib/lojaSalesTabs';
 import { INVENTORY_SUBTAB_LABELS, resolveInventorySubtab } from '../lib/lojaInventoryTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -29,6 +29,7 @@ export default function Loja() {
   const allowed = useMemo(() => new Set(tabs.map((t) => t.id)), [tabs]);
   const fallback = tabs[0]?.id || 'vendas';
   const activeTab = resolveHubTab(searchParams.get('tab'), allowed, fallback);
+  const pdvMode = activeTab === 'vendas' && resolveSalesPdvMode(searchParams);
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -72,16 +73,18 @@ export default function Loja() {
   })();
 
   return (
-    <div className="loja-hub">
-      <div className="container loja-hub__tabs navi-hub-page__head">
-        <PageHeader
-          className="navi-page-header--flush"
-          title="Loja"
-          subtitle={hubSubtitle}
-          meta={hubMeta}
-        />
-        <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" fullWidth />
-      </div>
+    <div className={`loja-hub${pdvMode ? ' loja-hub--pdv' : ''}`}>
+      {pdvMode ? null : (
+        <div className="container loja-hub__tabs navi-hub-page__head">
+          <PageHeader
+            className="navi-page-header--flush"
+            title="Loja"
+            subtitle={hubSubtitle}
+            meta={hubMeta}
+          />
+          <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" fullWidth />
+        </div>
+      )}
       <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
         {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}
         {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? <Products /> : null}

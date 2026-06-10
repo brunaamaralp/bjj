@@ -56,6 +56,51 @@ describe('inboxMediaService', () => {
     expect(storageMocks.createFile).not.toHaveBeenCalled();
   });
 
+  it('downloadAndSaveMedia retorna URL permanente', async () => {
+    const body = new Uint8Array([1, 2, 3]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: (k) => (k === 'content-length' ? String(body.length) : null) },
+        arrayBuffer: async () => body.buffer
+      })
+    );
+
+    const { downloadAndSaveMedia } = await import('../../lib/server/inboxMediaService.js');
+    const url = await downloadAndSaveMedia('https://cdn.example/sticker.webp', 'image/webp', {
+      messageId: 'msg-s',
+      academyId: 'acad-1'
+    });
+
+    expect(url).toBe(
+      'https://appwrite.test/v1/storage/buckets/inbox_media/files/file-abc/view?project=proj'
+    );
+  });
+
+  it('APPWRITE_MEDIA_BUCKET_ID tem prioridade sobre alias legado', async () => {
+    process.env.APPWRITE_MEDIA_BUCKET_ID = 'media_primary';
+    const body = new Uint8Array([1]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => String(body.length) },
+        arrayBuffer: async () => body.buffer
+      })
+    );
+
+    const { downloadAndStoreMedia } = await import('../../lib/server/inboxMediaService.js');
+    await downloadAndStoreMedia({
+      mediaUrl: 'https://cdn.example/a.jpg',
+      mimeType: 'image/jpeg',
+      messageId: 'm3',
+      academyId: 'a3'
+    });
+
+    expect(storageMocks.createFile).toHaveBeenCalledWith('media_primary', 'unique-id', expect.any(Object), expect.any(Array));
+  });
+
   it('faz upload e retorna URL permanente', async () => {
     const body = new Uint8Array([1, 2, 3]);
     vi.stubGlobal(

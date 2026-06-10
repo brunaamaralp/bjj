@@ -1,28 +1,18 @@
 import React from 'react';
 import { Copy, MoreHorizontal, Reply } from 'lucide-react';
 import MessageBubble, { messageBubbleStatusFromMessage } from './MessageBubble.jsx';
-import InboxMediaImage from './InboxMediaImage.jsx';
-import InboxAudioPlayer from './InboxAudioPlayer.jsx';
-import InboxMediaPlaceholder from './InboxMediaPlaceholder.jsx';
+import MediaBubble, { resolveInboxMessageDisplayType } from './MediaBubble.jsx';
 import InboxMediaTempLinkBadge from './InboxMediaTempLinkBadge.jsx';
 import {
   buildWhatsAppChatUrl,
   inboxMessageMediaStored,
-  inboxMessageMimeType,
-  inboxOtherMediaPlaceholderKind,
-  isOutboundAudioPlaceholder,
-  isOutboundImagePlaceholder,
+  inboxMessageMediaUrl,
 } from '../../lib/inboxMediaUtils.js';
 import {
   INBOX_MSG_TRUNCATE_CHARS,
   isInboxTruncatableTextMessage,
   truncateInboxMessageText,
 } from '../../lib/inboxUiConstants.js';
-
-function inboxContentIsAudioPlaceholder(content) {
-  const s = String(content || '').trim();
-  return /🎵\s*\[Áudio recebido\]|\[Áudio recebido\]/i.test(s);
-}
 
 export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
   const {
@@ -66,26 +56,25 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
         {g.items.map(({ key, m }, idx) => {
           const contentRaw = String(m?.content || '');
           const mediaUrlNorm = inboxMessageMediaUrl(m);
-          const typeLower = String(m?.type || '').toLowerCase();
-          const audioPlaceholder = inboxContentIsAudioPlaceholder(contentRaw);
-          const otherMediaKind = inboxOtherMediaPlaceholderKind(m, contentRaw);
-          const isImageMsg = typeLower === 'image' || isOutboundImagePlaceholder(contentRaw);
-          const isAudioMsg =
-            typeLower === 'audio' ||
-            typeLower === 'ptt' ||
-            audioPlaceholder ||
-            isOutboundAudioPlaceholder(contentRaw);
+          const displayType = resolveInboxMessageDisplayType(m, contentRaw);
+          const isImageMsg = displayType === 'image';
+          const isAudioMsg = displayType === 'audio';
+          const otherMediaKind = displayType === 'video' ? 'video' : null;
           const mediaStored = inboxMessageMediaStored(m);
-          const mimeType = inboxMessageMimeType(m);
-          const showTempBadge = mediaStored === false && Boolean(mediaUrlNorm) && (isImageMsg || isAudioMsg);
+          const showTempBadge =
+            mediaStored === false &&
+            Boolean(mediaUrlNorm) &&
+            (isImageMsg || isAudioMsg || displayType === 'sticker' || displayType === 'document');
           const whatsAppChatUrl = buildWhatsAppChatUrl(selectedPhone);
           const stopBubbleClick = (e) => e.stopPropagation();
           const expanded = Boolean(expandedMsgs && typeof expandedMsgs === 'object' && expandedMsgs[key]);
-          const isTextMsg = isInboxTruncatableTextMessage(m, {
-            isImageMsg,
-            isAudioMsg,
-            otherMediaKind,
-          });
+          const isTextMsg =
+            displayType === 'text' &&
+            isInboxTruncatableTextMessage(m, {
+              isImageMsg: false,
+              isAudioMsg: false,
+              otherMediaKind,
+            });
           const isLongMsg = isTextMsg && contentRaw.length > INBOX_MSG_TRUNCATE_CHARS;
           const content =
             !expanded && isLongMsg
@@ -234,35 +223,16 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
               }
             >
               {showTempBadge ? <InboxMediaTempLinkBadge /> : null}
-              {otherMediaKind ? (
-                <InboxMediaPlaceholder
-                  kind={otherMediaKind}
-                  mediaUrl={mediaUrlNorm}
-                  fileName={m?.fileName}
-                  onClickStop={stopBubbleClick}
-                />
-              ) : isAudioMsg ? (
-                <InboxAudioPlayer
-                  mediaUrl={mediaUrlNorm}
-                  mimeType={mimeType}
-                  mediaStored={mediaStored}
-                  content={contentRaw}
-                  duration={m?.duration}
-                  onReconcile={reconcileLast24h}
-                  reconciling={waSyncing}
-                  whatsAppChatUrl={whatsAppChatUrl}
-                />
-              ) : isImageMsg ? (
-                <InboxMediaImage
-                  mediaUrl={mediaUrlNorm}
-                  mediaStored={mediaStored}
-                  content={contentRaw}
-                  onOpenLightbox={setImageLightboxUrl}
-                  whatsAppChatUrl={whatsAppChatUrl}
-                />
-              ) : (
-                <div className="inbox-msg-text inbox-msg-text--pre">{content}</div>
-              )}
+              <MediaBubble
+                message={m}
+                content={content}
+                linkPills={g.bubbleKind === 'human' || g.bubbleKind === 'ai'}
+                onOpenLightbox={setImageLightboxUrl}
+                onReconcile={reconcileLast24h}
+                reconciling={waSyncing}
+                whatsAppChatUrl={whatsAppChatUrl}
+                onClickStop={stopBubbleClick}
+              />
               {isLongMsg && (
                 <button
                   className="inbox-bubble-expand"

@@ -167,6 +167,9 @@ const SALE_ERROR_CODES = {
   server_error: 'Não foi possível registrar a venda. Tente novamente.',
   error_500: 'Não foi possível registrar a venda. Tente novamente em instantes.',
   sales_not_configured: 'Vendas não configuradas. Fale com o suporte.',
+  shift_required: 'Abra o caixa antes de registrar vendas.',
+  due_date_required: 'Informe a data de vencimento da venda a prazo.',
+  cash_shift_not_configured: 'Turno de caixa não configurado. Execute o script de provisionamento.',
 };
 
 /**

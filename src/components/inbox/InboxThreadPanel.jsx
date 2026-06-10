@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Info, MessageSquare, PanelRightOpen, PictureInPicture2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import ThreadState from './ThreadState';
 import ThreadSkeleton from './ThreadSkeleton';
@@ -7,16 +7,7 @@ import InboxComposer from './InboxComposer';
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 import InboxThreadMessages from './InboxThreadMessages.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
-
-function inboxDisplayInitials(name) {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-  const one = parts[0] || '?';
-  return one.slice(0, 2).toUpperCase();
-}
+import ContactAvatar from '../shared/ContactAvatar.jsx';
 
 export default function InboxThreadPanel(props) {
   const {
@@ -92,17 +83,12 @@ export default function InboxThreadPanel(props) {
     updateTicket,
     showInboxKeyHints,
     isNarrowDesktop,
-    inboxThreadNarrow767 = false,
     setContextOpen,
-    contextOpen = false,
     composerProps,
     ticketChip,
     handoffDurationPhrase,
     retryFailedMessage,
-    onPinToWidget,
   } = props;
-
-  const showPinInHeader = typeof onPinToWidget === 'function' && !isMobile && !inboxThreadNarrow767;
 
   if (!selectedPhone) {
     return (
@@ -151,9 +137,6 @@ export default function InboxThreadPanel(props) {
                 phone && typeof formatPhone === 'function' ? String(formatPhone(phone) || '').trim() : '';
               const displayName = name || formattedPhone || phone || '—';
               const showPhoneLine = Boolean(name && formattedPhone && formattedPhone !== name);
-              const profileUrl = String(
-                selected?.whatsapp_profile_image_url || lead?.whatsapp_profile_image_url || ''
-              ).trim();
               const ticket = ticketChip(selected?.ticket_status, selected?.transfer_to);
               const leadIdForHint = String(selected?.lead_id || '').trim();
               const leadForHint = leadIdForHint ? leadById.get(leadIdForHint) : leadByPhone.get(normalizePhone(phone));
@@ -162,19 +145,7 @@ export default function InboxThreadPanel(props) {
               return (
                 <>
                   <div className="inbox-thread-header__avatar" aria-hidden>
-                    {profileUrl ? (
-                      <img
-                        src={profileUrl}
-                        alt=""
-                        width={36}
-                        height={36}
-                        loading="lazy"
-                        decoding="async"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      inboxDisplayInitials(displayName)
-                    )}
+                    <ContactAvatar contact={{ name: displayName }} size={36} fill />
                   </div>
                   <div className="inbox-thread-header__intro">
                     <div className="inbox-thread-header__title">
@@ -237,14 +208,11 @@ export default function InboxThreadPanel(props) {
                           </button>
                         </div>
                       ) : (
-                        <div className="inbox-thread-header__subline">
-                          <span className="inbox-thread-header__unlink-badge">Sem contato</span>
-                          <span className="inbox-thread-header__subline-dot" aria-hidden>
-                            ·
-                          </span>
+                        <p className="inbox-thread-header__subtitle">
+                          Sem contato ·{' '}
                           <button
                             type="button"
-                            className="inbox-thread-header__link-btn--subtle"
+                            className="inbox-thread-header__subtitle-link"
                             disabled={linkingLead}
                             onClick={() => {
                               setLeadPanel?.('convert');
@@ -254,7 +222,7 @@ export default function InboxThreadPanel(props) {
                           >
                             Vincular contato
                           </button>
-                        </div>
+                        </p>
                       )
                     ) : null}
                   </div>
@@ -263,9 +231,25 @@ export default function InboxThreadPanel(props) {
             })()}
             </div>
           <div className="inbox-thread-header-actions inbox-thread-header-actions--wa">
+            {String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved' ? (
+              <button
+                type="button"
+                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--secondary"
+                disabled={!selectedPhone || ticketUpdating}
+                onClick={() => void updateTicket({ status: 'resolved' })}
+                title="Resolver conversa"
+              >
+                Resolver
+                {showInboxKeyHints ? (
+                  <span className="inbox-thread-quick-toolbar__key-hint" aria-hidden>
+                    E
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
             {!selected?.need_human ? (
               <button
-                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
+                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--secondary"
                 onClick={() => setHandoffActive(true)}
                 disabled={!selectedPhone}
                 type="button"
@@ -275,7 +259,7 @@ export default function InboxThreadPanel(props) {
               </button>
             ) : (
               <button
-                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
+                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--primary"
                 onClick={() => {
                   setHandoffReleaseHint(true);
                   void setHandoffActive(false);
@@ -287,39 +271,7 @@ export default function InboxThreadPanel(props) {
                 Devolver
               </button>
             )}
-            <button
-              className={`inbox-thread-header__icon-btn inbox-thread-header__btn-context${
-                contextOpen && !isMobile && !isNarrowDesktop ? ' is-active' : ''
-              }`}
-              onClick={() => {
-                if (isMobile || isNarrowDesktop) setDetailsOpen(true);
-                else setContextOpen((v) => !v);
-              }}
-              disabled={!selectedPhone}
-              title="Abrir painel de detalhes"
-              type="button"
-              aria-label="Detalhes da conversa"
-              aria-expanded={Boolean(contextOpen && !isMobile && !isNarrowDesktop)}
-            >
-              {isMobile || inboxThreadNarrow767 ? (
-                <Info size={20} strokeWidth={2} aria-hidden />
-              ) : (
-                <PanelRightOpen size={20} strokeWidth={2} aria-hidden />
-              )}
-            </button>
-            {showPinInHeader ? (
-              <button
-                className="inbox-thread-header__icon-btn"
-                onClick={() => onPinToWidget()}
-                disabled={!selectedPhone}
-                title="Continuar conversando enquanto navega no sistema"
-                type="button"
-                aria-label="Continuar navegando"
-              >
-                <PictureInPicture2 size={20} strokeWidth={2} aria-hidden />
-              </button>
-            ) : null}
-            <InboxThreadActionsMenu {...threadActionsMenuProps} onPinToWidget={onPinToWidget} showPinInMenu={!showPinInHeader && typeof onPinToWidget === 'function'} />
+            <InboxThreadActionsMenu {...threadActionsMenuProps} />
           </div>
         </div>
       </div>
@@ -454,24 +406,7 @@ export default function InboxThreadPanel(props) {
         )}
       </div>
 
-      {String(selected?.ticket_status || '').trim().toLowerCase() !== 'resolved' ? (
-        <div className="inbox-thread-quick-toolbar" role="toolbar" aria-label="Ações rápidas da conversa">
-          <button
-            type="button"
-            className="inbox-thread-quick-toolbar__btn"
-            disabled={!selectedPhone || ticketUpdating}
-            onClick={() => void updateTicket({ status: 'resolved' })}
-            title="Resolver conversa"
-          >
-            Resolver
-            {showInboxKeyHints ? (
-              <span className="inbox-thread-quick-toolbar__key-hint" aria-hidden>
-                E
-              </span>
-            ) : null}
-          </button>
-        </div>
-      ) : null}
+
       <InboxComposer {...composerProps} />
     </div>
   );

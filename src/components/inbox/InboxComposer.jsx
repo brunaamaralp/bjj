@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bold, ChevronDown, ChevronUp, Italic, Loader2, Paperclip, Plus, Send, Smile, Sparkles, X } from 'lucide-react';
+import { Bold, ChevronDown, ChevronUp, FileText, Italic, Loader2, Paperclip, Plus, Send, Smile, Sparkles, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import { DateInputField } from '../DateInput';
 import { applyWhatsappTemplatePlaceholders } from '../../../lib/whatsappTemplateDefaults.js';
@@ -57,7 +57,7 @@ export default function InboxComposer(props) {
     setComposerExpanded,
     setSlashOpen,
     setSlashQuery,
-    toast
+    toast,
   } = props;
 
   const fileInputRef = useRef(null);
@@ -396,6 +396,88 @@ export default function InboxComposer(props) {
           )}
         </div>
       )}
+
+      {selectedPhone ? (
+        <div className="inbox-composer-quick-toolbar" role="toolbar" aria-label="Ferramentas do compositor">
+          <button
+            type="button"
+            className="inbox-composer-quick-toolbar__chip"
+            onClick={improveDraftWithAi}
+            disabled={sending || improvingDraft || String(draft || '').trim().length <= 3}
+            title={improvingDraft ? 'Melhorando…' : 'Melhorar texto com IA'}
+            aria-label="Melhorar com IA"
+            aria-busy={improvingDraft}
+          >
+            {improvingDraft ? (
+              <Loader2 size={13} className="inbox-improve-spin" aria-hidden />
+            ) : (
+              <Sparkles size={13} strokeWidth={2} aria-hidden />
+            )}
+            <span>IA</span>
+          </button>
+          <div className="inbox-composer-popover-anchor">
+            <button
+              type="button"
+              className={`inbox-composer-quick-toolbar__chip${templatesOpen ? ' is-active' : ''}`}
+              onClick={() => {
+                setTemplatesOpen((v) => !v);
+                setEmojiOpen(false);
+              }}
+              title="Mensagens prontas"
+              aria-label="Templates"
+              aria-expanded={templatesOpen}
+            >
+              <FileText size={13} strokeWidth={2} aria-hidden />
+              <span>Template</span>
+            </button>
+            {templatesOpen ? (
+              <div className="inbox-composer-popover inbox-composer-popover--templates">
+                <div className="navi-section-heading inbox-composer-popover__heading">Mensagens prontas</div>
+                {quickTemplates.length === 0 ? (
+                  <EmptyState
+                    variant="bare"
+                    title={`Nenhum template da ${terms.workspaceNoun}.`}
+                    description="Configure em Automações no menu."
+                    role="status"
+                    className="inbox-quick-templates-empty"
+                  />
+                ) : (
+                  quickTemplates.map((tpl) => {
+                    const lid = String(selected?.lead_id || '').trim();
+                    const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+                    const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
+                    return (
+                      <button
+                        key={tpl.key}
+                        type="button"
+                        className="btn btn-outline inbox-composer-template-btn"
+                        onClick={() => {
+                          const out = applyWhatsappTemplatePlaceholders(tpl.text, {
+                            lead: leadForTpl,
+                            academyName: academyNameForTemplates,
+                          });
+                          setDraft(out);
+                          setTemplatesOpen(false);
+                          try {
+                            textareaRef.current?.focus?.();
+                          } catch {
+                            void 0;
+                          }
+                        }}
+                      >
+                        <span className="inbox-composer-template-btn__label">{tpl.label}</span>
+                        <span className="inbox-composer-template-btn__preview">
+                          {(tpl.text || '').length > 72 ? `${String(tpl.text).slice(0, 72)}…` : tpl.text}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div className="inbox-composer-wa-row">
         {selectedPhone ? (

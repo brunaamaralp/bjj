@@ -33,8 +33,6 @@ export default function InboxThreadActionsMenu({
   triageBusy = false,
   setEditingContactName,
   setContactNameDraft,
-  onPinToWidget,
-  showPinInMenu = false,
 }) {
   const [open, setOpen] = useState(false);
   const phone = String(selectedPhone || '').trim();
@@ -84,17 +82,6 @@ export default function InboxThreadActionsMenu({
             hint="Detalhes"
             onClick={openDetails}
           />
-          {showPinInMenu ? (
-            <InboxMenuAction
-              label="Continuar navegando"
-              hint="Widget"
-              disabled={!phone}
-              onClick={() => {
-                onPinToWidget?.();
-                close();
-              }}
-            />
-          ) : null}
           <InboxMenuAction
             label="Aguardando cliente"
             hint="Ticket"

@@ -37,6 +37,7 @@ scripts/*
 !scripts/recover-bank-accounts.mjs
 !scripts/unify-bank-account-labels.mjs
 !scripts/restore-bank-account-definitions.mjs
+!scripts/ensure-inbox-media-bucket.mjs
 
 # Editor directories and files
 .vscode/*

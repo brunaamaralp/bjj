@@ -22,6 +22,7 @@ import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesCreateHandler from '../lib/server/salesCreateHandler.js';
 import salesReconcileHandler from '../lib/server/salesReconcileHandler.js';
 import salesLiquidateHandler from '../lib/server/salesLiquidateHandler.js';
+import cashShiftHandler from '../lib/server/cashShiftHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
@@ -225,6 +226,14 @@ export default async function handler(req, res) {
   if (req.query.hub === 'sales') {
     const action = String(req.query?.action || '').trim();
     if (action === 'reconcile') return salesReconcileHandler(req, res);
+    if (
+      action === 'shift' ||
+      action === 'shift_open' ||
+      action === 'shift_close' ||
+      action === 'shift_move'
+    ) {
+      return cashShiftHandler(req, res);
+    }
     if (req.method === 'POST') return salesCreateHandler(req, res);
     if (req.method === 'PATCH') return salesLiquidateHandler(req, res);
     if (req.method === 'GET') return salesHistoryHandler(req, res);

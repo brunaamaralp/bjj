@@ -38,6 +38,75 @@ export function parentNeedsVariantPicker(parent) {
   return (parent?.variants || []).length > 1;
 }
 
+function normCode(raw) {
+  return String(raw || '').trim().toLowerCase();
+}
+
+function variantSku(v) {
+  return normCode(v?.sku);
+}
+
+/** Busca por SKU, ID de variante ou SKU do produto pai (scanner / digitação). */
+export function findCatalogVariantByCode(products, rawCode) {
+  const code = normCode(rawCode);
+  if (!code) return { kind: 'not_found' };
+
+  const variantSkuHits = [];
+  const variantIdHits = [];
+
+  for (const parent of products || []) {
+    for (const variant of parent.variants || []) {
+      if (String(variant.id).toLowerCase() === code) {
+        variantIdHits.push({ parent, variant });
+      }
+      const sku = variantSku(variant);
+      if (sku && sku !== 'único' && sku === code) {
+        variantSkuHits.push({ parent, variant });
+      }
+    }
+  }
+
+  if (variantSkuHits.length > 1) {
+    return { kind: 'ambiguous', matches: variantSkuHits };
+  }
+  if (variantSkuHits.length === 1) {
+    const { parent, variant } = variantSkuHits[0];
+    return { kind: 'variant', parent, variant };
+  }
+  if (variantIdHits.length > 1) {
+    return { kind: 'ambiguous', matches: variantIdHits };
+  }
+  if (variantIdHits.length === 1) {
+    const { parent, variant } = variantIdHits[0];
+    return { kind: 'variant', parent, variant };
+  }
+
+  const parentSkuHits = [];
+  for (const parent of products || []) {
+    const parentSku = normCode(parent.sku);
+    if (parentSku && parentSku !== 'único' && parentSku === code) {
+      parentSkuHits.push(parent);
+    }
+  }
+
+  if (parentSkuHits.length > 1) {
+    return { kind: 'ambiguous', matches: parentSkuHits.map((parent) => ({ parent })) };
+  }
+  if (parentSkuHits.length === 1) {
+    const parent = parentSkuHits[0];
+    const vars = parent.variants || [];
+    if (vars.length === 1) {
+      return { kind: 'variant', parent, variant: vars[0] };
+    }
+    if (vars.length > 1) {
+      return { kind: 'needs_picker', parent };
+    }
+    return { kind: 'not_found' };
+  }
+
+  return { kind: 'not_found' };
+}
+
 /** Localiza produto pai e variante no catálogo agrupado. */
 export function findCatalogVariant(products, stockId) {
   const id = String(stockId || '').trim();

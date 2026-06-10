@@ -1,19 +1,9 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
-
-function displayInitials(name) {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-  const one = parts[0] || '?';
-  return one.slice(0, 2).toUpperCase();
-}
+import ContactAvatar from '../shared/ContactAvatar.jsx';
 
 export default function NaviChatWidgetBubble({
   leadName = '',
-  profileImageUrl = '',
   unreadCount = 0,
   onOpen,
   isMobile = false,
@@ -51,11 +41,7 @@ export default function NaviChatWidgetBubble({
       aria-label={ariaLabel}
     >
       <span className="navi-chat-widget__pill-avatar" aria-hidden>
-        {profileImageUrl ? (
-          <img src={profileImageUrl} alt="" width={32} height={32} loading="lazy" decoding="async" />
-        ) : (
-          displayInitials(name)
-        )}
+        <ContactAvatar contact={{ name }} size={32} fill />
       </span>
       <span className="navi-chat-widget__pill-name">{name}</span>
       {unread > 0 ? (

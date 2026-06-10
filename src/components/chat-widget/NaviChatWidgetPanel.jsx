@@ -122,7 +122,6 @@ export default function NaviChatWidgetPanel({
   const showAiHandoffBanner = Boolean(summary?.handoff) && !handoffBannerDismissed;
   const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
   const resolvedName = String(leadName || summary?.lead_name || '').trim() || displayName;
-  const profileImageUrl = String(summary?.whatsapp_profile_image_url || '').trim();
   const profileHref = String(summary?.lead_id || leadIdStr || '').trim()
     ? `/lead/${encodeURIComponent(String(summary?.lead_id || leadIdStr))}`
     : null;
@@ -213,7 +212,6 @@ export default function NaviChatWidgetPanel({
           academyId={academyId}
           activePhone={phoneDigits}
           leadName={resolvedName}
-          profileImageUrl={profileImageUrl}
           onSelect={handleSwitch}
           panelOpen
         />

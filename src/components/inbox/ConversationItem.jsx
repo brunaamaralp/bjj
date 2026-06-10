@@ -1,5 +1,5 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
-import { User } from 'lucide-react';
+import React, { useRef, useCallback } from 'react';
+import ContactAvatar from '../shared/ContactAvatar.jsx';
 import { INBOX_LIST_PREVIEW_MAX_COMPACT } from '../../lib/inboxUiConstants.js';
 
 const LONG_PRESS_MS = 520;
@@ -24,12 +24,7 @@ function ConversationItem({
   const previewMax = compact ? INBOX_LIST_PREVIEW_MAX_COMPACT : 52;
   const preview = rawPrev.length > previewMax ? `${rawPrev.slice(0, previewMax)}…` : rawPrev;
 
-  const profileUrl = String(item?._profileImageUrl || item?.whatsapp_profile_image_url || '').trim();
-  const [avatarOk, setAvatarOk] = useState(true);
-  useEffect(() => {
-    setAvatarOk(true);
-  }, [profileUrl]);
-
+  const listTitle = String(item?._displayTitle || '-').trim() || 'Conversa';
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
   const touchStartRef = useRef(null);
@@ -105,7 +100,6 @@ function ConversationItem({
     .filter(Boolean)
     .join(' ');
 
-  const listTitle = String(item?._displayTitle || '-').trim() || 'Conversa';
   const ariaLabelParts = [listTitle];
   if (unreadCount > 0) ariaLabelParts.push(`${unreadCount} não lidas`);
 
@@ -128,23 +122,7 @@ function ConversationItem({
             className={`inbox-conversation-item__avatar${compact ? ' inbox-conversation-item__avatar--compact' : ''}`}
             aria-hidden
           >
-            {profileUrl && avatarOk ? (
-              <img
-                src={profileUrl}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-                onError={() => setAvatarOk(false)}
-              />
-            ) : (
-              <User
-                size={compact ? 22 : 24}
-                strokeWidth={1.75}
-                className="inbox-conversation-item__avatar-icon"
-                aria-hidden
-              />
-            )}
+            <ContactAvatar contact={{ name: listTitle }} fill size={compact ? 40 : 49} />
           </div>
           <div className="inbox-conversation-item__content">
             <div className="inbox-conversation-item__title-row">
@@ -153,6 +131,13 @@ function ConversationItem({
               >
                 {String(item?._displayTitle || '-')}
               </span>
+              {unreadCount > 0 ? (
+                <span
+                  className="inbox-conversation-item__unread-dot"
+                  title={`${unreadCount} não lida${unreadCount === 1 ? '' : 's'}`}
+                  aria-hidden
+                />
+              ) : null}
             </div>
             <div
               className={`inbox-conversation-item__preview-row${compact ? ' inbox-conversation-item__preview-row--compact' : ''}`}
@@ -174,11 +159,6 @@ function ConversationItem({
               ? formatActivityLabel(item?.updated_at)
               : formatTimeOnly(item?.updated_at) || formatWhen(item?.updated_at)}
           </span>
-          {unreadCount > 0 ? (
-            <span className="text-small inbox-conversation-item__unread" title="Mensagens não lidas">
-              {unreadCount}
-            </span>
-          ) : null}
         </div>
       </div>
     </button>

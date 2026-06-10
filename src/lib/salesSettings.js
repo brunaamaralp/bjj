@@ -29,6 +29,8 @@ export function readSalesSettings(settingsRaw) {
     receiptFooter: String(sales.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
     cancelReceiptTemplate: cancelTemplate || DEFAULT_CANCEL_RECEIPT_TEMPLATE,
     lockPriceEdit: sales.lockPriceEdit === true,
+    autoPrintReceipt: sales.autoPrintReceipt === true,
+    requireCashShift: sales.requireCashShift === true,
     saleIncomeCategory,
   };
 }
@@ -43,6 +45,8 @@ export function mergeSalesIntoSettings(settingsRaw, salesPatch) {
       receiptTemplate: String(salesPatch.receiptTemplate ?? '').trim() || DEFAULT_SALES_RECEIPT_TEMPLATE,
       receiptFooter: String(salesPatch.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
       lockPriceEdit: salesPatch.lockPriceEdit === true,
+      autoPrintReceipt: salesPatch.autoPrintReceipt === true,
+      requireCashShift: salesPatch.requireCashShift === true,
     },
   };
 }

@@ -22,7 +22,6 @@ export default async function (req, res) {
       itens,
       idempotency_key = null,
       academy_id = null,
-      canal = "presencial",
       cliente_nome = null,
       cliente_telefone = null,
     } = body;
@@ -336,7 +335,6 @@ export default async function (req, res) {
       forma_pagamento: formaFinal,
       status: "rascunho",
       idempotency_key: idemKey,
-      canal: String(canal || "presencial").slice(0, 32),
     };
     if (pagamentosJson) salePayload.pagamentos_json = pagamentosJson;
     if (cliente_nome) salePayload.cliente_nome = String(cliente_nome).slice(0, 128);
@@ -348,7 +346,6 @@ export default async function (req, res) {
     } catch (e) {
       const msg = String(e?.message || "");
       if (msg.includes("Unknown attribute")) {
-        delete salePayload.canal;
         delete salePayload.cliente_nome;
         delete salePayload.cliente_telefone;
         if (msg.includes("pagamentos_json")) delete salePayload.pagamentos_json;

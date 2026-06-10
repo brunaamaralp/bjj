@@ -1,12 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSalesStore } from '../../store/useSalesStore';
-import { ShoppingCart, X } from 'lucide-react';
+import { ShoppingCart, X, PauseCircle, PlayCircle } from 'lucide-react';
 import { databases, DB_ID, STUDENTS_COL, ACADEMIES_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
-import { suggestUnitPrice, findCatalogVariant, cartVariantOptions, parentNeedsVariantPicker, variantOptionLabel } from '../../lib/salesCatalog';
+import {
+  suggestUnitPrice,
+  findCatalogVariant,
+  findCatalogVariantByCode,
+  cartVariantOptions,
+  parentNeedsVariantPicker,
+  variantOptionLabel,
+} from '../../lib/salesCatalog';
 import { readSalesSettings } from '../../lib/salesSettings';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import { maskPhone } from '../../lib/masks.js';
@@ -15,7 +22,13 @@ import SalesVariantPicker from './SalesVariantPicker';
 import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
 import SalesPaymentBlock from './SalesPaymentBlock';
+import SalesSkuInput from './SalesSkuInput';
+import SalesQuickPayBar from './SalesQuickPayBar';
+import SalesPosHints from './SalesPosHints';
+import CashShiftBanner from './CashShiftBanner';
 import Hint from '../shared/Hint.jsx';
+import { DateInputField } from '../DateInput';
+import useSalesPosHotkeys from '../../hooks/useSalesPosHotkeys';
 import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
@@ -23,12 +36,18 @@ import {
   buildFormaPagamentoResumo,
   rebalancePaymentsForTotal,
   normalizePaymentForma,
+  buildQuickPayment,
 } from '../../lib/salePayments';
+import {
+  listSuspendedCarts,
+  suspendCart,
+  removeSuspendedCart,
+} from '../../lib/salesSuspendedCart';
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
 import { refreshStockStores } from '../../lib/syncStockStores.js';
 
-export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
+export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdvMode = false }) {
   const createSale = useSalesStore((s) => s.createSale);
   const creating = useSalesStore((s) => s.creating);
   const lastSale = useSalesStore((s) => s.lastSale);
@@ -66,6 +85,17 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
 
   const [priceTouched, setPriceTouched] = useState({});
   const [receipt, setReceipt] = useState(null);
+
+  const [deferredSale, setDeferredSale] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [manualPaymentOpen, setManualPaymentOpen] = useState(!pdvMode);
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
+  const [suspendedOpen, setSuspendedOpen] = useState(false);
+  const [suspendedList, setSuspendedList] = useState([]);
+  const [openCashShift, setOpenCashShift] = useState(null);
+
+  const skuInputRef = useRef(null);
+  const formRef = useRef(null);
 
   const handlePriceBlur = useCallback((idx) => {
     setPriceTouched((prev) => ({ ...prev, [idx]: true }));
@@ -248,9 +278,128 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
   );
 
   const paymentValid = useMemo(
-    () => paymentsUiValid(payments, totalFinalCents),
-    [payments, totalFinalCents]
+    () =>
+      deferredSale
+        ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
+        : paymentsUiValid(payments, totalFinalCents),
+    [payments, totalFinalCents, deferredSale]
   );
+
+  const shiftBlocksSale =
+    salesSettings.requireCashShift && !openCashShift && !modalMode;
+
+  useEffect(() => {
+    setManualPaymentOpen(!pdvMode);
+  }, [pdvMode]);
+
+  useEffect(() => {
+    if (!academyId) {
+      setSuspendedList([]);
+      return;
+    }
+    setSuspendedList(listSuspendedCarts(academyId));
+  }, [academyId, suspendedOpen, cart.length]);
+
+  const focusCashReceived = useCallback(() => {
+    setManualPaymentOpen(true);
+    window.setTimeout(() => {
+      const el = document.querySelector('.sales-payment-row__cash input');
+      el?.focus();
+    }, 60);
+  }, []);
+
+  const buildCheckoutSnapshot = useCallback(
+    () => ({
+      cart,
+      payments,
+      descGeralTipo,
+      descGeralCents,
+      descGeralPct,
+      alunoId,
+      alunoNomeSel,
+      alunoPhoneSel,
+      alunoSearchText,
+      clienteNome,
+      clienteTelefone,
+      vendaColaborador,
+      deferredSale,
+      dueDate,
+    }),
+    [
+      cart,
+      payments,
+      descGeralTipo,
+      descGeralCents,
+      descGeralPct,
+      alunoId,
+      alunoNomeSel,
+      alunoPhoneSel,
+      alunoSearchText,
+      clienteNome,
+      clienteTelefone,
+      vendaColaborador,
+      deferredSale,
+      dueDate,
+    ]
+  );
+
+  const restoreCheckoutSnapshot = useCallback((snap) => {
+    if (!snap) return;
+    setCart(snap.cart || []);
+    setPayments(snap.payments || [createEmptyPaymentRow(0)]);
+    setDescGeralTipo(snap.descGeralTipo || 'valor');
+    setDescGeralCents(snap.descGeralCents || 0);
+    setDescGeralPct(snap.descGeralPct || 0);
+    setAlunoId(snap.alunoId || '');
+    setAlunoNomeSel(snap.alunoNomeSel || '');
+    setAlunoPhoneSel(snap.alunoPhoneSel || '');
+    setAlunoSearchText(snap.alunoSearchText || '');
+    setClienteNome(snap.clienteNome || '');
+    setClienteTelefone(snap.clienteTelefone || '');
+    setVendaColaborador(Boolean(snap.vendaColaborador));
+    setDeferredSale(Boolean(snap.deferredSale));
+    setDueDate(snap.dueDate || '');
+    setLocalError('');
+    setReceipt(null);
+  }, []);
+
+  const handleSuspendCart = () => {
+    if (!academyId || cart.length === 0) return;
+    suspendCart(academyId, buildCheckoutSnapshot());
+    setCart([]);
+    setPayments([createEmptyPaymentRow(0)]);
+    setDescGeralCents(0);
+    setDescGeralPct(0);
+    setDeferredSale(false);
+    setDueDate('');
+    setSuspendedList(listSuspendedCarts(academyId));
+    addToast({ type: 'success', message: 'Venda suspensa' });
+    skuInputRef.current?.focus();
+  };
+
+  const handleResumeSuspended = (entry) => {
+    if (!entry) return;
+    restoreCheckoutSnapshot(entry);
+    removeSuspendedCart(academyId, entry.id);
+    setSuspendedList(listSuspendedCarts(academyId));
+    setSuspendedOpen(false);
+    addToast({ type: 'success', message: 'Carrinho retomado' });
+  };
+
+  const applyQuickPay = useCallback(
+    (rows) => {
+      setDeferredSale(false);
+      setPayments(rows);
+      setManualPaymentOpen(true);
+    },
+    []
+  );
+
+  const refocusSkuAfterSale = useCallback(() => {
+    if (pdvMode || modalMode) {
+      window.setTimeout(() => skuInputRef.current?.focus(), 80);
+    }
+  }, [pdvMode, modalMode]);
 
   useEffect(() => {
     setPayments((prev) => {
@@ -379,6 +528,75 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
     },
     [pickProduct]
   );
+
+  const addByCode = useCallback(
+    (rawCode) => {
+      const result = findCatalogVariantByCode(products, rawCode);
+      if (result.kind === 'not_found') {
+        addToast({ type: 'error', message: 'Código não encontrado no catálogo' });
+        return false;
+      }
+      if (result.kind === 'ambiguous') {
+        addToast({
+          type: 'error',
+          message: 'Código duplicado no cadastro — corrija o SKU do produto',
+        });
+        return false;
+      }
+      if (result.kind === 'needs_picker') {
+        setVariantPickerParent(result.parent);
+        return true;
+      }
+      const { variant, parent } = result;
+      if (!variant.canAdd) {
+        addToast({ type: 'error', message: 'Produto esgotado' });
+        return false;
+      }
+      pickProduct(
+        { ...variant, image_url: variant.image_url || parent?.image_url || '' },
+        parent?.id,
+        parent
+      );
+      return true;
+    },
+    [products, addToast, pickProduct]
+  );
+
+  const handleSkuSubmit = useCallback(
+    (code) => {
+      const ok = addByCode(code);
+      if (ok) {
+        skuInputRef.current?.clear();
+        skuInputRef.current?.focus();
+      }
+    },
+    [addByCode]
+  );
+
+  useSalesPosHotkeys({
+    enabled: !modalMode,
+    modalOpen: Boolean(variantPickerParent),
+    onFocusSku: () => skuInputRef.current?.focus(),
+    onQuickPix: () => {
+      if (cart.length === 0 || deferredSale) return;
+      applyQuickPay(buildQuickPayment('pix', totalFinalCents));
+    },
+    onQuickCash: () => {
+      if (cart.length === 0 || deferredSale) return;
+      applyQuickPay(buildQuickPayment('dinheiro', totalFinalCents));
+      focusCashReceived();
+    },
+    onQuickDebit: () => {
+      if (cart.length === 0 || deferredSale) return;
+      applyQuickPay(buildQuickPayment('cartao_debito', totalFinalCents));
+    },
+    onSubmit: () => formRef.current?.requestSubmit(),
+    onEscape: () => {
+      skuInputRef.current?.clear();
+      if (cart.length === 0) skuInputRef.current?.focus();
+    },
+    canSubmit: paymentValid.ok && cart.length > 0 && !creating && !shiftBlocksSale,
+  });
 
   const changeCartVariant = useCallback(
     (idx, variantId) => {
@@ -528,7 +746,16 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       setLocalError('Adicione pelo menos um item');
       return;
     }
-    if (!paymentValid.ok) {
+    if (shiftBlocksSale) {
+      setLocalError('Abra o caixa antes de registrar a venda.');
+      return;
+    }
+    if (deferredSale) {
+      if (!String(dueDate || '').trim()) {
+        setLocalError('Informe a data de vencimento da venda a prazo.');
+        return;
+      }
+    } else if (!paymentValid.ok) {
       setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
       return;
     }
@@ -561,11 +788,13 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
     });
 
     const now = new Date();
-    const pagamentos = serializePagamentosForApi(payments);
+    const pagamentos = deferredSale ? [] : serializePagamentosForApi(payments);
 
     await createSale({
       aluno_id: alunoId || null,
       pagamentos,
+      deferred: deferredSale,
+      due_date: deferredSale ? dueDate : null,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
       venda_colaborador: vendaColaborador,
@@ -592,17 +821,27 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       return;
     }
 
-    addToast({ type: 'success', message: 'Venda concluída' });
+    addToast({
+      type: 'success',
+      message: deferredSale ? 'Venda a prazo registrada' : 'Venda concluída',
+    });
 
-    if (modalMode) {
+    const clearAfterSale = () => {
       setCart([]);
       setPayments([createEmptyPaymentRow(0)]);
       setDescGeralCents(0);
       setDescGeralPct(0);
+      setDeferredSale(false);
+      setDueDate('');
       setMobilePanel('catalog');
       resetSaleSession();
       void reloadCatalog();
       void refreshStockStores();
+      refocusSkuAfterSale();
+    };
+
+    if (modalMode) {
+      clearAfterSale();
       onSaleComplete?.();
       return;
     }
@@ -619,12 +858,13 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       vendaId,
       date: dateStr,
       time: timeStr,
-      canal: 'presencial',
+      status: deferredSale ? 'pendente' : 'concluida',
       clientName: clientDisplayName,
       clientPhone: clientPhone.trim(),
-      forma: buildFormaPagamentoResumo(pagamentos),
+      forma: deferredSale ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
       pagamentos,
       trocoWarnings,
+      dueDate: deferredSale ? dueDate : null,
       items: cart.map((it) => ({
         display_label: it.display_label,
         quantidade: Number(it.quantidade),
@@ -634,14 +874,11 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
       total: totalFinal,
     });
 
-    setCart([]);
-    setPayments([createEmptyPaymentRow(0)]);
-    setDescGeralCents(0);
-    setDescGeralPct(0);
-    setMobilePanel('catalog');
-    resetSaleSession();
-    void reloadCatalog();
-    void refreshStockStores();
+    if (salesSettings.autoPrintReceipt && pdvMode && !deferredSale) {
+      window.setTimeout(() => window.print(), 300);
+    }
+
+    clearAfterSale();
   };
 
   const copyReceipt = async (text) => {
@@ -657,7 +894,17 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
 
   return (
     <>
-      <form className="sales-new-sale animate-in" onSubmit={submit}>
+      {!modalMode ? (
+        <CashShiftBanner
+          academyId={academyId}
+          requireShift={salesSettings.requireCashShift}
+          pdvMode={pdvMode}
+          onShiftChange={setOpenCashShift}
+          blockSales={shiftBlocksSale}
+        />
+      ) : null}
+
+      <form ref={formRef} className="sales-new-sale animate-in" onSubmit={submit}>
         <div className="sales-mobile-tabs" role="tablist" aria-label="Catálogo e carrinho">
           <button
             type="button"
@@ -697,6 +944,14 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
               loading={catalogLoading}
               onPick={handleCatalogPick}
               flashProductId={flashProductId}
+              skuInput={
+                <SalesSkuInput
+                  ref={skuInputRef}
+                  disabled={catalogLoading || creating}
+                  onSubmit={handleSkuSubmit}
+                  autoFocus={pdvMode}
+                />
+              }
             />
           </div>
 
@@ -706,7 +961,48 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
             }`}
           >
             <div className="sales-checkout card">
-              <h3 className="sales-checkout__title">Checkout</h3>
+              <div className="sales-checkout__head">
+                <h3 className="sales-checkout__title">Checkout</h3>
+                <div className="sales-checkout__head-actions">
+                  {suspendedList.length > 0 ? (
+                    <button
+                      type="button"
+                      className="btn-ghost sales-checkout__suspend-btn"
+                      onClick={() => setSuspendedOpen((v) => !v)}
+                    >
+                      <PlayCircle size={16} aria-hidden />
+                      Retomar ({suspendedList.length})
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn-ghost sales-checkout__suspend-btn"
+                    disabled={cart.length === 0 || creating}
+                    onClick={handleSuspendCart}
+                  >
+                    <PauseCircle size={16} aria-hidden />
+                    Suspender
+                  </button>
+                </div>
+              </div>
+
+              {suspendedOpen && suspendedList.length > 0 ? (
+                <div className="sales-suspended-panel card">
+                  {suspendedList.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className="sales-suspended-panel__item"
+                      onClick={() => handleResumeSuspended(entry)}
+                    >
+                      <span>{entry.label}</span>
+                      <span className="text-small text-muted">
+                        {new Date(entry.savedAt).toLocaleString('pt-BR')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="form-group sales-checkout__field">
                 <label>Aluno (opcional)</label>
@@ -822,13 +1118,60 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
                 )}
               </div>
 
-              <SalesPaymentBlock
-                totalCents={totalFinalCents}
-                payments={payments}
-                onChange={setPayments}
-                disabled={creating || cart.length === 0}
-                inlineValidate
-              />
+              {!deferredSale ? (
+                <>
+                  <SalesQuickPayBar
+                    totalCents={totalFinalCents}
+                    disabled={creating || cart.length === 0}
+                    onApply={applyQuickPay}
+                    onFocusCashReceived={focusCashReceived}
+                    compact={!pdvMode}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ghost sales-manual-pay-toggle"
+                    onClick={() => setManualPaymentOpen((v) => !v)}
+                    disabled={cart.length === 0}
+                  >
+                    {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
+                  </button>
+                  {manualPaymentOpen ? (
+                    <SalesPaymentBlock
+                      totalCents={totalFinalCents}
+                      payments={payments}
+                      onChange={setPayments}
+                      disabled={creating || cart.length === 0}
+                      inlineValidate
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <div className="form-group sales-checkout__field">
+                  <label>Vencimento</label>
+                  <DateInputField value={dueDate} onChange={setDueDate} />
+                </div>
+              )}
+
+              <details
+                className="sales-more-options"
+                open={moreOptionsOpen}
+                onToggle={(e) => setMoreOptionsOpen(e.target.open)}
+              >
+                <summary className="sales-more-options__summary">Mais opções</summary>
+                <div className="sales-more-options__body">
+                  <label className="sales-collab-toggle__label">
+                    <input
+                      type="checkbox"
+                      checked={deferredSale}
+                      onChange={(e) => {
+                        setDeferredSale(e.target.checked);
+                        if (e.target.checked) setManualPaymentOpen(false);
+                      }}
+                    />
+                    <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>
+                  </label>
+                </div>
+              </details>
 
               <div className="sales-collab-toggle">
                 <label className="sales-collab-toggle__label">
@@ -852,10 +1195,12 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete }) {
                 ) : null}
               </div>
 
+              <SalesPosHints pdvMode={pdvMode} />
+
               <button
                 type="submit"
                 className="btn-primary sales-submit-btn"
-                disabled={creating || cart.length === 0 || !paymentValid.ok}
+                disabled={creating || cart.length === 0 || !paymentValid.ok || shiftBlocksSale}
               >
                 <ShoppingCart size={18} aria-hidden />
                 <span>

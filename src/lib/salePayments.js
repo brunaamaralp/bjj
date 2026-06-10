@@ -93,6 +93,18 @@ export function rebalancePaymentsForTotal(rows, totalCents) {
   return next;
 }
 
+export function buildQuickPayment(forma, totalCents) {
+  const cents = Math.max(0, Math.round(Number(totalCents) || 0));
+  const row = {
+    ...createEmptyPaymentRow(cents),
+    forma: normalizePaymentForma(forma),
+  };
+  if (row.forma === 'dinheiro') {
+    row.recebidoCents = cents;
+  }
+  return [row];
+}
+
 export function createEmptyPaymentRow(totalCents = 0) {
   const cents = Math.max(0, Math.round(Number(totalCents) || 0));
   return {

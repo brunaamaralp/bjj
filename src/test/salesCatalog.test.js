@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   catalogProductsForSale,
   enrichCatalogProduct,
+  enrichSalesParentRow,
+  findCatalogVariantByCode,
   normalizeSalesCatalogFromApi,
   variantOptionLabel,
   parentNeedsVariantPicker,
@@ -111,6 +113,61 @@ describe('salesCatalog', () => {
 
   it('variantOptionLabel uses sku when size is empty', () => {
     expect(variantOptionLabel({ sku: 'GG', color: 'Azul' })).toBe('GG / Azul');
+  });
+
+  it('findCatalogVariantByCode matches variant sku', () => {
+    const parent = enrichSalesParentRow({
+      id: 'p1',
+      nome: 'Kimono',
+      variants: [
+        enrichCatalogProduct({
+          id: 'v1',
+          sku: 'KIM-P',
+          current_quantity: 3,
+          is_for_sale: true,
+          is_active: true,
+          sale_price: 100,
+        }),
+      ],
+    });
+    const hit = findCatalogVariantByCode([parent], 'KIM-P');
+    expect(hit.kind).toBe('variant');
+    expect(hit.variant.id).toBe('v1');
+  });
+
+  it('findCatalogVariantByCode opens picker for parent sku with multiple variants', () => {
+    const parent = enrichSalesParentRow({
+      id: 'p1',
+      nome: 'Kimono',
+      sku: 'KIMONO',
+      variants: [
+        enrichCatalogProduct({ id: 'v1', sku: 'P', current_quantity: 2, is_for_sale: true, is_active: true }),
+        enrichCatalogProduct({ id: 'v2', sku: 'M', current_quantity: 2, is_for_sale: true, is_active: true }),
+      ],
+    });
+    const hit = findCatalogVariantByCode([parent], 'KIMONO');
+    expect(hit.kind).toBe('needs_picker');
+    expect(hit.parent.id).toBe('p1');
+  });
+
+  it('findCatalogVariantByCode returns not_found for unknown code', () => {
+    expect(findCatalogVariantByCode([], 'XYZ')).toEqual({ kind: 'not_found' });
+  });
+
+  it('findCatalogVariantByCode flags ambiguous sku', () => {
+    const parents = [
+      enrichSalesParentRow({
+        id: 'p1',
+        nome: 'A',
+        variants: [enrichCatalogProduct({ id: 'v1', sku: 'DUP', current_quantity: 1, is_for_sale: true, is_active: true })],
+      }),
+      enrichSalesParentRow({
+        id: 'p2',
+        nome: 'B',
+        variants: [enrichCatalogProduct({ id: 'v2', sku: 'DUP', current_quantity: 1, is_for_sale: true, is_active: true })],
+      }),
+    ];
+    expect(findCatalogVariantByCode(parents, 'DUP').kind).toBe('ambiguous');
   });
 
   it('parentNeedsVariantPicker and cartVariantOptions', () => {

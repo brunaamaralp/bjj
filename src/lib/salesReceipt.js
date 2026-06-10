@@ -44,7 +44,7 @@ export function buildReceiptText({
     sale_id: formatSaleIdShort(saleId),
     date: String(date || '').trim(),
     time: String(time || '').trim(),
-    channel: channelLabel(channel),
+    channel: channel != null && String(channel).trim() ? channelLabel(channel) : '',
     client_name: clientWithPhone,
     items_lines: itemsLines,
     total: formatBRL(total),

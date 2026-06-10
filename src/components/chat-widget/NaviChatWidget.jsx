@@ -66,7 +66,6 @@ export default function NaviChatWidget({ academyId, commandBarOpen = false }) {
   if (typeof document === 'undefined') return null;
 
   const unreadCount = Number(summary?.unread_count || 0);
-  const profileImageUrl = String(summary?.whatsapp_profile_image_url || '').trim();
   const resolvedName = String(leadName || summary?.lead_name || '').trim() || 'Conversa';
 
   const content = (
@@ -84,7 +83,6 @@ export default function NaviChatWidget({ academyId, commandBarOpen = false }) {
       ) : (
         <NaviChatWidgetBubble
           leadName={resolvedName}
-          profileImageUrl={profileImageUrl}
           unreadCount={unreadCount}
           isMobile={isMobile}
           onOpen={openPanel}

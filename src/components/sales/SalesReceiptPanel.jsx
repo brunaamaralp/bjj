@@ -23,7 +23,7 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
       saleId: receipt.vendaId,
       date: receipt.date,
       time: receipt.time,
-      channel: receipt.canal,
+      channel: receipt.canal || undefined,
       clientName: receipt.clientName,
       clientPhone: receipt.clientPhone,
       items: receipt.items,
@@ -49,7 +49,18 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
       <div className="text-small" style={{ marginTop: 8, lineHeight: 1.5 }}>
         <div><strong>Venda:</strong> {saleIdShort}</div>
         <div><strong>Data:</strong> {receipt.date} {receipt.time}</div>
-        <div><strong>Canal:</strong> {channelLabel(receipt.canal)}</div>
+        {receipt.canal ? (
+          <div><strong>Canal:</strong> {channelLabel(receipt.canal)}</div>
+        ) : null}
+        {receipt.status === 'pendente' ? (
+          <div><strong>Status:</strong> Pendente (a receber)</div>
+        ) : null}
+        {receipt.dueDate ? (
+          <div>
+            <strong>Vencimento:</strong>{' '}
+            {String(receipt.dueDate).slice(0, 10).split('-').reverse().join('/')}
+          </div>
+        ) : null}
         <div><strong>Cliente:</strong> {receipt.clientName}</div>
         {receipt.clientPhone ? (
           <div><strong>Telefone:</strong> {receipt.clientPhone}</div>

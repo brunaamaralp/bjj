@@ -1499,6 +1499,8 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 0;
+  background: var(--color-content-bg, #fff);
 }
 
 .main-content > .container.inbox-page,
@@ -1509,6 +1511,8 @@ button:focus-visible {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 0;
+  max-width: none;
 }
 
 .main-content .container.students-page {

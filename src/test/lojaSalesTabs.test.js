@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   isLegacySalesLeafTab,
   lojaVendasTabParams,
+  lojaVendasPdvParams,
   resolveSalesSubtab,
+  resolveSalesPdvMode,
   salesSubtabNeedsNormalize,
 } from '../lib/lojaSalesTabs';
 
@@ -24,6 +26,18 @@ describe('lojaSalesTabs', () => {
     const next = lojaVendasTabParams('history', new URLSearchParams('tab=new'));
     expect(next.get('tab')).toBe('vendas');
     expect(next.get('subtab')).toBe('history');
+  });
+
+  it('resolveSalesPdvMode reads pdv=1', () => {
+    expect(resolveSalesPdvMode(new URLSearchParams('tab=vendas&pdv=1'))).toBe(true);
+    expect(resolveSalesPdvMode(new URLSearchParams('tab=vendas'))).toBe(false);
+  });
+
+  it('lojaVendasPdvParams toggles pdv query', () => {
+    const on = lojaVendasPdvParams(true, new URLSearchParams('tab=vendas&subtab=new'));
+    expect(on.get('pdv')).toBe('1');
+    const off = lojaVendasPdvParams(false, on);
+    expect(off.get('pdv')).toBeNull();
   });
 
   it('salesSubtabNeedsNormalize when legacy leaf tab hijacks hub', () => {
