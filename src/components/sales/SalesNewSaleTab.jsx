@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSalesStore } from '../../store/useSalesStore';
 import { ShoppingCart, X, PauseCircle, PlayCircle } from 'lucide-react';
-import { databases, DB_ID, STUDENTS_COL, ACADEMIES_COL } from '../../lib/appwrite';
-import { Query } from 'appwrite';
+import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { searchStudentsForSale } from '../../lib/studentSaleSearch.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
@@ -675,40 +675,15 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
     let active = true;
     const run = async () => {
       const t = String(alunoSearchText || '').trim();
-      if (!academyId || t.length < 2 || !DB_ID || !STUDENTS_COL) {
+      if (!academyId || t.length < 2) {
         if (active) setAlunoSuggestions([]);
         return;
       }
       setAlunoBusy(true);
       try {
-        let docs = [];
-        try {
-          const res = await databases.listDocuments(DB_ID, STUDENTS_COL, [
-            Query.equal('academyId', academyId),
-            Query.search('name', t),
-            Query.limit(8),
-          ]);
-          docs = res.documents;
-        } catch {
-          try {
-            const res2 = await databases.listDocuments(DB_ID, STUDENTS_COL, [
-              Query.equal('academyId', academyId),
-              Query.search('phone', t),
-              Query.limit(8),
-            ]);
-            docs = res2.documents;
-          } catch {
-            docs = [];
-          }
-        }
+        const hits = await searchStudentsForSale(academyId, t, { limit: 8 });
         if (!active) return;
-        setAlunoSuggestions(
-          docs.map((d) => ({
-            id: d.$id,
-            nome: d.name || d.$id,
-            phone: d.phone || '',
-          }))
-        );
+        setAlunoSuggestions(hits);
       } finally {
         if (active) setAlunoBusy(false);
       }
@@ -1004,7 +979,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
                 </div>
               ) : null}
 
-              <div className="form-group sales-checkout__field">
+              <div className="form-group sales-checkout__field sales-checkout__field--aluno">
                 <label>Aluno (opcional)</label>
                 <input
                   className="form-input"
@@ -1012,9 +987,12 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
                   onChange={(e) => setAlunoSearchText(e.target.value)}
                   placeholder="Buscar por nome ou celular"
                   disabled={Boolean(alunoId)}
+                  autoComplete="off"
+                  aria-autocomplete="list"
+                  aria-expanded={alunoSuggestions.length > 0}
                 />
                 {alunoSuggestions.length > 0 && (
-                  <div className="sales-suggestions">
+                  <div className="sales-suggestions" role="listbox">
                     {alunoSuggestions.map((s) => (
                       <button key={s.id} type="button" className="sales-suggestion" onClick={() => chooseAluno(s)}>
                         <span>{s.nome}</span>

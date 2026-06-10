@@ -2,8 +2,7 @@
 // Reutilizado em: perfil do lead (LeadCloseSaleModal), funil (Pipeline).
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Query } from 'appwrite';
-import { databases, DB_ID, STUDENTS_COL } from '../../lib/appwrite';
+import { searchStudentsForSale } from '../../lib/studentSaleSearch.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { createPayment, PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
@@ -18,8 +17,10 @@ import StudentPaymentModal, {
 
 function mapStudentDoc(doc) {
   if (!doc) return null;
+  const id = doc.$id || doc.id;
+  if (!id) return null;
   return {
-    id: doc.$id,
+    id,
     name: String(doc.name || doc.nome || '').trim(),
     plan: doc.plan || '',
     plan_price: doc.plan_price,
@@ -66,7 +67,7 @@ export default function NovaVendaPlanPanel({
 
   useEffect(() => {
     if (prefilledStudent) return undefined;
-    if (!academyId || !STUDENTS_COL || !DB_ID || searchText.trim().length < 2) {
+    if (!academyId || searchText.trim().length < 2) {
       setSuggestions([]);
       return undefined;
     }
@@ -75,13 +76,9 @@ export default function NovaVendaPlanPanel({
     const timer = setTimeout(async () => {
       setBusy(true);
       try {
-        const res = await databases.listDocuments(DB_ID, STUDENTS_COL, [
-          Query.equal('academy_id', academyId),
-          Query.limit(8),
-          Query.search('name', q),
-        ]);
+        const hits = await searchStudentsForSale(academyId, q, { limit: 8 });
         if (cancelled) return;
-        setSuggestions((res.documents || []).map(mapStudentDoc).filter(Boolean));
+        setSuggestions(hits.map(mapStudentDoc).filter(Boolean));
       } catch {
         if (!cancelled) setSuggestions([]);
       } finally {

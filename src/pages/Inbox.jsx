@@ -76,6 +76,7 @@ import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessage
 import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
 import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
 import { filterStudentCandidates } from '../lib/studentSearchFilter.js';
+import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
 import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
 import useDialogFocus from '../hooks/useDialogFocus.js';
 import { inboxFilterFromUrlParam, inboxFilterLabel, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
@@ -1584,7 +1585,12 @@ export default function Inbox() {
   const handleOpenLinkStudent = useCallback(() => {
     setLeadSearch('');
     setLeadPanel('link_student');
-  }, []);
+    if (isMobile || isNarrowDesktop) {
+      setDetailsOpen(true);
+    } else {
+      setContextOpen(true);
+    }
+  }, [isMobile, isNarrowDesktop]);
 
   const handleInboxLinkStudentConfirm = useCallback(async (studentId) => {
     const lead = activeContactLead;
