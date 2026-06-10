@@ -89,6 +89,8 @@ const ASK_HELP_SECTIONS = [
       'Quem compareceu à experimental?',
       'Quem tem experimental agendada?',
       'Quem faltou na experimental?',
+      'Quem está esfriando no retorno?',
+      'Quem compareceu ontem e não foi contatado?',
       'Quem perdemos esse mês?',
       'Quem está em aguardando decisão?',
     ],

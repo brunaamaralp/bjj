@@ -78,6 +78,9 @@ import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
 import { filterStudentCandidates } from '../lib/studentSearchFilter.js';
 import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
 import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
+import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
+import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
+import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import useDialogFocus from '../hooks/useDialogFocus.js';
 import { inboxFilterFromUrlParam, inboxFilterLabel, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
@@ -367,6 +370,15 @@ export default function Inbox() {
   });
   const { templates: whatsappTemplatesHook, academyName: academyNameForTemplates } = useWhatsappTemplates(academyId);
   const whatsappTemplatesObj = whatsappTemplatesHook || null;
+  const {
+    followupDoneByLead,
+    followupContactByLead,
+    followupSnoozeUntilByLead,
+  } = useFollowupEventsByLead(academyId);
+  const followupPlaybook = useMemo(
+    () => readFollowupPlaybook(academyDoc?.settings),
+    [academyDoc?.settings]
+  );
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadPaging, setThreadPaging] = useState(false);
   const [threadCursor, setThreadCursor] = useState(null);
@@ -1530,6 +1542,39 @@ export default function Inbox() {
 
   const pendingTriage = isLeadPendingTriage(activeContactLead);
 
+  const activeFollowupState = useMemo(() => {
+    if (!activeContactLead || !isFollowUpLead(activeContactLead)) return null;
+    return computeFollowupState(activeContactLead, {
+      playbook: followupPlaybook,
+      followupDoneByLead,
+      followupContactByLead,
+      followupSnoozeUntilByLead,
+    });
+  }, [
+    activeContactLead,
+    followupPlaybook,
+    followupDoneByLead,
+    followupContactByLead,
+    followupSnoozeUntilByLead,
+  ]);
+
+  const handleFollowupSendTemplate = useCallback(
+    (templateKey) => {
+      const key = String(templateKey || '').trim();
+      if (!key) return;
+      const fromList = quickTemplates.find((t) => t.key === key);
+      if (fromList) {
+        applySlashTemplate(fromList);
+        return;
+      }
+      const raw = whatsappTemplatesObj?.[key];
+      if (typeof raw === 'string' && raw.trim()) {
+        applySlashTemplate({ key, text: raw });
+      }
+    },
+    [quickTemplates, whatsappTemplatesObj]
+  );
+
   const studentCandidates = useMemo(
     () => filterStudentCandidates(students, { query: leadSearch, phoneHint: selectedPhone, limit: 20 }),
     [students, leadSearch, selectedPhone]
@@ -2135,6 +2180,8 @@ export default function Inbox() {
       onDismissTriage={handleInboxDismissTriage}
       onOpenLinkStudent={handleOpenLinkStudent}
       triageBusy={linkingLead}
+      followupState={activeFollowupState}
+      onFollowupSendTemplate={handleFollowupSendTemplate}
       leadPanel={leadPanel}
       setLeadPanel={setLeadPanel}
       linkingLead={linkingLead}

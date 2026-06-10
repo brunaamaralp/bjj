@@ -23,6 +23,10 @@ export const AUTOMATION_LABELS = {
     label: 'Aguardando decisão',
     description: 'Enviada após o contato entrar na etapa «Aguardando decisão».',
   },
+  followup_d1_attended: {
+    label: 'Retorno D+1 (compareceu)',
+    description: 'No dia seguinte à experimental, se ainda não houve contato de retorno.',
+  },
   converted: {
     label: 'Matrícula realizada',
     description: 'Boas-vindas enviadas imediatamente após matricular.',
@@ -39,6 +43,7 @@ export const AUTOMATION_GROUPS = {
     'schedule_confirm',
     'presence_confirmed',
     'missed',
+    'followup_d1_attended',
     'waiting_decision',
     'schedule_reminder',
   ],

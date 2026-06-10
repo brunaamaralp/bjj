@@ -21,13 +21,11 @@ export const SALES_CHANNEL_OPTIONS = [
 export function readSalesSettings(settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
   const sales = settings?.sales && typeof settings.sales === 'object' ? settings.sales : {};
-  const template = String(sales.receiptTemplate || '').trim();
-  const cancelTemplate = String(sales.cancelReceiptTemplate || '').trim();
   const saleIncomeCategory = String(sales.saleIncomeCategory || '').trim();
   return {
-    receiptTemplate: template || DEFAULT_SALES_RECEIPT_TEMPLATE,
-    receiptFooter: String(sales.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
-    cancelReceiptTemplate: cancelTemplate || DEFAULT_CANCEL_RECEIPT_TEMPLATE,
+    receiptTemplate: DEFAULT_SALES_RECEIPT_TEMPLATE,
+    receiptFooter: DEFAULT_SALES_FOOTER,
+    cancelReceiptTemplate: DEFAULT_CANCEL_RECEIPT_TEMPLATE,
     lockPriceEdit: sales.lockPriceEdit === true,
     autoPrintReceipt: sales.autoPrintReceipt === true,
     requireCashShift: sales.requireCashShift === true,
@@ -38,12 +36,11 @@ export function readSalesSettings(settingsRaw) {
 export function mergeSalesIntoSettings(settingsRaw, salesPatch) {
   const base = parseAcademySettings(settingsRaw);
   const prev = base?.sales && typeof base.sales === 'object' ? base.sales : {};
+  const { receiptTemplate: _rt, receiptFooter: _rf, cancelReceiptTemplate: _crt, ...salesRest } = prev;
   return {
     ...base,
     sales: {
-      ...prev,
-      receiptTemplate: String(salesPatch.receiptTemplate ?? '').trim() || DEFAULT_SALES_RECEIPT_TEMPLATE,
-      receiptFooter: String(salesPatch.receiptFooter ?? DEFAULT_SALES_FOOTER).trim() || DEFAULT_SALES_FOOTER,
+      ...salesRest,
       lockPriceEdit: salesPatch.lockPriceEdit === true,
       autoPrintReceipt: salesPatch.autoPrintReceipt === true,
       requireCashShift: salesPatch.requireCashShift === true,

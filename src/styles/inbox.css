@@ -1076,6 +1076,56 @@
   border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
 }
 
+.inbox-followup-banner {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  background: var(--surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.inbox-followup-banner__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.inbox-followup-banner__text {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--text-secondary, #555);
+}
+
+.inbox-followup-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.inbox-followup-banner__btn {
+  padding: 4px 10px;
+  min-height: 30px;
+  font-size: 0.8125rem;
+}
+
+.inbox-followup-banner__link {
+  font-size: 0.8125rem;
+  color: var(--accent, #2563eb);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.inbox-followup-banner__link:hover {
+  text-decoration: underline;
+}
+
 .inbox-thread-header__triage-badge {
   display: inline-flex;
   align-items: center;

@@ -55,7 +55,6 @@ export default function SalesCatalogPicker({
   loading,
   onPick,
   flashProductId,
-  skuInput = null,
 }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -110,7 +109,6 @@ export default function SalesCatalogPicker({
 
   return (
     <section className="sales-catalog" aria-label="Catálogo de produtos">
-      {skuInput}
       <div className="sales-catalog__search form-group">
         <label>Busca rápida</label>
         <div className="sales-catalog__search-wrap">

@@ -9,7 +9,6 @@ import { useSalesCatalog } from '../../hooks/useSalesCatalog';
 import {
   suggestUnitPrice,
   findCatalogVariant,
-  findCatalogVariantByCode,
   cartVariantOptions,
   parentNeedsVariantPicker,
   variantOptionLabel,
@@ -22,7 +21,6 @@ import SalesVariantPicker from './SalesVariantPicker';
 import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
 import SalesPaymentBlock from './SalesPaymentBlock';
-import SalesSkuInput from './SalesSkuInput';
 import SalesQuickPayBar from './SalesQuickPayBar';
 import SalesPosHints from './SalesPosHints';
 import CashShiftBanner from './CashShiftBanner';
@@ -94,7 +92,6 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
   const [suspendedList, setSuspendedList] = useState([]);
   const [openCashShift, setOpenCashShift] = useState(null);
 
-  const skuInputRef = useRef(null);
   const formRef = useRef(null);
 
   const handlePriceBlur = useCallback((idx) => {
@@ -389,7 +386,6 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
     setSuspendedList(listSuspendedCarts(academyId));
     setSuspendedOpen(true);
     addToast({ type: 'success', message: 'Venda suspensa — use Retomar para continuar' });
-    skuInputRef.current?.focus();
   };
 
   const handleResumeSuspended = (entry) => {
@@ -409,12 +405,6 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
     },
     []
   );
-
-  const refocusSkuAfterSale = useCallback(() => {
-    if (pdvMode || modalMode) {
-      window.setTimeout(() => skuInputRef.current?.focus(), 80);
-    }
-  }, [pdvMode, modalMode]);
 
   useEffect(() => {
     setPayments((prev) => {
@@ -544,54 +534,9 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
     [pickProduct]
   );
 
-  const addByCode = useCallback(
-    (rawCode) => {
-      const result = findCatalogVariantByCode(products, rawCode);
-      if (result.kind === 'not_found') {
-        addToast({ type: 'error', message: 'Código não encontrado no catálogo' });
-        return false;
-      }
-      if (result.kind === 'ambiguous') {
-        addToast({
-          type: 'error',
-          message: 'Código duplicado no cadastro — corrija o SKU do produto',
-        });
-        return false;
-      }
-      if (result.kind === 'needs_picker') {
-        setVariantPickerParent(result.parent);
-        return true;
-      }
-      const { variant, parent } = result;
-      if (!variant.canAdd) {
-        addToast({ type: 'error', message: 'Produto esgotado' });
-        return false;
-      }
-      pickProduct(
-        { ...variant, image_url: variant.image_url || parent?.image_url || '' },
-        parent?.id,
-        parent
-      );
-      return true;
-    },
-    [products, addToast, pickProduct]
-  );
-
-  const handleSkuSubmit = useCallback(
-    (code) => {
-      const ok = addByCode(code);
-      if (ok) {
-        skuInputRef.current?.clear();
-        skuInputRef.current?.focus();
-      }
-    },
-    [addByCode]
-  );
-
   useSalesPosHotkeys({
     enabled: !modalMode,
     modalOpen: Boolean(variantPickerParent),
-    onFocusSku: () => skuInputRef.current?.focus(),
     onQuickPix: () => {
       if (cart.length === 0 || deferredSale) return;
       applyQuickPay(buildQuickPayment('pix', totalFinalCents));
@@ -607,8 +552,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
     },
     onSubmit: () => formRef.current?.requestSubmit(),
     onEscape: () => {
-      skuInputRef.current?.clear();
-      if (cart.length === 0) skuInputRef.current?.focus();
+      setVariantPickerParent(null);
     },
     canSubmit: paymentValid.ok && cart.length > 0 && !creating && !shiftBlocksSale,
   });
@@ -827,7 +771,6 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
       resetSaleSession();
       void reloadCatalog();
       void refreshStockStores();
-      refocusSkuAfterSale();
     };
 
     if (modalMode) {
@@ -934,14 +877,6 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
               loading={catalogLoading}
               onPick={handleCatalogPick}
               flashProductId={flashProductId}
-              skuInput={
-                <SalesSkuInput
-                  ref={skuInputRef}
-                  disabled={catalogLoading || creating}
-                  onSubmit={handleSkuSubmit}
-                  autoFocus={pdvMode}
-                />
-              }
             />
           </div>
 

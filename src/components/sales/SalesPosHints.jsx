@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 const HINTS = [
-  { keys: 'F1 ou /', label: 'Focar código' },
   { keys: 'F2', label: 'PIX total' },
   { keys: 'F3', label: 'Dinheiro total' },
   { keys: 'F4', label: 'Débito total' },

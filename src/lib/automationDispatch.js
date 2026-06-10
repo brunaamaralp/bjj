@@ -4,6 +4,7 @@ import {
   buildPendingLeadPatch,
   buildReminderSendAtIso,
   buildWaitingDecisionSendAtIso,
+  buildFollowupD1SendAtIso,
 } from '../../lib/automationCore.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 
@@ -105,6 +106,26 @@ export async function afterExperimentalScheduled(ctx) {
   return result;
 }
 
+export async function queueFollowupD1Automation(ctx) {
+  const result = emptyResult();
+  const { lead, updateLead, getLead } = ctx;
+  const automationConfig = resolveAutomationConfig(ctx.automationConfig, ctx.academyRaw);
+  const cfg = automationConfig?.followup_d1_attended;
+  if (!cfg?.active || !updateLead) return result;
+
+  const leadId = String(lead?.id || '').trim();
+  const ymd = String(lead?.scheduledDate || '').slice(0, 10);
+  const sendAt = buildFollowupD1SendAtIso(ymd);
+  if (!leadId || !sendAt) return result;
+
+  const refreshed = typeof getLead === 'function' ? getLead() : null;
+  const base = refreshed && typeof refreshed === 'object' ? refreshed : lead;
+  const patch = buildPendingLeadPatch(base, 'followup_d1_attended', sendAt);
+  await updateLead(leadId, patch);
+  result.scheduled.push({ key: 'followup_d1_attended', sendAt });
+  return result;
+}
+
 export async function afterPresenceConfirmed(ctx) {
   const result = emptyResult();
   const { lead, academyId, waOutbound, academyRaw, permissionContext } = ctx;
@@ -117,6 +138,9 @@ export async function afterPresenceConfirmed(ctx) {
     permissionContext,
   }).catch(() => ({ status: 'failed', automationKey: 'presence_confirmed', reason: 'send_failed' }));
   result.immediate.push(presenceOut);
+
+  const d1 = await queueFollowupD1Automation(ctx);
+  result.scheduled.push(...(d1.scheduled || []));
 
   const queued = await queueWaitingDecisionAutomation(ctx);
   result.immediate.push(...(queued.immediate || []));

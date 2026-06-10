@@ -8,6 +8,7 @@ import { isBillingStoreConfigured, getBillingDatabases } from '../../lib/billing
 import { notifyAcademyOwner } from '../../lib/server/notifyAcademy.js';
 import { parseAutomationsConfig, parsePendingAutomations } from '../../lib/automationCore.js';
 import { sendAutomationTemplateCron } from '../../lib/server/sendAutomationCron.js';
+import { hasFollowupContactSinceClass } from '../../lib/server/followupContactServer.js';
 import { runCollectionOverdue } from '../../lib/server/runCollectionOverdueCron.js';
 import { runStockInventoryCron } from '../../lib/server/runStockInventoryCron.js';
 import { runPlanFreezeCron } from '../../lib/server/runPlanFreezeCron.js';
@@ -204,6 +205,16 @@ async function runAutomations(databases) {
         nextPending[i] = { ...item, sent: true };
         changed = true;
         continue;
+      }
+
+      if (item.key === 'followup_d1_attended') {
+        const classYmd = String(doc.scheduledDate || doc.attendedAt || '').slice(0, 10);
+        const already = await hasFollowupContactSinceClass(databases, academyId, doc.$id, classYmd);
+        if (already) {
+          nextPending[i] = { ...item, sent: true };
+          changed = true;
+          continue;
+        }
       }
 
       const out = await sendAutomationTemplateCron({

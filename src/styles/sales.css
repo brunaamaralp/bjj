@@ -1264,18 +1264,7 @@
 .sales-catalog-error { color: var(--color-danger, var(--danger)); margin-bottom: 8px; }
 .sales-form-error { color: var(--color-danger, var(--danger)); }
 
-/* —— PDV: SKU, quick pay, modo tela cheia —— */
-.sales-sku-input__wrap { position: relative; }
-.sales-sku-input__icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.55;
-  pointer-events: none;
-}
-.sales-sku-input__field { padding-left: 34px; }
-
+/* —— PDV: quick pay, modo tela cheia —— */
 .sales-quick-pay { display: flex; flex-direction: column; gap: 8px; }
 .sales-quick-pay__buttons {
   display: grid;

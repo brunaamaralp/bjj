@@ -15,7 +15,6 @@ function isTextInput(el) {
 export default function useSalesPosHotkeys({
   enabled,
   modalOpen,
-  onFocusSku,
   onQuickPix,
   onQuickCash,
   onQuickDebit,
@@ -30,18 +29,6 @@ export default function useSalesPosHotkeys({
       if (e.defaultPrevented) return;
       if (e.metaKey && e.key.toLowerCase() === 'k') return;
 
-      const inText = isTextInput(e.target);
-
-      if (e.key === 'F1') {
-        e.preventDefault();
-        onFocusSku?.();
-        return;
-      }
-      if (e.key === '/' && !inText) {
-        e.preventDefault();
-        onFocusSku?.();
-        return;
-      }
       if (e.key === 'F2') {
         e.preventDefault();
         onQuickPix?.();
@@ -70,15 +57,5 @@ export default function useSalesPosHotkeys({
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [
-    enabled,
-    modalOpen,
-    onFocusSku,
-    onQuickPix,
-    onQuickCash,
-    onQuickDebit,
-    onSubmit,
-    onEscape,
-    canSubmit,
-  ]);
+  }, [enabled, modalOpen, onQuickPix, onQuickCash, onQuickDebit, onSubmit, onEscape, canSubmit]);
 }

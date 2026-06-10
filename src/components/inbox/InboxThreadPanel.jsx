@@ -7,6 +7,7 @@ import InboxComposer from './InboxComposer';
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 import InboxThreadMessages from './InboxThreadMessages.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
+import InboxFollowupBanner from './InboxFollowupBanner.jsx';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
 
 export default function InboxThreadPanel(props) {
@@ -37,6 +38,8 @@ export default function InboxThreadPanel(props) {
     onDismissTriage,
     onOpenLinkStudent,
     triageBusy = false,
+    followupState = null,
+    onFollowupSendTemplate,
     leadPanel = null,
     setLeadPanel,
     linkingLead = false,
@@ -289,6 +292,14 @@ export default function InboxThreadPanel(props) {
             onDismiss={() => onDismissTriage?.(activeContactLead)}
           />
         </div>
+      ) : null}
+
+      {followupState && !pendingTriage ? (
+        <InboxFollowupBanner
+          followupState={followupState}
+          leadId={String(activeContactLead?.id || selected?.lead_id || '').trim()}
+          onSendTemplate={onFollowupSendTemplate}
+        />
       ) : null}
 
       <div className="inbox-thread-body">

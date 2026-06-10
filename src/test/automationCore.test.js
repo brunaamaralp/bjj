@@ -3,6 +3,7 @@ import {
   upsertPendingEntry,
   buildReminderSendAtIso,
   buildWaitingDecisionSendAtIso,
+  buildFollowupD1SendAtIso,
   parseAutomationsConfig,
 } from '../../lib/automationCore.js';
 
@@ -11,6 +12,17 @@ describe('automationCore', () => {
     const cfg = parseAutomationsConfig(JSON.stringify({ schedule_confirm: { active: true } }));
     expect(cfg.schedule_confirm.active).toBe(true);
     expect(cfg.missed.active).toBe(false);
+    expect(cfg.followup_d1_attended.active).toBe(false);
+  });
+
+  it('buildFollowupD1SendAtIso schedules next day at 10h local', () => {
+    const iso = buildFollowupD1SendAtIso('2026-06-10');
+    const d = new Date(iso);
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(5);
+    expect(d.getDate()).toBe(11);
+    expect(d.getHours()).toBe(10);
+    expect(d.getMinutes()).toBe(0);
   });
 
   it('upsertPendingEntry replaces unsent same key', () => {
