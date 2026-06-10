@@ -20,9 +20,11 @@ export function useInboxThreadLoader({
   setThreadHasMore,
   setSelected,
   setItems,
+  itemsRef,
+  selectedRef,
 }) {
   const loadThread = useCallback(
-    async (phone, { silent = false, cursor = '', append = false } = {}) => {
+    async (phone, { silent = false, cursor = '', append = false, conversationId = '' } = {}) => {
       const p = String(phone || '').trim();
       if (!p) return;
       if (!silent) {
@@ -52,6 +54,16 @@ export function useInboxThreadLoader({
         const params = new URLSearchParams();
         params.set('limit', '35');
         if (cursor) params.set('cursor', String(cursor));
+        let convId = String(conversationId || '').trim();
+        if (!convId && selectedRef?.current?.phone === p) {
+          convId = String(selectedRef.current.conversation_id || '').trim();
+        }
+        if (!convId) {
+          const arr = Array.isArray(itemsRef?.current) ? itemsRef.current : [];
+          const row = arr.find((it) => String(it?.phone_number || '').trim() === p);
+          convId = String(row?.id || '').trim();
+        }
+        if (convId) params.set('conversation_id', convId);
         const qs = params.toString();
         const { blocked, res: resp } = await fetchWithBillingGuard(
           `/api/conversations/${encodeURIComponent(p)}${qs ? `?${qs}` : ''}`,
@@ -192,6 +204,8 @@ export function useInboxThreadLoader({
       setThreadHasMore,
       setSelected,
       setItems,
+      itemsRef,
+      selectedRef,
     ]
   );
 

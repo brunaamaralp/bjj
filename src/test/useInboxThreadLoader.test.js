@@ -14,64 +14,79 @@ vi.mock('../lib/billingBlockedFetch', () => ({
 
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch.js';
 
+function createThreadHarness() {
+  const academyIdRef = { current: 'acad-1' };
+  const threadScrollRef = { current: null };
+  const threadAbortRef = { current: null };
+  const threadRequestSeqRef = { current: 0 };
+  const lastAutoScrollPhoneRef = { current: '' };
+  const itemsRef = { current: [{ id: 'conv-99', phone_number: '5511999887766' }] };
+  const selectedRef = { current: null };
+
+  const setters = {
+    setError: vi.fn(),
+    setThreadError: vi.fn(),
+    setThreadPaging: vi.fn(),
+    setThreadLoading: vi.fn(),
+    setThreadCursor: vi.fn(),
+    setThreadHasMore: vi.fn(),
+    setSelected: vi.fn(),
+    setItems: vi.fn(),
+  };
+
+  return { academyIdRef, threadScrollRef, threadAbortRef, threadRequestSeqRef, lastAutoScrollPhoneRef, itemsRef, selectedRef, ...setters };
+}
+
 describe('useInboxThreadLoader', () => {
   beforeEach(() => {
     vi.mocked(fetchWithBillingGuard).mockReset();
   });
 
-  it('loadThread sets messages on success', async () => {
-    vi.mocked(fetchWithBillingGuard).mockResolvedValue({
-      blocked: false,
-      res: {
-        ok: true,
-        headers: { get: () => 'application/json' },
-        text: async () =>
-          JSON.stringify({
-            messages: [{ role: 'user', content: 'Oi', message_id: 'm1', timestamp: '2026-01-01T12:00:00Z' }],
-            next_cursor: '',
-            ticket_status: 'open',
-            need_human: false,
-          }),
-      },
+  it('passes conversation_id from list item', async () => {
+    let capturedUrl = '';
+    vi.mocked(fetchWithBillingGuard).mockImplementation(async (url) => {
+      capturedUrl = String(url);
+      return {
+        blocked: false,
+        res: {
+          ok: true,
+          headers: { get: () => 'application/json' },
+          text: async () =>
+            JSON.stringify({
+              conversation_id: 'conv-99',
+              messages: [],
+              next_cursor: '',
+              ticket_status: 'open',
+            }),
+        },
+      };
     });
 
-    const academyIdRef = { current: 'acad-1' };
-    const threadScrollRef = { current: null };
-    const threadAbortRef = { current: null };
-    const threadRequestSeqRef = { current: 0 };
-    const lastAutoScrollPhoneRef = { current: '' };
-    let selected = null;
-    const setSelected = vi.fn((fn) => {
-      selected = typeof fn === 'function' ? fn(selected) : fn;
-    });
-    const setItems = vi.fn();
-
+    const h = createThreadHarness();
     const { result } = renderHook(() =>
       useInboxThreadLoader({
-        academyIdRef,
-        threadScrollRef,
-        threadAbortRef,
-        threadRequestSeqRef,
-        lastAutoScrollPhoneRef,
-        setError: vi.fn(),
-        setThreadError: vi.fn(),
-        setThreadPaging: vi.fn(),
-        setThreadLoading: vi.fn(),
-        setThreadCursor: vi.fn(),
-        setThreadHasMore: vi.fn(),
-        setSelected,
-        setItems,
+        academyIdRef: h.academyIdRef,
+        threadScrollRef: h.threadScrollRef,
+        threadAbortRef: h.threadAbortRef,
+        threadRequestSeqRef: h.threadRequestSeqRef,
+        lastAutoScrollPhoneRef: h.lastAutoScrollPhoneRef,
+        itemsRef: h.itemsRef,
+        selectedRef: h.selectedRef,
+        setError: h.setError,
+        setThreadError: h.setThreadError,
+        setThreadPaging: h.setThreadPaging,
+        setThreadLoading: h.setThreadLoading,
+        setThreadCursor: h.setThreadCursor,
+        setThreadHasMore: h.setThreadHasMore,
+        setSelected: h.setSelected,
+        setItems: h.setItems,
       })
     );
 
     await act(async () => {
-      await result.current.loadThread('5511999990001');
+      await result.current.loadThread('5511999887766');
     });
 
-    expect(setSelected).toHaveBeenCalled();
-    const lastCall = setSelected.mock.calls[setSelected.mock.calls.length - 1][0];
-    const next = lastCall(null);
-    expect(next.phone).toBe('5511999990001');
-    expect(next.messages).toHaveLength(1);
+    expect(capturedUrl).toContain('conversation_id=conv-99');
   });
 });

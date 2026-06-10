@@ -70,6 +70,25 @@ export async function fetchBankBalances({ academyId, asOf } = {}) {
   return body;
 }
 
+export async function fetchFinanceOverview({
+  academyId,
+  month,
+  regime,
+  includeForecast = false,
+  bankCompareAsOf,
+}) {
+  const params = new URLSearchParams({ route: 'overview', month });
+  if (regime) params.set('regime', regime);
+  if (includeForecast) params.set('includeForecast', '1');
+  if (bankCompareAsOf) params.set('bankCompareAsOf', bankCompareAsOf);
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar visão geral');
+  return body;
+}
+
 export async function fetchFinanceSummary({ academyId, from, to, regime }) {
   const params = new URLSearchParams({ route: 'summary' });
   if (from) params.set('from', from);

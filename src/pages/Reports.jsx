@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
@@ -10,7 +10,6 @@ import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components
 import { useUserRole } from '../lib/useUserRole';
 import { hasAnyActivity } from '../lib/reportActivity.js';
 import { account } from '../lib/appwrite';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import {
     Calendar,
     Download,
@@ -28,14 +27,22 @@ import {
 } from 'lucide-react';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
-import ReportsFinancePanel from '../components/reports/ReportsFinancePanel.jsx';
-import ReportsLojaPanel from '../components/reports/ReportsLojaPanel.jsx';
-import ReportsEstoquePanel from '../components/reports/ReportsEstoquePanel.jsx';
-import ReportsMovimentacoesPanel from '../components/reports/ReportsMovimentacoesPanel.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
-import ReportsOperadorPanel from '../components/reports/ReportsOperadorPanel.jsx';
-import ReportsStudentsPanel from '../components/reports/ReportsStudentsPanel.jsx';
 import ReportsVisaoGeralSection from '../components/reports/ReportsVisaoGeralSection.jsx';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
+
+const ReportsFinancePanel = lazy(() => import('../components/reports/ReportsFinancePanel.jsx'));
+const ReportsLojaPanel = lazy(() => import('../components/reports/ReportsLojaPanel.jsx'));
+const ReportsEstoquePanel = lazy(() => import('../components/reports/ReportsEstoquePanel.jsx'));
+const ReportsMovimentacoesPanel = lazy(() => import('../components/reports/ReportsMovimentacoesPanel.jsx'));
+const ReportsOperadorPanel = lazy(() => import('../components/reports/ReportsOperadorPanel.jsx'));
+const ReportsStudentsPanel = lazy(() => import('../components/reports/ReportsStudentsPanel.jsx'));
+const ReportsFunilBarChart = lazy(() =>
+    import('../components/reports/ReportsFunilCharts.jsx').then((m) => ({ default: m.ReportsFunilBarChart }))
+);
+const ReportsFunilConversionChart = lazy(() =>
+    import('../components/reports/ReportsFunilCharts.jsx').then((m) => ({ default: m.ReportsFunilConversionChart }))
+);
 import { friendlyError } from '../lib/errorMessages.js';
 import ReportKpiCard, { ReportKpiCardSkeleton } from '../components/reports/shared/ReportKpiCard.jsx';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
@@ -95,22 +102,6 @@ const formatRangeLongPt = (fromInput, toInput) => {
     const toYear = toDate.getFullYear();
     return `${fromLabel} — ${toDayMonth} de ${toYear}`;
 };
-
-const formatChartTickPt = (rawLabel) => {
-    const raw = String(rawLabel || '').trim();
-    if (!raw) return raw;
-    let d = null;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) d = parseYMD(raw);
-    else if (/^\d{2}\/\d{2}$/.test(raw)) {
-        const [day, month] = raw.split('/').map(Number);
-        d = new Date(new Date().getFullYear(), (month || 1) - 1, day || 1);
-    }
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return raw;
-    return d
-        .toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-        .replace('.', '');
-};
-
 
 const HIGHLIGHT_BY_COLOR = {
     accent: 'default',
@@ -882,14 +873,16 @@ const Reports = () => {
             ) : null}
 
             {activeTab === 'alunos' ? (
-                <ReportsStudentsPanel
-                    academyId={academyId}
-                    rangeFrom={range.from}
-                    rangeTo={range.to}
-                    preset={preset}
-                    studentMetrics={reportData?.studentMetrics}
-                    loading={showInitialLoad || (loading && !reportData)}
-                />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+                    <ReportsStudentsPanel
+                        academyId={academyId}
+                        rangeFrom={range.from}
+                        rangeTo={range.to}
+                        preset={preset}
+                        studentMetrics={reportData?.studentMetrics}
+                        loading={showInitialLoad || (loading && !reportData)}
+                    />
+                </Suspense>
             ) : null}
 
             {activeTab === 'funil' && !error && (showInitialLoad || loading) ? (
@@ -942,21 +935,17 @@ const Reports = () => {
                     <span className="reports-chart-legend-item"><i className="reports-chart-dot is-current" aria-hidden /> Este período</span>
                     <span className="reports-chart-legend-item"><i className="reports-chart-dot is-previous" aria-hidden /> Período anterior</span>
                 </div>
-                {(!reportData || !reportData.chart || reportData.chart.length === 0) ? (
-                    <p className="text-small" style={{ color: 'var(--text-muted)' }}>
-                        Período muito curto ou inválido para agrupar.
-                    </p>
-                ) : (
-                    <ResponsiveContainer width="100%" height={chartHeight}>
-                        <BarChart data={chartDataComparison}>
-                            <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} tickFormatter={formatChartTickPt} />
-                            <YAxis hide />
-                            <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                            <Bar dataKey="current" name="Este período" fill="var(--petroleo)" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="previous" name="Período anterior" fill="#B8C9D9" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                )}
+                <Suspense
+                    fallback={
+                        <div className="reports-chart-skeleton" style={{ minHeight: chartHeight }} aria-busy="true" />
+                    }
+                >
+                    <ReportsFunilBarChart
+                        chartHeight={chartHeight}
+                        chartDataComparison={chartDataComparison}
+                        hasChartData={Boolean(reportData?.chart?.length)}
+                    />
+                </Suspense>
             </div>
             ) : null}
 
@@ -969,27 +958,17 @@ const Reports = () => {
                 <div className="evo-header">
                     <h3 className="navi-section-heading evo-title">Evolução da taxa de conversão</h3>
                 </div>
-                {conversionChartData.length === 0 ? (
-                    <p className="text-small" style={{ color: 'var(--text-muted)' }}>
-                        Dados insuficientes para este período.
-                    </p>
-                ) : (
-                    <>
-                        <p className="text-xs text-light" style={{ marginBottom: 10 }}>
-                            Último ponto: <strong>{Number(lastConversionPoint?.rate || 0).toFixed(1)}%</strong>
-                        </p>
-                        <ResponsiveContainer width="100%" height={chartHeight}>
-                            <LineChart data={conversionChartData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                                <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
-                                <YAxis hide />
-                                <Tooltip cursor={{ stroke: 'var(--petroleo)', strokeOpacity: 0.2 }} formatter={(value) => `${Number(value || 0).toFixed(1)}%`} />
-                                <Line type="monotone" dataKey="rate" name="Este período" stroke="var(--petroleo)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                                <Line type="monotone" dataKey="previousRate" name="Período anterior" stroke="#755468" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 2 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </>
-                )}
+                <Suspense
+                    fallback={
+                        <div className="reports-chart-skeleton" style={{ minHeight: chartHeight }} aria-busy="true" />
+                    }
+                >
+                    <ReportsFunilConversionChart
+                        chartHeight={chartHeight}
+                        conversionChartData={conversionChartData}
+                        lastConversionPoint={lastConversionPoint}
+                    />
+                </Suspense>
             </div>
             ) : null}
 
@@ -1117,44 +1096,54 @@ const Reports = () => {
             ) : null}
 
             {activeTab === 'financeiro' ? (
-                <ReportsFinancePanel
-                    academyId={academyId}
-                    from={range.from}
-                    to={range.to}
-                    hasFinance={hasFinance}
-                    isOwner={isOwner}
-                />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+                    <ReportsFinancePanel
+                        academyId={academyId}
+                        from={range.from}
+                        to={range.to}
+                        hasFinance={hasFinance}
+                        isOwner={isOwner}
+                    />
+                </Suspense>
             ) : null}
 
             {activeTab === 'loja' ? (
-                <ReportsLojaPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+                    <ReportsLojaPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
+                </Suspense>
             ) : null}
 
             {activeTab === 'estoque' ? (
-                <ReportsEstoquePanel
-                    academyId={academyId}
-                    from={range.from}
-                    to={range.to}
-                    hasInventory={hasInventory}
-                />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+                    <ReportsEstoquePanel
+                        academyId={academyId}
+                        from={range.from}
+                        to={range.to}
+                        hasInventory={hasInventory}
+                    />
+                </Suspense>
             ) : null}
 
             {activeTab === 'movimentacoes' ? (
-                <ReportsMovimentacoesPanel
-                    academyId={academyId}
-                    from={range.from}
-                    to={range.to}
-                    hasInventory={hasInventory}
-                />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+                    <ReportsMovimentacoesPanel
+                        academyId={academyId}
+                        from={range.from}
+                        to={range.to}
+                        hasInventory={hasInventory}
+                    />
+                </Suspense>
             ) : null}
 
             {activeTab === 'operador' ? (
-                <ReportsOperadorPanel
-                    academyId={academyId}
-                    from={range.from}
-                    to={range.to}
-                    hasSales={hasSales}
-                />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+                    <ReportsOperadorPanel
+                        academyId={academyId}
+                        from={range.from}
+                        to={range.to}
+                        hasSales={hasSales}
+                    />
+                </Suspense>
             ) : null}
 
             {drillKey ? (

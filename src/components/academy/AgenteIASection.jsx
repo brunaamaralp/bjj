@@ -22,6 +22,7 @@ import PageHeader from '../layout/PageHeader.jsx';
 import AgentIASidePanel from './AgentIASidePanel.jsx';
 import { useToast } from '../../hooks/useToast';
 import { formatWaPhoneDisplay } from '../../../lib/zapsterInstancePhone.js';
+import { V1_AI_ACTIONS, AI_ACTION_META } from '../../../lib/agentActionConfig.js';
 import './agent-ia.css';
 
 async function getJwt() {
@@ -208,6 +209,9 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [savingBirthdayMessage, setSavingBirthdayMessage] = useState(false);
     const [faqItems, setFaqItems] = useState([]);
     const [savingFaq, setSavingFaq] = useState(false);
+    const [aiActionsEnabled, setAiActionsEnabled] = useState(true);
+    const [aiActionsSelected, setAiActionsSelected] = useState(() => new Set(V1_AI_ACTIONS));
+    const [savingAiActions, setSavingAiActions] = useState(false);
     const [promptConfigurado, setPromptConfigurado] = useState(false);
     const [aiThreadsUsed, setAiThreadsUsed] = useState(0);
     const [aiThreadsLimit, setAiThreadsLimit] = useState(300);
@@ -330,6 +334,14 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     setAiThreadsUsed(Number(data.ai_threads_used) || 0);
                     setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
                     setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
+                    if (data.ai_actions && typeof data.ai_actions === 'object') {
+                        setAiActionsEnabled(data.ai_actions.enabled !== false);
+                        const acts = Array.isArray(data.ai_actions.actions) ? data.ai_actions.actions : V1_AI_ACTIONS;
+                        setAiActionsSelected(new Set(acts.filter((a) => V1_AI_ACTIONS.includes(a))));
+                    } else {
+                        setAiActionsEnabled(true);
+                        setAiActionsSelected(new Set(V1_AI_ACTIONS));
+                    }
                     const wd = String(data.wizard_data || '').trim();
                     if (wd) {
                         try {
@@ -506,6 +518,52 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         }
     }
 
+    async function handleSaveAiActions() {
+        if (savingAiActions) return;
+        setSavingAiActions(true);
+        try {
+            const jwt = await getJwt();
+            const actions = V1_AI_ACTIONS.filter((a) => aiActionsSelected.has(a));
+            const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
+                method: 'PATCH',
+                headers: {
+                    'content-type': 'application/json',
+                    Authorization: `Bearer ${jwt}`,
+                    'x-academy-id': String(academyIdRef.current || ''),
+                },
+                body: JSON.stringify({
+                    action: 'save_ai_actions',
+                    enabled: aiActionsEnabled,
+                    actions: actions.length > 0 ? actions : V1_AI_ACTIONS,
+                }),
+            });
+            if (blocked) return;
+            const data = await resp.json().catch(() => ({}));
+            if (data?.sucesso) {
+                const cfg = data.ai_actions || {};
+                setAiActionsEnabled(cfg.enabled !== false);
+                const acts = Array.isArray(cfg.actions) ? cfg.actions : V1_AI_ACTIONS;
+                setAiActionsSelected(new Set(acts.filter((a) => V1_AI_ACTIONS.includes(a))));
+                addToast({ type: 'success', message: 'Ações automáticas salvas' });
+            } else {
+                addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
+            }
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setSavingAiActions(false);
+        }
+    }
+
+    function toggleAiAction(action, checked) {
+        setAiActionsSelected((prev) => {
+            const next = new Set(prev);
+            if (checked) next.add(action);
+            else next.delete(action);
+            return next;
+        });
+    }
+
     async function handleSaveFaqData() {
         if (savingFaq) return;
         setSavingFaq(true);
@@ -574,6 +632,80 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         <details className="agent-accordion" style={{ marginTop: 20 }}>
             <summary>Personalização e suporte</summary>
             <div className="agent-accordion-content">
+                <div className="agent-ia-personalization-card" style={{ marginBottom: 16 }}>
+                    <p className="agent-ia-personalization-card__title">Ações automáticas no WhatsApp</p>
+                    <p className="agent-ia-personalization-card__hint">
+                        A IA pode executar tarefas no sistema após entender a mensagem. A equipe sempre recebe notificação
+                        e uma tarefa de conferência — mesmo quando a ação é bem-sucedida.
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                        <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                            {aiActionsEnabled ? 'Execução automática ativa' : 'Execução automática desligada'}
+                        </span>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={aiActionsEnabled}
+                            onClick={() => setAiActionsEnabled((v) => !v)}
+                            disabled={loadingPrompt || savingAiActions}
+                            className={`ai-switch${aiActionsEnabled ? ' ai-switch--on' : ''}${savingAiActions ? ' ai-switch--loading' : ''}`}
+                            title={aiActionsEnabled ? 'Desligar todas as ações' : 'Permitir ações automáticas'}
+                        >
+                            <span className="ai-switch-thumb" />
+                        </button>
+                    </div>
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                            opacity: aiActionsEnabled ? 1 : 0.55,
+                        }}
+                    >
+                        {V1_AI_ACTIONS.map((actionKey) => {
+                            const meta = AI_ACTION_META[actionKey] || { label: actionKey, description: '' };
+                            const checked = aiActionsSelected.has(actionKey);
+                            return (
+                                <label
+                                    key={actionKey}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 10,
+                                        padding: '10px 12px',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 8,
+                                        cursor: aiActionsEnabled ? 'pointer' : 'not-allowed',
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        disabled={!aiActionsEnabled || loadingPrompt || savingAiActions}
+                                        onChange={(e) => toggleAiAction(actionKey, e.target.checked)}
+                                        style={{ marginTop: 3 }}
+                                    />
+                                    <span>
+                                        <span style={{ fontWeight: 600, display: 'block' }}>{meta.label}</span>
+                                        <span className="text-small" style={{ color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                                            {meta.description}
+                                        </span>
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void handleSaveAiActions()}
+                        className="btn btn-outline"
+                        style={{ marginTop: 12 }}
+                        disabled={savingAiActions || loadingPrompt}
+                    >
+                        {savingAiActions ? 'Salvando…' : 'Salvar ações automáticas'}
+                    </button>
+                </div>
+
                 <div className="agent-ia-personalization-grid">
                     <div className="agent-ia-personalization-card">
                         <p className="agent-ia-personalization-card__title">Mensagem de aniversário</p>

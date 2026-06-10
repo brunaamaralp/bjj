@@ -78,6 +78,10 @@ const ATTENDANCE_COL =
   '';
 const CLASSES_COL =
   process.env.VITE_APPWRITE_CLASSES_COLLECTION_ID || process.env.APPWRITE_CLASSES_COLLECTION_ID || '';
+const NOTE_NOTIFICATIONS_COL =
+  process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID ||
+  process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID ||
+  '';
 
 const ATTR_GAP_MS = Number(process.env.PROVISION_ATTR_GAP_MS || 1000);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -99,6 +103,7 @@ const summary = {
   WEBHOOK_LOGS: emptyStats(),
   CLASSES: emptyStats(),
   ACCESS_LOG: emptyStats(),
+  NOTE_NOTIFICATIONS: emptyStats(),
 };
 
 function isAlreadyExists(err) {
@@ -350,6 +355,7 @@ const CONVERSATIONS_ATTRS = [
   { key: 'phone_number', type: 'string', size: 32 },
   { key: 'phone', type: 'string', size: 32 },
   { key: 'messages', type: 'string', size: 65535 },
+  { key: 'messages_recent', type: 'string', size: 32768 },
   { key: 'updated_at', type: 'string', size: 64 },
   { key: 'archived', type: 'boolean' },
   { key: 'unread_count', type: 'integer' },
@@ -384,6 +390,7 @@ const CONVERSATIONS_ATTRS = [
   { key: 'zapster_instance_id', type: 'string', size: 64 },
   { key: 'wa_chat_id', type: 'string', size: 128 },
   { key: 'summary', type: 'string', size: 8192 },
+  { key: 'agent_state', type: 'string', size: 8192 },
   { key: 'ai_thread_cycle_id', type: 'string', size: 64 },
   { key: 'last_dispatch_error', type: 'string', size: 128 },
   { key: 'last_dispatch_at', type: 'string', size: 64 },
@@ -401,6 +408,22 @@ const MESSAGE_FLAGS_ATTRS = [
   { key: 'created_by', type: 'string', size: 64 },
   { key: 'created_by_name', type: 'string', size: 128 },
   { key: 'note', type: 'string', size: 512 },
+];
+
+/** internalNotification.js, conversationNotesHandler.js, notificationsHandler.js */
+const NOTE_NOTIFICATIONS_ATTRS = [
+  { key: 'note_id', type: 'string', size: 128 },
+  { key: 'conversation_id', type: 'string', size: 64 },
+  { key: 'lead_id', type: 'string', size: 64 },
+  { key: 'lead_name', type: 'string', size: 256 },
+  { key: 'phone_number', type: 'string', size: 32 },
+  { key: 'academy_id', type: 'string', size: 64 },
+  { key: 'created_by_user_id', type: 'string', size: 64 },
+  { key: 'created_by_name', type: 'string', size: 512 },
+  { key: 'created_at', type: 'string', size: 64 },
+  { key: 'type', type: 'string', size: 64 },
+  { key: 'severity', type: 'string', size: 16 },
+  { key: 'action_url', type: 'string', size: 512 },
 ];
 
 const CONVERSATION_NOTES_ATTRS = [
@@ -604,6 +627,18 @@ async function main() {
   });
 
   await processCollection(databases, {
+    id: NOTE_NOTIFICATIONS_COL,
+    statsKey: 'NOTE_NOTIFICATIONS',
+    title: 'NOTE_NOTIFICATIONS',
+    attrs: NOTE_NOTIFICATIONS_ATTRS,
+    indexes: [
+      { key: 'idx_note_notif_academy_id', attributes: ['academy_id'] },
+      { key: 'idx_note_notif_conversation_id', attributes: ['conversation_id'] },
+      { key: 'idx_note_notif_type', attributes: ['type'] },
+    ],
+  });
+
+  await processCollection(databases, {
     id: LABELS_COL,
     statsKey: 'LABELS',
     title: 'LABELS',
@@ -696,6 +731,7 @@ async function main() {
   printLineSummary('MESSAGES', summary.MESSAGES);
   printLineSummary('MESSAGE_FLAGS', summary.MESSAGE_FLAGS);
   printLineSummary('CONVERSATION_NOTES', summary.CONVERSATION_NOTES);
+  printLineSummary('NOTE_NOTIFICATIONS', summary.NOTE_NOTIFICATIONS);
   printLineSummary('LABELS', summary.LABELS);
   printLineSummary('CONTRACTS', summary.CONTRACTS);
   printLineSummary('CONTRACT_SIGNERS', summary.CONTRACT_SIGNERS);

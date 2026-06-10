@@ -11,6 +11,7 @@ import { catalogProductsForNl } from '../../lib/nlStockMatch.js';
 import { normalizePaymentForma } from '../lib/salePayments';
 import { createExpenseTransaction } from '../lib/financeExpense';
 import { createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
+import { freezeStudentApi } from '../lib/studentsApi.js';
 import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js';
 import { sanitizeStudentUpdatesForNl } from '../../lib/studentNlUpdates.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
@@ -742,6 +743,22 @@ export function useNlAction() {
         const patch = sanitizeStudentUpdatesForNl(d);
         if (Object.keys(patch).length === 0) throw new Error('Nenhum campo válido para atualizar.');
         const out = await updateLead(leadId, patch);
+        notifyLeadsRefresh();
+        return out;
+      }
+
+      if (parsed.action === 'freeze_plan') {
+        const d = parsed.data || {};
+        const studentId = String(d.student_id || '').trim();
+        if (!studentId) throw new Error('Aluno não identificado');
+        const out = await freezeStudentApi({
+          student_id: studentId,
+          start_ymd: String(d.start_ymd || d.startYmd || '').slice(0, 10),
+          end_ymd: d.end_ymd || d.endYmd || null,
+          duration_days: d.duration_days ?? d.durationDays,
+          reason: String(d.reason || '').trim(),
+          indefinite: d.indefinite === true,
+        });
         notifyLeadsRefresh();
         return out;
       }

@@ -17,6 +17,7 @@ import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
 import { recalcUnreadCount } from '../lib/server/conversationsStore.js';
 import { lastMessageMetaPayload } from '../lib/server/conversationListMeta.js';
+import { conversationMessagesStoragePayload } from '../lib/server/conversationMessages.js';
 import { enrichInboundMedia } from '../lib/server/inboxMediaService.js';
 import { detectMediaTypeFromMime, sendZapsterMedia } from '../lib/server/zapsterSend.js';
 
@@ -236,7 +237,13 @@ async function getOrCreateConversationDoc(phone, academyId, academyDoc) {
     DB_ID,
     CONVERSATIONS_COL,
     ID.unique(),
-    { phone_number: phone, messages: JSON.stringify([]), updated_at: nowIso, academy_id: academyId },
+    {
+      phone_number: phone,
+      messages: JSON.stringify([]),
+      messages_recent: JSON.stringify([]),
+      updated_at: nowIso,
+      academy_id: academyId,
+    },
     permissionsForAcademyDoc(academyDoc)
   );
   return { doc: created, created: true };
@@ -523,7 +530,7 @@ async function appendOutboundToConversation(
   messages.push(row);
   const sliced = messages.slice(-AGENT_HISTORY_WINDOW);
   await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-    messages: JSON.stringify(sliced),
+    ...conversationMessagesStoragePayload(sliced),
     updated_at: nowIso,
     ...lastMessageMetaPayload(sliced),
   });
@@ -1322,7 +1329,7 @@ export default async function handler(req, res) {
             }
           }
           const docPayload = {
-            messages: JSON.stringify(merged),
+            ...conversationMessagesStoragePayload(merged),
             updated_at: updatedAt,
             ...lastMessageMetaPayload(merged),
           };
@@ -1352,8 +1359,8 @@ export default async function handler(req, res) {
             await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, docPayload);
           } catch {
             const fallbackPayload = {
-              messages: JSON.stringify(merged),
-              updated_at: updatedAt
+              ...conversationMessagesStoragePayload(merged),
+              updated_at: updatedAt,
             };
             if (shouldFillContactName) fallbackPayload.contact_name = waName;
             if (picOk) {
@@ -1364,8 +1371,8 @@ export default async function handler(req, res) {
               await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, fallbackPayload);
             } catch {
               await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-                messages: JSON.stringify(merged),
-                updated_at: updatedAt
+                ...conversationMessagesStoragePayload(merged),
+                updated_at: updatedAt,
               });
             }
           }
@@ -1490,7 +1497,7 @@ export default async function handler(req, res) {
       };
       const sliced = updated.slice(-AGENT_HISTORY_WINDOW);
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-        messages: JSON.stringify(sliced),
+        ...conversationMessagesStoragePayload(sliced),
         updated_at: nowIso,
         ...lastMessageMetaPayload(sliced),
       });

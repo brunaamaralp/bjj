@@ -237,6 +237,7 @@ function inboxDebugEnabled() {
  *   onRegisterWebhooksResult?: (r: { ok: boolean }) => void,
  *   statusPollWhileMounted?: boolean,
  *   watchAcademyStatus?: boolean,
+ *   deferInitialFetch?: boolean,
  * }} [options]
  */
 export function useZapsterWhatsAppConnection(academyId, options = {}) {
@@ -1114,6 +1115,10 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     }
   }, []);
 
+  const fetchWaInfoDeferred = useCallback(() => {
+    void fetchWaInfo({ silent: true, quiet: true });
+  }, [fetchWaInfo]);
+
   useEffect(() => {
     if (!academyId) {
       setWaStatusChecked(false);
@@ -1126,14 +1131,18 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       setAcademyWaStatus(cached.academyWaStatus);
       setWaInfo(cached.waInfo);
       setWaStatusChecked(true);
-      void fetchWaInfo({ silent: true, quiet: true });
+      if (!options?.deferInitialFetch) {
+        void fetchWaInfo({ silent: true, quiet: true });
+      }
       return;
     }
     setAcademyWaStatus('');
     setWaInfo({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
     setWaStatusChecked(false);
-    void fetchWaInfo({ silent: true });
-  }, [academyId, fetchWaInfo]);
+    if (!options?.deferInitialFetch) {
+      void fetchWaInfo({ silent: true });
+    }
+  }, [academyId, fetchWaInfo, options?.deferInitialFetch]);
 
   useEffect(() => {
     if (!options?.watchAcademyStatus && !options?.statusPollWhileMounted) return;
@@ -1283,6 +1292,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     isCreating,
     connectionError,
     fetchWaInfo,
+    fetchWaInfoDeferred,
     createWaInstance,
     disconnectWaInstance,
     recoverZapsterInstance,

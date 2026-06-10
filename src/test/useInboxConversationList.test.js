@@ -22,6 +22,8 @@ function createListHarness() {
   const notifiedOnceRef = { current: false };
   const loadingListRef = { current: false };
   const onListItemNotifyRef = { current: vi.fn() };
+  const onListReadyRef = { current: vi.fn() };
+  const onStatsFromListRef = { current: vi.fn() };
 
   let nextCursor = null;
   let hasMore = true;
@@ -101,6 +103,8 @@ describe('useInboxConversationList', () => {
         loading: h.state.loading,
         loadingMore: h.state.loadingMore,
         onListItemNotifyRef: h.onListItemNotifyRef,
+        onListReadyRef: h.onListReadyRef,
+        onStatsFromListRef: h.onStatsFromListRef,
         ...h,
       })
     );
@@ -111,5 +115,62 @@ describe('useInboxConversationList', () => {
 
     expect(h.state.items).toHaveLength(1);
     expect(h.state.items[0].phone_number).toBe('5511999990001');
+  });
+
+  it('loadList sends include_stats and notifies callbacks', async () => {
+    const onListReadyRef = { current: vi.fn() };
+    const onStatsFromListRef = { current: vi.fn() };
+    let capturedUrl = '';
+    vi.mocked(fetchWithBillingGuard).mockImplementation(async (url) => {
+      capturedUrl = String(url);
+      return {
+        blocked: false,
+        res: {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              items: [{ id: 'c1', phone_number: '5511888777666', unread_count: 0 }],
+              next_cursor: '',
+              stats: { unread_conversations: 2, needs_me: 1, resolved: 0, transferred: 0 },
+            }),
+        },
+      };
+    });
+
+    const h = createListHarness();
+    const { result } = renderHook(() =>
+      useInboxConversationList({
+        academyIdRef: h.academyIdRef,
+        debouncedSearchQuery: '',
+        listFilterRef: h.listFilterRef,
+        selectedPhoneRef: h.selectedPhoneRef,
+        listMetaRef: h.listMetaRef,
+        notifiedOnceRef: h.notifiedOnceRef,
+        loadingListRef: h.loadingListRef,
+        nextCursor: h.state.nextCursor,
+        hasMore: h.state.hasMore,
+        loading: h.state.loading,
+        loadingMore: h.state.loadingMore,
+        onListItemNotifyRef: h.onListItemNotifyRef,
+        ...h,
+        onListReadyRef,
+        onStatsFromListRef,
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadList({ reset: true });
+    });
+
+    expect(capturedUrl).toContain('include_stats=1');
+    expect(onStatsFromListRef.current).toHaveBeenCalledWith({
+      unread_conversations: 2,
+      needs_me: 1,
+      resolved: 0,
+      transferred: 0,
+    });
+    expect(onListReadyRef.current).toHaveBeenCalledWith(
+      expect.objectContaining({ firstPhone: '5511888777666', firstConversationId: 'c1' })
+    );
   });
 });

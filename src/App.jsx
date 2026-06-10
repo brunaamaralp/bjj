@@ -1125,7 +1125,7 @@ const App = () => {
           <main className="main-content">
             <OnboardingBanner />
             {(() => {
-              const bootstrapPaths = ['/empresa', '/conta', '/equipe', '/integracoes'];
+              const bootstrapPaths = ['/empresa', '/conta', '/equipe', '/integracoes', '/inbox'];
               const showRoutesWhileBootstrap =
                 academyReady || bootstrapPaths.includes(location.pathname);
               if (!showRoutesWhileBootstrap) {

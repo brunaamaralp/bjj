@@ -77,6 +77,10 @@ const AUDIT_COL =
   process.env.APPWRITE_FINANCIAL_AUDIT_LOG_COLLECTION_ID ||
   process.env.VITE_APPWRITE_FINANCIAL_AUDIT_LOG_COLLECTION_ID ||
   '';
+const LEAD_EVENTS_COL =
+  process.env.APPWRITE_LEAD_EVENTS_COLLECTION_ID ||
+  process.env.VITE_APPWRITE_LEAD_EVENTS_COLLECTION_ID ||
+  '';
 const ACADEMIES_COL =
   process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
 
@@ -99,6 +103,7 @@ const summary = {
   ACADEMY_EVENTS: emptyStats(),
   financial_audit: emptyStats(),
   ACADEMIES: emptyStats(),
+  LEAD_EVENTS: emptyStats(),
 };
 
 function isAlreadyExists(err) {
@@ -480,6 +485,19 @@ const TASKS_ATTRS = [
   { key: 'category', type: 'string', size: 64 },
 ];
 
+/** leadEvents.js, agentActionAudit.js */
+const LEAD_EVENTS_ATTRS = [
+  { key: 'academy_id', type: 'string', size: 64 },
+  { key: 'lead_id', type: 'string', size: 64 },
+  { key: 'type', type: 'string', size: 64 },
+  { key: 'from', type: 'string', size: 128 },
+  { key: 'to', type: 'string', size: 128 },
+  { key: 'text', type: 'string', size: 1000 },
+  { key: 'at', type: 'string', size: 64 },
+  { key: 'created_by', type: 'string', size: 64 },
+  { key: 'payload_json', type: 'string', size: 65535 },
+];
+
 const TASK_TEMPLATES_ATTRS = [
   { key: 'academy_id', type: 'string', size: 64 },
   { key: 'name', type: 'string', size: 128 },
@@ -707,6 +725,20 @@ async function main() {
       { key: 'idx_tasks_lead_id', attributes: ['lead_id'] },
       { key: 'idx_tasks_status', attributes: ['status'] },
       { key: 'idx_tasks_due_date', attributes: ['due_date'] },
+      { key: 'idx_tasks_created_by', attributes: ['created_by'] },
+    ],
+  });
+
+  await processCollection(databases, {
+    id: LEAD_EVENTS_COL,
+    statsKey: 'LEAD_EVENTS',
+    title: 'LEAD_EVENTS',
+    attrs: LEAD_EVENTS_ATTRS,
+    indexes: [
+      { key: 'idx_lead_events_academy_id', attributes: ['academy_id'] },
+      { key: 'idx_lead_events_lead_id', attributes: ['lead_id'] },
+      { key: 'idx_lead_events_type', attributes: ['type'] },
+      { key: 'idx_lead_events_at', attributes: ['at'] },
     ],
   });
 
@@ -818,6 +850,7 @@ async function main() {
   printLineSummary('LEADS', summary.LEADS);
   printLineSummary('STUDENTS', summary.STUDENTS);
   printLineSummary('TASKS', summary.TASKS);
+  printLineSummary('LEAD_EVENTS', summary.LEAD_EVENTS);
   printLineSummary('TASK_TEMPLATES', summary.TASK_TEMPLATES);
   printLineSummary('BANK_STATEMENTS', summary.BANK_STATEMENTS);
   printLineSummary('BANK_STATEMENT_ITEMS', summary.BANK_STATEMENT_ITEMS);

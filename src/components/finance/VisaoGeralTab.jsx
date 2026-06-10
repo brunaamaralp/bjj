@@ -11,12 +11,8 @@ import {
 import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
 import {
-  fetchFinanceSummary,
-  fetchFinanceForecast,
-  fetchMonthlyClosing,
-  fetchReceivables,
+  fetchFinanceOverview,
 } from '../../lib/financeTxApi.js';
-import { getMonthlyPayments } from '../../lib/studentPayments';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
@@ -29,11 +25,9 @@ import {
   computeMensalidadesMonthKpis,
   countClosingDivergences,
   flattenForecastItems,
-  forecastNext30Range,
   formatBalanceDelta,
   formatMonthTitleCapitalized,
   monthEndYmd,
-  monthPeriodBounds,
   previousMonthYm,
   sumForecastInflow,
 } from '../../lib/financeiroOverview.js';
@@ -104,11 +98,8 @@ export default function VisaoGeralTab({
   const students = useStudentStore((s) => s.students);
 
   const ym = String(referenceMonth || '').trim();
-  const { from, to } = useMemo(() => monthPeriodBounds(ym), [ym]);
   const prevMonth = useMemo(() => previousMonthYm(ym), [ym]);
-  const prevBounds = useMemo(() => monthPeriodBounds(prevMonth), [prevMonth]);
   const bankCompareAsOf = useMemo(() => monthEndYmd(prevMonth), [prevMonth]);
-  const forecastRange = useMemo(() => forecastNext30Range(), []);
 
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
@@ -125,6 +116,8 @@ export default function VisaoGeralTab({
   const [closingDivergences, setClosingDivergences] = useState(0);
   const [receivables, setReceivables] = useState(null);
   const [receivablesFailed, setReceivablesFailed] = useState(false);
+  const [bankBalancesData, setBankBalancesData] = useState(null);
+  const [bankBalancesCompare, setBankBalancesCompare] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
   const regime = useMemo(
@@ -144,56 +137,24 @@ export default function VisaoGeralTab({
       const regimeVal = getFinanceRegime(academyId);
       const studentsSnapshot = useStudentStore.getState().students || [];
       const financeConfigSnapshot = useLeadStore.getState().financeConfig;
-      const tasks = [
-        fetchFinanceSummary({ academyId, from, to, regime: regimeVal }),
-        fetchFinanceSummary({ academyId, from: prevBounds.from, to: prevBounds.to, regime: regimeVal }),
-        getMonthlyPayments(academyId, ym, {
-          activeStudentCount: studentsSnapshot.filter((s) => String(s.plan || '').trim()).length,
-        }),
-        fetchReceivables({ academyId, month: ym }),
-      ];
 
-      if (financeModule) {
-        tasks.push(
-          fetchFinanceForecast({
-            academyId,
-            from: forecastRange.from,
-            to: forecastRange.to,
-          })
-        );
-        tasks.push(
-          fetchMonthlyClosing({
-            academyId,
-            month: ym,
-            regime: regimeVal,
-          })
-        );
-      }
+      const overview = await fetchFinanceOverview({
+        academyId,
+        month: ym,
+        regime: regimeVal,
+        includeForecast: financeModule,
+        bankCompareAsOf,
+      });
 
-      const results = await Promise.allSettled(tasks);
-      const [curRes, prevRes, payRes, receivablesRes, forecastRes, closingRes] = results;
+      setSummary(overview.summary ?? null);
+      setSummaryFailed(!overview.summary);
+      setSummaryPrev(overview.summaryPrev ?? null);
 
-      if (curRes.status === 'fulfilled') {
-        setSummary(curRes.value);
-        setSummaryFailed(false);
-      } else {
-        setSummary(null);
-        setSummaryFailed(true);
-      }
+      setPayments(overview.payments || []);
+      setPaymentsFailed(false);
 
-      if (prevRes.status === 'fulfilled') setSummaryPrev(prevRes.value);
-      else setSummaryPrev(null);
-
-      if (payRes.status === 'fulfilled') {
-        setPayments(payRes.value || []);
-        setPaymentsFailed(false);
-      } else {
-        setPayments([]);
-        setPaymentsFailed(true);
-      }
-
-      if (receivablesRes?.status === 'fulfilled') {
-        setReceivables(receivablesRes.value);
+      if (overview.receivables) {
+        setReceivables(overview.receivables);
         setReceivablesFailed(false);
       } else {
         setReceivables(null);
@@ -201,8 +162,8 @@ export default function VisaoGeralTab({
       }
 
       if (financeModule) {
-        if (forecastRes?.status === 'fulfilled') {
-          setForecast(forecastRes.value);
+        if (overview.forecast) {
+          setForecast(overview.forecast);
           setForecastFailed(false);
         } else {
           setForecast(null);
@@ -213,24 +174,25 @@ export default function VisaoGeralTab({
         setForecastFailed(false);
       }
 
-      if (closingRes?.status === 'fulfilled' && closingRes.value) {
-        const body = closingRes.value;
+      const closingBody = overview.closing;
+      if (closingBody) {
         const div = countClosingDivergences({
-          payments: body.payments || [],
-          transactions: body.transactions || [],
+          payments: closingBody.payments || [],
+          transactions: closingBody.transactions || [],
           students: studentsSnapshot,
           financeConfig: financeConfigSnapshot,
           referenceMonth: ym,
           regime: regimeVal,
         });
         setClosingDivergences(div);
-        setPendingTxCount(Number(body.pendingInMonth) || 0);
+        setPendingTxCount(Number(closingBody.pendingInMonth) || 0);
       } else {
         setClosingDivergences(0);
-        if (curRes.status === 'fulfilled') {
-          setPendingTxCount(Number(curRes.value?.countPending) || 0);
-        }
+        setPendingTxCount(Number(overview.summary?.countPending) || 0);
       }
+
+      setBankBalancesData(overview.bankBalances ?? null);
+      setBankBalancesCompare(overview.bankBalancesCompare ?? null);
 
       if (modules?.finance) {
         try {
@@ -255,14 +217,9 @@ export default function VisaoGeralTab({
     }
   }, [
     academyId,
-    from,
-    to,
-    prevBounds.from,
-    prevBounds.to,
     ym,
     financeModule,
-    forecastRange.from,
-    forecastRange.to,
+    bankCompareAsOf,
     modules?.finance,
   ]);
 
@@ -439,6 +396,8 @@ export default function VisaoGeralTab({
             refreshKey={refreshToken}
             compareAsOf={bankCompareAsOf}
             showTotalDelta
+            prefetchedData={bankBalancesData}
+            prefetchedCompareData={bankBalancesCompare}
           />
         </OverviewCard>
 

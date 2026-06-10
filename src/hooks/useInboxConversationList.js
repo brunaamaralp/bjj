@@ -30,6 +30,8 @@ export function useInboxConversationList({
   setItems,
   setListCapped,
   onListItemNotifyRef,
+  onListReadyRef,
+  onStatsFromListRef,
 }) {
   const nextCursorRef = useRef(nextCursor);
   const hasMoreRef = useRef(hasMore);
@@ -67,6 +69,9 @@ export function useInboxConversationList({
       qs.set('archived', listFilterRef.current === 'archived' ? '1' : '0');
       const serverFilter = inboxListFilterToServerParam(listFilterRef.current);
       if (serverFilter) qs.set('filter', serverFilter);
+      if (listFilterRef.current !== 'archived' && !searchQ) {
+        qs.set('include_stats', '1');
+      }
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') },
       });
@@ -142,6 +147,22 @@ export function useInboxConversationList({
         notifiedOnceRef.current = true;
       }
       listMetaRef.current = nextMeta;
+
+      if (reset && data?.stats && typeof data.stats === 'object') {
+        onStatsFromListRef?.current?.(data.stats);
+      }
+
+      if (reset) {
+        const first = next[0];
+        const firstPhone = String(first?.phone_number || '').trim();
+        const firstConversationId = String(first?.id || '').trim();
+        onListReadyRef?.current?.({
+          firstPhone,
+          firstConversationId,
+          items: next,
+          hasSelection: Boolean(String(selectedPhoneRef.current || '').trim()),
+        });
+      }
     } catch (e) {
       if (!silent) setError(friendlyError(e, 'load'));
     } finally {
@@ -157,6 +178,8 @@ export function useInboxConversationList({
     loadingListRef,
     selectedPhoneRef,
     onListItemNotifyRef,
+    onListReadyRef,
+    onStatsFromListRef,
     setNextCursor,
     setHasMore,
     setError,

@@ -13,6 +13,34 @@ Contexto enriquecido no servidor via [`nlActionContextFetch.js`](../lib/server/n
 
 ---
 
+## Ações automáticas WhatsApp (v1)
+
+O agente de inbox executa ações após cada mensagem processada ([`agentActionExecutor.js`](../lib/server/agentActionExecutor.js)), com política **execute-then-notify**: grava automaticamente com `confidence: high` e sempre cria notificação + tarefa para a equipe conferir.
+
+| Ação | Exemplo no chat |
+|------|-----------------|
+| Nota na conversa | "Vou viajar duas semanas" |
+| Nota no histórico | Aviso operacional do aluno |
+| Atualizar cadastro | CPF, nascimento, responsável em mensagens |
+| Criar lead | Contato novo com nome e telefone |
+| Trancar plano | "Quero trancar 30 dias" + confirmação explícita |
+
+**Configuração (UI):** em **Agente de Atendimento → Personalização e suporte → Ações automáticas no WhatsApp** — interruptor geral + checkboxes por tipo de ação. Salvo em `academies.modules.ai_actions` (`enabled`, `actions[]`).
+
+**Schema Appwrite (rodar antes de ativar em produção):**
+
+| Script | Coleções / atributos |
+|--------|----------------------|
+| `node scripts/verify-and-fix-schema-integrations.mjs` | `conversations.agent_state`, `conversation_notes`, `note_notifications` (type, severity, action_url) |
+| `node scripts/verify-and-fix-schema-crm.mjs` | `lead_events` (auditoria `ai_action`), `tasks` (tarefas `created_by: ai-agent`) |
+| `npm run provision:plan-freeze` | `plan_freezes` + campos de trancamento em `leads`/`students` |
+
+Variáveis de ambiente necessárias: `APPWRITE_CONVERSATIONS_COLLECTION_ID`, `APPWRITE_CONVERSATION_NOTES_COLLECTION_ID`, `APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID`, `APPWRITE_LEAD_EVENTS_COLLECTION_ID`, `APPWRITE_TASKS_COLLECTION_ID`, `APPWRITE_PLAN_FREEZES_COLLECTION_ID`.
+
+Assistente ⌘K também suporta `freeze_plan` (trancamento com confirmação na UI).
+
+---
+
 ## Perguntas respondidas (somente leitura)
 
 ### Alunos, mensalidades e funil (`academy_query`)
@@ -51,7 +79,7 @@ Links: alunos → `/student/:id`; leads → `/lead/:id`.
 
 ### Financeiro
 
-Registrar pagamento, venda, despesa, ajuste de estoque, liquidar transação pendente, editar mensalidade, atualizar aluno, check-in, nota.
+Registrar pagamento, venda, despesa, ajuste de estoque, liquidar transação pendente, editar mensalidade, atualizar aluno, trancar plano (`freeze_plan`), check-in, nota.
 
 ### Funil
 

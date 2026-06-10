@@ -1,18 +1,19 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, STUDENTS_PAGE_SIZE } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { MessageCircle, ChevronRight, ChevronDown, Upload, RefreshCw, Download, UserPlus, X, DoorOpen, Users } from 'lucide-react';
-import ControlIdAttendancePanel from '../components/attendance/ControlIdAttendancePanel.jsx';
 import SearchField from '../components/shared/SearchField.jsx';
+
+const ControlIdAttendancePanel = lazy(() => import('../components/attendance/ControlIdAttendancePanel.jsx'));
+const ImportSheet = lazy(() => import('../components/ImportSheet'));
 
 const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
 import { databases, DB_ID, STUDENTS_COL } from '../lib/appwrite';
 import useDebounce from '../hooks/useDebounce';
 import { Query } from 'appwrite';
-import ImportSheet from '../components/ImportSheet';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.js';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
@@ -20,6 +21,7 @@ import { useTerms } from '../lib/terminology.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
@@ -57,7 +59,7 @@ const Students = ({ embedded = false }) => {
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
     const { turmas: turmasConfig } = useAcademyTurmas(academyId);
-    const controlIdCfg = useAcademyControlId(academyId);
+    const controlIdCfg = useAcademyControlId(academyId, { fetch: viewMode === 'presenca' });
     const studentsLoading = useStudentStore((s) => s.loading);
     const loadingMore = useStudentStore((s) => s.loadingMore);
     const studentsHasMore = useStudentStore((s) => s.studentsHasMore);
@@ -129,6 +131,7 @@ const Students = ({ embedded = false }) => {
 
     useEffect(() => {
         if (!academyId) return;
+        if (useStudentStore.getState().loading) return;
         const stale = !lastFetchedAt || Date.now() - lastFetchedAt > STALE_MS;
         if (!stale && !hasServerFilters && students.length > 0) return;
         void fetchStudents({ reset: true, ...serverFetchOpts });
@@ -734,7 +737,9 @@ const Students = ({ embedded = false }) => {
             </header>
 
             {viewMode === 'presenca' ? (
-                <ControlIdAttendancePanel className="animate-in" style={{ marginTop: 8 }} />
+                <Suspense fallback={<PageSkeleton variant="cards" rows={2} />}>
+                    <ControlIdAttendancePanel className="animate-in" style={{ marginTop: 8 }} />
+                </Suspense>
             ) : null}
 
             {viewMode === 'lista' ? (
@@ -904,15 +909,19 @@ const Students = ({ embedded = false }) => {
             </>
             ) : null}
 
-            <ImportSheet
-                isOpen={showImport}
-                onClose={() => setShowImport(false)}
-                onImport={handleImport}
-                defaultStatus={LEAD_STATUS.CONVERTED}
-                title={`Importar ${studentPlural}`}
-                importing={importing}
-                financeConfig={financeConfig}
-            />
+            {showImport ? (
+                <Suspense fallback={null}>
+                    <ImportSheet
+                        isOpen={showImport}
+                        onClose={() => setShowImport(false)}
+                        onImport={handleImport}
+                        defaultStatus={LEAD_STATUS.CONVERTED}
+                        title={`Importar ${studentPlural}`}
+                        importing={importing}
+                        financeConfig={financeConfig}
+                    />
+                </Suspense>
+            ) : null}
 
             {showCreateStudent ? (
                 <div className="students-create-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowCreateStudent(false)}>

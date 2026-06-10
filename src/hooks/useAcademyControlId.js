@@ -15,16 +15,18 @@ const EMPTY_STATUS = {
 
 /**
  * Status Control iD via API server-side (não lê academy.settings no client).
+ * @param {{ fetch?: boolean }} [opts] — `fetch: false` evita a chamada (ex.: lista de alunos).
  */
-export function useAcademyControlId(academyId) {
+export function useAcademyControlId(academyId, opts = {}) {
+  const shouldFetch = opts.fetch !== false;
   const [status, setStatus] = useState(EMPTY_STATUS);
   const [loading, setLoading] = useState(Boolean(academyId));
 
   useEffect(() => {
-    if (!academyId) {
+    if (!academyId || !shouldFetch) {
       setStatus(EMPTY_STATUS);
       setLoading(false);
-      return;
+      return undefined;
     }
     let cancelled = false;
     setLoading(true);
@@ -52,7 +54,7 @@ export function useAcademyControlId(academyId) {
     return () => {
       cancelled = true;
     };
-  }, [academyId]);
+  }, [academyId, shouldFetch]);
 
   return {
     enabled: status.enabled,

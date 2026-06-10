@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
@@ -6,9 +6,11 @@ import { resolveSalesSubtab } from '../lib/lojaSalesTabs';
 import { INVENTORY_SUBTAB_LABELS, resolveInventorySubtab } from '../lib/lojaInventoryTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
-import Sales from './Sales';
-import Products from './Products';
-import Inventory from './Inventory';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
+
+const Sales = lazy(() => import('./Sales'));
+const Products = lazy(() => import('./Products'));
+const Inventory = lazy(() => import('./Inventory'));
 
 export default function Loja() {
   const modules = useLeadStore((s) => s.modules);
@@ -80,9 +82,11 @@ export default function Loja() {
         />
         <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Loja" fullWidth />
       </div>
-      {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}
-      {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? <Products /> : null}
-      {activeTab === 'estoque' && modules.inventory === true ? <Inventory /> : null}
+      <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+        {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}
+        {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? <Products /> : null}
+        {activeTab === 'estoque' && modules.inventory === true ? <Inventory /> : null}
+      </Suspense>
     </div>
   );
 }

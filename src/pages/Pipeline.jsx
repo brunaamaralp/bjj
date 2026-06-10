@@ -1451,7 +1451,11 @@ const Pipeline = () => {
 
     useEffect(() => {
         if (!academyId) return;
-        useLeadStore.getState().fetchLeads({ reset: true });
+        const { leads, leadsLastFetchedAt, loading, fetchLeads } = useLeadStore.getState();
+        if (loading) return;
+        const STALE_MS = 5 * 60 * 1000;
+        if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) return;
+        void fetchLeads({ reset: true });
     }, [academyId]);
 
     useEffect(() => {

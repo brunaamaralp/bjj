@@ -238,6 +238,9 @@ export default function NlCommandBar({
       if (parsed.action === 'update_student') {
         successSummary = `Dados de ${parsed.data?.student_name || 'aluno'} atualizados ✓`;
       }
+      if (parsed.action === 'freeze_plan') {
+        successSummary = `Trancamento registrado para ${parsed.data?.student_name || 'aluno'} ✓`;
+      }
       if (parsed.action === 'update_payment') {
         successSummary = `Mensalidade atualizada ✓`;
       }
@@ -317,6 +320,7 @@ export default function NlCommandBar({
       parsed.action === 'move_pipeline_stage' ||
       parsed.action === 'register_checkin' ||
       parsed.action === 'update_student' ||
+      parsed.action === 'freeze_plan' ||
       parsed.action === 'create_lead' ||
       parsed.action === 'settle_transaction' ||
       parsed.action === 'update_payment' ||

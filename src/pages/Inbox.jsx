@@ -197,10 +197,16 @@ export default function Inbox() {
   }, [academyDoc?.teamId]);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
-  const { waInfo, waStatus, waSyncing, waStatusChecked, reconcileWhatsAppHistory } = useZapsterWhatsAppConnection(academyId, {
-    statusPollWhileMounted: true,
-    watchAcademyStatus: true
-  });
+  const fetchWaInfoDeferredRef = useRef(null);
+  const { waInfo, waStatus, waSyncing, waStatusChecked, reconcileWhatsAppHistory, fetchWaInfoDeferred } =
+    useZapsterWhatsAppConnection(academyId, {
+      statusPollWhileMounted: true,
+      watchAcademyStatus: true,
+      deferInitialFetch: true,
+    });
+  useEffect(() => {
+    fetchWaInfoDeferredRef.current = fetchWaInfoDeferred;
+  }, [fetchWaInfoDeferred]);
   const terms = useTerms();
   const labels = useLeadStore((s) => s.labels);
   const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
@@ -312,7 +318,7 @@ export default function Inbox() {
   const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const [agentIaActive, setAgentIaActive] = useState(false);
-  const { stats, refreshStats } = useInboxListStats({ academyId, listFilter });
+  const { stats, refreshStats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
   const [listWidth, setListWidth] = useState(() => {
     if (typeof window === 'undefined') return 360;
     const raw = window.localStorage.getItem('inbox_list_width');
@@ -460,6 +466,42 @@ export default function Inbox() {
   );
 
   const onListItemNotifyRef = useRef(() => {});
+  const onListReadyRef = useRef(null);
+  const onStatsFromListRef = useRef(null);
+  const itemsRef = useRef(items);
+  const selectedRef = useRef(selected);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
+    onStatsFromListRef.current = applyStatsFromList;
+  }, [applyStatsFromList]);
+
+  const waDeferredOnceRef = useRef(false);
+  useEffect(() => {
+    waDeferredOnceRef.current = false;
+  }, [academyId]);
+  useEffect(() => {
+    onListReadyRef.current = ({ firstPhone, firstConversationId, hasSelection }) => {
+      if (!hasSelection && firstPhone) {
+        const fn = loadThreadRef.current;
+        if (typeof fn === 'function') {
+          void fn(firstPhone, { conversationId: firstConversationId, silent: false });
+        }
+      }
+      if (!waDeferredOnceRef.current) {
+        waDeferredOnceRef.current = true;
+        const waFn = fetchWaInfoDeferredRef.current;
+        if (typeof waFn === 'function') void waFn();
+      }
+    };
+  }, []);
 
   const { loadList, loadListRef } = useInboxConversationList({
     academyIdRef,
@@ -482,6 +524,8 @@ export default function Inbox() {
     setItems,
     setListCapped,
     onListItemNotifyRef,
+    onListReadyRef,
+    onStatsFromListRef,
   });
 
   const { loadThread, loadThreadRef } = useInboxThreadLoader({
@@ -498,6 +542,8 @@ export default function Inbox() {
     setThreadHasMore,
     setSelected,
     setItems,
+    itemsRef,
+    selectedRef,
   });
 
   const {
@@ -1839,6 +1885,10 @@ export default function Inbox() {
         )
       }
       pageActionsMenu={inboxPageActionsMenu}
+      onSyncWhatsApp={reconcileLast24h}
+      waSyncing={waSyncing}
+      desktopNotify={desktopNotify}
+      onToggleDesktopNotify={toggleDesktopNotifyPreference}
     />
   );
 

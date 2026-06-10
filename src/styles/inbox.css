@@ -544,6 +544,10 @@
   cursor: not-allowed;
 }
 
+.inbox-list-panel__topbar-btn.is-active {
+  color: var(--inbox-wa-accent-dark);
+}
+
 @media (min-width: 1024px) {
   .inbox-list-panel {
     border-right: 1px solid color-mix(in srgb, var(--inbox-wa-text-secondary) 18%, transparent);
@@ -2732,7 +2736,7 @@
   overflow-y: auto;
   padding: 9px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 21px;
   background: var(--inbox-wa-list-bg);
   color: var(--inbox-bubble-received-text, #111b21);
   font-size: 0.9375rem;

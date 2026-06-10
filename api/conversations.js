@@ -4,19 +4,28 @@ import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../lib/humanHando
 import { getHumanHandoffHoursForServer, assertHumanHandoffEnvOnBoot } from '../lib/constants.js';
 
 assertHumanHandoffEnvOnBoot();
-import { safeParseMessages, getOrCreateConversationDoc } from '../lib/server/conversationsStore.js';
+import {
+  safeParseMessages,
+  getOrCreateConversationDoc,
+  findConversationDoc,
+  getConversationDocForThread,
+  getConversationMessagesDoc,
+} from '../lib/server/conversationsStore.js';
 import {
   deriveLastMessageMeta,
   hasStoredLastMessageMeta,
   readStoredLastMessageMeta,
-  sortMessagesChrono,
 } from '../lib/server/conversationListMeta.js';
+import {
+  conversationMessagesStoragePayload,
+  loadThreadMessagesFromDoc,
+  threadNeedsFullMessagesFetch,
+} from '../lib/server/conversationMessages.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
 import notificationsHandler from '../lib/server/notificationsHandler.js';
 import messageFlagsHandler from '../lib/server/messageFlagsHandler.js';
 import { rehydrateConversationMediaMessages } from '../lib/server/rehydrateConversationMedia.js';
-import { inboxPhoneLookupVariants } from '../src/lib/normalizeInboxPhone.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -108,20 +117,21 @@ function ensureConfig(res) {
 }
 
 
-/** Página de mensagens por índice (cursor numérico). Doc limitado a CONVERSATION_MESSAGES_STORE_MAX no merge. */
-function paginateMessagesWindow(sorted, limit, cursor) {
-  const len = sorted.length;
-  if (!cursor) {
-    const startIdx = Math.max(0, len - limit);
-    return { slice: sorted.slice(startIdx), next_cursor: startIdx > 0 ? String(startIdx) : '' };
+async function fetchListStats(academyId, archivedOnly) {
+  const baseQueries = [Query.equal('academy_id', [academyId])];
+  if (archivedOnly) {
+    baseQueries.push(Query.equal('archived', [true]));
+  } else {
+    baseQueries.push(Query.notEqual('archived', [true]));
   }
-  const startIdx = parseInt(cursor, 10);
-  if (!Number.isFinite(startIdx) || startIdx <= 0) {
-    const s = Math.max(0, len - limit);
-    return { slice: sorted.slice(s), next_cursor: s > 0 ? String(s) : '' };
-  }
-  const from = Math.max(0, startIdx - limit);
-  return { slice: sorted.slice(from, startIdx), next_cursor: from > 0 ? String(from) : '' };
+  const nowIso = new Date().toISOString();
+  const [unread_conversations, needs_me, resolved, transferred] = await Promise.all([
+    countConversations([...baseQueries, Query.greaterThan('unread_count', 0)]),
+    countConversations([...baseQueries, Query.greaterThan('human_handoff_until', nowIso)]),
+    countConversations([...baseQueries, Query.equal('ticket_status', ['resolved'])]),
+    countConversations([...baseQueries, Query.equal('ticket_status', ['transferred'])]),
+  ]);
+  return { unread_conversations, needs_me, resolved, transferred };
 }
 
 function parseSummaryField(raw) {
@@ -173,30 +183,6 @@ function matchesSearch(doc, searchRaw) {
   if (qDigits.length >= 2 && phoneDigits.includes(qDigits)) return true;
   const name = `${String(doc.lead_name || '')} ${String(doc.contact_name || '')}`.toLowerCase();
   return name.includes(q);
-}
-
-async function findConversationDoc(academyId, phoneDigits, leadId = '') {
-  const variants = inboxPhoneLookupVariants(phoneDigits);
-  const phonesToTry = variants.length ? variants : [String(phoneDigits || '').trim()].filter(Boolean);
-  for (const p of phonesToTry) {
-    const list = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-      Query.equal('academy_id', [academyId]),
-      Query.equal('phone_number', [p]),
-      Query.limit(1),
-    ]);
-    const doc = list.documents?.[0] || null;
-    if (doc) return doc;
-  }
-  const lid = String(leadId || '').trim();
-  if (lid) {
-    const byLead = await databases.listDocuments(DB_ID, CONVERSATIONS_COL, [
-      Query.equal('academy_id', [academyId]),
-      Query.equal('lead_id', [lid]),
-      Query.limit(1),
-    ]);
-    return byLead.documents?.[0] || null;
-  }
-  return null;
 }
 
 function ensureJsonBody(req, res) {
@@ -257,24 +243,15 @@ export default async function handler(req, res) {
 
     if (statsOnly) {
       try {
-        const baseQueries = [Query.equal('academy_id', [academyId])];
-        if (archivedOnly) {
-          baseQueries.push(Query.equal('archived', [true]));
-        } else {
-          baseQueries.push(Query.notEqual('archived', [true]));
-        }
-        const nowIso = new Date().toISOString();
-        const [unread_conversations, needs_me, resolved, transferred] = await Promise.all([
-          countConversations([...baseQueries, Query.greaterThan('unread_count', 0)]),
-          countConversations([...baseQueries, Query.greaterThan('human_handoff_until', nowIso)]),
-          countConversations([...baseQueries, Query.equal('ticket_status', ['resolved'])]),
-          countConversations([...baseQueries, Query.equal('ticket_status', ['transferred'])]),
-        ]);
-        return json(res, 200, { unread_conversations, needs_me, resolved, transferred });
+        const stats = await fetchListStats(academyId, archivedOnly);
+        return json(res, 200, stats);
       } catch (e) {
         return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar estatísticas' });
       }
     }
+
+    const includeStats =
+      String(req.query.include_stats || '').trim() === '1' && !search.trim() && !archivedOnly;
 
     const queries = [Query.equal('academy_id', [academyId])];
     if (archivedOnly) {
@@ -293,6 +270,7 @@ export default async function handler(req, res) {
     }
 
     try {
+      const statsPromise = includeStats ? fetchListStats(academyId, archivedOnly) : null;
       const list = await listConversationDocs(queries);
       let docs = list.documents || [];
 
@@ -309,14 +287,18 @@ export default async function handler(req, res) {
         const page = docs.slice(0, limit);
         return json(res, 200, {
           items: page.map(docToListItem),
-          next_cursor: null
+          next_cursor: null,
         });
       }
 
       const hasMore = docs.length > limit;
       const page = hasMore ? docs.slice(0, limit) : docs;
       const next_cursor = hasMore && page.length > 0 ? String(page[page.length - 1].$id) : null;
-      return json(res, 200, { items: page.map(docToListItem), next_cursor });
+      const body = { items: page.map(docToListItem), next_cursor };
+      if (statsPromise) {
+        body.stats = await statsPromise;
+      }
+      return json(res, 200, body);
     } catch (e) {
       return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao listar conversas' });
     }
@@ -327,9 +309,13 @@ export default async function handler(req, res) {
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
     const cursor = String(req.query.cursor || '').trim();
     const leadIdQuery = String(req.query.lead_id || '').trim();
+    const conversationIdQuery = String(req.query.conversation_id || '').trim();
 
     try {
-      const doc = await findConversationDoc(academyId, phoneDigits, leadIdQuery);
+      const doc = await getConversationDocForThread(academyId, phoneDigits, {
+        leadId: leadIdQuery,
+        conversationId: conversationIdQuery,
+      });
       if (!doc) {
         return json(res, 200, {
           phone: phoneDigits,
@@ -343,12 +329,20 @@ export default async function handler(req, res) {
           need_human: false,
           human_handoff_until: '',
           ticket_status: 'open',
-          transfer_to: ''
+          transfer_to: '',
         });
       }
 
-      const sorted = sortMessagesChrono(safeParseMessages(doc.messages));
-      const { slice, next_cursor } = paginateMessagesWindow(sorted, limit, cursor);
+      let fullMessagesDoc = null;
+      const hasRecent = Boolean(String(doc.messages_recent || '').trim());
+      if (threadNeedsFullMessagesFetch(cursor) || !hasRecent) {
+        fullMessagesDoc = await getConversationMessagesDoc(doc.$id, academyId);
+      }
+      const { slice, next_cursor } = loadThreadMessagesFromDoc(doc, {
+        limit,
+        cursor,
+        fullMessagesDoc,
+      });
 
       return json(res, 200, {
         phone: String(doc.phone_number || '').trim() || phoneDigits,
@@ -386,7 +380,7 @@ export default async function handler(req, res) {
 
   try {
     const leadIdBody = String(body.lead_id || '').trim();
-    let doc = await findConversationDoc(academyId, phoneDigits, leadIdBody);
+    let doc = await findConversationDoc(phoneDigits, academyId, leadIdBody);
 
     if (action === 'read') {
       if (!doc) return json(res, 200, { ok: true, unread_count: 0 });
@@ -520,7 +514,7 @@ export default async function handler(req, res) {
       });
       if (updated > 0) {
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
-          messages: JSON.stringify(messages),
+          ...conversationMessagesStoragePayload(messages),
         });
       }
       return json(res, 200, {

@@ -138,14 +138,17 @@ export default function BankBalancesOverview({
   refreshKey = 0,
   compareAsOf = '',
   showTotalDelta = false,
+  prefetchedData = null,
+  prefetchedCompareData = null,
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [prevTotalBalance, setPrevTotalBalance] = useState(null);
+  const usePrefetch = prefetchedData != null;
 
   const load = useCallback(async () => {
-    if (!academyId) return;
+    if (!academyId || usePrefetch) return;
     setLoading(true);
     setError('');
     try {
@@ -164,11 +167,22 @@ export default function BankBalancesOverview({
     } finally {
       setLoading(false);
     }
-  }, [academyId, compareAsOf, showTotalDelta]);
+  }, [academyId, compareAsOf, showTotalDelta, usePrefetch]);
 
   useEffect(() => {
+    if (usePrefetch) {
+      setData(prefetchedData);
+      setPrevTotalBalance(
+        showTotalDelta && prefetchedCompareData
+          ? Number(prefetchedCompareData.totalBalance) || 0
+          : null
+      );
+      setLoading(false);
+      setError('');
+      return;
+    }
     void load();
-  }, [load, refreshKey]);
+  }, [usePrefetch, prefetchedData, prefetchedCompareData, showTotalDelta, load, refreshKey]);
 
   if (!academyId) return null;
 

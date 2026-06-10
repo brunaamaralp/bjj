@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
 import { fetchFinanceSummary, fetchMonthlyClosing } from '../lib/financeTxApi.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../lib/financeTermHints.js';
@@ -48,19 +48,17 @@ import {
 
 import { useUserRole } from '../lib/useUserRole';
 
-import TransacoesTab from '../components/finance/TransacoesTab.jsx';
-
-import ForecastTab from '../components/finance/ForecastTab.jsx';
-
-import ReconciliationTab from '../components/finance/ReconciliationTab.jsx';
-
-import MonthlyClosingTab from '../components/finance/MonthlyClosingTab.jsx';
-
 import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
-import VisaoGeralTab from '../components/finance/VisaoGeralTab.jsx';
-import ReceivablesTab from '../components/finance/ReceivablesTab.jsx';
-import CaixaAccountingPanel from '../components/finance/CaixaAccountingPanel.jsx';
 import FinanceMonthPicker from '../components/finance/FinanceMonthPicker.jsx';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
+
+const VisaoGeralTab = lazy(() => import('../components/finance/VisaoGeralTab.jsx'));
+const ReceivablesTab = lazy(() => import('../components/finance/ReceivablesTab.jsx'));
+const TransacoesTab = lazy(() => import('../components/finance/TransacoesTab.jsx'));
+const ForecastTab = lazy(() => import('../components/finance/ForecastTab.jsx'));
+const ReconciliationTab = lazy(() => import('../components/finance/ReconciliationTab.jsx'));
+const MonthlyClosingTab = lazy(() => import('../components/finance/MonthlyClosingTab.jsx'));
+const CaixaAccountingPanel = lazy(() => import('../components/finance/CaixaAccountingPanel.jsx'));
 
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -424,6 +422,7 @@ export default function Caixa() {
         />
 
         <div className="navi-hub-page__body">
+        <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
         {activeTab === FINANCEIRO_SECTIONS.OVERVIEW && academyId ? (
           <div
             role="tabpanel"
@@ -529,6 +528,7 @@ export default function Caixa() {
             <CaixaAccountingPanel scope="operational" isOwner={isOwner} />
           </div>
         ) : null}
+        </Suspense>
         </div>
 
       </div>

@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Filter } from 'lucide-react';
+import { Bell, BellOff, Filter, RefreshCw } from 'lucide-react';
 import ConversationList from './ConversationList';
 import SearchField from '../shared/SearchField.jsx';
 import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
@@ -38,6 +38,10 @@ export default function InboxListPanel({
   onClearActiveFilter,
   listTopbarMeta = null,
   pageActionsMenu = null,
+  onSyncWhatsApp,
+  waSyncing = false,
+  desktopNotify = false,
+  onToggleDesktopNotify,
 }) {
   const unreadBacklog = Number(stats?.unreadBacklog || 0);
   const needsMeBacklog = Number(stats?.needsMeBacklog || 0);
@@ -61,9 +65,37 @@ export default function InboxListPanel({
             </div>
           ) : null}
         </div>
-        {pageActionsMenu ? (
-          <div className="inbox-list-panel__topbar-actions">{pageActionsMenu}</div>
-        ) : null}
+        <div className="inbox-list-panel__topbar-actions">
+          {typeof onSyncWhatsApp === 'function' ? (
+            <button
+              type="button"
+              className="inbox-list-panel__topbar-btn"
+              aria-label={waSyncing ? 'Sincronizando WhatsApp' : 'Sincronizar WhatsApp'}
+              title={waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
+              disabled={waSyncing}
+              onClick={() => void onSyncWhatsApp()}
+            >
+              <RefreshCw size={20} strokeWidth={2} aria-hidden className={waSyncing ? 'inbox-improve-spin' : undefined} />
+            </button>
+          ) : null}
+          {typeof onToggleDesktopNotify === 'function' ? (
+            <button
+              type="button"
+              className={`inbox-list-panel__topbar-btn${desktopNotify ? ' is-active' : ''}`}
+              aria-label={desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
+              title={desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
+              aria-pressed={desktopNotify}
+              onClick={() => void onToggleDesktopNotify()}
+            >
+              {desktopNotify ? (
+                <Bell size={20} strokeWidth={2} aria-hidden />
+              ) : (
+                <BellOff size={20} strokeWidth={2} aria-hidden />
+              )}
+            </button>
+          ) : null}
+          {pageActionsMenu}
+        </div>
       </div>
       <div className="inbox-list-panel__search">
         <SearchField

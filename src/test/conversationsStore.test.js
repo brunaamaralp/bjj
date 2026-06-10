@@ -1,5 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { recalcUnreadCount } from '../../lib/server/conversationsStore.js';
+import { buildMessagesRecentPayload } from '../../lib/server/conversationMessages.js';
+
+describe('buildMessagesRecentPayload', () => {
+  it('serializa cauda das mensagens', () => {
+    const msgs = [{ role: 'user', content: 'a' }, { role: 'user', content: 'b' }];
+    const parsed = JSON.parse(buildMessagesRecentPayload(msgs, 1));
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].content).toBe('b');
+  });
+
+  it('cabe no limite de 32KB mesmo com conteúdo grande', () => {
+    const msgs = Array.from({ length: 80 }, (_, i) => ({
+      role: 'user',
+      message_id: `m${i}`,
+      timestamp: `2026-01-01T10:${String(i).padStart(2, '0')}:00.000Z`,
+      content: 'x'.repeat(2000),
+      mediaUrl: `https://example.com/${'a'.repeat(500)}.jpg`,
+    }));
+    const json = buildMessagesRecentPayload(msgs);
+    expect(json.length).toBeLessThanOrEqual(32768);
+    expect(() => JSON.parse(json)).not.toThrow();
+  });
+});
 
 describe('recalcUnreadCount', () => {
   const messages = [
