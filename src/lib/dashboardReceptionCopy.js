@@ -1,0 +1,59 @@
+/** Microcopy da recepção (Hoje) — tom acolhedor, orientado à ação. */
+
+export function attendedButtonLabel(vertical) {
+  return vertical === 'physio' ? 'Compareceu à avaliação' : 'Veio treinar';
+}
+
+export function missedButtonLabel() {
+  return 'Não veio';
+}
+
+export function attendedStatusLabel(vertical) {
+  return vertical === 'physio' ? 'Compareceu à avaliação' : 'Compareceu';
+}
+
+export function missedStatusLabel() {
+  return 'Não veio';
+}
+
+export function emptyTodayTitle(vertical, trialShort) {
+  const trial = String(trialShort || 'aula experimental').toLowerCase();
+  if (vertical === 'physio') {
+    return `Nenhuma ${trial} hoje. Bom momento para retomar quem está aguardando retorno.`;
+  }
+  return `Nenhuma ${trial} hoje. Bom momento para retomar quem está aguardando retorno.`;
+}
+
+export function followupsAllDoneTitle() {
+  return 'Retornos em dia — a recepção mandou bem.';
+}
+
+export function followupKpiLabel() {
+  return 'Retornos pendentes';
+}
+
+export function toastAttendedSuccess(isFirstOfDay) {
+  if (isFirstOfDay) return 'Primeira presença do dia — ótimo começo!';
+  return 'Presença registrada — ótimo trabalho!';
+}
+
+export function toastMissedSuccess() {
+  return 'Não compareceu registrado.';
+}
+
+export function followupMicroToastMessage() {
+  return 'Retorno registrado!';
+}
+
+export function followupStreakMessage(streak) {
+  const n = Number(streak) || 0;
+  if (n < 2) return '';
+  return `${n}º dia seguido com retornos em dia.`;
+}
+
+export function weeklyEnrollmentsLine(count) {
+  const n = Number(count) || 0;
+  if (n <= 0) return '';
+  if (n === 1) return '1 matrícula esta semana — continue assim.';
+  return `${n} matrículas esta semana — continue assim.`;
+}

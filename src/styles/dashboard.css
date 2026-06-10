@@ -20,19 +20,122 @@
           border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
           box-shadow: 0 8px 28px rgba(108, 71, 216, 0.08);
         }
-        .dashboard-day-hero__date {
-          margin: 0 0 6px;
-          font-size: clamp(1.25rem, 2.4vw, 1.55rem);
+        .dashboard-day-hero--morning {
+          background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-surface) 90%, #fff) 0%, #fff 62%);
+        }
+        .dashboard-day-hero--afternoon {
+          background: linear-gradient(135deg, var(--color-primary-surface) 0%, #fff 55%);
+        }
+        .dashboard-day-hero--evening {
+          background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary-dark) 8%, var(--color-primary-surface)) 0%, #fff 52%);
+        }
+        .dashboard-day-hero__greeting {
+          margin: 0 0 4px;
+          font-size: clamp(1.35rem, 2.6vw, 1.65rem);
           font-weight: 800;
           letter-spacing: -0.03em;
           color: var(--color-text-heading);
           line-height: 1.15;
+        }
+        .dashboard-day-hero__date {
+          margin: 0 0 8px;
+          font-size: 0.875rem;
+          font-weight: 600;
+          line-height: 1.35;
+          color: var(--color-text-secondary);
         }
         .dashboard-day-hero__summary {
           margin: 0;
           font-size: 0.9375rem;
           line-height: 1.45;
           color: var(--color-text-secondary);
+        }
+        .dashboard-day-hero__priority {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px 14px;
+          margin-top: 12px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: color-mix(in srgb, var(--color-primary) 6%, var(--color-content-bg));
+          border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--color-border));
+        }
+        .dashboard-day-hero__priority-text {
+          margin: 0;
+          flex: 1;
+          min-width: 0;
+          font-size: 0.875rem;
+          font-weight: 600;
+          line-height: 1.4;
+          color: var(--color-text-heading);
+        }
+        .dashboard-day-hero__priority-btn {
+          flex-shrink: 0;
+          padding: 6px 12px;
+          border-radius: 8px;
+          border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+          background: var(--color-content-bg);
+          color: var(--color-primary-dark);
+          font-size: 12px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .dashboard-day-hero__priority-btn:hover {
+          background: var(--color-primary-surface);
+          border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+        }
+        .dashboard-birthday-banner {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: var(--color-accent-surface);
+          border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+        }
+        .dashboard-birthday-banner__main {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          min-width: 0;
+        }
+        .dashboard-birthday-banner__icon {
+          flex-shrink: 0;
+          color: var(--color-accent-dark);
+        }
+        .dashboard-birthday-banner__title {
+          margin: 0;
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: var(--color-accent-dark);
+          line-height: 1.35;
+        }
+        .dashboard-birthday-banner__link {
+          margin: 4px 0 0;
+          padding: 0;
+          border: none;
+          background: none;
+          font-size: 12px;
+          font-weight: 600;
+          font-family: inherit;
+          color: var(--color-accent-dark);
+          text-decoration: underline;
+          cursor: pointer;
+        }
+        .dashboard-birthday-banner__actions {
+          display: flex;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .dashboard-birthday-banner__wa-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
         }
         .dashboard-day-hero__stats {
           display: grid;
@@ -99,6 +202,14 @@
         }
         .dashboard-day-stat--muted .dashboard-day-stat__count {
           color: var(--color-text-secondary);
+        }
+        .dashboard-day-stat--highlight {
+          border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+          background: color-mix(in srgb, var(--color-accent-surface) 70%, #fff);
+          box-shadow: 0 4px 16px rgba(31, 170, 94, 0.12);
+        }
+        .dashboard-day-stat--highlight .dashboard-day-stat__count {
+          color: var(--color-accent-dark);
         }
 
         /* —— Bloco "Hoje" —— */
@@ -767,6 +878,12 @@
           font-weight: 600;
           color: var(--color-text-secondary);
         }
+        .fu-list-empty__streak {
+          margin: 6px 0 0;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--color-accent-dark);
+        }
         .fu-list-empty__hint {
           margin: 0;
           font-size: 12px;
@@ -919,6 +1036,12 @@
           padding: 0;
           box-shadow: none;
         }
+        .bd-list-card--celebrate {
+          padding: 4px 8px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--color-accent-surface) 55%, var(--color-content-bg));
+          border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+        }
         .bd-row {
           display: flex;
           align-items: center;
@@ -959,6 +1082,47 @@
         .bd-info {
           flex: 1;
           min-width: 0;
+        }
+        .bd-info--btn {
+          display: block;
+          width: 100%;
+          padding: 0;
+          border: none;
+          background: none;
+          font-family: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        .bd-row__wa-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+          padding: 6px 10px;
+          border-radius: 8px;
+          border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+          background: var(--color-content-bg);
+          color: var(--color-accent-dark);
+          font-size: 12px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .bd-row__wa-btn:hover:not(:disabled) {
+          background: var(--color-accent-surface);
+        }
+        .bd-row__wa-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .bd-row__wa-label {
+          white-space: nowrap;
+        }
+        @media (max-width: 480px) {
+          .bd-row__wa-label {
+            display: none;
+          }
         }
         .bd-name {
           font-size: 15px;

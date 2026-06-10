@@ -12,6 +12,30 @@ import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js
 import { Plus, Calendar, ChevronDown, MessageCircle, RefreshCcw, List, Check, CheckCircle2, DoorOpen, Loader2, Cake } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
+import DashboardBirthdayBanner from '../components/dashboard/DashboardBirthdayBanner.jsx';
+import { useSessionUser } from '../hooks/useSessionUser.js';
+import {
+    buildGreetingLine,
+    buildHeroContextLine,
+    buildDaySummaryLine,
+    getDayPriority,
+    getTimeOfDayPeriod,
+    countWeeklyEnrollments,
+} from '../lib/dashboardDayBriefing.js';
+import {
+    attendedButtonLabel,
+    missedButtonLabel,
+    attendedStatusLabel,
+    missedStatusLabel,
+    emptyTodayTitle,
+    followupsAllDoneTitle,
+    followupKpiLabel,
+    toastAttendedSuccess,
+    toastMissedSuccess,
+    followupMicroToastMessage,
+    followupStreakMessage,
+} from '../lib/dashboardReceptionCopy.js';
+import { touchFollowupStreak } from '../lib/dashboardFollowupStreak.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import { useControlIdMonitor } from '../hooks/useControlIdMonitor.js';
 import { releaseControlIdGate } from '../lib/controlidApi.js';
@@ -46,15 +70,6 @@ import { patchFollowupDoneCache, getFollowupDoneCache, setFollowupDoneCache } fr
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
-
-function formatTodayHeroDate(date = new Date()) {
-    const label = date.toLocaleDateString('pt-BR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-    });
-    return label.charAt(0).toUpperCase() + label.slice(1);
-}
 
 function groupFollowUpsByUrgency(followUps) {
     const urgent = followUps.filter((l) => l.daysAgo >= 5);
@@ -187,6 +202,10 @@ const Dashboard = () => {
     const followUpsSectionRef = useRef(null);
     const todaySectionRef = useRef(null);
     const weekSectionRef = useRef(null);
+    const birthdaysSectionRef = useRef(null);
+    const { firstName: sessionFirstName } = useSessionUser();
+    const [followupStreak, setFollowupStreak] = useState(0);
+    const [sendingBirthdayWa, setSendingBirthdayWa] = useState('');
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -502,6 +521,19 @@ const Dashboard = () => {
         });
     };
 
+    const scrollToBirthdaysSection = () => {
+        requestAnimationFrame(() => {
+            birthdaysSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    };
+
+    const handleDayPriorityAction = () => {
+        const target = dayPriority.scrollTarget;
+        if (target === 'today') scrollToTodaySection();
+        else if (target === 'follow-ups') scrollToFollowUps();
+        else if (target === 'birthdays') scrollToBirthdaysSection();
+    };
+
     const handleKpiClick = (cardKey) => {
         if (cardKey === 'followup') {
             scrollToFollowUps();
@@ -527,30 +559,60 @@ const Dashboard = () => {
         setListModalType(cardKey);
     };
 
-    const todayHeroDate = useMemo(() => formatTodayHeroDate(today), [today]);
+    const academyDisplayName = useMemo(() => {
+        const fromWa = String(dashWaName || academyWa.name || '').trim();
+        if (fromWa) return fromWa;
+        const acad = (academyList || []).find((a) => a.id === academyId) || {};
+        return String(acad.name || acad.label || '').trim();
+    }, [dashWaName, academyWa.name, academyList, academyId]);
 
-    const daySummaryLine = useMemo(() => {
-        const parts = [];
-        if (todayScheduled.length === 0) {
-            parts.push(`Nenhuma ${terms.trialShort.toLowerCase()} hoje`);
-        } else {
-            parts.push(
-                `${todayScheduled.length} ${
-                    todayScheduled.length === 1 ? terms.trialShort.toLowerCase() : terms.trialShort.toLowerCase()
-                } hoje`
-            );
-        }
-        if (followUps.length > 0) {
-            parts.push(`${followUps.length} follow-up${followUps.length === 1 ? '' : 's'} pendente${followUps.length === 1 ? '' : 's'}`);
-        }
-        if (pendingTasks.length > 0) {
-            parts.push(`${pendingTasks.length} tarefa${pendingTasks.length === 1 ? '' : 's'}`);
-        }
-        if (parts.length === 1 && todayScheduled.length === 0 && followUps.length === 0 && pendingTasks.length === 0) {
-            return 'Seu dia está em dia';
-        }
-        return parts.join(' · ');
-    }, [todayScheduled.length, followUps.length, pendingTasks.length, terms.trialShort]);
+    const weeklyEnrollmentsCount = useMemo(
+        () => countWeeklyEnrollments(students, new Date()),
+        [students]
+    );
+
+    const daySummaryLine = useMemo(
+        () =>
+            buildDaySummaryLine({
+                todayScheduled,
+                followUps,
+                pendingTasks,
+                trialShort: terms.trialShort,
+                weeklyEnrollments: weeklyEnrollmentsCount,
+            }),
+        [todayScheduled, followUps, pendingTasks, terms.trialShort, weeklyEnrollmentsCount]
+    );
+
+    const dayPriority = useMemo(
+        () =>
+            getDayPriority({
+                now: new Date(),
+                todayScheduled,
+                followUps,
+                todayBirthdays,
+                vertical,
+                daySummaryLine,
+            }),
+        [todayScheduled, followUps, todayBirthdays, vertical, daySummaryLine]
+    );
+
+    const heroGreetingLine = useMemo(
+        () => buildGreetingLine(sessionFirstName, new Date()),
+        [sessionFirstName]
+    );
+
+    const heroContextLine = useMemo(
+        () => buildHeroContextLine(academyDisplayName, new Date()),
+        [academyDisplayName]
+    );
+
+    const heroPeriod = useMemo(() => getTimeOfDayPeriod(new Date()), []);
+
+    useEffect(() => {
+        if (!academyId || loading) return;
+        const streak = touchFollowupStreak(academyId, followUps.length, new Date());
+        setFollowupStreak(streak);
+    }, [academyId, loading, followUps.length]);
 
     const followUpGroups = useMemo(() => groupFollowUpsByUrgency(followUps), [followUps]);
 
@@ -600,7 +662,7 @@ const Dashboard = () => {
             },
             {
                 key: 'followup',
-                label: 'Follow-ups',
+                label: followupKpiLabel(),
                 count: followUps.length,
                 tone: followUps.length > 0 ? 'attention' : 'success',
             },
@@ -631,6 +693,26 @@ const Dashboard = () => {
               : listModalType === 'tasks'
                 ? 'Próximas tarefas'
                 : '';
+
+    const handleBirthdayWhatsApp = async (student, e) => {
+        e?.stopPropagation?.();
+        const studentId = String(student?.id || '').trim();
+        if (!studentId || sendingBirthdayWa) return;
+        setSendingBirthdayWa(studentId);
+        try {
+            await sendWhatsappTemplateOutbound({
+                lead: student,
+                academyId,
+                academyName: academyDisplayName,
+                templateKey: 'birthday',
+                templatesMap: academyWa.templates,
+                zapsterInstanceId: academyWa.zapster_instance_id,
+                onToast: (t) => addToast(t),
+            });
+        } finally {
+            setSendingBirthdayWa('');
+        }
+    };
 
     const sendDashboardTemplate = async (lead, templateKey) =>
         sendWhatsappTemplateOutbound({
@@ -673,6 +755,10 @@ const Dashboard = () => {
 
     const markLeadAttended = async (lead) => {
         const k = `${lead.id}:attended`;
+        const attendedTodayBefore = todayScheduled.filter(
+            (l) => l.status === LEAD_STATUS.COMPLETED
+        ).length;
+        const isFirstOfDay = attendedTodayBefore === 0;
         setSavingPresence((p) => ({ ...p, [k]: true }));
         try {
             const st = useLeadStore.getState();
@@ -692,7 +778,7 @@ const Dashboard = () => {
                 pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
                 attendedAt: new Date().toISOString()
             });
-            addToast({ type: 'success', message: 'Comparecimento registrado.' });
+            addToast({ type: 'success', message: toastAttendedSuccess(isFirstOfDay) });
         } catch {
             addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
         } finally {
@@ -725,7 +811,7 @@ const Dashboard = () => {
                 pipelineStage: LEAD_STATUS.MISSED,
                 missedAt: new Date().toISOString()
             });
-            addToast({ type: 'success', message: 'Não compareceu registrado.' });
+            addToast({ type: 'success', message: toastMissedSuccess() });
         } catch {
             addToast({ type: 'error', message: 'Erro ao registrar não compareceu.' });
         } finally {
@@ -878,7 +964,7 @@ const Dashboard = () => {
                             disabled={busyAttended || busyMissed}
                             onClick={() => void markLeadAttended(lead)}
                         >
-                            {busyAttended ? 'Salvando…' : 'Compareceu'}
+                            {busyAttended ? 'Salvando…' : attendedButtonLabel(vertical)}
                         </button>
                         <button
                             type="button"
@@ -886,12 +972,16 @@ const Dashboard = () => {
                             disabled={busyAttended || busyMissed}
                             onClick={() => void markLeadMissed(lead)}
                         >
-                            {busyMissed ? 'Salvando…' : 'Não compareceu'}
+                            {busyMissed ? 'Salvando…' : missedButtonLabel()}
                         </button>
                     </div>
                 ) : (
                     <div className="dashboard-today-card__status">
-                        {attendedSelected ? 'Compareceu' : missedSelected ? 'Não compareceu' : null}
+                        {attendedSelected
+                            ? attendedStatusLabel(vertical)
+                            : missedSelected
+                              ? missedStatusLabel()
+                              : null}
                     </div>
                 )}
             </article>
@@ -1058,11 +1148,41 @@ const Dashboard = () => {
                 />
             )}
 
-            <section className="dashboard-day-hero animate-in" style={{ animationDelay: '0.04s' }} aria-busy={loading}>
+            <section
+                className={`dashboard-day-hero dashboard-day-hero--${heroPeriod} animate-in`}
+                style={{ animationDelay: '0.04s' }}
+                aria-busy={loading}
+            >
                 <div className="dashboard-day-hero__main">
-                    <p className="dashboard-day-hero__date">{todayHeroDate}</p>
+                    <p className="dashboard-day-hero__greeting">{heroGreetingLine}</p>
+                    <p className="dashboard-day-hero__date">{heroContextLine}</p>
                     <p className="dashboard-day-hero__summary">{loading ? 'Carregando…' : daySummaryLine}</p>
+                    {!loading && dayPriority.message ? (
+                        <div className="dashboard-day-hero__priority">
+                            <p className="dashboard-day-hero__priority-text">{dayPriority.message}</p>
+                            {dayPriority.scrollTarget ? (
+                                <button
+                                    type="button"
+                                    className="dashboard-day-hero__priority-btn"
+                                    onClick={handleDayPriorityAction}
+                                >
+                                    Ver agora
+                                </button>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
+                {!loading && todayBirthdays.length > 0 ? (
+                    <DashboardBirthdayBanner
+                        students={todayBirthdays}
+                        academyId={academyId}
+                        academyName={academyDisplayName}
+                        templatesMap={academyWa.templates}
+                        zapsterInstanceId={academyWa.zapster_instance_id}
+                        onToast={(t) => addToast(t)}
+                        onScrollToSection={scrollToBirthdaysSection}
+                    />
+                ) : null}
                 <div className="dashboard-day-hero__stats" role="list">
                     {loading ? (
                         <SkeletonCard variant="kpi" count={4} className="dashboard-day-hero__skeletons" />
@@ -1072,7 +1192,11 @@ const Dashboard = () => {
                                 key={stat.key}
                                 type="button"
                                 role="listitem"
-                                className={`dashboard-day-stat dashboard-day-stat--${stat.tone}`}
+                                className={`dashboard-day-stat dashboard-day-stat--${stat.tone}${
+                                    dayPriority.highlightKpi === stat.key
+                                        ? ' dashboard-day-stat--highlight'
+                                        : ''
+                                }`}
                                 onClick={() => handleKpiClick(stat.key)}
                             >
                                 <span className="dashboard-day-stat__count">{stat.count}</span>
@@ -1156,7 +1280,7 @@ const Dashboard = () => {
                             variant="compact"
                             tone="dashed"
                             icon={Calendar}
-                            title={`Nenhuma ${terms.trialShort.toLowerCase()} agendada para hoje.`}
+                            title={emptyTodayTitle(vertical, terms.trialShort)}
                             role="status"
                         />
                     )}
@@ -1315,7 +1439,10 @@ const Dashboard = () => {
                     ) : (
                         <div className="fu-list-empty fu-list-empty--all-done" role="status">
                             <CheckCircle2 className="fu-list-empty__icon" size={24} strokeWidth={2} aria-hidden />
-                            <p className="fu-list-empty__title">Todos os follow-ups concluídos!</p>
+                            <p className="fu-list-empty__title">{followupsAllDoneTitle()}</p>
+                            {followupStreakMessage(followupStreak) ? (
+                                <p className="fu-list-empty__streak">{followupStreakMessage(followupStreak)}</p>
+                            ) : null}
                             {followUpsKanbanOnlyCount > 0 ? (
                                 <p className="fu-list-empty__hint">
                                     {followUpsKanbanOnlyCount}{' '}
@@ -1350,6 +1477,7 @@ const Dashboard = () => {
 
             <section
                 id="birthdays"
+                ref={birthdaysSectionRef}
                 className="animate-in agenda-birthdays-section reception-section"
                 style={{ animationDelay: '0.22s' }}
             >
@@ -1367,7 +1495,11 @@ const Dashboard = () => {
                     </div>
                 </div>
                 <div className="agenda-birthdays-section__body">
-                    <div className="bd-list-card">
+                    <div
+                        className={`bd-list-card${
+                            todayBirthdays.length > 0 ? ' bd-list-card--celebrate' : ''
+                        }`}
+                    >
                         {studentsLoading && students.length === 0 ? (
                             <div className="bd-list-loading" aria-busy="true">
                                 <SkeletonCard variant="list-row" count={2} />
@@ -1376,6 +1508,12 @@ const Dashboard = () => {
                             todayBirthdays.map((student, i) => {
                                 const turma =
                                     String(student.turma || student.className || '').trim() || '—';
+                                const studentId = String(student.id || '').trim();
+                                const hasPhone = Boolean(String(student.phone || '').trim());
+                                const waBusy = sendingBirthdayWa === studentId;
+                                const canBirthdayWa = Boolean(
+                                    String(academyWa.zapster_instance_id || '').trim() && hasPhone
+                                );
                                 return (
                                     <div
                                         key={student.id}
@@ -1383,17 +1521,12 @@ const Dashboard = () => {
                                             i === todayBirthdays.length - 1 ? ' bd-row--last' : ''
                                         }`}
                                         style={{ animationDelay: `${0.04 * i}s` }}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => navigate(`/student/${student.id}`)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                navigate(`/student/${student.id}`);
-                                            }
-                                        }}
                                     >
-                                        <div className="bd-info">
+                                        <button
+                                            type="button"
+                                            className="bd-info bd-info--btn"
+                                            onClick={() => navigate(`/student/${student.id}`)}
+                                        >
                                             <div className="bd-name">{student.name}</div>
                                             <div className="bd-sub">
                                                 <span className="bd-meta-label">Turma</span>
@@ -1402,7 +1535,28 @@ const Dashboard = () => {
                                                 </span>
                                                 <span className="bd-meta-value">{turma}</span>
                                             </div>
-                                        </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="bd-row__wa-btn"
+                                            disabled={!canBirthdayWa || waBusy}
+                                            title={
+                                                !hasPhone
+                                                    ? 'Sem telefone cadastrado'
+                                                    : !String(academyWa.zapster_instance_id || '').trim()
+                                                      ? 'WhatsApp não configurado'
+                                                      : 'Mandar parabéns'
+                                            }
+                                            aria-label="Mandar parabéns por WhatsApp"
+                                            onClick={(e) => void handleBirthdayWhatsApp(student, e)}
+                                        >
+                                            {waBusy ? (
+                                                <Loader2 size={14} className="spin-refresh" aria-hidden />
+                                            ) : (
+                                                <MessageCircle size={14} aria-hidden />
+                                            )}
+                                            <span className="bd-row__wa-label">Parabéns</span>
+                                        </button>
                                     </div>
                                 );
                             })
@@ -1477,7 +1631,7 @@ const Dashboard = () => {
                                             disabled={busy}
                                             onClick={() => void markLeadAttended(lead)}
                                         >
-                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : 'Compareceu'}
+                                            {savingPresence[`${lead.id}:attended`] ? 'Salvando…' : attendedButtonLabel(vertical)}
                                         </button>
                                         <button
                                             type="button"
@@ -1485,7 +1639,7 @@ const Dashboard = () => {
                                             disabled={busy}
                                             onClick={() => void markLeadMissed(lead)}
                                         >
-                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : 'Não compareceu'}
+                                            {savingPresence[`${lead.id}:missed`] ? 'Salvando…' : missedButtonLabel()}
                                         </button>
                                     </div>
                                 </div>
@@ -1497,6 +1651,7 @@ const Dashboard = () => {
 
             <FollowUpMicroToast
                 open={followUpMicroToastOpen}
+                message={followupMicroToastMessage()}
                 onClose={() => setFollowUpMicroToastOpen(false)}
             />
 
