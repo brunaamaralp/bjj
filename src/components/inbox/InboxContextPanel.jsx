@@ -4,6 +4,7 @@ import ConversationNotesPanel from './ConversationNotesPanel';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
+import InboxLinkStudentPanel from './InboxLinkStudentPanel.jsx';
 import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 import { isLeadPendingTriage } from '../../lib/leadTriage.js';
 import { formatInboxPhone, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
@@ -53,6 +54,7 @@ export function InboxContextPanelContent(props) {
     onOpenLinkStudent,
     onLinkStudentConfirm,
     triageBusy,
+    activeContactLead,
     pinnedMessages,
     setSelectedMsgKey,
     scrollToMsgKey,
@@ -135,6 +137,25 @@ export function InboxContextPanelContent(props) {
 
       <ConversationNotesPanel academyId={academyId} conversationId={conversationIdForFlags} addToast={toast.addToast} />
 
+      {leadPanel === 'link_student' ? (
+        <InboxLinkStudentPanel
+          contactName={pickDisplayName({
+            leadName: String(activeContactLead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+            manualContactName: selected?.contact_name,
+            whatsappProfileName: selected?.whatsapp_profile_name,
+            phone: String(selectedPhone || '').trim(),
+          })}
+          leadSearch={leadSearch}
+          setLeadSearch={setLeadSearch}
+          studentCandidates={studentCandidates}
+          studentsLoading={studentsLoading}
+          fetchStudents={fetchStudents}
+          onConfirm={onLinkStudentConfirm}
+          onClose={() => setLeadPanel(null)}
+          busy={triageBusy || linkingLead}
+        />
+      ) : null}
+
       {(() => {
         const phone = String(selectedPhone || '').trim();
         const leadId = String(selected?.lead_id || '').trim();
@@ -170,7 +191,7 @@ export function InboxContextPanelContent(props) {
                   </span>
                 )}
               </div>
-              {pendingTriage ? (
+              {pendingTriage && leadPanel !== 'link_student' ? (
                 <InboxTriageCard
                   busy={triageBusy || linkingLead}
                   onConfirm={() => onConfirmTriage?.(lead)}
@@ -356,64 +377,6 @@ export function InboxContextPanelContent(props) {
           )}
           <div className="inbox-context-btn-row inbox-context-btn-row--end inbox-context-footer-note">
             <button className="btn btn-outline inbox-btn--ctx" type="button" onClick={() => setLeadPanel(null)} disabled={linkingLead}>
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {leadPanel === 'link_student' && (
-        <div className="inbox-context-card">
-          <div className="navi-section-heading inbox-context-card__heading">Vincular a aluno</div>
-          <p className="navi-subtitle navi-subtitle--spaced">
-            Escolha o aluno correspondente. O contato sai do funil e fica vinculado a esta conversa.
-          </p>
-          <div className="inbox-context-search-row">
-            <input
-              className="input"
-              value={leadSearch}
-              onChange={(e) => setLeadSearch(e.target.value)}
-              placeholder="Buscar por nome ou telefone"
-            />
-            <button
-              className="btn btn-outline inbox-btn--ctx"
-              onClick={() => fetchStudents?.()}
-              disabled={studentsLoading || triageBusy || linkingLead}
-              type="button"
-            >
-              Atualizar
-            </button>
-          </div>
-          {studentsLoading && <div className="text-small inbox-context-muted">Carregando alunos…</div>}
-          {!studentsLoading && studentCandidates.length === 0 && (
-            <EmptyState variant="compact" tone="dashed" title="Nenhum aluno encontrado." role="status" />
-          )}
-          {!studentsLoading && studentCandidates.length > 0 && (
-            <div className="inbox-context-list">
-              {studentCandidates.map((s) => (
-                <button
-                  key={s.id}
-                  className="btn btn-outline inbox-context-list-item"
-                  onClick={() => onLinkStudentConfirm?.(s.id)}
-                  disabled={triageBusy || linkingLead}
-                  type="button"
-                >
-                  <span className="inbox-context-list-item__main">
-                    <span className="inbox-context-list-item__title">{s.name || 'Sem nome'}</span>
-                    <span className="text-small inbox-context-muted">{s.phone || ''}</span>
-                  </span>
-                  {s.plan ? <span className="text-small inbox-context-muted">{s.plan}</span> : null}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="inbox-context-btn-row inbox-context-btn-row--end inbox-context-footer-note">
-            <button
-              className="btn btn-outline inbox-btn--ctx"
-              type="button"
-              onClick={() => setLeadPanel(null)}
-              disabled={triageBusy || linkingLead}
-            >
               Fechar
             </button>
           </div>

@@ -1590,26 +1590,57 @@ export default function Inbox() {
     } else {
       setContextOpen(true);
     }
-  }, [isMobile, isNarrowDesktop]);
+    void fetchStudents({ reset: true });
+  }, [fetchStudents, isMobile, isNarrowDesktop]);
 
   const handleInboxLinkStudentConfirm = useCallback(async (studentId) => {
     const lead = activeContactLead;
     const leadId = String(lead?.id || '').trim();
     const sid = String(studentId || '').trim();
-    if (!leadId || !sid) return;
+    const phone = String(selectedPhone || '').trim();
+    if (!leadId || !sid || linkingLead) return;
+
+    const student = (Array.isArray(students) ? students : []).find((s) => String(s?.id || '').trim() === sid);
+    const studentName = String(student?.name || '').trim();
+
     setLinkingLead(true);
     try {
-      await linkLeadToConversation({ leadId: sid });
-      await deleteLead(leadId);
+      await resolvePipelineLeadToStudent({
+        lead,
+        studentId: sid,
+        academyId,
+        deleteLead,
+      });
+      setSelected((prev) => {
+        if (!prev || String(prev.phone || '').trim() !== phone) return prev;
+        return { ...prev, lead_id: sid, lead_name: studentName || prev.lead_name };
+      });
+      setItems((prev) =>
+        (Array.isArray(prev) ? prev : []).map((it) => {
+          if (String(it?.phone_number || '').trim() !== phone) return it;
+          return { ...it, lead_id: sid, lead_name: studentName || String(it?.lead_name || '').trim() };
+        })
+      );
+      await loadList({ reset: true, silent: true });
       toast.success('Aluno vinculado — removido do funil');
       setLeadPanel(null);
       setLeadSearch('');
+      setDetailsOpen(false);
     } catch (e) {
       toast.error(e, 'action');
     } finally {
       setLinkingLead(false);
     }
-  }, [activeContactLead, deleteLead, linkLeadToConversation, toast]);
+  }, [
+    academyId,
+    activeContactLead,
+    deleteLead,
+    linkingLead,
+    loadList,
+    selectedPhone,
+    students,
+    toast,
+  ]);
 
   const {
     groupedFilteredItems,
@@ -2104,6 +2135,7 @@ export default function Inbox() {
       onDismissTriage={handleInboxDismissTriage}
       onOpenLinkStudent={handleOpenLinkStudent}
       triageBusy={linkingLead}
+      leadPanel={leadPanel}
       setLeadPanel={setLeadPanel}
       linkingLead={linkingLead}
     />
@@ -2153,6 +2185,7 @@ export default function Inbox() {
     onOpenLinkStudent: handleOpenLinkStudent,
     onLinkStudentConfirm: handleInboxLinkStudentConfirm,
     triageBusy: linkingLead,
+    activeContactLead,
     pinnedMessages,
     setSelectedMsgKey,
     scrollToMsgKey,

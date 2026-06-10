@@ -37,6 +37,7 @@ export default function InboxThreadPanel(props) {
     onDismissTriage,
     onOpenLinkStudent,
     triageBusy = false,
+    leadPanel = null,
     setLeadPanel,
     linkingLead = false,
     menu,
@@ -279,7 +280,7 @@ export default function InboxThreadPanel(props) {
         </div>
       </div>
 
-      {pendingTriage ? (
+      {pendingTriage && leadPanel !== 'link_student' ? (
         <div className="inbox-thread-triage-banner" data-no-dnd="true">
           <InboxTriageCard
             busy={triageBusy}
