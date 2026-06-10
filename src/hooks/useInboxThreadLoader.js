@@ -24,29 +24,48 @@ export function useInboxThreadLoader({
   itemsRef,
   selectedRef,
 }) {
+  const threadInFlightRef = useRef(new Map());
+
+  const applyThreadCache = useCallback(
+    (academyId, p) => {
+      const cached = getInboxThreadCache(academyId, p);
+      if (!cached?.messages) return false;
+      setThreadCursor(cached.nextCursor || null);
+      setThreadHasMore(Boolean(cached.nextCursor));
+      setSelected((prev) => {
+        if (prev?.phone === p && Array.isArray(prev.messages) && prev.messages.length > 0) return prev;
+        return { ...(cached.summary || { phone: p }), phone: p, messages: cached.messages };
+      });
+      return true;
+    },
+    [setSelected, setThreadCursor, setThreadHasMore]
+  );
+
   const loadThread = useCallback(
-    async (phone, { silent = false, cursor = '', append = false, conversationId = '' } = {}) => {
+    async (phone, { silent = false, prefetch = false, cursor = '', append = false, conversationId = '' } = {}) => {
       const p = String(phone || '').trim();
       if (!p) return;
       const academyId = String(academyIdRef.current || '').trim();
-      if (!silent && !append && !cursor) {
-        const cached = getInboxThreadCache(academyId, p);
-        if (cached?.messages) {
-          setThreadCursor(cached.nextCursor || null);
-          setThreadHasMore(Boolean(cached.nextCursor));
-          setSelected((prev) => {
-            if (prev?.phone === p && Array.isArray(prev.messages) && prev.messages.length > 0) return prev;
-            return { ...(cached.summary || { phone: p }), phone: p, messages: cached.messages };
-          });
+      const isInitialPage = !append && !cursor;
+      const inflightKey = `${academyId}:${p}`;
+
+      if (isInitialPage) {
+        const inflight = threadInFlightRef.current.get(inflightKey);
+        if (inflight) {
+          await inflight;
+          if (prefetch) return;
+          if (applyThreadCache(academyId, p)) return;
           return;
         }
+        if (applyThreadCache(academyId, p)) return;
       }
-      if (!silent) {
+
+      if (!silent && !prefetch) {
         setError('');
         setThreadError('');
       }
       const reqSeq = ++threadRequestSeqRef.current;
-      if (!append) {
+      if (!append && !prefetch) {
         try {
           if (threadAbortRef.current) threadAbortRef.current.abort();
         } catch {
@@ -54,16 +73,17 @@ export function useInboxThreadLoader({
         }
         threadAbortRef.current = new AbortController();
       }
-      const signal = !append && threadAbortRef.current ? threadAbortRef.current.signal : undefined;
+      const signal = !append && !prefetch && threadAbortRef.current ? threadAbortRef.current.signal : undefined;
       const prevScroll = (() => {
         if (!append) return null;
         const el = threadScrollRef.current;
         if (!el) return null;
         return { height: el.scrollHeight, top: el.scrollTop };
       })();
+      const runFetch = async () => {
       try {
         if (append) setThreadPaging(true);
-        else setThreadLoading(true);
+        else if (!prefetch) setThreadLoading(true);
         const jwt = await getInboxJwt();
         const params = new URLSearchParams();
         params.set('limit', '35');
@@ -108,8 +128,11 @@ export function useInboxThreadLoader({
         const ticketStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : 'open';
         const transferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
         if (reqSeq !== threadRequestSeqRef.current) return;
-        setThreadCursor(nextCur || null);
-        setThreadHasMore(Boolean(nextCur));
+        const shouldApplyToUi = !prefetch || selectedRef?.current?.phone === p;
+        if (shouldApplyToUi) {
+          setThreadCursor(nextCur || null);
+          setThreadHasMore(Boolean(nextCur));
+        }
         if (!append && !cursor) {
           setInboxThreadCache(academyId, p, {
             messages: incoming,
@@ -136,7 +159,7 @@ export function useInboxThreadLoader({
             },
           });
         }
-        setSelected((prev) => {
+        if (shouldApplyToUi) setSelected((prev) => {
           const convId =
             typeof data?.conversation_id === 'string' && String(data.conversation_id).trim()
               ? String(data.conversation_id).trim()
@@ -178,7 +201,7 @@ export function useInboxThreadLoader({
           }
           return { ...base, messages: deduped };
         });
-        try {
+        if (shouldApplyToUi) try {
           const last = incoming.length > 0 ? incoming[incoming.length - 1] : null;
           const textRaw = String(last?.content || '')
             .replace(/_{2,}/g, ' ')
@@ -198,7 +221,7 @@ export function useInboxThreadLoader({
         } catch {
           void 0;
         }
-        try {
+        if (shouldApplyToUi) try {
           if (!append) {
             setTimeout(() => {
               if (reqSeq !== threadRequestSeqRef.current) return;
@@ -222,15 +245,32 @@ export function useInboxThreadLoader({
         }
       } catch (e) {
         if (e?.name === 'AbortError') return;
-        if (!silent) setError(friendlyError(e, 'load'));
+        if (!silent && !prefetch) setError(friendlyError(e, 'load'));
       } finally {
         if (reqSeq === threadRequestSeqRef.current) {
           setThreadLoading(false);
           setThreadPaging(false);
         }
       }
+      };
+
+      if (isInitialPage) {
+        const promise = runFetch();
+        threadInFlightRef.current.set(inflightKey, promise);
+        try {
+          await promise;
+        } finally {
+          if (threadInFlightRef.current.get(inflightKey) === promise) {
+            threadInFlightRef.current.delete(inflightKey);
+          }
+        }
+        return;
+      }
+
+      await runFetch();
     },
     [
+      applyThreadCache,
       academyIdRef,
       threadScrollRef,
       threadAbortRef,

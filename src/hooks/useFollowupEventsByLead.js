@@ -18,10 +18,25 @@ function parsePayload(doc) {
   }
 }
 
+function scheduleDeferredWork(run) {
+  if (typeof window === 'undefined') {
+    run();
+    return () => {};
+  }
+  if (typeof requestIdleCallback === 'function') {
+    const id = requestIdleCallback(() => run(), { timeout: 1500 });
+    return () => cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(run, 1500);
+  return () => window.clearTimeout(id);
+}
+
 /**
  * Carrega eventos recentes de retorno por lead (cache compartilhado com Dashboard).
+ * @param {string} academyId
+ * @param {{ defer?: boolean }} [opts]
  */
-export function useFollowupEventsByLead(academyId) {
+export function useFollowupEventsByLead(academyId, { defer = false } = {}) {
   const [doneByLead, setDoneByLead] = useState({});
   const [contactByLead, setContactByLead] = useState({});
   const [snoozeUntilByLead, setSnoozeUntilByLead] = useState({});
@@ -44,9 +59,10 @@ export function useFollowupEventsByLead(academyId) {
     }
 
     let cancelled = false;
-    setLoading(true);
 
     const load = async () => {
+      if (cancelled) return;
+      setLoading(true);
       try {
         let cursor = null;
         let pageCount = 0;
@@ -112,11 +128,13 @@ export function useFollowupEventsByLead(academyId) {
       }
     };
 
-    void load();
+    const cancelSchedule = defer ? scheduleDeferredWork(() => void load()) : (void load(), () => {});
+
     return () => {
       cancelled = true;
+      cancelSchedule();
     };
-  }, [academyId]);
+  }, [academyId, defer]);
 
   return {
     loading,

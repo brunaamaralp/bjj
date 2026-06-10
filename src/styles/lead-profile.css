@@ -1055,6 +1055,8 @@
   gap: 14px;
   padding-bottom: 4px;
   border-bottom: none;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .lead-profile-hero__avatar {
@@ -1067,6 +1069,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .lead-profile-hero__name {
@@ -1084,7 +1089,24 @@
 }
 
 .lead-profile-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.lead-profile-hero__badges > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.lead-profile-hero__badges .stage-badge,
+.lead-profile-hero__badges .status-tag,
+.lead-profile-hero__badges .lead-profile-type-chip {
+  flex-shrink: 1;
 }
 
 .lead-profile-hero__actions {
@@ -1229,8 +1251,14 @@
 .lead-profile-left__scroll {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.lead-panel-left-col {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .lead-profile-left__footer {
@@ -1410,6 +1438,17 @@
   background: var(--color-background-secondary, var(--surface-hover));
   border: 0.5px solid var(--color-border-secondary, var(--border));
   color: var(--color-text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.origin-status-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lead-profile-phone-copy {

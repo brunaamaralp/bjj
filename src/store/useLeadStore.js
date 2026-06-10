@@ -20,6 +20,26 @@ export const LEADS_PAGE_SIZE = 200;
 
 let fetchLeadsAbortController = null;
 
+/** Índice id → lead para lookup O(1) (ex.: inbox). */
+export function buildLeadsById(leads) {
+  const byId = Object.create(null);
+  for (const l of Array.isArray(leads) ? leads : []) {
+    const id = String(l?.id || '').trim();
+    if (id) byId[id] = l;
+  }
+  return byId;
+}
+
+export function selectLeadById(state, id) {
+  const lid = String(id || '').trim();
+  if (!lid) return null;
+  return state.leadsById?.[lid] ?? null;
+}
+
+function withLeadsIndex(leads) {
+  return { leads, leadsById: buildLeadsById(leads) };
+}
+
 export function cancelFetchLeads() {
   if (fetchLeadsAbortController) {
     fetchLeadsAbortController.abort();
@@ -152,6 +172,7 @@ function updatesToAppwritePatch(updates, currentLead) {
 export const useLeadStore = create(
   persist((set, get) => ({
   leads: [],
+  leadsById: {},
   loading: false,
   leadsError: false,
   loadingMore: false,
@@ -193,6 +214,7 @@ export const useLeadStore = create(
       set({
         academyId: id,
         leads: [],
+        leadsById: {},
         leadsCursor: null,
         leadsHasMore: false,
         leadsLastFetchedAt: null,
@@ -209,6 +231,7 @@ export const useLeadStore = create(
        set({
          academyId: null,
          leads: [],
+         leadsById: {},
          leadsCursor: null,
          leadsHasMore: false,
          leadsLastFetchedAt: null,
@@ -328,8 +351,9 @@ export const useLeadStore = create(
             return !serverIds.has(l.id) && isRecentlyCreated;
           });
 
+          const merged = [...localsToKeep, ...leads];
           return {
-            leads: [...localsToKeep, ...leads],
+            ...withLeadsIndex(merged),
             loading: false,
             leadsError: false,
             leadsHasMore: pageFull,
@@ -341,8 +365,9 @@ export const useLeadStore = create(
         set((state) => {
           const existingIds = new Set(state.leads.map((l) => l.id));
           const appended = leads.filter((l) => !existingIds.has(l.id));
+          const merged = [...state.leads, ...appended];
           return {
-            leads: [...state.leads, ...appended],
+            ...withLeadsIndex(merged),
             loadingMore: false,
             leadsError: false,
             leadsHasMore: pageFull,
@@ -469,7 +494,7 @@ export const useLeadStore = create(
         _isNew: true
       };
 
-      set((state) => ({ leads: [newLead, ...state.leads] }));
+      set((state) => withLeadsIndex([newLead, ...state.leads]));
 
       if (wasEmpty) {
         try {
@@ -531,9 +556,9 @@ export const useLeadStore = create(
         mergedLead.pipelineStageChangedAt = patch.pipeline_stage_changed_at || mergedLead.pipelineStageChangedAt;
       }
 
-      set((state) => ({
-        leads: state.leads.map((l) => (l.id === id ? mergedLead : l))
-      }));
+      set((state) =>
+        withLeadsIndex(state.leads.map((l) => (l.id === id ? mergedLead : l)))
+      );
     } catch (e) {
       if (import.meta.env.DEV) {
         console.error('[updateLead] rejected', e?.message || e);
@@ -548,13 +573,12 @@ export const useLeadStore = create(
     assertClientBillingMutationsAllowed(get().billingAccess);
 
     const previousLeads = get().leads;
-    set((state) => ({
-      leads: state.leads.filter((l) => l.id !== id)
-    }));
+    const previousById = get().leadsById;
+    set((state) => withLeadsIndex(state.leads.filter((l) => l.id !== id)));
     try {
       await databases.deleteDocument(DB_ID, LEADS_COL, id);
     } catch (e) {
-      set({ leads: previousLeads });
+      set({ leads: previousLeads, leadsById: previousById });
       console.error('deleteLead error:', e);
       throw e;
     }
@@ -648,7 +672,7 @@ export const useLeadStore = create(
         console.error('import error for', lead.name, e);
       }
     }
-    set((state) => ({ leads: [...newLeads, ...state.leads] }));
+    set((state) => withLeadsIndex([...newLeads, ...state.leads]));
 
     if (wasEmpty && newLeads.length > 0) {
       try {
@@ -669,7 +693,7 @@ export const useLeadStore = create(
     }
   },
 
-  getLeadById: (id) => get().leads.find((l) => l.id === id),
+  getLeadById: (id) => selectLeadById(get(), id),
 
   /** Reordena leads de um estágio só no cliente (sem API). */
   patchLeadsOrder: (_stage, reorderedLeads) => {
@@ -679,9 +703,11 @@ export const useLeadStore = create(
       _localKanbanIndex: index,
     }));
     const indexById = new Map(withIndex.map((l) => [l.id, l]));
-    set((state) => ({
-      leads: state.leads.map((l) => (reorderedIds.has(l.id) ? (indexById.get(l.id) || l) : l)),
-    }));
+    set((state) =>
+      withLeadsIndex(
+        state.leads.map((l) => (reorderedIds.has(l.id) ? indexById.get(l.id) || l : l))
+      )
+    );
   },
 }),
 {

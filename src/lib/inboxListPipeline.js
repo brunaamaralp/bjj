@@ -23,9 +23,10 @@ export function enrichInboxListItems({
   return arr.map((it) => {
     const phone = String(it?.phone_number || '').trim();
     const leadId = String(it?.lead_id || '').trim();
+    const embeddedLead = it?.lead && typeof it.lead === 'object' ? it.lead : null;
     const leadFromId = leadId ? leadById.get(leadId) : null;
     const leadFromPhone = phone ? leadByPhone.get(normalizePhone(phone)) : null;
-    const lead = leadFromId || leadFromPhone;
+    const lead = leadFromId || leadFromPhone || embeddedLead;
     const leadName = String(lead?.name || '').trim() || String(it?.lead_name || '').trim();
     const manualContactName = String(it?.contact_name || '').trim();
     const waProfileName = String(it?.whatsapp_profile_name || '').trim();

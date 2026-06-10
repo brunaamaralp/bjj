@@ -2,8 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import FollowupTemperatureBadge from './FollowupTemperatureBadge.jsx';
 import FollowupCopilotButtons from './FollowupCopilotButtons.jsx';
-import { temperatureLabel } from '../../lib/followupTemperature.js';
-
 export default function LeadFollowupBand({
   followupState,
   lead,
@@ -28,17 +26,15 @@ export default function LeadFollowupBand({
       <div className="lead-followup-band__main">
         <FollowupTemperatureBadge temperature={followupState.temperature} size="sm" />
         <div className="lead-followup-band__text">
-          <strong>Retorno pós-aula</strong>
-          <span>
-            {' '}
-            · {temperatureLabel(followupState.temperature)} · {daysLabel}
-            {followupState.nextActionLabel ? (
-              <>
-                {' '}
-                · Próxima: <strong>{followupState.nextActionLabel}</strong>
-              </>
-            ) : null}
-          </span>
+          <p className="lead-followup-band__lead">
+            <strong>Retorno pós-aula</strong>
+            <span className="lead-followup-band__meta"> · {daysLabel}</span>
+          </p>
+          {followupState.nextActionLabel ? (
+            <p className="lead-followup-band__next">
+              Próxima ação: <strong>{followupState.nextActionLabel}</strong>
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="lead-followup-band__actions">

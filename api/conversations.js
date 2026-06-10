@@ -33,6 +33,7 @@ import {
   getInboxListStatsCached,
   setInboxListStatsCached,
 } from '../lib/server/inboxListStatsCache.js';
+import { enrichConversationListDocs } from '../lib/server/inboxListLeadEnrichment.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -157,12 +158,13 @@ function parseSummaryField(raw) {
   }
 }
 
-function docToListItem(doc) {
+function docToListItem(doc, leadSnippet = null) {
   const meta = hasStoredLastMessageMeta(doc)
     ? readStoredLastMessageMeta(doc)
     : deriveLastMessageMeta(safeParseMessages(doc.messages));
   const unread = Number.isFinite(Number(doc.unread_count)) ? Number(doc.unread_count) : 0;
   const updatedAt = String(doc.updated_at || doc.$updatedAt || '').trim();
+  const leadNameFromSnippet = String(leadSnippet?.name || '').trim();
   return {
     id: doc.$id,
     phone_number: String(doc.phone_number || '').trim(),
@@ -172,8 +174,8 @@ function docToListItem(doc) {
     human_handoff_until: typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '',
     ticket_status: String(doc.ticket_status || 'open').trim() || 'open',
     transfer_to: String(doc.transfer_to || '').trim(),
-    lead_id: String(doc.lead_id || '').trim(),
-    lead_name: String(doc.lead_name || '').trim(),
+    lead_id: String(doc.lead_id || leadSnippet?.id || '').trim(),
+    lead_name: String(doc.lead_name || '').trim() || leadNameFromSnippet,
     contact_name: String(doc.contact_name || '').trim(),
     contact_name_source: String(doc.contact_name_source || '').trim(),
     whatsapp_profile_name: String(doc.whatsapp_profile_name || '').trim(),
@@ -182,7 +184,8 @@ function docToListItem(doc) {
     last_user_msg_at: String(doc.last_user_msg_at || '').trim(),
     ...meta,
     last_message_timestamp: meta.last_message_timestamp || updatedAt,
-    archived: doc.archived === true
+    archived: doc.archived === true,
+    lead: leadSnippet || null,
   };
 }
 
@@ -297,8 +300,11 @@ export default async function handler(req, res) {
         const wide = await listConversationDocs(wideQueries);
         docs = (wide.documents || []).filter((d) => matchesSearch(d, search));
         const page = docs.slice(0, limit);
+        const leadByConvId = LEADS_COL
+          ? await enrichConversationListDocs(databases, academyId, page)
+          : new Map();
         return json(res, 200, {
-          items: page.map(docToListItem),
+          items: page.map((doc) => docToListItem(doc, leadByConvId.get(doc.$id) || null)),
           next_cursor: null,
         });
       }
@@ -306,7 +312,13 @@ export default async function handler(req, res) {
       const hasMore = docs.length > limit;
       const page = hasMore ? docs.slice(0, limit) : docs;
       const next_cursor = hasMore && page.length > 0 ? String(page[page.length - 1].$id) : null;
-      const body = { items: page.map(docToListItem), next_cursor };
+      const leadByConvId = LEADS_COL
+        ? await enrichConversationListDocs(databases, academyId, page)
+        : new Map();
+      const body = {
+        items: page.map((doc) => docToListItem(doc, leadByConvId.get(doc.$id) || null)),
+        next_cursor,
+      };
       if (statsPromise) {
         body.stats = await statsPromise;
       }

@@ -1,10 +1,42 @@
-import useMediaQuery from './useMediaQuery.js';
+import { useEffect, useState } from 'react';
 
-/** Breakpoints usados na tela Conversas. */
+function readInboxViewport(width) {
+  return {
+    isMobile: width <= 1023,
+    isNarrowDesktop: width <= 1365,
+    inboxThreadNarrow767: width <= 767,
+    showInboxKeyHints: width >= 769,
+  };
+}
+
+function readWidth() {
+  if (typeof window === 'undefined') return 1280;
+  return window.innerWidth;
+}
+
+/** Breakpoints usados na tela Conversas — um único listener debounced. */
 export function useInboxViewport() {
-  const isMobile = useMediaQuery('(max-width: 1023px)');
-  const isNarrowDesktop = useMediaQuery('(max-width: 1365px)');
-  const inboxThreadNarrow767 = useMediaQuery('(max-width: 767px)');
-  const showInboxKeyHints = useMediaQuery('(min-width: 769px)');
-  return { isMobile, isNarrowDesktop, inboxThreadNarrow767, showInboxKeyHints };
+  const [viewport, setViewport] = useState(() => readInboxViewport(readWidth()));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    let debounceId = null;
+    const sync = () => {
+      setViewport(readInboxViewport(window.innerWidth));
+    };
+    const onResize = () => {
+      if (debounceId != null) clearTimeout(debounceId);
+      debounceId = setTimeout(sync, 100);
+    };
+
+    sync();
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => {
+      if (debounceId != null) clearTimeout(debounceId);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  return viewport;
 }

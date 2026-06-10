@@ -77,6 +77,7 @@ import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { primaryInboxPhone as normalizeLeadPhoneForInbox } from '../lib/normalizeInboxPhone.js';
 import '../styles/lead-profile.css';
+import '../styles/followup-shared.css';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
@@ -1659,6 +1660,12 @@ const LeadProfile = () => {
     const conversationTabLabel =
         conversationUnreadCount > 0 ? `Conversa (${conversationUnreadCount})` : 'Conversa';
 
+    const heroOperationalStatusLabel = operationalStatusDisplayLabel(terms, lead.status);
+    const heroShowOperationalStatusTag =
+        !pipelineStageBadge ||
+        String(pipelineStageBadge.label || '').trim().toLowerCase() !==
+            String(heroOperationalStatusLabel || '').trim().toLowerCase();
+
     const leftColumn = (
         <div
             className="lead-panel-left-col"
@@ -1787,7 +1794,7 @@ const LeadProfile = () => {
                                         <StageBadge
                                             stage={pipelineStageBadge.stageId}
                                             label={pipelineStageBadge.label}
-                                            size="md"
+                                            size="sm"
                                             colorIndex={Math.max(
                                                 0,
                                                 stages.findIndex(
@@ -1796,12 +1803,14 @@ const LeadProfile = () => {
                                             )}
                                         />
                                     ) : null}
-                                    <span
-                                        className="status-tag lead-profile-status-tag"
-                                        style={statusBadgeStyle}
-                                    >
-                                        {operationalStatusDisplayLabel(terms, lead.status)}
-                                    </span>
+                                    {heroShowOperationalStatusTag ? (
+                                        <span
+                                            className="status-tag lead-profile-status-tag"
+                                            style={statusBadgeStyle}
+                                        >
+                                            {heroOperationalStatusLabel}
+                                        </span>
+                                    ) : null}
                                     {lead.origin ? (
                                         <span className="status-tag origin-status-tag">{lead.origin}</span>
                                     ) : null}

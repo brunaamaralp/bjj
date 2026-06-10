@@ -52,28 +52,20 @@ export function useInboxListStats({ academyId, listFilter }) {
       if (blocked || !resp.ok) return;
       const raw = await resp.text();
       const data = safeParseInboxJson(raw) || {};
-      applyStatsPayload(data);
+      const mapped = mapStatsPayload(data);
+      if (!mapped) return;
+      hydratedFromListRef.current = true;
+      setStats(mapped);
     } catch {
       void 0;
     } finally {
       loadingRef.current = false;
     }
-  }, [academyId, listFilter, applyStatsPayload]);
+  }, [academyId, listFilter]);
 
   useEffect(() => {
     hydratedFromListRef.current = false;
   }, [academyId, listFilter]);
-
-  useEffect(() => {
-    const id = String(academyId || '').trim();
-    if (!id || listFilter === 'archived') return;
-    const t = setTimeout(() => {
-      if (!hydratedFromListRef.current) {
-        void refreshStats();
-      }
-    }, 1200);
-    return () => clearTimeout(t);
-  }, [academyId, listFilter, refreshStats]);
 
   return { stats, refreshStats, applyStatsFromList };
 }

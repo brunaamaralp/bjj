@@ -1,3 +1,6 @@
+import '../styles/tokens/inbox.css';
+import '../styles/inbox.css';
+import '../styles/followup-shared.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { account, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
@@ -69,18 +72,15 @@ import {
   formatInboxPhone as formatPhone,
   pickInboxDisplayName as pickDisplayName,
 } from '../lib/inboxContactDisplay.js';
-import { inboxPhoneLookupVariants } from '../lib/normalizeInboxPhone.js';
 import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
 import { inboxMessageMediaUrl } from '../lib/inboxMediaUtils.js';
 import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
 import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
-import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
-import { filterStudentCandidates } from '../lib/studentSearchFilter.js';
-import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
-import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
+import { useInboxStudentLink } from '../hooks/useInboxStudentLink.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
-import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
-import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
+import { useInboxLeadMaps } from '../hooks/useInboxLeadMaps.js';
+import { useInboxLeadContext } from '../hooks/useInboxLeadContext.js';
+import { useLeadsForAssociatePanel } from '../hooks/useLeadsForAssociatePanel.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import useDialogFocus from '../hooks/useDialogFocus.js';
@@ -168,10 +168,9 @@ export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { fetchLeads, leads, loading: leadsLoading, academyId, academyList: academyListRaw, updateLead, deleteLead } = useLeadStore(
+  const { fetchLeads, loading: leadsLoading, academyId, academyList: academyListRaw, updateLead, deleteLead } = useLeadStore(
     useShallow((state) => ({
       fetchLeads: state.fetchLeads,
-      leads: state.leads,
       loading: state.loading,
       academyId: state.academyId,
       academyList: state.academyList,
@@ -361,6 +360,7 @@ export default function Inbox() {
   const [savingContactName, setSavingContactName] = useState(false);
   const [leadTypeDraft, setLeadTypeDraft] = useState('Adulto');
   const [leadSearch, setLeadSearch] = useState('');
+  const leadsForAssociate = useLeadsForAssociatePanel(leadPanel);
   const [linkingLead, setLinkingLead] = useState(false);
   const [highlighted, setHighlighted] = useState({});
   const [desktopNotify, setDesktopNotify] = useState(() => {
@@ -376,7 +376,7 @@ export default function Inbox() {
     followupDoneByLead,
     followupContactByLead,
     followupSnoozeUntilByLead,
-  } = useFollowupEventsByLead(academyId);
+  } = useFollowupEventsByLead(academyId, { defer: true });
   const followupPlaybook = useMemo(
     () => readFollowupPlaybook(academyDoc?.settings),
     [academyDoc?.settings]
@@ -518,18 +518,13 @@ export default function Inbox() {
   }, [applyStatsFromList]);
 
   const waDeferredOnceRef = useRef(false);
+  const refreshStatsRef = useRef(refreshStats);
+  useEffect(() => {
+    refreshStatsRef.current = refreshStats;
+  }, [refreshStats]);
   useEffect(() => {
     waDeferredOnceRef.current = false;
   }, [academyId]);
-  useEffect(() => {
-    onListReadyRef.current = () => {
-      if (!waDeferredOnceRef.current) {
-        waDeferredOnceRef.current = true;
-        const waFn = fetchWaInfoDeferredRef.current;
-        if (typeof waFn === 'function') void waFn();
-      }
-    };
-  }, []);
 
   const { loadList, loadListRef } = useInboxConversationList({
     academyIdRef,
@@ -573,6 +568,27 @@ export default function Inbox() {
     itemsRef,
     selectedRef,
   });
+
+  useEffect(() => {
+    onListReadyRef.current = (payload) => {
+      if (!waDeferredOnceRef.current) {
+        waDeferredOnceRef.current = true;
+        const waFn = fetchWaInfoDeferredRef.current;
+        if (typeof waFn === 'function') void waFn();
+      }
+      void refreshStatsRef.current?.();
+
+      const urlPhone = normalizePhone(String(new URLSearchParams(window.location.search).get('phone') || '').trim());
+      const { firstPhone, firstConversationId, items: listItems, hasSelection } = payload || {};
+      const targetPhone = urlPhone || (!hasSelection ? String(firstPhone || '').trim() : '');
+      if (!targetPhone) return;
+      const row = Array.isArray(listItems)
+        ? listItems.find((it) => String(it?.phone_number || '').trim() === targetPhone)
+        : null;
+      const convId = String(row?.id || firstConversationId || '').trim();
+      void loadThreadRef.current?.(targetPhone, { conversationId: convId, prefetch: true });
+    };
+  }, []);
 
   const {
     markSeen,
@@ -928,9 +944,9 @@ export default function Inbox() {
   useEffect(() => {
     if (leadPanel !== 'associate') return;
     if (leadsLoading) return;
-    if (Array.isArray(leads) && leads.length > 0) return;
+    if (Array.isArray(leadsForAssociate) && leadsForAssociate.length > 0) return;
     fetchLeads();
-  }, [leadPanel, leadsLoading, leads, fetchLeads]);
+  }, [leadPanel, leadsLoading, leadsForAssociate, fetchLeads]);
 
   useEffect(() => {
     if (leadPanel !== 'link_student') return;
@@ -1400,10 +1416,16 @@ export default function Inbox() {
     }
   };
 
+  const { leadById, leadByPhone, getLeadById } = useInboxLeadMaps({
+    items,
+    selectedPhone,
+    normalizePhone,
+  });
+
   function applySlashTemplate(tpl) {
     if (!tpl || typeof tpl.text !== 'string') return;
     const lid = String(selected?.lead_id || '').trim();
-    const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+    const fromStore = lid ? getLeadById(lid) : null;
     const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
     const out = applyWhatsappTemplatePlaceholders(tpl.text, {
       lead: leadForTpl,
@@ -1468,19 +1490,39 @@ export default function Inbox() {
     []
   );
 
-  const leadCandidates = useMemo(() => {
-    const q = String(leadSearch || '').trim().toLowerCase();
-    const qPhone = normalizePhone(q);
-    const all = Array.isArray(leads) ? leads : [];
-    const filtered = all.filter((l) => {
-      const name = String(l?.name || '').toLowerCase();
-      const phone = normalizePhone(l?.phone || '');
-      if (!q && selectedPhone) return phone.endsWith(normalizePhone(selectedPhone));
-      if (qPhone) return phone.includes(qPhone);
-      return name.includes(q);
-    });
-    return filtered.slice(0, 20);
-  }, [leads, leadSearch, selectedPhone]);
+  const {
+    leadCandidates,
+    activeContactLead,
+    pendingTriage,
+    activeFollowupState,
+    followupOutcomeLead,
+    savingFollowupOutcome,
+    openFollowupOutcome,
+    closeFollowupOutcome,
+    confirmFollowupOutcome,
+    handleFollowupSendTemplate,
+    handleInboxConfirmTriage,
+    handleInboxDismissTriage,
+  } = useInboxLeadContext({
+    selectedPhone,
+    selected,
+    leadById,
+    leadByPhone,
+    leadPanel,
+    leadSearch,
+    leadsForAssociate,
+    followupPlaybook,
+    followupDoneByLead,
+    followupContactByLead,
+    followupSnoozeUntilByLead,
+    quickTemplates,
+    whatsappTemplatesObj,
+    applySlashTemplate,
+    normalizePhone,
+    updateLead,
+    setLinkingLead,
+    setDismissTriageLead,
+  });
 
   useEffect(() => {
     if (!academyId) return;
@@ -1509,198 +1551,33 @@ export default function Inbox() {
     setContactNameDraft('');
   }, [selectedPhone]);
 
-
-  const leadById = useMemo(() => {
-    const map = new Map();
-    const arr = Array.isArray(leads) ? leads : [];
-    for (const l of arr) {
-      const id = String(l?.id || '').trim();
-      if (!id) continue;
-      map.set(id, l);
-    }
-    return map;
-  }, [leads]);
-
-  const leadByPhone = useMemo(() => {
-    const map = new Map();
-    const arr = Array.isArray(leads) ? leads : [];
-    for (const l of arr) {
-      const variants = inboxPhoneLookupVariants(l?.phone || '');
-      for (const phone of variants) {
-        if (!phone || map.has(phone)) continue;
-        map.set(phone, l);
-      }
-    }
-    return map;
-  }, [leads]);
-
-  const activeContactLead = useMemo(() => {
-    const phone = normalizePhone(selectedPhone);
-    const leadId = String(selected?.lead_id || '').trim();
-    if (leadId && leadById.has(leadId)) return leadById.get(leadId);
-    if (phone && leadByPhone.has(phone)) return leadByPhone.get(phone);
-    return null;
-  }, [selectedPhone, selected?.lead_id, leadById, leadByPhone]);
-
-  const pendingTriage = isLeadPendingTriage(activeContactLead);
-
-  const activeFollowupState = useMemo(() => {
-    if (!activeContactLead || !isFollowUpLead(activeContactLead)) return null;
-    const state = computeFollowupState(activeContactLead, {
-      playbook: followupPlaybook,
-      followupDoneByLead,
-      followupContactByLead,
-      followupSnoozeUntilByLead,
-    });
-    if (!state) return null;
-    return {
-      ...state,
-      nextActionLabel: describePlaybookStep(state.nextStep),
-    };
-  }, [
-    activeContactLead,
-    followupPlaybook,
-    followupDoneByLead,
-    followupContactByLead,
-    followupSnoozeUntilByLead,
-  ]);
-
   const {
-    outcomeLead: followupOutcomeLead,
-    saving: savingFollowupOutcome,
-    openOutcome: openFollowupOutcome,
-    closeOutcome: closeFollowupOutcome,
-    confirmOutcome: confirmFollowupOutcome,
-  } = useFollowupOutcome({ source: 'inbox' });
-
-  const handleFollowupSendTemplate = useCallback(
-    (templateKey) => {
-      const key = String(templateKey || '').trim();
-      if (!key) return;
-      const fromList = quickTemplates.find((t) => t.key === key);
-      if (fromList) {
-        applySlashTemplate(fromList);
-        return;
-      }
-      const raw = whatsappTemplatesObj?.[key];
-      if (typeof raw === 'string' && raw.trim()) {
-        applySlashTemplate({ key, text: raw });
-      }
-    },
-    [quickTemplates, whatsappTemplatesObj]
-  );
-
-  const studentCandidates = useMemo(
-    () => filterStudentCandidates(students, { query: leadSearch, phoneHint: selectedPhone, limit: 20 }),
-    [students, leadSearch, selectedPhone]
-  );
-
-  const handleInboxConfirmTriage = useCallback(async (lead) => {
-    const id = String(lead?.id || '').trim();
-    if (!id) return;
-    setLinkingLead(true);
-    try {
-      await updateLead(id, { triageStatus: LEAD_TRIAGE_STATUS.CONFIRMED });
-      toast.success('Lead confirmado');
-    } catch (e) {
-      toast.error(e, 'update');
-    } finally {
-      setLinkingLead(false);
-    }
-  }, [toast, updateLead]);
-
-  const handleInboxDismissTriage = useCallback((lead) => {
-    setDismissTriageLead(lead);
-  }, []);
-
-  const executeDismissTriage = useCallback(async () => {
-    const lead = dismissTriageLead;
-    const id = String(lead?.id || '').trim();
-    const phone = String(selectedPhone || '').trim();
-    if (!id) return;
-    setLinkingLead(true);
-    try {
-      await deleteLead(id);
-      if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId });
-      setSelected((prev) => {
-        if (!prev || String(prev.phone || '').trim() !== phone) return prev;
-        return { ...prev, lead_id: null, lead_name: '' };
-      });
-      setItems((prev) =>
-        (Array.isArray(prev) ? prev : []).map((it) => {
-          if (String(it?.phone_number || '').trim() !== phone) return it;
-          return { ...it, lead_id: null, lead_name: '' };
-        })
-      );
-      toast.success('Contato descartado');
-      setDismissTriageLead(null);
-      setLeadPanel(null);
-    } catch (e) {
-      toast.error(e, 'delete');
-    } finally {
-      setLinkingLead(false);
-    }
-  }, [academyId, deleteLead, dismissTriageLead, selectedPhone, toast]);
-
-  const handleOpenLinkStudent = useCallback(() => {
-    setLeadSearch('');
-    setLeadPanel('link_student');
-    if (isMobile || isNarrowDesktop) {
-      setDetailsOpen(true);
-    } else {
-      setContextOpen(true);
-    }
-    void fetchStudents({ reset: true });
-  }, [fetchStudents, isMobile, isNarrowDesktop]);
-
-  const handleInboxLinkStudentConfirm = useCallback(async (studentId) => {
-    const lead = activeContactLead;
-    const leadId = String(lead?.id || '').trim();
-    const sid = String(studentId || '').trim();
-    const phone = String(selectedPhone || '').trim();
-    if (!leadId || !sid || linkingLead) return;
-
-    const student = (Array.isArray(students) ? students : []).find((s) => String(s?.id || '').trim() === sid);
-    const studentName = String(student?.name || '').trim();
-
-    setLinkingLead(true);
-    try {
-      await resolvePipelineLeadToStudent({
-        lead,
-        studentId: sid,
-        academyId,
-        deleteLead,
-      });
-      setSelected((prev) => {
-        if (!prev || String(prev.phone || '').trim() !== phone) return prev;
-        return { ...prev, lead_id: sid, lead_name: studentName || prev.lead_name };
-      });
-      setItems((prev) =>
-        (Array.isArray(prev) ? prev : []).map((it) => {
-          if (String(it?.phone_number || '').trim() !== phone) return it;
-          return { ...it, lead_id: sid, lead_name: studentName || String(it?.lead_name || '').trim() };
-        })
-      );
-      await loadList({ reset: true, silent: true });
-      toast.success('Aluno vinculado — removido do funil');
-      setLeadPanel(null);
-      setLeadSearch('');
-      setDetailsOpen(false);
-    } catch (e) {
-      toast.error(e, 'action');
-    } finally {
-      setLinkingLead(false);
-    }
-  }, [
-    academyId,
-    activeContactLead,
-    deleteLead,
-    linkingLead,
-    loadList,
-    selectedPhone,
+    studentCandidates,
+    executeDismissTriage,
+    handleOpenLinkStudent,
+    handleInboxLinkStudentConfirm,
+  } = useInboxStudentLink({
     students,
-    toast,
-  ]);
+    leadSearch,
+    selectedPhone,
+    activeContactLead,
+    dismissTriageLead,
+    academyId,
+    linkingLead,
+    setLinkingLead,
+    setLeadPanel,
+    setLeadSearch,
+    setDismissTriageLead,
+    setDetailsOpen,
+    setContextOpen,
+    isMobile,
+    isNarrowDesktop,
+    deleteLead,
+    fetchStudents,
+    loadList,
+    setSelected,
+    setItems,
+  });
 
   const {
     groupedFilteredItems,
@@ -1761,7 +1638,7 @@ export default function Inbox() {
     if (searchQuery) return;
     const curAcademy = String(academyId || '').trim();
     if (!curAcademy) return;
-    if (loading) return;
+    if (loading && !firstVisibleConversation) return;
     if (inboxAutoSelectDoneRef.current) return;
     if (String(selectedPhoneRef.current || '').trim()) return;
     const it = firstVisibleConversation;
@@ -2044,7 +1921,7 @@ export default function Inbox() {
     setEmojiOpen,
     quickTemplates,
     terms,
-    leads,
+    getLeadById,
     academyNameForTemplates,
     setDraft,
     textareaRef,

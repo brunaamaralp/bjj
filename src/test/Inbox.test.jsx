@@ -45,6 +45,7 @@ vi.mock('../lib/appwrite', () => ({
   DB_ID: 'test-db',
   CONVERSATIONS_COL: 'test-conversations',
   ACADEMIES_COL: 'test-academies',
+  LEAD_EVENTS_COL: 'test-lead-events',
   databases: {
     listDocuments: vi.fn().mockResolvedValue({ documents: [] }),
     getDocument: vi.fn().mockResolvedValue({}),
@@ -72,6 +73,9 @@ vi.mock('../store/useLeadStore.js', () => {
   const state = {
     fetchLeads: vi.fn(),
     leads: [],
+    leadsById: {},
+    updateLead: vi.fn(),
+    deleteLead: vi.fn(),
     loading: false,
     academyId: 'acad-1',
     academyList: [{ id: 'acad-1', name: 'Academia', ownerId: 'o1', teamId: 't1' }],

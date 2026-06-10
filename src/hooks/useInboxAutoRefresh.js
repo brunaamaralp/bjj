@@ -1,5 +1,19 @@
 import { useEffect } from 'react';
 
+/** Intervalos de polling — exportado para testes. */
+export function getInboxAutoRefreshIntervals(realtimeOn, hidden = false) {
+  if (hidden) {
+    return {
+      listMs: realtimeOn ? 120_000 : 60_000,
+      threadMs: realtimeOn ? 120_000 : 60_000,
+    };
+  }
+  if (realtimeOn) {
+    return { listMs: 90_000, threadMs: 60_000 };
+  }
+  return { listMs: 20_000, threadMs: 30_000 };
+}
+
 /**
  * Poll silencioso de lista e thread (sem refresh imediato no mount).
  */
@@ -14,10 +28,6 @@ export function useInboxAutoRefresh({
 }) {
   useEffect(() => {
     if (!autoRefresh) return undefined;
-
-    const INTERVAL_ACTIVE_LIST_MS = realtimeOn ? 30_000 : 20_000;
-    const INTERVAL_ACTIVE_THREAD_MS = realtimeOn ? 15_000 : 30_000;
-    const INTERVAL_INACTIVE_MS = 60_000;
 
     const runListRefresh = () => {
       const fn = loadListRef.current;
@@ -51,8 +61,7 @@ export function useInboxAutoRefresh({
     const startTimers = () => {
       clearTimers();
       const hidden = typeof document !== 'undefined' && document.hidden;
-      const listMs = hidden ? INTERVAL_INACTIVE_MS : INTERVAL_ACTIVE_LIST_MS;
-      const threadMs = hidden ? INTERVAL_INACTIVE_MS : INTERVAL_ACTIVE_THREAD_MS;
+      const { listMs, threadMs } = getInboxAutoRefreshIntervals(realtimeOn, hidden);
       listTimer = setInterval(runListRefresh, listMs);
       threadTimer = setInterval(runThreadRefresh, threadMs);
     };

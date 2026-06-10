@@ -533,15 +533,40 @@
         }
         .fu-row {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 4px;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+          padding: 12px 4px;
           border-radius: 0;
           border: none;
           border-bottom: 1px solid var(--color-border);
           margin-bottom: 0;
           background: transparent;
           transition: background 0.15s ease;
+        }
+        .fu-row__actions-bar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          width: 100%;
+          min-width: 0;
+        }
+        .fu-row__actions-bar .followup-copilot {
+          flex: 1 1 160px;
+          min-width: 0;
+          margin-top: 0;
+        }
+        .fu-row__actions-bar .followup-copilot__actions {
+          flex-wrap: wrap;
+        }
+        .fu-row__actions-bar .fu-btns {
+          flex: 0 0 auto;
+          margin-left: auto;
+        }
+        .followup-section-hint {
+          margin: 0 4px 10px;
         }
         .fu-row:hover {
           background: var(--color-bg-secondary);
@@ -590,6 +615,8 @@
         .fu-next-action {
           margin: 4px 0 0;
           color: var(--color-text-secondary);
+          line-height: 1.4;
+          word-break: break-word;
         }
         .fu-next-action span {
           color: var(--color-text-heading);
@@ -645,32 +672,45 @@
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg, 12px);
           background: var(--color-bg);
+          font-size: var(--font-base);
+          line-height: 1.4;
+        }
+        .followup-health-panel .reception-report-heading .report-section-heading__title {
+          font-size: var(--font-lg);
         }
         .followup-health-panel__heading {
-          margin-bottom: 10px;
+          margin-bottom: 8px;
         }
         .followup-health-panel__legend {
-          margin-top: 10px;
+          margin-top: 8px;
           margin-bottom: 0;
+          font-size: var(--font-sm);
         }
         .followup-health-panel__counts {
           display: flex;
           flex-wrap: wrap;
-          gap: 12px 20px;
-          margin-bottom: 10px;
+          gap: 10px 14px;
+          margin-bottom: 8px;
         }
         .followup-health-panel__count {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
         .followup-health-panel__num {
-          font-size: 18px;
+          font-size: var(--font-xl);
           font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+        }
+        .followup-health-panel__d1 {
+          margin: 0 0 6px;
+          font-size: var(--font-sm);
+          line-height: 1.4;
         }
         .followup-health-panel__list {
           list-style: none;
-          margin: 8px 0 0;
+          margin: 6px 0 0;
           padding: 0;
         }
         .followup-health-panel__link {
@@ -679,13 +719,30 @@
           justify-content: space-between;
           gap: 8px;
           width: 100%;
-          padding: 8px 0;
+          padding: 7px 0;
           border: none;
           border-top: 1px solid var(--color-border);
           background: none;
           cursor: pointer;
-          font: inherit;
+          font-family: inherit;
+          font-size: var(--font-md);
+          font-weight: 600;
+          color: var(--color-text-heading);
           text-align: left;
+        }
+        .followup-health-panel__link:hover .followup-health-panel__name {
+          color: var(--color-primary);
+          text-decoration: underline;
+        }
+        .followup-health-panel__name {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: var(--font-md);
+          font-weight: 600;
+          line-height: 1.35;
         }
         .followup-outcome-dialog__options {
           border: none;
@@ -1075,13 +1132,14 @@
           transform: translateX(-50%) translateY(0);
         }
         @media (max-width: 720px) {
-          .fu-row {
-            flex-wrap: wrap;
-            align-items: flex-start;
+          .fu-row__actions-bar {
+            flex-direction: column;
+            align-items: stretch;
           }
-          .fu-btns {
+          .fu-row__actions-bar .fu-btns {
             width: 100%;
             justify-content: flex-end;
+            margin-left: 0;
           }
         }
         .reception-section-tools {
@@ -1170,13 +1228,13 @@
         .agenda-bottom-row {
           order: 1;
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(220px, 280px) minmax(260px, 320px);
+          grid-template-columns: minmax(300px, 1.1fr) minmax(200px, 260px) minmax(240px, 300px);
           gap: 22px;
           align-items: start;
           width: 100%;
         }
         .agenda-bottom-row--two-col {
-          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+          grid-template-columns: minmax(300px, 1fr) minmax(260px, 320px);
         }
         .agenda-bottom-row > .agenda-followups-section,
         .agenda-bottom-row > .agenda-birthdays-section,

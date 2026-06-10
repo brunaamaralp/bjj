@@ -45,7 +45,7 @@ export function useInboxConversationList({
   loadingMoreRef.current = loadingMore;
   debouncedSearchRef.current = debouncedSearchQuery;
 
-  const loadList = useCallback(async ({ reset = false, silent = false } = {}) => {
+  const loadList = useCallback(async ({ reset = false, silent = false, includeStats = false } = {}) => {
     if (!academyIdRef.current) return;
     if (reset && loadingListRef.current) return;
     if (reset) {
@@ -69,7 +69,7 @@ export function useInboxConversationList({
       qs.set('archived', listFilterRef.current === 'archived' ? '1' : '0');
       const serverFilter = inboxListFilterToServerParam(listFilterRef.current);
       if (serverFilter) qs.set('filter', serverFilter);
-      if (listFilterRef.current !== 'archived' && !searchQ) {
+      if (includeStats && listFilterRef.current !== 'archived' && !searchQ) {
         qs.set('include_stats', '1');
       }
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {

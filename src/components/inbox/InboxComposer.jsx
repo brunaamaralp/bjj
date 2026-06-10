@@ -26,7 +26,7 @@ export default function InboxComposer(props) {
     setEmojiOpen,
     quickTemplates,
     terms,
-    leads,
+    getLeadById,
     academyNameForTemplates,
     setDraft,
     textareaRef,
@@ -286,7 +286,7 @@ export default function InboxComposer(props) {
                     )}
                     {quickTemplates.map((tpl) => {
                       const lid = String(selected?.lead_id || '').trim();
-                      const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+                      const fromStore = lid && typeof getLeadById === 'function' ? getLeadById(lid) : null;
                       const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
                       return (
                         <button
@@ -444,7 +444,7 @@ export default function InboxComposer(props) {
                 ) : (
                   quickTemplates.map((tpl) => {
                     const lid = String(selected?.lead_id || '').trim();
-                    const fromStore = lid ? leads.find((x) => String(x.id) === lid) : null;
+                    const fromStore = lid && typeof getLeadById === 'function' ? getLeadById(lid) : null;
                     const leadForTpl = fromStore || { name: selected?.lead_name, lead_name: selected?.lead_name };
                     return (
                       <button

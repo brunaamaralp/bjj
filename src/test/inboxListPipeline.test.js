@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { filterInboxListBySearch, filterInboxListItems, groupInboxListItems } from '../lib/inboxListPipeline.js';
+import {
+  enrichInboxListItems,
+  filterInboxListBySearch,
+  filterInboxListItems,
+  groupInboxListItems,
+} from '../lib/inboxListPipeline.js';
 
 function normPhone(v) {
   return String(v || '').replace(/\D/g, '');
@@ -41,5 +46,18 @@ describe('inboxListPipeline', () => {
     ];
     const out = filterInboxListBySearch(rows, '99999', normPhone);
     expect(out).toHaveLength(1);
+  });
+
+  it('enrichInboxListItems usa lead embutido da API quando maps vazios', () => {
+    const out = enrichInboxListItems({
+      items: [{ phone_number: '5511999999999', lead: { id: 'l1', name: 'Maria', hotLead: true, status: 'Novo' } }],
+      leadById: new Map(),
+      leadByPhone: new Map(),
+      highlighted: {},
+      normalizePhone: normPhone,
+      pickDisplayName: ({ leadName, phone }) => leadName || phone,
+    });
+    expect(out[0]._hotLead).toBe(true);
+    expect(out[0]._leadName).toBe('Maria');
   });
 });

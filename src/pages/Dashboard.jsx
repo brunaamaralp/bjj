@@ -64,6 +64,7 @@ import StageBadge from '../components/shared/StageBadge.jsx';
 import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
+import '../styles/followup-shared.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import {
     patchFollowupContactCache,
@@ -1048,7 +1049,6 @@ const Dashboard = () => {
                         templateKey={lead?.nextStep?.template_key}
                         nextAction={lead.nextActionLabel}
                         compact
-                        showTemplateHint
                     />
                     <div className="fu-btns">
                     <button
@@ -1415,6 +1415,11 @@ const Dashboard = () => {
                     )}
                 </div>
                 <div id="follow-ups-panel-body" className="agenda-followups-section__body">
+                {followUps.length > 0 ? (
+                    <p className="followup-copilot__hint followup-section-hint" role="note">
+                        Template padrão: botão verde · Rascunho IA: personaliza o texto antes de enviar
+                    </p>
+                ) : null}
                 <div
                     className={`fu-list-card${
                         followUps.length >= 6 ? ' fu-list-card--scrollable' : ''

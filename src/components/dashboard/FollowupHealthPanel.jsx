@@ -32,15 +32,15 @@ export default function FollowupHealthPanel({ summary, className = '' }) {
       {hasTemperatureActivity ? (
         <div className="followup-health-panel__counts">
           <div className="followup-health-panel__count">
-            <FollowupTemperatureBadge temperature="on_track" size="md" />
+            <FollowupTemperatureBadge temperature="on_track" size="sm" />
             <span className="followup-health-panel__num">{on_track}</span>
           </div>
           <div className="followup-health-panel__count">
-            <FollowupTemperatureBadge temperature="cooling" size="md" />
+            <FollowupTemperatureBadge temperature="cooling" size="sm" />
             <span className="followup-health-panel__num">{cooling}</span>
           </div>
           <div className="followup-health-panel__count">
-            <FollowupTemperatureBadge temperature="critical" size="md" />
+            <FollowupTemperatureBadge temperature="critical" size="sm" />
             <span className="followup-health-panel__num">{critical}</span>
           </div>
         </div>
@@ -60,8 +60,8 @@ export default function FollowupHealthPanel({ summary, className = '' }) {
                 className="followup-health-panel__link"
                 onClick={() => navigate(`/lead/${lead.id}`)}
               >
-                <span>{lead.name}</span>
-                <FollowupTemperatureBadge temperature={lead.temperature} />
+                <span className="followup-health-panel__name">{lead.name}</span>
+                <FollowupTemperatureBadge temperature={lead.temperature} size="sm" />
               </button>
             </li>
           ))}
