@@ -29,7 +29,7 @@ function OriginBadge({ origin }) {
   );
 }
 
-export default function TaskCard({
+const TaskCard = React.memo(function TaskCard({
   task,
   variant = 'full',
   compactLayout = 'row',
@@ -42,6 +42,8 @@ export default function TaskCard({
   isUpdating = false,
   assigneeLabel = null,
   assigneeInitials = null,
+  isOverlay = false,
+  style = undefined,
 }) {
   const navigate = useNavigate();
   const terms = useTerms();
@@ -108,8 +110,11 @@ export default function TaskCard({
     if (profilePath) navigate(profilePath);
   };
 
+  const overlayClass = isOverlay ? ' task-card--overlay' : '';
+  const rootStyle = isOverlay ? { pointerEvents: 'none', ...style } : style;
+
   const checkbox = (
-    <span className="task-checkbox-wrap" onClick={(e) => e.stopPropagation()}>
+    <span className="task-checkbox-wrap" data-no-dnd="true" onClick={(e) => e.stopPropagation()}>
       {isUpdating ? (
         <Loader2 size={16} className="navi-async-btn__spin task-checkbox-spinner" aria-hidden />
       ) : (
@@ -172,7 +177,7 @@ export default function TaskCard({
     (onEdit || onDelete) && (variant === 'full' || compactLayout === 'stack');
 
   const actions = showActions ? (
-    <div className="task-actions dropdown-container" onClick={(e) => e.stopPropagation()}>
+    <div className="task-actions dropdown-container" data-no-dnd="true" onClick={(e) => e.stopPropagation()}>
       {onEdit ? (
         <button type="button" className="task-action-btn" onClick={() => onEdit(task)}>
           <Pencil size={14} aria-hidden />
@@ -188,7 +193,7 @@ export default function TaskCard({
 
   if (variant === 'compact' && compactLayout === 'stack') {
     return (
-      <div className={`task-card task-card--compact ${isDone ? 'done' : ''}`}>
+      <div className={`task-card task-card--compact${overlayClass} ${isDone ? 'done' : ''}`} style={rootStyle}>
         {checkbox}
         <div
           className={`task-content${onOpen ? '' : ' task-content--static'}`}
@@ -213,7 +218,7 @@ export default function TaskCard({
   if (variant === 'compact') {
     const dueText = dueRelative?.text || (dueRaw ? formatTaskDueDate(dueRaw) : '');
     return (
-      <div className={`task-card task-card--compact task-card--compact-row ${isDone ? 'done' : ''}`}>
+      <div className={`task-card task-card--compact task-card--compact-row${overlayClass} ${isDone ? 'done' : ''}`} style={rootStyle}>
         {checkbox}
         <div
           className={`task-card__compact-body${onOpen ? '' : ' task-content--static'}`}
@@ -241,7 +246,7 @@ export default function TaskCard({
   }
 
   return (
-    <div className={`task-card ${isDone ? 'done' : ''}`}>
+    <div className={`task-card${overlayClass} ${isDone ? 'done' : ''}`} style={rootStyle}>
       {checkbox}
       <div
         className="task-content"
@@ -261,4 +266,6 @@ export default function TaskCard({
       {actions}
     </div>
   );
-}
+});
+
+export default TaskCard;

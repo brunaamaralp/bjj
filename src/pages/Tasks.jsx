@@ -1,5 +1,20 @@
 import '../styles/tasks.css';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { createPortal } from 'react-dom';
 import { useTaskStore, serverTaskFilters, buildTasksFetchKey } from '../store/useTaskStore';
@@ -118,15 +133,112 @@ function isDueInCurrentWeek(dueStr) {
 
 const TASKS_KANBAN_VIRTUAL_THRESHOLD = 20;
 
+const TASK_KANBAN_COLUMN = {
+  ATRASADAS: 'atrasadas',
+  A_FAZER: 'a-fazer',
+  CONCLUIDAS: 'concluidas',
+};
+
+const TASK_KANBAN_COLUMN_IDS = new Set([
+  TASK_KANBAN_COLUMN.ATRASADAS,
+  TASK_KANBAN_COLUMN.A_FAZER,
+  TASK_KANBAN_COLUMN.CONCLUIDAS,
+]);
+
+const TASK_KANBAN_DROP_ANIMATION = {
+  duration: 180,
+  easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+};
+
+const TASK_KANBAN_COLUMN_MAP = {
+  [TASK_KANBAN_COLUMN.CONCLUIDAS]: { status: 'done' },
+  [TASK_KANBAN_COLUMN.A_FAZER]: { status: 'pending' },
+  [TASK_KANBAN_COLUMN.ATRASADAS]: { status: 'pending' },
+};
+
+function resolveTaskKanbanColumnId(over, kanbanColumns) {
+  if (!over) return null;
+  const overId = String(over.id || '');
+  if (TASK_KANBAN_COLUMN_IDS.has(overId)) return overId;
+  if (kanbanColumns.atrasadas.some((t) => String(t.id) === overId)) return TASK_KANBAN_COLUMN.ATRASADAS;
+  if (kanbanColumns.aFazer.some((t) => String(t.id) === overId)) return TASK_KANBAN_COLUMN.A_FAZER;
+  if (kanbanColumns.concluidas.some((t) => String(t.id) === overId)) return TASK_KANBAN_COLUMN.CONCLUIDAS;
+  return null;
+}
+
+const SortableTaskCard = React.memo(function SortableTaskCard({
+  task,
+  isUpdating,
+  assigneeLabel,
+  assigneeInitials,
+  onComplete,
+  onEdit,
+  onDelete,
+  onOpen,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, data: { task } });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    visibility: isDragging ? 'hidden' : undefined,
+    opacity: isDragging ? 0 : undefined,
+    pointerEvents: isDragging ? 'none' : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="tasks-kanban-sortable-item" {...attributes} {...listeners}>
+      <TaskCard
+        task={task}
+        isUpdating={isUpdating}
+        assigneeLabel={assigneeLabel}
+        assigneeInitials={assigneeInitials}
+        onComplete={onComplete}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onOpen={onOpen}
+      />
+    </div>
+  );
+});
+
+function TasksKanbanColumn({ columnId, className, head, children }) {
+  const { setNodeRef, isOver } = useDroppable({ id: columnId });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={className}
+      style={
+        isOver
+          ? { background: 'rgba(0, 4, 53, 0.04)', transition: 'background 120ms' }
+          : { transition: 'background 120ms' }
+      }
+    >
+      {head}
+      {children}
+    </div>
+  );
+}
+
 function TasksKanbanColumnBody({
   tasks,
   renderCard,
   hasMore,
   loadingMore,
   onLoadMore,
+  disableVirtualization = false,
 }) {
   const scrollRef = useRef(null);
-  const shouldVirtualize = tasks.length > TASKS_KANBAN_VIRTUAL_THRESHOLD;
+  const shouldVirtualize =
+    !disableVirtualization && tasks.length > TASKS_KANBAN_VIRTUAL_THRESHOLD;
   const virtualizer = useVirtualizer({
     count: shouldVirtualize ? tasks.length : 0,
     getScrollElement: () => scrollRef.current,
@@ -432,6 +544,7 @@ export default function Tasks() {
   const [quickTitle, setQuickTitle] = useState('');
   const [quickError, setQuickError] = useState('');
   const [quickSaving, setQuickSaving] = useState(false);
+  const [kanbanActiveId, setKanbanActiveId] = useState(null);
 
   const todayYmd = useMemo(() => {
     const n = new Date();
@@ -566,6 +679,24 @@ export default function Tasks() {
     });
     return { atrasadas, aFazer, concluidas };
   }, [filteredTasks]);
+
+  const kanbanDragging = kanbanActiveId != null;
+
+  const kanbanSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+      onActivation: ({ event }) => {
+        if (event.target.closest?.('[data-no-dnd]')) {
+          return false;
+        }
+      },
+    }),
+  );
+
+  const activeKanbanTask = useMemo(
+    () => (kanbanActiveId ? tasks.find((t) => String(t.id) === String(kanbanActiveId)) : null),
+    [kanbanActiveId, tasks],
+  );
 
   const calMatrix = useMemo(() => {
     const first = new Date(calMonth.y, calMonth.m, 1);
@@ -787,6 +918,54 @@ export default function Tasks() {
       />
     );
   };
+
+  const renderKanbanTaskCard = useCallback((t) => {
+    const { label, initials } = assigneeForTask(t);
+    return (
+      <SortableTaskCard
+        key={t.id}
+        task={t}
+        isUpdating={isUpdating(t.id)}
+        assigneeLabel={label}
+        assigneeInitials={initials}
+        onComplete={() => void toggleDone(t)}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        onOpen={() => setDetailTask(t)}
+      />
+    );
+  }, [members, isUpdating, toggleDone, openEdit, handleDelete]);
+
+  const handleKanbanDragStart = useCallback((event) => {
+    setKanbanActiveId(event.active.id);
+  }, []);
+
+  const handleKanbanDragEnd = useCallback(({ active, over }) => {
+    setKanbanActiveId(null);
+    if (!over) return;
+
+    const task = tasks.find((t) => String(t.id) === String(active.id));
+    if (!task || isUpdating(task.id)) return;
+
+    const columnId = resolveTaskKanbanColumnId(over, kanbanColumns);
+    if (!columnId) return;
+
+    const target = TASK_KANBAN_COLUMN_MAP[columnId];
+    if (!target) return;
+    if (task.status === target.status && columnId !== TASK_KANBAN_COLUMN.CONCLUIDAS) return;
+
+    if (columnId === TASK_KANBAN_COLUMN.CONCLUIDAS && task.status !== 'done' && isCollectionTask(task)) {
+      setCollectionModalTask(task);
+      return;
+    }
+
+    const previousStatus = task.status;
+    patchTaskLocal(task.id, target);
+    updateTask(task.id, target).catch(() => {
+      patchTaskLocal(task.id, { status: previousStatus });
+      addToast({ type: 'error', message: 'Erro ao atualizar status' });
+    });
+  }, [tasks, kanbanColumns, patchTaskLocal, updateTask, isUpdating, addToast]);
 
   const renderTasksLoadingSkeleton = () => (
     <div
@@ -1149,87 +1328,141 @@ export default function Tasks() {
             {renderTaskList(groupedTasks.concluidas, 'Concluídas', 'var(--success)')}
           </div>
         ) : viewMode === 'kanban' ? (
-          <div className="tasks-kanban">
-            {kanbanColumns.atrasadas.length > 0 ? (
-            <div className="tasks-kanban-col tasks-kanban-col--late">
-              <div className="tasks-kanban-col-head">
-                <span className="tasks-kanban-col-title">Atrasadas</span>
-                <span className="tasks-kanban-badge">{kanbanColumns.atrasadas.length}</span>
-              </div>
-              <TasksKanbanColumnBody
-                tasks={kanbanColumns.atrasadas}
-                renderCard={(t) => renderOneTaskCard(t)}
-                hasMore={tasksHasMore}
-                loadingMore={loadingMore}
-                onLoadMore={handleLoadMoreTasks}
-              />
+          <DndContext
+            sensors={kanbanSensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleKanbanDragStart}
+            onDragEnd={handleKanbanDragEnd}
+          >
+            <div className="tasks-kanban">
+              {kanbanColumns.atrasadas.length > 0 ? (
+                <TasksKanbanColumn
+                  columnId={TASK_KANBAN_COLUMN.ATRASADAS}
+                  className="tasks-kanban-col tasks-kanban-col--late"
+                  head={(
+                    <div className="tasks-kanban-col-head">
+                      <span className="tasks-kanban-col-title">Atrasadas</span>
+                      <span className="tasks-kanban-badge">{kanbanColumns.atrasadas.length}</span>
+                    </div>
+                  )}
+                >
+                  <SortableContext
+                    items={kanbanColumns.atrasadas.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <TasksKanbanColumnBody
+                      tasks={kanbanColumns.atrasadas}
+                      renderCard={renderKanbanTaskCard}
+                      hasMore={tasksHasMore}
+                      loadingMore={loadingMore}
+                      onLoadMore={handleLoadMoreTasks}
+                      disableVirtualization={kanbanDragging}
+                    />
+                  </SortableContext>
+                </TasksKanbanColumn>
+              ) : null}
+              <TasksKanbanColumn
+                columnId={TASK_KANBAN_COLUMN.A_FAZER}
+                className="tasks-kanban-col tasks-kanban-col--todo"
+                head={(
+                  <>
+                    <div className="tasks-kanban-col-head">
+                      <span className="tasks-kanban-col-title">A fazer</span>
+                      <span className="tasks-kanban-badge">{kanbanColumns.aFazer.length}</span>
+                    </div>
+                    <div className="tasks-quick-create" data-no-dnd="true" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        className="form-input tasks-quick-create-input"
+                        placeholder="+ Digite o título da tarefa..."
+                        value={quickTitle}
+                        onChange={(e) => {
+                          setQuickTitle(e.target.value);
+                          if (quickError) setQuickError('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void handleQuickCreate();
+                          }
+                        }}
+                        disabled={quickSaving}
+                        aria-invalid={quickError ? true : undefined}
+                      />
+                      <button
+                        type="button"
+                        className="btn-primary tasks-quick-create-btn"
+                        disabled={quickSaving}
+                        onClick={() => void handleQuickCreate()}
+                      >
+                        {quickSaving ? '…' : 'Criar'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-outline tasks-quick-create-settings"
+                        title="Configurações avançadas"
+                        aria-label="Abrir formulário completo"
+                        onClick={openNew}
+                      >
+                        ⚙
+                      </button>
+                    </div>
+                    {quickError ? <p className="tasks-quick-create-error">{quickError}</p> : null}
+                  </>
+                )}
+              >
+                <SortableContext
+                  items={kanbanColumns.aFazer.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <TasksKanbanColumnBody
+                    tasks={kanbanColumns.aFazer}
+                    renderCard={renderKanbanTaskCard}
+                    hasMore={tasksHasMore}
+                    loadingMore={loadingMore}
+                    onLoadMore={handleLoadMoreTasks}
+                    disableVirtualization={kanbanDragging}
+                  />
+                </SortableContext>
+              </TasksKanbanColumn>
+              <TasksKanbanColumn
+                columnId={TASK_KANBAN_COLUMN.CONCLUIDAS}
+                className="tasks-kanban-col tasks-kanban-col--done"
+                head={(
+                  <div className="tasks-kanban-col-head">
+                    <span className="tasks-kanban-col-title">Concluídas</span>
+                    <span className="tasks-kanban-badge">{kanbanColumns.concluidas.length}</span>
+                  </div>
+                )}
+              >
+                <SortableContext
+                  items={kanbanColumns.concluidas.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <TasksKanbanColumnBody
+                    tasks={kanbanColumns.concluidas}
+                    renderCard={renderKanbanTaskCard}
+                    hasMore={tasksHasMore}
+                    loadingMore={loadingMore}
+                    onLoadMore={handleLoadMoreTasks}
+                    disableVirtualization={kanbanDragging}
+                  />
+                </SortableContext>
+              </TasksKanbanColumn>
             </div>
-            ) : null}
-            <div className="tasks-kanban-col tasks-kanban-col--todo">
-              <div className="tasks-kanban-col-head">
-                <span className="tasks-kanban-col-title">A fazer</span>
-                <span className="tasks-kanban-badge">{kanbanColumns.aFazer.length}</span>
-              </div>
-              <div className="tasks-quick-create" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="text"
-                  className="form-input tasks-quick-create-input"
-                  placeholder="+ Digite o título da tarefa..."
-                  value={quickTitle}
-                  onChange={(e) => {
-                    setQuickTitle(e.target.value);
-                    if (quickError) setQuickError('');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      void handleQuickCreate();
-                    }
-                  }}
-                  disabled={quickSaving}
-                  aria-invalid={quickError ? true : undefined}
+            <DragOverlay dropAnimation={TASK_KANBAN_DROP_ANIMATION}>
+              {activeKanbanTask ? (
+                <TaskCard
+                  task={activeKanbanTask}
+                  isOverlay
+                  isUpdating={isUpdating(activeKanbanTask.id)}
+                  assigneeLabel={assigneeForTask(activeKanbanTask).label}
+                  assigneeInitials={assigneeForTask(activeKanbanTask).initials}
+                  style={{ opacity: 0.75, transform: 'scale(1.02)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
                 />
-                <button
-                  type="button"
-                  className="btn-primary tasks-quick-create-btn"
-                  disabled={quickSaving}
-                  onClick={() => void handleQuickCreate()}
-                >
-                  {quickSaving ? '…' : 'Criar'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-outline tasks-quick-create-settings"
-                  title="Configurações avançadas"
-                  aria-label="Abrir formulário completo"
-                  onClick={openNew}
-                >
-                  ⚙
-                </button>
-              </div>
-              {quickError ? <p className="tasks-quick-create-error">{quickError}</p> : null}
-              <TasksKanbanColumnBody
-                tasks={kanbanColumns.aFazer}
-                renderCard={(t) => renderOneTaskCard(t)}
-                hasMore={tasksHasMore}
-                loadingMore={loadingMore}
-                onLoadMore={handleLoadMoreTasks}
-              />
-            </div>
-            <div className="tasks-kanban-col tasks-kanban-col--done">
-              <div className="tasks-kanban-col-head">
-                <span className="tasks-kanban-col-title">Concluídas</span>
-                <span className="tasks-kanban-badge">{kanbanColumns.concluidas.length}</span>
-              </div>
-              <TasksKanbanColumnBody
-                tasks={kanbanColumns.concluidas}
-                renderCard={(t) => renderOneTaskCard(t)}
-                hasMore={tasksHasMore}
-                loadingMore={loadingMore}
-                onLoadMore={handleLoadMoreTasks}
-              />
-            </div>
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         ) : (
           <div className="tasks-cal-layout">
             <div className="tasks-cal-main">

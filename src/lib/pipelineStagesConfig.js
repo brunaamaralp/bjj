@@ -20,6 +20,9 @@ function ensureSpecialColumns(cols) {
   const base = Array.isArray(cols) ? cols.filter(Boolean) : [];
   const ids = new Set(base.map((c) => String(c?.id || '').trim()).filter(Boolean));
   const out = [...base];
+  if (!ids.has('Novo')) {
+    out.unshift({ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS });
+  }
   if (!ids.has(LEAD_STATUS.MISSED)) {
     out.push({ id: LEAD_STATUS.MISSED, label: 'Não compareceu', slaDays: DEFAULT_STAGE_SLA_DAYS });
   }

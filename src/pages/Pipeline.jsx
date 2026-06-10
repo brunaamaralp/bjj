@@ -107,6 +107,7 @@ import {
 } from '@dnd-kit/core';
 import {
     SortableContext,
+    arrayMove,
     useSortable,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -115,14 +116,16 @@ import { CSS } from '@dnd-kit/utilities';
 /** Acima de colunas kanban com overlay (--z-elevated). */
 const PIPELINE_MENU_Z = 'var(--z-elevated, 13000)';
 
-const dropAnimationConfig = {
+const dropAnimation = {
     sideEffects: defaultDropAnimationSideEffects({
         styles: {
             active: {
-                opacity: '0.4',
+                opacity: '0.5',
             },
         },
     }),
+    duration: 180,
+    easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
 };
 
 /**
@@ -525,7 +528,7 @@ const LeadCard = React.memo(({ lead, slaAlert, automationConfig, isDragging, isO
     );
 });
 
-const SortableLeadCard = ({ lead, ...props }) => {
+const SortableLeadCard = React.memo(function SortableLeadCard({ lead, ...props }) {
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
     const {
         attributes,
@@ -539,17 +542,9 @@ const SortableLeadCard = ({ lead, ...props }) => {
     const style = {
         transform: CSS.Translate.toString(transform),
         transition,
+        visibility: isDragging ? 'hidden' : undefined,
+        pointerEvents: isDragging ? 'none' : undefined,
     };
-
-    if (isDragging) {
-        return (
-            <div
-                ref={setNodeRef}
-                style={style}
-                className="lead-card--placeholder"
-            />
-        );
-    }
 
     return (
         <LeadCard
@@ -561,11 +556,11 @@ const SortableLeadCard = ({ lead, ...props }) => {
             {...props}
         />
     );
-};
+});
 
 const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
-function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, pipelineStageId, pipelineStageColorIndex }) {
+const PipelineColumnLeads = React.memo(function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movingLeadIds, slaAlerts, pipelineStageId, pipelineStageColorIndex }) {
     const shouldVirtualize = leads.length > PIPELINE_VIRTUAL_THRESHOLD;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
@@ -622,7 +617,7 @@ function PipelineColumnLeads({ scrollRef, leads, cardProps, savingLeadIds, movin
             })}
         </div>
     );
-}
+});
 
 const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, children }) => {
     const scrollRef = useRef(null);
@@ -706,6 +701,18 @@ const sortBoardContactsByRecentEnrollment = (a, b) => {
     const tb = new Date(enrollmentDateYmd(b) || 0).getTime();
     return tb - ta;
 };
+
+function comparePipelineColLeads(a, b, isEnrolledCol = false) {
+    const aIdx = a._localKanbanIndex;
+    const bIdx = b._localKanbanIndex;
+    const aHasIdx = Number.isFinite(aIdx);
+    const bHasIdx = Number.isFinite(bIdx);
+    if (aHasIdx && bHasIdx && aIdx !== bIdx) return aIdx - bIdx;
+    if (aHasIdx && !bHasIdx) return -1;
+    if (!aHasIdx && bHasIdx) return 1;
+    if (isEnrolledCol) return sortBoardContactsByRecentEnrollment(a, b);
+    return mobileListToDateTime(a) - mobileListToDateTime(b);
+}
 
 function mobileListToDateTime(lead) {
     const base = lead.scheduledDate || lead.createdAt || '';
@@ -973,6 +980,7 @@ const Pipeline = () => {
     const fetchStudents = useStudentStore((s) => s.fetchStudents);
     const importLeads = useLeadStore((s) => s.importLeads);
     const updateLead = useLeadStore((s) => s.updateLead);
+    const patchLeadsOrder = useLeadStore((s) => s.patchLeadsOrder);
     const fetchMoreLeads = useLeadStore((s) => s.fetchMoreLeads);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const fetchLeads = useLeadStore((s) => s.fetchLeads);
@@ -1502,6 +1510,9 @@ const Pipeline = () => {
             const base = Array.isArray(cols) ? cols.filter(Boolean) : [];
             const ids = new Set(base.map((c) => String(c?.id || '').trim()).filter(Boolean));
             const out = [...base];
+            if (!ids.has('Novo')) {
+                out.unshift({ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS });
+            }
             if (!ids.has(LEAD_STATUS.MISSED)) out.push({ id: LEAD_STATUS.MISSED, label: 'Não compareceu' });
             if (!ids.has(LEAD_STATUS.LOST)) out.push({ id: LEAD_STATUS.LOST, label: 'Perdidos' });
             return out;
@@ -1857,6 +1868,12 @@ const Pipeline = () => {
         return true;
     }, [filterDateFrom, filterDateTo, quickFilter]);
 
+    /** Triagem WhatsApp pendente sempre visível no funil, mesmo com filtro de período ativo. */
+    const passesBoardDateFilter = useCallback(
+        (lead) => isLeadPendingTriage(lead) || filterByDate(lead),
+        [filterByDate]
+    );
+
     const enrollmentPeriodRange = useMemo(
         () =>
             resolveEnrollmentPeriodRange({
@@ -1890,19 +1907,34 @@ const Pipeline = () => {
     /** Primeira carga: evita colunas vazias sem feedback até o fetch do Appwrite. */
     const showKanbanInitialLoading = Boolean(leadsLoading && (!Array.isArray(leads) || leads.length === 0));
 
-    const leadsForBoard = useMemo(() => {
+    const leadsForBoardCore = useMemo(() => {
         let list = leads
             .filter((l) => leadIsPipelineFunnel(l))
             .filter((l) => leadMatchesContactType(l))
             .filter((l) => leadMatchesProfileFilter(l, profileFilter))
             .filter((l) => (originFilter === 'all' ? true : (l.origin || '') === originFilter))
-            .filter(filterByDate);
+            .filter(passesBoardDateFilter);
 
         list = applyBoardSearchFilter(list);
 
-        if (searchStageScope !== 'all') {
+        if (searchStageScope !== 'all' && !triageKanbanFilter) {
             list = list.filter((l) => mapLeadToStageId(l) === searchStageScope);
         }
+
+        return list;
+    }, [
+        leads,
+        profileFilter,
+        originFilter,
+        searchStageScope,
+        triageKanbanFilter,
+        mapLeadToStageId,
+        passesBoardDateFilter,
+        applyBoardSearchFilter,
+    ]);
+
+    const leadsForBoard = useMemo(() => {
+        let list = leadsForBoardCore;
 
         if (followupKanbanFilter) {
             list = list.filter(
@@ -1915,7 +1947,7 @@ const Pipeline = () => {
         }
 
         return list;
-    }, [leads, profileFilter, originFilter, searchStageScope, mapLeadToStageId, filterByDate, followupKanbanFilter, triageKanbanFilter, applyBoardSearchFilter]);
+    }, [leadsForBoardCore, followupKanbanFilter, triageKanbanFilter]);
 
     /** Alunos matriculados (coleção students) + legado ainda em leads com status Matriculado. */
     const enrolledForBoard = useMemo(() => {
@@ -1962,12 +1994,8 @@ const Pipeline = () => {
     }, [leadsForBoard, slaAlerts, slaCriticalFilter]);
 
     const triagePendingCount = useMemo(
-        () =>
-            (leads || [])
-                .filter((l) => leadIsPipelineFunnel(l))
-                .filter((l) => leadMatchesContactType(l))
-                .filter((l) => isLeadPendingTriage(l)).length,
-        [leads]
+        () => leadsForBoardCore.filter((l) => isLeadPendingTriage(l)).length,
+        [leadsForBoardCore]
     );
 
     const pipelineHeaderMeta = useMemo(() => {
@@ -2283,6 +2311,15 @@ const Pipeline = () => {
         return null;
     }, [stages, leadsForBoard, enrolledForBoard, mapLeadToStageId]);
 
+    const getColLeadsForStage = useCallback((stageId) => {
+        const isEnrolledCol = String(stageId || '').trim() === ENROLLED_PIPELINE_STAGE_ID;
+        const source = isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay;
+        return source
+            .filter((l) => isEnrolledCol || mapLeadToStageId(l) === stageId)
+            .filter((l) => (originFilter === 'all' ? true : boardContactOrigin(l) === originFilter))
+            .sort((a, b) => comparePipelineColLeads(a, b, isEnrolledCol));
+    }, [enrolledForBoard, leadsForBoardDisplay, originFilter, mapLeadToStageId]);
+
     const handleDragEnd = async (event) => {
         const { active, over } = event;
         setActiveId(null);
@@ -2294,8 +2331,22 @@ const Pipeline = () => {
         if (!status) return;
         const leadId = active.id;
         const lead = getLeadById(leadId);
-        
-        if (!lead || mapLeadToStageId(lead) === status) return;
+
+        if (!lead) return;
+
+        const activeStage = mapLeadToStageId(lead);
+        if (activeStage === status) {
+            const colLeads = getColLeadsForStage(status);
+            const oldIndex = colLeads.findIndex((l) => String(l.id) === String(leadId));
+            let newIndex = colLeads.findIndex((l) => String(l.id) === String(over.id));
+            if (newIndex === -1) {
+                newIndex = Math.max(0, colLeads.length - 1);
+            }
+            if (oldIndex !== -1 && oldIndex !== newIndex) {
+                patchLeadsOrder(status, arrayMove(colLeads, oldIndex, newIndex));
+            }
+            return;
+        }
 
         if (status === 'Matriculado') {
             openMatriculaModal(lead);
@@ -2378,10 +2429,11 @@ const Pipeline = () => {
         }
     };
 
-    const handleDragOver = (event) => {
+    const handleDragOver = useCallback((event) => {
         const { over } = event;
-        setDragOver(resolveDropStageId(over));
-    };
+        const newOver = resolveDropStageId(over);
+        setDragOver((prev) => (prev === newOver ? prev : newOver));
+    }, [resolveDropStageId]);
 
     const moveToStatus = useCallback(async (e, leadId, stageId) => {
         e.stopPropagation();
@@ -2856,23 +2908,7 @@ const Pipeline = () => {
                         const colLeads = (isEnrolledCol ? enrolledForBoard : leadsForBoardDisplay
                             .filter(l => mapLeadToStageId(l) === col.id))
                             .filter(l => originFilter === 'all' ? true : boardContactOrigin(l) === originFilter)
-                            .sort((a, b) => {
-                                if (isEnrolledCol) return sortBoardContactsByRecentEnrollment(a, b);
-                                const toDateTime = (lead) => {
-                                    const base = lead.scheduledDate || lead.createdAt || '';
-                                    if (!base) return new Date(8640000000000000);
-                                    const [y, m, d] = base.split('T')[0].split('-').map(Number);
-                                    let hh = 23, mm = 59;
-                                    if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
-                                        const [h, mi] = lead.scheduledTime.split(':').map(Number);
-                                        if (Number.isFinite(h) && Number.isFinite(mi)) {
-                                            hh = h; mm = mi;
-                                        }
-                                    }
-                                    return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
-                                };
-                                return toDateTime(a) - toDateTime(b);
-                            });
+                            .sort((a, b) => comparePipelineColLeads(a, b, isEnrolledCol));
 
                         return (
                             <Column
@@ -2932,7 +2968,7 @@ const Pipeline = () => {
                     })}
                 </div>
 
-                <DragOverlay dropAnimation={dropAnimationConfig}>
+                <DragOverlay dropAnimation={dropAnimation}>
                     {activeId ? (
                         <LeadCard
                             lead={getLeadById(activeId)}
@@ -3058,8 +3094,6 @@ const Pipeline = () => {
                         }
                     }}
                 />
-            ) : null}
-
             ) : null}
 
             {showImport ? (

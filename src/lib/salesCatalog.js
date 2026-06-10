@@ -22,8 +22,13 @@ export function mapCatalogProduct(doc) {
   return enrichCatalogProduct(doc);
 }
 
+/** Variantes elegíveis para venda (inclui esgotadas; exclui inativas e uso interno). */
 export function catalogProductsForSale(products) {
-  return (products || []).filter((p) => p.is_for_sale && p.is_active);
+  return (products || []).filter((p) => p.is_for_sale !== false && p.is_active !== false);
+}
+
+function saleVariantsFromRows(variants) {
+  return catalogProductsForSale((variants || []).map((v) => enrichCatalogProduct(v)));
 }
 
 /** Rótulo de tamanho/cor/sku para picker e carrinho. */
@@ -153,11 +158,11 @@ export function enrichSalesParentRow(parent) {
 }
 
 export function catalogParentsFromVariants(variants) {
-  const list = catalogProductsForSale(variants);
+  const list = saleVariantsFromRows(variants);
   const byParent = new Map();
 
   for (const v of list) {
-    const enriched = enrichCatalogProduct(v);
+    const enriched = v;
     const pid = String(v.product_id || enriched.id || '').trim() || enriched.id;
     if (!byParent.has(pid)) {
       byParent.set(pid, {
@@ -182,33 +187,40 @@ export function catalogParentsFromVariants(variants) {
     .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
 }
 
+function parentsFromNestedCatalogProducts(products) {
+  return (products || [])
+    .filter((p) => p.is_for_sale !== false && p.is_active !== false)
+    .map((p) => ({
+      ...p,
+      variants: saleVariantsFromRows(p.variants || []),
+    }))
+    .filter((p) => p.variants.length > 0)
+    .map(enrichSalesParentRow)
+    .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+}
+
 /** Normaliza resposta de GET /api/products para o catálogo de vendas. */
 export function normalizeSalesCatalogFromApi(data) {
   const catalogMode = data?.catalog_mode || 'legacy';
-  const rawList = data?.variants || data?.products || [];
+  const flatVariants = Array.isArray(data?.variants) ? data.variants : [];
+  const rawProducts = Array.isArray(data?.products) ? data.products : [];
 
   if (catalogMode === 'parent_variant') {
-    if (
-      Array.isArray(data?.products) &&
-      data.products.length > 0 &&
-      Array.isArray(data.products[0]?.variants)
-    ) {
-      const parents = data.products
-        .filter((p) => p.is_for_sale !== false && p.is_active !== false)
-        .map((p) => ({
-          ...p,
-          variants: catalogProductsForSale(p.variants || []),
-        }))
-        .filter((p) => p.variants.length > 0);
-      return parents
-        .map(enrichSalesParentRow)
-        .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
+    const nestedHasVariants = rawProducts.some(
+      (p) => Array.isArray(p?.variants) && p.variants.length > 0
+    );
+    if (nestedHasVariants) {
+      const fromNested = parentsFromNestedCatalogProducts(rawProducts);
+      if (fromNested.length > 0) return fromNested;
     }
-    return catalogParentsFromVariants(rawList);
+    if (flatVariants.length > 0) {
+      return catalogParentsFromVariants(flatVariants);
+    }
+    return [];
   }
 
-  const mapped = rawList.map((v) => (v?.id != null && v?.$id == null ? v : mapStockProductDoc(v)));
-  const forSale = catalogProductsForSale(mapped);
+  const rawList = flatVariants.length ? flatVariants : rawProducts;
+  const forSale = saleVariantsFromRows(rawList);
   return legacyStockItemsAsParents(forSale)
     .map(enrichSalesParentRow)
     .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));

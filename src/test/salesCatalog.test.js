@@ -37,6 +37,14 @@ describe('salesCatalog', () => {
     expect(catalogProductsForSale(rows).map((p) => p.id)).toEqual(['1']);
   });
 
+  it('catalogProductsForSale keeps rows when sale/active flags are omitted', () => {
+    expect(
+      catalogProductsForSale([
+        { id: '1', nome: 'Kimono', current_quantity: 2, minimum_level: 0 },
+      ])
+    ).toHaveLength(1);
+  });
+
   it('normalizeSalesCatalogFromApi groups legacy sizes under one parent', () => {
     const parents = normalizeSalesCatalogFromApi({
       catalog_mode: 'legacy',
@@ -68,6 +76,36 @@ describe('salesCatalog', () => {
     expect(parents[0].variants.map((v) => v.id)).toEqual(['v1', 'v2']);
     expect(parents[0].canAdd).toBe(true);
     expect(parents[0]._singleVariant).toBeNull();
+  });
+
+  it('normalizeSalesCatalogFromApi falls back to flat variants when nested lists are empty', () => {
+    const parents = normalizeSalesCatalogFromApi({
+      catalog_mode: 'parent_variant',
+      products: [
+        {
+          id: 'p1',
+          nome: 'Kimono',
+          is_for_sale: true,
+          is_active: true,
+          variants: [],
+        },
+      ],
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'p1',
+          nome: 'Kimono',
+          size: 'M',
+          current_quantity: 4,
+          is_for_sale: true,
+          is_active: true,
+          display_label: 'Kimono · M',
+        },
+      ],
+    });
+    expect(parents).toHaveLength(1);
+    expect(parents[0].variants).toHaveLength(1);
+    expect(parents[0].variants[0].id).toBe('v1');
   });
 
   it('normalizeSalesCatalogFromApi enriches parent_variant products from API', () => {

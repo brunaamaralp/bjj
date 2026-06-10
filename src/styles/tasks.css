@@ -295,6 +295,15 @@ select.task-select option {
 }
 .tasks-kanban-col-body { padding: 10px; flex: 1; overflow-y: auto; max-height: min(62vh, 520px); }
 
+.tasks-kanban-sortable-item {
+  touch-action: none;
+  cursor: grab;
+}
+
+.tasks-kanban-sortable-item:active {
+  cursor: grabbing;
+}
+
 .tasks-cal-layout {
   display: flex;
   flex-direction: column;

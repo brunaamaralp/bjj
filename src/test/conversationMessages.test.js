@@ -4,6 +4,7 @@ import {
   buildMessagesRecentPayload,
   loadThreadMessagesFromDoc,
   threadNeedsFullMessagesFetch,
+  hasUsableMessagesRecent,
   MESSAGES_RECENT_CAP,
 } from '../../lib/server/conversationMessages.js';
 
@@ -42,5 +43,11 @@ describe('conversationMessages', () => {
   it('threadNeedsFullMessagesFetch detects full cursor', () => {
     expect(threadNeedsFullMessagesFetch('full:12')).toBe(true);
     expect(threadNeedsFullMessagesFetch('5')).toBe(false);
+  });
+
+  it('hasUsableMessagesRecent rejects empty or missing recent payload', () => {
+    expect(hasUsableMessagesRecent({ messages_recent: '' })).toBe(false);
+    expect(hasUsableMessagesRecent({ messages_recent: '[]' })).toBe(false);
+    expect(hasUsableMessagesRecent({ messages_recent: JSON.stringify([mkMsg('1', '2026-01-01')]) })).toBe(true);
   });
 });

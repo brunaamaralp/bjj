@@ -1303,19 +1303,12 @@
 }
 
 .lead-card--overlay {
-  opacity: 0.95;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
-  transform: rotate(2deg) scale(1.02);
+  opacity: 0.75;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: scale(1.02);
   cursor: grabbing;
   z-index: var(--z-overlay, 500);
   pointer-events: none;
-}
-
-.lead-card--placeholder {
-  flex-shrink: 0;
-  height: 64px;
-  opacity: 0.5;
-  margin-bottom: 8px;
 }
 
 .lead-card--moving {
@@ -1449,12 +1442,6 @@
 .pipeline-container .navi-empty__link-btn:hover {
   color: var(--color-text-heading);
   text-decoration: underline;
-}
-
-.lead-card--placeholder {
-  border-radius: 12px;
-  border: 2px dashed var(--pipeline-border);
-  background: var(--color-surface-canvas);
 }
 
 .note-modal.mini-modal {

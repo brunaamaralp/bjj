@@ -299,6 +299,67 @@ button:focus-visible {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* <Link> / <a> com classes de botão — paridade visual com <button> */
+a.btn-primary,
+a.btn-outline,
+a.btn-ghost,
+a.btn-secondary,
+a.btn-success,
+a.btn-action-primary,
+a.btn-action-ghost,
+a.btn.btn-primary,
+a.btn.btn-outline,
+a.btn.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--control-gap);
+  box-sizing: border-box;
+  min-height: var(--control-height-form);
+  padding: 0 var(--control-pad-x-btn);
+  border-radius: var(--control-radius);
+  font-family: var(--ff-ui);
+  font-size: var(--control-font-size);
+  font-weight: var(--control-font-weight);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+a.btn-action-primary,
+a.btn-action-ghost {
+  min-height: var(--control-height-toolbar);
+  height: var(--control-height-toolbar);
+  padding: 0 var(--control-pad-x);
+}
+
+a.btn-primary:hover,
+a.btn-outline:hover,
+a.btn-ghost:hover,
+a.btn-secondary:hover,
+a.btn-success:hover,
+a.btn-action-primary:hover,
+a.btn-action-ghost:hover,
+a.btn.btn-primary:hover,
+a.btn.btn-outline:hover,
+a.btn.btn-ghost:hover {
+  text-decoration: none;
+}
+
+a.btn-primary:focus:not(:focus-visible),
+a.btn-outline:focus:not(:focus-visible),
+a.btn-ghost:focus:not(:focus-visible) {
+  outline: none;
+}
+
+a.btn-primary:focus-visible,
+a.btn-outline:focus-visible,
+a.btn-ghost:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 /* Controles — inputs e barras */
 .navi-control {
   box-sizing: border-box;

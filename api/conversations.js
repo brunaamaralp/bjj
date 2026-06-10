@@ -4,12 +4,14 @@ import { humanHandoffIsActive, humanHandoffUntilFromMs } from '../lib/humanHando
 import { getHumanHandoffHoursForServer, assertHumanHandoffEnvOnBoot } from '../lib/constants.js';
 
 assertHumanHandoffEnvOnBoot();
+import { waitUntil } from '@vercel/functions';
 import {
   safeParseMessages,
   getOrCreateConversationDoc,
   findConversationDoc,
   getConversationDocForThread,
   getConversationMessagesDoc,
+  backfillMessagesRecentFromFull,
 } from '../lib/server/conversationsStore.js';
 import {
   deriveLastMessageMeta,
@@ -20,12 +22,17 @@ import {
   conversationMessagesStoragePayload,
   loadThreadMessagesFromDoc,
   threadNeedsFullMessagesFetch,
+  hasUsableMessagesRecent,
 } from '../lib/server/conversationMessages.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import conversationNotesHandler from '../lib/server/conversationNotesHandler.js';
 import notificationsHandler from '../lib/server/notificationsHandler.js';
 import messageFlagsHandler from '../lib/server/messageFlagsHandler.js';
 import { rehydrateConversationMediaMessages } from '../lib/server/rehydrateConversationMedia.js';
+import {
+  getInboxListStatsCached,
+  setInboxListStatsCached,
+} from '../lib/server/inboxListStatsCache.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -118,6 +125,9 @@ function ensureConfig(res) {
 
 
 async function fetchListStats(academyId, archivedOnly) {
+  const cached = getInboxListStatsCached(academyId, archivedOnly);
+  if (cached) return cached;
+
   const baseQueries = [Query.equal('academy_id', [academyId])];
   if (archivedOnly) {
     baseQueries.push(Query.equal('archived', [true]));
@@ -131,7 +141,9 @@ async function fetchListStats(academyId, archivedOnly) {
     countConversations([...baseQueries, Query.equal('ticket_status', ['resolved'])]),
     countConversations([...baseQueries, Query.equal('ticket_status', ['transferred'])]),
   ]);
-  return { unread_conversations, needs_me, resolved, transferred };
+  const stats = { unread_conversations, needs_me, resolved, transferred };
+  setInboxListStatsCached(academyId, archivedOnly, stats);
+  return stats;
 }
 
 function parseSummaryField(raw) {
@@ -334,8 +346,9 @@ export default async function handler(req, res) {
       }
 
       let fullMessagesDoc = null;
-      const hasRecent = Boolean(String(doc.messages_recent || '').trim());
-      if (threadNeedsFullMessagesFetch(cursor) || !hasRecent) {
+      const needsFullMessages =
+        threadNeedsFullMessagesFetch(cursor) || !hasUsableMessagesRecent(doc);
+      if (needsFullMessages) {
         fullMessagesDoc = await getConversationMessagesDoc(doc.$id, academyId);
       }
       const { slice, next_cursor } = loadThreadMessagesFromDoc(doc, {
@@ -343,6 +356,20 @@ export default async function handler(req, res) {
         cursor,
         fullMessagesDoc,
       });
+
+      if (needsFullMessages && fullMessagesDoc?.messages) {
+        waitUntil(
+          backfillMessagesRecentFromFull(doc.$id, fullMessagesDoc.messages).catch((e) => {
+            console.warn(
+              JSON.stringify({
+                event: 'messages_recent_backfill_failed',
+                conversationId: doc.$id,
+                error: e?.message || String(e),
+              })
+            );
+          })
+        );
+      }
 
       return json(res, 200, {
         phone: String(doc.phone_number || '').trim() || phoneDigits,

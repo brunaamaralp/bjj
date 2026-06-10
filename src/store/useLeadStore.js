@@ -36,6 +36,7 @@ const CLIENT_ONLY_KEYS = new Set([
   'priority',
   'hotLead',
   '_isNew',
+  '_localKanbanIndex',
   'whatsappClassifiedAt'
 ]);
 
@@ -668,7 +669,20 @@ export const useLeadStore = create(
     }
   },
 
-  getLeadById: (id) => get().leads.find((l) => l.id === id)
+  getLeadById: (id) => get().leads.find((l) => l.id === id),
+
+  /** Reordena leads de um estágio só no cliente (sem API). */
+  patchLeadsOrder: (_stage, reorderedLeads) => {
+    const reorderedIds = new Set((reorderedLeads || []).map((l) => l.id));
+    const withIndex = (reorderedLeads || []).map((lead, index) => ({
+      ...lead,
+      _localKanbanIndex: index,
+    }));
+    const indexById = new Map(withIndex.map((l) => [l.id, l]));
+    set((state) => ({
+      leads: state.leads.map((l) => (reorderedIds.has(l.id) ? (indexById.get(l.id) || l) : l)),
+    }));
+  },
 }),
 {
   name: 'nave-lead-store',

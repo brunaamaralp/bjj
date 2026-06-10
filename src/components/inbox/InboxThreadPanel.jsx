@@ -208,8 +208,11 @@ export default function InboxThreadPanel(props) {
                           </button>
                         </div>
                       ) : (
-                        <p className="inbox-thread-header__subtitle">
-                          Sem contato ·{' '}
+                        <div className="inbox-thread-header__meta-line">
+                          <span className="inbox-thread-header__meta-muted">Sem contato</span>
+                          <span className="inbox-thread-header__meta-sep" aria-hidden>
+                            ·
+                          </span>
                           <button
                             type="button"
                             className="inbox-thread-header__subtitle-link"
@@ -220,9 +223,9 @@ export default function InboxThreadPanel(props) {
                               else setContextOpen?.(true);
                             }}
                           >
-                            Vincular contato
+                            Vincular
                           </button>
-                        </p>
+                        </div>
                       )
                     ) : null}
                   </div>

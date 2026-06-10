@@ -9,6 +9,12 @@ export const INBOX_LIST_PREVIEW_MAX_COMPACT = 36;
 /** Altura fixa de cada linha de conversa (compact) — alinhada ao skeleton e ao virtualizer. */
 export const INBOX_LIST_ITEM_ROW_HEIGHT = 72;
 
+/** Altura fixa de cabeçalho de seção na lista virtualizada. */
+export const INBOX_LIST_HEADER_ROW_HEIGHT = 32;
+
+/** Altura de linhas "ver mais" / seção recolhida. */
+export const INBOX_LIST_MORE_ROW_HEIGHT = 36;
+
 /** Texto da bolha antes de "Ver mais". */
 export const INBOX_MSG_TRUNCATE_CHARS = 600;
 

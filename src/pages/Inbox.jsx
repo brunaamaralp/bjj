@@ -186,18 +186,32 @@ export default function Inbox() {
       return undefined;
     }
     let cancelled = false;
-    teams
-      .listMemberships(teamId)
-      .then((res) => {
-        if (cancelled) return;
-        const rows = (res.memberships || []).filter((m) => String(m?.joined || '').trim());
-        setTeamMembers(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setTeamMembers([]);
-      });
+    const loadTeamMembers = () => {
+      teams
+        .listMemberships(teamId)
+        .then((res) => {
+          if (cancelled) return;
+          const rows = (res.memberships || []).filter((m) => String(m?.joined || '').trim());
+          setTeamMembers(rows);
+        })
+        .catch(() => {
+          if (!cancelled) setTeamMembers([]);
+        });
+    };
+    const schedule =
+      typeof requestIdleCallback === 'function'
+        ? (cb) => requestIdleCallback(cb, { timeout: 3000 })
+        : (cb) => window.setTimeout(cb, 400);
+    const cancelSchedule =
+      typeof cancelIdleCallback === 'function'
+        ? cancelIdleCallback
+        : (id) => window.clearTimeout(id);
+    const id = schedule(() => {
+      if (!cancelled) loadTeamMembers();
+    });
     return () => {
       cancelled = true;
+      cancelSchedule(id);
     };
   }, [academyDoc?.teamId]);
   const role = useUserRole(academyDoc);
@@ -254,7 +268,7 @@ export default function Inbox() {
   const [hasMore, setHasMore] = useState(true);
   const autoRefresh = true;
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
-  const { isMobile, isNarrowDesktop, inboxThreadNarrow767, showInboxKeyHints } = useInboxViewport();
+  const { isMobile, isNarrowDesktop, showInboxKeyHints } = useInboxViewport();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
@@ -493,13 +507,7 @@ export default function Inbox() {
     waDeferredOnceRef.current = false;
   }, [academyId]);
   useEffect(() => {
-    onListReadyRef.current = ({ firstPhone, firstConversationId, hasSelection }) => {
-      if (!hasSelection && firstPhone) {
-        const fn = loadThreadRef.current;
-        if (typeof fn === 'function') {
-          void fn(firstPhone, { conversationId: firstConversationId, silent: false });
-        }
-      }
+    onListReadyRef.current = () => {
       if (!waDeferredOnceRef.current) {
         waDeferredOnceRef.current = true;
         const waFn = fetchWaInfoDeferredRef.current;
@@ -839,6 +847,12 @@ export default function Inbox() {
 
   useEffect(() => {
     academyIdRef.current = String(academyId || '').trim();
+  }, [academyId]);
+
+  useEffect(() => {
+    const id = String(academyId || '').trim();
+    if (!id) return;
+    void getJwt();
   }, [academyId]);
 
   useEffect(() => {
@@ -1466,8 +1480,13 @@ export default function Inbox() {
   }, [listFilter, academyId]);
 
   useEffect(() => {
-    if (selectedPhone) loadThread(selectedPhone);
-  }, [selectedPhone]);
+    const phone = String(selectedPhone || '').trim();
+    if (!phone) return;
+    const row = (itemsRef.current || []).find((it) => String(it?.phone_number || '').trim() === phone);
+    const conversationId =
+      String(row?.id || selectedRef.current?.conversation_id || '').trim();
+    void loadThread(phone, { conversationId });
+  }, [selectedPhone, loadThread]);
 
   useEffect(() => {
     setEditingContactName(false);
@@ -1986,24 +2005,9 @@ export default function Inbox() {
     setContextOpen,
     updateTicket,
     ticketUpdating,
-    setLeadPanel,
     archiveConversation,
     unarchiveConversation,
-    loadThread,
     markUnread,
-    openPromptSettings,
-    canConfigureAgenteIa,
-    linkingLead,
-    navigate,
-    contactLabel,
-    pendingTriage,
-    activeContactLead,
-    onConfirmTriage: handleInboxConfirmTriage,
-    onDismissTriage: handleInboxDismissTriage,
-    onOpenLinkStudent: handleOpenLinkStudent,
-    triageBusy: linkingLead,
-    setEditingContactName,
-    setContactNameDraft,
   };
 
   const messageMenuProps = {

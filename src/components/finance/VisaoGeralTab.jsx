@@ -193,21 +193,6 @@ export default function VisaoGeralTab({
 
       setBankBalancesData(overview.bankBalances ?? null);
       setBankBalancesCompare(overview.bankBalancesCompare ?? null);
-
-      if (modules?.finance) {
-        try {
-          const list = await fetchContracts({ limit: 100 });
-          const awaiting = (list.data || []).filter((c) => {
-            const d = mapContractDisplayStatusForRecord(c);
-            return d === 'sent' || d === 'viewed';
-          }).length;
-          setContractsAwaiting(awaiting);
-        } catch {
-          setContractsAwaiting(0);
-        }
-      } else {
-        setContractsAwaiting(0);
-      }
     } catch (e) {
       console.error('[VisaoGeralTab]', e);
       setError('Não foi possível carregar o resumo financeiro.');
@@ -220,8 +205,31 @@ export default function VisaoGeralTab({
     ym,
     financeModule,
     bankCompareAsOf,
-    modules?.finance,
   ]);
+
+  useEffect(() => {
+    if (!modules?.finance || !academyId) {
+      setContractsAwaiting(0);
+      return undefined;
+    }
+    let active = true;
+    void (async () => {
+      try {
+        const list = await fetchContracts({ limit: 100 });
+        if (!active) return;
+        const awaiting = (list.data || []).filter((c) => {
+          const d = mapContractDisplayStatusForRecord(c);
+          return d === 'sent' || d === 'viewed';
+        }).length;
+        setContractsAwaiting(awaiting);
+      } catch {
+        if (active) setContractsAwaiting(0);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [academyId, modules?.finance, refreshToken]);
 
   useEffect(() => {
     void load();

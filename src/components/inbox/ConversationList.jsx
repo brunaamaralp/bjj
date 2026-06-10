@@ -9,7 +9,6 @@ import {
   INBOX_LIST_SECTION_INITIAL,
   INBOX_LIST_SECTION_MORE_STEP,
   INBOX_LIST_VIRTUALIZE_THRESHOLD,
-  INBOX_LIST_ITEM_ROW_HEIGHT,
 } from '../../lib/inboxUiConstants.js';
 
 function normalizeGroupItems(raw) {
@@ -117,8 +116,9 @@ export default function ConversationList(props) {
   const virtualizer = useVirtualizer({
     count: shouldVirtualize ? rows.length : 0,
     getScrollElement: () => scrollRef.current,
+    getItemKey: (index) => rows[index]?.id ?? index,
     estimateSize: (index) => estimateInboxListRowHeight(rows[index]),
-    overscan: 10,
+    overscan: 8,
   });
 
   useEffect(() => {
@@ -226,16 +226,16 @@ export default function ConversationList(props) {
             return (
               <div
                 key={row.id}
-                ref={virtualizer.measureElement}
                 data-index={vRow.index}
+                data-row-type={row.type}
                 className="inbox-conversation-list-virtual__row"
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
+                  height: estimateInboxListRowHeight(row),
                   transform: `translateY(${vRow.start}px)`,
-                  ...(row.type === 'item' ? { height: INBOX_LIST_ITEM_ROW_HEIGHT } : undefined),
                 }}
               >
                 {renderRow(row)}
