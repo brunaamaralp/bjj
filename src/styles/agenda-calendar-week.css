@@ -112,10 +112,16 @@
         .aula-card--attended {
           border-color: #9FE1CB;
           background: #E1F5EE;
+          opacity: 0.68;
         }
         .aula-card--missed {
           border-color: #F09595;
           background: #FDECEA;
+          opacity: 0.68;
+        }
+        .aula-card--attended:hover,
+        .aula-card--missed:hover {
+          opacity: 0.88;
         }
         .aula-card-top {
           display: flex;

@@ -36,15 +36,30 @@ function hasExperimentalCalendarDate(lead) {
   return /^\d{4}-\d{2}-\d{2}$/.test(ymd);
 }
 
+function isExcludedFromExperimentalAgenda(lead) {
+  return (
+    String(lead?.origin || '').trim() === 'Planilha' ||
+    lead?.status === LEAD_STATUS.CONVERTED ||
+    String(lead?.pipelineStage || '').trim() === 'Matriculado'
+  );
+}
+
 /**
- * Critério único para lead aparecer na agenda experimental (recepção).
+ * Agenda semanal: mantém a experimental no dia agendado após presença/falta,
+ * até remarcar (nova scheduledDate) ou sair do funil experimental.
+ */
+export function isLeadVisibleOnExperimentalAgenda(lead) {
+  const status = String(lead?.status || '').trim();
+  const onAgenda =
+    status === LEAD_STATUS.SCHEDULED ||
+    status === LEAD_STATUS.COMPLETED ||
+    status === LEAD_STATUS.MISSED;
+  return onAgenda && hasExperimentalCalendarDate(lead) && !isExcludedFromExperimentalAgenda(lead);
+}
+
+/**
+ * Experimental pendente de presença (cards de hoje, KPIs de pendentes).
  */
 export function isLeadScheduledForExperimental(lead) {
-  return (
-    lead?.status === LEAD_STATUS.SCHEDULED &&
-    hasExperimentalCalendarDate(lead) &&
-    String(lead?.origin || '').trim() !== 'Planilha' &&
-    lead?.status !== LEAD_STATUS.CONVERTED &&
-    String(lead?.pipelineStage || '').trim() !== 'Matriculado'
-  );
+  return lead?.status === LEAD_STATUS.SCHEDULED && isLeadVisibleOnExperimentalAgenda(lead);
 }

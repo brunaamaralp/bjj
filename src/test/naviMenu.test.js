@@ -39,7 +39,7 @@ describe('naviMenu', () => {
     expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=fechamento' })).toBe('financeiro');
     expect(getAccordionIdForLocation({ pathname: '/loja', search: '?tab=vendas' })).toBe('loja');
     expect(getAccordionIdForLocation({ pathname: '/students', search: '' })).toBe(null);
-    expect(getAccordionIdForLocation({ pathname: '/reports', search: '?tab=funil' })).toBe(null);
+    expect(getAccordionIdForLocation({ pathname: '/reports', search: '?tab=funil' })).toBe('loja');
   });
 
   it('isDirectNavPath for flat routes', () => {
@@ -100,6 +100,14 @@ describe('naviMenu', () => {
       action: NOVA_VENDA_MENU_ACTION,
     });
     expect(loja.children[1].id).toBe('vendas');
+    expect(loja.children[loja.children.length - 1]).toMatchObject({
+      id: 'relatorios',
+      label: 'Relatórios',
+      to: '/reports?tab=visao-geral',
+    });
+    const estoqueIdx = loja.children.findIndex((c) => c.id === 'estoque');
+    const relIdx = loja.children.findIndex((c) => c.id === 'relatorios');
+    expect(relIdx).toBe(estoqueIdx + 1);
   });
 
   it('buildSidebarNavModel respects modules and owner', () => {
@@ -113,6 +121,9 @@ describe('naviMenu', () => {
     });
     expect(model.accordions.map((a) => a.id)).toContain('financeiro');
     expect(model.accordions.map((a) => a.id)).toContain('loja');
+    expect(model.accordions.map((a) => a.id)).not.toContain('relatorios');
+    const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
+    expect(loja.children.some((c) => c.id === 'relatorios')).toBe(true);
     const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
     expect(financeiro.label).toBe('Financeiro');
     expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
@@ -177,6 +188,9 @@ describe('naviMenu', () => {
       pipelineLabel: 'Funil',
     });
     expect(none.map((s) => s.title)).not.toContain('Financeiro');
-    expect(none.map((s) => s.title)).not.toContain('Vendas');
+    const vendasSection = none.find((s) => s.title === 'Vendas');
+    expect(vendasSection?.items).toEqual([
+      expect.objectContaining({ id: 'relatorios', label: 'Relatórios' }),
+    ]);
   });
 });

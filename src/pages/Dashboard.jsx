@@ -45,7 +45,10 @@ import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
-import { isLeadScheduledForExperimental } from '../lib/leadStageRules.js';
+import {
+    isLeadScheduledForExperimental,
+    isLeadVisibleOnExperimentalAgenda,
+} from '../lib/leadStageRules.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
 import AgendaCalendarWeek, {
@@ -446,9 +449,18 @@ const Dashboard = () => {
 
     const excludeImportedOrigin = (l) => String(l?.origin || '').trim() !== 'Planilha';
 
-    const allScheduled = (leads || [])
-        .filter(isLeadScheduledForExperimental)
-        .sort((a, b) => toDateTime(a) - toDateTime(b));
+    const agendaWeekLeads = useMemo(
+        () =>
+            (leads || [])
+                .filter(isLeadVisibleOnExperimentalAgenda)
+                .sort((a, b) => toDateTime(a) - toDateTime(b)),
+        [leads]
+    );
+
+    const allScheduled = useMemo(
+        () => agendaWeekLeads.filter(isLeadScheduledForExperimental),
+        [agendaWeekLeads]
+    );
 
     const todayScheduled = allScheduled.filter((lead) => {
         if (!lead.scheduledDate) return false;
@@ -458,8 +470,8 @@ const Dashboard = () => {
     });
 
     const weekScheduled = useMemo(
-        () => filterLeadsInCivilWeek(allScheduled, 0),
-        [allScheduled]
+        () => filterLeadsInCivilWeek(agendaWeekLeads, 0),
+        [agendaWeekLeads]
     );
 
     const followupPlaybook = useMemo(() => {
@@ -537,8 +549,8 @@ const Dashboard = () => {
         });
 
     const scheduledInVisibleWeekCount = useMemo(
-        () => filterLeadsInCivilWeek(allScheduled, dashboardWeekOffset).length,
-        [allScheduled, dashboardWeekOffset]
+        () => filterLeadsInCivilWeek(agendaWeekLeads, dashboardWeekOffset).length,
+        [agendaWeekLeads, dashboardWeekOffset]
     );
 
     const scrollToFollowUps = () => {
@@ -1471,7 +1483,7 @@ const Dashboard = () => {
                 </div>
                 <div className="agenda-week-fullwidth reception-week-embed">
                     <AgendaCalendarWeek
-                        leads={allScheduled}
+                        leads={agendaWeekLeads}
                         onCompareceu={markLeadAttended}
                         onNaoCompareceu={markLeadMissed}
                         onOpenLead={(lead) =>

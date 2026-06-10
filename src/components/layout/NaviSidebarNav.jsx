@@ -478,7 +478,6 @@ export default function NaviSidebarNav({
   const automacoesAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
   const financeiroAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
   const lojaAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
-  const relatoriosAccordion = navModel.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
 
   const conversasActive = matchNavTarget('/inbox', location);
   const showSidebarActions = Boolean(navModel.newLead);
@@ -584,23 +583,6 @@ export default function NaviSidebarNav({
           />
         </SidebarSection>
       ) : null}
-
-      <div className="navi-sidebar-footer">
-        <SidebarSection collapsed={collapsed} footer showDivider>
-          {relatoriosAccordion ? (
-            <SideNavAccordion
-              accordion={relatoriosAccordion}
-              Icon={ICONS.relatorios}
-              collapsed={collapsed}
-              expanded={expandedAccordionId === relatoriosAccordion.id}
-              onExpandExclusive={expandExclusive}
-              onToggle={toggleAccordion}
-              sideLinkClass={sideLinkClass}
-              location={location}
-            />
-          ) : null}
-        </SidebarSection>
-      </div>
     </nav>
   );
 }

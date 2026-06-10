@@ -126,13 +126,15 @@ export function getAccordionIdForLocation({ pathname, search }) {
   const p = String(pathname || '');
   if (p === '/automacoes' || p === '/agente-ia') return NAV_ACCORDION_IDS.AUTOMACOES;
   if (p === '/equipe' || p === '/integracoes') return null;
-  if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque') return NAV_ACCORDION_IDS.LOJA;
+  if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque' || p === '/reports')
+    return NAV_ACCORDION_IDS.LOJA;
   if (isFinanceiroHubPath(p)) return NAV_ACCORDION_IDS.FINANCEIRO;
   return null;
 }
 
 export function isAccordionChildActive(child, location) {
   if (child.action) return false;
+  if (child.id === 'relatorios') return location.pathname === '/reports';
   if (child.id === 'agente' && location.pathname === '/agente-ia') return true;
   if (child.id === 'a-receber') {
     if (location.pathname === '/mensalidades') return true;
@@ -210,7 +212,7 @@ export function buildLojaAccordion({ modules }) {
   if (modules.inventory === true) {
     children.push({ id: 'estoque', label: 'Estoque', to: '/loja?tab=estoque', iconKey: 'estoque' });
   }
-  if (children.length === 0) return null;
+  children.push(buildRelatoriosNavItem());
   return {
     id: NAV_ACCORDION_IDS.LOJA,
     label: 'Vendas',
@@ -280,15 +282,26 @@ export function buildFinanceiroAccordion({
   };
 }
 
+/** Link Relatórios na sidebar — abas internas ficam em Reports.jsx. */
+export function buildRelatoriosNavItem() {
+  return {
+    id: 'relatorios',
+    label: 'Relatórios',
+    to: '/reports?tab=visao-geral',
+    iconKey: 'relatorios',
+  };
+}
+
 /**
- * Item Relatórios na sidebar — navegação interna fica nas abas de Reports.jsx.
+ * @deprecated Relatórios ficam na seção Vendas (após Estoque). Mantido para testes legados.
  */
 export function buildRelatoriosAccordion() {
+  const item = buildRelatoriosNavItem();
   return {
     id: NAV_ACCORDION_IDS.RELATORIOS,
-    label: 'Relatórios',
-    iconKey: 'relatorios',
-    defaultTo: '/reports?tab=visao-geral',
+    label: item.label,
+    iconKey: item.iconKey,
+    defaultTo: item.to,
     children: [],
     linkOnly: true,
   };
@@ -322,8 +335,6 @@ export function buildSidebarNavModel({
 
   const loja = buildLojaAccordion({ modules });
   if (loja) accordions.push(loja);
-
-  accordions.push(buildRelatoriosAccordion());
 
   return {
     newLead: newLeadLabel ? { to: '/new-lead', label: newLeadLabel, iconKey: 'newLead', action: true } : null,
@@ -377,16 +388,11 @@ export function flattenNavItemsForMobile(model) {
     for (const c of loja.children) {
       push({
         ...c,
-        iconKey: c.iconKey || 'loja',
+        iconKey: c.iconKey || (c.id === 'relatorios' ? 'relatorios' : 'loja'),
         section: 'Vendas',
         to: c.to || (c.action === NOVA_VENDA_MENU_ACTION ? '/loja' : '/loja'),
       });
     }
-  }
-
-  const rel = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
-  if (rel) {
-    push({ to: rel.defaultTo, label: rel.label, iconKey: rel.iconKey || 'relatorios', section: null });
   }
 
   return rows;

@@ -77,12 +77,12 @@ export function buildMobileMoreItems({
     });
   }
 
-  const relatorios = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.RELATORIOS);
+  const relatorios = loja?.children?.find((c) => c.id === 'relatorios');
   if (relatorios) {
     add({
       id: 'reports',
       label: relatorios.label,
-      to: relatorios.defaultTo,
+      to: relatorios.to,
       iconKey: relatorios.iconKey || 'relatorios',
     });
   }
