@@ -1,4 +1,5 @@
 import React from 'react';
+import { Copy, MoreHorizontal, Reply } from 'lucide-react';
 import MessageBubble, { messageBubbleStatusFromMessage } from './MessageBubble.jsx';
 import InboxMediaImage from './InboxMediaImage.jsx';
 import InboxAudioPlayer from './InboxAudioPlayer.jsx';
@@ -137,8 +138,10 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
               actions={
                 <>
                   <button
-                    className="inbox-mini-btn"
+                    className="inbox-msg-icon-btn"
                     type="button"
+                    title="Responder"
+                    aria-label="Responder"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -158,22 +161,26 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
                       }
                     }}
                   >
-                    Responder
+                    <Reply size={15} strokeWidth={2} aria-hidden />
                   </button>
                   <button
-                    className="inbox-mini-btn"
+                    className="inbox-msg-icon-btn"
                     type="button"
+                    title="Copiar"
+                    aria-label="Copiar mensagem"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       copyToClipboard(contentRaw);
                     }}
                   >
-                    Copiar
+                    <Copy size={15} strokeWidth={2} aria-hidden />
                   </button>
                   <button
-                    className="inbox-mini-btn inbox-mini-btn--menu"
+                    className="inbox-msg-icon-btn"
                     type="button"
+                    title="Mais ações"
+                    aria-label="Mais ações"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -187,7 +194,7 @@ export default function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
                     aria-haspopup="menu"
                     aria-expanded={menu?.kind === 'message' && menu?.payload?.key === key}
                   >
-                    {'\u22EF'}
+                    <MoreHorizontal size={15} strokeWidth={2} aria-hidden />
                   </button>
                 </>
               }

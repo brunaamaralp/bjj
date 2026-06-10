@@ -349,11 +349,15 @@ function logSkippedBlock(statsKey, title, reason) {
   summary[statsKey].note = reason;
 }
 
-/** conversationsStore, api/conversations, zapsterWebhook, agentRespond */
+/**
+ * conversationsStore, api/conversations, zapsterWebhook, agentRespond
+ * Removidos do provisionamento (legado / não usados): phone, is_in_handoff, handoff_*,
+ * last_message, last_message_at, status, assigned_*, label_ids, channel, zapster_* em conversas, wa_chat_id.
+ * summary: provisionar depois via provision-conversation-agent-state.mjs se couber na cota.
+ */
 const CONVERSATIONS_ATTRS = [
   { key: 'academy_id', type: 'string', size: 64 },
   { key: 'phone_number', type: 'string', size: 32 },
-  { key: 'phone', type: 'string', size: 32 },
   { key: 'messages', type: 'string', size: 65535 },
   { key: 'messages_recent', type: 'string', size: 32768 },
   { key: 'updated_at', type: 'string', size: 64 },
@@ -363,10 +367,6 @@ const CONVERSATIONS_ATTRS = [
   { key: 'last_read_at', type: 'string', size: 64 },
   { key: 'human_handoff_until', type: 'string', size: 64 },
   { key: 'agent_processing_until', type: 'string', size: 64 },
-  { key: 'is_in_handoff', type: 'boolean' },
-  { key: 'handoff_started_at', type: 'string', size: 64 },
-  { key: 'handoff_started_by', type: 'string', size: 64 },
-  { key: 'handoff_note', type: 'string', size: 512 },
   { key: 'lead_id', type: 'string', size: 64 },
   { key: 'lead_name', type: 'string', size: 128 },
   { key: 'contact_name', type: 'string', size: 128 },
@@ -377,25 +377,15 @@ const CONVERSATIONS_ATTRS = [
   { key: 'whatsapp_profile_image_url', type: 'string', size: 512 },
   { key: 'whatsapp_profile_image_updated_at', type: 'string', size: 64 },
   { key: 'last_preview', type: 'string', size: 512 },
-  { key: 'last_message', type: 'string', size: 512 },
   { key: 'last_message_role', type: 'string', size: 16 },
   { key: 'last_message_sender', type: 'string', size: 64 },
   { key: 'last_message_timestamp', type: 'string', size: 64 },
-  { key: 'last_message_at', type: 'string', size: 64 },
-  { key: 'status', type: 'string', size: 32 },
-  { key: 'assigned_to', type: 'string', size: 64 },
-  { key: 'assigned_name', type: 'string', size: 128 },
-  { key: 'label_ids', type: 'string', size: 2048 },
-  { key: 'channel', type: 'string', size: 32 },
-  { key: 'zapster_instance_id', type: 'string', size: 64 },
-  { key: 'wa_chat_id', type: 'string', size: 128 },
-  { key: 'summary', type: 'string', size: 8192 },
-  { key: 'agent_state', type: 'string', size: 8192 },
+  { key: 'ticket_status', type: 'string', size: 32 },
+  { key: 'transfer_to', type: 'string', size: 128 },
+  { key: 'agent_state', type: 'string', size: 4096 },
   { key: 'ai_thread_cycle_id', type: 'string', size: 64 },
   { key: 'last_dispatch_error', type: 'string', size: 128 },
   { key: 'last_dispatch_at', type: 'string', size: 64 },
-  { key: 'zapster_status', type: 'string', size: 32 },
-  { key: 'zapster_status_updated_at', type: 'string', size: 64 },
 ];
 
 const MESSAGE_FLAGS_ATTRS = [
@@ -590,9 +580,8 @@ async function main() {
     indexes: [
       { key: 'idx_conv_academy_id', attributes: ['academy_id'] },
       { key: 'idx_conv_lead_id', attributes: ['lead_id'] },
-      { key: 'idx_conv_status', attributes: ['status'] },
+      { key: 'idx_conv_ticket_status', attributes: ['ticket_status'] },
       { key: 'idx_conv_updated_at', attributes: ['updated_at'] },
-      { key: 'idx_conv_assigned_to', attributes: ['assigned_to'] },
       { key: 'idx_conv_human_handoff', attributes: ['human_handoff_until'] },
     ],
   });

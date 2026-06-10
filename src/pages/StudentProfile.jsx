@@ -62,6 +62,7 @@ import CreateContractModal from '../components/contracts/CreateContractModal.jsx
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
+import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
 import StudentOverdueBadge from '../components/student/StudentOverdueBadge.jsx';
@@ -290,7 +291,6 @@ export default function StudentProfile() {
     const academyList = useLeadStore((s) => s.academyList);
     const deleteStudent = useStudentStore((s) => s.deleteStudent);
     const updateStudent = useStudentStore((s) => s.updateStudent);
-    const controlIdCfg = useAcademyControlId(academyId);
     const uiLabels = useLeadStore((s) => s.labels);
     const toast = useToast();
     const terms = useTerms();
@@ -371,6 +371,8 @@ export default function StudentProfile() {
     const skipFuturePaidDateRef = useRef(false);
     const [timelineOpen, setTimelineOpen] = useState(readInitialTimelineOpen);
     const [activeTab, setActiveTab] = useState('frequency');
+    const profileBundleRef = useRef(null);
+    const controlIdCfg = useAcademyControlId(academyId, { fetch: activeTab === 'frequency' });
     const waTemplateMenuRef = useRef(null);
     const [waCtx, setWaCtx] = useState({
         name: '',
@@ -448,14 +450,19 @@ export default function StudentProfile() {
 
     useEffect(() => {
         if (!id || !academyId) return;
+        profileBundleRef.current = null;
         void fetchStudentProfileBundle(id)
             .then((bundle) => {
+                profileBundleRef.current = bundle;
                 if (bundle?.student) mergeStudent(id, bundle.student);
                 if (bundle?.paymentStatus && bundle.paymentStatus.key) {
                     setPaymentStatus({
                         status: bundle.paymentStatus.key === 'none' ? 'none' : bundle.paymentStatus.key,
                         payment: null,
                     });
+                }
+                if (bundle?.attendanceStats) {
+                    setFreqStats(bundle.attendanceStats);
                 }
             })
             .catch((e) => console.warn('[StudentProfile] profile bundle:', e?.message || e));
@@ -646,8 +653,9 @@ export default function StudentProfile() {
     }, [leadId, academyId]);
 
     useEffect(() => {
+        if (activeTab !== 'frequency') return;
         void loadFrequency();
-    }, [loadFrequency]);
+    }, [activeTab, loadFrequency]);
 
     const loadPayments = useCallback(async () => {
         if (!leadId || !academyId) {
@@ -673,11 +681,24 @@ export default function StudentProfile() {
                       return null;
                   })
                 : Promise.resolve(null);
+            const bundle = profileBundleRef.current;
+            const statusPromise = canViewFinance
+                ? bundle?.paymentStatus?.key
+                    ? Promise.resolve({
+                          status: bundle.paymentStatus.key === 'none' ? 'none' : bundle.paymentStatus.key,
+                          payment: null,
+                      })
+                    : getPaymentStatus(leadId, academyId)
+                : Promise.resolve({ status: 'none', payment: null });
+            const freezesPromise =
+                bundle?.planFreezes != null
+                    ? Promise.resolve(bundle.planFreezes)
+                    : listPlanFreezes(leadId, academyId).catch(() => []);
             const [docs, status, salesList, freezes, extrato] = await Promise.all([
                 canViewFinance ? getStudentPayments(leadId, academyId) : Promise.resolve([]),
-                canViewFinance ? getPaymentStatus(leadId, academyId) : Promise.resolve({ status: 'none', payment: null }),
+                statusPromise,
                 salesPromise,
-                listPlanFreezes(leadId, academyId).catch(() => []),
+                freezesPromise,
                 extratoPromise,
             ]);
             setPayments(docs);
@@ -700,8 +721,9 @@ export default function StudentProfile() {
     }, [leadId, academyId, canViewFinance]);
 
     useEffect(() => {
+        if (activeTab !== 'payments' || !canViewFinance) return;
         void loadPayments();
-    }, [loadPayments]);
+    }, [activeTab, canViewFinance, loadPayments]);
 
     const handleConfirmFreeze = useCallback(
         async ({ startYmd, endYmd, durationDays, reason, indefinite = false }) => {
@@ -826,8 +848,7 @@ export default function StudentProfile() {
 
     useEffect(() => {
         if (!academyId) return;
-        databases
-            .getDocument(DB_ID, ACADEMIES_COL, academyId)
+        getAcademyDocument(academyId)
             .then((doc) => {
                 setExitReasons(readStudentExitReasonsFromAcademyDoc(doc));
                 setFreezeReasons(readStudentFreezeReasonsFromAcademyDoc(doc));

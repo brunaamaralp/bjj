@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
+import { getInboxThreadCache, setInboxThreadCache } from '../lib/inboxThreadCache.js';
 
 /**
  * Carrega o thread de uma conversa (/api/conversations/:phone) com abort e paginação.
@@ -27,6 +28,19 @@ export function useInboxThreadLoader({
     async (phone, { silent = false, cursor = '', append = false, conversationId = '' } = {}) => {
       const p = String(phone || '').trim();
       if (!p) return;
+      const academyId = String(academyIdRef.current || '').trim();
+      if (!silent && !append && !cursor) {
+        const cached = getInboxThreadCache(academyId, p);
+        if (cached?.messages) {
+          setThreadCursor(cached.nextCursor || null);
+          setThreadHasMore(Boolean(cached.nextCursor));
+          setSelected((prev) => {
+            if (prev?.phone === p && Array.isArray(prev.messages) && prev.messages.length > 0) return prev;
+            return { ...(cached.summary || { phone: p }), phone: p, messages: cached.messages };
+          });
+          return;
+        }
+      }
       if (!silent) {
         setError('');
         setThreadError('');
@@ -96,6 +110,32 @@ export function useInboxThreadLoader({
         if (reqSeq !== threadRequestSeqRef.current) return;
         setThreadCursor(nextCur || null);
         setThreadHasMore(Boolean(nextCur));
+        if (!append && !cursor) {
+          setInboxThreadCache(academyId, p, {
+            messages: incoming,
+            nextCursor: nextCur || null,
+            summary: {
+              phone: p,
+              conversation_id:
+                typeof data?.conversation_id === 'string' ? String(data.conversation_id).trim() : null,
+              summary,
+              lead_id: typeof data?.lead_id === 'string' ? data.lead_id : null,
+              lead_name: typeof data?.lead_name === 'string' ? data.lead_name : '',
+              contact_name: typeof data?.contact_name === 'string' ? data.contact_name : '',
+              contact_name_source:
+                typeof data?.contact_name_source === 'string' ? data.contact_name_source : '',
+              whatsapp_profile_name:
+                typeof data?.whatsapp_profile_name === 'string' ? data.whatsapp_profile_name : '',
+              whatsapp_profile_image_url:
+                typeof data?.whatsapp_profile_image_url === 'string' ? data.whatsapp_profile_image_url : '',
+              need_human: Boolean(data?.need_human),
+              human_handoff_until: handoffUntil || null,
+              ticket_status: String(ticketStatus || 'open'),
+              transfer_to: transferTo || null,
+              archived: Boolean(data?.archived),
+            },
+          });
+        }
         setSelected((prev) => {
           const convId =
             typeof data?.conversation_id === 'string' && String(data.conversation_id).trim()

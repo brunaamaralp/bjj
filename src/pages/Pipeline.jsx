@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
@@ -11,11 +11,7 @@ import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
-import ImportSheet from '../components/ImportSheet';
 import { exportLeadsSpreadsheet } from '../lib/exportLeadsSpreadsheet.js';
-import { LostReasonModal } from '../components/LostReasonModal';
-import MatriculaModal from '../components/MatriculaModal';
-import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
@@ -35,7 +31,6 @@ import {
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
-import ScheduleModal from '../components/ScheduleModal.jsx';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
@@ -88,8 +83,16 @@ import {
 import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
 import { resolvePipelineLeadToStudent } from '../lib/resolvePipelineLeadToStudent.js';
 import { unlinkInboxConversationLead } from '../lib/unlinkInboxConversationLead.js';
-import LinkStudentModal from '../components/pipeline/LinkStudentModal.jsx';
 import InboxTriageCard from '../components/inbox/InboxTriageCard.jsx';
+
+const ImportSheet = lazy(() => import('../components/ImportSheet'));
+const LostReasonModal = lazy(() =>
+    import('../components/LostReasonModal').then((m) => ({ default: m.LostReasonModal }))
+);
+const MatriculaModal = lazy(() => import('../components/MatriculaModal'));
+const CreateContractModal = lazy(() => import('../components/contracts/CreateContractModal.jsx'));
+const ScheduleModal = lazy(() => import('../components/ScheduleModal.jsx'));
+const LinkStudentModal = lazy(() => import('../components/pipeline/LinkStudentModal.jsx'));
 
 const normalizeKanbanPhone = (v) => String(v || '').replace(/\D/g, '');
 import {
@@ -2972,6 +2975,8 @@ const Pipeline = () => {
             </div>
             )}
 
+            <Suspense fallback={null}>
+            {matriculaModalOpen ? (
             <MatriculaModal
                 isOpen={matriculaModalOpen}
                 lead={dragTargetLead}
@@ -3025,7 +3030,9 @@ const Pipeline = () => {
                     }
                 }}
             />
+            ) : null}
 
+            {scheduleModalLead ? (
             <ScheduleModal
                 open={scheduleModalLead !== null}
                 onClose={() => setScheduleModalLead(null)}
@@ -3035,6 +3042,7 @@ const Pipeline = () => {
                 initialDate={scheduleModalLead?.scheduledDate || ''}
                 initialTime={scheduleModalLead?.scheduledTime || ''}
             />
+            ) : null}
 
             {lostModal ? (
                 <LostReasonModal
@@ -3052,6 +3060,9 @@ const Pipeline = () => {
                 />
             ) : null}
 
+            ) : null}
+
+            {showImport ? (
             <ImportSheet
                 isOpen={showImport}
                 onClose={() => setShowImport(false)}
@@ -3060,7 +3071,9 @@ const Pipeline = () => {
                 title={`Importar ${labels.leads}`}
                 financeConfig={financeConfig}
             />
+            ) : null}
 
+            {postMatriculaContractOpen ? (
             <CreateContractModal
                 open={postMatriculaContractOpen}
                 leadId={postMatriculaContractLeadId || undefined}
@@ -3073,6 +3086,7 @@ const Pipeline = () => {
                     setPostMatriculaContractLeadId(null);
                 }}
             />
+            ) : null}
 
             {missedModalLead && (
                 <div className="note-overlay" onClick={() => setMissedModalLead(null)}>
@@ -3153,6 +3167,7 @@ const Pipeline = () => {
                 </div>
             )}
 
+            {linkStudentLead ? (
             <LinkStudentModal
                 open={Boolean(linkStudentLead)}
                 lead={linkStudentLead}
@@ -3165,6 +3180,8 @@ const Pipeline = () => {
                 }}
                 onConfirm={handleLinkStudentConfirm}
             />
+            ) : null}
+            </Suspense>
             {noteOpen && (
                 <div className="note-overlay" onClick={() => setNoteOpen(false)}>
                     <div className="note-modal" onClick={(e) => e.stopPropagation()}>

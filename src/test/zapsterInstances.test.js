@@ -97,8 +97,7 @@ describe('zapsterInstances — timeouts Zapster', () => {
     });
     await handler(req, res);
     expect(state.statusCode).toBe(500);
-    const errText = String(state.body?.codigo || state.body?.erro || '');
-    expect(errText).toMatch(/zapster_timeout/i);
+    expect(String(state.body?.erro || '')).toMatch(/demorou para responder/i);
   });
 
   it('GET action=qrcode rejeita com zapster_timeout', async () => {

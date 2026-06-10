@@ -15,8 +15,8 @@ export function useInboxAutoRefresh({
   useEffect(() => {
     if (!autoRefresh) return undefined;
 
-    const INTERVAL_ACTIVE_LIST_MS = realtimeOn ? 30_000 : 15_000;
-    const INTERVAL_ACTIVE_THREAD_MS = realtimeOn ? 15_000 : 15_000;
+    const INTERVAL_ACTIVE_LIST_MS = realtimeOn ? 30_000 : 20_000;
+    const INTERVAL_ACTIVE_THREAD_MS = realtimeOn ? 15_000 : 30_000;
     const INTERVAL_INACTIVE_MS = 60_000;
 
     const runListRefresh = () => {
@@ -26,6 +26,7 @@ export function useInboxAutoRefresh({
     };
 
     const runThreadRefresh = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       const phone = selectedPhoneRef.current;
       if (!phone || String(draftRef.current || '').trim()) return;
       const fnThread = loadThreadRef.current;

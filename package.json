@@ -35,6 +35,8 @@
     "provision:finance-features": "node scripts/provision-finance-features-schema.mjs",
     "provision:financial-tx-category": "node --env-file=.env scripts/provision-financial-tx-category.mjs",
     "provision:plan-freeze": "node --env-file=.env scripts/provision-plan-freeze-schema.mjs",
+    "cleanup:conversation-unused-attrs": "node --env-file=.env scripts/delete-conversation-unused-attrs.mjs",
+    "provision:conversation-agent-state": "node --env-file=.env scripts/provision-conversation-agent-state.mjs",
     "provision:students": "node --env-file=.env scripts/provision-students-schema.mjs",
     "provision:controlid": "node --env-file=.env scripts/provision-controlid-full.mjs",
     "migrate:leads-to-students": "node --env-file=.env scripts/migrate-leads-to-students.mjs",

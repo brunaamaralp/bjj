@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { account, teams, CONVERSATIONS_COL, DB_ID, databases, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
@@ -31,9 +31,14 @@ import {
   DropdownMenuPanel,
 } from '../components/shared/menu';
 import InboxListPanel from '../components/inbox/InboxListPanel';
-import InboxContextPanel, { InboxContextPanelContent } from '../components/inbox/InboxContextPanel';
 import InboxThreadPanel from '../components/inbox/InboxThreadPanel';
-import InboxImageLightbox from '../components/inbox/InboxImageLightbox.jsx';
+import { lazyWithRetry } from '../lib/lazyWithRetry.js';
+
+const InboxContextPanel = lazyWithRetry(() => import('../components/inbox/InboxContextPanel'));
+const InboxContextPanelContent = lazy(() =>
+  import('../components/inbox/InboxContextPanel').then((m) => ({ default: m.InboxContextPanelContent }))
+);
+const InboxImageLightbox = lazyWithRetry(() => import('../components/inbox/InboxImageLightbox.jsx'));
 import { uploadInboxMedia, InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -842,7 +847,7 @@ export default function Inbox() {
       return;
     }
     let cancelled = false;
-    (async () => {
+    const loadAgentFlag = async () => {
       try {
         const token = await getJwt();
         const { blocked, res } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
@@ -856,9 +861,21 @@ export default function Inbox() {
       } catch {
         if (!cancelled) setAgentIaActive(false);
       }
-    })();
+    };
+    const schedule =
+      typeof requestIdleCallback === 'function'
+        ? (cb) => requestIdleCallback(cb, { timeout: 2500 })
+        : (cb) => window.setTimeout(cb, 800);
+    const cancel =
+      typeof cancelIdleCallback === 'function'
+        ? cancelIdleCallback
+        : (id) => window.clearTimeout(id);
+    const id = schedule(() => {
+      if (!cancelled) void loadAgentFlag();
+    });
     return () => {
       cancelled = true;
+      cancel(id);
     };
   }, [academyId]);
 
@@ -2139,11 +2156,13 @@ export default function Inbox() {
   };
 
   const contextPanel = (
-    <InboxContextPanel
-      isMobile={isMobile}
-      setContextOpen={setContextOpen}
-      {...contextPanelProps}
-    />
+    <Suspense fallback={null}>
+      <InboxContextPanel
+        isMobile={isMobile}
+        setContextOpen={setContextOpen}
+        {...contextPanelProps}
+      />
+    </Suspense>
   );
 
   const inboxPageClassName = [
@@ -2171,7 +2190,11 @@ export default function Inbox() {
       <InboxContextMenus menu={menu} closeMenu={closeMenu} messageMenuProps={messageMenuProps} />
 
 
-      <InboxImageLightbox imageUrl={imageLightboxUrl} onClose={() => setImageLightboxUrl('')} />
+      {imageLightboxUrl ? (
+        <Suspense fallback={null}>
+          <InboxImageLightbox imageUrl={imageLightboxUrl} onClose={() => setImageLightboxUrl('')} />
+        </Suspense>
+      ) : null}
 
       {detailsModalOpen ? (
         <div
@@ -2197,7 +2220,9 @@ export default function Inbox() {
               </button>
             </div>
             <div className="inbox-details-modal-scroll">
-              <InboxContextPanelContent {...contextPanelProps} />
+              <Suspense fallback={null}>
+                <InboxContextPanelContent {...contextPanelProps} />
+              </Suspense>
             </div>
           </div>
         </div>

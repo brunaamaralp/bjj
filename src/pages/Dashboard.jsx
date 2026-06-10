@@ -42,7 +42,7 @@ import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
-import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
+import { patchFollowupDoneCache, getFollowupDoneCache, setFollowupDoneCache } from '../lib/followupDoneCache.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 /** Follow-ups com aula há >= N dias somem desta agenda e ficam só no Kanban */
 const FOLLOWUP_AGENDA_MAX_DAYS = 7;
@@ -150,8 +150,9 @@ const Dashboard = () => {
     const studentsLoading = useStudentStore((s) => s.loading);
     const studentsLastFetchedAt = useStudentStore((s) => s.lastFetchedAt);
     const addToast = useUiStore((s) => s.addToast);
-    const controlIdCfg = useAcademyControlId(academyId);
-    useControlIdMonitor(academyId, controlIdCfg.enabled);
+    const [controlIdFetchEnabled, setControlIdFetchEnabled] = useState(false);
+    const controlIdCfg = useAcademyControlId(academyId, { fetch: controlIdFetchEnabled });
+    useControlIdMonitor(academyId, controlIdFetchEnabled && controlIdCfg.enabled);
     const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
     const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -234,6 +235,7 @@ const Dashboard = () => {
     useEffect(() => {
         if (!academyId) return undefined;
         const STALE_MS = 5 * 60 * 1000;
+        const { leads, leadsLastFetchedAt } = useLeadStore.getState();
         if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) {
             return () => {
                 const { loading } = useLeadStore.getState();
@@ -254,7 +256,20 @@ const Dashboard = () => {
                 useLeadStore.setState({ loading: false });
             }
         };
-    }, [academyId, leads.length, leadsLastFetchedAt, fetchLeads]);
+    }, [academyId, leadsLastFetchedAt, fetchLeads]);
+
+    useEffect(() => {
+        const schedule =
+            typeof requestIdleCallback === 'function'
+                ? (cb) => requestIdleCallback(cb, { timeout: 3000 })
+                : (cb) => window.setTimeout(cb, 1500);
+        const cancel =
+            typeof cancelIdleCallback === 'function'
+                ? cancelIdleCallback
+                : (id) => window.clearTimeout(id);
+        const id = schedule(() => setControlIdFetchEnabled(true));
+        return () => cancel(id);
+    }, [academyId]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -317,16 +332,25 @@ const Dashboard = () => {
             setFollowupDoneAtByLead({});
             return;
         }
+        const cached = getFollowupDoneCache(academyId);
+        if (cached) {
+            setFollowupDoneAtByLead(cached);
+            return;
+        }
         let cancelled = false;
         const loadDoneEvents = async () => {
             try {
                 let cursor = null;
                 let pageCount = 0;
                 const byLead = {};
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - FOLLOWUP_AGENDA_MAX_DAYS);
+                const cutoffIso = cutoff.toISOString();
                 do {
                     const queries = [
                         Query.equal('academy_id', [String(academyId || '').trim()]),
                         Query.equal('type', ['followup_done']),
+                        Query.greaterThan('at', cutoffIso),
                         Query.orderDesc('at'),
                         Query.limit(100),
                     ];
@@ -342,7 +366,10 @@ const Dashboard = () => {
                     cursor = docs.length === 100 ? docs[docs.length - 1]?.$id : null;
                     pageCount += 1;
                 } while (cursor && pageCount < 10);
-                if (!cancelled) setFollowupDoneAtByLead(byLead);
+                if (!cancelled) {
+                    setFollowupDoneAtByLead(byLead);
+                    setFollowupDoneCache(academyId, byLead);
+                }
             } catch {
                 if (!cancelled) setFollowupDoneAtByLead({});
             }
@@ -770,6 +797,7 @@ const Dashboard = () => {
             });
 
             const applySuccess = () => {
+                patchFollowupDoneCache(st.academyId, leadId, nowIso);
                 setFollowupDoneAtByLead((prev) => ({ ...prev, [leadId]: nowIso }));
                 setFollowUpMicroToastOpen(true);
                 clearFollowupVisuals();

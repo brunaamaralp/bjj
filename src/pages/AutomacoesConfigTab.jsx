@@ -33,6 +33,7 @@ export default function AutomacoesConfigTab() {
   const academyName = String(academyDoc?.name || '').trim();
 
   const { waConnected, waInfo } = useZapsterWhatsAppConnection(academyId, {
+    deferInitialFetch: true,
     statusPollWhileMounted: true,
     watchAcademyStatus: true,
   });

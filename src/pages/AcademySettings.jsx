@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
 import { friendlyError } from '../lib/errorMessages';
@@ -15,13 +15,14 @@ import {
 } from 'lucide-react';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 
-import StudentsSection from '../components/academy/StudentsSection.jsx';
+const StudentsSection = lazyWithRetry(() => import('../components/academy/StudentsSection.jsx'));
+const EstudioSection = lazyWithRetry(() => import('../components/academy/EstudioSection'));
+const FunilSection = lazyWithRetry(() => import('../components/academy/FunilSection'));
+const FinanceiroConfigTab = lazyWithRetry(() => import('../components/finance/FinanceiroConfigTab.jsx'));
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
-import EstudioSection from '../components/academy/EstudioSection';
-import FunilSection from '../components/academy/FunilSection';
-import FinanceiroConfigTab from '../components/finance/FinanceiroConfigTab.jsx';
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
@@ -442,7 +443,9 @@ const AcademySettings = () => {
 
             {contentLoading ? <EmpresaTabSkeleton tabId={activeTab} /> : null}
 
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'estudio' && (
+            {!contentLoading && !tabDisabledState.disabled ? (
+                <Suspense fallback={<EmpresaTabSkeleton tabId={activeTab} />}>
+            {activeTab === 'estudio' && (
                 <>
                     <EstudioSection
                         academyId={academyId}
@@ -461,7 +464,7 @@ const AcademySettings = () => {
                 </>
             )}
 
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'funil' && (
+            {activeTab === 'funil' && (
                 <FunilSection
                     academy={academy}
                     setAcademy={setAcademy}
@@ -471,7 +474,7 @@ const AcademySettings = () => {
                 />
             )}
 
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'alunos' && (
+            {activeTab === 'alunos' && (
                 <StudentsSection
                     academy={academy}
                     setAcademy={setAcademy}
@@ -480,11 +483,13 @@ const AcademySettings = () => {
                 />
             )}
 
-            {!contentLoading && !tabDisabledState.disabled && activeTab === 'financeiro' && academyId && (
+            {activeTab === 'financeiro' && academyId && (
                 <div className="empresa-section">
                     <FinanceiroConfigTab academyId={academyId} isOwner={role === 'owner'} />
                 </div>
             )}
+                </Suspense>
+            ) : null}
 
             <style dangerouslySetInnerHTML={{
                 __html: `

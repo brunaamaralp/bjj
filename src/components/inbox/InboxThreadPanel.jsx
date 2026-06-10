@@ -147,10 +147,10 @@ export default function InboxThreadPanel(props) {
                 whatsappProfileName: selected?.whatsapp_profile_name,
                 phone,
               });
-              const displayName = name || phone || '—';
               const formattedPhone =
                 phone && typeof formatPhone === 'function' ? String(formatPhone(phone) || '').trim() : '';
-              const showPhoneLine = Boolean(formattedPhone && formattedPhone !== displayName);
+              const displayName = name || formattedPhone || phone || '—';
+              const showPhoneLine = Boolean(name && formattedPhone && formattedPhone !== name);
               const profileUrl = String(
                 selected?.whatsapp_profile_image_url || lead?.whatsapp_profile_image_url || ''
               ).trim();
@@ -166,8 +166,8 @@ export default function InboxThreadPanel(props) {
                       <img
                         src={profileUrl}
                         alt=""
-                        width={40}
-                        height={40}
+                        width={36}
+                        height={36}
                         loading="lazy"
                         decoding="async"
                         referrerPolicy="no-referrer"
@@ -205,40 +205,43 @@ export default function InboxThreadPanel(props) {
                       </p>
                     ) : null}
                     {!selected?.lead_id && !pendingTriage ? (
-                      <div className="inbox-thread-header__unlink">
-                        <span className="inbox-thread-header__unlink-badge">Sem contato</span>
-                        {editingContactName ? (
-                          <>
-                            <input
-                              id="inbox-contact-name-input"
-                              className="input inbox-thread-header__name-input"
-                              aria-label="Nome do contato"
-                              value={contactNameDraft}
-                              onChange={(e) => setContactNameDraft(e.target.value)}
-                              placeholder="Nome do contato"
-                              autoComplete="name"
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-outline inbox-thread-header__name-btn"
-                              onClick={() => void saveContactName()}
-                              disabled={savingContactName}
-                            >
-                              {savingContactName ? 'Salvando…' : 'Salvar'}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline inbox-thread-header__name-btn"
-                              onClick={() => {
-                                setEditingContactName(false);
-                                setContactNameDraft('');
-                              }}
-                              disabled={savingContactName}
-                            >
-                              Cancelar
-                            </button>
-                          </>
-                        ) : (
+                      editingContactName ? (
+                        <div className="inbox-thread-header__subline inbox-thread-header__subline--edit">
+                          <input
+                            id="inbox-contact-name-input"
+                            className="input inbox-thread-header__name-input"
+                            aria-label="Nome do contato"
+                            value={contactNameDraft}
+                            onChange={(e) => setContactNameDraft(e.target.value)}
+                            placeholder="Nome do contato"
+                            autoComplete="name"
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-outline inbox-thread-header__name-btn"
+                            onClick={() => void saveContactName()}
+                            disabled={savingContactName}
+                          >
+                            {savingContactName ? 'Salvando…' : 'Salvar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline inbox-thread-header__name-btn"
+                            onClick={() => {
+                              setEditingContactName(false);
+                              setContactNameDraft('');
+                            }}
+                            disabled={savingContactName}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="inbox-thread-header__subline">
+                          <span className="inbox-thread-header__unlink-badge">Sem contato</span>
+                          <span className="inbox-thread-header__subline-dot" aria-hidden>
+                            ·
+                          </span>
                           <button
                             type="button"
                             className="inbox-thread-header__link-btn--subtle"
@@ -251,8 +254,8 @@ export default function InboxThreadPanel(props) {
                           >
                             Vincular contato
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )
                     ) : null}
                   </div>
                 </>
@@ -262,7 +265,7 @@ export default function InboxThreadPanel(props) {
           <div className="inbox-thread-header-actions inbox-thread-header-actions--wa">
             {!selected?.need_human ? (
               <button
-                className="btn btn-primary inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
+                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
                 onClick={() => setHandoffActive(true)}
                 disabled={!selectedPhone}
                 type="button"
@@ -272,7 +275,7 @@ export default function InboxThreadPanel(props) {
               </button>
             ) : (
               <button
-                className="btn btn-primary inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
+                className="inbox-thread-header__action-btn inbox-thread-header__action-btn--wa inbox-thread-header__action-btn--wa-primary"
                 onClick={() => {
                   setHandoffReleaseHint(true);
                   void setHandoffActive(false);

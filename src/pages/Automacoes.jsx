@@ -1,11 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import { resolveHubTab } from '../lib/hubTabs.js';
-import AutomacoesProcessosTab from './AutomacoesProcessosTab.jsx';
-import AutomacoesModelosTab from './AutomacoesModelosTab.jsx';
-import AutomacoesConfigTab from './AutomacoesConfigTab.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import PageSkeleton from '../components/shared/PageSkeleton.jsx';
+import { lazyWithRetry } from '../lib/lazyWithRetry.js';
+
+const AutomacoesProcessosTab = lazyWithRetry(() => import('./AutomacoesProcessosTab.jsx'));
+const AutomacoesModelosTab = lazyWithRetry(() => import('./AutomacoesModelosTab.jsx'));
+const AutomacoesConfigTab = lazyWithRetry(() => import('./AutomacoesConfigTab.jsx'));
 
 const TABS = [
   { id: 'processos', label: 'Processos' },
@@ -41,9 +44,11 @@ export default function Automacoes() {
       />
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Automações" fullWidth />
       <div className="mt-3 animate-in">
-        {activeTab === 'processos' ? <AutomacoesProcessosTab /> : null}
-        {activeTab === 'modelos' ? <AutomacoesModelosTab /> : null}
-        {activeTab === 'configuracoes' ? <AutomacoesConfigTab /> : null}
+        <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+          {activeTab === 'processos' ? <AutomacoesProcessosTab /> : null}
+          {activeTab === 'modelos' ? <AutomacoesModelosTab /> : null}
+          {activeTab === 'configuracoes' ? <AutomacoesConfigTab /> : null}
+        </Suspense>
       </div>
     </div>
   );
