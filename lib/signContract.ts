@@ -2,6 +2,7 @@ import { createDocument, deleteDocument, getDocument, signDocument } from './aut
 import { createContract, saveSigners } from './contracts/contractService.js';
 import { buildSignersLinks } from './contracts/signersLinks.js';
 import { matchInputSignerToAutentiqueSignature } from './contracts/contractAutentiqueSync.js';
+import { fetchAcademyDoc } from './contracts/contractLeadAccess.js';
 import type { SignContractData, SignContractResult, SignerInput, SignerSaveInput } from './contracts/types.js';
 import type { AutentiqueDocument, AutentiqueSignature } from './autentique/types.js';
 
@@ -55,8 +56,21 @@ function resolveInitialContractStatus(autentiqueDoc: AutentiqueDocument): string
   return 'pending';
 }
 
-async function refreshAutentiqueDocument(documentId: string): Promise<AutentiqueDocument | null> {
-  const remote = await getDocument(documentId);
+async function resolveAcademyDoc(
+  contractData: SignContractData,
+  academyDocInput?: Record<string, unknown> | null
+): Promise<Record<string, unknown> | null> {
+  if (academyDocInput) return academyDocInput;
+  const academyId = String(contractData.academy_id || '').trim();
+  if (!academyId) return null;
+  return (await fetchAcademyDoc(academyId)) as Record<string, unknown> | null;
+}
+
+async function refreshAutentiqueDocument(
+  documentId: string,
+  academyDoc?: Record<string, unknown> | null
+): Promise<AutentiqueDocument | null> {
+  const remote = await getDocument(documentId, academyDoc);
   if (!remote) return null;
   return {
     id: remote.id,
@@ -79,26 +93,31 @@ async function refreshAutentiqueDocument(documentId: string): Promise<Autentique
  */
 export async function signContract(
   contractData: SignContractData,
-  fileBuffer: Buffer | Blob
+  fileBuffer: Buffer | Blob,
+  academyDocInput?: Record<string, unknown> | null
 ): Promise<SignContractResult> {
+  const academyDoc = await resolveAcademyDoc(contractData, academyDocInput);
   const multiSigner = contractData.signers.length > 1;
   const useSortable = contractData.autoSignAcademy ? false : multiSigner;
 
-  let autentiqueDocument = await createDocument({
-    name: contractData.name,
-    message: contractData.message,
-    signers: contractData.signers,
-    file: fileBuffer,
-    sandbox: Boolean(contractData.sandbox),
-    sortable: useSortable,
-  });
+  let autentiqueDocument = await createDocument(
+    {
+      name: contractData.name,
+      message: contractData.message,
+      signers: contractData.signers,
+      file: fileBuffer,
+      sandbox: Boolean(contractData.sandbox),
+      sortable: useSortable,
+    },
+    academyDoc
+  );
 
   let autoSign: SignContractResult['autoSign'];
 
   if (contractData.autoSignAcademy) {
     try {
-      await signDocument(autentiqueDocument.id);
-      const refreshed = await refreshAutentiqueDocument(autentiqueDocument.id);
+      await signDocument(autentiqueDocument.id, academyDoc);
+      const refreshed = await refreshAutentiqueDocument(autentiqueDocument.id, academyDoc);
       if (refreshed) autentiqueDocument = refreshed;
       autoSign = { applied: true };
     } catch (err) {
@@ -139,7 +158,7 @@ export async function signContract(
   } catch (appwriteErr) {
     const message = appwriteErr instanceof Error ? appwriteErr.message : String(appwriteErr);
     try {
-      const rolledBack = await deleteDocument(autentiqueDocument.id);
+      const rolledBack = await deleteDocument(autentiqueDocument.id, academyDoc);
       if (!rolledBack) {
         console.error('[contracts] appwrite_save_failed', {
           autentiqueId: autentiqueDocument.id,

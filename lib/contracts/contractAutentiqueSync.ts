@@ -5,6 +5,7 @@ import {
   updateSignerStatus,
   recomputeContractStatusFromSigners,
 } from './contractService.js';
+import { fetchAcademyDoc } from './contractLeadAccess.js';
 import { getBrazilMobileNational } from './normalizePhone.js';
 
 function normalizeEmail(value: string | null | undefined): string {
@@ -23,7 +24,8 @@ export async function syncContractFromAutentique(
   const autentiqueId = String(contract.autentiqueId || '').trim();
   if (!autentiqueId) return { ok: false, error: 'autentique_id_missing' };
 
-  const remote = await getDocument(autentiqueId);
+  const academyDoc = (await fetchAcademyDoc(academyId)) as Record<string, unknown> | null;
+  const remote = await getDocument(autentiqueId, academyDoc);
   if (!remote) return { ok: false, error: 'autentique_document_not_found' };
 
   const signatures = remote.signatures || [];

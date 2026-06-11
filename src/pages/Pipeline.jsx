@@ -61,12 +61,13 @@ import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
 import { getPipelineStageColor } from '../lib/pipelineStageColors.js';
 import { partitionLeadAttributePills } from '../lib/pipelineLeadPills.js';
 import { canShowPipelineScheduleShortcut } from '../lib/pipelineScheduleShortcut.js';
-import PipelineAdvancedFilters, { currentMonthYm } from '../components/pipeline/PipelineAdvancedFilters.jsx';
+import PipelineAdvancedFilters from '../components/pipeline/PipelineAdvancedFilters.jsx';
 import {
     clearPipelineSessionState,
     collectColumnScrolls,
     deriveActivePeriodChip,
     LEAD_PROFILE_FROM_PIPELINE,
+    currentMonthYm,
     pipelineSessionInitialFilters,
     pipelineSessionInitialQuickFilter,
     readPipelineSessionState,
@@ -2125,6 +2126,16 @@ const Pipeline = () => {
         setOriginFilter('all');
         setFilterDateFrom('');
         setFilterDateTo('');
+        setEnrollmentMonthFilter(currentMonthYm());
+        setQuickFilter('month');
+        setSearchStageScope('all');
+    }, []);
+
+    const clearAllPeriodFilters = useCallback(() => {
+        setProfileFilter('all');
+        setOriginFilter('all');
+        setFilterDateFrom('');
+        setFilterDateTo('');
         setEnrollmentMonthFilter('');
         setQuickFilter(null);
         setSearchStageScope('all');
@@ -2193,8 +2204,8 @@ const Pipeline = () => {
             setFilterDateTo('');
             return;
         }
-        clearAdvancedFilters();
-    }, [clearAdvancedFilters, invalidatePipelineSession]);
+        clearAllPeriodFilters();
+    }, [clearAllPeriodFilters, invalidatePipelineSession]);
 
     const renderPeriodFilterChips = () => (
         <>

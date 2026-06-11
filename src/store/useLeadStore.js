@@ -153,6 +153,9 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.needHuman !== undefined) copyIf('need_human', Boolean(u.needHuman));
   if (u.triageStatus !== undefined) copyIf('triage_status', String(u.triageStatus || '').trim().slice(0, 32));
   if (u.inboundAuto !== undefined) copyIf('inbound_auto', Boolean(u.inboundAuto));
+  if (u.turma !== undefined && LEAD_TURMA_APPWRITE_KEY) {
+    copyIf(LEAD_TURMA_APPWRITE_KEY, String(u.turma || '').trim().slice(0, 128));
+  }
 
   const nowIso = new Date().toISOString();
   if (typeof u.status !== 'undefined' && u.status !== currentLead.status) {
@@ -455,6 +458,9 @@ export const useLeadStore = create(
         pipeline_stage_changed_at: nowIso,
         status_changed_at: nowIso,
       };
+      if (LEAD_TURMA_APPWRITE_KEY && lead.turma) {
+        docPayload[LEAD_TURMA_APPWRITE_KEY] = String(lead.turma).trim().slice(0, 128);
+      }
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
       try {

@@ -153,7 +153,15 @@ const NewLead = () => {
 
         setSubmitting(true);
         try {
-            const hasSchedule = !!data.scheduledDate && !!data.scheduledTime;
+            let scheduledDate = String(data.scheduledDate || '').trim().split('T')[0];
+            let scheduledTime = String(data.scheduledTime || '').trim();
+            if (scheduledDate && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+                scheduledDate = '';
+            }
+            if (scheduledDate && !scheduledTime) {
+                scheduledTime = nextQuarterTime();
+            }
+            const hasSchedule = Boolean(scheduledDate);
             const initialNote = data.notes?.trim();
             const history = initialNote
                 ? [{ type: 'note', text: initialNote, at: new Date().toISOString(), by: 'user' }]
@@ -176,19 +184,19 @@ const NewLead = () => {
                 isFirstExperience: data.isFirstExperience,
                 parentName: data.parentName || '',
                 age: data.age || '',
-                scheduledDate: data.scheduledDate || '',
-                scheduledTime: data.scheduledTime || '',
+                scheduledDate: scheduledDate || '',
+                scheduledTime: scheduledTime || '',
                 notes: history,
             });
             if (created?.id && hasSchedule) {
                 const autoResult = await afterExperimentalScheduled({
                     lead: {
                         ...created,
-                        scheduledDate: data.scheduledDate || '',
-                        scheduledTime: data.scheduledTime || '',
+                        scheduledDate: scheduledDate || '',
+                        scheduledTime: scheduledTime || '',
                     },
-                    ymd: data.scheduledDate,
-                    time: data.scheduledTime,
+                    ymd: scheduledDate,
+                    time: scheduledTime,
                     academyId,
                     waOutbound: {
                         name: waName || '',
@@ -218,6 +226,12 @@ const NewLead = () => {
         }
     };
 
+    const submitNewLead = (e) => {
+        const active = document.activeElement;
+        if (active && typeof active.blur === 'function') active.blur();
+        return handleSubmit(onSubmit)(e);
+    };
+
     const singular = (plural) => {
         if (!plural) return 'Lead';
         const p = String(plural).trim();
@@ -237,7 +251,7 @@ const NewLead = () => {
                 }
             />
 
-            <form onSubmit={handleSubmit(onSubmit)} className="flex-col gap-4">
+            <form onSubmit={submitNewLead} className="flex-col gap-4">
                 {/* Nome */}
                 <div className="form-group card animate-in">
                     <label>Nome</label>
@@ -362,7 +376,8 @@ const NewLead = () => {
                 <div className="card animate-in" style={{ animationDelay: '0.15s' }}>
                     <h3 className="type-label" style={{ marginBottom: 12 }}>Agendamento <span className="optional-label" style={{textTransform: 'none', fontWeight: 500}}>(opcional)</span></h3>
                     <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 0, marginBottom: 10 }}>
-                        Com data e horário, o cadastro entra na etapa {terms.trialShort}.
+                        Com data preenchida, o cadastro entra na etapa {terms.trialShort} e na agenda.
+                        Se não escolher horário, usamos o próximo horário disponível.
                     </p>
                     <div className="flex gap-2">
                         <div className="form-group" style={{ flex: 1 }}>

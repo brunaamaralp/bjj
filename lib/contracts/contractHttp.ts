@@ -233,7 +233,8 @@ export async function handlePostContract(
         expires_at: expiresAt || undefined,
         autoSignAcademy: parsed.auto_sign_academy,
       },
-      buffer
+      buffer,
+      academyDoc as Record<string, unknown> | null
     );
 
     if (!result.contract) {
@@ -338,7 +339,11 @@ export async function handlePatchContract(
     }
 
     if (existing.autentiqueId) {
-      await deleteDocument(String(existing.autentiqueId));
+      const academyDoc = await fetchAcademyDoc(auth.academyId);
+      await deleteDocument(
+        String(existing.autentiqueId),
+        academyDoc as Record<string, unknown> | null
+      );
     }
 
     const updated = await cancelContractById(contractId);

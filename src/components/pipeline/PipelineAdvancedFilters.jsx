@@ -1,11 +1,7 @@
 import React from 'react';
 import { LEAD_ORIGIN } from '../../store/useLeadStore';
 import { DateInputField } from '../DateInput';
-
-function currentMonthYm() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
+import { currentMonthYm } from '../../lib/pipelineSessionState.js';
 
 /**
  * Filtros avançados do funil — aplicam imediatamente ao alterar (sem rascunho).
@@ -153,5 +149,3 @@ export default function PipelineAdvancedFilters({
     </div>
   );
 }
-
-export { currentMonthYm };

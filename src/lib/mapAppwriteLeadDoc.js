@@ -32,6 +32,7 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     phone: doc.phone || doc.phone_number || '',
     type: doc.type || 'Adulto',
     sexo: normalizeSexo(doc.sexo),
+    turma: String(doc.turma || doc.class_name || '').trim(),
     origin: doc.origin || '',
     contact_type: doc.contact_type ?? 'lead',
     status,

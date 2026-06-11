@@ -22,6 +22,11 @@
 
 export const PIPELINE_STATE_STORAGE_KEY = 'pipeline_state';
 
+export function currentMonthYm() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export const LEAD_PROFILE_FROM_PIPELINE = 'pipeline';
 export const LEAD_PROFILE_FROM_DASHBOARD = 'dashboard';
 
@@ -89,12 +94,13 @@ export function deriveActivePeriodChip({ quickFilter, filterDateFrom, filterDate
 /** @param {PipelineSessionState | null | undefined} saved */
 export function pipelineSessionInitialFilters(saved) {
   const f = saved?.activeFilters || {};
+  const defaultEnrollmentMonth = saved ? '' : currentMonthYm();
   return {
     profileFilter: f.profileFilter ?? 'all',
     originFilter: f.originFilter ?? 'all',
     filterDateFrom: f.filterDateFrom ?? '',
     filterDateTo: f.filterDateTo ?? '',
-    enrollmentMonthFilter: f.enrollmentMonthFilter ?? '',
+    enrollmentMonthFilter: f.enrollmentMonthFilter ?? defaultEnrollmentMonth,
     searchStageScope: f.searchStageScope ?? 'all',
   };
 }
@@ -103,5 +109,6 @@ export function pipelineSessionInitialFilters(saved) {
 export function pipelineSessionInitialQuickFilter(saved) {
   const chip = saved?.activePeriodChip;
   if (chip === 'today' || chip === 'week' || chip === 'month') return chip;
-  return null;
+  if (chip === 'all') return null;
+  return saved ? null : 'month';
 }

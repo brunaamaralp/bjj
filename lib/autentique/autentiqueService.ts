@@ -3,6 +3,8 @@ import type { AutentiquePosition, SignerInput } from '../contracts/types.js';
 import { normalizePhoneForAutentique } from '../contracts/normalizePhone.js';
 import { humanizeAutentiqueError } from './humanizeAutentiqueError.js';
 import type { AutentiqueGraphQLError } from './parseAutentiqueErrors.js';
+import { readAutentiqueConfig } from '../autentiqueSettings.js';
+import { decryptAutentiqueToken } from '../server/autentiqueCrypto.js';
 
 const GRAPHQL_URL = 'https://api.autentique.com.br/v2/graphql';
 
@@ -35,10 +37,24 @@ const CREATE_DOCUMENT_MUTATION = `mutation CreateDocumentMutation(
   }
 }`;
 
-function getApiToken(): string {
-  const token = String(process.env.AUTENTIQUE_TOKEN || process.env.AUTENTIQUE_API_TOKEN || '').trim();
-  if (!token) throw new Error('autentique_not_configured');
-  return token;
+function getApiToken(academyDoc?: Record<string, unknown> | null): string {
+  if (academyDoc) {
+    const cfg = readAutentiqueConfig(academyDoc.settings ?? academyDoc.settings_json);
+    if (cfg.token_encrypted) {
+      const decrypted = decryptAutentiqueToken(cfg.token_encrypted).trim();
+      if (decrypted) return decrypted;
+    }
+
+    const legacyToken = String(academyDoc.autentique_token || '').trim();
+    if (legacyToken) return legacyToken;
+  }
+
+  const fromEnv = String(
+    process.env.AUTENTIQUE_TOKEN || process.env.AUTENTIQUE_API_TOKEN || ''
+  ).trim();
+  if (fromEnv) return fromEnv;
+
+  throw new Error('autentique_not_configured');
 }
 
 function toUploadBlob(file: Buffer | Blob): Blob {
@@ -107,15 +123,18 @@ function normalizeSigners(signers: SignerInput[]): SignerInput[] {
   });
 }
 
-export async function createDocument({
-  name,
-  message,
-  signers,
-  file,
-  sandbox = false,
-  refusable = false,
-  sortable,
-}: CreateDocumentParams): Promise<AutentiqueDocument> {
+export async function createDocument(
+  {
+    name,
+    message,
+    signers,
+    file,
+    sandbox = false,
+    refusable = false,
+    sortable,
+  }: CreateDocumentParams,
+  academyDoc?: Record<string, unknown> | null
+): Promise<AutentiqueDocument> {
   const docName = String(name || '').trim();
   if (!docName) throw new Error('name_required');
 
@@ -152,7 +171,7 @@ export async function createDocument({
 
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getApiToken()}` },
+    headers: { Authorization: `Bearer ${getApiToken(academyDoc)}` },
     body: form,
   });
 
@@ -212,14 +231,17 @@ const SIGN_DOCUMENT_MUTATION = `mutation SignDocument($id: UUID!) {
 }`;
 
 /** Assina com a conta do titular do token (deve constar como signatário). */
-export async function signDocument(documentId: string): Promise<SignDocumentResult> {
+export async function signDocument(
+  documentId: string,
+  academyDoc?: Record<string, unknown> | null
+): Promise<SignDocumentResult> {
   const id = String(documentId || '').trim();
   if (!id) throw new Error('document_id_required');
 
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${getApiToken()}`,
+      Authorization: `Bearer ${getApiToken(academyDoc)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -261,14 +283,17 @@ const DELETE_DOCUMENT_MUTATION = `mutation DeleteDocument($id: UUID!) {
 }`;
 
 /** Remove documento na Autentique (rollback após falha no Appwrite). Retorna false se a API não suportar ou falhar. */
-export async function deleteDocument(documentId: string): Promise<boolean> {
+export async function deleteDocument(
+  documentId: string,
+  academyDoc?: Record<string, unknown> | null
+): Promise<boolean> {
   const id = String(documentId || '').trim();
   if (!id) return false;
 
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${getApiToken()}`,
+      Authorization: `Bearer ${getApiToken(academyDoc)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -324,14 +349,17 @@ export interface AutentiqueDocumentSync {
   }>;
 }
 
-export async function getDocument(documentId: string): Promise<AutentiqueDocumentSync | null> {
+export async function getDocument(
+  documentId: string,
+  academyDoc?: Record<string, unknown> | null
+): Promise<AutentiqueDocumentSync | null> {
   const id = String(documentId || '').trim();
   if (!id) return null;
 
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${getApiToken()}`,
+      Authorization: `Bearer ${getApiToken(academyDoc)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

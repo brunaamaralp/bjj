@@ -14,6 +14,10 @@ import {
   handlePatchContractTemplate,
   handlePostContractTemplate,
 } from '../lib/contracts/contractTemplateHttp.js';
+import {
+  autentiqueGetStatusHandler,
+  autentiqueSaveConfigHandler,
+} from '../lib/server/autentiqueHandlers.js';
 
 export const config = {
   api: {
@@ -152,6 +156,10 @@ async function resolveContractAuth(req, res) {
 
 export default async function handler(req, res) {
   try {
+  const route = String(req.query?.route || '').trim();
+  if (route === 'autentique_save_config') return autentiqueSaveConfigHandler(req, res);
+  if (route === 'autentique_get_status') return autentiqueGetStatusHandler(req, res);
+
   const auth = await resolveContractAuth(req, res);
   if (!auth) return;
 
