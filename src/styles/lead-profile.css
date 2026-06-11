@@ -699,6 +699,11 @@
                     z-index: 1;
                 }
 
+                .timeline-event-item--virtualized {
+                    content-visibility: auto;
+                    contain-intrinsic-size: 0 72px;
+                }
+
                 .event-dot {
                     position: absolute;
                     left: -24px;

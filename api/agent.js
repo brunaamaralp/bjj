@@ -21,6 +21,7 @@ import academyWhatsappTemplatesHandler from '../lib/server/academyWhatsappTempla
 import academySettingsHandler from '../lib/server/academySettingsHandler.js';
 import followupCopilotHandler from '../lib/server/followupCopilotHandler.js';
 import followupInboundHandler from '../lib/server/followupInboundHandler.js';
+import followupEventsHandler from '../lib/server/followupEventsHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -81,6 +82,9 @@ export default async function handler(req, res) {
     }
     if (route === 'followup-inbound') {
       return followupInboundHandler(req, res);
+    }
+    if (route === 'followup-events') {
+      return followupEventsHandler(req, res);
     }
     return res.status(404).json({ error: 'invalid_agent_action' });
   } catch (error) {

@@ -46,7 +46,7 @@ export default function AutomacoesModelosTab() {
     () => (academyList || []).find((a) => a.id === academyId) || null,
     [academyList, academyId]
   );
-  const { leads } = useLeadStore();
+  const leads = useLeadStore((s) => s.leads);
   const addToast = useUiStore((s) => s.addToast);
 
   const {
@@ -98,14 +98,18 @@ export default function AutomacoesModelosTab() {
     setOriginal(loadedTemplates);
   }, [loadedTemplates]);
 
+  const expandedTemplateText = expandedId ? String(templates[expandedId] || '') : '';
+
   useEffect(() => {
-    const next = {};
-    for (const id of Object.keys(templates)) {
-      const v = validateTemplatePlaceholders(String(templates[id] || ''));
-      if (!v.ok) next[id] = v.unknown;
-    }
-    setUnknownById(next);
-  }, [templates]);
+    if (!expandedId) return;
+    const v = validateTemplatePlaceholders(expandedTemplateText);
+    setUnknownById((prev) => {
+      const next = { ...prev };
+      if (v.ok) delete next[expandedId];
+      else next[expandedId] = v.unknown;
+      return next;
+    });
+  }, [expandedId, expandedTemplateText]);
 
   useEffect(() => {
     if (!openPopover) return;
@@ -295,7 +299,10 @@ export default function AutomacoesModelosTab() {
     });
   };
 
-  const changed = useMemo(() => JSON.stringify(templates) !== JSON.stringify(original), [templates, original]);
+  const changed = useMemo(
+    () => templateIds.some((id) => String(templates[id] || '') !== String(original[id] || '')),
+    [templates, original, templateIds]
+  );
 
   const filteredIds = useMemo(() => {
     const q = String(filter || '').trim().toLowerCase();

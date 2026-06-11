@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { getAcademyDocument, invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { mergeEnrollmentFollowUpIntoSettings, readEnrollmentFollowUpTask } from '../../lib/enrollmentSettings';
@@ -10,30 +11,44 @@ import StatusBanner from '../shared/StatusBanner.jsx';
 /**
  * Aviso de migração quando ainda existe tarefa legada em academy.settings (fora dos templates).
  */
-export default function EnrollmentFollowUpSection({ academyId }) {
+export default function EnrollmentFollowUpSection({
+  academyId,
+  academySettings,
+  settingsLoading = false,
+  onSettingsSaved,
+}) {
   const addToast = useUiStore((s) => s.addToast);
-  const [followUp, setFollowUp] = useState(null);
+  const usesSharedSettings = academySettings !== undefined;
+  const [selfFollowUp, setSelfFollowUp] = useState(null);
+  const [selfLoaded, setSelfLoaded] = useState(usesSharedSettings);
   const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+
+  const sharedFollowUp = useMemo(() => {
+    if (!usesSharedSettings || settingsLoading) return null;
+    return readEnrollmentFollowUpTask(academySettings);
+  }, [usesSharedSettings, academySettings, settingsLoading]);
+
+  const followUp = usesSharedSettings ? sharedFollowUp : selfFollowUp;
+  const loaded = usesSharedSettings ? !settingsLoading : selfLoaded;
 
   useEffect(() => {
-    if (!academyId) return;
+    if (!academyId || usesSharedSettings) return undefined;
     let cancelled = false;
     (async () => {
       try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        const doc = await getAcademyDocument(academyId);
         if (cancelled) return;
-        setFollowUp(readEnrollmentFollowUpTask(doc.settings));
+        setSelfFollowUp(readEnrollmentFollowUpTask(doc.settings));
       } catch (e) {
         console.error('[EnrollmentFollowUp]', e);
       } finally {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) setSelfLoaded(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [academyId]);
+  }, [academyId, usesSharedSettings]);
 
   if (!loaded || !followUp) return null;
 
@@ -41,13 +56,16 @@ export default function EnrollmentFollowUpSection({ academyId }) {
     if (!academyId) return;
     setSaving(true);
     try {
-      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const doc = await getAcademyDocument(academyId);
       const base = parseAcademySettings(doc.settings);
       const merged = mergeEnrollmentFollowUpIntoSettings(base, null);
+      const settingsRaw = JSON.stringify(merged);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        settings: JSON.stringify(merged),
+        settings: settingsRaw,
       });
-      setFollowUp(null);
+      invalidateAcademyDocumentCache(academyId);
+      onSettingsSaved?.(settingsRaw);
+      if (!usesSharedSettings) setSelfFollowUp(null);
       addToast({ type: 'success', message: 'Tarefa adicional removida.' });
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'save') });

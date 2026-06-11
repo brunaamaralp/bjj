@@ -92,13 +92,36 @@ export default function RecepcaoLivePanel() {
     mountedRef.current = true;
     void loadToday();
 
-    if (controlId.configured && controlId.enabled && academyId) {
+    const stopPoll = () => {
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
+      }
+    };
+
+    const startPoll = () => {
+      stopPoll();
+      if (!controlId.configured || !controlId.enabled || !academyId) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       pollTimer.current = setInterval(() => void doPoll(), POLL_INTERVAL_MS);
-    }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void doPoll();
+        startPoll();
+      } else {
+        stopPoll();
+      }
+    };
+
+    startPoll();
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       mountedRef.current = false;
-      if (pollTimer.current) clearInterval(pollTimer.current);
+      stopPoll();
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [academyId, controlId.configured, controlId.enabled, loadToday, doPoll]);
 

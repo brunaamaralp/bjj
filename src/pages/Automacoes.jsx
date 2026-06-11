@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense } from 'react';
+import React, { useEffect, Suspense, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import { resolveHubTab } from '../lib/hubTabs.js';
@@ -22,6 +22,7 @@ export default function Automacoes() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, 'processos');
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -34,6 +35,15 @@ export default function Automacoes() {
     }
   }, [activeTab, navigate, searchParams, setSearchParams]);
 
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
+
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
   return (
@@ -45,8 +55,16 @@ export default function Automacoes() {
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Automações" fullWidth />
       <div className="mt-3 animate-in">
         <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
-          {activeTab === 'processos' ? <AutomacoesProcessosTab /> : null}
-          {activeTab === 'modelos' ? <AutomacoesModelosTab /> : null}
+          {visitedTabs.has('processos') ? (
+            <div hidden={activeTab !== 'processos'} aria-hidden={activeTab !== 'processos'}>
+              <AutomacoesProcessosTab />
+            </div>
+          ) : null}
+          {visitedTabs.has('modelos') ? (
+            <div hidden={activeTab !== 'modelos'} aria-hidden={activeTab !== 'modelos'}>
+              <AutomacoesModelosTab />
+            </div>
+          ) : null}
           {activeTab === 'configuracoes' ? <AutomacoesConfigTab /> : null}
         </Suspense>
       </div>

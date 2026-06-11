@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { getAcademyDocument, invalidateAcademyDocumentCache } from '../lib/getAcademyDocument.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations.js';
 import { useTerms } from '../lib/terminology.js';
@@ -56,7 +57,7 @@ export default function AutomacoesConfigTab() {
     setLoading(true);
     (async () => {
       try {
-        const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+        const doc = await getAcademyDocument(academyId);
         if (cancelled) return;
         setAcademy({
           automationsConfigRaw: doc.automations_config || '',
@@ -116,6 +117,7 @@ export default function AutomacoesConfigTab() {
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
         automations_config: JSON.stringify(automationsConfig || {}),
       });
+      invalidateAcademyDocumentCache(academyId);
       setAcademy((prev) => ({
         ...prev,
         automationsConfigRaw: JSON.stringify(automationsConfig || {}),
