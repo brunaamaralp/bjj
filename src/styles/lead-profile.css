@@ -1379,11 +1379,20 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
   border: none;
   border-radius: 8px;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
+  box-sizing: border-box;
+}
+
+.lead-profile-conversation-rail__collapse svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .lead-profile-conversation-rail__collapse:hover {

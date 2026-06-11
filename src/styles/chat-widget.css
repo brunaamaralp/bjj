@@ -183,6 +183,9 @@
 .navi-chat-widget__icon-btn {
   width: 30px;
   height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
   border: 1px solid var(--color-card-border);
   border-radius: 8px;
   background: var(--color-card-bg);
@@ -193,7 +196,20 @@
   cursor: pointer;
   text-decoration: none;
   flex-shrink: 0;
+  box-sizing: border-box;
   transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+}
+
+.navi-chat-widget__icon-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Perfil do lead/aluno: mesma barra de ações embutida (aba Conversas) */
+.lead-profile-conversation-panel .navi-chat-widget__header-actions .navi-chat-widget__icon-btn,
+.student-profile-conversation-panel .navi-chat-widget__header-actions .navi-chat-widget__icon-btn,
+.lead-profile-conversation-rail .navi-chat-widget__header-actions .navi-chat-widget__icon-btn {
+  padding: 0;
 }
 
 .navi-chat-widget__icon-btn:hover {
