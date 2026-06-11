@@ -9747,6 +9747,7 @@ input.navi-typable-date.form-input:focus {
   margin: 8px 0 0;
   font-size: var(--font-3xl);
   font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .navi-error-fallback__sub {

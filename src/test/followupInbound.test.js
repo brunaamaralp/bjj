@@ -45,3 +45,17 @@ describe('followupInbound', () => {
     );
   });
 });
+
+describe('patchFollowupInboundCache', () => {
+  it('atualiza cache compartilhado para o hero reagir ao inbox', async () => {
+    const { patchFollowupInboundCache, getFollowupEventsCache } = await import('../lib/followupEventsCache.js');
+    patchFollowupInboundCache('acad-1', {
+      leadId: 'l9',
+      phone: '5511999998888',
+      lastUserMsgAt: '2026-06-11T10:00:00.000Z',
+    });
+    const cached = getFollowupEventsCache('acad-1');
+    expect(cached?.inboundAfterByLead?.l9).toBe('2026-06-11T10:00:00.000Z');
+    expect(cached?.inboundAfterByPhone?.['5511999998888']).toBe('2026-06-11T10:00:00.000Z');
+  });
+});

@@ -141,6 +141,7 @@ export async function performEnrollment({
   if (source !== 'direct') {
     const phoneDup = await findActiveStudentByPhone({
       phone: lead?.phone,
+      name: lead?.name,
       academyId,
       students: useStudentStore.getState().students,
       excludeStudentId: leadId,

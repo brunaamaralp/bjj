@@ -77,16 +77,18 @@ const NewLead = () => {
 
     const leadType = watch('type');
     const phoneValue = watch('phone');
+    const nameValue = watch('name');
     const [debouncedPhone, setDebouncedPhone] = useState('');
+    const [debouncedName, setDebouncedName] = useState('');
 
-    // Aviso de duplicata só com telefone completo e igualdade exata (após normalizar).
-    // Não usar “últimos 8 dígitos”: gera falso positivo entre DDDs diferentes e com alunos importados com lixo/CPF no campo.
-    const findDuplicate = useCallback((phone) => {
+    // Duplicata = mesmo telefone + mesmo nome (irmãos podem compartilhar o telefone do responsável).
+    const findDuplicate = useCallback((phone, name) => {
         const inputNorm = String(phone || '').replace(/\D/g, '');
-        if (inputNorm.length < 8) return null;
-        const existingLead = findLocalLeadByPhone(leads, phone);
+        const displayName = String(name || '').trim();
+        if (inputNorm.length < 8 || displayName.length < 2) return null;
+        const existingLead = findLocalLeadByPhone(leads, phone, { name: displayName });
         if (existingLead) return { ...existingLead, _duplicateKind: 'lead' };
-        const existingStudent = findLocalStudentByPhone(students, phone);
+        const existingStudent = findLocalStudentByPhone(students, phone, { name: displayName });
         if (existingStudent) return { ...existingStudent, _duplicateKind: 'student' };
         return null;
     }, [leads, students]);
@@ -101,30 +103,49 @@ const NewLead = () => {
         return () => window.clearTimeout(t);
     }, [phoneValue]);
 
+    useEffect(() => {
+        const n = String(nameValue || '').trim();
+        if (n.length < 2) {
+            setDebouncedName(String(nameValue || ''));
+            return undefined;
+        }
+        const t = window.setTimeout(() => setDebouncedName(String(nameValue || '')), 400);
+        return () => window.clearTimeout(t);
+    }, [nameValue]);
+
     const phoneChecking = useMemo(() => {
         const d = String(phoneValue || '').replace(/\D/g, '');
         if (d.length < 8) return false;
         return debouncedPhone !== phoneValue;
     }, [phoneValue, debouncedPhone]);
 
-    const duplicate = useMemo(() => findDuplicate(debouncedPhone), [debouncedPhone, findDuplicate]);
+    const nameChecking = useMemo(() => {
+        const n = String(nameValue || '').trim();
+        if (n.length < 2) return false;
+        return debouncedName !== nameValue;
+    }, [nameValue, debouncedName]);
+
+    const duplicate = useMemo(
+        () => findDuplicate(debouncedPhone, debouncedName),
+        [debouncedPhone, debouncedName, findDuplicate]
+    );
 
     const onSubmit = async (data) => {
         if (!academyId) {
             addToast({ type: 'error', message: 'Academia não identificada. Recarregue a página e tente novamente.' });
             return;
         }
-        if (phoneChecking) {
-            addToast({ type: 'warning', message: 'Aguarde a verificação do telefone.' });
+        if (phoneChecking || nameChecking) {
+            addToast({ type: 'warning', message: 'Aguarde a verificação do cadastro.' });
             return;
         }
 
-        const dupBlocking = findDuplicate(data.phone);
+        const dupBlocking = findDuplicate(data.phone, data.name);
         if (dupBlocking) {
             const kind = dupBlocking._duplicateKind === 'student' ? 'aluno' : 'lead';
             addToast({
                 type: 'error',
-                message: `Este telefone já está cadastrado como ${kind} — ${dupBlocking.name}`,
+                message: `Este telefone já está cadastrado para ${dupBlocking.name} como ${kind}.`,
             });
             return;
         }
@@ -246,12 +267,12 @@ const NewLead = () => {
                     />
                     {errors.phone ? <FieldError>Campo obrigatório</FieldError> : null}
 
-                    {duplicate && !phoneChecking ? (
+                    {duplicate && !phoneChecking && !nameChecking ? (
                         <StatusBanner variant="warning" className="new-lead-duplicate-banner animate-in">
-                            <strong>Telefone já cadastrado</strong>
+                            <strong>Cadastro já existente</strong>
                             <p style={{ margin: '4px 0 0' }}>
-                                Este telefone já está cadastrado
-                                {duplicate._duplicateKind === 'student' ? ' como aluno' : ''} — {duplicate.name}
+                                Já existe um cadastro com este telefone e nome
+                                {duplicate._duplicateKind === 'student' ? ' (aluno)' : ''} — {duplicate.name}
                             </p>
                             <button
                                 type="button"
@@ -404,7 +425,7 @@ const NewLead = () => {
                     type="submit"
                     className="btn-secondary btn-large mt-2 animate-in"
                     style={{ animationDelay: '0.25s' }}
-                    disabled={submitting || Boolean(duplicate) || phoneChecking}
+                    disabled={submitting || Boolean(duplicate) || phoneChecking || nameChecking}
                 >
                     {submitting ? (
                         <div className="flex items-center gap-2">

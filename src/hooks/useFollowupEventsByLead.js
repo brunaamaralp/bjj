@@ -4,9 +4,14 @@ import { account, databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import {
   getFollowupEventsCache,
+  invalidateFollowupEventsCache,
+  patchFollowupInboundCache,
   setFollowupEventsCache,
 } from '../lib/followupEventsCache.js';
 import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
+import { FOLLOWUP_INBOUND_CHANGED } from '../lib/leadTimelineEvents.js';
+import { getInboundPollMs } from '../lib/followupInboundPoll.js';
+import { useFollowupInboundRealtime } from './useFollowupInboundRealtime.js';
 
 function parsePayload(doc) {
   const raw = doc?.payload_json ?? doc?.payloadJson;
@@ -115,17 +120,24 @@ async function loadInboundAfterMapsFromApi(academyId) {
 async function loadInboundAfterMaps(academyId) {
   const fromApi = await loadInboundAfterMapsFromApi(academyId);
   if (fromApi) return fromApi;
-  // Fallback client-side exige permissões de leitura na coleção conversations no browser;
-  // sem elas gera 401 ruidoso — retorno vazio e copilot usa só eventos de lead.
   return { inboundAfterByLead: {}, inboundAfterByPhone: {} };
+}
+
+async function fetchFollowupEventsBundle(academyId) {
+  const [events, inbound] = await Promise.all([
+    loadFollowupEvents(academyId),
+    loadInboundAfterMaps(academyId),
+  ]);
+  return { ...events, ...inbound };
 }
 
 /**
  * Carrega eventos recentes de retorno + inbound WhatsApp por lead (cache compartilhado com Dashboard).
  * @param {string} academyId
- * @param {{ defer?: boolean }} [opts]
+ * @param {{ defer?: boolean; enableRealtime?: boolean }} [opts]
  */
-export function useFollowupEventsByLead(academyId, { defer = false } = {}) {
+export function useFollowupEventsByLead(academyId, { defer = false, enableRealtime = true } = {}) {
+  const { realtimeOn } = useFollowupInboundRealtime(academyId, { enabled: enableRealtime });
   const [doneByLead, setDoneByLead] = useState({});
   const [contactByLead, setContactByLead] = useState({});
   const [snoozeUntilByLead, setSnoozeUntilByLead] = useState({});
@@ -148,6 +160,50 @@ export function useFollowupEventsByLead(academyId, { defer = false } = {}) {
     if (cached) applyBundle(cached);
   }, [academyId, applyBundle]);
 
+  const refreshFollowupEvents = useCallback(
+    async ({ force = false } = {}) => {
+      const aid = String(academyId || '').trim();
+      if (!aid || !LEAD_EVENTS_COL) return;
+      if (force) invalidateFollowupEventsCache(aid);
+      setLoading(true);
+      try {
+        const bundle = await fetchFollowupEventsBundle(aid);
+        applyBundle(bundle);
+        setFollowupEventsCache(aid, bundle);
+      } catch {
+        if (force) {
+          applyBundle({
+            doneByLead: {},
+            contactByLead: {},
+            snoozeUntilByLead: {},
+            inboundAfterByLead: {},
+            inboundAfterByPhone: {},
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [academyId, applyBundle]
+  );
+
+  const refreshInboundOnly = useCallback(async () => {
+    const aid = String(academyId || '').trim();
+    if (!aid) return;
+    const inbound = await loadInboundAfterMaps(aid);
+    if (!inbound) return;
+    const cached = getFollowupEventsCache(aid) || {
+      doneByLead: {},
+      contactByLead: {},
+      snoozeUntilByLead: {},
+      inboundAfterByLead: {},
+      inboundAfterByPhone: {},
+    };
+    const bundle = { ...cached, ...inbound };
+    applyBundle(bundle);
+    setFollowupEventsCache(aid, bundle);
+  }, [academyId, applyBundle]);
+
   useEffect(() => {
     if (!academyId || !LEAD_EVENTS_COL) {
       applyBundle({
@@ -161,33 +217,20 @@ export function useFollowupEventsByLead(academyId, { defer = false } = {}) {
     }
 
     const cached = getFollowupEventsCache(academyId);
-    if (cached) {
-      applyBundle(cached);
-      return;
-    }
+    if (cached) applyBundle(cached);
 
     let cancelled = false;
-
     const load = async () => {
       if (cancelled) return;
       setLoading(true);
       try {
-        const [events, inbound] = await Promise.all([
-          loadFollowupEvents(academyId),
-          loadInboundAfterMaps(academyId),
-        ]);
-
-        const bundle = {
-          ...events,
-          ...inbound,
-        };
-
+        const bundle = await fetchFollowupEventsBundle(academyId);
         if (!cancelled) {
           applyBundle(bundle);
           setFollowupEventsCache(academyId, bundle);
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !cached) {
           applyBundle({
             doneByLead: {},
             contactByLead: {},
@@ -209,6 +252,46 @@ export function useFollowupEventsByLead(academyId, { defer = false } = {}) {
     };
   }, [academyId, defer, applyBundle]);
 
+  useEffect(() => {
+    if (!academyId || typeof window === 'undefined') return undefined;
+
+    let pollId = null;
+
+    const onInboundChanged = (ev) => {
+      const detail = ev?.detail || {};
+      const aid = String(detail.academyId || academyId || '').trim();
+      if (aid && aid !== String(academyId || '').trim()) return;
+      patchFollowupInboundCache(aid, {
+        leadId: detail.leadId,
+        phone: detail.phone,
+        lastUserMsgAt: detail.lastUserMsgAt,
+      });
+      refreshFromCache();
+    };
+
+    const restartPoll = () => {
+      if (pollId) window.clearInterval(pollId);
+      pollId = null;
+      const ms = getInboundPollMs(realtimeOn, document.visibilityState === 'hidden');
+      if (!ms) return;
+      pollId = window.setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        void refreshInboundOnly();
+      }, ms);
+    };
+
+    restartPoll();
+    const onVisibility = () => restartPoll();
+
+    window.addEventListener(FOLLOWUP_INBOUND_CHANGED, onInboundChanged);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      if (pollId) window.clearInterval(pollId);
+      window.removeEventListener(FOLLOWUP_INBOUND_CHANGED, onInboundChanged);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [academyId, refreshFromCache, refreshInboundOnly, realtimeOn]);
+
   return {
     loading,
     followupDoneByLead: doneByLead,
@@ -216,6 +299,8 @@ export function useFollowupEventsByLead(academyId, { defer = false } = {}) {
     followupSnoozeUntilByLead: snoozeUntilByLead,
     inboundAfterByLead,
     inboundAfterByPhone,
+    followupRealtimeOn: realtimeOn,
     refreshFromCache,
+    refreshFollowupEvents,
   };
 }

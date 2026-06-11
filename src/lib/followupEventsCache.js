@@ -1,3 +1,5 @@
+import { mergeInboundIntoMaps } from './followupInbound.js';
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 /** Bump quando o formato do bundle mudar (ex.: inbound WhatsApp). */
 const CACHE_VERSION = 3;
@@ -81,6 +83,43 @@ export function patchFollowupContactCache(academyId, leadId, atIso) {
     version: CACHE_VERSION,
   };
   entry.data.contactByLead[lid] = atIso;
+  entry.fetchedAt = Date.now();
+  entry.version = CACHE_VERSION;
+  cache.set(id, entry);
+}
+
+export function invalidateFollowupEventsCache(academyId) {
+  const id = storageKey(academyId);
+  if (!id) return;
+  cache.delete(id);
+}
+
+/** Atualiza inbound WhatsApp no cache (ex.: realtime do Inbox). */
+export function patchFollowupInboundCache(academyId, { leadId = '', phone = '', lastUserMsgAt = '' } = {}) {
+  const id = storageKey(academyId);
+  if (!id) return;
+  const at = String(lastUserMsgAt || '').trim();
+  if (!at) return;
+
+  const entry = cache.get(id) || {
+    data: {
+      doneByLead: {},
+      contactByLead: {},
+      snoozeUntilByLead: {},
+      inboundAfterByLead: {},
+      inboundAfterByPhone: {},
+    },
+    fetchedAt: Date.now(),
+    version: CACHE_VERSION,
+  };
+
+  mergeInboundIntoMaps(
+    {
+      inboundAfterByLead: entry.data.inboundAfterByLead,
+      inboundAfterByPhone: entry.data.inboundAfterByPhone,
+    },
+    { leadId, phone, lastUserMsgAt: at }
+  );
   entry.fetchedAt = Date.now();
   entry.version = CACHE_VERSION;
   cache.set(id, entry);

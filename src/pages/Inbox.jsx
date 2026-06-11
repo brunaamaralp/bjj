@@ -378,7 +378,7 @@ export default function Inbox() {
     followupSnoozeUntilByLead,
     inboundAfterByLead,
     inboundAfterByPhone,
-  } = useFollowupEventsByLead(academyId, { defer: true });
+  } = useFollowupEventsByLead(academyId, { defer: true, enableRealtime: false });
   const followupPlaybook = useMemo(
     () => readFollowupPlaybook(academyDoc?.settings),
     [academyDoc?.settings]

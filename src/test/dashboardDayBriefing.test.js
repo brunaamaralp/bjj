@@ -56,6 +56,31 @@ describe('buildDaySummaryLine', () => {
     expect(line).toContain('retomar 2 retornos');
   });
 
+  it('conta só retornos sem contato no ciclo', () => {
+    const line = buildDaySummaryLine({
+      todayScheduled: [],
+      followUps: [
+        { id: '1', hasContactInCycle: true },
+        { id: '2', hasContactInCycle: false },
+      ],
+      pendingTasks: [],
+      trialShort: 'Aula experimental',
+    });
+    expect(line).toContain('retomar 1 retorno');
+    expect(line).not.toContain('2 retornos');
+  });
+
+  it('mostra agenda em dia quando retornos já responderam', () => {
+    const line = buildDaySummaryLine({
+      todayScheduled: [],
+      followUps: [{ id: '1', hasContactInCycle: true }],
+      pendingTasks: [],
+      trialShort: 'Aula experimental',
+    });
+    expect(line).toContain('Agenda e retornos em dia');
+    expect(line).not.toContain('retomar');
+  });
+
   it('não usa tom desmotivador', () => {
     const line = buildDaySummaryLine({
       todayScheduled: [],

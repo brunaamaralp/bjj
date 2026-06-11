@@ -456,6 +456,7 @@ export const useStudentStore = create((set, get) => ({
 
     const phoneDup = await findActiveStudentByPhone({
       phone: student?.phone,
+      name: student?.name,
       academyId,
       students: get().students,
     });
@@ -538,6 +539,7 @@ export const useStudentStore = create((set, get) => ({
       try {
         const phoneDup = await findActiveStudentByPhone({
           phone: row?.phone,
+          name: row?.name,
           academyId,
           students: get().students,
         });

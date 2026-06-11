@@ -72,6 +72,11 @@ function firstTrialTimeLabel(leads) {
   return null;
 }
 
+/** Retornos abertos que ainda precisam de contato (sem WhatsApp/resposta no ciclo). */
+export function followUpsNeedingContact(followUps) {
+  return (followUps || []).filter((lead) => !lead?.hasContactInCycle);
+}
+
 /**
  * @param {{
  *   todayScheduled: object[];
@@ -85,7 +90,7 @@ function firstTrialTimeLabel(leads) {
 export function buildDaySummaryLine(ctx) {
   const trial = String(ctx.trialShort || 'aula experimental').toLowerCase();
   const todayCount = ctx.omitTodaySchedule ? 0 : ctx.todayScheduled?.length || 0;
-  const followCount = ctx.followUps?.length || 0;
+  const followCount = followUpsNeedingContact(ctx.followUps).length;
   const taskCount = ctx.pendingTasks?.length || 0;
   const weekly = Number(ctx.weeklyEnrollments) || 0;
 

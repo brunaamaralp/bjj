@@ -8,7 +8,7 @@ function ErrorFallback({ onReset, isStaleBundle = false }) {
 
   return (
     <div className="navi-error-fallback">
-      <NaviBrandLockup height={40} variant="dark" />
+      <NaviBrandLockup height={72} variant="dark" />
       <h1 className="navi-error-fallback__title">Algo inesperado aconteceu.</h1>
       <p className="navi-error-fallback__sub">
         {isStaleBundle

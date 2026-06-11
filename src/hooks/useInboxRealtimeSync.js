@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { realtime, DB_ID, CONVERSATIONS_COL } from '../lib/appwrite';
-
-const REALTIME_DEBOUNCE_MS = 250;
-const REALTIME_SUBSCRIBE_DELAY_MS = 300;
+import {
+  buildConversationsChannel,
+  conversationEventToInboundPatch,
+  readConversationAcademyId,
+  REALTIME_DEBOUNCE_MS,
+  shouldProcessConversationEvent,
+  subscribeConversationsRealtime,
+} from '../lib/conversationsRealtime.js';
+import { emitFollowupInboundChanged } from '../lib/leadTimelineEvents.js';
 
 function isInboxDebugEnabled() {
   const envEnabled =
@@ -57,7 +63,7 @@ export function useInboxRealtimeSync({
       return;
     }
 
-    const channel = `databases.${DB_ID}.collections.${CONVERSATIONS_COL}.documents`;
+    const channel = buildConversationsChannel(DB_ID, CONVERSATIONS_COL);
     if (inboxDebugEnabled) {
       console.group('[Inbox Realtime] setup');
       devLog('DB_ID:', DB_ID);
@@ -69,16 +75,12 @@ export function useInboxRealtimeSync({
     }
 
     const cancelledRef = { current: false };
-    let subscription = null;
-    let subscribeTimer = null;
+    /** @type {{ close: () => void } | null} */
+    let subscriptionHandle = null;
 
     const onRealtimeEvent = (ev) => {
       if (cancelledRef.current) return;
       const payload = ev && typeof ev === 'object' ? ev.payload : null;
-      const academy =
-        payload && typeof payload === 'object'
-          ? String(payload.academy_id ?? payload.academyId ?? '').trim()
-          : '';
       const expected = String(academyIdRef.current || '').trim();
       const phone =
         payload && typeof payload === 'object' ? String(payload.phone_number || '').trim() : '';
@@ -88,11 +90,28 @@ export function useInboxRealtimeSync({
         console.group('[Inbox Realtime] evento');
         devLog('events:', ev?.events);
         devLog('phone:', phone || '(vazio)');
-        devLog('academy payload:', academy || '(vazio)', '| esperado:', expected || '(vazio)');
+        devLog(
+          'academy payload:',
+          payload && typeof payload === 'object'
+            ? String(payload.academy_id ?? payload.academyId ?? '').trim() || '(vazio)'
+            : '(vazio)',
+          '| esperado:',
+          expected || '(vazio)'
+        );
         console.groupEnd();
       }
 
-      if (academy && expected && academy !== expected) return;
+      if (!shouldProcessConversationEvent(payload, expected)) return;
+
+      const patch = conversationEventToInboundPatch(payload);
+      if (patch?.lastUserMsgAt) {
+        emitFollowupInboundChanged({
+          academyId: expected || readConversationAcademyId(payload),
+          leadId: patch.leadId,
+          phone: patch.phone,
+          lastUserMsgAt: patch.lastUserMsgAt,
+        });
+      }
 
       if (realtimeTimersRef.current?.list) clearTimeout(realtimeTimersRef.current.list);
       realtimeTimersRef.current.list = setTimeout(() => {
@@ -109,45 +128,39 @@ export function useInboxRealtimeSync({
       }
     };
 
-    subscribeTimer = window.setTimeout(() => {
-      if (cancelledRef.current) return;
-      void realtime
-        .subscribe(channel, onRealtimeEvent)
-        .then((sub) => {
-          if (cancelledRef.current) {
-            void sub?.close?.();
-            return;
-          }
-          subscription = sub;
-          if (mountedRef.current) setRealtimeOn(true);
-          if (inboxDebugEnabled) {
-            devLog('[Inbox Realtime] subscrito; close:', typeof sub?.close);
-          }
-        })
-        .catch((e) => {
-          if (!cancelledRef.current && mountedRef.current) {
-            console.error('[Inbox Realtime] falha ao subscrever:', e);
-            setRealtimeOn(false);
-          }
-        });
-    }, REALTIME_SUBSCRIBE_DELAY_MS);
+    subscriptionHandle = subscribeConversationsRealtime({
+      realtimeClient: realtime,
+      channel,
+      onEvent: onRealtimeEvent,
+      onConnected: () => {
+        if (mountedRef.current) setRealtimeOn(true);
+        if (inboxDebugEnabled) {
+          devLog('[Inbox Realtime] subscrito');
+        }
+      },
+      onError: (e) => {
+        if (!cancelledRef.current && mountedRef.current) {
+          console.error('[Inbox Realtime] falha ao subscrever:', e);
+          setRealtimeOn(false);
+        }
+      },
+    });
 
     const timersRef = realtimeTimersRef;
     return () => {
       cancelledRef.current = true;
-      if (subscribeTimer) clearTimeout(subscribeTimer);
       if (inboxDebugEnabled) {
         devLog('[Inbox Realtime] cleanup');
+      }
+      try {
+        subscriptionHandle?.close?.();
+      } catch {
+        void 0;
       }
       try {
         const timers = timersRef.current;
         if (timers?.list) clearTimeout(timers.list);
         if (timers?.thread) clearTimeout(timers.thread);
-      } catch {
-        void 0;
-      }
-      try {
-        if (subscription && typeof subscription.close === 'function') void subscription.close();
       } catch {
         void 0;
       }

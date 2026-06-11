@@ -47,10 +47,17 @@ function validateLeadInput(data) {
   return { ok: true };
 }
 
-function findDuplicateByPhone(leads, phone) {
+function findDuplicateByPhoneAndName(leads, phone, name) {
   const inputNorm = normalizePhoneDedup(phone);
-  if (inputNorm.length < 8) return null;
-  return (leads || []).find((l) => normalizePhoneDedup(l.phone) === inputNorm) || null;
+  const displayName = String(name || '').trim();
+  if (inputNorm.length < 8 || displayName.length < 2) return null;
+  return (
+    (leads || []).find(
+      (l) =>
+        normalizePhoneDedup(l.phone) === inputNorm &&
+        String(l.name || '').trim().toLowerCase() === displayName.toLowerCase()
+    ) || null
+  );
 }
 
 function buildLeadPayload(data) {
@@ -105,19 +112,24 @@ describe('Criação de lead', () => {
   });
 
   describe('Detecção de duplicatas', () => {
-    it('telefone já cadastrado retorna lead existente', () => {
+    it('telefone e nome já cadastrados retorna lead existente', () => {
       const existing = { id: 'l1', name: 'Rafa', phone: '(37) 99999-9999' };
-      expect(findDuplicateByPhone([existing], '37999999999')).toEqual(existing);
+      expect(findDuplicateByPhoneAndName([existing], '37999999999', 'Rafa')).toEqual(existing);
     });
 
     it('telefone novo não retorna duplicata', () => {
       const existing = { id: 'l1', name: 'Rafa', phone: '(37) 99999-9999' };
-      expect(findDuplicateByPhone([existing], '37911112222')).toBeNull();
+      expect(findDuplicateByPhoneAndName([existing], '37911112222', 'Rafa')).toBeNull();
     });
 
-    it('telefone formatado diferente mas mesmo número é duplicata', () => {
+    it('mesmo telefone com nome diferente não é duplicata (irmãos)', () => {
+      const existing = { id: 'l1', name: 'Maria', phone: '(37) 99999-9999' };
+      expect(findDuplicateByPhoneAndName([existing], '37999999999', 'João')).toBeNull();
+    });
+
+    it('telefone formatado diferente mas mesmo número e nome é duplicata', () => {
       const existing = { id: 'l1', name: 'Rafa', phone: '(37) 99999-9999' };
-      expect(findDuplicateByPhone([existing], '37999999999')?.id).toBe('l1');
+      expect(findDuplicateByPhoneAndName([existing], '37999999999', 'Rafa')?.id).toBe('l1');
     });
   });
 

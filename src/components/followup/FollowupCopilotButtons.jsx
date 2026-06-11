@@ -20,7 +20,6 @@ export default function FollowupCopilotButtons({
   const toast = useToast();
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryText, setSummaryText] = useState('');
-  const [summaryBullets, setSummaryBullets] = useState([]);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
   const [draftPreview, setDraftPreview] = useState('');
@@ -49,10 +48,8 @@ export default function FollowupCopilotButtons({
         academyId: aid,
         leadId: lid,
         mode: 'summary',
-        nextAction,
       });
       setSummaryText(String(data.summary || '').trim());
-      setSummaryBullets(Array.isArray(data.bullets) ? data.bullets : []);
       setSummaryOpen(true);
     } catch (e) {
       toast.error(e, 'action');
@@ -190,13 +187,6 @@ export default function FollowupCopilotButtons({
       {summaryOpen && summaryText ? (
         <div className="followup-copilot__panel" role="region" aria-label="Resumo do lead" aria-live="polite">
           <p className="followup-copilot__summary">{summaryText}</p>
-          {summaryBullets.length > 0 ? (
-            <ul className="followup-copilot__bullets">
-              {summaryBullets.map((b, i) => (
-                <li key={i}>{b}</li>
-              ))}
-            </ul>
-          ) : null}
           <button type="button" className="followup-copilot__close" onClick={() => setSummaryOpen(false)}>
             Fechar
           </button>

@@ -29,6 +29,7 @@ import DashboardBirthdayModal from '../components/dashboard/DashboardBirthdayMod
 import {
     buildHeroDateLine,
     buildDaySummaryLine,
+    followUpsNeedingContact,
     getDayPriority,
     getTimeOfDayPeriod,
     countWeeklyEnrollments,
@@ -191,6 +192,7 @@ const Dashboard = () => {
         inboundAfterByLead,
         inboundAfterByPhone,
         refreshFromCache: refreshFollowupFromCache,
+        refreshFollowupEvents,
     } = useFollowupEventsByLead(academyId, { defer: true });
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds] = useState({});
@@ -326,12 +328,13 @@ const Dashboard = () => {
                 hiddenAtRef.current = null;
                 if (elapsed > REFRESH_THRESHOLD_MS) {
                     void fetchLeads({ reset: false });
+                    void refreshFollowupEvents();
                 }
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [academyId, fetchLeads]);
+    }, [academyId, fetchLeads, refreshFollowupEvents]);
 
     useEffect(() => {
         function onLeadsRefresh() {
@@ -361,6 +364,7 @@ const Dashboard = () => {
                 fetchLeads(),
                 fetchStudents({ reset: true }),
                 fetchTasks(academyId, { silent: true, filters: { status: 'pending' } }),
+                refreshFollowupEvents({ force: true }),
             ]);
         } finally {
             setTimeout(() => setIsRefreshing(false), 300);
@@ -585,11 +589,15 @@ const Dashboard = () => {
     const showWeekAgendaPanel = !isZeroState;
 
     const heroStats = useMemo(() => {
+        const followUpsAwaitingContact = followUpsNeedingContact(followUps);
         const followupUrgent =
             followupTemperatureCounts.cooling + followupTemperatureCounts.critical;
         const todayFootnote = buildTodayKpiFootnote(todayScheduled.length);
         const enrollmentFootnote = buildEnrollmentKpiFootnote(monthEnrollmentMetrics);
-        const followupFootnote = buildFollowupKpiFootnote(followUps.length, followupUrgent);
+        const followupFootnote = buildFollowupKpiFootnote(
+            followUpsAwaitingContact.length,
+            followupUrgent
+        );
         const tasksFootnote = buildTasksKpiFootnote(pendingTasks.length);
 
         return [
@@ -612,11 +620,11 @@ const Dashboard = () => {
             {
                 key: 'followup',
                 label: followupKpiLabel(),
-                count: followUps.length,
+                count: followUpsAwaitingContact.length,
                 tone:
                     followupTemperatureCounts.critical > 0
                         ? 'attention'
-                        : followUps.length > 0
+                        : followUpsAwaitingContact.length > 0
                           ? 'default'
                           : 'success',
                 icon: <MessageCircle {...HERO_KPI_ICON_PROPS} aria-hidden />,
