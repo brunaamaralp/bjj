@@ -13,13 +13,11 @@ export function inboxListFilterToServerParam(listFilter) {
 }
 
 /**
- * Coordena carga inicial da lista: troca de academia e busca debounced.
+ * Reseta estado local da inbox ao trocar de academia.
+ * A carga da lista fica em useInboxConversationList (useLayoutEffect).
  */
 export function useInboxInitialLoad({
   academyId,
-  debouncedSearchQuery,
-  listFilter = 'all',
-  loadListRef,
   setSelectedPhone,
   setSelected,
   setItems,
@@ -30,19 +28,12 @@ export function useInboxInitialLoad({
   inboxAutoSelectDoneRef,
 }) {
   const prevAcademyIdRef = useRef('');
-  const prevSearchRef = useRef('');
-  const prevListFilterRef = useRef('');
-  const mountedRef = useRef(false);
 
   useEffect(() => {
     const cur = String(academyId || '').trim();
     if (!cur) return;
 
     const prevAcademy = prevAcademyIdRef.current;
-    const search = String(debouncedSearchQuery || '').trim();
-    const prevSearch = prevSearchRef.current;
-    const filter = String(listFilter || 'all').trim() || 'all';
-    const prevFilter = prevListFilterRef.current;
     const academyChanged = prevAcademy && prevAcademy !== cur;
 
     if (academyChanged) {
@@ -56,23 +47,9 @@ export function useInboxInitialLoad({
       inboxAutoSelectDoneRef.current = false;
     }
 
-    const searchChanged = mountedRef.current && prevAcademy === cur && search !== prevSearch;
-    const filterChanged = mountedRef.current && prevAcademy === cur && filter !== prevFilter;
-    const shouldLoad = !mountedRef.current || academyChanged || searchChanged || filterChanged;
-
     prevAcademyIdRef.current = cur;
-    prevSearchRef.current = search;
-    prevListFilterRef.current = filter;
-    mountedRef.current = true;
-
-    if (!shouldLoad) return;
-    const fn = loadListRef.current;
-    if (typeof fn === 'function') void fn({ reset: true });
   }, [
     academyId,
-    debouncedSearchQuery,
-    listFilter,
-    loadListRef,
     setSelectedPhone,
     setSelected,
     setItems,

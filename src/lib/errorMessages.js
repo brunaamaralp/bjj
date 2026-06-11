@@ -33,6 +33,9 @@ const ERROR_MAP = {
   instance_not_found: 'WhatsApp desconectado. Verifique a página Agente IA.',
   instance_not_connected: 'WhatsApp sem sinal. Reconecte o dispositivo.',
 
+  phone_duplicate: 'Este telefone já está cadastrado como aluno ativo.',
+  phone_duplicate_active: 'Este telefone já está cadastrado como aluno ativo.',
+
   // Auth
   'Invalid credentials': 'Email ou senha incorretos.',
   'already exists': 'Este email já está cadastrado.',
@@ -140,6 +143,15 @@ export function friendlyError(err, context = 'action') {
   if (appwriteSpecific) {
     logTechnicalError(errObj, appwriteSpecific, raw);
     return appwriteSpecific;
+  }
+
+  if (raw.startsWith('phone_duplicate_active:')) {
+    const name = raw.slice('phone_duplicate_active:'.length).trim();
+    const friendly = name
+      ? `Este telefone já está cadastrado — ${name}`
+      : ERROR_MAP.phone_duplicate;
+    logTechnicalError(errObj, friendly, raw);
+    return friendly;
   }
 
   for (const [key, friendly] of Object.entries(ERROR_MAP)) {

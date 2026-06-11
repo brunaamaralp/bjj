@@ -15,7 +15,7 @@ import {
 import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/server/zapsterInstanceLookup.js';
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
-import { recalcUnreadCount } from '../lib/server/conversationsStore.js';
+import { resolveUnreadCountAfterMerge } from '../lib/server/conversationsStore.js';
 import { lastMessageMetaPayload } from '../lib/server/conversationListMeta.js';
 import { conversationMessagesStoragePayload } from '../lib/server/conversationMessages.js';
 import { enrichInboundMedia } from '../lib/server/inboxMediaService.js';
@@ -1335,7 +1335,13 @@ export default async function handler(req, res) {
           };
           if (lastUserMsgAt) docPayload.last_user_msg_at = lastUserMsgAt;
           const lastReadAt = String(current?.last_read_at || '').trim();
-          docPayload.unread_count = recalcUnreadCount(merged, lastReadAt || null);
+          const prevUnread = Number.isFinite(Number(current?.unread_count)) ? Number(current.unread_count) : 0;
+          docPayload.unread_count = resolveUnreadCountAfterMerge({
+            messages: merged,
+            lastReadAt,
+            prevUnread,
+            historyMessages: history,
+          });
           const waName = String(bucket?.whatsappName || '').trim();
           const waPic = String(bucket?.whatsappProfileImageUrl || '').trim();
           const picOk = Boolean(waPic && /^https?:\/\//i.test(waPic));

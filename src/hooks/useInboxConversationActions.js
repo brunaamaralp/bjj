@@ -45,12 +45,13 @@ export function useInboxConversationActions({
       const p = String(phone || '').trim();
       if (!p || !academyIdRef.current) return;
       try {
-        await postInboxConversation({
+        const result = await postInboxConversation({
           phone: p,
           academyId: academyIdRef.current,
           body: { action: 'read' },
           fallbackError: 'Falha ao marcar como lida',
         });
+        if (result.blocked || !result.ok) return;
         setItems((prev) => {
           const arr = Array.isArray(prev) ? prev : [];
           return arr.map((it) => {

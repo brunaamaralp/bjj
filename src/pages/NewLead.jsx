@@ -20,6 +20,8 @@ import { friendlyError } from '../lib/errorMessages.js';
 import FieldError from '../components/shared/FieldError.jsx';
 import { DateInputField } from '../components/DateInput';
 import StatusBanner from '../components/shared/StatusBanner.jsx';
+import { useStudentStore } from '../store/useStudentStore.js';
+import { findLocalLeadByPhone, findLocalStudentByPhone } from '../lib/studentPhoneDuplicate.js';
 
 const TYPE_ICONS = {
     'Criança': <Baby size={20} />,
@@ -28,14 +30,6 @@ const TYPE_ICONS = {
 };
 
 const COMMON_TIMES = ['07:00', '08:00', '12:00', '18:00', '19:00', '20:00'];
-
-/** Só dígitos; remove 55 inicial para comparar mesmo número salvo com/sem país. */
-function normalizePhoneDedup(raw) {
-    let d = String(raw ?? '').replace(/\D/g, '');
-    if (!d) return '';
-    if (d.startsWith('55') && d.length >= 12) d = d.slice(2);
-    return d;
-}
 
 const nextQuarterTime = () => {
     const d = new Date();
@@ -52,6 +46,7 @@ const NewLead = () => {
     const addLead = useLeadStore((state) => state.addLead);
     const updateLead = useLeadStore((state) => state.updateLead);
     const leads = useLeadStore((state) => state.leads);
+    const students = useStudentStore((state) => state.students);
     const academyId = useLeadStore((state) => state.academyId);
     const {
         templates: waTemplates,
@@ -87,14 +82,14 @@ const NewLead = () => {
     // Aviso de duplicata só com telefone completo e igualdade exata (após normalizar).
     // Não usar “últimos 8 dígitos”: gera falso positivo entre DDDs diferentes e com alunos importados com lixo/CPF no campo.
     const findDuplicate = useCallback((phone) => {
-        const inputNorm = normalizePhoneDedup(phone);
+        const inputNorm = String(phone || '').replace(/\D/g, '');
         if (inputNorm.length < 8) return null;
-        return leads.find((l) => {
-            const exNorm = normalizePhoneDedup(l.phone);
-            if (exNorm.length < 8) return false;
-            return exNorm === inputNorm;
-        });
-    }, [leads]);
+        const existingLead = findLocalLeadByPhone(leads, phone);
+        if (existingLead) return { ...existingLead, _duplicateKind: 'lead' };
+        const existingStudent = findLocalStudentByPhone(students, phone);
+        if (existingStudent) return { ...existingStudent, _duplicateKind: 'student' };
+        return null;
+    }, [leads, students]);
 
     useEffect(() => {
         const d = String(phoneValue || '').replace(/\D/g, '');
@@ -126,9 +121,10 @@ const NewLead = () => {
 
         const dupBlocking = findDuplicate(data.phone);
         if (dupBlocking) {
+            const kind = dupBlocking._duplicateKind === 'student' ? 'aluno' : 'lead';
             addToast({
                 type: 'error',
-                message: `Este telefone já está cadastrado — ${dupBlocking.name}`,
+                message: `Este telefone já está cadastrado como ${kind} — ${dupBlocking.name}`,
             });
             return;
         }
@@ -253,13 +249,22 @@ const NewLead = () => {
                     {duplicate && !phoneChecking ? (
                         <StatusBanner variant="warning" className="new-lead-duplicate-banner animate-in">
                             <strong>Telefone já cadastrado</strong>
-                            <p style={{ margin: '4px 0 0' }}>Este telefone já está cadastrado — {duplicate.name}</p>
+                            <p style={{ margin: '4px 0 0' }}>
+                                Este telefone já está cadastrado
+                                {duplicate._duplicateKind === 'student' ? ' como aluno' : ''} — {duplicate.name}
+                            </p>
                             <button
                                 type="button"
                                 className="dup-link"
-                                onClick={() => navigate(`/lead/${encodeURIComponent(duplicate.id)}`)}
+                                onClick={() =>
+                                    navigate(
+                                        duplicate._duplicateKind === 'student'
+                                            ? `/student/${encodeURIComponent(duplicate.id)}`
+                                            : `/lead/${encodeURIComponent(duplicate.id)}`
+                                    )
+                                }
                             >
-                                Ver lead existente
+                                {duplicate._duplicateKind === 'student' ? 'Ver aluno existente' : 'Ver lead existente'}
                             </button>
                         </StatusBanner>
                     ) : null}

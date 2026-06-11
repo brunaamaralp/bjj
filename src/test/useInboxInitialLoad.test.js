@@ -3,19 +3,50 @@ import { renderHook } from '@testing-library/react';
 import { useInboxInitialLoad } from '../hooks/useInboxInitialLoad.js';
 
 describe('useInboxInitialLoad', () => {
-  it('dispara loadList na montagem quando academyId está definido', () => {
-    const loadList = vi.fn();
-    const loadListRef = { current: loadList };
+  it('limpa estado local ao trocar de academia', () => {
+    const setSelectedPhone = vi.fn();
+    const setSelected = vi.fn();
+    const setItems = vi.fn();
+    const setListCapped = vi.fn();
+    const setMsgFlags = vi.fn();
+    const messageFlagsMigrationDoneRef = { current: false };
+    const notifiedOnceRef = { current: true };
+    const inboxAutoSelectDoneRef = { current: true };
+
+    const { rerender } = renderHook(
+      ({ academyId }) =>
+        useInboxInitialLoad({
+          academyId,
+          setSelectedPhone,
+          setSelected,
+          setItems,
+          setListCapped,
+          setMsgFlags,
+          messageFlagsMigrationDoneRef,
+          notifiedOnceRef,
+          inboxAutoSelectDoneRef,
+        }),
+      { initialProps: { academyId: 'acad-1' } }
+    );
+
+    rerender({ academyId: 'acad-2' });
+
+    expect(setSelectedPhone).toHaveBeenCalledWith('');
+    expect(setSelected).toHaveBeenCalledWith(null);
+    expect(setItems).toHaveBeenCalledWith([]);
+    expect(notifiedOnceRef.current).toBe(false);
+    expect(inboxAutoSelectDoneRef.current).toBe(false);
+  });
+
+  it('não limpa na primeira montagem com academyId', () => {
+    const setItems = vi.fn();
 
     renderHook(() =>
       useInboxInitialLoad({
         academyId: 'acad-1',
-        debouncedSearchQuery: '',
-        listFilter: 'all',
-        loadListRef,
         setSelectedPhone: vi.fn(),
         setSelected: vi.fn(),
-        setItems: vi.fn(),
+        setItems,
         setListCapped: vi.fn(),
         setMsgFlags: vi.fn(),
         messageFlagsMigrationDoneRef: { current: false },
@@ -24,29 +55,6 @@ describe('useInboxInitialLoad', () => {
       })
     );
 
-    expect(loadList).toHaveBeenCalledWith({ reset: true });
-  });
-
-  it('não dispara loadList quando academyId está vazio', () => {
-    const loadList = vi.fn();
-    const loadListRef = { current: loadList };
-
-    renderHook(() =>
-      useInboxInitialLoad({
-        academyId: '',
-        debouncedSearchQuery: '',
-        loadListRef,
-        setSelectedPhone: vi.fn(),
-        setSelected: vi.fn(),
-        setItems: vi.fn(),
-        setListCapped: vi.fn(),
-        setMsgFlags: vi.fn(),
-        messageFlagsMigrationDoneRef: { current: false },
-        notifiedOnceRef: { current: false },
-        inboxAutoSelectDoneRef: { current: false },
-      })
-    );
-
-    expect(loadList).not.toHaveBeenCalled();
+    expect(setItems).not.toHaveBeenCalled();
   });
 });

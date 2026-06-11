@@ -5,7 +5,7 @@ export default function FollowupTemperatureLegend({ className = '' }) {
     <p className={`followup-temp-legend text-small text-muted${className ? ` ${className}` : ''}`} role="note">
       <span className="followup-temp-legend__item">
         <span className="followup-temp-legend__dot followup-temp-legend__dot--on_track" aria-hidden />
-        Em dia
+        Em dia (já retornou ou no prazo)
       </span>
       <span className="followup-temp-legend__sep" aria-hidden>
         ·

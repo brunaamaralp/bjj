@@ -9,6 +9,10 @@ import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyC
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import { stripUnknownStudentPatch } from '../lib/studentAppwritePatch.js';
 import { fetchStudentsList } from '../lib/studentsApi.js';
+import {
+  findActiveStudentByPhone,
+  studentPhoneDuplicateError,
+} from '../lib/studentPhoneDuplicate.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
 
@@ -450,6 +454,13 @@ export const useStudentStore = create((set, get) => ({
     const { academyId, academyList, teamId: storeTeamId, userId: storeUserId } = getAcademyContext();
     if (!academyId || !STUDENTS_COL) return;
 
+    const phoneDup = await findActiveStudentByPhone({
+      phone: student?.phone,
+      academyId,
+      students: get().students,
+    });
+    if (phoneDup?.student) throw studentPhoneDuplicateError(phoneDup.student);
+
     const acadDoc = academyList.find((a) => a.id === academyId) || {};
     const teamId = String(acadDoc.teamId || storeTeamId || '').trim();
     const userId = String(storeUserId || '').trim();
@@ -525,6 +536,16 @@ export const useStudentStore = create((set, get) => ({
 
     for (const row of rows) {
       try {
+        const phoneDup = await findActiveStudentByPhone({
+          phone: row?.phone,
+          academyId,
+          students: get().students,
+        });
+        if (phoneDup?.student) {
+          console.warn('[importStudents] telefone duplicado ignorado:', row?.name, phoneDup.student.id);
+          continue;
+        }
+
         const payload = buildStudentPayloadFromDoc({ ...row, academyId, origin: row.origin || 'Planilha' });
         const doc = await databases.createDocument(DB_ID, STUDENTS_COL, ID.unique(), payload, perms);
         try {

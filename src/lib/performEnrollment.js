@@ -17,6 +17,11 @@ import { buildLeadDocumentPermissions } from './clientDocumentPermissions.js';
 import { useLeadStore } from '../store/useLeadStore.js';
 import { assertClientBillingMutationsAllowed } from './billingGateClient.js';
 import { notifyAutomationFeedback } from './automationUx.js';
+import {
+  findActiveStudentByPhone,
+  studentPhoneDuplicateError,
+} from './studentPhoneDuplicate.js';
+import { useStudentStore } from '../store/useStudentStore.js';
 
 /**
  * Efeitos pós-matrícula compartilhados (funil e cadastro direto na lista).
@@ -132,6 +137,16 @@ export async function performEnrollment({
   const planName = String(plan || lead?.plan || '').trim();
   const enrollmentDateYmd = String(enrollmentDate || '').trim().slice(0, 10);
   let student;
+
+  if (source !== 'direct') {
+    const phoneDup = await findActiveStudentByPhone({
+      phone: lead?.phone,
+      academyId,
+      students: useStudentStore.getState().students,
+      excludeStudentId: leadId,
+    });
+    if (phoneDup?.student) throw studentPhoneDuplicateError(phoneDup.student);
+  }
 
   if (source === 'direct') {
     student = lead;

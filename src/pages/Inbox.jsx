@@ -531,8 +531,10 @@ export default function Inbox() {
   }, [academyId]);
 
   const { loadList, loadListRef } = useInboxConversationList({
+    academyId,
     academyIdRef,
     debouncedSearchQuery,
+    listFilter,
     listFilterRef,
     selectedPhoneRef,
     listMetaRef,
@@ -677,6 +679,29 @@ export default function Inbox() {
     markSeenRef.current = markSeen;
   }, [markSeen]);
 
+  const markedReadPhoneRef = useRef('');
+  const markedReadDoneRef = useRef(false);
+
+  useEffect(() => {
+    const phone = String(selectedPhone || '').trim();
+    if (markedReadPhoneRef.current !== phone) {
+      markedReadPhoneRef.current = phone;
+      markedReadDoneRef.current = false;
+    }
+  }, [selectedPhone]);
+
+  useEffect(() => {
+    const phone = String(selectedPhone || '').trim();
+    if (!phone || loading || threadLoading || markedReadDoneRef.current) return;
+    const row = (Array.isArray(items) ? items : []).find(
+      (it) => String(it?.phone_number || '').trim() === phone
+    );
+    const unread = Number(row?._unreadCount ?? row?.unread_count ?? 0);
+    if (!Number.isFinite(unread) || unread <= 0) return;
+    markedReadDoneRef.current = true;
+    void markSeen(phone);
+  }, [selectedPhone, loading, threadLoading, items, markSeen]);
+
   useEffect(() => {
     if (!academyId) return;
     const connected = String(waStatus || '').trim() === 'connected';
@@ -697,9 +722,6 @@ export default function Inbox() {
 
   useInboxInitialLoad({
     academyId,
-    debouncedSearchQuery,
-    listFilter,
-    loadListRef,
     setSelectedPhone,
     setSelected,
     setItems,

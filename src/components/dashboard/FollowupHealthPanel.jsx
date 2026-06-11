@@ -39,7 +39,7 @@ export default function FollowupHealthPanel({
         <button
           type="button"
           className="followup-health-panel__help"
-          title="Em dia: contato no prazo · Esfriando: 1+ dia sem contato · Crítico: 3+ dias"
+          title="Em dia: já retornou ou ainda no prazo · Esfriando: 1+ dia sem contato · Crítico: 3+ dias sem retorno"
           aria-label="Legenda das temperaturas de retorno"
         >
           <HelpCircle size={16} strokeWidth={2} aria-hidden />

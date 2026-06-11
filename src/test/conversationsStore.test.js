@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recalcUnreadCount } from '../../lib/server/conversationsStore.js';
+import { recalcUnreadCount, resolveUnreadCountAfterMerge } from '../../lib/server/conversationsStore.js';
 import { buildMessagesRecentPayload } from '../../lib/server/conversationMessages.js';
 
 describe('buildMessagesRecentPayload', () => {
@@ -53,5 +53,50 @@ describe('recalcUnreadCount', () => {
         '2026-01-01T00:00:00.000Z',
       ),
     ).toBe(2);
+  });
+});
+
+describe('resolveUnreadCountAfterMerge', () => {
+  const history = [
+    { role: 'user', message_id: 'm1', timestamp: '2026-01-01T10:00:00.000Z', content: 'a' },
+    { role: 'assistant', message_id: 'm2', timestamp: '2026-01-01T10:01:00.000Z', content: 'b' },
+    { role: 'user', message_id: 'm3', timestamp: '2026-01-01T11:00:00.000Z', content: 'c' },
+  ];
+
+  it('preserva lida sem last_read_at quando prevUnread é 0', () => {
+    expect(
+      resolveUnreadCountAfterMerge({
+        messages: history,
+        lastReadAt: '',
+        prevUnread: 0,
+        historyMessages: history,
+      }),
+    ).toBe(0);
+  });
+
+  it('conta só inbound nova no merge quando prevUnread é 0 e sem last_read_at', () => {
+    const merged = [
+      ...history,
+      { role: 'user', message_id: 'm4', timestamp: '2026-01-01T12:00:00.000Z', content: 'd' },
+    ];
+    expect(
+      resolveUnreadCountAfterMerge({
+        messages: merged,
+        lastReadAt: '',
+        prevUnread: 0,
+        historyMessages: history,
+      }),
+    ).toBe(1);
+  });
+
+  it('usa last_read_at quando presente', () => {
+    expect(
+      resolveUnreadCountAfterMerge({
+        messages: history,
+        lastReadAt: '2026-01-01T10:30:00.000Z',
+        prevUnread: 0,
+        historyMessages: history,
+      }),
+    ).toBe(1);
   });
 });

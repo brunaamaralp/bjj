@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { capInboxListItems } from '../lib/inboxListCap.js';
@@ -10,8 +10,10 @@ import { inboxListFilterToServerParam } from './useInboxInitialLoad.js';
  * Carrega e pagina a lista de conversas da inbox (/api/conversations).
  */
 export function useInboxConversationList({
+  academyId,
   academyIdRef,
   debouncedSearchQuery,
+  listFilter,
   listFilterRef,
   selectedPhoneRef,
   listMetaRef,
@@ -39,6 +41,7 @@ export function useInboxConversationList({
   const loadingMoreRef = useRef(loadingMore);
   const debouncedSearchRef = useRef(debouncedSearchQuery);
   const listRequestSeqRef = useRef(0);
+  const listBootstrapKeyRef = useRef('');
 
   nextCursorRef.current = nextCursor;
   hasMoreRef.current = hasMore;
@@ -201,6 +204,19 @@ export function useInboxConversationList({
   useEffect(() => {
     loadListRef.current = loadList;
   }, [loadList]);
+
+  useLayoutEffect(() => {
+    const aid = String(academyId || academyIdRef.current || '').trim();
+    if (!aid) return;
+
+    const filter = String(listFilter || listFilterRef.current || 'all').trim() || 'all';
+    const search = String(debouncedSearchQuery || '').trim();
+    const key = `${aid}|${filter}|${search}`;
+    if (listBootstrapKeyRef.current === key) return;
+    listBootstrapKeyRef.current = key;
+
+    void loadList({ reset: true });
+  }, [academyId, debouncedSearchQuery, listFilter, loadList, academyIdRef, listFilterRef]);
 
   return { loadList, loadListRef };
 }

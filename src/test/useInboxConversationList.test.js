@@ -77,6 +77,48 @@ describe('useInboxConversationList', () => {
     vi.mocked(fetchWithBillingGuard).mockReset();
   });
 
+  it('dispara loadList na montagem quando academyId está definido', async () => {
+    vi.mocked(fetchWithBillingGuard).mockResolvedValue({
+      blocked: false,
+      res: {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            items: [{ phone_number: '5511999990001', unread_count: 0 }],
+            next_cursor: '',
+          }),
+      },
+    });
+
+    const h = createListHarness();
+    await act(async () => {
+      renderHook(() =>
+        useInboxConversationList({
+          academyId: 'acad-1',
+          academyIdRef: h.academyIdRef,
+          debouncedSearchQuery: '',
+          listFilter: 'all',
+          listFilterRef: h.listFilterRef,
+          selectedPhoneRef: h.selectedPhoneRef,
+          listMetaRef: h.listMetaRef,
+          notifiedOnceRef: h.notifiedOnceRef,
+          loadingListRef: h.loadingListRef,
+          nextCursor: h.state.nextCursor,
+          hasMore: h.state.hasMore,
+          loading: h.state.loading,
+          loadingMore: h.state.loadingMore,
+          onListItemNotifyRef: h.onListItemNotifyRef,
+          onListReadyRef: h.onListReadyRef,
+          onStatsFromListRef: h.onStatsFromListRef,
+          ...h,
+        })
+      );
+    });
+
+    expect(fetchWithBillingGuard).toHaveBeenCalled();
+    expect(h.state.items).toHaveLength(1);
+  });
+
   it('loadList loads items on reset', async () => {
     vi.mocked(fetchWithBillingGuard).mockResolvedValue({
       blocked: false,
@@ -93,8 +135,10 @@ describe('useInboxConversationList', () => {
     const h = createListHarness();
     const { result } = renderHook(() =>
       useInboxConversationList({
+        academyId: 'acad-1',
         academyIdRef: h.academyIdRef,
         debouncedSearchQuery: '',
+        listFilter: 'all',
         listFilterRef: h.listFilterRef,
         selectedPhoneRef: h.selectedPhoneRef,
         listMetaRef: h.listMetaRef,
@@ -139,8 +183,10 @@ describe('useInboxConversationList', () => {
     const h = createListHarness();
     const { result } = renderHook(() =>
       useInboxConversationList({
+        academyId: 'acad-1',
         academyIdRef: h.academyIdRef,
         debouncedSearchQuery: '',
+        listFilter: 'all',
         listFilterRef: h.listFilterRef,
         selectedPhoneRef: h.selectedPhoneRef,
         listMetaRef: h.listMetaRef,
@@ -185,8 +231,10 @@ describe('useInboxConversationList', () => {
     const h = createListHarness();
     const { result } = renderHook(() =>
       useInboxConversationList({
+        academyId: 'acad-1',
         academyIdRef: h.academyIdRef,
         debouncedSearchQuery: '',
+        listFilter: 'all',
         listFilterRef: h.listFilterRef,
         selectedPhoneRef: h.selectedPhoneRef,
         listMetaRef: h.listMetaRef,

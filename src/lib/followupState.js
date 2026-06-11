@@ -235,7 +235,7 @@ export function groupFollowUpsByTemperature(followUps) {
     groups.push({
       key: 'on_track',
       label: 'Em dia',
-      hint: 'Dentro do prazo do playbook',
+      hint: 'Já retornou ou ainda no prazo após a aula',
       items: onTrack,
       className: 'fu-group--on-track',
     });
