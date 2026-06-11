@@ -47,8 +47,8 @@ export const ACCOUNT_MAP = {
 
 const REVENUE_ROUTES = new Set(['plan', 'product', 'enrollment', 'other']);
 
-export function resolveLedgerRouteKey(tx) {
-  const cat = resolveFinanceCategory(tx?.category);
+export function resolveLedgerRouteKey(tx, accounts = null) {
+  const cat = resolveFinanceCategory(tx?.category, accounts);
   if (cat?.type) return cat.type;
   const type = String(tx?.type || '').trim().toLowerCase();
   if (type === 'expense') {
@@ -102,33 +102,47 @@ export function montarLancamento(tx, accounts, academyId) {
   const fee = Math.abs(Number(tx.fee) || 0);
   const revenueNet = fee > 0 ? Math.max(0, gross - fee) : gross;
 
-  const route = resolveLedgerRouteKey(tx);
-  const map = ACCOUNT_MAP[route];
-  if (!map || gross < 0.01) return null;
+  const catRaw = String(tx?.category || '').trim();
+  const typeRaw = String(tx?.type || '').trim();
+  const catResolved =
+    resolveFinanceCategory(catRaw, accounts) ||
+    resolveFinanceCategory(defaultCategoryForTxType(catRaw), accounts) ||
+    resolveFinanceCategory(defaultCategoryForTxType(typeRaw), accounts);
 
   const lines = [];
 
-  if (REVENUE_ROUTES.has(route)) {
-    pushPair(lines, accounts, map.debit, map.credit, revenueNet);
-    if (fee > 0.009) {
-      const feeMap = ACCOUNT_MAP.card_fee;
-      pushPair(lines, accounts, feeMap.debit, feeMap.credit, fee, true);
+  if (catResolved?.isAccountCategory && catResolved.accountCode && gross >= 0.01) {
+    const code = catResolved.accountCode;
+    if (catResolved.isRevenue) {
+      pushPair(lines, accounts, '1.1.1', code, revenueNet);
+      if (fee > 0.009) {
+        const feeMap = ACCOUNT_MAP.card_fee;
+        pushPair(lines, accounts, feeMap.debit, feeMap.credit, fee, true);
+      }
+    } else {
+      pushPair(lines, accounts, code, '1.1.1', gross, true);
     }
-  } else if (route === FINANCE_CATEGORIES.CANCELAMENTO.type) {
-    pushPair(lines, accounts, map.debit, map.credit, gross, false);
   } else {
-    pushPair(lines, accounts, map.debit, map.credit, gross, route !== 'stock_purchase');
+    const route = resolveLedgerRouteKey(tx);
+    const map = ACCOUNT_MAP[route];
+    if (!map || gross < 0.01) return null;
+
+    if (REVENUE_ROUTES.has(route)) {
+      pushPair(lines, accounts, map.debit, map.credit, revenueNet);
+      if (fee > 0.009) {
+        const feeMap = ACCOUNT_MAP.card_fee;
+        pushPair(lines, accounts, feeMap.debit, feeMap.credit, fee, true);
+      }
+    } else if (route === FINANCE_CATEGORIES.CANCELAMENTO.type) {
+      pushPair(lines, accounts, map.debit, map.credit, gross, false);
+    } else {
+      pushPair(lines, accounts, map.debit, map.credit, gross, route !== 'stock_purchase');
+    }
   }
 
   if (lines.length < 2) return null;
 
   const txId = String(tx.id || tx.$id || '').trim();
-  const catRaw = String(tx?.category || '').trim();
-  const typeRaw = String(tx?.type || '').trim();
-  const catResolved =
-    resolveFinanceCategory(catRaw) ||
-    resolveFinanceCategory(defaultCategoryForTxType(catRaw)) ||
-    resolveFinanceCategory(defaultCategoryForTxType(typeRaw));
   const label = catResolved?.label || String(tx.planName || '').trim() || defaultCategoryForTxType(typeRaw) || typeRaw || 'transação';
   return {
     date: journalDateFromTx(tx),

@@ -18,6 +18,91 @@ export const STAGE_TO_STATUS = {
   [LEAD_STATUS.LOST]: LEAD_STATUS.LOST,
 };
 
+/** Colunas padrão do funil — status operacional prevalece sobre pipeline_stage desatualizado. */
+export const CANONICAL_PIPELINE_STAGE_IDS = new Set([
+  'Novo',
+  'Aula experimental',
+  PIPELINE_WAITING_DECISION_STAGE,
+  'Matriculado',
+  LEAD_STATUS.MISSED,
+  LEAD_STATUS.LOST,
+]);
+
+export function normalizePipelineStageId(stageId) {
+  const id = String(stageId ?? '').trim();
+  if (!id) return '';
+  if (id.toLowerCase() === 'novo') return 'Novo';
+  return id;
+}
+
+/** Deriva a coluna do funil a partir do status operacional do lead. */
+export function pipelineStageFromLeadStatus(status) {
+  const direct = {
+    [LEAD_STATUS.NEW]: 'Novo',
+    [LEAD_STATUS.SCHEDULED]: 'Aula experimental',
+    [LEAD_STATUS.COMPLETED]: PIPELINE_WAITING_DECISION_STAGE,
+    [LEAD_STATUS.CONVERTED]: 'Matriculado',
+    [LEAD_STATUS.MISSED]: LEAD_STATUS.MISSED,
+    [LEAD_STATUS.LOST]: LEAD_STATUS.LOST,
+  };
+  if (direct[status]) return direct[status];
+
+  const s = String(status || '').toLowerCase();
+  if (s === 'novo') return 'Novo';
+  if (s.includes('agendado')) return 'Aula experimental';
+  if (s.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
+  if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
+  if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
+  if (s.includes('matricul')) return 'Matriculado';
+  return 'Novo';
+}
+
+/**
+ * Resolve em qual coluna do Kanban o lead deve aparecer.
+ * @param {object} lead
+ * @param {{ stages?: Array<{id: string}>, isPendingTriage?: (lead: object) => boolean }} [opts]
+ */
+export function resolveLeadPipelineStageId(lead, { stages = [], isPendingTriage = () => false } = {}) {
+  if (isPendingTriage(lead)) return 'Novo';
+
+  if (lead?.status === LEAD_STATUS.MISSED) return LEAD_STATUS.MISSED;
+  if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
+  if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
+
+  const stageFromStatus = (l) => {
+    const hasDirect = stages.find((s) => s.id === l.status);
+    if (hasDirect) return l.status;
+    return pipelineStageFromLeadStatus(l.status);
+  };
+
+  let stage = lead?.pipelineStage ? String(lead.pipelineStage).trim() : '';
+  if (stage === 'Contato feito') stage = 'Novo';
+  if (stage === 'Negociação') stage = 'Matriculado';
+
+  if (!stage) return stageFromStatus(lead);
+
+  if (stage === 'Aula experimental' && lead.status !== LEAD_STATUS.SCHEDULED) {
+    return stageFromStatus(lead);
+  }
+
+  const normalizedStage = normalizePipelineStageId(stage);
+  const known = stages.some((col) => normalizePipelineStageId(col.id) === normalizedStage);
+  const statusStage = stageFromStatus(lead);
+
+  if (known) {
+    if (CANONICAL_PIPELINE_STAGE_IDS.has(normalizedStage) && statusStage !== normalizedStage) {
+      return statusStage;
+    }
+    return normalizedStage;
+  }
+
+  const st = (lead.status || '').toLowerCase();
+  if (st.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
+  if (st.includes('agendado')) return 'Aula experimental';
+  if (st.includes('matricul')) return 'Matriculado';
+  return statusStage || 'Novo';
+}
+
 /**
  * @param {string} pipelineStage
  * @returns {Record<string, unknown>}

@@ -98,23 +98,24 @@ export default function InboxListPanel({
           {pageActionsMenu}
         </div>
       </div>
-      <div className="inbox-list-panel__search">
-        <SearchField
-          className="inbox-toolbar-search inbox-list-panel__search-field"
-          value={search}
-          onChange={(e) => onSearchChange?.(e.target.value)}
-          placeholder="Buscar por telefone ou nome…"
-          aria-label="Buscar conversas"
-          aria-busy={searchPending || undefined}
-          title="Atalhos: J/K conversas, R responder, E resolver"
-        />
-      </div>
-      {searchPending ? (
-        <div className="inbox-list-panel__scroll-hint" role="status">
-          <span className="text-small inbox-list-panel__scroll-hint-text">Buscando…</span>
+      <div className="navi-filters-stack inbox-list-panel__filters">
+        <div className="inbox-list-panel__search">
+          <SearchField
+            className="inbox-toolbar-search inbox-list-panel__search-field"
+            value={search}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            placeholder="Buscar por telefone ou nome…"
+            aria-label="Buscar conversas"
+            aria-busy={searchPending || undefined}
+            title="Atalhos: J/K conversas, R responder, E resolver"
+          />
         </div>
-      ) : null}
-      <div className="inbox-list-filters-segments">
+        {searchPending ? (
+          <div className="inbox-list-panel__scroll-hint" role="status">
+            <span className="text-small inbox-list-panel__scroll-hint-text">Buscando…</span>
+          </div>
+        ) : null}
+        <div className="inbox-list-filters-segments">
         <div className="inbox-list-filters-segments__tabs" role="tablist" aria-label="Filtro principal da lista">
           <button
             type="button"
@@ -263,6 +264,7 @@ export default function InboxListPanel({
               )
             : null}
         </DropdownMenu>
+        </div>
       </div>
       {activeFilterLabel ? (
         <div className="inbox-list-filters-active" role="status">

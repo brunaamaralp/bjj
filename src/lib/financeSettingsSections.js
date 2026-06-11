@@ -61,7 +61,7 @@ export const FINANCE_SETTINGS_GROUPS = [
       {
         id: FINANCE_SETTINGS_SECTIONS.CONTRATOS,
         label: 'Modelos de contrato',
-        hint: 'Templates para matrícula e rescisão',
+        hint: 'Textos para assinatura digital. Marque os planos de mensalidade em cada modelo.',
         ownerOnly: true,
       },
     ],

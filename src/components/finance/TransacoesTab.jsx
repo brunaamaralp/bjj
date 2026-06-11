@@ -46,6 +46,11 @@ import {
   getCategoryOptionsByNature,
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
+import {
+  encodeAccountCategoryValue,
+  parseAccountCategoryValue,
+} from '../../lib/financeAccountCategories.js';
+import { useAccountingStore } from '../../store/useAccountingStore';
 import EmptyState from '../shared/EmptyState.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -149,10 +154,11 @@ function formatMoneyBRL(value) {
   }
 }
 
-function getTxCategoryBadge(tx) {
-  const label = String(tx.category || '').trim() || defaultCategoryForTxType(tx.type);
-  if (!label) return null;
-  const cat = resolveFinanceCategory(label);
+function getTxCategoryBadge(tx, accounts = null) {
+  const raw = String(tx.category || '').trim() || defaultCategoryForTxType(tx.type);
+  if (!raw) return null;
+  const cat = resolveFinanceCategory(raw, accounts);
+  const label = cat?.label || raw;
   const type = cat?.type || String(tx.type || '').toLowerCase();
   let className = 'finance-tx-badge finance-tx-badge--other';
   if (type === 'plan' || type === 'enrollment') className = 'finance-tx-badge finance-tx-badge--plan';
@@ -222,6 +228,7 @@ function validateTxFormFields({
   bankAccountLabels,
   financeConfig,
   editingRecurrenceOnly,
+  accounts,
 }) {
   const errors = {};
   if (editingRecurrenceOnly) {
@@ -239,7 +246,7 @@ function validateTxFormFields({
     errors.gross = 'Informe um valor maior que zero.';
   }
 
-  const cat = resolveFinanceCategory(txForm.category);
+  const cat = resolveFinanceCategory(txForm.category, accounts);
   if (!cat) {
     errors.category = 'Selecione uma categoria válida.';
   } else if (cat.type === 'plan' && !String(txForm.planName || '').trim()) {
@@ -271,7 +278,12 @@ export default function TransacoesTab({
   periodBalanceLoading = false,
 }) {
   const leads = useStudentStore((s) => s.students);
+  const chartAccounts = useAccountingStore((s) => s.accounts);
   const toast = useToast();
+
+  useEffect(() => {
+    if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
+  }, [academyId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const canManageAdvanced = isOwner || isAdmin;
   const [fromDate, setFromDate] = useState(periodFrom);
@@ -421,8 +433,8 @@ export default function TransacoesTab({
   const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
 
   const categoryOptionGroups = useMemo(
-    () => getCategoryOptionsByNature(txForm.direction === 'out' ? 'out' : 'in'),
-    [txForm.direction]
+    () => getCategoryOptionsByNature(txForm.direction === 'out' ? 'out' : 'in', chartAccounts),
+    [txForm.direction, chartAccounts]
   );
 
   const leadNameById = useMemo(() => {
@@ -623,7 +635,11 @@ export default function TransacoesTab({
     setEditPreservedSaleId(String(tx.saleId || '').trim());
     const dir = txDirection(tx) === 'out' ? 'out' : 'in';
     const catLabel = tx.category || defaultCategoryForTxType(tx.type);
-    const cat = resolveFinanceCategory(catLabel);
+    const cat = resolveFinanceCategory(catLabel, chartAccounts);
+    const categoryValue =
+      parseAccountCategoryValue(catLabel) || cat?.isAccountCategory
+        ? encodeAccountCategoryValue(cat?.accountCode || parseAccountCategoryValue(catLabel))
+        : catLabel;
     setTxForm({
       direction: dir,
       type: cat?.type || tx.type || 'plan',
@@ -635,7 +651,7 @@ export default function TransacoesTab({
       note: tx.note || '',
       lead_id: tx.lead_id || '',
       competence_month: tx.competence_month || currentCompetenceMonth(),
-      category: catLabel,
+      category: categoryValue,
       bankAccount:
         String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
         resolveBankAccountForPayment('', financeConfig),
@@ -890,6 +906,7 @@ export default function TransacoesTab({
       bankAccountLabels,
       financeConfig,
       editingRecurrenceOnly,
+      accounts: chartAccounts,
     });
     if (Object.keys(fieldErrors).length > 0) {
       setTxFormErrors(fieldErrors);
@@ -902,7 +919,8 @@ export default function TransacoesTab({
       typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
         ? txForm.gross
         : parseCurrencyBRL(txForm.gross);
-    const cat = resolveFinanceCategory(txForm.category);
+    const cat = resolveFinanceCategory(txForm.category, chartAccounts);
+    if (!cat) return;
     let bankAccount = '';
     if (bankAccountLabels.length > 0) {
       const accountCheck = validateBankAccountForPayment(txForm.bankAccount, financeConfig);
@@ -920,7 +938,9 @@ export default function TransacoesTab({
         method: txForm.method,
         installments,
         type: cat.type,
-        category: cat.label,
+        category: cat.isAccountCategory
+          ? encodeAccountCategoryValue(cat.accountCode)
+          : cat.label,
         competence_month: txForm.competence_month || currentCompetenceMonth(),
         planName: txForm.planName || '',
         gross: grossNum,
@@ -1194,7 +1214,7 @@ export default function TransacoesTab({
               filteredTransactions.map((tx) => {
                 const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
                 const displayName = rawName || '—';
-                const badge = getTxCategoryBadge(tx);
+                const badge = getTxCategoryBadge(tx, chartAccounts);
                 const st = String(tx.status || '').toLowerCase();
                 const rowBusy =
                   cancelLoadingId === tx.id ||
@@ -1344,7 +1364,7 @@ export default function TransacoesTab({
                     regime === FINANCE_REGIME.COMPETENCE && competenceMonthMissing(tx);
                   const dir = txDirection(tx);
                   const nature = NATURE_STYLES[dir];
-                  const catBadge = getTxCategoryBadge(tx);
+                  const catBadge = getTxCategoryBadge(tx, chartAccounts);
                   const grossFmt = formatSignedMoney(displayGross(tx), dir);
                   const feeFmt = formatMoneyBRL(displayFee(tx));
                   const netFmt = formatSignedMoney(displayNet(tx), dir);
@@ -1531,13 +1551,13 @@ export default function TransacoesTab({
                   value={txForm.direction}
                   onChange={(e) => {
                     const dir = e.target.value === 'out' ? 'out' : 'in';
-                    const groups = getCategoryOptionsByNature(dir);
+                    const groups = getCategoryOptionsByNature(dir, chartAccounts);
                     const first = groups.values().next().value?.[0];
                     const cat = first || (dir === 'out' ? FINANCE_CATEGORIES.OUTRAS_DESPESAS : FINANCE_CATEGORIES.MENSALIDADE);
                     setTxForm((prev) => ({
                       ...prev,
                       direction: dir,
-                      category: cat.label,
+                      category: cat.value || cat.label,
                       type: cat.type,
                       fee: dir === 'out' ? '' : prev.fee,
                       installments: dir === 'out' ? 1 : prev.installments,
@@ -1561,11 +1581,11 @@ export default function TransacoesTab({
                   aria-invalid={txFormErrors.category ? 'true' : undefined}
                   aria-describedby={txFormErrors.category ? 'finance-tx-category-error' : undefined}
                   onChange={(e) => {
-                    const label = e.target.value;
-                    const cat = resolveFinanceCategory(label);
+                    const value = e.target.value;
+                    const cat = resolveFinanceCategory(value, chartAccounts);
                     setTxForm((prev) => ({
                       ...prev,
-                      category: label,
+                      category: value,
                       type: cat?.type || prev.type,
                       planName: cat?.type === 'plan' ? prev.planName : '',
                     }));
@@ -1575,11 +1595,14 @@ export default function TransacoesTab({
                 >
                   {[...categoryOptionGroups.entries()].map(([group, items]) => (
                     <optgroup key={group} label={group}>
-                      {items.map((c) => (
-                        <option key={c.label} value={c.label}>
-                          {c.label}
-                        </option>
-                      ))}
+                      {items.map((c) => {
+                        const optionValue = c.value || c.label;
+                        return (
+                          <option key={optionValue} value={optionValue}>
+                            {c.label}
+                          </option>
+                        );
+                      })}
                     </optgroup>
                   ))}
                 </select>
@@ -1595,7 +1618,7 @@ export default function TransacoesTab({
                   Recebido agora (já liquidado no caixa)
                 </label>
               ) : null}
-              {resolveFinanceCategory(txForm.category)?.type === 'plan' && (
+              {resolveFinanceCategory(txForm.category, chartAccounts)?.type === 'plan' && (
                 <div className="form-group">
                   <label htmlFor="finance-tx-plan">Plano</label>
                   <select

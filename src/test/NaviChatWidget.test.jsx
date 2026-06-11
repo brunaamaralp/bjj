@@ -50,6 +50,8 @@ function resetStore() {
     activePhone: '',
     leadId: '',
     leadName: '',
+    launcherOpen: false,
+    shortcutLoading: false,
   });
 }
 
@@ -101,18 +103,6 @@ describe('NaviChatWidget', () => {
     });
     renderWidget();
     expect(screen.getByRole('dialog', { name: /Conversa WhatsApp com Maria/i })).toBeInTheDocument();
-  });
-
-  it('oculta widget na rota /inbox com conversa fixada', () => {
-    useChatWidgetStore.getState().pinConversation({
-      phone: '5511999999999',
-      leadName: 'Maria',
-      academyId: 'acad-1',
-      openPanel: true,
-    });
-    renderWidget('/inbox?phone=5511999999999');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Abrir conversa/i)).not.toBeInTheDocument();
   });
 
   it('minimiza painel ao clicar em Minimizar', async () => {

@@ -20,7 +20,7 @@ export const FUNIL_SETTINGS_ITEMS = [
   {
     id: FUNIL_SETTINGS_SECTIONS.ETAPAS,
     label: 'Etapas do funil',
-    hint: 'Colunas do Kanban, nomes exibidos e SLA por etapa.',
+    hint: 'Colunas do Kanban, nomes exibidos e SLA por etapa. Alterações aparecem após salvar.',
   },
   {
     id: FUNIL_SETTINGS_SECTIONS.PERGUNTAS,

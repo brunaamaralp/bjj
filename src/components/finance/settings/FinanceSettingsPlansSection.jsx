@@ -136,7 +136,7 @@ export default function FinanceSettingsPlansSection({
 
   return (
     <div className="finance-settings-section-body">
-      <p className="text-small text-muted">
+      <p className="finance-settings-lead">
         Usados em Mensalidades e matrícula. O <strong>dia de vencimento</strong> é definido no cadastro de
         cada aluno (campo &quot;Vence dia&quot;), não no plano — aqui, &quot;Duração (dias)&quot; é a vigência
         comercial do plano (ex.: 30 = mensal, 90 = trimestral). Vincule contratos em{' '}

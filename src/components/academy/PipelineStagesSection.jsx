@@ -78,53 +78,59 @@ export default function PipelineStagesSection({
 
   return (
     <div className="finance-settings-section-body">
-      <p className="text-small text-muted" style={{ margin: '0 0 16px', lineHeight: 1.45 }}>
-        Defina as colunas do funil de vendas. Alterações aparecem no Kanban após salvar.
-      </p>
-      <div className="stage-editor-head">
-        <span>Nome da etapa</span>
-        <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
-      </div>
-      {stages.map((st, idx) => (
-        <div className="stage-row" key={st.id}>
-          <input
-            className="stage-input"
-            value={st.label}
-            disabled={!canEdit || st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST}
-            onChange={(e) => {
-              const v = e.target.value;
-              setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, label: v } : s)));
-            }}
-          />
-          <input
-            className="stage-sla"
-            type="number"
-            min="1"
-            value={st.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
-            disabled={!canEdit || st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, slaDays: v } : s)));
-            }}
-            title="SLA (dias)"
-          />
+      <div className="card pipeline-stages-editor">
+        <div className="pipeline-stages-editor__head">
+          <span>Nome da etapa</span>
+          <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
         </div>
-      ))}
+        <div className="pipeline-stages-editor__body">
+          {stages.map((st, idx) => {
+            const locked = st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST;
+            return (
+              <div className="pipeline-stages-editor__row" key={st.id}>
+                <input
+                  className="form-input"
+                  value={st.label}
+                  disabled={!canEdit || locked}
+                  aria-label={`Nome da etapa ${idx + 1}`}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, label: v } : s)));
+                  }}
+                />
+                <input
+                  className="form-input pipeline-stages-editor__sla"
+                  type="number"
+                  min="1"
+                  value={st.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
+                  disabled={!canEdit || locked}
+                  aria-label={`SLA em dias da etapa ${idx + 1}`}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, slaDays: v } : s)));
+                  }}
+                  title="SLA (dias)"
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {canEdit ? (
-        <div className="stage-actions">
-          <button type="button" className="btn-secondary" onClick={addStage}>
-            <PlusCircle size={14} /> Adicionar etapa
+        <div className="pipeline-stages-editor__actions">
+          <button type="button" className="btn-outline" onClick={addStage}>
+            <PlusCircle size={16} aria-hidden /> Adicionar etapa
           </button>
           <button type="button" className="btn-outline" onClick={() => setConfirmDefault(true)}>
             Funil padrão
           </button>
-          <div className="grow" />
+          <div className="pipeline-stages-editor__actions-spacer" aria-hidden />
           <button type="button" className="btn-primary" disabled={saving} onClick={() => void saveStages()}>
             {saving ? 'Salvando…' : 'Salvar etapas'}
           </button>
         </div>
       ) : (
-        <p className="text-small text-light" style={{ marginTop: 12 }}>
+        <p className="text-small text-muted pipeline-stages-editor__readonly-hint">
           Somente o titular pode editar as etapas do funil.
         </p>
       )}

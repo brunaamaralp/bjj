@@ -1126,7 +1126,32 @@
 .accounts-th-conta { width: auto; }
 .accounts-th-tipo { width: 120px; }
 .accounts-th-acoes { width: 48px; padding: 0 !important; }
-.accounts-conta-inner { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.accounts-conta-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-left: calc(var(--account-depth, 0) * 14px);
+}
+.accounts-table-row--depth-0 .accounts-name { font-weight: 600; }
+.accounts-table-row--depth-1 .accounts-conta-inner,
+.accounts-table-row--depth-2 .accounts-conta-inner,
+.accounts-table-row--depth-3 .accounts-conta-inner,
+.accounts-table-row--depth-4 .accounts-conta-inner {
+  border-left: 2px solid color-mix(in srgb, var(--border-light) 80%, transparent);
+  margin-left: 2px;
+  padding-left: calc(8px + var(--account-depth, 0) * 14px);
+}
+.accounts-table-row--depth-1 .accounts-name,
+.accounts-table-row--depth-2 .accounts-name,
+.accounts-table-row--depth-3 .accounts-name,
+.accounts-table-row--depth-4 .accounts-name {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.accounts-header--embedded { margin-bottom: 12px; }
+.accounts-header--embedded .accounts-header-actions { flex: 1; justify-content: flex-end; }
+.accounts-tab--embedded { padding-bottom: 0; }
 .accounts-code { font-size: var(--font-xs); color: var(--text-secondary); font-family: ui-monospace, monospace; flex-shrink: 0; }
 .accounts-name { font-size: var(--font-md); font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .accounts-lock { opacity: 0.5; flex-shrink: 0; display: inline-flex; color: var(--text-secondary); }
@@ -1213,7 +1238,15 @@
   padding: 12px 14px; border-bottom: 0.5px solid var(--border-light);
 }
 .accounts-mobile-card:last-child { border-bottom: none; }
-.accounts-mobile-card__main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; flex: 1; }
+.accounts-mobile-card__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  flex: 1;
+  padding-left: calc(var(--account-depth, 0) * 12px);
+}
 .accounts-mobile-card__right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
 .accounts-mobile-lock { opacity: 0.5; color: var(--text-secondary); }
 @media (max-width: 719px) {
@@ -3070,16 +3103,101 @@
   padding: 0;
   border: none;
   background: none;
+  font-family: var(--ff-ui);
   font-size: var(--font-md);
   cursor: pointer;
 }
 
-.finance-settings-detail-header__title {
+/* Títulos do painel Financeiro (Minha academia) — sans, hierarquia fixa */
+.finance-settings-layout .finance-settings-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-title-size, var(--font-2xl));
+  font-weight: var(--finance-settings-title-weight, 600);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
   margin: 0 0 var(--space-1);
 }
 
-.finance-settings-detail-header__subtitle {
+.finance-settings-layout .finance-settings-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--finance-settings-subtitle-size, var(--font-base));
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
   margin: 0;
+  max-width: 52ch;
+}
+
+.finance-settings-section-header {
+  margin-bottom: var(--space-3);
+}
+
+.finance-settings-section-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.finance-settings-section-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.finance-settings-layout .finance-settings-section-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-section-title-size, var(--font-md));
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.finance-settings-layout .finance-settings-section-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--font-base);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: var(--space-1) 0 0;
+  max-width: 52ch;
+}
+
+.finance-settings-layout .finance-settings-lead {
+  font-family: var(--ff-body);
+  font-size: var(--font-base);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  max-width: 62ch;
+}
+
+/* Mesmo layout de títulos no painel Funil (Minha academia) */
+.funil-settings-section .finance-settings-layout .finance-settings-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-title-size, var(--font-2xl));
+  font-weight: var(--finance-settings-title-weight, 600);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+}
+
+.funil-settings-section .finance-settings-layout .finance-settings-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--finance-settings-subtitle-size, var(--font-base));
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 52ch;
 }
 
 .finance-settings-section-body {

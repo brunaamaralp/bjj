@@ -6,10 +6,13 @@ const LEAD_ROUTE_PATTERNS = [
   /^\/pipeline/,
   /^\/funil/,
   /^\/inbox/,
+  /^\/lead\//,
   /^\/perfil\//,
+  /^\/reports(?:\/|$)/,
   /^\/relatorios/,
   /^\/tarefas/,
   /^\/novo-lead/,
+  /^\/new-lead(?:\/|$)/,
 ];
 
 const STUDENT_ROUTE_PATTERNS = [
@@ -17,6 +20,7 @@ const STUDENT_ROUTE_PATTERNS = [
   /^\/pipeline/,
   /^\/funil/,
   /^\/alunos/,
+  /^\/lead\//,
   /^\/perfil\//,
   /^\/mensalidades/,
   /^\/presenca/,

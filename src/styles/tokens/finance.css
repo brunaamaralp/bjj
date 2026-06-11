@@ -18,4 +18,10 @@
   --finance-recon-suggested-bg: color-mix(in srgb, var(--finance-color-pending) 14%, var(--surface));
   --finance-recon-suggested-border: color-mix(in srgb, var(--finance-color-pending) 22%, transparent);
   --finance-recon-confidence: var(--finance-color-pending);
+
+  /* Minha academia → Financeiro (painel lateral) */
+  --finance-settings-title-size: var(--font-2xl);
+  --finance-settings-title-weight: 600;
+  --finance-settings-subtitle-size: var(--font-base);
+  --finance-settings-section-title-size: var(--font-md);
 }

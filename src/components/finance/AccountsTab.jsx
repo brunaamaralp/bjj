@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import { accountCodeDepth } from '../../lib/financeAccountCategories.js';
 import {
   DropdownMenuBackdrop,
   DropdownMenuPanel,
@@ -370,6 +371,7 @@ export default function AccountsTab({
   updateAccount,
   deleteAccount,
   headingActions,
+  embedded = false,
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const journal = useAccountingStore((s) => s.journal);
@@ -650,13 +652,17 @@ export default function AccountsTab({
             const usage = accountUsageByCode[acc.code] || 0;
             const protectedRow = isProtectedAccountCode(acc.code);
             const inactive = acc.isActive === false;
+            const depth = accountCodeDepth(acc.code);
             return (
               <tr
                 key={acc.id}
-                className={`accounts-table-row${usage === 0 ? ' accounts-table-row--unused' : ''}${inactive ? ' accounts-table-row--inactive' : ''}`}
+                className={`accounts-table-row accounts-table-row--depth-${Math.min(depth, 4)}${usage === 0 ? ' accounts-table-row--unused' : ''}${inactive ? ' accounts-table-row--inactive' : ''}`}
               >
                 <td className="accounts-cell-conta">
-                  <div className="accounts-conta-inner">
+                  <div
+                    className="accounts-conta-inner"
+                    style={{ '--account-depth': depth }}
+                  >
                     {protectedRow ? (
                       <span className="accounts-lock" title="Conta do sistema" aria-label="Conta protegida">
                         <Lock size={12} aria-hidden />
@@ -702,12 +708,13 @@ export default function AccountsTab({
       {filteredAccounts.map((acc) => {
         const usage = accountUsageByCode[acc.code] || 0;
         const protectedRow = isProtectedAccountCode(acc.code);
+        const depth = accountCodeDepth(acc.code);
         return (
           <article
             key={acc.id}
-            className={`accounts-mobile-card${usage === 0 ? ' accounts-table-row--unused' : ''}`}
+            className={`accounts-mobile-card accounts-table-row--depth-${Math.min(depth, 4)}${usage === 0 ? ' accounts-table-row--unused' : ''}`}
           >
-            <div className="accounts-mobile-card__main">
+            <div className="accounts-mobile-card__main" style={{ '--account-depth': depth }}>
               {protectedRow ? (
                 <Lock size={12} className="accounts-mobile-lock" aria-hidden title="Conta do sistema" />
               ) : null}
@@ -737,9 +744,13 @@ export default function AccountsTab({
   );
 
   return (
-    <section className="accounts-tab mt-4 animate-in accounts-tab--delayed">
-      <div className="accounts-header">
-        <h3 className="navi-section-heading accounts-header-title">Plano de Contas</h3>
+    <section
+      className={`accounts-tab animate-in accounts-tab--delayed${embedded ? ' accounts-tab--embedded' : ' mt-4'}`}
+    >
+      <div className={`accounts-header${embedded ? ' accounts-header--embedded' : ''}`}>
+        {!embedded ? (
+          <h3 className="navi-section-heading accounts-header-title">Plano de Contas</h3>
+        ) : null}
         <div className="accounts-header-actions">
           <input
             type="search"

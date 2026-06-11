@@ -9,7 +9,7 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
 
   return (
     <div className="finance-settings-section-body">
-      <p className="text-small text-muted">
+      <p className="finance-settings-lead">
         Percentuais descontados em pagamentos com cartão e PIX na mensalidade.
       </p>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart,
   Bar,
@@ -46,6 +46,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [productsModalOpen, setProductsModalOpen] = useState(false);
+  const [buyersModalOpen, setBuyersModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -107,7 +108,35 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   }, [data]);
 
   const top5 = useMemo(() => topProducts.slice(0, 5), [topProducts]);
+  const topBuyers = useMemo(() => {
+    const total = Number(data?.concludedTotal) || 0;
+    return (data?.byBuyer || [])
+      .map((b) => ({
+        id: b.aluno_id || `walkin:${b.nome}`,
+        aluno_id: b.aluno_id || null,
+        nome: b.nome || 'Cliente avulso',
+        vendas: Number(b.vendas) || 0,
+        total: Number(b.total) || 0,
+        ultima_compra: b.ultima_compra || null,
+        pct: total > 0 ? Math.round(((Number(b.total) || 0) / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total || b.vendas - a.vendas);
+  }, [data]);
+  const topBuyers5 = useMemo(() => topBuyers.slice(0, 5), [topBuyers]);
   const ticketMedio = data?.ticketMedio ?? 0;
+
+  const formatBuyerDate = (iso) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return '—';
+    }
+  };
 
   const exportCsv = () => {
     const rows = [
@@ -120,6 +149,12 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
         metrica: `Produto — ${p.nome}`,
         valor: p.total,
         quantidade: p.qty,
+      })),
+      ...topBuyers.map((b) => ({
+        metrica: `Comprador — ${b.nome}`,
+        valor: b.total,
+        vendas: b.vendas,
+        ultima_compra: b.ultima_compra || '',
       })),
     ];
     downloadCsv(rows, `relatorio-loja-${from}_${to}.csv`);
@@ -150,6 +185,40 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
       Exportar CSV
     </button>
   );
+
+  const buyerColumns = [
+    {
+      key: 'nome',
+      label: 'Cliente',
+      render: (row) =>
+        row.aluno_id ? (
+          <Link to={`/student/${row.aluno_id}`} className="reports-inline-link">
+            {row.nome}
+          </Link>
+        ) : (
+          row.nome
+        ),
+    },
+    { key: 'vendas', label: 'Compras', align: 'right' },
+    {
+      key: 'total',
+      label: 'Total gasto',
+      align: 'right',
+      render: (row) => formatBRL(row.total),
+    },
+    {
+      key: 'pct',
+      label: '% do total',
+      align: 'right',
+      render: (row) => `${row.pct}%`,
+    },
+    {
+      key: 'ultima_compra',
+      label: 'Última compra',
+      align: 'right',
+      render: (row) => formatBuyerDate(row.ultima_compra),
+    },
+  ];
 
   const productColumns = [
     { key: 'nome', label: 'Produto' },
@@ -237,6 +306,30 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
           </div>
 
           <div className="card mt-4" style={{ padding: '16px 18px' }}>
+            <ReportSectionHeading
+              title="Quem mais compra"
+              subtitle="Ranking por faturamento de produtos no período (alunos e clientes avulsos)."
+            />
+            <ReportDataTable
+              columns={buyerColumns}
+              rows={topBuyers5}
+              emptyMessage="Nenhuma compra vinculada a clientes no período."
+              loading={false}
+              footer={
+                topBuyers.length > 5 ? (
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    onClick={() => setBuyersModalOpen(true)}
+                  >
+                    Ver todos →
+                  </button>
+                ) : null
+              }
+            />
+          </div>
+
+          <div className="card mt-4" style={{ padding: '16px 18px' }}>
             <ReportSectionHeading title="Produtos mais vendidos" />
             <ReportDataTable
               columns={productColumns}
@@ -256,6 +349,15 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
               }
             />
           </div>
+
+          <ModalShell
+            open={buyersModalOpen}
+            onClose={() => setBuyersModalOpen(false)}
+            title="Compradores no período"
+            maxWidth={820}
+          >
+            <ReportDataTable columns={buyerColumns} rows={topBuyers} emptyMessage="Nenhum comprador." />
+          </ModalShell>
 
           <ModalShell
             open={productsModalOpen}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useLeadStore } from '../store/useLeadStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
@@ -33,12 +34,6 @@ import {
     countWeeklyEnrollments,
 } from '../lib/dashboardDayBriefing.js';
 import {
-    countEnrollmentsInMonth,
-    countLeadsCreatedInMonth,
-    currentMonthRange,
-    previousMonthRange,
-} from '../lib/dashboardManagerMetrics.js';
-import {
     attendedButtonLabel,
     missedButtonLabel,
     followupsAllDoneTitle,
@@ -59,16 +54,8 @@ import { contactLabelSingular } from '../lib/terminology.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { LEAD_PROFILE_FROM_DASHBOARD } from '../lib/pipelineSessionState.js';
 import { addLeadEvent } from '../lib/leadEvents.js';
-import {
-    isLeadScheduledForExperimental,
-    isLeadVisibleOnExperimentalAgenda,
-} from '../lib/leadStageRules.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { LEADS_REFRESH } from '../lib/leadTimelineEvents.js';
-import AgendaCalendarWeek, {
-    formatWeekRangeLabel,
-    filterLeadsInCivilWeek,
-} from '../components/AgendaCalendarWeek.jsx';
 import { useTerms } from '../lib/terminology.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
@@ -85,21 +72,18 @@ import '../styles/dashboard.css';
 import '../styles/followup-shared.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
-import {
-    FOLLOWUP_AGENDA_MAX_DAYS,
-    enrichFollowUpLeads,
-    sortFollowupsByTemperature,
-    groupFollowUpsByTemperature,
-    countFollowupsByTemperature,
-} from '../lib/followupState.js';
+import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
-import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
 import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
+import DashboardAgendaWeekPanel from '../components/dashboard/DashboardAgendaWeekPanel.jsx';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
+import { useDashboardLeadAgenda } from '../hooks/useDashboardLeadAgenda.js';
+import { useDashboardFollowupLeads } from '../hooks/useDashboardFollowupLeads.js';
+import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEnrollmentMetrics.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
 
@@ -144,16 +128,30 @@ function buildTasksKpiFootnote(count) {
 const Dashboard = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const leads = useLeadStore((s) => s.leads);
-    const loading = useLeadStore((s) => s.loading);
-    const fetchLeads = useLeadStore((s) => s.fetchLeads);
-    const academyId = useLeadStore((s) => s.academyId);
-    const academyList = useLeadStore((s) => s.academyList);
-    const leadsError = useLeadStore((s) => s.leadsError);
-    const leadsLastFetchedAt = useLeadStore((s) => s.leadsLastFetchedAt);
-    const vertical = useLeadStore((s) => s.vertical);
+    const {
+        loading,
+        fetchLeads,
+        academyId,
+        academyList,
+        leadsError,
+        leadsLastFetchedAt,
+        vertical,
+        labels,
+        leadsCount,
+    } = useLeadStore(
+        useShallow((s) => ({
+            loading: s.loading,
+            fetchLeads: s.fetchLeads,
+            academyId: s.academyId,
+            academyList: s.academyList,
+            leadsError: s.leadsError,
+            leadsLastFetchedAt: s.leadsLastFetchedAt,
+            vertical: s.vertical,
+            labels: s.labels,
+            leadsCount: s.leads.length,
+        }))
+    );
     const terms = useTerms();
-    const labels = useLeadStore((s) => s.labels);
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
     const receptionSubtitle = 'Recepção e retornos do dia';
@@ -193,7 +191,7 @@ const Dashboard = () => {
         inboundAfterByLead,
         inboundAfterByPhone,
         refreshFromCache: refreshFollowupFromCache,
-    } = useFollowupEventsByLead(academyId);
+    } = useFollowupEventsByLead(academyId, { defer: true });
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
@@ -369,46 +367,6 @@ const Dashboard = () => {
         }
     };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Agenda with date filter
-    const toDateTime = (lead) => {
-        const base = lead.scheduledDate || lead.createdAt || '';
-        if (!base) return new Date(8640000000000000); // max date
-        const [y, m, d] = base.split('T')[0].split('-').map(Number);
-        let hh = 23, mm = 59;
-        if (lead.scheduledTime && /^\d{2}:\d{2}$/.test(lead.scheduledTime)) {
-            const [h, mi] = lead.scheduledTime.split(':').map(Number);
-            if (Number.isFinite(h) && Number.isFinite(mi)) {
-                hh = h; mm = mi;
-            }
-        }
-        return new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
-    };
-
-    const excludeImportedOrigin = (l) => String(l?.origin || '').trim() !== 'Planilha';
-
-    const agendaWeekLeads = useMemo(
-        () =>
-            (leads || [])
-                .filter(isLeadVisibleOnExperimentalAgenda)
-                .sort((a, b) => toDateTime(a) - toDateTime(b)),
-        [leads]
-    );
-
-    const allScheduled = useMemo(
-        () => agendaWeekLeads.filter(isLeadScheduledForExperimental),
-        [agendaWeekLeads]
-    );
-
-    const todayScheduled = allScheduled.filter((lead) => {
-        if (!lead.scheduledDate) return false;
-        const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-        const leadDate = new Date(y, m - 1, d);
-        return leadDate.toDateString() === today.toDateString();
-    });
-
     const followupPlaybook = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return readFollowupPlaybook(acad.settings);
@@ -433,51 +391,15 @@ const Dashboard = () => {
         ]
     );
 
-    const followUpsAll = useMemo(
-        () =>
-            enrichFollowUpLeads(
-                leads.filter(
-                    (l) =>
-                        excludeImportedOrigin(l) &&
-                        (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
-                ),
-                followupEventsCtx
-            ),
-        [leads, followupEventsCtx]
-    );
-
-    const followUpsKanbanOnlyCount = followUpsAll.filter(
-        (l) => !l.doneForCurrentClass && !l.isSnoozed && l.daysAgo >= FOLLOWUP_AGENDA_MAX_DAYS
-    ).length;
-
-    const followUps = useMemo(
-        () =>
-            followUpsAll
-                .filter((l) => !l.doneForCurrentClass && !l.isSnoozed && l.daysAgo < FOLLOWUP_AGENDA_MAX_DAYS)
-                .sort(sortFollowupsByTemperature),
-        [followUpsAll]
-    );
-
-    const followupTemperatureCounts = useMemo(() => countFollowupsByTemperature(followUps), [followUps]);
-
-    const followupHealthSummary = useMemo(
-        () =>
-            computeFollowupHealthSummary(followUpsAll, {
-                followupDoneByLead: followupDoneAtByLead,
-                followupContactByLead: followupContactAtByLead,
-                inboundAfterByLead,
-                inboundAfterByPhone,
-            }),
-        [followUpsAll, followupDoneAtByLead, followupContactAtByLead, inboundAfterByLead, inboundAfterByPhone]
-    );
-
-    const showFollowupHealthPanel = useMemo(() => {
-        if (!followupHealthSummary) return false;
-        const { on_track, cooling, critical, d1RatePercent, attendedInWeek } = followupHealthSummary;
-        const hasTemperatureActivity = on_track + cooling + critical > 0;
-        const hasD1Metric = attendedInWeek > 0 && d1RatePercent !== null;
-        return hasTemperatureActivity || hasD1Metric;
-    }, [followupHealthSummary]);
+    const { agendaWeekLeads, todayScheduled, scheduledInVisibleWeekCount } = useDashboardLeadAgenda();
+    const {
+        followUps,
+        followUpsKanbanOnlyCount,
+        followupTemperatureCounts,
+        followUpGroups,
+        followupHealthSummary,
+        showFollowupHealthPanel,
+    } = useDashboardFollowupLeads(followupEventsCtx);
 
     const todayBirthdays = useMemo(() => {
         const mesEDia = getTodayMonthDay();
@@ -489,7 +411,7 @@ const Dashboard = () => {
             .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'));
     }, [students]);
 
-    const isZeroState = !loading && leads.length === 0 && (tasks || []).length === 0;
+    const isZeroState = !loading && leadsCount === 0 && (tasks || []).length === 0;
 
     const pendingTasks = (tasks || [])
         .filter((t) => String(t?.status || '').trim().toLowerCase() !== 'done')
@@ -502,10 +424,7 @@ const Dashboard = () => {
             return ta.localeCompare(tb);
         });
 
-    const scheduledInVisibleWeekCount = useMemo(
-        () => filterLeadsInCivilWeek(agendaWeekLeads, dashboardWeekOffset).length,
-        [agendaWeekLeads, dashboardWeekOffset]
-    );
+    const visibleWeekAgendaCount = scheduledInVisibleWeekCount(dashboardWeekOffset);
 
     const scrollToFollowUps = () => {
         setFollowUpsPanelOpen(true);
@@ -614,27 +533,7 @@ const Dashboard = () => {
         [students]
     );
 
-    const monthEnrollmentMetrics = useMemo(() => {
-        const monthRange = currentMonthRange();
-        const prevRange = previousMonthRange();
-        const enrolledInMonth = countEnrollmentsInMonth(leads, students, monthRange);
-        const leadsInMonth = countLeadsCreatedInMonth(leads, monthRange);
-        const enrolledPrevMonth = countEnrollmentsInMonth(leads, students, prevRange);
-        const delta = enrolledInMonth - enrolledPrevMonth;
-        let sub = '';
-        let subTone = '';
-        if (leadsInMonth > 0) {
-            sub = `de ${leadsInMonth} leads`;
-            subTone = 'neutral';
-        } else if (delta > 0) {
-            sub = `+${delta} vs mês passado`;
-            subTone = 'positive';
-        } else if (delta < 0) {
-            sub = `${delta} vs mês passado`;
-            subTone = 'neutral';
-        }
-        return { enrolledInMonth, sub, subTone };
-    }, [leads, students]);
+    const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
 
     const dayPriority = useMemo(
         () =>
@@ -682,8 +581,6 @@ const Dashboard = () => {
         const streak = touchFollowupStreak(academyId, followUps.length, new Date());
         setFollowupStreak(streak);
     }, [academyId, loading, followUps.length]);
-
-    const followUpGroups = useMemo(() => groupFollowUpsByTemperature(followUps), [followUps]);
 
     const showWeekAgendaPanel = !isZeroState;
 
@@ -1286,84 +1183,22 @@ const Dashboard = () => {
 
             <div className="agenda-page-stack">
             {showWeekAgendaPanel ? (
-            <section
-                ref={weekSectionRef}
-                className="animate-in agenda-week-section reception-section reception-week-panel reception-week-panel--secondary"
-                style={{ animationDelay: '0.15s' }}
-            >
-                <div className="reception-week-panel__head">
-                    <div className="reception-week-panel__title-row">
-                        <ReportSectionHeading
-                            className="reception-report-heading reception-week-panel__title"
-                            title={
-                                <>
-                                    <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-                                    Agenda da semana
-                                </>
-                            }
-                            action={
-                                <span
-                                    className="badge reception-week-count-badge"
-                                    title={`${trialSeriesPlural} na semana exibida`}
-                                >
-                                    {scheduledInVisibleWeekCount}
-                                </span>
-                            }
-                        />
-                    </div>
-                    <div className="week-nav-pill">
-                        <button
-                            type="button"
-                            className="week-nav-pill__btn"
-                            onClick={() => setDashboardWeekOffset((o) => o - 1)}
-                            aria-label="Semana anterior"
-                        >
-                            ‹
-                        </button>
-                        <span className="week-nav-pill__range" aria-live="polite">
-                            {formatWeekRangeLabel(dashboardWeekOffset, { endOnSaturday: true })}
-                        </span>
-                        <button
-                            type="button"
-                            className="week-nav-pill__btn"
-                            onClick={() => setDashboardWeekOffset((o) => o + 1)}
-                            aria-label="Próxima semana"
-                        >
-                            ›
-                        </button>
-                        <button
-                            type="button"
-                            className="week-nav-pill__refresh"
-                            onClick={handleRefresh}
-                            disabled={loading || isRefreshing}
-                            aria-label="Atualizar agenda"
-                        >
-                            <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
-                        </button>
-                    </div>
-                </div>
-                <div className="agenda-week-fullwidth reception-week-embed">
-                    <AgendaCalendarWeek
-                        leads={agendaWeekLeads}
-                        onCompareceu={markLeadAttended}
-                        onNaoCompareceu={markLeadMissed}
-                        onOpenLead={(lead) =>
-                            navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
-                        }
-                        savingPresence={savingPresence}
-                        weekOffset={dashboardWeekOffset}
-                        onWeekOffsetChange={setDashboardWeekOffset}
-                        hideNav
-                        prioritizeTodayOnMobile={isDashboardMobile}
-                        vertical={vertical}
-                    />
-                </div>
-                {scheduledInVisibleWeekCount > 0 ? (
-                    <p className="reception-calendar-hint">
-                        Toque no card para abrir o contato · use Veio / Não veio para registrar presença
-                    </p>
-                ) : null}
-            </section>
+                <DashboardAgendaWeekPanel
+                    weekSectionRef={weekSectionRef}
+                    weekOffset={dashboardWeekOffset}
+                    onWeekOffsetChange={setDashboardWeekOffset}
+                    onRefresh={handleRefresh}
+                    loading={loading}
+                    isRefreshing={isRefreshing}
+                    onCompareceu={markLeadAttended}
+                    onNaoCompareceu={markLeadMissed}
+                    savingPresence={savingPresence}
+                    isDashboardMobile={isDashboardMobile}
+                    vertical={vertical}
+                    trialSeriesPlural={trialSeriesPlural}
+                    agendaWeekLeads={agendaWeekLeads}
+                    visibleWeekCount={visibleWeekAgendaCount}
+                />
             ) : null}
 
             {isDashboardMobile && !loading && followUps.length > 0 ? (

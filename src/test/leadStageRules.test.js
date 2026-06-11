@@ -4,7 +4,10 @@ import {
   getStageUpdatePayload,
   isLeadScheduledForExperimental,
   isLeadVisibleOnExperimentalAgenda,
+  pipelineStageFromLeadStatus,
+  resolveLeadPipelineStageId,
 } from '../lib/leadStageRules.js';
+import { buildDefaultPipelineStages } from '../lib/pipelineStagesConfig.js';
 
 describe('leadStageRules', () => {
   it('getStageUpdatePayload inclui status para Aula experimental', () => {
@@ -33,6 +36,33 @@ describe('leadStageRules', () => {
     expect(isLeadScheduledForExperimental({ ...base, origin: 'Planilha' })).toBe(false);
     expect(isLeadScheduledForExperimental({ ...base, contact_type: 'student' })).toBe(true);
     expect(isLeadScheduledForExperimental({ ...base, pipelineStage: 'Matriculado' })).toBe(false);
+  });
+
+  it('pipelineStageFromLeadStatus mapeia Agendado para Aula experimental', () => {
+    expect(pipelineStageFromLeadStatus(LEAD_STATUS.SCHEDULED)).toBe('Aula experimental');
+    expect(pipelineStageFromLeadStatus(LEAD_STATUS.NEW)).toBe('Novo');
+  });
+
+  it('resolveLeadPipelineStageId prioriza status quando pipelineStage canônico está desatualizado', () => {
+    const stages = buildDefaultPipelineStages();
+    const scheduled = {
+      status: LEAD_STATUS.SCHEDULED,
+      pipelineStage: 'Novo',
+      scheduledDate: '2026-06-15',
+    };
+    expect(resolveLeadPipelineStageId(scheduled, { stages })).toBe('Aula experimental');
+
+    const fresh = {
+      status: LEAD_STATUS.NEW,
+      pipelineStage: 'Novo',
+    };
+    expect(resolveLeadPipelineStageId(fresh, { stages })).toBe('Novo');
+  });
+
+  it('resolveLeadPipelineStageId mantém etapa customizada do funil', () => {
+    const stages = [...buildDefaultPipelineStages(), { id: 'custom-followup', label: 'Follow-up' }];
+    const lead = { status: LEAD_STATUS.NEW, pipelineStage: 'custom-followup' };
+    expect(resolveLeadPipelineStageId(lead, { stages })).toBe('custom-followup');
   });
 
   it('isLeadVisibleOnExperimentalAgenda inclui compareceu e faltou no dia agendado', () => {

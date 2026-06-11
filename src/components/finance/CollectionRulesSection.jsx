@@ -5,6 +5,7 @@ import { DEFAULT_COLLECTION_RULES } from '../../lib/collectionRules.js';
 export default function CollectionRulesSection({
   collectionRules,
   onRulesChange,
+  embedded = false,
 }) {
   const rules = Array.isArray(collectionRules) ? collectionRules : DEFAULT_COLLECTION_RULES;
 
@@ -33,11 +34,15 @@ export default function CollectionRulesSection({
 
   return (
     <section className="finance-config-section animate-in mensal-collection-rules">
-      <h3 className="navi-section-heading finance-config-section__heading">
-        <Bell size={18} className="finance-config-section__icon" aria-hidden />
-        Régua de cobrança
-      </h3>
-      <p className="text-small text-muted finance-config-section__hint mensal-collection-intro">
+      {!embedded ? (
+        <h3 className="navi-section-heading finance-config-section__heading">
+          <Bell size={18} className="finance-config-section__icon" aria-hidden />
+          Régua de cobrança
+        </h3>
+      ) : null}
+      <p
+        className={`finance-config-section__hint mensal-collection-intro${embedded ? ' finance-settings-lead' : ' text-small text-muted'}`}
+      >
         Configure o que o sistema faz após o vencimento. O Nave <strong>não envia WhatsApp automaticamente</strong> —
         apenas cria tarefas para a equipe agir.
       </p>

@@ -240,6 +240,20 @@ describe('mapAppwriteDocToLead', () => {
     expect(lead.customAnswers).toEqual({});
   });
 
+  it('deriva pipelineStage de Agendado quando pipeline_stage está vazio', () => {
+    const lead = mapAppwriteDocToLead(
+      {
+        $id: '1',
+        name: 'N',
+        phone: '1',
+        status: LEAD_STATUS.SCHEDULED,
+        scheduledDate: '2026-06-20',
+      },
+      op
+    );
+    expect(lead.pipelineStage).toBe('Aula experimental');
+  });
+
   it('não quebra com documento sem campos novos (null)', () => {
     const lead = mapAppwriteDocToLead(
       {

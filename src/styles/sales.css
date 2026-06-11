@@ -566,11 +566,14 @@
   padding-left: 30px;
 }
 
+.sales-catalog__filters {
+  margin-bottom: 14px;
+}
+
 .sales-catalog__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 14px;
 }
 
 .sales-catalog__chip {

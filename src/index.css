@@ -481,7 +481,14 @@ a.btn-ghost:focus-visible {
 
 .page-header-row + .page-header-row {
   border-top: 0.5px solid var(--border-light);
-  padding-top: var(--control-gap);
+  padding-top: var(--space-3);
+}
+
+/* Campo de busca empilhado acima de chips ou segunda linha de filtros */
+.navi-filters-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--filters-stack-gap, var(--space-3));
 }
 
 .filter-bar {
@@ -2584,6 +2591,73 @@ select.form-input option {
   background: rgba(245, 158, 11, 0.14);
   border-color: rgba(245, 158, 11, 0.45);
   color: #b45309;
+}
+
+/* Funil → Etapas (Minha academia) */
+.pipeline-stages-editor {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pipeline-stages-editor__head {
+  display: grid;
+  grid-template-columns: 1fr 88px;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  background: var(--surface-2, var(--v50));
+  border-bottom: 0.5px solid var(--border-light);
+  font-family: var(--ff-ui);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.pipeline-stages-editor__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.pipeline-stages-editor__row {
+  display: grid;
+  grid-template-columns: 1fr 88px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.pipeline-stages-editor__row:last-child {
+  border-bottom: none;
+}
+
+.pipeline-stages-editor__row:hover {
+  background: rgba(108, 71, 216, 0.03);
+}
+
+.pipeline-stages-editor__sla {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pipeline-stages-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.pipeline-stages-editor__actions-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.pipeline-stages-editor__readonly-hint {
+  margin: var(--space-3) 0 0;
 }
 
 .funil-question-row {

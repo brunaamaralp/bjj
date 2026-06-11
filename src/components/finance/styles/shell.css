@@ -212,7 +212,7 @@
 .finance-hub-filters {
   flex-direction: column;
   align-items: stretch;
-  gap: var(--finance-space-2, 10px);
+  gap: var(--finance-space-3, var(--space-3, 12px));
   padding: 10px 12px;
   margin-bottom: var(--finance-space-3, 12px);
   background: var(--color-background-secondary, var(--surface-hover, var(--v50)));

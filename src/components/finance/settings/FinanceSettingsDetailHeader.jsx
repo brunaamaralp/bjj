@@ -10,8 +10,8 @@ export default function FinanceSettingsDetailHeader({ title, subtitle, onBack, b
           {backLabel}
         </button>
       ) : null}
-      <h3 className="navi-section-heading finance-settings-detail-header__title">{title}</h3>
-      {subtitle ? <p className="text-small text-muted finance-settings-detail-header__subtitle">{subtitle}</p> : null}
+      <h2 className="finance-settings-title">{title}</h2>
+      {subtitle ? <p className="finance-settings-subtitle">{subtitle}</p> : null}
     </header>
   );
 }

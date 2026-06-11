@@ -27,4 +27,13 @@ describe('resolveRouteBootstrapNeeds', () => {
   it('empresa não precisa de dados de lista', () => {
     expect(resolveRouteBootstrapNeeds('/empresa')).toEqual({ leads: false, students: false });
   });
+
+  it('lead profile e reports precisam de leads', () => {
+    expect(resolveRouteBootstrapNeeds('/lead/abc123')).toEqual({ leads: true, students: true });
+    expect(resolveRouteBootstrapNeeds('/reports')).toEqual({ leads: true, students: false });
+  });
+
+  it('recepcao precisa de alunos', () => {
+    expect(resolveRouteBootstrapNeeds('/recepcao')).toEqual({ leads: false, students: true });
+  });
 });

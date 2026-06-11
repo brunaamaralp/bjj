@@ -18,7 +18,7 @@ import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
-import { getStageUpdatePayload } from '../lib/leadStageRules.js';
+import { getStageUpdatePayload, normalizePipelineStageId, resolveLeadPipelineStageId } from '../lib/leadStageRules.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
 import { enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
@@ -737,13 +737,6 @@ const leadMatchesContactType = (lead) => {
 
 const ENROLLED_PIPELINE_STAGE_ID = 'Matriculado';
 const PIPELINE_NOVO_STAGE_ID = 'Novo';
-
-function normalizePipelineStageId(stageId) {
-    const id = String(stageId ?? '').trim();
-    if (!id) return '';
-    if (id.toLowerCase() === 'novo') return PIPELINE_NOVO_STAGE_ID;
-    return id;
-}
 
 function leadBelongsInPipelineColumn(lead, columnId, mapLeadToStageId, displayStageIds) {
     const colId = normalizePipelineStageId(columnId);
@@ -1912,47 +1905,10 @@ const Pipeline = () => {
         const id = `custom-${Date.now()}`;
         setTempStages(prev => [...prev, { id, label: 'Nova etapa', slaDays: DEFAULT_STAGE_SLA_DAYS }]);
     };
-    const mapLeadToStageId = useCallback((lead) => {
-        // Triagem WhatsApp pendente sempre na coluna Novo até confirmar no funil.
-        if (isLeadPendingTriage(lead)) return PIPELINE_NOVO_STAGE_ID;
-
-        if (lead?.status === LEAD_STATUS.MISSED) return LEAD_STATUS.MISSED;
-        if (lead?.status === LEAD_STATUS.LOST) return LEAD_STATUS.LOST;
-        if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
-
-        const stageFromStatusOnly = (l) => {
-            const hasDirect = stages.find((s) => s.id === l.status);
-            if (hasDirect) return l.status;
-            const s = (l.status || '').toLowerCase();
-            if (s === (LEAD_STATUS.NEW || '').toLowerCase() || s === 'novo') return 'Novo';
-            if (s.includes('agendado')) return 'Aula experimental';
-            if (s.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
-            if (s.includes('não compareceu') || s.includes('nao compareceu')) return LEAD_STATUS.MISSED;
-            if (s.includes('não fechou') || s.includes('nao fechou') || s.includes('perdid')) return LEAD_STATUS.LOST;
-            if (s.includes('matricul')) return 'Matriculado';
-            return 'Novo';
-        };
-
-        let stage = lead?.pipelineStage ? String(lead.pipelineStage).trim() : '';
-        if (stage === 'Contato feito') stage = 'Novo';
-        if (stage === 'Negociação') stage = 'Matriculado';
-
-        if (stage) {
-            if (stage === 'Aula experimental' && lead.status !== LEAD_STATUS.SCHEDULED) {
-                return stageFromStatusOnly(lead);
-            }
-            const normalizedStage = normalizePipelineStageId(stage);
-            const known = stages.some((col) => normalizePipelineStageId(col.id) === normalizedStage);
-            if (known) return normalizedStage;
-            const st = (lead.status || '').toLowerCase();
-            if (st.includes('compareceu')) return PIPELINE_WAITING_DECISION_STAGE;
-            if (st.includes('agendado')) return 'Aula experimental';
-            if (st.includes('matricul')) return 'Matriculado';
-            return 'Novo';
-        }
-
-        return stageFromStatusOnly(lead);
-    }, [stages]);
+    const mapLeadToStageId = useCallback(
+        (lead) => resolveLeadPipelineStageId(lead, { stages, isPendingTriage }),
+        [stages]
+    );
 
     const filterByDate = useCallback((lead) => {
         const { from, to } = resolveLeadPeriodRange({ filterDateFrom, filterDateTo, quickFilter, formatLocalYmd });

@@ -42,6 +42,40 @@ function sortPickerItems(items) {
 }
 
 /**
+ * Fetch imperativo de conversas para o atalho/launcher do chat widget.
+ * @returns {Promise<{ items: object[], blocked: boolean, error: string|null }>}
+ */
+export async function loadChatWidgetConversations(academyId, { signal } = {}) {
+  const academyIdStr = String(academyId || '').trim();
+  if (!academyIdStr) return { items: [], blocked: false, error: null };
+
+  try {
+    const jwt = await getInboxJwt();
+    const qs = new URLSearchParams();
+    qs.set('limit', '15');
+    qs.set('archived', '0');
+    const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        'x-academy-id': academyIdStr,
+      },
+      signal,
+    });
+    if (blocked) return { items: [], blocked: true, error: null };
+    const raw = await resp.text();
+    if (!resp.ok) throw new Error(friendlyError(raw, 'load'));
+    const data = safeParseInboxJson(raw) || {};
+    const items = sortPickerItems(
+      (Array.isArray(data?.items) ? data.items : []).map(mapPickerItem).filter(Boolean)
+    );
+    return { items, blocked: false, error: null };
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
+    return { items: [], blocked: false, error: friendlyError(e, 'load') };
+  }
+}
+
+/**
  * Lista leve de conversas para o seletor do chat widget.
  */
 export function useChatWidgetConversationPicker({ academyId, enabled = false } = {}) {
@@ -62,26 +96,14 @@ export function useChatWidgetConversationPicker({ academyId, enabled = false } =
     setLoading(true);
     setError(null);
     try {
-      const jwt = await getInboxJwt();
-      const qs = new URLSearchParams();
-      qs.set('limit', '15');
-      qs.set('archived', '0');
-      const { blocked, res: resp } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'x-academy-id': academyIdStr,
-        },
-        signal: ac.signal,
-      });
+      const result = await loadChatWidgetConversations(academyIdStr, { signal: ac.signal });
       if (seq !== requestSeqRef.current) return;
-      if (blocked) return;
-      const raw = await resp.text();
-      if (!resp.ok) throw new Error(friendlyError(raw, 'load'));
-      const data = safeParseInboxJson(raw) || {};
-      const next = (Array.isArray(data?.items) ? data.items : [])
-        .map(mapPickerItem)
-        .filter(Boolean);
-      setItems(sortPickerItems(next));
+      if (result.blocked) return;
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setItems(result.items);
     } catch (e) {
       if (e?.name === 'AbortError') return;
       if (seq !== requestSeqRef.current) return;

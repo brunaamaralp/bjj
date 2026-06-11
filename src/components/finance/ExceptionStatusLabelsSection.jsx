@@ -6,14 +6,18 @@ import {
   exceptionStatusBadgeClass,
 } from '../../lib/paymentExceptions.js';
 
-export default function ExceptionStatusLabelsSection({ labels, onChange }) {
+export default function ExceptionStatusLabelsSection({ labels, onChange, embedded = false }) {
   return (
     <section className="finance-config-section animate-in">
-      <h3 className="navi-section-heading finance-config-section__heading">
-        <AlertTriangle size={18} className="finance-config-section__icon" aria-hidden />
-        Status de exceção
-      </h3>
-      <p className="text-small text-muted finance-config-section__hint">
+      {!embedded ? (
+        <h3 className="navi-section-heading finance-config-section__heading">
+          <AlertTriangle size={18} className="finance-config-section__icon" aria-hidden />
+          Status de exceção
+        </h3>
+      ) : null}
+      <p
+        className={`finance-config-section__hint${embedded ? ' finance-settings-lead' : ' text-small text-muted'}`}
+      >
         Personalize os nomes exibidos na aba Pendências de Mensalidades. As regras de quando cada status aparece são
         definidas pelo sistema.
       </p>

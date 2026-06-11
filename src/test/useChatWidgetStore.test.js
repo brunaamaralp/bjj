@@ -11,6 +11,8 @@ function resetStore() {
     activePhone: '',
     leadId: '',
     leadName: '',
+    launcherOpen: false,
+    shortcutLoading: false,
   });
   sessionStorage.removeItem(STORAGE_KEY);
 }
@@ -89,5 +91,36 @@ describe('useChatWidgetStore', () => {
     expect(s.academyId).toBe('acad-b');
     expect(s.isPinned).toBe(false);
     expect(s.activePhone).toBe('');
+  });
+
+  it('openLauncher abre seletor e fecha painel', () => {
+    useChatWidgetStore.getState().pinConversation({ phone: '5511999999999', academyId: 'a1' });
+    useChatWidgetStore.getState().openLauncher();
+    const s = useChatWidgetStore.getState();
+    expect(s.launcherOpen).toBe(true);
+    expect(s.isOpen).toBe(false);
+    expect(s.isPinned).toBe(true);
+  });
+
+  it('pinConversation fecha launcher e shortcutLoading', () => {
+    useChatWidgetStore.getState().openLauncher();
+    useChatWidgetStore.getState().setShortcutLoading(true);
+    useChatWidgetStore.getState().pinConversation({
+      phone: '5511999999999',
+      leadName: 'Ana',
+      academyId: 'a1',
+    });
+    const s = useChatWidgetStore.getState();
+    expect(s.launcherOpen).toBe(false);
+    expect(s.shortcutLoading).toBe(false);
+    expect(s.isPinned).toBe(true);
+  });
+
+  it('closeWidget limpa launcher', () => {
+    useChatWidgetStore.getState().openLauncher();
+    useChatWidgetStore.getState().closeWidget();
+    const s = useChatWidgetStore.getState();
+    expect(s.launcherOpen).toBe(false);
+    expect(s.shortcutLoading).toBe(false);
   });
 });

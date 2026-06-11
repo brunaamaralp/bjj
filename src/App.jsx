@@ -69,7 +69,7 @@ const Attendance = lazyWithRetry(() => import('./pages/Attendance'));
 const Recepcao = lazyWithRetry(() => import('./pages/Recepcao'));
 const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
 const PublicStudentEnrollment = lazyWithRetry(() => import('./pages/PublicStudentEnrollment'));
-const NaviChatWidget = lazyWithRetry(() => import('./components/chat-widget/NaviChatWidget.jsx'));
+const NaviInboxShortcut = lazyWithRetry(() => import('./components/chat-widget/NaviInboxShortcut.jsx'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviBrandLockup from './components/NaviBrandLockup.jsx';
 import NaviToasts from './components/NaviToasts.jsx';
@@ -1229,7 +1229,7 @@ const App = () => {
       ) : null}
       {academyReady && academyIdStore ? (
         <Suspense fallback={null}>
-          <NaviChatWidget academyId={academyIdStore} commandBarOpen={nlOpen} />
+          <NaviInboxShortcut academyId={academyIdStore} commandBarOpen={nlOpen} />
         </Suspense>
       ) : null}
 

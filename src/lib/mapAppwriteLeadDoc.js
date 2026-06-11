@@ -1,5 +1,6 @@
 import { LEAD_STATUS } from './leadStatus.js';
 import { normalizeSexo } from './leadSexo.js';
+import { pipelineStageFromLeadStatus } from './leadStageRules.js';
 import { parsePendingAutomations } from '../../lib/automationCore.js';
 
 function parseCustomAnswersJson(raw) {
@@ -20,8 +21,7 @@ function parseCustomAnswersJson(raw) {
 export function mapAppwriteDocToLead(doc, operationalStatusSet) {
   const fromStage = String(doc.pipeline_stage || '').trim();
   const status = operationalStatusSet.has(doc.status) ? doc.status : LEAD_STATUS.NEW;
-  const effectivePipelineStage =
-    fromStage || (operationalStatusSet.has(doc.status) ? '' : doc.status) || 'Novo';
+  const effectivePipelineStage = fromStage || pipelineStageFromLeadStatus(status);
 
   const whatsappLeadQuenteRaw = String(doc.whatsapp_lead_quente || '').trim().toLowerCase();
   const hotLead = whatsappLeadQuenteRaw === 'sim';

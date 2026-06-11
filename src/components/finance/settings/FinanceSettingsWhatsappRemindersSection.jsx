@@ -67,7 +67,7 @@ export default function FinanceSettingsWhatsappRemindersSection({ financeConfig,
 
   return (
     <div className="finance-settings-section-body">
-      <p className="text-small text-muted finance-whatsapp-reminders-intro">
+      <p className="finance-settings-lead finance-whatsapp-reminders-intro">
         Envio automático pelo WhatsApp (Zapster) quando a mensalidade está próxima do vencimento ou em atraso.
         Não cria conversa no Inbox e não altera a régua de cobrança.
       </p>

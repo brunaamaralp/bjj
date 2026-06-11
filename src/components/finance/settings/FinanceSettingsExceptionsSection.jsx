@@ -7,7 +7,7 @@ export default function FinanceSettingsExceptionsSection({ labels, onChange }) {
   return (
     <div className="finance-settings-section-body finance-settings-section-body--flush">
       <ExceptionRulesIntro />
-      <ExceptionStatusLabelsSection labels={labels} onChange={onChange} />
+      <ExceptionStatusLabelsSection labels={labels} onChange={onChange} embedded />
       <Link
         to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.MENSALIDADES })}
         className="finance-config-context-link"
@@ -20,7 +20,7 @@ export default function FinanceSettingsExceptionsSection({ labels, onChange }) {
 
 function ExceptionRulesIntro() {
   return (
-    <p className="text-small text-muted finance-settings-exceptions-intro">
+    <p className="finance-settings-lead finance-settings-exceptions-intro">
       Personalize como aparecem status como bolsa e cortesia nas mensalidades.
     </p>
   );

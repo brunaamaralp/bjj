@@ -1,7 +1,14 @@
 /**
  * Categorias fixas de FINANCIAL_TX — fonte de verdade para type, DRE e contas.
- * Campo `category` na transação armazena o label (ex.: "Mensalidades").
+ * Campo `category` na transação armazena o label (ex.: "Mensalidades")
+ * ou valor `acct:CODE` para contas do plano de contas.
  */
+
+import {
+  getAccountCategoryOptionsByNature,
+  mergeCategoryOptionGroups,
+  resolveAccountFinanceCategory,
+} from './financeAccountCategories.js';
 
 export const UNCLASSIFIED_DRE_GROUP = 'Não classificado';
 
@@ -169,14 +176,15 @@ export function getRevenueCategories() {
 }
 
 /** Agrupa categorias por dreGroup para optgroup no select. */
-export function getCategoryOptionsByNature(nature) {
+export function getCategoryOptionsByNature(nature, accounts = null) {
   const list = nature === 'out' ? getExpenseCategories() : getRevenueCategories();
   const map = new Map();
   for (const c of list) {
     if (!map.has(c.dreGroup)) map.set(c.dreGroup, []);
     map.get(c.dreGroup).push(c);
   }
-  return map;
+  if (!accounts?.length) return map;
+  return mergeCategoryOptionGroups(map, getAccountCategoryOptionsByNature(accounts, nature));
 }
 
 export function findCategoryKey(entry) {
@@ -188,10 +196,10 @@ export function findCategoryKey(entry) {
 }
 
 /**
- * Resolve categoria por chave (MENSALIDADE), label ou type legado.
+ * Resolve categoria por chave (MENSALIDADE), label, acct:CODE ou type legado.
  * @returns {typeof FINANCE_CATEGORIES.MENSALIDADE | null}
  */
-export function resolveFinanceCategory(value) {
+export function resolveFinanceCategory(value, accounts = null) {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (BY_KEY[raw]) return BY_KEY[raw];
@@ -199,13 +207,17 @@ export function resolveFinanceCategory(value) {
   if (byLabel) return byLabel;
   const keyUpper = raw.toUpperCase().replace(/\s+/g, '_');
   if (BY_KEY[keyUpper]) return BY_KEY[keyUpper];
+  if (accounts?.length) {
+    const fromAccount = resolveAccountFinanceCategory(raw, accounts);
+    if (fromAccount) return fromAccount;
+  }
   return null;
 }
 
 /** Label persistido em FINANCIAL_TX.category */
-export function normalizeFinanceCategory(value) {
-  const resolved = resolveFinanceCategory(value);
-  if (resolved) return resolved.label;
+export function normalizeFinanceCategory(value, accounts = null) {
+  const resolved = resolveFinanceCategory(value, accounts);
+  if (resolved) return resolved.isAccountCategory ? value : resolved.label;
   return String(value || '').trim() || FINANCE_CATEGORIES.OUTRAS_DESPESAS.label;
 }
 

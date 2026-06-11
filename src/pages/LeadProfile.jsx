@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
 import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
-import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN, selectLeadById } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
@@ -15,8 +15,8 @@ import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { LostReasonModal } from '../components/LostReasonModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
-import MatriculaModal from '../components/MatriculaModal';
-import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
+const MatriculaModal = lazy(() => import('../components/MatriculaModal'));
+const CreateContractModal = lazy(() => import('../components/contracts/CreateContractModal.jsx'));
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getStudentPayments } from '../lib/studentPayments';
@@ -29,7 +29,7 @@ import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
-import ScheduleModal from '../components/ScheduleModal.jsx';
+const ScheduleModal = lazy(() => import('../components/ScheduleModal.jsx'));
 import { DateInputField } from '../components/DateInput';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
@@ -194,15 +194,43 @@ const LeadProfile = () => {
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const profileFrom = location.state?.from;
-    const lead = useLeadStore((s) => s.leads.find((l) => l.id === id));
+    const lead = useLeadStore((s) => selectLeadById(s, id));
     const loading = useLeadStore((s) => s.loading);
+    const fetchLeadById = useLeadStore((s) => s.fetchLeadById);
     const studentsLoading = useStudentStore((s) => s.loading);
+    const [profileResolving, setProfileResolving] = useState(false);
 
     useEffect(() => {
-        if (loading || studentsLoading || lead) return;
+        if (!id) return undefined;
+        if (selectLeadById(useLeadStore.getState(), id)) {
+            setProfileResolving(false);
+            return undefined;
+        }
+        let cancelled = false;
+        setProfileResolving(true);
+        void fetchLeadById(id).finally(() => {
+            if (!cancelled) setProfileResolving(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [id, fetchLeadById]);
+
+    useEffect(() => {
+        if (profileResolving || loading || studentsLoading || lead) return;
         const student = useStudentStore.getState().getStudentById(id);
-        if (student) navigate(`/student/${id}`, { replace: true });
-    }, [loading, studentsLoading, lead, id, navigate]);
+        if (student) {
+            navigate(`/student/${id}`, { replace: true });
+            return;
+        }
+        let cancelled = false;
+        void useStudentStore.getState().fetchStudentById(id).then((s) => {
+            if (!cancelled && s) navigate(`/student/${id}`, { replace: true });
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [profileResolving, loading, studentsLoading, lead, id, navigate]);
     const updateLead = useLeadStore((s) => s.updateLead);
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const toast = useToast();
@@ -1029,7 +1057,7 @@ const LeadProfile = () => {
         return { primary, secondary };
     }, [lead, terms.enrollment, openMatriculaModal, handleMatricularClick]);
 
-    if (loading && !lead) {
+    if ((loading || profileResolving) && !lead) {
         return (
             <div className="container lead-profile-loading">
                 <div className="lead-profile-inner">
@@ -2704,6 +2732,8 @@ const LeadProfile = () => {
                 onClose={() => setInlineTaskDiscardOpen(false)}
             />
 
+            {matriculaModalOpen ? (
+            <Suspense fallback={null}>
             <MatriculaModal
                 isOpen={matriculaModalOpen}
                 lead={lead}
@@ -2757,7 +2787,11 @@ const LeadProfile = () => {
                     }
                 }}
             />
+            </Suspense>
+            ) : null}
 
+            {postMatriculaContractOpen ? (
+            <Suspense fallback={null}>
             <CreateContractModal
                 open={postMatriculaContractOpen}
                 leadId={postMatriculaContractLeadId || undefined}
@@ -2770,6 +2804,8 @@ const LeadProfile = () => {
                     setPostMatriculaContractLeadId(null);
                 }}
             />
+            </Suspense>
+            ) : null}
             {lostModalOpen && (
                 <LostReasonModal
                     leadName={lead.name || contactLabel}
@@ -2787,6 +2823,8 @@ const LeadProfile = () => {
                 />
             )}
 
+            {scheduleModalOpen ? (
+            <Suspense fallback={null}>
             <ScheduleModal
                 open={scheduleModalOpen}
                 onClose={() => setScheduleModalOpen(false)}
@@ -2796,6 +2834,8 @@ const LeadProfile = () => {
                 initialDate={lead?.scheduledDate || ''}
                 initialTime={lead?.scheduledTime || ''}
             />
+            </Suspense>
+            ) : null}
 
             <FollowupOutcomeDialog
                 open={Boolean(followupOutcomeLead)}

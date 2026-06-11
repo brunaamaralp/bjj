@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react';
 import {
   useContractTemplates,
   useCreateContractTemplate,
@@ -28,6 +28,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ContractTemplateEditor from './ContractTemplateEditor.js';
 import ContractTemplateMetaForm from './ContractTemplateMetaForm.js';
 import PageHeader from '../layout/PageHeader.jsx';
+import FinanceSettingsSectionHeader from '../finance/settings/FinanceSettingsSectionHeader.jsx';
 import {
   buildEditorSnapshot,
   isEditorDirty,
@@ -411,14 +412,25 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
       ? `Editar: ${name.trim() || 'modelo'}`
       : 'Novo modelo';
 
+  const newTemplateButton = !editorMode ? (
+    <button
+      type="button"
+      className={embedded ? 'btn-primary btn-sm contracts-new-btn' : 'btn-primary contracts-new-btn'}
+      onClick={openCreate}
+      disabled={!configured}
+    >
+      <Plus size={16} aria-hidden /> Novo modelo
+    </button>
+  ) : null;
+
   return (
-    <div className={embedded ? 'contracts-page' : 'container contracts-page'}>
-      <PageHeader
-        className="contracts-page-header"
-        title="Modelos de contrato"
-        subtitle="Textos para assinatura digital. Marque os planos de mensalidade em cada modelo."
-        prefix={
-          !embedded ? (
+    <div className={embedded ? 'contracts-page contracts-page--embedded' : 'container contracts-page'}>
+      {!embedded ? (
+        <PageHeader
+          className="contracts-page-header"
+          title="Modelos de contrato"
+          subtitle="Textos para assinatura digital. Marque os planos de mensalidade em cada modelo."
+          prefix={
             <Link
               to="/empresa"
               className="navi-eyebrow flex items-center gap-1"
@@ -426,16 +438,10 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
             >
               <ArrowLeft size={14} /> Configurações
             </Link>
-          ) : null
-        }
-        actions={
-          !editorMode ? (
-            <button type="button" className="btn-primary" onClick={openCreate} disabled={!configured}>
-              <Plus size={16} /> Novo modelo
-            </button>
-          ) : null
-        }
-      />
+          }
+          actions={newTemplateButton}
+        />
+      ) : null}
 
       {!configured ? (
         <div className="card mt-4" style={{ padding: 16 }}>
@@ -475,7 +481,15 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
               <ChevronLeft size={16} aria-hidden />
               Biblioteca de modelos
             </button>
-            <h2 className="navi-section-heading contract-template-editor-focus__title">{editorTitle}</h2>
+            {embeddedFinance ? (
+              <FinanceSettingsSectionHeader
+                as="h3"
+                title={editorTitle}
+                className="contract-template-editor-focus__title-wrap"
+              />
+            ) : (
+              <h2 className="navi-section-heading contract-template-editor-focus__title">{editorTitle}</h2>
+            )}
           </div>
 
           <form className="contract-template-editor-focus__form" onSubmit={handleSave}>
@@ -531,8 +545,15 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
       ) : null}
 
       {!editorMode ? (
-        <section className="mt-4 animate-in">
-          <h2 className="navi-section-heading mb-2">Biblioteca</h2>
+        <section className={`animate-in${embedded ? '' : ' mt-4'}`}>
+          {embeddedFinance ? (
+            <FinanceSettingsSectionHeader title="Biblioteca" actions={newTemplateButton} />
+          ) : (
+            <div className="contracts-library-head">
+              <h2 className="navi-section-heading contracts-library-head__title">Biblioteca</h2>
+              {embedded ? newTemplateButton : null}
+            </div>
+          )}
           {isLoading ? <PageSkeleton variant="table" rows={4} columns={4} /> : null}
           {isError ? (
             <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => refetch()} />
@@ -595,13 +616,21 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
                         )}
                       </td>
                       <td>{t.active ? 'Ativo' : 'Inativo'}</td>
-                      <td className="contracts-table-actions">
-                        <button type="button" className="btn-ghost text-small" onClick={() => openEdit(t)}>
-                          <Pencil size={14} /> Editar
+                      <td className="contracts-table-actions" data-label="Ações">
+                        <button
+                          type="button"
+                          className="contracts-table-icon-btn"
+                          aria-label="Editar"
+                          title="Editar"
+                          onClick={() => openEdit(t)}
+                        >
+                          <Pencil size={16} aria-hidden />
                         </button>
                         <button
                           type="button"
-                          className="btn-ghost text-small"
+                          className="contracts-table-icon-btn"
+                          aria-label={t.active ? 'Desativar' : 'Ativar'}
+                          title={t.active ? 'Desativar' : 'Ativar'}
                           onClick={async () => {
                             try {
                               await updateMutation.mutateAsync({
@@ -617,15 +646,20 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
                             }
                           }}
                         >
-                          {t.active ? 'Desativar' : 'Ativar'}
+                          {t.active ? (
+                            <PowerOff size={16} aria-hidden />
+                          ) : (
+                            <Power size={16} aria-hidden />
+                          )}
                         </button>
                         <button
                           type="button"
-                          className="btn-ghost"
+                          className="contracts-table-icon-btn contracts-table-icon-btn--danger"
+                          aria-label="Excluir"
                           title="Excluir"
                           onClick={() => handleDelete(t.$id, t.name)}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} aria-hidden />
                         </button>
                       </td>
                     </tr>

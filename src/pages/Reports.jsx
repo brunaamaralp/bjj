@@ -197,8 +197,9 @@ const Reports = () => {
         }),
         [terms.reportsDrillConvertedTitle, contactsPlural]
     );
-    const leads = useLeadStore((s) => s.leads);
+    const leadsCount = useLeadStore((s) => s.leads.length);
     const leadsLoading = useLeadStore((s) => s.loading);
+    const leadsReady = useLeadStore((s) => s.leadsReady);
 
     const [preset, setPreset] = useState('month');
     const [from, setFrom] = useState(ymd(startOfMonth(new Date())));
@@ -767,7 +768,7 @@ const Reports = () => {
 
             {needsFunnelReport ? (
             <>
-            {!error && !showInitialLoad && leads.length === 0 && !leadsLoading ? (
+            {!error && !showInitialLoad && leadsReady && leadsCount === 0 && !leadsLoading ? (
                 <div className="reports-empty card mt-4">
                     <EmptyState
                         insideCard

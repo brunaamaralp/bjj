@@ -701,6 +701,32 @@ export const useLeadStore = create(
 
   getLeadById: (id) => selectLeadById(get(), id),
 
+  fetchLeadById: async (id) => {
+    const lid = String(id || '').trim();
+    const found = selectLeadById(get(), lid);
+    if (found) return found;
+    const academyId = String(get().academyId || '').trim();
+    if (!LEADS_COL || !lid || !academyId) return null;
+    try {
+      const operationalStatusSet = new Set(Object.values(LEAD_STATUS));
+      const doc = await databases.getDocument(DB_ID, LEADS_COL, lid);
+      const docAcademy = String(doc?.academyId || doc?.academy_id || '').trim();
+      if (!docAcademy || docAcademy !== academyId) return null;
+      const lead = mapAppwriteDocToLead(doc, operationalStatusSet);
+      set((state) => {
+        const exists = Boolean(state.leadsById?.[lid]);
+        const merged = exists
+          ? state.leads.map((l) => (l.id === lid ? lead : l))
+          : [lead, ...state.leads];
+        return withLeadsIndex(merged);
+      });
+      return lead;
+    } catch (e) {
+      console.warn('[fetchLeadById]', lid, e?.message || e);
+      return null;
+    }
+  },
+
   /** Reordena leads de um estágio só no cliente (sem API). */
   patchLeadsOrder: (_stage, reorderedLeads) => {
     const reorderedIds = new Set((reorderedLeads || []).map((l) => l.id));

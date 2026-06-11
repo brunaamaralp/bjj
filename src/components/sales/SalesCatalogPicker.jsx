@@ -111,20 +111,21 @@ export default function SalesCatalogPicker({
 
   return (
     <section className="sales-catalog" aria-label="Catálogo de produtos">
-      <div className="sales-catalog__search form-group">
-        <label>Busca rápida</label>
-        <div className="sales-catalog__search-wrap">
-          <Search size={14} className="sales-catalog__search-icon" aria-hidden />
-          <input
-            className="form-input"
-            placeholder="Filtrar por nome, categoria ou variação…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="navi-filters-stack sales-catalog__filters">
+        <div className="sales-catalog__search form-group">
+          <label>Busca rápida</label>
+          <div className="sales-catalog__search-wrap">
+            <Search size={14} className="sales-catalog__search-icon" aria-hidden />
+            <input
+              className="form-input"
+              placeholder="Filtrar por nome, categoria ou variação…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="sales-catalog__chips" role="tablist" aria-label="Categorias">
+        <div className="sales-catalog__chips" role="tablist" aria-label="Categorias">
         <button
           type="button"
           className={`sales-catalog__chip${category === 'all' ? ' active' : ''}`}
@@ -142,6 +143,7 @@ export default function SalesCatalogPicker({
             {c}
           </button>
         ))}
+        </div>
       </div>
 
       {loading ? (

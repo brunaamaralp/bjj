@@ -12,6 +12,7 @@ export default function FinanceSettingsCollectionSection({
       <CollectionRulesSection
         collectionRules={collectionRules}
         onRulesChange={onRulesChange}
+        embedded
       />
       <Link
         to={buildReceivablesPath({

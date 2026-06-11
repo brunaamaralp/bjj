@@ -184,6 +184,7 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
             addAccount={addAccount}
             updateAccount={updateAccount}
             deleteAccount={deleteAccount}
+            embedded={scope === 'settings'}
             headingActions={
               <>
                 <button

@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, DoorOpen, History } from 'lucide-react';
 import { useTerms } from '../lib/terminology.js';
 import RecepcaoLivePanel from '../components/attendance/RecepcaoLivePanel.jsx';
-import ControlIdAttendancePanel from '../components/attendance/ControlIdAttendancePanel.jsx';
+
+const ControlIdAttendancePanel = lazy(
+  () => import('../components/attendance/ControlIdAttendancePanel.jsx')
+);
 
 const TABS = [
   { id: 'ao-vivo', label: 'Ao vivo', icon: DoorOpen },
@@ -92,7 +95,9 @@ export default function Recepcao() {
         {tab === 'ao-vivo' ? (
           <RecepcaoLivePanel />
         ) : (
-          <ControlIdAttendancePanel showReceptionLink={false} />
+          <Suspense fallback={<p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Carregando histórico…</p>}>
+            <ControlIdAttendancePanel showReceptionLink={false} />
+          </Suspense>
         )}
       </div>
 
