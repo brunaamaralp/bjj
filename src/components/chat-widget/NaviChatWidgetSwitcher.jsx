@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import ConversationItem from '../inbox/ConversationItem.jsx';
 import {
@@ -7,10 +8,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuItemStatic,
 } from '../shared/menu';
+import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
 import { useChatWidgetConversationPicker, pickerItemMatchesPhone } from '../../hooks/useChatWidgetConversationPicker.js';
 import { inboxProfileImageUrl } from '../../lib/inboxContactDisplay.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
+
+const SWITCHER_MENU_SELECTOR = '[data-chat-widget-switcher-menu]';
 
 function formatTimeOnly(iso) {
   const s = String(iso || '').trim();
@@ -71,6 +75,14 @@ export default function NaviChatWidgetSwitcher({
     enabled: panelOpen && open,
   });
 
+  const menuStyle = useAnchoredMenuPosition(triggerRef, open, {
+    align: 'start',
+    gap: 6,
+    maxHeight: 280,
+    minWidth: 260,
+    zIndex: 'calc(var(--z-chat-widget, 8000) + 5)',
+  });
+
   const handleSelect = useCallback(
     (listItem) => {
       const phone = primaryInboxPhone(listItem?.phone_number);
@@ -85,21 +97,81 @@ export default function NaviChatWidgetSwitcher({
     [onSelect]
   );
 
+  const toggleOpen = useCallback(() => {
+    setOpen((prev) => {
+      if (!prev) void refresh();
+      return !prev;
+    });
+  }, [refresh]);
+
   const displayName = String(leadName || '').trim() || 'Conversa';
   const avatarUrl = inboxProfileImageUrl({ whatsapp_profile_image_url: profileImageUrl });
 
+  const triggerWidth = open && triggerRef.current
+    ? Math.max(260, Math.round(triggerRef.current.getBoundingClientRect().width))
+    : undefined;
+
+  const switcherPanel =
+    open && menuStyle ? (
+      <DropdownMenuPanel
+        fixed
+        elevated
+        className="navi-chat-widget__switcher-panel"
+        aria-label="Trocar conversa"
+        role="menu"
+        data-chat-widget-switcher-menu
+        style={{
+          ...menuStyle,
+          ...(triggerWidth ? { width: triggerWidth, minWidth: triggerWidth } : null),
+        }}
+      >
+        <DropdownMenuLabel>Conversas recentes</DropdownMenuLabel>
+        {loading && items.length === 0 ? (
+          <DropdownMenuItemStatic className="navi-chat-widget__switcher-loading">
+            <Loader2 size={16} className="navi-chat-widget__spin" aria-hidden />
+            Carregando…
+          </DropdownMenuItemStatic>
+        ) : null}
+        {!loading && items.length === 0 ? (
+          <DropdownMenuItemStatic>Nenhuma conversa encontrada.</DropdownMenuItemStatic>
+        ) : null}
+        <div className="navi-chat-widget__switcher-list">
+          {items.map((item) => {
+            const listItem = toConversationListItem(item);
+            const active = pickerItemMatchesPhone(item, activePhone);
+            return (
+              <ConversationItem
+                key={item.phone}
+                item={listItem}
+                active={active}
+                compact
+                onSelectConversation={handleSelect}
+                formatTimeOnly={formatTimeOnly}
+                formatWhen={formatWhen}
+                formatActivityLabel={formatActivityLabel}
+              />
+            );
+          })}
+        </div>
+      </DropdownMenuPanel>
+    ) : null;
+
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen} elevated className="navi-chat-widget__switcher">
+    <DropdownMenu
+      open={open}
+      onOpenChange={setOpen}
+      elevated
+      className="navi-chat-widget__switcher"
+      dismissExtraSelector={SWITCHER_MENU_SELECTOR}
+    >
       <button
         ref={triggerRef}
         type="button"
         className="navi-chat-widget__header-trigger"
-        onClick={() => {
-          setOpen((v) => !v);
-          if (!open) void refresh();
-        }}
+        onClick={toggleOpen}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`Conversa com ${displayName}. Trocar conversa`}
       >
         <span className="navi-chat-widget__header-avatar" aria-hidden>
           <ContactAvatar contact={{ name: displayName, avatar_url: avatarUrl }} size={36} fill />
@@ -115,43 +187,9 @@ export default function NaviChatWidgetSwitcher({
         />
       </button>
 
-      {open ? (
-        <DropdownMenuPanel
-          className="navi-chat-widget__switcher-panel"
-          elevated
-          aria-label="Trocar conversa"
-          role="menu"
-        >
-          <DropdownMenuLabel>Conversas recentes</DropdownMenuLabel>
-          {loading && items.length === 0 ? (
-            <DropdownMenuItemStatic className="navi-chat-widget__switcher-loading">
-              <Loader2 size={16} className="navi-chat-widget__spin" aria-hidden />
-              Carregando…
-            </DropdownMenuItemStatic>
-          ) : null}
-          {!loading && items.length === 0 ? (
-            <DropdownMenuItemStatic>Nenhuma conversa encontrada.</DropdownMenuItemStatic>
-          ) : null}
-          <div className="navi-chat-widget__switcher-list">
-            {items.map((item) => {
-              const listItem = toConversationListItem(item);
-              const active = pickerItemMatchesPhone(item, activePhone);
-              return (
-                <ConversationItem
-                  key={item.phone}
-                  item={listItem}
-                  active={active}
-                  compact
-                  onSelectConversation={handleSelect}
-                  formatTimeOnly={formatTimeOnly}
-                  formatWhen={formatWhen}
-                  formatActivityLabel={formatActivityLabel}
-                />
-              );
-            })}
-          </div>
-        </DropdownMenuPanel>
-      ) : null}
+      {typeof document !== 'undefined' && switcherPanel
+        ? createPortal(switcherPanel, document.body)
+        : null}
     </DropdownMenu>
   );
 }

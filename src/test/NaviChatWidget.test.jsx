@@ -34,12 +34,22 @@ vi.mock('../hooks/useZapsterWhatsAppConnection.js', () => ({
 
 vi.mock('../hooks/useChatWidgetConversationPicker.js', () => ({
   useChatWidgetConversationPicker: () => ({
-    items: [],
+    items: [
+      {
+        phone: '5511888888888',
+        leadId: 'lead-2',
+        leadName: 'João',
+        lastPreview: 'Olá',
+        timestamp: '2026-06-11T10:00:00.000Z',
+        unreadCount: 0,
+        profileImageUrl: '',
+      },
+    ],
     loading: false,
     error: null,
     refresh: vi.fn(),
   }),
-  pickerItemMatchesPhone: () => false,
+  pickerItemMatchesPhone: (item, phone) => String(item?.phone || '') === String(phone || ''),
 }));
 
 function resetStore() {
@@ -122,6 +132,17 @@ describe('NaviChatWidget', () => {
 
 describe('NaviChatWidgetPanel embedded', () => {
   beforeEach(() => {
+    Element.prototype.getBoundingClientRect = vi.fn(() => ({
+      width: 280,
+      height: 48,
+      top: 120,
+      left: 40,
+      right: 320,
+      bottom: 168,
+      x: 40,
+      y: 120,
+      toJSON: () => ({}),
+    }));
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query) => ({
@@ -154,5 +175,27 @@ describe('NaviChatWidgetPanel embedded', () => {
     expect(screen.getByLabelText('Minimizar conversa')).toBeVisible();
     expect(screen.getByLabelText('Fechar conversa fixada')).toBeVisible();
     expect(container.querySelector('.navi-chat-widget__panel--mobile')).toBeNull();
+  });
+
+  it('abre seletor de conversas ao clicar em Trocar conversa', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <NaviChatWidgetPanel
+          academyId="acad-1"
+          activePhone="5511999999999"
+          leadId="lead-1"
+          leadName="Maria"
+          embedded
+          hideProfileLink
+          onMinimize={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole('button', { name: /Trocar conversa/i }));
+    expect(await screen.findByRole('menu', { name: 'Trocar conversa' })).toBeInTheDocument();
+    expect(screen.getByText('João')).toBeInTheDocument();
   });
 });

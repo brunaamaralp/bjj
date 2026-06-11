@@ -226,8 +226,14 @@
 .navi-chat-widget__switcher {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
   grid-column: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.navi-chat-widget__switcher:has(.navi-chat-widget__header-trigger[aria-expanded='true']) {
+  z-index: 3;
 }
 
 .navi-chat-widget__header .navi-menu.navi-chat-widget__switcher {
@@ -308,15 +314,10 @@
 }
 
 .navi-chat-widget__switcher-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
   max-height: 280px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  z-index: calc(var(--z-chat-widget) + 2);
 }
 
 .navi-chat-widget__switcher-list {
