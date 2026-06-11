@@ -20,24 +20,43 @@ describe('financeConfigStorage', () => {
     expect(parsed.bankAccounts).toHaveLength(1);
   });
 
-  it('offloads bank accounts to onboardingChecklist when financeConfig exceeds legacy limit', () => {
-    const plans = Array.from({ length: 10 }, (_, i) => ({
-      name: `Plano ${i}`,
-      price: 100 + i,
-      description: 'x'.repeat(90),
-      contractTemplateId: 'tpl_' + 'a'.repeat(20),
-      rescissionTemplateId: 'tpl_' + 'b'.repeat(20),
+  it('offloads bank accounts to settings when financeConfig exceeds legacy limit', () => {
+    const plans = [{ name: 'Mensal', price: 200 }];
+    const banks = Array.from({ length: 30 }, (_, i) => ({
+      bankName: `Banco ${i}`,
+      account: String(1000 + i),
+      branch: String(i),
+      pixKey: `pix-${i}@mail.com`,
     }));
-    const banks = [
-      { bankName: 'Banco A', account: '1', branch: '1', pixKey: 'pix-a' },
-      { bankName: 'Banco B', account: '2', branch: '2', pixKey: 'pix-b' },
-    ];
     const merged = { plans, bankAccounts: banks, cardFees: { pix: { percent: 0, fixed: 0 } } };
     const fullLen = JSON.stringify(merged).length;
     const leanLen = JSON.stringify({ ...merged, bankAccounts: [] }).length;
     expect(fullLen).toBeGreaterThan(FINANCE_CONFIG_LEGACY_MAX_CHARS);
     expect(leanLen).toBeLessThan(FINANCE_CONFIG_LEGACY_MAX_CHARS - 48);
 
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+    });
+    expect(built.bankAccountsOffloaded).toBe(true);
+    expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
+    const settings = JSON.parse(built.settings);
+    expect(settings.financeBankAccounts).toHaveLength(30);
+  });
+
+  it('offloads bank accounts to onboardingChecklist when settings is unavailable', () => {
+    const plans = [{ name: 'Mensal', price: 200 }];
+    const banks = Array.from({ length: 6 }, (_, i) => ({
+      bankName: `Banco ${i}`,
+      account: String(i),
+      branch: '1',
+      pixKey: `pix-${i}`,
+    }));
+    const merged = {
+      plans,
+      bankAccounts: banks,
+      cardFees: { pix: { percent: 0, fixed: 0 } },
+      legacyBlob: 'z'.repeat(2100),
+    };
     const built = buildAcademyFinanceConfigUpdate(
       { settings: '{}', onboardingChecklist: '[]' },
       merged,
@@ -46,7 +65,7 @@ describe('financeConfigStorage', () => {
     expect(built.bankAccountsOffloaded).toBe(true);
     expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
     const onboarding = JSON.parse(built.onboardingChecklist);
-    expect(onboarding.fba).toHaveLength(2);
+    expect(onboarding.fba).toHaveLength(6);
   });
 
   it('mergeFinanceConfigFromAcademyDoc reads offloaded banks from settings', () => {
@@ -109,8 +128,37 @@ describe('financeConfigStorage', () => {
     expect(cfg.bankAccounts[0].bankName).toBe('PIX');
   });
 
+  it('offloads plans to settings when financeConfig exceeds legacy limit even without banks', () => {
+    const plans = Array.from({ length: 12 }, (_, i) => ({
+      name: `Plano longo ${i}`,
+      price: 100 + i,
+      description: 'd'.repeat(120),
+      durationDays: 30,
+      applyCardFee: true,
+    }));
+    const merged = {
+      plans,
+      bankAccounts: [],
+      cardFees: { pix: { percent: 0, fixed: 0 } },
+      collectionRules: [{ day: 1, label: '1ª', defaultMessage: 'm'.repeat(200), escalate: false }],
+    };
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+    });
+    expect(built.plansOffloaded).toBe(true);
+    expect(JSON.parse(built.financeConfig).plans).toEqual([]);
+    const settings = JSON.parse(built.settings);
+    expect(settings.financePlans).toHaveLength(12);
+    const cfg = mergeFinanceConfigFromAcademyDoc({
+      financeConfig: built.financeConfig,
+      settings: built.settings,
+    });
+    expect(cfg.plans).toHaveLength(12);
+    expect(cfg.plans[0].name).toBe('Plano longo 0');
+  });
+
   it('throws when lean financeConfig still exceeds limit', () => {
-    const merged = { plans: [{ name: 'x', price: 1, note: 'y'.repeat(3000) }], bankAccounts: [] };
+    const merged = { plans: [], bankAccounts: [], extraPayload: 'y'.repeat(3000) };
     expect(() => buildAcademyFinanceConfigUpdate({}, merged)).toThrow(FinanceConfigTooLargeError);
   });
 });

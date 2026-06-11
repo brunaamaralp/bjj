@@ -495,7 +495,7 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
         addToast({
           type: 'error',
           message:
-            'A configuração financeira ficou grande demais para salvar. Reduza planos ou textos longos, ou peça ao suporte para ampliar o limite no Appwrite (npm run provision:academy-attrs).',
+            'A configuração financeira ficou grande demais para salvar. Tente encurtar descrições dos planos ou textos da régua de cobrança. Se persistir, peça ao suporte para ampliar o limite no Appwrite (npm run provision:academy-attrs).',
         });
       } else {
         addToast({ type: 'error', message: friendlyError(e, 'save') });
