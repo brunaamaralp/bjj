@@ -78,6 +78,7 @@ const NewLead = () => {
     const leadType = watch('type');
     const phoneValue = watch('phone');
     const nameValue = watch('name');
+    const scheduledDate = watch('scheduledDate') || '';
     const [debouncedPhone, setDebouncedPhone] = useState('');
     const [debouncedName, setDebouncedName] = useState('');
 
@@ -367,9 +368,10 @@ const NewLead = () => {
                         <div className="form-group" style={{ flex: 1 }}>
                             <label>Data</label>
                             <DateInputField
-                                {...register('scheduledDate', { required: false })}
                                 type="date"
                                 className="form-input"
+                                value={scheduledDate}
+                                onChange={(e) => setValue('scheduledDate', e.target.value, { shouldDirty: true })}
                             />
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>

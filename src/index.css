@@ -8144,6 +8144,60 @@ input.navi-typable-date.form-input:focus {
   }
 }
 
+.navi-typable-date-field {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.navi-typable-date-field > .navi-typable-date {
+  width: 100%;
+  min-width: 0;
+}
+
+input.navi-typable-date--picker {
+  padding-right: 36px;
+}
+
+.navi-native-date-picker {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}
+
+.navi-date-picker-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0;
+}
+
+.navi-date-picker-btn:hover:not(:disabled) {
+  color: var(--v500);
+  background: var(--surface-hover);
+}
+
+.navi-date-picker-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ===== Attendance (/presenca) — toolbar + tabela responsivos; desktop ≥1024px ===== */
 .attendance-toolbar {
   display: flex;

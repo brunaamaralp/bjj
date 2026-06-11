@@ -1,4 +1,5 @@
-import React, { forwardRef, useCallback, useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { Calendar } from 'lucide-react';
 import {
   DATE_INPUT_PLACEHOLDERS,
   isoValueToDisplay,
@@ -6,6 +7,8 @@ import {
   maskDisplayTyping,
   parseDisplayToIso,
 } from '../lib/dateInputUtils.js';
+
+const PICKER_TYPES = new Set(['date', 'month', 'datetime-local']);
 
 const ICONS = {
   date: '📅',
@@ -98,6 +101,27 @@ export const DateInputField = forwardRef(function DateInputField(
     [handleBlurInternal, onBlurProp]
   );
 
+  const nativePickerRef = useRef(null);
+  const hasNativePicker = typable && PICKER_TYPES.has(type);
+
+  const openNativePicker = useCallback(() => {
+    const el = nativePickerRef.current;
+    if (!el || disabled) return;
+    try {
+      if (typeof el.showPicker === 'function') el.showPicker();
+      else el.click();
+    } catch {
+      el.click();
+    }
+  }, [disabled]);
+
+  const handleNativePickerChange = useCallback(
+    (e) => {
+      onChange?.(e);
+    },
+    [onChange]
+  );
+
   if (!typable) {
     return (
       <input
@@ -119,27 +143,59 @@ export const DateInputField = forwardRef(function DateInputField(
     );
   }
 
-  const mergedClass = ['navi-typable-date', className].filter(Boolean).join(' ');
+  const mergedClass = ['navi-typable-date', hasNativePicker ? 'navi-typable-date--picker' : '', className]
+    .filter(Boolean)
+    .join(' ');
+
+  const pickerLabel =
+    type === 'month' ? 'Abrir seletor de mês' : type === 'datetime-local' ? 'Abrir calendário e horário' : 'Abrir calendário';
 
   return (
-    <input
-      ref={ref}
-      id={id}
-      name={name}
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      value={display}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      required={required}
-      disabled={disabled}
-      placeholder={placeholder || DATE_INPUT_PLACEHOLDERS[type]}
-      style={style}
-      className={mergedClass}
-      aria-label={ariaLabel}
-      data-date-type={type}
-    />
+    <div className="navi-typable-date-field">
+      <input
+        ref={ref}
+        id={id}
+        name={name}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={display}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        required={required}
+        disabled={disabled}
+        placeholder={placeholder || DATE_INPUT_PLACEHOLDERS[type]}
+        style={style}
+        className={mergedClass}
+        aria-label={ariaLabel}
+        data-date-type={type}
+      />
+      {hasNativePicker ? (
+        <>
+          <input
+            ref={nativePickerRef}
+            type={type}
+            value={value ?? ''}
+            onChange={handleNativePickerChange}
+            min={min}
+            max={max}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="navi-native-date-picker"
+          />
+          <button
+            type="button"
+            className="navi-date-picker-btn"
+            onClick={openNativePicker}
+            disabled={disabled}
+            aria-label={pickerLabel}
+            title={pickerLabel}
+          >
+            <Calendar size={16} aria-hidden />
+          </button>
+        </>
+      ) : null}
+    </div>
   );
 });
 
