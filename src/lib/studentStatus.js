@@ -45,3 +45,12 @@ export function filterStudentsByStatus(leads, showInactive) {
     return showInactive ? isInactiveStudent(l) : isActiveStudent(l);
   });
 }
+
+/** Filtra itens da listagem paginada (já mapeados com studentStatus). */
+export function filterMappedStudentsByListStatus(items, studentStatus) {
+  if (studentStatus === 'all') return items || [];
+  if (studentStatus === STUDENT_STATUS.INACTIVE) {
+    return (items || []).filter((item) => normalizeStudentStatus(item?.studentStatus) === STUDENT_STATUS.INACTIVE);
+  }
+  return (items || []).filter((item) => normalizeStudentStatus(item?.studentStatus) !== STUDENT_STATUS.INACTIVE);
+}

@@ -6,7 +6,7 @@ import { buildClientDocumentPermissions } from '../lib/clientDocumentPermissions
 import { mapAppwriteDocToStudent } from '../lib/mapAppwriteStudentDoc.js';
 import { buildStudentPayloadFromDoc } from '../lib/leadStudentPayload.js';
 import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyContext.js';
-import { STUDENT_STATUS } from '../lib/studentStatus.js';
+import { STUDENT_STATUS, filterMappedStudentsByListStatus } from '../lib/studentStatus.js';
 import { stripUnknownStudentPatch } from '../lib/studentAppwritePatch.js';
 import { fetchStudentsList } from '../lib/studentsApi.js';
 import {
@@ -224,35 +224,52 @@ function updatesToStudentPatch(updates) {
 export { STUDENT_TURMA_KEY };
 
 async function listStudentsFromAppwrite(academyId, queryOpts, { reset, cursor }) {
-  const queries = [
-    Query.equal('academyId', academyId),
-    Query.orderDesc('$createdAt'),
-    Query.limit(STUDENTS_PAGE_SIZE),
-  ];
-  const search = String(queryOpts.search || '').trim();
-  if (search.length >= 2) queries.push(Query.contains('name', search));
-  if (queryOpts.plan) queries.push(Query.equal('plan', String(queryOpts.plan).trim()));
-  if (queryOpts.studentStatus === STUDENT_STATUS.INACTIVE) {
-    queries.push(Query.equal('student_status', STUDENT_STATUS.INACTIVE));
-  } else if (queryOpts.studentStatus !== 'all') {
-    queries.push(Query.notEqual('student_status', STUDENT_STATUS.INACTIVE));
-  }
-  if (queryOpts.turma && STUDENT_TURMA_KEY) {
-    queries.push(Query.equal(STUDENT_TURMA_KEY, String(queryOpts.turma).trim()));
-  } else if (queryOpts.turmaEmpty && STUDENT_TURMA_KEY) {
-    queries.push(Query.equal(STUDENT_TURMA_KEY, ''));
-  }
-  if (queryOpts.origin) {
-    queries.push(Query.equal('source_origin', String(queryOpts.origin).trim()));
-  }
-  if (!reset && cursor) {
-    queries.push(Query.cursorAfter(cursor));
+  const buildQueries = (withStatusFilter) => {
+    const queries = [
+      Query.equal('academyId', academyId),
+      Query.orderDesc('$createdAt'),
+      Query.limit(STUDENTS_PAGE_SIZE),
+    ];
+    const search = String(queryOpts.search || '').trim();
+    if (search.length >= 2) queries.push(Query.contains('name', search));
+    if (queryOpts.plan) queries.push(Query.equal('plan', String(queryOpts.plan).trim()));
+    if (withStatusFilter) {
+      if (queryOpts.studentStatus === STUDENT_STATUS.INACTIVE) {
+        queries.push(Query.equal('student_status', STUDENT_STATUS.INACTIVE));
+      } else if (queryOpts.studentStatus !== 'all') {
+        queries.push(Query.notEqual('student_status', STUDENT_STATUS.INACTIVE));
+      }
+    }
+    if (queryOpts.turma && STUDENT_TURMA_KEY) {
+      queries.push(Query.equal(STUDENT_TURMA_KEY, String(queryOpts.turma).trim()));
+    } else if (queryOpts.turmaEmpty && STUDENT_TURMA_KEY) {
+      queries.push(Query.equal(STUDENT_TURMA_KEY, ''));
+    }
+    if (queryOpts.origin) {
+      queries.push(Query.equal('source_origin', String(queryOpts.origin).trim()));
+    }
+    if (!reset && cursor) {
+      queries.push(Query.cursorAfter(cursor));
+    }
+    return queries;
+  };
+
+  let response;
+  let postFilterStatus = false;
+  try {
+    response = await databases.listDocuments(DB_ID, STUDENTS_COL, buildQueries(true));
+  } catch (statusErr) {
+    console.warn('[fetchStudents] Appwrite status filter failed, retrying without', statusErr?.message || statusErr);
+    response = await databases.listDocuments(DB_ID, STUDENTS_COL, buildQueries(false));
+    postFilterStatus = true;
   }
 
-  const response = await databases.listDocuments(DB_ID, STUDENTS_COL, queries);
   const total = typeof response.total === 'number' ? response.total : null;
   const docs = response.documents || [];
-  const students = docs.map((doc) => mapAppwriteDocToStudent(doc));
+  let students = docs.map((doc) => mapAppwriteDocToStudent(doc));
+  if (postFilterStatus) {
+    students = filterMappedStudentsByListStatus(students, queryOpts.studentStatus);
+  }
   const lastId = docs.length ? docs[docs.length - 1].$id : null;
   const pageFull = docs.length === STUDENTS_PAGE_SIZE;
   return {

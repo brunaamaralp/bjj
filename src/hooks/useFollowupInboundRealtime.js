@@ -6,7 +6,7 @@ import {
   shouldProcessConversationEvent,
   subscribeConversationsRealtime,
 } from '../lib/conversationsRealtime.js';
-import { emitFollowupInboundChanged } from '../lib/leadTimelineEvents.js';
+import { emitFollowupInboundChanged, emitFollowupInboundRefresh } from '../lib/leadTimelineEvents.js';
 
 /**
  * Appwrite Realtime em conversas → atualiza cache de inbound para retornos/hero.
@@ -42,13 +42,16 @@ export function useFollowupInboundRealtime(academyId, { enabled = true } = {}) {
         const payload = ev && typeof ev === 'object' ? ev.payload : null;
         if (!shouldProcessConversationEvent(payload, academyIdRef.current)) return;
         const patch = conversationEventToInboundPatch(payload);
-        if (!patch) return;
-        emitFollowupInboundChanged({
-          academyId: academyIdRef.current,
-          leadId: patch.leadId,
-          phone: patch.phone,
-          lastUserMsgAt: patch.lastUserMsgAt,
-        });
+        if (patch) {
+          emitFollowupInboundChanged({
+            academyId: academyIdRef.current,
+            leadId: patch.leadId,
+            phone: patch.phone,
+            lastUserMsgAt: patch.lastUserMsgAt,
+          });
+          return;
+        }
+        emitFollowupInboundRefresh(academyIdRef.current);
       },
     });
 

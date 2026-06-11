@@ -6,6 +6,8 @@ export const LEAD_ATTENDANCE_CHANGED = 'navi-lead-attendance-changed';
 export const LEADS_REFRESH = 'navi-leads-refresh';
 /** Disparado quando uma conversa WhatsApp recebe mensagem do cliente. */
 export const FOLLOWUP_INBOUND_CHANGED = 'navi-followup-inbound-changed';
+/** Disparado quando a conversa mudou e o hero deve recarregar inbound (ex.: payload realtime parcial). */
+export const FOLLOWUP_INBOUND_REFRESH = 'navi-followup-inbound-refresh';
 
 /**
  * @param {string} leadId
@@ -42,4 +44,12 @@ export function emitLeadsRefresh(detail = {}) {
 export function emitFollowupInboundChanged(detail = {}) {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(FOLLOWUP_INBOUND_CHANGED, { detail }));
+}
+
+/** @param {string} academyId */
+export function emitFollowupInboundRefresh(academyId) {
+  if (typeof window === 'undefined') return;
+  const aid = String(academyId || '').trim();
+  if (!aid) return;
+  window.dispatchEvent(new CustomEvent(FOLLOWUP_INBOUND_REFRESH, { detail: { academyId: aid } }));
 }

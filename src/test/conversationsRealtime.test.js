@@ -31,6 +31,20 @@ describe('conversationsRealtime', () => {
     });
   });
 
+  it('conversationEventToInboundPatch usa last_message_* quando last_user_msg_at ausente', () => {
+    const patch = conversationEventToInboundPatch({
+      lead_id: 'l1',
+      phone_number: '5511999999999',
+      last_message_role: 'user',
+      last_message_timestamp: '2026-06-11T10:00:00.000Z',
+    });
+    expect(patch).toEqual({
+      leadId: 'l1',
+      phone: '5511999999999',
+      lastUserMsgAt: '2026-06-11T10:00:00.000Z',
+    });
+  });
+
   it('conversationEventToInboundPatch ignora evento sem mensagem do cliente', () => {
     expect(
       conversationEventToInboundPatch({

@@ -62,4 +62,11 @@ describe('buildStudentsListDocumentQueries', () => {
     expect(withSelect.some((q) => String(q).includes('select'))).toBe(true);
     expect(withoutSelect.some((q) => String(q).includes('select'))).toBe(false);
   });
+
+  it('permite omitir filtro de status para fallback do handler', () => {
+    const opts = parseStudentsListQueryParams({});
+    const withStatus = buildStudentsListDocumentQueries('acad1', opts, 'turma');
+    const withoutStatus = buildStudentsListDocumentQueries('acad1', opts, 'turma', { withStatusFilter: false });
+    expect(withStatus.length).toBeGreaterThan(withoutStatus.length);
+  });
 });

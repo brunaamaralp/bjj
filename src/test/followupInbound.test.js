@@ -7,6 +7,15 @@ import {
 } from '../lib/followupInbound.js';
 
 describe('followupInbound', () => {
+  it('extrai última mensagem do cliente de last_message_* quando last_user_msg_at está vazio', () => {
+    const at = extractLastUserMessageAt({
+      last_message_role: 'user',
+      last_message_timestamp: '2026-06-11T16:45:00.000Z',
+      last_user_msg_at: '',
+    });
+    expect(at).toBe('2026-06-11T16:45:00.000Z');
+  });
+
   it('extrai última mensagem do cliente de messages_recent quando last_user_msg_at está vazio', () => {
     const at = extractLastUserMessageAt({
       messages_recent: JSON.stringify([

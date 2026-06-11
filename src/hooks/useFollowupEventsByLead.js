@@ -10,7 +10,7 @@ import {
   setFollowupEventsCache,
 } from '../lib/followupEventsCache.js';
 import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
-import { FOLLOWUP_INBOUND_CHANGED } from '../lib/leadTimelineEvents.js';
+import { FOLLOWUP_INBOUND_CHANGED, FOLLOWUP_INBOUND_REFRESH } from '../lib/leadTimelineEvents.js';
 import { getInboundPollMs } from '../lib/followupInboundPoll.js';
 import { useFollowupInboundRealtime } from './useFollowupInboundRealtime.js';
 
@@ -130,6 +130,13 @@ async function loadInboundAfterMapsFromApi(academyId) {
 async function loadInboundAfterMaps(academyId) {
   const fromApi = await loadInboundAfterMapsFromApi(academyId);
   if (fromApi) return fromApi;
+  const cached = getFollowupEventsCache(academyId);
+  if (cached) {
+    return {
+      inboundAfterByLead: cached.inboundAfterByLead || {},
+      inboundAfterByPhone: cached.inboundAfterByPhone || {},
+    };
+  }
   return { inboundAfterByLead: {}, inboundAfterByPhone: {} };
 }
 
@@ -266,6 +273,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
     if (!academyId || typeof window === 'undefined') return undefined;
 
     let pollId = null;
+    let refreshDebounceId = null;
 
     const onInboundChanged = (ev) => {
       const detail = ev?.detail || {};
@@ -277,6 +285,17 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
         lastUserMsgAt: detail.lastUserMsgAt,
       });
       refreshFromCache();
+    };
+
+    const onInboundRefresh = (ev) => {
+      const detail = ev?.detail || {};
+      const aid = String(detail.academyId || academyId || '').trim();
+      if (aid && aid !== String(academyId || '').trim()) return;
+      if (refreshDebounceId) window.clearTimeout(refreshDebounceId);
+      refreshDebounceId = window.setTimeout(() => {
+        refreshDebounceId = null;
+        void refreshInboundOnly();
+      }, 400);
     };
 
     const restartPoll = () => {
@@ -294,10 +313,13 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
     const onVisibility = () => restartPoll();
 
     window.addEventListener(FOLLOWUP_INBOUND_CHANGED, onInboundChanged);
+    window.addEventListener(FOLLOWUP_INBOUND_REFRESH, onInboundRefresh);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       if (pollId) window.clearInterval(pollId);
+      if (refreshDebounceId) window.clearTimeout(refreshDebounceId);
       window.removeEventListener(FOLLOWUP_INBOUND_CHANGED, onInboundChanged);
+      window.removeEventListener(FOLLOWUP_INBOUND_REFRESH, onInboundRefresh);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [academyId, refreshFromCache, refreshInboundOnly, realtimeOn]);

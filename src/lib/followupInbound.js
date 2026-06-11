@@ -18,6 +18,10 @@ export function extractLastUserMessageAt(doc) {
   const stored = String(doc?.last_user_msg_at || '').trim();
   if (stored) return stored;
 
+  const metaRole = String(doc?.last_message_role || '').trim().toLowerCase();
+  const metaTs = String(doc?.last_message_timestamp || '').trim();
+  if (metaRole === 'user' && metaTs) return metaTs;
+
   let latest = '';
   for (const raw of [doc?.messages_recent, doc?.messages]) {
     for (const m of parseMessageArray(raw)) {

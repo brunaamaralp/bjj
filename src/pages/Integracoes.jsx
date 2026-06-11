@@ -47,7 +47,7 @@ export default function Integracoes() {
             <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
               Serviços opcionais que exigem configuração fora do Nave.
             </p>
-            <ContractsAutentiqueSection />
+            <ContractsAutentiqueSection academyId={academyId} />
           </section>
         ) : null}
       </div>

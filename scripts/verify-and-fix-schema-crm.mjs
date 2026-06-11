@@ -710,6 +710,7 @@ async function main() {
       { key: 'idx_students_academy_id', attributes: ['academyId'] },
       { key: 'idx_students_phone', attributes: ['phone'] },
       { key: 'idx_students_student_status', attributes: ['student_status'] },
+      { key: 'idx_students_academy_status', attributes: ['academyId', 'student_status'] },
       { key: 'idx_students_plan', attributes: ['plan'] },
     ],
   });

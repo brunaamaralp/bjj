@@ -15,6 +15,7 @@
     "migrate:stock-balance": "node scripts/migrate_stock_balance.js",
     "provision:sales": "node scripts/provision_sales_schema.js",
     "provision:core": "node scripts/setup-appwrite.mjs",
+    "verify-and-fix-schema-crm": "node --env-file=.env scripts/verify-and-fix-schema-crm.mjs",
     "migrate:perms": "node scripts/migrate-permissions.mjs",
     "migrate:ai-plans": "node scripts/migrate-ai-plans-appwrite.mjs",
     "migrate:lead-stage-sync": "node scripts/fix-lead-stage-sync.js",

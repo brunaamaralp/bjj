@@ -57,6 +57,8 @@ const ERROR_MAP = {
   'HTTP 503': 'Serviço temporariamente indisponível. Tente novamente.',
 
   // Anthropic / agente IA
+  ai_not_configured: 'Serviço de IA temporariamente indisponível. Fale com o suporte.',
+  appwrite_not_configured: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
   rate_limit_exceeded: 'Serviço temporariamente sobrecarregado. Aguarde.',
   context_length_exceeded: 'Conversa muito longa. Inicie um novo atendimento.',
   prompt_nao_configurado: 'Configure o assistente na configuração guiada antes de testar.',
