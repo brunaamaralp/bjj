@@ -54,7 +54,7 @@ export default function StatusBadge({
       };
     }
     return TONE_VARS[tone] || TONE_VARS.neutral;
-  }, [config?.color, config?.label, tone]);
+  }, [config, tone]);
 
   if (!config?.label) return null;
 

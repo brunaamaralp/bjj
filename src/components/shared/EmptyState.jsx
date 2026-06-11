@@ -24,7 +24,7 @@ export default function EmptyState({
   titleAs = 'p',
   titleClassName = '',
 }) {
-  const TitleTag = TITLE_TAGS.has(String(titleAs || '').toLowerCase()) ? String(titleAs).toLowerCase() : 'p';
+  const titleTagName = TITLE_TAGS.has(String(titleAs || '').toLowerCase()) ? String(titleAs).toLowerCase() : 'p';
   const dashed = tone === 'dashed' || variant === 'column';
   const rootClass = [
     'navi-empty',
@@ -63,9 +63,7 @@ export default function EmptyState({
         <Icon className="navi-empty__icon" size={variant === 'table-cell' ? 32 : 44} strokeWidth={1.5} aria-hidden />
       ) : null}
       {titleIsString ? (
-        <TitleTag id={titleId || undefined} className={titleClass}>
-          {title}
-        </TitleTag>
+        React.createElement(titleTagName, { id: titleId || undefined, className: titleClass }, title)
       ) : (
         <div id={titleId || undefined} className={titleClass}>
           {title}

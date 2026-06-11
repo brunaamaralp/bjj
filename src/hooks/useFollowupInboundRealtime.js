@@ -16,7 +16,10 @@ import { emitFollowupInboundChanged } from '../lib/leadTimelineEvents.js';
 export function useFollowupInboundRealtime(academyId, { enabled = true } = {}) {
   const [realtimeOn, setRealtimeOn] = useState(false);
   const academyIdRef = useRef(academyId);
-  academyIdRef.current = academyId;
+
+  useEffect(() => {
+    academyIdRef.current = academyId;
+  }, [academyId]);
 
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') {

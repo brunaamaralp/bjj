@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import './finance.css';
 import { useSearchParams } from 'react-router-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
-import { FINANCE_TX_LIST_PAGE_SIZE } from '../../lib/financeListLimits.js';
+import {
+  FINANCE_TX_LIST_INITIAL_PAGE_SIZE,
+  FINANCE_TX_LIST_PAGE_SIZE,
+} from '../../lib/financeListLimits.js';
 import {
   txDirection,
   displayGross,
@@ -79,6 +82,8 @@ import {
   accountWhenPaymentMethodChanges,
 } from '../../lib/bankAccounts.js';
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
+import useMediaQuery from '../../hooks/useMediaQuery.js';
+import useDebounce from '../../hooks/useDebounce.js';
 
 const BANK_FILTER_UNALLOCATED = '__unallocated__';
 
@@ -286,11 +291,12 @@ export default function TransacoesTab({
   }, [academyId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const canManageAdvanced = isOwner || isAdmin;
+  const isMobileList = useMediaQuery('(max-width: 767px)');
   const [fromDate, setFromDate] = useState(periodFrom);
   const [toDate, setToDate] = useState(periodTo);
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
-  const [showTxModal, setShowTxModal] = useState(false);
+  const [showTxModal, setShowTxModal] = useState(() => searchParams.get('new') === '1');
   const [txFormErrors, setTxFormErrors] = useState({});
   const [txForm, setTxForm] = useState(() => ({
     direction: 'in',
@@ -317,6 +323,7 @@ export default function TransacoesTab({
   const [editingTxId, setEditingTxId] = useState('');
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
+  const debouncedStudentQuery = useDebounce(studentQuery, 200);
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
   const [loadError, setLoadError] = useState(false);
@@ -328,6 +335,7 @@ export default function TransacoesTab({
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
   const [txSearch, setTxSearch] = useState('');
+  const debouncedTxSearch = useDebounce(txSearch, 200);
   const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState('');
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
@@ -476,7 +484,7 @@ export default function TransacoesTab({
         return label === bankAccountFilter;
       });
     }
-    const q = txSearch.trim().toLowerCase();
+    const q = debouncedTxSearch.trim().toLowerCase();
     if (q) {
       rows = rows.filter((tx) => {
         const name = (leadNameById.get(tx.lead_id) || '').toLowerCase();
@@ -487,7 +495,7 @@ export default function TransacoesTab({
       });
     }
     return rows;
-  }, [transactions, statusFilter, directionFilter, bankAccountFilter, txSearch, leadNameById]);
+  }, [transactions, statusFilter, directionFilter, bankAccountFilter, debouncedTxSearch, leadNameById]);
 
   const hasActiveTxFilters =
     statusFilter !== 'all' ||
@@ -503,7 +511,7 @@ export default function TransacoesTab({
   }, [setBankAccountFilter]);
 
   const studentMatches = useMemo(() => {
-    const q = String(studentQuery || '').trim().toLowerCase();
+    const q = String(debouncedStudentQuery || '').trim().toLowerCase();
     if (q.length < 2) return [];
     const isStudentLike = (l) => isStudentRecord(l) && isActiveStudent(l);
     return (leads || []).filter((l) => {
@@ -513,7 +521,7 @@ export default function TransacoesTab({
       const qd = q.replace(/\D/g, '');
       return name.includes(q) || (qd.length >= 2 && phone.includes(qd));
     }).slice(0, 12);
-  }, [leads, studentQuery]);
+  }, [leads, debouncedStudentQuery]);
 
   const resetTxModal = () => {
     setShowTxModal(false);
@@ -556,7 +564,7 @@ export default function TransacoesTab({
           to: toDate,
           cursor,
           regime,
-          limit: FINANCE_TX_LIST_PAGE_SIZE,
+          limit: append ? FINANCE_TX_LIST_PAGE_SIZE : FINANCE_TX_LIST_INITIAL_PAGE_SIZE,
         });
         if (reqId !== loadReqRef.current) return;
         const items = body.transactions || [];
@@ -1185,6 +1193,7 @@ export default function TransacoesTab({
               <PageSkeleton variant="table" rows={6} columns={10} />
             ) : loadError ? null : (
             <>
+            {isMobileList ? (
             <div className="navi-mobile-list finance-mobile-list" aria-label="Lançamentos">
               {filteredTransactions.length === 0 ? (
                 <div className="finance-tx-empty-wrap">
@@ -1212,7 +1221,7 @@ export default function TransacoesTab({
                 </div>
               ) : (
               filteredTransactions.map((tx) => {
-                const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
+                const rawName = tx.lead_id ? (leadNameById.get(tx.lead_id) || '') : '';
                 const displayName = rawName || '—';
                 const badge = getTxCategoryBadge(tx, chartAccounts);
                 const st = String(tx.status || '').toLowerCase();
@@ -1277,6 +1286,7 @@ export default function TransacoesTab({
               })
               )}
             </div>
+            ) : (
             <div className="navi-desktop-table-wrap finance-desktop-table-wrap">
             <div className="finance-tx-table-toolbar">
               <DropdownMenu
@@ -1370,7 +1380,7 @@ export default function TransacoesTab({
                   const netFmt = formatSignedMoney(displayNet(tx), dir);
                   const typeLabel = getTxTypeLabelDesktop(tx);
                   const methodLabel = formatPaymentMethod(tx.method, tx.installments);
-                  const rawName = tx.lead_id ? (leads.find((l) => l.id === tx.lead_id)?.name || '') : '';
+                  const rawName = tx.lead_id ? (leadNameById.get(tx.lead_id) || '') : '';
                   const alumStr = rawName ? (rawName.length > 20 ? `${rawName.slice(0, 20)}…` : rawName) : '—';
                   const st = String(tx.status || '').toLowerCase();
                   const statusBadge =
@@ -1463,6 +1473,7 @@ export default function TransacoesTab({
               </tbody>
             </table>
             </div>
+            )}
             </>
             )}
           </div>
@@ -1761,7 +1772,7 @@ export default function TransacoesTab({
                 <p className="text-small finance-tx-student-group__hint">
                   Alunos matriculados ou marcados como aluno na base.
                 </p>
-                {studentPickerOpen && String(studentQuery || '').trim().length >= 2 ? (
+                {studentPickerOpen && String(debouncedStudentQuery || '').trim().length >= 2 ? (
                   studentMatches.length > 0 ? (
                     <div className="card finance-tx-student-dropdown navi-menu__panel">
                       {studentMatches.map((l) => (

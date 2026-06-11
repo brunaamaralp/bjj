@@ -168,6 +168,20 @@ function CaixaPage() {
   const activeTab = hasExplicitTab
     ? resolveHubTab(rawTab, allowedLeafTabs, defaultTab)
     : defaultTab;
+  const [visitedLeafTabs, setVisitedLeafTabs] = useState(() => new Set([activeTab]));
+  const [prevLeafTab, setPrevLeafTab] = useState(activeTab);
+
+  if (activeTab !== prevLeafTab) {
+    setPrevLeafTab(activeTab);
+    if (!visitedLeafTabs.has(activeTab)) {
+      setVisitedLeafTabs((prev) => {
+        if (prev.has(activeTab)) return prev;
+        const next = new Set(prev);
+        next.add(activeTab);
+        return next;
+      });
+    }
+  }
   const legacy = normalizeLegacyFinanceiroTab(searchParams);
   const legacyChanged = legacy.changed;
   const legacySection = legacy.section;
@@ -474,11 +488,13 @@ function CaixaPage() {
 
 
 
-        {academyId && activeTab === 'movimentacoes' ? (
+        {academyId && visitedLeafTabs.has('movimentacoes') ? (
           <div
             role="tabpanel"
             id="finance-tabpanel-movimentacoes"
             aria-labelledby="finance-tabpanel-tab-movimentacoes"
+            hidden={activeTab !== 'movimentacoes'}
+            aria-hidden={activeTab !== 'movimentacoes'}
           >
             <TransacoesTab
               academyId={academyId}

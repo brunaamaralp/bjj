@@ -53,14 +53,20 @@ export default function ReportsStudentsPanel({
   const novo = Number(m.newStudents) || 0;
   const off = Number(m.deactivations) || 0;
   const churn = Number(m.churnRate) || 0;
-  const retention = Number(m.retentionRate) ?? Math.max(0, 100 - churn);
+  const retention =
+    m.retentionRate != null && m.retentionRate !== ''
+      ? Number(m.retentionRate) || 0
+      : Math.max(0, 100 - churn);
 
   const pm = prevMetrics || {};
   const prevActive = Number(pm.activeAtStart) || 0;
   const prevNovo = Number(pm.newStudents) || 0;
   const prevOff = Number(pm.deactivations) || 0;
   const prevChurn = Number(pm.churnRate) || 0;
-  const prevRetention = Number(pm.retentionRate) ?? Math.max(0, 100 - prevChurn);
+  const prevRetention =
+    pm.retentionRate != null && pm.retentionRate !== ''
+      ? Number(pm.retentionRate) || 0
+      : Math.max(0, 100 - prevChurn);
 
   useEffect(() => {
     if (!prevFetchKey) return undefined;

@@ -37,7 +37,7 @@ export default function SalesReceiptPanel({ receipt, settings, academyName, onCo
   const handleDownloadPdf = useCallback(async () => {
     if (!receipt?.vendaId) return;
     await downloadSaleReceiptPdf(receipt.vendaId);
-  }, [receipt?.vendaId]);
+  }, [receipt]);
 
   if (!receipt) return null;
 

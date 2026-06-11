@@ -161,8 +161,8 @@ export default function MessageBubble({
 }
 
 export function messageBubbleStatusFromMessage(m) {
-  if (Boolean(m?._sendFailed)) return 'error';
-  if (Boolean(m?._optimistic)) return 'optimistic';
+  if (m?._sendFailed) return 'error';
+  if (m?._optimistic) return 'optimistic';
   return null;
 }
 

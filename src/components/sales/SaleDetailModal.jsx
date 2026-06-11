@@ -34,7 +34,7 @@ function SaleDetailModalContent({
 
   const totalCents = useMemo(
     () => Math.max(0, Math.round((Number(sale?.total) || 0) * 100)),
-    [sale?.total]
+    [sale]
   );
 
   const openLiquidatePanel = useCallback(() => {

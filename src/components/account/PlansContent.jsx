@@ -94,7 +94,7 @@ export default function PlansContent() {
           Prévia: cobrança desativada. Os botões de pagamento serão habilitados quando a assinatura estiver ativa.
         </p>
       ) : null}
-      <motion.div
+      <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -125,28 +125,28 @@ export default function PlansContent() {
               {isStudio && !isCurrentPlan ? (
                 <div style={{ background: 'var(--accent)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, textAlign: 'center', padding: '5px 0', textTransform: 'uppercase' }}>
                   Mais popular
-                </motion.div>
+                </div>
               ) : null}
               {isCurrentPlan ? (
                 <div style={{ background: 'var(--success)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, textAlign: 'center', padding: '5px 0', textTransform: 'uppercase' }}>
                   ✓ Plano atual
-                </motion.div>
+                </div>
               ) : null}
               <div style={{ padding: '20px 24px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--accent-light)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={18} />
-                  </motion.div>
+                  </div>
                   <div>
                     <strong className="text-small" style={{ fontSize: '1rem' }}>{plan.name}</strong>
                     <p className="navi-subtitle" style={{ marginTop: 2, fontSize: '0.78rem' }}>{plan.description}</p>
-                  </motion.div>
-                </motion.div>
-                <motion.div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                   <span className="navi-page-title" style={{ fontSize: '2rem' }}>R$ {plan.price.toLocaleString('pt-BR')}</span>
                   <span className="navi-subtitle">/mês</span>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
               <div style={{ height: 1, background: 'var(--border-light)', margin: '0 24px' }} />
               <ul style={{ listStyle: 'none', padding: '16px 24px', margin: 0, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                 {plan.features.map((f) => (
@@ -160,18 +160,18 @@ export default function PlansContent() {
                 {isCurrentPlan ? (
                   <div style={{ textAlign: 'center', padding: 10, borderRadius: 'var(--radius-sm)', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', fontWeight: 600 }}>
                     Plano ativo
-                  </motion.div>
+                  </div>
                 ) : (
                   <button type="button" className={isStudio ? 'btn-primary' : 'btn-outline'} style={{ width: '100%' }} onClick={() => handleCheckout(key)} disabled={!billingLive}>
                     {!billingLive ? 'Em breve' : currentPlan ? 'Fazer upgrade' : '30 dias grátis — assinar'}
                   </button>
                 )}
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
           );
         })}
-      </motion.div>
+      </div>
       {loadingStatus && academyId ? <p className="navi-subtitle" style={{ textAlign: 'center', marginTop: 20 }}>Carregando plano atual…</p> : null}
-    </motion.div>
+    </div>
   );
 }

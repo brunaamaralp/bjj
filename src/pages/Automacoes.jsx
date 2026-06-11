@@ -23,6 +23,19 @@ export default function Automacoes() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, 'processos');
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
+  const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
+
+  if (activeTab !== prevActiveTab) {
+    setPrevActiveTab(activeTab);
+    if (!visitedTabs.has(activeTab)) {
+      setVisitedTabs((prev) => {
+        if (prev.has(activeTab)) return prev;
+        const next = new Set(prev);
+        next.add(activeTab);
+        return next;
+      });
+    }
+  }
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -34,15 +47,6 @@ export default function Automacoes() {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
   }, [activeTab, navigate, searchParams, setSearchParams]);
-
-  useEffect(() => {
-    setVisitedTabs((prev) => {
-      if (prev.has(activeTab)) return prev;
-      const next = new Set(prev);
-      next.add(activeTab);
-      return next;
-    });
-  }, [activeTab]);
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 

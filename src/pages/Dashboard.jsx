@@ -643,7 +643,7 @@ const Dashboard = () => {
         trialSeriesPlural,
         todayScheduled.length,
         monthEnrollmentMetrics,
-        followUps.length,
+        followUps,
         pendingTasks.length,
         followupTemperatureCounts.cooling,
         followupTemperatureCounts.critical,

@@ -175,10 +175,11 @@ export function useInboxConversationList({
     } catch (e) {
       if (!silent) setError(friendlyError(e, 'load'));
     } finally {
-      if (requestId !== listRequestSeqRef.current) return;
-      loadingListRef.current = false;
-      if (reset && !silent) setLoading(false);
-      else if (!reset) setLoadingMore(false);
+      if (requestId === listRequestSeqRef.current) {
+        loadingListRef.current = false;
+        if (reset && !silent) setLoading(false);
+        else if (!reset) setLoadingMore(false);
+      }
     }
   }, [
     academyIdRef,

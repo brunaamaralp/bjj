@@ -1,4 +1,7 @@
-/** Lançamentos por requisição na lista do Caixa (Transações, relatórios de movimentação, etc.) */
+/** Primeira página na aba Lançamentos (carregamento inicial mais rápido). */
+export const FINANCE_TX_LIST_INITIAL_PAGE_SIZE = 60;
+
+/** Lançamentos por requisição ao carregar mais / relatórios de movimentação, etc. */
 export const FINANCE_TX_LIST_PAGE_SIZE = 200;
 
 /** Teto aceito pela API ao pedir `?limit=` */

@@ -192,7 +192,7 @@ function parseDateYmd(raw) {
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
-  const br = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  const br = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
   if (br) {
     let y = Number(br[3]);
     if (y < 100) y += 2000;

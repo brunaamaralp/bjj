@@ -83,22 +83,9 @@ export default function DashboardManagerSection({
   const showFinanceKpi = modules?.finance === true && isOwner;
   const financeCacheRef = useRef({ academyId: '', at: 0, received: null });
   const fetchKey = showFinanceKpi && academyId ? `${academyId}:${monthRange.ym}` : '';
-  const cachedFinance =
-    fetchKey &&
-    financeCacheRef.current.academyId === fetchKey &&
-    financeCacheRef.current.at &&
-    Date.now() - financeCacheRef.current.at < MANAGER_FETCH_STALE_MS
-      ? financeCacheRef.current.received
-      : undefined;
   const [financeState, setFinanceState] = useState({ key: '', received: null, loading: false });
-  const financeReceived =
-    cachedFinance != null
-      ? cachedFinance
-      : financeState.key === fetchKey
-        ? financeState.received
-        : null;
-  const financeLoading =
-    Boolean(fetchKey) && cachedFinance == null && (financeState.key !== fetchKey || financeState.loading);
+  const financeReceived = financeState.key === fetchKey ? financeState.received : null;
+  const financeLoading = Boolean(fetchKey) && (financeState.key !== fetchKey || financeState.loading);
 
   const metrics = useMemo(() => {
     const leadsInMonth = countLeadsCreatedInMonth(leads, monthRange);
@@ -115,9 +102,24 @@ export default function DashboardManagerSection({
   }, [leads, students, tasks, pipelineStages, monthRange]);
 
   useEffect(() => {
-    if (!fetchKey || cachedFinance != null) return undefined;
+    if (!fetchKey) return undefined;
 
     let cancelled = false;
+
+    const cache = financeCacheRef.current;
+    if (
+      cache.academyId === fetchKey &&
+      cache.at &&
+      Date.now() - cache.at < MANAGER_FETCH_STALE_MS
+    ) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setFinanceState({ key: fetchKey, received: cache.received, loading: false });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const { from, to } = monthPeriodBounds(monthRange.ym);
     const regime = getFinanceRegime(academyId);
 
@@ -135,7 +137,7 @@ export default function DashboardManagerSection({
     return () => {
       cancelled = true;
     };
-  }, [fetchKey, cachedFinance, academyId, monthRange.ym]);
+  }, [fetchKey, academyId, monthRange.ym]);
 
   const alerts = useMemo(() => {
     const rows = [];

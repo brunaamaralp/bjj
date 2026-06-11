@@ -27,6 +27,13 @@ import { friendlySaleError } from '../../lib/errorMessages.js';
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
+function createSaleIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+}
+
 export default function StudentProductSaleStep({ student, onBack, onComplete }) {
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
@@ -46,17 +53,16 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
 
-  const idempotencyKeyRef = useRef(
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`
-  );
+  const idempotencyKeyRef = useRef('');
+
+  useEffect(() => {
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = createSaleIdempotencyKey();
+    }
+  }, []);
 
   const resetSaleSession = useCallback(() => {
-    idempotencyKeyRef.current =
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+    idempotencyKeyRef.current = createSaleIdempotencyKey();
     setCart([]);
     setPayments([createEmptyPaymentRow(0)]);
     setReceiveLater(false);

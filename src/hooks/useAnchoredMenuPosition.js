@@ -82,7 +82,6 @@ export function useAnchoredMenuPosition(
 
   useLayoutEffect(() => {
     if (!open || !triggerRef?.current) {
-      setStyle(null);
       return undefined;
     }
 
@@ -118,5 +117,5 @@ export function useAnchoredMenuPosition(
     };
   }, [open, align, gap, maxHeight, minWidth, zIndex, triggerRef]);
 
-  return style;
+  return open ? style : null;
 }

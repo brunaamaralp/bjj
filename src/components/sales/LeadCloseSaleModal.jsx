@@ -27,7 +27,7 @@ export default function LeadCloseSaleModal({
       });
     }
     onClose?.();
-  }, [lead?.id, academyId, userId, permissionContext, onClose]);
+  }, [lead, academyId, userId, permissionContext, onClose]);
 
   if (!lead) return null;
 

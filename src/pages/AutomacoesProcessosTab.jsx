@@ -14,28 +14,30 @@ export default function AutomacoesProcessosTab() {
     return arr.find((a) => a.id === academyId) || null;
   }, [academyList, academyId]);
 
-  const [academySettings, setAcademySettings] = useState(undefined);
-  const [settingsLoading, setSettingsLoading] = useState(Boolean(academyId));
+  const [settingsLoad, setSettingsLoad] = useState({ academyId: '', settings: undefined });
+
+  const academySettings = academyId
+    ? settingsLoad.academyId === academyId
+      ? settingsLoad.settings
+      : undefined
+    : undefined;
+  const settingsLoading = Boolean(academyId) && settingsLoad.academyId !== academyId;
 
   useEffect(() => {
-    if (!academyId) {
-      setAcademySettings(undefined);
-      setSettingsLoading(false);
-      return undefined;
-    }
+    if (!academyId) return undefined;
 
     let cancelled = false;
-    setSettingsLoading(true);
-    getAcademyDocument(academyId)
+    void getAcademyDocument(academyId)
       .then((doc) => {
-        if (!cancelled) setAcademySettings(doc.settings);
+        if (!cancelled) {
+          setSettingsLoad({ academyId, settings: doc.settings });
+        }
       })
       .catch((e) => {
         console.error('[AutomacoesProcessos]', e);
-        if (!cancelled) setAcademySettings(null);
-      })
-      .finally(() => {
-        if (!cancelled) setSettingsLoading(false);
+        if (!cancelled) {
+          setSettingsLoad({ academyId, settings: null });
+        }
       });
 
     return () => {
@@ -44,7 +46,7 @@ export default function AutomacoesProcessosTab() {
   }, [academyId]);
 
   const handleSettingsSaved = useCallback((nextSettings) => {
-    setAcademySettings(nextSettings);
+    setSettingsLoad((prev) => ({ ...prev, settings: nextSettings }));
   }, []);
 
   if (!academyId) {
