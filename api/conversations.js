@@ -116,6 +116,17 @@ function appendListFilterQueries(queries, filterRaw) {
   return filter;
 }
 
+/** Inclui conversas sem campo archived ou com archived=false (notEqual sozinho pode excluir docs legados). */
+function appendArchivedScopeQuery(queries, archivedOnly) {
+  if (archivedOnly) {
+    queries.push(Query.equal('archived', [true]));
+    return;
+  }
+  queries.push(
+    Query.or([Query.equal('archived', [false]), Query.isNull('archived')])
+  );
+}
+
 function ensureConfig(res) {
   if (!PROJECT_ID || !API_KEY || !DB_ID || !CONVERSATIONS_COL || !ACADEMIES_COL) {
     res.status(500).json({ sucesso: false, erro: 'Configuração Appwrite ausente' });
@@ -130,11 +141,7 @@ async function fetchListStats(academyId, archivedOnly) {
   if (cached) return cached;
 
   const baseQueries = [Query.equal('academy_id', [academyId])];
-  if (archivedOnly) {
-    baseQueries.push(Query.equal('archived', [true]));
-  } else {
-    baseQueries.push(Query.notEqual('archived', [true]));
-  }
+  appendArchivedScopeQuery(baseQueries, archivedOnly);
   const nowIso = new Date().toISOString();
   const [unread_conversations, needs_me, resolved, transferred] = await Promise.all([
     countConversations([...baseQueries, Query.greaterThan('unread_count', 0)]),
@@ -269,11 +276,7 @@ export default async function handler(req, res) {
       String(req.query.include_stats || '').trim() === '1' && !search.trim() && !archivedOnly;
 
     const queries = [Query.equal('academy_id', [academyId])];
-    if (archivedOnly) {
-      queries.push(Query.equal('archived', [true]));
-    } else {
-      queries.push(Query.notEqual('archived', [true]));
-    }
+    appendArchivedScopeQuery(queries, archivedOnly);
     appendListFilterQueries(queries, listFilterParam);
     queries.push(Query.orderDesc('updated_at'));
     queries.push(Query.limit(limit + 1));
@@ -292,10 +295,10 @@ export default async function handler(req, res) {
       if (search.trim() && !searchDigits) {
         const wideQueries = [
           Query.equal('academy_id', [academyId]),
-          archivedOnly ? Query.equal('archived', [true]) : Query.notEqual('archived', [true]),
           Query.orderDesc('updated_at'),
           Query.limit(120),
         ];
+        appendArchivedScopeQuery(wideQueries, archivedOnly);
         appendListFilterQueries(wideQueries, listFilterParam);
         const wide = await listConversationDocs(wideQueries);
         docs = (wide.documents || []).filter((d) => matchesSearch(d, search));

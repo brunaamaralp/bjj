@@ -290,6 +290,7 @@ export default function Inbox() {
     return readInitialInboxListFilter();
   });
   const listFilterRef = useRef(listFilter);
+  listFilterRef.current = listFilter;
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
 
   useEffect(() => {
@@ -339,7 +340,6 @@ export default function Inbox() {
     );
   }, [selectedPhone, setSearchParams]);
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
-  const prevListFilterForReloadRef = useRef(null);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const [agentIaActive, setAgentIaActive] = useState(false);
   const { stats, refreshStats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
@@ -698,6 +698,7 @@ export default function Inbox() {
   useInboxInitialLoad({
     academyId,
     debouncedSearchQuery,
+    listFilter,
     loadListRef,
     setSelectedPhone,
     setSelected,
@@ -808,14 +809,6 @@ export default function Inbox() {
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [slashOpen]);
-
-  useEffect(() => {
-    listFilterRef.current = listFilter;
-  }, [listFilter]);
-
-  useEffect(() => {
-    if (!academyId) prevListFilterForReloadRef.current = null;
-  }, [academyId]);
 
   useEffect(() => {
     desktopNotifyRef.current = Boolean(desktopNotify);
@@ -1503,18 +1496,6 @@ export default function Inbox() {
     setLinkingLead,
     setDismissTriageLead,
   });
-
-  useEffect(() => {
-    if (!academyId) return;
-    if (prevListFilterForReloadRef.current === null) {
-      prevListFilterForReloadRef.current = listFilter;
-      return;
-    }
-    if (prevListFilterForReloadRef.current === listFilter) return;
-    prevListFilterForReloadRef.current = listFilter;
-    const fn = loadListRef.current;
-    if (typeof fn === 'function') void fn({ reset: true, silent: true });
-  }, [listFilter, academyId, loadListRef]);
 
   useEffect(() => {
     const phone = String(selectedPhone || '').trim();

@@ -45,19 +45,40 @@ export function resolveRouteBootstrapNeeds(pathname) {
 export async function prefetchRouteBootstrapData(pathname, opts = {}) {
   const { signal } = opts;
   const needs = resolveRouteBootstrapNeeds(pathname);
+  const path = String(pathname || '/').trim() || '/';
+  const deferHeavyLists = /^\/inbox(?:\/|$)/.test(path);
   const tasks = [];
+
+  const scheduleTask = (task) => {
+    if (!deferHeavyLists) {
+      tasks.push(task());
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      const schedule =
+        typeof requestIdleCallback === 'function'
+          ? (cb) => requestIdleCallback(cb, { timeout: 4000 })
+          : (cb) => window.setTimeout(cb, 2000);
+      schedule(() => {
+        if (signal?.aborted) return;
+        void task();
+      });
+      return;
+    }
+    tasks.push(task());
+  };
 
   if (needs.leads) {
     const leadState = useLeadStore.getState();
     if (!leadState.leadsLastFetchedAt && !leadState.loading) {
-      tasks.push(leadState.fetchLeads({ signal, reset: true }));
+      scheduleTask(() => leadState.fetchLeads({ signal, reset: true }));
     }
   }
 
   if (needs.students) {
     const studentState = useStudentStore.getState();
     if (!studentState.lastFetchedAt && !studentState.loading) {
-      tasks.push(studentState.fetchStudents({ signal, reset: true }));
+      scheduleTask(() => studentState.fetchStudents({ signal, reset: true }));
     }
   }
 

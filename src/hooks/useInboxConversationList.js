@@ -38,6 +38,7 @@ export function useInboxConversationList({
   const loadingRef = useRef(loading);
   const loadingMoreRef = useRef(loadingMore);
   const debouncedSearchRef = useRef(debouncedSearchQuery);
+  const listRequestSeqRef = useRef(0);
 
   nextCursorRef.current = nextCursor;
   hasMoreRef.current = hasMore;
@@ -48,18 +49,20 @@ export function useInboxConversationList({
   const loadList = useCallback(async ({ reset = false, silent = false, includeStats = false } = {}) => {
     const aid = String(academyIdRef.current || '').trim();
     if (!aid) return;
-    if (reset && loadingListRef.current) return;
+    if (!reset && (!hasMoreRef.current || loadingMoreRef.current || loadingRef.current)) return;
+
+    const requestId = ++listRequestSeqRef.current;
     if (reset) {
       setNextCursor(null);
       setHasMore(true);
     }
-    if (!reset && (!hasMoreRef.current || loadingMoreRef.current || loadingRef.current)) return;
     if (!silent) setError('');
     loadingListRef.current = true;
     if (reset && !silent) setLoading(true);
     else if (!reset) setLoadingMore(true);
     try {
       const jwt = await getInboxJwt();
+      if (requestId !== listRequestSeqRef.current) return;
       const qs = new URLSearchParams();
       qs.set('limit', '50');
       const cursorToUse = reset ? '' : String(nextCursorRef.current || '').trim();
@@ -77,8 +80,10 @@ export function useInboxConversationList({
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid },
       });
       if (blocked) return;
+      if (requestId !== listRequestSeqRef.current) return;
       const raw = await resp.text();
       if (!resp.ok) throw new Error(normalizeInboxApiError(raw, 'Falha ao carregar conversas', 'load'));
+      if (requestId !== listRequestSeqRef.current) return;
       const data = safeParseInboxJson(raw) || {};
       const next = Array.isArray(data?.items) ? data.items : [];
       const nextCur = data?.next_cursor ? String(data.next_cursor) : null;
@@ -167,6 +172,7 @@ export function useInboxConversationList({
     } catch (e) {
       if (!silent) setError(friendlyError(e, 'load'));
     } finally {
+      if (requestId !== listRequestSeqRef.current) return;
       loadingListRef.current = false;
       if (reset && !silent) setLoading(false);
       else if (!reset) setLoadingMore(false);

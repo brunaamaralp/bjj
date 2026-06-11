@@ -11,6 +11,7 @@ describe('useInboxInitialLoad', () => {
       useInboxInitialLoad({
         academyId: 'acad-1',
         debouncedSearchQuery: '',
+        listFilter: 'all',
         loadListRef,
         setSelectedPhone: vi.fn(),
         setSelected: vi.fn(),

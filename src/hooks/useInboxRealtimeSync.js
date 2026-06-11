@@ -157,37 +157,5 @@ export function useInboxRealtimeSync({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- realtime subscription scoped to academyId
   }, [academyId]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!DB_ID || !CONVERSATIONS_COL) return;
-    let hidden = document.visibilityState === 'hidden';
-    let delayMs = realtimeOn ? 60000 : 28000;
-    let timer = null;
-    const schedule = () => {
-      if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(async () => {
-        if (!academyIdRef.current) {
-          schedule();
-          return;
-        }
-        const fn = loadListRef.current;
-        if (typeof fn === 'function') await fn({ reset: true, silent: true });
-        delayMs = hidden ? Math.min(delayMs * 2, 300000) : realtimeOn ? 60000 : 28000;
-        schedule();
-      }, delayMs);
-    };
-    const onVis = () => {
-      hidden = document.visibilityState === 'hidden';
-      if (!hidden) delayMs = realtimeOn ? 60000 : 28000;
-      schedule();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    schedule();
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [realtimeOn, academyIdRef, loadListRef]);
-
   return { realtimeOn };
 }
