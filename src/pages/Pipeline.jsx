@@ -1906,7 +1906,7 @@ const Pipeline = () => {
         setTempStages(prev => [...prev, { id, label: 'Nova etapa', slaDays: DEFAULT_STAGE_SLA_DAYS }]);
     };
     const mapLeadToStageId = useCallback(
-        (lead) => resolveLeadPipelineStageId(lead, { stages, isPendingTriage }),
+        (lead) => resolveLeadPipelineStageId(lead, { stages, isPendingTriage: isLeadPendingTriage }),
         [stages]
     );
 
