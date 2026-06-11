@@ -64,7 +64,7 @@ export default function FollowupHealthPanel({
       {hasD1Metric ? (
         <div className="followup-health-panel__d1-block">
           <div className="followup-health-panel__d1-head">
-            <span className="followup-health-panel__d1-label">Contato em D+1 esta semana</span>
+            <span className="followup-health-panel__d1-label">Retorno no dia seguinte esta semana</span>
             <strong className="followup-health-panel__d1-value">{d1RatePercent}%</strong>
           </div>
           <div
@@ -73,7 +73,7 @@ export default function FollowupHealthPanel({
             aria-valuenow={d1Pct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Contato em D+1: ${d1RatePercent}%`}
+            aria-label={`Retorno no dia seguinte: ${d1RatePercent}%`}
           >
             <span className="followup-health-panel__d1-fill" style={{ width: `${d1Pct}%` }} />
           </div>

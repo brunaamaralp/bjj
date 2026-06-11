@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
+import { getAcademyDocument, invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { parseAcademySettings } from '../../lib/stockSettings';
@@ -12,6 +13,15 @@ import {
 } from '../../lib/followupPlaybookDefaults';
 import { describePlaybookStep } from '../../lib/followupState.js';
 import { WHATSAPP_TEMPLATE_KEYS, WHATSAPP_TEMPLATE_LABELS } from '../../../lib/whatsappTemplateDefaults.js';
+import './followup-playbook.css';
+
+function formatPlaybookOffset(days) {
+  const n = Number(days);
+  if (!Number.isFinite(n) || n < 0) return '—';
+  if (n === 0) return 'No mesmo dia';
+  if (n === 1) return '1 dia depois';
+  return `${n} dias depois`;
+}
 
 const ACTION_TYPES = [
   { value: 'whatsapp_template', label: 'WhatsApp (template)' },
@@ -36,19 +46,34 @@ function emptyStep(offset = 0) {
   };
 }
 
-export default function FollowupPlaybookSection({ academyId }) {
+export default function FollowupPlaybookSection({
+  academyId,
+  academySettings,
+  settingsLoading = false,
+  onSettingsSaved,
+}) {
   const addToast = useUiStore((s) => s.addToast);
+  const usesSharedSettings = academySettings !== undefined;
   const [playbook, setPlaybook] = useState(DEFAULT_FOLLOWUP_PLAYBOOK);
   const [draft, setDraft] = useState(null);
   const [activeTab, setActiveTab] = useState('attended');
-  const [loading, setLoading] = useState(true);
+  const [selfLoading, setSelfLoading] = useState(!usesSharedSettings);
   const [saving, setSaving] = useState(false);
+  const loading = usesSharedSettings ? settingsLoading : selfLoading;
+
+  useEffect(() => {
+    if (!usesSharedSettings) return;
+    if (settingsLoading) return;
+    const pb = readFollowupPlaybook(academySettings);
+    setPlaybook(pb);
+    setDraft(null);
+  }, [usesSharedSettings, academySettings, settingsLoading]);
 
   const load = useCallback(async () => {
-    if (!academyId) return;
-    setLoading(true);
+    if (!academyId || usesSharedSettings) return;
+    setSelfLoading(true);
     try {
-      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const doc = await getAcademyDocument(academyId);
       const pb = readFollowupPlaybook(doc.settings);
       setPlaybook(pb);
       setDraft(null);
@@ -56,9 +81,9 @@ export default function FollowupPlaybookSection({ academyId }) {
       console.error('[FollowupPlaybook]', e);
       setPlaybook(clonePlaybook(DEFAULT_FOLLOWUP_PLAYBOOK));
     } finally {
-      setLoading(false);
+      setSelfLoading(false);
     }
-  }, [academyId]);
+  }, [academyId, usesSharedSettings]);
 
   useEffect(() => {
     void load();
@@ -76,14 +101,17 @@ export default function FollowupPlaybookSection({ academyId }) {
     if (!academyId) return;
     setSaving(true);
     try {
-      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const doc = await getAcademyDocument(academyId);
       const merged = mergeFollowupPlaybookIntoSettings(parseAcademySettings(doc.settings), next);
+      const settingsRaw = JSON.stringify(merged);
       await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        settings: JSON.stringify(merged),
+        settings: settingsRaw,
       });
+      invalidateAcademyDocumentCache(academyId);
+      onSettingsSaved?.(settingsRaw);
       setPlaybook(next);
       setDraft(null);
-      addToast({ type: 'success', message: 'Playbook de retorno salvo.' });
+      addToast({ type: 'success', message: 'Acompanhamento pós-aula salvo.' });
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'save') });
     } finally {
@@ -136,15 +164,9 @@ export default function FollowupPlaybookSection({ academyId }) {
       <h4 className="followup-playbook-track__title">{title}</h4>
       <ol className="followup-playbook-track__list">
         {(steps || []).map((step, i) => (
-          <li key={`${title}-${step.offset_days}-${i}`}>
-            <span className="followup-playbook-track__day">D+{step.offset_days}</span>
-            <span>{describePlaybookStep(step)}</span>
-            {step.action_type === 'whatsapp_template' && step.template_key ? (
-              <span className="text-muted text-small">
-                {' '}
-                ({WHATSAPP_TEMPLATE_LABELS[step.template_key] || step.template_key})
-              </span>
-            ) : null}
+          <li key={`${title}-${step.offset_days}-${i}`} className="followup-playbook-track__item">
+            <span className="followup-playbook-track__day">{formatPlaybookOffset(step.offset_days)}</span>
+            <span className="followup-playbook-track__action">{describePlaybookStep(step)}</span>
           </li>
         ))}
       </ol>
@@ -161,7 +183,9 @@ export default function FollowupPlaybookSection({ academyId }) {
             <div key={`${track}-${i}`} className="followup-playbook-step">
               <div className="followup-playbook-step__row">
                 <label className="followup-playbook-step__field">
-                  <span className="text-small text-muted">D+</span>
+                  <span className="text-small text-muted" title="Quantos dias após a aula experimental">
+                    Dias depois
+                  </span>
                   <input
                     type="number"
                     min={0}
@@ -258,7 +282,7 @@ export default function FollowupPlaybookSection({ academyId }) {
           ))}
         </div>
         <button type="button" className="btn-outline followup-playbook-add" disabled={saving} onClick={() => addStep(track)}>
-          <Plus size={14} aria-hidden /> Adicionar passo
+          <Plus size={14} aria-hidden /> Adicionar etapa
         </button>
       </div>
     );
@@ -270,15 +294,17 @@ export default function FollowupPlaybookSection({ academyId }) {
         <div className="followup-playbook-section__head">
           <div>
             <h3 className="navi-section-heading" style={{ margin: 0 }}>
-              Playbook de retorno pós-aula
+              Acompanhamento após a experimental
             </h3>
             <p className="text-small text-muted" style={{ marginTop: 6 }}>
-              Padroniza as ações sugeridas na recepção (Hoje → Retornos pendentes) para quem compareceu ou
-              faltou à experimental. Cada passo aparece como &quot;próxima ação&quot; na lista.
+              Define o que a recepção deve sugerir para cada lead depois da aula experimental — na tela{' '}
+              <strong>Hoje</strong>, em <strong>Retornos pendentes</strong>. Cada etapa vira a próxima ação
+              sugerida na lista.
             </p>
-            <p className="text-small text-muted followup-playbook-reception-note" style={{ marginTop: 4 }}>
-              O passo D+1 com template pode ser enviado automaticamente pela automação{' '}
-              <strong>Retorno D+1</strong> (Configurações → Automações), se ainda não houver contato no ciclo.
+            <p className="text-small text-muted followup-playbook-reception-note">
+              A etapa do dia seguinte (mensagem de retorno) pode ser enviada automaticamente pela automação{' '}
+              <strong>Retorno no dia seguinte (compareceu)</strong>, em Configurações → Automações — desde que
+              ainda não tenha havido contato com o lead.
             </p>
           </div>
           <label className="followup-playbook-section__toggle text-small">
@@ -292,7 +318,7 @@ export default function FollowupPlaybookSection({ academyId }) {
                 else void persist(next);
               }}
             />
-            Playbook ativo
+            Acompanhamento ativo
           </label>
         </div>
 
@@ -320,15 +346,15 @@ export default function FollowupPlaybookSection({ academyId }) {
             </div>
             {activeTab === 'attended' ? renderEditTrack('attended', 'Compareceu') : renderEditTrack('missed', 'Faltou')}
             <p className="text-small text-muted followup-playbook-preview">
-              Ex.: se compareceu hoje (D+0), amanhã (D+1) o Hoje sugere o template de retorno — e a automação D+1
-              pode enviar, desde que ainda não haja contato.
+              Ex.: se o lead compareceu hoje, amanhã a tela Hoje sugere a mensagem de retorno — e a automação
+              pode enviar sozinha, se ainda não houve contato.
             </p>
             <div className="followup-playbook-section__actions">
               <button type="button" className="btn-outline" disabled={saving} onClick={() => setDraft(null)}>
                 Cancelar
               </button>
               <button type="button" className="btn" disabled={saving} onClick={() => void persist(draft)}>
-                {saving ? 'Salvando…' : 'Salvar playbook'}
+                {saving ? 'Salvando…' : 'Salvar alterações'}
               </button>
             </div>
           </>
@@ -338,7 +364,7 @@ export default function FollowupPlaybookSection({ academyId }) {
             {renderReadTrack('Faltou', playbook.missed)}
             <div className="followup-playbook-section__actions">
               <button type="button" className="btn-outline" disabled={saving} onClick={() => setDraft(clonePlaybook(playbook))}>
-                Editar passos
+                Personalizar etapas
               </button>
               <button
                 type="button"

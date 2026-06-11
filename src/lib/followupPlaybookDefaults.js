@@ -116,7 +116,11 @@ export function validateFollowupPlaybook(playbook) {
         break;
       }
       if (seen.has(o)) {
-        errors.push(`Trilha "${track}": cada D+N deve ser único`);
+        errors.push(
+          track === 'attended'
+            ? 'Compareceu: cada etapa precisa de um prazo diferente (dias depois da aula).'
+            : 'Faltou: cada etapa precisa de um prazo diferente (dias depois da aula).',
+        );
         break;
       }
       seen.add(o);

@@ -24,7 +24,7 @@ export const AUTOMATION_LABELS = {
     description: 'Enviada após o contato entrar na etapa «Aguardando decisão».',
   },
   followup_d1_attended: {
-    label: 'Retorno D+1 (compareceu)',
+    label: 'Retorno no dia seguinte (compareceu)',
     description: 'No dia seguinte à experimental, se ainda não houve contato de retorno.',
   },
   converted: {

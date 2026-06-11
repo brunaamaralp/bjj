@@ -1098,80 +1098,6 @@
           gap: 8px;
           cursor: pointer;
         }
-        .followup-playbook-section__head {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 12px;
-        }
-        .followup-playbook-track__list {
-          margin: 0 0 12px;
-          padding-left: 1.1rem;
-        }
-        .followup-playbook-track__day {
-          font-weight: 700;
-          margin-right: 6px;
-        }
-        .followup-playbook-tabs {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-        .followup-playbook-tab {
-          border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.12));
-          background: transparent;
-          border-radius: 8px;
-          padding: 6px 12px;
-          font-size: 0.8125rem;
-          cursor: pointer;
-        }
-        .followup-playbook-tab.is-active {
-          background: var(--color-accent-surface, rgba(59, 130, 246, 0.1));
-          border-color: var(--color-accent, #2563eb);
-          font-weight: 600;
-        }
-        .followup-playbook-step {
-          border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.1));
-          border-radius: 10px;
-          padding: 10px 12px;
-          margin-bottom: 8px;
-        }
-        .followup-playbook-step__row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          align-items: flex-end;
-        }
-        .followup-playbook-step__field {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-width: 72px;
-        }
-        .followup-playbook-step__field--grow {
-          flex: 1 1 160px;
-        }
-        .followup-playbook-step__offset {
-          width: 72px;
-        }
-        .followup-playbook-step__order {
-          display: flex;
-          gap: 2px;
-          margin-left: auto;
-        }
-        .followup-playbook-step__check {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-top: 8px;
-        }
-        .followup-playbook-add {
-          margin-top: 4px;
-        }
-        .followup-playbook-preview {
-          margin: 12px 0 0;
-        }
         .followup-copilot {
           margin-top: 6px;
         }
@@ -1463,6 +1389,11 @@
           overflow-y: auto;
           overscroll-behavior: contain;
           padding: 4px 6px 8px;
+        }
+        .fu-list-card--scrollable .follow-card,
+        .fu-list-card--scrollable .fu-row {
+          content-visibility: auto;
+          contain-intrinsic-size: 0 88px;
         }
         .fu-list-empty__hint {
           margin: 0;

@@ -112,6 +112,6 @@ describe('validateFollowupPlaybook', () => {
       ],
       missed: [],
     });
-    expect(errors.some((e) => /único/i.test(e))).toBe(true);
+    expect(errors.some((e) => /prazo diferente/i.test(e))).toBe(true);
   });
 });
