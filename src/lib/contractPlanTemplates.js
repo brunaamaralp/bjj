@@ -134,29 +134,55 @@ export function migrateFinanceConfigFromLegacyPlanNames(financeConfig, templates
   return { config: { ...financeConfig, plans }, changed: true };
 }
 
-/** Preenche contractTemplateId e rescissionTemplateId vazios com os modelos padrão de cada tipo. */
+function planTemplateIdIsValid(storedId, scopedTemplates) {
+  const tid = String(storedId || '').trim();
+  return Boolean(tid && scopedTemplates.some((t) => t.$id === tid));
+}
+
+/** Valor do select — vazio quando não há vínculo ou o modelo não está mais ativo. */
+export function planTemplateSelectValue(storedId, scopedTemplates) {
+  if (!scopedTemplates.length) return '';
+  if (planTemplateIdIsValid(storedId, scopedTemplates)) {
+    return String(storedId).trim();
+  }
+  return '';
+}
+
+/** Preenche ou corrige contractTemplateId e rescissionTemplateId com modelos ativos padrão. */
 export function applyDefaultPlanContractLinks(financeConfig, templates) {
+  const enrollmentTemplates = templatesForPurpose(templates, 'enrollment');
+  const rescissionTemplates = templatesForPurpose(templates, 'rescission');
   const defEnroll = defaultTemplateForPurpose(templates, 'enrollment');
   const defRescind = defaultTemplateForPurpose(templates, 'rescission');
   const plans = [...(financeConfig?.plans || [])];
   let changed = false;
   let plansLinked = 0;
 
-  for (const plan of plans) {
+  for (let i = 0; i < plans.length; i += 1) {
+    const plan = plans[i];
     const name = String(plan.name || '').trim();
     if (!name) continue;
     let touched = false;
-    if (defEnroll && !String(plan.contractTemplateId || '').trim()) {
-      plan.contractTemplateId = defEnroll.$id;
-      touched = true;
-      changed = true;
+    let next = plan;
+
+    if (enrollmentTemplates.length > 0 && defEnroll) {
+      if (!planTemplateIdIsValid(plan.contractTemplateId, enrollmentTemplates)) {
+        next = { ...next, contractTemplateId: defEnroll.$id };
+        touched = true;
+        changed = true;
+      }
     }
-    if (defRescind && !String(plan.rescissionTemplateId || '').trim()) {
-      plan.rescissionTemplateId = defRescind.$id;
-      touched = true;
-      changed = true;
+    if (rescissionTemplates.length > 0 && defRescind) {
+      if (!planTemplateIdIsValid(plan.rescissionTemplateId, rescissionTemplates)) {
+        next = { ...next, rescissionTemplateId: defRescind.$id };
+        touched = true;
+        changed = true;
+      }
     }
-    if (touched) plansLinked += 1;
+    if (touched) {
+      plans[i] = next;
+      plansLinked += 1;
+    }
   }
 
   if (!changed) return { config: financeConfig, changed: false, plansLinked: 0 };

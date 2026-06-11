@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
-import { templatesForPurpose } from '../../../lib/contractPlanTemplates.js';
+import { planTemplateSelectValue, templatesForPurpose } from '../../../lib/contractPlanTemplates.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../../lib/financeiroReceivablesSections.js';
 import EmptyState from '../../shared/EmptyState.jsx';
 
@@ -14,6 +14,8 @@ function formatPlanPrice(value) {
 function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollmentTemplates, rescissionTemplates }) {
   const name = String(pl.name || '').trim() || 'Plano sem nome';
   const priceLabel = formatPlanPrice(pl.price);
+  const enrollmentValue = planTemplateSelectValue(pl.contractTemplateId, enrollmentTemplates);
+  const rescissionValue = planTemplateSelectValue(pl.rescissionTemplateId, rescissionTemplates);
 
   return (
     <div className={`finance-settings-plan${expanded ? ' finance-settings-plan--open' : ''}`}>
@@ -77,13 +79,13 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
           </div>
           {enrollmentTemplates.length > 0 ? (
             <div className="form-group">
-              <label>Contrato de matrícula</label>
+              <label>Contrato de matrícula (opcional)</label>
               <select
                 className="form-input"
-                value={pl.contractTemplateId || ''}
+                value={enrollmentValue}
                 onChange={(e) => onUpdate(idx, { contractTemplateId: e.target.value || null })}
               >
-                <option value="">Selecione…</option>
+                <option value="">Nenhum</option>
                 {enrollmentTemplates.map((t) => (
                   <option key={t.$id} value={t.$id}>
                     {t.name || t.title || 'Modelo'}
@@ -94,13 +96,13 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
           ) : null}
           {rescissionTemplates.length > 0 ? (
             <div className="form-group">
-              <label>Termo de rescisão</label>
+              <label>Termo de rescisão (opcional)</label>
               <select
                 className="form-input"
-                value={pl.rescissionTemplateId || ''}
+                value={rescissionValue}
                 onChange={(e) => onUpdate(idx, { rescissionTemplateId: e.target.value || null })}
               >
-                <option value="">Selecione…</option>
+                <option value="">Nenhum</option>
                 {rescissionTemplates.map((t) => (
                   <option key={t.$id} value={t.$id}>
                     {t.name || t.title || 'Modelo'}
@@ -139,7 +141,7 @@ export default function FinanceSettingsPlansSection({
       <p className="finance-settings-lead">
         Usados em Mensalidades e matrícula. O <strong>dia de vencimento</strong> é definido no cadastro de
         cada aluno (campo &quot;Vence dia&quot;), não no plano — aqui, &quot;Duração (dias)&quot; é a vigência
-        comercial do plano (ex.: 30 = mensal, 90 = trimestral). Vincule contratos em{' '}
+        comercial do plano (ex.: 30 = mensal, 90 = trimestral). Contratos são opcionais; vincule em{' '}
         <Link to="/empresa?tab=financeiro&section=contratos" className="edit-link">
           Contratos
         </Link>
@@ -149,7 +151,7 @@ export default function FinanceSettingsPlansSection({
       {contractTemplatesConfigured && rescissionTemplates.length === 0 ? (
         <div className="finance-config-setup-banner card">
           <p className="text-small text-muted">
-            Falta o termo de rescisão padrão. Gere modelos e vincule os planos automaticamente.
+            Falta o termo de rescisão padrão. Gere modelos em Contratos quando quiser usar rescisão automática.
           </p>
           <button
             type="button"

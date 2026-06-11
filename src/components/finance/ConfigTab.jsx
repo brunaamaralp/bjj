@@ -25,9 +25,7 @@ import {
 } from '../../lib/paymentExceptions.js';
 import { useContractTemplates } from '../../features/contracts/queries.js';
 import {
-  defaultTemplateForPurpose,
   templatesForPurpose,
-  validateFinancePlansContractTemplates,
   CONTRACT_TEMPLATE_PURPOSE_LABELS,
 } from '../../lib/contractPlanTemplates.js';
 import { useEnsureAcademyContractSetup } from '../../features/contracts/queries.js';
@@ -468,20 +466,6 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
 
   const persistConfig = async (sectionKey, successMessage) => {
     if (!academyId) return;
-    if (sectionKey === 'plans') {
-      const { ok, missing } = validateFinancePlansContractTemplates(financeConfig, contractTemplates);
-      if (!ok) {
-        const lines = missing.map((m) => {
-          const label = m.kind === 'rescission' ? 'termo de rescisão' : 'contrato de matrícula';
-          return `${m.planName} (${label})`;
-        });
-        addToast({
-          type: 'error',
-          message: `Defina o documento de cada plano: ${lines.join(', ')}.`,
-        });
-        return;
-      }
-    }
     setSavingSection(sectionKey);
     try {
       const mergedCfg = buildMergedConfig();
@@ -617,16 +601,12 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
               className="finance-config-add-link edit-link"
               onClick={() => {
                 const arr = [...(financeConfig.plans || [])];
-                const defEnrollment = defaultTemplateForPurpose(contractTemplates, 'enrollment');
-                const defRescission = defaultTemplateForPurpose(contractTemplates, 'rescission');
                 arr.push({
                   name: '',
                   price: 0,
                   durationDays: 30,
                   description: '',
                   applyCardFee: true,
-                  contractTemplateId: defEnrollment?.$id,
-                  rescissionTemplateId: defRescission?.$id,
                 });
                 setFinanceConfig({ ...financeConfig, plans: arr });
               }}

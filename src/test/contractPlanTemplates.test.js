@@ -46,6 +46,22 @@ describe('contractPlanTemplates', () => {
     expect(missing).toHaveLength(2);
   });
 
+  it('repairs stale template ids when applying defaults', () => {
+    const financeConfig = {
+      plans: [{ name: 'Mensal', contractTemplateId: 'deleted', rescissionTemplateId: 'gone' }],
+    };
+    const templates = [
+      { $id: 'e1', active: true, purpose: 'enrollment', isDefault: true },
+      { $id: 'r1', active: true, purpose: 'rescission', isDefault: true },
+    ];
+    const { config, changed } = applyDefaultPlanContractLinks(financeConfig, templates);
+    expect(changed).toBe(true);
+    expect(config.plans[0].contractTemplateId).toBe('e1');
+    expect(config.plans[0].rescissionTemplateId).toBe('r1');
+    const { ok } = validateFinancePlansContractTemplates(config, templates);
+    expect(ok).toBe(true);
+  });
+
   it('links and unlinks plans from template editor selection', () => {
     const financeConfig = {
       plans: [

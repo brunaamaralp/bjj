@@ -8,11 +8,7 @@ import {
   mergeExceptionLabelsIntoFinanceConfig,
 } from '../lib/paymentExceptions.js';
 import { useContractTemplates } from '../features/contracts/queries.js';
-import {
-  defaultTemplateForPurpose,
-  validateFinancePlansContractTemplates,
-  CONTRACT_TEMPLATE_PURPOSE_LABELS,
-} from '../lib/contractPlanTemplates.js';
+import { CONTRACT_TEMPLATE_PURPOSE_LABELS } from '../lib/contractPlanTemplates.js';
 import { useEnsureAcademyContractSetup } from '../features/contracts/queries.js';
 import {
   serializeCollectionRules,
@@ -341,20 +337,6 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
   const persistAll = useCallback(async () => {
     if (!academyId) return false;
-    if (dirty.plans) {
-      const { ok, missing } = validateFinancePlansContractTemplates(financeConfig, contractTemplates);
-      if (!ok) {
-        const lines = missing.map((m) => {
-          const label = m.kind === 'rescission' ? 'termo de rescisão' : 'contrato de matrícula';
-          return `${m.planName} (${label})`;
-        });
-        addToast({
-          type: 'error',
-          message: `Defina o documento de cada plano: ${lines.join(', ')}.`,
-        });
-        return false;
-      }
-    }
     setSaving(true);
     try {
       const mergedCfg = buildMergedConfig();
@@ -392,7 +374,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     } finally {
       setSaving(false);
     }
-  }, [academyId, dirty.plans, financeConfig, contractTemplates, buildMergedConfig, addToast]);
+  }, [academyId, buildMergedConfig, addToast]);
 
   const discardChanges = useCallback(() => {
     void reloadFromServer();
@@ -407,22 +389,20 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
   }, []);
 
   const addPlan = useCallback(() => {
-    setFinanceConfig((prev) => {
-      const arr = [...(prev.plans || [])];
-      const defEnrollment = defaultTemplateForPurpose(contractTemplates, 'enrollment');
-      const defRescission = defaultTemplateForPurpose(contractTemplates, 'rescission');
-      arr.push({
-        name: '',
-        price: 0,
-        durationDays: 30,
-        description: '',
-        applyCardFee: true,
-        contractTemplateId: defEnrollment?.$id,
-        rescissionTemplateId: defRescission?.$id,
-      });
-      return { ...prev, plans: arr };
-    });
-  }, [contractTemplates]);
+    setFinanceConfig((prev) => ({
+      ...prev,
+      plans: [
+        ...(prev.plans || []),
+        {
+          name: '',
+          price: 0,
+          durationDays: 30,
+          description: '',
+          applyCardFee: true,
+        },
+      ],
+    }));
+  }, []);
 
   const removePlan = useCallback((idx) => {
     setFinanceConfig((prev) => {
