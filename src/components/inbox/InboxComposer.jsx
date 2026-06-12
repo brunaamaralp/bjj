@@ -1,3 +1,4 @@
+import '../../styles/inbox-composer.css';
 import React, { useEffect, useRef, useState } from 'react';
 import { Bold, ChevronDown, ChevronUp, FileText, Italic, Loader2, Paperclip, Plus, Send, Smile, Sparkles, X } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
