@@ -4,14 +4,16 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useUserRole } from '../../lib/useUserRole';
 import { useTerms } from '../../lib/terminology.js';
-import { exportLeadsSpreadsheet } from '../../lib/exportLeadsSpreadsheet.js';
+import { exportAllLeadsSpreadsheet } from '../../lib/exportLeadsSpreadsheet.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import ContractsAutentiqueSection from './ContractsAutentiqueSection.jsx';
 
 const AvancadoSection = ({ academy, leads, showAutentique = true }) => {
     const terms = useTerms();
     const addToast = useUiStore((s) => s.addToast);
+    const storeAcademyId = useLeadStore((s) => s.academyId);
     const role = useUserRole(academy);
+    const academyId = academy?.id || storeAcademyId;
 
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -22,17 +24,26 @@ const AvancadoSection = ({ academy, leads, showAutentique = true }) => {
     const scopeLabel = 'leads e alunos';
 
     const runExport = async () => {
-        if (!leads?.length) {
-            addToast({ type: 'warning', message: 'Não há dados para exportar.' });
+        if (!academyId) {
+            addToast({ type: 'warning', message: 'Selecione uma academia para exportar.' });
             return;
         }
         setExporting(true);
         try {
-            const ok = await exportLeadsSpreadsheet(leads, 'bjj-crm-completo');
-            if (ok) {
-                addToast({ type: 'success', message: 'Planilha gerada.' });
-                setShowExportConfirm(false);
+            const { ok, count } = await exportAllLeadsSpreadsheet(academyId, 'bjj-crm-completo', {
+                includeContact: true,
+                onProgress: (n, total) => {
+                    if (total && n < total) {
+                        addToast({ type: 'info', message: `Exportando… ${n} de ${total}` });
+                    }
+                },
+            });
+            if (!ok || count === 0) {
+                addToast({ type: 'warning', message: 'Não há dados para exportar.' });
+                return;
             }
+            addToast({ type: 'success', message: `Planilha gerada com ${count} registro(s).` });
+            setShowExportConfirm(false);
         } catch (e) {
             console.error('[Avancado] export:', e);
             addToast({ type: 'error', message: 'Não foi possível exportar os dados.' });
@@ -103,7 +114,7 @@ const AvancadoSection = ({ academy, leads, showAutentique = true }) => {
                             <button
                                 type="button"
                                 className="export-btn"
-                                disabled={!leads?.length}
+                                disabled={exporting || !academyId}
                                 onClick={() => setShowExportConfirm(true)}
                                 style={{
                                     background: 'var(--surface)',
