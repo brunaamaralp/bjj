@@ -168,9 +168,9 @@ function buildUrgentFollowupPriorityMessage(lead) {
 
 /**
  * @typedef {{
- *   type: 'upcoming_class' | 'urgent_followup' | 'birthday' | 'fallback';
+ *   type: 'upcoming_class' | 'urgent_followup' | 'fallback';
  *   message: string;
- *   scrollTarget?: 'today' | 'follow-ups' | 'birthday-banner';
+ *   scrollTarget?: 'today' | 'follow-ups';
  *   highlightKpi?: 'today';
  *   leadId?: string;
  *   studentId?: string;
@@ -260,28 +260,6 @@ export function getDayPriority(ctx) {
       message: buildUrgentFollowupPriorityMessage(lead),
       scrollTarget: 'follow-ups',
       leadId: String(lead.id || '').trim() || undefined,
-    };
-  }
-
-  const birthdays = ctx.todayBirthdays || [];
-  if (birthdays.length > 0) {
-    const student = birthdays[0];
-    const name = String(student.name || 'Aluno').trim();
-    const turma = String(student.turma || student.className || '').trim();
-    const turmaPart = turma ? ` (${turma})` : '';
-    if (birthdays.length === 1) {
-      return {
-        type: 'birthday',
-        message: `Hoje é aniversário de ${name}${turmaPart}.`,
-        scrollTarget: 'birthday-banner',
-        studentId: String(student.id || '').trim() || undefined,
-      };
-    }
-    return {
-      type: 'birthday',
-      message: `${birthdays.length} aniversariantes hoje. Comece por ${name}${turmaPart}.`,
-      scrollTarget: 'birthday-banner',
-      studentId: String(student.id || '').trim() || undefined,
     };
   }
 

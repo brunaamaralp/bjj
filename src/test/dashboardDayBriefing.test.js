@@ -212,15 +212,14 @@ describe('getDayPriority', () => {
     expect(priority.message).toBe('Pedro faltou ontem. Ainda sem retorno. Vale uma mensagem.');
   });
 
-  it('sugere aniversário quando não há urgências', () => {
+  it('não prioriza aniversário no hero (banner dedicado na recepção)', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
       followUps: [],
       todayBirthdays: [{ id: 's1', name: 'Lucas', turma: 'Kids' }],
     });
-    expect(priority.type).toBe('birthday');
-    expect(priority.scrollTarget).toBe('birthday-banner');
+    expect(priority.type).toBe('fallback');
   });
 });
 
