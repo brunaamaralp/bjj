@@ -19,6 +19,7 @@ function ConversationItem({
   compact = false,
   enableLongPress = false,
   onLongPress,
+  avatarPriority = false,
 }) {
   const needHuman = Boolean(item?.need_human ?? item?._handoffActive);
   const unreadCount = Number(item?._unreadCount || 0);
@@ -153,6 +154,7 @@ function ConversationItem({
               contact={{ name: listTitle, avatar_url: inboxProfileImageUrl(item) }}
               fill
               size={compact ? 40 : 49}
+              priority={avatarPriority}
             />
           </div>
           <div className="inbox-conversation-item__content">

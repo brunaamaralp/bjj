@@ -115,7 +115,7 @@ export function useInboxLeadContext({
       if (!id) return;
       setLinkingLead(true);
       try {
-        await updateLead(id, buildTriageConfirmClientPatch(lead));
+        await updateLead(id, buildTriageConfirmClientPatch(lead), { fallbackLead: lead });
         toast.success('Lead confirmado');
       } catch (e) {
         toast.error(e, 'update');

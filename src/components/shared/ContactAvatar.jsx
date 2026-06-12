@@ -9,9 +9,10 @@ import './contact-avatar.css';
  * @param {{ name?: string, avatar_url?: string }} contact
  * @param {number} [size=34]
  * @param {boolean} [fill=false] — preenche o container pai (lista Inbox)
+ * @param {boolean} [priority=false] — eager + fetchpriority high (item visível/selecionado)
  * @param {string} [className]
  */
-export default function ContactAvatar({ contact, size = 34, fill = false, className = '' }) {
+export default function ContactAvatar({ contact, size = 34, fill = false, priority = false, className = '' }) {
   const [imgError, setImgError] = useState(false);
   const name = String(contact?.name || '').trim();
   const avatarUrl = String(contact?.avatar_url || '').trim();
@@ -28,8 +29,9 @@ export default function ContactAvatar({ contact, size = 34, fill = false, classN
           alt={name || 'Contato'}
           className="contact-avatar__img"
           style={{ width: '100%', height: '100%' }}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
           decoding="async"
+          fetchPriority={priority ? 'high' : 'auto'}
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
         />

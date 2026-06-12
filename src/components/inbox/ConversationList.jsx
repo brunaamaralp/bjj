@@ -159,7 +159,7 @@ export default function ConversationList(props) {
 
   const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
 
-  const renderRow = (row) => {
+  const renderRow = (row, rowIndex = 0) => {
     if (row.type === 'header') {
       return <ListGroupHeader key={row.id} row={row} onToggle={toggleGroupCollapsed} />;
     }
@@ -196,6 +196,7 @@ export default function ConversationList(props) {
           key={row.id}
           item={it}
           active={phone === selectedPhone}
+          avatarPriority={phone === selectedPhone || rowIndex < 8}
           onSelectConversation={handleSelectConversation}
           onPrefetchConversation={onPrefetchConversation}
           formatTimeOnly={formatTimeOnly}
@@ -238,13 +239,13 @@ export default function ConversationList(props) {
                   transform: `translateY(${vRow.start}px)`,
                 }}
               >
-                {renderRow(row)}
+                {renderRow(row, vRow.index)}
               </div>
             );
           })}
         </div>
       ) : (
-        rows.map((row) => renderRow(row))
+        rows.map((row, idx) => renderRow(row, idx))
       )}
       {!loading && totalItems === 0 && !whatsAppConnected && (
         <div style={{ padding: 12 }}>

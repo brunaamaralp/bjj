@@ -193,6 +193,7 @@ export default function InboxThreadPanel(props) {
                       contact={{ name: displayName, avatar_url: profileImageUrl }}
                       size={36}
                       fill
+                      priority
                     />
                   </div>
                   <div className="inbox-thread-header__intro">

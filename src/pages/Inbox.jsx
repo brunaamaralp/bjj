@@ -50,6 +50,7 @@ import { useInboxThreadLoader } from '../hooks/useInboxThreadLoader.js';
 import { useInboxConversationActions } from '../hooks/useInboxConversationActions.js';
 import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js';
 import { useInboxDeferredBoot } from '../hooks/useInboxDeferredBoot.js';
+import { useInboxDeferredAvatars } from '../hooks/useInboxDeferredAvatars.js';
 import { useInboxUrlState, readInboxPhoneFromLocationSearch } from '../hooks/useInboxUrlState.js';
 import { useInboxAutoSelectConversation } from '../hooks/useInboxAutoSelectConversation.js';
 import { useInboxComposerUi } from '../hooks/useInboxComposerUi.js';
@@ -199,6 +200,15 @@ export default function Inbox() {
   );
   const [selected, setSelected] = useState(null);
   const selectedPhoneRef = useRef('');
+
+  useInboxDeferredAvatars({
+    academyId,
+    items,
+    loading,
+    selectedPhone,
+    setItems,
+    setSelected,
+  });
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 350);

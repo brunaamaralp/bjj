@@ -34,6 +34,7 @@ import {
   setInboxListStatsCached,
 } from '../lib/server/inboxListStatsCache.js';
 import { enrichConversationListDocs } from '../lib/server/inboxListLeadEnrichment.js';
+import { resolveInboxProfileAvatars } from '../lib/server/inboxProfileAvatars.js';
 import { fetchZapsterRecipientProfile } from '../lib/server/zapsterRecipientProfile.js';
 
 
@@ -280,6 +281,42 @@ export default async function handler(req, res) {
     const includeStats =
       String(req.query.include_stats || '').trim() === '1' && !search.trim() && !archivedOnly;
 
+    if (String(req.query.avatars || '').trim() === '1') {
+      const phones = String(req.query.phones || '')
+        .split(',')
+        .map((p) => normalizePhone(p))
+        .filter((p) => p.length >= 8)
+        .slice(0, 12);
+      if (!phones.length) return json(res, 200, { avatars: {} });
+      try {
+        const { avatars, persists } = await resolveInboxProfileAvatars({
+          academyId,
+          academyDoc,
+          phones,
+        });
+        if (persists.length) {
+          waitUntil(
+            Promise.all(
+              persists.map(({ docId, payload }) =>
+                databases.updateDocument(DB_ID, CONVERSATIONS_COL, docId, payload).catch((e) => {
+                  console.warn(
+                    JSON.stringify({
+                      event: 'inbox_avatar_persist_failed',
+                      conversationId: docId,
+                      error: e?.message || String(e),
+                    })
+                  );
+                })
+              )
+            )
+          );
+        }
+        return json(res, 200, { avatars });
+      } catch (e) {
+        return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar avatares' });
+      }
+    }
+
     const queries = [Query.equal('academy_id', [academyId])];
     appendArchivedScopeQuery(queries, archivedOnly);
     appendListFilterQueries(queries, listFilterParam);
@@ -397,21 +434,20 @@ export default async function handler(req, res) {
         const instanceId = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
         const recipientPhone = String(doc.phone_number || '').trim() || phoneDigits;
         if (instanceId && recipientPhone) {
-          const fetched = await fetchZapsterRecipientProfile(instanceId, recipientPhone);
-          if (fetched.profilePicture) {
-            whatsappProfileImageUrl = fetched.profilePicture;
-            const nowIso = new Date().toISOString();
-            const persistPayload = {
-              whatsapp_profile_image_url: fetched.profilePicture,
-              whatsapp_profile_image_updated_at: nowIso,
-            };
-            if (fetched.name && !whatsappProfileName) {
-              whatsappProfileName = fetched.name;
-              persistPayload.whatsapp_profile_name = fetched.name;
-              persistPayload.whatsapp_profile_name_updated_at = nowIso;
-            }
-            waitUntil(
-              databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, persistPayload).catch((e) => {
+          waitUntil(
+            (async () => {
+              const fetched = await fetchZapsterRecipientProfile(instanceId, recipientPhone);
+              if (!fetched.profilePicture) return;
+              const nowIso = new Date().toISOString();
+              const persistPayload = {
+                whatsapp_profile_image_url: fetched.profilePicture,
+                whatsapp_profile_image_updated_at: nowIso,
+              };
+              if (fetched.name && !whatsappProfileName) {
+                persistPayload.whatsapp_profile_name = fetched.name;
+                persistPayload.whatsapp_profile_name_updated_at = nowIso;
+              }
+              await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, persistPayload).catch((e) => {
                 console.warn(
                   JSON.stringify({
                     event: 'whatsapp_profile_image_persist_failed',
@@ -419,9 +455,9 @@ export default async function handler(req, res) {
                     error: e?.message || String(e),
                   })
                 );
-              })
-            );
-          }
+              });
+            })()
+          );
         }
       }
 

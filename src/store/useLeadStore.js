@@ -532,13 +532,27 @@ export const useLeadStore = create(
     }
   },
 
-  updateLead: async (id, updates) => {
+  updateLead: async (id, updates, opts = {}) => {
     assertClientBillingMutationsAllowed(get().billingAccess);
 
     try {
-      const currentLead = get().leads.find((l) => l.id === id);
+      const lid = String(id || '').trim();
+      const fallbackLead = opts?.fallbackLead;
+      let currentLead =
+        get().leadsById?.[lid] || get().leads.find((l) => l.id === lid) || null;
+
+      if (!currentLead && fallbackLead && String(fallbackLead.id || '').trim() === lid) {
+        currentLead = fallbackLead;
+      }
+
       if (!currentLead) {
-        throw new Error('Registro não encontrado. Recarregue a página.');
+        try {
+          const operationalStatusSet = new Set(Object.values(LEAD_STATUS));
+          const doc = await databases.getDocument(DB_ID, LEADS_COL, lid);
+          currentLead = mapAppwriteDocToLead(doc, operationalStatusSet);
+        } catch {
+          throw new Error('Registro não encontrado. Recarregue a página.');
+        }
       }
 
       const normalizedUpdates = { ...updates };
@@ -558,7 +572,7 @@ export const useLeadStore = create(
         console.debug('[updateLead] patch', { id, patch });
       }
 
-      await databases.updateDocument(DB_ID, LEADS_COL, id, patch);
+      await databases.updateDocument(DB_ID, LEADS_COL, lid, patch);
 
       const mergedLead = { ...currentLead, ...normalizedUpdates };
       if (typeof filtered.status !== 'undefined' && filtered.status !== currentLead.status) {
@@ -568,9 +582,13 @@ export const useLeadStore = create(
         mergedLead.pipelineStageChangedAt = patch.pipeline_stage_changed_at || mergedLead.pipelineStageChangedAt;
       }
 
-      set((state) =>
-        withLeadsIndex(state.leads.map((l) => (l.id === id ? mergedLead : l)))
-      );
+      set((state) => {
+        const has = state.leads.some((l) => l.id === lid);
+        const nextLeads = has
+          ? state.leads.map((l) => (l.id === lid ? mergedLead : l))
+          : [mergedLead, ...state.leads];
+        return withLeadsIndex(nextLeads);
+      });
     } catch (e) {
       if (import.meta.env.DEV) {
         console.error('[updateLead] rejected', e?.message || e);
