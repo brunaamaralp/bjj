@@ -69,6 +69,15 @@ describe('computeFollowupState', () => {
     expect(state.hasContactInCycle).toBe(false);
   });
 
+  it('detecta contato via lastWhatsappActivityAt após a aula', () => {
+    const state = computeFollowupState(
+      { ...baseLead, lastWhatsappActivityAt: '2026-06-10T09:00:00.000Z' },
+      { now }
+    );
+    expect(state.hasContactInCycle).toBe(true);
+    expect(state.temperature).toBe('on_track');
+  });
+
   it('respeita snooze ativo', () => {
     const state = computeFollowupState(baseLead, {
       now,

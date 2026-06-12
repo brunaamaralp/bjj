@@ -148,3 +148,16 @@ export function isLeadVisibleOnExperimentalAgenda(lead) {
 export function isLeadScheduledForExperimental(lead) {
   return lead?.status === LEAD_STATUS.SCHEDULED && isLeadVisibleOnExperimentalAgenda(lead);
 }
+
+/** Lead com experimental no calendário em uma data civil (local). */
+export function isLeadExperimentalOnDate(lead, date = new Date()) {
+  if (!isLeadVisibleOnExperimentalAgenda(lead)) return false;
+  const ymd = String(lead?.scheduledDate || '').trim().split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return false;
+  const day = new Date(date);
+  day.setHours(0, 0, 0, 0);
+  const [y, m, d] = ymd.split('-').map(Number);
+  const leadDay = new Date(y, (m || 1) - 1, d || 1);
+  leadDay.setHours(0, 0, 0, 0);
+  return leadDay.getTime() === day.getTime();
+}

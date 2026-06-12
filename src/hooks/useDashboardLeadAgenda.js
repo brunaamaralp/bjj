@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import {
+  isLeadExperimentalOnDate,
   isLeadScheduledForExperimental,
   isLeadVisibleOnExperimentalAgenda,
 } from '../lib/leadStageRules.js';
@@ -41,16 +42,16 @@ export function useDashboardLeadAgenda() {
     [agendaWeekLeads]
   );
 
-  const todayScheduled = useMemo(() => {
+  const todayOnAgenda = useMemo(() => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return allScheduled.filter((lead) => {
-      if (!lead.scheduledDate) return false;
-      const [y, m, d] = lead.scheduledDate.split('-').map(Number);
-      const leadDate = new Date(y, m - 1, d);
-      return leadDate.toDateString() === today.toDateString();
-    });
-  }, [allScheduled]);
+    return agendaWeekLeads.filter((lead) => isLeadExperimentalOnDate(lead, today));
+  }, [agendaWeekLeads]);
+
+  /** Experimentais ainda aguardando presença (status Agendado). */
+  const todayScheduled = useMemo(
+    () => todayOnAgenda.filter(isLeadScheduledForExperimental),
+    [todayOnAgenda]
+  );
 
   const scheduledInVisibleWeekCount = (weekOffset) =>
     filterLeadsInCivilWeek(agendaWeekLeads, weekOffset).length;
@@ -58,6 +59,7 @@ export function useDashboardLeadAgenda() {
   return {
     agendaWeekLeads,
     allScheduled,
+    todayOnAgenda,
     todayScheduled,
     scheduledInVisibleWeekCount,
   };

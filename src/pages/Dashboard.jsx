@@ -138,6 +138,7 @@ const Dashboard = () => {
         leadsLastFetchedAt,
         vertical,
         labels,
+        leads,
         leadsCount,
     } = useLeadStore(
         useShallow((s) => ({
@@ -149,6 +150,7 @@ const Dashboard = () => {
             leadsLastFetchedAt: s.leadsLastFetchedAt,
             vertical: s.vertical,
             labels: s.labels,
+            leads: s.leads,
             leadsCount: s.leads.length,
         }))
     );
@@ -185,6 +187,15 @@ const Dashboard = () => {
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [savingPresence, setSavingPresence] = useState({});
     const [listModalType, setListModalType] = useState('');
+    const followupLeadCandidates = useMemo(
+        () =>
+            (leads || []).filter(
+                (l) =>
+                    String(l?.origin || '').trim() !== 'Planilha' &&
+                    (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
+            ),
+        [leads]
+    );
     const {
         followupDoneByLead: followupDoneAtByLead,
         followupContactByLead: followupContactAtByLead,
@@ -193,7 +204,11 @@ const Dashboard = () => {
         inboundAfterByPhone,
         refreshFromCache: refreshFollowupFromCache,
         refreshFollowupEvents,
-    } = useFollowupEventsByLead(academyId, { defer: true, eagerInbound: true });
+    } = useFollowupEventsByLead(academyId, {
+        defer: true,
+        eagerInbound: true,
+        followupLeads: followupLeadCandidates,
+    });
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});
@@ -395,7 +410,8 @@ const Dashboard = () => {
         ]
     );
 
-    const { agendaWeekLeads, todayScheduled, scheduledInVisibleWeekCount } = useDashboardLeadAgenda();
+    const { agendaWeekLeads, todayScheduled, todayOnAgenda, scheduledInVisibleWeekCount } =
+        useDashboardLeadAgenda();
     const {
         followUps,
         followUpsKanbanOnlyCount,
@@ -555,6 +571,7 @@ const Dashboard = () => {
         () =>
             buildDaySummaryLine({
                 todayScheduled,
+                todayOnAgenda,
                 followUps,
                 pendingTasks,
                 trialShort: terms.trialShort,
@@ -563,6 +580,7 @@ const Dashboard = () => {
             }),
         [
             todayScheduled,
+            todayOnAgenda,
             followUps,
             pendingTasks,
             terms.trialShort,

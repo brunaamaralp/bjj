@@ -49,6 +49,7 @@ describe('buildDaySummaryLine', () => {
   it('sugere retornos quando não há aula hoje', () => {
     const line = buildDaySummaryLine({
       todayScheduled: [],
+      todayOnAgenda: [],
       followUps: [{ id: '1' }, { id: '2' }],
       pendingTasks: [],
       trialShort: 'Aula experimental',
@@ -56,9 +57,22 @@ describe('buildDaySummaryLine', () => {
     expect(line).toContain('retomar 2 retornos');
   });
 
+  it('narra experimental já realizada hoje (compareceu)', () => {
+    const line = buildDaySummaryLine({
+      todayScheduled: [],
+      todayOnAgenda: [{ id: '1', status: LEAD_STATUS.COMPLETED, scheduledDate: '2026-06-11' }],
+      followUps: [{ id: '2', hasContactInCycle: false }],
+      pendingTasks: [],
+      trialShort: 'Aula experimental',
+    });
+    expect(line).toContain('Hoje teve 1 aula experimental');
+    expect(line).not.toContain('Nenhuma');
+  });
+
   it('conta só retornos sem contato no ciclo', () => {
     const line = buildDaySummaryLine({
       todayScheduled: [],
+      todayOnAgenda: [],
       followUps: [
         { id: '1', hasContactInCycle: true },
         { id: '2', hasContactInCycle: false },
@@ -73,6 +87,7 @@ describe('buildDaySummaryLine', () => {
   it('mostra agenda em dia quando retornos já responderam', () => {
     const line = buildDaySummaryLine({
       todayScheduled: [],
+      todayOnAgenda: [],
       followUps: [{ id: '1', hasContactInCycle: true }],
       pendingTasks: [],
       trialShort: 'Aula experimental',
@@ -84,6 +99,7 @@ describe('buildDaySummaryLine', () => {
   it('não usa tom desmotivador', () => {
     const line = buildDaySummaryLine({
       todayScheduled: [],
+      todayOnAgenda: [],
       followUps: [],
       pendingTasks: [],
       trialShort: 'Aula experimental',

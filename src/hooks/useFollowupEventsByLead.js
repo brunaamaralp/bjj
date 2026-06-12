@@ -12,6 +12,12 @@ import {
 import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
 import { FOLLOWUP_INBOUND_CHANGED, FOLLOWUP_INBOUND_REFRESH } from '../lib/leadTimelineEvents.js';
 import { getInboundPollMs } from '../lib/followupInboundPoll.js';
+import {
+  isInboundMapsEmpty,
+  loadFollowupInboundMapsFromClient,
+  mergeFollowupInboundMaps,
+  scanRecentInboundMapsFromClient,
+} from '../lib/followupInboundClient.js';
 import { useFollowupInboundRealtime } from './useFollowupInboundRealtime.js';
 
 function scheduleDeferredWork(run) {
@@ -127,23 +133,36 @@ async function loadInboundAfterMapsFromApi(academyId) {
   }
 }
 
-async function loadInboundAfterMaps(academyId) {
-  const fromApi = await loadInboundAfterMapsFromApi(academyId);
-  if (fromApi) return fromApi;
+async function loadInboundAfterMaps(academyId, followupLeads = []) {
   const cached = getFollowupEventsCache(academyId);
-  if (cached) {
-    return {
-      inboundAfterByLead: cached.inboundAfterByLead || {},
-      inboundAfterByPhone: cached.inboundAfterByPhone || {},
-    };
+  const cachedInbound = cached
+    ? {
+        inboundAfterByLead: cached.inboundAfterByLead || {},
+        inboundAfterByPhone: cached.inboundAfterByPhone || {},
+      }
+    : null;
+
+  const fromApi = await loadInboundAfterMapsFromApi(academyId);
+  let inbound = mergeFollowupInboundMaps(cachedInbound, fromApi);
+
+  if ((followupLeads || []).length) {
+    const fromLeads = await loadFollowupInboundMapsFromClient(academyId, followupLeads);
+    inbound = mergeFollowupInboundMaps(inbound, fromLeads);
   }
-  return { inboundAfterByLead: {}, inboundAfterByPhone: {} };
+
+  if (isInboundMapsEmpty(inbound)) {
+    const fromScan = await scanRecentInboundMapsFromClient(academyId);
+    inbound = mergeFollowupInboundMaps(inbound, fromScan);
+  }
+
+  if (isInboundMapsEmpty(inbound) && cachedInbound) return cachedInbound;
+  return inbound || { inboundAfterByLead: {}, inboundAfterByPhone: {} };
 }
 
-async function fetchFollowupEventsBundle(academyId) {
+async function fetchFollowupEventsBundle(academyId, followupLeads = []) {
   const [events, inbound] = await Promise.all([
     loadFollowupEvents(academyId),
-    loadInboundAfterMaps(academyId),
+    loadInboundAfterMaps(academyId, followupLeads),
   ]);
   return { ...events, ...inbound };
 }
@@ -153,7 +172,10 @@ async function fetchFollowupEventsBundle(academyId) {
  * @param {string} academyId
  * @param {{ defer?: boolean; enableRealtime?: boolean }} [opts]
  */
-export function useFollowupEventsByLead(academyId, { defer = false, enableRealtime = true, eagerInbound = false } = {}) {
+export function useFollowupEventsByLead(
+  academyId,
+  { defer = false, enableRealtime = true, eagerInbound = false, followupLeads = [] } = {}
+) {
   const { realtimeOn } = useFollowupInboundRealtime(academyId, { enabled: enableRealtime });
   const [doneByLead, setDoneByLead] = useState({});
   const [contactByLead, setContactByLead] = useState({});
@@ -184,7 +206,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
       if (force) invalidateFollowupEventsCache(aid);
       setLoading(true);
       try {
-        const bundle = await fetchFollowupEventsBundle(aid);
+        const bundle = await fetchFollowupEventsBundle(aid, followupLeads);
         applyBundle(bundle);
         setFollowupEventsCache(aid, bundle);
       } catch {
@@ -201,13 +223,13 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
         setLoading(false);
       }
     },
-    [academyId, applyBundle]
+    [academyId, followupLeads, applyBundle]
   );
 
   const refreshInboundOnly = useCallback(async () => {
     const aid = String(academyId || '').trim();
     if (!aid) return;
-    const inbound = await loadInboundAfterMaps(aid);
+    const inbound = await loadInboundAfterMaps(aid, followupLeads);
     if (!inbound) return;
     const cached = getFollowupEventsCache(aid) || {
       doneByLead: {},
@@ -219,7 +241,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
     const bundle = { ...cached, ...inbound };
     applyBundle(bundle);
     setFollowupEventsCache(aid, bundle);
-  }, [academyId, applyBundle]);
+  }, [academyId, followupLeads, applyBundle]);
 
   useEffect(() => {
     if (!academyId || !LEAD_EVENTS_COL) {
@@ -241,7 +263,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
       if (cancelled) return;
       setLoading(true);
       try {
-        const bundle = await fetchFollowupEventsBundle(academyId);
+        const bundle = await fetchFollowupEventsBundle(academyId, followupLeads);
         if (!cancelled) {
           applyBundle(bundle);
           setFollowupEventsCache(academyId, bundle);
@@ -268,7 +290,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
       cancelInbound = (() => {
         let cancelledInbound = false;
         void (async () => {
-          const inbound = await loadInboundAfterMaps(academyId);
+          const inbound = await loadInboundAfterMaps(academyId, followupLeads);
           if (cancelledInbound || !inbound) return;
           const cached = getFollowupEventsCache(academyId) || {
             doneByLead: {},
@@ -292,7 +314,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
       cancelSchedule();
       cancelInbound();
     };
-  }, [academyId, defer, eagerInbound, applyBundle]);
+  }, [academyId, defer, eagerInbound, followupLeads, applyBundle]);
 
   useEffect(() => {
     if (!academyId || typeof window === 'undefined') return undefined;
@@ -347,7 +369,7 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
       window.removeEventListener(FOLLOWUP_INBOUND_REFRESH, onInboundRefresh);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [academyId, refreshFromCache, refreshInboundOnly, realtimeOn]);
+  }, [academyId, refreshFromCache, refreshInboundOnly, realtimeOn, followupLeads]);
 
   return {
     loading,

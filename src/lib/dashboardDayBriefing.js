@@ -89,21 +89,35 @@ export function followUpsNeedingContact(followUps) {
  */
 export function buildDaySummaryLine(ctx) {
   const trial = String(ctx.trialShort || 'aula experimental').toLowerCase();
-  const todayCount = ctx.omitTodaySchedule ? 0 : ctx.todayScheduled?.length || 0;
+  const pendingToday = ctx.omitTodaySchedule ? [] : ctx.todayScheduled || [];
+  const agendaToday = ctx.omitTodaySchedule ? [] : ctx.todayOnAgenda || pendingToday;
+  const pendingCount = pendingToday.length;
+  const agendaCount = agendaToday.length;
   const followCount = followUpsNeedingContact(ctx.followUps).length;
   const taskCount = ctx.pendingTasks?.length || 0;
   const weekly = Number(ctx.weeklyEnrollments) || 0;
 
   const parts = [];
+  const trialNoun = (count) =>
+    count === 1 ? trial : trial.endsWith('s') ? trial : `${trial}s`;
 
-  if (todayCount > 0) {
-    const firstTime = firstTrialTimeLabel(ctx.todayScheduled);
-    const noun =
-      todayCount === 1 ? trial : trial.endsWith('s') ? trial : `${trial}s`;
+  if (pendingCount > 0) {
+    const firstTime = firstTrialTimeLabel(pendingToday);
+    const noun = trialNoun(pendingCount);
     if (firstTime) {
-      parts.push(`${todayCount} ${noun} hoje. A primeira é às ${firstTime}.`);
+      parts.push(`${pendingCount} ${noun} hoje. A primeira é às ${firstTime}.`);
     } else {
-      parts.push(`${todayCount} ${noun} hoje.`);
+      parts.push(`${pendingCount} ${noun} hoje.`);
+    }
+  } else if (agendaCount > 0) {
+    const noun = trialNoun(agendaCount);
+    parts.push(
+      agendaCount === 1 ? `Hoje teve 1 ${noun}.` : `Hoje foram ${agendaCount} ${noun}.`
+    );
+    if (followCount > 0) {
+      parts.push(
+        `Vale retomar ${followCount} retorno${followCount === 1 ? '' : 's'} pendente${followCount === 1 ? '' : 's'}.`
+      );
     }
   } else if (followCount > 0) {
     parts.push(
@@ -117,7 +131,7 @@ export function buildDaySummaryLine(ctx) {
     parts.push('Agenda e retornos em dia. Bom momento para revisar a semana.');
   }
 
-  if (weekly > 0 && todayCount > 0) {
+  if (weekly > 0 && (pendingCount > 0 || agendaCount > 0)) {
     parts.push(
       weekly === 1
         ? '1 matrícula esta semana. Continue assim.'
@@ -210,6 +224,21 @@ export function getDayPriority(ctx) {
     };
   }
 
+  const responded = [...(ctx.followUps || [])]
+    .filter((l) => l.hasContactInCycle && !l.doneForCurrentClass)
+    .sort((a, b) => (a.daysAgo ?? 0) - (b.daysAgo ?? 0));
+
+  if (responded.length > 0) {
+    const lead = responded[0];
+    const name = String(lead.name || 'Interessado').trim();
+    return {
+      type: 'urgent_followup',
+      message: `${name} já respondeu no WhatsApp. Acompanhe o próximo passo no retorno.`,
+      scrollTarget: 'follow-ups',
+      leadId: String(lead.id || '').trim() || undefined,
+    };
+  }
+
   const cooling = [...(ctx.followUps || [])]
     .filter(
       (l) =>
@@ -229,21 +258,6 @@ export function getDayPriority(ctx) {
     return {
       type: 'urgent_followup',
       message: buildUrgentFollowupPriorityMessage(lead),
-      scrollTarget: 'follow-ups',
-      leadId: String(lead.id || '').trim() || undefined,
-    };
-  }
-
-  const responded = [...(ctx.followUps || [])]
-    .filter((l) => l.hasContactInCycle && !l.doneForCurrentClass)
-    .sort((a, b) => (a.daysAgo ?? 0) - (b.daysAgo ?? 0));
-
-  if (responded.length > 0) {
-    const lead = responded[0];
-    const name = String(lead.name || 'Interessado').trim();
-    return {
-      type: 'urgent_followup',
-      message: `${name} já respondeu no WhatsApp. Acompanhe o próximo passo no retorno.`,
       scrollTarget: 'follow-ups',
       leadId: String(lead.id || '').trim() || undefined,
     };

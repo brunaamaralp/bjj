@@ -75,6 +75,9 @@ export function hasContactInCycle(lead, ctx = {}) {
   const inboundAt = resolveInboundAfterForLead(lead, ctx);
   if (inboundAt && inboundCountsAsContact(inboundAt, classMs)) return true;
 
+  const waAt = String(lead?.lastWhatsappActivityAt || '').trim();
+  if (waAt && inboundCountsAsContact(waAt, classMs)) return true;
+
   return false;
 }
 

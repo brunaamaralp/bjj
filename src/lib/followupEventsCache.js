@@ -2,7 +2,7 @@ import { mergeInboundIntoMaps } from './followupInbound.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 /** Bump quando o formato do bundle mudar (ex.: inbound WhatsApp). */
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 
 /** @type {Map<string, { data: object; fetchedAt: number }>} */
 const cache = new Map();
