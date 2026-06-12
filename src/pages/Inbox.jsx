@@ -19,7 +19,8 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
 import { X } from 'lucide-react';
-import InboxListPanel from '../components/inbox/InboxListPanel';
+import InboxListSection from '../components/inbox/InboxListSection.jsx';
+import InboxGlobalBanners from '../components/inbox/InboxGlobalBanners.jsx';
 import InboxPageActionsMenu from '../components/inbox/InboxPageActionsMenu.jsx';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 import { preloadInboxThreadChunks } from '../lib/preloadRoutes.js';
@@ -33,7 +34,6 @@ const InboxImageLightbox = lazyWithRetry(() => import('../components/inbox/Inbox
 import { InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
-import StatusBanner from '../components/shared/StatusBanner.jsx';
 import useDebounce from '../hooks/useDebounce.js';
 import { useInboxContextMenu } from '../hooks/useInboxContextMenu.js';
 import { useInboxKeyboard } from '../hooks/useInboxKeyboard.js';
@@ -66,6 +66,7 @@ import { useInboxComposerProps } from '../hooks/useInboxComposerProps.js';
 import { useInboxThreadMenuProps } from '../hooks/useInboxThreadMenuProps.js';
 import { useInboxContextPanelProps } from '../hooks/useInboxContextPanelProps.js';
 import { useInboxThreadPanelProps } from '../hooks/useInboxThreadPanelProps.js';
+import { useInboxListPanelProps } from '../hooks/useInboxListPanelProps.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -73,7 +74,6 @@ import {
   formatInboxPhone as formatPhone,
   pickInboxDisplayName as pickDisplayName,
 } from '../lib/inboxContactDisplay.js';
-import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
 import { inboxMessageMediaUrl } from '../lib/inboxMediaUtils.js';
 import { senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
 import {
@@ -89,7 +89,6 @@ import { useLeadsForAssociatePanel } from '../hooks/useLeadsForAssociatePanel.js
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 const FollowupOutcomeDialog = lazyWithRetry(() => import('../components/followup/FollowupOutcomeDialog.jsx'));
 import useDialogFocus from '../hooks/useDialogFocus.js';
-import { inboxFilterLabel } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
 
 const INBOX_PRIMARY_FILTERS = new Set(['all', 'needs_me', 'unread']);
@@ -1154,65 +1153,46 @@ export default function Inbox() {
     />
   );
 
-  const listPanel = (
-    <InboxListPanel
-      search={search}
-      onSearchChange={setSearch}
-      searchQuery={searchQuery}
-      hasMore={hasMore}
-      listFilter={listFilter}
-      stats={stats}
-      extraFiltersMenuOpen={extraFiltersMenuOpen}
-      setExtraFiltersMenuOpen={setExtraFiltersMenuOpen}
-      inboxExtraFilterActive={inboxExtraFilterActive}
-      setListFilter={setListFilter}
-      onConversationListScroll={onConversationListScroll}
-      groupedFilteredItems={groupedFilteredItems}
-      loading={loading}
-      itemsLength={items.length}
-      waChatConnected={waChatConnected}
-      loadingMore={loadingMore}
-      handleSelectConversation={handleSelectConversation}
-      onPrefetchConversation={handlePrefetchConversation}
-      selectedPhone={selectedPhone}
-      ticketChip={ticketChip}
-      formatTimeOnly={formatTimeOnly}
-      formatWhen={formatWhen}
-      formatListActivityLabel={formatListActivityLabel}
-      isMobile={isMobile}
-      handleClearInboxListFilters={handleClearInboxListFilters}
-      setConversationSheet={setConversationSheet}
-      agentIaActive={agentIaActive}
-      searchPending={searchPending}
-      activeFilterLabel={inboxExtraFilterActive ? inboxFilterLabel(listFilter) : ''}
-      onClearActiveFilter={() => setListFilter('all')}
-      listTopbarMeta={
-        loading || searchPending ? (
-          searchPending ? 'Buscando…' : 'Carregando…'
-        ) : listMetaShowsFiltered ? (
-          <>
-            {visibleConversationCount} exibidas · {items.length} carregadas
-          </>
-        ) : (
-          <>
-            {items.length} conversas
-            {lastUpdatedAt ? (
-              <>
-                {' '}
-                · atualizado às{' '}
-                {new Date(lastUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-              </>
-            ) : null}
-          </>
-        )
-      }
-      pageActionsMenu={inboxPageActionsMenu}
-      onSyncWhatsApp={reconcileLast24h}
-      waSyncing={waSyncing}
-      desktopNotify={desktopNotify}
-      onToggleDesktopNotify={toggleDesktopNotifyPreference}
-    />
-  );
+  const listPanelProps = useInboxListPanelProps({
+    search,
+    onSearchChange: setSearch,
+    searchQuery,
+    hasMore,
+    listFilter,
+    stats,
+    extraFiltersMenuOpen,
+    setExtraFiltersMenuOpen,
+    inboxExtraFilterActive,
+    setListFilter,
+    onConversationListScroll,
+    groupedFilteredItems,
+    loading,
+    itemsLength: items.length,
+    waChatConnected,
+    loadingMore,
+    handleSelectConversation,
+    onPrefetchConversation: handlePrefetchConversation,
+    selectedPhone,
+    ticketChip,
+    formatTimeOnly,
+    formatWhen,
+    formatListActivityLabel,
+    isMobile,
+    handleClearInboxListFilters,
+    setConversationSheet,
+    agentIaActive,
+    searchPending,
+    listMetaShowsFiltered,
+    visibleConversationCount,
+    lastUpdatedAt,
+    pageActionsMenu: inboxPageActionsMenu,
+    onSyncWhatsApp: reconcileLast24h,
+    waSyncing,
+    desktopNotify,
+    onToggleDesktopNotify: toggleDesktopNotifyPreference,
+  });
+
+  const listPanel = <InboxListSection listPanelProps={listPanelProps} />;
 
   const threadMessagesEmptyUi = Boolean(
     selectedPhone &&
@@ -1457,15 +1437,12 @@ export default function Inbox() {
 
   return (
     <div className={inboxPageClassName}>
-      {showWaDisconnectBanner ? (
-        <StatusBanner
-          variant="warning"
-          className="inbox-global-error"
-          action={{ label: 'Reconectar →', onClick: () => navigate('/agente-ia') }}
-        >
-          WhatsApp desconectado — as mensagens não estão chegando.
-        </StatusBanner>
-      ) : null}
+      <InboxGlobalBanners
+        showWaDisconnectBanner={showWaDisconnectBanner}
+        onReconnectWhatsApp={() => navigate('/agente-ia')}
+        error={error}
+        listCapped={listCapped}
+      />
 
       <div className="inbox-body-grow">
 
@@ -1495,15 +1472,6 @@ export default function Inbox() {
         archiveConversation={archiveConversation}
       />
 
-
-      {error ? <StatusBanner variant="error" message={error} className="inbox-global-error" /> : null}
-
-      {listCapped ? (
-        <StatusBanner variant="info" className="inbox-global-error inbox-list-cap-banner">
-          Exibindo as {MAX_INBOX_LIST_ITEMS} conversas mais recentes em memória. Use a busca ou filtros para encontrar
-          contatos fora desta janela.
-        </StatusBanner>
-      ) : null}
 
       <InboxPageLayout
         isMobile={isMobile}

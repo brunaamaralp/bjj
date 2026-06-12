@@ -1,0 +1,117 @@
+/* Formulários */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+}
+
+.form-group label,
+.form-label {
+  font-family: var(--ff-ui);
+  font-size: var(--font-base);
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+/* Rótulo dentro de form-group explícito */
+.form-group > label {
+  display: block;
+}
+
+/* Grupo de campos correlatos (ex: Data + Hora) */
+.form-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.form-row > .form-group {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Texto auxiliar abaixo de um campo */
+.form-hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Divisor entre blocos de campos dentro de um modal */
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.form-section + .form-section {
+  padding-top: var(--space-4);
+  border-top: 0.5px solid var(--border-light);
+  margin-top: var(--space-2);
+}
+.form-section-title {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.form-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--control-height-form);
+  padding: var(--control-pad-y-form) var(--control-pad-x);
+  border-radius: var(--control-radius);
+  border: var(--control-border);
+  font-size: var(--control-font-size);
+  font-family: var(--ff-ui);
+  outline: none;
+  transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+  background: var(--control-bg);
+  color: var(--ink);
+}
+
+.form-input.navi-control--toolbar,
+select.form-input.navi-control--toolbar {
+  min-height: var(--control-height-toolbar);
+  height: var(--control-height-toolbar);
+  padding: 0 var(--control-pad-x);
+}
+
+.form-input:focus {
+  border: var(--control-border-focus);
+  box-shadow: 0 0 0 3px rgba(108, 71, 216, 0.12);
+}
+
+.form-input::placeholder {
+  color: var(--faint);
+}
+
+/* Select nativo: opções legíveis quando o SO está em tema escuro */
+select.form-input {
+  color-scheme: light;
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+select.form-input option {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  select.form-input {
+    color-scheme: light;
+    background-color: #ffffff !important;
+    color: var(--ink) !important;
+    -webkit-text-fill-color: var(--ink);
+  }
+
+  select.form-input option {
+    background-color: #ffffff;
+    color: var(--ink);
+  }
+}
