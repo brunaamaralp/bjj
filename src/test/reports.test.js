@@ -10,6 +10,10 @@ import {
 } from '../../lib/reportsMetrics.js';
 import { hasAnyActivity } from '../lib/reportActivity.js';
 import { buildFunnelStages } from '../lib/reportsFunnelUtils.js';
+import { reportKpiTooltip } from '../lib/reportKpiTooltip.js';
+import { evaluateKpiRag, parseReportsKpiGoals } from '../../lib/reportsKpiGoals.js';
+import { getReportsTabFlags } from '../lib/reportsPageConfig.js';
+import { aggregateStudentMetricsOnly } from '../../lib/server/reportsAggregate.js';
 import { LEAD_STATUS } from '../store/useLeadStore.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -194,6 +198,78 @@ describe('hasAnyActivity', () => {
       studentMetrics: { activeAtStart: 12, newStudents: 2 },
     };
     expect(hasAnyActivity(reportData)).toBe(false);
+  });
+});
+
+describe('reportsKpiGoals', () => {
+  it('avalia RAG para meta higher-is-better', () => {
+    const goal = { target: 25, direction: 'higher' };
+    expect(evaluateKpiRag(30, goal)).toBe('ok');
+    expect(evaluateKpiRag(22, goal)).toBe('warn');
+    expect(evaluateKpiRag(18, goal)).toBe('critical');
+  });
+
+  it('avalia RAG para meta lower-is-better', () => {
+    const goal = { target: 5, direction: 'lower' };
+    expect(evaluateKpiRag(3, goal)).toBe('ok');
+    expect(evaluateKpiRag(6, goal)).toBe('warn');
+    expect(evaluateKpiRag(8, goal)).toBe('critical');
+  });
+
+  it('parseia metas de academy.settings', () => {
+    const settings = JSON.stringify({
+      reportsKpiGoals: {
+        conversionRate: { target: 30, direction: 'higher' },
+        churnRate: { target: 4, direction: 'lower' },
+      },
+    });
+    const goals = parseReportsKpiGoals(settings);
+    expect(goals.conversionRate.target).toBe(30);
+    expect(goals.churnRate.target).toBe(4);
+  });
+});
+
+describe('getReportsTabFlags', () => {
+  it('separa funil e métricas de alunos', () => {
+    expect(getReportsTabFlags('alunos')).toEqual({
+      isLeadReportTab: false,
+      needsFunnelReport: false,
+      needsStudentMetrics: true,
+      isPeriodTab: true,
+    });
+    expect(getReportsTabFlags('funil').needsFunnelReport).toBe(true);
+    expect(getReportsTabFlags('funil').needsStudentMetrics).toBe(false);
+  });
+});
+
+describe('aggregateStudentMetricsOnly', () => {
+  it('retorna apenas studentMetrics sem listas do funil', () => {
+    const leads = makeLeads([
+      { contact_type: 'student', converted_at: '2026-04-10T12:00:00.000Z', status: 'active' },
+    ]);
+    const out = aggregateStudentMetricsOnly(leads, {
+      from: '2026-04-01T00:00:00.000Z',
+      to: '2026-04-30T23:59:59.999Z',
+      prevFrom: '2026-03-01T00:00:00.000Z',
+      prevTo: '2026-03-31T23:59:59.999Z',
+    });
+    expect(out.studentMetrics).toBeDefined();
+    expect(out.metrics).toBeUndefined();
+    expect(out.chart).toBeUndefined();
+  });
+});
+
+describe('reportKpiTooltip', () => {
+  it('inclui definição canônica e nota de período', () => {
+    const tip = reportKpiTooltip('newLeads', { preset: 'month' });
+    expect(tip).toContain('Novos leads');
+    expect(tip).toContain('mês civil anterior');
+  });
+
+  it('mapeia converted para newStudents', () => {
+    const tip = reportKpiTooltip('converted', { preset: 'week' });
+    expect(tip).toContain('Novos alunos');
+    expect(tip).toContain('semana anterior');
   });
 });
 

@@ -32,13 +32,15 @@ export function getReportTabItems({ hasFinance, hasSales, hasInventory }) {
 
 export function getReportsTabFlags(activeTab) {
   const isLeadReportTab = activeTab === 'visao-geral' || activeTab === 'funil';
-  const needsFunnelReport = isLeadReportTab || activeTab === 'alunos';
+  const needsFunnelReport = isLeadReportTab;
+  const needsStudentMetrics = activeTab === 'alunos';
   const isPeriodTab =
     needsFunnelReport ||
+    needsStudentMetrics ||
     activeTab === 'financeiro' ||
     activeTab === 'loja' ||
     activeTab === 'estoque' ||
     activeTab === 'movimentacoes' ||
     activeTab === 'operador';
-  return { isLeadReportTab, needsFunnelReport, isPeriodTab };
+  return { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab };
 }

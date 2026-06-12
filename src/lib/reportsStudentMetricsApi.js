@@ -64,6 +64,7 @@ export async function fetchStudentMetricsForRange({ academyId, from, to }) {
       prevTo: prevTo.toISOString(),
       filters: { origin: 'all', type: 'all' },
       chartMode: 'monthly',
+      slice: 'students',
       refresh: false,
     }),
   });

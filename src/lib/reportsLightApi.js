@@ -41,3 +41,13 @@ export async function fetchReportsSalesLight({ academyId, from, to }) {
   if (!res.ok) throw new Error(body.error || 'Erro ao carregar resumo da loja');
   return body;
 }
+
+/** Finance + sales + inventory em uma chamada (visão geral). */
+export async function fetchReportsOverview({ academyId, from, to, prevFrom, prevTo, regime }) {
+  const params = new URLSearchParams({ type: 'overview', from, to, prevFrom, prevTo });
+  if (regime) params.set('regime', regime);
+  const res = await authedFetch(`/api/reports-light?${params}`, { headers: await headers(academyId) });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar visão geral');
+  return body;
+}

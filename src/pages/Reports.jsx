@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useLeadStore, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import { useUserRole } from '../lib/useUserRole';
@@ -17,7 +17,9 @@ import { DRILL_LABELS } from '../lib/reportsFunnelUtils.js';
 import { REPORT_TABS, getReportTabItems, getReportsTabFlags } from '../lib/reportsPageConfig.js';
 import { useReportsPeriod } from '../hooks/useReportsPeriod.js';
 import { useFunnelReport } from '../hooks/useFunnelReport.js';
+import { useStudentMetricsReport } from '../hooks/useStudentMetricsReport.js';
 import { useReportsOverviewKpis } from '../hooks/useReportsOverviewKpis.js';
+import { useReportsKpiGoals } from '../hooks/useReportsKpiGoals.js';
 import { useFunnelDerived } from '../hooks/useFunnelDerived.js';
 import { useReportsLeadExport } from '../hooks/useReportsLeadExport.js';
 import '../components/reports/reports.css';
@@ -46,7 +48,6 @@ export default function Reports() {
 
     const [chartMetric, setChartMetric] = useState('new');
     const [chartMode, setChartMode] = useState('weekly');
-    const [originFilter, setOriginFilter] = useState('all');
     const [profileFilter, setProfileFilter] = useState('all');
     const [exportOpen, setExportOpen] = useState(false);
     const [drillKey, setDrillKey] = useState(null);
@@ -78,19 +79,37 @@ export default function Reports() {
     );
 
     const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, 'visao-geral');
-    const { isLeadReportTab, needsFunnelReport, isPeriodTab } = getReportsTabFlags(activeTab);
+    const { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab } =
+        getReportsTabFlags(activeTab);
 
     const funnel = useFunnelReport({
         enabled: needsFunnelReport,
         academyId,
         preset,
         range,
-        originFilter,
         profileFilter,
         chartMode,
         onDateError: setDateError,
     });
     const { reportData, loading, error, fetchReport, showInitialLoad, showRefreshing } = funnel;
+
+    const studentReport = useStudentMetricsReport({
+        enabled: needsStudentMetrics,
+        academyId,
+        preset,
+        range,
+        onDateError: setDateError,
+    });
+    const {
+        reportData: studentReportData,
+        loading: studentLoading,
+        error: studentError,
+        fetchReport: fetchStudentReport,
+        showInitialLoad: studentShowInitialLoad,
+        showRefreshing: studentShowRefreshing,
+    } = studentReport;
+
+    const kpiGoals = useReportsKpiGoals(academyId);
 
     const overviewKpis = useReportsOverviewKpis({
         active: activeTab === 'visao-geral',
@@ -112,8 +131,19 @@ export default function Reports() {
         error,
     });
 
-    const handleRefresh = useCallback(() => void fetchReport(true), [fetchReport]);
-    const handleRetry = useCallback(() => void fetchReport(false), [fetchReport]);
+    const handleRefresh = useCallback(() => {
+        if (needsFunnelReport) void fetchReport(true);
+        if (needsStudentMetrics) void fetchStudentReport(true);
+    }, [needsFunnelReport, needsStudentMetrics, fetchReport, fetchStudentReport]);
+    const handleRetry = useCallback(() => {
+        if (needsFunnelReport) void fetchReport(false);
+        if (needsStudentMetrics) void fetchStudentReport(false);
+    }, [needsFunnelReport, needsStudentMetrics, fetchReport, fetchStudentReport]);
+
+    const activeError = needsStudentMetrics && !needsFunnelReport ? studentError : error;
+    const activeShowRefreshing =
+        (needsFunnelReport && showRefreshing) || (needsStudentMetrics && studentShowRefreshing);
+    const activeSnapshotData = needsStudentMetrics && !needsFunnelReport ? studentReportData : reportData;
     const closeExport = useCallback(() => setExportOpen(false), []);
 
     useEffect(() => {
@@ -145,28 +175,28 @@ export default function Reports() {
                     subtitle="Analise indicadores por período."
                     meta={<span>Período · {prettyRange}</span>}
                     actions={
-                        needsFunnelReport && reportData?.snapshotUpdatedAt ? (
+                        (needsFunnelReport || needsStudentMetrics) && activeSnapshotData?.snapshotUpdatedAt ? (
                             <button
                                 type="button"
                                 className="reports-meta-refresh"
                                 onClick={handleRefresh}
-                                disabled={loading}
+                                disabled={loading || studentLoading}
                                 aria-label="Atualizar dados do relatório"
                             >
                                 <span>
                                     Atualizado em{' '}
-                                    {new Date(reportData.snapshotUpdatedAt).toLocaleString('pt-BR', {
+                                    {new Date(activeSnapshotData.snapshotUpdatedAt).toLocaleString('pt-BR', {
                                         day: '2-digit',
                                         month: 'short',
                                         hour: '2-digit',
                                         minute: '2-digit',
                                     })}
-                                    {reportData.fromSnapshot ? ' (cache)' : ''}
+                                    {activeSnapshotData.fromSnapshot ? ' (cache)' : ''}
                                 </span>
                                 <RefreshCw
                                     size={14}
                                     strokeWidth={2}
-                                    className={`reports-meta-refresh__icon${loading ? ' reports-spin' : ''}`}
+                                    className={`reports-meta-refresh__icon${loading || studentLoading ? ' reports-spin' : ''}`}
                                     aria-hidden
                                 />
                                 <span>Atualizar</span>
@@ -184,18 +214,28 @@ export default function Reports() {
             </div>
 
             <div className="navi-hub-page__body">
-                {showRefreshing ? (
+                {activeShowRefreshing ? (
                     <div className="reports-sync-bar mt-3" role="status" aria-live="polite">
                         <Loader2 size={18} className="reports-spin" aria-hidden />
                         <span>Atualizando dados do servidor…</span>
                     </div>
                 ) : null}
 
-                {error ? <ErrorBanner className="mt-3" message={error} onRetry={handleRetry} /> : null}
+                {activeError ? (
+                    <ErrorBanner className="mt-3" message={activeError} onRetry={handleRetry} />
+                ) : null}
 
                 {showInitialLoad && needsFunnelReport ? (
                     <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
                         {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <ReportKpiCardSkeleton key={i} />
+                        ))}
+                    </div>
+                ) : null}
+
+                {studentShowInitialLoad && needsStudentMetrics ? (
+                    <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores de alunos">
+                        {[1, 2, 3, 4, 5].map((i) => (
                             <ReportKpiCardSkeleton key={i} />
                         ))}
                     </div>
@@ -212,9 +252,6 @@ export default function Reports() {
                         onToChange={setTo}
                         dateError={dateError}
                         showLeadFilters={isLeadReportTab}
-                        originFilter={originFilter}
-                        onOriginFilterChange={setOriginFilter}
-                        leadOrigins={LEAD_ORIGIN}
                         profileFilter={profileFilter}
                         onProfileFilterChange={setProfileFilter}
                         exportOpen={exportOpen}
@@ -234,7 +271,11 @@ export default function Reports() {
                 <ReportsTabPanels
                     activeTab={activeTab}
                     needsFunnelReport={needsFunnelReport}
+                    needsStudentMetrics={needsStudentMetrics}
                     showNoLeadsEmpty={showNoLeadsEmpty}
+                    studentReportData={studentReportData}
+                    studentShowInitialLoad={studentShowInitialLoad}
+                    kpiGoals={kpiGoals}
                     showNoActivityEmpty={showNoActivityEmpty}
                     showLeadFunnelContent={showLeadFunnelContent}
                     contactLabel={contactLabel}

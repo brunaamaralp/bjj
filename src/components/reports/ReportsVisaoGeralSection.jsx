@@ -19,6 +19,8 @@ import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
 import { pctVar } from '../../lib/reportsFunnelUtils.js';
+import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
+import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 import './reports.css';
 
 const RATE_ICONS = {
@@ -65,10 +67,14 @@ export default function ReportsVisaoGeralSection({
   financeLoading,
   financeError = null,
   salesSummary,
+  salesSummaryPrev,
   salesLoading,
   inventorySummary,
+  inventorySummaryPrev,
   inventoryLoading,
+  preset,
   onFunnelDrill,
+  kpiGoals = {},
 }) {
   const m = reportData?.metrics;
   const sm = reportData?.studentMetrics;
@@ -89,13 +95,26 @@ export default function ReportsVisaoGeralSection({
       : Math.max(0, 100 - (Number(sm?.previous?.churnRate) || 0));
 
   const showRevenueKpi = hasFinance && canViewFinance;
+  const showSalesKpi = hasSales;
+  const showRevenueDisclaimer = showRevenueKpi && showSalesKpi;
   const showActiveKpi = sm != null && activeEnd != null;
   const receivedCur = financeSummary?.received ?? financeSummary?.totalReceived;
   const receivedPrev = financeSummaryPrev?.received ?? financeSummaryPrev?.totalReceived;
+  const salesTotalCur = Number(salesSummary?.concludedTotal) || 0;
+  const salesTotalPrev = Number(salesSummaryPrev?.concludedTotal) || 0;
+  const stalledCur = Number(inventorySummary?.stalled) || 0;
+  const stalledPrev = Number(inventorySummaryPrev?.stalled) || 0;
 
   return (
     <ReportsPanelShell className="animate-in">
       <ReportsPanelSection title="Indicadores do período" subtitle="Resumo cross-domain do intervalo selecionado">
+      {showRevenueDisclaimer ? (
+        <p className="reports-revenue-disclaimer reports-panel-note" role="note">
+          <strong>Receita (Caixa)</strong> inclui todas as entradas liquidadas no financeiro.{' '}
+          <strong>Faturamento (loja)</strong> considera apenas vendas concluídas no módulo Loja — os valores{' '}
+          <em>não são somáveis</em> e medem fontes diferentes.
+        </p>
+      ) : null}
       <div className="reports-kpi-grid reports-kpi-grid--overview">
         <ReportKpiCell footerTo="/reports?tab=funil">
           <ReportKpiCard
@@ -103,6 +122,7 @@ export default function ReportsVisaoGeralSection({
             value={newLeadsCur}
             trend={pctVar(newLeadsCur, newLeadsPrev)}
             trendLabel="vs. período anterior"
+            tooltip={reportKpiTooltip('newLeads', { preset })}
             icon={<UserPlus size={20} strokeWidth={2.25} />}
             showCta={false}
             onClick={() => onFunnelDrill?.('newLeads')}
@@ -114,6 +134,7 @@ export default function ReportsVisaoGeralSection({
             value={convertedCur}
             trend={pctVar(convertedCur, convertedPrev)}
             trendLabel="vs. período anterior"
+            tooltip={reportKpiTooltip('converted', { preset })}
             icon={<Users size={20} strokeWidth={2.25} />}
             highlight="success"
             showCta={false}
@@ -133,12 +154,13 @@ export default function ReportsVisaoGeralSection({
         {showRevenueKpi && !financeLoading && !financeError && financeSummary ? (
           <ReportKpiCell footerTo="/reports?tab=financeiro">
             <ReportKpiCard
-              label="Receita liquidada"
+              label="Receita liquidada (Caixa)"
               value={formatBRL(Number(receivedCur) || 0)}
               trend={
                 receivedPrev != null ? pctVar(Number(receivedCur) || 0, Number(receivedPrev) || 0) : null
               }
               trendLabel="vs. período anterior"
+              tooltip={reportKpiTooltip('financeReceived', { preset })}
               icon={<Wallet size={20} strokeWidth={2.25} />}
               highlight="accent"
               showCta={false}
@@ -152,6 +174,7 @@ export default function ReportsVisaoGeralSection({
               value={activeEnd}
               trend={activeEndPrev != null ? pctVar(activeEnd, activeEndPrev) : null}
               trendLabel="vs. fim do período anterior"
+              tooltip={reportKpiTooltip('activeAtEnd', { preset })}
               icon={<TrendingUp size={20} strokeWidth={2.25} />}
               showCta={false}
             />
@@ -164,9 +187,11 @@ export default function ReportsVisaoGeralSection({
               value={`${retention.toFixed(1)}%`}
               trend={pctVar(retention, retentionPrev)}
               trendLabel="vs. período anterior"
+              tooltip={reportKpiTooltip('retentionRate', { preset })}
               icon={<TrendingUp size={20} strokeWidth={2.25} />}
               highlight="success"
               showCta={false}
+              {...kpiRagProps('retentionRate', retention, kpiGoals)}
             />
           </ReportKpiCell>
         ) : null}
@@ -178,9 +203,11 @@ export default function ReportsVisaoGeralSection({
         {hasSales && !salesLoading && salesSummary ? (
           <ReportKpiCell footerTo="/reports?tab=loja">
             <ReportKpiCard
-              label="Faturamento (vendas)"
-              value={formatBRL(Number(salesSummary.concludedTotal) || 0)}
-              trendLabel={`${salesSummary.concludedCount ?? 0} venda(s)`}
+              label="Faturamento (loja)"
+              value={formatBRL(salesTotalCur)}
+              trend={salesSummaryPrev != null ? pctVar(salesTotalCur, salesTotalPrev) : null}
+              trendLabel="vs. período anterior"
+              tooltip={reportKpiTooltip('storeRevenue', { preset })}
               icon={<ShoppingBag size={20} strokeWidth={2.25} />}
               showCta={false}
             />
@@ -195,8 +222,10 @@ export default function ReportsVisaoGeralSection({
           <ReportKpiCell footerTo="/reports?tab=estoque">
             <ReportKpiCard
               label="Produtos parados"
-              value={inventorySummary.stalled ?? 0}
-              trendLabel="Sem vendas no período"
+              value={stalledCur}
+              trend={inventorySummaryPrev != null ? pctVar(stalledCur, stalledPrev) : null}
+              trendLabel="vs. período anterior"
+              tooltip={reportKpiTooltip('stalled', { preset })}
               icon={<Package size={20} strokeWidth={2.25} />}
               highlight="warning"
               showCta={false}

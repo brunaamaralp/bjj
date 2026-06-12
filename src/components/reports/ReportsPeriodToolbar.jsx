@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ChevronDown } from 'lucide-react';
+import { Download, ChevronDown, Loader2 } from 'lucide-react';
 import FilterBar from '../shared/FilterBar.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import { DateInputField } from '../DateInput';
@@ -15,9 +15,6 @@ export default function ReportsPeriodToolbar({
   onToChange,
   dateError,
   showLeadFilters,
-  originFilter,
-  onOriginFilterChange,
-  leadOrigins,
   profileFilter,
   onProfileFilterChange,
   exportOpen,
@@ -72,33 +69,17 @@ export default function ReportsPeriodToolbar({
           <>
             <div className="reports-filters-divider" aria-hidden />
             <div className="reports-segment-block">
-              <span className="reports-segment-label">Segmentar por:</span>
-              <div className="filter-group reports-selects-inline">
-                <select
-                  value={originFilter}
-                  onChange={(e) => onOriginFilterChange(e.target.value)}
-                  aria-label="Filtrar por origem"
-                  className="reports-filter-select"
-                >
-                  <option value="all">Origem</option>
-                  {leadOrigins.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={profileFilter}
-                  onChange={(e) => onProfileFilterChange(e.target.value)}
-                  aria-label="Filtrar por perfil"
-                  className="reports-filter-select"
-                >
-                  <option value="all">Perfil</option>
-                  <option value="Adulto">Adulto</option>
-                  <option value="Criança">Criança</option>
-                  <option value="Juniores">Juniores</option>
-                </select>
-              </div>
+              <select
+                value={profileFilter}
+                onChange={(e) => onProfileFilterChange(e.target.value)}
+                aria-label="Filtrar por perfil"
+                className="reports-filter-select"
+              >
+                <option value="all">Perfil</option>
+                <option value="Adulto">Adulto</option>
+                <option value="Criança">Criança</option>
+                <option value="Juniores">Juniores</option>
+              </select>
             </div>
             {dateError ? <FieldError>{dateError}</FieldError> : null}
             <div className="reports-filters-spacer" />
@@ -110,20 +91,20 @@ export default function ReportsPeriodToolbar({
             >
               <button
                 type="button"
-                className="btn-secondary reports-export-btn"
+                className="btn-secondary reports-export-btn reports-export-btn--icon"
                 onClick={() => !exportDisabled && onExportOpenChange(!exportOpen)}
                 aria-expanded={exportOpen}
                 aria-haspopup="menu"
+                aria-label={exportTitle || 'Exportar relatório'}
                 disabled={exportDisabled}
                 title={exportTitle}
               >
                 {exportLoading ? (
-                  'Carregando...'
+                  <Loader2 size={16} className="reports-spin" aria-hidden />
                 ) : (
                   <>
                     <Download size={16} aria-hidden />
-                    Exportar CSV
-                    <ChevronDown size={16} className={exportOpen ? 'reports-chevron-open' : ''} aria-hidden />
+                    <ChevronDown size={14} className={exportOpen ? 'reports-chevron-open' : ''} aria-hidden />
                   </>
                 )}
               </button>

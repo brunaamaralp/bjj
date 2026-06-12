@@ -10,6 +10,7 @@ import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
 import PipelineStagesSection from './PipelineStagesSection.jsx';
 import FunilQuestionsSection from './FunilQuestionsSection.jsx';
 import UiLabelsSection from './UiLabelsSection.jsx';
+import ReportsKpiGoalsSection from './ReportsKpiGoalsSection.jsx';
 import { useUserRole } from '../../lib/useUserRole';
 import '../finance/finance.css';
 
@@ -48,6 +49,8 @@ const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0, 
     sectionBody = (
       <UiLabelsSection academy={academy} setAcademy={setAcademy} onSave={onSave} canEdit={canEdit} />
     );
+  } else if (section === FUNIL_SETTINGS_SECTIONS.METAS) {
+    sectionBody = <ReportsKpiGoalsSection academyId={academyId} canEdit={canEdit} />;
   }
 
   return (

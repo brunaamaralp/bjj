@@ -182,12 +182,13 @@ export default function ReportsOperadorPanel({ academyId, from, to, hasSales }) 
   const exportAction = (
     <button
       type="button"
-      className="btn-outline btn-sm"
+      className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
       disabled={!sorted.length}
       onClick={() => exportOperatorReport(sorted, `${from}_${to}`)}
+      aria-label="Exportar CSV"
+      title="Exportar CSV"
     >
-      <Download size={14} aria-hidden />
-      Exportar CSV
+      <Download size={16} aria-hidden />
     </button>
   );
 

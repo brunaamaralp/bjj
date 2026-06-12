@@ -141,9 +141,14 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
   }
 
   const exportAction = !isLimited ? (
-    <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
-      <Download size={14} aria-hidden />
-      Exportar CSV
+    <button
+      type="button"
+      className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
+      onClick={exportCsv}
+      aria-label="Exportar CSV"
+      title="Exportar CSV"
+    >
+      <Download size={16} aria-hidden />
     </button>
   ) : null;
 

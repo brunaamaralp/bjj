@@ -3,17 +3,59 @@ import { account } from '../lib/appwrite';
 import { friendlyError } from '../lib/errorMessages.js';
 import { endOfMonth, parseYMD, startOfMonth } from '../lib/reportsDateUtils.js';
 
-export function useFunnelReport({
-  enabled,
-  academyId,
-  preset,
-  range,
-  profileFilter,
-  chartMode,
-  onDateError,
-}) {
+function computePrevRange(preset, range) {
+  const fromDay = parseYMD(range.from);
+  const toDay = parseYMD(range.to);
+  const toDEndLocal = new Date(toDay);
+  toDEndLocal.setHours(23, 59, 59, 999);
+
+  const prevFromDLocal = (() => {
+    if (preset === 'today') {
+      const d = new Date(fromDay);
+      d.setDate(d.getDate() - 1);
+      return d;
+    }
+    if (preset === 'week') {
+      const d = new Date(fromDay);
+      d.setDate(d.getDate() - 7);
+      return d;
+    }
+    if (preset === 'month' || preset === 'last_month') {
+      const d = new Date(fromDay.getFullYear(), fromDay.getMonth() - 1, 1);
+      return startOfMonth(d);
+    }
+    const span = Math.max(1, Math.ceil((toDEndLocal - fromDay) / 86400000));
+    const d = new Date(fromDay);
+    d.setDate(d.getDate() - span);
+    return d;
+  })();
+
+  const prevToDLocal = (() => {
+    if (preset === 'today') {
+      const d = new Date(toDEndLocal);
+      d.setDate(d.getDate() - 1);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    }
+    if (preset === 'week') {
+      const d = new Date(toDEndLocal);
+      d.setDate(d.getDate() - 7);
+      return d;
+    }
+    if (preset === 'month' || preset === 'last_month') {
+      return endOfMonth(new Date(prevFromDLocal));
+    }
+    const span = Math.max(1, Math.ceil((toDEndLocal - fromDay) / 86400000));
+    const d = new Date(toDEndLocal);
+    d.setDate(d.getDate() - span);
+    return d;
+  })();
+
+  return { fromDay, toDEndLocal, prevFromDLocal, prevToDLocal };
+}
+
+export function useStudentMetricsReport({ enabled, academyId, preset, range, onDateError }) {
   const reportAbortRef = useRef(null);
-  const filterDebounceSkip = useRef(true);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,52 +81,7 @@ export function useFunnelReport({
       setLoading(true);
       setError(null);
 
-      const fromDay = parseYMD(range.from);
-      const toDay = parseYMD(range.to);
-      const toDEndLocal = new Date(toDay);
-      toDEndLocal.setHours(23, 59, 59, 999);
-
-      const prevFromDLocal = (() => {
-        if (preset === 'today') {
-          const d = new Date(fromDay);
-          d.setDate(d.getDate() - 1);
-          return d;
-        }
-        if (preset === 'week') {
-          const d = new Date(fromDay);
-          d.setDate(d.getDate() - 7);
-          return d;
-        }
-        if (preset === 'month' || preset === 'last_month') {
-          const d = new Date(fromDay.getFullYear(), fromDay.getMonth() - 1, 1);
-          return startOfMonth(d);
-        }
-        const span = Math.max(1, Math.ceil((toDEndLocal - fromDay) / 86400000));
-        const d = new Date(fromDay);
-        d.setDate(d.getDate() - span);
-        return d;
-      })();
-
-      const prevToDLocal = (() => {
-        if (preset === 'today') {
-          const d = new Date(toDEndLocal);
-          d.setDate(d.getDate() - 1);
-          d.setHours(23, 59, 59, 999);
-          return d;
-        }
-        if (preset === 'week') {
-          const d = new Date(toDEndLocal);
-          d.setDate(d.getDate() - 7);
-          return d;
-        }
-        if (preset === 'month' || preset === 'last_month') {
-          return endOfMonth(new Date(prevFromDLocal));
-        }
-        const span = Math.max(1, Math.ceil((toDEndLocal - fromDay) / 86400000));
-        const d = new Date(toDEndLocal);
-        d.setDate(d.getDate() - span);
-        return d;
-      })();
+      const { fromDay, toDEndLocal, prevFromDLocal, prevToDLocal } = computePrevRange(preset, range);
 
       try {
         const jwt = await account.createJWT();
@@ -101,8 +98,9 @@ export function useFunnelReport({
             to: toDEndLocal.toISOString(),
             prevFrom: prevFromDLocal.toISOString(),
             prevTo: prevToDLocal.toISOString(),
-            filters: { origin: 'all', type: profileFilter },
-            chartMode,
+            filters: { origin: 'all', type: 'all' },
+            chartMode: 'monthly',
+            slice: 'students',
             refresh: forceRefresh === true,
           }),
           signal: controller.signal,
@@ -125,23 +123,13 @@ export function useFunnelReport({
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [academyId, enabled, preset, range.from, range.to, profileFilter, chartMode, onDateError]
+    [academyId, enabled, preset, range.from, range.to, onDateError]
   );
 
   useEffect(() => {
     if (!enabled) return;
     void fetchReport(false);
-  }, [range, chartMode, academyId, preset, enabled, fetchReport]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (filterDebounceSkip.current) {
-      filterDebounceSkip.current = false;
-      return;
-    }
-    const t = window.setTimeout(() => void fetchReport(false), 300);
-    return () => window.clearTimeout(t);
-  }, [profileFilter, enabled, fetchReport]);
+  }, [range, academyId, preset, enabled, fetchReport]);
 
   return {
     reportData,

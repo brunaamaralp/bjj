@@ -177,9 +177,14 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   }
 
   const exportAction = (
-    <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
-      <Download size={14} aria-hidden />
-      Exportar CSV
+    <button
+      type="button"
+      className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
+      onClick={exportCsv}
+      aria-label="Exportar CSV"
+      title="Exportar CSV"
+    >
+      <Download size={16} aria-hidden />
     </button>
   );
 

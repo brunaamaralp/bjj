@@ -1,6 +1,6 @@
 import { Client, Databases } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
-import { aggregateLeadsReport } from '../lib/server/reportsAggregate.js';
+import { aggregateLeadsReport, aggregateStudentMetricsOnly } from '../lib/server/reportsAggregate.js';
 import { fetchAllReportPeople, LEADS_COL } from '../lib/server/reportsPeople.js';
 import { loadReportSnapshot, saveReportSnapshot } from '../lib/server/reportSnapshots.js';
 import reportsLightHandler from '../lib/server/reportsLightHandler.js';
@@ -77,9 +77,12 @@ export default async function handler(req, res) {
     filters,
     chartMode = 'weekly',
     refresh = false,
+    slice,
   } = body || {};
 
   if (!from || !to) return json(res, 400, { error: 'Parâmetros obrigatórios faltando' });
+
+  const reportSlice = String(slice || '').trim() === 'students' ? 'students' : 'funnel';
 
   const bodyAid = String(bodyAcademyId || '').trim();
   if (bodyAid && bodyAid !== authorizedAcademyId) {
@@ -87,7 +90,7 @@ export default async function handler(req, res) {
   }
 
   const academyId = authorizedAcademyId;
-  const reportMeta = { report: 'funnel', academyId, from, to };
+  const reportMeta = { report: reportSlice === 'students' ? 'students' : 'funnel', academyId, from, to };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REPORT_TIMEOUT_MS);
@@ -96,7 +99,7 @@ export default async function handler(req, res) {
     const reportsDb = getReportsDatabases();
 
     if (!refresh) {
-      const snap = await loadReportSnapshot(academyId, from, to, filters, chartMode);
+      const snap = await loadReportSnapshot(academyId, from, to, filters, chartMode, reportSlice);
       if (snap?.payload) {
         logReport({
           ...reportMeta,
@@ -119,6 +122,26 @@ export default async function handler(req, res) {
       filters,
       controller.signal
     );
+
+    if (reportSlice === 'students') {
+      const aggregated = aggregateStudentMetricsOnly(allPeople, { from, to, prevFrom, prevTo });
+      const payload = {
+        slice: 'students',
+        period: { from, to },
+        ...aggregated,
+        snapshotUpdatedAt: new Date().toISOString(),
+        fromSnapshot: false,
+      };
+      await saveReportSnapshot(academyId, from, to, filters, chartMode, payload, reportSlice);
+      logReport({
+        ...reportMeta,
+        leadCount: aggregated.leadCount,
+        durationMs: Date.now() - started,
+        error: null,
+      });
+      return json(res, 200, payload);
+    }
+
     const aggregated = aggregateLeadsReport(allPeople, { from, to, prevFrom, prevTo, chartMode });
 
     const payload = {
@@ -128,7 +151,7 @@ export default async function handler(req, res) {
       fromSnapshot: false,
     };
 
-    await saveReportSnapshot(academyId, from, to, filters, chartMode, payload);
+    await saveReportSnapshot(academyId, from, to, filters, chartMode, payload, reportSlice);
 
     logReport({
       ...reportMeta,

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchInventoryReport } from '../lib/inventoryReportApi.js';
-import { fetchReportsFinanceLightResult, fetchReportsSalesLight } from '../lib/reportsLightApi.js';
+import { fetchReportsOverview } from '../lib/reportsLightApi.js';
 import { getFinanceRegime } from '../lib/financeCompetence.js';
 import { previousPeriodRange } from '../lib/reportsPeriod.js';
 
@@ -19,98 +18,100 @@ export function useReportsOverviewKpis({
   const [financeKpiLoading, setFinanceKpiLoading] = useState(false);
   const [financeKpiError, setFinanceKpiError] = useState(null);
   const [salesKpi, setSalesKpi] = useState(null);
+  const [salesKpiPrev, setSalesKpiPrev] = useState(null);
   const [salesKpiLoading, setSalesKpiLoading] = useState(false);
   const [inventoryKpi, setInventoryKpi] = useState(null);
+  const [inventoryKpiPrev, setInventoryKpiPrev] = useState(null);
   const [inventoryKpiLoading, setInventoryKpiLoading] = useState(false);
 
   const prevRangeYmd = previousPeriodRange(preset, range);
+  const needsOverview =
+    active &&
+    academyId &&
+    ((hasFinance && canViewFinance) || hasSales || hasInventory);
 
   useEffect(() => {
     let alive = true;
-    if (!active || !academyId || !hasFinance || !canViewFinance) {
+    if (!needsOverview) {
       setFinanceKpi(null);
       setFinanceKpiPrev(null);
       setFinanceKpiLoading(false);
       setFinanceKpiError(null);
+      setSalesKpi(null);
+      setSalesKpiPrev(null);
+      setSalesKpiLoading(false);
+      setInventoryKpi(null);
+      setInventoryKpiPrev(null);
+      setInventoryKpiLoading(false);
       return undefined;
     }
+
     const regime = getFinanceRegime(academyId);
-    setFinanceKpiLoading(true);
+    const loadingFinance = hasFinance && canViewFinance;
+    const loadingSales = hasSales;
+    const loadingInventory = hasInventory;
+
+    setFinanceKpiLoading(loadingFinance);
+    setSalesKpiLoading(loadingSales);
+    setInventoryKpiLoading(loadingInventory);
     setFinanceKpiError(null);
-    Promise.all([
-      fetchReportsFinanceLightResult({ academyId, from: range.from, to: range.to, regime }),
-      fetchReportsFinanceLightResult({
-        academyId,
-        from: prevRangeYmd.from,
-        to: prevRangeYmd.to,
-        regime,
-      }),
-    ])
-      .then(([cur, prev]) => {
+
+    fetchReportsOverview({
+      academyId,
+      from: range.from,
+      to: range.to,
+      prevFrom: prevRangeYmd.from,
+      prevTo: prevRangeYmd.to,
+      regime,
+    })
+      .then((data) => {
         if (!alive) return;
-        setFinanceKpi(cur.ok && !cur.permissionDenied ? cur.data : null);
-        setFinanceKpiPrev(prev.ok && !prev.permissionDenied ? prev.data : null);
-      })
-      .catch(() => {
-        if (alive) {
+        if (loadingFinance && data.financePrivileged) {
+          setFinanceKpi(data.finance);
+          setFinanceKpiPrev(data.financePrev);
+        } else {
           setFinanceKpi(null);
           setFinanceKpiPrev(null);
+        }
+        setSalesKpi(loadingSales ? data.sales : null);
+        setSalesKpiPrev(loadingSales ? data.salesPrev : null);
+        setInventoryKpi(loadingInventory ? data.inventory : null);
+        setInventoryKpiPrev(loadingInventory ? data.inventoryPrev : null);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setFinanceKpi(null);
+        setFinanceKpiPrev(null);
+        setSalesKpi(null);
+        setSalesKpiPrev(null);
+        setInventoryKpi(null);
+        setInventoryKpiPrev(null);
+        if (loadingFinance) {
           setFinanceKpiError('Não foi possível carregar o resumo financeiro.');
         }
       })
       .finally(() => {
-        if (alive) setFinanceKpiLoading(false);
+        if (!alive) return;
+        setFinanceKpiLoading(false);
+        setSalesKpiLoading(false);
+        setInventoryKpiLoading(false);
       });
-    return () => {
-      alive = false;
-    };
-  }, [active, academyId, hasFinance, canViewFinance, range.from, range.to, prevRangeYmd.from, prevRangeYmd.to]);
 
-  useEffect(() => {
-    let alive = true;
-    if (!active || !academyId || !hasSales) {
-      setSalesKpi(null);
-      setSalesKpiLoading(false);
-      return undefined;
-    }
-    setSalesKpiLoading(true);
-    fetchReportsSalesLight({ academyId, from: range.from, to: range.to })
-      .then((data) => {
-        if (alive) setSalesKpi(data);
-      })
-      .catch(() => {
-        if (alive) setSalesKpi(null);
-      })
-      .finally(() => {
-        if (alive) setSalesKpiLoading(false);
-      });
     return () => {
       alive = false;
     };
-  }, [active, academyId, hasSales, range.from, range.to]);
-
-  useEffect(() => {
-    let alive = true;
-    if (!active || !academyId || !hasInventory) {
-      setInventoryKpi(null);
-      setInventoryKpiLoading(false);
-      return undefined;
-    }
-    setInventoryKpiLoading(true);
-    fetchInventoryReport({ from: range.from, to: range.to, academyId })
-      .then((data) => {
-        if (alive) setInventoryKpi(data?.summary || null);
-      })
-      .catch(() => {
-        if (alive) setInventoryKpi(null);
-      })
-      .finally(() => {
-        if (alive) setInventoryKpiLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [active, academyId, hasInventory, range.from, range.to]);
+  }, [
+    needsOverview,
+    academyId,
+    range.from,
+    range.to,
+    prevRangeYmd.from,
+    prevRangeYmd.to,
+    hasFinance,
+    canViewFinance,
+    hasSales,
+    hasInventory,
+  ]);
 
   return {
     financeKpi,
@@ -118,8 +119,10 @@ export function useReportsOverviewKpis({
     financeKpiLoading,
     financeKpiError,
     salesKpi,
+    salesKpiPrev,
     salesKpiLoading,
     inventoryKpi,
+    inventoryKpiPrev,
     inventoryKpiLoading,
   };
 }

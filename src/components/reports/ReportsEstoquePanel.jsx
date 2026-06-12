@@ -189,9 +189,15 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
   }
 
   const headingAction = (
-    <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
-      <Download size={14} aria-hidden />
-      Exportar CSV
+    <button
+      type="button"
+      className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
+      onClick={exportCsv}
+      disabled={!filtered.length}
+      aria-label="Exportar CSV"
+      title="Exportar CSV"
+    >
+      <Download size={16} aria-hidden />
     </button>
   );
 

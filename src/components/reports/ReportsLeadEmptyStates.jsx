@@ -36,7 +36,7 @@ export default function ReportsLeadEmptyStates({
             variant="compact"
             tone="solid"
             title="Sem atividade neste período"
-            description="Tente outro intervalo de datas ou remova os filtros de origem/perfil."
+            description="Tente outro intervalo de datas ou remova o filtro de perfil."
             role="status"
           />
         </ReportsPanelSection>

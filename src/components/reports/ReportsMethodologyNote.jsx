@@ -15,7 +15,7 @@ export default function ReportsMethodologyNote({ className = '' }) {
           Todos os KPIs comparam o período selecionado contra o período imediatamente anterior de mesma
           duração.
         </p>
-        <p>Filtros de origem e perfil são aplicados tanto nos totais quanto nos gráficos de captação.</p>
+        <p>O filtro de perfil é aplicado tanto nos totais quanto nos gráficos de captação.</p>
       </div>
     </details>
   );

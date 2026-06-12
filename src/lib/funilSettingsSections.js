@@ -2,6 +2,7 @@ export const FUNIL_SETTINGS_SECTIONS = {
   ETAPAS: 'etapas',
   PERGUNTAS: 'perguntas',
   ETIQUETAS: 'etiquetas',
+  METAS: 'metas',
 };
 
 const VALID = new Set(Object.values(FUNIL_SETTINGS_SECTIONS));
@@ -31,6 +32,11 @@ export const FUNIL_SETTINGS_ITEMS = [
     id: FUNIL_SETTINGS_SECTIONS.ETIQUETAS,
     label: 'Etiquetas',
     hint: 'Nomes de menu para leads, alunos, aulas e funil.',
+  },
+  {
+    id: FUNIL_SETTINGS_SECTIONS.METAS,
+    label: 'Metas de relatórios',
+    hint: 'Metas de conversão, churn e retenção para indicadores RAG nos relatórios.',
   },
 ];
 

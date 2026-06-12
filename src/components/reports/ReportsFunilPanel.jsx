@@ -13,7 +13,9 @@ import ReportKpiCard from './shared/ReportKpiCard.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
-import { HIGHLIGHT_BY_COLOR, pctVar, trendHintFor } from '../../lib/reportsFunnelUtils.js';
+import { HIGHLIGHT_BY_COLOR, pctVar } from '../../lib/reportsFunnelUtils.js';
+import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
+import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 import './reports.css';
 
 const ReportsFunilBarChart = lazy(() =>
@@ -66,6 +68,7 @@ export default function ReportsFunilPanel({
   preset,
   range,
   onDrill,
+  kpiGoals = {},
 }) {
   const heatmapMax = useMemo(() => {
     if (!reportData?.heatmapData) return 0;
@@ -104,7 +107,7 @@ export default function ReportsFunilPanel({
             value={m.newLeads?.current ?? 0}
             trend={pctVar(m.newLeads?.current ?? 0, m.newLeads?.previous ?? 0)}
             trendLabel="vs. período anterior"
-            tooltip={trendHintFor('newLeads', preset)}
+            tooltip={reportKpiTooltip('newLeads', { preset })}
             icon={<UserPlus size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.accent}
             onClick={() => onDrill('newLeads')}
@@ -114,7 +117,7 @@ export default function ReportsFunilPanel({
             value={m.scheduled?.current ?? 0}
             trend={pctVar(m.scheduled?.current ?? 0, m.scheduled?.previous ?? 0)}
             trendLabel="vs. período anterior"
-            tooltip={trendHintFor('scheduled', preset)}
+            tooltip={reportKpiTooltip('scheduled', { preset })}
             icon={<Calendar size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.warning}
             onClick={() => onDrill('scheduled')}
@@ -127,7 +130,7 @@ export default function ReportsFunilPanel({
               m.completed?.previous ?? m.showed?.previous ?? 0
             )}
             trendLabel="vs. período anterior"
-            tooltip={trendHintFor('completed', preset)}
+            tooltip={reportKpiTooltip('completed', { preset })}
             icon={<CheckCircle2 size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.success}
             onClick={() => onDrill('completed')}
@@ -137,7 +140,7 @@ export default function ReportsFunilPanel({
             value={m.converted?.current ?? 0}
             trend={pctVar(m.converted?.current ?? 0, m.converted?.previous ?? 0)}
             trendLabel="vs. período anterior"
-            tooltip={trendHintFor('converted', preset)}
+            tooltip={reportKpiTooltip('converted', { preset })}
             icon={<Users size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.purple}
             onClick={() => onDrill('converted')}
@@ -147,7 +150,7 @@ export default function ReportsFunilPanel({
             value={m.missed?.current ?? 0}
             trend={pctVar(m.missed?.current ?? 0, m.missed?.previous ?? 0)}
             trendLabel="vs. período anterior"
-            tooltip={trendHintFor('missed', preset)}
+            tooltip={reportKpiTooltip('missed', { preset })}
             icon={<XCircle size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.danger}
             onClick={() => onDrill('missed')}
@@ -157,9 +160,10 @@ export default function ReportsFunilPanel({
             value={`${m.conversionRate?.current ?? 0}%`}
             trend={pctVar(m.conversionRate?.current ?? 0, m.conversionRate?.previous ?? 0)}
             trendLabel="vs. período anterior"
-            tooltip={trendHintFor('conversionRate', preset)}
+            tooltip={reportKpiTooltip('conversionRate', { preset })}
             icon={<TrendingUp size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.accent}
+            {...kpiRagProps('conversionRate', Number(m.conversionRate?.current ?? 0), kpiGoals)}
           />
         </div>
         </ReportsPanelSection>
@@ -265,8 +269,8 @@ export default function ReportsFunilPanel({
             }
         >
           <p className="text-xs text-muted reports-funil-chart-note">
-            Mesmo intervalo de <strong>{range.from} — {range.to}</strong>, respeitando filtros de origem e
-            perfil.
+            Mesmo intervalo de <strong>{range.from} — {range.to}</strong>, respeitando o filtro de perfil quando
+            ativo.
           </p>
           <div className="reports-chart-legend">
             <span className="reports-chart-legend-item">
@@ -299,7 +303,12 @@ export default function ReportsFunilPanel({
       ) : null}
 
       {showContent && !loading ? (
-        <div className="reports-aux-grid">
+        <details className="reports-funil-advanced">
+          <summary className="reports-funil-advanced__summary">
+            Horários e tempos no funil
+            <span className="reports-funil-advanced__hint">heatmap · tempo médio por etapa</span>
+          </summary>
+          <div className="reports-aux-grid">
           <ReportsPanelSection
               title="Heatmap de horários"
               action={
@@ -398,7 +407,8 @@ export default function ReportsFunilPanel({
               </div>
             )}
           </ReportsPanelSection>
-        </div>
+          </div>
+        </details>
       ) : null}
 
       {showContent ? <ReportsMethodologyNote /> : null}

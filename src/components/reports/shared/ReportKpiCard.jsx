@@ -9,6 +9,12 @@ const HIGHLIGHT_CLASS = {
   attention: 'report-kpi-card--attention',
 };
 
+const RAG_CLASS = {
+  ok: 'report-kpi-card--rag-ok',
+  warn: 'report-kpi-card--rag-warn',
+  critical: 'report-kpi-card--rag-critical',
+};
+
 /**
  * KPI padronizado para abas de Relatórios e Dashboard.
  */
@@ -26,6 +32,8 @@ export default function ReportKpiCard({
   ctaIcon = null,
   loading = false,
   valueVariant = 'metric',
+  rag = null,
+  goalTarget = null,
   className = '',
 }) {
   if (loading) {
@@ -36,12 +44,14 @@ export default function ReportKpiCard({
   const hasTrend = typeof trend === 'number' && !Number.isNaN(trend);
   const isUp = hasTrend ? trend >= 0 : true;
   const highlightClass = HIGHLIGHT_CLASS[highlight] || HIGHLIGHT_CLASS.default;
+  const ragClass = rag ? RAG_CLASS[rag] || '' : '';
 
   return (
     <div
       className={[
         'report-kpi-card',
         highlightClass,
+        ragClass,
         clickable ? 'report-kpi-card--clickable' : '',
         className,
       ]
@@ -103,6 +113,7 @@ export default function ReportKpiCard({
         ) : null}
       </div>
       {trendLabel ? <p className="report-kpi-card__trend-label">{trendLabel}</p> : null}
+      {goalTarget ? <p className="report-kpi-card__goal-target">{goalTarget}</p> : null}
       {clickable && showCta ? (
         <span className="report-kpi-card__cta">
           {ctaIcon ? <span className="report-kpi-card__cta-icon">{ctaIcon}</span> : null}

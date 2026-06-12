@@ -16,6 +16,7 @@ const lazyFallback = <PageSkeleton variant="cards" rows={4} />;
 export default function ReportsTabPanels({
   activeTab,
   needsFunnelReport,
+  needsStudentMetrics,
   showNoLeadsEmpty,
   showNoActivityEmpty,
   showLeadFunnelContent,
@@ -23,6 +24,9 @@ export default function ReportsTabPanels({
   contactsPlural,
   workspaceNoun,
   reportData,
+  studentReportData,
+  studentShowInitialLoad,
+  kpiGoals,
   ratesCards,
   overviewKpis,
   hasFinance,
@@ -64,6 +68,7 @@ export default function ReportsTabPanels({
           {activeTab === 'visao-geral' && showLeadFunnelContent ? (
             <ReportsVisaoGeralSection
               reportData={reportData}
+              kpiGoals={kpiGoals}
               ratesCards={ratesCards}
               hasFinance={hasFinance}
               hasSales={hasSales}
@@ -74,9 +79,12 @@ export default function ReportsTabPanels({
               financeLoading={overviewKpis.financeKpiLoading}
               financeError={overviewKpis.financeKpiError}
               salesSummary={overviewKpis.salesKpi}
+              salesSummaryPrev={overviewKpis.salesKpiPrev}
               salesLoading={overviewKpis.salesKpiLoading}
               inventorySummary={overviewKpis.inventoryKpi}
+              inventorySummaryPrev={overviewKpis.inventoryKpiPrev}
               inventoryLoading={overviewKpis.inventoryKpiLoading}
+              preset={preset}
               onFunnelDrill={onDrill}
             />
           ) : null}
@@ -84,6 +92,7 @@ export default function ReportsTabPanels({
           {activeTab === 'funil' ? (
             <ReportsFunilPanel
               reportData={reportData}
+              kpiGoals={kpiGoals}
               showContent={showLeadFunnelContent}
               loading={loading}
               showChartSkeleton={showFunilChartSkeleton}
@@ -107,19 +116,21 @@ export default function ReportsTabPanels({
             />
           ) : null}
 
-          {activeTab === 'alunos' ? (
-            <Suspense fallback={lazyFallback}>
-              <ReportsStudentsPanel
-                academyId={academyId}
-                rangeFrom={range.from}
-                rangeTo={range.to}
-                preset={preset}
-                studentMetrics={reportData?.studentMetrics}
-                loading={showInitialLoad || (loading && !reportData)}
-              />
-            </Suspense>
-          ) : null}
         </>
+      ) : null}
+
+      {needsStudentMetrics ? (
+        <Suspense fallback={lazyFallback}>
+          <ReportsStudentsPanel
+            academyId={academyId}
+            rangeFrom={range.from}
+            rangeTo={range.to}
+            preset={preset}
+            kpiGoals={kpiGoals}
+            studentMetrics={studentReportData?.studentMetrics}
+            loading={studentShowInitialLoad}
+          />
+        </Suspense>
       ) : null}
 
       {activeTab === 'financeiro' ? (

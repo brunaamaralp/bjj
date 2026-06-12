@@ -10,7 +10,8 @@ import {
   YAxis,
 } from 'recharts';
 import { Users, UserPlus, UserMinus, TrendingDown, TrendingUp } from 'lucide-react';
-import { metricTooltip } from '../../../lib/reportsMetricDefinitions.js';
+import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
+import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 import {
   buildLastSixMonthRanges,
   fetchStudentMetricsForRange,
@@ -35,6 +36,7 @@ export default function ReportsStudentsPanel({
   preset = 'month',
   studentMetrics,
   loading,
+  kpiGoals = {},
 }) {
   const prevFetchKey =
     academyId && rangeFrom && rangeTo && !loading
@@ -161,7 +163,7 @@ export default function ReportsStudentsPanel({
           value={active}
           trend={pctVar(active, prevActive)}
           trendLabel="vs. período anterior"
-          tooltip={metricTooltip('activeStudentsStart')}
+          tooltip={reportKpiTooltip('activeStudentsStart', { preset })}
           icon={<Users size={20} strokeWidth={2.25} />}
         />
         <ReportKpiCard
@@ -169,7 +171,7 @@ export default function ReportsStudentsPanel({
           value={novo}
           trend={pctVar(novo, prevNovo)}
           trendLabel="vs. período anterior"
-          tooltip={metricTooltip('newStudents')}
+          tooltip={reportKpiTooltip('newStudents', { preset })}
           icon={<UserPlus size={20} strokeWidth={2.25} />}
           highlight="success"
         />
@@ -178,7 +180,7 @@ export default function ReportsStudentsPanel({
           value={off}
           trend={pctVar(off, prevOff)}
           trendLabel="vs. período anterior"
-          tooltip={metricTooltip('deactivations')}
+          tooltip={reportKpiTooltip('deactivations', { preset })}
           icon={<UserMinus size={20} strokeWidth={2.25} />}
           highlight="danger"
         />
@@ -187,18 +189,20 @@ export default function ReportsStudentsPanel({
           value={`${churn.toFixed(1)}%`}
           trend={pctVar(churn, prevChurn)}
           trendLabel="vs. período anterior"
-          tooltip={metricTooltip('churnRate')}
+          tooltip={reportKpiTooltip('churnRate', { preset })}
           icon={<TrendingDown size={20} strokeWidth={2.25} />}
           highlight="danger"
+          {...kpiRagProps('churnRate', churn, kpiGoals)}
         />
         <ReportKpiCard
           label="Retenção"
           value={`${retention.toFixed(1)}%`}
           trend={pctVar(retention, prevRetention)}
           trendLabel="vs. período anterior"
-          tooltip={metricTooltip('retentionRate')}
+          tooltip={reportKpiTooltip('retentionRate', { preset })}
           icon={<TrendingUp size={20} strokeWidth={2.25} />}
           highlight="success"
+          {...kpiRagProps('retentionRate', retention, kpiGoals)}
         />
         </div>
       </ReportsPanelSection>
