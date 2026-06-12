@@ -1,7 +1,7 @@
 import '../styles/tokens/inbox.css';
 import '../styles/inbox.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
@@ -64,6 +64,8 @@ import { useInboxThreadLoader } from '../hooks/useInboxThreadLoader.js';
 import { useInboxConversationActions } from '../hooks/useInboxConversationActions.js';
 import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js';
 import { useInboxDeferredBoot } from '../hooks/useInboxDeferredBoot.js';
+import { useInboxUrlState, readInboxPhoneFromLocationSearch } from '../hooks/useInboxUrlState.js';
+import { useInboxAutoSelectConversation } from '../hooks/useInboxAutoSelectConversation.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -88,25 +90,11 @@ import { useLeadsForAssociatePanel } from '../hooks/useLeadsForAssociatePanel.js
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 const FollowupOutcomeDialog = lazyWithRetry(() => import('../components/followup/FollowupOutcomeDialog.jsx'));
 import useDialogFocus from '../hooks/useDialogFocus.js';
-import { inboxFilterFromUrlParam, inboxFilterLabel, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
+import { inboxFilterLabel } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
 
 const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
-const MINHA_FILA_STORAGE_KEY = 'nave_inbox_minha_fila';
-/** Filtro inicial da lista — fila completa (Todos), salvo preferência legada de "Minha fila". */
-const DEFAULT_INBOX_LIST_FILTER = 'all';
 const INBOX_PRIMARY_FILTERS = new Set(['all', 'needs_me', 'unread']);
-
-function readInitialInboxListFilter() {
-  if (typeof window === 'undefined') return DEFAULT_INBOX_LIST_FILTER;
-  try {
-    const v = window.localStorage.getItem(MINHA_FILA_STORAGE_KEY);
-    if (v === '1' || String(v).toLowerCase() === 'true') return 'needs_me';
-  } catch {
-    void 0;
-  }
-  return DEFAULT_INBOX_LIST_FILTER;
-}
 
 function isInboxDebugEnabled() {
   const envEnabled =
@@ -209,23 +197,11 @@ export default function Inbox() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
-  const [selectedPhone, setSelectedPhone] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    return normalizePhone(new URLSearchParams(window.location.search).get('phone') || '');
-  });
+  const [selectedPhone, setSelectedPhone] = useState(() =>
+    readInboxPhoneFromLocationSearch(window.location.search, normalizePhone)
+  );
   const [selected, setSelected] = useState(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const raw = String(params.get('phone') || '').trim();
-    const digits = normalizePhone(raw);
-    if (!digits) return;
-    
-    // Evita um setState redundante se o phone já é o mesmo que está no state atual
-    if (selectedPhoneRef.current === digits) return;
-    
-    setSelectedPhone(digits);
-  }, [location.search]);
+  const selectedPhoneRef = useRef('');
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 350);
@@ -252,64 +228,15 @@ export default function Inbox() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [composerExpanded, setComposerExpanded] = useState(false);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [listFilter, setListFilter] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const fromUrl = inboxFilterFromUrlParam(new URLSearchParams(window.location.search).get('filter'));
-      if (fromUrl) return fromUrl;
-    }
-    return readInitialInboxListFilter();
+  const { listFilter, setListFilter, listFilterRef } = useInboxUrlState({
+    location,
+    selectedPhone,
+    setSelectedPhone,
+    selectedPhoneRef,
+    normalizePhone,
   });
-  const listFilterRef = useRef(listFilter);
-  listFilterRef.current = listFilter;
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
 
-  useEffect(() => {
-    const fromUrl = inboxFilterFromUrlParam(searchParams.get('filter'));
-    if (fromUrl && fromUrl !== listFilterRef.current) {
-      setListFilter(fromUrl);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        const param = inboxFilterToUrlParam(listFilter);
-        const cur = String(next.get('filter') || '').trim();
-        if (param) {
-          if (cur === param) return prev;
-          next.set('filter', param);
-        } else if (!cur) {
-          return prev;
-        } else {
-          next.delete('filter');
-        }
-        return next;
-      },
-      { replace: true }
-    );
-  }, [listFilter, setSearchParams]);
-
-  useEffect(() => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        const phone = normalizePhone(selectedPhone);
-        const cur = normalizePhone(next.get('phone') || '');
-        if (phone) {
-          if (cur === phone) return prev;
-          next.set('phone', phone);
-        } else if (!cur) {
-          return prev;
-        } else {
-          next.delete('phone');
-        }
-        return next;
-      },
-      { replace: true }
-    );
-  }, [selectedPhone, setSearchParams]);
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const { stats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
@@ -419,7 +346,6 @@ export default function Inbox() {
   }, [quickTemplates, slashQuery]);
 
   const draftRef = useRef('');
-  const selectedPhoneRef = useRef('');
   const handoffExpiryToastRef = useRef('');
   const textareaRef = useRef(null);
   const slashPopupRef = useRef(null);
@@ -809,18 +735,6 @@ export default function Inbox() {
       void 0;
     }
   }, [composerExpanded]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(MINHA_FILA_STORAGE_KEY, listFilter === 'needs_me' ? '1' : '0');
-    } catch {
-      void 0;
-    }
-  }, [listFilter]);
-
-  useEffect(() => {
-    if (listFilter === 'my_queue') setListFilter('needs_me');
-  }, [listFilter]);
 
   useEffect(() => {
     if (composerExpanded) return;
@@ -1536,20 +1450,17 @@ export default function Inbox() {
 
   handleSelectConversationRef.current = handleSelectConversation;
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (normalizePhone(String(params.get('phone') || '').trim())) return;
-    if (searchQuery) return;
-    const curAcademy = String(academyId || '').trim();
-    if (!curAcademy) return;
-    if (loading && !firstVisibleConversation) return;
-    if (inboxAutoSelectDoneRef.current) return;
-    if (String(selectedPhoneRef.current || '').trim()) return;
-    const it = firstVisibleConversation;
-    if (!it) return;
-    inboxAutoSelectDoneRef.current = true;
-    handleSelectConversationRef.current(it);
-  }, [academyId, loading, firstVisibleConversation, location.search, searchQuery]);
+  useInboxAutoSelectConversation({
+    academyId,
+    loading,
+    searchQuery,
+    location,
+    firstVisibleConversation,
+    selectedPhoneRef,
+    inboxAutoSelectDoneRef,
+    handleSelectConversationRef,
+    normalizePhone,
+  });
 
   function ticketChip(status, transferTo) {
     const resolved = resolveInboxTicketBadge(status, transferTo);
