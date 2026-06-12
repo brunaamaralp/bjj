@@ -16,8 +16,12 @@ import { getAppwriteUserFromJwt, assertAcademyOwnedByOwner } from '../lib/server
 import { validateBillingCustomer } from '../lib/billing/validation.js';
 import { runCheckout } from '../lib/billing/runCheckout.js';
 import { listPlansForDisplay } from '../lib/billing/plans.js';
-import { evaluateBillingAccess } from '../lib/billing/gate.js';
 import { ensureTrialSubscription } from '../lib/billing/ensureTrial.js';
+import { buildSubscriptionStatus } from '../lib/billing/subscriptionStatus.js';
+import { cancelSubscription } from '../lib/billing/cancelSubscription.js';
+import { changePlan } from '../lib/billing/changePlan.js';
+import { listPaymentsForStore } from '../lib/billing/listPaymentsForStore.js';
+import { getPaymentMethodLink } from '../lib/billing/paymentMethodLink.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -31,6 +35,17 @@ const adminClient =
 const databases = adminClient ? new Databases(adminClient) : null;
 
 function json(res, status, obj) { res.status(status).json(obj); }
+
+function mapBillingError(e, res) {
+  const code = e?.code;
+  if (code === 'VALIDATION' || code === 'TAX_IN_USE' || code === 'PAST_DUE' || code === 'NO_SUBSCRIPTION' || code === 'NOT_FOUND' || code === 'NO_LINK') {
+    return json(res, 400, { sucesso: false, erro: e.message, code });
+  }
+  if (code === 'BILLING_CONFIG') {
+    return json(res, 503, { sucesso: false, erro: e.message });
+  }
+  return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+}
 
 export default async function handler(req, res) {
   const action = req.query.action || (Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug);
@@ -50,23 +65,21 @@ export default async function handler(req, res) {
     const me = await getAppwriteUserFromJwt(jwt);
     if (!databases) return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite incompleta.' });
 
-    if (action === 'status') {
+    if (action === 'status' || action === 'subscription-summary') {
+      if (req.method !== 'GET') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
       const storeId = String(req.query?.storeId || '').trim();
       if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
 
-      // Ler plano atual da academia
-      let plan = null;
-      try {
-        const DB_ID_LOCAL = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
-        const ACADEMIES_COL_LOCAL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
-        if (DB_ID_LOCAL && ACADEMIES_COL_LOCAL) {
-          const doc = await databases.getDocument(DB_ID_LOCAL, ACADEMIES_COL_LOCAL, storeId);
-          plan = String(doc?.plan || 'starter').trim().toLowerCase() || 'starter';
-        }
-      } catch { void 0; }
-
       if (!isBillingApiLive()) {
+        let plan = 'starter';
+        try {
+          const ACADEMIES_COL = process.env.VITE_APPWRITE_ACADEMIES_COLLECTION_ID || process.env.APPWRITE_ACADEMIES_COLLECTION_ID || '';
+          if (ACADEMIES_COL) {
+            const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, storeId);
+            plan = String(doc?.plan || 'starter').trim().toLowerCase() || 'starter';
+          }
+        } catch { void 0; }
         return json(res, 200, {
           sucesso: true,
           accessLevel: 'full',
@@ -76,7 +89,31 @@ export default async function handler(req, res) {
           plan,
         });
       }
-      return json(res, 200, { sucesso: true, plan, ...(await evaluateBillingAccess(storeId)) });
+      return json(res, 200, await buildSubscriptionStatus(storeId));
+    }
+
+    if (action === 'payments') {
+      if (req.method !== 'GET') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
+      if (!isBillingApiLive()) return json(res, 503, { sucesso: false, erro: 'Cobrança desativada.' });
+      const storeId = String(req.query?.storeId || '').trim();
+      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      await assertAcademyOwnedByOwner(databases, storeId, me.$id);
+      const out = await listPaymentsForStore({ storeId, limit: req.query?.limit });
+      return json(res, 200, { sucesso: true, ...out });
+    }
+
+    if (action === 'payment-method-link') {
+      if (req.method !== 'GET') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
+      if (!isBillingApiLive()) return json(res, 503, { sucesso: false, erro: 'Cobrança desativada.' });
+      const storeId = String(req.query?.storeId || '').trim();
+      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      await assertAcademyOwnedByOwner(databases, storeId, me.$id);
+      try {
+        const out = await getPaymentMethodLink({ storeId });
+        return json(res, 200, { sucesso: true, ...out });
+      } catch (e) {
+        return mapBillingError(e, res);
+      }
     }
 
     if (action === 'update-customer-tax') {
@@ -114,7 +151,46 @@ export default async function handler(req, res) {
       await assertAcademyOwnedByOwner(databases, storeId, me.$id);
       const v = validateBillingCustomer(req.body.customer || {});
       if (!v.ok) return json(res, 400, { sucesso: false, erro: v.error });
-      return json(res, 200, { sucesso: true, ...(await runCheckout({ storeId, planSlug: req.body.planSlug, billingType: req.body.billingType, customer: v.customer })) });
+      try {
+        return json(res, 200, { sucesso: true, ...(await runCheckout({ storeId, planSlug: req.body.planSlug, billingType: req.body.billingType, customer: v.customer })) });
+      } catch (e) {
+        if (e?.code === 'TAX_IN_USE' || e?.code === 'VALIDATION') {
+          return json(res, 400, { sucesso: false, erro: e.message, code: e.code });
+        }
+        throw e;
+      }
+    }
+
+    if (action === 'cancel-subscription') {
+      if (req.method !== 'POST') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
+      if (!isBillingApiLive()) return json(res, 503, { sucesso: false, erro: 'Cobrança desativada.' });
+      const storeId = String(req.body?.storeId || '').trim();
+      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      await assertAcademyOwnedByOwner(databases, storeId, me.$id);
+      try {
+        const out = await cancelSubscription({ storeId, mode: req.body?.mode });
+        return json(res, 200, { sucesso: true, ...out });
+      } catch (e) {
+        return mapBillingError(e, res);
+      }
+    }
+
+    if (action === 'change-plan') {
+      if (req.method !== 'POST') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
+      if (!isBillingApiLive()) return json(res, 503, { sucesso: false, erro: 'Cobrança desativada.' });
+      const storeId = String(req.body?.storeId || '').trim();
+      if (!storeId) return json(res, 400, { sucesso: false, erro: 'storeId obrigatório' });
+      await assertAcademyOwnedByOwner(databases, storeId, me.$id);
+      try {
+        const out = await changePlan({
+          storeId,
+          planSlug: req.body?.planSlug,
+          when: req.body?.when,
+        });
+        return json(res, 200, { sucesso: true, ...out });
+      } catch (e) {
+        return mapBillingError(e, res);
+      }
     }
 
     if (action === 'ensure-trial') {
@@ -125,7 +201,10 @@ export default async function handler(req, res) {
       const row = await ensureTrialSubscription(storeId);
       return json(res, 200, { sucesso: true, storeId, status: row?.status || null });
     }
+
+    return json(res, 404, { sucesso: false, erro: 'Ação não encontrada' });
   } catch (e) {
-    return json(res, 500, { sucesso: false, erro: e.message });
+    const status = e?.status === 403 ? 403 : e?.status === 401 ? 401 : 500;
+    return json(res, status, { sucesso: false, erro: e.message });
   }
 }

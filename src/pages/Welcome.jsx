@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import NaviLogo from '../components/NaviLogo.jsx';
+import { trialMarketing } from '../lib/trialCopy.js';
 
 /* ── WhatsApp Mockup ──────────────────────────────────────────────── */
 
@@ -383,7 +384,7 @@ const Welcome = () => {
               </p>
               <div className="navi-lp-hero-ctas">
                 <Link to="/cadastro" className="navi-lp-btn-hero">
-                  Começar teste grátis de 14 dias
+                  {trialMarketing.ctaPrimary}
                   <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
                 </Link>
                 <a href="#como-funciona" className="navi-lp-btn-hero-ghost">
@@ -391,7 +392,7 @@ const Welcome = () => {
                 </a>
               </div>
               <p className="navi-lp-hero-hint">
-                Teste grátis por 14 dias · Sem cartão de crédito · Cancele quando quiser
+                {trialMarketing.heroHint}
               </p>
             </div>
             <div className="navi-lp-hero-right">
@@ -578,10 +579,10 @@ const Welcome = () => {
             </div>
             <div className="navi-lp-mid-cta">
               <Link to="/cadastro" className="navi-lp-btn-mid">
-                Começar teste grátis de 14 dias
+                {trialMarketing.ctaPrimary}
                 <ArrowRight size={18} strokeWidth={2.4} aria-hidden />
               </Link>
-              <p className="navi-lp-mid-cta-hint">14 dias grátis · Sem cartão · Cancele quando quiser</p>
+              <p className="navi-lp-mid-cta-hint">{trialMarketing.midHint}</p>
             </div>
           </div>
         </section>
@@ -619,10 +620,10 @@ const Welcome = () => {
               Chega de lead perdido no WhatsApp.
             </h2>
             <p className="navi-lp-final-sub">
-              Teste 14 dias grátis e veja funil, automações e financeiro no mesmo lugar.
+              {trialMarketing.finalSub}
             </p>
             <Link to="/cadastro" className="navi-lp-btn-final">
-              Ativar meu teste grátis de 14 dias
+              {trialMarketing.finalCta}
               <ArrowRight size={20} strokeWidth={2.4} aria-hidden />
             </Link>
             <p className="navi-lp-final-hint">Sem compromisso · Cancelamento a qualquer momento</p>

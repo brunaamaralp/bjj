@@ -90,6 +90,13 @@ Permissões (Recomendado)
 - Coleções sensíveis (Leads, Turmas, Tarefas, Vendas, Estoque): restringir a usuários autenticados; usar regras baseadas em academyId/ownerId.
 - Funções de Vendas/Estoque: executar apenas para usuários autenticados.
 
+Billing (assinatura Nave — Asaas)
+- Provisionar: `npm run provision:billing`
+- Coleções: `store_subscriptions`, `subscription_payments`, `billing_idempotency_keys` (IDs em `APPWRITE_BILLING_*_COLLECTION_ID`)
+- `store_subscriptions`: storeId (unique), status, currentPeriodEnd, cancelAtPeriodEnd, asaasCustomerId, asaasSubscriptionId, taxDocumentDigits, planSlug, pendingPlanSlug, billingType
+- `subscription_payments`: asaasPaymentId (unique), storeId, value, billingType, paidAt, asaasSubscriptionId
+- API consolidada: `/api/billing?action=` (checkout, status, payments, cancel-subscription, change-plan, payment-method-link)
+
 Validações/Restrições (Sugestões)
 - Leads: status limitado a valores conhecidos; scheduledDate no formato YYYY‑MM‑DD; scheduledTime HH:mm.
 - Estoque: quantidade_* inteiros não negativos.

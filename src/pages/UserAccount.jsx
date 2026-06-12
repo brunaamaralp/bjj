@@ -174,7 +174,7 @@ const UserAccount = ({ user }) => {
           </section>
         )}
 
-        {activeTab === 'assinatura' && <PlansTabContent />}
+        {activeTab === 'assinatura' && <PlansTabContent user={user} />}
 
         {activeTab === 'dados' && (
           <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -50,6 +50,7 @@
     "provision:contract-templates": "node --env-file=.env scripts/provision-contract-templates-schema.mjs",
     "ensure:contract-setup": "node --env-file=.env scripts/ensure-academy-contract-setup.mjs",
     "provision:webhook-logs": "node --env-file=.env scripts/provision-webhook-logs-schema.mjs",
+    "provision:billing": "node --env-file=.env scripts/provision-billing-schema.mjs",
     "cleanup:contract-templates-dup": "node --env-file=.env scripts/cleanup-duplicate-contract-templates.mjs",
     "start:server": "node server/index.js",
     "dev:next": "next dev",
