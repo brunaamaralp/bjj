@@ -1,19 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createSessionJwt } from '../../lib/appwrite';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 import { useTerms } from '../../lib/terminology.js';
+import { useToast } from '../../hooks/useToast';
+import { AGENT_SYSTEM_RULES } from '../academy/agentIaUtils.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import NaviLogo from '../NaviLogo.jsx';
 
-export const SYSTEM_RULES = `
-REGRAS OBRIGATÓRIAS DO SISTEMA:
-- Sempre use o primeiro nome do contato quando disponível no cadastro
-- NUNCA dê orientações financeiras, jurídicas ou médicas
-- NUNCA faça promessas de resultados garantidos
-- NUNCA compartilhe dados ou informações de outros clientes
-- Responda sempre em português brasileiro
-- Se perguntado se é uma IA, desvie com naturalidade 
-- Nunca invente informações — se não souber, diga que vai verificar
-`.trim();
+const WIZARD_SAVE_DEBOUNCE_MS = 800;
+
+export const SYSTEM_RULES = AGENT_SYSTEM_RULES;
 
 const STEPS = [
   { id: 'academyName', block: 1, type: 'text' },
@@ -400,7 +396,7 @@ function stepPromptFor(stepId, terms) {
  * @param {{
  *   academyId: string;
  *   academyDoc?: Record<string, unknown>;
- *   getJwt: () => Promise<string>;
+ *   getJwt?: () => Promise<string>;
  *   wizardInitial: object | null;
  *   loading?: boolean;
  *   onComplete: (p: { intro: string; body: string; suffix: string; wizardPayload?: object }) => void | Promise<void>;
@@ -409,11 +405,16 @@ function stepPromptFor(stepId, terms) {
  */
 export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, loading = false, onComplete, onWizardReset }) {
   const terms = useTerms();
+  const toast = useToast();
+  const resolveJwt = useCallback(() => (getJwt ? getJwt() : createSessionJwt()), [getJwt]);
   const messagesScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const resumeDataRef = useRef(null);
   const lastInitKeyRef = useRef('');
   const startFlowRef = useRef(() => {});
+  const pendingSaveRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const saveInFlightRef = useRef(null);
 
   const [messages, setMessages] = useState([]);
   const [stepIndex, setStepIndex] = useState(0);
@@ -446,38 +447,78 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
     scrollBottom();
   }, [messages, generating, scrollBottom]);
 
-  const saveProgress = useCallback(
+  const saveProgressImmediate = useCallback(
     async (newAnswers, newStep) => {
       const id = String(academyId || '').trim();
-      if (!id) return;
+      if (!id) return false;
       const payload = {
         step: newStep,
         answers: newAnswers,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
       };
       const json = JSON.stringify(payload);
       if (json.length > 10000) {
-        console.error('[AgenteChatSetup] wizard_data excede 10k');
-        return;
+        toast.error('Configuração muito longa — reduza o texto e tente novamente.');
+        return false;
       }
-      const jwt = await getJwt();
+      const jwt = await resolveJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
         method: 'PATCH',
         headers: {
           'content-type': 'application/json',
           Authorization: `Bearer ${jwt}`,
-          'x-academy-id': id
+          'x-academy-id': id,
         },
-        body: JSON.stringify({ action: 'save_wizard_data', wizard_data: json })
+        body: JSON.stringify({ action: 'save_wizard_data', wizard_data: json }),
       });
-      if (blocked) return;
+      if (blocked) return false;
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || !data?.sucesso) {
-        console.error('[AgenteChatSetup] save_wizard_data', data?.erro);
+        toast.error(data?.erro || 'Não foi possível salvar o progresso. Verifique a conexão.');
+        return false;
       }
+      return true;
     },
-    [academyId, getJwt]
+    [academyId, resolveJwt, toast]
   );
+
+  const flushSaveProgress = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (saveInFlightRef.current) {
+      await saveInFlightRef.current;
+    }
+    const pending = pendingSaveRef.current;
+    if (!pending) return true;
+    pendingSaveRef.current = null;
+    const run = saveProgressImmediate(pending.answers, pending.step);
+    saveInFlightRef.current = run;
+    try {
+      return await run;
+    } finally {
+      saveInFlightRef.current = null;
+    }
+  }, [saveProgressImmediate]);
+
+  const queueSaveProgress = useCallback(
+    (newAnswers, newStep) => {
+      pendingSaveRef.current = { answers: newAnswers, step: newStep };
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        void flushSaveProgress();
+      }, WIZARD_SAVE_DEBOUNCE_MS);
+    },
+    [flushSaveProgress]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   const pushNave = useCallback((content, actions) => {
     setMessages((m) => [...m, { role: 'nave', content, actions }]);
@@ -572,18 +613,19 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
 
   const restart = useCallback(async () => {
     const fresh = emptyAnswers();
-    await saveProgress(fresh, 0);
+    await flushSaveProgress();
+    await saveProgressImmediate(fresh, 0);
     lastInitKeyRef.current = '';
     if (onWizardReset) onWizardReset();
     else startFlow();
-  }, [saveProgress, startFlow, onWizardReset]);
+  }, [flushSaveProgress, saveProgressImmediate, startFlow, onWizardReset]);
 
   const runGenerate = useCallback(
     async (finalAnswers) => {
       setGenerating(true);
       const userContent = buildUserContentForGen(finalAnswers, terms);
       try {
-        const jwt = await getJwt();
+        const jwt = await resolveJwt();
         const res = await fetch('/api/generate-prompt', {
           method: 'POST',
           headers: {
@@ -626,7 +668,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         if (id) {
           const json = JSON.stringify(completedPayload);
           if (json.length <= 10000) {
-            const jwt2 = await getJwt();
+            const jwt2 = await resolveJwt();
             const { blocked: bl2, res: r2 } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
               method: 'PATCH',
               headers: {
@@ -653,7 +695,7 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
         setGenerating(false);
       }
     },
-    [academyId, getJwt, onComplete, pushNave, terms]
+    [academyId, resolveJwt, onComplete, pushNave, terms]
   );
 
   const commitAndAdvance = useCallback(
@@ -663,16 +705,17 @@ export default function AgenteChatSetup({ academyId, getJwt, wizardInitial, load
       pushUser(summarizePatch(patch));
 
       const next = advanceFrom(stepIndex, merged);
-      await saveProgress(merged, next);
       setStepIndex(next);
 
       if (next >= STEPS.length) {
+        await flushSaveProgress();
         await runGenerate(merged);
       } else {
+        queueSaveProgress(merged, next);
         askStep(next, merged);
       }
     },
-    [answers, askStep, pushUser, runGenerate, saveProgress, stepIndex]
+    [answers, askStep, flushSaveProgress, pushUser, queueSaveProgress, runGenerate, stepIndex]
   );
 
   const handleTextSend = useCallback(async () => {

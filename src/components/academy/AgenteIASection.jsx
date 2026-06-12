@@ -1,46 +1,34 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Copy } from 'lucide-react';
-import { account, teams } from '../../lib/appwrite';
+import { createSessionJwt, teams } from '../../lib/appwrite';
 import { parseFaqItems } from '../../../lib/whatsappTemplateDefaults.js';
-import { PROMPT_RECOMMENDED_COMBINED_LEN } from '../../../lib/aiPromptLimits.js';
+import { validatePromptFields } from '../../../lib/aiPromptLimits.js';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { canEditAgentPrompt, canViewAgentSettings } from '../../lib/canEditAgentPrompt.js';
-import { mapAgentTestErrorMessage, mapAgentSettingsErrorMessage } from '../../lib/agentTestErrorMessage.js';
+import { mapAgentSettingsErrorMessage } from '../../lib/agentTestErrorMessage.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
-import AgenteChatSetup from '../inbox/AgenteChatSetup';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import PageHeader from '../layout/PageHeader.jsx';
 import AgentIASidePanel from './AgentIASidePanel.jsx';
+import AgentIAPromptEditor from './AgentIAPromptEditor.jsx';
+import AgentIATestChat from './AgentIATestChat.jsx';
+import AgentIAAdvancedOptions from './AgentIAAdvancedOptions.jsx';
+import { isPromptConfigured, formatInstructionsSavedAt, AGENT_SYSTEM_RULES } from './agentIaUtils.js';
 import { useToast } from '../../hooks/useToast';
 import { formatWaPhoneDisplay } from '../../../lib/zapsterInstancePhone.js';
-import { V1_AI_ACTIONS, AI_ACTION_META } from '../../../lib/agentActionConfig.js';
+import { V1_AI_ACTIONS } from '../../../lib/agentActionConfig.js';
 import './agent-ia.css';
 
-async function getJwt() {
-    const jwt = await account.createJWT();
-    return String(jwt?.jwt || '').trim();
-}
-
-function isPromptConfigured(intro, body) {
-    return Boolean(String(intro || '').trim() || String(body || '').trim());
-}
-
-function formatInstructionsSavedAt(iso) {
-    const s = String(iso || '').trim();
-    if (!s) return '';
-    const d = new Date(s);
-    if (!Number.isFinite(d.getTime())) return '';
-    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
+const AgenteChatSetup = lazy(() => import('../inbox/AgenteChatSetup'));
 
 /** Rótulo curto para o status da conexão WhatsApp na UI do Agente (não conectado). */
 function formatWaAgentStatus(status) {
@@ -204,6 +192,8 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [promptSuffix, setPromptSuffix] = useState('');
     const [, setPromptSavedSnapshot] = useState({ intro: '', body: '', suffix: '' });
     const [loadingPrompt, setLoadingPrompt] = useState(false);
+    const [settingsLoadError, setSettingsLoadError] = useState('');
+    const loadSettingsRunRef = useRef(0);
     const [savingPrompt, setSavingPrompt] = useState(false);
     const [iaAtiva, setIaAtiva] = useState(false);
     const [togglingIa, setTogglingIa] = useState(false);
@@ -262,11 +252,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [testMessagesToday, setTestMessagesToday] = useState(0);
     const [testMessagesResetDate, setTestMessagesResetDate] = useState('');
 
-    const textareaScrollLockProps = {
-        onWheelCapture: (e) => e.stopPropagation(),
-        onTouchMoveCapture: (e) => e.stopPropagation(),
-    };
-
     useEffect(() => {
         if (!waConfirm) return undefined;
         const onKey = (e) => {
@@ -293,100 +278,97 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         [wizardAgenteInitial?.savedAt]
     );
 
-    useEffect(() => {
+    const loadPromptSettings = useCallback(async () => {
         if (!academyId || !canViewAgent) return;
-        let cancelled = false;
-        (async () => {
-            setLoadingPrompt(true);
-            try {
-                const jwt = await getJwt();
-                const aid = String(academyId || '').trim();
-                if (!aid) return;
-                const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid };
-                const rPrompt = await fetchWithBillingGuard('/api/settings/ai-prompt', { headers });
-                if (rPrompt.blocked) return;
+        const runId = ++loadSettingsRunRef.current;
+        setSettingsLoadError('');
+        setLoadingPrompt(true);
+        try {
+            const jwt = await createSessionJwt();
+            const aid = String(academyId || '').trim();
+            if (!aid) return;
+            const headers = { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid };
+            const rPrompt = await fetchWithBillingGuard('/api/settings/ai-prompt', { headers });
+            if (runId !== loadSettingsRunRef.current) return;
+            if (rPrompt.blocked) return;
 
-                const data = await rPrompt.res.json();
-                if (cancelled) return;
-                if (rPrompt.res.ok && data && typeof data === 'object') {
-                    const intro = String(data.prompt_intro || '');
-                    const body = String(data.prompt_body || '');
-                    const suffix = String(data.prompt_suffix || '');
-                    const snap = data.prompt_backup_snapshot;
-                    const introBackup = String(snap?.intro || data.prompt_intro_backup || '');
-                    const bodyBackup = String(snap?.body || data.prompt_body_backup || '');
-                    const suffixBackup = String(snap?.suffix ?? data.prompt_suffix_backup ?? '');
-                    const updatedAt = String(data.prompt_updated_at || '');
-                    setPromptIntro(intro);
-                    setPromptBody(body);
-                    setPromptSuffix(suffix);
-                    setPromptSavedSnapshot({ intro, body, suffix });
-                    setPromptConfigurado(isPromptConfigured(intro, body));
+            const data = await rPrompt.res.json();
+            if (runId !== loadSettingsRunRef.current) return;
+            if (rPrompt.res.ok && data && typeof data === 'object') {
+                const intro = String(data.prompt_intro || '');
+                const body = String(data.prompt_body || '');
+                const suffix = String(data.prompt_suffix || '');
+                const snap = data.prompt_backup_snapshot;
+                const introBackup = String(snap?.intro || data.prompt_intro_backup || '');
+                const bodyBackup = String(snap?.body || data.prompt_body_backup || '');
+                const suffixBackup = String(snap?.suffix ?? data.prompt_suffix_backup ?? '');
+                const updatedAt = String(data.prompt_updated_at || '');
+                setPromptIntro(intro);
+                setPromptBody(body);
+                setPromptSuffix(suffix);
+                setPromptSavedSnapshot({ intro, body, suffix });
+                setPromptConfigurado(isPromptConfigured(intro, body));
 
-                    setPromptIntroBackup(introBackup);
-                    setPromptBodyBackup(bodyBackup);
-                    setPromptSuffixBackup(suffixBackup);
-                    setPromptUpdatedAt(updatedAt);
+                setPromptIntroBackup(introBackup);
+                setPromptBodyBackup(bodyBackup);
+                setPromptSuffixBackup(suffixBackup);
+                setPromptUpdatedAt(updatedAt);
 
-                    setAiName(String(data.ai_name || '').trim());
-                    if (data.academy_name) setAcademyName(String(data.academy_name || '').trim());
-                    setTestMessagesToday(Number(data.test_messages_today) || 0);
-                    setTestMessagesResetDate(String(data.test_messages_reset_date || '').trim());
+                setAiName(String(data.ai_name || '').trim());
+                if (data.academy_name) setAcademyName(String(data.academy_name || '').trim());
+                setTestMessagesToday(Number(data.test_messages_today) || 0);
+                setTestMessagesResetDate(String(data.test_messages_reset_date || '').trim());
 
-                    setIaAtiva(data.ia_ativa === true);
-                    setBirthdayMessage(String(data.birthdayMessage || '').replaceAll('{nome}', '{primeiroNome}'));
-                    setFaqItems(parseFaqItems(data.faq_data));
-                    setAiThreadsUsed(Number(data.ai_threads_used) || 0);
-                    setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
-                    setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
-                    if (data.ai_actions && typeof data.ai_actions === 'object') {
-                        setAiActionsEnabled(data.ai_actions.enabled !== false);
-                        const acts = Array.isArray(data.ai_actions.actions) ? data.ai_actions.actions : V1_AI_ACTIONS;
-                        setAiActionsSelected(new Set(acts.filter((a) => V1_AI_ACTIONS.includes(a))));
-                        setConversationTimelineEnabled(
-                            data.ai_actions.conversation_timeline?.enabled !== false
-                        );
-                    } else {
-                        setAiActionsEnabled(true);
-                        setAiActionsSelected(new Set(V1_AI_ACTIONS));
-                        setConversationTimelineEnabled(true);
-                    }
-                    const aiMod = data.ai_module && typeof data.ai_module === 'object' ? data.ai_module : null;
-                    const modEnabled = aiMod ? aiMod.enabled !== false : true;
-                    setAiModuleEnabled(modEnabled);
-                    useLeadStore.getState().setModules({ aiEnabled: modEnabled });
-                    const wd = String(data.wizard_data || '').trim();
-                    if (wd) {
-                        try {
-                            const parsed = JSON.parse(wd);
-                            setWizardAgenteInitial(parsed && typeof parsed === 'object' ? parsed : null);
-                        } catch {
-                            setWizardAgenteInitial(null);
-                        }
-                    } else {
+                setIaAtiva(data.ia_ativa === true);
+                setBirthdayMessage(String(data.birthdayMessage || '').replaceAll('{nome}', '{primeiroNome}'));
+                setFaqItems(parseFaqItems(data.faq_data));
+                setAiThreadsUsed(Number(data.ai_threads_used) || 0);
+                setAiThreadsLimit(Number(data.ai_threads_limit) || 300);
+                setAiOverageEnabled(data.ai_overage_enabled !== false && data.ai_overage_enabled !== 'false');
+                if (data.ai_actions && typeof data.ai_actions === 'object') {
+                    setAiActionsEnabled(data.ai_actions.enabled !== false);
+                    const acts = Array.isArray(data.ai_actions.actions) ? data.ai_actions.actions : V1_AI_ACTIONS;
+                    setAiActionsSelected(new Set(acts.filter((a) => V1_AI_ACTIONS.includes(a))));
+                    setConversationTimelineEnabled(data.ai_actions.conversation_timeline?.enabled !== false);
+                } else {
+                    setAiActionsEnabled(true);
+                    setAiActionsSelected(new Set(V1_AI_ACTIONS));
+                    setConversationTimelineEnabled(true);
+                }
+                const aiMod = data.ai_module && typeof data.ai_module === 'object' ? data.ai_module : null;
+                const modEnabled = aiMod ? aiMod.enabled !== false : true;
+                setAiModuleEnabled(modEnabled);
+                useLeadStore.getState().setModules({ aiEnabled: modEnabled });
+                const wd = String(data.wizard_data || '').trim();
+                if (wd) {
+                    try {
+                        const parsed = JSON.parse(wd);
+                        setWizardAgenteInitial(parsed && typeof parsed === 'object' ? parsed : null);
+                    } catch {
                         setWizardAgenteInitial(null);
                     }
                 } else {
-                    throw new Error(
-                        mapAgentSettingsErrorMessage({ status: rPrompt.res.status, erro: 'Falha ao carregar' })
-                    );
+                    setWizardAgenteInitial(null);
                 }
-            } catch (e) {
-                if (!cancelled) {
-                    addToast({
-                        type: 'error',
-                        message: mapAgentSettingsErrorMessage({
-                            message: e?.message,
-                            network: !e?.message?.includes('suporte'),
-                        }),
-                    });
-                }
-            } finally {
-                if (!cancelled) setLoadingPrompt(false);
+            } else {
+                throw new Error(mapAgentSettingsErrorMessage({ status: rPrompt.res.status, erro: 'Falha ao carregar' }));
             }
-        })();
-        return () => { cancelled = true; };
-    }, [academyId, canViewAgent, addToast]);
+        } catch (e) {
+            if (runId !== loadSettingsRunRef.current) return;
+            setSettingsLoadError(
+                mapAgentSettingsErrorMessage({
+                    message: e?.message,
+                    network: !e?.message?.includes('suporte'),
+                })
+            );
+        } finally {
+            if (runId === loadSettingsRunRef.current) setLoadingPrompt(false);
+        }
+    }, [academyId, canViewAgent]);
+
+    useEffect(() => {
+        void loadPromptSettings();
+    }, [loadPromptSettings]);
 
     useEffect(() => {
         if (!canEditPrompt || !promptConfigurado || !academyId) return;
@@ -410,7 +392,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         try {
             const prevIntro = String(promptIntro || '');
             const prevBody = String(promptBody || '');
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
                 method: 'PUT',
                 headers: {
@@ -460,7 +442,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (target === iaAtiva) return true;
         setTogglingIa(true);
         try {
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
                 method: 'PATCH',
                 headers: {
@@ -506,7 +488,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (savingBirthdayMessage) return;
         setSavingBirthdayMessage(true);
         try {
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
                 method: 'PATCH',
                 headers: {
@@ -537,7 +519,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (target === aiModuleEnabled) return true;
         setSavingAiModule(true);
         try {
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
                 method: 'PATCH',
                 headers: {
@@ -578,7 +560,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (savingAiActions) return;
         setSavingAiActions(true);
         try {
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const actions = V1_AI_ACTIONS.filter((a) => aiActionsSelected.has(a));
             const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
                 method: 'PATCH',
@@ -626,7 +608,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (savingFaq) return;
         setSavingFaq(true);
         try {
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const cleaned = faqItems
                 .map((it) => ({ q: String(it?.q || '').trim(), a: String(it?.a || '').trim() }))
                 .filter((it) => it.q && it.a);
@@ -658,7 +640,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (loadingPromptPreview) return;
         setLoadingPromptPreview(true);
         try {
-            const jwt = await getJwt();
+            const jwt = await createSessionJwt();
             const resp = await fetch('/api/settings/prompt-preview', {
                 headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
             });
@@ -680,595 +662,60 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         }
     }
 
-    function getTodayIso() {
-        return new Date().toISOString().split('T')[0];
-    }
+    const openManualEditor = useCallback(() => {
+        setEditIntro(promptIntro);
+        setEditBody(promptBody);
+        if (!String(promptSuffix || '').trim()) {
+            setPromptSuffix(AGENT_SYSTEM_RULES);
+        }
+        setShowWizard(false);
+        setShowTestChat(false);
+        setShowEditor(true);
+    }, [promptIntro, promptBody, promptSuffix]);
 
-    const AdvancedOptionsAccordion = () => {
-        if (!canEditPrompt) return null;
-        return (
-        <details className="agent-accordion" style={{ marginTop: 20 }}>
-            <summary>Personalização e suporte</summary>
-            <div className="agent-accordion-content">
-                <div className="agent-ia-personalization-card" style={{ marginBottom: 16 }}>
-                    <p className="agent-ia-personalization-card__title">Ações automáticas no WhatsApp</p>
-                    <p className="agent-ia-personalization-card__hint">
-                        A IA pode executar tarefas no sistema após entender a mensagem. A equipe sempre recebe notificação
-                        e uma tarefa de conferência — mesmo quando a ação é bem-sucedida.
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                        <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                            {aiActionsEnabled ? 'Execução automática ativa' : 'Execução automática desligada'}
-                        </span>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={aiActionsEnabled}
-                            onClick={() => setAiActionsEnabled((v) => !v)}
-                            disabled={loadingPrompt || savingAiActions}
-                            className={`ai-switch${aiActionsEnabled ? ' ai-switch--on' : ''}${savingAiActions ? ' ai-switch--loading' : ''}`}
-                            title={aiActionsEnabled ? 'Desligar todas as ações' : 'Permitir ações automáticas'}
-                        >
-                            <span className="ai-switch-thumb" />
-                        </button>
-                    </div>
-                    <div
-                        className={`agent-ia-action-list${aiActionsEnabled ? '' : ' agent-ia-action-list--disabled'}`}
-                    >
-                        {V1_AI_ACTIONS.map((actionKey) => {
-                            const meta = AI_ACTION_META[actionKey] || { label: actionKey, description: '' };
-                            const checked = aiActionsSelected.has(actionKey);
-                            return (
-                                <label
-                                    key={actionKey}
-                                    className={`agent-ia-action-option${aiActionsEnabled ? '' : ' agent-ia-action-option--disabled'}`}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        className="agent-ia-action-option__input"
-                                        checked={checked}
-                                        disabled={!aiActionsEnabled || loadingPrompt || savingAiActions}
-                                        onChange={(e) => toggleAiAction(actionKey, e.target.checked)}
-                                    />
-                                    <span>
-                                        <span className="agent-ia-action-option__title">{meta.label}</span>
-                                        <span className="agent-ia-action-option__desc">{meta.description}</span>
-                                    </span>
-                                </label>
-                            );
-                        })}
-                        <label
-                            className={`agent-ia-action-option${aiActionsEnabled ? '' : ' agent-ia-action-option--disabled'}`}
-                        >
-                            <input
-                                type="checkbox"
-                                className="agent-ia-action-option__input"
-                                checked={conversationTimelineEnabled}
-                                disabled={!aiActionsEnabled || loadingPrompt || savingAiActions}
-                                onChange={(e) => setConversationTimelineEnabled(e.target.checked)}
-                            />
-                            <span>
-                                <span className="agent-ia-action-option__title">
-                                    Registrar momentos importantes no histórico do lead
-                                </span>
-                                <span className="agent-ia-action-option__desc">
-                                    A IA grava na timeline do contato apenas momentos relevantes da conversa (dados
-                                    compartilhados, interesse, agendamentos), sem copiar todas as mensagens.
-                                </span>
-                            </span>
-                        </label>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => void handleSaveAiActions()}
-                        className="btn btn-outline agent-ia-action-save"
-                        disabled={savingAiActions || loadingPrompt}
-                    >
-                        {savingAiActions ? 'Salvando…' : 'Salvar ações automáticas'}
-                    </button>
-                </div>
-
-                <div className="agent-ia-personalization-grid">
-                    <div className="agent-ia-personalization-card">
-                        <p className="agent-ia-personalization-card__title">Mensagem de aniversário</p>
-                        <p className="agent-ia-personalization-card__hint">
-                            Referência no dia do aniversário. Use {'{primeiroNome}'}.
-                        </p>
-                        <textarea
-                            className="agent-prompt-textarea agent-prompt-textarea--sm"
-                            value={birthdayMessage}
-                            onChange={(e) => setBirthdayMessage(e.target.value)}
-                            {...textareaScrollLockProps}
-                            rows={3}
-                            disabled={loadingPrompt}
-                            placeholder="Ex: Feliz aniversário, {primeiroNome}!…"
-                            spellCheck
-                        />
-                        <button
-                            type="button"
-                            onClick={() => void handleSaveBirthdayMessage()}
-                            className="btn btn-outline"
-                            style={{ marginTop: 8 }}
-                            disabled={savingBirthdayMessage || loadingPrompt}
-                        >
-                            {savingBirthdayMessage ? 'Salvando…' : 'Salvar'}
-                        </button>
-                    </div>
-                    <div className="agent-ia-personalization-card">
-                        <p className="agent-ia-personalization-card__title">Perguntas frequentes</p>
-                        <p className="agent-ia-personalization-card__hint">
-                            Pares pergunta/resposta como referência factual do assistente.
-                        </p>
-                        <button
-                            type="button"
-                            className="btn btn-outline"
-                            style={{ marginTop: 0 }}
-                            onClick={() => setFaqItems((prev) => [...prev, { q: '', a: '' }])}
-                            disabled={loadingPrompt}
-                        >
-                            + Adicionar pergunta
-                        </button>
-                    </div>
-                </div>
-
-                <details className="agent-accordion agent-accordion-nested" style={{ marginBottom: 16 }}>
-                    <summary className="text-small" style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                        Detalhes para suporte
-                    </summary>
-                    <p className="text-small agent-field-hint" style={{ marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
-                        {`O assistente também recebe dados técnicos do ${contactLabel.toLowerCase()} junto com o texto. Use `}
-                        <strong>Ver instruções completas</strong> para inspecionar o conteúdo enviado ao assistente.
-                    </p>
-                </details>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                    <button
-                        type="button"
-                        onClick={() => void handlePreviewFullPrompt()}
-                        className="btn btn-outline"
-                        disabled={loadingPrompt || savingPrompt || loadingPromptPreview}
-                        title={`Mostra o texto completo enviado ao assistente, incluindo dados do ${contactLabel.toLowerCase()}`}
-                    >
-                        {loadingPromptPreview ? 'Carregando…' : 'Ver instruções completas'}
-                    </button>
-                </div>
-
-                <div className="navi-section-heading" style={{ fontSize: '0.95rem', marginBottom: 8 }}>Lista de perguntas</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {faqItems.map((item, idx) => (
-                        <div
-                            key={idx}
-                            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}
-                        >
-                            <input
-                                className="form-input"
-                                value={item.q}
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, q: v } : p)));
-                                }}
-                                placeholder="Pergunta"
-                                disabled={loadingPrompt}
-                            />
-                            <textarea
-                                className="agent-prompt-textarea agent-prompt-textarea--sm"
-                                value={item.a}
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    setFaqItems((prev) => prev.map((p, i) => (i === idx ? { ...p, a: v } : p)));
-                                }}
-                                {...textareaScrollLockProps}
-                                placeholder="Resposta"
-                                rows={3}
-                                disabled={loadingPrompt}
-                            />
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ alignSelf: 'flex-start' }}
-                                onClick={() => setFaqItems((prev) => prev.filter((_, i) => i !== idx))}
-                                disabled={loadingPrompt}
-                            >
-                                Remover
-                            </button>
-                        </div>
-                    ))}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                    <button
-                        type="button"
-                        className="btn btn-outline"
-                        onClick={() => setFaqItems((prev) => [...prev, { q: '', a: '' }])}
-                        disabled={loadingPrompt}
-                    >
-                        + Adicionar pergunta
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-outline"
-                        onClick={() => void handleSaveFaqData()}
-                        disabled={savingFaq || loadingPrompt}
-                    >
-                        {savingFaq ? 'Salvando…' : 'Salvar perguntas frequentes'}
-                    </button>
-                </div>
-            </div>
-        </details>
-        );
+    const handleEditorCancel = () => {
+        setShowEditor(false);
+        setShowWizard(false);
+        setShowTestChat(false);
     };
 
-    const EditorDePrompt = () => {
-        const hasBackup = Boolean(
-            String(promptIntroBackup || '').trim() ||
-                String(promptBodyBackup || '').trim() ||
-                String(promptSuffixBackup || '').trim()
+    const handleEditorSaveAndTest = async () => {
+        const fieldCheck = validatePromptFields(editIntro, editBody);
+        if (!fieldCheck.ok) {
+            addToast({ type: 'error', message: fieldCheck.erro });
+            return;
+        }
+        const suffixToSave = String(promptSuffix || '').trim() || AGENT_SYSTEM_RULES;
+        const ok = await savePromptSettings(
+            { prompt_intro: editIntro, prompt_body: editBody, prompt_suffix: suffixToSave },
+            { successMessage: 'Instruções do assistente atualizadas com sucesso!' }
         );
-
-        const applyRestoreAndSave = async () => {
-            const ok = await savePromptSettings(
-                {
-                    prompt_intro: promptIntroBackup,
-                    prompt_body: promptBodyBackup,
-                    prompt_suffix: promptSuffixBackup || promptSuffix,
-                },
-                { successMessage: 'Versão anterior restaurada e salva.' }
-            );
-            if (!ok) return;
-            setEditIntro(promptIntroBackup);
-            setEditBody(promptBodyBackup);
-            setShowRestoreModal(false);
-            setShowEditor(false);
-        };
-
-        const handleCancel = () => {
-            setShowEditor(false);
-            setShowWizard(false);
-            setShowTestChat(false);
-        };
-
-        const handleSaveAndTest = async () => {
-            const ok = await savePromptSettings(
-                { prompt_intro: editIntro, prompt_body: editBody, prompt_suffix: promptSuffix },
-                { successMessage: 'Instruções do assistente atualizadas com sucesso!' }
-            );
-            if (!ok) return;
-            setShowEditor(false);
-            setShowWizard(false);
-            setShowTestChat(true);
-        };
-
-        return (
-            <div className="agent-prompt-editor animate-in">
-                {showRestoreModal && (
-                    <div className="agent-restore-modal-backdrop" role="dialog" aria-modal="true">
-                        <div className="agent-restore-modal">
-                            <h4 style={{ margin: '0 0 8px' }}>Restaurar versão anterior?</h4>
-                            <p className="text-small text-light" style={{ margin: 0 }}>
-                                A versão anterior substituirá as instruções atuais e será salva imediatamente.
-                            </p>
-                            <div className="agent-restore-preview">
-                                <div>
-                                    <strong className="text-small">Atual (Identidade)</strong>
-                                    <pre>{String(editIntro || '').slice(0, 400) || '—'}</pre>
-                                </div>
-                                <div>
-                                    <strong className="text-small">Versão anterior (Identidade)</strong>
-                                    <pre>{String(promptIntroBackup || '').slice(0, 400) || '—'}</pre>
-                                </div>
-                                <div>
-                                    <strong className="text-small">Atual (Conhecimento)</strong>
-                                    <pre>{String(editBody || '').slice(0, 400) || '—'}</pre>
-                                </div>
-                                <div>
-                                    <strong className="text-small">Versão anterior (Conhecimento)</strong>
-                                    <pre>{String(promptBodyBackup || '').slice(0, 400) || '—'}</pre>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowRestoreModal(false)}>
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    disabled={savingPrompt}
-                                    onClick={() => void applyRestoreAndSave()}
-                                >
-                                    Restaurar e salvar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                <header className="agent-prompt-editor__header">
-                    <div>
-                        <h4 className="agent-prompt-editor__title">Revisar & Editar instruções do assistente</h4>
-                        {promptUpdatedAt && (
-                            <p className="text-small" style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>
-                                Atualizado em {formatInstructionsSavedAt(promptUpdatedAt)}
-                            </p>
-                        )}
-                    </div>
-                    <button type="button" className="btn btn-outline" style={{ padding: '8px 14px', flexShrink: 0 }} onClick={handleCancel}>
-                        Cancelar
-                    </button>
-                </header>
-
-                <section className="agent-prompt-field" aria-labelledby="agent-prompt-identidade">
-                    <h5 id="agent-prompt-identidade" className="agent-prompt-field__label">
-                        Identidade
-                    </h5>
-                    <p className="agent-prompt-field__hint">Quem é o assistente, nome e tom de voz</p>
-                    <textarea
-                        className="agent-prompt-textarea agent-prompt-textarea--md"
-                        value={editIntro}
-                        onChange={(e) => setEditIntro(e.target.value)}
-                        {...textareaScrollLockProps}
-                        rows={6}
-                        disabled={savingPrompt}
-                        placeholder="Ex.: Você é a Ana, atendente do estúdio…"
-                        spellCheck
-                    />
-                    <div className="agent-prompt-meta">
-                        {String(editIntro || '').length} caracteres · recomendado até {PROMPT_RECOMMENDED_COMBINED_LEN} no total (Identidade + Conhecimento)
-                    </div>
-                </section>
-
-                <section className="agent-prompt-field" aria-labelledby="agent-prompt-conhecimento">
-                    <h5 id="agent-prompt-conhecimento" className="agent-prompt-field__label">
-                        Conhecimento
-                    </h5>
-                    <p className="agent-prompt-field__hint">Planos, horários, preços, regras e o que o assistente pode informar</p>
-                    <textarea
-                        className="agent-prompt-textarea agent-prompt-textarea--lg"
-                        value={editBody}
-                        onChange={(e) => setEditBody(e.target.value)}
-                        {...textareaScrollLockProps}
-                        rows={12}
-                        disabled={savingPrompt || !canEditPrompt}
-                        placeholder="Ex.: Endereço, modalidades, valores, política de experimental…"
-                        spellCheck
-                    />
-                    <div className="agent-prompt-meta">{String(editBody || '').length} caracteres</div>
-                </section>
-
-                <section className="agent-prompt-field" aria-labelledby="agent-prompt-sistema">
-                    <h5 id="agent-prompt-sistema" className="agent-prompt-field__label">
-                        Regras do sistema{' '}
-                        <span className="badge badge-info" style={{ marginLeft: 6, verticalAlign: 'middle' }}>
-                            Não editável
-                        </span>
-                    </h5>
-                    <p className="agent-prompt-field__hint">
-                        Regras obrigatórias — não editáveis. Inclui respostas em texto de conversa (sem markdown nem listas) no que vai para o
-                        WhatsApp.
-                    </p>
-                    <pre className="agent-prompt-readonly" tabIndex={0}>
-                        {promptSuffix}
-                    </pre>
-                </section>
-
-                <footer className="agent-prompt-footer">
-                    <button
-                        type="button"
-                        className="btn btn-outline"
-                        disabled={!hasBackup || savingPrompt || !canEditPrompt}
-                        onClick={() => setShowRestoreModal(true)}
-                        title={!hasBackup ? 'Nenhuma versão anterior disponível' : 'Restaurar versão anterior'}
-                    >
-                        ↩ Restaurar versão anterior
-                    </button>
-
-                    <button type="button" className="btn btn-primary" disabled={savingPrompt} onClick={() => void handleSaveAndTest()}>
-                        {savingPrompt ? 'Salvando…' : 'Salvar e testar'}
-                    </button>
-                </footer>
-            </div>
-        );
+        if (!ok) return;
+        setShowEditor(false);
+        setShowWizard(false);
+        setShowTestChat(true);
     };
 
-    const ChatDeTeste = () => {
-        const todayIso = getTodayIso();
-        const usedToday = testMessagesResetDate === todayIso ? (Number(testMessagesToday) || 0) : 0;
-        const testsLimit = 10;
-        const initialTestsLeft = Math.max(0, testsLimit - usedToday);
-
-        const [messages, setMessages] = useState([
+    const handleEditorConfirmRestore = async () => {
+        const ok = await savePromptSettings(
             {
-                role: 'assistant',
-                content: `Olá! Sou ${aiName || 'assistente'}, assistente configurado para ${academyName || `sua ${terms.workspaceNoun}`}. Como posso ajudar? (Modo de teste)`
-            }
-        ]);
-        const [input, setInput] = useState('');
-        const [sending, setSending] = useState(false);
-        const [testsLeft, setTestsLeftLocal] = useState(initialTestsLeft);
-
-        const handleClose = () => {
-            setShowTestChat(false);
-        };
-
-        const handleActivate = async () => {
-            const ok = await handleToggleIa(true);
-            if (!ok) return;
-            setShowTestChat(false);
-            setShowEditor(false);
-            setShowWizard(false);
-        };
-
-        const handleSend = async () => {
-            if (!input.trim() || sending || testsLeft <= 0) return;
-            const userMsg = { role: 'user', content: input.trim() };
-            const historyForRequest = messages;
-
-            setMessages((prev) => [...prev, userMsg]);
-            setInput('');
-            setSending(true);
-
-            const abort = new AbortController();
-            const timeoutId = setTimeout(() => abort.abort(), 30000);
-            try {
-                const jwt = await getJwt();
-                const { blocked, res: resp } = await fetchWithBillingGuard('/api/agent/test', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${jwt}`,
-                        'x-academy-id': String(academyId || '').trim()
-                    },
-                    body: JSON.stringify({
-                        academyId,
-                        message: userMsg.content,
-                        history: historyForRequest
-                    }),
-                    signal: abort.signal,
-                });
-
-                clearTimeout(timeoutId);
-                if (blocked || !resp) return;
-
-                const data = await resp.json().catch(() => ({}));
-                if (!resp.ok) {
-                    const fallbackChat = mapAgentTestErrorMessage({
-                        status: resp.status,
-                        code: data?.code || data?.erro,
-                        erro: data?.erro,
-                        message: data?.message,
-                    });
-                    if (resp.status === 429) {
-                        addToast({ type: 'warning', message: data?.message || 'Limite diário atingido' });
-                        setTestsLeftLocal(0);
-                        setMessages((prev) => [...prev, { role: 'assistant', content: fallbackChat }]);
-                        return;
-                    }
-                    addToast({
-                        type: 'error',
-                        message: fallbackChat,
-                    });
-                    setMessages((prev) => [...prev, { role: 'assistant', content: fallbackChat }]);
-                    return;
-                }
-
-                const reply = data?.response != null ? String(data.response).trim() : '';
-                if (!reply) {
-                    setMessages((prev) => [
-                        ...prev,
-                        {
-                            role: 'assistant',
-                            content:
-                                'O assistente não gerou resposta. Revise as instruções em Agente de Atendimento.'
-                        }
-                    ]);
-                } else {
-                    setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-                }
-                const nextUsed = Number(data?.testsUsedToday) || (usedToday + 1);
-                const nextLeft = Math.max(0, testsLimit - nextUsed);
-                setTestsLeftLocal(nextLeft);
-                setTestMessagesToday(nextUsed);
-                setTestMessagesResetDate(todayIso);
-            } catch (e) {
-                clearTimeout(timeoutId);
-                const aborted = e?.name === 'AbortError';
-                const msg = aborted
-                    ? 'Tempo esgotado — tente novamente.'
-                    : mapAgentTestErrorMessage({ erro: e?.message });
-                addToast({ type: 'error', message: msg });
-                setMessages((prev) => [...prev, { role: 'assistant', content: msg }]);
-            } finally {
-                setSending(false);
-            }
-        };
-
-        return (
-            <div className="agent-chat-container agent-chat-sandbox">
-                <div className="agent-chat-sandbox__banner" role="status">
-                    Modo teste — mensagens não são enviadas ao aluno
-                </div>
-                <div className="agent-chat-header" style={{ paddingBottom: 14, padding: '12px 14px 14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                        <div>
-                            <div className="agent-chat-title" style={{ fontSize: 14 }}>Chat de teste</div>
-                            <div className="agent-chat-subtitle" style={{ marginTop: 6 }}>
-                                {testsLeft} de 10 testes restantes hoje · perguntas de exemplo, sem dados reais da academia
-                            </div>
-                        </div>
-                        <button type="button" className="btn btn-outline" style={{ padding: '6px 12px', flexShrink: 0 }} onClick={handleClose} disabled={sending}>
-                            Fechar
-                        </button>
-                    </div>
-                </div>
-
-                <div className="agent-chat-messages">
-                    {messages.map((msg, i) => (
-                        <div key={i} className={`agent-chat-bubble ${msg.role === 'assistant' ? 'nave' : 'user'}`}>
-                            <div className="agent-chat-content">
-                                <div className="agent-chat-text">{msg.content}</div>
-                            </div>
-                        </div>
-                    ))}
-
-                    {sending && (
-                        <div className="agent-chat-bubble nave">
-                            <div className="agent-chat-typing" aria-label="Digitando…">
-                                <span />
-                                <span />
-                                <span />
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
-                    {testsLeft > 0 ? (
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                            <textarea
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        void handleSend();
-                                    }
-                                }}
-                                placeholder={`Simule uma mensagem de um ${contactLabel.toLowerCase()}…`}
-                                rows={2}
-                                disabled={sending}
-                                style={{ flex: 1 }}
-                            />
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={() => void handleSend()}
-                                disabled={!input.trim() || sending}
-                                style={{ minWidth: 108 }}
-                            >
-                                {sending ? 'Enviando…' : 'Enviar'}
-                            </button>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <p style={{ margin: 0, fontWeight: 700 }}>Limite de 10 testes atingido hoje.</p>
-                            <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)' }}>
-                                Volte amanhã para continuar testando, ou ative o assistente se estiver satisfeito.
-                            </p>
-                            <button type="button" className="btn btn-primary" onClick={() => void handleActivate()} disabled={togglingIa}>
-                                Ativar assistente
-                            </button>
-                        </div>
-                    )}
-
-                    {testsLeft > 0 && messages.length > 2 && (
-                        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                            <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                Gostou das respostas?
-                            </span>
-                            <button type="button" className="btn btn-primary btn-sm" onClick={() => void handleActivate()} disabled={togglingIa}>
-                                Ativar assistente
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
+                prompt_intro: promptIntroBackup,
+                prompt_body: promptBodyBackup,
+                prompt_suffix: promptSuffixBackup || promptSuffix,
+            },
+            { successMessage: 'Versão anterior restaurada e salva.' }
         );
+        if (!ok) return;
+        setEditIntro(promptIntroBackup);
+        setEditBody(promptBodyBackup);
+        setShowRestoreModal(false);
+        setShowEditor(false);
+    };
+
+    const handleTestChatActivated = () => {
+        setShowTestChat(false);
+        setShowEditor(false);
+        setShowWizard(false);
     };
 
     const waStatusVisual = useMemo(() => waAgentStatusVisual(zap.waStatus), [zap.waStatus]);
@@ -1571,31 +1018,82 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         return null;
     }, [showTestChat, showEditor, showWizard, canEditPrompt]);
 
+    const sidePanelFallback = (
+        <div
+            className="empresa-skeleton-block agent-ia-side-panel-fallback"
+            aria-busy="true"
+            aria-label="Carregando painel de configuração"
+        />
+    );
+
     const renderAgentSidePanelBody = () => {
         if (showWizard && canEditPrompt) {
             return (
-                <AgenteChatSetup
-                    academyId={String(academyId || '')}
-                    getJwt={getJwt}
-                    wizardInitial={wizardAgenteInitial}
-                    loading={loadingPrompt}
-                    onWizardReset={() => {
-                        setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() });
-                        setShowWizard(true);
-                    }}
-                    onComplete={async ({ intro, body, suffix, wizardPayload }) => {
-                        setEditIntro(intro);
-                        setEditBody(body);
-                        setPromptSuffix(suffix);
-                        setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
-                        setShowWizard(false);
-                        setShowEditor(true);
-                    }}
+                <Suspense fallback={sidePanelFallback}>
+                    <AgenteChatSetup
+                        academyId={String(academyId || '')}
+                        wizardInitial={wizardAgenteInitial}
+                        loading={loadingPrompt}
+                        onWizardReset={() => {
+                            setWizardAgenteInitial({ step: 0, answers: {}, savedAt: new Date().toISOString() });
+                            setShowWizard(true);
+                        }}
+                        onComplete={async ({ intro, body, suffix, wizardPayload }) => {
+                            setEditIntro(intro);
+                            setEditBody(body);
+                            setPromptSuffix(suffix);
+                            setWizardAgenteInitial(wizardPayload && typeof wizardPayload === 'object' ? wizardPayload : null);
+                            setShowWizard(false);
+                            setShowEditor(true);
+                        }}
+                    />
+                </Suspense>
+            );
+        }
+        if (showEditor && canEditPrompt) {
+            return (
+                <AgentIAPromptEditor
+                    editIntro={editIntro}
+                    onEditIntroChange={setEditIntro}
+                    editBody={editBody}
+                    onEditBodyChange={setEditBody}
+                    promptSuffix={promptSuffix}
+                    promptIntroBackup={promptIntroBackup}
+                    promptBodyBackup={promptBodyBackup}
+                    promptUpdatedAt={promptUpdatedAt}
+                    savingPrompt={savingPrompt}
+                    canEditPrompt={canEditPrompt}
+                    onSaveAndTest={handleEditorSaveAndTest}
+                    onCancel={handleEditorCancel}
+                    onRestore={() => setShowRestoreModal(true)}
+                    showRestoreModal={showRestoreModal}
+                    onCloseRestoreModal={() => setShowRestoreModal(false)}
+                    onConfirmRestore={handleEditorConfirmRestore}
                 />
             );
         }
-        if (showEditor && canEditPrompt) return <EditorDePrompt />;
-        if (showTestChat) return <ChatDeTeste />;
+        if (showTestChat) {
+            return (
+                <AgentIATestChat
+                    academyId={academyId}
+                    aiName={aiName}
+                    academyName={academyName}
+                    workspaceNoun={terms.workspaceNoun}
+                    contactLabel={contactLabel}
+                    testMessagesToday={testMessagesToday}
+                    testMessagesResetDate={testMessagesResetDate}
+                    onTestsUsageUpdate={(used, date) => {
+                        setTestMessagesToday(used);
+                        setTestMessagesResetDate(date);
+                    }}
+                    onToggleIa={handleToggleIa}
+                    togglingIa={togglingIa}
+                    onClose={() => setShowTestChat(false)}
+                    onActivated={handleTestChatActivated}
+                    addToast={addToast}
+                />
+            );
+        }
         return null;
     };
 
@@ -1603,7 +1101,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (!agentSidePanelOpen) return null;
         return (
             <div className="agent-ia-sheet-inline-hint" role="status">
-                <p>A configuração continua no painel à direita. Feche o painel para ver o resumo aqui.</p>
+                <p>A configuração continua no painel lateral. Feche o painel para ver o resumo aqui.</p>
                 <button type="button" className="btn btn-outline btn-sm" onClick={closeAgentSidePanel}>
                     Fechar painel
                 </button>
@@ -1652,6 +1150,14 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 />
             ) : null}
             <section className="empresa-section animate-in" style={{ animationDelay: '0.05s', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {settingsLoadError ? (
+                <StatusBanner
+                    variant="error"
+                    message={settingsLoadError}
+                    onRetry={() => void loadPromptSettings()}
+                    retryLabel="Tentar novamente"
+                />
+            ) : null}
             <div className="agent-ia-setup-panel" role="region" aria-label="Progresso da configuração">
                 <div className="agent-ia-setup-steps">
                     {[
@@ -1965,7 +1471,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                             className={`ai-switch${aiModuleEnabled ? ' ai-switch--on' : ''}${savingAiModule ? ' ai-switch--loading' : ''}`}
                             title={aiModuleEnabled ? 'Desativar recursos de IA' : 'Ativar recursos de IA'}
                         >
-                            <span className="ai-switch__thumb" aria-hidden />
+                            <span className="ai-switch-thumb" aria-hidden />
                         </button>
                     </div>
                 ) : null}
@@ -1985,32 +1491,46 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                         Agente de Atendimento
                     </span>
 
-                    {canEditPrompt && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                {iaAtiva
-                                    ? 'Atendimento automático ativo'
-                                    : 'Atendimento automático pausado'}
-                            </span>
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-checked={iaAtiva}
-                                onClick={() => void handleToggleIa(!iaAtiva)}
-                                disabled={togglingIa || !promptConfigurado || !aiModuleEnabled}
-                                className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
-                                title={
-                                    !promptConfigurado
-                                        ? 'Configure o assistente primeiro'
-                                        : iaAtiva
-                                          ? 'Pausar atendimento automático'
-                                          : 'Ativar atendimento automático'
-                                }
-                            >
-                                <span className="ai-switch-thumb" />
-                            </button>
+                    {canEditPrompt ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                            {!promptConfigurado ? (
+                                <p id="agent-ia-toggle-hint" className="agent-ia-toggle-hint" role="note">
+                                    Preencha as instruções (guiadas ou editando o texto) antes de ativar o atendimento automático.
+                                </p>
+                            ) : !aiModuleEnabled ? (
+                                <p id="agent-ia-toggle-hint" className="agent-ia-toggle-hint" role="note">
+                                    Ative os recursos de IA acima para ligar o atendimento automático.
+                                </p>
+                            ) : null}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                    {iaAtiva ? 'Atendimento automático ativo' : 'Atendimento automático pausado'}
+                                </span>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={iaAtiva}
+                                    aria-describedby={
+                                        !promptConfigurado || !aiModuleEnabled ? 'agent-ia-toggle-hint' : undefined
+                                    }
+                                    onClick={() => void handleToggleIa(!iaAtiva)}
+                                    disabled={togglingIa || !promptConfigurado || !aiModuleEnabled}
+                                    className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
+                                    title={
+                                        !promptConfigurado
+                                            ? 'Configure o assistente primeiro'
+                                            : !aiModuleEnabled
+                                              ? 'Ative os recursos de IA primeiro'
+                                              : iaAtiva
+                                                ? 'Pausar atendimento automático'
+                                                : 'Ativar atendimento automático'
+                                    }
+                                >
+                                    <span className="ai-switch-thumb" />
+                                </button>
+                            </div>
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                 {loadingPrompt ? (
@@ -2025,18 +1545,34 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                     Não configurado
                                 </span>
                                 <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-                                    Configure o assistente para começar a atender contatos automaticamente.
+                                    Configure o assistente para começar a atender contatos automaticamente — pelo passo a passo ou
+                                    escrevendo as instruções você mesmo.
                                 </p>
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => {
-                                        setShowWizard(true);
-                                    }}
-                                    disabled={!canEditPrompt}
-                                >
-                                    Iniciar configuração guiada
-                                </button>
+                                <div className="agent-ia-setup-actions">
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={() => {
+                                            setShowEditor(false);
+                                            setShowTestChat(false);
+                                            setShowWizard(true);
+                                        }}
+                                        disabled={!canEditPrompt}
+                                    >
+                                        Iniciar configuração guiada
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline"
+                                        onClick={openManualEditor}
+                                        disabled={!canEditPrompt || loadingPrompt}
+                                    >
+                                        Editar instruções diretamente
+                                    </button>
+                                </div>
+                                <p className="text-small agent-ia-setup-actions__hint">
+                                    No editor direto você define identidade, conhecimento e salva para testar ou ativar.
+                                </p>
                             </div>
                         )}
 
@@ -2064,12 +1600,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                                     className="btn btn-outline"
                                                     style={{ padding: '6px 12px', minHeight: 34 }}
                                                     disabled={loadingPrompt || savingPrompt}
-                                                    onClick={() => {
-                                                        setEditIntro(promptIntro);
-                                                        setEditBody(promptBody);
-                                                        setShowWizard(false);
-                                                        setShowEditor(true);
-                                                    }}
+                                                    onClick={openManualEditor}
                                                 >
                                                     Editar manualmente
                                                 </button>
@@ -2097,7 +1628,30 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                 </div>
 
                                 {renderActivateCta()}
-                                <AdvancedOptionsAccordion />
+                                <AgentIAAdvancedOptions
+                                    canEditPrompt={canEditPrompt}
+                                    contactLabel={contactLabel}
+                                    loadingPrompt={loadingPrompt}
+                                    aiActionsEnabled={aiActionsEnabled}
+                                    onAiActionsEnabledChange={setAiActionsEnabled}
+                                    savingAiActions={savingAiActions}
+                                    aiActionsSelected={aiActionsSelected}
+                                    onToggleAiAction={toggleAiAction}
+                                    conversationTimelineEnabled={conversationTimelineEnabled}
+                                    onConversationTimelineChange={setConversationTimelineEnabled}
+                                    onSaveAiActions={handleSaveAiActions}
+                                    birthdayMessage={birthdayMessage}
+                                    onBirthdayMessageChange={setBirthdayMessage}
+                                    savingBirthdayMessage={savingBirthdayMessage}
+                                    onSaveBirthdayMessage={handleSaveBirthdayMessage}
+                                    faqItems={faqItems}
+                                    onFaqItemsChange={setFaqItems}
+                                    savingFaq={savingFaq}
+                                    onSaveFaqData={handleSaveFaqData}
+                                    loadingPromptPreview={loadingPromptPreview}
+                                    onPreviewFullPrompt={handlePreviewFullPrompt}
+                                    savingPrompt={savingPrompt}
+                                />
                             </div>
                         )}
 
@@ -2142,12 +1696,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                                     className="btn btn-outline"
                                                     style={{ padding: '6px 12px', minHeight: 34 }}
                                                     disabled={loadingPrompt}
-                                                    onClick={() => {
-                                                        setEditIntro(promptIntro);
-                                                        setEditBody(promptBody);
-                                                        setShowWizard(false);
-                                                        setShowEditor(true);
-                                                    }}
+                                                    onClick={openManualEditor}
                                                 >
                                                     Editar manualmente
                                                 </button>
@@ -2181,7 +1730,30 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                     </p>
                                 )}
 
-                                <AdvancedOptionsAccordion />
+                                <AgentIAAdvancedOptions
+                                    canEditPrompt={canEditPrompt}
+                                    contactLabel={contactLabel}
+                                    loadingPrompt={loadingPrompt}
+                                    aiActionsEnabled={aiActionsEnabled}
+                                    onAiActionsEnabledChange={setAiActionsEnabled}
+                                    savingAiActions={savingAiActions}
+                                    aiActionsSelected={aiActionsSelected}
+                                    onToggleAiAction={toggleAiAction}
+                                    conversationTimelineEnabled={conversationTimelineEnabled}
+                                    onConversationTimelineChange={setConversationTimelineEnabled}
+                                    onSaveAiActions={handleSaveAiActions}
+                                    birthdayMessage={birthdayMessage}
+                                    onBirthdayMessageChange={setBirthdayMessage}
+                                    savingBirthdayMessage={savingBirthdayMessage}
+                                    onSaveBirthdayMessage={handleSaveBirthdayMessage}
+                                    faqItems={faqItems}
+                                    onFaqItemsChange={setFaqItems}
+                                    savingFaq={savingFaq}
+                                    onSaveFaqData={handleSaveFaqData}
+                                    loadingPromptPreview={loadingPromptPreview}
+                                    onPreviewFullPrompt={handlePreviewFullPrompt}
+                                    savingPrompt={savingPrompt}
+                                />
                             </div>
                         )}
                     </>

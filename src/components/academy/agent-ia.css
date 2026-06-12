@@ -521,3 +521,28 @@
 .agent-ia-action-save {
   margin-top: 12px;
 }
+
+.agent-ia-toggle-hint {
+  margin: 0 0 10px;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agent-ia-side-panel-fallback {
+  min-height: 120px;
+  border-radius: var(--radius-sm);
+}
+
+.agent-ia-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.agent-ia-setup-actions__hint {
+  margin: 10px 0 0;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}

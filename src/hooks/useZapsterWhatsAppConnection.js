@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { account, realtime, ACADEMIES_COL, DB_ID } from '../lib/appwrite';
+import { createSessionJwt, realtime, ACADEMIES_COL, DB_ID } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useUiStore } from '../store/useUiStore';
 import { normalizeWaPhoneDigits } from '../../lib/zapsterInstancePhone.js';
@@ -50,11 +50,6 @@ function writeWaConnectionCache(academyId, academyWaStatus, waInfo) {
     },
     ts: Date.now(),
   });
-}
-
-async function getJwt() {
-  const jwt = await account.createJWT();
-  return String(jwt?.jwt || '').trim();
 }
 
 function safeParseJson(raw) {
@@ -313,7 +308,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     }
 
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const host = typeof window !== 'undefined' ? String(window.location.host || '').trim() : '';
       if (debugOn) {
         console.log('[WA Debug] registerWebhooks request', { instanceId: id, academyId: aid, host });
@@ -379,7 +374,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     if (!silent) setConnectionError('');
     if (!quiet) setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -542,7 +537,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     setConnectionError('');
     setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       // Fluxo ideal: antes de criar nova instância, tenta recuperar vínculo existente.
       try {
         const { blocked: recoverBlocked, res: recoverResp } = await fetchWithBillingGuard('/api/zapster/instances?action=recover', {
@@ -665,7 +660,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     if (!id || !academyIdRef.current) return null;
     const maxAttempts = 5;
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const { blocked, res: resp } = await fetchWithBillingGuard(
           `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
@@ -756,7 +751,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     setConnectionError('');
     setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances?action=recover', {
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
       });
@@ -798,7 +793,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     setConnectionError('');
     setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': String(academyIdRef.current || '') }
@@ -854,7 +849,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     setConnectionError('');
     setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-on&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: {
@@ -902,7 +897,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     setConnectionError('');
     setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=power-off&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: {
@@ -934,7 +929,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     setConnectionError('');
     setWaLoading(true);
     try {
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard(`/api/zapster/instances?action=restart&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: {
@@ -994,7 +989,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       if (debugOn) {
         console.log('[Inbox Reconcile] start', { academyId: String(academyIdRef.current || '').trim() });
       }
-      const jwt = await getJwt();
+      const jwt = await createSessionJwt();
       const resp = await fetch('/api/whatsapp?action=reconcile', {
         method: 'POST',
         headers: {
