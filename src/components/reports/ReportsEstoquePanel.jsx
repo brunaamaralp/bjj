@@ -1,14 +1,16 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Package } from 'lucide-react';
+import { Package, AlertTriangle, PauseCircle, RefreshCw, Boxes } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { fetchInventoryReport } from '../../lib/inventoryReportApi.js';
 import { downloadCsv } from '../../lib/reportsExport.js';
+import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
+import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
-import ReportKpiCard from './shared/ReportKpiCard.jsx';
+import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx';
 import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
@@ -80,7 +82,7 @@ const ESTOQUE_COLUMNS = [
   },
 ];
 
-export default function ReportsEstoquePanel({ academyId, from, to, hasInventory }) {
+export default function ReportsEstoquePanel({ academyId, from, to, hasInventory, kpiGoals = {} }) {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -226,17 +228,15 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
     );
   }
 
-  const headingAction = (
-    <button
-      type="button"
-      className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
-      onClick={exportCsv}
-      disabled={!filtered.length}
-      aria-label="Exportar CSV"
-      title="Exportar CSV"
-    >
-      <Download size={16} aria-hidden />
-    </button>
+  useRegisterReportsExport(
+    hasInventory && hubSection === 'estoque' && !loading && !error && data && filtered.length > 0
+      ? {
+          disabled: false,
+          loading,
+          title: 'Exportar CSV de estoque',
+          onExport: exportCsv,
+        }
+      : null
   );
 
   return (
@@ -265,8 +265,12 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
       ) : null}
 
       {hubSection === 'estoque' && loading ? (
-        <ReportsPanelSection>
-          <PageSkeleton variant="list" rows={6} />
+        <ReportsPanelSection aria-busy="true">
+          <div className="reports-kpi-grid">
+            {[1, 2, 3, 4].map((i) => (
+              <ReportKpiCardSkeleton key={i} />
+            ))}
+          </div>
         </ReportsPanelSection>
       ) : null}
       {hubSection === 'estoque' && error ? <ErrorBanner message={friendlyError(error)} /> : null}
@@ -274,12 +278,27 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
         <>
           <ReportsPanelSection title="Estoque" subtitle={`${from} — ${to}`}>
             <div className="reports-kpi-grid">
-              <ReportKpiCard label="Valor em estoque" value={formatBRL(estoqueKpis.stockValue)} />
-              <ReportKpiCard label="Itens críticos" value={estoqueKpis.criticalCount} highlight="danger" />
-              <ReportKpiCard label="Itens parados" value={estoqueKpis.stalledCount} highlight="warning" />
+              <ReportKpiCard
+                label="Valor em estoque"
+                value={formatBRL(estoqueKpis.stockValue)}
+                icon={<Boxes size={20} strokeWidth={2.25} />}
+              />
+              <ReportKpiCard
+                label="Itens críticos"
+                value={estoqueKpis.criticalCount}
+                icon={<AlertTriangle size={20} strokeWidth={2.25} />}
+                {...kpiRagProps('criticalItems', Number(estoqueKpis.criticalCount), kpiGoals)}
+              />
+              <ReportKpiCard
+                label="Itens parados"
+                value={estoqueKpis.stalledCount}
+                icon={<PauseCircle size={20} strokeWidth={2.25} />}
+                {...kpiRagProps('stalledItems', Number(estoqueKpis.stalledCount), kpiGoals)}
+              />
               <ReportKpiCard
                 label="Giro médio"
                 value={estoqueKpis.giroMedio != null ? `${estoqueKpis.giroMedio} dias` : '—'}
+                icon={<RefreshCw size={20} strokeWidth={2.25} />}
               />
             </div>
           </ReportsPanelSection>
@@ -315,13 +334,12 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
 
           <ReportsPanelSection
             title={
-              <>
-                <Package size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
+              <span className="reports-section-title-with-icon">
+                <Package size={18} className="reports-section-title-icon" aria-hidden />
                 Giro e curva ABC
-              </>
+              </span>
             }
             subtitle={`${from} — ${to}`}
-            action={headingAction}
           >
             <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
               {[

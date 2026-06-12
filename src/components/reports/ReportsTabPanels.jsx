@@ -46,6 +46,7 @@ export default function ReportsTabPanels({
   range,
   periodLabel,
   academyId,
+  operatorFilter = '',
   onDrill,
 }) {
   return (
@@ -107,13 +108,26 @@ export default function ReportsTabPanels({
 
       {activeTab === 'financeiro' ? (
         <Suspense fallback={lazyFallback}>
-          <ReportsFinancePanel academyId={academyId} from={range.from} to={range.to} hasFinance={hasFinance} />
+          <ReportsFinancePanel
+            academyId={academyId}
+            from={range.from}
+            to={range.to}
+            hasFinance={hasFinance}
+            kpiGoals={kpiGoals}
+          />
         </Suspense>
       ) : null}
 
       {activeTab === 'loja' ? (
         <Suspense fallback={lazyFallback}>
-          <ReportsLojaPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
+          <ReportsLojaPanel
+            academyId={academyId}
+            from={range.from}
+            to={range.to}
+            hasSales={hasSales}
+            operatorFilter={operatorFilter}
+            kpiGoals={kpiGoals}
+          />
         </Suspense>
       ) : null}
 
@@ -124,6 +138,7 @@ export default function ReportsTabPanels({
             from={range.from}
             to={range.to}
             hasInventory={hasInventory}
+            kpiGoals={kpiGoals}
           />
         </Suspense>
       ) : null}

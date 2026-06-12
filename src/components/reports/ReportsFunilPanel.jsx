@@ -7,11 +7,11 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
-import ReportKpiCard from './shared/ReportKpiCard.jsx';
+import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
-import { HIGHLIGHT_BY_COLOR, pctVar } from '../../lib/reportsFunnelUtils.js';
+import { pctVar } from '../../lib/reportsFunnelUtils.js';
 import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 import './reports.css';
@@ -95,82 +95,82 @@ export default function ReportsFunilPanel({
 
   const m = reportData?.metrics;
 
+  const showKpiSkeleton = showChartSkeleton && !showContent;
+  const chartSkeletonClass =
+    chartHeight <= 200 ? 'reports-chart-skeleton--h-sm' : 'reports-chart-skeleton--h-md';
+
   return (
     <ReportsPanelShell>
-      {showContent && m ? (
-        <ReportsPanelSection title="Indicadores do funil">
-        <div className="reports-kpi-grid">
-          <ReportKpiCard
-            label={`Novos ${contactsPlural.toLowerCase()}`}
-            value={m.newLeads?.current ?? 0}
-            trend={pctVar(m.newLeads?.current ?? 0, m.newLeads?.previous ?? 0)}
-            trendLabel="vs. período anterior"
-            tooltip={reportKpiTooltip('newLeads', { preset })}
-            icon={<UserPlus size={20} strokeWidth={2.25} />}
-            highlight={HIGHLIGHT_BY_COLOR.accent}
-            onClick={() => onDrill('newLeads')}
-          />
-          <ReportKpiCard
-            label="Agendados"
-            value={m.scheduled?.current ?? 0}
-            trend={pctVar(m.scheduled?.current ?? 0, m.scheduled?.previous ?? 0)}
-            trendLabel="vs. período anterior"
-            tooltip={reportKpiTooltip('scheduled', { preset })}
-            icon={<Calendar size={20} strokeWidth={2.25} />}
-            highlight={HIGHLIGHT_BY_COLOR.warning}
-            onClick={() => onDrill('scheduled')}
-          />
-          <ReportKpiCard
-            label={terms.reportsMetricConvertedShort}
-            value={m.converted?.current ?? 0}
-            trend={pctVar(m.converted?.current ?? 0, m.converted?.previous ?? 0)}
-            trendLabel="vs. período anterior"
-            tooltip={reportKpiTooltip('converted', { preset })}
-            icon={<Users size={20} strokeWidth={2.25} />}
-            highlight={HIGHLIGHT_BY_COLOR.purple}
-            onClick={() => onDrill('converted')}
-          />
-          <ReportKpiCard
-            label="Taxa de conversão"
-            value={`${m.conversionRate?.current ?? 0}%`}
-            trend={pctVar(m.conversionRate?.current ?? 0, m.conversionRate?.previous ?? 0)}
-            trendLabel="vs. período anterior"
-            tooltip={reportKpiTooltip('conversionRate', { preset })}
-            icon={<TrendingUp size={20} strokeWidth={2.25} />}
-            highlight={HIGHLIGHT_BY_COLOR.accent}
-            {...kpiRagProps('conversionRate', Number(m.conversionRate?.current ?? 0), kpiGoals)}
-          />
-        </div>
-        </ReportsPanelSection>
-      ) : null}
+      <div className="reports-funil-primary">
+        {showKpiSkeleton ? (
+          <ReportsPanelSection title="Indicadores do funil" aria-busy="true">
+            <div className="reports-kpi-grid">
+              {[1, 2, 3, 4].map((i) => (
+                <ReportKpiCardSkeleton key={i} />
+              ))}
+            </div>
+          </ReportsPanelSection>
+        ) : null}
 
-      {funnelStages?.length > 0 && showContent ? (
-        <ReportsPanelSection title="Funil de captação" subtitle="Leads → Matrícula" aria-label="Funil de captação">
+        {showContent && m ? (
+          <ReportsPanelSection title="Indicadores do funil">
+            <div className="reports-kpi-grid">
+              <ReportKpiCard
+                label={`Novos ${contactsPlural.toLowerCase()}`}
+                value={m.newLeads?.current ?? 0}
+                trend={pctVar(m.newLeads?.current ?? 0, m.newLeads?.previous ?? 0)}
+                trendLabel="vs. período anterior"
+                tooltip={reportKpiTooltip('newLeads', { preset })}
+                icon={<UserPlus size={20} strokeWidth={2.25} />}
+                onClick={() => onDrill('newLeads')}
+              />
+              <ReportKpiCard
+                label="Agendados"
+                value={m.scheduled?.current ?? 0}
+                trend={pctVar(m.scheduled?.current ?? 0, m.scheduled?.previous ?? 0)}
+                trendLabel="vs. período anterior"
+                tooltip={reportKpiTooltip('scheduled', { preset })}
+                icon={<Calendar size={20} strokeWidth={2.25} />}
+                onClick={() => onDrill('scheduled')}
+              />
+              <ReportKpiCard
+                label={terms.reportsMetricConvertedShort}
+                value={m.converted?.current ?? 0}
+                trend={pctVar(m.converted?.current ?? 0, m.converted?.previous ?? 0)}
+                trendLabel="vs. período anterior"
+                tooltip={reportKpiTooltip('converted', { preset })}
+                icon={<Users size={20} strokeWidth={2.25} />}
+                onClick={() => onDrill('converted')}
+              />
+              <ReportKpiCard
+                label="Taxa de conversão"
+                value={`${m.conversionRate?.current ?? 0}%`}
+                trend={pctVar(m.conversionRate?.current ?? 0, m.conversionRate?.previous ?? 0)}
+                trendLabel="vs. período anterior"
+                tooltip={reportKpiTooltip('conversionRate', { preset })}
+                icon={<TrendingUp size={20} strokeWidth={2.25} />}
+                {...kpiRagProps('conversionRate', Number(m.conversionRate?.current ?? 0), kpiGoals)}
+              />
+            </div>
+          </ReportsPanelSection>
+        ) : null}
+
+        {funnelStages?.length > 0 && showContent ? (
+          <ReportsPanelSection title="Funil de captação" subtitle="Leads → Matrícula" aria-label="Funil de captação">
           <div className="reports-funnel-row">
             {funnelStages.map((stage) => (
               <React.Fragment key={stage.key}>
-                <button
-                  type="button"
-                  className={`reports-funnel-stage${stage.drillKey ? ' is-clickable' : ''}`}
-                  onClick={() => stage.drillKey && onDrill(stage.drillKey)}
-                  disabled={!stage.drillKey}
-                >
-                  <div className="reports-funnel-track">
-                    <span
-                      className="reports-funnel-fill"
-                      style={{ width: `${stage.barPct}%`, background: stage.color }}
-                    />
-                  </div>
-                  <div className="reports-funnel-value">
-                    {stage.isPercent ? `${stage.current}%` : stage.current}
-                  </div>
-                  <div className="reports-funnel-label">{stage.label}</div>
-                  <div className={`reports-funnel-variation ${stage.variation >= 0 ? 'is-up' : 'is-down'}`}>
-                    {stage.variation >= 0 ? '+' : ''}
-                    {stage.variation}% vs período anterior
-                  </div>
-                  <span className="reports-funnel-relative">{stage.relativePct}% da etapa anterior</span>
-                </button>
+                <ReportKpiCard
+                  variant="funnel-stage"
+                  label={stage.label}
+                  value={stage.isPercent ? `${stage.current}%` : stage.current}
+                  trend={stage.variation}
+                  trendLabel="vs. período anterior"
+                  sublabel={`${stage.relativePct}% da etapa anterior`}
+                  funnelBarPct={stage.barPct}
+                  funnelBarColor={stage.color}
+                  onClick={stage.drillKey ? () => onDrill(stage.drillKey) : undefined}
+                />
                 {!stage.isLast ? (
                   <span className="reports-funnel-arrow" aria-hidden>
                     <ChevronRight size={16} strokeWidth={2.25} />
@@ -179,8 +179,23 @@ export default function ReportsFunilPanel({
               </React.Fragment>
             ))}
           </div>
-        </ReportsPanelSection>
-      ) : null}
+          </ReportsPanelSection>
+        ) : null}
+      </div>
+
+      {showContent && !loading ? (
+        <>
+          <hr className="reports-funil-zone-divider" aria-hidden />
+          <section className="reports-funil-secondary" aria-labelledby="reports-funil-advanced-heading">
+            <div className="reports-funil-zone-header">
+              <p className="navi-eyebrow">Complemento</p>
+              <h2 id="reports-funil-advanced-heading" className="reports-funil-zone-title">
+                Análise avançada
+              </h2>
+              <p className="reports-funil-zone-hint">
+                Gráficos de evolução, conversão e padrões de horário — use após ler os indicadores principais acima.
+              </p>
+            </div>
 
       {showChartSkeleton ? (
         <ReportsPanelSection
@@ -189,7 +204,7 @@ export default function ReportsFunilPanel({
         />
       ) : null}
 
-      {showContent && !loading && reportData?.chart ? (
+      {reportData?.chart ? (
         <ReportsPanelSection
           className="reports-panel-section--chart"
           title="Evolução no período"
@@ -255,7 +270,14 @@ export default function ReportsFunilPanel({
               <i className="reports-chart-dot is-previous" aria-hidden /> Período anterior
             </span>
           </div>
-          <Suspense fallback={<div className="reports-chart-skeleton" style={{ minHeight: chartHeight }} aria-busy="true" />}>
+          <Suspense
+            fallback={
+              <div
+                className={`reports-chart-skeleton ${chartSkeletonClass}`}
+                aria-busy="true"
+              />
+            }
+          >
             <ReportsFunilBarChart
               chartHeight={chartHeight}
               chartDataComparison={chartDataComparison}
@@ -265,9 +287,15 @@ export default function ReportsFunilPanel({
         </ReportsPanelSection>
       ) : null}
 
-      {showContent && !loading ? (
         <ReportsPanelSection className="reports-panel-section--chart" title="Evolução da taxa de conversão">
-          <Suspense fallback={<div className="reports-chart-skeleton" style={{ minHeight: chartHeight }} aria-busy="true" />}>
+          <Suspense
+            fallback={
+              <div
+                className={`reports-chart-skeleton ${chartSkeletonClass}`}
+                aria-busy="true"
+              />
+            }
+          >
             <ReportsFunilConversionChart
               chartHeight={chartHeight}
               conversionChartData={conversionChartData}
@@ -275,14 +303,7 @@ export default function ReportsFunilPanel({
             />
           </Suspense>
         </ReportsPanelSection>
-      ) : null}
 
-      {showContent && !loading ? (
-        <details className="reports-funil-advanced">
-          <summary className="reports-funil-advanced__summary">
-            Horários e tempos no funil
-            <span className="reports-funil-advanced__hint">heatmap · tempo médio por etapa</span>
-          </summary>
           <div className="reports-aux-grid">
           <ReportsPanelSection
               title="Heatmap de horários"
@@ -383,7 +404,8 @@ export default function ReportsFunilPanel({
             )}
           </ReportsPanelSection>
           </div>
-        </details>
+          </section>
+        </>
       ) : null}
 
       {showContent ? <ReportsMethodologyNote /> : null}

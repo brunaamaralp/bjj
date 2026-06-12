@@ -1,14 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
+import ReportsChart, { REPORTS_CHART_AXIS_TICK, ReportsChartTooltip } from './shared/ReportsChart.jsx';
 import { UserPlus, UserMinus, TrendingDown, TrendingUp } from 'lucide-react';
 import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
@@ -168,7 +160,6 @@ export default function ReportsStudentsPanel({
           trendLabel="vs. período anterior"
           tooltip={reportKpiTooltip('newStudents', { preset })}
           icon={<UserPlus size={20} strokeWidth={2.25} />}
-          highlight="success"
         />
         <ReportKpiCard
           label="Desligamentos"
@@ -177,7 +168,6 @@ export default function ReportsStudentsPanel({
           trendLabel="vs. período anterior"
           tooltip={reportKpiTooltip('deactivations', { preset })}
           icon={<UserMinus size={20} strokeWidth={2.25} />}
-          highlight="danger"
         />
         <ReportKpiCard
           label="Churn"
@@ -186,7 +176,6 @@ export default function ReportsStudentsPanel({
           trendLabel="vs. período anterior"
           tooltip={reportKpiTooltip('churnRate', { preset })}
           icon={<TrendingDown size={20} strokeWidth={2.25} />}
-          highlight="danger"
           {...kpiRagProps('churnRate', churn, kpiGoals)}
         />
         <ReportKpiCard
@@ -196,7 +185,6 @@ export default function ReportsStudentsPanel({
           trendLabel="vs. período anterior"
           tooltip={reportKpiTooltip('retentionRate', { preset })}
           icon={<TrendingUp size={20} strokeWidth={2.25} />}
-          highlight="success"
           {...kpiRagProps('retentionRate', retention, kpiGoals)}
         />
         </div>
@@ -208,18 +196,18 @@ export default function ReportsStudentsPanel({
         className="reports-panel-section--chart"
       >
         {chartLoading ? (
-          <div className="reports-chart-skeleton" style={{ minHeight: 240 }} aria-busy="true" />
+          <div className="reports-chart-skeleton reports-chart-skeleton--h-md" aria-busy="true" />
         ) : !hasChartData ? (
           <p className="text-small text-muted reports-panel-note">
             Sem histórico de alunos no período. Cadastre matrículas para ver a evolução aqui.
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height={260}>
+          <ReportsChart height={260}>
             <LineChart data={stableChartRows} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border, #e8e5f5)" />
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <XAxis dataKey="label" tick={REPORTS_CHART_AXIS_TICK} />
+              <YAxis allowDecimals={false} tick={REPORTS_CHART_AXIS_TICK} />
+              <Tooltip content={<ReportsChartTooltip />} />
               <Legend />
               <Line
                 type="monotone"
@@ -246,7 +234,7 @@ export default function ReportsStudentsPanel({
                 dot={{ r: 3 }}
               />
             </LineChart>
-          </ResponsiveContainer>
+          </ReportsChart>
         )}
       </ReportsPanelSection>
     </ReportsPanelShell>

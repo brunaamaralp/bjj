@@ -11,7 +11,6 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 import ReportsPeriodToolbar from '../components/reports/ReportsPeriodToolbar.jsx';
 import ReportsDrillDialog from '../components/reports/ReportsDrillDialog.jsx';
 import ReportsTabPanels from '../components/reports/ReportsTabPanels.jsx';
-import { ReportKpiCardSkeleton } from '../components/reports/shared/ReportKpiCard.jsx';
 import { DRILL_LABELS } from '../lib/reportsFunnelUtils.js';
 import {
     REPORT_TABS,
@@ -25,7 +24,61 @@ import { useStudentMetricsReport } from '../hooks/useStudentMetricsReport.js';
 import { useReportsKpiGoals } from '../hooks/useReportsKpiGoals.js';
 import { useFunnelDerived } from '../hooks/useFunnelDerived.js';
 import { useReportsLeadExport } from '../hooks/useReportsLeadExport.js';
+import { ReportsExportSlotProvider, useReportsExportSlot } from '../hooks/useReportsExportSlot.js';
+import { fetchTeamMemberships } from '../lib/teamApi.js';
 import '../components/reports/reports.css';
+
+function ReportsPeriodToolbarBridge({
+    isLeadReportTab,
+    activeTab,
+    hasSales,
+    exportOpen,
+    onExportOpenChange,
+    leadExportDisabled,
+    leadExportTitle,
+    leadExportLoading,
+    onExportNewLeads,
+    onExportScheduled,
+    onExportCompleted,
+    onExportMissed,
+    onExportConverted,
+    convertedExportLabel,
+    operatorFilter,
+    onOperatorFilterChange,
+    operatorTeam,
+    ...toolbarProps
+}) {
+    const exportCtx = useReportsExportSlot();
+    const tabExport = exportCtx?.slot;
+    const exportVariant = isLeadReportTab ? 'menu' : tabExport?.onExport ? 'single' : 'none';
+    const exportDisabled = isLeadReportTab ? leadExportDisabled : Boolean(tabExport?.disabled ?? true);
+    const exportLoading = isLeadReportTab ? leadExportLoading : Boolean(tabExport?.loading);
+    const exportTitle = isLeadReportTab ? leadExportTitle : tabExport?.title || 'Exportar CSV';
+
+    return (
+        <ReportsPeriodToolbar
+            {...toolbarProps}
+            showLeadFilters={isLeadReportTab}
+            showSalesOperatorFilters={activeTab === 'loja' && hasSales}
+            operatorFilter={operatorFilter}
+            onOperatorFilterChange={onOperatorFilterChange}
+            operatorTeam={operatorTeam}
+            exportOpen={exportOpen}
+            onExportOpenChange={onExportOpenChange}
+            exportDisabled={exportDisabled}
+            exportTitle={exportTitle}
+            exportLoading={exportLoading}
+            exportVariant={exportVariant}
+            onExportSingle={() => tabExport?.onExport?.()}
+            onExportNewLeads={onExportNewLeads}
+            onExportScheduled={onExportScheduled}
+            onExportCompleted={onExportCompleted}
+            onExportMissed={onExportMissed}
+            onExportConverted={onExportConverted}
+            convertedExportLabel={convertedExportLabel}
+        />
+    );
+}
 
 export default function Reports() {
     const terms = useTerms();
@@ -52,6 +105,8 @@ export default function Reports() {
     const [chartMetric, setChartMetric] = useState('new');
     const [chartMode, setChartMode] = useState('weekly');
     const [profileFilter, setProfileFilter] = useState('all');
+    const [operatorFilter, setOperatorFilter] = useState('');
+    const [salesTeam, setSalesTeam] = useState([]);
     const [exportOpen, setExportOpen] = useState(false);
     const [drillKey, setDrillKey] = useState(null);
     const [heatmapTableView, setHeatmapTableView] = useState(false);
@@ -157,6 +212,28 @@ export default function Reports() {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
+    useEffect(() => {
+        if (activeTab !== 'loja') setOperatorFilter('');
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'loja' || !academyId || !hasSales) {
+            setSalesTeam([]);
+            return undefined;
+        }
+        let alive = true;
+        fetchTeamMemberships(academyId)
+            .then((members) => {
+                if (alive) setSalesTeam(members || []);
+            })
+            .catch(() => {
+                if (alive) setSalesTeam([]);
+            });
+        return () => {
+            alive = false;
+        };
+    }, [activeTab, academyId, hasSales]);
+
     const showNoLeadsEmpty =
         isLeadReportTab && !error && !showInitialLoad && leadsReady && leadsCount === 0 && !leadsLoading;
     const showNoActivityEmpty =
@@ -225,50 +302,41 @@ export default function Reports() {
                     <ErrorBanner className="mt-3" message={activeError} onRetry={handleRetry} />
                 ) : null}
 
-                {showInitialLoad && needsFunnelReport ? (
-                    <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
-                        {[1, 2, 3, 4].map((i) => (
-                            <ReportKpiCardSkeleton key={i} />
-                        ))}
-                    </div>
-                ) : null}
-
-                {studentShowInitialLoad && needsStudentMetrics ? (
-                    <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores de alunos">
-                        {[1, 2, 3, 4].map((i) => (
-                            <ReportKpiCardSkeleton key={i} />
-                        ))}
-                    </div>
-                ) : null}
-
                 {isPeriodTab ? (
-                    <ReportsPeriodToolbar
-                        presets={presets}
-                        preset={preset}
-                        onPresetChange={setPreset}
-                        from={from}
-                        to={to}
-                        onFromChange={setFrom}
-                        onToChange={setTo}
-                        dateError={dateError}
-                        showLeadFilters={isLeadReportTab}
-                        profileFilter={profileFilter}
-                        onProfileFilterChange={setProfileFilter}
-                        exportOpen={exportOpen}
-                        onExportOpenChange={setExportOpen}
-                        exportDisabled={exportDisabled}
-                        exportTitle={exportTitle}
-                        exportLoading={loading}
-                        onExportNewLeads={() => exportList('newLeads', 'novos-leads', closeExport)}
-                        onExportScheduled={() => exportList('scheduled', 'agendados', closeExport)}
-                        onExportCompleted={() => exportList('completed', 'compareceram', closeExport)}
-                        onExportMissed={() => exportList('missed', 'nao-compareceram', closeExport)}
-                        onExportConverted={() => exportList('converted', terms.reportsExportConvertedFileSlug, closeExport)}
-                        convertedExportLabel={terms.reportsMetricConvertedShort}
-                    />
-                ) : null}
+                    <ReportsExportSlotProvider>
+                        <ReportsPeriodToolbarBridge
+                            presets={presets}
+                            preset={preset}
+                            onPresetChange={setPreset}
+                            from={from}
+                            to={to}
+                            onFromChange={setFrom}
+                            onToChange={setTo}
+                            dateError={dateError}
+                            isLeadReportTab={isLeadReportTab}
+                            activeTab={activeTab}
+                            hasSales={hasSales}
+                            profileFilter={profileFilter}
+                            onProfileFilterChange={setProfileFilter}
+                            operatorFilter={operatorFilter}
+                            onOperatorFilterChange={setOperatorFilter}
+                            operatorTeam={salesTeam}
+                            exportOpen={exportOpen}
+                            onExportOpenChange={setExportOpen}
+                            leadExportDisabled={exportDisabled}
+                            leadExportTitle={exportTitle}
+                            leadExportLoading={loading}
+                            onExportNewLeads={() => exportList('newLeads', 'novos-leads', closeExport)}
+                            onExportScheduled={() => exportList('scheduled', 'agendados', closeExport)}
+                            onExportCompleted={() => exportList('completed', 'compareceram', closeExport)}
+                            onExportMissed={() => exportList('missed', 'nao-compareceram', closeExport)}
+                            onExportConverted={() =>
+                                exportList('converted', terms.reportsExportConvertedFileSlug, closeExport)
+                            }
+                            convertedExportLabel={terms.reportsMetricConvertedShort}
+                        />
 
-                <ReportsTabPanels
+                        <ReportsTabPanels
                     activeTab={activeTab}
                     needsFunnelReport={needsFunnelReport}
                     needsStudentMetrics={needsStudentMetrics}
@@ -304,8 +372,11 @@ export default function Reports() {
                     range={range}
                     periodLabel={prettyRange}
                     academyId={academyId}
+                    operatorFilter={operatorFilter}
                     onDrill={setDrillKey}
-                />
+                        />
+                    </ReportsExportSlotProvider>
+                ) : null}
 
                 <ReportsDrillDialog
                     drillKey={drillKey}

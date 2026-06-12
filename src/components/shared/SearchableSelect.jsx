@@ -26,6 +26,7 @@ function findOptionLabel(options, value) {
  * @param {string} [props.emptyMessage]
  * @param {string} [props.className]
  * @param {string} [props.inputClassName]
+ * @param {React.CSSProperties} [props.style]
  * @param {boolean} [props.disabled]
  */
 export default function SearchableSelect({
@@ -37,6 +38,7 @@ export default function SearchableSelect({
   emptyMessage = 'Nenhuma opção encontrada.',
   className = '',
   inputClassName = '',
+  style,
   disabled = false,
   ...rest
 }) {
@@ -71,6 +73,7 @@ export default function SearchableSelect({
   return (
     <div
       className={`searchable-grouped-select${className ? ` ${className}` : ''}`}
+      style={style}
       ref={rootRef}
     >
       <input

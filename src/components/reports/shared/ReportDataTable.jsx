@@ -3,6 +3,20 @@ import { Inbox } from 'lucide-react';
 
 const SKELETON_ROWS = 5;
 
+/** Espaçador para virtualização de linhas (altura dinâmica). */
+export function VirtualTableSpacer({ colSpan, height }) {
+  if (!height || height <= 0) return null;
+  return (
+    <tr aria-hidden="true">
+      <td
+        colSpan={colSpan}
+        className="report-data-table__virtual-spacer"
+        style={{ height, padding: 0, border: 'none' }}
+      />
+    </tr>
+  );
+}
+
 function cellAlignClass(align) {
   if (align === 'right') return 'report-data-table__align-right';
   if (align === 'center') return 'report-data-table__align-center';

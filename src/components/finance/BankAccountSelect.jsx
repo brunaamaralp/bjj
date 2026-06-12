@@ -6,6 +6,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import { listBankAccountLabels, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
 import { refreshFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { appendBankAccountToAcademy } from '../../lib/academyBankAccounts.js';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 
 /**
  * Seleção de conta bancária cadastrada na academia + cadastro inline.
@@ -23,6 +24,7 @@ export default function BankAccountSelect({
   style,
   allowEmpty = false,
   emptyLabel = 'Selecione a conta…',
+  emptyMessage = 'Nenhuma conta encontrada para essa busca.',
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
@@ -35,6 +37,20 @@ export default function BankAccountSelect({
   const [showInline, setShowInline] = useState(false);
 
   const options = useMemo(() => listBankAccountLabels(resolvedFinanceConfig), [resolvedFinanceConfig]);
+
+  const selectOptions = useMemo(() => {
+    const current = String(value || '').trim();
+    const items = options.map((lbl) => ({ value: lbl, label: lbl }));
+    if (current && !options.includes(current)) {
+      items.unshift({ value: current, label: `${current} (cadastro anterior)` });
+    }
+    if (allowEmpty) {
+      return [{ value: '', label: emptyLabel }, ...items];
+    }
+    return items;
+  }, [options, allowEmpty, emptyLabel, value]);
+
+  const inputClassName = className === 'form-input' ? '' : className;
 
   useEffect(() => {
     if (!academyId || options.length || saving) return;
@@ -78,26 +94,21 @@ export default function BankAccountSelect({
           {required ? ' *' : null}
         </label>
       ) : null}
-      <select
+      <SearchableSelect
         id={id}
-        className={className}
         style={style}
-        disabled={disabled || saving}
+        inputClassName={inputClassName}
+        disabled={disabled || saving || (!allowEmpty && options.length === 0)}
         value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {allowEmpty ? <option value="">{emptyLabel}</option> : null}
-        {options.map((lbl) => (
-          <option key={lbl} value={lbl}>
-            {lbl}
-          </option>
-        ))}
-        {!allowEmpty && options.length === 0 ? (
-          <option value="" disabled>
-            Nenhuma conta cadastrada
-          </option>
-        ) : null}
-      </select>
+        options={selectOptions}
+        placeholder={emptyLabel}
+        emptyMessage={
+          options.length === 0 && !allowEmpty
+            ? 'Nenhuma conta cadastrada.'
+            : emptyMessage
+        }
+        onChange={onChange}
+      />
       {value && !options.includes(value) ? (
         <p className="bank-account-select__legacy-hint">
           Valor anterior: «{value}» — selecione uma conta cadastrada ou cadastre abaixo.

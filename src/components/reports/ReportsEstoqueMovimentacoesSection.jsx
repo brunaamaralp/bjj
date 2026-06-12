@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Download, ArrowLeftRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { fetchInventoryMovements, fetchStockMovesConciliation } from '../../lib/inventoryMovementsApi.js';
 import { createSessionJwt } from '../../lib/appwrite';
@@ -13,7 +13,8 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
-import ReportDataTable from './shared/ReportDataTable.jsx';
+import ReportDataTable, { VirtualTableSpacer } from './shared/ReportDataTable.jsx';
+import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.js';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import './reports.css';
@@ -93,6 +94,14 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
       ...products.map((p) => ({ value: p.id, label: p.nome })),
     ],
     [products]
+  );
+
+  const operatorFilterOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos' },
+      ...team.map((m) => ({ value: m.id, label: m.nome })),
+    ],
+    [team]
   );
 
   useEffect(() => {
@@ -389,11 +398,7 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
           : 0;
       return (
         <>
-          {paddingTop > 0 ? (
-            <tr aria-hidden="true">
-              <td colSpan={columns.length} style={{ height: paddingTop, padding: 0, border: 'none' }} />
-            </tr>
-          ) : null}
+          {paddingTop > 0 ? <VirtualTableSpacer colSpan={columns.length} height={paddingTop} /> : null}
           {virtualItems.map((virtualRow) => {
             const r = bodyRows[virtualRow.index];
             return (
@@ -406,11 +411,7 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
               </tr>
             );
           })}
-          {paddingBottom > 0 ? (
-            <tr aria-hidden="true">
-              <td colSpan={columns.length} style={{ height: paddingBottom, padding: 0, border: 'none' }} />
-            </tr>
-          ) : null}
+          {paddingBottom > 0 ? <VirtualTableSpacer colSpan={columns.length} height={paddingBottom} /> : null}
         </>
       );
     },
@@ -433,6 +434,27 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
     downloadCsv(csvRows, `movimentacoes-estoque-${from}_${to}.csv`);
   };
 
+  const canExportMoves = panelView === 'movements' && !loading && !error && filtered.length > 0;
+  const canExportConc = panelView === 'conciliation' && !concLoading && !concError && concRows.length > 0;
+
+  useRegisterReportsExport(
+    canExportMoves
+      ? {
+          disabled: false,
+          loading,
+          title: 'Exportar CSV de movimentações',
+          onExport: exportCsv,
+        }
+      : canExportConc
+        ? {
+            disabled: false,
+            loading: concLoading,
+            title: 'Exportar CSV de auditoria',
+            onExport: exportConciliationCsv,
+          }
+        : null
+  );
+
   return (
     <>
         <div className="reports-moves-view-tabs" role="tablist" aria-label="Movimentações de estoque">
@@ -448,27 +470,26 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
             className={panelView === 'conciliation' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
             onClick={() => setPanelView('conciliation')}
           >
-            <AlertTriangle size={14} aria-hidden style={{ marginRight: 4, verticalAlign: 'middle' }} />
+            <AlertTriangle size={14} className="reports-tab-icon" aria-hidden />
             Auditoria de pagamento
           </button>
         </div>
 
         {panelView === 'conciliation' ? (
           <>
-            <div className="reports-moves-filters">
-              <div className="form-group">
-                <label className="text-small text-muted">Exibir</label>
-                <select
-                  className="form-input"
-                  value={concStatusFilter}
-                  onChange={(e) => setConcStatusFilter(e.target.value)}
-                >
-                  {CONCILIATION_FILTER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+            <div className="reports-moves-filters reports-moves-filters--chips" role="toolbar" aria-label="Filtro de auditoria">
+              <span className="navi-eyebrow">Exibir</span>
+              <div className="filter-strip">
+                {CONCILIATION_FILTER_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    className={`btn-outline btn-sm${concStatusFilter === o.value ? ' is-active' : ''}`}
+                    onClick={() => setConcStatusFilter(o.value)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
               </div>
             </div>
             {concLoading ? (
@@ -481,21 +502,9 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
               <ReportsPanelSection
                 title="Saídas de estoque vs pagamento atual"
                 subtitle="Compara o status gravado na movimentação com SALES + Caixa hoje."
-                action={
-                  <button
-                    type="button"
-                    className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
-                    onClick={exportConciliationCsv}
-                    disabled={!concRows.length}
-                    aria-label="Exportar CSV"
-                    title="Exportar CSV"
-                  >
-                    <Download size={16} aria-hidden />
-                  </button>
-                }
               >
                 {concSummary ? (
-                  <div className="reports-moves-footer" style={{ marginTop: 0, marginBottom: 12, borderTop: 'none' }}>
+                  <div className="reports-moves-footer reports-moves-footer--top" role="status">
                     <span>
                       <strong>Saídas no período:</strong> {concSummary.total_moves}
                     </span>
@@ -548,44 +557,41 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
               onChange={setProductId}
             />
           </div>
-          <div className="form-group">
-            <label className="text-small text-muted">Tipo</label>
-            <select
-              className="form-input"
-              value={movementKind}
-              onChange={(e) => setMovementKind(e.target.value)}
-            >
+          <div className="reports-moves-filters__kind" role="toolbar" aria-label="Tipo de movimentação">
+            <span className="navi-eyebrow">Tipo</span>
+            <div className="filter-strip">
               {KIND_OPTIONS.map((o) => (
-                <option key={o.value || 'all'} value={o.value}>
+                <button
+                  key={o.value || 'all'}
+                  type="button"
+                  className={`btn-outline btn-sm${movementKind === o.value ? ' is-active' : ''}`}
+                  onClick={() => setMovementKind(o.value)}
+                >
                   {o.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
-          <div className="form-group" style={{ minWidth: 160 }}>
+          <div className="form-group reports-moves-filters__field reports-moves-filters__field--client">
             <label className="text-small text-muted">Cliente</label>
             <input
-              className="form-input"
+              className="form-input navi-control--toolbar"
               type="search"
               placeholder="Buscar por nome…"
               value={clientSearch}
               onChange={(e) => setClientSearch(e.target.value)}
             />
           </div>
-          <div className="form-group" style={{ minWidth: 180 }}>
-            <label className="text-small text-muted">Operador</label>
-            <select
-              className="form-input"
+          <div className="form-group reports-moves-filters__field reports-moves-filters__field--operator">
+            <label className="text-small text-muted" htmlFor="reports-moves-operator">Operador</label>
+            <SearchableSelect
+              id="reports-moves-operator"
               value={operatorFilter}
-              onChange={(e) => setOperatorFilter(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {team.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome}
-                </option>
-              ))}
-            </select>
+              options={operatorFilterOptions}
+              placeholder="Digite para buscar operador…"
+              emptyMessage="Nenhum operador encontrado para essa busca."
+              onChange={setOperatorFilter}
+            />
           </div>
         </div>
 
@@ -599,25 +605,28 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
         {!loading && !error ? (
           <ReportsPanelSection
             title={
-              <>
-                <ArrowLeftRight size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
+              <span className="reports-section-title-with-icon">
+                <ArrowLeftRight size={18} className="reports-section-title-icon" aria-hidden />
                 Movimentações de estoque
-              </>
+              </span>
             }
             subtitle={`${from} — ${to}`}
-            action={
-              <button
-                type="button"
-                className="btn-outline btn-sm reports-export-btn reports-export-btn--icon"
-                onClick={exportCsv}
-                disabled={!filtered.length}
-                aria-label="Exportar CSV"
-                title="Exportar CSV"
-              >
-                <Download size={16} aria-hidden />
-              </button>
-            }
           >
+            <div className="reports-moves-footer reports-moves-footer--top" role="status">
+              <span>
+                <strong>Unidades saídas:</strong> {totals.total_unidades}
+              </span>
+              <span>
+                <strong>Total faturado:</strong> {formatBRL(totals.total_faturado)}
+              </span>
+              <span>
+                <strong>Devoluções (un.):</strong> {totals.total_devolucoes}
+              </span>
+              <span className="text-muted text-small">
+                {filtered.length} na página · {totals.registros} no período
+              </span>
+            </div>
+
             {!filtered.length ? (
               <EmptyState
                 insideCard
@@ -639,7 +648,7 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
               />
             )}
 
-            <div className="reports-moves-footer" role="status">
+            <div className="reports-moves-footer" role="status" aria-label="Totais repetidos no rodapé">
               <span>
                 <strong>Unidades saídas:</strong> {totals.total_unidades}
               </span>
@@ -648,9 +657,6 @@ export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to
               </span>
               <span>
                 <strong>Devoluções (un.):</strong> {totals.total_devolucoes}
-              </span>
-              <span className="text-muted text-small">
-                {filtered.length} na página · {totals.registros} no período
               </span>
             </div>
 

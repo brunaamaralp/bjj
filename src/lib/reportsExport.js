@@ -48,22 +48,6 @@ export function downloadCsvTemplate(headers, sampleRows, filename) {
   downloadCsvMatrix(headers, sampleRows, filename);
 }
 
-/** Exporta relatório por operador (aba Por Operador). */
-export function exportOperatorReport(operators, periodLabel) {
-  const rows = (operators || []).map((o) => ({
-    operador: o.operador_nome || '',
-    vendas: o.vendas_concluidas ?? 0,
-    faturamento: o.faturamento ?? 0,
-    ticket_medio: o.ticket_medio ?? 0,
-    cancelamentos: o.cancelamentos ?? 0,
-  }));
-  if (!rows.length) {
-    downloadCsv([{ mensagem: 'Nenhum operador no período' }], `relatorio-operador-${periodLabel}-vazio.csv`);
-    return;
-  }
-  downloadCsv(rows, `relatorio-operador-${periodLabel}.csv`);
-}
-
 export function leadToCsvRow(l, { includeContact = true } = {}) {
   const row = {
     nome: l.name || '',

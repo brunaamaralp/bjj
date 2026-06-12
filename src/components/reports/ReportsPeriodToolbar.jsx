@@ -5,6 +5,13 @@ import FieldError from '../shared/FieldError.jsx';
 import { DateInputField } from '../DateInput';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/menu';
 
+const PROFILE_FILTERS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'Adulto', label: 'Adulto' },
+  { value: 'Criança', label: 'Criança' },
+  { value: 'Juniores', label: 'Juniores' },
+];
+
 export default function ReportsPeriodToolbar({
   presets,
   preset,
@@ -17,11 +24,17 @@ export default function ReportsPeriodToolbar({
   showLeadFilters,
   profileFilter,
   onProfileFilterChange,
+  showSalesOperatorFilters,
+  operatorFilter,
+  onOperatorFilterChange,
+  operatorTeam = [],
   exportOpen,
   onExportOpenChange,
   exportDisabled,
   exportTitle,
   exportLoading,
+  exportVariant = 'none',
+  onExportSingle,
   onExportNewLeads,
   onExportScheduled,
   onExportCompleted,
@@ -29,6 +42,8 @@ export default function ReportsPeriodToolbar({
   onExportConverted,
   convertedExportLabel,
 }) {
+  const showExport = exportVariant === 'menu' || exportVariant === 'single';
+
   return (
     <div className="page-header-card reports-period-toolbar">
       <div className="page-header-row navi-toolbar reports-filters-row reports-filters-row--split">
@@ -65,24 +80,61 @@ export default function ReportsPeriodToolbar({
             </>
           ) : null}
         </FilterBar>
+
         {showLeadFilters ? (
           <>
             <div className="reports-filters-divider" aria-hidden />
-            <div className="reports-selects-inline">
-              <select
-                value={profileFilter}
-                onChange={(e) => onProfileFilterChange(e.target.value)}
-                aria-label="Filtrar por perfil"
-                className="form-input navi-control--toolbar"
-              >
-                <option value="all">Perfil</option>
-                <option value="Adulto">Adulto</option>
-                <option value="Criança">Criança</option>
-                <option value="Juniores">Juniores</option>
-              </select>
+            <div className="reports-selects-inline" role="toolbar" aria-label="Filtrar por perfil">
+              <span className="navi-eyebrow">Perfil</span>
+              <div className="filter-strip">
+                {PROFILE_FILTERS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    className={`filter-chip${profileFilter === p.value ? ' is-active' : ''}`}
+                    onClick={() => onProfileFilterChange(p.value)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            {dateError ? <FieldError>{dateError}</FieldError> : null}
-            <div className="reports-filters-spacer" />
+          </>
+        ) : null}
+
+        {showSalesOperatorFilters ? (
+          <>
+            <div className="reports-filters-divider" aria-hidden />
+            <div className="reports-selects-inline" role="toolbar" aria-label="Filtrar por operador">
+              <span className="navi-eyebrow">Operador</span>
+              <div className="filter-strip">
+                <button
+                  type="button"
+                  className={`filter-chip${!operatorFilter ? ' is-active' : ''}`}
+                  onClick={() => onOperatorFilterChange('')}
+                >
+                  Todos
+                </button>
+                {operatorTeam.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`filter-chip${operatorFilter === m.id ? ' is-active' : ''}`}
+                    onClick={() => onOperatorFilterChange(m.id)}
+                  >
+                    {m.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {dateError ? <FieldError>{dateError}</FieldError> : null}
+        <div className="reports-filters-spacer" />
+
+        {showExport ? (
+          exportVariant === 'menu' ? (
             <DropdownMenu
               open={exportOpen}
               onOpenChange={onExportOpenChange}
@@ -118,7 +170,22 @@ export default function ReportsPeriodToolbar({
                 </DropdownMenuPanel>
               ) : null}
             </DropdownMenu>
-          </>
+          ) : (
+            <button
+              type="button"
+              className="btn-secondary reports-export-btn reports-export-btn--icon"
+              onClick={() => !exportDisabled && onExportSingle?.()}
+              aria-label={exportTitle || 'Exportar CSV'}
+              disabled={exportDisabled}
+              title={exportTitle}
+            >
+              {exportLoading ? (
+                <Loader2 size={16} className="reports-spin" aria-hidden />
+              ) : (
+                <Download size={16} aria-hidden />
+              )}
+            </button>
+          )
         ) : null}
       </div>
     </div>
