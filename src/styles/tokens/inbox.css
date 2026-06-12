@@ -52,6 +52,8 @@
   --inbox-bubble-sent-text: #111b21;
   --inbox-bubble-radius: 8px;
   --inbox-bubble-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  --inbox-msg-row-gap: 8px;
+  --inbox-msg-group-gap: 8px;
 
   /* Aliases legados */
   --inbox-bubble-human-bg: var(--inbox-bubble-received-bg);

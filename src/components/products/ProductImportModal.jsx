@@ -27,6 +27,7 @@ import {
   classifyImportRow,
   importProductDedupKey,
 } from '../../lib/productImport';
+import { downloadCsvTemplate } from '../../lib/reportsExport.js';
 
 // Internamente ainda temos 4 estados, mas a UI agrupa em 3 etapas:
 // Upload -> Processando (IA/importação) -> Preview.
@@ -38,16 +39,7 @@ function downloadProductImportTemplate() {
     ['Kimono Atama', 'Vestuário', 'A2', '499,90', '2'],
     ['Rashguard', 'Vestuário', 'M', '159,90', '0'],
   ];
-  const csv = [headers, ...sampleRows]
-    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = 'modelo-produtos-nave.csv';
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadCsvTemplate(headers, sampleRows, 'modelo-produtos-nave.csv');
 }
 
 function PulsingDots() {

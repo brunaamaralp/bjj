@@ -2614,6 +2614,15 @@ select.form-input option {
   color: var(--text-muted);
 }
 
+.pipeline-stages-editor__head--sortable {
+  grid-template-columns: 28px 1fr 88px;
+  align-items: center;
+}
+
+.pipeline-stages-editor__head-drag {
+  width: 28px;
+}
+
 .pipeline-stages-editor__body {
   display: flex;
   flex-direction: column;
@@ -2626,6 +2635,10 @@ select.form-input option {
   align-items: center;
   padding: 8px 14px;
   border-bottom: 0.5px solid var(--border-light);
+}
+
+.pipeline-stages-editor__row--sortable {
+  grid-template-columns: 28px 1fr 88px;
 }
 
 .pipeline-stages-editor__row:last-child {

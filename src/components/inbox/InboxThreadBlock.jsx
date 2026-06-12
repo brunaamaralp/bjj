@@ -8,6 +8,7 @@ import {
   inboxMessageMediaStored,
 } from '../../lib/inboxMediaUtils.js';
 import {
+  INBOX_MSG_GROUP_GAP_PX,
   INBOX_MSG_TRUNCATE_CHARS,
   isInboxTruncatableTextMessage,
   truncateInboxMessageText,
@@ -167,7 +168,7 @@ function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
               showSenderLabel={idx === 0 && g.bubbleKind !== 'user'}
               senderLabel={g.bubbleKind === 'ai' ? 'IA' : 'Você'}
               selected={isSelected}
-              paddingTop={idx === 0 ? 0 : 2}
+              paddingTop={idx === 0 ? 0 : INBOX_MSG_GROUP_GAP_PX}
               onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}
               metaExtra={metaExtra}
               actions={

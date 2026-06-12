@@ -9,21 +9,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { buildDreDisplayRows } from '../../lib/financeCategories.js';
-
-function downloadCSV(prefix, headers, rows) {
-  const csv = [headers, ...rows]
-    .map((row) =>
-      row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')
-    )
-    .join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+import { downloadCsvMatrix } from '../../lib/reportsExport.js';
 
 export default function ReportsTab({
   academyId,
@@ -107,7 +93,7 @@ export default function ReportsTab({
       r.group,
       Number(r.value || 0).toFixed(2).replace('.', ','),
     ]);
-    downloadCSV('dre', headers, rows);
+    downloadCsvMatrix(headers, rows, `dre-${new Date().toISOString().slice(0, 10)}.csv`);
   }, [dreRows]);
 
   const exportDFC_CSV = useCallback(() => {
@@ -116,7 +102,7 @@ export default function ReportsTab({
       label,
       Number(value || 0).toFixed(2).replace('.', ','),
     ]);
-    downloadCSV('dfc', headers, rows);
+    downloadCsvMatrix(headers, rows, `dfc-${new Date().toISOString().slice(0, 10)}.csv`);
   }, [dfcRows]);
 
   const showPeriodEmpty = journal.length > 0 && !hasMovement;

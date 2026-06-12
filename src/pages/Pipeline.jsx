@@ -32,6 +32,11 @@ import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
+import { invalidateAcademyDocumentCache } from '../lib/getAcademyDocument.js';
+import {
+    buildAcademyStagesConfigSavePayload,
+    readStagesConfigRawFromAcademyDoc,
+} from '../lib/pipelineStagesStorage.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
 import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
@@ -66,6 +71,7 @@ import { suggestTriageAction, triageContextLine } from '../lib/triageSuggestions
 import { buildTriageConfirmClientPatch } from '../../lib/agentClassificationFields.js';
 import { canShowPipelineScheduleShortcut } from '../lib/pipelineScheduleShortcut.js';
 import PipelineAdvancedFilters from '../components/pipeline/PipelineAdvancedFilters.jsx';
+import PipelineStageEditorList from '../components/pipeline/PipelineStageEditorList.jsx';
 import {
     clearPipelineSessionState,
     collectColumnScrolls,
@@ -1686,8 +1692,9 @@ const Pipeline = () => {
                 setAcademySettingsRaw(doc?.settings ?? null);
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(doc));
                 try {
-                    if (doc.stagesConfig) {
-                        const conf = typeof doc.stagesConfig === 'string' ? JSON.parse(doc.stagesConfig) : doc.stagesConfig;
+                    const stagesRaw = readStagesConfigRawFromAcademyDoc(doc);
+                    if (stagesRaw) {
+                        const conf = typeof stagesRaw === 'string' ? JSON.parse(stagesRaw) : stagesRaw;
                         if (Array.isArray(conf) && conf.length > 0) {
                             const normalized = finalizeStages(conf);
                             setStages(normalized);
@@ -1947,9 +1954,14 @@ const Pipeline = () => {
             if (!stageIds.has('Novo')) {
                 cleaned = [{ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS }, ...cleaned];
             }
-            await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-                stagesConfig: JSON.stringify(cleaned),
-            });
+            const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+            await databases.updateDocument(
+                DB_ID,
+                ACADEMIES_COL,
+                academyId,
+                buildAcademyStagesConfigSavePayload(doc, cleaned)
+            );
+            invalidateAcademyDocumentCache(academyId);
             setStages(cleaned);
             setEditStages(false);
         } catch (e) {
@@ -2892,35 +2904,16 @@ const Pipeline = () => {
                 )}
                 {editStages && (
                     <div className="container stage-editor">
-                        <div className="stage-editor-head">
+                        <div className="stage-editor-head stage-editor-head--sortable">
+                            <span className="stage-editor-head__drag" aria-hidden />
                             <span>Nome da etapa</span>
                             <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
                         </div>
-                        {tempStages.map((st, idx) => (
-                            <div className="stage-row" key={st.id}>
-                                <input
-                                    className="stage-input"
-                                    value={st.label}
-                                    disabled={st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST}
-                                    onChange={(e) => {
-                                        const v = e.target.value;
-                                        setTempStages(prev => prev.map((s, i) => i === idx ? { ...s, label: v } : s));
-                                    }}
-                                />
-                                <input
-                                    className="stage-sla"
-                                    type="number"
-                                    min="1"
-                                    value={st.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
-                                    disabled={st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST}
-                                    onChange={(e) => {
-                                        const v = parseInt(e.target.value, 10);
-                                        setTempStages(prev => prev.map((s, i) => i === idx ? { ...s, slaDays: v } : s));
-                                    }}
-                                    title="SLA (dias)"
-                                />
-                            </div>
-                        ))}
+                        <PipelineStageEditorList
+                            stages={tempStages}
+                            onChange={setTempStages}
+                            variant="pipeline"
+                        />
                         <div className="stage-actions">
                             <button className="btn-secondary" onClick={addStage}><PlusCircle size={14} /> Adicionar etapa</button>
                             <button

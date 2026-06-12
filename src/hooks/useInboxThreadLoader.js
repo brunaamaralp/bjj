@@ -208,20 +208,32 @@ export function useInboxThreadLoader({
           }
           return { ...base, messages: deduped };
         });
-        if (shouldApplyToUi) try {
+        try {
           const last = incoming.length > 0 ? incoming[incoming.length - 1] : null;
           const textRaw = String(last?.content || '')
             .replace(/_{2,}/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
           const preview = textRaw.length > 40 ? `${textRaw.slice(0, 40)}…` : textRaw;
-          if (preview) {
+          const profileImageUrl =
+            typeof data?.whatsapp_profile_image_url === 'string'
+              ? String(data.whatsapp_profile_image_url).trim()
+              : '';
+          const waProfileName =
+            typeof data?.whatsapp_profile_name === 'string'
+              ? String(data.whatsapp_profile_name).trim()
+              : '';
+          if (preview || profileImageUrl || waProfileName) {
             setItems((prev) => {
               const arr = Array.isArray(prev) ? prev : [];
               return arr.map((it) => {
                 const ph = String(it?.phone_number || '').trim();
                 if (ph !== p) return it;
-                return { ...it, last_preview: preview };
+                const next = { ...it };
+                if (preview) next.last_preview = preview;
+                if (profileImageUrl) next.whatsapp_profile_image_url = profileImageUrl;
+                if (waProfileName) next.whatsapp_profile_name = waProfileName;
+                return next;
               });
             });
           }

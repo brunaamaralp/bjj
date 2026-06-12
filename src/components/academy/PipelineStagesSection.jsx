@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
-import { LEAD_STATUS } from '../../store/useLeadStore';
+import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
+import {
+  buildAcademyStagesConfigSavePayload,
+  readStagesConfigRawFromAcademyDoc,
+} from '../../lib/pipelineStagesStorage.js';
 import { useUiStore } from '../../store/useUiStore';
 import { useTerms } from '../../lib/terminology.js';
 import { useUserRole } from '../../lib/useUserRole';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import PipelineStageEditorList from '../pipeline/PipelineStageEditorList.jsx';
 import {
   buildDefaultPipelineStages,
   cleanStagesForSave,
@@ -31,7 +36,9 @@ export default function PipelineStagesSection({
     if (!academyId) return;
     try {
       const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-      setStages(normalizePipelineStagesFromDoc(doc.stagesConfig, { vertical, terms }));
+      setStages(
+        normalizePipelineStagesFromDoc(readStagesConfigRawFromAcademyDoc(doc), { vertical, terms })
+      );
     } catch (e) {
       console.error('[PipelineStagesSection]', e);
       addToast({ type: 'error', message: 'Não foi possível carregar as etapas do funil.' });
@@ -48,9 +55,14 @@ export default function PipelineStagesSection({
     setSaving(true);
     try {
       const cleaned = cleanStagesForSave(stages);
-      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        stagesConfig: JSON.stringify(cleaned),
-      });
+      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      await databases.updateDocument(
+        DB_ID,
+        ACADEMIES_COL,
+        academyId,
+        buildAcademyStagesConfigSavePayload(doc, cleaned)
+      );
+      invalidateAcademyDocumentCache(academyId);
       setStages(cleaned);
       addToast({ type: 'success', message: 'Etapas do funil salvas.' });
     } catch (e) {
@@ -79,41 +91,18 @@ export default function PipelineStagesSection({
   return (
     <div className="finance-settings-section-body">
       <div className="card pipeline-stages-editor">
-        <div className="pipeline-stages-editor__head">
+        <div className="pipeline-stages-editor__head pipeline-stages-editor__head--sortable">
+          <span className="pipeline-stages-editor__head-drag" aria-hidden />
           <span>Nome da etapa</span>
           <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
         </div>
         <div className="pipeline-stages-editor__body">
-          {stages.map((st, idx) => {
-            const locked = st.id === LEAD_STATUS.MISSED || st.id === LEAD_STATUS.LOST;
-            return (
-              <div className="pipeline-stages-editor__row" key={st.id}>
-                <input
-                  className="form-input"
-                  value={st.label}
-                  disabled={!canEdit || locked}
-                  aria-label={`Nome da etapa ${idx + 1}`}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, label: v } : s)));
-                  }}
-                />
-                <input
-                  className="form-input pipeline-stages-editor__sla"
-                  type="number"
-                  min="1"
-                  value={st.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
-                  disabled={!canEdit || locked}
-                  aria-label={`SLA em dias da etapa ${idx + 1}`}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, slaDays: v } : s)));
-                  }}
-                  title="SLA (dias)"
-                />
-              </div>
-            );
-          })}
+          <PipelineStageEditorList
+            stages={stages}
+            onChange={setStages}
+            canEdit={canEdit}
+            variant="settings"
+          />
         </div>
       </div>
       {canEdit ? (

@@ -18,6 +18,9 @@ export const INBOX_LIST_MORE_ROW_HEIGHT = 36;
 /** Texto da bolha antes de "Ver mais". */
 export const INBOX_MSG_TRUNCATE_CHARS = 600;
 
+/** Espaço vertical entre mensagens no mesmo grupo de bolhas. */
+export const INBOX_MSG_GROUP_GAP_PX = 8;
+
 /** Grupos recolhidos por padrão na lista (ex.: resolvidas). */
 export const INBOX_LIST_DEFAULT_COLLAPSED_GROUPS = ['resolved'];
 

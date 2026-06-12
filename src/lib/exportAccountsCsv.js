@@ -1,4 +1,6 @@
-/** Exporta plano de contas para CSV (UTF-8 BOM), mesmo padrão de ReportsTab. */
+import { downloadCsvMatrix } from './reportsExport.js';
+
+/** Exporta plano de contas para CSV (UTF-8 BOM, delimitador ;). */
 export function exportAccountsCsv(accounts) {
   const headers = [
     'Código',
@@ -22,14 +24,5 @@ export function exportAccountsCsv(accounts) {
       a.dfcSubclasse,
       a.cash ? 'Sim' : 'Não',
     ]);
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `plano-de-contas-${new Date().toISOString().slice(0, 10)}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadCsvMatrix(headers, rows, `plano-de-contas-${new Date().toISOString().slice(0, 10)}.csv`);
 }

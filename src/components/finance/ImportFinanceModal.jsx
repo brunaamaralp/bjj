@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { createSessionJwt } from '../../lib/appwrite';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import { downloadCsvTemplate } from '../../lib/reportsExport.js';
 
 const VIOLET = 'var(--color-primary)';
 const CORAL = '#F04040';
@@ -46,16 +47,7 @@ function downloadFinanceImportTemplate() {
     ['1.1', 'Circulante', 'ativo', 'devedora', '', '', '', 'Não'],
     ['1.1.1', 'Caixa', 'ativo', 'devedora', '', 'Operacional', '', 'Sim'],
   ];
-  const csv = [headers, ...sampleRows]
-    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = 'modelo-plano-de-contas-nave.csv';
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadCsvTemplate(headers, sampleRows, 'modelo-plano-de-contas-nave.csv');
 }
 
 function PulsingDots() {

@@ -1,4 +1,4 @@
-import { INBOX_MSG_TRUNCATE_CHARS } from './inboxUiConstants.js';
+import { INBOX_MSG_GROUP_GAP_PX, INBOX_MSG_TRUNCATE_CHARS } from './inboxUiConstants.js';
 
 function estimateMessageItemHeight(m, expanded) {
   const content = String(m?.content || '');
@@ -26,9 +26,11 @@ export function estimateInboxThreadBlockHeight(block, expandedMsgs = {}) {
 
   const items = Array.isArray(block.items) ? block.items : [];
   let h = 16;
-  for (const entry of items) {
+  for (let i = 0; i < items.length; i += 1) {
+    const entry = items[i];
     const key = String(entry?.key || '');
     const m = entry?.m;
+    if (i > 0) h += INBOX_MSG_GROUP_GAP_PX;
     h += estimateMessageItemHeight(m, Boolean(expandedMsgs[key]));
     if (expandedMsgs[key]) h += 12;
   }

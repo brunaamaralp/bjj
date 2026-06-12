@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { renderReceiptPdf, receiptGeneratedAt } from '../../lib/receipts/receiptPdfLayout.js';
+import { renderReceiptPdf, receiptGeneratedAt, RECEIPT_COLORS } from '../../lib/receipts/receiptPdfLayout.js';
 
 describe('receiptPdfLayout', () => {
+  it('accent color is a valid hex for PDFKit', () => {
+    expect(RECEIPT_COLORS.accent).not.toContain('var(');
+    expect(RECEIPT_COLORS.accent).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+
   it('renderReceiptPdf produces a valid PDF buffer', async () => {
     const buf = await renderReceiptPdf((ctx) => {
       ctx.drawHeader({

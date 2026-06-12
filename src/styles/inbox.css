@@ -1747,8 +1747,8 @@
 }
 
 .inbox-bubble .inbox-msg + .inbox-msg {
-  margin-top: 2px;
-  padding-top: 2px;
+  margin-top: var(--inbox-msg-group-gap, 8px);
+  padding-top: 0;
 }
 
 .inbox-msg-sender-label--ai::before {
