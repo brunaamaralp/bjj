@@ -1,5 +1,6 @@
 import { LEAD_STATUS } from '../store/useLeadStore';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { CANONICAL_PIPELINE_STAGE_IDS } from './leadStageRules.js';
 import { TERMS } from './terminology.js';
 
 export const DEFAULT_STAGE_SLA_DAYS = 3;
@@ -85,6 +86,19 @@ export function normalizePipelineStagesFromDoc(stagesConfig, { vertical = 'fitne
     label: String(s.label || s.id || '').trim(),
     slaDays: Number.isFinite(s.slaDays) ? s.slaDays : DEFAULT_STAGE_SLA_DAYS,
   }));
+}
+
+/** Etapas ligadas ao status do lead — só o rótulo fica fixo no editor. */
+export function isPipelineStageLabelLocked(stageId) {
+  const id = String(stageId || '').trim();
+  return id === LEAD_STATUS.MISSED || id === LEAD_STATUS.LOST;
+}
+
+/** Etapas customizadas podem ser removidas; colunas do funil padrão não. */
+export function isPipelineStageDeletable(stageId) {
+  const id = String(stageId || '').trim();
+  if (!id) return false;
+  return !CANONICAL_PIPELINE_STAGE_IDS.has(id);
 }
 
 export function cleanStagesForSave(stages) {

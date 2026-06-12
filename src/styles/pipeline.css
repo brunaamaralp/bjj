@@ -1178,7 +1178,7 @@
 }
 
 .stage-editor-head--sortable {
-  grid-template-columns: 28px 1fr 90px;
+  grid-template-columns: 28px 1fr 90px 36px;
 }
 
 .stage-editor-head__drag {
@@ -1193,7 +1193,7 @@
 }
 
 .stage-row--sortable {
-  grid-template-columns: 28px 1fr 90px;
+  grid-template-columns: 28px 1fr 90px 36px;
   align-items: center;
 }
 
@@ -1224,6 +1224,30 @@
 .pipeline-stage-drag-handle:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.pipeline-stage-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pipeline-text-muted, var(--text-muted));
+  cursor: pointer;
+}
+
+.pipeline-stage-remove-btn:hover {
+  background: rgba(204, 68, 68, 0.1);
+  color: var(--danger, #cc4444);
+}
+
+.pipeline-stage-remove-placeholder {
+  width: 32px;
+  height: 32px;
 }
 
 .stage-input,
@@ -1835,7 +1859,7 @@
 }
 
 .pipeline-stages-editor__head--sortable {
-  grid-template-columns: 28px 1fr 88px;
+  grid-template-columns: 28px 1fr 88px 36px;
   align-items: center;
 }
 
@@ -1858,7 +1882,7 @@
 }
 
 .pipeline-stages-editor__row--sortable {
-  grid-template-columns: 28px 1fr 88px;
+  grid-template-columns: 28px 1fr 88px 36px;
 }
 
 .pipeline-stages-editor__row:last-child {

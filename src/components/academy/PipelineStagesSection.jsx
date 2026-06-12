@@ -1,6 +1,9 @@
 import '../../styles/pipeline.css';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
+import { useLeadStore } from '../../store/useLeadStore';
+import { isLeadPendingTriage } from '../../lib/leadTriage.js';
+import { buildPipelineStageLeadCounts } from '../../lib/leadStageRules.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
 import {
@@ -32,6 +35,19 @@ export default function PipelineStagesSection({
   const [stages, setStages] = useState([]);
   const [saving, setSaving] = useState(false);
   const [confirmDefault, setConfirmDefault] = useState(false);
+  const leads = useLeadStore((s) => s.leads);
+  const fetchLeads = useLeadStore((s) => s.fetchLeads);
+  const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
+
+  useEffect(() => {
+    if (!academyId) return;
+    void fetchLeads({ reset: true });
+  }, [academyId, fetchLeads]);
+
+  const stageLeadCounts = useMemo(
+    () => buildPipelineStageLeadCounts(leads, { stages, isPendingTriage: isLeadPendingTriage }),
+    [leads, stages]
+  );
 
   const loadStages = useCallback(async () => {
     if (!academyId) return;
@@ -96,6 +112,7 @@ export default function PipelineStagesSection({
           <span className="pipeline-stages-editor__head-drag" aria-hidden />
           <span>Nome da etapa</span>
           <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
+          <span className="pipeline-stages-editor__head-actions" aria-hidden />
         </div>
         <div className="pipeline-stages-editor__body">
           <PipelineStageEditorList
@@ -103,6 +120,8 @@ export default function PipelineStagesSection({
             onChange={setStages}
             canEdit={canEdit}
             variant="settings"
+            getStageLeadCount={(stageId) => stageLeadCounts[stageId] || 0}
+            stageLeadCountsIncomplete={leadsHasMore}
           />
         </div>
       </div>

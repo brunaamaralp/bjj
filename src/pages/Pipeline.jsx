@@ -18,7 +18,13 @@ import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
-import { getStageUpdatePayload, isOpenFunnelLead, normalizePipelineStageId, resolveLeadPipelineStageId } from '../lib/leadStageRules.js';
+import {
+    buildPipelineStageLeadCounts,
+    getStageUpdatePayload,
+    isOpenFunnelLead,
+    normalizePipelineStageId,
+    resolveLeadPipelineStageId,
+} from '../lib/leadStageRules.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
 import { dispatchOpenNewLeadModal } from '../lib/newLeadModal.js';
@@ -2009,6 +2015,11 @@ const Pipeline = () => {
         [stages]
     );
 
+    const tempStageLeadCounts = useMemo(
+        () => buildPipelineStageLeadCounts(leads, { stages: tempStages, isPendingTriage: isLeadPendingTriage }),
+        [leads, tempStages]
+    );
+
     const filterByDate = useCallback((lead) => {
         const { from, to } = resolveLeadPeriodRange({ filterDateFrom, filterDateTo, quickFilter, formatLocalYmd });
         if (!from && !to) return true;
@@ -2936,11 +2947,14 @@ const Pipeline = () => {
                             <span className="stage-editor-head__drag" aria-hidden />
                             <span>Nome da etapa</span>
                             <span title="Alerta quando o interessado permanece mais dias que o limite nesta etapa">SLA (dias)</span>
+                            <span className="stage-editor-head__actions" aria-hidden />
                         </div>
                         <PipelineStageEditorList
                             stages={tempStages}
                             onChange={setTempStages}
                             variant="pipeline"
+                            getStageLeadCount={(stageId) => tempStageLeadCounts[stageId] || 0}
+                            stageLeadCountsIncomplete={leadsHasMore}
                         />
                         <div className="stage-actions">
                             <button className="btn-secondary" onClick={addStage}><PlusCircle size={14} /> Adicionar etapa</button>

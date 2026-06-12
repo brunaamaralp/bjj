@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -13,16 +13,25 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
-import { LEAD_STATUS } from '../../store/useLeadStore';
-import { DEFAULT_STAGE_SLA_DAYS } from '../../lib/pipelineStagesConfig.js';
+import { GripVertical, Trash2 } from 'lucide-react';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import {
+  DEFAULT_STAGE_SLA_DAYS,
+  isPipelineStageDeletable,
+  isPipelineStageLabelLocked,
+} from '../../lib/pipelineStagesConfig.js';
 
-function isStageFieldLocked(stageId) {
-  return stageId === LEAD_STATUS.MISSED || stageId === LEAD_STATUS.LOST;
-}
-
-function SortableStageRow({ stage, index, onLabelChange, onSlaChange, canEdit, variant }) {
-  const locked = isStageFieldLocked(stage.id);
+function SortableStageRow({
+  stage,
+  index,
+  onLabelChange,
+  onSlaChange,
+  onRemoveRequest,
+  canEdit,
+  variant,
+}) {
+  const labelLocked = isPipelineStageLabelLocked(stage.id);
+  const deletable = isPipelineStageDeletable(stage.id);
   const sortDisabled = !canEdit;
   const {
     attributes,
@@ -64,7 +73,7 @@ function SortableStageRow({ stage, index, onLabelChange, onSlaChange, canEdit, v
       <input
         className={nameClass}
         value={stage.label}
-        disabled={!canEdit || locked}
+        disabled={!canEdit || labelLocked}
         aria-label={`Nome da etapa ${index + 1}`}
         onChange={(e) => onLabelChange(e.target.value)}
       />
@@ -72,31 +81,74 @@ function SortableStageRow({ stage, index, onLabelChange, onSlaChange, canEdit, v
         className={slaClass}
         type="number"
         min="1"
-        value={stage.slaDays ?? DEFAULT_STAGE_SLA_DAYS}
-        disabled={!canEdit || locked}
+        value={Number.isFinite(stage.slaDays) ? stage.slaDays : ''}
+        placeholder={String(DEFAULT_STAGE_SLA_DAYS)}
+        disabled={!canEdit}
         aria-label={`SLA em dias da etapa ${index + 1}`}
         title="SLA (dias)"
         onChange={(e) => {
-          const v = parseInt(e.target.value, 10);
-          onSlaChange(Number.isFinite(v) ? v : DEFAULT_STAGE_SLA_DAYS);
+          const raw = e.target.value;
+          if (raw === '') {
+            onSlaChange(null);
+            return;
+          }
+          const v = parseInt(raw, 10);
+          if (Number.isFinite(v) && v >= 1) onSlaChange(v);
         }}
       />
+      {canEdit && deletable ? (
+        <button
+          type="button"
+          className="pipeline-stage-remove-btn"
+          aria-label={`Excluir etapa ${stage.label || stage.id}`}
+          title="Excluir etapa"
+          onClick={() => onRemoveRequest(index)}
+        >
+          <Trash2 size={16} aria-hidden />
+        </button>
+      ) : (
+        <span className="pipeline-stage-remove-placeholder" aria-hidden />
+      )}
     </div>
   );
 }
 
 /**
  * Lista editável de etapas do funil com reordenação por arrastar.
- * @param {{ stages: Array<{id: string, label: string, slaDays?: number}>, onChange: (stages: typeof stages) => void, canEdit?: boolean, variant?: 'pipeline' | 'settings' }} props
+ * @param {{ stages: Array<{id: string, label: string, slaDays?: number}>, onChange: (stages: typeof stages) => void, canEdit?: boolean, variant?: 'pipeline' | 'settings', getStageLeadCount?: (stageId: string) => number, stageLeadCountsIncomplete?: boolean }} props
  */
 export default function PipelineStageEditorList({
   stages,
   onChange,
   canEdit = true,
   variant = 'settings',
+  getStageLeadCount,
+  stageLeadCountsIncomplete = false,
 }) {
+  const [pendingRemove, setPendingRemove] = useState(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+
+  const removeStageAt = useCallback(
+    (index) => {
+      onChange(stages.filter((_, i) => i !== index));
+    },
+    [onChange, stages]
+  );
+
+  const requestRemove = useCallback(
+    (index) => {
+      const stage = stages[index];
+      if (!stage) return;
+      const count = getStageLeadCount?.(stage.id) ?? 0;
+      if (count > 0) {
+        setPendingRemove({ index, stage, count });
+        return;
+      }
+      removeStageAt(index);
+    },
+    [stages, getStageLeadCount, removeStageAt]
   );
 
   const handleDragEnd = (event) => {
@@ -108,25 +160,49 @@ export default function PipelineStageEditorList({
     onChange(arrayMove(stages, oldIndex, newIndex));
   };
 
+  const pendingLabel = pendingRemove?.stage?.label || pendingRemove?.stage?.id || 'esta etapa';
+  const pendingCount = pendingRemove?.count ?? 0;
+  const countLabel =
+    pendingCount === 1 ? '1 lead' : `${pendingCount}${stageLeadCountsIncomplete ? ' ou mais' : ''} leads`;
+
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-        {stages.map((st, idx) => (
-          <SortableStageRow
-            key={st.id}
-            stage={st}
-            index={idx}
-            canEdit={canEdit}
-            variant={variant}
-            onLabelChange={(v) =>
-              onChange(stages.map((s, i) => (i === idx ? { ...s, label: v } : s)))
-            }
-            onSlaChange={(v) =>
-              onChange(stages.map((s, i) => (i === idx ? { ...s, slaDays: v } : s)))
-            }
-          />
-        ))}
-      </SortableContext>
-    </DndContext>
+    <>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+          {stages.map((st, idx) => (
+            <SortableStageRow
+              key={st.id}
+              stage={st}
+              index={idx}
+              canEdit={canEdit}
+              variant={variant}
+              onLabelChange={(v) =>
+                onChange(stages.map((s, i) => (i === idx ? { ...s, label: v } : s)))
+              }
+              onSlaChange={(v) =>
+                onChange(stages.map((s, i) => (i === idx ? { ...s, slaDays: v } : s)))
+              }
+              onRemoveRequest={requestRemove}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
+
+      <ConfirmDialog
+        open={Boolean(pendingRemove)}
+        title={`Excluir etapa «${pendingLabel}»?`}
+        description={
+          pendingRemove
+            ? `Há ${countLabel} nesta etapa. Eles manterão a etapa atual até você movê-los no funil. Deseja excluir a etapa mesmo assim?`
+            : undefined
+        }
+        confirmLabel="Excluir etapa"
+        onConfirm={() => {
+          if (pendingRemove) removeStageAt(pendingRemove.index);
+          setPendingRemove(null);
+        }}
+        onClose={() => setPendingRemove(null)}
+      />
+    </>
   );
 }

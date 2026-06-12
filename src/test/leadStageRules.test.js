@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
 import {
+  buildPipelineStageLeadCounts,
   getStageUpdatePayload,
   isLeadScheduledForExperimental,
   isLeadVisibleOnExperimentalAgenda,
@@ -91,5 +92,17 @@ describe('leadStageRules', () => {
     expect(isLeadVisibleOnExperimentalAgenda({ ...base, status: LEAD_STATUS.COMPLETED, scheduledDate: '' })).toBe(
       false
     );
+  });
+
+  it('buildPipelineStageLeadCounts agrupa leads por coluna do funil', () => {
+    const stages = [...buildDefaultPipelineStages(), { id: 'custom-followup', label: 'Follow-up' }];
+    const leads = [
+      { status: LEAD_STATUS.NEW, pipelineStage: 'Novo' },
+      { status: LEAD_STATUS.NEW, pipelineStage: 'Novo' },
+      { status: LEAD_STATUS.NEW, pipelineStage: 'custom-followup' },
+    ];
+    const counts = buildPipelineStageLeadCounts(leads, { stages });
+    expect(counts.Novo).toBe(2);
+    expect(counts['custom-followup']).toBe(1);
   });
 });

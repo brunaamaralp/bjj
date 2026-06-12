@@ -117,6 +117,20 @@ export function resolveLeadPipelineStageId(lead, { stages = [], isPendingTriage 
  * @param {string} pipelineStage
  * @returns {Record<string, unknown>}
  */
+/** Conta leads por coluna do funil (usa as mesmas regras do Kanban). */
+export function buildPipelineStageLeadCounts(
+  leads,
+  { stages = [], isPendingTriage = () => false } = {}
+) {
+  const counts = Object.create(null);
+  for (const lead of Array.isArray(leads) ? leads : []) {
+    const stageId = resolveLeadPipelineStageId(lead, { stages, isPendingTriage });
+    if (!stageId) continue;
+    counts[stageId] = (counts[stageId] || 0) + 1;
+  }
+  return counts;
+}
+
 export function getStageUpdatePayload(pipelineStage) {
   const status = STAGE_TO_STATUS[pipelineStage];
   if (!status) {
