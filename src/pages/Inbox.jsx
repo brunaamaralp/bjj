@@ -2,7 +2,7 @@ import '../styles/tokens/inbox.css';
 import '../styles/inbox.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { teams, CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
 import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
 import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
@@ -59,6 +59,7 @@ import { useInboxScrollLoadMore } from '../hooks/useInboxScrollLoadMore.js';
 import { useInboxThreadLoader } from '../hooks/useInboxThreadLoader.js';
 import { useInboxConversationActions } from '../hooks/useInboxConversationActions.js';
 import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js';
+import { useInboxDeferredBoot } from '../hooks/useInboxDeferredBoot.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -184,42 +185,7 @@ export default function Inbox() {
   const studentsLoading = useStudentStore((s) => s.loading);
   const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
-
-  useEffect(() => {
-    const teamId = String(academyDoc?.teamId || '').trim();
-    if (!teamId) {
-      setTeamMembers([]);
-      return undefined;
-    }
-    let cancelled = false;
-    const loadTeamMembers = () => {
-      teams
-        .listMemberships(teamId)
-        .then((res) => {
-          if (cancelled) return;
-          const rows = (res.memberships || []).filter((m) => String(m?.joined || '').trim());
-          setTeamMembers(rows);
-        })
-        .catch(() => {
-          if (!cancelled) setTeamMembers([]);
-        });
-    };
-    const schedule =
-      typeof requestIdleCallback === 'function'
-        ? (cb) => requestIdleCallback(cb, { timeout: 3000 })
-        : (cb) => window.setTimeout(cb, 400);
-    const cancelSchedule =
-      typeof cancelIdleCallback === 'function'
-        ? cancelIdleCallback
-        : (id) => window.clearTimeout(id);
-    const id = schedule(() => {
-      if (!cancelled) loadTeamMembers();
-    });
-    return () => {
-      cancelled = true;
-      cancelSchedule(id);
-    };
-  }, [academyDoc?.teamId]);
+  const { teamMembers, agentIaActive } = useInboxDeferredBoot(academyId, academyDoc);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
   const fetchWaInfoDeferredRef = useRef(null);
@@ -342,7 +308,6 @@ export default function Inbox() {
   }, [selectedPhone, setSearchParams]);
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
-  const [agentIaActive, setAgentIaActive] = useState(false);
   const { stats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
   const [listWidth, setListWidth] = useState(() => {
     if (typeof window === 'undefined') return 360;
@@ -354,7 +319,6 @@ export default function Inbox() {
   const [leadPanel, setLeadPanel] = useState(null);
   const [dismissTriageLead, setDismissTriageLead] = useState(null);
   const [transferToDraft, setTransferToDraft] = useState('');
-  const [teamMembers, setTeamMembers] = useState([]);
   const [leadNameDraft, setLeadNameDraft] = useState('');
   const [contactNameDraft, setContactNameDraft] = useState('');
   const [editingContactName, setEditingContactName] = useState(false);
@@ -874,44 +838,6 @@ export default function Inbox() {
     const id = String(academyId || '').trim();
     if (!id) return;
     void getJwt();
-  }, [academyId]);
-
-  useEffect(() => {
-    if (!academyId) {
-      setAgentIaActive(false);
-      return;
-    }
-    let cancelled = false;
-    const loadAgentFlag = async () => {
-      try {
-        const token = await getJwt();
-        const { blocked, res } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
-          headers: { Authorization: `Bearer ${token}`, 'x-academy-id': academyId },
-        });
-        if (blocked || !res?.ok) return;
-        const data = await res.json();
-        if (!cancelled && data && typeof data === 'object') {
-          setAgentIaActive(data.ia_ativa === true);
-        }
-      } catch {
-        if (!cancelled) setAgentIaActive(false);
-      }
-    };
-    const schedule =
-      typeof requestIdleCallback === 'function'
-        ? (cb) => requestIdleCallback(cb, { timeout: 2500 })
-        : (cb) => window.setTimeout(cb, 800);
-    const cancel =
-      typeof cancelIdleCallback === 'function'
-        ? cancelIdleCallback
-        : (id) => window.clearTimeout(id);
-    const id = schedule(() => {
-      if (!cancelled) void loadAgentFlag();
-    });
-    return () => {
-      cancelled = true;
-      cancel(id);
-    };
   }, [academyId]);
 
   useEffect(() => {
