@@ -4,8 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspens
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
-import { humanHandoffUntilToMs } from '../../lib/humanHandoffUntil.js';
-import { AGENT_HISTORY_WINDOW, getHumanHandoffHoursForClient } from '../../lib/constants.js';
 import {
   WHATSAPP_TEMPLATE_LABELS,
   applyWhatsappTemplatePlaceholders,
@@ -68,6 +66,9 @@ import { useInboxUrlState, readInboxPhoneFromLocationSearch } from '../hooks/use
 import { useInboxAutoSelectConversation } from '../hooks/useInboxAutoSelectConversation.js';
 import { useInboxComposerUi } from '../hooks/useInboxComposerUi.js';
 import { useInboxLayoutPrefs } from '../hooks/useInboxLayoutPrefs.js';
+import { useInboxHandoff } from '../hooks/useInboxHandoff.js';
+import { useInboxDesktopNotify } from '../hooks/useInboxDesktopNotify.js';
+import { useInboxMessageFlags } from '../hooks/useInboxMessageFlags.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -248,8 +249,6 @@ export default function Inbox() {
     selectedPhoneRef,
     normalizePhone,
   });
-  const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
-
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const { stats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
@@ -265,13 +264,6 @@ export default function Inbox() {
   const leadsForAssociate = useLeadsForAssociatePanel(leadPanel);
   const [linkingLead, setLinkingLead] = useState(false);
   const [highlighted, setHighlighted] = useState({});
-  const [desktopNotify, setDesktopNotify] = useState(() => {
-    try {
-      return typeof window !== 'undefined' && window.localStorage.getItem('inbox_desktop_notify') === '1';
-    } catch {
-      return false;
-    }
-  });
   const { templates: whatsappTemplatesHook, academyName: academyNameForTemplates } = useWhatsappTemplates(academyId, {
     enabled: templatesOpen || slashOpen,
   });
@@ -303,7 +295,6 @@ export default function Inbox() {
   const conversationSheetRef = useDialogFocus(conversationSheetOpen, () => setConversationSheet(null));
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
   const [expandedMsgs, setExpandedMsgs] = useState({});
-  const [msgFlags, setMsgFlags] = useState({});
   const [inboxVvInset, setInboxVvInset] = useState(0);
   const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
 
@@ -345,7 +336,6 @@ export default function Inbox() {
   }, [quickTemplates, slashQuery]);
 
   const draftRef = useRef('');
-  const handoffExpiryToastRef = useRef('');
 
   useEffect(() => {
     if (!slashOpen) return;
@@ -362,7 +352,6 @@ export default function Inbox() {
   const threadMsgCountRef = useRef(0);
   const listMetaRef = useRef(new Map());
   const notifiedOnceRef = useRef(false);
-  const desktopNotifyRef = useRef(false);
   const loadingListRef = useRef(false);
   const threadAbortRef = useRef(null);
   const threadRequestSeqRef = useRef(0);
@@ -400,11 +389,27 @@ export default function Inbox() {
   const searchQuery = useMemo(() => String(search || '').trim(), [search]);
   const debouncedSearchQuery = useMemo(() => String(debouncedSearch || '').trim(), [debouncedSearch]);
   const searchPending = searchQuery !== debouncedSearchQuery;
-  const handoffHours = useMemo(() => getHumanHandoffHoursForClient(), []);
-  const handoffDurationPhrase = useMemo(
-    () => (handoffHours === 1 ? '1 hora' : `${handoffHours} horas`),
-    [handoffHours]
-  );
+  const { handoffReleaseHint, setHandoffReleaseHint, handoffDurationPhrase } = useInboxHandoff({
+    selectedPhone,
+    selected,
+    toast,
+  });
+  const {
+    desktopNotify,
+    desktopNotifyRef,
+    toggleDesktopNotifyPreference,
+    tryDesktopNotify,
+    playNotificationSound,
+  } = useInboxDesktopNotify({ toast });
+  const { msgFlags, setMsgFlags, conversationIdForFlags, toggleMsgFlag } = useInboxMessageFlags({
+    academyId,
+    selectedPhone,
+    selected,
+    items,
+    loading,
+    toast,
+    messageFlagsMigrationDoneRef,
+  });
 
   const onListItemNotifyRef = useRef(() => {});
   const onListReadyRef = useRef(null);
@@ -675,32 +680,6 @@ export default function Inbox() {
   }, [widgetActivePhone, selectedPhone]);
 
   useEffect(() => {
-    const phone = String(selectedPhone || '').trim();
-    const untilMs = humanHandoffUntilToMs(selected?.human_handoff_until);
-    if (!phone || !selected?.need_human || untilMs <= 0) {
-      handoffExpiryToastRef.current = '';
-      return;
-    }
-    const showExpiryToast = () => {
-      const key = `${phone}:${untilMs}`;
-      if (handoffExpiryToastRef.current === key) return;
-      handoffExpiryToastRef.current = key;
-      toast.warning('Tempo do atendimento manual acabou. A IA pode retomar neste atendimento.');
-    };
-    const delay = untilMs - Date.now();
-    if (delay <= 0) {
-      showExpiryToast();
-      return;
-    }
-    const id = setTimeout(showExpiryToast, delay);
-    return () => clearTimeout(id);
-  }, [toast, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
-
-  useEffect(() => {
-    desktopNotifyRef.current = Boolean(desktopNotify);
-  }, [desktopNotify]);
-
-  useEffect(() => {
     const threadAbort = threadAbortRef;
     return () => {
       try {
@@ -757,256 +736,6 @@ export default function Inbox() {
     }
   }
 
-  const conversationIdForFlags = useMemo(() => {
-    const phone = String(selectedPhone || '').trim();
-    if (!phone) return '';
-    const fromSelected = String(selected?.conversation_id || '').trim();
-    if (fromSelected) return fromSelected;
-    const row = (Array.isArray(items) ? items : []).find((it) => String(it?.phone_number || '').trim() === phone);
-    return String(row?.id || '').trim();
-  }, [selectedPhone, selected?.conversation_id, items]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!academyId || messageFlagsMigrationDoneRef.current) return;
-    const raw = window.localStorage.getItem('inbox_msg_flags');
-    if (!raw || raw === '{}') {
-      messageFlagsMigrationDoneRef.current = true;
-      return;
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      messageFlagsMigrationDoneRef.current = true;
-      try {
-        window.localStorage.removeItem('inbox_msg_flags');
-      } catch {
-        void 0;
-      }
-      return;
-    }
-    if (!parsed || typeof parsed !== 'object') {
-      messageFlagsMigrationDoneRef.current = true;
-      try {
-        window.localStorage.removeItem('inbox_msg_flags');
-      } catch {
-        void 0;
-      }
-      return;
-    }
-
-    const arr = Array.isArray(items) ? items : [];
-    const phones = Object.keys(parsed).filter((ph) => {
-      const p = String(ph || '').trim();
-      if (!p) return false;
-      const cur = parsed[p];
-      const pin = cur?.pinned && typeof cur.pinned === 'object' ? cur.pinned : {};
-      const imp = cur?.important && typeof cur.important === 'object' ? cur.important : {};
-      const nPin = Object.keys(pin).filter((k) => pin[k]).length;
-      const nImp = Object.keys(imp).filter((k) => imp[k]).length;
-      return nPin + nImp > 0;
-    });
-    if (phones.length > 0 && arr.length === 0) {
-      if (!loading) {
-        messageFlagsMigrationDoneRef.current = true;
-        try {
-          window.localStorage.removeItem('inbox_msg_flags');
-        } catch {
-          void 0;
-        }
-      }
-      return;
-    }
-
-    (async () => {
-      let ok = true;
-      try {
-        const jwt = await getJwt();
-        const headers = {
-          Authorization: `Bearer ${jwt}`,
-          'Content-Type': 'application/json',
-          'x-academy-id': academyId,
-        };
-        for (const phone of phones.length ? phones : Object.keys(parsed)) {
-          const p = String(phone || '').trim();
-          if (!p) continue;
-          const cur = parsed[p];
-          if (!cur || typeof cur !== 'object') continue;
-          const row = arr.find((it) => String(it?.phone_number || '').trim() === p);
-          const conversationId = String(row?.id || '').trim();
-          if (!conversationId) continue;
-          const pin = cur.pinned && typeof cur.pinned === 'object' ? cur.pinned : {};
-          const imp = cur.important && typeof cur.important === 'object' ? cur.important : {};
-          for (const k of Object.keys(pin)) {
-            if (!pin[k]) continue;
-            const mid = String(k || '').trim();
-            if (!mid) continue;
-            const res = await fetch('/api/message-flags', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                academy_id: academyId,
-                conversation_id: conversationId,
-                message_id: mid,
-                type: 'pinned',
-              }),
-            });
-            if (!res.ok) ok = false;
-          }
-          for (const k of Object.keys(imp)) {
-            if (!imp[k]) continue;
-            const mid = String(k || '').trim();
-            if (!mid) continue;
-            const res = await fetch('/api/message-flags', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                academy_id: academyId,
-                conversation_id: conversationId,
-                message_id: mid,
-                type: 'important',
-              }),
-            });
-            if (!res.ok) ok = false;
-          }
-        }
-        if (ok) {
-          try {
-            window.localStorage.removeItem('inbox_msg_flags');
-          } catch {
-            void 0;
-          }
-        }
-      } catch {
-        ok = false;
-      } finally {
-        messageFlagsMigrationDoneRef.current = true;
-      }
-    })();
-  }, [academyId, items, loading]);
-
-  useEffect(() => {
-    const phone = String(selectedPhone || '').trim();
-    const cid = String(conversationIdForFlags || '').trim();
-    if (!academyId || !phone || !cid) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const jwt = await getJwt();
-        const qs = new URLSearchParams({
-          conversation_id: cid,
-          academy_id: academyId,
-        });
-        const res = await fetch(`/api/message-flags?${qs.toString()}`, {
-          headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (cancelled || !res.ok || !data?.sucesso) return;
-        const list = Array.isArray(data.flags) ? data.flags : [];
-        const mapPinned = {};
-        const mapImp = {};
-        for (const f of list) {
-          const mid = String(f?.message_id || '').trim();
-          if (!mid) continue;
-          if (f.type === 'pinned') mapPinned[mid] = true;
-          if (f.type === 'important') mapImp[mid] = true;
-        }
-        setMsgFlags((prev) => {
-          const base = prev && typeof prev === 'object' ? prev : {};
-          return {
-            ...base,
-            [phone]: { pinned: mapPinned, important: mapImp },
-          };
-        });
-      } catch {
-        void 0;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [academyId, selectedPhone, conversationIdForFlags]);
-
-  async function toggleMsgFlag(phone, key, kind) {
-    const p = String(phone || '').trim();
-    const k = String(key || '').trim();
-    const t = String(kind || '').trim();
-    if (!p || !k || (t !== 'pinned' && t !== 'important')) return;
-    const cid =
-      p === String(selectedPhone || '').trim()
-        ? String(conversationIdForFlags || '').trim()
-        : String(
-            (Array.isArray(items) ? items : []).find((it) => String(it?.phone_number || '').trim() === p)?.id || ''
-          ).trim();
-    if (!cid || !academyId) return;
-
-    const curPhone = msgFlags && typeof msgFlags === 'object' && msgFlags[p] && typeof msgFlags[p] === 'object' ? msgFlags[p] : {};
-    const curMap = curPhone[t] && typeof curPhone[t] === 'object' ? curPhone[t] : {};
-    const has = Boolean(curMap[k]);
-    const nextHas = !has;
-
-    const applyLocal = () => {
-      setMsgFlags((prev) => {
-        const base = prev && typeof prev === 'object' ? prev : {};
-        const cur = base[p] && typeof base[p] === 'object' ? base[p] : {};
-        const next = { ...base };
-        const cm = cur[t] && typeof cur[t] === 'object' ? cur[t] : {};
-        const nextMap = { ...cm };
-        if (nextHas) nextMap[k] = true;
-        else delete nextMap[k];
-        next[p] = { ...cur, [t]: nextMap };
-        return next;
-      });
-    };
-
-    try {
-      const jwt = await getJwt();
-      if (nextHas) {
-        const res = await fetch('/api/message-flags', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-            'Content-Type': 'application/json',
-            'x-academy-id': academyId,
-          },
-          body: JSON.stringify({
-            academy_id: academyId,
-            conversation_id: cid,
-            message_id: k,
-            type: t,
-          }),
-        });
-        if (!res.ok) throw new Error('post');
-        applyLocal();
-        if (t === 'pinned') {
-          toast.success('Mensagem fixada');
-        } else {
-          toast.success('Marcada como importante');
-        }
-      } else {
-        const qs = new URLSearchParams({
-          type: t,
-          academy_id: academyId,
-          conversation_id: cid,
-        });
-        const res = await fetch(`/api/message-flags/${encodeURIComponent(k)}?${qs.toString()}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId },
-        });
-        if (!res.ok) throw new Error('delete');
-        applyLocal();
-        if (t === 'pinned') {
-          toast.success('Mensagem desfixada');
-        } else {
-          toast.success('Importante removido');
-        }
-      }
-    } catch (e) {
-      toast.error(e, 'action');
-    }
-  }
-
   async function reconcileLast24h() {
     if (!academyIdRef.current) {
       const message = 'Não foi possível sincronizar: academia não identificada.';
@@ -1039,92 +768,6 @@ export default function Inbox() {
     );
   }
 
-  function playNotificationSound() {
-    if (typeof window === 'undefined') return;
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(740, ctx.currentTime);
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.04, ctx.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.24);
-      osc.onended = () => {
-        try {
-          ctx.close();
-        } catch {
-          void 0;
-        }
-      };
-    } catch {
-      void 0;
-    }
-  }
-
-  function tryDesktopNotify({ phone, name, preview }) {
-    if (typeof window === 'undefined' || !desktopNotifyRef.current) return;
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    const label = String(name || phone || '').trim() || 'Contato';
-    const pv = String(preview || '').trim();
-    const body = (pv ? `${label}: ${pv}` : `${label} enviou uma mensagem`).slice(0, 180);
-    try {
-      new Notification('Nova mensagem no WhatsApp', { body, tag: `wa-inbox-${phone}` });
-    } catch {
-      void 0;
-    }
-  }
-
-  useEffect(() => {
-    onListItemNotifyRef.current = ({ phone, name, preview }) => {
-      playNotificationSound();
-      setHighlightedPhone(phone);
-      toast.show({
-        type: 'info',
-        message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`,
-      });
-      tryDesktopNotify({ phone, name, preview });
-    };
-  }, [toast]);
-
-  async function toggleDesktopNotifyPreference() {
-    if (desktopNotify) {
-      try {
-        window.localStorage.removeItem('inbox_desktop_notify');
-      } catch {
-        void 0;
-      }
-      setDesktopNotify(false);
-      toast.info('Notificações do sistema desativadas.');
-      return;
-    }
-    if (typeof Notification === 'undefined') {
-      toast.warning('Este navegador não suporta notificações.');
-      return;
-    }
-    let perm = Notification.permission;
-    if (perm === 'default') {
-      perm = await Notification.requestPermission();
-    }
-    if (perm !== 'granted') {
-      toast.warning('Permissão necessária para notificações do sistema.');
-      return;
-    }
-    try {
-      window.localStorage.setItem('inbox_desktop_notify', '1');
-    } catch {
-      void 0;
-    }
-    setDesktopNotify(true);
-    toast.success('Você receberá notificações quando chegar mensagem.');
-  }
-
   function setHighlightedPhone(phone) {
     const p = String(phone || '').trim();
     if (!p) return;
@@ -1148,6 +791,17 @@ export default function Inbox() {
     }
   }
 
+  useEffect(() => {
+    onListItemNotifyRef.current = ({ phone, name, preview }) => {
+      playNotificationSound();
+      setHighlightedPhone(phone);
+      toast.show({
+        type: 'info',
+        message: `Nova mensagem de ${name}${preview ? `: ${preview}` : ''}`,
+      });
+      tryDesktopNotify({ phone, name, preview });
+    };
+  }, [toast, playNotificationSound, tryDesktopNotify]);
 
   const applyWrapToDraft = (prefix, suffix = prefix) => {
     const cur = String(draftRef.current || '');
