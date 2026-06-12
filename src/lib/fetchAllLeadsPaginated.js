@@ -2,7 +2,7 @@ import { Query } from 'appwrite';
 import { databases, DB_ID, LEADS_COL } from './appwrite.js';
 import { LEAD_STATUS } from './leadStatus.js';
 import { mapAppwriteDocToLead } from './mapAppwriteLeadDoc.js';
-import { LEADS_PAGE_SIZE } from '../store/useLeadStore.js';
+const LEADS_PAGE_SIZE = 200;
 
 /**
  * Busca todos os leads da academia (paginado no servidor).

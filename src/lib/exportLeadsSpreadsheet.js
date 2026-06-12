@@ -1,5 +1,5 @@
 /**
- * Exporta leads/alunos para planilha .xlsx (Funil, Empresa → Avançado).
+ * Exporta leads para planilha .xlsx (Funil, Empresa → Avançado).
  */
 
 /** @param {object} l @param {{ includeContact?: boolean }} [opts] */

@@ -227,7 +227,7 @@ const Students = ({ embedded = false }) => {
                 .normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '')
                 .replace(/\s+/g, '-');
-            XLSX.writeFile(wb, `${exportSlug}-ativos.xlsx`);
+            XLSX.writeFile(wb, `${exportSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
         } catch (e) {
             console.error('[export students]', e?.message || e);
             addToast({ type: 'error', message: `Erro ao exportar ${terms.students.toLowerCase()}.` });
