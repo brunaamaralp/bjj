@@ -1,13 +1,11 @@
 import { useMemo } from 'react';
-import { buildFunnelStages, buildRatesCards } from '../lib/reportsFunnelUtils.js';
+import { buildFunnelStages } from '../lib/reportsFunnelUtils.js';
 
 export function useFunnelDerived({ reportData, chartMetric, terms, contactsPlural }) {
   const funnelStages = useMemo(
     () => buildFunnelStages(reportData, terms, contactsPlural),
     [reportData, terms, contactsPlural]
   );
-
-  const ratesCards = useMemo(() => buildRatesCards(reportData, terms), [reportData, terms]);
 
   const chartDataComparison = useMemo(() => {
     const rows = reportData?.chartComparison;
@@ -32,7 +30,6 @@ export function useFunnelDerived({ reportData, chartMetric, terms, contactsPlura
 
   return {
     funnelStages,
-    ratesCards,
     chartDataComparison,
     conversionChartData,
     lastConversionPoint,

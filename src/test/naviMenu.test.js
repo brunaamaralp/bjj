@@ -103,7 +103,7 @@ describe('naviMenu', () => {
     expect(loja.children[loja.children.length - 1]).toMatchObject({
       id: 'relatorios',
       label: 'Relatórios',
-      to: '/reports?tab=visao-geral',
+      to: '/reports?tab=funil',
     });
     const estoqueIdx = loja.children.findIndex((c) => c.id === 'estoque');
     const relIdx = loja.children.findIndex((c) => c.id === 'relatorios');
@@ -146,7 +146,7 @@ describe('naviMenu', () => {
     const rel = buildRelatoriosAccordion();
     expect(rel.linkOnly).toBe(true);
     expect(rel.children).toEqual([]);
-    expect(rel.defaultTo).toBe('/reports?tab=visao-geral');
+    expect(rel.defaultTo).toBe('/reports?tab=funil');
   });
 
   it('buildSidebarNavModel — member sem visão geral nem abas avançadas na sidebar', () => {

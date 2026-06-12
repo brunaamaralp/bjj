@@ -4,6 +4,7 @@ import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { Download, Wallet2, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchReportsFinanceLightResult } from '../../lib/reportsLightApi.js';
+import { fetchReceivables } from '../../lib/financeTxApi.js';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
 import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
 import FinanceRegimeToggle from '../finance/FinanceRegimeToggle.jsx';
@@ -24,6 +25,7 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
   const [error, setError] = useState('');
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : 'cash'));
+  const [receivablesTotal, setReceivablesTotal] = useState(null);
 
   const load = async () => {
     if (!academyId) {
@@ -58,6 +60,25 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
   useEffect(() => {
     void load();
   }, [academyId, from, to, regime]);
+
+  useEffect(() => {
+    if (!academyId || !to) {
+      setReceivablesTotal(null);
+      return undefined;
+    }
+    let active = true;
+    const month = String(to).slice(0, 7);
+    fetchReceivables({ academyId, month })
+      .then((body) => {
+        if (active) setReceivablesTotal(Number(body?.summary?.total) || 0);
+      })
+      .catch(() => {
+        if (active) setReceivablesTotal(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [academyId, to]);
 
   const isLimited = Boolean(data?.limited || data?.scope === 'basic');
 
@@ -179,7 +200,7 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
         ) : null}
         <div className="reports-kpi-grid">
         <ReportKpiCard
-          label="Recebido (líquido)"
+          label="Recebido"
           value={fmt(totals.received)}
           highlight="success"
           trendLabel={`${totals.receivedCount} lançamento${totals.receivedCount === 1 ? '' : 's'}`}
@@ -191,6 +212,11 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
           trendLabel={`${totals.expenseCount} lançamento${totals.expenseCount === 1 ? '' : 's'}`}
         />
         <ReportKpiCard label="Saldo do período" value={fmt(totals.balance)} highlight="default" />
+        <ReportKpiCard
+          label="A receber"
+          value={receivablesTotal != null ? fmt(receivablesTotal) : '—'}
+          highlight="warning"
+        />
         </div>
       </ReportsPanelSection>
 

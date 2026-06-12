@@ -2,12 +2,10 @@ import React, { lazy, Suspense, useMemo } from 'react';
 import {
   ArrowRight,
   Calendar,
-  CheckCircle2,
   ChevronRight,
   TrendingUp,
   UserPlus,
   Users,
-  XCircle,
 } from 'lucide-react';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
@@ -123,19 +121,6 @@ export default function ReportsFunilPanel({
             onClick={() => onDrill('scheduled')}
           />
           <ReportKpiCard
-            label="Compareceram"
-            value={m.completed?.current ?? m.showed?.current ?? 0}
-            trend={pctVar(
-              m.completed?.current ?? m.showed?.current ?? 0,
-              m.completed?.previous ?? m.showed?.previous ?? 0
-            )}
-            trendLabel="vs. período anterior"
-            tooltip={reportKpiTooltip('completed', { preset })}
-            icon={<CheckCircle2 size={20} strokeWidth={2.25} />}
-            highlight={HIGHLIGHT_BY_COLOR.success}
-            onClick={() => onDrill('completed')}
-          />
-          <ReportKpiCard
             label={terms.reportsMetricConvertedShort}
             value={m.converted?.current ?? 0}
             trend={pctVar(m.converted?.current ?? 0, m.converted?.previous ?? 0)}
@@ -144,16 +129,6 @@ export default function ReportsFunilPanel({
             icon={<Users size={20} strokeWidth={2.25} />}
             highlight={HIGHLIGHT_BY_COLOR.purple}
             onClick={() => onDrill('converted')}
-          />
-          <ReportKpiCard
-            label="Não compareceram"
-            value={m.missed?.current ?? 0}
-            trend={pctVar(m.missed?.current ?? 0, m.missed?.previous ?? 0)}
-            trendLabel="vs. período anterior"
-            tooltip={reportKpiTooltip('missed', { preset })}
-            icon={<XCircle size={20} strokeWidth={2.25} />}
-            highlight={HIGHLIGHT_BY_COLOR.danger}
-            onClick={() => onDrill('missed')}
           />
           <ReportKpiCard
             label="Taxa de conversão"

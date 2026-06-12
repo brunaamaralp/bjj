@@ -63,8 +63,11 @@ function findDuplicateByPhoneAndName(leads, phone, name) {
 function buildLeadPayload(data) {
   let scheduledDate = String(data.scheduledDate || '').trim().split('T')[0];
   let scheduledTime = String(data.scheduledTime || '').trim();
-  if (scheduledDate && !scheduledTime) scheduledTime = '19:00';
-  const hasSchedule = Boolean(scheduledDate && /^\d{4}-\d{2}-\d{2}$/.test(scheduledDate));
+  const hasSchedule = Boolean(
+    scheduledDate &&
+      /^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) &&
+      scheduledTime
+  );
   return {
     name: data.name,
     phone: String(data.phone || '').replace(/\D/g, ''),
@@ -155,15 +158,16 @@ describe('Criação de lead', () => {
       expect(payload.status).toBe('Novo');
     });
 
-    it('status inicial é Agendado quando tem data (horário opcional)', () => {
+    it('status inicial é Novo quando tem só data sem horário', () => {
       const payload = buildLeadPayload({
         name: 'Ana',
         phone: '37999999999',
         scheduledDate: '2026-04-23',
       });
-      expect(payload.status).toBe('Agendado');
-      expect(payload.pipelineStage).toBe('Aula experimental');
-      expect(payload.scheduledTime).toBe('19:00');
+      expect(payload.status).toBe('Novo');
+      expect(payload.pipelineStage).toBe('Novo');
+      expect(payload.scheduledDate).toBe('');
+      expect(payload.scheduledTime).toBe('');
     });
 
     it('status inicial é Agendado quando tem data e hora', () => {

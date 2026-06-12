@@ -12,7 +12,8 @@ import { hasAnyActivity } from '../lib/reportActivity.js';
 import { buildFunnelStages } from '../lib/reportsFunnelUtils.js';
 import { reportKpiTooltip } from '../lib/reportKpiTooltip.js';
 import { evaluateKpiRag, parseReportsKpiGoals } from '../../lib/reportsKpiGoals.js';
-import { getReportsTabFlags } from '../lib/reportsPageConfig.js';
+import { getDefaultReportTab, getReportsTabFlags } from '../lib/reportsPageConfig.js';
+import { activeStudentsCount, buildStudentChartRanges } from '../lib/reportsStudentMetricsApi.js';
 import { aggregateStudentMetricsOnly } from '../../lib/server/reportsAggregate.js';
 import { LEAD_STATUS } from '../store/useLeadStore.js';
 import { readFileSync } from 'node:fs';
@@ -229,6 +230,28 @@ describe('reportsKpiGoals', () => {
   });
 });
 
+describe('getDefaultReportTab', () => {
+  it('retorna funil como primeira aba padrão', () => {
+    expect(getDefaultReportTab({ hasFinance: true, hasSales: true, hasInventory: true })).toBe('funil');
+  });
+});
+
+describe('buildStudentChartRanges', () => {
+  it('gera buckets dentro do intervalo selecionado', () => {
+    const ranges = buildStudentChartRanges('2026-04-01', '2026-04-30');
+    expect(ranges.length).toBeGreaterThan(0);
+    expect(ranges[0].from).toBe('2026-04-01');
+    expect(ranges[ranges.length - 1].to).toBe('2026-04-30');
+  });
+});
+
+describe('activeStudentsCount', () => {
+  it('usa activeAtEnd como critério canônico', () => {
+    expect(activeStudentsCount({ activeAtEnd: 15, activeAtStart: 10 })).toBe(15);
+    expect(activeStudentsCount({ activeAtStart: 10, newStudents: 2, deactivations: 1 })).toBe(11);
+  });
+});
+
 describe('getReportsTabFlags', () => {
   it('separa funil e métricas de alunos', () => {
     expect(getReportsTabFlags('alunos')).toEqual({
@@ -237,8 +260,10 @@ describe('getReportsTabFlags', () => {
       needsStudentMetrics: true,
       isPeriodTab: true,
     });
+    expect(getReportsTabFlags('funil').isLeadReportTab).toBe(true);
     expect(getReportsTabFlags('funil').needsFunnelReport).toBe(true);
     expect(getReportsTabFlags('funil').needsStudentMetrics).toBe(false);
+    expect(getReportsTabFlags('loja').isLeadReportTab).toBe(false);
   });
 });
 

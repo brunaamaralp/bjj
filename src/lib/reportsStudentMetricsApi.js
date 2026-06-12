@@ -1,3 +1,4 @@
+import { buildMonthBuckets, buildWeekBuckets } from '../../lib/reportsMetrics.js';
 import { account } from './appwrite.js';
 
 function parseYmd(s) {
@@ -16,7 +17,11 @@ function monthEnd(d) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
-function activeAtEndFromMetrics(sm) {
+/**
+ * Critério canônico para "alunos ativos" em Relatórios (KPI e gráfico de evolução):
+ * headcount no último instante do intervalo selecionado (activeAtEnd), não no início.
+ */
+export function activeStudentsCount(sm) {
   if (!sm) return 0;
   if (sm.activeAtEnd != null) return Number(sm.activeAtEnd) || 0;
   return Math.max(
@@ -25,19 +30,27 @@ function activeAtEndFromMetrics(sm) {
   );
 }
 
-/** Últimos 6 meses civis terminando no mês de `anchorYmd`. */
-export function buildLastSixMonthRanges(anchorYmd) {
-  const anchor = parseYmd(anchorYmd);
-  const endMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const ranges = [];
-  for (let i = 5; i >= 0; i--) {
-    const m = new Date(endMonth.getFullYear(), endMonth.getMonth() - i, 1);
-    const from = ymd(m);
-    const to = ymd(monthEnd(m));
-    const label = m.toLocaleDateString('pt-BR', { month: 'short' }).replace(/\./g, '');
-    ranges.push({ from, to, label });
+/** Buckets do gráfico de evolução alinhados ao intervalo da toolbar (semanal ≤45d, mensal acima). */
+export function buildStudentChartRanges(fromYmd, toYmd) {
+  const fromDay = parseYmd(fromYmd);
+  const toDay = parseYmd(toYmd);
+  toDay.setHours(23, 59, 59, 999);
+  const spanDays = Math.max(1, Math.ceil((toDay.getTime() - fromDay.getTime()) / 86400000) + 1);
+  const fromIso = fromDay.toISOString();
+  const toIso = toDay.toISOString();
+  const buckets = (spanDays <= 45 ? buildWeekBuckets : buildMonthBuckets)(fromIso, toIso);
+
+  if (!buckets.length) {
+    return [{ from: fromYmd, to: toYmd, label: fromYmd === toYmd ? fromYmd : `${fromYmd} – ${toYmd}` }];
   }
-  return ranges;
+
+  const fromMs = fromDay.getTime();
+  const toMs = toDay.getTime();
+  return buckets.map((b) => ({
+    from: ymd(new Date(Math.max(b.start.getTime(), fromMs))),
+    to: ymd(new Date(Math.min(b.end.getTime(), toMs))),
+    label: b.label,
+  }));
 }
 
 export async function fetchStudentMetricsForRange({ academyId, from, to }) {
@@ -79,7 +92,7 @@ export function studentMetricsToChartPoint(label, sm) {
   }
   return {
     label,
-    ativos: activeAtEndFromMetrics(sm),
+    ativos: activeStudentsCount(sm),
     novos: Number(sm.newStudents) || 0,
     cancelamentos: Number(sm.deactivations) || 0,
   };

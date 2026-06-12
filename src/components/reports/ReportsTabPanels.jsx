@@ -1,5 +1,4 @@
 import React, { lazy, Suspense } from 'react';
-import ReportsVisaoGeralSection from './ReportsVisaoGeralSection.jsx';
 import ReportsFunilPanel from './ReportsFunilPanel.jsx';
 import ReportsLeadEmptyStates from './ReportsLeadEmptyStates.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -7,8 +6,6 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 const ReportsFinancePanel = lazy(() => import('./ReportsFinancePanel.jsx'));
 const ReportsLojaPanel = lazy(() => import('./ReportsLojaPanel.jsx'));
 const ReportsEstoquePanel = lazy(() => import('./ReportsEstoquePanel.jsx'));
-const ReportsMovimentacoesPanel = lazy(() => import('./ReportsMovimentacoesPanel.jsx'));
-const ReportsOperadorPanel = lazy(() => import('./ReportsOperadorPanel.jsx'));
 const ReportsStudentsPanel = lazy(() => import('./ReportsStudentsPanel.jsx'));
 
 const lazyFallback = <PageSkeleton variant="cards" rows={4} />;
@@ -27,12 +24,9 @@ export default function ReportsTabPanels({
   studentReportData,
   studentShowInitialLoad,
   kpiGoals,
-  ratesCards,
-  overviewKpis,
   hasFinance,
   hasSales,
   hasInventory,
-  canViewFinance,
   loading,
   showInitialLoad,
   showFunilChartSkeleton,
@@ -50,6 +44,7 @@ export default function ReportsTabPanels({
   terms,
   preset,
   range,
+  periodLabel,
   academyId,
   onDrill,
 }) {
@@ -64,30 +59,6 @@ export default function ReportsTabPanels({
             contactsPlural={contactsPlural}
             workspaceNoun={workspaceNoun}
           />
-
-          {activeTab === 'visao-geral' && showLeadFunnelContent ? (
-            <ReportsVisaoGeralSection
-              reportData={reportData}
-              kpiGoals={kpiGoals}
-              ratesCards={ratesCards}
-              hasFinance={hasFinance}
-              hasSales={hasSales}
-              hasInventory={hasInventory}
-              canViewFinance={canViewFinance}
-              financeSummary={overviewKpis.financeKpi}
-              financeSummaryPrev={overviewKpis.financeKpiPrev}
-              financeLoading={overviewKpis.financeKpiLoading}
-              financeError={overviewKpis.financeKpiError}
-              salesSummary={overviewKpis.salesKpi}
-              salesSummaryPrev={overviewKpis.salesKpiPrev}
-              salesLoading={overviewKpis.salesKpiLoading}
-              inventorySummary={overviewKpis.inventoryKpi}
-              inventorySummaryPrev={overviewKpis.inventoryKpiPrev}
-              inventoryLoading={overviewKpis.inventoryKpiLoading}
-              preset={preset}
-              onFunnelDrill={onDrill}
-            />
-          ) : null}
 
           {activeTab === 'funil' ? (
             <ReportsFunilPanel
@@ -126,6 +97,7 @@ export default function ReportsTabPanels({
             rangeFrom={range.from}
             rangeTo={range.to}
             preset={preset}
+            periodLabel={periodLabel}
             kpiGoals={kpiGoals}
             studentMetrics={studentReportData?.studentMetrics}
             loading={studentShowInitialLoad}
@@ -156,22 +128,6 @@ export default function ReportsTabPanels({
         </Suspense>
       ) : null}
 
-      {activeTab === 'movimentacoes' ? (
-        <Suspense fallback={lazyFallback}>
-          <ReportsMovimentacoesPanel
-            academyId={academyId}
-            from={range.from}
-            to={range.to}
-            hasInventory={hasInventory}
-          />
-        </Suspense>
-      ) : null}
-
-      {activeTab === 'operador' ? (
-        <Suspense fallback={lazyFallback}>
-          <ReportsOperadorPanel academyId={academyId} from={range.from} to={range.to} hasSales={hasSales} />
-        </Suspense>
-      ) : null}
     </>
   );
 }

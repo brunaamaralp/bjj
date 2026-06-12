@@ -2,9 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
-import { CalendarPlus, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { maskPhone } from '../../lib/masks.js';
-import { useTerms } from '../../lib/terminology.js';
 import SexoSelect from '../shared/SexoSelect.jsx';
 import TurmaSelect from '../shared/TurmaSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
@@ -75,7 +74,6 @@ export default function NewLeadForm({
     [automationsRaw]
   );
   const addToast = useUiStore((state) => state.addToast);
-  const terms = useTerms();
   const [submitting, setSubmitting] = useState(false);
   const [sexo, setSexo] = useState('');
   const [turmaSelect, setTurmaSelect] = useState('');
@@ -97,6 +95,7 @@ export default function NewLeadForm({
   const phoneValue = watch('phone');
   const nameValue = watch('name');
   const scheduledDate = watch('scheduledDate') || '';
+  const scheduledTimeValue = watch('scheduledTime') || '';
   const [debouncedPhone, setDebouncedPhone] = useState('');
   const [debouncedName, setDebouncedName] = useState('');
 
@@ -152,7 +151,8 @@ export default function NewLeadForm({
   );
 
   const canSubmit = !submitting && !duplicate && !phoneChecking && !nameChecking;
-  const submitLabel = scheduledDate ? 'Salvar e agendar' : 'Salvar';
+  const submitLabel =
+    scheduledDate && scheduledTimeValue ? 'Salvar e agendar' : 'Salvar';
 
   useEffect(() => {
     onFooterStateChange?.({
@@ -189,10 +189,11 @@ export default function NewLeadForm({
       if (scheduledDateValue && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDateValue)) {
         scheduledDateValue = '';
       }
-      if (scheduledDateValue && !scheduledTime) {
-        scheduledTime = nextQuarterTime();
+      const hasSchedule = Boolean(scheduledDateValue && scheduledTime);
+      if (!hasSchedule) {
+        scheduledDateValue = '';
+        scheduledTime = '';
       }
-      const hasSchedule = Boolean(scheduledDateValue);
       const initialNote = data.notes?.trim();
       const history = initialNote
         ? [{ type: 'note', text: initialNote, at: new Date().toISOString(), by: 'user' }]
@@ -386,10 +387,6 @@ export default function NewLeadForm({
               (opcional)
             </span>
           </h3>
-          <p className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 0, marginBottom: 10 }}>
-            Com data preenchida, o cadastro entra na etapa {terms.trialShort} e na agenda.
-            Se não escolher horário, usamos o próximo horário disponível.
-          </p>
           <div className="flex gap-2">
             <div className="form-group" style={{ flex: 1 }}>
               <label>Data</label>
@@ -467,16 +464,6 @@ export default function NewLeadForm({
                 </>
               )}
             </button>
-            {scheduledDate ? (
-              <p className="text-small text-muted" style={{ margin: 0, textAlign: 'center' }}>
-                <CalendarPlus size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden />
-                Com data preenchida, o lead entra na etapa {terms.trialShort} e na agenda.
-              </p>
-            ) : (
-              <p className="text-small text-muted" style={{ margin: 0, textAlign: 'center' }}>
-                O agendamento é opcional — você pode agendar depois no perfil do lead.
-              </p>
-            )}
           </div>
         ) : null}
       </form>

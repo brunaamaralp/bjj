@@ -287,7 +287,7 @@ export function buildRelatoriosNavItem() {
   return {
     id: 'relatorios',
     label: 'Relatórios',
-    to: '/reports?tab=visao-geral',
+    to: '/reports?tab=funil',
     iconKey: 'relatorios',
   };
 }

@@ -12,13 +12,16 @@ import ReportsPeriodToolbar from '../components/reports/ReportsPeriodToolbar.jsx
 import ReportsDrillDialog from '../components/reports/ReportsDrillDialog.jsx';
 import ReportsTabPanels from '../components/reports/ReportsTabPanels.jsx';
 import { ReportKpiCardSkeleton } from '../components/reports/shared/ReportKpiCard.jsx';
-import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import { DRILL_LABELS } from '../lib/reportsFunnelUtils.js';
-import { REPORT_TABS, getReportTabItems, getReportsTabFlags } from '../lib/reportsPageConfig.js';
+import {
+    REPORT_TABS,
+    getDefaultReportTab,
+    getReportTabItems,
+    getReportsTabFlags,
+} from '../lib/reportsPageConfig.js';
 import { useReportsPeriod } from '../hooks/useReportsPeriod.js';
 import { useFunnelReport } from '../hooks/useFunnelReport.js';
 import { useStudentMetricsReport } from '../hooks/useStudentMetricsReport.js';
-import { useReportsOverviewKpis } from '../hooks/useReportsOverviewKpis.js';
 import { useReportsKpiGoals } from '../hooks/useReportsKpiGoals.js';
 import { useFunnelDerived } from '../hooks/useFunnelDerived.js';
 import { useReportsLeadExport } from '../hooks/useReportsLeadExport.js';
@@ -68,7 +71,6 @@ export default function Reports() {
     }, [academyList, academyId]);
 
     const isOwner = useUserRole(academyDoc) === 'owner';
-    const canViewFinance = useCanViewStudentFinance(academyDoc);
     const hasFinance = modules?.finance === true;
     const hasSales = modules?.sales === true;
     const hasInventory = modules?.inventory === true;
@@ -78,7 +80,12 @@ export default function Reports() {
         [hasFinance, hasSales, hasInventory]
     );
 
-    const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, 'visao-geral');
+    const defaultReportTab = useMemo(
+        () => getDefaultReportTab({ hasFinance, hasSales, hasInventory }),
+        [hasFinance, hasSales, hasInventory]
+    );
+
+    const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, defaultReportTab);
     const { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab } =
         getReportsTabFlags(activeTab);
 
@@ -111,17 +118,6 @@ export default function Reports() {
 
     const kpiGoals = useReportsKpiGoals(academyId);
 
-    const overviewKpis = useReportsOverviewKpis({
-        active: activeTab === 'visao-geral',
-        academyId,
-        range,
-        preset,
-        hasFinance,
-        canViewFinance,
-        hasSales,
-        hasInventory,
-    });
-
     const derived = useFunnelDerived({ reportData, chartMetric, terms, contactsPlural });
     const { reportHasActivity, exportDisabled, exportTitle, exportList } = useReportsLeadExport({
         reportData,
@@ -148,8 +144,12 @@ export default function Reports() {
 
     useEffect(() => {
         const t = String(searchParams.get('tab') || '').trim().toLowerCase();
-        if (!REPORT_TABS.has(t)) setSearchParams({ tab: activeTab }, { replace: true });
-    }, [activeTab, searchParams, setSearchParams]);
+        if (t === 'visao-geral' || t === 'operador' || !REPORT_TABS.has(t)) {
+            setSearchParams({ tab: defaultReportTab }, { replace: true });
+        } else if (t === 'movimentacoes') {
+            setSearchParams({ tab: 'estoque' }, { replace: true });
+        }
+    }, [defaultReportTab, searchParams, setSearchParams]);
 
     useEffect(() => {
         const onResize = () => setChartHeight(window.innerWidth < 640 ? 200 : 260);
@@ -227,7 +227,7 @@ export default function Reports() {
 
                 {showInitialLoad && needsFunnelReport ? (
                     <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                        {[1, 2, 3, 4].map((i) => (
                             <ReportKpiCardSkeleton key={i} />
                         ))}
                     </div>
@@ -235,7 +235,7 @@ export default function Reports() {
 
                 {studentShowInitialLoad && needsStudentMetrics ? (
                     <div className="reports-kpi-grid mt-4" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando indicadores de alunos">
-                        {[1, 2, 3, 4, 5].map((i) => (
+                        {[1, 2, 3, 4].map((i) => (
                             <ReportKpiCardSkeleton key={i} />
                         ))}
                     </div>
@@ -282,12 +282,9 @@ export default function Reports() {
                     contactsPlural={contactsPlural}
                     workspaceNoun={terms.workspaceNoun}
                     reportData={reportData}
-                    ratesCards={derived.ratesCards}
-                    overviewKpis={overviewKpis}
                     hasFinance={hasFinance}
                     hasSales={hasSales}
                     hasInventory={hasInventory}
-                    canViewFinance={canViewFinance}
                     loading={loading}
                     showInitialLoad={showInitialLoad}
                     showFunilChartSkeleton={showFunilChartSkeleton}
@@ -305,6 +302,7 @@ export default function Reports() {
                     terms={terms}
                     preset={preset}
                     range={range}
+                    periodLabel={prettyRange}
                     academyId={academyId}
                     onDrill={setDrillKey}
                 />

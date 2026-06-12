@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Package } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
@@ -13,6 +13,9 @@ import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import './reports.css';
+
+const ReportsEstoqueMovimentacoesSection = lazy(() => import('./ReportsEstoqueMovimentacoesSection.jsx'));
+const movimentacoesFallback = <PageSkeleton variant="list" rows={6} />;
 
 const CURVE_BADGE = {
   A: { label: 'A', className: 'reports-abc-badge reports-abc-badge--a' },
@@ -83,6 +86,7 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [hubSection, setHubSection] = useState('estoque');
 
   useEffect(() => {
     let active = true;
@@ -154,6 +158,40 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
 
   const summary = data?.summary || { curve_a: 0, curve_b: 0, curve_c: 0, stalled: 0 };
 
+  const estoqueKpis = useMemo(() => {
+    const criticalCount = products.filter((p) => {
+      const stock = Number(p.current_stock) || 0;
+      const min = Number(p.minimum_stock) || 0;
+      if (stock <= 0) return true;
+      if (min > 0 && stock <= min) return true;
+      return false;
+    }).length;
+
+    const stockValue = products.reduce((sum, p) => {
+      const qty = Number(p.current_stock) || 0;
+      if (qty <= 0) return sum;
+      let unit = Number(p.sale_price) || 0;
+      if (p._variants?.length) {
+        const costs = p._variants.map((v) => Number(v.average_cost) || 0).filter((c) => c > 0);
+        if (costs.length) unit = costs.reduce((a, b) => a + b, 0) / costs.length;
+      }
+      if (!unit && p.units_sold > 0 && p.cmv) unit = p.cmv / p.units_sold;
+      return sum + qty * unit;
+    }, 0);
+
+    const withDays = products.filter((p) => p.units_sold > 0 && p.days_of_stock != null);
+    const giroMedio = withDays.length
+      ? Math.round(withDays.reduce((s, p) => s + Number(p.days_of_stock), 0) / withDays.length)
+      : null;
+
+    return {
+      stockValue,
+      criticalCount,
+      stalledCount: summary.stalled ?? 0,
+      giroMedio,
+    };
+  }, [products, summary.stalled]);
+
   const exportCsv = () => {
     const rows = filtered.map((p) => ({
       produto: p.nome,
@@ -203,14 +241,49 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
 
   return (
     <ReportsPanelShell>
-      {loading ? (
+      <div className="reports-moves-view-tabs" role="tablist" aria-label="Seções do estoque">
+        <button
+          type="button"
+          className={hubSection === 'estoque' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
+          onClick={() => setHubSection('estoque')}
+        >
+          Estoque
+        </button>
+        <button
+          type="button"
+          className={hubSection === 'movimentacoes' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
+          onClick={() => setHubSection('movimentacoes')}
+        >
+          Movimentações
+        </button>
+      </div>
+
+      {hubSection === 'movimentacoes' ? (
+        <Suspense fallback={movimentacoesFallback}>
+          <ReportsEstoqueMovimentacoesSection academyId={academyId} from={from} to={to} />
+        </Suspense>
+      ) : null}
+
+      {hubSection === 'estoque' && loading ? (
         <ReportsPanelSection>
           <PageSkeleton variant="list" rows={6} />
         </ReportsPanelSection>
       ) : null}
-      {error ? <ErrorBanner message={friendlyError(error)} /> : null}
-      {!loading && !error && data ? (
+      {hubSection === 'estoque' && error ? <ErrorBanner message={friendlyError(error)} /> : null}
+      {hubSection === 'estoque' && !loading && !error && data ? (
         <>
+          <ReportsPanelSection title="Estoque" subtitle={`${from} — ${to}`}>
+            <div className="reports-kpi-grid">
+              <ReportKpiCard label="Valor em estoque" value={formatBRL(estoqueKpis.stockValue)} />
+              <ReportKpiCard label="Itens críticos" value={estoqueKpis.criticalCount} highlight="danger" />
+              <ReportKpiCard label="Itens parados" value={estoqueKpis.stalledCount} highlight="warning" />
+              <ReportKpiCard
+                label="Giro médio"
+                value={estoqueKpis.giroMedio != null ? `${estoqueKpis.giroMedio} dias` : '—'}
+              />
+            </div>
+          </ReportsPanelSection>
+
           {restockRows.length > 0 ? (
             <ReportsPanelSection title="Atenção — Reposição necessária">
               <ReportDataTable
@@ -250,13 +323,6 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
             subtitle={`${from} — ${to}`}
             action={headingAction}
           >
-            <div className="reports-abc-summary" role="group" aria-label="Resumo curva ABC">
-              <ReportKpiCard label="Produtos A" value={summary.curve_a} />
-              <ReportKpiCard label="Produtos B" value={summary.curve_b} />
-              <ReportKpiCard label="Produtos C" value={summary.curve_c} />
-              <ReportKpiCard label="Parados (0 vendas)" value={summary.stalled} highlight="warning" />
-            </div>
-
             <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
               {[
                 { id: 'all', label: 'Todos' },

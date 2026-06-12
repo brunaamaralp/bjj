@@ -9,11 +9,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Users, UserPlus, UserMinus, TrendingDown, TrendingUp } from 'lucide-react';
+import { UserPlus, UserMinus, TrendingDown, TrendingUp } from 'lucide-react';
 import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 import {
-  buildLastSixMonthRanges,
+  activeStudentsCount,
+  buildStudentChartRanges,
   fetchStudentMetricsForRange,
   studentMetricsToChartPoint,
 } from '../../lib/reportsStudentMetricsApi.js';
@@ -34,6 +35,7 @@ export default function ReportsStudentsPanel({
   rangeTo,
   rangeFrom,
   preset = 'month',
+  periodLabel = '',
   studentMetrics,
   loading,
   kpiGoals = {},
@@ -42,7 +44,8 @@ export default function ReportsStudentsPanel({
     academyId && rangeFrom && rangeTo && !loading
       ? `${academyId}|${rangeFrom}|${rangeTo}|${preset}`
       : '';
-  const chartFetchKey = academyId && rangeTo && !loading ? `${academyId}|${rangeTo}` : '';
+  const chartFetchKey =
+    academyId && rangeFrom && rangeTo && !loading ? `${academyId}|${rangeFrom}|${rangeTo}` : '';
   const [prevState, setPrevState] = useState({ key: '', metrics: null });
   const [chartState, setChartState] = useState({ key: '', rows: [], loading: false });
   const prevMetrics = prevFetchKey && prevState.key === prevFetchKey ? prevState.metrics : null;
@@ -53,7 +56,7 @@ export default function ReportsStudentsPanel({
   const chartLoading = Boolean(chartFetchKey) && (chartState.key !== chartFetchKey || chartState.loading);
 
   const m = studentMetrics || {};
-  const active = Number(m.activeAtStart) || 0;
+  const active = activeStudentsCount(m);
   const novo = Number(m.newStudents) || 0;
   const off = Number(m.deactivations) || 0;
   const churn = Number(m.churnRate) || 0;
@@ -63,7 +66,7 @@ export default function ReportsStudentsPanel({
       : Math.max(0, 100 - churn);
 
   const pm = prevMetrics || {};
-  const prevActive = Number(pm.activeAtStart) || 0;
+  const prevActive = activeStudentsCount(pm);
   const prevNovo = Number(pm.newStudents) || 0;
   const prevOff = Number(pm.deactivations) || 0;
   const prevChurn = Number(pm.churnRate) || 0;
@@ -91,9 +94,9 @@ export default function ReportsStudentsPanel({
   useEffect(() => {
     if (!chartFetchKey) return undefined;
     let active = true;
-    const months = buildLastSixMonthRanges(rangeTo);
+    const buckets = buildStudentChartRanges(rangeFrom, rangeTo);
     Promise.all(
-      months.map(async ({ from, to, label }) => {
+      buckets.map(async ({ from, to, label }) => {
         try {
           const sm = await fetchStudentMetricsForRange({ academyId, from, to });
           return studentMetricsToChartPoint(label, sm);
@@ -111,7 +114,7 @@ export default function ReportsStudentsPanel({
     return () => {
       active = false;
     };
-  }, [chartFetchKey, academyId, rangeTo]);
+  }, [chartFetchKey, academyId, rangeFrom, rangeTo]);
 
   const hasChartData = useMemo(
     () => stableChartRows.some((r) => r.ativos > 0 || r.novos > 0 || r.cancelamentos > 0),
@@ -123,7 +126,7 @@ export default function ReportsStudentsPanel({
       <ReportsPanelShell>
         <ReportsPanelSection aria-busy="true">
           <div className="reports-kpi-grid">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <ReportKpiCardSkeleton key={i} />
             ))}
           </div>
@@ -158,14 +161,6 @@ export default function ReportsStudentsPanel({
         subtitle="Métricas de base matriculada no intervalo. Passe o mouse no ícone de cada card para ver a definição."
       >
         <div className="reports-kpi-grid">
-        <ReportKpiCard
-          label="Ativos no início"
-          value={active}
-          trend={pctVar(active, prevActive)}
-          trendLabel="vs. período anterior"
-          tooltip={reportKpiTooltip('activeStudentsStart', { preset })}
-          icon={<Users size={20} strokeWidth={2.25} />}
-        />
         <ReportKpiCard
           label="Novos alunos"
           value={novo}
@@ -209,14 +204,14 @@ export default function ReportsStudentsPanel({
 
       <ReportsPanelSection
         title="Evolução da base"
-        subtitle="Últimos 6 meses"
+        subtitle={periodLabel || 'Período selecionado'}
         className="reports-panel-section--chart"
       >
         {chartLoading ? (
           <div className="reports-chart-skeleton" style={{ minHeight: 240 }} aria-busy="true" />
         ) : !hasChartData ? (
           <p className="text-small text-muted reports-panel-note">
-            Sem histórico de alunos nos meses recentes. Cadastre matrículas para ver a evolução aqui.
+            Sem histórico de alunos no período. Cadastre matrículas para ver a evolução aqui.
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
@@ -237,7 +232,7 @@ export default function ReportsStudentsPanel({
               <Line
                 type="monotone"
                 dataKey="novos"
-                name="Novos no mês"
+                name="Novos no período"
                 stroke="var(--success, #16a34a)"
                 strokeWidth={2}
                 dot={{ r: 3 }}

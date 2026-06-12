@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useNavigate } from 'react-router-dom';
 import { Download, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
 import { fetchInventoryMovements, fetchStockMovesConciliation } from '../../lib/inventoryMovementsApi.js';
@@ -16,7 +15,6 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
-import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import './reports.css';
 
@@ -61,8 +59,7 @@ function productSizeLabel(row) {
   return parts.filter(Boolean).join(' · ') || '—';
 }
 
-export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInventory }) {
-  const navigate = useNavigate();
+export default function ReportsEstoqueMovimentacoesSection({ academyId, from, to }) {
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState({
     total_unidades: 0,
@@ -101,7 +98,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
   useEffect(() => {
     let active = true;
     const loadProducts = async () => {
-      if (!academyId || !hasInventory) return;
+      if (!academyId) return;
       try {
         const jwt = await createSessionJwt();
         if (!jwt) return;
@@ -131,7 +128,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
     return () => {
       active = false;
     };
-  }, [academyId, hasInventory]);
+  }, [academyId]);
 
   useEffect(() => {
     let active = true;
@@ -436,34 +433,9 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
     downloadCsv(csvRows, `movimentacoes-estoque-${from}_${to}.csv`);
   };
 
-  if (!hasInventory) {
-    return (
-      <ReportsPanelShell>
-        <ReportsPanelSection className="reports-empty">
-          <EmptyState
-            insideCard
-            variant="compact"
-            tone="solid"
-            title="Módulo de estoque desativado"
-            description="Ative estoque nas configurações para ver movimentações detalhadas."
-            role="status"
-            primaryAction={{
-              label: 'Configurar estoque',
-              onClick: () => navigate('/loja?tab=estoque'),
-            }}
-          />
-        </ReportsPanelSection>
-      </ReportsPanelShell>
-    );
-  }
-
   return (
     <>
-      <ReportsPanelShell>
-        <p className="reports-panel-note" role="note">
-          Para relatório de vendas por pessoa, veja as abas Vendas ou Por operador.
-        </p>
-        <div className="reports-moves-view-tabs" role="tablist">
+        <div className="reports-moves-view-tabs" role="tablist" aria-label="Movimentações de estoque">
           <button
             type="button"
             className={panelView === 'movements' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
@@ -698,7 +670,6 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         ) : null}
         </>
         ) : null}
-      </ReportsPanelShell>
 
       <SaleDetailModal
         open={Boolean(saleDetail || saleDetailLoading)}
