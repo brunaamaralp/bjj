@@ -6,8 +6,8 @@ import ThreadSkeleton from './ThreadSkeleton';
 import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 
 const InboxComposer = lazyWithRetry(() => import('./InboxComposer'));
+const InboxThreadMessages = lazyWithRetry(() => import('./InboxThreadMessages.jsx'));
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
-import InboxThreadMessages from './InboxThreadMessages.jsx';
 const InboxTriageCard = lazyWithRetry(() => import('./InboxTriageCard.jsx'));
 const InboxFollowupBanner = lazyWithRetry(() => import('./InboxFollowupBanner.jsx'));
 import ContactAvatar from '../shared/ContactAvatar.jsx';
@@ -401,34 +401,36 @@ export default function InboxThreadPanel(props) {
           {threadMessagesEmptyUi && !waChatConnected && <ThreadState type="empty" />}
 
           {Array.isArray(threadBlocks) && threadBlocks.length > 0 ? (
-            <InboxThreadMessages
-              ref={threadMessagesApiRef}
-              scrollElementRef={threadScrollRef}
-              threadBlocks={threadBlocks}
-              expandedMsgs={expandedMsgs}
-              selectedPhone={selectedPhone}
-              selectedPhoneRef={selectedPhoneRef}
-              selectedMsgKey={selectedMsgKey}
-              setSelectedMsgKey={setSelectedMsgKey}
-              setExpandedMsgs={setExpandedMsgs}
-              menu={menu}
-              openMenu={openMenu}
-              formatWhen={formatWhen}
-              formatTimeOnly={formatTimeOnly}
-              copyToClipboard={copyToClipboard}
-              inboxMessageMediaUrl={inboxMessageMediaUrl}
-              selectedPhoneFlags={selectedPhoneFlags}
-              senderKindFromMessage={senderKindFromMessage}
-              setImageLightboxUrl={setImageLightboxUrl}
-              reconcileLast24h={reconcileLast24h}
-              waSyncing={waSyncing}
-              setDraft={setDraft}
-              textareaRef={textareaRef}
-              cancelScheduledMessage={cancelScheduledMessage}
-              cancelingMsgId={cancelingMsgId}
-              retryFailedMessage={retryFailedMessage}
-              isGroupThread={isInboxGroupPhone(selectedPhone)}
-            />
+            <Suspense fallback={<ThreadSkeleton />}>
+              <InboxThreadMessages
+                ref={threadMessagesApiRef}
+                scrollElementRef={threadScrollRef}
+                threadBlocks={threadBlocks}
+                expandedMsgs={expandedMsgs}
+                selectedPhone={selectedPhone}
+                selectedPhoneRef={selectedPhoneRef}
+                selectedMsgKey={selectedMsgKey}
+                setSelectedMsgKey={setSelectedMsgKey}
+                setExpandedMsgs={setExpandedMsgs}
+                menu={menu}
+                openMenu={openMenu}
+                formatWhen={formatWhen}
+                formatTimeOnly={formatTimeOnly}
+                copyToClipboard={copyToClipboard}
+                inboxMessageMediaUrl={inboxMessageMediaUrl}
+                selectedPhoneFlags={selectedPhoneFlags}
+                senderKindFromMessage={senderKindFromMessage}
+                setImageLightboxUrl={setImageLightboxUrl}
+                reconcileLast24h={reconcileLast24h}
+                waSyncing={waSyncing}
+                setDraft={setDraft}
+                textareaRef={textareaRef}
+                cancelScheduledMessage={cancelScheduledMessage}
+                cancelingMsgId={cancelingMsgId}
+                retryFailedMessage={retryFailedMessage}
+                isGroupThread={isInboxGroupPhone(selectedPhone)}
+              />
+            </Suspense>
           ) : null}
 
           {threadMessagesEmptyUi && waChatConnected && (
