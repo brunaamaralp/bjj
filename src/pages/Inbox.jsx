@@ -1,6 +1,6 @@
 import '../styles/tokens/inbox.css';
 import '../styles/inbox.css';
-import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { membershipPrimaryLabel } from '../lib/teamMembershipLabel.js';
@@ -21,17 +21,14 @@ import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnect
 import { X } from 'lucide-react';
 import InboxListPanel from '../components/inbox/InboxListPanel';
 import InboxPageActionsMenu from '../components/inbox/InboxPageActionsMenu.jsx';
-import InboxThreadEmpty from '../components/inbox/InboxThreadEmpty.jsx';
-import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 import { preloadInboxThreadChunks } from '../lib/preloadRoutes.js';
-
-const InboxThreadPanel = lazyWithRetry(() => import('../components/inbox/InboxThreadPanel'));
+import InboxThreadSection from '../components/inbox/InboxThreadSection.jsx';
+import InboxPageLayout from '../components/inbox/InboxPageLayout.jsx';
+import InboxDetailsModal from '../components/inbox/InboxDetailsModal.jsx';
+import InboxConversationSheet from '../components/inbox/InboxConversationSheet.jsx';
 
 const InboxContextPanel = lazyWithRetry(() => import('../components/inbox/InboxContextPanel'));
-const InboxContextPanelContent = lazy(() =>
-  import('../components/inbox/InboxContextPanel').then((m) => ({ default: m.InboxContextPanelContent }))
-);
 const InboxImageLightbox = lazyWithRetry(() => import('../components/inbox/InboxImageLightbox.jsx'));
 import { InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
@@ -68,6 +65,7 @@ import { useInboxThreadDerived } from '../hooks/useInboxThreadDerived.js';
 import { useInboxComposerProps } from '../hooks/useInboxComposerProps.js';
 import { useInboxThreadMenuProps } from '../hooks/useInboxThreadMenuProps.js';
 import { useInboxContextPanelProps } from '../hooks/useInboxContextPanelProps.js';
+import { useInboxThreadPanelProps } from '../hooks/useInboxThreadPanelProps.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -1295,103 +1293,94 @@ export default function Inbox() {
       cancelScheduledMessage,
     });
 
-  const threadPanel = selectedPhone ? (
-    <Suspense
-      fallback={(
-        <div className="inbox-thread-panel">
-          <ThreadSkeleton />
-        </div>
-      )}
-    >
-      <InboxThreadPanel
-      selectedPhone={selectedPhone}
-      setSelectedPhone={setSelectedPhone}
-      setDetailsOpen={setDetailsOpen}
-      isMobile={isMobile}
-      selected={selected}
-      leadById={leadById}
-      leadByPhone={leadByPhone}
-      normalizePhone={normalizePhone}
-      pickDisplayName={pickDisplayName}
-      formatPhone={formatPhone}
-      handoffReleaseHint={handoffReleaseHint}
-      editingContactName={editingContactName}
-      contactNameDraft={contactNameDraft}
-      setContactNameDraft={setContactNameDraft}
-      saveContactName={saveContactName}
-      savingContactName={savingContactName}
-      setEditingContactName={setEditingContactName}
-      navigate={navigate}
-      contactLabel={contactLabel}
-      terms={terms}
-      menu={menu}
-      openMenu={openMenu}
-      threadActionsMenuProps={threadActionsMenuProps}
-      threadScrollRef={threadScrollRef}
-      threadMessagesApiRef={threadMessagesApiRef}
-      onThreadScroll={onThreadScroll}
-      threadHasMore={threadHasMore}
-      threadLoading={threadLoading}
-      loadThread={loadThread}
-      selectedPhoneRef={selectedPhoneRef}
-      threadPaging={threadPaging}
-      threadCursor={threadCursor}
-      error={error}
-      threadError={threadError}
-      threadMessagesEmptyUi={threadMessagesEmptyUi}
-      waChatConnected={waChatConnected}
-      threadBlocks={threadBlocks}
-      expandedMsgs={expandedMsgs}
-      setExpandedMsgs={setExpandedMsgs}
-      inboxMessageMediaUrl={inboxMessageMediaUrl}
-      inboxContentIsAudioPlaceholder={inboxContentIsAudioPlaceholder}
-      selectedMsgKey={selectedMsgKey}
-      setSelectedMsgKey={setSelectedMsgKey}
-      selectedPhoneFlags={selectedPhoneFlags}
-      senderKindFromMessage={senderKindFromMessage}
-      setImageLightboxUrl={setImageLightboxUrl}
-      formatWhen={formatWhen}
-      formatTimeOnly={formatTimeOnly}
-      copyToClipboard={copyToClipboard}
-      setHandoffActive={setHandoffActive}
-      setHandoffReleaseHint={setHandoffReleaseHint}
-      cancelScheduledMessage={cancelScheduledMessage}
-      cancelingMsgId={cancelingMsgId}
-      waSyncing={waSyncing}
-      reconcileLast24h={reconcileLast24h}
-      setDraft={setDraft}
-      textareaRef={textareaRef}
-      threadAtBottom={threadAtBottom}
-      newMsgCount={newMsgCount}
-      scrollThreadToBottom={scrollThreadToBottom}
-      ticketUpdating={ticketUpdating}
-      updateTicket={updateTicket}
-      showInboxKeyHints={showInboxKeyHints}
-      isNarrowDesktop={isNarrowDesktop}
-      setContextOpen={setContextOpen}
-      composerProps={composerProps}
-      ticketChip={ticketChip}
-      handoffDurationPhrase={handoffDurationPhrase}
-      retryFailedMessage={retryFailedMessage}
-      pendingTriage={pendingTriage}
-      activeContactLead={activeContactLead}
-      onConfirmTriage={handleInboxConfirmTriage}
-      onDismissTriage={handleInboxDismissTriage}
-      onOpenLinkStudent={handleOpenLinkStudent}
-      triageBusy={linkingLead}
-      followupState={activeFollowupState}
-      onFollowupSendTemplate={handleFollowupSendTemplate}
-      onCompleteFollowup={() => activeContactLead && openFollowupOutcome(activeContactLead)}
-      completingFollowup={savingFollowupOutcome}
-      leadPanel={leadPanel}
-      setLeadPanel={setLeadPanel}
-      linkingLead={linkingLead}
-      academyId={academyId}
-      aiEnabled={aiModuleEnabled}
-      />
-    </Suspense>
-  ) : (
-    <InboxThreadEmpty />
+  const threadPanelProps = useInboxThreadPanelProps({
+    selectedPhone,
+    setSelectedPhone,
+    setDetailsOpen,
+    isMobile,
+    selected,
+    leadById,
+    leadByPhone,
+    normalizePhone,
+    pickDisplayName,
+    formatPhone,
+    handoffReleaseHint,
+    editingContactName,
+    contactNameDraft,
+    setContactNameDraft,
+    saveContactName,
+    savingContactName,
+    setEditingContactName,
+    navigate,
+    contactLabel,
+    terms,
+    menu,
+    openMenu,
+    threadActionsMenuProps,
+    threadScrollRef,
+    threadMessagesApiRef,
+    onThreadScroll,
+    threadHasMore,
+    threadLoading,
+    loadThread,
+    selectedPhoneRef,
+    threadPaging,
+    threadCursor,
+    error,
+    threadError,
+    threadMessagesEmptyUi,
+    waChatConnected,
+    threadBlocks,
+    expandedMsgs,
+    setExpandedMsgs,
+    inboxMessageMediaUrl,
+    inboxContentIsAudioPlaceholder,
+    selectedMsgKey,
+    setSelectedMsgKey,
+    selectedPhoneFlags,
+    senderKindFromMessage,
+    setImageLightboxUrl,
+    formatWhen,
+    formatTimeOnly,
+    copyToClipboard,
+    setHandoffActive,
+    setHandoffReleaseHint,
+    cancelScheduledMessage,
+    cancelingMsgId,
+    waSyncing,
+    reconcileLast24h,
+    setDraft,
+    textareaRef,
+    threadAtBottom,
+    newMsgCount,
+    scrollThreadToBottom,
+    ticketUpdating,
+    updateTicket,
+    showInboxKeyHints,
+    isNarrowDesktop,
+    setContextOpen,
+    composerProps,
+    ticketChip,
+    handoffDurationPhrase,
+    retryFailedMessage,
+    pendingTriage,
+    activeContactLead,
+    handleInboxConfirmTriage,
+    handleInboxDismissTriage,
+    handleOpenLinkStudent,
+    linkingLead,
+    activeFollowupState,
+    handleFollowupSendTemplate,
+    openFollowupOutcome,
+    savingFollowupOutcome,
+    leadPanel,
+    setLeadPanel,
+    academyId,
+    aiModuleEnabled,
+  });
+
+  const threadPanel = (
+    <InboxThreadSection selectedPhone={selectedPhone} panelProps={threadPanelProps} />
   );
 
   const contextPanelProps = useInboxContextPanelProps({
@@ -1489,106 +1478,22 @@ export default function Inbox() {
         </Suspense>
       ) : null}
 
-      {detailsModalOpen ? (
-        <div
-          className="inbox-details-modal-overlay"
-          onClick={() => setDetailsOpen(false)}
-          role="presentation"
-        >
-          <div
-            ref={detailsModalRef}
-            className="inbox-details-modal-shell inbox-details-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="inbox-details-modal-title"
-            tabIndex={-1}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="inbox-details-modal__header">
-              <h2 id="inbox-details-modal-title" className="inbox-details-modal__title">
-                Detalhes
-              </h2>
-              <button className="btn btn-outline navi-btn--toolbar" type="button" onClick={() => setDetailsOpen(false)}>
-                Fechar
-              </button>
-            </div>
-            <div className="inbox-details-modal-scroll">
-              <Suspense fallback={null}>
-                <InboxContextPanelContent {...contextPanelProps} />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <InboxDetailsModal
+        open={detailsModalOpen}
+        modalRef={detailsModalRef}
+        onClose={() => setDetailsOpen(false)}
+        contextPanelProps={contextPanelProps}
+      />
 
-      {conversationSheet && isMobile && (() => {
-        const it = conversationSheet.item;
-        const phone = String(it?._phone || it?.phone_number || '').trim();
-        const title = String(it?._displayTitle || phone || 'Conversa');
-        const sheetUnread = Number(it?._unreadCount ?? it?.unread_count ?? 0);
-        if (!phone) return null;
-        return (
-          <div className="inbox-sheet-overlay" onClick={() => setConversationSheet(null)} role="presentation">
-            <div
-              ref={conversationSheetRef}
-              className="inbox-sheet"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="inbox-conversation-sheet-title"
-              tabIndex={-1}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="inbox-sheet__handle" aria-hidden />
-              <h2 id="inbox-conversation-sheet-title" className="inbox-sheet__title">
-                {title}
-              </h2>
-              {sheetUnread === 0 ? (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ width: '100%', minHeight: 44 }}
-                  onClick={() => {
-                    void markUnread(phone);
-                  }}
-                >
-                  Marcar como não lida
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ width: '100%', minHeight: 44 }}
-                  onClick={() => {
-                    void markSeen(phone, { notifySuccess: true });
-                    setConversationSheet(null);
-                  }}
-                >
-                  Marcar como lida
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ width: '100%', minHeight: 44, marginTop: 8 }}
-                onClick={() => {
-                  void archiveConversation(phone);
-                  setConversationSheet(null);
-                }}
-              >
-                Arquivar
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ width: '100%', minHeight: 44, marginTop: 8 }}
-                onClick={() => setConversationSheet(null)}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      <InboxConversationSheet
+        conversationSheet={conversationSheet}
+        isMobile={isMobile}
+        sheetRef={conversationSheetRef}
+        onClose={() => setConversationSheet(null)}
+        markUnread={markUnread}
+        markSeen={markSeen}
+        archiveConversation={archiveConversation}
+      />
 
 
       {error ? <StatusBanner variant="error" message={error} className="inbox-global-error" /> : null}
@@ -1600,63 +1505,18 @@ export default function Inbox() {
         </StatusBanner>
       ) : null}
 
-      {
-                isMobile ? (
-                  <div className="inbox-mobile-split">
-                    <div
-                      className="inbox-mobile-list-slot"
-                      style={{ display: selectedPhone ? 'none' : 'flex' }}
-                      inert={selectedPhone ? true : undefined}
-                    >
-                      {listPanel}
-                    </div>
-                    <div
-                      className="inbox-mobile-thread-slot"
-                      style={{ display: selectedPhone ? 'flex' : 'none' }}
-                      inert={!selectedPhone ? true : undefined}
-                    >
-                      {threadPanel}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className="inbox-layout-grid"
-                    style={{
-                      gridTemplateColumns: contextPanelVisible
-                        ? `${listWidth}px 10px minmax(0, 1.3fr) minmax(280px, 320px)`
-                        : `${listWidth}px 10px minmax(0, 1fr)`,
-                    }}
-                  >
-                    <div className="inbox-layout-list-col">{listPanel}</div>
-                    <div
-                      role="separator"
-                      aria-orientation="vertical"
-                      aria-label="Ajustar largura da lista de conversas"
-                      aria-valuemin={300}
-                      aria-valuemax={480}
-                      aria-valuenow={listWidth}
-                      tabIndex={0}
-                      onMouseDown={startResize}
-                      onKeyDown={onListResizeKeyDown}
-                      onDoubleClick={() => setListWidth(420)}
-                      className="inbox-layout-resize-handle"
-                      title="Arraste ou use as setas para ajustar a largura"
-                    >
-                      <div className="inbox-layout-resize-handle__bar" />
-                    </div>
-                    <div
-                      className={
-                        contextPanelVisible
-                          ? 'inbox-layout-thread-col inbox-layout-thread-col--with-context'
-                          : 'inbox-layout-thread-col'
-                      }
-                    >
-                      {threadPanel}
-                    </div>
-                    {contextPanelVisible ? <div className="inbox-layout-context-col">{contextPanel}</div> : null}
-                  </div>
-                )
-      }
+      <InboxPageLayout
+        isMobile={isMobile}
+        selectedPhone={selectedPhone}
+        listPanel={listPanel}
+        threadPanel={threadPanel}
+        contextPanel={contextPanel}
+        contextPanelVisible={contextPanelVisible}
+        listWidth={listWidth}
+        startResize={startResize}
+        onListResizeKeyDown={onListResizeKeyDown}
+        setListWidth={setListWidth}
+      />
       </div>
 
       <ConfirmDialog

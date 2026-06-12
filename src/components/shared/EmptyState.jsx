@@ -1,3 +1,4 @@
+import '../../styles/empty-state.css';
 import React from 'react';
 
 const TITLE_TAGS = new Set(['h2', 'h3', 'p', 'div']);

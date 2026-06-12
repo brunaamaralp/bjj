@@ -1,3 +1,4 @@
+import '../styles/modal-shell-variants.css';
 import React, { useCallback, useState } from 'react';
 import { X } from 'lucide-react';
 import { COLLECTION_RESULT_OPTIONS } from '../lib/collectionRules.js';
