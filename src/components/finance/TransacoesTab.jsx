@@ -19,7 +19,7 @@ import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { useStudentStore } from '../../store/useStudentStore';
 import { LEAD_STATUS } from '../../lib/leadStatus';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
-import { Receipt, Repeat, ChevronDown, Upload, MoreHorizontal } from 'lucide-react';
+import { Receipt, Repeat, ChevronDown, Upload, Download, MoreHorizontal } from 'lucide-react';
 import { DateInputField } from '../DateInput';
 import {
   RECURRENCE_TYPES,
@@ -73,6 +73,12 @@ import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
+import {
+  fetchAllFinanceTxInPeriod,
+  applyFinanceTxFilters,
+  exportFinanceTransactionsCsv,
+  financeTxToCsvRow,
+} from '../../lib/financeTxExport.js';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import {
@@ -347,6 +353,7 @@ export default function TransacoesTab({
   const [assignBankAccount, setAssignBankAccount] = useState('');
   const [assignBankSaving, setAssignBankSaving] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [exportingTx, setExportingTx] = useState(false);
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState(() => defaultTxColumnVisibility());
@@ -469,33 +476,21 @@ export default function TransacoesTab({
     [bankAccountLabels.length, canManageAdvanced]
   );
 
-  const filteredTransactions = useMemo(() => {
-    let rows = transactions;
-    if (statusFilter !== 'all') {
-      rows = rows.filter((tx) => String(tx.status || '').toLowerCase() === statusFilter);
-    }
-    if (directionFilter !== 'all') {
-      rows = rows.filter((tx) => txDirection(tx) === directionFilter);
-    }
-    if (bankAccountFilter !== 'all') {
-      rows = rows.filter((tx) => {
-        const label = String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim();
-        if (bankAccountFilter === BANK_FILTER_UNALLOCATED) return !label;
-        return label === bankAccountFilter;
-      });
-    }
-    const q = debouncedTxSearch.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter((tx) => {
-        const name = (leadNameById.get(tx.lead_id) || '').toLowerCase();
-        const cat = String(tx.category || '').toLowerCase();
-        const note = String(tx.note || '').toLowerCase();
-        const bank = String(tx.bankAccount || resolveTxBankAccount(tx) || '').toLowerCase();
-        return name.includes(q) || cat.includes(q) || note.includes(q) || bank.includes(q);
-      });
-    }
-    return rows;
-  }, [transactions, statusFilter, directionFilter, bankAccountFilter, debouncedTxSearch, leadNameById]);
+  const filteredTransactions = useMemo(
+    () =>
+      applyFinanceTxFilters(
+        transactions,
+        {
+          statusFilter,
+          directionFilter,
+          bankAccountFilter:
+            bankAccountFilter === BANK_FILTER_UNALLOCATED ? '__unallocated__' : bankAccountFilter,
+          search: debouncedTxSearch,
+        },
+        leadNameById
+      ),
+    [transactions, statusFilter, directionFilter, bankAccountFilter, debouncedTxSearch, leadNameById]
+  );
 
   const hasActiveTxFilters =
     statusFilter !== 'all' ||
@@ -509,6 +504,64 @@ export default function TransacoesTab({
     setBankAccountFilter('all');
     setTxSearch('');
   }, [setBankAccountFilter]);
+
+  const handleExportTransactions = useCallback(async () => {
+    if (!academyId || exportingTx) return;
+    setExportingTx(true);
+    try {
+      toast.info('Buscando lançamentos do período…');
+      const all = await fetchAllFinanceTxInPeriod({
+        academyId,
+        from: fromDate,
+        to: toDate,
+        regime,
+      });
+      const filtered = applyFinanceTxFilters(
+        all,
+        {
+          statusFilter,
+          directionFilter,
+          bankAccountFilter:
+            bankAccountFilter === BANK_FILTER_UNALLOCATED ? '__unallocated__' : bankAccountFilter,
+          search: debouncedTxSearch,
+        },
+        leadNameById
+      );
+      const csvRows = filtered.map((tx) =>
+        financeTxToCsvRow(tx, {
+          leadName: leadNameById.get(tx.lead_id) || '',
+          accounts: chartAccounts,
+        })
+      );
+      exportFinanceTransactionsCsv(csvRows, { from: fromDate, to: toDate });
+      if (csvRows.length === 0) {
+        toast.warning('Nenhum lançamento para exportar com os filtros atuais.');
+      } else {
+        toast.success(`${csvRows.length} lançamento(s) exportado(s).`);
+        if (filtered.length < all.length) {
+          toast.info('Exportação respeitou os filtros ativos na tela.');
+        }
+      }
+    } catch (e) {
+      console.error('[TransacoesTab] export:', e);
+      toast.error('Não foi possível exportar os lançamentos.');
+    } finally {
+      setExportingTx(false);
+    }
+  }, [
+    academyId,
+    exportingTx,
+    fromDate,
+    toDate,
+    regime,
+    statusFilter,
+    directionFilter,
+    bankAccountFilter,
+    debouncedTxSearch,
+    leadNameById,
+    chartAccounts,
+    toast,
+  ]);
 
   const studentMatches = useMemo(() => {
     const q = String(debouncedStudentQuery || '').trim().toLowerCase();
@@ -1107,14 +1160,25 @@ export default function TransacoesTab({
             </div>
             <div className="finance-tx-toolbar__actions flex gap-2">
               {canManageAdvanced ? (
-                <button
-                  type="button"
-                  className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta finance-tx-toolbar__cta--desktop-only"
-                  onClick={() => setShowImportModal(true)}
-                >
-                  <Upload size={16} aria-hidden />
-                  Importar planilha
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta finance-tx-toolbar__cta--desktop-only"
+                    onClick={() => void handleExportTransactions()}
+                    disabled={exportingTx || !academyId}
+                  >
+                    <Download size={16} aria-hidden />
+                    {exportingTx ? 'Exportando…' : 'Exportar CSV'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta finance-tx-toolbar__cta--desktop-only"
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    <Upload size={16} aria-hidden />
+                    Importar planilha
+                  </button>
+                </>
               ) : null}
               <DropdownMenu
                 open={mobileToolsOpen}
@@ -1135,18 +1199,33 @@ export default function TransacoesTab({
                 {mobileToolsOpen ? (
                   <DropdownMenuPanel aria-label="Ações de lançamentos">
                     {canManageAdvanced ? (
-                      <DropdownMenuItemStatic>
-                        <button
-                          type="button"
-                          className="navi-menu__item"
-                          onClick={() => {
-                            setShowImportModal(true);
-                            setMobileToolsOpen(false);
-                          }}
-                        >
-                          Importar planilha
-                        </button>
-                      </DropdownMenuItemStatic>
+                      <>
+                        <DropdownMenuItemStatic>
+                          <button
+                            type="button"
+                            className="navi-menu__item"
+                            disabled={exportingTx}
+                            onClick={() => {
+                              setMobileToolsOpen(false);
+                              void handleExportTransactions();
+                            }}
+                          >
+                            {exportingTx ? 'Exportando…' : 'Exportar CSV'}
+                          </button>
+                        </DropdownMenuItemStatic>
+                        <DropdownMenuItemStatic>
+                          <button
+                            type="button"
+                            className="navi-menu__item"
+                            onClick={() => {
+                              setShowImportModal(true);
+                              setMobileToolsOpen(false);
+                            }}
+                          >
+                            Importar planilha
+                          </button>
+                        </DropdownMenuItemStatic>
+                      </>
                     ) : null}
                     <DropdownMenuLabel>Exibir colunas</DropdownMenuLabel>
                     {OPTIONAL_TX_COLUMNS.map((col) => (

@@ -13,6 +13,10 @@ import {
   isWhatsAppGroupId,
   rawWhatsAppChatId,
 } from '../lib/whatsappGroupId.js';
+import {
+  groupParticipantMessageFields,
+  pickZapsterParticipantName,
+} from '../lib/whatsappGroupContext.js';
 import { findZapsterInstanceForAcademy, normalizeWaInstancesList } from '../lib/server/zapsterInstanceLookup.js';
 import instancesHandler from '../lib/server/zapsterInstances.js';
 import webhookHandler from '../lib/server/zapsterWebhook.js';
@@ -1277,7 +1281,12 @@ export default async function handler(req, res) {
               ...(status ? { status } : {}),
               ...(sendAt ? { send_at: sendAt } : {}),
               ...(canceledAt ? { canceled_at: canceledAt } : {}),
-              ...mediaExtras
+              ...mediaExtras,
+              ...(isWhatsAppGroupId(phone)
+                ? groupParticipantMessageFields({
+                    participantName: pickZapsterParticipantName(it),
+                  })
+                : {}),
             }
           : {
               role: 'assistant',
