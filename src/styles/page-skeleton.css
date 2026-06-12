@@ -1,0 +1,99 @@
+/* PageSkeleton — shimmer violeta */
+@keyframes naviShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.page-skeleton__shimmer {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--v50) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: naviShimmer 1.5s infinite;
+}
+
+.page-skeleton--table .page-skeleton__table-wrap {
+  border: 0.5px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.page-skeleton__table-head {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface-hover);
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.page-skeleton__th {
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.page-skeleton__table-row {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.page-skeleton__table-row:last-child {
+  border-bottom: none;
+}
+
+.page-skeleton__cell {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.page-skeleton--cards .page-skeleton__cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.page-skeleton__card {
+  padding: 14px;
+  border: 0.5px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.page-skeleton__card-thumb {
+  width: 100%;
+  height: 88px;
+  border-radius: 8px;
+}
+
+.page-skeleton--list .page-skeleton__list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.page-skeleton--list .page-skeleton__list-item:last-child {
+  border-bottom: none;
+}
+
+.page-skeleton__list-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.page-skeleton__list-body {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-skeleton__shimmer {
+    animation: none;
+    background: var(--v50);
+  }
+}

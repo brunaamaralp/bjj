@@ -1,3 +1,4 @@
+import '../../styles/route-fallback.css';
 import React from 'react';
 
 /** Fallback de rota lazy: barra fina no topo (não é o loader de sessão). */

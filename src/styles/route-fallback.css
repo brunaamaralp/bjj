@@ -1,0 +1,30 @@
+/* Lazy route fallback — barra fina no topo da área de conteúdo */
+.navi-route-fallback {
+  position: relative;
+  min-height: 120px;
+  width: 100%;
+}
+
+.navi-route-fallback__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  border-radius: 0 2px 2px 0;
+  background: var(--v500);
+  animation: naviRouteProgress 1.4s ease-in-out infinite;
+}
+
+@keyframes naviRouteProgress {
+  0% { width: 0%; margin-left: 0; }
+  50% { width: 70%; margin-left: 15%; }
+  100% { width: 100%; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navi-route-fallback__bar {
+    width: 100%;
+    animation: none;
+  }
+}

@@ -1,0 +1,28 @@
+/* AsyncButton */
+.navi-async-btn__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navi-async-btn__spin {
+  animation: navi-spin 0.7s linear infinite;
+}
+
+@keyframes navi-spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-warning {
+  background: var(--warning, #c9a227);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: var(--font-base);
+  min-height: 40px;
+}
+
+.btn-warning:hover {
+  filter: brightness(1.05);
+}

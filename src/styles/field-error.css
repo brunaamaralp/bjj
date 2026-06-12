@@ -1,0 +1,8 @@
+/* FieldError */
+.navi-field-error {
+  margin: 6px 0 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--danger);
+  line-height: 1.35;
+}

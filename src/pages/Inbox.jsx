@@ -13,23 +13,14 @@ import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { resolveInboxTicketBadge } from '../lib/inboxTicketBadges.js';
 import { useLeadStore } from '../store/useLeadStore';
-import { useChatWidgetStore } from '../store/useChatWidgetStore';
-import { primaryInboxPhone } from '../lib/normalizeInboxPhone.js';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { Bell, BellOff, MoreHorizontal, RefreshCw, X } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuDivider,
-  DropdownMenuItem,
-  DropdownMenuItemStatic,
-  DropdownMenuLabel,
-  DropdownMenuPanel,
-} from '../components/shared/menu';
+import { X } from 'lucide-react';
 import InboxListPanel from '../components/inbox/InboxListPanel';
+import InboxPageActionsMenu from '../components/inbox/InboxPageActionsMenu.jsx';
 import InboxThreadEmpty from '../components/inbox/InboxThreadEmpty.jsx';
 import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
@@ -69,6 +60,10 @@ import { useInboxLayoutPrefs } from '../hooks/useInboxLayoutPrefs.js';
 import { useInboxHandoff } from '../hooks/useInboxHandoff.js';
 import { useInboxDesktopNotify } from '../hooks/useInboxDesktopNotify.js';
 import { useInboxMessageFlags } from '../hooks/useInboxMessageFlags.js';
+import { useInboxChatWidgetSync } from '../hooks/useInboxChatWidgetSync.js';
+import { useInboxVisualViewport } from '../hooks/useInboxVisualViewport.js';
+import { useInboxPhoneChangeReset } from '../hooks/useInboxPhoneChangeReset.js';
+import { useInboxLeadPanelData } from '../hooks/useInboxLeadPanelData.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -295,8 +290,7 @@ export default function Inbox() {
   const conversationSheetRef = useDialogFocus(conversationSheetOpen, () => setConversationSheet(null));
   const [selectedMsgKey, setSelectedMsgKey] = useState('');
   const [expandedMsgs, setExpandedMsgs] = useState({});
-  const [inboxVvInset, setInboxVvInset] = useState(0);
-  const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
+  const { inboxVvInset, inboxSlashMaxHeight } = useInboxVisualViewport(isMobile);
 
   useEffect(() => {
     const url = String(imageLightboxUrl || '').trim();
@@ -653,31 +647,12 @@ export default function Inbox() {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
 
-  const switchConversation = useChatWidgetStore((s) => s.switchConversation);
-  const isWidgetPinned = useChatWidgetStore((s) => s.isPinned);
-  const widgetActivePhone = useChatWidgetStore((s) => s.activePhone);
-
-  useEffect(() => {
-    if (!isWidgetPinned) return;
-    const phone = normalizePhone(selectedPhone);
-    const widgetPhone = primaryInboxPhone(widgetActivePhone);
-    if (!phone || phone === widgetPhone) return;
-    const leadId = String(selected?.lead_id || '').trim();
-    const name = pickDisplayName({
-      leadName: String(selected?.lead_name || '').trim(),
-      manualContactName: selected?.contact_name,
-      whatsappProfileName: selected?.whatsapp_profile_name,
-      phone,
-    });
-    switchConversation({ phone, leadId, leadName: name });
-  }, [selectedPhone, selected, isWidgetPinned, widgetActivePhone, switchConversation]);
-
-  useEffect(() => {
-    const widgetPhone = primaryInboxPhone(widgetActivePhone);
-    const cur = normalizePhone(selectedPhone);
-    if (!widgetPhone || widgetPhone === cur) return;
-    setSelectedPhone(widgetPhone);
-  }, [widgetActivePhone, selectedPhone]);
+  useInboxChatWidgetSync({
+    selectedPhone,
+    setSelectedPhone,
+    selected,
+    normalizePhone,
+  });
 
   useEffect(() => {
     const threadAbort = threadAbortRef;
@@ -696,26 +671,23 @@ export default function Inbox() {
     void getJwt();
   }, [academyId]);
 
-  useEffect(() => {
-    setLeadPanel(null);
-    setLeadSearch('');
-    setLeadNameDraft('');
-    setDraftBeforeImprove(null);
-  }, [selectedPhone]);
+  useInboxPhoneChangeReset({
+    selectedPhone,
+    setLeadPanel,
+    setLeadSearch,
+    setLeadNameDraft,
+    setDraftBeforeImprove,
+  });
 
-  useEffect(() => {
-    if (leadPanel !== 'associate') return;
-    if (leadsLoading) return;
-    if (Array.isArray(leadsForAssociate) && leadsForAssociate.length > 0) return;
-    fetchLeads();
-  }, [leadPanel, leadsLoading, leadsForAssociate, fetchLeads]);
-
-  useEffect(() => {
-    if (leadPanel !== 'link_student') return;
-    if (studentsLoading) return;
-    if (Array.isArray(students) && students.length > 0) return;
-    void fetchStudents({ reset: true });
-  }, [leadPanel, studentsLoading, students, fetchStudents]);
+  useInboxLeadPanelData({
+    leadPanel,
+    leadsLoading,
+    leadsForAssociate,
+    fetchLeads,
+    studentsLoading,
+    students,
+    fetchStudents,
+  });
 
   useEffect(() => {
     if (!isNarrowDesktop) return;
@@ -1187,77 +1159,19 @@ export default function Inbox() {
   );
   const showWaDisconnectBanner = waStatusChecked && String(waStatus || '').trim() !== 'connected';
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    if (!isMobile) {
-      setInboxVvInset(0);
-      setInboxSlashMaxHeight(288);
-      return;
-    }
-    const vv = window.visualViewport;
-    const upd = () => {
-      const inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
-      setInboxVvInset(inset);
-      setInboxSlashMaxHeight(Math.min(288, Math.max(120, Math.floor(vv.height * 0.38))));
-    };
-    upd();
-    vv.addEventListener('resize', upd);
-    vv.addEventListener('scroll', upd);
-    return () => {
-      vv.removeEventListener('resize', upd);
-      vv.removeEventListener('scroll', upd);
-    };
-  }, [isMobile]);
-
   const inboxExtraFilterActive = !INBOX_PRIMARY_FILTERS.has(String(listFilter || ''));
   const visibleConversationCount = flatVisibleConversations.length;
   const listMetaShowsFiltered = listFilter !== 'all' || Boolean(searchQuery);
 
   const inboxPageActionsMenu = (
-    <DropdownMenu open={pageActionsOpen} onOpenChange={setPageActionsOpen} className="inbox-page-actions-menu">
-      <button
-        type="button"
-        className="inbox-list-panel__topbar-btn inbox-page-actions-menu__trigger"
-        aria-haspopup="menu"
-        aria-expanded={pageActionsOpen}
-        aria-label="Mais ações do inbox"
-        onClick={() => setPageActionsOpen((v) => !v)}
-      >
-        <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
-      </button>
-      {pageActionsOpen ? (
-        <DropdownMenuPanel className="inbox-page-actions-menu__panel" aria-label="Ações do inbox">
-          <DropdownMenuItem
-            icon={<RefreshCw size={16} aria-hidden />}
-            disabled={waSyncing}
-            onClick={() => {
-              setPageActionsOpen(false);
-              void reconcileLast24h();
-            }}
-          >
-            {waSyncing ? 'Sincronizando WhatsApp…' : 'Sincronizar WhatsApp'}
-          </DropdownMenuItem>
-          <DropdownMenuDivider />
-          <DropdownMenuItem
-            icon={desktopNotify ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
-            active={desktopNotify}
-            onClick={() => {
-              setPageActionsOpen(false);
-              void toggleDesktopNotifyPreference();
-            }}
-          >
-            {desktopNotify ? 'Notificações ativas' : 'Ativar notificações'}
-          </DropdownMenuItem>
-          <DropdownMenuDivider />
-          <DropdownMenuLabel>Atalhos de teclado</DropdownMenuLabel>
-          <DropdownMenuItemStatic>J / K — conversa anterior ou próxima</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>R — focar resposta</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>E — resolver conversa</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>Ctrl+R — recarregar mensagens</DropdownMenuItemStatic>
-          <DropdownMenuItemStatic>Ctrl+K — resolver / reabrir ticket</DropdownMenuItemStatic>
-        </DropdownMenuPanel>
-      ) : null}
-    </DropdownMenu>
+    <InboxPageActionsMenu
+      open={pageActionsOpen}
+      onOpenChange={setPageActionsOpen}
+      waSyncing={waSyncing}
+      onSyncWhatsApp={reconcileLast24h}
+      desktopNotify={desktopNotify}
+      onToggleDesktopNotify={toggleDesktopNotifyPreference}
+    />
   );
 
   const listPanel = (

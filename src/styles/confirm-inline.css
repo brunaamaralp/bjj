@@ -1,0 +1,32 @@
+/* Confirmações inline (Dashboard gate, Agente IA, Avançado) */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 4, 53, 0.35);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+  padding: 1rem;
+}
+
+.confirm-modal {
+  background: var(--navi-surface, var(--surface, #fff));
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.confirm-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--danger-light);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

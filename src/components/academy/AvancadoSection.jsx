@@ -1,3 +1,4 @@
+import '../../styles/confirm-inline.css';
 import React, { useState } from 'react';
 import { Download, Trash2, ShieldAlert } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore';

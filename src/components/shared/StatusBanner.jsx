@@ -1,3 +1,4 @@
+import '../../styles/status-banner.css';
 import React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 

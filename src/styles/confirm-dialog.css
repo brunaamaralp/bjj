@@ -1,0 +1,88 @@
+/* ConfirmDialog */
+.navi-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  background: rgba(0, 4, 53, 0.35);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.navi-confirm-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  border: 0.5px solid var(--border-violet, var(--border));
+  box-shadow: var(--shadow-lg);
+}
+
+.navi-confirm-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--danger-light);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navi-confirm-title {
+  margin: 0 0 8px;
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.navi-confirm-desc {
+  margin: 0;
+}
+
+.navi-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.navi-confirm-actions .btn-outline,
+.navi-confirm-actions .btn-danger,
+.navi-confirm-actions .btn-primary {
+  flex: 1;
+  min-width: 120px;
+}
+
+.navi-confirm-overlay .btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+}
+
+.btn-warning {
+  background: var(--warning, #c9a227);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: var(--font-base);
+  min-height: 40px;
+}
+
+.btn-warning:hover {
+  filter: brightness(1.05);
+}
+
+.navi-confirm-actions .btn-warning,
+.navi-confirm-overlay .btn-warning {
+  background: var(--warning, #c9a227);
+  color: #fff;
+  border: none;
+}

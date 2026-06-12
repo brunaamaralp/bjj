@@ -1,0 +1,56 @@
+/* Hint tooltip (HelpCircle) */
+.navi-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  color: var(--text-secondary);
+  cursor: help;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.navi-hint:focus-visible {
+  outline: 2px solid var(--focus-ring-color); box-shadow: 0 0 0 3px var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+.navi-hint__bubble {
+  position: absolute;
+  z-index: 50;
+  width: max-content;
+  max-width: min(240px, 70vw);
+  padding: 8px 10px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 4, 53, 0.12);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+.navi-hint:hover .navi-hint__bubble,
+.navi-hint:focus-visible .navi-hint__bubble {
+  opacity: 1;
+  visibility: visible;
+}
+.navi-hint[data-position='top'] .navi-hint__bubble {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.navi-hint[data-position='bottom'] .navi-hint__bubble {
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.navi-hint[data-position='right'] .navi-hint__bubble,
+.navi-hint[data-position='left'] .navi-hint__bubble {
+  top: 50%;
+  transform: translateY(-50%);
+}

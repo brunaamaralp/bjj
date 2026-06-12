@@ -1,3 +1,4 @@
+import '../../styles/page-skeleton.css';
 import React from 'react';
 
 const TABLE_COL_WIDTHS = {
