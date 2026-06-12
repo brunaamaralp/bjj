@@ -28,7 +28,11 @@ function LeadProfileTimelineEventsList({
 
         let dotColor = 'var(--color-text-secondary)';
         if (type === 'note' || type === 'inbox_note') dotColor = 'var(--color-primary)';
-        else if (type === 'message' || type === 'whatsapp_template_sent') dotColor = 'var(--color-accent)';
+        else if (type === 'message' || type === 'whatsapp_template_sent' || type === 'conversation_highlight') {
+          dotColor = 'var(--color-accent)';
+        } else if (type === 'lead_updated' || type === 'student_updated') {
+          dotColor = 'var(--color-primary)';
+        }
         else if (type === 'schedule') dotColor = 'var(--color-primary)';
         else if (type === 'followup_done') dotColor = 'var(--color-accent-dark)';
         else if (type === 'followup_contact') dotColor = 'var(--color-accent)';
@@ -56,7 +60,24 @@ function LeadProfileTimelineEventsList({
           label = (
             <span>
               {n.text}
-              <span className="inbox-tag">· Inbox</span>
+              <span className="timeline-source-tag">· Inbox</span>
+            </span>
+          );
+        } else if (type === 'conversation_highlight') {
+          label = (
+            <span>
+              {n.text}
+              <span className="timeline-source-tag timeline-source-tag--whatsapp">· WhatsApp</span>
+            </span>
+          );
+        } else if (
+          (type === 'lead_updated' || type === 'student_updated') &&
+          n.payload?.source === 'whatsapp_ai'
+        ) {
+          label = (
+            <span>
+              {n.text}
+              <span className="timeline-source-tag timeline-source-tag--whatsapp">· WhatsApp</span>
             </span>
           );
         } else if (type === 'whatsapp_template_sent') {

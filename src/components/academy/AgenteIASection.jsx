@@ -213,6 +213,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [savingFaq, setSavingFaq] = useState(false);
     const [aiActionsEnabled, setAiActionsEnabled] = useState(true);
     const [aiActionsSelected, setAiActionsSelected] = useState(() => new Set(V1_AI_ACTIONS));
+    const [conversationTimelineEnabled, setConversationTimelineEnabled] = useState(true);
     const [savingAiActions, setSavingAiActions] = useState(false);
     const [aiModuleEnabled, setAiModuleEnabled] = useState(true);
     const [savingAiModule, setSavingAiModule] = useState(false);
@@ -342,9 +343,13 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                         setAiActionsEnabled(data.ai_actions.enabled !== false);
                         const acts = Array.isArray(data.ai_actions.actions) ? data.ai_actions.actions : V1_AI_ACTIONS;
                         setAiActionsSelected(new Set(acts.filter((a) => V1_AI_ACTIONS.includes(a))));
+                        setConversationTimelineEnabled(
+                            data.ai_actions.conversation_timeline?.enabled !== false
+                        );
                     } else {
                         setAiActionsEnabled(true);
                         setAiActionsSelected(new Set(V1_AI_ACTIONS));
+                        setConversationTimelineEnabled(true);
                     }
                     const aiMod = data.ai_module && typeof data.ai_module === 'object' ? data.ai_module : null;
                     const modEnabled = aiMod ? aiMod.enabled !== false : true;
@@ -586,6 +591,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     action: 'save_ai_actions',
                     enabled: aiActionsEnabled,
                     actions: actions.length > 0 ? actions : V1_AI_ACTIONS,
+                    conversation_timeline: { enabled: conversationTimelineEnabled },
                 }),
             });
             if (blocked) return;
@@ -595,6 +601,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 setAiActionsEnabled(cfg.enabled !== false);
                 const acts = Array.isArray(cfg.actions) ? cfg.actions : V1_AI_ACTIONS;
                 setAiActionsSelected(new Set(acts.filter((a) => V1_AI_ACTIONS.includes(a))));
+                setConversationTimelineEnabled(cfg.conversation_timeline?.enabled !== false);
                 addToast({ type: 'success', message: 'Ações automáticas salvas' });
             } else {
                 addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
@@ -706,12 +713,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                         </button>
                     </div>
                     <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 10,
-                            opacity: aiActionsEnabled ? 1 : 0.55,
-                        }}
+                        className={`agent-ia-action-list${aiActionsEnabled ? '' : ' agent-ia-action-list--disabled'}`}
                     >
                         {V1_AI_ACTIONS.map((actionKey) => {
                             const meta = AI_ACTION_META[actionKey] || { label: actionKey, description: '' };
@@ -719,38 +721,47 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                             return (
                                 <label
                                     key={actionKey}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: 10,
-                                        padding: '10px 12px',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: 8,
-                                        cursor: aiActionsEnabled ? 'pointer' : 'not-allowed',
-                                    }}
+                                    className={`agent-ia-action-option${aiActionsEnabled ? '' : ' agent-ia-action-option--disabled'}`}
                                 >
                                     <input
                                         type="checkbox"
+                                        className="agent-ia-action-option__input"
                                         checked={checked}
                                         disabled={!aiActionsEnabled || loadingPrompt || savingAiActions}
                                         onChange={(e) => toggleAiAction(actionKey, e.target.checked)}
-                                        style={{ marginTop: 3 }}
                                     />
                                     <span>
-                                        <span style={{ fontWeight: 600, display: 'block' }}>{meta.label}</span>
-                                        <span className="text-small" style={{ color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                                            {meta.description}
-                                        </span>
+                                        <span className="agent-ia-action-option__title">{meta.label}</span>
+                                        <span className="agent-ia-action-option__desc">{meta.description}</span>
                                     </span>
                                 </label>
                             );
                         })}
+                        <label
+                            className={`agent-ia-action-option${aiActionsEnabled ? '' : ' agent-ia-action-option--disabled'}`}
+                        >
+                            <input
+                                type="checkbox"
+                                className="agent-ia-action-option__input"
+                                checked={conversationTimelineEnabled}
+                                disabled={!aiActionsEnabled || loadingPrompt || savingAiActions}
+                                onChange={(e) => setConversationTimelineEnabled(e.target.checked)}
+                            />
+                            <span>
+                                <span className="agent-ia-action-option__title">
+                                    Registrar momentos importantes no histórico do lead
+                                </span>
+                                <span className="agent-ia-action-option__desc">
+                                    A IA grava na timeline do contato apenas momentos relevantes da conversa (dados
+                                    compartilhados, interesse, agendamentos), sem copiar todas as mensagens.
+                                </span>
+                            </span>
+                        </label>
                     </div>
                     <button
                         type="button"
                         onClick={() => void handleSaveAiActions()}
-                        className="btn btn-outline"
-                        style={{ marginTop: 12 }}
+                        className="btn btn-outline agent-ia-action-save"
                         disabled={savingAiActions || loadingPrompt}
                     >
                         {savingAiActions ? 'Salvando…' : 'Salvar ações automáticas'}

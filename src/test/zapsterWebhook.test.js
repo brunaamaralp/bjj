@@ -63,6 +63,10 @@ vi.mock('../../lib/server/zapsterSenderMeta.js', () => ({
   pickSenderProfileImageUrl: vi.fn(() => '')
 }));
 
+vi.mock('../../lib/server/zapsterRecipientProfile.js', () => ({
+  fetchZapsterRecipientProfilePicture: vi.fn(async () => '')
+}));
+
 vi.mock('node-appwrite', () => {
   class MockDatabases {
     getDocument = whMocks.getDocument;

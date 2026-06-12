@@ -7,6 +7,7 @@ import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from '
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
 import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
+import { fetchZapsterRecipientProfilePicture } from '../lib/server/zapsterRecipientProfile.js';
 import {
   formatWhatsAppGroupLabel,
   isWhatsAppGroupId,
@@ -1343,7 +1344,11 @@ export default async function handler(req, res) {
             historyMessages: history,
           });
           const waName = String(bucket?.whatsappName || '').trim();
-          const waPic = String(bucket?.whatsappProfileImageUrl || '').trim();
+          let waPic = String(bucket?.whatsappProfileImageUrl || '').trim();
+          if (!waPic || !/^https?:\/\//i.test(waPic)) {
+            const fetchedPic = await fetchZapsterRecipientProfilePicture(instanceId, phone);
+            if (fetchedPic) waPic = fetchedPic;
+          }
           const picOk = Boolean(waPic && /^https?:\/\//i.test(waPic));
           const currentContactName = String(current?.contact_name || '').trim();
           const currentSource = String(current?.contact_name_source || '').trim().toLowerCase();

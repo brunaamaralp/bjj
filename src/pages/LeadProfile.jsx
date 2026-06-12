@@ -90,6 +90,46 @@ function hasLeadDisplayValue(val) {
     return Boolean(s) && s !== '-';
 }
 
+/** Texto do empty state da timeline conforme filtro ativo. */
+function getTimelineEmptyState(filter, hasAnyEvents) {
+    const filteredOnly = hasAnyEvents;
+    switch (filter) {
+        case 'conversation':
+            return {
+                title: filteredOnly
+                    ? 'Nenhum momento da conversa neste filtro'
+                    : 'A IA ainda não registrou momentos desta conversa',
+                description:
+                    'Dados compartilhados, interesse e atualizações de cadastro detectados no WhatsApp aparecem aqui.',
+            };
+        case 'message':
+            return {
+                title: filteredOnly ? 'Nenhuma mensagem neste filtro' : 'Nenhuma mensagem registrada',
+                description: null,
+            };
+        case 'note':
+            return {
+                title: filteredOnly ? 'Nenhuma nota neste filtro' : 'Nenhuma nota registrada',
+                description: null,
+            };
+        case 'schedule':
+            return {
+                title: filteredOnly ? 'Nenhum agendamento neste filtro' : 'Nenhum agendamento registrado',
+                description: null,
+            };
+        case 'stage_change':
+            return {
+                title: filteredOnly ? 'Nenhuma mudança neste filtro' : 'Nenhuma mudança de etapa registrada',
+                description: null,
+            };
+        default:
+            return {
+                title: 'Nenhum evento registrado',
+                description: null,
+            };
+    }
+}
+
 function expectedPipelineStageForStatus(status) {
     switch (status) {
         case LEAD_STATUS.SCHEDULED:
@@ -139,6 +179,9 @@ const TIMELINE_EVENT_LABELS = {
     inbox_note: 'Nota Inbox',
     whatsapp: 'WhatsApp',
     whatsapp_template_sent: 'WhatsApp automático',
+    conversation_highlight: 'Conversa WhatsApp',
+    lead_updated: 'Cadastro atualizado',
+    student_updated: 'Cadastro atualizado',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {
@@ -587,7 +630,13 @@ const LeadProfile = () => {
                 meta: payload,
             };
         }
-        return { type: t, ...base };
+        return {
+            type: t,
+            ...base,
+            $id: d.$id,
+            is_pinned: Boolean(d.is_pinned),
+            payload,
+        };
     }, [contactLabel]);
 
     const refreshTimeline = useCallback(async () => {
@@ -615,6 +664,13 @@ const LeadProfile = () => {
                     if (eventTypeFilter === 'all') return true;
                     const t = ev.type || 'note';
                     if (eventTypeFilter === 'note') return t === 'note' || t === 'inbox_note';
+                    if (eventTypeFilter === 'conversation') {
+                        if (t === 'conversation_highlight') return true;
+                        if (t === 'lead_updated' || t === 'student_updated') {
+                            return ev.payload?.source === 'whatsapp_ai';
+                        }
+                        return false;
+                    }
                     return t === eventTypeFilter;
                 })
                 .sort((a, b) => {
@@ -630,6 +686,11 @@ const LeadProfile = () => {
     const pinnedNotesCount = useMemo(
         () => (timelineEvents || []).filter((e) => e.is_pinned).length,
         [timelineEvents]
+    );
+
+    const timelineEmptyState = useMemo(
+        () => getTimelineEmptyState(eventTypeFilter, (timelineEvents || []).length > 0),
+        [eventTypeFilter, timelineEvents]
     );
 
     useEffect(() => {
@@ -2554,6 +2615,7 @@ const LeadProfile = () => {
                         <button type="button" className={`filter-pill${eventTypeFilter === 'schedule' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'schedule'} onClick={() => setHistoryFilterWithUrl('schedule')}>Agendamentos</button>
                         <button type="button" className={`filter-pill${eventTypeFilter === 'stage_change' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'stage_change'} onClick={() => setHistoryFilterWithUrl('stage_change')}>Mudanças</button>
                         <button type="button" className={`filter-pill${eventTypeFilter === 'note' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'note'} onClick={() => setHistoryFilterWithUrl('note')}>Notas</button>
+                        <button type="button" className={`filter-pill${eventTypeFilter === 'conversation' ? ' active' : ''}`} aria-pressed={eventTypeFilter === 'conversation'} onClick={() => setHistoryFilterWithUrl('conversation')}>Conversa</button>
                     </div>
                 </div>
 
@@ -2570,9 +2632,15 @@ const LeadProfile = () => {
                         />
                     ) : null}
 
-                    {!timelineError && filteredTimelineEvents.length === 0 && (
-                        <EmptyState variant="compact" tone="dashed" title="Nenhum evento registrado." role="status" />
-                    )}
+                    {!timelineError && filteredTimelineEvents.length === 0 ? (
+                        <EmptyState
+                            variant="compact"
+                            tone="dashed"
+                            title={timelineEmptyState.title}
+                            description={timelineEmptyState.description}
+                            role="status"
+                        />
+                    ) : null}
 
                     {!timelineError && filteredTimelineEvents.length > 0 ? (
                         <LeadProfileTimelineEventsList

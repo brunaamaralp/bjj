@@ -34,6 +34,7 @@ import {
   setInboxListStatsCached,
 } from '../lib/server/inboxListStatsCache.js';
 import { enrichConversationListDocs } from '../lib/server/inboxListLeadEnrichment.js';
+import { fetchZapsterRecipientProfile } from '../lib/server/zapsterRecipientProfile.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -60,6 +61,10 @@ function normalizePhone(v) {
   const raw = String(v || '').trim();
   if (!raw) return '';
   return raw.replace(/[^\d]/g, '');
+}
+
+function isInitialThreadPage(cursor) {
+  return !String(cursor || '').trim();
 }
 
 const LIST_SELECT_ATTRS = [
@@ -386,6 +391,40 @@ export default async function handler(req, res) {
         );
       }
 
+      let whatsappProfileImageUrl = String(doc.whatsapp_profile_image_url || '').trim();
+      let whatsappProfileName = String(doc.whatsapp_profile_name || '').trim();
+      if (!whatsappProfileImageUrl && isInitialThreadPage(cursor)) {
+        const instanceId = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
+        const recipientPhone = String(doc.phone_number || '').trim() || phoneDigits;
+        if (instanceId && recipientPhone) {
+          const fetched = await fetchZapsterRecipientProfile(instanceId, recipientPhone);
+          if (fetched.profilePicture) {
+            whatsappProfileImageUrl = fetched.profilePicture;
+            const nowIso = new Date().toISOString();
+            const persistPayload = {
+              whatsapp_profile_image_url: fetched.profilePicture,
+              whatsapp_profile_image_updated_at: nowIso,
+            };
+            if (fetched.name && !whatsappProfileName) {
+              whatsappProfileName = fetched.name;
+              persistPayload.whatsapp_profile_name = fetched.name;
+              persistPayload.whatsapp_profile_name_updated_at = nowIso;
+            }
+            waitUntil(
+              databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, persistPayload).catch((e) => {
+                console.warn(
+                  JSON.stringify({
+                    event: 'whatsapp_profile_image_persist_failed',
+                    conversationId: doc.$id,
+                    error: e?.message || String(e),
+                  })
+                );
+              })
+            );
+          }
+        }
+      }
+
       return json(res, 200, {
         phone: String(doc.phone_number || '').trim() || phoneDigits,
         conversation_id: String(doc.$id || ''),
@@ -397,8 +436,8 @@ export default async function handler(req, res) {
         lead_name: String(doc.lead_name || '').trim(),
         contact_name: String(doc.contact_name || '').trim(),
         contact_name_source: String(doc.contact_name_source || '').trim(),
-        whatsapp_profile_name: String(doc.whatsapp_profile_name || '').trim(),
-        whatsapp_profile_image_url: String(doc.whatsapp_profile_image_url || '').trim(),
+        whatsapp_profile_name: whatsappProfileName,
+        whatsapp_profile_image_url: whatsappProfileImageUrl,
         need_human: humanHandoffIsActive(doc.human_handoff_until),
         human_handoff_until: typeof doc.human_handoff_until === 'string' ? doc.human_handoff_until : '',
         ticket_status: String(doc.ticket_status || 'open').trim() || 'open',

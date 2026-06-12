@@ -5,6 +5,7 @@ export const LEAD_HISTORY_FILTERS = new Set([
   'schedule',
   'stage_change',
   'note',
+  'conversation',
 ]);
 
 /** Lê ?history= da URL para o filtro interno da timeline. */

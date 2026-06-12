@@ -748,10 +748,16 @@
                     line-height: 1.5;
                 }
 
-                .inbox-tag {
+                .inbox-tag,
+                .timeline-source-tag {
                     font-size: 10px;
                     color: var(--text-muted);
                     margin-left: 6px;
+                    font-weight: 500;
+                }
+
+                .timeline-source-tag--whatsapp {
+                    color: color-mix(in srgb, var(--color-accent) 70%, var(--text-muted));
                 }
 
                 .event-pin-btn {

@@ -17,6 +17,8 @@ describe('leadProfileUrlState', () => {
     expect(leadHistoryFilterFromUrlParam('message')).toBe('message');
     expect(leadHistoryFilterFromUrlParam('schedule')).toBe('schedule');
     expect(leadHistoryFilterFromUrlParam('stage_change')).toBe('stage_change');
+    expect(leadHistoryFilterToUrlParam('conversation')).toBe('conversation');
+    expect(leadHistoryFilterFromUrlParam('conversation')).toBe('conversation');
   });
 
   it('falls back to all for unknown filter', () => {
