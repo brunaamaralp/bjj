@@ -84,6 +84,7 @@ function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
     cancelScheduledMessage,
     cancelingMsgId,
     retryFailedMessage,
+    isGroupThread = false,
   } = ctx;
 
   if (!block || typeof block !== 'object') return null;
@@ -139,7 +140,15 @@ function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
           const pinned = Boolean(selectedPhoneFlags?.pinned && selectedPhoneFlags.pinned[key]);
           const important = Boolean(selectedPhoneFlags?.important && selectedPhoneFlags.important[key]);
           const senderKind = senderKindFromMessage(m);
-          const senderLabel = senderKind === 'ai' ? 'Agente IA' : senderKind === 'human' ? 'Humano' : 'Cliente';
+          const participantName = String(m?.sender_name || '').trim();
+          const showParticipantLabel = Boolean(isGroupThread && g.bubbleKind === 'user' && participantName);
+          const senderLabel = showParticipantLabel
+            ? participantName
+            : senderKind === 'ai'
+              ? 'Agente IA'
+              : senderKind === 'human'
+                ? 'Humano'
+                : 'Cliente';
           const bubbleSender = g.bubbleKind === 'user' ? 'user' : g.bubbleKind === 'ai' ? 'ai' : 'human';
           const sendFailed = Boolean(m?._sendFailed);
           const deliveryStatus = messageBubbleStatusFromMessage(m);
@@ -165,8 +174,10 @@ function InboxThreadBlock({ block, expandedMsgs, ...ctx }) {
                   ? () => retryFailedMessage(mid)
                   : null
               }
-              showSenderLabel={idx === 0 && g.bubbleKind !== 'user'}
-              senderLabel={g.bubbleKind === 'ai' ? 'IA' : 'Você'}
+              showSenderLabel={showParticipantLabel || (idx === 0 && g.bubbleKind !== 'user')}
+              senderLabel={
+                showParticipantLabel ? participantName : g.bubbleKind === 'ai' ? 'IA' : 'Você'
+              }
               selected={isSelected}
               paddingTop={idx === 0 ? 0 : INBOX_MSG_GROUP_GAP_PX}
               onClick={() => setSelectedMsgKey((v) => (String(v || '') === key ? '' : key))}

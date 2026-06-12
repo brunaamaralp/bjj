@@ -9,7 +9,7 @@ import InboxThreadMessages from './InboxThreadMessages.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
 import InboxFollowupBanner from './InboxFollowupBanner.jsx';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
-import { inboxProfileImageUrl } from '../../lib/inboxContactDisplay.js';
+import { inboxProfileImageUrl, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
 import { suggestTriageAction, triageContextLine } from '../../lib/triageSuggestions.js';
 
 export default function InboxThreadPanel(props) {
@@ -376,6 +376,7 @@ export default function InboxThreadPanel(props) {
               cancelScheduledMessage={cancelScheduledMessage}
               cancelingMsgId={cancelingMsgId}
               retryFailedMessage={retryFailedMessage}
+              isGroupThread={isInboxGroupPhone(selectedPhone)}
             />
           ) : null}
 

@@ -235,7 +235,7 @@ export function InboxContextPanelContent(props) {
                 </button>
               ) : null}
               <div className="inbox-context-btn-row">
-                {!pendingTriage && !selected?.lead_id && (
+                {!pendingTriage && !selected?.lead_id && !isInboxGroupPhone(phone) && (
                   <>
                     <button
                       className="btn btn-primary inbox-btn--ctx"
