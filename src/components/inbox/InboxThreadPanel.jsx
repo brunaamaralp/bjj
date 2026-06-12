@@ -112,21 +112,6 @@ export default function InboxThreadPanel(props) {
     return () => window.clearTimeout(timer);
   }, [editingContactName]);
 
-  if (!selectedPhone) {
-    return (
-    <div className="inbox-empty-thread-placeholder">
-      <EmptyState
-        variant="embedded"
-        tone="dashed"
-        icon={MessageSquare}
-        title="Nenhuma conversa selecionada"
-        description="Escolha uma conversa à esquerda para ver o histórico e responder o contato."
-        role="status"
-      />
-    </div>
-    );
-  }
-
   return (
     <div className="inbox-thread-panel">
       <div className="inbox-thread-header">

@@ -32,8 +32,12 @@ import {
   DropdownMenuPanel,
 } from '../components/shared/menu';
 import InboxListPanel from '../components/inbox/InboxListPanel';
-import InboxThreadPanel from '../components/inbox/InboxThreadPanel';
+import InboxThreadEmpty from '../components/inbox/InboxThreadEmpty.jsx';
+import ThreadSkeleton from '../components/inbox/ThreadSkeleton';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
+import { preloadInboxThreadChunks } from '../lib/preloadRoutes.js';
+
+const InboxThreadPanel = lazyWithRetry(() => import('../components/inbox/InboxThreadPanel'));
 
 const InboxContextPanel = lazyWithRetry(() => import('../components/inbox/InboxContextPanel'));
 const InboxContextPanelContent = lazy(() =>
@@ -553,6 +557,7 @@ export default function Inbox() {
         ? listItems.find((it) => String(it?.phone_number || '').trim() === targetPhone)
         : null;
       const convId = String(row?.id || firstConversationId || '').trim();
+      void preloadInboxThreadChunks();
       void loadThreadRef.current?.(targetPhone, { conversationId: convId, prefetch: true });
     };
   }, [loadThreadRef]);
@@ -1525,6 +1530,7 @@ export default function Inbox() {
     if (!phone) return;
     if (String(selectedPhoneRef.current || '').trim() === phone) return;
     const convId = String(it?.id || '').trim();
+    void preloadInboxThreadChunks();
     void loadThreadRef.current?.(phone, { prefetch: true, conversationId: convId });
   }, [loadThreadRef]);
 
@@ -1894,8 +1900,15 @@ export default function Inbox() {
     cancelScheduledMessage,
   };
 
-  const threadPanel = (
-    <InboxThreadPanel
+  const threadPanel = selectedPhone ? (
+    <Suspense
+      fallback={(
+        <div className="inbox-thread-panel">
+          <ThreadSkeleton />
+        </div>
+      )}
+    >
+      <InboxThreadPanel
       selectedPhone={selectedPhone}
       setSelectedPhone={setSelectedPhone}
       setDetailsOpen={setDetailsOpen}
@@ -1980,7 +1993,10 @@ export default function Inbox() {
       linkingLead={linkingLead}
       academyId={academyId}
       aiEnabled={aiModuleEnabled}
-    />
+      />
+    </Suspense>
+  ) : (
+    <InboxThreadEmpty />
   );
 
   const contextPanelProps = {
