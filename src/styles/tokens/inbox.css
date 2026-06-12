@@ -99,4 +99,7 @@
   --inbox-font-thread-title: var(--font-xl);
   --inbox-font-group-label: var(--font-sm);
   --inbox-line-body: 1.47;
+
+  /* Texto + emoji (Plus Jakarta não inclui glifos emoji) */
+  --inbox-font-emoji: var(--ff-ui, inherit), "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", emoji;
 }

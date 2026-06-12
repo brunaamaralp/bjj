@@ -1371,6 +1371,7 @@
 .inbox-msg-text {
   font-size: var(--inbox-font-body);
   line-height: var(--inbox-line-body);
+  font-family: var(--inbox-font-emoji);
 }
 
 .inbox-msg-text--pre {
@@ -3128,7 +3129,7 @@
   color: var(--inbox-bubble-received-text, #111b21);
   font-size: 0.9375rem;
   line-height: 1.4;
-  font-family: inherit;
+  font-family: var(--inbox-font-emoji);
   field-sizing: content;
 }
 
@@ -3485,8 +3486,18 @@
 }
 
 .inbox-composer-popover--emoji {
-  width: 260px;
+  width: 272px;
+  max-width: calc(100vw - 24px);
   padding: 10px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.inbox-composer-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
 }
 
 .inbox-composer-popover__heading {
@@ -3511,12 +3522,6 @@
 .inbox-composer-template-btn__preview {
   font-size: var(--inbox-font-secondary);
   color: var(--text-secondary);
-}
-
-.inbox-composer-emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 6px;
 }
 
 .inbox-composer-schedule-row {
@@ -3679,7 +3684,7 @@
   resize: none;
   line-height: 1.4;
   font-size: 14px;
-  font-family: inherit;
+  font-family: var(--inbox-font-emoji);
 }
 
 .inbox-composer-compact-send {
@@ -3701,6 +3706,13 @@
 }
 
 .inbox-composer-popover--emoji .inbox-composer-emoji-grid-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   border-radius: 10px;
   background: transparent;
@@ -3708,7 +3720,8 @@
 }
 
 .inbox-composer-popover--emoji .inbox-composer-emoji-grid-btn span {
-  font-size: 1.125rem;
+  font-family: var(--inbox-font-emoji);
+  font-size: 1.25rem;
   line-height: 1;
 }
 
@@ -3792,9 +3805,9 @@
     justify-content: center;
   }
 
-  .inbox-composer-emoji-grid-btn {
-    min-width: 44px;
-    min-height: 44px;
+  .inbox-composer-popover--emoji .inbox-composer-emoji-grid-btn {
+    min-width: 0;
+    min-height: 0;
   }
 }
 
@@ -3806,6 +3819,7 @@
   resize: none;
   line-height: 1.5;
   font-size: var(--inbox-font-body);
+  font-family: var(--inbox-font-emoji);
 }
 
 /* Timestamps discretos; ações só no hover/seleção (touch: toque na mensagem) */
