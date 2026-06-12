@@ -38,10 +38,11 @@ export async function triggerImmediateAutomation(
   });
 
   if (!result?.ok) {
+    const reason = result?.reason || 'send_failed';
     return {
-      status: 'failed',
+      status: reason === 'no_recent_interaction' ? 'skipped' : 'failed',
       automationKey: key,
-      reason: result?.reason || 'send_failed',
+      reason,
     };
   }
   return {

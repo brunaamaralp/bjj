@@ -192,8 +192,21 @@ async function runBirthdayCron() {
         academyName
       });
 
-      const z = await sendZapsterText({ recipient: phone, text: message, instanceId: inst });
+      const z = await sendZapsterText({
+        recipient: phone,
+        text: message,
+        instanceId: inst,
+        proactive: true,
+        academyId: academy.$id,
+        leadId: doc.$id,
+        leadDoc: doc,
+      });
       if (!z?.ok) {
+        if (z?.skipped === 'no_recent_interaction') {
+          skipped += 1;
+          details.push({ leadId: doc.$id, phone, skipped: 'no_recent_interaction' });
+          continue;
+        }
         errors += 1;
         details.push({ leadId: doc.$id, phone, erro: z?.erro || 'zapster' });
         continue;

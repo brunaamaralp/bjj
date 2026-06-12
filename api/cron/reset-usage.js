@@ -224,6 +224,11 @@ async function runAutomations(databases) {
         templateKey: cfg.templateKey,
       });
       if (!out?.ok) {
+        if (out?.skipped === 'no_recent_interaction') {
+          nextPending[i] = { ...item, sent: true };
+          changed = true;
+          continue;
+        }
         errors += 1;
         continue;
       }

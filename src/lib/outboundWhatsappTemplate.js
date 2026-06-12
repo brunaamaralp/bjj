@@ -99,7 +99,12 @@ export async function sendWhatsappTemplateOutbound({
           'x-academy-id': String(academyId || ''),
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ phone: phoneRaw, text: message }),
+        body: JSON.stringify({
+          phone: phoneRaw,
+          text: message,
+          proactive: true,
+          lead_id: leadId || undefined,
+        }),
       });
       const txt = await resp.text();
       let j = {};
@@ -112,6 +117,11 @@ export async function sendWhatsappTemplateOutbound({
         let msg = 'Falha ao enviar';
         if (j && typeof j === 'object' && typeof j.erro === 'string' && j.erro.trim()) msg = String(j.erro).trim();
         else if (txt) msg = txt.slice(0, 200);
+        const skipReason = j && typeof j === 'object' ? String(j.skipped || j.code || '').trim() : '';
+        if (skipReason === 'no_recent_interaction') {
+          toast({ type: 'warning', message: msg });
+          return { ok: false, reason: 'no_recent_interaction', error: msg };
+        }
         toast({ type: 'error', message: msg });
         return { ok: false, reason: 'send_failed', error: msg };
       }

@@ -10,6 +10,7 @@ export const AUTOMATION_SKIP_REASONS = {
   no_phone: 'Lead sem telefone',
   empty_template: 'Modelo de mensagem vazio',
   no_zapster: 'WhatsApp não conectado (Agente IA)',
+  no_recent_interaction: 'Sem conversa recente no WhatsApp com este contato',
   send_failed: 'Falha ao enviar',
 };
 

@@ -25,6 +25,11 @@ import { lastMessageMetaPayload } from '../lib/server/conversationListMeta.js';
 import { conversationMessagesStoragePayload } from '../lib/server/conversationMessages.js';
 import { enrichInboundMedia } from '../lib/server/inboxMediaService.js';
 import { detectMediaTypeFromMime, sendZapsterMedia } from '../lib/server/zapsterSend.js';
+import {
+  checkProactiveWhatsappAllowed,
+  PROACTIVE_SKIP_REASON,
+  proactiveWhatsappUserMessage,
+} from '../lib/server/proactiveWhatsappGate.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -1028,8 +1033,25 @@ export default async function handler(req, res) {
     const caption = String(req.body?.caption || '').trim();
     const fileName = String(req.body?.fileName || req.body?.file_name || '').trim();
     const sendAtRaw = String(req.body?.send_at || '').trim();
+    const proactiveSend = req.body?.proactive === true || req.body?.proactive === 'true';
+    const proactiveLeadId = String(req.body?.lead_id || req.body?.leadId || '').trim();
     if (!phone || (!text && !mediaUrl)) {
       return res.status(400).json({ sucesso: false, erro: 'Campos obrigatórios ausentes' });
+    }
+    if (proactiveSend) {
+      const gate = await checkProactiveWhatsappAllowed({
+        phone,
+        academyId,
+        leadId: proactiveLeadId,
+      });
+      if (!gate.allowed) {
+        return res.status(409).json({
+          sucesso: false,
+          skipped: PROACTIVE_SKIP_REASON,
+          code: PROACTIVE_SKIP_REASON,
+          erro: gate.message || proactiveWhatsappUserMessage(gate.windowDays),
+        });
+      }
     }
     if (mediaUrl && sendAtRaw) {
       return res.status(400).json({
