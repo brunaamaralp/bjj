@@ -18,12 +18,13 @@ import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
-import { getStageUpdatePayload, normalizePipelineStageId, resolveLeadPipelineStageId } from '../lib/leadStageRules.js';
+import { getStageUpdatePayload, isOpenFunnelLead, normalizePipelineStageId, resolveLeadPipelineStageId } from '../lib/leadStageRules.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
 import { enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 import {
   enrolledContactMatchesPeriod,
+  leadBoardPeriodDateRef,
   resolveEnrollmentPeriodRange,
   resolveLeadPeriodRange,
 } from '../lib/pipelineEnrollmentFilter.js';
@@ -1647,6 +1648,11 @@ const Pipeline = () => {
             if (!ids.has('Novo')) {
                 out.unshift({ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS });
             }
+            if (!ids.has('Aula experimental')) {
+                const novoIdx = out.findIndex((c) => normalizePipelineStageId(c?.id) === 'Novo');
+                const row = { id: 'Aula experimental', label: 'Experimental', slaDays: DEFAULT_STAGE_SLA_DAYS };
+                out.splice(novoIdx >= 0 ? novoIdx + 1 : out.length, 0, row);
+            }
             if (!ids.has(LEAD_STATUS.MISSED)) out.push({ id: LEAD_STATUS.MISSED, label: 'Não compareceu' });
             if (!ids.has(LEAD_STATUS.LOST)) out.push({ id: LEAD_STATUS.LOST, label: 'Perdidos' });
             return out;
@@ -1967,16 +1973,16 @@ const Pipeline = () => {
         const { from, to } = resolveLeadPeriodRange({ filterDateFrom, filterDateTo, quickFilter, formatLocalYmd });
         if (!from && !to) return true;
 
-        const dateRef = lead.scheduledDate || lead.createdAt?.split('T')[0];
+        const dateRef = leadBoardPeriodDateRef(lead);
         if (!dateRef) return false;
         if (from && dateRef < from) return false;
         if (to && dateRef > to) return false;
         return true;
     }, [filterDateFrom, filterDateTo, quickFilter]);
 
-    /** Triagem WhatsApp pendente sempre visível no funil, mesmo com filtro de período ativo. */
+    /** Triagem e captação/experimental ativas sempre visíveis, mesmo com filtro de período. */
     const passesBoardDateFilter = useCallback(
-        (lead) => isLeadPendingTriage(lead) || filterByDate(lead),
+        (lead) => isLeadPendingTriage(lead) || isOpenFunnelLead(lead) || filterByDate(lead),
         [filterByDate]
     );
 
@@ -2178,8 +2184,8 @@ const Pipeline = () => {
         setOriginFilter('all');
         setFilterDateFrom('');
         setFilterDateTo('');
-        setEnrollmentMonthFilter(currentMonthYm());
-        setQuickFilter('month');
+        setEnrollmentMonthFilter('');
+        setQuickFilter(null);
         setSearchStageScope('all');
     }, []);
 

@@ -1,3 +1,4 @@
+import { LEAD_STATUS } from './leadStatus.js';
 import { contactEnrolledInYmdRange } from './studentEnrollmentDate.js';
 
 const YM_RE = /^\d{4}-\d{2}$/;
@@ -35,6 +36,24 @@ function resolveQuickPeriod(quickFilter, formatLocalYmd) {
     };
   }
   return { from: '', to: '' };
+}
+
+/**
+ * Data usada no filtro de período do funil (colunas de lead).
+ * Novo → cadastro; Agendado → experimental; demais → evento mais recente.
+ */
+export function leadBoardPeriodDateRef(lead) {
+  const status = String(lead?.status || '').trim();
+  const created = String(lead?.createdAt || '').trim().split('T')[0];
+  const scheduled = String(lead?.scheduledDate || '').trim().split('T')[0];
+
+  if (status === LEAD_STATUS.NEW) return created;
+  if (status === LEAD_STATUS.SCHEDULED) return scheduled || created;
+
+  const attended = String(lead?.attendedAt || '').trim().split('T')[0];
+  const missed = String(lead?.missedAt || '').trim().split('T')[0];
+  const statusChanged = String(lead?.statusChangedAt || '').trim().split('T')[0];
+  return attended || missed || statusChanged || scheduled || created;
 }
 
 /** Período das colunas de lead (agendamento / cadastro). */

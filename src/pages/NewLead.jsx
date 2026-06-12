@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useLeadStore, LEAD_ORIGIN, LEAD_STATUS } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarPlus, Baby, Users, Dumbbell, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Save, Baby, Users, Dumbbell } from 'lucide-react';
 import { maskPhone } from '../lib/masks.js';
 import { useTerms } from '../lib/terminology.js';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
@@ -70,7 +70,9 @@ const NewLead = () => {
         defaultValues: {
             type: 'Adulto',
             origin: 'Instagram',
-            status: LEAD_STATUS.SCHEDULED,
+            status: LEAD_STATUS.NEW,
+            scheduledDate: '',
+            scheduledTime: '',
             isFirstExperience: 'Sim'
         }
     });
@@ -438,22 +440,35 @@ const NewLead = () => {
                 </div>
 
                 {/* Submit */}
-                <button
-                    type="submit"
-                    className="btn-secondary btn-large mt-2 animate-in"
+                <div
+                    className="new-lead-actions flex-col gap-2 mt-2 animate-in"
                     style={{ animationDelay: '0.25s' }}
-                    disabled={submitting || Boolean(duplicate) || phoneChecking || nameChecking}
                 >
-                    {submitting ? (
-                        <div className="flex items-center gap-2">
-                            Salvando...
-                        </div>
+                    <button
+                        type="submit"
+                        className="btn-primary btn-large"
+                        disabled={submitting || Boolean(duplicate) || phoneChecking || nameChecking}
+                    >
+                        {submitting ? (
+                            <span>Salvando…</span>
+                        ) : (
+                            <>
+                                <Save size={20} aria-hidden />
+                                {scheduledDate ? 'Salvar e agendar' : 'Salvar'}
+                            </>
+                        )}
+                    </button>
+                    {scheduledDate ? (
+                        <p className="text-small text-muted" style={{ margin: 0, textAlign: 'center' }}>
+                            <CalendarPlus size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden />
+                            Com data preenchida, o lead entra na etapa {terms.trialShort} e na agenda.
+                        </p>
                     ) : (
-                        <>
-                            <CalendarPlus size={20} /> Salvar e Agendar
-                        </>
+                        <p className="text-small text-muted" style={{ margin: 0, textAlign: 'center' }}>
+                            O agendamento é opcional — você pode agendar depois no perfil do lead.
+                        </p>
                     )}
-                </button>
+                </div>
             </form>
 
             <style dangerouslySetInnerHTML={{

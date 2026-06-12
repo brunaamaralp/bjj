@@ -82,13 +82,13 @@ function FollowupOutcomeDialogForm({ leadName, onClose, onConfirm, saving }) {
         ) : null}
 
         {showObjection ? (
-          <div className="followup-outcome-dialog__sub">
-            <label className="text-small" htmlFor="followup-objection-type">
+          <div className="followup-outcome-dialog__sub form-group">
+            <label className="form-label" htmlFor="followup-objection-type">
               Tipo de objeção
             </label>
             <select
               id="followup-objection-type"
-              className="input"
+              className="form-input"
               value={objectionType}
               onChange={(e) => setObjectionType(e.target.value)}
             >
@@ -108,14 +108,15 @@ function FollowupOutcomeDialogForm({ leadName, onClose, onConfirm, saving }) {
           </label>
         ) : null}
 
-        <div className="followup-outcome-dialog__note">
-          <label className="text-small" htmlFor="followup-outcome-note">
-            Nota (opcional)
+        <div className="followup-outcome-dialog__note form-group">
+          <label className="form-label" htmlFor="followup-outcome-note">
+            Nota{' '}
+            <span className="followup-outcome-dialog__optional">(opcional)</span>
           </label>
           <textarea
             id="followup-outcome-note"
-            className="input"
-            rows={2}
+            className="form-input followup-outcome-dialog__textarea"
+            rows={3}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Ex.: pediu tabela de valores"

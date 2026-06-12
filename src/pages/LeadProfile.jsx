@@ -7,7 +7,7 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useToast } from '../hooks/useToast';
-import { ArrowLeft, ChevronDown, MessageCircle, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -74,7 +74,6 @@ import {
 import { buildCustomAnswersPatch } from '../lib/customLeadQuestions.js';
 import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx';
 import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
-import { primaryInboxPhone as normalizeLeadPhoneForInbox } from '../lib/normalizeInboxPhone.js';
 import '../styles/lead-profile.css';
 import '../styles/followup-shared.css';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
@@ -533,7 +532,7 @@ const LeadProfile = () => {
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
-    const [activeProfileTab, setActiveProfileTab] = useState('timeline');
+    const [activeProfileTab, setActiveProfileTab] = useState('conversation');
     const [panelOpen, setPanelOpen] = useState(readInitialPanelOpen);
     const [viewportStacked, setViewportStacked] = useState(
         () => typeof window !== 'undefined' && window.innerWidth < 1024
@@ -691,8 +690,9 @@ const LeadProfile = () => {
     const showConversationTab = true;
 
     const profileTabIds = useMemo(() => {
-        const ids = ['timeline'];
+        const ids = [];
         if (showConversationTab) ids.push('conversation');
+        ids.push('timeline');
         return ids;
     }, [showConversationTab]);
 
@@ -704,13 +704,20 @@ const LeadProfile = () => {
 
     useEffect(() => {
         const rawTab = String(searchParams.get('tab') || '').trim().toLowerCase();
-        if (!rawTab) return;
         const normalizedTab = rawTab === 'dados' ? 'timeline' : rawTab;
-        if (!profileTabIds.includes(normalizedTab)) return;
-        if (normalizedTab === 'conversation' && !showConversationTab) return;
-        setActiveProfileTab(normalizedTab);
+        if (normalizedTab) {
+            if (!profileTabIds.includes(normalizedTab)) return;
+            if (normalizedTab === 'conversation' && !showConversationTab) return;
+            setActiveProfileTab(normalizedTab);
+        } else if (showConversationTab) {
+            setActiveProfileTab('conversation');
+        } else {
+            setActiveProfileTab('timeline');
+        }
         setPanelOpen(true);
-        setEventTypeFilter(leadHistoryFilterFromUrlParam(searchParams.get('history')));
+        if (rawTab || searchParams.get('history')) {
+            setEventTypeFilter(leadHistoryFilterFromUrlParam(searchParams.get('history')));
+        }
     }, [searchParams, profileTabIds, showConversationTab]);
 
     useEffect(() => {
@@ -726,14 +733,17 @@ const LeadProfile = () => {
             setSearchParams(
                 (prev) => {
                     const next = new URLSearchParams(prev);
-                    if (tabId === 'timeline') next.delete('tab');
-                    else next.set('tab', tabId);
+                    if (tabId === 'conversation' || (!showConversationTab && tabId === 'timeline')) {
+                        next.delete('tab');
+                    } else {
+                        next.set('tab', tabId);
+                    }
                     return next;
                 },
                 { replace: true }
             );
         },
-        [setSearchParams]
+        [setSearchParams, showConversationTab]
     );
 
     const setHistoryFilterWithUrl = useCallback(
@@ -1485,8 +1495,6 @@ const LeadProfile = () => {
         void sendTemplateKey(key, { recordFollowupContact: true });
     };
 
-    const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
-
     const addNote = async () => {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
@@ -1583,8 +1591,6 @@ const LeadProfile = () => {
             return hasLeadDisplayValue(ans);
         })
     );
-
-    const showInboxInHero = Boolean(normalizeLeadPhoneForInbox(lead.phone)) && showConversationTab;
 
     const leadTypeDisplay = normalizeLeadProfileType(lead.type || '');
 
@@ -1856,38 +1862,15 @@ const LeadProfile = () => {
                                     className="comm-actions-wrap lead-profile-comm-actions lead-profile-hero__actions"
                                     dismissExtraSelector="[data-lead-profile-wa-menu]"
                                 >
-                                    {!showFollowupBand ? (
-                                    <button
-                                        type="button"
-                                        className="comm-btn-primary btn-wa"
-                                        disabled={!normalizeLeadPhoneForInbox(lead.phone) || sendingWhatsapp}
-                                        onClick={() => handleWhatsAppPrimary()}
-                                    >
-                                        <MessageCircle size={16} aria-hidden />
-                                        {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
-                                    </button>
-                                    ) : null}
-                                    {showInboxInHero ? (
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline lead-profile-inbox-btn"
-                                            onClick={() =>
-                                                navigate(`/inbox?phone=${encodeURIComponent(normalizeLeadPhoneForInbox(lead.phone))}`)
-                                            }
-                                        >
-                                            <MessageCircle size={16} aria-hidden />
-                                            Abrir no Inbox
-                                        </button>
-                                    ) : null}
                                     <button
                                         ref={waMenuTriggerRef}
                                         type="button"
                                         className="comm-btn-dropdown"
                                         disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                                        aria-label="Mais templates de WhatsApp"
+                                        aria-label="Templates de WhatsApp"
                                         aria-haspopup="menu"
                                         aria-expanded={templateMenuOpen}
-                                        title="Mais opções de WhatsApp"
+                                        title="Templates de WhatsApp"
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -2144,6 +2127,24 @@ const LeadProfile = () => {
                                         }
                                         disabled={saving}
                                     />
+                                    <div className="lead-profile-edit-actions flex gap-2 mt-4">
+                                        <button
+                                            type="button"
+                                            className="btn-primary"
+                                            onClick={() => void handleSave()}
+                                            disabled={saving}
+                                        >
+                                            {saving ? 'Salvando…' : 'Salvar'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-outline"
+                                            onClick={cancelEdit}
+                                            disabled={saving}
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
                                 </div>
                     </div>
                     ) : null}
@@ -2311,7 +2312,7 @@ const LeadProfile = () => {
                             <div className="lead-profile-inline-task-form flex-col gap-2">
                                 <input
                                     type="text"
-                                    className="input-field"
+                                    className="form-input"
                                     placeholder="Descrever a tarefa…"
                                     value={inlineTaskTitle}
                                     onChange={(e) => setInlineTaskTitle(e.target.value)}
@@ -2519,8 +2520,8 @@ const LeadProfile = () => {
             ) : null}
 
             <div className="lead-profile-panel-tabs" role="tablist" aria-label="Detalhes do contato">
-                {panelTabBtn('timeline', 'Histórico')}
                 {showConversationTab ? panelTabBtn('conversation', conversationTabLabel) : null}
+                {panelTabBtn('timeline', 'Histórico')}
             </div>
 
             <div

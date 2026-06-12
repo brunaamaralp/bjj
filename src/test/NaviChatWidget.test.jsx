@@ -154,7 +154,7 @@ describe('NaviChatWidgetPanel embedded', () => {
     });
   });
 
-  it('mostra ações do cabeçalho no perfil embutido', () => {
+  it('mostra ações do cabeçalho no perfil embutido sem link para o Inbox', () => {
     const { container } = render(
       <MemoryRouter>
         <NaviChatWidgetPanel
@@ -171,7 +171,7 @@ describe('NaviChatWidgetPanel embedded', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByLabelText('Abrir no Inbox')).toBeVisible();
+    expect(screen.queryByLabelText('Abrir no Inbox')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Minimizar conversa')).toBeVisible();
     expect(screen.getByLabelText('Fechar conversa fixada')).toBeVisible();
     expect(container.querySelector('.navi-chat-widget__panel--mobile')).toBeNull();

@@ -296,6 +296,13 @@
                     text-align: left;
                     margin-bottom: 10px !important;
                 }
+                .lead-profile-edit-actions {
+                    padding-top: 4px;
+                    border-top: 1px solid var(--border);
+                }
+                .lead-profile-edit-actions .btn-primary {
+                    flex: 1;
+                }
                 .lead-profile-type-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr 1fr;

@@ -36,6 +36,12 @@ export function normalizePipelineStageId(stageId) {
 }
 
 /** Deriva a coluna do funil a partir do status operacional do lead. */
+/** Lead ainda em captação ou com experimental marcada — sempre visível no funil. */
+export function isOpenFunnelLead(lead) {
+  const status = String(lead?.status || '').trim();
+  return status === LEAD_STATUS.NEW || status === LEAD_STATUS.SCHEDULED;
+}
+
 export function pipelineStageFromLeadStatus(status) {
   const direct = {
     [LEAD_STATUS.NEW]: 'Novo',
@@ -70,9 +76,13 @@ export function resolveLeadPipelineStageId(lead, { stages = [], isPendingTriage 
   if (lead?.status === LEAD_STATUS.CONVERTED) return 'Matriculado';
 
   const stageFromStatus = (l) => {
-    const hasDirect = stages.find((s) => s.id === l.status);
-    if (hasDirect) return l.status;
-    return pipelineStageFromLeadStatus(l.status);
+    const status = String(l?.status || '').trim();
+    if (Object.values(LEAD_STATUS).includes(status)) {
+      return pipelineStageFromLeadStatus(status);
+    }
+    const hasDirect = stages.find((s) => s.id === status);
+    if (hasDirect) return status;
+    return pipelineStageFromLeadStatus(status);
   };
 
   let stage = lead?.pipelineStage ? String(lead.pipelineStage).trim() : '';

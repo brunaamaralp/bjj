@@ -4,6 +4,7 @@ import {
   getStageUpdatePayload,
   isLeadScheduledForExperimental,
   isLeadVisibleOnExperimentalAgenda,
+  isOpenFunnelLead,
   pipelineStageFromLeadStatus,
   resolveLeadPipelineStageId,
 } from '../lib/leadStageRules.js';
@@ -63,6 +64,18 @@ describe('leadStageRules', () => {
     const stages = [...buildDefaultPipelineStages(), { id: 'custom-followup', label: 'Follow-up' }];
     const lead = { status: LEAD_STATUS.NEW, pipelineStage: 'custom-followup' };
     expect(resolveLeadPipelineStageId(lead, { stages })).toBe('custom-followup');
+  });
+
+  it('resolveLeadPipelineStageId ignora coluna custom com id igual ao status operacional', () => {
+    const stages = [...buildDefaultPipelineStages(), { id: 'Agendado', label: 'Agendado legado' }];
+    const lead = { status: LEAD_STATUS.SCHEDULED, pipelineStage: 'Novo', scheduledDate: '2026-06-20' };
+    expect(resolveLeadPipelineStageId(lead, { stages })).toBe('Aula experimental');
+  });
+
+  it('isOpenFunnelLead inclui Novo e Agendado', () => {
+    expect(isOpenFunnelLead({ status: LEAD_STATUS.NEW })).toBe(true);
+    expect(isOpenFunnelLead({ status: LEAD_STATUS.SCHEDULED })).toBe(true);
+    expect(isOpenFunnelLead({ status: LEAD_STATUS.COMPLETED })).toBe(false);
   });
 
   it('isLeadVisibleOnExperimentalAgenda inclui compareceu e faltou no dia agendado', () => {

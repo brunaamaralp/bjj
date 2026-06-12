@@ -252,15 +252,17 @@ export default function NaviChatWidgetPanel({
               <User size={16} strokeWidth={2} aria-hidden />
             </Link>
           ) : null}
-          <button
-            type="button"
-            className="navi-chat-widget__icon-btn"
-            title="Abrir no Inbox"
-            aria-label="Abrir no Inbox"
-            onClick={() => navigate(inboxHref)}
-          >
-            <ExternalLink size={16} strokeWidth={2} aria-hidden />
-          </button>
+          {!embedded ? (
+            <button
+              type="button"
+              className="navi-chat-widget__icon-btn"
+              title="Abrir no Inbox"
+              aria-label="Abrir no Inbox"
+              onClick={() => navigate(inboxHref)}
+            >
+              <ExternalLink size={16} strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
           <button
             type="button"
             className="navi-chat-widget__icon-btn"
@@ -299,6 +301,7 @@ export default function NaviChatWidgetPanel({
           phoneDigits={phoneDigits}
           inboxHref={inboxHref}
           waConnected={waConnected}
+          hideInboxLink={embedded}
           onLoadMore={loadMore}
           onRetry={refresh}
           retryFailedMessage={retryFailedMessage}

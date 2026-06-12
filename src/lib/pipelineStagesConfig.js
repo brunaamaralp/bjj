@@ -23,6 +23,11 @@ function ensureSpecialColumns(cols) {
   if (!ids.has('Novo')) {
     out.unshift({ id: 'Novo', label: 'Novo', slaDays: DEFAULT_STAGE_SLA_DAYS });
   }
+  if (!ids.has('Aula experimental')) {
+    const novoIdx = out.findIndex((c) => String(c?.id || '').trim() === 'Novo');
+    const row = { id: 'Aula experimental', label: 'Experimental', slaDays: DEFAULT_STAGE_SLA_DAYS };
+    out.splice(novoIdx >= 0 ? novoIdx + 1 : out.length, 0, row);
+  }
   if (!ids.has(LEAD_STATUS.MISSED)) {
     out.push({ id: LEAD_STATUS.MISSED, label: 'Não compareceu', slaDays: DEFAULT_STAGE_SLA_DAYS });
   }

@@ -3,9 +3,11 @@ import {
   monthToYmdRange,
   resolveEnrollmentPeriodRange,
   resolveLeadPeriodRange,
+  leadBoardPeriodDateRef,
   enrolledContactMatchesPeriod,
 } from '../lib/pipelineEnrollmentFilter.js';
 import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
+import { LEAD_STATUS } from '../lib/leadStatus.js';
 
 describe('pipelineEnrollmentFilter', () => {
   it('monthToYmdRange cobre o mês inteiro', () => {
@@ -32,6 +34,24 @@ describe('pipelineEnrollmentFilter', () => {
       formatLocalYmd,
     });
     expect(range).toEqual({ from: '2026-06-01', to: '2026-06-15' });
+  });
+
+  it('leadBoardPeriodDateRef usa createdAt para Novo e scheduledDate para Agendado', () => {
+    expect(
+      leadBoardPeriodDateRef({
+        status: LEAD_STATUS.NEW,
+        createdAt: '2026-05-01T10:00:00',
+        scheduledDate: '2026-06-20',
+      })
+    ).toBe('2026-05-01');
+
+    expect(
+      leadBoardPeriodDateRef({
+        status: LEAD_STATUS.SCHEDULED,
+        createdAt: '2026-05-01T10:00:00',
+        scheduledDate: '2026-06-20',
+      })
+    ).toBe('2026-06-20');
   });
 
   it('enrolledContactMatchesPeriod usa data de ingresso, não convertedAt', () => {
