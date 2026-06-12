@@ -449,6 +449,9 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
   return (
     <>
       <div className="mt-4">
+        <p className="text-small text-muted mb-3" role="note">
+          Para relatório de vendas por pessoa, veja as abas Vendas ou Por operador.
+        </p>
         <div className="reports-moves-view-tabs" role="tablist">
           <button
             type="button"
@@ -463,7 +466,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
             onClick={() => setPanelView('conciliation')}
           >
             <AlertTriangle size={14} aria-hidden style={{ marginRight: 4, verticalAlign: 'middle' }} />
-            Conciliação pagamento
+            Auditoria de pagamento
           </button>
         </div>
 
@@ -486,13 +489,13 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
               </div>
             </div>
             {concLoading ? (
-              <div className="card" style={{ padding: 16 }}>
+              <div className="card reports-panel-card">
                 <PageSkeleton variant="list" rows={6} />
               </div>
             ) : null}
             {concError ? <ErrorBanner message={friendlyError(concError, 'load')} className="mt-3" /> : null}
             {!concLoading && !concError ? (
-              <div className="card" style={{ padding: 16 }}>
+              <div className="card reports-panel-card">
                 <ReportSectionHeading
                   title="Saídas de estoque vs pagamento atual"
                   subtitle="Compara o status gravado na movimentação com SALES + Caixa hoje."
@@ -604,14 +607,14 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         </div>
 
         {loading ? (
-          <div className="card" style={{ padding: 16 }}>
+          <div className="card reports-panel-card">
             <PageSkeleton variant="list" rows={8} />
           </div>
         ) : null}
         {error ? <ErrorBanner message={friendlyError(error, 'load')} className="mt-3" /> : null}
 
         {!loading && !error ? (
-          <div className="card" style={{ padding: 16 }}>
+          <div className="card reports-panel-card">
             <ReportSectionHeading
               title={
                 <>

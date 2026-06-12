@@ -4,14 +4,14 @@ import { useEffect } from 'react';
 export function getInboxAutoRefreshIntervals(realtimeOn, hidden = false) {
   if (hidden) {
     return {
-      listMs: realtimeOn ? 120_000 : 60_000,
-      threadMs: realtimeOn ? 120_000 : 60_000,
+      listMs: realtimeOn ? 120_000 : 90_000,
+      threadMs: realtimeOn ? 120_000 : 90_000,
     };
   }
   if (realtimeOn) {
     return { listMs: 90_000, threadMs: 60_000 };
   }
-  return { listMs: 20_000, threadMs: 30_000 };
+  return { listMs: 30_000, threadMs: 45_000 };
 }
 
 /**
@@ -24,7 +24,6 @@ export function useInboxAutoRefresh({
   loadThreadRef,
   selectedPhoneRef,
   draftRef,
-  onListRefresh,
 }) {
   useEffect(() => {
     if (!autoRefresh) return undefined;
@@ -32,7 +31,6 @@ export function useInboxAutoRefresh({
     const runListRefresh = () => {
       const fn = loadListRef.current;
       if (typeof fn === 'function') fn({ reset: true, silent: true });
-      if (typeof onListRefresh === 'function') onListRefresh();
     };
 
     const runThreadRefresh = () => {
@@ -79,5 +77,5 @@ export function useInboxAutoRefresh({
       clearTimers();
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [autoRefresh, realtimeOn, loadListRef, loadThreadRef, selectedPhoneRef, draftRef, onListRefresh]);
+  }, [autoRefresh, realtimeOn, loadListRef, loadThreadRef, selectedPhoneRef, draftRef]);
 }

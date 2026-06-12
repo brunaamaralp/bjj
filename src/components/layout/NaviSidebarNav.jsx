@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { preloadInbox } from '../../lib/preloadRoutes.js';
 import {
   LayoutGrid,
   Kanban,
@@ -522,6 +523,8 @@ export default function NaviSidebarNav({
           to="/inbox"
           className={`navi-sidebar-link${conversasActive ? ' active navi-sidebar-link--active' : ''}`}
           title={collapsed ? 'Conversas' : undefined}
+          onMouseEnter={() => { void preloadInbox(); }}
+          onFocus={() => { void preloadInbox(); }}
         >
           <span className="navi-sidebar-link__icon">
             <MessageCircle size={20} strokeWidth={1.75} />

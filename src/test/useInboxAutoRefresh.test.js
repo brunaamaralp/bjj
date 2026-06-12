@@ -4,15 +4,15 @@ import { getInboxAutoRefreshIntervals } from '../hooks/useInboxAutoRefresh.js';
 describe('getInboxAutoRefreshIntervals', () => {
   it('sem realtime — aba ativa', () => {
     expect(getInboxAutoRefreshIntervals(false, false)).toEqual({
-      listMs: 20_000,
-      threadMs: 30_000,
+      listMs: 30_000,
+      threadMs: 45_000,
     });
   });
 
   it('sem realtime — aba oculta', () => {
     expect(getInboxAutoRefreshIntervals(false, true)).toEqual({
-      listMs: 60_000,
-      threadMs: 60_000,
+      listMs: 90_000,
+      threadMs: 90_000,
     });
   });
 

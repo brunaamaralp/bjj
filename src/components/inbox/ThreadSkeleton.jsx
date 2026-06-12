@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function ThreadSkeleton() {
   return (
-    <div style={{ padding: 12 }}>
+    <div style={{ padding: 12, minHeight: 220 }}>
       {[0, 1, 2, 3, 4].map((idx) => (
         <div key={`chat-skeleton-${idx}`} className={`inbox-chat-skeleton ${idx % 2 === 0 ? 'left' : 'right'}`} />
       ))}

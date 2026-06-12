@@ -2,7 +2,7 @@
  * Relatórios — tokens, KPI, tabelas e utilitários de painel.
  */
 
-:root {
+.reports-root {
   --reports-gap-sm: 12px;
   --reports-gap-md: 20px;
   --reports-gap-lg: 32px;
@@ -13,6 +13,11 @@
   --color-surface-hover: var(--surface-hover, color-mix(in srgb, var(--color-primary-surface) 45%, var(--color-card-bg)));
   --color-border: var(--color-card-border, #e8e5f5);
   --color-text-tertiary: color-mix(in srgb, var(--color-text-secondary, #9896a8) 85%, var(--color-text-primary, #18162a));
+}
+
+.reports-panel-card {
+  padding: var(--space-4, 16px);
+  border-radius: 12px;
 }
 
 /* —— KPI grid —— */
@@ -783,7 +788,7 @@
 .reports-rates-grid {
   margin-top: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--reports-gap-sm);
 }
 
@@ -932,7 +937,7 @@
 }
 
 .reports-chart-dot.is-previous {
-  background: #b8c9d9;
+  background: color-mix(in srgb, var(--color-primary) 35%, var(--color-card-border));
 }
 
 .reports-aux-grid {
@@ -1230,165 +1235,78 @@
   }
 }
 
-.evo-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--reports-gap-sm);
-  gap: var(--reports-gap-sm);
-  flex-wrap: wrap;
-}
-
-.evo-title {
-  margin: 0;
-  margin-right: var(--reports-gap-sm);
-}
-
-.evo-controls {
+.reports-funil-chart-controls {
   display: flex;
   align-items: flex-start;
   gap: var(--reports-gap-md);
   flex-wrap: wrap;
 }
 
-.evo-group {
+.reports-chart-controls-group {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.reports-drill-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(0, 4, 53, 0.48);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: var(--reports-gap-md);
-  animation: reportsDrillFade 0.2s ease;
+.reports-filter-select {
+  width: auto;
+  min-width: unset;
 }
 
-@keyframes reportsDrillFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.reports-filters-spacer {
+  flex: 1;
 }
 
-@keyframes reportsDrillUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.reports-date-separator {
+  font-size: 10px;
+  color: var(--color-text-secondary);
 }
 
-@media (min-width: 640px) {
-  .reports-drill-overlay {
-    align-items: center;
-  }
-}
-
-.reports-drill-panel {
+.reports-drill-modal {
   position: relative;
-  width: 100%;
-  max-width: 28rem;
-  max-height: min(72vh, 540px);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 18px 18px 16px;
-  border-radius: 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  box-shadow:
-    0 1px 2px rgba(0, 4, 53, 0.05),
-    0 16px 48px rgba(108, 71, 216, 0.14),
-    0 32px 80px rgba(0, 4, 53, 0.12);
-  animation: reportsDrillUp 0.28s ease;
+  max-height: min(72vh, 540px);
 }
 
-.reports-drill-panel::before {
+.reports-drill-modal::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 3px;
-  border-radius: 16px 16px 0 0;
+  border-radius: 12px 12px 0 0;
   opacity: 0.95;
+  pointer-events: none;
 }
 
-.reports-drill-panel--accent::before {
+.reports-drill-modal--accent::before {
   background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 75%, var(--color-text-primary)));
 }
 
-.reports-drill-panel--warning::before {
-  background: linear-gradient(90deg, #c9a227, #e8b84a);
+.reports-drill-modal--warning::before {
+  background: linear-gradient(90deg, var(--warning, #ca8a04), color-mix(in srgb, var(--warning, #ca8a04) 70%, #fff));
 }
 
-.reports-drill-panel--success::before {
-  background: linear-gradient(90deg, var(--color-accent), #5cbf8a);
+.reports-drill-modal--success::before {
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 75%, #fff));
 }
 
-.reports-drill-panel--danger::before {
-  background: linear-gradient(90deg, var(--danger, #f04040), #f07070);
+.reports-drill-modal--danger::before {
+  background: linear-gradient(90deg, var(--danger, #f04040), color-mix(in srgb, var(--danger, #f04040) 70%, #fff));
 }
 
-.reports-drill-panel--purple::before {
-  background: linear-gradient(90deg, #e4b55d, color-mix(in srgb, #e4b55d 70%, var(--color-text-primary)));
+.reports-drill-modal--purple::before {
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, var(--color-text-primary)));
 }
 
-.reports-drill-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--reports-gap-sm);
-  margin-bottom: 6px;
+.reports-drill-meta-line {
+  margin: 0 0 12px;
 }
 
-.reports-drill-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--color-text-primary);
-  line-height: 1.25;
-  padding-right: 8px;
-}
-
-.reports-drill-close {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 12px;
-  background: var(--color-primary-surface);
-  color: var(--color-primary);
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.12s ease;
-}
-
-.reports-drill-close:hover {
-  background: var(--color-card-border);
-  transform: scale(1.03);
-}
-
-.reports-drill-close:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+.reports-heatmap-legend-icon {
+  vertical-align: middle;
 }
 
 .reports-drill-list {
@@ -1455,6 +1373,13 @@
   .reports-filters-row {
     flex-wrap: wrap;
     overflow-x: visible;
+    align-items: stretch;
+  }
+
+  .reports-filters-row.navi-filters-stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--reports-gap-sm);
   }
 
   .reports-filters-row--split .reports-segment-block {
@@ -1523,12 +1448,4 @@
     animation: none;
   }
 
-  .reports-drill-overlay,
-  .reports-drill-panel {
-    animation: none;
-  }
-
-  .reports-drill-close:hover {
-    transform: none;
-  }
 }

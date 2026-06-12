@@ -17,6 +17,7 @@ import {
   studentMetricsToChartPoint,
 } from '../../lib/reportsStudentMetricsApi.js';
 import { previousPeriodRange } from '../../lib/reportsPeriod.js';
+import EmptyState from '../shared/EmptyState.jsx';
 import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx';
 import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import './reports.css';
@@ -124,6 +125,23 @@ export default function ReportsStudentsPanel({
     );
   }
 
+  const isStudentBaseEmpty = active === 0 && novo === 0 && off === 0;
+
+  if (isStudentBaseEmpty) {
+    return (
+      <div className="reports-empty card mt-4">
+        <EmptyState
+          insideCard
+          variant="compact"
+          tone="solid"
+          title="Nenhum aluno no período"
+          description="Cadastre matrículas ou amplie o intervalo de datas para ver métricas da base."
+          role="status"
+        />
+      </div>
+    );
+  }
+
   return (
     <section className="mt-4 animate-in" aria-labelledby="reports-students-heading">
       <ReportSectionHeading
@@ -197,7 +215,7 @@ export default function ReportsStudentsPanel({
                 type="monotone"
                 dataKey="ativos"
                 name="Ativos"
-                stroke="var(--petroleo, #003654)"
+                stroke="var(--color-primary)"
                 strokeWidth={2}
                 dot={{ r: 3 }}
               />

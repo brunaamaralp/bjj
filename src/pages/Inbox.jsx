@@ -1,6 +1,5 @@
 import '../styles/tokens/inbox.css';
 import '../styles/inbox.css';
-import '../styles/followup-shared.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { teams, CONVERSATIONS_COL, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
@@ -82,7 +81,7 @@ import { useInboxLeadMaps } from '../hooks/useInboxLeadMaps.js';
 import { useInboxLeadContext } from '../hooks/useInboxLeadContext.js';
 import { useLeadsForAssociatePanel } from '../hooks/useLeadsForAssociatePanel.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
-import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
+const FollowupOutcomeDialog = lazyWithRetry(() => import('../components/followup/FollowupOutcomeDialog.jsx'));
 import useDialogFocus from '../hooks/useDialogFocus.js';
 import { inboxFilterFromUrlParam, inboxFilterLabel, inboxFilterToUrlParam } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
@@ -344,7 +343,7 @@ export default function Inbox() {
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const [agentIaActive, setAgentIaActive] = useState(false);
-  const { stats, refreshStats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
+  const { stats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
   const [listWidth, setListWidth] = useState(() => {
     if (typeof window === 'undefined') return 360;
     const raw = window.localStorage.getItem('inbox_list_width');
@@ -372,7 +371,9 @@ export default function Inbox() {
       return false;
     }
   });
-  const { templates: whatsappTemplatesHook, academyName: academyNameForTemplates } = useWhatsappTemplates(academyId);
+  const { templates: whatsappTemplatesHook, academyName: academyNameForTemplates } = useWhatsappTemplates(academyId, {
+    enabled: templatesOpen || slashOpen,
+  });
   const whatsappTemplatesObj = whatsappTemplatesHook || null;
   const {
     followupDoneByLead,
@@ -524,10 +525,6 @@ export default function Inbox() {
   }, [applyStatsFromList]);
 
   const waDeferredOnceRef = useRef(false);
-  const refreshStatsRef = useRef(refreshStats);
-  useEffect(() => {
-    refreshStatsRef.current = refreshStats;
-  }, [refreshStats]);
   useEffect(() => {
     waDeferredOnceRef.current = false;
   }, [academyId]);
@@ -584,8 +581,6 @@ export default function Inbox() {
         const waFn = fetchWaInfoDeferredRef.current;
         if (typeof waFn === 'function') void waFn();
       }
-      void refreshStatsRef.current?.();
-
       const urlPhone = normalizePhone(String(new URLSearchParams(window.location.search).get('phone') || '').trim());
       const { firstPhone, firstConversationId, items: listItems, hasSelection } = payload || {};
       const targetPhone = urlPhone || (!hasSelection ? String(firstPhone || '').trim() : '');
@@ -637,6 +632,7 @@ export default function Inbox() {
     leadTypeDraft,
     selected,
     contactLabel,
+    updateLead,
   });
 
   const {
@@ -741,7 +737,6 @@ export default function Inbox() {
     loadThreadRef,
     selectedPhoneRef,
     draftRef,
-    onListRefresh: refreshStats,
   });
 
   useEffect(() => {
@@ -2346,13 +2341,15 @@ export default function Inbox() {
         onClose={() => setDismissTriageLead(null)}
       />
 
-      <FollowupOutcomeDialog
-        open={Boolean(followupOutcomeLead)}
-        leadName={followupOutcomeLead?.name || ''}
-        saving={savingFollowupOutcome}
-        onClose={closeFollowupOutcome}
-        onConfirm={(payload) => void confirmFollowupOutcome(payload)}
-      />
+      <Suspense fallback={null}>
+        <FollowupOutcomeDialog
+          open={Boolean(followupOutcomeLead)}
+          leadName={followupOutcomeLead?.name || ''}
+          saving={savingFollowupOutcome}
+          onClose={closeFollowupOutcome}
+          onConfirm={(payload) => void confirmFollowupOutcome(payload)}
+        />
+      </Suspense>
     </div>
   );
 }

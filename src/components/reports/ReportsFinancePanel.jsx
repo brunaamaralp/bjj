@@ -1,11 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { EMPRESA_FINANCE_CONFIG_PATH, FINANCEIRO_EXTRATO_TAB } from '../../lib/financeiroHubTabs.js';
-import { Download, Wallet2, ArrowLeft, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAccountingStore } from '../../store/useAccountingStore';
-import ReportsTab from '../finance/ReportsTab.jsx';
-import { fmt } from '../finance/financeFmt.js';
+import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
+import { Download, Wallet2, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import '../finance/finance.css';
 import { fetchReportsFinanceLightResult } from '../../lib/reportsLightApi.js';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
@@ -17,55 +14,49 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import { fmt } from '../finance/financeFmt.js';
+import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import './reports.css';
 
-import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
-
-function OperationalFinanceReport({ academyId, from, to }) {
+function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : 'cash'));
 
-  useEffect(() => {
-    let active = true;
-    const run = async () => {
-      if (!academyId) {
+  const load = async () => {
+    if (!academyId) {
+      setData(null);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setPermissionDenied(false);
+    try {
+      const result = await fetchReportsFinanceLightResult({ academyId, from, to, regime });
+      if (result.permissionDenied) {
+        setPermissionDenied(true);
         setData(null);
         return;
       }
-      setLoading(true);
-      setError('');
-      setPermissionDenied(false);
-      try {
-        const result = await fetchReportsFinanceLightResult({ academyId, from, to, regime });
-        if (!active) return;
-        if (result.permissionDenied) {
-          setPermissionDenied(true);
-          setData(null);
-          return;
-        }
-        if (!result.ok) {
-          setError('Não foi possível carregar as movimentações.');
-          setData(null);
-          return;
-        }
-        setData(result.data);
-      } catch (e) {
-        if (active) {
-          setError('Não foi possível carregar as movimentações.');
-          setData(null);
-        }
-        console.error(e);
-      } finally {
-        if (active) setLoading(false);
+      if (!result.ok) {
+        setError('Não foi possível carregar as movimentações.');
+        setData(null);
+        return;
       }
-    };
-    void run();
-    return () => {
-      active = false;
-    };
+      setData(result.data);
+    } catch (e) {
+      setError('Não foi possível carregar as movimentações.');
+      setData(null);
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
   }, [academyId, from, to, regime]);
 
   const isLimited = Boolean(data?.limited || data?.scope === 'basic');
@@ -99,6 +90,8 @@ function OperationalFinanceReport({ academyId, from, to }) {
     downloadCsv(rows, `relatorio-financeiro-${from}_${to}.csv`);
   };
 
+  const dreLink = `/financeiro?tab=extrato${periodQuery}`;
+
   if (loading) {
     return (
       <div className="mt-2">
@@ -122,7 +115,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
   if (error) {
     return (
       <div className="mt-2">
-        <ErrorBanner message={error} />
+        <ErrorBanner message={error} onRetry={() => void load()} />
       </div>
     );
   }
@@ -155,6 +148,11 @@ function OperationalFinanceReport({ academyId, from, to }) {
           ? 'Resumo operacional do período (valores liquidados no Caixa).'
           : `Movimentações liquidadas · regime ${financeRegimeLabel(regime).toLowerCase()}`}
       </p>
+      <p className="mb-3">
+        <Link to={dreLink} className="reports-inline-link">
+          Ver DRE e fluxo de caixa →
+        </Link>
+      </p>
       {!isLimited && totals.truncated ? (
         <StatusBanner variant="warning" className="mb-2">
           Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
@@ -163,7 +161,7 @@ function OperationalFinanceReport({ academyId, from, to }) {
       {!isLimited ? (
         <div className="flex justify-end mb-2">
           <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
-            <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
+            <Download size={14} aria-hidden />
             Exportar CSV
           </button>
         </div>
@@ -201,13 +199,8 @@ function OperationalFinanceReport({ academyId, from, to }) {
   );
 }
 
-export default function ReportsFinancePanel({ academyId, from, to, hasFinance, isOwner }) {
+export default function ReportsFinancePanel({ academyId, from, to, hasFinance }) {
   const navigate = useNavigate();
-  const loadByAcademy = useAccountingStore((s) => s.loadByAcademy);
-
-  useEffect(() => {
-    if (academyId && isOwner && hasFinance) loadByAcademy(academyId);
-  }, [academyId, isOwner, hasFinance, loadByAcademy]);
 
   if (!hasFinance) {
     return (
@@ -228,38 +221,15 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, i
     );
   }
 
+  const periodQuery = from && to ? `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` : '';
+
   return (
-    <>
-      <p className="mt-4 mb-0" style={{ marginTop: 16 }}>
-        <Link to="/financeiro" className="edit-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <ArrowLeft size={16} aria-hidden />
-          Financeiro
-        </Link>
-      </p>
-      <div className="card mt-4" style={{ padding: '16px 18px' }}>
-        {isOwner ? (
-          <>
-            <p className="text-xs text-light" style={{ marginBottom: 12 }}>
-              Demonstrações com base no livro razão · período {from} — {to}
-            </p>
-            <ReportsTab
-              academyId={academyId}
-              periodFrom={from}
-              periodTo={to}
-              embedded
-              onGoToLancamentos={() => navigate(`/financeiro?tab=${FINANCEIRO_EXTRATO_TAB}`)}
-            />
-          </>
-        ) : (
-          <>
-            <ReportSectionHeading
-              title="Resumo operacional"
-              subtitle={`Movimentações liquidadas no Caixa · ${from} — ${to}`}
-            />
-            <OperationalFinanceReport academyId={academyId} from={from} to={to} />
-          </>
-        )}
-      </div>
-    </>
+    <div className="card reports-panel-card mt-4">
+      <ReportSectionHeading
+        title="Resumo financeiro"
+        subtitle={`Movimentações liquidadas · ${from} — ${to}`}
+      />
+      <OperationalFinanceReport academyId={academyId} from={from} to={to} periodQuery={periodQuery} />
+    </div>
   );
 }

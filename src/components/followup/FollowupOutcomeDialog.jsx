@@ -1,3 +1,4 @@
+import '../../styles/followup-shared.css';
 import React, { useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import {

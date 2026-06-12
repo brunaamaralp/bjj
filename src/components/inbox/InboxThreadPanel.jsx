@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { Suspense, useEffect, useRef } from 'react';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import ThreadState from './ThreadState';
 import ThreadSkeleton from './ThreadSkeleton';
-import InboxComposer from './InboxComposer';
+import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
+
+const InboxComposer = lazyWithRetry(() => import('./InboxComposer'));
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 import InboxThreadMessages from './InboxThreadMessages.jsx';
-import InboxTriageCard from './InboxTriageCard.jsx';
-import InboxFollowupBanner from './InboxFollowupBanner.jsx';
+const InboxTriageCard = lazyWithRetry(() => import('./InboxTriageCard.jsx'));
+const InboxFollowupBanner = lazyWithRetry(() => import('./InboxFollowupBanner.jsx'));
 import ContactAvatar from '../shared/ContactAvatar.jsx';
 import { inboxProfileImageUrl, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
 import { suggestTriageAction, triageContextLine } from '../../lib/triageSuggestions.js';
@@ -97,6 +99,19 @@ export default function InboxThreadPanel(props) {
     retryFailedMessage,
   } = props;
 
+  const contactNameInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!editingContactName) return undefined;
+    const timer = window.setTimeout(() => {
+      const input = contactNameInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.select();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [editingContactName]);
+
   if (!selectedPhone) {
     return (
     <div className="inbox-empty-thread-placeholder">
@@ -150,6 +165,24 @@ export default function InboxThreadPanel(props) {
               const leadForHint = leadIdForHint ? leadById.get(leadIdForHint) : leadByPhone.get(normalizePhone(phone));
               const aiSuggestHuman = Boolean(leadForHint?.needHuman);
               const showTicketLine = Boolean(ticket?.label) && !ticket?.isDefault;
+              const isGroupThread = isInboxGroupPhone(phone);
+              const canEditContactName = !isGroupThread;
+              const storedName =
+                String(lead?.name || '').trim() ||
+                String(selected?.lead_name || '').trim() ||
+                String(selected?.contact_name || '').trim() ||
+                String(selected?.whatsapp_profile_name || '').trim();
+              const nameEditSeed =
+                storedName && storedName !== formattedPhone && storedName !== phone ? storedName : '';
+              const beginContactNameEdit = () => {
+                if (!canEditContactName || savingContactName) return;
+                setContactNameDraft(nameEditSeed);
+                setEditingContactName(true);
+              };
+              const cancelContactNameEdit = () => {
+                setEditingContactName(false);
+                setContactNameDraft('');
+              };
               return (
                 <>
                   <div className="inbox-thread-header__avatar" aria-hidden>
@@ -161,7 +194,54 @@ export default function InboxThreadPanel(props) {
                   </div>
                   <div className="inbox-thread-header__intro">
                     <div className="inbox-thread-header__title">
-                      {displayName}
+                      {editingContactName ? (
+                        <input
+                          ref={contactNameInputRef}
+                          id="inbox-contact-name-input"
+                          className="input inbox-thread-header__title-input"
+                          aria-label="Nome do contato"
+                          value={contactNameDraft}
+                          onChange={(e) => setContactNameDraft(e.target.value)}
+                          placeholder="Nome do contato"
+                          autoComplete="name"
+                          disabled={savingContactName}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveContactName();
+                            }
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              cancelContactNameEdit();
+                            }
+                          }}
+                          onBlur={() => {
+                            if (savingContactName || !editingContactName) return;
+                            const next = String(contactNameDraft || '').trim();
+                            if (next === nameEditSeed) {
+                              cancelContactNameEdit();
+                              return;
+                            }
+                            if (String(selected?.lead_id || '').trim() && !next) {
+                              cancelContactNameEdit();
+                              return;
+                            }
+                            void saveContactName();
+                          }}
+                        />
+                      ) : (
+                        <span
+                          className={
+                            canEditContactName
+                              ? 'inbox-thread-header__title-label inbox-thread-header__title-label--editable'
+                              : 'inbox-thread-header__title-label'
+                          }
+                          title={canEditContactName ? 'Clique duas vezes para editar o nome' : undefined}
+                          onDoubleClick={beginContactNameEdit}
+                        >
+                          {displayName}
+                        </span>
+                      )}
                       {pendingTriage ? (
                         <span className="inbox-thread-header__triage-badge" title="Aguardando triagem WhatsApp">
                           Triagem
@@ -187,39 +267,7 @@ export default function InboxThreadPanel(props) {
                         Vale a pena alguém da equipe ver esta conversa
                       </p>
                     ) : null}
-                    {!selected?.lead_id && !pendingTriage ? (
-                      editingContactName ? (
-                        <div className="inbox-thread-header__subline inbox-thread-header__subline--edit">
-                          <input
-                            id="inbox-contact-name-input"
-                            className="input inbox-thread-header__name-input"
-                            aria-label="Nome do contato"
-                            value={contactNameDraft}
-                            onChange={(e) => setContactNameDraft(e.target.value)}
-                            placeholder="Nome do contato"
-                            autoComplete="name"
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-outline inbox-thread-header__name-btn"
-                            onClick={() => void saveContactName()}
-                            disabled={savingContactName}
-                          >
-                            {savingContactName ? 'Salvando…' : 'Salvar'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline inbox-thread-header__name-btn"
-                            onClick={() => {
-                              setEditingContactName(false);
-                              setContactNameDraft('');
-                            }}
-                            disabled={savingContactName}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
+                    {!selected?.lead_id && !pendingTriage && !editingContactName ? (
                         <div className="inbox-thread-header__meta-line">
                           <span className="inbox-thread-header__meta-muted">Sem contato</span>
                           <span className="inbox-thread-header__meta-sep" aria-hidden>
@@ -238,7 +286,6 @@ export default function InboxThreadPanel(props) {
                             Vincular
                           </button>
                         </div>
-                      )
                     ) : null}
                   </div>
                 </>
@@ -293,29 +340,33 @@ export default function InboxThreadPanel(props) {
 
       {pendingTriage && leadPanel !== 'link_student' ? (
         <div className="inbox-thread-triage-banner" data-no-dnd="true">
-          <InboxTriageCard
-            busy={triageBusy}
-            suggestedAction={suggestTriageAction(activeContactLead)}
-            contextLine={triageContextLine(activeContactLead, { terms })}
-            studentLabel={terms?.student || 'Aluno'}
-            onConfirm={() => onConfirmTriage?.(activeContactLead)}
-            onLinkStudent={() => onOpenLinkStudent?.()}
-            onDismiss={() => onDismissTriage?.(activeContactLead)}
-          />
+          <Suspense fallback={null}>
+            <InboxTriageCard
+              busy={triageBusy}
+              suggestedAction={suggestTriageAction(activeContactLead)}
+              contextLine={triageContextLine(activeContactLead, { terms })}
+              studentLabel={terms?.student || 'Aluno'}
+              onConfirm={() => onConfirmTriage?.(activeContactLead)}
+              onLinkStudent={() => onOpenLinkStudent?.()}
+              onDismiss={() => onDismissTriage?.(activeContactLead)}
+            />
+          </Suspense>
         </div>
       ) : null}
 
       {followupState && !pendingTriage ? (
-        <InboxFollowupBanner
-          followupState={followupState}
-          leadId={String(activeContactLead?.id || selected?.lead_id || '').trim()}
-          academyId={academyId}
-          leadPhone={activeContactLead?.phone || selectedPhone}
-          aiEnabled={aiEnabled}
-          onSendTemplate={onFollowupSendTemplate}
-          onCompleteFollowup={onCompleteFollowup}
-          completing={completingFollowup}
-        />
+        <Suspense fallback={null}>
+          <InboxFollowupBanner
+            followupState={followupState}
+            leadId={String(activeContactLead?.id || selected?.lead_id || '').trim()}
+            academyId={academyId}
+            leadPhone={activeContactLead?.phone || selectedPhone}
+            aiEnabled={aiEnabled}
+            onSendTemplate={onFollowupSendTemplate}
+            onCompleteFollowup={onCompleteFollowup}
+            completing={completingFollowup}
+          />
+        </Suspense>
       ) : null}
 
       <div className="inbox-thread-body">
@@ -441,7 +492,9 @@ export default function InboxThreadPanel(props) {
       </div>
 
 
-      <InboxComposer {...composerProps} />
+      <Suspense fallback={null}>
+        <InboxComposer {...composerProps} />
+      </Suspense>
     </div>
   );
 }

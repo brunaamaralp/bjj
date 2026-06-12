@@ -196,13 +196,13 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
   return (
     <div className="mt-4">
       {loading ? (
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card reports-panel-card">
           <PageSkeleton variant="list" rows={6} />
         </div>
       ) : null}
       {error ? <ErrorBanner message={friendlyError(error)} className="mt-3" /> : null}
       {!loading && !error && data ? (
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card reports-panel-card">
           <ReportSectionHeading
             title={
               <>

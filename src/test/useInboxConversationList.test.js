@@ -77,17 +77,22 @@ describe('useInboxConversationList', () => {
     vi.mocked(fetchWithBillingGuard).mockReset();
   });
 
-  it('dispara loadList na montagem quando academyId está definido', async () => {
-    vi.mocked(fetchWithBillingGuard).mockResolvedValue({
-      blocked: false,
-      res: {
-        ok: true,
-        text: async () =>
-          JSON.stringify({
-            items: [{ phone_number: '5511999990001', unread_count: 0 }],
-            next_cursor: '',
-          }),
-      },
+  it('dispara loadList na montagem com include_stats para evitar waterfall', async () => {
+    let capturedUrl = '';
+    vi.mocked(fetchWithBillingGuard).mockImplementation(async (url) => {
+      capturedUrl = String(url);
+      return {
+        blocked: false,
+        res: {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              items: [{ phone_number: '5511999990001', unread_count: 0 }],
+              next_cursor: '',
+              stats: { unread_conversations: 0, needs_me: 0, resolved: 0, transferred: 0 },
+            }),
+        },
+      };
     });
 
     const h = createListHarness();
@@ -116,6 +121,7 @@ describe('useInboxConversationList', () => {
     });
 
     expect(fetchWithBillingGuard).toHaveBeenCalled();
+    expect(capturedUrl).toContain('include_stats=1');
     expect(h.state.items).toHaveLength(1);
   });
 
@@ -163,7 +169,53 @@ describe('useInboxConversationList', () => {
     expect(h.state.items[0].phone_number).toBe('5511999990001');
   });
 
-  it('loadList omits include_stats by default for faster first paint', async () => {
+  it('loadList silent reset inclui include_stats para evitar request separado de stats', async () => {
+    let capturedUrl = '';
+    vi.mocked(fetchWithBillingGuard).mockImplementation(async (url) => {
+      capturedUrl = String(url);
+      return {
+        blocked: false,
+        res: {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              items: [{ id: 'c1', phone_number: '5511888777666', unread_count: 0 }],
+              next_cursor: '',
+              stats: { unread_conversations: 1, needs_me: 0, resolved: 0, transferred: 0 },
+            }),
+        },
+      };
+    });
+
+    const h = createListHarness();
+    const { result } = renderHook(() =>
+      useInboxConversationList({
+        academyId: 'acad-1',
+        academyIdRef: h.academyIdRef,
+        debouncedSearchQuery: '',
+        listFilter: 'all',
+        listFilterRef: h.listFilterRef,
+        selectedPhoneRef: h.selectedPhoneRef,
+        listMetaRef: h.listMetaRef,
+        notifiedOnceRef: h.notifiedOnceRef,
+        loadingListRef: h.loadingListRef,
+        nextCursor: h.state.nextCursor,
+        hasMore: h.state.hasMore,
+        loading: h.state.loading,
+        loadingMore: h.state.loadingMore,
+        onListItemNotifyRef: h.onListItemNotifyRef,
+        ...h,
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadList({ reset: true, silent: true });
+    });
+
+    expect(capturedUrl).toContain('include_stats=1');
+  });
+
+  it('loadList omits include_stats quando reset não é silent', async () => {
     let capturedUrl = '';
     vi.mocked(fetchWithBillingGuard).mockImplementation(async (url) => {
       capturedUrl = String(url);

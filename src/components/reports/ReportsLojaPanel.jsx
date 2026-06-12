@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart,
@@ -25,7 +25,7 @@ import ModalShell from '../shared/ModalShell.jsx';
 import '../finance/finance.css';
 import './reports.css';
 
-const CHART_COLOR = 'var(--color-primary, var(--petroleo, #003654))';
+const CHART_COLOR = 'var(--color-primary)';
 
 function ChannelTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -48,29 +48,24 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   const [productsModalOpen, setProductsModalOpen] = useState(false);
   const [buyersModalOpen, setBuyersModalOpen] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const run = async () => {
-      if (!academyId || !hasSales) return;
-      setLoading(true);
-      setError('');
-      try {
-        const body = await fetchReportsSalesLight({ academyId, from, to });
-        if (active) setData(body);
-      } catch (e) {
-        if (active) {
-          setError(friendlyError(e, 'load'));
-          setData(null);
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void run();
-    return () => {
-      active = false;
-    };
+  const loadData = useCallback(async () => {
+    if (!academyId || !hasSales) return;
+    setLoading(true);
+    setError('');
+    try {
+      const body = await fetchReportsSalesLight({ academyId, from, to });
+      setData(body);
+    } catch (e) {
+      setError(friendlyError(e, 'load'));
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   }, [academyId, from, to, hasSales]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const totals = useMemo(
     () => ({
@@ -240,13 +235,13 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   return (
     <div className="mt-4">
       {loading ? (
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card reports-panel-card">
           <PageSkeleton variant="list" rows={4} />
         </div>
       ) : error ? (
-        <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => window.location.reload()} />
+        <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => void loadData()} />
       ) : totals.concludedCount === 0 && totals.cancelCount === 0 ? (
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card reports-panel-card">
           <EmptyState
             variant="default"
             tone="dashed"

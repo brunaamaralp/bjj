@@ -14,7 +14,7 @@ import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import '../finance/finance.css';
 import './reports.css';
 
-const CHART_COLOR = 'var(--color-primary, var(--petroleo, #003654))';
+const CHART_COLOR = 'var(--color-primary)';
 
 function OperatorChartTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -205,14 +205,16 @@ export default function ReportsOperadorPanel({ academyId, from, to, hasSales }) 
       </div>
 
       {loading ? (
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card reports-panel-card">
           <PageSkeleton variant="list" rows={4} />
         </div>
       ) : null}
-      {error ? <ErrorBanner message={friendlyError(error, 'load')} className="mt-3" /> : null}
+      {error ? (
+        <ErrorBanner message={friendlyError(error, 'load')} className="mt-3" onRetry={() => void load()} />
+      ) : null}
 
         {!loading && !error && chartData.length > 0 ? (
-          <div className="reports-chart-block card mb-4" style={{ padding: 16 }}>
+          <div className="reports-chart-block card reports-panel-card mb-4">
             <ReportSectionHeading title="Faturamento por operador" />
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 48 }}>

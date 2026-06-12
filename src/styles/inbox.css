@@ -757,6 +757,36 @@
   white-space: nowrap;
 }
 
+.inbox-thread-header__title-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-thread-header__title-label--editable {
+  cursor: text;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+}
+
+.inbox-thread-header__title-label--editable:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.inbox-thread-header__title-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: min(320px, 100%);
+  height: 28px;
+  padding: 2px 8px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
 .inbox-thread-messages {
   flex: 1 1 0;
   min-height: 0;

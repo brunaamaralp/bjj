@@ -6,3 +6,7 @@ export function preloadLeadProfile() {
 export function preloadStudentProfile() {
   return import('../pages/StudentProfile.jsx');
 }
+
+export function preloadInbox() {
+  return import('../pages/Inbox.jsx');
+}

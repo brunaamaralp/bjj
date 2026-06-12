@@ -9,7 +9,10 @@ import {
   countsAsMissedExperimentalInPeriod
 } from '../../lib/reportsMetrics.js';
 import { hasAnyActivity } from '../lib/reportActivity.js';
+import { buildFunnelStages } from '../lib/reportsFunnelUtils.js';
 import { LEAD_STATUS } from '../store/useLeadStore.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const makeLeads = (overrides = []) =>
   overrides.map((o, i) => ({
@@ -180,5 +183,48 @@ describe('hasAnyActivity', () => {
       }
     };
     expect(hasAnyActivity(reportData)).toBe(false);
+  });
+
+  it('não considera studentMetrics — empty de funil é só para abas visão/funil', () => {
+    const reportData = {
+      metrics: {
+        newLeads: { current: 0, previous: 0 },
+        scheduled: { current: 0, previous: 0 },
+      },
+      studentMetrics: { activeAtStart: 12, newStudents: 2 },
+    };
+    expect(hasAnyActivity(reportData)).toBe(false);
+  });
+});
+
+describe('buildFunnelStages', () => {
+  const terms = {
+    reportsMetricConvertedShort: 'Matrículas',
+    reportsClosureRateInsight: '{converted} de {completed} compareceram fecharam',
+  };
+
+  it('usa contactsPlural na etapa de novos leads', () => {
+    const reportData = {
+      metrics: {
+        newLeads: { current: 5, previous: 3 },
+        scheduled: { current: 2, previous: 1 },
+        completed: { current: 1, previous: 0 },
+        missed: { current: 1, previous: 0 },
+        converted: { current: 1, previous: 0 },
+        conversionRate: { current: 20, previous: 10 },
+      },
+    };
+    const stages = buildFunnelStages(reportData, terms, 'Contatos');
+    expect(stages[0].label).toBe('Novos contatos');
+    expect(stages.find((s) => s.key === 'missed')?.label).toBe('Não compareceram');
+    expect(stages.find((s) => s.key === 'converted')?.label).toBe('Matrículas');
+  });
+});
+
+describe('ReportsFinancePanel', () => {
+  it('não embute ReportsTab para owner', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/components/reports/ReportsFinancePanel.jsx'), 'utf8');
+    expect(src).not.toMatch(/ReportsTab/);
+    expect(src).not.toMatch(/useAccountingStore/);
   });
 });

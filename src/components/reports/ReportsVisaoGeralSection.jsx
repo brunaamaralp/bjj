@@ -1,14 +1,28 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { UserPlus, Users, Wallet, TrendingUp } from 'lucide-react';
+import {
+  Award,
+  DoorOpen,
+  Package,
+  Percent,
+  ShoppingBag,
+  TrendingUp,
+  UserPlus,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx';
 import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
+import { pctVar } from '../../lib/reportsFunnelUtils.js';
 import './reports.css';
 
-const pctVar = (cur, prev) => {
-  if (prev === 0) return cur > 0 ? 100 : 0;
-  return Math.round(((cur - prev) / prev) * 100);
+const RATE_ICONS = {
+  percent: Percent,
+  door: DoorOpen,
+  award: Award,
 };
 
 function ReportInlineLink({ to, children, className = '' }) {
@@ -35,17 +49,23 @@ function ReportKpiCell({ footerTo, footerLabel = 'Ver detalhes →', children })
 }
 
 /**
- * Dashboard da aba Visão geral: KPIs cross-domain + funil existente + taxas.
+ * Dashboard da aba Visão geral: KPIs cross-domain + taxas de captação.
  */
 export default function ReportsVisaoGeralSection({
   reportData,
-  funnelStages,
   ratesCards,
   hasFinance,
+  hasSales,
+  hasInventory,
   canViewFinance,
   financeSummary,
   financeSummaryPrev,
   financeLoading,
+  financeError = null,
+  salesSummary,
+  salesLoading,
+  inventorySummary,
+  inventoryLoading,
   onFunnelDrill,
 }) {
   const m = reportData?.metrics;
@@ -55,19 +75,16 @@ export default function ReportsVisaoGeralSection({
   const newLeadsPrev = Number(m?.newLeads?.previous || 0);
   const convertedCur = Number(m?.converted?.current || 0);
   const convertedPrev = Number(m?.converted?.previous || 0);
-  const activeEnd =
-    sm != null
-      ? Number(
-          sm.activeAtEnd ??
-            Math.max(
-              0,
-              (Number(sm.activeAtStart) || 0) +
-                (Number(sm.newStudents) || 0) -
-                (Number(sm.deactivations) || 0)
-            )
-        )
-      : null;
+  const activeEnd = sm != null && sm.activeAtEnd != null ? Number(sm.activeAtEnd) : null;
   const activeEndPrev = sm?.previous?.activeAtEnd != null ? Number(sm.previous.activeAtEnd) : null;
+  const retention =
+    sm?.retentionRate != null && sm.retentionRate !== ''
+      ? Number(sm.retentionRate) || 0
+      : Math.max(0, 100 - (Number(sm?.churnRate) || 0));
+  const retentionPrev =
+    sm?.previous?.retentionRate != null && sm.previous.retentionRate !== ''
+      ? Number(sm.previous.retentionRate) || 0
+      : Math.max(0, 100 - (Number(sm?.previous?.churnRate) || 0));
 
   const showRevenueKpi = hasFinance && canViewFinance;
   const showActiveKpi = sm != null && activeEnd != null;
@@ -100,20 +117,23 @@ export default function ReportsVisaoGeralSection({
             onClick={() => onFunnelDrill?.('converted')}
           />
         </ReportKpiCell>
+        {showRevenueKpi && financeError ? (
+          <ReportKpiCell>
+            <StatusBanner variant="info" message={financeError} />
+          </ReportKpiCell>
+        ) : null}
         {showRevenueKpi && financeLoading ? (
           <ReportKpiCell>
             <ReportKpiCardSkeleton />
           </ReportKpiCell>
         ) : null}
-        {showRevenueKpi && !financeLoading && financeSummary ? (
+        {showRevenueKpi && !financeLoading && !financeError && financeSummary ? (
           <ReportKpiCell footerTo="/reports?tab=financeiro">
             <ReportKpiCard
               label="Receita liquidada"
               value={formatBRL(Number(receivedCur) || 0)}
               trend={
-                receivedPrev != null
-                  ? pctVar(Number(receivedCur) || 0, Number(receivedPrev) || 0)
-                  : null
+                receivedPrev != null ? pctVar(Number(receivedCur) || 0, Number(receivedPrev) || 0) : null
               }
               trendLabel="vs. período anterior"
               icon={<Wallet size={20} strokeWidth={2.25} />}
@@ -125,7 +145,7 @@ export default function ReportsVisaoGeralSection({
         {showActiveKpi ? (
           <ReportKpiCell footerTo="/reports?tab=alunos">
             <ReportKpiCard
-              label="Alunos ativos"
+              label="Alunos ativos (fim do período)"
               value={activeEnd}
               trend={activeEndPrev != null ? pctVar(activeEnd, activeEndPrev) : null}
               trendLabel="vs. fim do período anterior"
@@ -134,67 +154,85 @@ export default function ReportsVisaoGeralSection({
             />
           </ReportKpiCell>
         ) : null}
+        {sm != null ? (
+          <ReportKpiCell footerTo="/reports?tab=alunos">
+            <ReportKpiCard
+              label="Retenção"
+              value={`${retention.toFixed(1)}%`}
+              trend={pctVar(retention, retentionPrev)}
+              trendLabel="vs. período anterior"
+              icon={<TrendingUp size={20} strokeWidth={2.25} />}
+              highlight="success"
+              showCta={false}
+            />
+          </ReportKpiCell>
+        ) : null}
+        {hasSales && salesLoading ? (
+          <ReportKpiCell>
+            <ReportKpiCardSkeleton />
+          </ReportKpiCell>
+        ) : null}
+        {hasSales && !salesLoading && salesSummary ? (
+          <ReportKpiCell footerTo="/reports?tab=loja">
+            <ReportKpiCard
+              label="Faturamento (vendas)"
+              value={formatBRL(Number(salesSummary.concludedTotal) || 0)}
+              trendLabel={`${salesSummary.concludedCount ?? 0} venda(s)`}
+              icon={<ShoppingBag size={20} strokeWidth={2.25} />}
+              showCta={false}
+            />
+          </ReportKpiCell>
+        ) : null}
+        {hasInventory && inventoryLoading ? (
+          <ReportKpiCell>
+            <ReportKpiCardSkeleton />
+          </ReportKpiCell>
+        ) : null}
+        {hasInventory && !inventoryLoading && inventorySummary ? (
+          <ReportKpiCell footerTo="/reports?tab=estoque">
+            <ReportKpiCard
+              label="Produtos parados"
+              value={inventorySummary.stalled ?? 0}
+              trendLabel="Sem vendas no período"
+              icon={<Package size={20} strokeWidth={2.25} />}
+              highlight="warning"
+              showCta={false}
+            />
+          </ReportKpiCell>
+        ) : null}
       </div>
 
       <div className="reports-visao-geral__section-divider" role="presentation" />
 
-      <section className="reports-funnel-stack" aria-label="Funil de captação e taxas">
-        <div className="reports-funnel-card">
-          <ReportSectionHeading title="Funil de captação" subtitle="Leads → Matrícula" />
-          <div className="reports-funnel-row">
-            {funnelStages.map((stage) => (
-              <React.Fragment key={stage.key}>
-                <button
-                  type="button"
-                  className={`reports-funnel-stage${stage.drillKey ? ' is-clickable' : ''}`}
-                  onClick={() => stage.drillKey && onFunnelDrill?.(stage.drillKey)}
-                  disabled={!stage.drillKey}
-                >
-                  <div className="reports-funnel-track">
-                    <span
-                      className="reports-funnel-fill"
-                      style={{ width: `${stage.barPct}%`, background: stage.color }}
-                    />
-                  </div>
-                  <div className="reports-funnel-value">{stage.isPercent ? `${stage.current}%` : stage.current}</div>
-                  <div className="reports-funnel-label">{stage.label}</div>
-                  <div className={`reports-funnel-variation ${stage.variation >= 0 ? 'is-up' : 'is-down'}`}>
-                    {stage.variation >= 0 ? '+' : ''}
-                    {stage.variation}% vs período anterior
-                  </div>
-                  <span className="reports-funnel-relative">{stage.relativePct}% da etapa anterior</span>
-                </button>
-                {!stage.isLast ? (
-                  <span className="reports-funnel-arrow" aria-hidden>
-                    <span className="ti ti-chevron-right" />
-                  </span>
-                ) : null}
-              </React.Fragment>
-            ))}
-          </div>
-          <p className="reports-section-footer-link mb-0">
-            <ReportInlineLink to="/reports?tab=funil">Ver relatório completo →</ReportInlineLink>
-          </p>
-        </div>
-
-        <div className="reports-funnel-card reports-funnel-card--rates">
-          <div className="reports-rates-grid">
-            {ratesCards.map((item) => (
+      <section className="reports-funnel-card" aria-label="Taxas de captação">
+        <ReportSectionHeading title="Taxas de captação" subtitle="Conversão entre etapas do funil" />
+        <div className="reports-rates-grid">
+          {ratesCards.map((item) => {
+            const Icon = RATE_ICONS[item.icon] || Percent;
+            return (
               <div key={item.key} className="reports-rate-card">
-                <span className={item.icon} aria-hidden style={{ color: item.accent }} />
+                <Icon size={18} aria-hidden style={{ color: item.accent }} />
                 <div className="reports-rate-value">{item.pct}%</div>
                 <div className="reports-rate-label">{item.label}</div>
                 <div className="reports-rate-insight">{item.insight}</div>
               </div>
-            ))}
-          </div>
-          <nav className="reports-section-footer-links-row" aria-label="Relatórios relacionados">
-            <ReportInlineLink to="/reports?tab=funil">Funil →</ReportInlineLink>
-            <ReportInlineLink to="/reports?tab=alunos">Alunos →</ReportInlineLink>
-            {hasFinance ? <ReportInlineLink to="/reports?tab=financeiro">Financeiro →</ReportInlineLink> : null}
-          </nav>
+            );
+          })}
         </div>
+        <p className="reports-section-footer-link mb-0">
+          <ReportInlineLink to="/reports?tab=funil">Ver relatório completo do funil →</ReportInlineLink>
+        </p>
       </section>
+
+      <nav className="reports-section-footer-links-row" aria-label="Relatórios relacionados">
+        <ReportInlineLink to="/reports?tab=funil">Funil →</ReportInlineLink>
+        <ReportInlineLink to="/reports?tab=alunos">Alunos →</ReportInlineLink>
+        {hasFinance ? <ReportInlineLink to="/reports?tab=financeiro">Financeiro →</ReportInlineLink> : null}
+        {hasSales ? <ReportInlineLink to="/reports?tab=loja">Vendas →</ReportInlineLink> : null}
+        {hasInventory ? <ReportInlineLink to="/reports?tab=estoque">Estoque →</ReportInlineLink> : null}
+      </nav>
+
+      <ReportsMethodologyNote className="mt-4" />
     </div>
   );
 }
