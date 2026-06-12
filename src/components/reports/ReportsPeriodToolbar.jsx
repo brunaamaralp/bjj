@@ -68,12 +68,12 @@ export default function ReportsPeriodToolbar({
         {showLeadFilters ? (
           <>
             <div className="reports-filters-divider" aria-hidden />
-            <div className="reports-segment-block">
+            <div className="reports-selects-inline">
               <select
                 value={profileFilter}
                 onChange={(e) => onProfileFilterChange(e.target.value)}
                 aria-label="Filtrar por perfil"
-                className="reports-filter-select"
+                className="form-input navi-control--toolbar"
               >
                 <option value="all">Perfil</option>
                 <option value="Adulto">Adulto</option>

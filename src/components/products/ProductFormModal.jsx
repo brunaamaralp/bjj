@@ -20,6 +20,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import useVisualViewportKeyboardOffset from '../../hooks/useVisualViewportKeyboardOffset.js';
 import ProductImageField from './ProductImageField.jsx';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 
 const NEW_CAT = '__nova__';
 
@@ -161,6 +162,14 @@ function ToggleRow({ label, checked, onChange }) {
 }
 
 function ProductBaseFields({ form, setForm, categoryOptions }) {
+  const categorySelectOptions = useMemo(
+    () => [
+      ...categoryOptions.map((c) => ({ value: c, label: c })),
+      { value: NEW_CAT, label: 'Nova categoria…' },
+    ],
+    [categoryOptions]
+  );
+
   return (
     <>
       <Field label="Nome" required>
@@ -172,24 +181,19 @@ function ProductBaseFields({ form, setForm, categoryOptions }) {
         />
       </Field>
       <Field label="Categoria" required>
-        <select
-          className="form-input"
+        <SearchableSelect
           value={form.categoriaSelect || form.categoria || ''}
-          onChange={(e) => {
-            const v = e.target.value;
+          placeholder="Digite para buscar categoria…"
+          emptyMessage="Nenhuma categoria encontrada para essa busca."
+          options={categorySelectOptions}
+          onChange={(v) => {
             setForm((f) => ({
               ...f,
               categoriaSelect: v,
               categoria: v === NEW_CAT ? f.categoria : v,
             }));
           }}
-        >
-          <option value="">Selecione…</option>
-          {categoryOptions.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-          <option value={NEW_CAT}>Nova categoria…</option>
-        </select>
+        />
         {form.categoriaSelect === NEW_CAT && (
           <input
             className="form-input mt-1"

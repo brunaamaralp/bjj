@@ -1,11 +1,12 @@
 /* Sales (Loja /vendas) */
 
-/* —— Hub Loja: Produtos e Estoque preenchem a altura útil —— */
-.main-content > .loja-hub {
+/* —— Hub Loja: Produtos e Estoque preenchem a altura útil (via Suspense; ver index.css) —— */
+.main-content .loja-hub {
   flex: 1 1 0%;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .loja-hub__tabs {
@@ -59,15 +60,26 @@
   flex-shrink: 0;
 }
 
-.loja-hub > .container.products-page,
-.loja-hub > .container.inventory-page,
-.loja-hub > .container.sales-page {
+/* Suspense lazy entre abas e painel da aba */
+.loja-hub > :last-child {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.loja-hub .container.products-page,
+.loja-hub .container.inventory-page,
+.loja-hub .container.sales-page {
   flex: 1 1 0%;
   min-height: 0;
   display: flex;
   flex-direction: column;
   padding-top: 0;
   padding-bottom: 8px;
+  overflow: hidden;
 }
 
 /* ===== Sales (/vendas) — carrinho: scroll 640px+ e cartões <640px; desktop ≥768px inalterado ===== */

@@ -70,6 +70,9 @@ import {
 } from '../shared/menu';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
+import PlanSelect from '../shared/PlanSelect.jsx';
+import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import ImportFinanceTxModal from './ImportFinanceTxModal.jsx';
@@ -1664,14 +1667,17 @@ export default function TransacoesTab({
               </div>
               <div className="form-group">
                 <label htmlFor="finance-tx-category">Categoria</label>
-                <select
+                <SearchableGroupedSelect
                   id="finance-tx-category"
-                  className="form-input"
                   value={txForm.category}
+                  groups={categoryOptionGroups}
+                  getOptionValue={(c) => c.value || c.label}
+                  getOptionLabel={(c) => c.label}
+                  placeholder="Digite para buscar categoria…"
+                  emptyMessage="Nenhuma categoria encontrada para essa busca."
                   aria-invalid={txFormErrors.category ? 'true' : undefined}
                   aria-describedby={txFormErrors.category ? 'finance-tx-category-error' : undefined}
-                  onChange={(e) => {
-                    const value = e.target.value;
+                  onChange={(value) => {
                     const cat = resolveFinanceCategory(value, chartAccounts);
                     setTxForm((prev) => ({
                       ...prev,
@@ -1682,20 +1688,7 @@ export default function TransacoesTab({
                     clearTxFieldError('category');
                     clearTxFieldError('planName');
                   }}
-                >
-                  {[...categoryOptionGroups.entries()].map(([group, items]) => (
-                    <optgroup key={group} label={group}>
-                      {items.map((c) => {
-                        const optionValue = c.value || c.label;
-                        return (
-                          <option key={optionValue} value={optionValue}>
-                            {c.label}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                  ))}
-                </select>
+                />
                 <FieldError id="finance-tx-category-error">{txFormErrors.category}</FieldError>
               </div>
               {!editingTxId ? (
@@ -1711,30 +1704,27 @@ export default function TransacoesTab({
               {resolveFinanceCategory(txForm.category, chartAccounts)?.type === 'plan' && (
                 <div className="form-group">
                   <label htmlFor="finance-tx-plan">Plano</label>
-                  <select
+                  <PlanSelect
                     id="finance-tx-plan"
-                    className="form-input"
+                    financeConfig={financeConfig}
                     value={txForm.planName}
+                    emptyLabel="Digite para buscar plano…"
+                    showConfigHint={false}
                     aria-invalid={txFormErrors.planName ? 'true' : undefined}
                     aria-describedby={txFormErrors.planName ? 'finance-tx-plan-error' : undefined}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      const pl = (financeConfig.plans || []).find((p) => (p.name || '') === name);
-                      const price = pl != null ? Number(pl.price ?? 0) : NaN;
-                      setTxForm({
-                        ...txForm,
-                        planName: name,
-                        gross: name && Number.isFinite(price) && price >= 0 ? price : '',
-                      });
+                    onChange={(name) => {
+                      setTxForm((prev) => ({ ...prev, planName: name }));
                       clearTxFieldError('planName');
                       if (name) clearTxFieldError('gross');
                     }}
-                  >
-                    <option value="">Selecione…</option>
-                    {(financeConfig.plans || []).filter((p) => String(p.name || '').trim()).map((p) => (
-                      <option key={p.name} value={p.name}>{`${p.name} · R$ ${Number(p.price ?? 0).toFixed(2)}`}</option>
-                    ))}
-                  </select>
+                    onPlanPick={(plan) => {
+                      const amount = plan ? planPriceToPayAmountString(plan) : '';
+                      setTxForm((prev) => ({
+                        ...prev,
+                        gross: amount || prev.gross,
+                      }));
+                    }}
+                  />
                   <FieldError id="finance-tx-plan-error">{txFormErrors.planName}</FieldError>
                 </div>
               )}

@@ -34,6 +34,10 @@ function dropToastsNotInKept(prev, kept) {
 
 export const useUiStore = create((set, get) => ({
   toasts: [],
+  newLeadModalOpen: false,
+
+  openNewLeadModal: () => set({ newLeadModalOpen: true }),
+  closeNewLeadModal: () => set({ newLeadModalOpen: false }),
 
   addToast: (toast) => {
     const type = toast.type || 'info';

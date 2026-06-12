@@ -1519,7 +1519,7 @@ a.btn-ghost:focus-visible {
 
 /* Coluna flex (.navi-main-stack): altura extra da .navi-topbar (safe-area) reduz esta área — sem padding-top extra */
 .main-content {
-  flex: 1 1 0%;
+  flex: 1 1 auto;
   min-width: 0;
   width: 100%;
   max-width: 100%;
@@ -1543,18 +1543,34 @@ a.btn-ghost:focus-visible {
   flex: 0 0 auto;
 }
 
-/* Atendimento: preenche a altura útil do main e mantém rolagem só no thread (evita flex 0 0 auto da regra acima em netos via Routes) */
-.main-content:has(.container.inbox-page) {
+/*
+ * Páginas “viewport-fill”: preenchem main e delegam scroll à lista/painel interno.
+ * O Suspense/Routes entre main e a página precisa esticar (não é filho direto).
+ */
+.main-content:has(.container.inbox-page),
+.main-content:has(.loja-hub),
+.main-content:has(.container.students-page),
+.main-content:has(.lead-profile-page-root.lead-profile--panel-open),
+.main-content:has(.student-profile-page-root.student-profile--panel-open),
+.main-content.pipeline-active {
+  flex: 1 1 0%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.main-content:has(.container.inbox-page) {
   padding: 0;
   background: var(--color-content-bg, #fff);
 }
 
-/* Suspense/Routes entre main e .inbox-page não pode ficar com flex: 0 0 auto */
-.main-content:has(.container.inbox-page) > *:last-child {
+.main-content:has(.container.inbox-page) > *:last-child,
+.main-content:has(.loja-hub) > *:last-child,
+.main-content:has(.container.students-page) > *:last-child,
+.main-content:has(.lead-profile-page-root.lead-profile--panel-open) > *:last-child,
+.main-content:has(.student-profile-page-root.student-profile--panel-open) > *:last-child,
+.main-content.pipeline-active > *:last-child {
   flex: 1 1 0%;
   min-height: 0;
   min-width: 0;
@@ -1575,19 +1591,16 @@ a.btn-ghost:focus-visible {
   max-width: none;
 }
 
+.main-content .loja-hub,
 .main-content .container.students-page {
   flex: 1 1 0%;
   min-height: 0;
   overflow: hidden;
-}
-
-.main-content:has(.lead-profile-page-root.lead-profile--panel-open) {
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
+.main-content .lead-profile-page-root.lead-profile--panel-open,
 .main-content > .lead-profile-page-root.lead-profile--panel-open {
   flex: 1 1 0%;
   min-height: 0;
@@ -1616,57 +1629,67 @@ a.btn-ghost:focus-visible {
 }
 
 @media (min-width: 1024px) {
-  html:has(.app-container.navi-authed),
-  body:has(.app-container.navi-authed) {
-    height: 100%;
-    overflow: hidden;
-  }
-
-  #root:has(.app-container.navi-authed) {
-    height: 100dvh;
-    min-height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-
   .app-container.navi-authed {
-    height: 100dvh;
-    min-height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
     padding-bottom: 0;
+    min-height: 100dvh;
   }
 
   .navi-bottom-nav {
     display: none;
   }
 
+  /* Sidebar fixa: altura total sem prender scroll das páginas no body */
   .navi-shell {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    flex: 1 1 auto;
-    height: 100%;
-    min-height: 0;
-    max-height: 100%;
+    display: block;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
   }
 
   .navi-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
     display: flex;
     flex-direction: column;
-    flex: 0 0 auto;
-    align-self: stretch;
     height: 100dvh;
-    min-height: 100dvh;
     max-height: 100dvh;
+    width: 280px;
+    max-width: 280px;
+    overflow: hidden;
+  }
+
+  .navi-sidebar--collapsed {
+    width: 76px;
+    max-width: 76px;
   }
 
   .navi-main-stack {
-    flex: 1 1 0;
+    margin-left: 280px;
+    min-height: 100dvh;
     min-width: 0;
-    min-height: 0;
-    height: 100%;
-    max-height: 100%;
+    width: auto;
+    max-width: none;
+    overflow: visible;
+    transition: margin-left 0.2s ease;
+  }
+
+  .navi-shell:has(.navi-sidebar--collapsed) .navi-main-stack {
+    margin-left: 76px;
+  }
+
+  /* Páginas com lista/painel interno: main-stack = exatamente 1 viewport */
+  .navi-main-stack:has(.container.inbox-page),
+  .navi-main-stack:has(.loja-hub),
+  .navi-main-stack:has(.container.students-page),
+  .navi-main-stack:has(.lead-profile-page-root.lead-profile--panel-open),
+  .navi-main-stack:has(.student-profile-page-root.student-profile--panel-open),
+  .navi-main-stack:has(.pipeline-container) {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
   }
 }
 

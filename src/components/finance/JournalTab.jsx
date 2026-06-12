@@ -6,6 +6,7 @@ import { fmt } from './financeFmt.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { DateInputField } from '../DateInput';
 
@@ -37,6 +38,16 @@ export default function JournalTab({
     (sortedAccounts || []).forEach((a) => m.set(a.id, a));
     return m;
   }, [sortedAccounts]);
+  const accountSelectOptions = useMemo(
+    () =>
+      sortedAccounts.map((a) => {
+        const code = String(a.code || '').trim();
+        const name = String(a.name || '').trim();
+        const label = code && name ? `${code} · ${name}` : code || name || a.id;
+        return { value: a.id, label };
+      }),
+    [sortedAccounts]
+  );
   useEffect(() => {
     let active = true;
     const run = async () => {
@@ -189,21 +200,19 @@ export default function JournalTab({
           {lines.map((l, idx) => (
             <div key={idx} className="finance-journal-line">
               <div className="form-group finance-journal-line-col--account">
-                <label>Conta</label>
-                <select
-                  className="form-input"
+                <label htmlFor={`finance-journal-account-${idx}`}>Conta</label>
+                <SearchableSelect
+                  id={`finance-journal-account-${idx}`}
                   value={l.accountId}
-                  onChange={(e) => {
+                  options={accountSelectOptions}
+                  placeholder="Digite código ou nome da conta…"
+                  emptyMessage="Nenhuma conta encontrada para essa busca."
+                  onChange={(accountId) => {
                     const arr = [...lines];
-                    arr[idx] = { ...arr[idx], accountId: e.target.value };
+                    arr[idx] = { ...arr[idx], accountId };
                     setLines(arr);
                   }}
-                >
-                  <option value="">Selecione a conta…</option>
-                  {sortedAccounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.code} · {a.name}</option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="form-group">
                 <label>Débito (R$)</label>

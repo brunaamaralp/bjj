@@ -1,14 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
 import { Download, ShoppingBag } from 'lucide-react';
 import { channelLabel } from '../../lib/salesSettings';
 import { formatBRL } from '../../lib/moneyBr';
@@ -24,21 +15,6 @@ import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import './reports.css';
-
-const CHART_COLOR = 'var(--color-primary)';
-
-function ChannelTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const row = payload[0]?.payload;
-  if (!row) return null;
-  return (
-    <div className="reports-chart-tooltip">
-      <strong>{row.label}</strong>
-      <div>{formatBRL(row.total)}</div>
-      <div className="text-small text-muted">{row.pct}% do total</div>
-    </div>
-  );
-}
 
 export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   const navigate = useNavigate();
@@ -284,32 +260,6 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
               <ReportKpiCard label="Ticket médio" value={formatBRL(ticketMedio)} highlight="warning" />
               <ReportKpiCard label="Cancelamentos" value={totals.cancelCount} highlight="danger" />
             </div>
-          </ReportsPanelSection>
-
-          <ReportsPanelSection title="Por canal de venda" className="reports-panel-section--chart">
-            {byChannel.length === 0 ? (
-              <EmptyState
-                insideCard
-                variant="compact"
-                tone="dashed"
-                title="Sem vendas por canal"
-                description="Não há faturamento por canal neste período."
-                role="status"
-              />
-            ) : (
-              <ResponsiveContainer width="100%" height={Math.max(160, byChannel.length * 44)}>
-                <BarChart data={byChannel} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-                  <XAxis type="number" tickFormatter={(v) => formatBRL(v)} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="label" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip content={<ChannelTooltip />} />
-                  <Bar dataKey="total" radius={[0, 6, 6, 0]}>
-                    {byChannel.map((entry) => (
-                      <Cell key={entry.canal} fill={CHART_COLOR} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
           </ReportsPanelSection>
 
           <ReportsPanelSection
