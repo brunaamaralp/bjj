@@ -59,7 +59,11 @@ export default function InboxComposer(props) {
     setSlashOpen,
     setSlashQuery,
     toast,
+    agentIaActive = false,
+    aiModuleEnabled = true,
   } = props;
+
+  const aiAutoReply = aiModuleEnabled !== false && agentIaActive === true;
 
   const fileInputRef = useRef(null);
   const [attachment, setAttachment] = useState(null);
@@ -659,7 +663,13 @@ export default function InboxComposer(props) {
                 handleComposerSend();
               }
             }}
-            placeholder={selected?.need_human ? 'Responder manualmente…' : 'Agente IA ativo — responda para assumir o atendimento'}
+            placeholder={
+              selected?.need_human
+                ? 'Responder manualmente…'
+                : aiAutoReply
+                  ? 'Agente IA ativo — responda para assumir o atendimento'
+                  : 'Escreva uma mensagem…'
+            }
             className="inbox-composer-wa-textarea"
             rows={1}
             onFocus={(e) => {

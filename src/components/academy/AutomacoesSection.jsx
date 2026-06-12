@@ -4,8 +4,10 @@ import { Eye, EyeOff } from 'lucide-react';
 import {
     AUTOMATION_DELAY_OPTIONS,
     AUTOMATION_GROUPS,
-    serializeAutomationsConfig,
+    AUTOMATION_GROUP_HINTS,
+    templateOptionsForAutomation,
 } from '../../lib/useAutomations.js';
+import { WHATSAPP_TEMPLATE_LABELS } from '../../../lib/whatsappTemplateDefaults.js';
 import {
     previewAutomationMessage,
     delayHintForAutomation,
@@ -21,17 +23,24 @@ function AutomationRow({
     templateOptions,
     templatesMap,
     academyName,
+    canEdit,
+    savingAutomations,
     onToggle,
     onTemplateChange,
     onDelayChange,
-    isLast,
 }) {
-    const delayOptions = AUTOMATION_DELAY_OPTIONS[automationKey];
-    const hasValidTemplate =
-        !noTemplatesAvailable &&
-        Boolean(cfg.templateKey) &&
-        templateOptions.some((o) => o.id === cfg.templateKey);
-    const switchDisabled = noTemplatesAvailable || !hasValidTemplate;
+    const isDailyCron = automationKey === 'birthday';
+    const delayOptions = isDailyCron ? null : AUTOMATION_DELAY_OPTIONS[automationKey];
+    const rowTemplateOptions = useMemo(
+        () => templateOptionsForAutomation(automationKey, templateOptions),
+        [automationKey, templateOptions]
+    );
+    const hasValidTemplate = isDailyCron
+        ? Boolean(String(templatesMap?.birthday || '').trim())
+        : !noTemplatesAvailable &&
+          Boolean(cfg.templateKey) &&
+          rowTemplateOptions.some((o) => o.id === cfg.templateKey);
+    const switchDisabled = !canEdit || savingAutomations || noTemplatesAvailable || !hasValidTemplate;
     const [previewOpen, setPreviewOpen] = useState(false);
 
     const delayHint = delayHintForAutomation(
@@ -49,21 +58,23 @@ function AutomationRow({
         : '';
 
     return (
-        <div
-            className="automacoes-row"
-            style={{
-                padding: '14px 0',
-                borderBottom: isLast ? 'none' : '1px solid var(--border-light)',
-            }}
+        <article
+            className={`automacoes-trigger-card${cfg.active ? ' automacoes-trigger-card--on' : ''}`}
+            aria-labelledby={`automation-${automationKey}-title`}
         >
-            <div className="flex justify-between items-start gap-3" style={{ flexWrap: 'wrap' }}>
+            <div className="automacoes-trigger-card__head">
                 <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                    <strong style={{ display: 'block', fontSize: '0.95rem' }}>{meta.label}</strong>
-                    <p className="text-xs text-light" style={{ marginTop: 4, lineHeight: 1.45 }}>
+                    <strong id={`automation-${automationKey}-title`} className="automacoes-trigger-card__title">
+                        {meta.label}
+                    </strong>
+                    {meta.triggerWhere ? (
+                        <span className="automacoes-trigger-card__where">{meta.triggerWhere}</span>
+                    ) : null}
+                    <p className="text-xs text-light" style={{ marginTop: 6, lineHeight: 1.45, marginBottom: 0 }}>
                         {meta.description}
                     </p>
                     {delayHint ? (
-                        <p className="text-xs" style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
+                        <p className="text-xs" style={{ marginTop: 6, color: 'var(--text-secondary)', marginBottom: 0 }}>
                             {delayHint}
                         </p>
                     ) : null}
@@ -72,16 +83,21 @@ function AutomationRow({
                     type="button"
                     role="switch"
                     aria-checked={cfg.active === true}
+                    aria-labelledby={`automation-${automationKey}-title`}
                     aria-disabled={switchDisabled}
                     disabled={switchDisabled}
                     title={
-                        switchDisabled
-                            ? noTemplatesAvailable
-                                ? 'Revise os modelos em Modelos de Mensagem'
-                                : 'Selecione um template antes de ativar'
-                            : undefined
+                        !canEdit
+                            ? 'Somente titular ou administrador pode alterar'
+                            : savingAutomations
+                              ? 'Salvando…'
+                              : switchDisabled
+                                ? noTemplatesAvailable
+                                    ? 'Revise os modelos em Modelos de Mensagem'
+                                    : 'Selecione um modelo antes de ativar'
+                                : undefined
                     }
-                    className={`ai-switch${cfg.active ? ' ai-switch--on' : ''}`}
+                    className={`ai-switch${cfg.active ? ' ai-switch--on' : ''}${savingAutomations ? ' ai-switch--loading' : ''}`}
                     onClick={() => {
                         if (switchDisabled) return;
                         onToggle();
@@ -90,8 +106,8 @@ function AutomationRow({
                     <span className="ai-switch-thumb" />
                 </button>
             </div>
-            {switchDisabled ? (
-                <p className="text-xs" style={{ marginTop: 8, color: 'var(--warning)' }}>
+            {switchDisabled && canEdit ? (
+                <p className="text-xs" style={{ marginTop: 8, color: 'var(--warning)', marginBottom: 0 }}>
                     {noTemplatesAvailable ? (
                         <>
                             Nenhum texto de modelo disponível.{' '}
@@ -104,32 +120,42 @@ function AutomationRow({
                     )}
                 </p>
             ) : null}
-            <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-                <select
-                    className="form-input"
-                    value={noTemplatesAvailable ? '' : cfg.templateKey || ''}
-                    disabled={noTemplatesAvailable}
-                    onChange={(e) => onTemplateChange(e.target.value)}
-                    style={{ flex: '1 1 220px' }}
-                    aria-label={`Modelo para ${meta.label}`}
-                >
-                    {noTemplatesAvailable ? (
-                        <option value="" disabled>
-                            Sem modelos — abra Modelos de Mensagem
-                        </option>
-                    ) : (
-                        templateOptions.map((opt) => (
-                            <option key={`${automationKey}-${opt.id}`} value={opt.id}>
-                                {opt.label}
+            <div className="automacoes-trigger-card__controls">
+                {isDailyCron ? (
+                    <span className="automacoes-trigger-card__timing" style={{ flex: '1 1 220px' }}>
+                        Modelo: <strong>{WHATSAPP_TEMPLATE_LABELS.birthday || 'Aniversário'}</strong> —{' '}
+                        <Link to="/automacoes?tab=modelos" className="edit-link">
+                            editar texto
+                        </Link>
+                    </span>
+                ) : (
+                    <select
+                        className="form-input"
+                        value={noTemplatesAvailable ? '' : cfg.templateKey || ''}
+                        disabled={!canEdit || savingAutomations || noTemplatesAvailable}
+                        onChange={(e) => onTemplateChange(e.target.value)}
+                        aria-label={`Modelo para ${meta.label}`}
+                    >
+                        {noTemplatesAvailable ? (
+                            <option value="" disabled>
+                                Sem modelos — abra Modelos de Mensagem
                             </option>
-                        ))
-                    )}
-                </select>
-                {delayOptions ? (
+                        ) : (
+                            rowTemplateOptions.map((opt) => (
+                                <option key={`${automationKey}-${opt.id}`} value={opt.id}>
+                                    {opt.label}
+                                </option>
+                            ))
+                        )}
+                    </select>
+                )}
+                {isDailyCron ? (
+                    <span className="automacoes-trigger-card__timing">Envio diário (~9h, Brasília)</span>
+                ) : delayOptions ? (
                     <select
                         className="form-input"
                         value={Number(cfg.delayMinutes ?? delayOptions[0]?.value ?? 0)}
-                        disabled={noTemplatesAvailable}
+                        disabled={!canEdit || savingAutomations || noTemplatesAvailable}
                         onChange={(e) => onDelayChange(Number(e.target.value))}
                         style={{ flex: '0 1 200px' }}
                         aria-label={`Quando enviar: ${meta.label}`}
@@ -141,9 +167,7 @@ function AutomationRow({
                         ))}
                     </select>
                 ) : (
-                    <span className="text-xs text-light" style={{ flex: '0 1 120px' }}>
-                        Envio imediato
-                    </span>
+                    <span className="automacoes-trigger-card__timing">Envio imediato</span>
                 )}
                 {!noTemplatesAvailable && hasValidTemplate ? (
                     <button
@@ -163,11 +187,11 @@ function AutomationRow({
                 </pre>
             ) : null}
             {previewOpen && !previewText ? (
-                <p className="text-xs text-light" style={{ marginTop: 8 }}>
+                <p className="text-xs text-light" style={{ marginTop: 8, marginBottom: 0 }}>
                     Modelo vazio — edite em Modelos de Mensagem.
                 </p>
             ) : null}
-        </div>
+        </article>
     );
 }
 
@@ -179,79 +203,91 @@ const AutomacoesSection = ({
     templatesMap,
     academyName,
     noTemplatesAvailable,
-    automationsConfigRaw,
     readiness,
-    academyDataVersion = 0,
-    savingAutomations,
-    onSave,
+    canEdit = false,
+    savingAutomations = false,
+    saveFailed = false,
+    onPersistConfig,
+    onRetrySave,
 }) => {
-    const serverDigest = useMemo(() => {
-        void academyDataVersion;
-        return serializeAutomationsConfig(automationsConfigRaw);
-    }, [automationsConfigRaw, academyDataVersion]);
-    const [savedAfterEdit, setSavedAfterEdit] = useState(null);
-    const savedDigest =
-        savedAfterEdit?.version === academyDataVersion ? savedAfterEdit.digest : serverDigest;
-
-    const hasUnsavedChanges = useMemo(
-        () => serializeAutomationsConfig(automationsConfig) !== savedDigest,
-        [automationsConfig, savedDigest]
-    );
-
-    const handleSave = async () => {
-        await onSave();
-        setSavedAfterEdit({
-            version: academyDataVersion,
-            digest: serializeAutomationsConfig(automationsConfig),
+    const applyConfigChange = (buildNext, { persist = false, successMessage } = {}) => {
+        setAutomationsConfig((prev) => {
+            const next = buildNext(prev);
+            if (persist && canEdit) {
+                void onPersistConfig?.(next, { successMessage });
+            }
+            return next;
         });
     };
 
-    const renderGroup = (title, keys) => (
-        <>
-            <p className="funil-section-subheading" style={{ marginTop: title === 'Captação' ? 16 : 24 }}>
+    const renderGroup = (title, groupKey, keys) => (
+        <section className="automacoes-group" aria-labelledby={`automacoes-group-${groupKey}`}>
+            <h4 id={`automacoes-group-${groupKey}`} className="automacoes-group-title">
                 {title}
-            </p>
-            {keys.map((key, index) => {
-                const meta = automationLabels[key];
-                if (!meta) return null;
-                const cfg = automationsConfig?.[key] || {};
-                const isLast = index === keys.length - 1;
-                return (
-                    <AutomationRow
-                        key={key}
-                        automationKey={key}
-                        meta={meta}
-                        cfg={cfg}
-                        noTemplatesAvailable={noTemplatesAvailable}
-                        templateOptions={templateOptions}
-                        templatesMap={templatesMap}
-                        academyName={academyName}
-                        isLast={isLast}
-                        onToggle={() =>
-                            setAutomationsConfig((prev) => ({
-                                ...prev,
-                                [key]: {
-                                    ...(prev?.[key] || {}),
-                                    active: !(prev?.[key]?.active === true),
-                                },
-                            }))
-                        }
-                        onTemplateChange={(templateKey) =>
-                            setAutomationsConfig((prev) => ({
-                                ...prev,
-                                [key]: { ...(prev?.[key] || {}), templateKey },
-                            }))
-                        }
-                        onDelayChange={(delayMinutes) =>
-                            setAutomationsConfig((prev) => ({
-                                ...prev,
-                                [key]: { ...(prev?.[key] || {}), delayMinutes },
-                            }))
-                        }
-                    />
-                );
-            })}
-        </>
+            </h4>
+            {AUTOMATION_GROUP_HINTS[groupKey] ? (
+                <p className="automacoes-group-hint">{AUTOMATION_GROUP_HINTS[groupKey]}</p>
+            ) : null}
+            <div className="automacoes-trigger-list">
+                {keys.map((key) => {
+                    const meta = automationLabels[key];
+                    if (!meta) return null;
+                    const cfg = automationsConfig?.[key] || {};
+                    return (
+                        <AutomationRow
+                            key={key}
+                            automationKey={key}
+                            meta={meta}
+                            cfg={cfg}
+                            noTemplatesAvailable={noTemplatesAvailable}
+                            templateOptions={templateOptions}
+                            templatesMap={templatesMap}
+                            academyName={academyName}
+                            canEdit={canEdit}
+                            savingAutomations={savingAutomations}
+                            onToggle={() => {
+                                const nextActive = !(automationsConfig?.[key]?.active === true);
+                                const label = meta?.label || key;
+                                applyConfigChange(
+                                    (prev) => {
+                                        const patch = {
+                                            ...(prev?.[key] || {}),
+                                            active: nextActive,
+                                        };
+                                        if (key === 'birthday') {
+                                            patch.templateKey = 'birthday';
+                                        }
+                                        return { ...prev, [key]: patch };
+                                    },
+                                    {
+                                        persist: true,
+                                        successMessage: nextActive ? `${label} ativado` : `${label} desativado`,
+                                    }
+                                );
+                            }}
+                            onTemplateChange={(templateKey) =>
+                                applyConfigChange(
+                                    (prev) => ({
+                                        ...prev,
+                                        [key]: { ...(prev?.[key] || {}), templateKey },
+                                    }),
+                                    { persist: true }
+                                )
+                            }
+                            onDelayChange={(delayMinutes) =>
+                                applyConfigChange(
+                                    (prev) => ({
+                                        ...prev,
+                                        [key]: { ...(prev?.[key] || {}), delayMinutes },
+                                    }),
+                                    { persist: true }
+                                )
+                            }
+                        />
+                    );
+                })}
+            </div>
+        </section>
     );
 
     return (
@@ -261,41 +297,39 @@ const AutomacoesSection = ({
                 style={{ gap: 10, flexWrap: 'wrap' }}
             >
                 <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                    Mensagens automáticas do funil
+                    Mensagens automáticas
                 </h3>
-                {hasUnsavedChanges && (
+                {savingAutomations ? (
                     <span className="funil-unsaved-pill" role="status">
-                        Alterações não salvas
+                        Salvando…
                     </span>
-                )}
+                ) : null}
             </div>
+            {!canEdit ? (
+                <p className="text-small text-light" style={{ marginBottom: 12 }}>
+                    Modo leitura: apenas titular ou administrador pode ativar gatilhos e alterar modelos
+                    vinculados.
+                </p>
+            ) : null}
             <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
-                Passo 1: personalize os textos em{' '}
+                Personalize os textos em{' '}
                 <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
                     Modelos de Mensagem
                 </Link>
-                . Passo 2: ative os gatilhos abaixo. As mensagens disparam ao mover cards no funil ou ao
-                agendar aulas.
+                , depois ative os gatilhos abaixo.
             </p>
             <AutomacoesReadinessBanner readiness={readiness} />
-            {readiness?.activeCount === 0 ? (
-                <StatusBanner variant="info" className="mb-3">
-                    Por padrão, todos os gatilhos vêm desligados. Isso é intencional — ative apenas os que sua
-                    academia precisa, depois de conectar o WhatsApp e revisar os modelos de mensagem.
-                </StatusBanner>
+            {saveFailed ? (
+                <StatusBanner
+                    variant="warning"
+                    className="mb-3"
+                    message="Não foi possível salvar a última alteração."
+                    onRetry={() => void onRetrySave?.()}
+                />
             ) : null}
-            {renderGroup('Captação', AUTOMATION_GROUPS.captacao)}
-            {renderGroup('Pós-matrícula', AUTOMATION_GROUPS.posMatricula)}
-            <div className="flex justify-end mt-4">
-                <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => void handleSave()}
-                    disabled={savingAutomations || !hasUnsavedChanges}
-                >
-                    {savingAutomations ? 'Salvando...' : 'Salvar alterações'}
-                </button>
-            </div>
+            {renderGroup('Captação', 'captacao', AUTOMATION_GROUPS.captacao)}
+            {renderGroup('Pós-matrícula', 'posMatricula', AUTOMATION_GROUPS.posMatricula)}
+            {renderGroup('Rotinas diárias', 'rotinas', AUTOMATION_GROUPS.rotinas)}
         </section>
     );
 };

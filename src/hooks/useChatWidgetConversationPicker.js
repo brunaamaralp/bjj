@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { getInboxJwt, safeParseInboxJson } from '../lib/inboxApiUtils.js';
-import { pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
+import { buildInboxDisplayNameArgs, pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
 import { primaryInboxPhone } from '../lib/normalizeInboxPhone.js';
 
 const POLL_MS = 60_000;
@@ -14,12 +14,15 @@ function mapPickerItem(it) {
   return {
     phone,
     leadId: String(it?.lead_id || '').trim(),
-    leadName: pickInboxDisplayName({
-      leadName: it?.lead_name,
-      manualContactName: it?.contact_name,
-      whatsappProfileName: it?.whatsapp_profile_name,
-      phone,
-    }),
+    leadName: pickInboxDisplayName(
+      buildInboxDisplayNameArgs({
+        lead: it?.lead,
+        leadName: it?.lead_name,
+        manualContactName: it?.contact_name,
+        whatsappProfileName: it?.whatsapp_profile_name,
+        phone,
+      })
+    ),
     unreadCount: Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0,
     lastPreview: String(it?.last_preview || '').trim(),
     profileImageUrl: String(it?.whatsapp_profile_image_url || '').trim(),

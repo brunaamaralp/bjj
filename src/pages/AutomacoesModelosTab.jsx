@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Save, RotateCcw, Send, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
 import { DateInputField } from '../components/DateInput';
@@ -287,10 +288,7 @@ export default function AutomacoesModelosTab() {
       void runRestoreOne(id);
       return;
     }
-    const names = [
-      ...(usage.automations || []).map((a) => a.label),
-      ...(usage.birthdayCron ? ['Cron de aniversário (Zapster)'] : []),
-    ];
+    const names = (usage.automations || []).map((a) => a.label);
     const label = names.length === 1 ? '1 automação' : `${names.length} automações`;
     setPendingConfirm({
       title: 'Restaurar template?',
@@ -358,10 +356,6 @@ export default function AutomacoesModelosTab() {
           {(usage.automations || []).map((a) => (
             <li key={a.key}>{a.label}</li>
           ))}
-          {usage.birthdayCron && id === 'birthday' && (
-            <li>Cron de aniversário (envio automático diário)</li>
-          )}
-          {usage.birthdayCron && id !== 'birthday' && <li>Cron de aniversário (referência indireta)</li>}
         </ul>
       </div>
     );
@@ -492,7 +486,7 @@ export default function AutomacoesModelosTab() {
                 <div className="tpl-card-header-left">
                   <strong className="tpl-card-title">{labelFor[id] || id}</strong>
                   {inUse && <span className="tpl-badge-in-use">Em uso</span>}
-                  {id === 'birthday' && <span className="tpl-badge-auto">Automático</span>}
+                  {id === 'birthday' && inUse ? <span className="tpl-badge-auto">Automático</span> : null}
                   {isChanged && <span className="tpl-badge">Não salvo</span>}
                   <span
                     className={`tpl-char-count${atLimit ? ' tpl-char-count--error' : nearLimit ? ' tpl-char-count--warn' : ''}`}
@@ -518,7 +512,11 @@ export default function AutomacoesModelosTab() {
                     {renderUsedBy(id)}
                     {id === 'birthday' && (
                       <p className="text-xs text-light" style={{ marginBottom: 8, lineHeight: 1.45 }}>
-                        Enviada automaticamente no aniversário do aluno (cron Zapster).
+                        Para envio automático no dia do aniversário, ative em{' '}
+                        <Link to="/automacoes?tab=configuracoes" className="edit-link">
+                          Configurações
+                        </Link>
+                        .
                       </p>
                     )}
                     <div className="tpl-vars">

@@ -7,6 +7,12 @@
       "skillPath": "skills/audit-speed/SKILL.md",
       "computedHash": "25715a6d5a270760fa8b1b9eb22209a19b90d17656f3cc9c84a709d28a904f1b"
     },
+    "billing-automation": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/payment-processing/skills/billing-automation/SKILL.md",
+      "computedHash": "2eda3d44399ffc824bcdf6a608e9384c80794b40e671af0f9cde240ed46296f4"
+    },
     "brainstorming": {
       "source": "obra/superpowers",
       "sourceType": "github",

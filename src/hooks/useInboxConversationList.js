@@ -3,7 +3,11 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { capInboxListItems } from '../lib/inboxListCap.js';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
-import { normalizeInboxPhone as normalizePhone, pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
+import {
+  buildInboxDisplayNameArgs,
+  normalizeInboxPhone as normalizePhone,
+  pickInboxDisplayName,
+} from '../lib/inboxContactDisplay.js';
 import { inboxListFilterToServerParam } from './useInboxInitialLoad.js';
 
 /**
@@ -145,12 +149,15 @@ export function useInboxConversationList({
           const updatedAdvanced = Boolean(curUpdated && curUpdated !== prevUpdated);
           if (!unreadIncreased && !(userMsgRenewed && updatedAdvanced)) continue;
           const preview = String(it?.last_preview || '').trim();
-          const name = pickInboxDisplayName({
-            leadName: it?.lead_name,
-            manualContactName: it?.contact_name,
-            whatsappProfileName: it?.whatsapp_profile_name,
-            phone,
-          });
+          const name = pickInboxDisplayName(
+            buildInboxDisplayNameArgs({
+              lead: it?.lead,
+              leadName: it?.lead_name,
+              manualContactName: it?.contact_name,
+              whatsappProfileName: it?.whatsapp_profile_name,
+              phone,
+            })
+          );
           onListItemNotifyRef.current?.({ phone, name, preview });
         }
       } else if (reset) {

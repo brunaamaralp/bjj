@@ -11,7 +11,13 @@ import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 const InboxTriageCard = lazyWithRetry(() => import('./InboxTriageCard.jsx'));
 const InboxFollowupBanner = lazyWithRetry(() => import('./InboxFollowupBanner.jsx'));
 import ContactAvatar from '../shared/ContactAvatar.jsx';
-import { inboxProfileImageUrl, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
+import {
+  buildInboxDisplayNameArgs,
+  inboxProfileImageUrl,
+  inboxStudentSubtitle,
+  isInboxGroupPhone,
+  pickInboxContactNameForEdit,
+} from '../../lib/inboxContactDisplay.js';
 import { suggestTriageAction, triageContextLine } from '../../lib/triageSuggestions.js';
 
 export default function InboxThreadPanel(props) {
@@ -48,6 +54,7 @@ export default function InboxThreadPanel(props) {
     linkingLead = false,
     academyId = '',
     aiEnabled = true,
+    agentIaActive = false,
     terms = null,
     menu,
     openMenu,
@@ -100,6 +107,7 @@ export default function InboxThreadPanel(props) {
   } = props;
 
   const contactNameInputRef = useRef(null);
+  const aiAutoReply = aiEnabled !== false && agentIaActive === true;
 
   useEffect(() => {
     if (!editingContactName) return undefined;
@@ -134,15 +142,23 @@ export default function InboxThreadPanel(props) {
               const phone = String(selectedPhone || '').trim();
               const leadId = String(selected?.lead_id || '').trim();
               const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
-              const name = pickDisplayName({
-                leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+              const displayArgs = buildInboxDisplayNameArgs({
+                lead,
+                leadName: selected?.lead_name,
                 manualContactName: selected?.contact_name,
                 whatsappProfileName: selected?.whatsapp_profile_name,
                 phone,
               });
+              const name = pickDisplayName(displayArgs);
               const formattedPhone =
                 phone && typeof formatPhone === 'function' ? String(formatPhone(phone) || '').trim() : '';
               const displayName = name || formattedPhone || phone || '—';
+              const studentSubtitle = inboxStudentSubtitle({
+                leadName: displayArgs.leadName,
+                displayName: name,
+                parentName: displayArgs.parentName,
+                leadType: displayArgs.leadType,
+              });
               const profileImageUrl = inboxProfileImageUrl(selected);
               const showPhoneLine = Boolean(name && formattedPhone && formattedPhone !== name);
               const ticket = ticketChip(selected?.ticket_status, selected?.transfer_to);
@@ -152,13 +168,15 @@ export default function InboxThreadPanel(props) {
               const showTicketLine = Boolean(ticket?.label) && !ticket?.isDefault;
               const isGroupThread = isInboxGroupPhone(phone);
               const canEditContactName = !isGroupThread;
-              const storedName =
-                String(lead?.name || '').trim() ||
-                String(selected?.lead_name || '').trim() ||
-                String(selected?.contact_name || '').trim() ||
-                String(selected?.whatsapp_profile_name || '').trim();
+              const contactEditSeed = pickInboxContactNameForEdit({
+                manualContactName: selected?.contact_name,
+                whatsappProfileName: selected?.whatsapp_profile_name,
+                parentName: displayArgs.parentName,
+              });
               const nameEditSeed =
-                storedName && storedName !== formattedPhone && storedName !== phone ? storedName : '';
+                contactEditSeed && contactEditSeed !== formattedPhone && contactEditSeed !== phone
+                  ? contactEditSeed
+                  : '';
               const beginContactNameEdit = () => {
                 if (!canEditContactName || savingContactName) return;
                 setContactNameDraft(nameEditSeed);
@@ -207,10 +225,6 @@ export default function InboxThreadPanel(props) {
                               cancelContactNameEdit();
                               return;
                             }
-                            if (String(selected?.lead_id || '').trim() && !next) {
-                              cancelContactNameEdit();
-                              return;
-                            }
                             void saveContactName();
                           }}
                         />
@@ -233,13 +247,19 @@ export default function InboxThreadPanel(props) {
                         </span>
                       ) : null}
                     </div>
+                    {studentSubtitle ? (
+                      <div className="inbox-thread-header__phone">
+                        {terms?.student ? `${terms.student}: ` : 'Aluno: '}
+                        {studentSubtitle}
+                      </div>
+                    ) : null}
                     {showPhoneLine ? (
                       <div className="inbox-thread-header__phone">{formattedPhone}</div>
                     ) : null}
                     {showTicketLine ? (
                       <div className="inbox-thread-header__status-line">{ticket.label}</div>
                     ) : null}
-                    {handoffReleaseHint ? (
+                    {handoffReleaseHint && aiAutoReply ? (
                       <div
                         role="status"
                         className="inbox-thread-handoff-banner inbox-thread-handoff-banner--release"
@@ -294,7 +314,7 @@ export default function InboxThreadPanel(props) {
                 ) : null}
               </button>
             ) : null}
-            {!selected?.need_human ? (
+            {aiAutoReply && !selected?.need_human ? (
               <button
                 className="inbox-thread-header__action-btn inbox-thread-header__action-btn--secondary"
                 onClick={() => setHandoffActive(true)}
@@ -304,7 +324,8 @@ export default function InboxThreadPanel(props) {
               >
                 Assumir
               </button>
-            ) : (
+            ) : null}
+            {aiAutoReply && selected?.need_human ? (
               <button
                 className="inbox-thread-header__action-btn inbox-thread-header__action-btn--primary"
                 onClick={() => {
@@ -317,7 +338,7 @@ export default function InboxThreadPanel(props) {
               >
                 Devolver
               </button>
-            )}
+            ) : null}
             <InboxThreadActionsMenu {...threadActionsMenuProps} />
           </div>
         </div>

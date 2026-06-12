@@ -111,7 +111,10 @@ export default function AgentIAAdvancedOptions({
         <div className="agent-ia-personalization-grid">
           <div className="agent-ia-personalization-card">
             <p className="agent-ia-personalization-card__title">Mensagem de aniversário</p>
-            <p className="agent-ia-personalization-card__hint">Referência no dia do aniversário. Use {'{primeiroNome}'}.</p>
+            <p className="agent-ia-personalization-card__hint">
+              Texto de referência e fallback do envio automático (se ativado em Automações → Configurações). Use{' '}
+              {'{primeiroNome}'}.
+            </p>
             <textarea
               className="agent-prompt-textarea agent-prompt-textarea--sm"
               value={birthdayMessage}

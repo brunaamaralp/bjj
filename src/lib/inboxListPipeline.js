@@ -31,7 +31,14 @@ export function enrichInboxListItems({
     const manualContactName = String(it?.contact_name || '').trim();
     const waProfileName = String(it?.whatsapp_profile_name || '').trim();
     const waProfileImageUrl = String(it?.whatsapp_profile_image_url || '').trim();
-    const displayTitle = pickDisplayName({ leadName, manualContactName, whatsappProfileName: waProfileName, phone });
+    const displayTitle = pickDisplayName({
+      leadName,
+      manualContactName,
+      whatsappProfileName: waProfileName,
+      phone,
+      parentName: String(lead?.parentName || '').trim(),
+      leadType: String(lead?.type || '').trim(),
+    });
     const lastRole = String(it?.last_message_role || '').trim() || '';
     const lastSender = String(it?.last_message_sender || '').trim() || '';
     const unreadCount = Number.isFinite(Number(it?.unread_count)) ? Number(it.unread_count) : 0;

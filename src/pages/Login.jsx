@@ -4,6 +4,7 @@ import { Eye, EyeOff, LogIn, X } from 'lucide-react';
 import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { friendlyError } from '../lib/errorMessages';
+import { LEGAL_ROUTES } from '../lib/legalConstants.js';
 
 const Login = ({ onLogin }) => {
     const navigate = useNavigate();
@@ -104,6 +105,11 @@ const Login = ({ onLogin }) => {
                     <span className="sep">•</span>
                     <Link className="toggle-mode" to="/">Voltar ao início</Link>
                 </div>
+                <p className="login-legal-foot">
+                    <Link to={LEGAL_ROUTES.terms} target="_blank" rel="noopener noreferrer">Termos</Link>
+                    <span className="sep" aria-hidden>·</span>
+                    <Link to={LEGAL_ROUTES.privacy} target="_blank" rel="noopener noreferrer">Privacidade</Link>
+                </p>
             </div>
         </div>
     );

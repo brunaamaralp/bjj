@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { useChatWidgetStore } from '../store/useChatWidgetStore.js';
 import { primaryInboxPhone } from '../lib/normalizeInboxPhone.js';
-import { pickInboxDisplayName as pickDisplayName } from '../lib/inboxContactDisplay.js';
+import {
+  buildInboxDisplayNameArgs,
+  pickInboxDisplayName as pickDisplayName,
+} from '../lib/inboxContactDisplay.js';
 
 /**
  * Mantém telefone do Inbox e do chat widget flutuante sincronizados quando pinado.
@@ -10,6 +13,7 @@ export function useInboxChatWidgetSync({
   selectedPhone,
   setSelectedPhone,
   selected,
+  activeContactLead = null,
   normalizePhone,
 }) {
   const switchConversation = useChatWidgetStore((s) => s.switchConversation);
@@ -22,14 +26,17 @@ export function useInboxChatWidgetSync({
     const widgetPhone = primaryInboxPhone(widgetActivePhone);
     if (!phone || phone === widgetPhone) return;
     const leadId = String(selected?.lead_id || '').trim();
-    const name = pickDisplayName({
-      leadName: String(selected?.lead_name || '').trim(),
-      manualContactName: selected?.contact_name,
-      whatsappProfileName: selected?.whatsapp_profile_name,
-      phone,
-    });
+    const name = pickDisplayName(
+      buildInboxDisplayNameArgs({
+        lead: activeContactLead,
+        leadName: selected?.lead_name,
+        manualContactName: selected?.contact_name,
+        whatsappProfileName: selected?.whatsapp_profile_name,
+        phone,
+      })
+    );
     switchConversation({ phone, leadId, leadName: name });
-  }, [selectedPhone, selected, isWidgetPinned, widgetActivePhone, switchConversation, normalizePhone]);
+  }, [selectedPhone, selected, activeContactLead, isWidgetPinned, widgetActivePhone, switchConversation, normalizePhone]);
 
   useEffect(() => {
     const widgetPhone = primaryInboxPhone(widgetActivePhone);

@@ -4,7 +4,11 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
 import { postInboxConversation } from '../lib/inboxConversationPost.js';
-import { pickInboxDisplayName } from '../lib/inboxContactDisplay.js';
+import {
+  buildInboxDisplayNameArgs,
+  pickInboxContactNameForEdit,
+  pickInboxDisplayName,
+} from '../lib/inboxContactDisplay.js';
 
 /**
  * Ações REST na conversa: leitura, arquivo, handoff, ticket, lead e contato.
@@ -397,35 +401,9 @@ export function useInboxConversationActions({
     const phone = String(selectedPhoneRef.current || '').trim();
     if (!phone || savingContactName) return;
     const nextName = String(contactNameDraft || '').trim();
-    const leadId = String(selected?.lead_id || '').trim();
     setSavingContactName(true);
     setError('');
     try {
-      if (leadId) {
-        if (!nextName) {
-          toast.show({ type: 'error', message: 'Informe um nome' });
-          return;
-        }
-        if (typeof updateLead !== 'function') {
-          throw new Error('Não foi possível atualizar o contato');
-        }
-        await updateLead(leadId, { name: nextName });
-        setSelected((prev) => {
-          if (!prev || prev.phone !== phone) return prev;
-          return { ...prev, lead_name: nextName };
-        });
-        setItems((prev) =>
-          (Array.isArray(prev) ? prev : []).map((it) => {
-            const rowPhone = String(it?.phone_number || '').trim();
-            if (rowPhone !== phone) return it;
-            return { ...it, lead_name: nextName };
-          })
-        );
-        setEditingContactName(false);
-        toast.show({ type: 'success', message: 'Nome atualizado' });
-        return;
-      }
-
       const { blocked, data } = await postInboxConversation({
         phone,
         academyId: academyIdRef.current,
@@ -476,19 +454,24 @@ export function useInboxConversationActions({
     setSavingContactName,
     setSelected,
     toast,
-    updateLead,
   ]);
 
   const convertToLead = useCallback(async () => {
     const phone = String(selectedPhoneRef.current || '').trim();
     const name =
       String(leadNameDraft || '').trim() ||
-      pickInboxDisplayName({
-        leadName: selected?.lead_name,
+      pickInboxContactNameForEdit({
         manualContactName: selected?.contact_name,
         whatsappProfileName: selected?.whatsapp_profile_name,
-        phone,
-      });
+      }) ||
+      pickInboxDisplayName(
+        buildInboxDisplayNameArgs({
+          leadName: selected?.lead_name,
+          manualContactName: selected?.contact_name,
+          whatsappProfileName: selected?.whatsapp_profile_name,
+          phone,
+        })
+      );
     if (!phone) return;
     setLinkingLead(true);
     setError('');

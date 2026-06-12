@@ -13,6 +13,8 @@ describe('automationCore', () => {
     expect(cfg.schedule_confirm.active).toBe(true);
     expect(cfg.missed.active).toBe(false);
     expect(cfg.followup_d1_attended.active).toBe(false);
+    expect(cfg.birthday.active).toBe(false);
+    expect(cfg.birthday.templateKey).toBe('birthday');
   });
 
   it('buildFollowupD1SendAtIso schedules next day at 10h local', () => {

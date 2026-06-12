@@ -8,7 +8,12 @@ import InboxTriageCard from './InboxTriageCard.jsx';
 import InboxLinkStudentPanel from './InboxLinkStudentPanel.jsx';
 import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 import { isLeadPendingTriage } from '../../lib/leadTriage.js';
-import { formatInboxPhone, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
+import {
+  buildInboxDisplayNameArgs,
+  formatInboxPhone,
+  inboxStudentSubtitle,
+  isInboxGroupPhone,
+} from '../../lib/inboxContactDisplay.js';
 import {
   intentionDisplayLabel,
   priorityDisplayLabel,
@@ -147,12 +152,15 @@ export function InboxContextPanelContent(props) {
 
       {leadPanel === 'link_student' ? (
         <InboxLinkStudentPanel
-          contactName={pickDisplayName({
-            leadName: String(activeContactLead?.name || '').trim() || String(selected?.lead_name || '').trim(),
-            manualContactName: selected?.contact_name,
-            whatsappProfileName: selected?.whatsapp_profile_name,
-            phone: String(selectedPhone || '').trim(),
-          })}
+          contactName={pickDisplayName(
+            buildInboxDisplayNameArgs({
+              lead: activeContactLead,
+              leadName: selected?.lead_name,
+              manualContactName: selected?.contact_name,
+              whatsappProfileName: selected?.whatsapp_profile_name,
+              phone: String(selectedPhone || '').trim(),
+            })
+          )}
           leadSearch={leadSearch}
           setLeadSearch={setLeadSearch}
           studentCandidates={studentCandidates}
@@ -169,11 +177,19 @@ export function InboxContextPanelContent(props) {
         const leadId = String(selected?.lead_id || '').trim();
         const lead = leadId ? leadById.get(leadId) : leadByPhone.get(normalizePhone(phone));
         if (!lead && !phone) return null;
-        const name = pickDisplayName({
-          leadName: String(lead?.name || '').trim() || String(selected?.lead_name || '').trim(),
+        const displayArgs = buildInboxDisplayNameArgs({
+          lead,
+          leadName: selected?.lead_name,
           manualContactName: selected?.contact_name,
           whatsappProfileName: selected?.whatsapp_profile_name,
-          phone
+          phone,
+        });
+        const name = pickDisplayName(displayArgs);
+        const studentSubtitle = inboxStudentSubtitle({
+          leadName: displayArgs.leadName,
+          displayName: name,
+          parentName: displayArgs.parentName,
+          leadType: displayArgs.leadType,
         });
         const status = String(lead?.status || '').trim();
         const intentionRaw = String(lead?.intention || lead?.whatsapp_intention || '').trim();
@@ -191,6 +207,11 @@ export function InboxContextPanelContent(props) {
             <div className="navi-section-heading inbox-context-card__heading">{`Contato / ${contactLabel}`}</div>
             <div className="inbox-context-stack">
               <div className="inbox-context-contact-name">{name || phone || '—'}</div>
+              {studentSubtitle ? (
+                <div className="navi-subtitle navi-subtitle--flush">
+                  {studentLabel}: {studentSubtitle}
+                </div>
+              ) : null}
               {!!phone && (isInboxGroupPhone(phone) ? name && name !== formatInboxPhone(phone) : true) ? (
                 <div className="navi-subtitle navi-subtitle--flush">{formatInboxPhone(phone)}</div>
               ) : null}

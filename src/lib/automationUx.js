@@ -136,7 +136,7 @@ export function computeAutomationReadiness({ automationsConfig, templatesMap, wa
   const zapsterOk = Boolean(hasZapsterInstance && waConnected);
   const zapsterPartial = Boolean(hasZapsterInstance && !waConnected);
 
-  const steps = [
+  const infraSteps = [
     {
       id: 'templates',
       ok: templatesOk,
@@ -151,18 +151,25 @@ export function computeAutomationReadiness({ automationsConfig, templatesMap, wa
           ? 'WhatsApp desconectado — reconecte no Agente IA'
           : 'Conecte o WhatsApp no Agente IA',
     },
-    {
-      id: 'active',
-      ok: activeCount > 0,
-      label:
-        activeCount > 0
-          ? `${activeCount} gatilho${activeCount === 1 ? '' : 's'} ativo${activeCount === 1 ? '' : 's'}`
-          : 'Gatilhos desligados por padrão — ative os que precisar',
-    },
   ];
 
-  const ready = steps.every((s) => s.ok);
-  return { ready, steps, activeCount, templatesOk, zapsterOk };
+  const infraReady = infraSteps.every((s) => s.ok);
+  const activationLabel =
+    activeCount > 0
+      ? `${activeCount} gatilho${activeCount === 1 ? '' : 's'} ativo${activeCount === 1 ? '' : 's'}`
+      : 'Nenhum gatilho ativo — ligue os que sua academia precisar abaixo';
+
+  return {
+    ready: infraReady,
+    infraReady,
+    infraSteps,
+    /** @deprecated use infraSteps — mantido para compatibilidade */
+    steps: infraSteps,
+    activeCount,
+    activationLabel,
+    templatesOk,
+    zapsterOk,
+  };
 }
 
 export function previewAutomationMessage({ templateKey, templatesMap, academyName }) {

@@ -644,6 +644,10 @@ const Welcome = () => {
             <span className="navi-lp-footer-sep" aria-hidden>·</span>
             <Link to="/login" className="navi-lp-footer-link">Entrar</Link>
             <span className="navi-lp-footer-sep" aria-hidden>·</span>
+            <Link to="/termos" className="navi-lp-footer-link">Termos de Uso</Link>
+            <span className="navi-lp-footer-sep" aria-hidden>·</span>
+            <Link to="/privacidade" className="navi-lp-footer-link">Privacidade</Link>
+            <span className="navi-lp-footer-sep" aria-hidden>·</span>
             <span>Todos os direitos reservados</span>
           </p>
         </div>

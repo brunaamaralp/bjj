@@ -1,16 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
-import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { databases, teams, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { getAcademyDocument, invalidateAcademyDocumentCache } from '../lib/getAcademyDocument.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
-import { AUTOMATION_LABELS, parseAutomationsConfig } from '../lib/useAutomations.js';
+import { AUTOMATION_LABELS, parseAutomationsConfig, serializeAutomationsConfig } from '../lib/useAutomations.js';
 import { useTerms } from '../lib/terminology.js';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
 import { computeAutomationReadiness } from '../lib/automationUx.js';
+import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import AutomacoesSection from '../components/academy/AutomacoesSection.jsx';
 
-export default function AutomacoesConfigTab() {
+export default function AutomacoesConfigTab({ onGuardStateChange }) {
   const terms = useTerms();
   const automationLabels = useMemo(
     () => ({
@@ -24,14 +25,30 @@ export default function AutomacoesConfigTab() {
   );
 
   const academyId = useLeadStore((s) => s.academyId);
+  const userId = useLeadStore((s) => s.userId);
   const academyList = useLeadStore((s) => s.academyList);
   const addToast = useUiStore((s) => s.addToast);
+  const [membership, setMembership] = useState(null);
 
   const academyDoc = useMemo(
     () => (academyList || []).find((a) => a.id === academyId) || null,
     [academyList, academyId]
   );
   const academyName = String(academyDoc?.name || '').trim();
+
+  useEffect(() => {
+    if (!academyDoc?.teamId || !userId) return;
+    if (String(academyDoc.ownerId || '') === String(userId)) return;
+    teams
+      .listMemberships(academyDoc.teamId)
+      .then((res) => {
+        const m = (res.memberships || []).find((x) => String(x.userId) === String(userId));
+        setMembership(m || null);
+      })
+      .catch(() => setMembership(null));
+  }, [academyDoc?.teamId, academyDoc?.ownerId, userId]);
+
+  const canEdit = canEditWhatsappTemplates(userId, academyDoc, membership);
 
   const { waConnected, waInfo } = useZapsterWhatsAppConnection(academyId, {
     deferInitialFetch: true,
@@ -63,7 +80,11 @@ export default function AutomacoesConfigTab() {
           automationsConfigRaw: doc.automations_config || '',
           whatsappTemplates: doc.whatsappTemplates || '',
         });
-        setAutomationsConfig(parseAutomationsConfig(doc.automations_config || ''));
+        const cfg = parseAutomationsConfig(doc.automations_config || '');
+        if (doc.birthday_cron_enabled === true && cfg.birthday?.active !== true) {
+          cfg.birthday = { ...cfg.birthday, active: true, templateKey: 'birthday' };
+        }
+        setAutomationsConfig(cfg);
         setAcademyDataVersion((v) => v + 1);
       } catch (e) {
         console.error('[AutomacoesConfig]', e);
@@ -110,26 +131,46 @@ export default function AutomacoesConfigTab() {
     [automationsConfig, templatesMap, waConnected, waInfo?.instance_id]
   );
 
-  const saveAutomations = async () => {
-    if (!academyId) return;
-    setSavingAutomations(true);
-    try {
-      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-        automations_config: JSON.stringify(automationsConfig || {}),
-      });
-      invalidateAcademyDocumentCache(academyId);
-      setAcademy((prev) => ({
-        ...prev,
-        automationsConfigRaw: JSON.stringify(automationsConfig || {}),
-      }));
-      addToast({ type: 'success', message: 'Automações salvas.' });
-    } catch (e) {
-      console.error('save automations:', e);
-      addToast({ type: 'error', message: 'Não foi possível salvar as automações.' });
-    } finally {
-      setSavingAutomations(false);
-    }
-  };
+  const persistAutomations = useCallback(
+    async (nextConfig, { successMessage } = {}) => {
+      if (!academyId || !canEdit) return false;
+      setSavingAutomations(true);
+      try {
+        const raw = JSON.stringify(nextConfig || {});
+        await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+          automations_config: raw,
+        });
+        invalidateAcademyDocumentCache(academyId);
+        setAcademy((prev) => ({
+          ...prev,
+          automationsConfigRaw: raw,
+        }));
+        setAcademyDataVersion((v) => v + 1);
+        if (successMessage) {
+          addToast({ type: 'success', message: successMessage });
+        }
+        return true;
+      } catch (e) {
+        console.error('save automations:', e);
+        addToast({ type: 'error', message: 'Não foi possível salvar. Tente novamente.' });
+        return false;
+      } finally {
+        setSavingAutomations(false);
+      }
+    },
+    [academyId, canEdit, addToast]
+  );
+
+  const isDirty = useMemo(
+    () =>
+      serializeAutomationsConfig(automationsConfig) !==
+      serializeAutomationsConfig(academy.automationsConfigRaw),
+    [automationsConfig, academy.automationsConfigRaw]
+  );
+
+  useEffect(() => {
+    onGuardStateChange?.({ isDirty, isSaving: savingAutomations });
+  }, [isDirty, savingAutomations, onGuardStateChange]);
 
   if (loading) {
     return (
@@ -148,11 +189,12 @@ export default function AutomacoesConfigTab() {
       templatesMap={templatesMap}
       academyName={academyName}
       noTemplatesAvailable={noTemplatesAvailable}
-      automationsConfigRaw={academy.automationsConfigRaw}
       readiness={readiness}
-      academyDataVersion={academyDataVersion}
+      canEdit={canEdit}
       savingAutomations={savingAutomations}
-      onSave={saveAutomations}
+      saveFailed={isDirty && !savingAutomations}
+      onPersistConfig={persistAutomations}
+      onRetrySave={() => void persistAutomations(automationsConfig)}
     />
   );
 }

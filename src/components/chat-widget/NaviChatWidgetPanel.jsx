@@ -3,8 +3,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ExternalLink, Minus, Sparkles, User, X } from 'lucide-react';
 import { useInboxConversation } from '../../hooks/useInboxConversation';
+import { useInboxDeferredBoot } from '../../hooks/useInboxDeferredBoot';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { useChatWidgetStore } from '../../store/useChatWidgetStore';
+import { useLeadStore } from '../../store/useLeadStore';
+import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 import InboxComposer from '../inbox/InboxComposer';
 import NaviChatThread from './NaviChatThread';
@@ -40,6 +43,8 @@ export default function NaviChatWidgetPanel({
   const navigate = useNavigate();
   const switchConversation = useChatWidgetStore((s) => s.switchConversation);
   const setLeadName = useChatWidgetStore((s) => s.setLeadName);
+  const aiModuleEnabled = useLeadStore((s) => s.modules?.aiEnabled !== false);
+  const { agentIaActive } = useInboxDeferredBoot(academyId, {});
   const panelRef = useRef(null);
 
   const phoneDigits = primaryInboxPhone(activePhone);
@@ -144,7 +149,10 @@ export default function NaviChatWidgetPanel({
     return undefined;
   }, [phoneDigits]);
 
-  const showAiHandoffBanner = Boolean(summary?.handoff) && !handoffBannerDismissed;
+  const showAiHandoffBanner =
+    isAgentAutoReplyEnabled(agentIaActive, aiModuleEnabled) &&
+    Boolean(summary?.handoff) &&
+    !handoffBannerDismissed;
   const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
   const resolvedName = String(leadName || summary?.lead_name || '').trim() || displayName;
   const profileHref = String(summary?.lead_id || leadIdStr || '').trim()

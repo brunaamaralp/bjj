@@ -4,6 +4,7 @@
 @import './styles/tokens/content.css';
 @import './styles/tokens/menu.css';
 @import './styles/auth-pages.css';
+@import './styles/legal-pages.css';
 
 :root {
   /* Nave — brand palette */
@@ -822,14 +823,14 @@ a.btn-ghost:focus-visible {
 .navi-shell {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: minmax(0, 1fr);
-  flex: 1 1 0%;
+  grid-template-rows: 1fr;
+  flex: 1 1 auto;
   align-self: stretch;
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  height: 100%;
-  min-height: 0;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
   background: var(--paper);
 }
@@ -851,8 +852,8 @@ a.btn-ghost:focus-visible {
   animation: navi-fade-up 0.35s 0.05s ease both;
   transition: width 0.2s ease, max-width 0.2s ease, padding 0.2s ease;
   will-change: width, max-width;
-  align-self: stretch;
   min-height: 0;
+  overflow: hidden;
   grid-column: 1;
   grid-row: 1;
 }
@@ -1626,6 +1627,8 @@ a.btn-ghost:focus-visible {
 @media (min-width: 1024px) {
   .navi-sidebar {
     display: flex;
+    height: 100%;
+    min-height: 100%;
   }
 }
 
@@ -3165,18 +3168,8 @@ a.btn-ghost:focus-visible {
     display: none;
   }
 
-  body:has(.app-container.navi-authed),
-  body:has(.app-container.navi-authed) #root {
-    height: 100%;
-    min-height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-
   .app-container.navi-authed {
     padding-bottom: 0;
-    min-height: 100dvh;
-    max-height: 100dvh;
   }
 }
 
@@ -3185,9 +3178,6 @@ a.btn-ghost:focus-visible {
   max-width: 100%;
   min-width: 0;
   padding-bottom: 85px;
-  flex: 1 1 0%;
-  min-height: 0;
-  overflow: hidden;
 }
 
 /* Toasts */

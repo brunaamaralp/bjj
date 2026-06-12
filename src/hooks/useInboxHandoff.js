@@ -5,7 +5,7 @@ import { getHumanHandoffHoursForClient } from '../../lib/constants.js';
 /**
  * Handoff humano: hint de liberação, frase de duração e toast ao expirar.
  */
-export function useInboxHandoff({ selectedPhone, selected, toast }) {
+export function useInboxHandoff({ selectedPhone, selected, toast, agentIaActive = false }) {
   const [handoffReleaseHint, setHandoffReleaseHint] = useState(false);
   const handoffExpiryToastRef = useRef('');
 
@@ -23,6 +23,7 @@ export function useInboxHandoff({ selectedPhone, selected, toast }) {
       return;
     }
     const showExpiryToast = () => {
+      if (!agentIaActive) return;
       const key = `${phone}:${untilMs}`;
       if (handoffExpiryToastRef.current === key) return;
       handoffExpiryToastRef.current = key;
@@ -35,7 +36,7 @@ export function useInboxHandoff({ selectedPhone, selected, toast }) {
     }
     const id = setTimeout(showExpiryToast, delay);
     return () => clearTimeout(id);
-  }, [toast, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
+  }, [toast, agentIaActive, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
 
   return {
     handoffReleaseHint,

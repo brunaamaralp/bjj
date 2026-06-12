@@ -26,6 +26,8 @@ import { useUiStore } from './store/useUiStore';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Welcome from './pages/Welcome';
+import TermsOfUse from './pages/TermsOfUse';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
 import { prefetchRouteBootstrapData } from './lib/bootstrapRoutePrefetch.js';
 import NaviUserMenu from './components/layout/NaviUserMenu.jsx';
@@ -108,6 +110,11 @@ function academyCreateBodyFromUser(user, opts) {
   const body = { ai_name: defaultAiNameFromUser(user) };
   if (opts && opts.vertical !== undefined && opts.vertical !== null) {
     body.vertical = String(opts.vertical).trim() === 'physio' ? 'physio' : 'fitness';
+  }
+  if (opts?.legalAcceptance && typeof opts.legalAcceptance === 'object') {
+    body.legal_terms_version = String(opts.legalAcceptance.termsVersion || '');
+    body.legal_privacy_version = String(opts.legalAcceptance.privacyVersion || '');
+    body.legal_accepted_at = String(opts.legalAcceptance.acceptedAt || '');
   }
   return body;
 }
@@ -985,6 +992,18 @@ const App = () => {
             <Route path="/inscricao/:token" element={<PublicStudentEnrollment />} />
           </Routes>
         </Suspense>
+      </>
+    );
+  }
+
+  if (/^\/(termos|privacidade)\/?$/.test(location.pathname)) {
+    return (
+      <>
+        <OfflineBanner />
+        <Routes>
+          <Route path="/termos" element={<TermsOfUse />} />
+          <Route path="/privacidade" element={<PrivacyPolicy />} />
+        </Routes>
       </>
     );
   }

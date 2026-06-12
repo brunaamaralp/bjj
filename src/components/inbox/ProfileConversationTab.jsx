@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Sparkles, WifiOff } from 'lucide-react';
 import { useInboxConversation } from '../../hooks/useInboxConversation';
+import { useInboxDeferredBoot } from '../../hooks/useInboxDeferredBoot';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
+import { useLeadStore } from '../../store/useLeadStore';
+import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
 import InboxComposer from './InboxComposer';
 import NaviChatThread from '../chat-widget/NaviChatThread';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
@@ -43,6 +46,8 @@ export default function ProfileConversationTab({
   const displayName = String(leadName || '').trim() || 'o contato';
   const phoneDigits = primaryInboxPhone(rawPhone);
   const leadIdStr = String(leadId || '').trim();
+  const aiModuleEnabled = useLeadStore((s) => s.modules?.aiEnabled !== false);
+  const { agentIaActive } = useInboxDeferredBoot(academyId, {});
 
   const {
     messages,
@@ -119,7 +124,10 @@ export default function ProfileConversationTab({
   }, [summary, onSummaryChange]);
 
   const hasMessages = messages.length > 0;
-  const showAiHandoffBanner = Boolean(summary?.handoff) && !handoffBannerDismissed;
+  const showAiHandoffBanner =
+    isAgentAutoReplyEnabled(agentIaActive, aiModuleEnabled) &&
+    Boolean(summary?.handoff) &&
+    !handoffBannerDismissed;
   const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
 
   const handleSend = useCallback(async () => {

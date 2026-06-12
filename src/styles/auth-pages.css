@@ -259,6 +259,27 @@
 
 .login-page .sep { color: var(--text-muted); }
 
+.login-legal-foot {
+  margin: 16px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.login-legal-foot a {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-legal-foot a:hover {
+  color: var(--color-primary);
+}
+
 .login-page .spinner {
   width: 20px;
   height: 20px;

@@ -88,6 +88,7 @@ export function useInboxThreadPanelProps(params) {
     setLeadPanel,
     academyId,
     aiModuleEnabled,
+    agentIaActive,
   } = params;
 
   return useMemo(
@@ -176,6 +177,7 @@ export function useInboxThreadPanelProps(params) {
       linkingLead,
       academyId,
       aiEnabled: aiModuleEnabled,
+      agentIaActive,
     }),
     [
       selectedPhone,
@@ -261,6 +263,7 @@ export function useInboxThreadPanelProps(params) {
       setLeadPanel,
       academyId,
       aiModuleEnabled,
+      agentIaActive,
     ]
   );
 }

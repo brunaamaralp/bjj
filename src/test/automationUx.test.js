@@ -9,7 +9,7 @@ import {
 import { AUTOMATION_DEFAULTS } from '../lib/useAutomations.js';
 
 describe('automationUx', () => {
-  it('computeAutomationReadiness when all ok', () => {
+  it('computeAutomationReadiness when infra ok', () => {
     const cfg = { schedule_confirm: { ...AUTOMATION_DEFAULTS.schedule_confirm, active: true } };
     const r = computeAutomationReadiness({
       automationsConfig: cfg,
@@ -17,8 +17,23 @@ describe('automationUx', () => {
       waConnected: true,
       hasZapsterInstance: true,
     });
+    expect(r.infraReady).toBe(true);
     expect(r.ready).toBe(true);
     expect(r.activeCount).toBe(1);
+    expect(r.activationLabel).toContain('1 gatilho');
+  });
+
+  it('computeAutomationReadiness infra ok sem gatilhos ativos', () => {
+    const r = computeAutomationReadiness({
+      automationsConfig: AUTOMATION_DEFAULTS,
+      templatesMap: { confirm: 'Olá {nome}' },
+      waConnected: true,
+      hasZapsterInstance: true,
+    });
+    expect(r.infraReady).toBe(true);
+    expect(r.ready).toBe(true);
+    expect(r.activeCount).toBe(0);
+    expect(r.activationLabel).toContain('Nenhum gatilho ativo');
   });
 
   it('getLeadAutomationBadges lists pending', () => {

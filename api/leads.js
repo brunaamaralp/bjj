@@ -8,8 +8,10 @@ import { sendZapsterText } from '../lib/server/zapsterSend.js';
 import {
   BIRTHDAY_CRON_DEFAULT_TEXT,
   applyWhatsappTemplatePlaceholders,
+  isBirthdayCronEnabled,
   parseWhatsappTemplatesField,
 } from '../lib/whatsappTemplateDefaults.js';
+import { parseAutomationsConfig } from '../lib/automationCore.js';
 import { recordWhatsappTemplateSent } from '../lib/server/whatsappTemplateSent.js';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { listAcademyStudentDocs } from '../lib/server/listAcademyStudents.js';
@@ -105,10 +107,11 @@ function zapsterInstanceFromAcademy(doc) {
   return String(doc?.zapster_instance_id || doc?.zapsterInstanceId || '').trim();
 }
 
-function resolveBirthdayMessageTemplate(academy) {
+function resolveBirthdayMessageTemplate(academy, templateKey = 'birthday') {
+  const key = String(templateKey || 'birthday').trim() || 'birthday';
   const { templates } = parseWhatsappTemplatesField(academy?.whatsappTemplates);
-  const fromTemplates = String(templates?.birthday || '').trim();
-  const fromAcademy = String(academy?.birthdayMessage || '').trim();
+  const fromTemplates = String(templates?.[key] || '').trim();
+  const fromAcademy = key === 'birthday' ? String(academy?.birthdayMessage || '').trim() : '';
   return fromTemplates || fromAcademy || BIRTHDAY_CRON_DEFAULT_TEXT;
 }
 
@@ -150,6 +153,8 @@ async function runBirthdayCron() {
   const details = [];
 
   for (const academy of academies) {
+    if (!isBirthdayCronEnabled(academy)) continue;
+
     const inst = zapsterInstanceFromAcademy(academy);
     if (!inst) {
       skipped += 1;
@@ -157,7 +162,9 @@ async function runBirthdayCron() {
     }
 
     const academyName = String(academy?.name || '').trim();
-    const templateRaw = resolveBirthdayMessageTemplate(academy);
+    const birthdayCfg = parseAutomationsConfig(academy.automations_config).birthday || {};
+    const templateKey = String(birthdayCfg.templateKey || 'birthday').trim() || 'birthday';
+    const templateRaw = resolveBirthdayMessageTemplate(academy, templateKey);
 
     let leads;
     try {
@@ -218,7 +225,7 @@ async function runBirthdayCron() {
           academyId: academy.$id,
           leadId: doc.$id,
           templateKey: 'birthday',
-          automationKey: 'birthday_cron',
+          automationKey: 'birthday',
           createdBy: 'cron',
         });
       } catch {

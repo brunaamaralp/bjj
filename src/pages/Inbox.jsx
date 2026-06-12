@@ -387,6 +387,7 @@ export default function Inbox() {
     selectedPhone,
     selected,
     toast,
+    agentIaActive,
   });
   const {
     desktopNotify,
@@ -646,13 +647,6 @@ export default function Inbox() {
   useEffect(() => {
     selectedPhoneRef.current = String(selectedPhone || '');
   }, [selectedPhone]);
-
-  useInboxChatWidgetSync({
-    selectedPhone,
-    setSelectedPhone,
-    selected,
-    normalizePhone,
-  });
 
   useEffect(() => {
     const threadAbort = threadAbortRef;
@@ -933,6 +927,14 @@ export default function Inbox() {
     updateLead,
     setLinkingLead,
     setDismissTriageLead,
+  });
+
+  useInboxChatWidgetSync({
+    selectedPhone,
+    setSelectedPhone,
+    selected,
+    activeContactLead,
+    normalizePhone,
   });
 
   useEffect(() => {
@@ -1245,6 +1247,8 @@ export default function Inbox() {
     setSlashOpen,
     setSlashQuery,
     toast,
+    agentIaActive,
+    aiModuleEnabled,
   });
 
   const { threadActionsMenuProps, messageMenuProps, scrollToMsgKey, contextPanelVisible } =
@@ -1357,6 +1361,7 @@ export default function Inbox() {
     setLeadPanel,
     academyId,
     aiModuleEnabled,
+    agentIaActive,
   });
 
   const threadPanel = (

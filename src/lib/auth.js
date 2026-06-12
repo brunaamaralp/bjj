@@ -18,9 +18,22 @@ export const authService = {
         return session;
     },
 
-    async register(email, password, name) {
+    async register(email, password, name, legalAcceptance) {
         await account.create(ID.unique(), email, password, name);
-        return await this.login(email, password);
+        const session = await this.login(email, password);
+        if (legalAcceptance && typeof legalAcceptance === 'object') {
+            try {
+                await account.updatePrefs({
+                    legal_terms_version: String(legalAcceptance.termsVersion || ''),
+                    legal_privacy_version: String(legalAcceptance.privacyVersion || ''),
+                    legal_accepted_at: String(legalAcceptance.acceptedAt || new Date().toISOString()),
+                });
+            } catch (e) {
+                console.error('[Auth] Falha ao gravar aceite legal:', e);
+                throw new Error('Conta criada, mas não foi possível registrar o aceite dos termos. Tente entrar novamente ou fale com o suporte.');
+            }
+        }
+        return session;
     },
 
     async getCurrentUser() {

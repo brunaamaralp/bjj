@@ -5,6 +5,8 @@ import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { TERMS } from '../lib/terminology.js';
 import { friendlyError } from '../lib/errorMessages';
+import { LEGAL_ROUTES } from '../lib/legalConstants.js';
+import { buildLegalAcceptance } from '../lib/legalAcceptance.js';
 
 const Register = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ const Register = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [vertical, setVertical] = useState('fitness');
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,9 +28,15 @@ const Register = ({ onLogin }) => {
     try {
       if (!name.trim()) { setError(`Informe o nome da ${registerTerms.workspaceNoun}.`); setLoading(false); return; }
       if (password.length < 8) { setError('Senha deve ter no mínimo 8 caracteres.'); setLoading(false); return; }
-      await authService.register(email, password, name);
+      if (!acceptedLegal) {
+        setError('Você precisa aceitar os Termos de Uso e a Política de Privacidade.');
+        setLoading(false);
+        return;
+      }
+      const legalAcceptance = buildLegalAcceptance();
+      await authService.register(email, password, name, legalAcceptance);
       const user = await authService.getCurrentUser();
-      onLogin(user, { vertical });
+      onLogin(user, { vertical, legalAcceptance });
     } catch (err) {
       if (err.code === 409) {
         setError('Não foi possível criar a conta. Verifique os dados e tente novamente.');
@@ -126,9 +135,31 @@ const Register = ({ onLogin }) => {
             </div>
           </div>
 
+          <div className="legal-consent-row">
+            <label className="legal-consent">
+              <input
+                type="checkbox"
+                checked={acceptedLegal}
+                onChange={(e) => setAcceptedLegal(e.target.checked)}
+                required
+              />
+              <span>
+                Li e aceito os{' '}
+                <Link to={LEGAL_ROUTES.terms} target="_blank" rel="noopener noreferrer">
+                  Termos de Uso
+                </Link>
+                {' '}e a{' '}
+                <Link to={LEGAL_ROUTES.privacy} target="_blank" rel="noopener noreferrer">
+                  Política de Privacidade
+                </Link>
+                .
+              </span>
+            </label>
+          </div>
+
           {error && <div className="login-error">{error}</div>}
 
-          <button type="submit" className="btn-secondary btn-large login-btn" disabled={loading}>
+          <button type="submit" className="btn-secondary btn-large login-btn" disabled={loading || !acceptedLegal}>
             {loading ? <span className="spinner" /> : (<><UserPlus size={18} /> Criar Conta</>)}
           </button>
         </form>

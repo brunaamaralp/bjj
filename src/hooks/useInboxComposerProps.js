@@ -47,6 +47,8 @@ export function useInboxComposerProps(params) {
     setSlashOpen,
     setSlashQuery,
     toast,
+    agentIaActive,
+    aiModuleEnabled,
   } = params;
 
   return useMemo(
@@ -93,6 +95,8 @@ export function useInboxComposerProps(params) {
       setSlashOpen,
       setSlashQuery,
       toast,
+      agentIaActive,
+      aiModuleEnabled,
     }),
     [
       isMobile,
@@ -137,6 +141,8 @@ export function useInboxComposerProps(params) {
       setSlashOpen,
       setSlashQuery,
       toast,
+      agentIaActive,
+      aiModuleEnabled,
     ]
   );
 }
