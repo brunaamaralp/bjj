@@ -1,3 +1,4 @@
+import '../../styles/inbox-media.css';
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import useDialogFocus from '../../hooks/useDialogFocus.js';

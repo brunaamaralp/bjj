@@ -1,3 +1,4 @@
+import '../../styles/inbox-media.css';
 import React from 'react';
 import { Copy, MoreHorizontal, Reply } from 'lucide-react';
 import MessageBubble, { messageBubbleStatusFromMessage } from './MessageBubble.jsx';
