@@ -497,4 +497,43 @@ describe('zapsterWebhook', () => {
     expect(state.body?.motivo).toBe('instance_mismatch');
     expect(whMocks.updateMerge).not.toHaveBeenCalled();
   });
+
+  it('message.received de grupo persiste na conversa do grupo sem disparar agente', async () => {
+    whMocks.updateMerge.mockResolvedValueOnce({ ok: true, duplicate: false, docId: 'conv-group' });
+
+    const { default: handler } = await import('../../lib/server/zapsterWebhook.js');
+    const { res, state } = createMockRes();
+    await handler(
+      webhookReq({
+        event: 'message.received',
+        instance_id: 'inst-1',
+        message: {
+          id: 'msg-group-1',
+          type: 'text',
+          sender: { id: '5511999887766', name: 'Maria' },
+          recipient: {
+            id: '120363402123456789',
+            name: 'Turma Manhã',
+            type: 'group',
+          },
+          content: { text: 'Mensagem no grupo' },
+        },
+      }),
+      res
+    );
+
+    expect(state.statusCode).toBe(200);
+    expect(state.body?.whatsapp_group).toBe(true);
+    expect(whMocks.agentFetch).not.toHaveBeenCalled();
+    expect(whMocks.getOrCreate).toHaveBeenCalledWith('120363402123456789', 'acad-1', expect.anything());
+    const mergePayload = whMocks.updateMerge.mock.calls.at(-1)?.[1];
+    expect(mergePayload?.[0]).toEqual(
+      expect.objectContaining({
+        role: 'user',
+        content: 'Mensagem no grupo',
+        sender_name: 'Maria',
+        sender_phone: '5511999887766',
+      })
+    );
+  });
 });

@@ -16,7 +16,7 @@ import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError } from '../../lib/errorMessages';
-import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, CheckCircle2, Download } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
@@ -52,6 +52,11 @@ import SearchField from '../shared/SearchField.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
+import {
+  buildMensalidadesGridRows,
+  filterSortMensalidadesRows,
+  exportMensalidadesGridCsv,
+} from '../../lib/mensalidadesExport.js';
 import {
   buildExceptionStatusFilterOptions,
   listExceptionRows,
@@ -242,6 +247,7 @@ export default function MensalidadesPanel({
   const [exOnlyWithDiff, setExOnlyWithDiff] = useState(false);
   const [exSortBy, setExSortBy] = useState('difference');
   const [estornoCaixaWarning, setEstornoCaixaWarning] = useState('');
+  const [exportingGrid, setExportingGrid] = useState(false);
 
   useEffect(() => {
     if (!showModal || typeof document === 'undefined') return undefined;
@@ -886,6 +892,42 @@ export default function MensalidadesPanel({
     setExSortBy('difference');
   }, []);
 
+  const handleExportGrid = useCallback(() => {
+    if (exportingGrid) return;
+    setExportingGrid(true);
+    try {
+      const rows = buildMensalidadesGridRows(students, paymentMap, financeConfig, currentMonth);
+      const sorted = filterSortMensalidadesRows(rows, {
+        search,
+        filter,
+        turmaFilter: gridTurmaFilter,
+        sortBy: gridSortBy,
+      });
+      const count = exportMensalidadesGridCsv(sorted, currentMonth);
+      if (count === 0) {
+        toast.warning('Nenhum aluno na grade com os filtros atuais.');
+      } else {
+        toast.success(`${count} linha(s) exportada(s).`);
+      }
+    } catch (e) {
+      console.error('[MensalidadesPanel] export grid:', e);
+      toast.error('Não foi possível exportar a grade.');
+    } finally {
+      setExportingGrid(false);
+    }
+  }, [
+    exportingGrid,
+    students,
+    paymentMap,
+    financeConfig,
+    currentMonth,
+    search,
+    filter,
+    gridTurmaFilter,
+    gridSortBy,
+    toast,
+  ]);
+
   const hasStudentsWithPlan = useMemo(
     () => students.some((s) => String(s.plan || '').trim()),
     [students]
@@ -995,18 +1037,29 @@ export default function MensalidadesPanel({
             </FinanceToolbarSelect>
           ) : null}
           {viewMode === 'grid' ? (
-            <FinanceToolbarSelect
-              id="mensal-grid-sort"
-              label="Ordenar por"
-              className="finance-filters-bar__field--sort"
-              value={gridSortBy}
-              onChange={(e) => setGridSortBy(e.target.value)}
-            >
-              <option value="name">Nome</option>
-              <option value="due">Vencimento</option>
-              <option value="status">Status</option>
-              <option value="amount">Valor esperado</option>
-            </FinanceToolbarSelect>
+            <>
+              <FinanceToolbarSelect
+                id="mensal-grid-sort"
+                label="Ordenar por"
+                className="finance-filters-bar__field--sort"
+                value={gridSortBy}
+                onChange={(e) => setGridSortBy(e.target.value)}
+              >
+                <option value="name">Nome</option>
+                <option value="due">Vencimento</option>
+                <option value="status">Status</option>
+                <option value="amount">Valor esperado</option>
+              </FinanceToolbarSelect>
+              <button
+                type="button"
+                className="btn-outline btn-sm navi-btn--toolbar"
+                onClick={handleExportGrid}
+                disabled={exportingGrid || loading}
+              >
+                <Download size={14} aria-hidden />
+                {exportingGrid ? 'Exportando…' : 'Exportar CSV'}
+              </button>
+            </>
           ) : null}
           {viewMode === 'exceptions' ? (
             <>

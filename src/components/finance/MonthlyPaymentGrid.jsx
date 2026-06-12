@@ -14,17 +14,19 @@ import MonthlyGridMobileCard from './MonthlyGridMobileCard.jsx';
 import { GridStatusBadgeButton } from './gridStatusBadge.jsx';
 import { getStudentPayments, saveMonthlyPayment } from '../../lib/studentPayments';
 import {
-  expectedAmountForStudent,
   formatDueDayLabel,
   GRID_STATUS_LABELS,
   HISTORY_BADGE,
   historyStatusForMonth,
   monthKeysBack,
-  receivedAmountForPayment,
-  resolveGridDisplayStatus,
   mapDbStatusFromGridForm,
 } from '../../lib/paymentStatus';
-import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
+import { dueDateInMonth } from '../../lib/collectionOverdue.js';
+import {
+  buildMensalidadesGridRows,
+  filterSortMensalidadesRows,
+  studentTurma,
+} from '../../lib/mensalidadesExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import { Users } from 'lucide-react';
 
@@ -66,12 +68,6 @@ function saveGridColumnVisibility(academyId, visibility) {
   } catch {
     /* ignore */
   }
-}
-
-function studentTurma(student) {
-  return String(
-    student?.turma || student?.className || student?.class_name || student?.classId || ''
-  ).trim();
 }
 
 export default function MonthlyPaymentGrid({
@@ -126,50 +122,15 @@ export default function MonthlyPaymentGrid({
     return 5 + optional;
   }, [visibleCols]);
 
-  const rows = useMemo(() => {
-    return students.map((student) => {
-      const payment = paymentMap[student.id];
-      const expected = expectedAmountForStudent(student, financeConfig, payment);
-      const display = resolveGridDisplayStatus(student, payment, currentMonth);
-      return {
-        student,
-        payment,
-        expected,
-        display,
-        received: receivedAmountForPayment(payment),
-        note: String(payment?.note || '').trim(),
-      };
-    });
-  }, [students, paymentMap, financeConfig, currentMonth]);
+  const rows = useMemo(
+    () => buildMensalidadesGridRows(students, paymentMap, financeConfig, currentMonth),
+    [students, paymentMap, financeConfig, currentMonth]
+  );
 
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (filter !== 'all' && row.display.key !== filter) return false;
-      if (turmaFilter !== 'all' && studentTurma(row.student) !== turmaFilter) return false;
-      if (q && !String(row.student.name || '').toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [rows, filter, search, turmaFilter]);
-
-  const sortedRows = useMemo(() => {
-    const copy = [...filteredRows];
-    copy.sort((a, b) => {
-      if (sortBy === 'due') {
-        const ad = studentDueDay(a.student) ?? 99;
-        const bd = studentDueDay(b.student) ?? 99;
-        return ad - bd;
-      }
-      if (sortBy === 'status') {
-        return a.display.key.localeCompare(b.display.key, 'pt-BR');
-      }
-      if (sortBy === 'amount') {
-        return (b.expected || 0) - (a.expected || 0);
-      }
-      return String(a.student.name || '').localeCompare(String(b.student.name || ''), 'pt-BR');
-    });
-    return copy;
-  }, [filteredRows, sortBy]);
+  const sortedRows = useMemo(
+    () => filterSortMensalidadesRows(rows, { search, filter, turmaFilter, sortBy }),
+    [rows, filter, search, turmaFilter, sortBy]
+  );
 
   const desktopTableRows = useMemo(() => {
     const items = [];
