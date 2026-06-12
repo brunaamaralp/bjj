@@ -658,6 +658,8 @@ const LeadProfile = () => {
         () =>
             [...(timelineEvents || [])]
                 .filter((ev) => {
+                    const hiddenTypes = new Set(['ai_history_summary', 'ai_followup_draft']);
+                    if (hiddenTypes.has(String(ev?.type || ''))) return false;
                     if (ev?.type === 'pipeline_change' && String(ev?.from || '') === String(ev?.to || '')) {
                         return false;
                     }

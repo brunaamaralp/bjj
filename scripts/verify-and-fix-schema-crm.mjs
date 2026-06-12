@@ -385,6 +385,7 @@ const LEADS_ATTRS = [
   { key: 'last_contact_at', type: 'string', size: 64 },
   { key: 'last_whatsapp_activity_at', type: 'string', size: 64 },
   { key: 'last_note_at', type: 'string', size: 64 },
+  { key: 'ai_history_summary_json', type: 'string', size: 8192 },
   { key: 'utm_source', type: 'string', size: 128 },
   { key: 'utm_medium', type: 'string', size: 128 },
   { key: 'utm_campaign', type: 'string', size: 128 },

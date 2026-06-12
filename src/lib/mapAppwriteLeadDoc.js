@@ -72,5 +72,6 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     lostReason: doc.lostReason || '',
     triageStatus: String(doc.triage_status || '').trim(),
     inboundAuto: doc.inbound_auto === true || String(doc.inbound_auto || '').trim().toLowerCase() === 'true',
+    aiHistorySummaryJson: String(doc.ai_history_summary_json || '').trim(),
   };
 }

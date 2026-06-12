@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     if (route === 'academy-settings' || url.includes('/academy/settings')) {
       return academySettingsHandler(req, res);
     }
-    if (route === 'followup-copilot' || route === 'followup_summary' || route === 'followup_draft') {
+    if (route === 'followup-copilot' || route === 'followup_summary' || route === 'followup_draft' || route === 'lead-summary') {
       return followupCopilotHandler(req, res);
     }
     if (route === 'followup-inbound') {

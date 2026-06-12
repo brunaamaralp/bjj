@@ -16,8 +16,8 @@ describe('followupCopilotMessages', () => {
 
     const msgs = resolveConversationMessagesFromDoc(doc, 20);
     expect(msgs).toHaveLength(2);
-    expect(msgs[0]).toEqual({ role: 'cliente', content: 'Gostei da aula' });
-    expect(msgs[1]).toEqual({ role: 'assistente', content: 'Que bom!' });
+    expect(msgs[0]).toEqual({ role: 'cliente', content: 'Gostei da aula', at: '2026-06-10T10:00:00.000Z' });
+    expect(msgs[1]).toEqual({ role: 'assistente', content: 'Que bom!', at: '2026-06-10T10:01:00.000Z' });
   });
 
   it('mapeia roles para o prompt do copilot', () => {
@@ -28,8 +28,8 @@ describe('followupCopilotMessages', () => {
         { role: 'system', content: '' },
       ])
     ).toEqual([
-      { role: 'cliente', content: 'Planos?' },
-      { role: 'assistente', content: 'Temos mensal.' },
+      { role: 'cliente', content: 'Planos?', at: '' },
+      { role: 'assistente', content: 'Temos mensal.', at: '' },
     ]);
   });
 });

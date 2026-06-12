@@ -8,7 +8,7 @@ Banco de Dados
 
 Coleções (Collections)
 - LEADS_COL (Leads/Interessados — só funil, sem matriculados)
-  - Atributos: name, phone, type, origin, status (Novo…Não fechou — não Matriculado), pipeline_stage, scheduledDate, scheduledTime, parentName, age, birth_date, sexo, academyId, lostReason, whatsapp_*, label_ids, custom_answers_json, etc.
+  - Atributos: name, phone, type, origin, status (Novo…Não fechou — não Matriculado), pipeline_stage, scheduledDate, scheduledTime, parentName, age, birth_date, sexo, academyId, lostReason, whatsapp_*, label_ids, custom_answers_json, ai_history_summary_json (cache do Resumo IA), etc.
   - Índices sugeridos: equality em academyId; opcional em status; ordenação por $createdAt
   - Após migrar alunos para `students`: `npm run cleanup:lead-student-attrs` (dry-run) e depois `DRY_RUN=0 CONFIRM=1 npm run cleanup:lead-student-attrs`
 - STUDENTS_COL (Alunos matriculados)
