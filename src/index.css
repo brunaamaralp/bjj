@@ -4280,6 +4280,7 @@ select.form-input option {
 /* Tall modals: header fixo, rolagem só no corpo */
 .navi-modal-shell.navi-modal-shell--scroll-body,
 .navi-modal-shell.nova-venda-modal,
+.navi-modal-shell.new-lead-modal,
 .navi-modal-shell.sales-modal,
 .navi-modal-shell.contracts-modal {
   max-height: min(90vh, calc(100dvh - 48px));
@@ -4294,6 +4295,7 @@ select.form-input option {
 
 .navi-modal-shell.navi-modal-shell--scroll-body .navi-modal-shell__header,
 .navi-modal-shell.nova-venda-modal .navi-modal-shell__header,
+.navi-modal-shell.new-lead-modal .navi-modal-shell__header,
 .navi-modal-shell.sales-modal .navi-modal-shell__header,
 .navi-modal-shell.contracts-modal .navi-modal-shell__header {
   flex-shrink: 0;
@@ -4301,6 +4303,7 @@ select.form-input option {
 
 .navi-modal-shell.navi-modal-shell--scroll-body .navi-modal-shell__body,
 .navi-modal-shell.nova-venda-modal .navi-modal-shell__body,
+.navi-modal-shell.new-lead-modal .navi-modal-shell__body,
 .navi-modal-shell.sales-modal .navi-modal-shell__body,
 .navi-modal-shell.contracts-modal .navi-modal-shell__body {
   flex: 1;
@@ -4312,6 +4315,7 @@ select.form-input option {
 
 .navi-modal-shell.navi-modal-shell--scroll-body .navi-modal-shell__footer,
 .navi-modal-shell.nova-venda-modal .navi-modal-shell__footer,
+.navi-modal-shell.new-lead-modal .navi-modal-shell__footer,
 .navi-modal-shell.sales-modal .navi-modal-shell__footer,
 .navi-modal-shell.contracts-modal .navi-modal-shell__footer {
   flex-shrink: 0;

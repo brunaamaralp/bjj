@@ -21,6 +21,7 @@ import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/stud
 import { getStageUpdatePayload, isOpenFunnelLead, normalizePipelineStageId, resolveLeadPipelineStageId } from '../lib/leadStageRules.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
+import { dispatchOpenNewLeadModal } from '../lib/newLeadModal.js';
 import { enrollmentDateYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 import {
   enrolledContactMatchesPeriod,
@@ -2862,7 +2863,7 @@ const Pipeline = () => {
                                 <button
                                     type="button"
                                     className="btn-action-primary btn-primary-action"
-                                    onClick={() => navigate('/new-lead')}
+                                    onClick={() => dispatchOpenNewLeadModal()}
                                 >
                                     <PlusCircle size={14} /> Novo lead
                                 </button>
@@ -2919,7 +2920,7 @@ const Pipeline = () => {
                             <button
                                 type="button"
                                 className="btn-action-primary btn-primary-action"
-                                onClick={() => navigate('/new-lead')}
+                                onClick={() => dispatchOpenNewLeadModal()}
                             >
                                 <PlusCircle size={14} aria-hidden /> Novo lead
                             </button>

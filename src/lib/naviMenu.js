@@ -192,6 +192,7 @@ export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
 }
 
 export const NOVA_VENDA_MENU_ACTION = 'openNovaVendaModal';
+export const NEW_LEAD_MENU_ACTION = 'openNewLeadModal';
 export const NOVO_LANCAMENTO_MENU_ACTION = 'openNovoLancamento';
 export const FINANCEIRO_NOVO_LANCAMENTO_PATH = `${FINANCEIRO_HUB_PATH}?tab=movimentacoes&new=1`;
 
@@ -336,7 +337,9 @@ export function buildSidebarNavModel({
   if (loja) accordions.push(loja);
 
   return {
-    newLead: newLeadLabel ? { to: '/new-lead', label: newLeadLabel, iconKey: 'newLead', action: true } : null,
+    newLead: newLeadLabel
+      ? { label: newLeadLabel, iconKey: 'newLead', action: NEW_LEAD_MENU_ACTION }
+      : null,
     primary: [
       { to: '/', label: 'Hoje', iconKey: 'inicio', end: true },
       { to: '/pipeline', label: pipelineLabel, iconKey: 'pipeline' },

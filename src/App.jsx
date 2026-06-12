@@ -84,10 +84,12 @@ import NaviMobileMoreSheet from './components/layout/NaviMobileMoreSheet.jsx';
 import NaviMobileDrawer from './components/layout/NaviMobileDrawer.jsx';
 import { NAV_PUSH_EVENT } from './lib/navPush.js';
 import { OPEN_NOVA_VENDA_MODAL_EVENT } from './lib/novaVendaModal.js';
+import { OPEN_NEW_LEAD_MODAL_EVENT } from './lib/newLeadModal.js';
 import NaviSidebarNav from './components/layout/NaviSidebarNav.jsx';
 import { NlCommandBarTrigger } from './components/NlCommandBarTrigger.jsx';
 
 const NovaVendaModal = lazyWithRetry(() => import('./components/sales/NovaVendaModal.jsx'));
+const NewLeadModal = lazyWithRetry(() => import('./components/leads/NewLeadModal.jsx'));
 const NlCommandBar = lazyWithRetry(() => import('./components/NlCommandBar.jsx'));
 import { resolveNlContext } from './lib/nlCommandRouteContext.js';
 import { useNlCommandStore } from './store/useNlCommandStore.js';
@@ -140,6 +142,7 @@ const App = () => {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [mobileNavDrawerOpen, setMobileNavDrawerOpen] = useState(false);
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
+  const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [nlOpen, setNlOpen] = useState(false);
   const nlPageOverrides = useNlCommandStore((s) => s.pageOverrides);
   const nlContext = useMemo(() => {
@@ -297,6 +300,12 @@ const App = () => {
     const onOpenNovaVenda = () => setNovaVendaOpen(true);
     window.addEventListener(OPEN_NOVA_VENDA_MODAL_EVENT, onOpenNovaVenda);
     return () => window.removeEventListener(OPEN_NOVA_VENDA_MODAL_EVENT, onOpenNovaVenda);
+  }, []);
+
+  useEffect(() => {
+    const onOpenNewLead = () => setNewLeadOpen(true);
+    window.addEventListener(OPEN_NEW_LEAD_MODAL_EVENT, onOpenNewLead);
+    return () => window.removeEventListener(OPEN_NEW_LEAD_MODAL_EVENT, onOpenNewLead);
   }, []);
 
   const sideLinkClass = ({ isActive: navIsActive }) =>
@@ -1215,6 +1224,11 @@ const App = () => {
           <NovaVendaModal open={novaVendaOpen} onClose={() => setNovaVendaOpen(false)} />
         </Suspense>
       ) : null}
+      {newLeadOpen ? (
+        <Suspense fallback={null}>
+          <NewLeadModal open={newLeadOpen} onClose={() => setNewLeadOpen(false)} />
+        </Suspense>
+      ) : null}
       {academyReady && academyIdStore && aiModuleEnabled ? (
         <Suspense fallback={null}>
           <NlCommandBar
@@ -1246,11 +1260,16 @@ const App = () => {
           )}
           <span>Conversas</span>
         </Link>
-        <Link to="/new-lead" className="navi-nav-item navi-nav-fab" aria-label={newLeadLabel}>
+        <button
+          type="button"
+          className="navi-nav-item navi-nav-fab"
+          aria-label={newLeadLabel}
+          onClick={() => setNewLeadOpen(true)}
+        >
           <div className="navi-fab-btn">
             <PlusCircle size={28} strokeWidth={1.75} />
           </div>
-        </Link>
+        </button>
         <Link to="/students" className={`navi-nav-item${isActive('/students') ? ' active' : ''}`}>
           <GraduationCap size={22} strokeWidth={1.75} />
           <span>{navStudentsLabel}</span>

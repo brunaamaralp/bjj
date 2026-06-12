@@ -23,6 +23,7 @@ import {
     CheckSquare,
 } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
+import { dispatchOpenNewLeadModal } from '../lib/newLeadModal.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import DashboardBirthdayBanner from '../components/dashboard/DashboardBirthdayBanner.jsx';
 import DashboardBirthdayModal from '../components/dashboard/DashboardBirthdayModal.jsx';
@@ -1084,7 +1085,7 @@ const Dashboard = () => {
                                 Liberar catraca
                             </button>
                         )}
-                        <button type="button" className="btn-primary reception-header-new-lead" onClick={() => navigate('/new-lead')}>
+                        <button type="button" className="btn-primary reception-header-new-lead" onClick={() => dispatchOpenNewLeadModal()}>
                             <Plus size={20} strokeWidth={2.25} />{' '}
                             {`Novo ${(() => {
                                 const l = useLeadStore.getState().labels?.leads || 'Leads';
@@ -1196,7 +1197,7 @@ const Dashboard = () => {
                         Comece adicionando o primeiro {contactLabel.toLowerCase()} para acompanhar a jornada até a matrícula.
                     </p>
                     <div className="dashboard-zero-welcome__actions">
-                        <button type="button" className="btn-primary" onClick={() => navigate('/new-lead')}>
+                        <button type="button" className="btn-primary" onClick={() => dispatchOpenNewLeadModal()}>
                             <Plus size={18} strokeWidth={2.25} aria-hidden />
                             Adicionar primeiro {contactLabel.toLowerCase()}
                         </button>

@@ -29,6 +29,7 @@ import {
   FINANCEIRO_NOVO_LANCAMENTO_PATH,
 } from '../../lib/naviMenu.js';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
+import { dispatchOpenNewLeadModal } from '../../lib/newLeadModal.js';
 
 const ICONS = {
   inicio: LayoutGrid,
@@ -103,14 +104,17 @@ export default function NaviMobileDrawer({
           <nav className="navi-mobile-drawer__nav" aria-label="Navegação principal">
             {newLeadLabel ? (
               <div className="navi-mobile-drawer__actions">
-                <Link
-                  to="/new-lead"
+                <button
+                  type="button"
                   className="navi-mobile-drawer__action navi-mobile-drawer__action--primary"
-                  onClick={onClose}
+                  onClick={() => {
+                    dispatchOpenNewLeadModal();
+                    onClose();
+                  }}
                 >
                   <PlusCircle size={18} strokeWidth={2.25} aria-hidden />
                   <span>{newLeadLabel}</span>
-                </Link>
+                </button>
               </div>
             ) : null}
             {sections.map((section) => (

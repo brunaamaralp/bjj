@@ -31,6 +31,7 @@ import {
   DoorOpen,
 } from 'lucide-react';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
+import { dispatchOpenNewLeadModal } from '../../lib/newLeadModal.js';
 import {
   buildSidebarNavModel,
   getAccordionIdForLocation,
@@ -487,12 +488,13 @@ export default function NaviSidebarNav({
           <div className="navi-sidebar-actions">
             {navModel.newLead ? (
               <SideNavLink
-                to={navModel.newLead.to}
                 label={navModel.newLead.label}
                 Icon={PlusCircle}
                 collapsed={collapsed}
                 className={sideLinkClass}
                 action
+                useNavLink={false}
+                onClick={() => dispatchOpenNewLeadModal()}
               />
             ) : null}
           </div>
