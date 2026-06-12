@@ -5,6 +5,7 @@ import ConversationNotesPanel from './ConversationNotesPanel';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import InboxTriageCard from './InboxTriageCard.jsx';
+import InboxTriageRestoreBanner from './InboxTriageRestoreBanner.jsx';
 import InboxLinkStudentPanel from './InboxLinkStudentPanel.jsx';
 import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 import { isLeadPendingTriage } from '../../lib/leadTriage.js';
@@ -67,6 +68,8 @@ export function InboxContextPanelContent(props) {
     onLinkStudentConfirm,
     triageBusy,
     activeContactLead,
+    triageDismissed = false,
+    onRestoreTriage,
     pinnedMessages,
     setSelectedMsgKey,
     scrollToMsgKey,
@@ -228,6 +231,7 @@ export function InboxContextPanelContent(props) {
               </div>
               {pendingTriage && leadPanel !== 'link_student' ? (
                 <InboxTriageCard
+                  compact
                   busy={triageBusy || linkingLead}
                   suggestedAction={triageSuggested}
                   contextLine={triageContext}
@@ -235,6 +239,12 @@ export function InboxContextPanelContent(props) {
                   onConfirm={() => onConfirmTriage?.(lead)}
                   onLinkStudent={() => onOpenLinkStudent?.()}
                   onDismiss={() => onDismissTriage?.(lead)}
+                />
+              ) : null}
+              {triageDismissed && !pendingTriage && leadPanel !== 'link_student' ? (
+                <InboxTriageRestoreBanner
+                  busy={triageBusy || linkingLead}
+                  onRestore={onRestoreTriage}
                 />
               ) : null}
               {suggestedAction && !pendingTriage ? (
@@ -257,7 +267,7 @@ export function InboxContextPanelContent(props) {
                 </button>
               ) : null}
               <div className="inbox-context-btn-row">
-                {!pendingTriage && !selected?.lead_id && !isInboxGroupPhone(phone) && (
+                {!pendingTriage && !triageDismissed && !selected?.lead_id && !isInboxGroupPhone(phone) && (
                   <>
                     <button
                       className="btn btn-primary inbox-btn--ctx"

@@ -524,6 +524,7 @@ export default function Inbox() {
     linkLeadToConversation,
     saveContactName,
     convertToLead,
+    restoreLeadTriage,
     openPromptSettings,
   } = useInboxConversationActions({
     toast,
@@ -554,6 +555,7 @@ export default function Inbox() {
     selected,
     contactLabel,
     updateLead,
+    fetchLeads,
   });
 
   const {
@@ -917,6 +919,7 @@ export default function Inbox() {
     leadCandidates,
     activeContactLead,
     pendingTriage,
+    triageDismissed,
     activeFollowupState,
     followupOutcomeLead,
     savingFollowupOutcome,
@@ -1368,10 +1371,12 @@ export default function Inbox() {
     handoffDurationPhrase,
     retryFailedMessage,
     pendingTriage,
+    triageDismissed,
     activeContactLead,
     handleInboxConfirmTriage,
     handleInboxDismissTriage,
     handleOpenLinkStudent,
+    restoreLeadTriage,
     linkingLead,
     activeFollowupState,
     handleFollowupSendTemplate,
@@ -1432,6 +1437,8 @@ export default function Inbox() {
     handleOpenLinkStudent,
     handleInboxLinkStudentConfirm,
     activeContactLead,
+    triageDismissed,
+    restoreLeadTriage,
     pinnedMessages,
     setSelectedMsgKey,
     scrollToMsgKey,
@@ -1524,7 +1531,7 @@ export default function Inbox() {
       <ConfirmDialog
         open={Boolean(dismissTriageLead)}
         title="Marcar que não é lead?"
-        description="Este contato será removido do funil."
+        description="Este contato será removido do funil. Novas mensagens dele não voltarão à triagem."
         confirmLabel="Não é lead"
         onConfirm={() => void executeDismissTriage()}
         onClose={() => setDismissTriageLead(null)}

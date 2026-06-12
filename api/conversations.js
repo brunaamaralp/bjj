@@ -7,12 +7,20 @@ assertHumanHandoffEnvOnBoot();
 import { waitUntil } from '@vercel/functions';
 import {
   safeParseMessages,
+  readAgentState,
+  stringifyAgentState,
   getOrCreateConversationDoc,
   findConversationDoc,
   getConversationDocForThread,
   getConversationMessagesDoc,
   backfillMessagesRecentFromFull,
 } from '../lib/server/conversationsStore.js';
+import {
+  buildTriageDismissedAgentState,
+  clearTriageDismissedAgentState,
+  isConversationTriageDismissed,
+} from '../lib/server/conversationTriageDismissed.js';
+import { ensureWhatsAppInboundLead } from '../lib/server/ensureWhatsAppInboundLead.js';
 import {
   deriveLastMessageMeta,
   hasStoredLastMessageMeta,
@@ -35,7 +43,7 @@ import {
 } from '../lib/server/inboxListStatsCache.js';
 import { enrichConversationListDocs } from '../lib/server/inboxListLeadEnrichment.js';
 import { resolveInboxProfileAvatars } from '../lib/server/inboxProfileAvatars.js';
-import { fetchZapsterRecipientProfile } from '../lib/server/zapsterRecipientProfile.js';
+import { primaryInboxPhone } from '../src/lib/normalizeInboxPhone.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -284,7 +292,7 @@ export default async function handler(req, res) {
     if (String(req.query.avatars || '').trim() === '1') {
       const phones = String(req.query.phones || '')
         .split(',')
-        .map((p) => normalizePhone(p))
+        .map((p) => primaryInboxPhone(p) || normalizePhone(p))
         .filter((p) => p.length >= 8)
         .slice(0, 12);
       if (!phones.length) return json(res, 200, { avatars: {} });
@@ -431,33 +439,56 @@ export default async function handler(req, res) {
       let whatsappProfileImageUrl = String(doc.whatsapp_profile_image_url || '').trim();
       let whatsappProfileName = String(doc.whatsapp_profile_name || '').trim();
       if (!whatsappProfileImageUrl && isInitialThreadPage(cursor)) {
-        const instanceId = String(academyDoc?.zapster_instance_id || academyDoc?.zapsterInstanceId || '').trim();
-        const recipientPhone = String(doc.phone_number || '').trim() || phoneDigits;
-        if (instanceId && recipientPhone) {
-          waitUntil(
-            (async () => {
-              const fetched = await fetchZapsterRecipientProfile(instanceId, recipientPhone);
-              if (!fetched.profilePicture) return;
-              const nowIso = new Date().toISOString();
-              const persistPayload = {
-                whatsapp_profile_image_url: fetched.profilePicture,
-                whatsapp_profile_image_updated_at: nowIso,
-              };
-              if (fetched.name && !whatsappProfileName) {
-                persistPayload.whatsapp_profile_name = fetched.name;
-                persistPayload.whatsapp_profile_name_updated_at = nowIso;
-              }
-              await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, persistPayload).catch((e) => {
-                console.warn(
-                  JSON.stringify({
-                    event: 'whatsapp_profile_image_persist_failed',
-                    conversationId: doc.$id,
-                    error: e?.message || String(e),
-                  })
-                );
-              });
-            })()
-          );
+        const recipientPhone = primaryInboxPhone(doc.phone_number || phoneDigits) || phoneDigits;
+        if (recipientPhone) {
+          try {
+            const { avatars, persists } = await resolveInboxProfileAvatars({
+              academyId,
+              academyDoc,
+              phones: [recipientPhone],
+            });
+            const url = String(avatars[recipientPhone] || '').trim();
+            if (url) whatsappProfileImageUrl = url;
+            const nameRow = persists.find((row) => String(row?.payload?.whatsapp_profile_name || '').trim());
+            if (nameRow && !whatsappProfileName) {
+              whatsappProfileName = String(nameRow.payload.whatsapp_profile_name).trim();
+            }
+            if (persists.length) {
+              waitUntil(
+                Promise.all(
+                  persists.map(({ docId, payload }) =>
+                    databases.updateDocument(DB_ID, CONVERSATIONS_COL, docId, payload).catch((e) => {
+                      console.warn(
+                        JSON.stringify({
+                          event: 'whatsapp_profile_image_persist_failed',
+                          conversationId: docId,
+                          error: e?.message || String(e),
+                        })
+                      );
+                    })
+                  )
+                )
+              );
+            }
+          } catch (e) {
+            console.warn(
+              JSON.stringify({
+                event: 'whatsapp_profile_image_resolve_failed',
+                phone: recipientPhone,
+                error: e?.message || String(e),
+              })
+            );
+          }
+        }
+      }
+
+      let triageDismissed = false;
+      if (!String(doc.lead_id || '').trim()) {
+        try {
+          const withState = await databases.getDocument(DB_ID, CONVERSATIONS_COL, doc.$id);
+          triageDismissed = isConversationTriageDismissed(withState);
+        } catch {
+          triageDismissed = isConversationTriageDismissed(doc);
         }
       }
 
@@ -470,6 +501,7 @@ export default async function handler(req, res) {
         summary: parseSummaryField(doc.summary),
         lead_id: String(doc.lead_id || '').trim() || null,
         lead_name: String(doc.lead_name || '').trim(),
+        triage_dismissed: triageDismissed,
         contact_name: String(doc.contact_name || '').trim(),
         contact_name_source: String(doc.contact_name_source || '').trim(),
         whatsapp_profile_name: whatsappProfileName,
@@ -593,6 +625,85 @@ export default async function handler(req, res) {
         lead_name: '',
       });
       return json(res, 200, { lead_id: null, lead_name: '' });
+    }
+
+    if (action === 'mark_not_lead') {
+      if (!doc) {
+        doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
+      }
+      if (!doc) return json(res, 200, { lead_id: null, lead_name: '', triage_dismissed: true });
+      const nextState = buildTriageDismissedAgentState(readAgentState(doc.agent_state));
+      const payload = {
+        lead_id: '',
+        lead_name: '',
+        agent_state: stringifyAgentState(nextState),
+      };
+      try {
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
+      } catch (e) {
+        const msg = String(e?.message || '');
+        if (/unknown attribute|agent_state/i.test(msg)) {
+          await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+            lead_id: '',
+            lead_name: '',
+          });
+        } else {
+          throw e;
+        }
+      }
+      return json(res, 200, { lead_id: null, lead_name: '', triage_dismissed: true });
+    }
+
+    if (action === 'restore_lead_triage') {
+      if (!doc) {
+        doc = await getOrCreateConversationDoc(phoneDigits, academyId, academyDoc);
+      }
+      if (!doc) return json(res, 500, { sucesso: false, erro: 'Não foi possível abrir conversa' });
+
+      const clearedState = clearTriageDismissedAgentState(readAgentState(doc.agent_state));
+      try {
+        await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+          agent_state: stringifyAgentState(clearedState),
+        });
+      } catch (e) {
+        const msg = String(e?.message || '');
+        if (!/unknown attribute|agent_state/i.test(msg)) throw e;
+      }
+
+      const contactName = String(
+        doc.contact_name || doc.whatsapp_profile_name || doc.lead_name || ''
+      ).trim();
+      const ensured = await ensureWhatsAppInboundLead({
+        databases,
+        academyId,
+        phone: phoneDigits,
+        name: contactName,
+        academyDoc,
+        conversationDocId: doc.$id,
+      });
+
+      const leadDoc = ensured?.leadDoc;
+      const leadId = String(leadDoc?.$id || '').trim();
+      if (!leadId) {
+        return json(res, 500, {
+          sucesso: false,
+          erro: 'Não foi possível recriar o lead para triagem',
+          skipped_reason: String(ensured?.skippedReason || '').trim() || null,
+        });
+      }
+
+      const leadName = String(leadDoc?.name || contactName || '').trim();
+      await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
+        lead_id: leadId,
+        lead_name: leadName,
+      });
+
+      return json(res, 200, {
+        lead_id: leadId,
+        lead_name: leadName,
+        triage_dismissed: false,
+        pending_triage: true,
+      });
     }
 
     if (action === 'set_contact_name') {

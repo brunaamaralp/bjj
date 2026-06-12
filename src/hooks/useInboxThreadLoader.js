@@ -128,6 +128,7 @@ export function useInboxThreadLoader({
         const handoffUntil = typeof data?.human_handoff_until === 'string' ? data.human_handoff_until : '';
         const ticketStatus = typeof data?.ticket_status === 'string' ? data.ticket_status : 'open';
         const transferTo = typeof data?.transfer_to === 'string' ? data.transfer_to : '';
+        const triageDismissed = data?.triage_dismissed === true;
         if (reqSeq !== threadRequestSeqRef.current) return;
         const shouldApplyToUi = !prefetch || selectedRef?.current?.phone === p;
         if (shouldApplyToUi) {
@@ -157,6 +158,7 @@ export function useInboxThreadLoader({
               ticket_status: String(ticketStatus || 'open'),
               transfer_to: transferTo || null,
               archived: Boolean(data?.archived),
+              triage_dismissed: triageDismissed,
             },
           });
         }
@@ -185,6 +187,7 @@ export function useInboxThreadLoader({
             ticket_status: String(ticketStatus || 'open'),
             transfer_to: transferTo || null,
             archived: Boolean(data?.archived),
+            triage_dismissed: triageDismissed,
           };
           if (!append && !cursor && silent && prev && prev.phone === p) {
             const existing = Array.isArray(prev.messages) ? prev.messages : [];

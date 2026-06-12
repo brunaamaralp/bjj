@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { contactInitials } from '../../lib/contactInitials.js';
 import './contact-avatar.css';
 
@@ -16,6 +16,10 @@ export default function ContactAvatar({ contact, size = 34, fill = false, priori
   const [imgError, setImgError] = useState(false);
   const name = String(contact?.name || '').trim();
   const avatarUrl = String(contact?.avatar_url || '').trim();
+
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
   const initials = contactInitials(name);
   const rootClass = ['contact-avatar', fill ? 'contact-avatar--fill' : '', className].filter(Boolean).join(' ');
   const boxStyle = fill ? undefined : { width: size, height: size };

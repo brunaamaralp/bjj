@@ -59,6 +59,11 @@ export function useInboxLeadContext({
 
   const pendingTriage = isLeadPendingTriage(activeContactLead);
 
+  const triageDismissed =
+    Boolean(selected?.triage_dismissed) &&
+    !String(selected?.lead_id || '').trim() &&
+    !activeContactLead;
+
   const activeFollowupState = useMemo(() => {
     if (!activeContactLead || !isFollowUpLead(activeContactLead)) return null;
     const state = computeFollowupState(activeContactLead, {
@@ -137,6 +142,7 @@ export function useInboxLeadContext({
     leadCandidates,
     activeContactLead,
     pendingTriage,
+    triageDismissed,
     activeFollowupState,
     followupOutcomeLead,
     savingFollowupOutcome,

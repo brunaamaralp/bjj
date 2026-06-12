@@ -9,6 +9,7 @@ const InboxComposer = lazyWithRetry(() => import('./InboxComposer'));
 const InboxThreadMessages = lazyWithRetry(() => import('./InboxThreadMessages.jsx'));
 import InboxThreadActionsMenu from './InboxThreadActionsMenu.jsx';
 const InboxTriageCard = lazyWithRetry(() => import('./InboxTriageCard.jsx'));
+const InboxTriageRestoreBanner = lazyWithRetry(() => import('./InboxTriageRestoreBanner.jsx'));
 const InboxFollowupBanner = lazyWithRetry(() => import('./InboxFollowupBanner.jsx'));
 import ContactAvatar from '../shared/ContactAvatar.jsx';
 import {
@@ -40,10 +41,12 @@ export default function InboxThreadPanel(props) {
     savingContactName,
     setEditingContactName,
     pendingTriage = false,
+    triageDismissed = false,
     activeContactLead = null,
     onConfirmTriage,
     onDismissTriage,
     onOpenLinkStudent,
+    onRestoreTriage,
     triageBusy = false,
     followupState = null,
     onFollowupSendTemplate,
@@ -349,6 +352,7 @@ export default function InboxThreadPanel(props) {
         <div className="inbox-thread-triage-banner" data-no-dnd="true">
           <Suspense fallback={null}>
             <InboxTriageCard
+              compact
               busy={triageBusy}
               suggestedAction={suggestTriageAction(activeContactLead)}
               contextLine={triageContextLine(activeContactLead, { terms })}
@@ -357,6 +361,14 @@ export default function InboxThreadPanel(props) {
               onLinkStudent={() => onOpenLinkStudent?.()}
               onDismiss={() => onDismissTriage?.(activeContactLead)}
             />
+          </Suspense>
+        </div>
+      ) : null}
+
+      {triageDismissed && !pendingTriage && leadPanel !== 'link_student' ? (
+        <div className="inbox-thread-triage-restore-banner" data-no-dnd="true">
+          <Suspense fallback={null}>
+            <InboxTriageRestoreBanner busy={triageBusy || linkingLead} onRestore={onRestoreTriage} />
           </Suspense>
         </div>
       ) : null}

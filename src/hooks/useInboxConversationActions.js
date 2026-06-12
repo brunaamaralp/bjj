@@ -4,6 +4,7 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
 import { postInboxConversation } from '../lib/inboxConversationPost.js';
+import { restoreInboxLeadTriage } from '../lib/restoreInboxLeadTriage.js';
 import {
   buildInboxDisplayNameArgs,
   pickInboxContactNameForEdit,
@@ -42,6 +43,7 @@ export function useInboxConversationActions({
   selected,
   contactLabel,
   updateLead,
+  fetchLeads,
 }) {
   const navigate = useNavigate();
 
@@ -539,6 +541,58 @@ export function useInboxConversationActions({
     navigate('/agente-ia');
   }, [navigate]);
 
+  const restoreLeadTriage = useCallback(async () => {
+    const phone = String(selectedPhoneRef.current || '').trim();
+    if (!phone) return;
+    setLinkingLead(true);
+    setError('');
+    try {
+      const { blocked, data } = await restoreInboxLeadTriage({
+        phone,
+        academyId: academyIdRef.current,
+      });
+      if (blocked) return;
+      const leadId = String(data?.lead_id || '').trim();
+      const leadName = String(data?.lead_name || '').trim();
+      if (!leadId) throw new Error('Lead não foi recriado');
+      setSelected((prev) => {
+        if (!prev || prev.phone !== phone) return prev;
+        return {
+          ...prev,
+          lead_id: leadId,
+          lead_name: leadName || prev.lead_name,
+          triage_dismissed: false,
+        };
+      });
+      setItems((prev) =>
+        (Array.isArray(prev) ? prev : []).map((it) => {
+          const rowPhone = String(it?.phone_number || '').trim();
+          if (rowPhone !== phone) return it;
+          return { ...it, lead_id: leadId, lead_name: leadName || String(it?.lead_name || '').trim() };
+        })
+      );
+      if (typeof fetchLeads === 'function') {
+        await fetchLeads({ reset: true, silent: true });
+      }
+      await loadList({ reset: true, silent: true });
+      toast.success('Contato restaurado para triagem');
+    } catch (e) {
+      setError(friendlyError(e, 'action'));
+    } finally {
+      setLinkingLead(false);
+    }
+  }, [
+    academyIdRef,
+    fetchLeads,
+    loadList,
+    selectedPhoneRef,
+    setError,
+    setItems,
+    setLinkingLead,
+    setSelected,
+    toast,
+  ]);
+
   return {
     markSeen,
     markUnread,
@@ -549,6 +603,7 @@ export function useInboxConversationActions({
     linkLeadToConversation,
     saveContactName,
     convertToLead,
+    restoreLeadTriage,
     openPromptSettings,
   };
 }

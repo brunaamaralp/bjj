@@ -44,10 +44,10 @@ export function useInboxStudentLink({
     setLinkingLead(true);
     try {
       await deleteLead(id);
-      if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId });
+      if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId, markNotLead: true });
       setSelected((prev) => {
         if (!prev || String(prev.phone || '').trim() !== phone) return prev;
-        return { ...prev, lead_id: null, lead_name: '' };
+        return { ...prev, lead_id: null, lead_name: '', triage_dismissed: true };
       });
       setItems((prev) =>
         (Array.isArray(prev) ? prev : []).map((it) => {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   listDocuments: vi.fn(),
+  getDocument: vi.fn(),
   createDocument: vi.fn(),
   updateDocument: vi.fn(),
   addLeadEventServer: vi.fn().mockResolvedValue(null),
@@ -22,6 +23,9 @@ vi.mock('node-appwrite', () => ({
   Databases: class Databases {
     listDocuments(...args) {
       return mocks.listDocuments(...args);
+    }
+    getDocument(...args) {
+      return mocks.getDocument(...args);
     }
     createDocument(...args) {
       return mocks.createDocument(...args);
@@ -53,6 +57,7 @@ vi.mock('../../lib/server/leadEvents.js', () => ({
 
 const testDatabases = {
   listDocuments: (...args) => mocks.listDocuments(...args),
+  getDocument: (...args) => mocks.getDocument(...args),
   createDocument: (...args) => mocks.createDocument(...args),
   updateDocument: (...args) => mocks.updateDocument(...args),
 };
@@ -71,6 +76,7 @@ describe('ensureWhatsAppInboundLead', () => {
 
   beforeEach(() => {
     mocks.listDocuments.mockReset();
+    mocks.getDocument.mockReset();
     mocks.createDocument.mockReset();
     mocks.updateDocument.mockReset();
     mocks.addLeadEventServer.mockClear();
@@ -127,6 +133,28 @@ describe('ensureWhatsAppInboundLead', () => {
     expect(mocks.addLeadEventServer).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'lead_criado', leadId: 'lead-new-1' })
     );
+  });
+
+  it('não cria lead quando conversa foi marcada como não é lead', async () => {
+    mocks.getDocument.mockResolvedValue({
+      $id: 'conv-dismissed',
+      academy_id: 'acad-1',
+      phone_number: '11977776666',
+      agent_state: JSON.stringify({ triage_dismissed: true }),
+    });
+
+    const result = await ensureWhatsAppInboundLead({
+      databases: testDatabases,
+      academyId: 'acad-1',
+      phone: '11977776666',
+      name: 'João',
+      academyDoc: { teamId: 'team-1' },
+      conversationDocId: 'conv-dismissed',
+    });
+
+    expect(result.skippedReason).toBe('triage_dismissed');
+    expect(result.created).toBe(false);
+    expect(mocks.createDocument).not.toHaveBeenCalled();
   });
 
   it('não cria lead quando academia sem teamId', async () => {

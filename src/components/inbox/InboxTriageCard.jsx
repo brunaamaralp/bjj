@@ -24,46 +24,47 @@ export default function InboxTriageCard({
       aria-label="Triagem WhatsApp"
     >
       <div className="inbox-triage-callout__head">
-        <span className="inbox-triage-callout__badge">Triagem WhatsApp</span>
+        <div className="inbox-triage-callout__title-row">
+          <span className="inbox-triage-callout__badge">Triagem</span>
+          {compact && contextLine ? (
+            <span className="inbox-triage-callout__context inbox-triage-callout__context--inline">{contextLine}</span>
+          ) : null}
+        </div>
         {!compact ? (
           <p className="inbox-triage-callout__hint">
             Contato criado automaticamente pelo WhatsApp. Confirme se é lead, vincule a um {studentLabel.toLowerCase()} ou marque que não é lead.
           </p>
-        ) : (
-          <p className="inbox-triage-callout__hint inbox-triage-callout__hint--compact">
-            Confirme, vincule {studentLabel.toLowerCase()} ou marque que não é lead.
-          </p>
-        )}
-        {contextLine ? (
+        ) : null}
+        {!compact && contextLine ? (
           <p className="inbox-triage-callout__context">{contextLine}</p>
         ) : null}
       </div>
       <div className="inbox-triage-callout__actions">
         <button
           type="button"
-          className={`btn btn-primary inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'confirm' ? ' inbox-triage-callout__btn--suggested' : ''}`}
+          className={`btn btn-primary btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'confirm' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
           onClick={() => onConfirm?.()}
         >
-          <UserCheck size={15} aria-hidden />
-          Confirmar lead
+          <UserCheck size={14} aria-hidden />
+          Confirmar
         </button>
         <button
           type="button"
-          className={`btn btn-outline inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'link_student' ? ' inbox-triage-callout__btn--suggested' : ''}`}
+          className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'link_student' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
           onClick={() => onLinkStudent?.()}
         >
-          <GraduationCap size={15} aria-hidden />
+          <GraduationCap size={14} aria-hidden />
           {linkLabel}
         </button>
         <button
           type="button"
-          className={`btn btn-outline inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted${suggestedAction === 'dismiss' ? ' inbox-triage-callout__btn--suggested' : ''}`}
+          className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted${suggestedAction === 'dismiss' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
           onClick={() => onDismiss?.()}
         >
-          <Trash2 size={15} aria-hidden />
+          <Trash2 size={14} aria-hidden />
           Não é lead
         </button>
       </div>

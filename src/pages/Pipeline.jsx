@@ -1490,13 +1490,13 @@ const Pipeline = () => {
         if (!leadId) return;
         setConfirmModal({
             title: 'Marcar que não é lead?',
-            description: 'Este contato será removido do funil.',
+            description: 'Este contato será removido do funil. Novas mensagens dele não voltarão à triagem.',
             confirmLabel: 'Não é lead',
             onConfirm: async () => {
                 try {
                     const phone = String(lead?.phone || '').replace(/\D/g, '');
                     await deleteLead(leadId);
-                    if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId });
+                    if (phone && academyId) await unlinkInboxConversationLead({ phone, academyId, markNotLead: true });
                     toast.success('Contato descartado');
                 } catch (err) {
                     toast.error(err, 'delete');

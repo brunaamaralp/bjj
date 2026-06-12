@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
-import { inboxProfileImageUrl } from '../lib/inboxContactDisplay.js';
+import {
+  applyAvatarMap,
+  applyAvatarToSelected,
+  AVATAR_BATCH_GAP_MS,
+  pickPhonesForAvatarFetch,
+  selectedConversationNeedsAvatar,
+} from '../lib/inboxDeferredAvatars.js';
 import { getInboxJwt, safeParseInboxJson } from '../lib/inboxApiUtils.js';
-import { primaryInboxPhone } from '../lib/normalizeInboxPhone.js';
 
-const BATCH_LIMIT = 10;
-const FETCH_COOLDOWN_MS = 45_000;
-
-function scheduleIdleWork(run, { timeout = 2200, fallbackMs = 500 } = {}) {
+function scheduleIdleWork(run, { timeout = 1800, fallbackMs = 400 } = {}) {
   if (typeof requestIdleCallback === 'function') {
     const id = requestIdleCallback(() => run(), { timeout });
     return () => cancelIdleCallback(id);
@@ -16,53 +18,15 @@ function scheduleIdleWork(run, { timeout = 2200, fallbackMs = 500 } = {}) {
   return () => window.clearTimeout(id);
 }
 
-function avatarKey(phone) {
-  return primaryInboxPhone(phone) || String(phone || '').trim();
-}
-
-function pickPhonesForAvatarFetch(items, selectedPhone, fetchedSet) {
-  const arr = Array.isArray(items) ? items : [];
-  const out = [];
-  const seen = new Set();
-
-  const push = (phone) => {
-    const key = avatarKey(phone);
-    if (!key || seen.has(key) || fetchedSet.has(key)) return;
-    seen.add(key);
-    out.push(key);
-  };
-
-  const sel = avatarKey(selectedPhone);
-  if (sel) {
-    const row = arr.find((it) => avatarKey(it?.phone_number) === sel);
-    if (row && !inboxProfileImageUrl(row)) push(sel);
-  }
-
-  for (const it of arr) {
-    if (out.length >= BATCH_LIMIT) break;
-    const ph = avatarKey(it?.phone_number);
-    if (!ph || inboxProfileImageUrl(it)) continue;
-    push(ph);
-  }
-
-  return out;
-}
-
-function applyAvatarMap(items, avatars) {
-  if (!avatars || typeof avatars !== 'object') return items;
-  let changed = false;
-  const next = items.map((it) => {
-    const ph = avatarKey(it?.phone_number);
-    const url = String(avatars[ph] || '').trim();
-    if (!url || String(it?.whatsapp_profile_image_url || '').trim() === url) return it;
-    changed = true;
-    return { ...it, whatsapp_profile_image_url: url };
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
   });
-  return changed ? next : items;
 }
 
 /**
- * Busca fotos de perfil em idle após a lista carregar — não bloqueia o bootstrap.
+ * Busca fotos de perfil WhatsApp em lotes após a lista carregar — não bloqueia o bootstrap.
+ * Prioriza a conversa selecionada e continua em fila até cobrir contatos visíveis sem foto.
  */
 export function useInboxDeferredAvatars({
   academyId,
@@ -72,70 +36,102 @@ export function useInboxDeferredAvatars({
   setItems,
   setSelected,
 }) {
-  const fetchedRef = useRef(new Set());
-  const lastFetchAtRef = useRef(0);
-  const itemsSigRef = useRef('');
+  const attemptedRef = useRef(new Set());
+  const inFlightRef = useRef(false);
+  const itemsRef = useRef(items);
+  const selectedPhoneRef = useRef(selectedPhone);
+  const kickTimerRef = useRef(null);
+
+  itemsRef.current = items;
+  selectedPhoneRef.current = selectedPhone;
 
   useEffect(() => {
-    fetchedRef.current = new Set();
-    lastFetchAtRef.current = 0;
-    itemsSigRef.current = '';
+    attemptedRef.current = new Set();
   }, [academyId]);
 
-  useEffect(() => {
+  const runQueue = useCallback(async () => {
+    if (inFlightRef.current) return;
     const aid = String(academyId || '').trim();
-    if (!aid || loading) return undefined;
+    if (!aid) return;
 
-    const sig = `${aid}|${items.length}|${avatarKey(selectedPhone)}`;
-    if (sig === itemsSigRef.current) return undefined;
-    itemsSigRef.current = sig;
+    inFlightRef.current = true;
+    try {
+      while (true) {
+        const phones = pickPhonesForAvatarFetch(
+          itemsRef.current,
+          selectedPhoneRef.current,
+          attemptedRef.current
+        );
+        if (!phones.length) break;
 
-    let cancelled = false;
-    const cancelIdle = scheduleIdleWork(() => {
-      if (cancelled) return;
-      const now = Date.now();
-      if (now - lastFetchAtRef.current < FETCH_COOLDOWN_MS && fetchedRef.current.size > 0) return;
-
-      const phones = pickPhonesForAvatarFetch(items, selectedPhone, fetchedRef.current);
-      if (!phones.length) return;
-
-      void (async () => {
-        for (const p of phones) fetchedRef.current.add(p);
-        lastFetchAtRef.current = Date.now();
         try {
           const jwt = await getInboxJwt();
-          if (cancelled) return;
           const qs = new URLSearchParams();
           qs.set('avatars', '1');
           qs.set('phones', phones.join(','));
           const { blocked, res } = await fetchWithBillingGuard(`/api/conversations?${qs.toString()}`, {
             headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid },
           });
-          if (blocked || !res?.ok || cancelled) return;
+
+          if (blocked || !res?.ok) break;
+
           const raw = await res.text();
           const data = safeParseInboxJson(raw) || {};
           const avatars = data?.avatars && typeof data.avatars === 'object' ? data.avatars : {};
-          if (!Object.keys(avatars).length) return;
 
-          setItems((prev) => applyAvatarMap(Array.isArray(prev) ? prev : [], avatars));
-          if (typeof setSelected === 'function') {
-            setSelected((prev) => {
-              if (!prev || typeof prev !== 'object') return prev;
-              const ph = avatarKey(prev.phone);
-              const url = String(avatars[ph] || '').trim();
-              if (!url || String(prev.whatsapp_profile_image_url || '').trim() === url) return prev;
-              return { ...prev, whatsapp_profile_image_url: url };
-            });
+          for (const p of phones) attemptedRef.current.add(p);
+
+          if (Object.keys(avatars).length) {
+            setItems((prev) => applyAvatarMap(Array.isArray(prev) ? prev : [], avatars));
+            if (typeof setSelected === 'function') {
+              setSelected((prev) => applyAvatarToSelected(prev, avatars));
+            }
           }
         } catch {
-          for (const p of phones) fetchedRef.current.delete(p);
+          break;
         }
-      })();
-    });
 
+        const remaining = pickPhonesForAvatarFetch(
+          itemsRef.current,
+          selectedPhoneRef.current,
+          attemptedRef.current
+        );
+        if (!remaining.length) break;
+        await sleep(AVATAR_BATCH_GAP_MS);
+      }
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [academyId, setItems, setSelected]);
+
+  const scheduleRun = useCallback(() => {
+    if (kickTimerRef.current != null) {
+      window.clearTimeout(kickTimerRef.current);
+      kickTimerRef.current = null;
+    }
+
+    const eager = selectedConversationNeedsAvatar(itemsRef.current, selectedPhoneRef.current);
+    const cancelIdle = scheduleIdleWork(
+      () => {
+        kickTimerRef.current = null;
+        void runQueue();
+      },
+      eager ? { timeout: 80, fallbackMs: 0 } : undefined
+    );
+
+    kickTimerRef.current = cancelIdle;
+  }, [runQueue]);
+
+  useEffect(() => {
+    const aid = String(academyId || '').trim();
+    if (!aid || loading) return undefined;
+
+    scheduleRun();
     return () => {
-      cancelled = true;
-      cancelIdle();
+      if (kickTimerRef.current != null) {
+        kickTimerRef.current();
+        kickTimerRef.current = null;
+      }
     };
-  }, [academyId, items, loading, selectedPhone, setItems, setSelected]);
+  }, [academyId, loading, items, selectedPhone, scheduleRun]);
 }
