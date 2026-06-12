@@ -17,6 +17,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 import './reports.css';
 
 const CONCILIATION_FILTER_OPTIONS = [
@@ -88,6 +89,14 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
   const [clientSearch, setClientSearch] = useState('');
   const [operatorFilter, setOperatorFilter] = useState('');
   const [products, setProducts] = useState([]);
+
+  const productFilterOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos' },
+      ...products.map((p) => ({ value: p.id, label: p.nome })),
+    ],
+    [products]
+  );
 
   useEffect(() => {
     let active = true;
@@ -557,15 +566,15 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         <>
         <div className="reports-moves-filters" role="search">
           <div className="form-group">
-            <label className="text-small text-muted">Produto</label>
-            <select className="form-input" value={productId} onChange={(e) => setProductId(e.target.value)}>
-              <option value="">Todos</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
+            <label className="text-small text-muted" htmlFor="reports-moves-product">Produto</label>
+            <SearchableSelect
+              id="reports-moves-product"
+              value={productId}
+              options={productFilterOptions}
+              placeholder="Digite para buscar produto…"
+              emptyMessage="Nenhum produto encontrado para essa busca."
+              onChange={setProductId}
+            />
           </div>
           <div className="form-group">
             <label className="text-small text-muted">Tipo</label>

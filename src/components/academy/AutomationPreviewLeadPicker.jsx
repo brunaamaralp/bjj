@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DateInputField } from '../DateInput';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 import '../../lib/whatsappTemplates.css';
 
 /**
@@ -14,26 +15,33 @@ export default function AutomationPreviewLeadPicker({
   className = '',
   scopeHint = false,
 }) {
+  const leadOptions = useMemo(
+    () => [
+      { value: '', label: '(Primeiro da lista)' },
+      ...leads.map((l) => ({
+        value: l.id,
+        label: String(l.name || l.phone || l.id || '—').trim() || '—',
+      })),
+      { value: '_manual', label: 'Manual' },
+    ],
+    [leads]
+  );
+
   const showManual = sampleLeadId === '_manual' || leads.length === 0;
 
   return (
     <div className={`automacoes-preview-lead card ${className}`.trim()}>
       <div className="flex tpl-preview-lead-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <span className="tpl-preview-lead-label">Pré-visualizar com:</span>
-        <select
-          className="form-input tpl-preview-lead-select"
+        <SearchableSelect
+          className="tpl-preview-lead-select"
           value={sampleLeadId}
-          onChange={(e) => onSampleLeadIdChange(e.target.value)}
+          options={leadOptions}
+          placeholder="Digite para buscar lead…"
+          emptyMessage="Nenhum lead encontrado para essa busca."
           aria-label="Lead para pré-visualização"
-        >
-          <option value="">(Primeiro da lista)</option>
-          {leads.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-          <option value="_manual">Manual</option>
-        </select>
+          onChange={onSampleLeadIdChange}
+        />
       </div>
       {scopeHint ? (
         <p className="automacoes-preview-lead-hint text-xs text-light" style={{ margin: '8px 0 0' }}>

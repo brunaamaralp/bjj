@@ -20,6 +20,7 @@ import StatusBanner from '../shared/StatusBanner.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 
 function fmtMoney(v) {
   try {
@@ -177,6 +178,15 @@ export default function ReconciliationTab({ academyId }) {
     }
     return { auto, suggested, unmatched, ignored };
   }, [detail]);
+
+  const manualTxOptions = useMemo(
+    () =>
+      (detail?.navi_unmatched || []).map((tx) => ({
+        value: tx.id,
+        label: `${fmtDate(tx.settledAt)} — ${fmtMoney(tx.gross)} — ${tx.planName || tx.category || 'Lançamento'}`,
+      })),
+    [detail?.navi_unmatched]
+  );
 
   const refresh = async () => {
     await loadList();
@@ -508,19 +518,16 @@ export default function ReconciliationTab({ academyId }) {
                 <label className="form-label text-xs" htmlFor="bank-recon-manual-tx">
                   Lançamento
                 </label>
-                <select
+                <SearchableSelect
                   id="bank-recon-manual-tx"
-                  className="form-input mb-2"
+                  className="mb-2"
                   value={manualTxId}
-                  onChange={(e) => setManualTxId(e.target.value)}
-                >
-                  <option value="">Selecione lançamento…</option>
-                  {(detail.navi_unmatched || []).map((tx) => (
-                    <option key={tx.id} value={tx.id}>
-                      {fmtDate(tx.settledAt)} — {fmtMoney(tx.gross)} — {tx.planName || tx.category}
-                    </option>
-                  ))}
-                </select>
+                  options={manualTxOptions}
+                  placeholder="Digite para buscar lançamento…"
+                  emptyMessage="Nenhum lançamento encontrado para essa busca."
+                  disabled={busy || manualTxOptions.length === 0}
+                  onChange={setManualTxId}
+                />
                 <label className="form-label text-xs" htmlFor="bank-recon-manual-note">
                   Justificativa
                 </label>

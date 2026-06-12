@@ -25,6 +25,7 @@ function findOptionLabel(options, value) {
  * @param {string} [props.placeholder]
  * @param {string} [props.emptyMessage]
  * @param {string} [props.className]
+ * @param {string} [props.inputClassName]
  * @param {boolean} [props.disabled]
  */
 export default function SearchableSelect({
@@ -35,6 +36,7 @@ export default function SearchableSelect({
   placeholder = 'Digite para buscar…',
   emptyMessage = 'Nenhuma opção encontrada.',
   className = '',
+  inputClassName = '',
   disabled = false,
   ...rest
 }) {
@@ -74,7 +76,7 @@ export default function SearchableSelect({
       <input
         id={id}
         type="text"
-        className="form-input searchable-grouped-select__input"
+        className={['form-input', 'searchable-grouped-select__input', inputClassName].filter(Boolean).join(' ')}
         value={query}
         placeholder={placeholder}
         disabled={disabled}

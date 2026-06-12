@@ -10,6 +10,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import SearchField from '../shared/SearchField.jsx';
+import SearchableSelect from '../shared/SearchableSelect.jsx';
 import { STOCK_STATUS_LABELS } from '../../lib/stockInventory';
 import {
   filterInventoryParents,
@@ -187,6 +188,14 @@ export default function InventoryBalanceView({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [parentRows]);
 
+  const categoryFilterOptions = useMemo(
+    () => [
+      { value: 'all', label: 'Todas' },
+      ...categories.map((c) => ({ value: c, label: c })),
+    ],
+    [categories]
+  );
+
   const filtered = useMemo(
     () =>
       filterInventoryParents(parentRows, {
@@ -279,13 +288,16 @@ export default function InventoryBalanceView({
             </select>
           </div>
           <div className="form-group filter-field inventory-filter-field">
-            <label className="text-xs">Categoria</label>
-            <select className="form-input navi-control--toolbar" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-              <option value="all">Todas</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <label className="text-xs" htmlFor="inventory-category-filter">Categoria</label>
+            <SearchableSelect
+              id="inventory-category-filter"
+              inputClassName="navi-control--toolbar"
+              value={categoryFilter}
+              options={categoryFilterOptions}
+              placeholder="Digite para buscar categoria…"
+              emptyMessage="Nenhuma categoria encontrada para essa busca."
+              onChange={setCategoryFilter}
+            />
           </div>
           <label className="navi-inline-toggle inventory-filter-toggle" title="Somente produtos para venda">
             <span className="navi-inline-toggle__track" aria-hidden>
