@@ -11,7 +11,7 @@ import { Calendar, Phone, Upload, MessageCircle, ChevronRight, SlidersHorizontal
 import SearchField from '../components/shared/SearchField.jsx';
 import FilterBar from '../components/shared/FilterBar.jsx';
 import { canShowPipelineCloseSale } from '../lib/leadCloseSale.js';
-import { exportLeadsSpreadsheet } from '../lib/exportLeadsSpreadsheet.js';
+import { exportAllLeadsSpreadsheet } from '../lib/exportLeadsSpreadsheet.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
@@ -1165,6 +1165,7 @@ const Pipeline = () => {
     const dragScrollRafRef = useRef(null);
     const lastDragClientXRef = useRef(null);
     const [showImport, setShowImport] = useState(false);
+    const [exportingLeads, setExportingLeads] = useState(false);
     const [pipelineQuickTimes, setPipelineQuickTimes] = useState([]);
     const [movingLeadIds, setMovingLeadIds] = useState(() => new Set());
     const [savingLeadIds, setSavingLeadIds] = useState(() => new Set());
@@ -1621,6 +1622,32 @@ const Pipeline = () => {
     const handleImport = (rows) => {
         importLeads(rows);
     };
+
+    const handleExportLeads = useCallback(async () => {
+        if (!academyId || exportingLeads) return;
+        setExportingLeads(true);
+        try {
+            const includeContact = navRole === 'owner' || navRole === 'admin';
+            const { ok, count } = await exportAllLeadsSpreadsheet(academyId, 'funil-export', {
+                includeContact,
+                onProgress: (n, total) => {
+                    if (total && n < total) {
+                        toast.info(`Exportando… ${n} de ${total}`);
+                    }
+                },
+            });
+            if (!ok || count === 0) {
+                toast.warning('Não há leads para exportar.');
+                return;
+            }
+            toast.success(`Planilha gerada com ${count} lead(s).`);
+        } catch (e) {
+            console.error('[Pipeline] export leads:', e);
+            toast.error('Não foi possível exportar os leads.');
+        } finally {
+            setExportingLeads(false);
+        }
+    }, [academyId, exportingLeads, navRole, toast]);
     const singular = (plural) => {
         if (!plural) return contactLabel;
         const p = String(plural).trim();
@@ -2362,13 +2389,13 @@ const Pipeline = () => {
                     <DropdownMenuDivider />
                     <DropdownMenuItem
                         icon={<Download size={16} aria-hidden />}
-                        disabled={!leadsForBoard.length}
+                        disabled={exportingLeads || !academyId}
                         onClick={() => {
                             setPageActionsMenuOpen(false);
-                            void exportLeadsSpreadsheet(leadsForBoard, 'funil-export');
+                            void handleExportLeads();
                         }}
                     >
-                        Exportar leads
+                        {exportingLeads ? 'Exportando…' : 'Exportar leads'}
                     </DropdownMenuItem>
                     {leadsHasMore ? (
                         <>
