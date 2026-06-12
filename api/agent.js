@@ -2,6 +2,7 @@
  * Hub do agente e rotas administrativas (Vercel Hobby).
  * Sub-rotas: process, respond, ai-prompt, nl-action, inventory-adjust/query,
  * import-finance, import-finance-tx, academy-create, team-members, whatsapp-templates, academy-settings.
+ * Import assistido de produtos (`ai_import_products`) permanece em api/leads.js (limite Hobby).
  */
 import { Client, Databases } from 'node-appwrite';
 import processHandler from '../lib/server/agentProcess.js';

@@ -8,6 +8,12 @@ import InboxLinkStudentPanel from './InboxLinkStudentPanel.jsx';
 import { INBOX_TICKET_BADGE_MAP } from '../../lib/inboxTicketBadges.js';
 import { isLeadPendingTriage } from '../../lib/leadTriage.js';
 import { formatInboxPhone, isInboxGroupPhone } from '../../lib/inboxContactDisplay.js';
+import {
+  intentionDisplayLabel,
+  priorityDisplayLabel,
+} from '../../lib/whatsappClassificationLabels.js';
+import { getPrimarySuggestedLeadAction } from '../../lib/leadClassificationActions.js';
+import { suggestTriageAction, triageContextLine } from '../../lib/triageSuggestions.js';
 
 export function InboxContextPanelContent(props) {
   const {
@@ -62,6 +68,7 @@ export function InboxContextPanelContent(props) {
     setDetailsOpen,
     selectedPhoneFlags,
     membershipPrimaryLabel,
+    terms,
   } = props;
 
   return (
@@ -168,10 +175,16 @@ export function InboxContextPanelContent(props) {
           phone
         });
         const status = String(lead?.status || '').trim();
-        const intention = String(lead?.intention || '').trim();
-        const priority = String(lead?.priority || '').trim();
+        const intentionRaw = String(lead?.intention || lead?.whatsapp_intention || '').trim();
+        const priorityRaw = String(lead?.priority || lead?.whatsapp_priority || '').trim();
+        const intention = intentionRaw ? intentionDisplayLabel(intentionRaw, { terms }) : '';
+        const priority = priorityRaw ? priorityDisplayLabel(priorityRaw) : '';
         const hotLead = Boolean(lead?.hotLead);
         const pendingTriage = Boolean(lead?.id && isLeadPendingTriage(lead));
+        const triageSuggested = suggestTriageAction(lead);
+        const triageContext = triageContextLine(lead, { terms });
+        const suggestedAction = !pendingTriage ? getPrimarySuggestedLeadAction(lead, { terms }) : null;
+        const studentLabel = terms?.student || 'Aluno';
         return (
           <div className="inbox-context-card">
             <div className="navi-section-heading inbox-context-card__heading">{`Contato / ${contactLabel}`}</div>
@@ -194,10 +207,32 @@ export function InboxContextPanelContent(props) {
               {pendingTriage && leadPanel !== 'link_student' ? (
                 <InboxTriageCard
                   busy={triageBusy || linkingLead}
+                  suggestedAction={triageSuggested}
+                  contextLine={triageContext}
+                  studentLabel={studentLabel}
                   onConfirm={() => onConfirmTriage?.(lead)}
                   onLinkStudent={() => onOpenLinkStudent?.()}
                   onDismiss={() => onDismissTriage?.(lead)}
                 />
+              ) : null}
+              {suggestedAction && !pendingTriage ? (
+                <button
+                  type="button"
+                  className="btn btn-outline inbox-btn--ctx inbox-context-suggested-action"
+                  onClick={() => {
+                    if (suggestedAction.id === 'assume_inbox' && phone) {
+                      navigate(`/inbox?phone=${encodeURIComponent(phone)}`);
+                      return;
+                    }
+                    if (suggestedAction.id === 'link_student') {
+                      onOpenLinkStudent?.();
+                      return;
+                    }
+                    if (lead?.id) navigate(`/lead/${encodeURIComponent(String(lead.id))}`);
+                  }}
+                >
+                  {suggestedAction.label}
+                </button>
               ) : null}
               <div className="inbox-context-btn-row">
                 {!pendingTriage && !selected?.lead_id && (

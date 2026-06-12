@@ -122,6 +122,7 @@ const App = () => {
   const setLabels = useLeadStore((s) => s.setLabels);
   const vertical = useLeadStore((s) => s.vertical);
   const modules = useLeadStore((s) => s.modules);
+  const aiModuleEnabled = modules?.aiEnabled !== false;
   const setModules = useLeadStore((s) => s.setModules);
   const [academyList, setAcademyList] = useState([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -1079,7 +1080,7 @@ const App = () => {
                 <span className="navi-topbar-academy-chip__label">{academyName}</span>
               </span>
             ) : null}
-            {academyReady && academyIdStore ? (
+            {academyReady && academyIdStore && aiModuleEnabled ? (
               <div className="navi-topbar-search">
                 <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
               </div>
@@ -1214,7 +1215,7 @@ const App = () => {
           <NovaVendaModal open={novaVendaOpen} onClose={() => setNovaVendaOpen(false)} />
         </Suspense>
       ) : null}
-      {academyReady && academyIdStore ? (
+      {academyReady && academyIdStore && aiModuleEnabled ? (
         <Suspense fallback={null}>
           <NlCommandBar
             open={nlOpen}

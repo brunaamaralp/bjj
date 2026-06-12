@@ -1,7 +1,21 @@
 import React from 'react';
 import { GraduationCap, Trash2, UserCheck } from 'lucide-react';
 
-export default function InboxTriageCard({ busy = false, compact = false, onConfirm, onLinkStudent, onDismiss }) {
+/**
+ * @param {{ suggestedAction?: 'confirm'|'link_student'|'dismiss', contextLine?: string, studentLabel?: string }} props
+ */
+export default function InboxTriageCard({
+  busy = false,
+  compact = false,
+  suggestedAction,
+  contextLine = '',
+  studentLabel = 'aluno',
+  onConfirm,
+  onLinkStudent,
+  onDismiss,
+}) {
+  const linkLabel = `Vincular ${String(studentLabel || 'aluno').trim().toLowerCase()}`;
+
   return (
     <div
       className={`inbox-triage-callout${compact ? ' inbox-triage-callout--compact' : ''}`}
@@ -12,18 +26,21 @@ export default function InboxTriageCard({ busy = false, compact = false, onConfi
         <span className="inbox-triage-callout__badge">Triagem WhatsApp</span>
         {!compact ? (
           <p className="inbox-triage-callout__hint">
-            Contato criado automaticamente pelo WhatsApp. Confirme se é lead, vincule a um aluno ou marque que não é lead.
+            Contato criado automaticamente pelo WhatsApp. Confirme se é lead, vincule a um {studentLabel.toLowerCase()} ou marque que não é lead.
           </p>
         ) : (
           <p className="inbox-triage-callout__hint inbox-triage-callout__hint--compact">
-            Confirme, vincule aluno ou marque que não é lead.
+            Confirme, vincule {studentLabel.toLowerCase()} ou marque que não é lead.
           </p>
         )}
+        {contextLine ? (
+          <p className="inbox-triage-callout__context">{contextLine}</p>
+        ) : null}
       </div>
       <div className="inbox-triage-callout__actions">
         <button
           type="button"
-          className="btn btn-primary inbox-btn--ctx inbox-triage-callout__btn"
+          className={`btn btn-primary inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'confirm' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
           onClick={() => onConfirm?.()}
         >
@@ -32,16 +49,16 @@ export default function InboxTriageCard({ busy = false, compact = false, onConfi
         </button>
         <button
           type="button"
-          className="btn btn-outline inbox-btn--ctx inbox-triage-callout__btn"
+          className={`btn btn-outline inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'link_student' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
           onClick={() => onLinkStudent?.()}
         >
           <GraduationCap size={15} aria-hidden />
-          Vincular aluno
+          {linkLabel}
         </button>
         <button
           type="button"
-          className="btn btn-outline inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted"
+          className={`btn btn-outline inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted${suggestedAction === 'dismiss' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
           onClick={() => onDismiss?.()}
         >

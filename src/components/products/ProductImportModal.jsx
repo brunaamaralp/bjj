@@ -493,7 +493,11 @@ export default function ProductImportModal({ open, onClose, onImported }) {
           <div>
             <h2 id="product-import-title" className="product-import-title">Importar produtos</h2>
             {uiStep === 0 ? (
-              <p className="product-import-subtitle">Envie um CSV com seu catálogo. A IA sugere o mapeamento das colunas.</p>
+              <p className="product-import-subtitle">
+                Envie um CSV com seu catálogo. A IA sugere o mapeamento das colunas.
+                {' '}
+                <span className="product-import-ai-note">Recurso de IA (configuração da academia).</span>
+              </p>
             ) : null}
           </div>
           <button

@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { fetchFollowupCopilot, openWhatsappDraft } from '../../lib/followupCopilotApi.js';
+import { addLeadEvent } from '../../lib/leadEvents.js';
+import { useLeadStore } from '../../store/useLeadStore.js';
 import { useToast } from '../../hooks/useToast';
 import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
 import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/menu';
@@ -18,6 +20,7 @@ export default function FollowupCopilotButtons({
   showTemplateHint = false,
 }) {
   const toast = useToast();
+  const aiEnabled = useLeadStore((s) => s.modules?.aiEnabled !== false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryText, setSummaryText] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
@@ -36,7 +39,25 @@ export default function FollowupCopilotButtons({
 
   const lid = String(leadId || '').trim();
   const aid = String(academyId || '').trim();
-  if (!lid || !aid) return null;
+  if (!lid || !aid || aiEnabled === false) return null;
+
+  const recordDraftAudit = async (mode, text, tplKey) => {
+    try {
+      await addLeadEvent({
+        academyId: aid,
+        leadId: lid,
+        type: 'ai_followup_draft',
+        text: mode === 'draft' ? 'Rascunho IA' : 'Resumo IA',
+        payloadJson: {
+          mode,
+          templateKey: String(tplKey || '').trim(),
+          draftPreview: String(text || '').slice(0, 200),
+        },
+      });
+    } catch {
+      /* audit não bloqueia UX */
+    }
+  };
 
   const btnClass = compact ? 'btn-outline followup-copilot-btn followup-copilot-btn--sm' : 'btn-outline followup-copilot-btn';
 
@@ -51,6 +72,7 @@ export default function FollowupCopilotButtons({
       });
       setSummaryText(String(data.summary || '').trim());
       setSummaryOpen(true);
+      void recordDraftAudit('summary', data.summary, templateKey);
     } catch (e) {
       toast.error(e, 'action');
       toast.info('Use o botão verde de WhatsApp para o template padrão.');
@@ -75,6 +97,7 @@ export default function FollowupCopilotButtons({
       setDraftPreview(draft);
       setDraftOpen(true);
       onDraftReady?.(draft);
+      void recordDraftAudit('draft', draft, templateKey || 'dashboard_contact');
     } catch (e) {
       toast.error(e, 'action');
       toast.info('Use o botão verde de WhatsApp para o template padrão.');
@@ -86,6 +109,7 @@ export default function FollowupCopilotButtons({
   const openDraftInWhatsapp = () => {
     const text = String(draftPreview || '').trim();
     if (!text) return;
+    void recordDraftAudit('draft_sent', text, templateKey || 'dashboard_contact');
     if (openWhatsappDraft(leadPhone, text)) return;
     toast.warning('Telefone ausente ou inválido.');
   };

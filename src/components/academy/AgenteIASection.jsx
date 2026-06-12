@@ -214,6 +214,8 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [aiActionsEnabled, setAiActionsEnabled] = useState(true);
     const [aiActionsSelected, setAiActionsSelected] = useState(() => new Set(V1_AI_ACTIONS));
     const [savingAiActions, setSavingAiActions] = useState(false);
+    const [aiModuleEnabled, setAiModuleEnabled] = useState(true);
+    const [savingAiModule, setSavingAiModule] = useState(false);
     const [promptConfigurado, setPromptConfigurado] = useState(false);
     const [aiThreadsUsed, setAiThreadsUsed] = useState(0);
     const [aiThreadsLimit, setAiThreadsLimit] = useState(300);
@@ -344,6 +346,10 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                         setAiActionsEnabled(true);
                         setAiActionsSelected(new Set(V1_AI_ACTIONS));
                     }
+                    const aiMod = data.ai_module && typeof data.ai_module === 'object' ? data.ai_module : null;
+                    const modEnabled = aiMod ? aiMod.enabled !== false : true;
+                    setAiModuleEnabled(modEnabled);
+                    useLeadStore.getState().setModules({ aiEnabled: modEnabled });
                     const wd = String(data.wizard_data || '').trim();
                     if (wd) {
                         try {
@@ -444,7 +450,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
 
     async function handleToggleIa(nextActive) {
         const debugOn = agentDebugEnabled();
-        if (!canEditPrompt || !promptConfigurado || togglingIa) return false;
+        if (!canEditPrompt || !promptConfigurado || togglingIa || !aiModuleEnabled) return false;
         const target = typeof nextActive === 'boolean' ? nextActive : !iaAtiva;
         if (target === iaAtiva) return true;
         setTogglingIa(true);
@@ -517,6 +523,49 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
             addToast({ type: 'error', message: friendlyError(e, 'save') });
         } finally {
             setSavingBirthdayMessage(false);
+        }
+    }
+
+    async function handleToggleAiModule(nextEnabled) {
+        if (!canEditPrompt || savingAiModule) return false;
+        const target = typeof nextEnabled === 'boolean' ? nextEnabled : !aiModuleEnabled;
+        if (target === aiModuleEnabled) return true;
+        setSavingAiModule(true);
+        try {
+            const jwt = await getJwt();
+            const { blocked, res: resp } = await fetchWithBillingGuard('/api/settings/ai-prompt', {
+                method: 'PATCH',
+                headers: {
+                    'content-type': 'application/json',
+                    Authorization: `Bearer ${jwt}`,
+                    'x-academy-id': String(academyIdRef.current || ''),
+                },
+                body: JSON.stringify({ action: 'save_ai_module', enabled: target }),
+            });
+            if (blocked) return false;
+            const data = await resp.json().catch(() => ({}));
+            if (data?.sucesso) {
+                const enabled = data.ai_module?.enabled !== false;
+                setAiModuleEnabled(enabled);
+                useLeadStore.getState().setModules({ aiEnabled: enabled });
+                if (!enabled) {
+                    setIaAtiva(false);
+                } else if (data.ia_ativa === true) {
+                    setIaAtiva(true);
+                }
+                addToast({
+                    type: 'success',
+                    message: enabled ? 'Recursos de IA ativados' : 'Recursos de IA desativados',
+                });
+                return true;
+            }
+            addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
+            return false;
+        } catch (e) {
+            addToast({ type: 'error', message: friendlyError(e, 'save') });
+            return false;
+        } finally {
+            setSavingAiModule(false);
         }
     }
 
@@ -1878,6 +1927,42 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 <p className="agent-ia-config-banner" role="note">
                     Ambiente de configuração — nada aqui vai para alunos até ativar e conectar WhatsApp.
                 </p>
+                {canEditPrompt ? (
+                    <div
+                        className="agent-ia-master-toggle"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            marginBottom: 14,
+                            flexWrap: 'wrap',
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            border: '1px solid var(--border-light, #e8e8ef)',
+                            background: 'var(--surface-subtle, #fafafa)',
+                        }}
+                    >
+                        <span className="text-small" style={{ flex: 1, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            Recursos de IA (barra ⌘K, copilot, imports assistidos, sandbox)
+                        </span>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={aiModuleEnabled}
+                            onClick={() => void handleToggleAiModule(!aiModuleEnabled)}
+                            disabled={savingAiModule}
+                            className={`ai-switch${aiModuleEnabled ? ' ai-switch--on' : ''}${savingAiModule ? ' ai-switch--loading' : ''}`}
+                            title={aiModuleEnabled ? 'Desativar recursos de IA' : 'Ativar recursos de IA'}
+                        >
+                            <span className="ai-switch__thumb" aria-hidden />
+                        </button>
+                    </div>
+                ) : null}
+                {!aiModuleEnabled ? (
+                    <p className="agent-ia-readonly-banner" role="note">
+                        Recursos de IA desativados para esta academia. Ative acima para usar assistente, copilot e comandos naturais.
+                    </p>
+                ) : null}
                 {!canEditPrompt && (
                     <p className="agent-ia-readonly-banner" role="note">
                         Você pode testar o assistente, mas só o dono da academia ou administrador pode editar as instruções.
@@ -1901,7 +1986,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                 role="switch"
                                 aria-checked={iaAtiva}
                                 onClick={() => void handleToggleIa(!iaAtiva)}
-                                disabled={togglingIa || !promptConfigurado}
+                                disabled={togglingIa || !promptConfigurado || !aiModuleEnabled}
                                 className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
                                 title={
                                     !promptConfigurado

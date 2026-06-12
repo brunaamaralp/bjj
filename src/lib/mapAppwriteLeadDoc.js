@@ -64,6 +64,8 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     lastNoteAt: doc.last_note_at || null,
     lastWhatsappActivityAt: doc.last_whatsapp_activity_at || null,
     whatsappClassifiedAt: doc.whatsapp_classified_at || null,
+    whatsappContactType: String(doc.whatsapp_contact_type || '').trim(),
+    whatsappLeadProfile: String(doc.whatsapp_lead_profile || '').trim(),
     pendingAutomations: parsePendingAutomations(doc.pending_automations),
     hasPendingAutomations: doc.has_pending_automations === true,
     createdAt: doc.$createdAt,

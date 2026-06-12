@@ -168,7 +168,7 @@ export default function Inbox() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { fetchLeads, loading: leadsLoading, academyId, academyList: academyListRaw, updateLead, deleteLead } = useLeadStore(
+  const { fetchLeads, loading: leadsLoading, academyId, academyList: academyListRaw, updateLead, deleteLead, modules } = useLeadStore(
     useShallow((state) => ({
       fetchLeads: state.fetchLeads,
       loading: state.loading,
@@ -176,8 +176,10 @@ export default function Inbox() {
       academyList: state.academyList,
       updateLead: state.updateLead,
       deleteLead: state.deleteLead,
+      modules: state.modules,
     }))
   );
+  const aiModuleEnabled = modules?.aiEnabled !== false;
   const students = useStudentStore((s) => s.students);
   const fetchStudents = useStudentStore((s) => s.fetchStudents);
   const studentsLoading = useStudentStore((s) => s.loading);
@@ -2055,6 +2057,8 @@ export default function Inbox() {
       leadPanel={leadPanel}
       setLeadPanel={setLeadPanel}
       linkingLead={linkingLead}
+      academyId={academyId}
+      aiEnabled={aiModuleEnabled}
     />
   );
 
@@ -2110,6 +2114,7 @@ export default function Inbox() {
     setDetailsOpen,
     selectedPhoneFlags,
     membershipPrimaryLabel,
+    terms,
   };
 
   const contextPanel = (

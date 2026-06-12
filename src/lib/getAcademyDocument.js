@@ -94,9 +94,10 @@ export function applyAcademyDocToLeadStore(doc, setters = {}) {
       sales: Boolean(mods.sales),
       inventory: Boolean(mods.inventory),
       finance: Boolean(mods.finance),
+      aiEnabled: mods.ai?.enabled !== false,
     });
   } else if (setModules) {
-    setModules({ sales: false, inventory: false, finance: false });
+    setModules({ sales: false, inventory: false, finance: false, aiEnabled: true });
   }
 
   try {

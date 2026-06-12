@@ -15,6 +15,7 @@ import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js'
 import { listAcademyStudentDocs } from '../lib/server/listAcademyStudents.js';
 import { assertBillingActive, sendBillingGateError } from '../lib/server/billingGate.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
+import { buildLeadFieldsFromClassification } from '../lib/agentClassificationFields.js';
 import inventoryHandler from '../lib/server/inventoryHandler.js';
 import productsHandler from '../lib/server/productsHandler.js';
 import aiProductImportHandler from '../lib/server/aiProductImportHandler.js';
@@ -305,6 +306,11 @@ export default async function handler(req, res) {
         return json(res, 200, { sucesso: true, ja_existe: true, id: existing.$id });
       }
 
+      const classificacao = req.body?.classificacao;
+      const classPatch = buildLeadFieldsFromClassification(classificacao);
+      const typeFromClass = classPatch.type;
+      delete classPatch.type;
+
       const payload = buildCanonicalLeadPayload({
         academyId,
         phone,
@@ -312,8 +318,9 @@ export default async function handler(req, res) {
         origin: 'WhatsApp',
         extra: {
           contact_type: 'lead',
-          type: req.body?.type || 'Adulto',
+          type: typeFromClass || req.body?.type || 'Adulto',
           notes: '',
+          ...classPatch,
         },
       });
 

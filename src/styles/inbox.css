@@ -1062,6 +1062,16 @@
   color: var(--text-secondary);
 }
 
+.inbox-triage-callout__btn--suggested {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.inbox-triage-callout__context {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--inbox-attention-text);
+}
+
 .inbox-triage-callout--compact {
   margin-top: 0;
   padding: 8px 10px;

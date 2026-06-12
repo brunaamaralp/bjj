@@ -1,3 +1,4 @@
+import { readAutentiqueConfig } from '../autentiqueSettings.js';
 import type { ContractSignerLayout } from './contractSignerLayout.js';
 import type { SignerInput } from './types.js';
 
@@ -36,9 +37,15 @@ export function resolveAutentiqueAccountEmail(
   const direct = String(academyDoc.autentique_account_email || '').trim();
   if (direct) return direct;
 
-  const settings = parseAcademySettingsRaw(academyDoc.settings ?? academyDoc.settings_json);
+  const settingsRaw = academyDoc.settings ?? academyDoc.settings_json;
+  const settings = parseAcademySettingsRaw(settingsRaw);
   const fromSettings = String(settings.autentique_account_email || '').trim();
-  return fromSettings || fromEnv;
+  if (fromSettings) return fromSettings;
+
+  const fromAutentiqueSettings = String(
+    readAutentiqueConfig(settingsRaw).account_email || ''
+  ).trim();
+  return fromAutentiqueSettings || fromEnv;
 }
 
 export function maskEmailForDisplay(email: string): string {
@@ -104,7 +111,7 @@ export function validateAcademyAutoSign(
     return {
       ok: false,
       message:
-        'Auto-assinatura não configurada. Defina AUTENTIQUE_ACCOUNT_EMAIL no servidor (e-mail da conta Autentique do token).',
+        'Auto-assinatura não configurada. Informe o e-mail da conta em Integrações → Autentique ou defina AUTENTIQUE_ACCOUNT_EMAIL no servidor (e-mail da conta Autentique do token).',
     };
   }
 

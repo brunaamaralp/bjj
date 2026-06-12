@@ -365,6 +365,8 @@ export default function ImportFinanceModal({
             {step === 'upload' ? (
               <p id="finance-import-desc" className="finance-import-subtitle">
                 Envie Excel ou CSV com plano de contas, planos de pagamento ou contas bancárias.
+                {' '}
+                <span className="finance-import-ai-note">Recurso de IA (configuração da academia).</span>
               </p>
             ) : null}
           </div>

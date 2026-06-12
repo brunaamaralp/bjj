@@ -1052,6 +1052,13 @@
   margin-top: 8px;
 }
 
+.pipeline-container .lead-suggested-action-btn {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  min-height: 28px;
+}
+
 .pipeline-container .inbox-triage-callout {
   padding: 8px 10px;
   border-radius: 8px;

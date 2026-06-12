@@ -60,6 +60,9 @@ import StageBadge from '../components/shared/StageBadge.jsx';
 import { hintForPipelineStage } from '../lib/pipelineStageHints.js';
 import { getPipelineStageColor } from '../lib/pipelineStageColors.js';
 import { partitionLeadAttributePills } from '../lib/pipelineLeadPills.js';
+import { getPrimarySuggestedLeadAction } from '../lib/leadClassificationActions.js';
+import { suggestTriageAction, triageContextLine } from '../lib/triageSuggestions.js';
+import { buildTriageConfirmClientPatch } from '../../lib/agentClassificationFields.js';
 import { canShowPipelineScheduleShortcut } from '../lib/pipelineScheduleShortcut.js';
 import PipelineAdvancedFilters from '../components/pipeline/PipelineAdvancedFilters.jsx';
 import {
@@ -142,6 +145,7 @@ const dropAnimation = {
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
 const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, mapLeadToStageId, openNote, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+    const terms = useTerms();
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
@@ -176,9 +180,43 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
     const scheduledLine = useMemo(() => formatLeadScheduledLine(lead), [lead]);
     const lastInteractionLine = useMemo(() => formatLeadLastInteractionLine(lead), [lead]);
     const { visible: attrPills, hiddenCount: hiddenAttrPillCount } = useMemo(
-        () => partitionLeadAttributePills(lead),
-        [lead]
+        () => partitionLeadAttributePills(lead, { terms }),
+        [lead, terms]
     );
+    const suggestedAction = useMemo(
+        () => (!isEnrolledCard && !pendingTriage ? getPrimarySuggestedLeadAction(lead, { terms, mapLeadToStageId }) : null),
+        [lead, terms, mapLeadToStageId, isEnrolledCard, pendingTriage]
+    );
+    const triageSuggested = useMemo(() => suggestTriageAction(lead), [lead]);
+    const triageContext = useMemo(() => triageContextLine(lead, { terms }), [lead, terms]);
+    const handleSuggestedActionClick = useCallback((e) => {
+        e.stopPropagation();
+        if (!suggestedAction) return;
+        switch (suggestedAction.id) {
+            case 'schedule_trial':
+                onOpenScheduleModal?.(lead);
+                break;
+            case 'send_schedules': {
+                const key = templateSendKeys.find((k) => String(k).includes('horario')) || templateSendKeys[0];
+                if (key) void sendTemplateFromPipeline(e, lead, key);
+                else handleWaCardClick(e, lead);
+                break;
+            }
+            case 'assume_inbox': {
+                const phone = normalizeKanbanPhone(lead.phone);
+                if (phone) navigate(`/inbox?phone=${encodeURIComponent(phone)}`);
+                break;
+            }
+            case 'move_to_trial_stage':
+                void moveToStatus(e, lead.id, 'Aula experimental');
+                break;
+            case 'link_student':
+                onLinkStudent?.(lead);
+                break;
+            default:
+                break;
+        }
+    }, [suggestedAction, lead, onOpenScheduleModal, templateSendKeys, sendTemplateFromPipeline, handleWaCardClick, navigate, moveToStatus, onLinkStudent]);
     const slaClass =
         slaAlert?.urgency === 'critical'
             ? 'lead-card--sla-critical'
@@ -187,7 +225,7 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
               : '';
     return (
         <div
-            className={`card lead-card ${slaClass} ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isMoving ? 'lead-card--moving' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''} animate-in`}
+            className={`card lead-card ${slaClass} ${isDragging ? 'lead-card--dragging' : ''} ${isOverlay ? 'lead-card--overlay' : ''} ${isMoving ? 'lead-card--moving' : ''} ${isCardOverlayOpen ? 'lead-card--menu-open' : ''}${isOverlay ? '' : ' animate-in'}`}
             style={{
                 zIndex: isCardOverlayOpen ? 5000 : 1,
                 opacity: isMoving ? 0.7 : undefined,
@@ -280,10 +318,24 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
                     ))}
                 </div>
             ) : null}
+            {suggestedAction ? (
+                <div className="lead-meta mt-1" data-no-dnd="true">
+                    <button
+                        type="button"
+                        className="btn btn-outline lead-suggested-action-btn"
+                        onClick={handleSuggestedActionClick}
+                    >
+                        {suggestedAction.label}
+                    </button>
+                </div>
+            ) : null}
             {pendingTriage ? (
                 <div className="pipeline-lead-triage-wrap" data-no-dnd="true">
                     <InboxTriageCard
                         compact
+                        suggestedAction={triageSuggested}
+                        contextLine={triageContext}
+                        studentLabel={terms.student}
                         onConfirm={() => onConfirmTriage?.(lead)}
                         onLinkStudent={() => onLinkStudent?.(lead)}
                         onDismiss={() => onDismissTriage?.({ stopPropagation: () => {} }, lead)}
@@ -1409,7 +1461,7 @@ const Pipeline = () => {
         const leadId = String(lead?.id || '').trim();
         if (!leadId) return;
         try {
-            await updateLead(leadId, { triageStatus: LEAD_TRIAGE_STATUS.CONFIRMED });
+            await updateLead(leadId, buildTriageConfirmClientPatch(lead));
             toast.success('Lead confirmado');
         } catch (err) {
             toast.error(err, 'update');

@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useToast } from './useToast';
 import { useFollowupOutcome } from './useFollowupOutcome.js';
 import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
+import { buildTriageConfirmClientPatch } from '../../lib/agentClassificationFields.js';
 import {
   computeFollowupState,
   describePlaybookStep,
@@ -114,7 +115,7 @@ export function useInboxLeadContext({
       if (!id) return;
       setLinkingLead(true);
       try {
-        await updateLead(id, { triageStatus: LEAD_TRIAGE_STATUS.CONFIRMED });
+        await updateLead(id, buildTriageConfirmClientPatch(lead));
         toast.success('Lead confirmado');
       } catch (e) {
         toast.error(e, 'update');

@@ -10,6 +10,7 @@ import InboxTriageCard from './InboxTriageCard.jsx';
 import InboxFollowupBanner from './InboxFollowupBanner.jsx';
 import ContactAvatar from '../shared/ContactAvatar.jsx';
 import { inboxProfileImageUrl } from '../../lib/inboxContactDisplay.js';
+import { suggestTriageAction, triageContextLine } from '../../lib/triageSuggestions.js';
 
 export default function InboxThreadPanel(props) {
   const {
@@ -43,6 +44,9 @@ export default function InboxThreadPanel(props) {
     leadPanel = null,
     setLeadPanel,
     linkingLead = false,
+    academyId = '',
+    aiEnabled = true,
+    terms = null,
     menu,
     openMenu,
     threadActionsMenuProps,
@@ -291,6 +295,9 @@ export default function InboxThreadPanel(props) {
         <div className="inbox-thread-triage-banner" data-no-dnd="true">
           <InboxTriageCard
             busy={triageBusy}
+            suggestedAction={suggestTriageAction(activeContactLead)}
+            contextLine={triageContextLine(activeContactLead, { terms })}
+            studentLabel={terms?.student || 'Aluno'}
             onConfirm={() => onConfirmTriage?.(activeContactLead)}
             onLinkStudent={() => onOpenLinkStudent?.()}
             onDismiss={() => onDismissTriage?.(activeContactLead)}
@@ -302,6 +309,9 @@ export default function InboxThreadPanel(props) {
         <InboxFollowupBanner
           followupState={followupState}
           leadId={String(activeContactLead?.id || selected?.lead_id || '').trim()}
+          academyId={academyId}
+          leadPhone={activeContactLead?.phone || selectedPhone}
+          aiEnabled={aiEnabled}
           onSendTemplate={onFollowupSendTemplate}
           onCompleteFollowup={onCompleteFollowup}
           completing={completingFollowup}

@@ -1,11 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import FollowupTemperatureBadge from '../followup/FollowupTemperatureBadge.jsx';
+import FollowupCopilotButtons from '../followup/FollowupCopilotButtons.jsx';
 import { temperatureLabel } from '../../lib/followupTemperature.js';
 
 export default function InboxFollowupBanner({
   followupState,
   leadId,
+  academyId,
+  leadPhone,
+  aiEnabled = true,
   onSendTemplate,
   onCompleteFollowup,
   completing = false,
@@ -35,6 +39,16 @@ export default function InboxFollowupBanner({
         </span>
       </div>
       <div className="inbox-followup-banner__actions">
+        {aiEnabled !== false ? (
+          <FollowupCopilotButtons
+            academyId={academyId}
+            leadId={leadId}
+            leadPhone={leadPhone}
+            templateKey={followupState.nextStep?.template_key}
+            nextAction={followupState.nextActionLabel}
+            compact
+          />
+        ) : null}
         {followupState.nextStep?.template_key ? (
           <button
             type="button"

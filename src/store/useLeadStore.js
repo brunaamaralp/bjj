@@ -184,7 +184,7 @@ export const useLeadStore = create(
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
   /** Vertical de terminologia: 'fitness' (padrão) | 'physio'. */
   vertical: 'fitness',
-  modules: { sales: false, inventory: false, finance: false },
+  modules: { sales: false, inventory: false, finance: false, aiEnabled: true },
   inboxUnreadConversations: 0,
   onboardingChecklist: null,
   billingAccess: null,
