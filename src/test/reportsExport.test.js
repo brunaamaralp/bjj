@@ -11,7 +11,7 @@ describe('reportsExport', () => {
     expect(CSV_DELIMITER).toBe(';');
     const content = buildCsvContent(['a', 'b'], [['1', '2']]);
     expect(content.startsWith('\uFEFF')).toBe(true);
-    expect(content).toContain('a;b');
+    expect(content).toContain('"a";"b"');
     expect(content).toContain('"1";"2"');
   });
 
