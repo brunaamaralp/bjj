@@ -1,0 +1,222 @@
+/* Date/time inputs — split de index.css */
+/* ===== DATE / TIME / MONTH INPUTS ===== */
+
+input[type='date'],
+input[type='time'],
+input[type='month'],
+input[type='datetime-local'],
+input.navi-typable-date {
+  font-family: inherit;
+  font-size: var(--control-font-size);
+  color: var(--text);
+  background: var(--control-bg);
+  border: var(--control-border);
+  border-radius: var(--control-radius);
+  padding: var(--control-pad-y-form) var(--control-pad-x);
+  min-height: var(--control-height-form);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: text;
+}
+
+input[type='time'] {
+  cursor: pointer;
+}
+
+input[type='date']:hover,
+input[type='time']:hover,
+input[type='month']:hover,
+input[type='datetime-local']:hover,
+input.navi-typable-date:hover {
+  border-color: var(--border-mid);
+}
+
+input[type='date']:focus,
+input[type='time']:focus,
+input[type='month']:focus,
+input[type='datetime-local']:focus,
+input.navi-typable-date:focus {
+  border-color: var(--v500);
+  box-shadow: 0 0 0 3px rgba(108, 71, 216, 0.08);
+}
+
+input[type='date']:disabled,
+input[type='time']:disabled,
+input[type='month']:disabled,
+input[type='datetime-local']:disabled,
+input.navi-typable-date:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--surface-hover);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='month']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+  filter: var(--date-icon-filter, none);
+}
+
+input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+input[type='date']:not([value]),
+input[type='date'][value=''] {
+  color: var(--text-muted);
+}
+
+/* Filtros compactos (toolbar) — largura fixa para não estourar com padding */
+input[type='date'].navi-date-filter,
+input[type='time'].navi-date-filter,
+input[type='month'].navi-date-filter,
+input[type='datetime-local'].navi-date-filter,
+input.navi-typable-date.navi-date-filter {
+  width: 150px;
+  max-width: 100%;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: var(--control-height-toolbar);
+  height: var(--control-height-toolbar);
+  padding: 0 var(--control-pad-x);
+}
+
+input.navi-typable-date[data-date-type='datetime-local'].navi-date-filter,
+input.navi-typable-date[data-date-type='datetime-local'].form-input {
+  width: 168px;
+}
+
+@media (max-width: 1023px) {
+
+  input[type='date'],
+  input[type='time'],
+  input[type='month'],
+  input[type='datetime-local'] {
+    font-size: var(--font-xl);
+    padding: 0 var(--control-pad-x);
+    min-height: var(--control-height-touch);
+  }
+
+  input[type='date'].navi-date-filter,
+  input[type='time'].navi-date-filter,
+  input[type='month'].navi-date-filter,
+  input[type='datetime-local'].navi-date-filter,
+  input.navi-typable-date.navi-date-filter {
+    width: 150px;
+  }
+}
+
+/* Com .form-input — mesma linguagem visual dos outros campos */
+input[type='date'].form-input,
+input[type='time'].form-input,
+input[type='month'].form-input,
+input[type='datetime-local'].form-input,
+input.navi-typable-date.form-input {
+  font-size: var(--control-font-size);
+  min-height: var(--control-height-form);
+  padding: var(--control-pad-y-form) var(--control-pad-x);
+  border: var(--control-border);
+  color: var(--ink);
+  border-radius: var(--control-radius);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type='date'].form-input.navi-control--toolbar,
+input[type='time'].form-input.navi-control--toolbar,
+input[type='month'].form-input.navi-control--toolbar,
+input[type='datetime-local'].form-input.navi-control--toolbar,
+input[type='date'].navi-date-filter.navi-control--toolbar,
+input[type='time'].navi-date-filter.navi-control--toolbar {
+  min-height: var(--control-height-toolbar);
+  height: var(--control-height-toolbar);
+  padding: 0 var(--control-pad-x);
+}
+
+input[type='date'].form-input:hover,
+input[type='time'].form-input:hover,
+input[type='month'].form-input:hover,
+input[type='datetime-local'].form-input:hover,
+input.navi-typable-date.form-input:hover {
+  border-color: var(--v200);
+}
+
+input[type='date'].form-input:focus,
+input[type='time'].form-input:focus,
+input[type='month'].form-input:focus,
+input[type='datetime-local'].form-input:focus,
+input.navi-typable-date.form-input:focus {
+  border: 1.5px solid var(--v500);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+@media (max-width: 1023px) {
+
+  input[type='date'].form-input,
+  input[type='time'].form-input,
+  input[type='month'].form-input,
+  input[type='datetime-local'].form-input,
+  input.navi-typable-date.form-input {
+    font-size: var(--font-xl);
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+}
+
+.navi-typable-date-field {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.navi-typable-date-field > .navi-typable-date {
+  width: 100%;
+  min-width: 0;
+}
+
+input.navi-typable-date--picker {
+  padding-right: 36px;
+}
+
+.navi-native-date-picker {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}
+
+.navi-date-picker-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0;
+}
+
+.navi-date-picker-btn:hover:not(:disabled) {
+  color: var(--v500);
+  background: var(--surface-hover);
+}
+
+.navi-date-picker-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
