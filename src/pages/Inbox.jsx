@@ -66,6 +66,8 @@ import { useInboxOutboundMessaging } from '../hooks/useInboxOutboundMessaging.js
 import { useInboxDeferredBoot } from '../hooks/useInboxDeferredBoot.js';
 import { useInboxUrlState, readInboxPhoneFromLocationSearch } from '../hooks/useInboxUrlState.js';
 import { useInboxAutoSelectConversation } from '../hooks/useInboxAutoSelectConversation.js';
+import { useInboxComposerUi } from '../hooks/useInboxComposerUi.js';
+import { useInboxLayoutPrefs } from '../hooks/useInboxLayoutPrefs.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -93,7 +95,6 @@ import useDialogFocus from '../hooks/useDialogFocus.js';
 import { inboxFilterLabel } from '../lib/inboxUrlState.js';
 const EMPTY_ACADEMY_LIST = [];
 
-const COMPOSER_EXPANDED_STORAGE_KEY = 'nave_composer_expanded';
 const INBOX_PRIMARY_FILTERS = new Set(['all', 'needs_me', 'unread']);
 
 function isInboxDebugEnabled() {
@@ -221,12 +222,24 @@ export default function Inbox() {
   const autoRefresh = true;
   const [lastUpdatedAt, setLastUpdatedAt] = useState('');
   const { isMobile, isNarrowDesktop, showInboxKeyHints } = useInboxViewport();
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [slashOpen, setSlashOpen] = useState(false);
-  const [slashQuery, setSlashQuery] = useState('');
-  const [slashIndex, setSlashIndex] = useState(0);
-  const [composerExpanded, setComposerExpanded] = useState(false);
+  const { listWidth, setListWidth, contextOpen, setContextOpen } = useInboxLayoutPrefs();
+  const {
+    emojiOpen,
+    setEmojiOpen,
+    templatesOpen,
+    setTemplatesOpen,
+    slashOpen,
+    setSlashOpen,
+    slashQuery,
+    setSlashQuery,
+    slashIndex,
+    setSlashIndex,
+    composerExpanded,
+    setComposerExpanded,
+    textareaRef,
+    slashPopupRef,
+    slashActiveItemRef,
+  } = useInboxComposerUi({ selectedPhone });
 
   const { listFilter, setListFilter, listFilterRef } = useInboxUrlState({
     location,
@@ -240,13 +253,6 @@ export default function Inbox() {
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
   const { stats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
-  const [listWidth, setListWidth] = useState(() => {
-    if (typeof window === 'undefined') return 360;
-    const raw = window.localStorage.getItem('inbox_list_width');
-    const n = Number.parseInt(String(raw || ''), 10);
-    if (!Number.isFinite(n)) return 360;
-    return Math.max(300, Math.min(480, n));
-  });
   const [leadPanel, setLeadPanel] = useState(null);
   const [dismissTriageLead, setDismissTriageLead] = useState(null);
   const [transferToDraft, setTransferToDraft] = useState('');
@@ -286,13 +292,6 @@ export default function Inbox() {
   const [threadCursor, setThreadCursor] = useState(null);
   const [threadHasMore, setThreadHasMore] = useState(false);
   const [ticketUpdating, setTicketUpdating] = useState(false);
-  const [contextOpen, setContextOpen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const raw = window.localStorage.getItem('inbox_context_open');
-    if (raw === '1') return true;
-    if (raw === '0') return false;
-    return false;
-  });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const { menu, openMenu, closeMenu } = useInboxContextMenu();
   const [imageLightboxUrl, setImageLightboxUrl] = useState('');
@@ -347,9 +346,16 @@ export default function Inbox() {
 
   const draftRef = useRef('');
   const handoffExpiryToastRef = useRef('');
-  const textareaRef = useRef(null);
-  const slashPopupRef = useRef(null);
-  const slashActiveItemRef = useRef(null);
+
+  useEffect(() => {
+    if (!slashOpen) return;
+    try {
+      slashActiveItemRef.current?.scrollIntoView?.({ block: 'nearest' });
+    } catch {
+      void 0;
+    }
+  }, [slashIndex, slashOpen, slashFilteredTemplates.length, slashActiveItemRef]);
+
   const threadScrollRef = useRef(null);
   const threadMessagesApiRef = useRef(null);
   const lastAutoScrollPhoneRef = useRef('');
@@ -691,56 +697,8 @@ export default function Inbox() {
   }, [toast, selected?.human_handoff_until, selected?.need_human, selectedPhone]);
 
   useEffect(() => {
-    setSlashOpen(false);
-    setSlashQuery('');
-  }, [selectedPhone]);
-
-  useEffect(() => {
-    if (!slashOpen) return;
-    setSlashIndex(0);
-  }, [slashQuery, slashOpen]);
-
-  useEffect(() => {
-    if (!slashOpen) return;
-    try {
-      slashActiveItemRef.current?.scrollIntoView?.({ block: 'nearest' });
-    } catch {
-      void 0;
-    }
-  }, [slashIndex, slashOpen, slashFilteredTemplates.length]);
-
-  useEffect(() => {
-    if (!slashOpen) return;
-    const onDown = (e) => {
-      const pop = slashPopupRef.current;
-      const ta = textareaRef.current;
-      const t = e.target;
-      if (pop && pop.contains(t)) return;
-      if (ta && ta.contains(t)) return;
-      setSlashOpen(false);
-      setSlashQuery('');
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [slashOpen]);
-
-  useEffect(() => {
     desktopNotifyRef.current = Boolean(desktopNotify);
   }, [desktopNotify]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(COMPOSER_EXPANDED_STORAGE_KEY, composerExpanded ? '1' : '0');
-    } catch {
-      void 0;
-    }
-  }, [composerExpanded]);
-
-  useEffect(() => {
-    if (composerExpanded) return;
-    setTemplatesOpen(false);
-    setEmojiOpen(false);
-  }, [composerExpanded]);
 
   useEffect(() => {
     const threadAbort = threadAbortRef;
@@ -765,16 +723,6 @@ export default function Inbox() {
     setLeadNameDraft('');
     setDraftBeforeImprove(null);
   }, [selectedPhone]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem('inbox_list_width', String(listWidth));
-  }, [listWidth]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem('inbox_context_open', contextOpen ? '1' : '0');
-  }, [contextOpen]);
 
   useEffect(() => {
     if (leadPanel !== 'associate') return;
