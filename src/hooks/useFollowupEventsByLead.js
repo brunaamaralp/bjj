@@ -153,7 +153,7 @@ async function fetchFollowupEventsBundle(academyId) {
  * @param {string} academyId
  * @param {{ defer?: boolean; enableRealtime?: boolean }} [opts]
  */
-export function useFollowupEventsByLead(academyId, { defer = false, enableRealtime = true } = {}) {
+export function useFollowupEventsByLead(academyId, { defer = false, enableRealtime = true, eagerInbound = false } = {}) {
   const { realtimeOn } = useFollowupInboundRealtime(academyId, { enabled: enableRealtime });
   const [doneByLead, setDoneByLead] = useState({});
   const [contactByLead, setContactByLead] = useState({});
@@ -263,11 +263,36 @@ export function useFollowupEventsByLead(academyId, { defer = false, enableRealti
 
     const cancelSchedule = defer ? scheduleDeferredWork(() => void load()) : (void load(), () => {});
 
+    let cancelInbound = () => {};
+    if (eagerInbound && academyId && LEAD_EVENTS_COL) {
+      cancelInbound = (() => {
+        let cancelledInbound = false;
+        void (async () => {
+          const inbound = await loadInboundAfterMaps(academyId);
+          if (cancelledInbound || !inbound) return;
+          const cached = getFollowupEventsCache(academyId) || {
+            doneByLead: {},
+            contactByLead: {},
+            snoozeUntilByLead: {},
+            inboundAfterByLead: {},
+            inboundAfterByPhone: {},
+          };
+          const bundle = { ...cached, ...inbound };
+          applyBundle(bundle);
+          setFollowupEventsCache(academyId, bundle);
+        })();
+        return () => {
+          cancelledInbound = true;
+        };
+      })();
+    }
+
     return () => {
       cancelled = true;
       cancelSchedule();
+      cancelInbound();
     };
-  }, [academyId, defer, applyBundle]);
+  }, [academyId, defer, eagerInbound, applyBundle]);
 
   useEffect(() => {
     if (!academyId || typeof window === 'undefined') return undefined;

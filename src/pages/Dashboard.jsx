@@ -193,7 +193,7 @@ const Dashboard = () => {
         inboundAfterByPhone,
         refreshFromCache: refreshFollowupFromCache,
         refreshFollowupEvents,
-    } = useFollowupEventsByLead(academyId, { defer: true });
+    } = useFollowupEventsByLead(academyId, { defer: true, eagerInbound: true });
     const [savingFollowupDone, setSavingFollowupDone] = useState({});
     const [removingFollowupIds] = useState({});
     const [flashingFollowupIds, setFlashingFollowupIds] = useState({});

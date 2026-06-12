@@ -105,5 +105,22 @@ export function resolveInboundAfterForLead(lead, ctx = {}) {
 /** @param {string} atIso @param {number} classMs */
 export function inboundCountsAsContact(atIso, classMs) {
   const inboundMs = new Date(atIso).getTime();
-  return Number.isFinite(inboundMs) && inboundMs >= classMs;
+  if (!Number.isFinite(inboundMs)) return false;
+
+  const classYmd = ymdInSaoPaulo(new Date(classMs));
+  const inboundYmd = ymdInSaoPaulo(atIso);
+  if (classYmd && inboundYmd) return inboundYmd >= classYmd;
+
+  return inboundMs >= classMs;
+}
+
+function ymdInSaoPaulo(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
 }
