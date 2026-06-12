@@ -10,8 +10,8 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import ReportDataTable from './shared/ReportDataTable.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
-import '../finance/finance.css';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import './reports.css';
 
 const CHART_COLOR = 'var(--color-primary)';
@@ -53,34 +53,34 @@ const VENDAS_COLUMNS = [
 
 function OperatorCard({ row, expanded, onToggle }) {
   return (
-    <article className="card" style={{ padding: 14, marginBottom: 10 }}>
+    <ReportsPanelSection as="article" className="reports-operator-card">
       <button type="button" className="reports-operator-card__head" onClick={onToggle}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="reports-operator-card__name-row">
             <UserCircle size={20} aria-hidden />
-            <strong style={{ fontSize: '1rem' }}>{row.operador_nome}</strong>
+            <strong className="reports-operator-card__name">{row.operador_nome}</strong>
           </div>
-          <div className="text-small text-muted" style={{ marginTop: 6 }}>
+          <div className="text-small text-muted reports-operator-card__meta">
             {row.vendas_concluidas} venda(s) · {row.cancelamentos} cancelamento(s) ·{' '}
             {row.movimentos_manuais} mov. manual(is)
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{formatBRL(row.faturamento)}</div>
+        <div className="reports-operator-card__aside">
+          <div className="reports-operator-card__amount">{formatBRL(row.faturamento)}</div>
           <div className="text-small text-muted">Ticket {formatBRL(row.ticket_medio)}</div>
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>
 
       {row.top_itens?.length ? (
-        <div className="text-small" style={{ marginTop: 10, color: 'var(--color-text-secondary)' }}>
+        <div className="text-small reports-operator-card__top-items">
           <strong>Top itens:</strong>{' '}
           {row.top_itens.map((t) => `${t.label} (${t.quantidade})`).join(' · ')}
         </div>
       ) : null}
 
       {expanded && row.vendas?.length ? (
-        <div style={{ marginTop: 12 }}>
+        <div className="reports-operator-card__detail">
           <ReportDataTable
             columns={VENDAS_COLUMNS}
             rows={row.vendas.map((v) => ({ ...v, id: v.sale_id }))}
@@ -89,7 +89,7 @@ function OperatorCard({ row, expanded, onToggle }) {
           />
         </div>
       ) : null}
-    </article>
+    </ReportsPanelSection>
   );
 }
 
@@ -164,89 +164,99 @@ export default function ReportsOperadorPanel({ academyId, from, to, hasSales }) 
 
   if (!hasSales) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Módulo de vendas desativado"
-          description="Ative vendas na academia para ver o relatório por operador."
-          role="status"
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Módulo de vendas desativado"
+            description="Ative vendas na academia para ver o relatório por operador."
+            role="status"
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
+  const exportAction = (
+    <button
+      type="button"
+      className="btn-outline btn-sm"
+      disabled={!sorted.length}
+      onClick={() => exportOperatorReport(sorted, `${from}_${to}`)}
+    >
+      <Download size={14} aria-hidden />
+      Exportar CSV
+    </button>
+  );
+
   return (
-    <div className="mt-4">
-      <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          className="btn-outline btn-sm"
-          disabled={!sorted.length}
-          onClick={() => exportOperatorReport(sorted, `${from}_${to}`)}
-        >
-          <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
-          Exportar CSV
-        </button>
-      </div>
-      <div className="reports-moves-filters">
-        <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
-          <label className="text-small text-muted">Operador</label>
-          <select className="form-input" value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)}>
-            <option value="">Todos</option>
-            {team.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nome}
-              </option>
-            ))}
-          </select>
+    <ReportsPanelShell>
+      <ReportsPanelSection
+        title="Por operador"
+        subtitle={`${from} — ${to}`}
+        action={exportAction}
+      >
+        <div className="reports-moves-filters">
+          <div className="form-group reports-moves-filters__field">
+            <label className="text-small text-muted">Operador</label>
+            <select className="form-input" value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)}>
+              <option value="">Todos</option>
+              {team.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nome}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      </ReportsPanelSection>
 
       {loading ? (
-        <div className="card reports-panel-card">
+        <ReportsPanelSection>
           <PageSkeleton variant="list" rows={4} />
-        </div>
+        </ReportsPanelSection>
       ) : null}
       {error ? (
-        <ErrorBanner message={friendlyError(error, 'load')} className="mt-3" onRetry={() => void load()} />
+        <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => void load()} />
       ) : null}
 
-        {!loading && !error && chartData.length > 0 ? (
-          <div className="reports-chart-block card reports-panel-card mb-4">
-            <ReportSectionHeading title="Faturamento por operador" />
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 48 }}>
-                <XAxis
-                  dataKey="nome"
-                  tick={{ fontSize: 11 }}
-                  interval={0}
-                  angle={-28}
-                  textAnchor="end"
-                  height={70}
-                />
-                <YAxis tickFormatter={(v) => formatBRL(v)} tick={{ fontSize: 11 }} />
-                <Tooltip content={<OperatorChartTooltip />} />
-                <Bar dataKey="faturamento" radius={[6, 6, 0, 0]}>
-                  {chartData.map((entry) => (
-                    <Cell key={entry.nome} fill={CHART_COLOR} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : null}
+      {!loading && !error && chartData.length > 0 ? (
+        <ReportsPanelSection title="Faturamento por operador" className="reports-panel-section--chart">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 48 }}>
+              <XAxis
+                dataKey="nome"
+                tick={{ fontSize: 11 }}
+                interval={0}
+                angle={-28}
+                textAnchor="end"
+                height={70}
+              />
+              <YAxis tickFormatter={(v) => formatBRL(v)} tick={{ fontSize: 11 }} />
+              <Tooltip content={<OperatorChartTooltip />} />
+              <Bar dataKey="faturamento" radius={[6, 6, 0, 0]}>
+                {chartData.map((entry) => (
+                  <Cell key={entry.nome} fill={CHART_COLOR} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ReportsPanelSection>
+      ) : null}
 
-        {!loading && !error && !sorted.length ? (
+      {!loading && !error && !sorted.length ? (
+        <ReportsPanelSection className="reports-empty">
           <EmptyState
-          insideCard
-          variant="compact"
-          tone="dashed"
-          title="Nenhuma venda no período"
-          description="Altere o operador ou o intervalo de datas."
-          role="status"
-        />
+            insideCard
+            variant="compact"
+            tone="dashed"
+            title="Nenhuma venda no período"
+            description="Altere o operador ou o intervalo de datas."
+            role="status"
+          />
+        </ReportsPanelSection>
       ) : null}
 
       {!loading && !error
@@ -259,6 +269,6 @@ export default function ReportsOperadorPanel({ academyId, from, to, hasSales }) 
             />
           ))
         : null}
-    </div>
+    </ReportsPanelShell>
   );
 }

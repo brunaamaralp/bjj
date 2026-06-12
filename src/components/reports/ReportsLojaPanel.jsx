@@ -19,10 +19,10 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import ReportDataTable from './shared/ReportDataTable.jsx';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
-import '../finance/finance.css';
 import './reports.css';
 
 const CHART_COLOR = 'var(--color-primary)';
@@ -157,26 +157,28 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
 
   if (!hasSales) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Módulo de vendas desativado"
-          description="O módulo de vendas não está ativo nesta academia."
-          role="status"
-          primaryAction={{
-            label: 'Ver assinatura',
-            onClick: () => navigate('/conta?tab=assinatura'),
-          }}
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Módulo de vendas desativado"
+            description="O módulo de vendas não está ativo nesta academia."
+            role="status"
+            primaryAction={{
+              label: 'Ver assinatura',
+              onClick: () => navigate('/conta?tab=assinatura'),
+            }}
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
   const exportAction = (
     <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
-      <Download size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} aria-hidden />
+      <Download size={14} aria-hidden />
       Exportar CSV
     </button>
   );
@@ -233,16 +235,17 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
   ];
 
   return (
-    <div className="mt-4">
+    <ReportsPanelShell>
       {loading ? (
-        <div className="card reports-panel-card">
+        <ReportsPanelSection>
           <PageSkeleton variant="list" rows={4} />
-        </div>
+        </ReportsPanelSection>
       ) : error ? (
         <ErrorBanner message={friendlyError(error, 'load')} onRetry={() => void loadData()} />
       ) : totals.concludedCount === 0 && totals.cancelCount === 0 ? (
-        <div className="card reports-panel-card">
+        <ReportsPanelSection className="reports-empty">
           <EmptyState
+            insideCard
             variant="default"
             tone="dashed"
             icon={ShoppingBag}
@@ -257,24 +260,28 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
                 }),
             }}
           />
-        </div>
+        </ReportsPanelSection>
       ) : (
         <>
           {data?.truncated ? (
-            <p className="text-small text-muted mb-2" role="status">
+            <p className="reports-panel-note" role="status">
               Lista de vendas pode estar truncada no servidor — reduza o período se os totais parecerem baixos.
             </p>
           ) : null}
-          <div className="flex justify-end mb-2">{exportAction}</div>
-          <div className="reports-kpi-grid">
-            <ReportKpiCard label="Vendas concluídas" value={totals.concludedCount} highlight="default" />
-            <ReportKpiCard label="Faturamento" value={formatBRL(totals.concludedTotal)} highlight="success" />
-            <ReportKpiCard label="Ticket médio" value={formatBRL(ticketMedio)} highlight="warning" />
-            <ReportKpiCard label="Cancelamentos" value={totals.cancelCount} highlight="danger" />
-          </div>
+          <ReportsPanelSection
+            title="Vendas no período"
+            subtitle={`${from} — ${to}`}
+            action={exportAction}
+          >
+            <div className="reports-kpi-grid">
+              <ReportKpiCard label="Vendas concluídas" value={totals.concludedCount} highlight="default" />
+              <ReportKpiCard label="Faturamento" value={formatBRL(totals.concludedTotal)} highlight="success" />
+              <ReportKpiCard label="Ticket médio" value={formatBRL(ticketMedio)} highlight="warning" />
+              <ReportKpiCard label="Cancelamentos" value={totals.cancelCount} highlight="danger" />
+            </div>
+          </ReportsPanelSection>
 
-          <div className="reports-chart-block card mt-4">
-            <ReportSectionHeading title="Por canal de venda" />
+          <ReportsPanelSection title="Por canal de venda" className="reports-panel-section--chart">
             {byChannel.length === 0 ? (
               <EmptyState
                 insideCard
@@ -298,13 +305,12 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </div>
+          </ReportsPanelSection>
 
-          <div className="card mt-4" style={{ padding: '16px 18px' }}>
-            <ReportSectionHeading
-              title="Quem mais compra"
-              subtitle="Ranking por faturamento de produtos no período (alunos e clientes avulsos)."
-            />
+          <ReportsPanelSection
+            title="Quem mais compra"
+            subtitle="Ranking por faturamento de produtos no período (alunos e clientes avulsos)."
+          >
             <ReportDataTable
               columns={buyerColumns}
               rows={topBuyers5}
@@ -322,10 +328,9 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
                 ) : null
               }
             />
-          </div>
+          </ReportsPanelSection>
 
-          <div className="card mt-4" style={{ padding: '16px 18px' }}>
-            <ReportSectionHeading title="Produtos mais vendidos" />
+          <ReportsPanelSection title="Produtos mais vendidos">
             <ReportDataTable
               columns={productColumns}
               rows={top5}
@@ -343,7 +348,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
                 ) : null
               }
             />
-          </div>
+          </ReportsPanelSection>
 
           <ModalShell
             open={buyersModalOpen}
@@ -368,6 +373,6 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales }) {
           </ModalShell>
         </>
       )}
-    </div>
+    </ReportsPanelShell>
   );
 }

@@ -15,8 +15,8 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import ReportDataTable from './shared/ReportDataTable.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
-import '../finance/finance.css';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import './reports.css';
 
 const CONCILIATION_FILTER_OPTIONS = [
@@ -429,27 +429,29 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
 
   if (!hasInventory) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Módulo de estoque desativado"
-          description="Ative estoque nas configurações para ver movimentações detalhadas."
-          role="status"
-          primaryAction={{
-            label: 'Configurar estoque',
-            onClick: () => navigate('/loja?tab=estoque'),
-          }}
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Módulo de estoque desativado"
+            description="Ative estoque nas configurações para ver movimentações detalhadas."
+            role="status"
+            primaryAction={{
+              label: 'Configurar estoque',
+              onClick: () => navigate('/loja?tab=estoque'),
+            }}
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
   return (
     <>
-      <div className="mt-4">
-        <p className="text-small text-muted mb-3" role="note">
+      <ReportsPanelShell>
+        <p className="reports-panel-note" role="note">
           Para relatório de vendas por pessoa, veja as abas Vendas ou Por operador.
         </p>
         <div className="reports-moves-view-tabs" role="tablist">
@@ -489,28 +491,27 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
               </div>
             </div>
             {concLoading ? (
-              <div className="card reports-panel-card">
+              <ReportsPanelSection>
                 <PageSkeleton variant="list" rows={6} />
-              </div>
+              </ReportsPanelSection>
             ) : null}
-            {concError ? <ErrorBanner message={friendlyError(concError, 'load')} className="mt-3" /> : null}
+            {concError ? <ErrorBanner message={friendlyError(concError, 'load')} /> : null}
             {!concLoading && !concError ? (
-              <div className="card reports-panel-card">
-                <ReportSectionHeading
-                  title="Saídas de estoque vs pagamento atual"
-                  subtitle="Compara o status gravado na movimentação com SALES + Caixa hoje."
-                  action={
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm"
-                      onClick={exportConciliationCsv}
-                      disabled={!concRows.length}
-                    >
-                      <Download size={14} aria-hidden />
-                      Exportar CSV
-                    </button>
-                  }
-                />
+              <ReportsPanelSection
+                title="Saídas de estoque vs pagamento atual"
+                subtitle="Compara o status gravado na movimentação com SALES + Caixa hoje."
+                action={
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    onClick={exportConciliationCsv}
+                    disabled={!concRows.length}
+                  >
+                    <Download size={14} aria-hidden />
+                    Exportar CSV
+                  </button>
+                }
+              >
                 {concSummary ? (
                   <div className="reports-moves-footer" style={{ marginTop: 0, marginBottom: 12, borderTop: 'none' }}>
                     <span>
@@ -546,7 +547,7 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                     stickyHeader
                   />
                 )}
-              </div>
+              </ReportsPanelSection>
             ) : null}
           </>
         ) : null}
@@ -607,29 +608,28 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
         </div>
 
         {loading ? (
-          <div className="card reports-panel-card">
+          <ReportsPanelSection>
             <PageSkeleton variant="list" rows={8} />
-          </div>
+          </ReportsPanelSection>
         ) : null}
-        {error ? <ErrorBanner message={friendlyError(error, 'load')} className="mt-3" /> : null}
+        {error ? <ErrorBanner message={friendlyError(error, 'load')} /> : null}
 
         {!loading && !error ? (
-          <div className="card reports-panel-card">
-            <ReportSectionHeading
-              title={
-                <>
-                  <ArrowLeftRight size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
-                  Movimentações de estoque
-                </>
-              }
-              action={
-                <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
-                  <Download size={14} aria-hidden />
-                  Exportar CSV
-                </button>
-              }
-            />
-
+          <ReportsPanelSection
+            title={
+              <>
+                <ArrowLeftRight size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
+                Movimentações de estoque
+              </>
+            }
+            subtitle={`${from} — ${to}`}
+            action={
+              <button type="button" className="btn-outline btn-sm" onClick={exportCsv} disabled={!filtered.length}>
+                <Download size={14} aria-hidden />
+                Exportar CSV
+              </button>
+            }
+          >
             {!filtered.length ? (
               <EmptyState
                 insideCard
@@ -678,11 +678,11 @@ export default function ReportsMovimentacoesPanel({ academyId, from, to, hasInve
                 </button>
               </div>
             ) : null}
-          </div>
+          </ReportsPanelSection>
         ) : null}
         </>
         ) : null}
-      </div>
+      </ReportsPanelShell>
 
       <SaleDetailModal
         open={Boolean(saleDetail || saleDetailLoading)}

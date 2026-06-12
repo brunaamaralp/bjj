@@ -1,5 +1,7 @@
 import React from 'react';
 import EmptyState from '../shared/EmptyState.jsx';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 
 export default function ReportsLeadEmptyStates({
   showNoLeadsEmpty,
@@ -10,31 +12,35 @@ export default function ReportsLeadEmptyStates({
 }) {
   if (showNoLeadsEmpty) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title={`Nenhum ${contactLabel.toLowerCase()} carregado`}
-          description={`Volte ao início ou ao funil e aguarde o carregamento. Se a ${workspaceNoun} ainda não tiver ${contactsPlural.toLowerCase()}, cadastre o primeiro no menu.`}
-          role="status"
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title={`Nenhum ${contactLabel.toLowerCase()} carregado`}
+            description={`Volte ao início ou ao funil e aguarde o carregamento. Se a ${workspaceNoun} ainda não tiver ${contactsPlural.toLowerCase()}, cadastre o primeiro no menu.`}
+            role="status"
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
   if (showNoActivityEmpty) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Sem atividade neste período"
-          description="Tente outro intervalo de datas ou remova os filtros de origem/perfil."
-          role="status"
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Sem atividade neste período"
+            description="Tente outro intervalo de datas ou remova os filtros de origem/perfil."
+            role="status"
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 

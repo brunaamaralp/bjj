@@ -33,8 +33,8 @@ export default function ReportsPeriodToolbar({
   convertedExportLabel,
 }) {
   return (
-    <div className="page-header-card">
-      <div className="page-header-row navi-toolbar navi-filters-stack reports-filters-row reports-filters-row--split">
+    <div className="page-header-card reports-period-toolbar">
+      <div className="page-header-row navi-toolbar reports-filters-row reports-filters-row--split">
         <FilterBar className="reports-period-block">
           {presets.map((p) => (
             <button

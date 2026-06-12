@@ -9,9 +9,9 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
 import ReportDataTable from './shared/ReportDataTable.jsx';
-import '../finance/finance.css';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import './reports.css';
 
 const CURVE_BADGE = {
@@ -169,20 +169,22 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
 
   if (!hasInventory) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Módulo de estoque desativado"
-          description="Ative estoque nas configurações da academia para ver giro e curva ABC aqui."
-          role="status"
-          primaryAction={{
-            label: 'Configurar estoque',
-            onClick: () => navigate('/loja?tab=estoque'),
-          }}
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Módulo de estoque desativado"
+            description="Ative estoque nas configurações da academia para ver giro e curva ABC aqui."
+            role="status"
+            primaryAction={{
+              label: 'Configurar estoque',
+              onClick: () => navigate('/loja?tab=estoque'),
+            }}
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
@@ -194,99 +196,99 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory 
   );
 
   return (
-    <div className="mt-4">
+    <ReportsPanelShell>
       {loading ? (
-        <div className="card reports-panel-card">
+        <ReportsPanelSection>
           <PageSkeleton variant="list" rows={6} />
-        </div>
+        </ReportsPanelSection>
       ) : null}
-      {error ? <ErrorBanner message={friendlyError(error)} className="mt-3" /> : null}
+      {error ? <ErrorBanner message={friendlyError(error)} /> : null}
       {!loading && !error && data ? (
-        <div className="card reports-panel-card">
-          <ReportSectionHeading
+        <>
+          {restockRows.length > 0 ? (
+            <ReportsPanelSection title="Atenção — Reposição necessária">
+              <ReportDataTable
+                columns={[
+                  { key: 'nome', label: 'Produto' },
+                  { key: 'estoque', label: 'Estoque atual', align: 'right' },
+                  { key: 'minimo', label: 'Mínimo configurado', align: 'right' },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (row) => (
+                      <span className={`reports-stock-pill ${row.statusClass}`}>{row.status}</span>
+                    ),
+                  },
+                ]}
+                rows={restockRows}
+                footer={
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    onClick={() => setFilter('critical')}
+                  >
+                    Ver todos críticos →
+                  </button>
+                }
+              />
+            </ReportsPanelSection>
+          ) : null}
+
+          <ReportsPanelSection
             title={
               <>
                 <Package size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} aria-hidden />
                 Giro e curva ABC
               </>
             }
+            subtitle={`${from} — ${to}`}
             action={headingAction}
-          />
-
-            {restockRows.length > 0 ? (
-              <div className="mb-4">
-                <ReportSectionHeading title="Atenção — Reposição necessária" />
-                <ReportDataTable
-                  columns={[
-                    { key: 'nome', label: 'Produto' },
-                    { key: 'estoque', label: 'Estoque atual', align: 'right' },
-                    { key: 'minimo', label: 'Mínimo configurado', align: 'right' },
-                    {
-                      key: 'status',
-                      label: 'Status',
-                      render: (row) => (
-                        <span className={`reports-stock-pill ${row.statusClass}`}>{row.status}</span>
-                      ),
-                    },
-                  ]}
-                  rows={restockRows}
-                  footer={
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm"
-                      onClick={() => setFilter('critical')}
-                    >
-                      Ver todos críticos →
-                    </button>
-                  }
-                />
-              </div>
-            ) : null}
-
+          >
             <div className="reports-abc-summary" role="group" aria-label="Resumo curva ABC">
-            <ReportKpiCard label="Produtos A" value={summary.curve_a} />
-            <ReportKpiCard label="Produtos B" value={summary.curve_b} />
-            <ReportKpiCard label="Produtos C" value={summary.curve_c} />
-            <ReportKpiCard label="Parados (0 vendas)" value={summary.stalled} highlight="warning" />
-          </div>
+              <ReportKpiCard label="Produtos A" value={summary.curve_a} />
+              <ReportKpiCard label="Produtos B" value={summary.curve_b} />
+              <ReportKpiCard label="Produtos C" value={summary.curve_c} />
+              <ReportKpiCard label="Parados (0 vendas)" value={summary.stalled} highlight="warning" />
+            </div>
 
-          <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
-            {[
-              { id: 'all', label: 'Todos' },
-              { id: 'a', label: 'Só A' },
-              { id: 'stalled', label: 'Só parados' },
-              { id: 'critical', label: 'Críticos' },
-            ].map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className={`btn-outline btn-sm${filter === f.id ? ' is-active' : ''}`}
-                onClick={() => setFilter(f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+            <div className="reports-estoque-filters" role="toolbar" aria-label="Filtros">
+              {[
+                { id: 'all', label: 'Todos' },
+                { id: 'a', label: 'Só A' },
+                { id: 'stalled', label: 'Só parados' },
+                { id: 'critical', label: 'Críticos' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`btn-outline btn-sm${filter === f.id ? ' is-active' : ''}`}
+                  onClick={() => setFilter(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
 
-          {filtered.length === 0 ? (
-            <EmptyState
-              insideCard
-              variant="compact"
-              title="Nenhum produto neste filtro"
-              description="Altere o filtro ou o período."
-              role="status"
-            />
-          ) : (
-            <ReportDataTable
-              columns={ESTOQUE_COLUMNS}
-              rows={filtered.map((p) => ({ ...p, id: p.product_id }))}
-              emptyMessage="Nenhum produto neste filtro"
-              wrapClassName="reports-estoque-table-wrap"
-              stickyHeader
-            />
-          )}
-        </div>
+            {filtered.length === 0 ? (
+              <EmptyState
+                insideCard
+                variant="compact"
+                title="Nenhum produto neste filtro"
+                description="Altere o filtro ou o período."
+                role="status"
+              />
+            ) : (
+              <ReportDataTable
+                columns={ESTOQUE_COLUMNS}
+                rows={filtered.map((p) => ({ ...p, id: p.product_id }))}
+                emptyMessage="Nenhum produto neste filtro"
+                wrapClassName="reports-estoque-table-wrap"
+                stickyHeader
+              />
+            )}
+          </ReportsPanelSection>
+        </>
       ) : null}
-    </div>
+    </ReportsPanelShell>
   );
 }

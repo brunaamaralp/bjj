@@ -19,7 +19,8 @@ import {
 import { previousPeriodRange } from '../../lib/reportsPeriod.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import './reports.css';
 
 const pctVar = (cur, prev) => {
@@ -117,11 +118,15 @@ export default function ReportsStudentsPanel({
 
   if (loading) {
     return (
-      <div className="reports-kpi-grid mt-4" aria-busy="true">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <ReportKpiCardSkeleton key={i} />
-        ))}
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection aria-busy="true">
+          <div className="reports-kpi-grid">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <ReportKpiCardSkeleton key={i} />
+            ))}
+          </div>
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
@@ -129,26 +134,28 @@ export default function ReportsStudentsPanel({
 
   if (isStudentBaseEmpty) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Nenhum aluno no período"
-          description="Cadastre matrículas ou amplie o intervalo de datas para ver métricas da base."
-          role="status"
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Nenhum aluno no período"
+            description="Cadastre matrículas ou amplie o intervalo de datas para ver métricas da base."
+            role="status"
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
   return (
-    <section className="mt-4 animate-in" aria-labelledby="reports-students-heading">
-      <ReportSectionHeading
+    <ReportsPanelShell className="animate-in" aria-labelledby="reports-students-heading">
+      <ReportsPanelSection
         title="Alunos"
         subtitle="Métricas de base matriculada no intervalo. Passe o mouse no ícone de cada card para ver a definição."
-      />
-      <div className="reports-kpi-grid">
+      >
+        <div className="reports-kpi-grid">
         <ReportKpiCard
           label="Ativos no início"
           value={active}
@@ -193,14 +200,18 @@ export default function ReportsStudentsPanel({
           icon={<TrendingUp size={20} strokeWidth={2.25} />}
           highlight="success"
         />
-      </div>
+        </div>
+      </ReportsPanelSection>
 
-      <div className="card reports-evo-card mt-4">
-        <ReportSectionHeading title="Evolução da base" subtitle="Últimos 6 meses" />
+      <ReportsPanelSection
+        title="Evolução da base"
+        subtitle="Últimos 6 meses"
+        className="reports-panel-section--chart"
+      >
         {chartLoading ? (
           <div className="reports-chart-skeleton" style={{ minHeight: 240 }} aria-busy="true" />
         ) : !hasChartData ? (
-          <p className="text-small text-muted" style={{ padding: '12px 0' }}>
+          <p className="text-small text-muted reports-panel-note">
             Sem histórico de alunos nos meses recentes. Cadastre matrículas para ver a evolução aqui.
           </p>
         ) : (
@@ -238,7 +249,7 @@ export default function ReportsStudentsPanel({
             </LineChart>
           </ResponsiveContainer>
         )}
-      </div>
-    </section>
+      </ReportsPanelSection>
+    </ReportsPanelShell>
   );
 }

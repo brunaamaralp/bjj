@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { Download, Wallet2, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import '../finance/finance.css';
 import { fetchReportsFinanceLightResult } from '../../lib/reportsLightApi.js';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
 import { getFinanceRegime, financeRegimeLabel } from '../../lib/financeCompetence.js';
@@ -13,7 +12,8 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import { fmt } from '../finance/financeFmt.js';
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import './reports.css';
@@ -94,30 +94,29 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
 
   if (loading) {
     return (
-      <div className="mt-2">
+      <ReportsPanelSection>
         <PageSkeleton variant="list" rows={3} />
-      </div>
+      </ReportsPanelSection>
     );
   }
   if (permissionDenied) {
     return (
-      <EmptyState
-        variant="default"
-        tone="dashed"
-        icon={Lock}
-        title="Resumo restrito"
-        description="O resumo financeiro detalhado está disponível para gestores. Fale com o responsável pela academia."
-        role="status"
-      />
+      <ReportsPanelSection className="reports-empty">
+        <EmptyState
+          insideCard
+          variant="default"
+          tone="dashed"
+          icon={Lock}
+          title="Resumo restrito"
+          description="O resumo financeiro detalhado está disponível para gestores. Fale com o responsável pela academia."
+          role="status"
+        />
+      </ReportsPanelSection>
     );
   }
 
   if (error) {
-    return (
-      <div className="mt-2">
-        <ErrorBanner message={error} onRetry={() => void load()} />
-      </div>
-    );
+    return <ErrorBanner message={error} onRetry={() => void load()} />;
   }
 
   const empty =
@@ -127,46 +126,53 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
 
   if (empty) {
     return (
-      <EmptyState
-        variant="default"
-        tone="dashed"
-        icon={Wallet2}
-        title="Nenhuma movimentação liquidada no período"
-        description="Registre recebimentos e despesas no Caixa para acompanhar o resumo aqui."
-        role="status"
-      />
+      <ReportsPanelSection className="reports-empty">
+        <EmptyState
+          insideCard
+          variant="default"
+          tone="dashed"
+          icon={Wallet2}
+          title="Nenhuma movimentação liquidada no período"
+          description="Registre recebimentos e despesas no Caixa para acompanhar o resumo aqui."
+          role="status"
+        />
+      </ReportsPanelSection>
     );
   }
 
+  const exportAction = !isLimited ? (
+    <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
+      <Download size={14} aria-hidden />
+      Exportar CSV
+    </button>
+  ) : null;
+
   return (
-    <div className="reports-finance-operational mt-2">
-      {!isLimited && academyId ? (
-        <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
-      ) : null}
-      <p className="text-xs text-muted mb-2" role="status">
-        {isLimited
-          ? 'Resumo operacional do período (valores liquidados no Caixa).'
-          : `Movimentações liquidadas · regime ${financeRegimeLabel(regime).toLowerCase()}`}
-      </p>
-      <p className="mb-3">
-        <Link to={dreLink} className="reports-inline-link">
-          Ver DRE e fluxo de caixa →
-        </Link>
-      </p>
-      {!isLimited && totals.truncated ? (
-        <StatusBanner variant="warning" className="mb-2">
-          Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
-        </StatusBanner>
-      ) : null}
-      {!isLimited ? (
-        <div className="flex justify-end mb-2">
-          <button type="button" className="btn-outline btn-sm" onClick={exportCsv}>
-            <Download size={14} aria-hidden />
-            Exportar CSV
-          </button>
-        </div>
-      ) : null}
-      <div className="reports-kpi-grid">
+    <>
+      <ReportsPanelSection
+        title="Resumo financeiro"
+        subtitle={`Movimentações liquidadas · ${from} — ${to}`}
+        action={exportAction}
+      >
+        {!isLimited && academyId ? (
+          <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
+        ) : null}
+        <p className="reports-panel-note" role="status">
+          {isLimited
+            ? 'Resumo operacional do período (valores liquidados no Caixa).'
+            : `Movimentações liquidadas · regime ${financeRegimeLabel(regime).toLowerCase()}`}
+        </p>
+        <p className="mb-0">
+          <Link to={dreLink} className="reports-inline-link">
+            Ver DRE e fluxo de caixa →
+          </Link>
+        </p>
+        {!isLimited && totals.truncated ? (
+          <StatusBanner variant="warning" className="mb-0">
+            Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
+          </StatusBanner>
+        ) : null}
+        <div className="reports-kpi-grid">
         <ReportKpiCard
           label="Recebido (líquido)"
           value={fmt(totals.received)}
@@ -180,22 +186,22 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery }) {
           trendLabel={`${totals.expenseCount} lançamento${totals.expenseCount === 1 ? '' : 's'}`}
         />
         <ReportKpiCard label="Saldo do período" value={fmt(totals.balance)} highlight="default" />
-      </div>
+        </div>
+      </ReportsPanelSection>
 
       {!isLimited && totals.methodRows.length > 0 ? (
-        <div className="finance-reports-block mt-4">
-          <ReportSectionHeading title="Recebimentos por forma de pagamento" />
-          <div>
+        <ReportsPanelSection title="Recebimentos por forma de pagamento">
+          <div className="reports-kv-list">
             {totals.methodRows.map(({ method, total }) => (
-              <div key={method} className="finance-reports-row">
+              <div key={method} className="reports-kv-row">
                 <span>{formatPaymentMethod(method)}</span>
-                <span>{fmt(total)}</span>
+                <span className="reports-kv-row__value">{fmt(total)}</span>
               </div>
             ))}
           </div>
-        </div>
+        </ReportsPanelSection>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -204,32 +210,30 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance })
 
   if (!hasFinance) {
     return (
-      <div className="reports-empty card mt-4">
-        <EmptyState
-          insideCard
-          variant="compact"
-          tone="solid"
-          title="Módulo financeiro desativado"
-          description="Ative o financeiro nas configurações da academia para ver relatórios aqui."
-          role="status"
-          primaryAction={{
-            label: 'Configurar financeiro',
-            onClick: () => navigate(EMPRESA_FINANCE_CONFIG_PATH),
-          }}
-        />
-      </div>
+      <ReportsPanelShell>
+        <ReportsPanelSection className="reports-empty">
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="solid"
+            title="Módulo financeiro desativado"
+            description="Ative o financeiro nas configurações da academia para ver relatórios aqui."
+            role="status"
+            primaryAction={{
+              label: 'Configurar financeiro',
+              onClick: () => navigate(EMPRESA_FINANCE_CONFIG_PATH),
+            }}
+          />
+        </ReportsPanelSection>
+      </ReportsPanelShell>
     );
   }
 
   const periodQuery = from && to ? `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` : '';
 
   return (
-    <div className="card reports-panel-card mt-4">
-      <ReportSectionHeading
-        title="Resumo financeiro"
-        subtitle={`Movimentações liquidadas · ${from} — ${to}`}
-      />
+    <ReportsPanelShell>
       <OperationalFinanceReport academyId={academyId} from={from} to={to} periodQuery={periodQuery} />
-    </div>
+    </ReportsPanelShell>
   );
 }

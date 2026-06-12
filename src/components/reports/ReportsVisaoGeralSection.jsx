@@ -15,6 +15,8 @@ import { formatBRL } from '../../lib/moneyBr';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx';
 import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
 import { pctVar } from '../../lib/reportsFunnelUtils.js';
 import './reports.css';
@@ -92,7 +94,8 @@ export default function ReportsVisaoGeralSection({
   const receivedPrev = financeSummaryPrev?.received ?? financeSummaryPrev?.totalReceived;
 
   return (
-    <div className="reports-visao-geral mt-4 animate-in">
+    <ReportsPanelShell className="animate-in">
+      <ReportsPanelSection title="Indicadores do período" subtitle="Resumo cross-domain do intervalo selecionado">
       <div className="reports-kpi-grid reports-kpi-grid--overview">
         <ReportKpiCell footerTo="/reports?tab=funil">
           <ReportKpiCard
@@ -201,11 +204,9 @@ export default function ReportsVisaoGeralSection({
           </ReportKpiCell>
         ) : null}
       </div>
+      </ReportsPanelSection>
 
-      <div className="reports-visao-geral__section-divider" role="presentation" />
-
-      <section className="reports-funnel-card" aria-label="Taxas de captação">
-        <ReportSectionHeading title="Taxas de captação" subtitle="Conversão entre etapas do funil" />
+      <ReportsPanelSection title="Taxas de captação" subtitle="Conversão entre etapas do funil">
         <div className="reports-rates-grid">
           {ratesCards.map((item) => {
             const Icon = RATE_ICONS[item.icon] || Percent;
@@ -222,7 +223,7 @@ export default function ReportsVisaoGeralSection({
         <p className="reports-section-footer-link mb-0">
           <ReportInlineLink to="/reports?tab=funil">Ver relatório completo do funil →</ReportInlineLink>
         </p>
-      </section>
+      </ReportsPanelSection>
 
       <nav className="reports-section-footer-links-row" aria-label="Relatórios relacionados">
         <ReportInlineLink to="/reports?tab=funil">Funil →</ReportInlineLink>
@@ -232,7 +233,7 @@ export default function ReportsVisaoGeralSection({
         {hasInventory ? <ReportInlineLink to="/reports?tab=estoque">Estoque →</ReportInlineLink> : null}
       </nav>
 
-      <ReportsMethodologyNote className="mt-4" />
-    </div>
+      <ReportsMethodologyNote />
+    </ReportsPanelShell>
   );
 }

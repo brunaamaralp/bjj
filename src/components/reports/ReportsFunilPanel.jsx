@@ -10,7 +10,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
-import ReportSectionHeading from './shared/ReportSectionHeading.jsx';
+import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
+import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
 import { HIGHLIGHT_BY_COLOR, pctVar, trendHintFor } from '../../lib/reportsFunnelUtils.js';
 import './reports.css';
@@ -94,8 +95,9 @@ export default function ReportsFunilPanel({
   const m = reportData?.metrics;
 
   return (
-    <div className="reports-funil-panel mt-4">
+    <ReportsPanelShell>
       {showContent && m ? (
+        <ReportsPanelSection title="Indicadores do funil">
         <div className="reports-kpi-grid">
           <ReportKpiCard
             label={`Novos ${contactsPlural.toLowerCase()}`}
@@ -160,11 +162,11 @@ export default function ReportsFunilPanel({
             highlight={HIGHLIGHT_BY_COLOR.accent}
           />
         </div>
+        </ReportsPanelSection>
       ) : null}
 
       {funnelStages?.length > 0 && showContent ? (
-        <section className="reports-funnel-card mt-4" aria-label="Funil de captação">
-          <ReportSectionHeading title="Funil de captação" subtitle="Leads → Matrícula" />
+        <ReportsPanelSection title="Funil de captação" subtitle="Leads → Matrícula" aria-label="Funil de captação">
           <div className="reports-funnel-row">
             {funnelStages.map((stage) => (
               <React.Fragment key={stage.key}>
@@ -198,21 +200,21 @@ export default function ReportsFunilPanel({
               </React.Fragment>
             ))}
           </div>
-        </section>
+        </ReportsPanelSection>
       ) : null}
 
       {showChartSkeleton ? (
-        <div
-          className="card reports-panel-card reports-evo-card mt-4 reports-chart-skeleton reports-funil-panel__skeleton"
+        <ReportsPanelSection
+          className="reports-chart-skeleton reports-funil-panel__skeleton"
           aria-busy="true"
         />
       ) : null}
 
       {showContent && !loading && reportData?.chart ? (
-        <div className="card reports-panel-card reports-evo-card mt-4">
-          <ReportSectionHeading
-            title="Evolução no período"
-            action={
+        <ReportsPanelSection
+          className="reports-panel-section--chart"
+          title="Evolução no período"
+          action={
               <div className="reports-funil-chart-controls">
                 <div className="reports-chart-controls-group">
                   <span className="navi-eyebrow">Métrica</span>
@@ -261,7 +263,7 @@ export default function ReportsFunilPanel({
                 </div>
               </div>
             }
-          />
+        >
           <p className="text-xs text-muted reports-funil-chart-note">
             Mesmo intervalo de <strong>{range.from} — {range.to}</strong>, respeitando filtros de origem e
             perfil.
@@ -281,12 +283,11 @@ export default function ReportsFunilPanel({
               hasChartData={Boolean(reportData?.chart?.length)}
             />
           </Suspense>
-        </div>
+        </ReportsPanelSection>
       ) : null}
 
       {showContent && !loading ? (
-        <div className="card reports-panel-card reports-evo-card mt-4">
-          <ReportSectionHeading title="Evolução da taxa de conversão" />
+        <ReportsPanelSection className="reports-panel-section--chart" title="Evolução da taxa de conversão">
           <Suspense fallback={<div className="reports-chart-skeleton" style={{ minHeight: chartHeight }} aria-busy="true" />}>
             <ReportsFunilConversionChart
               chartHeight={chartHeight}
@@ -294,13 +295,12 @@ export default function ReportsFunilPanel({
               lastConversionPoint={lastConversionPoint}
             />
           </Suspense>
-        </div>
+        </ReportsPanelSection>
       ) : null}
 
       {showContent && !loading ? (
-        <div className="reports-aux-grid mt-4">
-          <div className="card reports-panel-card reports-evo-card">
-            <ReportSectionHeading
+        <div className="reports-aux-grid">
+          <ReportsPanelSection
               title="Heatmap de horários"
               action={
                 reportData?.heatmapData ? (
@@ -313,7 +313,7 @@ export default function ReportsFunilPanel({
                   </button>
                 ) : null
               }
-            />
+            >
             {!reportData?.heatmapData ? (
               <p className="text-small text-muted">Dados insuficientes para este período.</p>
             ) : heatmapTableView ? (
@@ -373,9 +373,8 @@ export default function ReportsFunilPanel({
                 </div>
               </div>
             )}
-          </div>
-          <div className="card reports-panel-card reports-evo-card">
-            <ReportSectionHeading title="Tempo médio no funil" />
+          </ReportsPanelSection>
+          <ReportsPanelSection title="Tempo médio no funil">
             {!reportData?.funnelTiming ? (
               <p className="text-small text-muted">Dados insuficientes para este período.</p>
             ) : (
@@ -398,11 +397,11 @@ export default function ReportsFunilPanel({
                 </div>
               </div>
             )}
-          </div>
+          </ReportsPanelSection>
         </div>
       ) : null}
 
-      {showContent ? <ReportsMethodologyNote className="mt-4" /> : null}
-    </div>
+      {showContent ? <ReportsMethodologyNote /> : null}
+    </ReportsPanelShell>
   );
 }
