@@ -1,3 +1,4 @@
+import '../../styles/inbox-context.css';
 import React from 'react';
 import { GraduationCap, Trash2, UserCheck } from 'lucide-react';
 

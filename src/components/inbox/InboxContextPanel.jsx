@@ -1,3 +1,4 @@
+import '../../styles/inbox-context.css';
 import React from 'react';
 import { Flame } from 'lucide-react';
 import ConversationNotesPanel from './ConversationNotesPanel';
