@@ -1,3 +1,4 @@
+import '../styles/settings-pages.css';
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';

@@ -1,0 +1,134 @@
+/* Settings / conta — split de index.css */
+/* ─── Settings pages — padrão global ─────────────────────────────── */
+
+/* Espaço superior vem de .main-content (--page-gutter), igual a Hoje e Funil */
+.navi-hub-page {
+  padding-top: 0;
+  padding-bottom: 40px;
+}
+
+/* Card de settings: sem hover shadow, borda mais sutil */
+.settings-card {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-violet);
+  overflow: hidden;
+}
+
+/* Linha de configuração (label + value + ação) — estilo iOS Settings */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid var(--border-light);
+  min-height: 44px;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.settings-row:last-child {
+  border-bottom: none;
+}
+.settings-row--clickable {
+  cursor: pointer;
+}
+.settings-row--clickable:hover {
+  background: rgba(108, 71, 216, 0.03);
+}
+.settings-row__label {
+  font-size: var(--font-md);
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+.settings-row__value {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  text-align: right;
+}
+.settings-row__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Cartão de perfil de usuário */
+.account-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-violet);
+  margin-bottom: 12px;
+}
+.account-profile-card__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--v100);
+  border: 0.5px solid var(--border-violet);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  color: var(--v700);
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+.account-profile-card__info {
+  min-width: 0;
+  flex: 1;
+}
+.account-profile-card__name {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-profile-card__email {
+  font-size: var(--font-base);
+  color: var(--text-secondary);
+  margin: 3px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Section label no estilo System Preferences */
+.settings-group-label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  padding-left: 4px;
+}
+
+/* Formulário dentro de settings: sem margem extra dos form-groups */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.settings-form .form-group {
+  margin: 0;
+}
+
+/* Tab content com animação de entrada */
+.navi-hub-page > [class*="animate-in"],
+.navi-hub-page > * > [class*="animate-in"] {
+  margin-top: 16px;
+}
+

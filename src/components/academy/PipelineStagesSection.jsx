@@ -1,3 +1,4 @@
+import '../../styles/pipeline.css';
 import React, { useCallback, useEffect, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';

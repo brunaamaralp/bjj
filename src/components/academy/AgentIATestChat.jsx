@@ -1,3 +1,4 @@
+import '../../styles/agent-chat-setup.css';
 import React, { useState } from 'react';
 import { createSessionJwt } from '../../lib/appwrite';
 import { fetchWithBillingGuard } from '../../lib/billingBlockedFetch';

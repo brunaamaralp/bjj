@@ -1622,3 +1622,467 @@
 .pipeline-filter-bar {
   padding-bottom: 8px;
 }
+
+/* Pipeline — modais de nota/confirmação (split de index.css) */
+/* Pipeline — notas, confirmações e “não compareceu” */
+.note-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 4, 53, 0.35);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.note-modal {
+  background: var(--navi-surface, var(--surface, #fff));
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.error {
+  color: var(--c500);
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+
+@keyframes funil-label-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes funil-label-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.funil-label-row-enter {
+  animation: funil-label-fade-in 0.25s ease-out forwards;
+}
+
+.funil-label-row-leave {
+  animation: funil-label-fade-out 0.2s ease-out forwards;
+}
+
+.funil-section-divider {
+  margin: 36px 0 0;
+  padding-top: 28px;
+  border-top: 2px solid var(--border);
+}
+
+.funil-section-subheading {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+
+.funil-unsaved-pill {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.automacoes-readiness {
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+}
+
+.automacoes-readiness--ok {
+  border-color: rgba(46, 125, 50, 0.35);
+  background: rgba(46, 125, 50, 0.06);
+}
+
+.automacoes-readiness--pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.automacoes-readiness-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--font-md);
+}
+
+.automacoes-readiness-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+}
+
+.automacoes-readiness-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.automacoes-readiness-icon--ok {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.automacoes-readiness-icon--pending {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.automacoes-preview {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-light);
+  font-size: var(--font-md);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.lead-automation-badge {
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  color: #128c7e;
+  white-space: nowrap;
+}
+
+.lead-automation-badge--overdue {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #b45309;
+}
+
+/* Funil → Etapas (Minha academia) — split de index.css */
+/* Funil → Etapas (Minha academia) */
+.pipeline-stages-editor {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pipeline-stages-editor__head {
+  display: grid;
+  grid-template-columns: 1fr 88px;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  background: var(--surface-2, var(--v50));
+  border-bottom: 0.5px solid var(--border-light);
+  font-family: var(--ff-ui);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.pipeline-stages-editor__head--sortable {
+  grid-template-columns: 28px 1fr 88px;
+  align-items: center;
+}
+
+.pipeline-stages-editor__head-drag {
+  width: 28px;
+}
+
+.pipeline-stages-editor__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.pipeline-stages-editor__row {
+  display: grid;
+  grid-template-columns: 1fr 88px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.pipeline-stages-editor__row--sortable {
+  grid-template-columns: 28px 1fr 88px;
+}
+
+.pipeline-stages-editor__row:last-child {
+  border-bottom: none;
+}
+
+.pipeline-stages-editor__row:hover {
+  background: rgba(108, 71, 216, 0.03);
+}
+
+.pipeline-stages-editor__sla {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pipeline-stages-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.pipeline-stages-editor__actions-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.pipeline-stages-editor__readonly-hint {
+  margin: var(--space-3) 0 0;
+}
+
+.funil-question-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.funil-question-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  flex-wrap: wrap;
+}
+
+.funil-question-row-main .form-input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.funil-question-type-pill {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.funil-question-detail {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border-light);
+  background: var(--v50);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.funil-question-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.funil-question-field-wrap {
+  position: relative;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.funil-question-field-wrap .form-input {
+  width: 100%;
+  padding-right: 48px;
+  box-sizing: border-box;
+}
+
+.funil-char-counter {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.funil-color-swatch-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+button.funil-color-swatch {
+  min-height: 28px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.funil-color-swatch {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  flex-shrink: 0;
+  flex-grow: 0;
+  background: var(--swatch-color);
+  box-sizing: border-box;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.funil-color-swatch--selected {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--swatch-ring),
+    0 2px 6px color-mix(in srgb, var(--swatch-ring) 35%, transparent);
+}
+
+.funil-color-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.funil-color-picker__label {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.funil-color-hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin: 8px 0 0;
+  line-height: 1.35;
+}
+
+.funil-label-create-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.funil-label-name-field {
+  flex: 1 1 220px;
+  min-width: 200px;
+  position: relative;
+}
+
+.funil-label-name-field .form-input {
+  width: 100%;
+  padding-right: 48px;
+  box-sizing: border-box;
+}
+
+.label-pill--full-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.label-pill--full-name .label-pill__name {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.funil-label-row .label-pill {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.funil-label-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ameixa);
+  border: 1px dashed var(--v200);
+  background: var(--v50);
+  border-radius: 16px;
+  font-size: var(--font-md);
+}
+

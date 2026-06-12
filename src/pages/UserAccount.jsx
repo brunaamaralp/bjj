@@ -1,3 +1,4 @@
+import '../styles/settings-pages.css';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Shield, User } from 'lucide-react';
