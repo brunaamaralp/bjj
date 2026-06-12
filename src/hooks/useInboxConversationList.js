@@ -224,7 +224,7 @@ export function useInboxConversationList({
     if (listBootstrapKeyRef.current === key) return;
     listBootstrapKeyRef.current = key;
 
-    void loadList({ reset: true, includeStats: true });
+    void loadList({ reset: true, includeStats: false });
   }, [academyId, debouncedSearchQuery, listFilter, loadList, academyIdRef, listFilterRef]);
 
   return { loadList, loadListRef };

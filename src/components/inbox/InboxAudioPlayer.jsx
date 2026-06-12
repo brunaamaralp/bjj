@@ -27,7 +27,7 @@ export default function InboxAudioPlayer({
 }) {
   const url = String(mediaUrl || '').trim();
   const mime = String(mimeType || 'audio/ogg').trim().toLowerCase();
-  const outbound = isOutboundAudioPlaceholder(content);
+  const outbound = isOutboundAudioPlaceholder(content) && !url;
   const [playError, setPlayError] = useState(false);
 
   if (outbound) {

@@ -246,7 +246,7 @@ export default function Inbox() {
   });
   const [pageActionsOpen, setPageActionsOpen] = useState(false);
   const [extraFiltersMenuOpen, setExtraFiltersMenuOpen] = useState(false);
-  const { stats, applyStatsFromList } = useInboxListStats({ academyId, listFilter });
+  const { stats, applyStatsFromList, refreshStats } = useInboxListStats({ academyId, listFilter });
   const [leadPanel, setLeadPanel] = useState(null);
   const [dismissTriageLead, setDismissTriageLead] = useState(null);
   const [transferToDraft, setTransferToDraft] = useState('');
@@ -269,7 +269,12 @@ export default function Inbox() {
     followupSnoozeUntilByLead,
     inboundAfterByLead,
     inboundAfterByPhone,
-  } = useFollowupEventsByLead(academyId, { defer: true, enableRealtime: false });
+  } = useFollowupEventsByLead(academyId, {
+    defer: true,
+    enableRealtime: false,
+    allowClientFallback: false,
+    disableInboundPoll: true,
+  });
   const followupPlaybook = useMemo(
     () => readFollowupPlaybook(academyDoc?.settings),
     [academyDoc?.settings]
@@ -481,6 +486,11 @@ export default function Inbox() {
         const waFn = fetchWaInfoDeferredRef.current;
         if (typeof waFn === 'function') void waFn();
       }
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => void refreshStats(), { timeout: 2500 });
+      } else {
+        window.setTimeout(() => void refreshStats(), 600);
+      }
       const urlPhone = normalizePhone(String(new URLSearchParams(window.location.search).get('phone') || '').trim());
       const { firstPhone, firstConversationId, items: listItems, hasSelection } = payload || {};
       const targetPhone = urlPhone || (!hasSelection ? String(firstPhone || '').trim() : '');
@@ -492,7 +502,7 @@ export default function Inbox() {
       void preloadInboxThreadChunks();
       void loadThreadRef.current?.(targetPhone, { conversationId: convId, prefetch: true });
     };
-  }, [loadThreadRef]);
+  }, [loadThreadRef, refreshStats]);
 
   const {
     markSeen,

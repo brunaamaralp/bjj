@@ -14,7 +14,7 @@ export default function InboxMediaImage({
 }) {
   const url = String(mediaUrl || '').trim();
   const caption = captionProp ?? inboxImageCaption(content);
-  const outbound = isOutboundImagePlaceholder(content);
+  const outbound = isOutboundImagePlaceholder(content) && !url;
 
   const [loadState, setLoadState] = useState(() => {
     if (outbound) return 'outbound';

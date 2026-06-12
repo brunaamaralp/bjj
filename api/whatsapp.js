@@ -185,11 +185,15 @@ function inboxMessageHasStoredMedia(m) {
   return Boolean(m && m.media_stored === true && String(m.mediaUrl || m.storageFileId || '').trim());
 }
 
+function isOutboundPhoneMediaPlaceholderContent(content) {
+  return /\[Imagem enviada pelo celular\]|\[Áudio enviado pelo celular\]/i.test(String(content || ''));
+}
+
 function mergeInboundMediaFields(existing, incoming) {
   if (!existing || !incoming || typeof existing !== 'object' || typeof incoming !== 'object') return existing;
   if (inboxMessageHasStoredMedia(existing)) return existing;
   if (!inboxMessageHasStoredMedia(incoming) && !String(incoming.mediaUrl || '').trim()) return existing;
-  return {
+  const merged = {
     ...existing,
     ...(incoming.type ? { type: incoming.type } : {}),
     ...(incoming.mediaUrl ? { mediaUrl: incoming.mediaUrl } : {}),
@@ -201,6 +205,19 @@ function mergeInboundMediaFields(existing, incoming) {
         ? { media_stored: false }
         : {}),
   };
+  if (
+    isOutboundPhoneMediaPlaceholderContent(existing.content) &&
+    String(incoming.content || '').trim() &&
+    !isOutboundPhoneMediaPlaceholderContent(incoming.content)
+  ) {
+    merged.content = incoming.content;
+  } else if (isOutboundPhoneMediaPlaceholderContent(merged.content) && String(incoming.mediaUrl || '').trim()) {
+    if (String(incoming.type || merged.type || '').toLowerCase() === 'image') merged.content = '[imagem]';
+    else if (['audio', 'ptt'].includes(String(incoming.type || merged.type || '').toLowerCase())) {
+      merged.content = '🎵 [Áudio enviado]';
+    }
+  }
+  return merged;
 }
 
 function safeParseJson(raw) {
