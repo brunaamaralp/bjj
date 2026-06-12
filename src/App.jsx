@@ -1267,44 +1267,46 @@ const App = () => {
         </Suspense>
       ) : null}
 
-      <nav className="navi-bottom-nav" aria-label="Navegação">
-        <Link to="/" className={`navi-nav-item${isActive('/') ? ' active' : ''}`}>
-          <LayoutGrid size={22} strokeWidth={1.75} />
-          <span>Hoje</span>
-        </Link>
-        <Link to="/inbox" className={`navi-nav-item${isInboxPath ? ' active' : ''}`}>
-          <MessageCircle size={22} strokeWidth={1.75} />
-          {inboxUnread > 0 && (
-            <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
-          )}
-          <span>Conversas</span>
-        </Link>
-        <button
-          type="button"
-          className="navi-nav-item navi-nav-fab"
-          aria-label={newLeadLabel}
-          onClick={() => setNewLeadOpen(true)}
-        >
-          <div className="navi-fab-btn">
-            <PlusCircle size={28} strokeWidth={1.75} />
-          </div>
-        </button>
-        <Link to="/students" className={`navi-nav-item${isActive('/students') ? ' active' : ''}`}>
-          <GraduationCap size={22} strokeWidth={1.75} />
-          <span>{navStudentsLabel}</span>
-        </Link>
-        <button
-          type="button"
-          className={`navi-nav-item navi-nav-item--mais${mobileMoreOpen || isMaisNavActive ? ' active' : ''}`}
-          onClick={() => setMobileMoreOpen(true)}
-          aria-expanded={mobileMoreOpen}
-          aria-controls="navi-mobile-more-panel"
-          aria-label="Mais opções"
-        >
-          <Grid2x2 size={22} strokeWidth={1.75} aria-hidden />
-          <span>Mais</span>
-        </button>
-      </nav>
+      {isMobileViewport ? (
+        <nav className="navi-bottom-nav" aria-label="Navegação">
+          <Link to="/" className={`navi-nav-item${isActive('/') ? ' active' : ''}`}>
+            <LayoutGrid size={22} strokeWidth={1.75} />
+            <span>Hoje</span>
+          </Link>
+          <Link to="/inbox" className={`navi-nav-item${isInboxPath ? ' active' : ''}`}>
+            <MessageCircle size={22} strokeWidth={1.75} />
+            {inboxUnread > 0 && (
+              <span className="navi-inbox-unread-dot" title={`${inboxUnread} conversa(s) com mensagens não lidas`} aria-hidden />
+            )}
+            <span>Conversas</span>
+          </Link>
+          <button
+            type="button"
+            className="navi-nav-item navi-nav-fab"
+            aria-label={newLeadLabel}
+            onClick={() => setNewLeadOpen(true)}
+          >
+            <div className="navi-fab-btn">
+              <PlusCircle size={28} strokeWidth={1.75} />
+            </div>
+          </button>
+          <Link to="/students" className={`navi-nav-item${isActive('/students') ? ' active' : ''}`}>
+            <GraduationCap size={22} strokeWidth={1.75} />
+            <span>{navStudentsLabel}</span>
+          </Link>
+          <button
+            type="button"
+            className={`navi-nav-item navi-nav-item--mais${mobileMoreOpen || isMaisNavActive ? ' active' : ''}`}
+            onClick={() => setMobileMoreOpen(true)}
+            aria-expanded={mobileMoreOpen}
+            aria-controls="navi-mobile-more-panel"
+            aria-label="Mais opções"
+          >
+            <Grid2x2 size={22} strokeWidth={1.75} aria-hidden />
+            <span>Mais</span>
+          </button>
+        </nav>
+      ) : null}
 
       <NaviToasts />
 
