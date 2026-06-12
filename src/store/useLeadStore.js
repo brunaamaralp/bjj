@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite';
+import { databases, DB_ID, LEADS_COL, ACADEMIES_COL } from '../lib/appwrite.js';
 import { ID, Query } from 'appwrite';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildLeadDocumentPermissions } from '../lib/clientDocumentPermissions.js';
