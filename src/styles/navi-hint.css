@@ -54,3 +54,9 @@
   top: 50%;
   transform: translateY(-50%);
 }
+.navi-hint[data-position='right'] .navi-hint__bubble {
+  left: calc(100% + 6px);
+}
+.navi-hint[data-position='left'] .navi-hint__bubble {
+  right: calc(100% + 6px);
+}

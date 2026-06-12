@@ -64,6 +64,10 @@ import { useInboxChatWidgetSync } from '../hooks/useInboxChatWidgetSync.js';
 import { useInboxVisualViewport } from '../hooks/useInboxVisualViewport.js';
 import { useInboxPhoneChangeReset } from '../hooks/useInboxPhoneChangeReset.js';
 import { useInboxLeadPanelData } from '../hooks/useInboxLeadPanelData.js';
+import { useInboxThreadDerived } from '../hooks/useInboxThreadDerived.js';
+import { useInboxComposerProps } from '../hooks/useInboxComposerProps.js';
+import { useInboxThreadMenuProps } from '../hooks/useInboxThreadMenuProps.js';
+import { useInboxContextPanelProps } from '../hooks/useInboxContextPanelProps.js';
 import InboxContextMenus from '../components/inbox/InboxContextMenus.jsx';
 import { getInboxJwt as getJwt } from '../lib/inboxApiUtils.js';
 import {
@@ -73,8 +77,7 @@ import {
 } from '../lib/inboxContactDisplay.js';
 import { MAX_INBOX_LIST_ITEMS } from '../lib/inboxListCap.js';
 import { inboxMessageMediaUrl } from '../lib/inboxMediaUtils.js';
-import { inboxMessageKey, senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
-import { buildInboxThreadBlocks } from '../lib/inboxThreadBlocks.js';
+import { senderKindFromInboxMessage } from '../lib/inboxMessageUtils.js';
 import {
   buildSelectedFromListItem,
   getInboxThreadCache,
@@ -1107,32 +1110,11 @@ export default function Inbox() {
     }
   };
 
-  const threadBlocks = useMemo(
-    () => buildInboxThreadBlocks(selected?.messages),
-    [selected?.messages]
-  );
-
-  const selectedPhoneFlags = useMemo(() => {
-    const phone = String(selectedPhone || '').trim();
-    const base = msgFlags && typeof msgFlags === 'object' ? msgFlags : {};
-    const cur = phone && base[phone] && typeof base[phone] === 'object' ? base[phone] : {};
-    const pinned = cur.pinned && typeof cur.pinned === 'object' ? cur.pinned : {};
-    const important = cur.important && typeof cur.important === 'object' ? cur.important : {};
-    return { pinned, important };
-  }, [msgFlags, selectedPhone]);
-
-  const pinnedMessages = useMemo(() => {
-    const pinned = selectedPhoneFlags.pinned || {};
-    const msgs = Array.isArray(selected?.messages) ? selected.messages : [];
-    const list = [];
-    for (const m of msgs) {
-      const k = inboxMessageKey(m);
-      if (!pinned[k]) continue;
-      const content = String(m?.content || '').trim();
-      list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}…` : content });
-    }
-    return list;
-  }, [selected?.messages, selectedPhoneFlags]);
+  const { threadBlocks, selectedPhoneFlags, pinnedMessages } = useInboxThreadDerived({
+    selectedPhone,
+    selected,
+    msgFlags,
+  });
 
   const { onConversationListScroll, onThreadScroll } = useInboxScrollLoadMore({
     searchQuery,
@@ -1242,7 +1224,7 @@ export default function Inbox() {
     (!Array.isArray(selected?.messages) || selected.messages.length === 0)
   );
 
-  const composerProps = {
+  const composerProps = useInboxComposerProps({
     isMobile,
     inboxVvInset,
     composerExpanded,
@@ -1285,47 +1267,33 @@ export default function Inbox() {
     setSlashOpen,
     setSlashQuery,
     toast,
-  };
+  });
 
-  const contextPanelVisible = contextOpen && !isNarrowDesktop;
-
-  const scrollToMsgKey = (k) => {
-    const key = String(k || '').trim();
-    if (!key) return;
-    try {
-      threadMessagesApiRef.current?.scrollToMsgKey?.(key);
-    } catch {
-      void 0;
-    }
-  };
-
-  const threadActionsMenuProps = {
-    selectedPhone,
-    selected,
-    items,
-    listFilter,
-    isMobile,
-    isNarrowDesktop,
-    contextPanelVisible,
-    setDetailsOpen,
-    setContextOpen,
-    updateTicket,
-    ticketUpdating,
-    archiveConversation,
-    unarchiveConversation,
-    markUnread,
-  };
-
-  const messageMenuProps = {
-    setDraft,
-    textareaRef,
-    copyToClipboard,
-    toggleMsgFlag,
-    setSelectedMsgKey,
-    scrollToMsgKey,
-    selectedPhoneFlags,
-    cancelScheduledMessage,
-  };
+  const { threadActionsMenuProps, messageMenuProps, scrollToMsgKey, contextPanelVisible } =
+    useInboxThreadMenuProps({
+      selectedPhone,
+      selected,
+      items,
+      listFilter,
+      isMobile,
+      isNarrowDesktop,
+      contextOpen,
+      setDetailsOpen,
+      setContextOpen,
+      updateTicket,
+      ticketUpdating,
+      archiveConversation,
+      unarchiveConversation,
+      markUnread,
+      setDraft,
+      textareaRef,
+      copyToClipboard,
+      toggleMsgFlag,
+      setSelectedMsgKey,
+      threadMessagesApiRef,
+      selectedPhoneFlags,
+      cancelScheduledMessage,
+    });
 
   const threadPanel = selectedPhone ? (
     <Suspense
@@ -1426,7 +1394,7 @@ export default function Inbox() {
     <InboxThreadEmpty />
   );
 
-  const contextPanelProps = {
+  const contextPanelProps = useInboxContextPanelProps({
     selectedPhone,
     selected,
     ticketChip,
@@ -1465,11 +1433,10 @@ export default function Inbox() {
     studentCandidates,
     studentsLoading,
     fetchStudents,
-    onConfirmTriage: handleInboxConfirmTriage,
-    onDismissTriage: handleInboxDismissTriage,
-    onOpenLinkStudent: handleOpenLinkStudent,
-    onLinkStudentConfirm: handleInboxLinkStudentConfirm,
-    triageBusy: linkingLead,
+    handleInboxConfirmTriage,
+    handleInboxDismissTriage,
+    handleOpenLinkStudent,
+    handleInboxLinkStudentConfirm,
     activeContactLead,
     pinnedMessages,
     setSelectedMsgKey,
@@ -1479,7 +1446,7 @@ export default function Inbox() {
     selectedPhoneFlags,
     membershipPrimaryLabel,
     terms,
-  };
+  });
 
   const contextPanel = (
     <Suspense fallback={null}>
