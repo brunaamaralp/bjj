@@ -10,8 +10,9 @@ import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnect
 import { computeAutomationReadiness } from '../lib/automationUx.js';
 import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import AutomacoesSection from '../components/academy/AutomacoesSection.jsx';
+import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
 
-export default function AutomacoesConfigTab({ onGuardStateChange }) {
+export default function AutomacoesConfigTab({ onGuardStateChange, setupGuideActive = false }) {
   const terms = useTerms();
   const automationLabels = useMemo(
     () => ({
@@ -27,6 +28,8 @@ export default function AutomacoesConfigTab({ onGuardStateChange }) {
   const academyId = useLeadStore((s) => s.academyId);
   const userId = useLeadStore((s) => s.userId);
   const academyList = useLeadStore((s) => s.academyList);
+  const financeModuleOn = useLeadStore((s) => s.modules?.finance === true);
+  const previewLead = useAutomationPreviewLead();
   const addToast = useUiStore((s) => s.addToast);
   const [membership, setMembership] = useState(null);
 
@@ -62,6 +65,7 @@ export default function AutomacoesConfigTab({ onGuardStateChange }) {
   });
   const [automationsConfig, setAutomationsConfig] = useState(() => parseAutomationsConfig(null));
   const [savingAutomations, setSavingAutomations] = useState(false);
+  const [lastSaveFailed, setLastSaveFailed] = useState(false);
   const [academyDataVersion, setAcademyDataVersion] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -127,14 +131,16 @@ export default function AutomacoesConfigTab({ onGuardStateChange }) {
         templatesMap,
         waConnected,
         hasZapsterInstance: Boolean(waInfo?.instance_id),
+        financeModuleOn,
       }),
-    [automationsConfig, templatesMap, waConnected, waInfo?.instance_id]
+    [automationsConfig, templatesMap, waConnected, waInfo?.instance_id, financeModuleOn]
   );
 
   const persistAutomations = useCallback(
     async (nextConfig, { successMessage } = {}) => {
       if (!academyId || !canEdit) return false;
       setSavingAutomations(true);
+      setLastSaveFailed(false);
       try {
         const raw = JSON.stringify(nextConfig || {});
         await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
@@ -152,6 +158,7 @@ export default function AutomacoesConfigTab({ onGuardStateChange }) {
         return true;
       } catch (e) {
         console.error('save automations:', e);
+        setLastSaveFailed(true);
         addToast({ type: 'error', message: 'Não foi possível salvar. Tente novamente.' });
         return false;
       } finally {
@@ -192,9 +199,11 @@ export default function AutomacoesConfigTab({ onGuardStateChange }) {
       readiness={readiness}
       canEdit={canEdit}
       savingAutomations={savingAutomations}
-      saveFailed={isDirty && !savingAutomations}
+      saveFailed={lastSaveFailed}
       onPersistConfig={persistAutomations}
       onRetrySave={() => void persistAutomations(automationsConfig)}
+      previewLead={previewLead}
+      setupGuideActive={setupGuideActive}
     />
   );
 }

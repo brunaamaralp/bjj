@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Save, RotateCcw, Send, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
-import { DateInputField } from '../components/DateInput';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { account, teams } from '../lib/appwrite';
@@ -22,6 +21,8 @@ import { useTerms } from '../lib/terminology.js';
 import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import AutomationPreviewLeadPicker from '../components/academy/AutomationPreviewLeadPicker.jsx';
+import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import '../lib/whatsappTemplates.css';
 
@@ -47,8 +48,15 @@ export default function AutomacoesModelosTab() {
     () => (academyList || []).find((a) => a.id === academyId) || null,
     [academyList, academyId]
   );
-  const leads = useLeadStore((s) => s.leads);
   const addToast = useUiStore((s) => s.addToast);
+  const {
+    leads,
+    sampleLeadId,
+    setSampleLeadId,
+    sampleManual,
+    setSampleManual,
+    sampleData,
+  } = useAutomationPreviewLead();
 
   const {
     templates: loadedTemplates,
@@ -65,13 +73,6 @@ export default function AutomacoesModelosTab() {
   const [pendingConfirm, setPendingConfirm] = useState(null);
   const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   const [original, setOriginal] = useState(DEFAULT_TEMPLATES);
-  const [sampleLeadId, setSampleLeadId] = useState('');
-  const [sampleManual, setSampleManual] = useState({
-    name: '',
-    phone: '',
-    scheduledDate: '',
-    scheduledTime: '',
-  });
   const [filter, setFilter] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [expandedId, setExpandedId] = useState(null);
@@ -122,22 +123,6 @@ export default function AutomacoesModelosTab() {
   }, [openPopover]);
 
   const templateIds = useMemo(() => Object.keys(DEFAULT_TEMPLATES), []);
-
-  const sampleLead = useMemo(() => {
-    const id = String(sampleLeadId || '').trim();
-    if (id === '_manual') return null;
-    return leads.find((l) => l.id === id) || leads[0] || null;
-  }, [leads, sampleLeadId]);
-
-  const sampleData = useMemo(() => {
-    if (sampleLead) return sampleLead;
-    return {
-      name: sampleManual.name,
-      phone: sampleManual.phone,
-      scheduledDate: sampleManual.scheduledDate,
-      scheduledTime: sampleManual.scheduledTime,
-    };
-  }, [sampleLead, sampleManual]);
 
   const renderTemplate = (text) =>
     applyWhatsappTemplatePlaceholders(String(text || ''), { lead: sampleData, academyName });
@@ -400,56 +385,14 @@ export default function AutomacoesModelosTab() {
         </div>
       </div>
 
-      <div className="card mt-3 animate-in">
-        <div className="flex tpl-preview-lead-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <span className="tpl-preview-lead-label">Pré-visualizar com:</span>
-          <select
-            className="form-input tpl-preview-lead-select"
-            value={sampleLeadId}
-            onChange={(e) => setSampleLeadId(e.target.value)}
-          >
-            <option value="">(Primeiro da lista)</option>
-            {leads.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-            <option value="_manual">Manual</option>
-          </select>
-        </div>
-        {!sampleLead && (
-          <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
-            <input
-              className="form-input"
-              placeholder="Nome"
-              value={sampleManual.name}
-              onChange={(e) => setSampleManual((p) => ({ ...p, name: e.target.value }))}
-              style={{ flex: 1, minWidth: 180 }}
-            />
-            <input
-              className="form-input"
-              placeholder="Telefone"
-              value={sampleManual.phone}
-              onChange={(e) => setSampleManual((p) => ({ ...p, phone: e.target.value }))}
-              style={{ width: 170 }}
-            />
-            <DateInputField
-              className="form-input"
-              type="date"
-              value={sampleManual.scheduledDate}
-              onChange={(e) => setSampleManual((p) => ({ ...p, scheduledDate: e.target.value }))}
-              style={{ width: 160 }}
-            />
-            <input
-              className="form-input"
-              type="time"
-              value={sampleManual.scheduledTime}
-              onChange={(e) => setSampleManual((p) => ({ ...p, scheduledTime: e.target.value }))}
-              style={{ width: 140 }}
-            />
-          </div>
-        )}
-      </div>
+      <AutomationPreviewLeadPicker
+        className="mt-3 animate-in"
+        leads={leads}
+        sampleLeadId={sampleLeadId}
+        onSampleLeadIdChange={setSampleLeadId}
+        sampleManual={sampleManual}
+        onSampleManualChange={setSampleManual}
+      />
 
       <div className="flex-col tpl-template-list mt-3">
         {filteredIds.map((id, i) => {

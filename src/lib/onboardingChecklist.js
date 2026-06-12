@@ -238,7 +238,7 @@ export function onboardingStepPath(stepId) {
     case 'connect_whatsapp':
       return '/agente-ia';
     case 'setup_automations':
-      return '/automacoes?tab=configuracoes';
+      return '/automacoes?wizard=1';
     case 'setup_finance':
       return '/empresa?tab=financeiro';
     case 'company_tax':

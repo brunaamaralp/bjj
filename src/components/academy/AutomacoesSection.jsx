@@ -13,6 +13,7 @@ import {
     delayHintForAutomation,
 } from '../../lib/automationUx.js';
 import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
+import AutomationPreviewLeadPicker from './AutomationPreviewLeadPicker.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
 function AutomationRow({
@@ -23,6 +24,7 @@ function AutomationRow({
     templateOptions,
     templatesMap,
     academyName,
+    previewLeadData,
     canEdit,
     savingAutomations,
     onToggle,
@@ -43,17 +45,24 @@ function AutomationRow({
     const switchDisabled = !canEdit || savingAutomations || noTemplatesAvailable || !hasValidTemplate;
     const [previewOpen, setPreviewOpen] = useState(false);
 
+    const scheduleDate =
+        String(previewLeadData?.scheduledDate || previewLeadData?.scheduled_date || '').trim() ||
+        '2026-06-15';
+    const scheduleTime =
+        String(previewLeadData?.scheduledTime || previewLeadData?.scheduled_time || '').trim() ||
+        '19:00';
     const delayHint = delayHintForAutomation(
         automationKey,
         cfg.delayMinutes,
-        '2026-06-15',
-        '19:00'
+        scheduleDate,
+        scheduleTime
     );
     const previewText = previewOpen
         ? previewAutomationMessage({
               templateKey: cfg.templateKey,
               templatesMap,
               academyName,
+              lead: previewLeadData,
           })
         : '';
 
@@ -122,12 +131,27 @@ function AutomationRow({
             ) : null}
             <div className="automacoes-trigger-card__controls">
                 {isDailyCron ? (
-                    <span className="automacoes-trigger-card__timing" style={{ flex: '1 1 220px' }}>
-                        Modelo: <strong>{WHATSAPP_TEMPLATE_LABELS.birthday || 'Aniversário'}</strong> —{' '}
-                        <Link to="/automacoes?tab=modelos" className="edit-link">
-                            editar texto
-                        </Link>
-                    </span>
+                    <div className="automacoes-trigger-card__model-field">
+                        <select
+                            className="form-input"
+                            value="birthday"
+                            disabled
+                            aria-label={`Modelo para ${meta.label}`}
+                            aria-describedby={`automation-${automationKey}-model-hint`}
+                        >
+                            <option value="birthday">
+                                {WHATSAPP_TEMPLATE_LABELS.birthday || 'Aniversário'} (recomendado)
+                            </option>
+                        </select>
+                        <p
+                            id={`automation-${automationKey}-model-hint`}
+                            className="automacoes-trigger-card__model-hint"
+                        >
+                            <Link to="/automacoes?tab=modelos" className="edit-link">
+                                Editar texto do modelo
+                            </Link>
+                        </p>
+                    </div>
                 ) : (
                     <select
                         className="form-input"
@@ -209,6 +233,8 @@ const AutomacoesSection = ({
     saveFailed = false,
     onPersistConfig,
     onRetrySave,
+    previewLead,
+    setupGuideActive = false,
 }) => {
     const applyConfigChange = (buildNext, { persist = false, successMessage } = {}) => {
         setAutomationsConfig((prev) => {
@@ -243,6 +269,7 @@ const AutomacoesSection = ({
                             templateOptions={templateOptions}
                             templatesMap={templatesMap}
                             academyName={academyName}
+                            previewLeadData={previewLead?.sampleData}
                             canEdit={canEdit}
                             savingAutomations={savingAutomations}
                             onToggle={() => {
@@ -292,33 +319,45 @@ const AutomacoesSection = ({
 
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
-            <div
-                className="flex justify-between items-center mb-2"
-                style={{ gap: 10, flexWrap: 'wrap' }}
-            >
-                <h3 className="navi-section-heading" style={{ margin: 0 }}>
-                    Mensagens automáticas
-                </h3>
-                {savingAutomations ? (
-                    <span className="funil-unsaved-pill" role="status">
-                        Salvando…
-                    </span>
-                ) : null}
-            </div>
+            <h3 className="navi-section-heading" style={{ margin: '0 0 6px' }}>
+                Mensagens automáticas
+            </h3>
+            {canEdit ? (
+                <p className="navi-eyebrow automacoes-config-save-status" role="status" style={{ marginBottom: 12 }}>
+                    {savingAutomations
+                        ? 'Salvando…'
+                        : saveFailed
+                          ? 'Falha ao salvar — use “Tentar novamente” abaixo.'
+                          : 'Alterações salvas automaticamente.'}
+                </p>
+            ) : null}
             {!canEdit ? (
                 <p className="text-small text-light" style={{ marginBottom: 12 }}>
                     Modo leitura: apenas titular ou administrador pode ativar gatilhos e alterar modelos
                     vinculados.
                 </p>
             ) : null}
-            <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
-                Personalize os textos em{' '}
-                <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
-                    Modelos de Mensagem
-                </Link>
-                , depois ative os gatilhos abaixo.
-            </p>
-            <AutomacoesReadinessBanner readiness={readiness} />
+            {!setupGuideActive ? (
+                <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                    Personalize os textos em{' '}
+                    <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
+                        Modelos de Mensagem
+                    </Link>
+                    , depois ative os gatilhos abaixo.
+                </p>
+            ) : null}
+            {!setupGuideActive ? <AutomacoesReadinessBanner readiness={readiness} /> : null}
+            {previewLead ? (
+                <AutomationPreviewLeadPicker
+                    className="mb-3"
+                    leads={previewLead.leads}
+                    sampleLeadId={previewLead.sampleLeadId}
+                    onSampleLeadIdChange={previewLead.setSampleLeadId}
+                    sampleManual={previewLead.sampleManual}
+                    onSampleManualChange={previewLead.setSampleManual}
+                    scopeHint
+                />
+            ) : null}
             {saveFailed ? (
                 <StatusBanner
                     variant="warning"

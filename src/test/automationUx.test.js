@@ -4,6 +4,7 @@ import {
   computeAutomationReadiness,
   formatWhatsappTemplateSentTimeline,
   getLeadAutomationBadges,
+  previewAutomationMessage,
   safeAutomationDispatch,
 } from '../lib/automationUx.js';
 import { AUTOMATION_DEFAULTS } from '../lib/useAutomations.js';
@@ -21,6 +22,18 @@ describe('automationUx', () => {
     expect(r.ready).toBe(true);
     expect(r.activeCount).toBe(1);
     expect(r.activationLabel).toContain('1 gatilho');
+  });
+
+  it('computeAutomationReadiness inclui passo financeiro informativo', () => {
+    const r = computeAutomationReadiness({
+      automationsConfig: AUTOMATION_DEFAULTS,
+      templatesMap: { confirm: 'Olá {nome}' },
+      waConnected: true,
+      hasZapsterInstance: true,
+      financeModuleOn: true,
+    });
+    expect(r.infraSteps.some((s) => s.id === 'finance_reminders')).toBe(true);
+    expect(r.infraReady).toBe(true);
   });
 
   it('computeAutomationReadiness infra ok sem gatilhos ativos', () => {
@@ -76,6 +89,16 @@ describe('automationUx', () => {
       []
     );
     expect(toasts.some((t) => t.type === 'warning')).toBe(true);
+  });
+
+  it('previewAutomationMessage usa lead informado', () => {
+    const text = previewAutomationMessage({
+      templateKey: 'confirm',
+      templatesMap: { confirm: 'Olá {nome}, aula {data} às {hora}' },
+      academyName: 'Academia Teste',
+      lead: { name: 'João', scheduledDate: '2026-07-01', scheduledTime: '18:30' },
+    });
+    expect(text).toContain('João');
   });
 
   it('formatWhatsappTemplateSentTimeline', () => {

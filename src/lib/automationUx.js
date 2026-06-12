@@ -129,7 +129,13 @@ export async function safeAutomationDispatch(promise, fallbackKey = 'unknown') {
   }
 }
 
-export function computeAutomationReadiness({ automationsConfig, templatesMap, waConnected, hasZapsterInstance }) {
+export function computeAutomationReadiness({
+  automationsConfig,
+  templatesMap,
+  waConnected,
+  hasZapsterInstance,
+  financeModuleOn = false,
+}) {
   const entries = Object.entries(automationsConfig || {});
   const activeCount = entries.filter(([, c]) => c?.active === true).length;
   const templatesOk = Object.values(templatesMap || {}).some((v) => String(v || '').trim());
@@ -153,7 +159,16 @@ export function computeAutomationReadiness({ automationsConfig, templatesMap, wa
     },
   ];
 
-  const infraReady = infraSteps.every((s) => s.ok);
+  if (financeModuleOn) {
+    infraSteps.push({
+      id: 'finance_reminders',
+      ok: true,
+      informational: true,
+      label: 'Cobrança: lembretes de mensalidade no Financeiro',
+    });
+  }
+
+  const infraReady = infraSteps.filter((s) => !s.informational).every((s) => s.ok);
   const activationLabel =
     activeCount > 0
       ? `${activeCount} gatilho${activeCount === 1 ? '' : 's'} ativo${activeCount === 1 ? '' : 's'}`
@@ -172,15 +187,16 @@ export function computeAutomationReadiness({ automationsConfig, templatesMap, wa
   };
 }
 
-export function previewAutomationMessage({ templateKey, templatesMap, academyName }) {
+export function previewAutomationMessage({ templateKey, templatesMap, academyName, lead }) {
   const raw = templatesMap?.[templateKey];
   if (!raw || !String(raw).trim()) return '';
+  const fallback = {
+    name: 'Maria Silva',
+    scheduledDate: '2026-06-15',
+    scheduledTime: '19:00',
+  };
   return applyWhatsappTemplatePlaceholders(String(raw), {
-    lead: {
-      name: 'Maria Silva',
-      scheduledDate: '2026-06-15',
-      scheduledTime: '19:00',
-    },
+    lead: lead && typeof lead === 'object' ? lead : fallback,
     academyName: academyName || 'Sua academia',
   });
 }
