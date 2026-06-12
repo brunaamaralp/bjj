@@ -1960,9 +1960,11 @@
   border-top: none;
   border-bottom: none;
   padding: 6px 12px 4px;
-  font-size: 10px;
+  font-family: var(--ff-ui, inherit);
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
+  line-height: 1.25;
   color: var(--color-text-tertiary, var(--text-muted));
   text-transform: uppercase;
 }
@@ -1975,7 +1977,14 @@
   width: 100%;
   border: none;
   cursor: pointer;
-  font: inherit;
+  /* Não usar font: inherit — anula font-size do cabeçalho de seção */
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-transform: inherit;
+  color: inherit;
   text-align: left;
   appearance: none;
   -webkit-appearance: none;
@@ -1994,6 +2003,7 @@
 }
 
 .inbox-group-title__count {
+  font-size: inherit;
   font-weight: 600;
   color: var(--color-text-tertiary, var(--text-muted));
 }

@@ -9,7 +9,7 @@
  * --- SCHEMA PROPOSTO (não provisionado automaticamente se não houver env) ---
  * Se no futuro ACCOUNTS_COL / JOURNAL_COL estiverem vazios no .env, ver blocos 7–8 abaixo.
  */
-import { Client, Databases } from 'node-appwrite';
+import { Client, Databases, Query } from 'node-appwrite';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -138,9 +138,31 @@ function typesCompatible(expected, found, { key } = {}) {
   return f === expected;
 }
 
+async function listAllAttributes(databases, collectionId) {
+  const attrs = [];
+  let offset = 0;
+  const pageSize = 100;
+  while (true) {
+    const res = await databases.listAttributes({
+      databaseId: DB_ID,
+      collectionId,
+      queries: [Query.limit(pageSize), Query.offset(offset)],
+    });
+    attrs.push(...(res.attributes || []));
+    if (attrs.length >= (res.total || 0) || (res.attributes || []).length < pageSize) break;
+    offset += pageSize;
+  }
+  return attrs;
+}
+
 async function listAttrMap(databases, collectionId) {
-  const res = await databases.listAttributes({ databaseId: DB_ID, collectionId });
-  return new Map((res.attributes || []).map((a) => [a.key, a]));
+  const attrs = await listAllAttributes(databases, collectionId);
+  return new Map(attrs.map((a) => [a.key, a]));
+}
+
+async function findAttribute(databases, collectionId, key) {
+  const attrs = await listAllAttributes(databases, collectionId);
+  return attrs.find((a) => a.key === key) || null;
 }
 
 async function listIndexKeys(databases, collectionId) {
@@ -151,8 +173,7 @@ async function listIndexKeys(databases, collectionId) {
 async function waitForAttribute(databases, collectionId, key) {
   const deadline = Date.now() + 90000;
   while (Date.now() < deadline) {
-    const res = await databases.listAttributes({ databaseId: DB_ID, collectionId });
-    const attr = (res.attributes || []).find((a) => a.key === key);
+    const attr = await findAttribute(databases, collectionId, key);
     if (!attr) {
       await sleep(800);
       continue;
@@ -163,8 +184,7 @@ async function waitForAttribute(databases, collectionId, key) {
     if (status === 'processing' || status === 'creating' || status === 'staged') return 'processing';
     await sleep(1500);
   }
-  const res = await databases.listAttributes({ databaseId: DB_ID, collectionId });
-  const attr = (res.attributes || []).find((a) => a.key === key);
+  const attr = await findAttribute(databases, collectionId, key);
   if (attr) {
     const status = String(attr.status || '').toLowerCase();
     if (status === 'failed') throw new Error(attr.error || 'attribute_failed');
@@ -376,7 +396,7 @@ const LEADS_ATTRS = [
   { key: 'type', type: 'string', size: 32 },
   { key: 'assigned_to', type: 'string', size: 64 },
   { key: 'assigned_name', type: 'string', size: 128 },
-  { key: 'notes', type: 'string', size: 2048 },
+  // notes removido — notas do lead ficam em lead_events (type note)
   { key: 'tags_json', type: 'string', size: 2048 },
   { key: 'created_by', type: 'string', size: 64 },
   { key: 'created_by_name', type: 'string', size: 128 },
