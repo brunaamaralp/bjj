@@ -1570,14 +1570,24 @@ a.btn-ghost:focus-visible {
 .main-content:has(.container.inbox-page) > *:last-child,
 .main-content:has(.loja-hub) > *:last-child,
 .main-content:has(.container.students-page) > *:last-child,
-.main-content:has(.lead-profile-page-root.lead-profile--panel-open) > *:last-child,
-.main-content:has(.student-profile-page-root.student-profile--panel-open) > *:last-child,
 .main-content.pipeline-active > *:last-child {
   flex: 1 1 0%;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Perfis lead/aluno: duas colunas lado a lado (não herdar column do wrapper) */
+.main-content:has(.lead-profile-page-root.lead-profile--panel-open) > *:last-child,
+.main-content:has(.student-profile-page-root.student-profile--panel-open) > *:last-child {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   overflow: hidden;
 }
 
@@ -1607,11 +1617,15 @@ a.btn-ghost:focus-visible {
   flex: 1 1 0%;
   min-height: 0;
   overflow: hidden;
+  flex-direction: row;
+  align-items: stretch;
 }
 
 .lead-profile-page-root.lead-profile--panel-open {
   flex: 1 1 0%;
   min-height: 0;
+  flex-direction: row;
+  align-items: stretch;
 }
 
 .lead-profile-conversation-panel {
