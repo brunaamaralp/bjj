@@ -3,6 +3,7 @@ import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js'
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import taskTemplatesHandler from '../lib/server/taskTemplatesHandler.js';
 import { taskDescriptionForAppwrite } from '../src/lib/stockInventory.js';
+import { respondApiError } from '../lib/server/friendlyError.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -138,7 +139,7 @@ export default async function handler(req, res) {
       });
     } catch (e) {
       console.error('[tasks] Erro ao listar:', e);
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao buscar tarefas' });
+      return respondApiError(res, e, { tag: 'tasks/list', context: 'load', jsonFn: json });
     }
   }
 
@@ -251,7 +252,7 @@ export default async function handler(req, res) {
       return json(res, 201, { sucesso: true, task: mapTask(doc) });
     } catch (e) {
       console.error('[tasks] Erro ao criar:', e);
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao criar tarefa' });
+      return respondApiError(res, e, { tag: 'tasks/create', context: 'save', jsonFn: json });
     }
   }
 
@@ -303,7 +304,7 @@ export default async function handler(req, res) {
       return json(res, 200, { sucesso: true, task: mapTask(updated) });
     } catch (e) {
       console.error('[tasks] Erro ao atualizar:', e);
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao atualizar tarefa' });
+      return respondApiError(res, e, { tag: 'tasks/update', context: 'save', jsonFn: json });
     }
   }
 
@@ -319,7 +320,7 @@ export default async function handler(req, res) {
       return json(res, 200, { sucesso: true });
     } catch (e) {
       console.error('[tasks] Erro ao excluir:', e);
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao excluir tarefa' });
+      return respondApiError(res, e, { tag: 'tasks/delete', context: 'save', jsonFn: json });
     }
   }
 

@@ -41,6 +41,7 @@ import {
   controlidTestImageHandler,
   controlidSyncAllHandler,
 } from '../lib/server/controlidHandlers.js';
+import { respondApiError } from '../lib/server/friendlyError.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -307,7 +308,7 @@ export default async function handler(req, res) {
       await assertBillingActive(academyId);
     } catch (e) {
       if (sendBillingGateError(res, e)) return;
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+      return respondApiError(res, e, { tag: 'leads/billing', context: 'action', jsonFn: json });
     }
     const phone = normalizePhone(req.body?.phone || '');
     const name = String(req.body?.name || '').trim() || phone;
@@ -379,7 +380,7 @@ export default async function handler(req, res) {
       return json(res, 200, { sucesso: true, ...result });
     } catch (e) {
       console.error('[cron-aniversario]', e);
-      return json(res, 500, { sucesso: false, erro: e?.message || 'cron_failed' });
+      return respondApiError(res, e, { tag: 'leads/cron-aniversario', context: 'action', jsonFn: json });
     }
   }
 
@@ -392,7 +393,7 @@ export default async function handler(req, res) {
       await assertBillingActive(access.academyId);
     } catch (e) {
       if (sendBillingGateError(res, e)) return;
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+      return respondApiError(res, e, { tag: 'leads/billing', context: 'action', jsonFn: json });
     }
     try {
       const lead = await databases.getDocument(DB_ID, LEADS_COL, id);

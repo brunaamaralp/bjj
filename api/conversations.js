@@ -44,6 +44,7 @@ import {
 import { enrichConversationListDocs } from '../lib/server/inboxListLeadEnrichment.js';
 import { resolveInboxProfileAvatars } from '../lib/server/inboxProfileAvatars.js';
 import { primaryInboxPhone } from '../src/lib/normalizeInboxPhone.js';
+import { respondApiError } from '../lib/server/friendlyError.js';
 
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -253,7 +254,7 @@ export default async function handler(req, res) {
     await assertBillingActive(academyId);
   } catch (e) {
     if (sendBillingGateError(res, e)) return;
-    return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+    return respondApiError(res, e, { tag: 'conversations/billing', context: 'load', jsonFn: json });
   }
 
   const phoneParam = req.query.phone || (Array.isArray(req.query.slug) ? req.query.slug[0] : req.query.slug);
@@ -282,7 +283,7 @@ export default async function handler(req, res) {
         const stats = await fetchListStats(academyId, archivedOnly);
         return json(res, 200, stats);
       } catch (e) {
-        return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar estatísticas' });
+        return respondApiError(res, e, { tag: 'conversations/stats', context: 'load', jsonFn: json });
       }
     }
 
@@ -321,7 +322,7 @@ export default async function handler(req, res) {
         }
         return json(res, 200, { avatars });
       } catch (e) {
-        return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar avatares' });
+        return respondApiError(res, e, { tag: 'conversations/avatars', context: 'load', jsonFn: json });
       }
     }
 
@@ -377,7 +378,7 @@ export default async function handler(req, res) {
       }
       return json(res, 200, body);
     } catch (e) {
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao listar conversas' });
+      return respondApiError(res, e, { tag: 'conversations/list', context: 'load', jsonFn: json });
     }
   }
 
@@ -513,7 +514,7 @@ export default async function handler(req, res) {
         unread_count: Number.isFinite(Number(doc.unread_count)) ? Number(doc.unread_count) : 0
       });
     } catch (e) {
-      return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao carregar conversa' });
+      return respondApiError(res, e, { tag: 'conversations/thread', context: 'load', jsonFn: json });
     }
   }
 
@@ -766,7 +767,7 @@ export default async function handler(req, res) {
       try {
         await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, payload);
       } catch (e) {
-        return json(res, 500, { sucesso: false, erro: e?.message || 'Erro ao atualizar ticket' });
+        return respondApiError(res, e, { tag: 'conversations/ticket', context: 'save', jsonFn: json });
       }
       const updated = await databases.getDocument(DB_ID, CONVERSATIONS_COL, doc.$id);
       return json(res, 200, {
@@ -777,6 +778,6 @@ export default async function handler(req, res) {
 
     return json(res, 400, { sucesso: false, erro: 'action inválida' });
   } catch (e) {
-    return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+    return respondApiError(res, e, { tag: 'conversations/billing', context: 'load', jsonFn: json });
   }
 }

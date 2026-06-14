@@ -22,6 +22,7 @@ import { cancelSubscription } from '../lib/billing/cancelSubscription.js';
 import { changePlan } from '../lib/billing/changePlan.js';
 import { listPaymentsForStore } from '../lib/billing/listPaymentsForStore.js';
 import { getPaymentMethodLink } from '../lib/billing/paymentMethodLink.js';
+import { respondApiError, apiErro, logApiError } from '../lib/server/friendlyError.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -44,7 +45,8 @@ function mapBillingError(e, res) {
   if (code === 'BILLING_CONFIG') {
     return json(res, 503, { sucesso: false, erro: e.message });
   }
-  return json(res, 500, { sucesso: false, erro: e?.message || 'Erro interno' });
+  logApiError('billing', e);
+  return json(res, 500, { sucesso: false, erro: apiErro(e, 'action') });
 }
 
 export default async function handler(req, res) {
@@ -52,7 +54,7 @@ export default async function handler(req, res) {
 
   if (action === 'plans') {
     if (req.method !== 'GET') return json(res, 405, { sucesso: false, erro: 'Method Not Allowed' });
-    try { return json(res, 200, { sucesso: true, plans: listPlansForDisplay() }); } catch (e) { return json(res, 500, { sucesso: false, erro: e.message }); }
+    try { return json(res, 200, { sucesso: true, plans: listPlansForDisplay() }); } catch (e) { return respondApiError(res, e, { tag: 'billing/plans', context: 'load', jsonFn: json }); }
   }
 
   if (!PROJECT_ID || !API_KEY || !DB_ID) return json(res, 500, { sucesso: false, erro: 'Configuração Appwrite incompleta.' });
@@ -138,7 +140,8 @@ export default async function handler(req, res) {
         try {
           await updateAsaasCustomer(String(sub.asaasCustomerId), { cpfCnpj: v.digits });
         } catch (e) {
-          return json(res, 502, { sucesso: false, erro: e?.message || 'Falha ao sincronizar com o gateway de pagamento.' });
+          logApiError('billing/asaas-sync', e);
+          return json(res, 502, { sucesso: false, erro: apiErro(e, 'save') });
         }
       }
       return json(res, 200, { sucesso: true, companyTaxOk: true });

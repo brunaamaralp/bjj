@@ -30,6 +30,7 @@ import {
   PROACTIVE_SKIP_REASON,
   proactiveWhatsappUserMessage,
 } from '../lib/server/proactiveWhatsappGate.js';
+import { respondApiError } from '../lib/server/friendlyError.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT || process.env.VITE_APPWRITE_PROJECT_ID || '';
@@ -1215,7 +1216,7 @@ export default async function handler(req, res) {
               erro: inner?.message || String(inner),
               stack: String(inner?.stack || '').slice(0, 1200),
             });
-            return res.status(500).json({ sucesso: false, erro: inner?.message || 'Erro ao gravar conversa' });
+            return respondApiError(res, inner, { tag: 'whatsapp/wa_me_append', context: 'save' });
           }
         }
       }
@@ -1230,7 +1231,7 @@ export default async function handler(req, res) {
         zapsterRaw: typeof e?.zapsterRaw === 'string' ? e.zapsterRaw.slice(0, 600) : undefined,
         stack: String(e?.stack || '').slice(0, 1200),
       });
-      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+      return respondApiError(res, e, { tag: 'whatsapp/send', context: 'save' });
     }
   }
 
@@ -1496,7 +1497,7 @@ export default async function handler(req, res) {
         zapsterCode: e?.zapsterCode,
         stack: String(e?.stack || '').slice(0, 1200),
       });
-      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao atualizar' });
+      return respondApiError(res, e, { tag: 'whatsapp/update', context: 'save' });
     }
   }
 
@@ -1563,18 +1564,14 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ sucesso: true, id: messageId, status: 'canceled', canceled_at: nowIso });
     } catch (e) {
-      return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro ao cancelar' });
+      return respondApiError(res, e, { tag: 'whatsapp/cancel', context: 'save' });
     }
   }
 
     res.setHeader('Allow', 'POST, DELETE');
     return res.status(400).json({ sucesso: false, erro: 'action inválida' });
   } catch (e) {
-    console.error('[api/whatsapp] unhandled error', {
-      erro: e?.message || String(e),
-      stack: String(e?.stack || '').slice(0, 2000)
-    });
-    return res.status(500).json({ sucesso: false, erro: e?.message || 'Erro interno' });
+    return respondApiError(res, e, { tag: 'whatsapp/unhandled', context: 'action' });
   }
 }
 
