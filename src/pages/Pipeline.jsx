@@ -760,7 +760,7 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, isDragActive, c
                     {leads.length}
                 </span>
             </div>
-            <div className="col-content" ref={handleScrollRef}>
+            <div className="col-content" ref={handleScrollRef} data-pipeline-stage-id={id}>
                 {isDragActive && isOver ? (
                     <div className="kanban-col-drop-zone" aria-hidden>
                         <span className="kanban-col-drop-zone__label">Soltar nesta coluna</span>

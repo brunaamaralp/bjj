@@ -1562,7 +1562,8 @@ a.btn-ghost:focus-visible {
 
 .main-content:has(.container.inbox-page),
 .main-content:has(.lead-profile-page-root.lead-profile--panel-open),
-.main-content:has(.student-profile-page-root.student-profile--panel-open) {
+.main-content:has(.student-profile-page-root.student-profile--panel-open),
+.main-content.pipeline-active {
   padding: 0;
   background: var(--color-content-bg, #fff);
 }
