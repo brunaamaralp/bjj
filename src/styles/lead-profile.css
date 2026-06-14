@@ -1176,7 +1176,27 @@
   }
 }
 
+.lead-profile-page-root.lead-profile--panel-open {
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.lead-panel-left-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
 .lead-panel-right-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
   transition: max-width 0.25s ease, flex 0.25s ease, opacity 0.25s ease;
 }
 
@@ -1218,7 +1238,25 @@
 }
 
 .lead-profile-panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--surface-hover);
+}
+
+.lead-profile-panel-body--scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lead-profile-panel.lead-profile-panel--timeline {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .lead-profile-panel-toggle__btn {

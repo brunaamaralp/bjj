@@ -1985,7 +1985,7 @@ export default function StudentProfile() {
                             : '0 0 auto',
                 maxWidth: !stackedLayout && !timelineOpen ? 560 : undefined,
                 flexShrink: !stackedLayout && timelineOpen ? 0 : 0,
-                overflowY: 'auto',
+                overflow: 'hidden',
                 flexDirection: 'column',
                 borderRight: stackedLayout ? 'none' : '1px solid var(--border)',
                 background: 'var(--surface)',
@@ -2023,7 +2023,7 @@ export default function StudentProfile() {
                 </button>
             </div>
 
-            <div style={{ padding: '16px 14px', flex: 1 }}>
+            <div className="student-panel-left__scroll" style={{ padding: '16px 14px' }}>
                 <div className="student-profile-hd">
                     {/* Avatar com iniciais */}
                     <div className="student-profile-hd__avatar">
@@ -2651,14 +2651,7 @@ export default function StudentProfile() {
             </div>
 
             <div
-                style={{
-                    flex: 1,
-                    overflowY: activeTab === 'conversation' ? 'hidden' : 'auto',
-                    padding: activeTab === 'conversation' ? 0 : 16,
-                    minHeight: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                }}
+                className={`student-profile-panel-body${activeTab === 'conversation' ? '' : ' student-profile-panel-body--scroll'}`}
             >
                 {activeTab === 'frequency' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 120 }}>

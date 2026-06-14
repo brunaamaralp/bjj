@@ -1793,7 +1793,7 @@ const LeadProfile = () => {
                             : '0 0 auto',
                 maxWidth: !stackedLayout && !panelOpen ? 560 : undefined,
                 flexShrink: 0,
-                overflowY: 'auto',
+                overflow: 'hidden',
                 flexDirection: 'column',
                 borderRight: stackedLayout ? 'none' : '1px solid var(--color-border)',
                 background: 'var(--color-surface)',
@@ -2588,14 +2588,7 @@ const LeadProfile = () => {
             </div>
 
             <div
-                className="lead-profile-panel-body"
-                style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflowY: activeProfileTab === 'conversation' ? 'hidden' : 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                }}
+                className={`lead-profile-panel-body${activeProfileTab === 'conversation' ? '' : ' lead-profile-panel-body--scroll'}`}
             >
                 {activeProfileTab === 'timeline' ? (
                 <div

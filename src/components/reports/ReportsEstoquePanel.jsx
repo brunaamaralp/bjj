@@ -5,7 +5,7 @@ import { formatBRL } from '../../lib/moneyBr';
 import { fetchInventoryReport } from '../../lib/inventoryReportApi.js';
 import { downloadCsv } from '../../lib/reportsExport.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
-import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.js';
+import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';

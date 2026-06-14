@@ -3,6 +3,8 @@ import {
   readStagesConfigRawFromAcademyDoc,
   mergeStagesConfigIntoSettings,
   buildAcademyStagesConfigSavePayload,
+  readCachedPipelineStages,
+  writeCachedPipelineStages,
 } from '../lib/pipelineStagesStorage.js';
 
 const sampleStages = [
@@ -48,5 +50,17 @@ describe('pipelineStagesStorage', () => {
     );
     expect(merged.followupPlaybook).toEqual({ version: 1 });
     expect(merged.stagesConfig).toEqual(sampleStages);
+  });
+
+  it('cache de etapas persiste e restaura por academia', () => {
+    const academyId = 'acad-cache-test';
+    const key = `navi:pipeline:stages:${academyId}`;
+    sessionStorage.removeItem(key);
+    expect(readCachedPipelineStages(academyId)).toBeNull();
+
+    writeCachedPipelineStages(academyId, sampleStages);
+    expect(readCachedPipelineStages(academyId)).toEqual(sampleStages);
+
+    sessionStorage.removeItem(key);
   });
 });

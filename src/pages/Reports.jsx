@@ -24,7 +24,7 @@ import { useStudentMetricsReport } from '../hooks/useStudentMetricsReport.js';
 import { useReportsKpiGoals } from '../hooks/useReportsKpiGoals.js';
 import { useFunnelDerived } from '../hooks/useFunnelDerived.js';
 import { useReportsLeadExport } from '../hooks/useReportsLeadExport.js';
-import { ReportsExportSlotProvider, useReportsExportSlot } from '../hooks/useReportsExportSlot.js';
+import { ReportsExportSlotProvider, useReportsExportSlot } from '../hooks/useReportsExportSlot.jsx';
 import { fetchTeamMemberships } from '../lib/teamApi.js';
 import '../components/reports/reports.css';
 

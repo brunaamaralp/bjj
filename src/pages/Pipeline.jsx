@@ -39,10 +39,12 @@ import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import { useCustomLeadQuestions } from '../hooks/useCustomLeadQuestions.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
-import { invalidateAcademyDocumentCache } from '../lib/getAcademyDocument.js';
+import { invalidateAcademyDocumentCache, getAcademyDocument } from '../lib/getAcademyDocument.js';
 import {
     buildAcademyStagesConfigSavePayload,
     readStagesConfigRawFromAcademyDoc,
+    readCachedPipelineStages,
+    writeCachedPipelineStages,
 } from '../lib/pipelineStagesStorage.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
@@ -771,6 +773,8 @@ const Column = ({ id, col, color, leads, isOver, hasOverlayOpen, isDragActive, c
 };
 
 
+const KANBAN_LOADING_SKELETON_COLS = 5;
+
 /** Ordem: Novo → Experimental → Não compareceu → Aguardando decisão → coluna convertida → Perdidos */
 function buildDefaultStages(t) {
     return [
@@ -900,7 +904,7 @@ const MobileLeadList = React.memo(function MobileLeadList({
         <div className="pipeline-mobile-list-root">
             {showLoading ? (
                 <div className="pipeline-kanban-loading-hint" role="status">
-                    Carregando leads do funil…
+                    Carregando funil…
                 </div>
             ) : null}
             {stages.map((stage, idx) => {
@@ -1184,9 +1188,14 @@ const Pipeline = () => {
     const [noteText, setNoteText] = useState('');
     const [moverOpenId, setMoverOpenId] = useState(null);
     const [lostModal, setLostModal] = useState(null);
-    const [stages, setStages] = useState(() =>
-        buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
+    const initialPipelineAcademyId = useLeadStore.getState().academyId;
+    const initialCachedStages = initialPipelineAcademyId
+        ? readCachedPipelineStages(initialPipelineAcademyId)
+        : null;
+    const [stagesConfigLoaded, setStagesConfigLoaded] = useState(
+        () => !initialPipelineAcademyId || Boolean(initialCachedStages?.length)
     );
+    const [stages, setStages] = useState(() => initialCachedStages?.length ? initialCachedStages : []);
     /** Rótulo curto da coluna (fitness = «Experimental» como antes; physio = trialShort). */
     const displayStages = useMemo(
         () =>
@@ -1195,6 +1204,13 @@ const Pipeline = () => {
             ),
         [stages, terms.trialShort]
     );
+    const kanbanLoadingStages = useMemo(() => {
+        if (displayStages.length > 0) return displayStages;
+        return Array.from({ length: KANBAN_LOADING_SKELETON_COLS }, (_, i) => ({
+            id: `__loading_${i}`,
+            label: 'Carregando',
+        }));
+    }, [displayStages]);
     const displayStageIds = useMemo(
         () => new Set(displayStages.map((s) => normalizePipelineStageId(s?.id)).filter(Boolean)),
         [displayStages]
@@ -1205,9 +1221,7 @@ const Pipeline = () => {
     );
     useNlPageContext(nlPageCtx);
     const [editStages, setEditStages] = useState(false);
-    const [tempStages, setTempStages] = useState(() =>
-        buildDefaultStages(TERMS[useLeadStore.getState().vertical] || TERMS.fitness)
-    );
+    const [tempStages, setTempStages] = useState(() => (initialCachedStages?.length ? initialCachedStages : []));
     const [originFilter, setOriginFilter] = useState(() => pipelineSessionInitialFilters(initialSaved).originFilter);
     const [searchParams, setSearchParams] = useSearchParams();
     const followupKanbanFilter = searchParams.get('followup') === 'kanban';
@@ -1663,7 +1677,21 @@ const Pipeline = () => {
     };
 
     useEffect(() => {
-        if (!academyId) return;
+        if (!academyId) {
+            setStagesConfigLoaded(true);
+            return;
+        }
+        let cancelled = false;
+        const cached = readCachedPipelineStages(academyId);
+        if (cached?.length) {
+            setStages(cached);
+            setTempStages(cached);
+            setStagesConfigLoaded(true);
+        } else {
+            setStages([]);
+            setTempStages([]);
+            setStagesConfigLoaded(false);
+        }
         const normalizeStageList = (cols) => {
             const seen = new Set();
             const out = [];
@@ -1721,8 +1749,15 @@ const Pipeline = () => {
         };
         const finalizeStages = (cols) =>
             applyMatriculadoLabel(ensureSpecialColumns(mergeWaitingDecisionStage(normalizeStageList(cols))));
-        databases.getDocument(DB_ID, ACADEMIES_COL, academyId)
-            .then(doc => {
+        const applyResolvedStages = (normalized) => {
+            if (cancelled) return;
+            writeCachedPipelineStages(academyId, normalized);
+            setStages(normalized);
+            setTempStages(normalized);
+        };
+        getAcademyDocument(academyId)
+            .then((doc) => {
+                if (cancelled) return;
                 setAcademySettingsRaw(doc?.settings ?? null);
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(doc));
                 try {
@@ -1730,30 +1765,33 @@ const Pipeline = () => {
                     if (stagesRaw) {
                         const conf = typeof stagesRaw === 'string' ? JSON.parse(stagesRaw) : stagesRaw;
                         if (Array.isArray(conf) && conf.length > 0) {
-                            const normalized = finalizeStages(conf);
-                            setStages(normalized);
-                            setTempStages(normalized);
-                        } else {
-                            const normalized = finalizeStages(buildDefaultStages(terms));
-                            setStages(normalized);
-                            setTempStages(normalized);
+                            applyResolvedStages(finalizeStages(conf));
+                            return;
                         }
-                    } else {
-                        const normalized = finalizeStages(buildDefaultStages(terms));
-                        setStages(normalized);
-                        setTempStages(normalized);
                     }
+                    applyResolvedStages(finalizeStages(buildDefaultStages(terms)));
                 } catch {
-                    const normalized = finalizeStages(buildDefaultStages(terms));
-                    setStages(normalized);
-                    setTempStages(normalized);
+                    applyResolvedStages(finalizeStages(buildDefaultStages(terms)));
                 }
             })
             .catch(() => {
+                if (cancelled) return;
                 setAcademyAutomationsRaw('');
                 setPipelineQuickTimes(getAcademyQuickTimeChipValues(null));
                 toast.show({ type: 'error', message: 'Não foi possível carregar configurações do funil.' });
+                setStages((prev) => {
+                    if (prev.length) return prev;
+                    const normalized = finalizeStages(buildDefaultStages(terms));
+                    setTempStages(normalized);
+                    return normalized;
+                });
+            })
+            .finally(() => {
+                if (!cancelled) setStagesConfigLoaded(true);
             });
+        return () => {
+            cancelled = true;
+        };
     }, [academyId, toast, vertical, terms]);
 
     const templateSendKeys = useMemo(
@@ -1996,6 +2034,7 @@ const Pipeline = () => {
                 buildAcademyStagesConfigSavePayload(doc, cleaned)
             );
             invalidateAcademyDocumentCache(academyId);
+            writeCachedPipelineStages(academyId, cleaned);
             setStages(cleaned);
             setEditStages(false);
         } catch (e) {
@@ -2067,8 +2106,10 @@ const Pipeline = () => {
         });
     }, [kanbanSearch]);
 
-    /** Primeira carga: evita colunas vazias sem feedback até o fetch do Appwrite. */
-    const showKanbanInitialLoading = Boolean(leadsLoading && (!Array.isArray(leads) || leads.length === 0));
+    /** Primeira carga: evita colunas vazias/flash do funil padrão até etapas e leads estarem prontos. */
+    const showKanbanInitialLoading = Boolean(
+        !stagesConfigLoaded || (leadsLoading && (!Array.isArray(leads) || leads.length === 0))
+    );
 
     const leadsForBoardCore = useMemo(() => {
         let list = leads
@@ -2999,13 +3040,13 @@ const Pipeline = () => {
 
             {!isMobile && showKanbanInitialLoading ? (
                 <div className="pipeline-kanban-loading-hint" role="status">
-                    Carregando leads do funil…
+                    Carregando funil…
                 </div>
             ) : null}
 
             {isMobile ? (
                 <MobileLeadList
-                    stages={displayStages}
+                    stages={showKanbanInitialLoading ? kanbanLoadingStages : displayStages}
                     leadsForBoard={leadsForBoard}
                     enrolledForBoard={enrolledForBoard}
                     originFilter={originFilter}
@@ -3033,9 +3074,9 @@ const Pipeline = () => {
                     className="kanban-wrapper"
                     onDragOverCapture={showKanbanInitialLoading ? undefined : onKanbanWrapperDragOverCapture}
                     aria-busy={showKanbanInitialLoading || undefined}
-                    aria-label={showKanbanInitialLoading ? 'Carregando leads do funil' : undefined}
+                    aria-label={showKanbanInitialLoading ? 'Carregando funil' : undefined}
                 >
-                    {displayStages.map((col, idx) => {
+                    {kanbanLoadingStages.map((col, idx) => {
                         const color = getPipelineStageColor(col.id, idx);
                         if (showKanbanInitialLoading) {
                             return (

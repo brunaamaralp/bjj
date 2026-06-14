@@ -14,7 +14,7 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';
 import ReportDataTable, { VirtualTableSpacer } from './shared/ReportDataTable.jsx';
-import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.js';
+import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import './reports.css';

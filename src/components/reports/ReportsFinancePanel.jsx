@@ -22,7 +22,7 @@ import { downloadCsv } from '../../lib/reportsExport.js';
 
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 
-import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.js';
+import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.jsx';
 
 import EmptyState from '../shared/EmptyState.jsx';
 

@@ -7,7 +7,7 @@ import { fetchReportsSalesLight } from '../../lib/reportsLightApi.js';
 import { fetchReportsByOperator } from '../../lib/reportsByOperatorApi.js';
 import { downloadCsv } from '../../lib/reportsExport.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
-import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.js';
+import { useRegisterReportsExport } from '../../hooks/useReportsExportSlot.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import { friendlyError } from '../../lib/errorMessages';

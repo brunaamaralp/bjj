@@ -1560,7 +1560,9 @@ a.btn-ghost:focus-visible {
   min-height: 0;
 }
 
-.main-content:has(.container.inbox-page) {
+.main-content:has(.container.inbox-page),
+.main-content:has(.lead-profile-page-root.lead-profile--panel-open),
+.main-content:has(.student-profile-page-root.student-profile--panel-open) {
   padding: 0;
   background: var(--color-content-bg, #fff);
 }
