@@ -1547,10 +1547,18 @@ a.btn-ghost:focus-visible {
 .main-content:has(.loja-hub),
 .main-content:has(.container.students-page),
 .main-content:has(.lead-profile-page-root.lead-profile--panel-open),
-.main-content:has(.student-profile-page-root.student-profile--panel-open),
-.main-content.pipeline-active {
+.main-content:has(.student-profile-page-root.student-profile--panel-open) {
   flex: 1 1 0%;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main-content.pipeline-active {
+  flex: 1 1 0%;
+  overflow: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1558,22 +1566,33 @@ a.btn-ghost:focus-visible {
 
 .main-content:has(.container.inbox-page),
 .main-content:has(.lead-profile-page-root.lead-profile--panel-open),
-.main-content:has(.student-profile-page-root.student-profile--panel-open),
-.main-content.pipeline-active {
+.main-content:has(.student-profile-page-root.student-profile--panel-open) {
   padding: 0;
   background: var(--color-content-bg, #fff);
 }
 
+.main-content.pipeline-active {
+  padding: var(--page-gutter);
+  background: var(--color-surface-canvas);
+}
+
 .main-content:has(.container.inbox-page) > *:last-child,
 .main-content:has(.loja-hub) > *:last-child,
-.main-content:has(.container.students-page) > *:last-child,
-.main-content.pipeline-active > *:last-child {
+.main-content:has(.container.students-page) > *:last-child {
   flex: 1 1 0%;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.main-content.pipeline-active > *:last-child {
+  flex: 0 0 auto;
+  min-height: auto;
+  min-width: 0;
+  display: block;
+  overflow: visible;
 }
 
 /* Perfis lead/aluno: duas colunas lado a lado (não herdar column do wrapper) */

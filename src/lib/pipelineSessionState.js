@@ -14,6 +14,7 @@
 /**
  * @typedef {object} PipelineSessionState
  * @property {number} scrollX
+ * @property {number} [scrollY]
  * @property {Record<string, number>} columnScrolls
  * @property {string} searchTerm
  * @property {PipelineActiveFilters} activeFilters

@@ -20,8 +20,9 @@
 }
 
 .main-content.pipeline-active {
-  overflow: hidden !important;
-  padding: 0;
+  overflow: auto;
+  overflow-x: hidden;
+  padding: var(--page-gutter);
   background: var(--color-surface-canvas);
 }
 
@@ -29,9 +30,9 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  flex: 1 1 0 !important;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   color: var(--pipeline-text-secondary);
   font-size: 0.9375rem;
 }
@@ -161,14 +162,15 @@
   top: 0;
   z-index: var(--z-sticky, 20);
   flex-shrink: 0;
-  padding: 0 var(--page-gutter, 2rem) 0.625rem;
+  padding: 0 0 1rem;
+  margin: 0 0 0.5rem;
   background: var(--color-surface-canvas);
   border-bottom: 1px solid var(--pipeline-border);
   overflow: visible;
 }
 
 .pipeline-container .navi-page-header {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .pipeline-container .navi-page-header__meta {
@@ -343,22 +345,22 @@
 
 .pipeline-desktop-kanban-host {
   min-height: 0;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pipeline-container .kanban-wrapper {
   display: flex;
   gap: 0.625rem;
   overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.375rem var(--page-gutter, 2rem) 0.75rem;
-  flex: 1 1 0;
+  overflow-y: visible;
+  padding: 1rem 0 1.5rem;
+  flex: 0 0 auto;
   min-height: 0;
-  height: 100%;
-  align-items: stretch;
+  height: auto;
+  align-items: flex-start;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
   scrollbar-gutter: stable both-edges;
@@ -591,8 +593,8 @@
   max-width: var(--kanban-col-w);
   min-width: 152px;
   min-height: 0;
-  max-height: 100%;
-  align-self: stretch;
+  max-height: none;
+  align-self: flex-start;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -754,7 +756,7 @@
 
 .pipeline-container .col-content {
   position: relative;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -762,10 +764,7 @@
   gap: var(--pipeline-element-gap);
   padding: 0 0.625rem 0.625rem;
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
+  overflow-y: visible;
 }
 
 .pipeline-container .col-header .navi-hint__bubble {
@@ -1476,16 +1475,13 @@
 }
 
 .pipeline-mobile-list-root {
-  padding: 0 var(--page-gutter, 2rem) 80px;
+  padding: 0.5rem 0 2rem;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
+  overflow: visible;
 }
 
 .pipeline-mobile-stage-chevron {
@@ -1643,7 +1639,7 @@
 }
 
 .pipeline-page-container {
-  padding-top: 10px;
+  padding-top: 0.5rem;
 }
 
 .pipeline-filter-bar {

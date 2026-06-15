@@ -83,7 +83,6 @@ import PipelineAdvancedFilters from '../components/pipeline/PipelineAdvancedFilt
 import PipelineStageEditorList from '../components/pipeline/PipelineStageEditorList.jsx';
 import {
     clearPipelineSessionState,
-    collectColumnScrolls,
     deriveActivePeriodChip,
     LEAD_PROFILE_FROM_PIPELINE,
     currentMonthYm,
@@ -645,6 +644,7 @@ const PIPELINE_VIRTUAL_THRESHOLD = 20;
 
 const PipelineColumnLeads = React.memo(function PipelineColumnLeads({
     scrollElement,
+    pageScrollElement,
     leads,
     cardProps,
     savingLeadIds,
@@ -657,11 +657,12 @@ const PipelineColumnLeads = React.memo(function PipelineColumnLeads({
     insertOverId = null,
     disableVirtualization = false,
 }) {
+    const scrollParent = pageScrollElement || scrollElement;
     const shouldVirtualize =
-        !disableVirtualization && leads.length > PIPELINE_VIRTUAL_THRESHOLD;
+        !disableVirtualization && leads.length > PIPELINE_VIRTUAL_THRESHOLD && scrollParent;
     const virtualizer = useVirtualizer({
         count: shouldVirtualize ? leads.length : 0,
-        getScrollElement: () => scrollElement ?? null,
+        getScrollElement: () => scrollParent ?? null,
         estimateSize: () => 140,
         gap: 8,
         overscan: 4,
@@ -1260,7 +1261,8 @@ const Pipeline = () => {
         };
         return {
             scrollX: kanbanWrapperRef.current?.scrollLeft ?? 0,
-            columnScrolls: collectColumnScrolls(kanbanWrapperRef.current),
+            scrollY: pageScrollEl?.scrollTop ?? document.querySelector('.main-content')?.scrollTop ?? 0,
+            columnScrolls: {},
             searchTerm: kanbanSearch,
             activeFilters,
             activePeriodChip: deriveActivePeriodChip({
@@ -1280,6 +1282,7 @@ const Pipeline = () => {
         followupKanbanFilter,
         kanbanSearch,
         quickFilter,
+        pageScrollEl,
     ]);
 
     const openLeadProfile = useCallback(
@@ -1615,10 +1618,13 @@ const Pipeline = () => {
         void fetchLeads({ reset: true });
     }, [academyId]);
 
+    const [pageScrollEl, setPageScrollEl] = useState(null);
+
     useEffect(() => {
         const mainEl = document.querySelector('.main-content');
         if (mainEl) {
             mainEl.classList.add('pipeline-active');
+            setPageScrollEl(mainEl);
             if (!isRestoringPipelineRef.current) {
                 mainEl.scrollTop = 0;
                 requestAnimationFrame(() => {
@@ -1632,6 +1638,7 @@ const Pipeline = () => {
         }
         return () => {
             if (mainEl) mainEl.classList.remove('pipeline-active');
+            setPageScrollEl(null);
         };
     }, []);
 
@@ -2246,13 +2253,10 @@ const Pipeline = () => {
                 if (wrapper && Number.isFinite(saved.scrollX)) {
                     wrapper.scrollLeft = saved.scrollX;
                 }
-                const columnScrolls = saved.columnScrolls || {};
-                wrapper?.querySelectorAll('[data-pipeline-stage-id]').forEach((el) => {
-                    const sid = el.getAttribute('data-pipeline-stage-id');
-                    if (sid && Number.isFinite(columnScrolls[sid])) {
-                        el.scrollTop = columnScrolls[sid];
-                    }
-                });
+                const mainEl = document.querySelector('.main-content');
+                if (mainEl && Number.isFinite(saved.scrollY)) {
+                    mainEl.scrollTop = saved.scrollY;
+                }
                 clearPipelineSessionState();
                 pendingScrollRestoreRef.current = null;
                 isRestoringPipelineRef.current = false;
@@ -3121,6 +3125,7 @@ const Pipeline = () => {
                                 <SortableContext items={colLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                                     <PipelineColumnLeads
                                         scrollElement={scrollElement}
+                                        pageScrollElement={pageScrollEl}
                                         leads={colLeads}
                                         savingLeadIds={savingLeadIds}
                                         movingLeadIds={movingLeadIds}
