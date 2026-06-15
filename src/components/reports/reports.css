@@ -3,8 +3,6 @@
  */
 
 .reports-root {
-  container-type: inline-size;
-  container-name: reports;
   --reports-gap-sm: 12px;
   --reports-gap-md: 20px;
   --reports-gap-lg: 32px;
@@ -20,7 +18,31 @@
   margin-top: var(--reports-gap-md);
 }
 
+/* Cabeçalho + abas acima do conteúdo rolável (evita abas da 2ª linha ficarem “mortas”) */
+.reports-root .navi-hub-page__head {
+  position: relative;
+  z-index: 3;
+  isolation: isolate;
+  background: var(--azul-gelo, #f4f6fc);
+}
+
+.reports-root .navi-hub-tabs.navi-hub-tabs--full {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.reports-root .navi-hub-tabs .navi-hub-tab {
+  flex: 0 0 auto;
+}
+
 .reports-panel {
+  container-type: inline-size;
+  container-name: reports;
   display: flex;
   flex-direction: column;
   gap: var(--reports-gap-md);

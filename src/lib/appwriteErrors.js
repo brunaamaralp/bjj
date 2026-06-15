@@ -31,6 +31,7 @@ const ATTR_LABELS = {
   student_exit_reasons: 'Motivos de desligamento',
   onboardingChecklist: 'Checklist de configuração',
   financeConfig: 'Configuração financeira',
+  notes: 'Observações',
   updated_at: 'Data de atualização',
   items_json: 'Itens do template de tarefas',
   academy_id: 'Academia',

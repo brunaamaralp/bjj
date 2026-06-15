@@ -604,6 +604,7 @@ export default function Products() {
         </div>
       </div>
 
+      <div className="products-page__body">
       {error ? (
         <ErrorBanner
           className="mt-2"
@@ -860,6 +861,18 @@ export default function Products() {
         )}
       </div>
 
+      {importFilterIds?.length ? (
+        <div className="card mt-2 products-import-filter-bar">
+          <span className="text-small">
+            Exibindo {importFilterIds.length} produto(s) da importação recente
+          </span>
+          <button type="button" className="btn-outline btn-sm" onClick={() => setImportFilterIds(null)}>
+            Limpar filtro
+          </button>
+        </div>
+      ) : null}
+      </div>
+
       <ProductFormModal
         open={modalOpen}
         onClose={closeModal}
@@ -917,17 +930,6 @@ export default function Products() {
           }
         }}
       />
-
-      {importFilterIds?.length ? (
-        <div className="card mt-2 products-import-filter-bar">
-          <span className="text-small">
-            Exibindo {importFilterIds.length} produto(s) da importação recente
-          </span>
-          <button type="button" className="btn-outline btn-sm" onClick={() => setImportFilterIds(null)}>
-            Limpar filtro
-          </button>
-        </div>
-      ) : null}
 
     </div>
   );

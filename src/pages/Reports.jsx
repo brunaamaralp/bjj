@@ -13,10 +13,10 @@ import ReportsDrillDialog from '../components/reports/ReportsDrillDialog.jsx';
 import ReportsTabPanels from '../components/reports/ReportsTabPanels.jsx';
 import { DRILL_LABELS } from '../lib/reportsFunnelUtils.js';
 import {
-    REPORT_TABS,
     getDefaultReportTab,
     getReportTabItems,
     getReportsTabFlags,
+    normalizeReportTabParam,
 } from '../lib/reportsPageConfig.js';
 import { useReportsPeriod } from '../hooks/useReportsPeriod.js';
 import { useFunnelReport } from '../hooks/useFunnelReport.js';
@@ -140,7 +140,12 @@ export default function Reports() {
         [hasFinance, hasSales, hasInventory]
     );
 
-    const activeTab = resolveHubTab(searchParams.get('tab'), REPORT_TABS, defaultReportTab);
+    const allowedReportTabIds = useMemo(
+        () => new Set(reportTabItems.map((tab) => tab.id)),
+        [reportTabItems]
+    );
+
+    const activeTab = resolveHubTab(searchParams.get('tab'), allowedReportTabIds, defaultReportTab);
     const { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab } =
         getReportsTabFlags(activeTab);
 
@@ -198,13 +203,14 @@ export default function Reports() {
     const closeExport = useCallback(() => setExportOpen(false), []);
 
     useEffect(() => {
-        const t = String(searchParams.get('tab') || '').trim().toLowerCase();
-        if (t === 'visao-geral' || t === 'operador' || !REPORT_TABS.has(t)) {
-            setSearchParams({ tab: defaultReportTab }, { replace: true });
-        } else if (t === 'movimentacoes') {
-            setSearchParams({ tab: 'estoque' }, { replace: true });
+        const current = String(searchParams.get('tab') || '').trim().toLowerCase();
+        const normalized = normalizeReportTabParam(current);
+        const target =
+            normalized && allowedReportTabIds.has(normalized) ? normalized : defaultReportTab;
+        if (current !== target) {
+            setSearchParams({ tab: target }, { replace: true });
         }
-    }, [defaultReportTab, searchParams, setSearchParams]);
+    }, [allowedReportTabIds, defaultReportTab, searchParams, setSearchParams]);
 
     useEffect(() => {
         const onResize = () => setChartHeight(window.innerWidth < 640 ? 200 : 260);

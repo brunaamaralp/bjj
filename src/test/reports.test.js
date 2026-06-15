@@ -12,7 +12,7 @@ import { hasAnyActivity } from '../lib/reportActivity.js';
 import { buildFunnelStages } from '../lib/reportsFunnelUtils.js';
 import { reportKpiTooltip } from '../lib/reportKpiTooltip.js';
 import { evaluateKpiRag, parseReportsKpiGoals } from '../../lib/reportsKpiGoals.js';
-import { getDefaultReportTab, getReportsTabFlags } from '../lib/reportsPageConfig.js';
+import { getDefaultReportTab, getReportsTabFlags, normalizeReportTabParam } from '../lib/reportsPageConfig.js';
 import { activeStudentsCount, buildStudentChartRanges } from '../lib/reportsStudentMetricsApi.js';
 import { aggregateStudentMetricsOnly } from '../../lib/server/reportsAggregate.js';
 import { LEAD_STATUS } from '../store/useLeadStore.js';
@@ -249,6 +249,16 @@ describe('activeStudentsCount', () => {
   it('usa activeAtEnd como critério canônico', () => {
     expect(activeStudentsCount({ activeAtEnd: 15, activeAtStart: 10 })).toBe(15);
     expect(activeStudentsCount({ activeAtStart: 10, newStudents: 2, deactivations: 1 })).toBe(11);
+  });
+});
+
+describe('normalizeReportTabParam', () => {
+  it('mapeia aliases legados para slugs canônicos', () => {
+    expect(normalizeReportTabParam('vendas')).toBe('loja');
+    expect(normalizeReportTabParam('movimentacoes')).toBe('estoque');
+    expect(normalizeReportTabParam('loja')).toBe('loja');
+    expect(normalizeReportTabParam('')).toBeNull();
+    expect(normalizeReportTabParam('visao-geral')).toBeNull();
   });
 });
 

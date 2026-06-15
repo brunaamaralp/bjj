@@ -6,6 +6,8 @@ import MessageBubble, {
   messageBubbleSenderFromMessage,
   messageBubbleStatusFromMessage,
 } from '../inbox/MessageBubble.jsx';
+import MediaBubble, { resolveInboxMessageDisplayType } from '../inbox/MediaBubble.jsx';
+import { buildWhatsAppChatUrl } from '../../lib/inboxMediaUtils.js';
 
 function formatDayLabel(iso) {
   const s = String(iso || '').trim();
@@ -71,12 +73,17 @@ export function buildChatThreadBlocks(messages) {
 }
 
 export function chatMessagePreview(m) {
-  const content = String(m?.content || '').trim();
-  if (content) return content;
-  const type = String(m?.type || '').trim().toLowerCase();
-  if (type === 'image') return '🖼️ Imagem';
-  if (type === 'audio' || type === 'ptt') return '🎵 Áudio';
-  return '';
+  const contentRaw = String(m?.content || '').trim();
+  const displayType = resolveInboxMessageDisplayType(m, contentRaw);
+  if (displayType !== 'text') return null;
+  return contentRaw;
+}
+
+export function chatMessageHasVisibleBody(m) {
+  const contentRaw = String(m?.content || '').trim();
+  const displayType = resolveInboxMessageDisplayType(m, contentRaw);
+  if (displayType !== 'text') return true;
+  return Boolean(contentRaw);
 }
 
 function ChatThreadEmpty({ icon: Icon, title, description, action }) {
@@ -135,6 +142,7 @@ export default function NaviChatThread({
 
   const blocks = useMemo(() => buildChatThreadBlocks(messages), [messages]);
   const hasMessages = messages.length > 0;
+  const whatsAppChatUrl = buildWhatsAppChatUrl(phoneDigits);
 
   return (
     <div ref={scrollRef} className={scrollClassName}>
@@ -188,8 +196,11 @@ export default function NaviChatThread({
                 </div>
               );
             }
-            const content = chatMessagePreview(b.m);
-            if (!content) return null;
+            if (!chatMessageHasVisibleBody(b.m)) return null;
+            const contentRaw = String(b.m?.content || '').trim();
+            const displayType = resolveInboxMessageDisplayType(b.m, contentRaw);
+            const isMedia = displayType !== 'text';
+            const textContent = chatMessagePreview(b.m) || '';
             const mid = String(b.m?.message_id || '').trim();
             const sendFailed = Boolean(b.m?._sendFailed);
             const deliveryStatus = messageBubbleStatusFromMessage(b.m);
@@ -203,13 +214,21 @@ export default function NaviChatThread({
                 timestamp={b.m?.timestamp}
                 timeLabel={formatTimeOnly(b.m?.timestamp)}
                 status={deliveryStatus}
-                content={content}
+                content={isMedia ? '' : textContent}
                 onRetry={
                   sendFailed && mid && typeof retryFailedMessage === 'function'
                     ? () => void retryFailedMessage(mid)
                     : null
                 }
-              />
+              >
+                {isMedia ? (
+                  <MediaBubble
+                    message={b.m}
+                    content={contentRaw}
+                    whatsAppChatUrl={whatsAppChatUrl}
+                  />
+                ) : null}
+              </MessageBubble>
             );
           })
         : null}

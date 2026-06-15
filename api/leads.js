@@ -340,7 +340,6 @@ export default async function handler(req, res) {
         extra: {
           contact_type: 'lead',
           type: typeFromClass || req.body?.type || 'Adulto',
-          notes: '',
           ...classPatch,
         },
       });

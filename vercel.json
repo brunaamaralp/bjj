@@ -93,6 +93,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/automations-frequent",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/tasks-due",
       "schedule": "0 10 * * *"
     },

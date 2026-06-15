@@ -82,6 +82,25 @@
   overflow: hidden;
 }
 
+.sales-page > .loja-subnav,
+.sales-page > .sales-subnav,
+.products-page > .loja-subnav,
+.products-page > .products-subnav,
+.inventory-page > .inventory-subnav,
+.inventory-page > .loja-subnav {
+  flex-shrink: 0;
+}
+
+.sales-page__body,
+.products-page__body,
+.inventory-page__body {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ===== Sales (/vendas) — carrinho: scroll 640px+ e cartões <640px; desktop ≥768px inalterado ===== */
 .sales-cart-table-wrap {
   width: 100%;
@@ -1244,6 +1263,11 @@
   max-height: calc(100vh - 320px);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.sales-page__body .sales-history-table-wrap {
+  max-height: none;
+  overflow: visible;
 }
 .sales-history-load-more {
   border-top: 1px solid var(--border-light);

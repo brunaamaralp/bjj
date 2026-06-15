@@ -1169,6 +1169,29 @@ const Pipeline = () => {
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const getLeadById = useLeadStore((s) => s.getLeadById);
     const kanbanWrapperRef = useRef(null);
+    const [pageScrollEl, setPageScrollEl] = useState(null);
+
+    useEffect(() => {
+        const mainEl = document.querySelector('.main-content');
+        if (mainEl) {
+            mainEl.classList.add('pipeline-active');
+            setPageScrollEl(mainEl);
+            if (!isRestoringPipelineRef.current) {
+                mainEl.scrollTop = 0;
+                requestAnimationFrame(() => {
+                    try {
+                        mainEl.scrollTop = 0;
+                    } catch {
+                        void 0;
+                    }
+                });
+            }
+        }
+        return () => {
+            if (mainEl) mainEl.classList.remove('pipeline-active');
+            setPageScrollEl(null);
+        };
+    }, []);
 
     const invalidatePipelineSession = useCallback(() => {
         clearPipelineSessionState();
@@ -1617,30 +1640,6 @@ const Pipeline = () => {
         if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) return;
         void fetchLeads({ reset: true });
     }, [academyId]);
-
-    const [pageScrollEl, setPageScrollEl] = useState(null);
-
-    useEffect(() => {
-        const mainEl = document.querySelector('.main-content');
-        if (mainEl) {
-            mainEl.classList.add('pipeline-active');
-            setPageScrollEl(mainEl);
-            if (!isRestoringPipelineRef.current) {
-                mainEl.scrollTop = 0;
-                requestAnimationFrame(() => {
-                    try {
-                        mainEl.scrollTop = 0;
-                    } catch {
-                        void 0;
-                    }
-                });
-            }
-        }
-        return () => {
-            if (mainEl) mainEl.classList.remove('pipeline-active');
-            setPageScrollEl(null);
-        };
-    }, []);
 
     const handleLoadMoreLeads = async () => {
         if (loadingMore || leadsLoading || !leadsHasMore) return;

@@ -184,17 +184,19 @@ const Sales = () => {
         ) : null}
       </div>
 
-      {subtab === 'new' ? (
-        <SalesNewSaleTab pdvMode={pdvMode} />
-      ) : (
-        <SalesHistoryTab onSwitchTab={setSubtab} initialPeriod={historyPeriodFromNav} />
-      )}
+      <div className="sales-page__body">
+        {subtab === 'new' ? (
+          <SalesNewSaleTab pdvMode={pdvMode} />
+        ) : (
+          <SalesHistoryTab onSwitchTab={setSubtab} initialPeriod={historyPeriodFromNav} />
+        )}
 
-      {academyId && salesConfigOpen && !(pdvMode && subtab === 'new') ? (
-        <div id="sales-config-panel" ref={configRef} className="mt-4 animate-in">
-          <SalesSettingsSection academyId={academyId} />
-        </div>
-      ) : null}
+        {academyId && salesConfigOpen && !(pdvMode && subtab === 'new') ? (
+          <div id="sales-config-panel" ref={configRef} className="mt-4 animate-in">
+            <SalesSettingsSection academyId={academyId} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 };

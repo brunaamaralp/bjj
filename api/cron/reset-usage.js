@@ -6,9 +6,7 @@ import { timingSafeEqual } from 'crypto';
 import { DB_ID, ACADEMIES_COL, resetAcademyMonthlyThreadUsage } from '../../src/services/planService.js';
 import { isBillingStoreConfigured, getBillingDatabases } from '../../lib/billing/billingAppwriteStore.js';
 import { notifyAcademyOwner } from '../../lib/server/notifyAcademy.js';
-import { parseAutomationsConfig, parsePendingAutomations } from '../../lib/automationCore.js';
-import { sendAutomationTemplateCron } from '../../lib/server/sendAutomationCron.js';
-import { hasFollowupContactSinceClass } from '../../lib/server/followupContactServer.js';
+import { runAutomations } from '../../lib/server/runAutomationsCron.js';
 import { runCollectionOverdue } from '../../lib/server/runCollectionOverdueCron.js';
 import { runStockInventoryCron } from '../../lib/server/runStockInventoryCron.js';
 import { runPlanFreezeCron } from '../../lib/server/runPlanFreezeCron.js';
@@ -150,105 +148,6 @@ async function runCheckTrials({ billingDb, academyDb }) {
   }
 
   return { checked, notified };
-}
-
-async function runAutomations(databases) {
-  const academyCache = new Map();
-  let scanned = 0;
-  let due = 0;
-  let sent = 0;
-  let errors = 0;
-  const now = Date.now();
-  const MAX_MS = 9000;
-  const t0 = Date.now();
-
-  if (!LEADS_COL) return { scanned, due, sent, errors, skipped: 'leads_collection_missing' };
-
-  const page = await databases.listDocuments(DB_ID, LEADS_COL, [
-    Query.equal('has_pending_automations', [true]),
-    Query.limit(100),
-  ]);
-  const docs = page.documents || [];
-  for (const doc of docs) {
-    if (Date.now() - t0 >= MAX_MS) break;
-    scanned += 1;
-    const pending = parsePendingAutomations(doc.pending_automations);
-    if (!pending.some((p) => p.sent !== true)) continue;
-
-    const academyId = String(doc.academyId || '').trim();
-    if (!academyId) continue;
-    if (!academyCache.has(academyId)) {
-      try {
-        const academy = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-        academyCache.set(academyId, academy);
-      } catch {
-        academyCache.set(academyId, null);
-      }
-    }
-    const academy = academyCache.get(academyId);
-    if (!academy) continue;
-
-    let changed = false;
-    const cfgMap = parseAutomationsConfig(academy.automations_config);
-
-    const nextPending = [...pending];
-    for (let i = 0; i < nextPending.length; i += 1) {
-      const item = nextPending[i];
-      if (item.sent === true) continue;
-      const sendAtMs = new Date(item.sendAt).getTime();
-      if (!Number.isFinite(sendAtMs) || sendAtMs > now) continue;
-      due += 1;
-
-      const cfg = cfgMap?.[item.key];
-      if (!cfg?.active) {
-        nextPending[i] = { ...item, sent: true };
-        changed = true;
-        continue;
-      }
-
-      if (item.key === 'followup_d1_attended') {
-        const classYmd = String(doc.scheduledDate || doc.attendedAt || '').slice(0, 10);
-        const already = await hasFollowupContactSinceClass(databases, academyId, doc.$id, classYmd);
-        if (already) {
-          nextPending[i] = { ...item, sent: true };
-          changed = true;
-          continue;
-        }
-      }
-
-      const out = await sendAutomationTemplateCron({
-        leadDoc: doc,
-        academy,
-        automationKey: item.key,
-        templateKey: cfg.templateKey,
-      });
-      if (!out?.ok) {
-        if (out?.skipped === 'no_recent_interaction') {
-          nextPending[i] = { ...item, sent: true };
-          changed = true;
-          continue;
-        }
-        errors += 1;
-        continue;
-      }
-      sent += 1;
-      nextPending[i] = { ...item, sent: true };
-      changed = true;
-    }
-    if (changed) {
-      try {
-        const stillHasPending = nextPending.some((p) => p.sent !== true);
-        await databases.updateDocument(DB_ID, LEADS_COL, doc.$id, {
-          pending_automations: JSON.stringify(nextPending),
-          has_pending_automations: stillHasPending,
-        });
-      } catch {
-        errors += 1;
-      }
-    }
-  }
-
-  return { scanned, due, sent, errors };
 }
 
 export default async function handler(req, res) {

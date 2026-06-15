@@ -27,6 +27,15 @@ export function getDefaultReportTab({ hasFinance, hasSales, hasInventory }) {
   return getReportTabItems({ hasFinance, hasSales, hasInventory })[0]?.id ?? 'funil';
 }
 
+/** Aliases legados de ?tab= → slug canônico (null = inválido / redirecionar ao default). */
+export function normalizeReportTabParam(raw) {
+  const t = String(raw || '').trim().toLowerCase();
+  if (!t || t === 'visao-geral' || t === 'operador') return null;
+  if (t === 'movimentacoes') return 'estoque';
+  if (t === 'vendas') return 'loja';
+  return REPORT_TABS.has(t) ? t : null;
+}
+
 export function getReportsTabFlags(activeTab) {
   const isLeadReportTab = activeTab === 'funil';
   const needsFunnelReport = isLeadReportTab;

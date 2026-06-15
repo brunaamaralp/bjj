@@ -223,7 +223,6 @@ app.post('/webhook/whatsapp', ensureJsonBody, async (req, res) => {
       scheduledTime: '',
       parentName: '',
       age: '',
-      notes: '',
       pipeline_stage: 'Novo',
       status_changed_at: nowIso,
       pipeline_stage_changed_at: nowIso,
