@@ -213,6 +213,13 @@ export default function Reports() {
     }, [allowedReportTabIds, defaultReportTab, searchParams, setSearchParams]);
 
     useEffect(() => {
+        const activeBtn = document.querySelector(
+            '.reports-root .navi-hub-tab[aria-selected="true"]'
+        );
+        activeBtn?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }, [activeTab]);
+
+    useEffect(() => {
         const onResize = () => setChartHeight(window.innerWidth < 640 ? 200 : 260);
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
