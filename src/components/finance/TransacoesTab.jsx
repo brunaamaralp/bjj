@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import './finance.css';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
 import {
   FINANCE_TX_LIST_INITIAL_PAGE_SIZE,
@@ -17,8 +17,6 @@ import {
 } from '../../lib/financeTxDisplay.js';
 import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { useStudentStore } from '../../store/useStudentStore';
-import { LEAD_STATUS } from '../../lib/leadStatus';
-import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
 import { Receipt, Repeat, ChevronDown, Upload, Download, MoreHorizontal } from 'lucide-react';
 import { DateInputField } from '../DateInput';
 import {
@@ -69,6 +67,8 @@ import {
   DropdownMenuLabel,
 } from '../shared/menu';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
+import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
+import FinanceTxStudentField from './FinanceTxStudentField.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
@@ -93,6 +93,12 @@ import { accountWhenPaymentMethodChanges } from '../../lib/paymentMethodBankDefa
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import useDebounce from '../../hooks/useDebounce.js';
+import {
+  buildLeadNameById,
+  formatTxLeadCell,
+  leadNameForExport,
+  resolveTxLeadName,
+} from '../../lib/financeTxLeadNames.js';
 
 const BANK_FILTER_UNALLOCATED = '__unallocated__';
 
@@ -116,9 +122,11 @@ const TX_COLUMNS_STORAGE_PREFIX = 'navi-finance-tx-cols';
 const OPTIONAL_TX_COLUMNS = [
   { key: 'sale', label: 'Venda', defaultVisible: false },
   { key: 'bank', label: 'Conta', defaultVisible: false },
-  { key: 'type', label: 'Tipo', defaultVisible: true },
-  { key: 'method', label: 'Método', defaultVisible: true },
-  { key: 'fee', label: 'Taxa', defaultVisible: true },
+  { key: 'type', label: 'Tipo', defaultVisible: false },
+  { key: 'method', label: 'Método', defaultVisible: false },
+  { key: 'fee', label: 'Taxa', defaultVisible: false },
+  { key: 'nature', label: 'Natureza', defaultVisible: false },
+  { key: 'gross', label: 'Bruto', defaultVisible: false },
 ];
 
 function defaultTxColumnVisibility() {
@@ -212,6 +220,18 @@ const TX_FORM_FIELD_IDS = {
   recurrence: 'finance-tx-recurrence-toggle',
 };
 
+function parseStatusFilterParam(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (s === 'pending' || s === 'settled' || s === 'cancelled') return s;
+  return 'all';
+}
+
+function parseDirectionFilterParam(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (s === 'in' || s === 'out') return s;
+  return 'all';
+}
+
 function getTxModalTitle({ editingRecurrenceOnly, editingTxId }) {
   if (editingRecurrenceOnly) return 'Editar recorrência';
   if (editingTxId) return 'Editar lançamento';
@@ -294,6 +314,7 @@ export default function TransacoesTab({
   const leads = useStudentStore((s) => s.students);
   const chartAccounts = useAccountingStore((s) => s.accounts);
   const toast = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
@@ -331,9 +352,7 @@ export default function TransacoesTab({
   const [editingRecurrenceOnly, setEditingRecurrenceOnly] = useState(false);
   const [editingTxId, setEditingTxId] = useState('');
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
-  const [studentQuery, setStudentQuery] = useState('');
-  const debouncedStudentQuery = useDebounce(studentQuery, 200);
-  const [studentPickerOpen, setStudentPickerOpen] = useState(false);
+  const [studentDisplayName, setStudentDisplayName] = useState('');
   const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
   const [loadError, setLoadError] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -341,10 +360,18 @@ export default function TransacoesTab({
   const [listTotal, setListTotal] = useState(null);
   const [listTruncated, setListTruncated] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [directionFilter, setDirectionFilter] = useState('all');
-  const [txSearch, setTxSearch] = useState('');
+  const statusFilter = useMemo(
+    () => parseStatusFilterParam(searchParams.get('status')),
+    [searchParams]
+  );
+  const directionFilter = useMemo(
+    () => parseDirectionFilterParam(searchParams.get('dir')),
+    [searchParams]
+  );
+  const [txSearch, setTxSearch] = useState(() => searchParams.get('q') || '');
   const debouncedTxSearch = useDebounce(txSearch, 200);
+  const [detailTx, setDetailTx] = useState(null);
+  const [showDiscardTxModal, setShowDiscardTxModal] = useState(false);
   const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState('');
   const [showCancelRecDialog, setShowCancelRecDialog] = useState(false);
@@ -363,6 +390,8 @@ export default function TransacoesTab({
   const loadReqRef = useRef(0);
   const lastNotifiedTxRef = useRef('');
   const highlightRowRef = useRef(null);
+  const txFormSnapshotRef = useRef('');
+  const highlightDrawerOpenedRef = useRef('');
 
   useEffect(() => {
     if (academyId) setRegime(getFinanceRegime(academyId));
@@ -386,7 +415,7 @@ export default function TransacoesTab({
 
   const desktopTableColCount = useMemo(() => {
     const optionalVisible = OPTIONAL_TX_COLUMNS.filter((c) => visibleCols[c.key]).length;
-    return 8 + optionalVisible;
+    return 6 + optionalVisible;
   }, [visibleCols]);
 
   const initialTxForm = () => ({
@@ -413,10 +442,10 @@ export default function TransacoesTab({
       ...initialTxForm(),
       bankAccount: resolveBankAccountForPayment('', financeConfig),
     });
-    setStudentQuery('');
-    setStudentPickerOpen(false);
+    setStudentDisplayName('');
     setTxFormErrors({});
     setShowTxModal(true);
+    txFormSnapshotRef.current = JSON.stringify({ form: initialTxForm(), student: '' });
   }, [financeConfig]);
 
   useEffect(() => {
@@ -455,14 +484,65 @@ export default function TransacoesTab({
     [txForm.direction, chartAccounts]
   );
 
-  const leadNameById = useMemo(() => {
-    const map = new Map();
-    for (const l of leads || []) {
-      const id = String(l.id || '').trim();
-      if (id) map.set(id, String(l.name || '').trim());
+  const leadNameById = useMemo(
+    () => buildLeadNameById(transactions, leads),
+    [transactions, leads]
+  );
+
+  const setStatusFilter = useCallback(
+    (value) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (!value || value === 'all') next.delete('status');
+          else next.set('status', value);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const setDirectionFilter = useCallback(
+    (value) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (!value || value === 'all') next.delete('dir');
+          else next.set('dir', value);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const q = debouncedTxSearch.trim();
+        const current = next.get('q') || '';
+        if (q === current) return prev;
+        if (q) next.set('q', q);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [debouncedTxSearch, setSearchParams]);
+
+  useEffect(() => {
+    if (!highlightTxId || txLoading) return;
+    if (highlightDrawerOpenedRef.current === highlightTxId) return;
+    const tx = transactions.find((t) => String(t.id) === highlightTxId);
+    if (tx) {
+      highlightDrawerOpenedRef.current = highlightTxId;
+      setDetailTx(tx);
     }
-    return map;
-  }, [leads]);
+  }, [highlightTxId, transactions, txLoading]);
 
   const bankAccountLabels = useMemo(
     () => listBankAccountLabels(financeConfig),
@@ -506,7 +586,17 @@ export default function TransacoesTab({
     setDirectionFilter('all');
     setBankAccountFilter('all');
     setTxSearch('');
-  }, [setBankAccountFilter]);
+  }, [setBankAccountFilter, setStatusFilter, setDirectionFilter]);
+
+  const openTxDetail = useCallback((tx) => {
+    if (!tx) return;
+    setDetailTx(tx);
+    setMenuOpenId('');
+  }, []);
+
+  const closeTxDetail = useCallback(() => {
+    setDetailTx(null);
+  }, []);
 
   const handleExportTransactions = useCallback(async () => {
     if (!academyId || exportingTx) return;
@@ -532,7 +622,7 @@ export default function TransacoesTab({
       );
       const csvRows = filtered.map((tx) =>
         financeTxToCsvRow(tx, {
-          leadName: leadNameById.get(tx.lead_id) || '',
+          leadNameById,
           accounts: chartAccounts,
         })
       );
@@ -566,21 +656,9 @@ export default function TransacoesTab({
     toast,
   ]);
 
-  const studentMatches = useMemo(() => {
-    const q = String(debouncedStudentQuery || '').trim().toLowerCase();
-    if (q.length < 2) return [];
-    const isStudentLike = (l) => isStudentRecord(l) && isActiveStudent(l);
-    return (leads || []).filter((l) => {
-      if (!isStudentLike(l)) return false;
-      const name = String(l.name || '').toLowerCase();
-      const phone = String(l.phone || '').replace(/\D/g, '');
-      const qd = q.replace(/\D/g, '');
-      return name.includes(q) || (qd.length >= 2 && phone.includes(qd));
-    }).slice(0, 12);
-  }, [leads, debouncedStudentQuery]);
-
   const resetTxModal = () => {
     setShowTxModal(false);
+    setShowDiscardTxModal(false);
     setEditingTxId('');
     setEditingRecurrenceOnly(false);
     setRecurrenceOpen(false);
@@ -588,9 +666,16 @@ export default function TransacoesTab({
     setReceiveNow(false);
     setTxForm(initialTxForm());
     setTxFormErrors({});
-    setStudentQuery('');
-    setStudentPickerOpen(false);
+    setStudentDisplayName('');
+    txFormSnapshotRef.current = '';
   };
+
+  const isTxModalDirty = useCallback(() => {
+    if (!txFormSnapshotRef.current) return false;
+    return (
+      JSON.stringify({ form: txForm, student: studentDisplayName }) !== txFormSnapshotRef.current
+    );
+  }, [txForm, studentDisplayName]);
 
   const clearTxFieldError = useCallback((field) => {
     setTxFormErrors((prev) => {
@@ -682,8 +767,12 @@ export default function TransacoesTab({
 
   const requestCloseTxModal = useCallback(() => {
     if (savingTx) return;
+    if (isTxModalDirty()) {
+      setShowDiscardTxModal(true);
+      return;
+    }
     resetTxModal();
-  }, [savingTx]); // eslint-disable-line react-hooks/exhaustive-deps -- resetTxModal is stable enough for modal close
+  }, [savingTx, isTxModalDirty]); // eslint-disable-line react-hooks/exhaustive-deps -- resetTxModal stable enough
 
   useModalA11y({ isOpen: showTxModal, onClose: requestCloseTxModal, lockScroll: true });
 
@@ -720,11 +809,29 @@ export default function TransacoesTab({
         String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
         resolveBankAccountForPayment('', financeConfig),
     });
-    const lead = (leads || []).find((l) => l.id === tx.lead_id);
-    setStudentQuery(lead?.name ? String(lead.name) : '');
-    setStudentPickerOpen(false);
+    const leadName = resolveTxLeadName(tx, leadNameById);
+    setStudentDisplayName(leadName === 'Aluno não encontrado' ? '' : leadName);
     setTxFormErrors({});
     setShowTxModal(true);
+    txFormSnapshotRef.current = JSON.stringify({
+      form: {
+        direction: dir,
+        type: cat?.type || tx.type || 'plan',
+        planName: tx.planName || '',
+        method: tx.method || 'pix',
+        gross: Number.isFinite(gross) && gross > 0 ? gross : '',
+        fee: feeInput,
+        installments: Math.min(12, Math.max(1, Number(tx.installments) || 1)),
+        note: tx.note || '',
+        lead_id: tx.lead_id || '',
+        competence_month: tx.competence_month || currentCompetenceMonth(),
+        category: categoryValue,
+        bankAccount:
+          String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
+          resolveBankAccountForPayment('', financeConfig),
+      },
+      student: leadName === 'Aluno não encontrado' ? '' : leadName,
+    });
   };
 
   const openEditRecurrenceModal = (tx) => {
@@ -1303,54 +1410,75 @@ export default function TransacoesTab({
                 </div>
               ) : (
               filteredTransactions.map((tx) => {
-                const rawName = tx.lead_id ? (leadNameById.get(tx.lead_id) || '') : '';
-                const displayName = rawName || '—';
                 const badge = getTxCategoryBadge(tx, chartAccounts);
                 const st = String(tx.status || '').toLowerCase();
+                const dir = txDirection(tx);
+                const netFmt = formatSignedMoney(displayNet(tx), dir);
+                const alumStr = formatTxLeadCell(tx, leadNameById);
                 const rowBusy =
                   cancelLoadingId === tx.id ||
                   recurrenceCancelLoadingId === tx.id ||
                   reverseLoadingId === tx.id ||
                   (assignBankSaving && assignBankTx?.id === tx.id);
                 const rec = isRecurrenceTx(tx);
+                const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
                 return (
                   <article
                     key={tx.id}
                     ref={highlightTxId && String(tx.id) === highlightTxId ? highlightRowRef : undefined}
-                    className={`navi-mobile-card finance-mobile-card${highlightTxId && String(tx.id) === highlightTxId ? ' finance-tx-row--highlight' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    className={`navi-mobile-card finance-mobile-card finance-mobile-card--clickable${highlightTxId && String(tx.id) === highlightTxId ? ' finance-tx-row--highlight' : ''}`}
+                    onClick={() => openTxDetail(tx)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openTxDetail(tx);
+                      }
+                    }}
                   >
                     <div className="finance-mobile-card__head">
                       <span className="finance-mobile-card__date finance-mobile-card__date--with-icon">
                         {formatTxDateStr(txTemporalIso(tx))}
                         {rec ? <Repeat size={14} title={recurrenceTooltip(tx)} aria-hidden /> : null}
                       </span>
-                      <span className={`finance-mobile-card__amount ${txDirection(tx) === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>
-                        {formatSignedMoney(displayGross(tx), txDirection(tx))}
+                      <span className={`finance-mobile-card__amount ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>
+                        {netFmt}
                       </span>
                     </div>
-                    <div className="finance-mobile-card__name">{displayName}</div>
+                    <p className="finance-mobile-card__title">
+                      {badge ? badge.label : '—'}
+                    </p>
                     <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
-                    {badge ? <span className={badge.className}>{badge.label}</span> : null}
+                    {tx.lead_id ? (
+                      <div className="finance-mobile-card__student">{alumStr}</div>
+                    ) : null}
                     {(() => {
-                      const showRecMenu = canManageAdvanced && tx.is_recurrence_template === true;
                       const hasRowActions =
                         st === 'pending' ||
                         (st === 'settled' && (canAssignBankOnTx(tx) || canManageAdvanced)) ||
                         showRecMenu;
                       if (!hasRowActions) return null;
                       return (
-                        <div className="finance-mobile-card__actions">
+                        <div
+                          className="finance-mobile-card__actions"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
                           <FinanceTxRowActions
                             txId={tx.id}
                             status={st}
-                            direction={txDirection(tx)}
+                            direction={dir}
                             canManageAdvanced={canManageAdvanced}
                             canAssignBank={canAssignBankOnTx(tx)}
                             showRecMenu={showRecMenu}
                             rowBusy={rowBusy}
                             menuOpen={menuOpenId}
                             onMenuOpenChange={setMenuOpenId}
-                            onEdit={() => openEditModal(tx)}
+                            onEdit={() => {
+                              closeTxDetail();
+                              openEditModal(tx);
+                            }}
                             onSettle={() => void settle(tx.id)}
                             onCancel={() => requestCancelTx(tx.id)}
                             onReverse={() => requestReverseTx(tx.id)}
@@ -1382,6 +1510,7 @@ export default function TransacoesTab({
                   className="btn-ghost btn-sm finance-tx-cols-trigger"
                   aria-expanded={colsMenuOpen}
                   aria-haspopup="menu"
+                  aria-label="Exibir colunas opcionais"
                   onClick={() => setColsMenuOpen((o) => !o)}
                 >
                   Colunas +
@@ -1409,14 +1538,14 @@ export default function TransacoesTab({
               <thead>
                 <tr>
                   <th>Data</th>
-                  <th>Natureza</th>
-                  <th>Categoria</th>
+                  <th>Descrição</th>
+                  <th>Aluno</th>
+                  {visibleCols.nature ? <th>Natureza</th> : null}
                   {visibleCols.sale ? <th>Venda</th> : null}
                   {visibleCols.bank ? <th>Conta</th> : null}
-                  <th>Aluno</th>
                   {visibleCols.type ? <th>Tipo</th> : null}
                   {visibleCols.method ? <th>Método</th> : null}
-                  <th className="finance-num">Bruto</th>
+                  {visibleCols.gross ? <th className="finance-num">Bruto</th> : null}
                   {visibleCols.fee ? <th className="finance-num">Taxa</th> : null}
                   <th className="finance-num">Líquido</th>
                   <th>Status</th>
@@ -1462,8 +1591,10 @@ export default function TransacoesTab({
                   const netFmt = formatSignedMoney(displayNet(tx), dir);
                   const typeLabel = getTxTypeLabelDesktop(tx);
                   const methodLabel = formatPaymentMethod(tx.method, tx.installments);
-                  const rawName = tx.lead_id ? (leadNameById.get(tx.lead_id) || '') : '';
-                  const alumStr = rawName ? (rawName.length > 20 ? `${rawName.slice(0, 20)}…` : rawName) : '—';
+                  const alumFull = formatTxLeadCell(tx, leadNameById);
+                  const alumStr =
+                    alumFull.length > 20 ? `${alumFull.slice(0, 20)}…` : alumFull;
+                  const leadId = String(tx.lead_id || '').trim();
                   const st = String(tx.status || '').toLowerCase();
                   const statusBadge =
                     st === 'pending' ? (
@@ -1488,7 +1619,16 @@ export default function TransacoesTab({
                     <tr
                       key={tx.id}
                       ref={isHighlighted ? highlightRowRef : undefined}
-                      className={isHighlighted ? 'finance-tx-row--highlight' : undefined}
+                      tabIndex={0}
+                      role="button"
+                      className={`finance-tx-row--clickable${isHighlighted ? ' finance-tx-row--highlight' : ''}`}
+                      onClick={() => openTxDetail(tx)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openTxDetail(tx);
+                        }
+                      }}
                     >
                       <td>
                         <span className="finance-tx-date-cell">
@@ -1509,9 +1649,38 @@ export default function TransacoesTab({
                         ) : null}
                       </td>
                       <td>
-                        <span className={dir === 'out' ? 'finance-value-negative finance-tx-nature-label' : 'finance-value-positive finance-tx-nature-label'}>{nature.label}</span>
+                        <div className="finance-tx-desc-cell">
+                          {catBadge ? (
+                            <span className={`finance-tx-desc-cell__title ${catBadge.className}`}>
+                              {catBadge.label}
+                            </span>
+                          ) : (
+                            <span className="finance-tx-desc-cell__title">—</span>
+                          )}
+                          <span className="finance-tx-desc-cell__sub">{getTxSubtitle(tx)}</span>
+                        </div>
                       </td>
-                      <td>{catBadge ? <span className={catBadge.className}>{catBadge.label}</span> : '—'}</td>
+                      <td title={alumFull}>
+                        {leadId ? (
+                          <button
+                            type="button"
+                            className="finance-tx-lead-link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/student/${leadId}`);
+                            }}
+                          >
+                            {alumStr}
+                          </button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      {visibleCols.nature ? (
+                        <td>
+                          <span className={dir === 'out' ? 'finance-value-negative finance-tx-nature-label' : 'finance-value-positive finance-tx-nature-label'}>{nature.label}</span>
+                        </td>
+                      ) : null}
                       {visibleCols.sale ? (
                         <td>{tx.saleId ? formatSaleIdShort(tx.saleId) : '—'}</td>
                       ) : null}
@@ -1520,14 +1689,19 @@ export default function TransacoesTab({
                           {tx.bankAccount || resolveTxBankAccount(tx) || '—'}
                         </td>
                       ) : null}
-                      <td title={rawName || undefined}>{alumStr}</td>
                       {visibleCols.type ? <td>{typeLabel}</td> : null}
                       {visibleCols.method ? <td>{methodLabel}</td> : null}
-                      <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{grossFmt}</td>
+                      {visibleCols.gross ? (
+                        <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{grossFmt}</td>
+                      ) : null}
                       {visibleCols.fee ? <td className="finance-num finance-data">{feeFmt}</td> : null}
                       <td className={`finance-num finance-data ${dir === 'out' ? 'finance-amount-negative' : 'finance-amount-positive'}`}>{netFmt}</td>
                       <td>{statusBadge}</td>
-                      <td className="finance-num">
+                      <td
+                        className="finance-num finance-tx-row-actions-cell"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
                         <FinanceTxRowActions
                           txId={tx.id}
                           status={st}
@@ -1538,7 +1712,10 @@ export default function TransacoesTab({
                           rowBusy={rowBusy}
                           menuOpen={menuOpenId}
                           onMenuOpenChange={setMenuOpenId}
-                          onEdit={() => openEditModal(tx)}
+                          onEdit={() => {
+                            closeTxDetail();
+                            openEditModal(tx);
+                          }}
                           onSettle={() => void settle(tx.id)}
                           onCancel={() => requestCancelTx(tx.id)}
                           onReverse={() => requestReverseTx(tx.id)}
@@ -1598,7 +1775,7 @@ export default function TransacoesTab({
         open={showTxModal}
         title={getTxModalTitle({ editingRecurrenceOnly, editingTxId })}
         onClose={requestCloseTxModal}
-        closeOnEsc={false}
+        closeOnEsc
         maxWidth={520}
         dialogClassName="finance-tx-modal"
         ariaLabelledBy="finance-tx-modal-title"
@@ -1824,52 +2001,16 @@ export default function TransacoesTab({
                   </select>
                 </div>
               )}
-              <div className="form-group finance-tx-student-group">
-                <label>Aluno (opcional)</label>
-                <input
-                  className="form-input"
-                  placeholder="Nome ou telefone (mín. 2 caracteres)…"
-                  value={studentQuery}
-                  onChange={(e) => {
-                    setStudentQuery(e.target.value);
-                    setStudentPickerOpen(true);
-                    if (!e.target.value.trim()) setTxForm((f) => ({ ...f, lead_id: '' }));
-                  }}
-                  onFocus={() => setStudentPickerOpen(true)}
-                  onBlur={() => { window.setTimeout(() => setStudentPickerOpen(false), 180); }}
-                />
-                <p className="text-small finance-tx-student-group__hint">
-                  Alunos matriculados ou marcados como aluno na base.
-                </p>
-                {studentPickerOpen && String(debouncedStudentQuery || '').trim().length >= 2 ? (
-                  studentMatches.length > 0 ? (
-                    <div className="card finance-tx-student-dropdown navi-menu__panel">
-                      {studentMatches.map((l) => (
-                        <button
-                          key={l.id}
-                          type="button"
-                          className="btn-ghost finance-tx-student-dropdown__item navi-menu__item"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            setTxForm((f) => ({ ...f, lead_id: l.id }));
-                            setStudentQuery(String(l.name || ''));
-                            setStudentPickerOpen(false);
-                          }}
-                        >
-                          <div className="finance-tx-student-dropdown__name">{l.name || '—'}</div>
-                          <div className="text-small finance-tx-student-dropdown__phone">{l.phone || '—'}</div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      className="card text-small finance-tx-student-dropdown finance-tx-student-dropdown--empty"
-                    >
-                      Nenhum aluno encontrado para essa busca.
-                    </div>
-                  )
-                ) : null}
-              </div>
+              <FinanceTxStudentField
+                academyId={academyId}
+                value={studentDisplayName}
+                leadId={txForm.lead_id}
+                disabled={Boolean(editingTxId) && !editingRecurrenceOnly}
+                onChange={({ lead_id, name }) => {
+                  setTxForm((f) => ({ ...f, lead_id: lead_id || '' }));
+                  setStudentDisplayName(name || '');
+                }}
+              />
               <div className="form-group">
                 <label>Mês de competência</label>
                 <DateInputField
@@ -2047,6 +2188,47 @@ export default function TransacoesTab({
           </p>
         )}
       </ModalShell>
+
+      {detailTx ? (
+        <FinanceTxDetailDrawer
+          tx={transactions.find((t) => String(t.id) === String(detailTx.id)) || detailTx}
+          leadNameById={leadNameById}
+          chartAccounts={chartAccounts}
+          canManageAdvanced={canManageAdvanced}
+          canAssignBankOnTx={canAssignBankOnTx}
+          rowBusy={
+            cancelLoadingId === detailTx.id ||
+            recurrenceCancelLoadingId === detailTx.id ||
+            reverseLoadingId === detailTx.id ||
+            (assignBankSaving && assignBankTx?.id === detailTx.id)
+          }
+          menuOpenId={menuOpenId}
+          onMenuOpenChange={setMenuOpenId}
+          onClose={closeTxDetail}
+          onEdit={() => {
+            closeTxDetail();
+            openEditModal(detailTx);
+          }}
+          onSettle={() => void settle(detailTx.id)}
+          onCancel={() => requestCancelTx(detailTx.id)}
+          onReverse={() => requestReverseTx(detailTx.id)}
+          onAssignBank={() => openAssignBankModal(detailTx)}
+          onEditRecurrence={() => openEditRecurrenceModal(detailTx)}
+          onCancelRecurrence={() => requestCancelRecurrence(detailTx.id)}
+          recurrenceCancelLoadingId={recurrenceCancelLoadingId}
+          reverseLoadingId={reverseLoadingId}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        open={showDiscardTxModal}
+        title="Descartar alterações?"
+        description="As informações preenchidas serão perdidas."
+        confirmLabel="Descartar"
+        confirmVariant="danger"
+        onConfirm={() => resetTxModal()}
+        onClose={() => setShowDiscardTxModal(false)}
+      />
 
       <ConfirmDialog
         open={showCancelTxDialog}

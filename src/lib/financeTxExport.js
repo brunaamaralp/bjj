@@ -13,6 +13,7 @@ import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from './bankAccountBalan
 import { txTemporalIso } from './financeCompetence.js';
 import { resolveFinanceCategory, defaultCategoryForTxType } from './financeCategories.js';
 import { formatSaleIdShort } from './salesHistory.js';
+import { leadNameForExport, resolveTxLeadId } from './financeTxLeadNames.js';
 
 function formatTxDateStr(iso) {
   const dt = new Date(iso);
@@ -65,7 +66,7 @@ export function financeTxToCsvRow(tx, ctx = {}) {
     direcao: nature,
     categoria: txCategoryLabel(tx, ctx.accounts),
     descricao: txDescription(tx),
-    aluno: ctx.leadName || '',
+    aluno: leadNameForExport(tx, ctx.leadNameById || new Map(), ctx),
     valor_bruto: formatAmountBr(displayGross(tx)),
     taxa: formatAmountBr(displayFee(tx)),
     valor_liquido: formatAmountBr(displayNet(tx)),
@@ -107,7 +108,13 @@ export function applyFinanceTxFilters(
   const q = String(search || '').trim().toLowerCase();
   if (q) {
     rows = rows.filter((tx) => {
-      const name = (leadNameById.get(tx.lead_id) || '').toLowerCase();
+      const id = resolveTxLeadId(tx);
+      const name = (
+        String(tx.lead_name || '').trim() ||
+        leadNameById.get(id) ||
+        leadNameById.get(tx.lead_id) ||
+        ''
+      ).toLowerCase();
       const cat = String(tx.category || '').toLowerCase();
       const note = String(tx.note || '').toLowerCase();
       const bank = String(tx.bankAccount || resolveTxBankAccount(tx) || '').toLowerCase();

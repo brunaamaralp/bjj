@@ -1,0 +1,110 @@
+.finance-tx-drawer-panel {
+  z-index: var(--z-drawer, 1200);
+  max-width: min(420px, 100vw);
+}
+
+.finance-tx-drawer-backdrop {
+  z-index: calc(var(--z-drawer, 1200) - 1);
+}
+
+.finance-tx-drawer-body .task-drawer-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-tx-drawer-footer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.finance-tx-drawer-footer .finance-tx-actions-cell {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .finance-tx-drawer-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+.finance-tx-student-field__spinner {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+  animation: finance-tx-spin 0.8s linear infinite;
+}
+
+@keyframes finance-tx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finance-tx-student-field__spinner {
+    animation: none;
+  }
+}
+
+.finance-tx-student-field__selected {
+  color: var(--color-primary);
+  margin-top: 4px;
+}
+
+.finance-tx-desc-cell__title {
+  font-weight: 600;
+  display: block;
+}
+
+.finance-tx-desc-cell__sub {
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  margin-top: 2px;
+}
+
+.finance-tx-row--clickable {
+  cursor: pointer;
+}
+
+.finance-tx-row--clickable:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.finance-tx-row-actions-cell {
+  cursor: default;
+}
+
+.finance-tx-lead-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finance-tx-lead-link:hover {
+  text-decoration: underline;
+}
+
+.finance-mobile-card--clickable {
+  cursor: pointer;
+}
+
+.finance-mobile-card__title {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.finance-mobile-card__student {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}

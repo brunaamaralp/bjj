@@ -30,6 +30,7 @@
 @import './styles/closing.css';
 @import './styles/receivables.css';
 @import './styles/a11y.css';
+@import './styles/tx-drawer.css';
 
 /* === Tokens semânticos do módulo financeiro === */
 :root {

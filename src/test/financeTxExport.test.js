@@ -49,4 +49,13 @@ describe('applyFinanceTxFilters', () => {
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('1');
   });
+
+  it('filters by lead_name on transaction when map is empty', () => {
+    const withName = [
+      { id: '3', status: 'settled', lead_id: 'c', lead_name: 'Carla Souza', category: 'Mensalidades' },
+    ];
+    const out = applyFinanceTxFilters(withName, { search: 'carla' }, new Map());
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('3');
+  });
 });
