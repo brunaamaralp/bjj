@@ -1626,6 +1626,11 @@ a.btn-ghost:focus-visible {
   align-items: stretch;
 }
 
+.main-content .student-profile-page-root.student-profile--panel-open {
+  flex-direction: row;
+  overflow: hidden;
+}
+
 .lead-profile-page-root.lead-profile--panel-open {
   flex: 1 1 0%;
   min-height: 0;
