@@ -65,11 +65,6 @@ export function resolveDefaultBankAccountLabel(financeConfig) {
   return '';
 }
 
-export {
-  resolveInitialBankAccountForPayment as pickInitialBankAccountForPayment,
-  accountWhenPaymentMethodChanges,
-} from './paymentMethodBankDefaults.js';
-
 export function hasConfiguredBankAccounts(financeConfig) {
   return listBankAccountLabels(financeConfig).length > 0;
 }

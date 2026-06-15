@@ -40,10 +40,12 @@ import {
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
 import {
   validateBankAccountForPayment,
-  pickInitialBankAccountForPayment,
   hasConfiguredBankAccounts,
-  accountWhenPaymentMethodChanges,
 } from '../../lib/bankAccounts.js';
+import {
+  pickInitialBankAccountForPayment,
+  accountWhenPaymentMethodChanges,
+} from '../../lib/paymentMethodBankDefaults.js';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';

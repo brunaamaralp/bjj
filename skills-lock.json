@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "agent-harness-construction": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "skillPath": "skills/agent-harness-construction/SKILL.md",
+      "computedHash": "d9a2517c996efbace963d617df2af1843ed7cfb8b94fdfd5e5e91c53059aa9d5"
+    },
     "audit-speed": {
       "source": "calm-north/seojuice-skills",
       "sourceType": "github",
@@ -127,6 +133,12 @@
       "skillPath": "skills/skill-creator/SKILL.md",
       "computedHash": "7e3c9cd74e9e2b4828527a857170e86310f2dab5ea8030a9043df2c7e6c88857"
     },
+    "spec-driven-implementation": {
+      "source": "warpdotdev/common-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/spec-driven-implementation/SKILL.md",
+      "computedHash": "0e586fa2849e33f2d6c1af2110c94a54213777f2594bd34f41409fe637bbbbcd"
+    },
     "stock-analysis": {
       "source": "gracefullight/stock-checker",
       "sourceType": "github",
@@ -192,6 +204,12 @@
       "sourceType": "github",
       "skillPath": "skills/webapp-testing/SKILL.md",
       "computedHash": "3f14af7f5690695209c22fbf8c8d133769a86d64892602c09bb13f135e14e857"
+    },
+    "write-spec": {
+      "source": "anthropics/knowledge-work-plugins",
+      "sourceType": "github",
+      "skillPath": "product-management/skills/write-spec/SKILL.md",
+      "computedHash": "6ec065dfac46311b9550499997630c62b9748598e3128056ddf58a789162517e"
     },
     "writing-plans": {
       "source": "obra/superpowers",

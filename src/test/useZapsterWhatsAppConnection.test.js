@@ -11,14 +11,15 @@ const waMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../lib/appwrite', () => ({
+  createSessionJwt: vi.fn().mockResolvedValue('test-jwt'),
   account: {
-    createJWT: vi.fn().mockResolvedValue({ jwt: 'test-jwt' })
+    createJWT: vi.fn().mockResolvedValue({ jwt: 'test-jwt' }),
   },
   realtime: {
-    subscribe: vi.fn(() => Promise.resolve({ close: vi.fn() }))
+    subscribe: vi.fn(() => Promise.resolve({ close: vi.fn() })),
   },
   DB_ID: 'test-db',
-  ACADEMIES_COL: 'test-academies'
+  ACADEMIES_COL: 'test-academies',
 }));
 
 vi.mock('../lib/billingBlockedFetch', () => ({

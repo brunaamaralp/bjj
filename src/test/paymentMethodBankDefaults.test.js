@@ -4,7 +4,9 @@ import {
   accountWhenPaymentMethodChanges,
   normalizeDefaultAccountByMethodMap,
 } from '../lib/paymentMethodBankDefaults.js';
-import { pickInitialBankAccountForPayment } from '../lib/bankAccounts.js';
+import {
+  pickInitialBankAccountForPayment,
+} from '../lib/paymentMethodBankDefaults.js';
 
 const cfg = {
   bankAccounts: [

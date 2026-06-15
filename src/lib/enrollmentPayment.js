@@ -1,5 +1,6 @@
 import { createPayment, PAYMENT_CATEGORY } from './studentPayments.js';
-import { validateBankAccountForPayment, pickInitialBankAccountForPayment } from './bankAccounts.js';
+import { validateBankAccountForPayment } from './bankAccounts.js';
+import { pickInitialBankAccountForPayment } from './paymentMethodBankDefaults.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 import { findPlanByName, planPriceToPayAmountString } from './academyPlans.js';
 import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from './studentPaymentTroco.js';

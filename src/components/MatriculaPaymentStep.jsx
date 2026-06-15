@@ -5,7 +5,7 @@ import PlanSelect from './shared/PlanSelect.jsx';
 import { PAYMENT_CATEGORY } from '../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../lib/paymentCategories.js';
 import { PAYMENT_METHODS } from '../lib/paymentMethods.js';
-import { accountWhenPaymentMethodChanges } from '../lib/bankAccounts.js';
+import { accountWhenPaymentMethodChanges } from '../lib/paymentMethodBankDefaults.js';
 import { findPlanByName, planPriceToPayAmountString } from '../lib/academyPlans.js';
 import CashTrocoFields from './finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';

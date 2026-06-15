@@ -6,11 +6,31 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    include: [
+      'tests/**/*.test.js',
+      'src/**/*.test.js',
+      'src/**/*.test.ts',
+      'lib/**/*.test.js',
+    ],
     setupFiles: ['./src/test/setup.js'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov'],
-      exclude: ['node_modules/**', 'src/test/**', 'dist/**', '**/*.config.js']
-    }
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: [
+        'lib/constants.js',
+        'lib/server/agentRespond.js',
+        'lib/server/zapsterWebhook.js',
+        'lib/server/conversationsStore.js',
+        'src/lib/inboxConversationState.js',
+        'src/lib/conversationsRealtime.js',
+      ],
+      exclude: ['node_modules/**', 'tests/**', 'scripts/**'],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 50,
+      },
+    },
   }
 });

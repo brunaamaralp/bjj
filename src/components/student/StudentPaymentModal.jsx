@@ -7,7 +7,11 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
-import { resolveBankAccountForPayment, pickInitialBankAccountForPayment, accountWhenPaymentMethodChanges } from '../../lib/bankAccounts.js';
+import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import {
+  pickInitialBankAccountForPayment,
+  accountWhenPaymentMethodChanges,
+} from '../../lib/paymentMethodBankDefaults.js';
 import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } from '../../lib/moneyBr';
 import CashTrocoFields from '../finance/CashTrocoFields.jsx';

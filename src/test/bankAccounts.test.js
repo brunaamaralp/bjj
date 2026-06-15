@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  pickInitialBankAccountForPayment,
   hasConfiguredBankAccounts,
   resolveDefaultBankAccountLabel,
 } from '../lib/bankAccounts.js';
+import { pickInitialBankAccountForPayment } from '../lib/paymentMethodBankDefaults.js';
 
 describe('bankAccounts — conta inicial no pagamento', () => {
   const twoAccounts = {

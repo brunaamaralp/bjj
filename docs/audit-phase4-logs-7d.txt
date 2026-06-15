@@ -1,0 +1,213 @@
+﻿node.exe : Vercel CLI 54.14.0 (Node.js 22.22.0)
+No linha:1 caractere:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Vercel CLI 54.14.0 (Node.js 22.22.0):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Resolving deployment "www.navefit.com"
+Fetching project "prj_Tw95tmO6f65LRRLk3cF2LeCuN225"
+Fetching logs...
+TIME         HOST             LEVEL                                            STATUS  MESSAGE                         
+ 
+20:28:55.01  www.navefit.com  error  ╬╗ GET /api/agent                          404     (node:4) [DEP0169] 
+DeprecationWaÔÇª
+20:28:53.90  www.navefit.com  error  ╬╗ GET /api/conversations                  401     (node:4) [DEP0169] 
+DeprecationWaÔÇª
+19:53:18.90  www.navefit.com  info   ╬╗ GET /api/agent                          304     (no message)                   
+  
+19:53:15.79  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:15.66  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:15.27  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:14.81  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:13.02  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:11.54  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:09.87  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:07.77  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:06.62  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:06.51  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:06.17  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:05.72  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:05.28  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:05.22  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:04.65  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:04.17  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:04.04  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:03.86  www.navefit.com  info   ╬╗ GET /api/agent                          304     (no message)                   
+  
+19:53:03.02  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:02.76  www.navefit.com  info   ╬╗ GET /api/control-id/status              304     (no message)                   
+  
+19:53:02.65  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:02.20  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:01.74  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:01.23  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:00.71  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:57.45  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:57.07  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:57.07  www.navefit.com  info   ╬╗ GET /api/agent                          304     (no message)                   
+  
+19:52:55.70  www.navefit.com  error  ╬╗ GET /api/tasks                          304     (node:4) [DEP0169] 
+DeprecationWaÔÇª
+19:52:55.64  www.navefit.com  info   ╬╗ GET /api/billing/status                 304     (no message)                   
+  
+19:52:55.47  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:55.05  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:54.99  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:54.82  www.navefit.com  info   ╬╗ GET /api/academy/whatsapp-templates     304     (no message)                   
+  
+19:52:54.15  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:53.94  www.navefit.com  info   ╬╗ GET /api/academy/whatsapp-templates     304     (no message)                   
+  
+19:52:53.74  www.navefit.com  info   ╬╗ GET /api/products                       304     (no message)                   
+  
+19:52:53.21  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:53.21  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:51.52  www.navefit.com  info   ╬╗ GET /api/products                       304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/students/list                  304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/inventory                      304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/products                       304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/billing/status                 304     (no message)                   
+  
+19:52:49.72  www.navefit.com  info   ╬╗ GET /api/notifications                  304     (no message)                   
+  
+19:52:49.37  www.navefit.com  info   ╬╗ GET /api/conversations                  304     (no message)                   
+  
+19:52:48.92  www.navefit.com  info   ╬╗ POST /api/billing/ensure-trial          200     (no message)                   
+  
+20:28:55.01  www.navefit.com  error  ╬╗ GET /api/agent                          404     (node:4) [DEP0169] 
+DeprecationWaÔÇª
+20:28:53.90  www.navefit.com  error  ╬╗ GET /api/conversations                  401     (node:4) [DEP0169] 
+DeprecationWaÔÇª
+19:53:18.90  www.navefit.com  info   ╬╗ GET /api/agent                          304     (no message)                   
+  
+19:53:15.79  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:15.66  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:15.27  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:14.81  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:13.02  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:11.54  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:09.87  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:07.77  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:06.62  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:06.51  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:06.17  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:05.72  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:05.28  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:05.22  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:04.65  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:04.17  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:04.04  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:03.86  www.navefit.com  info   ╬╗ GET /api/agent                          304     (no message)                   
+  
+19:53:03.02  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:02.76  www.navefit.com  info   ╬╗ GET /api/control-id/status              304     (no message)                   
+  
+19:53:02.65  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:02.20  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:01.74  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:01.23  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:53:00.71  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:57.45  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:57.07  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:57.07  www.navefit.com  info   ╬╗ GET /api/agent                          304     (no message)                   
+  
+19:52:55.70  www.navefit.com  error  ╬╗ GET /api/tasks                          304     (node:4) [DEP0169] 
+DeprecationWaÔÇª
+19:52:55.64  www.navefit.com  info   ╬╗ GET /api/billing/status                 304     (no message)                   
+  
+19:52:55.47  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:55.05  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:54.99  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:54.82  www.navefit.com  info   ╬╗ GET /api/academy/whatsapp-templates     304     (no message)                   
+  
+19:52:54.15  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:53.94  www.navefit.com  info   ╬╗ GET /api/academy/whatsapp-templates     304     (no message)                   
+  
+19:52:53.74  www.navefit.com  info   ╬╗ GET /api/products                       304     (no message)                   
+  
+19:52:53.21  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:53.21  www.navefit.com  info   ╬╗ GET /api/agent                          200     (no message)                   
+  
+19:52:51.52  www.navefit.com  info   ╬╗ GET /api/products                       304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/students/list                  304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/inventory                      304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/products                       304     (no message)                   
+  
+19:52:49.97  www.navefit.com  info   ╬╗ GET /api/billing/status                 304     (no message)                   
+  
+19:52:49.72  www.navefit.com  info   ╬╗ GET /api/notifications                  304     (no message)                   
+  
+19:52:49.37  www.navefit.com  info   ╬╗ GET /api/conversations                  304     (no message)                   
+  
+19:52:48.92  www.navefit.com  info   ╬╗ POST /api/billing/ensure-trial          200     (no message)                   
+  
+Fetched 100 logs for narrativa/bjj

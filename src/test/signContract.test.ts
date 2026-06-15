@@ -87,7 +87,8 @@ describe('signContract', () => {
         signers: expect.arrayContaining([
           expect.objectContaining({ positions: expect.any(Array) }),
         ]),
-      })
+      }),
+      null
     );
   });
 
@@ -123,8 +124,11 @@ describe('signContract', () => {
       Buffer.from('pdf')
     );
 
-    expect(createDocument).toHaveBeenCalledWith(expect.objectContaining({ sortable: false }));
-    expect(signDocument).toHaveBeenCalledWith('aut-3');
+    expect(createDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ sortable: false }),
+      null
+    );
+    expect(signDocument).toHaveBeenCalledWith('aut-3', null);
     expect(createContract).toHaveBeenCalledWith(expect.objectContaining({ status: 'in_progress' }));
   });
 });

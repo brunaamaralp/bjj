@@ -55,7 +55,11 @@ export function digestMethodBankDefaults(financeConfig) {
  * @param {string} [preferredAccount]
  * @param {string} [method]
  */
-export function resolveInitialBankAccountForPayment(financeConfig, preferredAccount = '', method = '') {
+export function resolveInitialBankAccountForPayment(
+  financeConfig,
+  preferredAccount = '',
+  method = '',
+) {
   const labels = listBankAccountLabels(financeConfig);
   if (!labels.length) return '';
 
@@ -95,3 +99,6 @@ export function accountWhenPaymentMethodChanges(financeConfig, method) {
 
   return labels[0] || '';
 }
+
+/** @deprecated Prefer import from paymentMethodBankDefaults; alias for callers legados. */
+export { resolveInitialBankAccountForPayment as pickInitialBankAccountForPayment };

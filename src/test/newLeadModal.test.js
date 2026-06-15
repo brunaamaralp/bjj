@@ -6,6 +6,10 @@ import {
   preloadNewLeadModalChunk,
 } from '../lib/newLeadModal.js';
 
+vi.mock('../components/leads/NewLeadModal.jsx', () => ({
+  default: () => null,
+}));
+
 describe('newLeadModal', () => {
   beforeEach(() => {
     useUiStore.setState({ newLeadModalOpen: false });

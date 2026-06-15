@@ -77,7 +77,7 @@ describe('useInboxConversationList', () => {
     vi.mocked(fetchWithBillingGuard).mockReset();
   });
 
-  it('dispara loadList na montagem com include_stats para evitar waterfall', async () => {
+  it('dispara loadList na montagem sem include_stats (stats vêm em refresh silent)', async () => {
     let capturedUrl = '';
     vi.mocked(fetchWithBillingGuard).mockImplementation(async (url) => {
       capturedUrl = String(url);
@@ -89,7 +89,6 @@ describe('useInboxConversationList', () => {
             JSON.stringify({
               items: [{ phone_number: '5511999990001', unread_count: 0 }],
               next_cursor: '',
-              stats: { unread_conversations: 0, needs_me: 0, resolved: 0, transferred: 0 },
             }),
         },
       };
@@ -118,10 +117,11 @@ describe('useInboxConversationList', () => {
           ...h,
         })
       );
+      await Promise.resolve();
     });
 
     expect(fetchWithBillingGuard).toHaveBeenCalled();
-    expect(capturedUrl).toContain('include_stats=1');
+    expect(capturedUrl).not.toContain('include_stats=1');
     expect(h.state.items).toHaveLength(1);
   });
 

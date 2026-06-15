@@ -88,8 +88,8 @@ import {
   listBankAccountLabels,
   resolveBankAccountForPayment,
   validateBankAccountForPayment,
-  accountWhenPaymentMethodChanges,
 } from '../../lib/bankAccounts.js';
+import { accountWhenPaymentMethodChanges } from '../../lib/paymentMethodBankDefaults.js';
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import useDebounce from '../../hooks/useDebounce.js';
