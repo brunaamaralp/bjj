@@ -1,3 +1,5 @@
+import '../styles/nl-command-bar-trigger.css';
+
 export function NlCommandBarTrigger({ onClick }) {
   const label = 'Pergunte ou descreva uma ação…';
   const title =

@@ -24,10 +24,6 @@ import { cleanOldAccountingCache } from './store/useAccountingStore';
 import { resetStoresForAcademyChange } from './lib/resetStoresForAcademyChange.js';
 import { useUiStore } from './store/useUiStore';
 import Login from './pages/Login';
-import Register from './pages/Register';
-import Welcome from './pages/Welcome';
-import TermsOfUse from './pages/TermsOfUse';
-import PrivacyPolicy from './pages/PrivacyPolicy';
 import { prefetchFinanceConfig } from './lib/prefetchFinanceConfig.js';
 import { prefetchRouteBootstrapData } from './lib/bootstrapRoutePrefetch.js';
 import NaviUserMenu from './components/layout/NaviUserMenu.jsx';
@@ -47,6 +43,10 @@ import {
 import { lazyWithRetry } from './lib/lazyWithRetry.js';
 
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Welcome = lazyWithRetry(() => import('./pages/Welcome'));
+const Register = lazyWithRetry(() => import('./pages/Register'));
+const TermsOfUse = lazyWithRetry(() => import('./pages/TermsOfUse'));
+const PrivacyPolicy = lazyWithRetry(() => import('./pages/PrivacyPolicy'));
 const Pipeline = lazyWithRetry(() => import('./pages/Pipeline'));
 const LeadProfile = lazyWithRetry(() => import('./pages/LeadProfile'));
 const StudentProfile = lazyWithRetry(() => import('./pages/StudentProfile'));
@@ -1023,10 +1023,12 @@ const App = () => {
     return (
       <>
         <OfflineBanner />
-        <Routes>
-          <Route path="/termos" element={<TermsOfUse />} />
-          <Route path="/privacidade" element={<PrivacyPolicy />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/termos" element={<TermsOfUse />} />
+            <Route path="/privacidade" element={<PrivacyPolicy />} />
+          </Routes>
+        </Suspense>
       </>
     );
   }
@@ -1036,6 +1038,7 @@ const App = () => {
       <>
         <OfflineBanner />
         <div className="app-container">
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/welcome" element={<Navigate to="/" replace />} />
@@ -1044,6 +1047,7 @@ const App = () => {
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </div>
       </>
     );
