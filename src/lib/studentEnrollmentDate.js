@@ -32,6 +32,14 @@ export function enrollmentDateYmd(contact) {
   return '';
 }
 
+/**
+ * Data de matrícula para KPIs (ingresso explícito → converted_at).
+ * @deprecated Preferir enrollmentDateYmd — mesma regra.
+ */
+export function matriculationYmd(contact) {
+  return enrollmentDateYmd(contact);
+}
+
 /** Verifica se a matrícula cai no intervalo [from, to] (YYYY-MM-DD). Sem período = todos. */
 export function contactEnrolledInYmdRange(contact, from, to) {
   if (!from && !to) return true;

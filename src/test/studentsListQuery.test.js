@@ -51,6 +51,9 @@ describe('buildStudentsListDocumentQueries', () => {
     expect(serialized.some((q) => q.includes('source_origin'))).toBe(true);
     expect(STUDENT_LIST_SELECT).toContain('name');
     expect(STUDENT_LIST_SELECT).toContain('phone');
+    expect(STUDENT_LIST_SELECT).toContain('converted_at');
+    expect(STUDENT_LIST_SELECT).toContain('enrollmentDate');
+    expect(STUDENT_LIST_SELECT).toContain('overdue');
     expect(STUDENT_LIST_SELECT).not.toContain('origin');
     expect(STUDENT_LIST_SELECT).not.toContain('class_name');
   });

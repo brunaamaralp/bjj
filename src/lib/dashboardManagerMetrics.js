@@ -1,5 +1,6 @@
 import { LEAD_STATUS } from '../store/useLeadStore';
 import { isActiveStudent } from './studentStatus.js';
+import { enrollmentDateYmd, formatLocalYmd } from './studentEnrollmentDate.js';
 /** Limites do mês civil corrente (início → fim do dia de hoje se mês atual). */
 export function currentMonthRange() {
   const now = new Date();
@@ -36,7 +37,15 @@ export function isTimestampInRange(iso, from, to) {
   return t >= from.getTime() && t <= to.getTime();
 }
 
-const excludeImported = (l) => String(l?.origin || '').trim() !== 'Planilha';
+const excludeImported = (l) =>
+  String(l?.origin || l?.sourceOrigin || l?.source_origin || '').trim() !== 'Planilha';
+
+/** Matrícula no período: data de ingresso; sem ingresso, usa converted_at (matrícula pelo funil). */
+function matriculatedInRange(contact, range) {
+  const ymd = enrollmentDateYmd(contact);
+  if (!ymd) return false;
+  return isTimestampInRange(`${ymd}T12:00:00`, range.from, range.to);
+}
 
 /** Leads criados no mês corrente (exclui importação planilha). */
 export function countLeadsCreatedInMonth(leads, range = currentMonthRange()) {
@@ -45,27 +54,24 @@ export function countLeadsCreatedInMonth(leads, range = currentMonthRange()) {
   ).length;
 }
 
-/** Matrículas no mês: convertedAt, lead convertido ou aluno com data de ingresso no período. */
+/** Matrículas no mês: ingresso no período (deduplicado por id). */
 export function countEnrollmentsInMonth(leads, students, range = currentMonthRange()) {
   const ids = new Set();
+
+  const tryAdd = (contact) => {
+    if (!excludeImported(contact)) return;
+    const id = String(contact?.id || contact?.$id || '').trim();
+    if (!id || ids.has(id)) return;
+    if (!matriculatedInRange(contact, range)) return;
+    ids.add(id);
+  };
+
+  for (const s of students || []) tryAdd(s);
   for (const l of leads || []) {
-    if (!excludeImported(l)) continue;
-    const convertedAt = String(l.convertedAt || '').trim();
-    if (convertedAt && isTimestampInRange(convertedAt, range.from, range.to)) {
-      ids.add(String(l.id || '').trim());
-      continue;
-    }
-    if (l.status === LEAD_STATUS.CONVERTED && isTimestampInRange(l.createdAt, range.from, range.to)) {
-      ids.add(String(l.id || '').trim());
-    }
+    if (String(l?.status || '').trim() !== LEAD_STATUS.CONVERTED) continue;
+    tryAdd(l);
   }
-  for (const s of students || []) {
-    if (!isActiveStudent(s) && !String(s.enrollmentDate || '').trim()) continue;
-    const enr = String(s.enrollmentDate || '').trim();
-    if (enr && isTimestampInRange(enr.length === 10 ? `${enr}T12:00:00` : enr, range.from, range.to)) {
-      ids.add(String(s.id || '').trim());
-    }
-  }
+
   return ids.size;
 }
 
@@ -131,4 +137,27 @@ export function countOverdueTasks(tasks) {
     const due = new Date(`${raw}T00:00:00`).getTime();
     return Number.isFinite(due) && due < todayMs;
   }).length;
+}
+
+/** Tarefas pendentes com vencimento no dia (hero KPI «Tarefas»). */
+export function filterPendingTasksForDate(tasks, date = new Date()) {
+  const dayYmd = formatLocalYmd(date);
+  return (tasks || [])
+    .filter((t) => {
+      if (String(t?.status || '').trim().toLowerCase() === 'done') return false;
+      const due = String(t?.due_date || t?.dueDate || '').trim().slice(0, 10);
+      return due === dayYmd;
+    })
+    .sort((a, b) => {
+      const ta = String(a?.due_date || a?.dueDate || '').trim();
+      const tb = String(b?.due_date || b?.dueDate || '').trim();
+      if (!ta && !tb) return 0;
+      if (!ta) return 1;
+      if (!tb) return -1;
+      return ta.localeCompare(tb);
+    });
+}
+
+export function countPendingTasksToday(tasks, date = new Date()) {
+  return filterPendingTasksForDate(tasks, date).length;
 }

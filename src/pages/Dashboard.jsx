@@ -36,6 +36,7 @@ import {
     getTimeOfDayPeriod,
     countWeeklyEnrollments,
 } from '../lib/dashboardDayBriefing.js';
+import { filterPendingTasksForDate } from '../lib/dashboardManagerMetrics.js';
 import {
     attendedButtonLabel,
     missedButtonLabel,
@@ -422,16 +423,7 @@ const Dashboard = () => {
 
     const isZeroState = !loading && leadsCount === 0 && (tasks || []).length === 0;
 
-    const pendingTasks = (tasks || [])
-        .filter((t) => String(t?.status || '').trim().toLowerCase() !== 'done')
-        .sort((a, b) => {
-            const ta = String(a?.due_date || '').trim();
-            const tb = String(b?.due_date || '').trim();
-            if (!ta && !tb) return 0;
-            if (!ta) return 1;
-            if (!tb) return -1;
-            return ta.localeCompare(tb);
-        });
+    const pendingTasksToday = useMemo(() => filterPendingTasksForDate(tasks), [tasks]);
 
     const visibleWeekAgendaCount = scheduledInVisibleWeekCount(dashboardWeekOffset);
 
@@ -537,10 +529,7 @@ const Dashboard = () => {
         return String(acad.name || acad.label || '').trim();
     }, [dashWaName, academyWa.name, academyList, academyId]);
 
-    const weeklyEnrollmentsCount = useMemo(
-        () => countWeeklyEnrollments(students, new Date()),
-        [students]
-    );
+    const weeklyEnrollmentsCount = useMemo(() => countWeeklyEnrollments(students), [students]);
 
     const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
 
@@ -562,7 +551,7 @@ const Dashboard = () => {
                 todayScheduled,
                 todayOnAgenda,
                 followUps,
-                pendingTasks,
+                pendingTasks: pendingTasksToday,
                 trialShort: terms.trialShort,
                 weeklyEnrollments: weeklyEnrollmentsCount,
                 omitTodaySchedule: dayPriority.type === 'upcoming_class',
@@ -571,7 +560,7 @@ const Dashboard = () => {
             todayScheduled,
             todayOnAgenda,
             followUps,
-            pendingTasks,
+            pendingTasksToday,
             terms.trialShort,
             weeklyEnrollmentsCount,
             dayPriority.type,
@@ -605,7 +594,7 @@ const Dashboard = () => {
             followUpsAwaitingContact.length,
             followupUrgent
         );
-        const tasksFootnote = buildTasksKpiFootnote(pendingTasks.length);
+        const tasksFootnote = buildTasksKpiFootnote(pendingTasksToday.length);
 
         return [
             {
@@ -640,8 +629,8 @@ const Dashboard = () => {
             {
                 key: 'tasks',
                 label: 'Tarefas',
-                count: pendingTasks.length,
-                tone: pendingTasks.length > 0 ? 'attention' : 'muted',
+                count: pendingTasksToday.length,
+                tone: pendingTasksToday.length > 0 ? 'attention' : 'muted',
                 icon: <CheckSquare {...HERO_KPI_ICON_PROPS} aria-hidden />,
                 ...tasksFootnote,
             },
@@ -651,7 +640,7 @@ const Dashboard = () => {
         todayScheduled.length,
         monthEnrollmentMetrics,
         followUps,
-        pendingTasks.length,
+        pendingTasksToday.length,
         followupTemperatureCounts.cooling,
         followupTemperatureCounts.critical,
     ]);
@@ -660,14 +649,14 @@ const Dashboard = () => {
         listModalType === 'today'
             ? todayScheduled
             : listModalType === 'tasks'
-              ? pendingTasks
+              ? pendingTasksToday
               : [];
 
     const modalTitle =
         listModalType === 'today'
             ? `${trialSeriesPlural} hoje`
             : listModalType === 'tasks'
-              ? 'Próximas tarefas'
+              ? 'Tarefas para hoje'
               : '';
 
     const handleBirthdayWhatsApp = async (student, e) => {

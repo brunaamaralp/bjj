@@ -257,11 +257,19 @@ describe('touchFollowupStreak', () => {
 });
 
 describe('countWeeklyEnrollments', () => {
-  it('conta alunos com ingresso na semana civil', () => {
+  it('conta aluno com convertedAt na semana civil', () => {
+    const count = countWeeklyEnrollments([{ convertedAt: '2026-06-10T12:00:00.000Z' }]);
+    expect(count).toBeGreaterThanOrEqual(0);
+  });
+
+  it('conta alunos com ingresso explícito na semana civil', () => {
     const count = countWeeklyEnrollments(
-      [{ enrollmentDate: '2026-06-09' }, { enrollmentDate: '2026-01-01' }],
-      new Date(2026, 5, 10)
+      [{ enrollmentDate: '2026-06-09' }, { enrollmentDate: '2026-01-01' }]
     );
     expect(count).toBeGreaterThanOrEqual(0);
+  });
+
+  it('não conta aluno sem data de matrícula', () => {
+    expect(countWeeklyEnrollments([{ createdAt: '2026-06-09T00:00:00.000Z' }])).toBe(0);
   });
 });

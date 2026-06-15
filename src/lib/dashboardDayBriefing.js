@@ -1,5 +1,5 @@
 import { LEAD_STATUS } from '../store/useLeadStore';
-import { enrollmentIngressYmd } from './studentEnrollmentDate.js';
+import { enrollmentDateYmd } from './studentEnrollmentDate.js';
 import { getCivilWeekBounds } from '../components/AgendaCalendarWeek.jsx';
 import { getFollowupKind } from './followupState.js';
 
@@ -275,12 +275,12 @@ export function getDayPriority(ctx) {
   };
 }
 
-/** Conta matrículas (ingresso) na semana civil atual. */
+/** Conta matrículas na semana civil (ingresso → converted_at). */
 export function countWeeklyEnrollments(students) {
   const { startMs, endMs } = getCivilWeekBounds(0, true);
   let count = 0;
   for (const student of students || []) {
-    const ymd = enrollmentIngressYmd(student);
+    const ymd = enrollmentDateYmd(student);
     if (!ymd) continue;
     const [y, m, d] = ymd.split('-').map(Number);
     const t = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0).getTime();
