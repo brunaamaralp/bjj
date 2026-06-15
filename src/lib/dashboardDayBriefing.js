@@ -1,7 +1,6 @@
 import { LEAD_STATUS } from '../store/useLeadStore';
 import { enrollmentDateYmd } from './studentEnrollmentDate.js';
 import { getCivilWeekBounds } from '../components/AgendaCalendarWeek.jsx';
-import { getFollowupKind } from './followupState.js';
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -142,33 +141,9 @@ export function buildDaySummaryLine(ctx) {
   return parts.join(' ');
 }
 
-/** @param {object} lead @param {number} days */
-function followupVisitLine(lead, days) {
-  const kind = getFollowupKind(lead);
-  if (days === 1) {
-    return kind === 'missed' ? 'faltou ontem' : 'veio ontem';
-  }
-  const daysPart = `${days} dia${days === 1 ? '' : 's'}`;
-  return kind === 'missed' ? `faltou há ${daysPart}` : `veio há ${daysPart}`;
-}
-
-/** @param {object} lead */
-function buildUrgentFollowupPriorityMessage(lead) {
-  const name = String(lead.name || 'Interessado').trim();
-  const days = lead.daysAgo ?? 0;
-  const daysLabel = days === 1 ? '1 dia' : `${days} dias`;
-
-  if (lead.temperature === 'critical') {
-    return `${name} está há ${daysLabel} sem retorno desde a aula. Vale retomar com urgência.`;
-  }
-
-  const visit = followupVisitLine(lead, days);
-  return `${name} ${visit}. Ainda sem retorno. Vale uma mensagem.`;
-}
-
 /**
  * @typedef {{
- *   type: 'upcoming_class' | 'urgent_followup' | 'fallback';
+ *   type: 'upcoming_class' | 'fallback';
  *   message: string;
  *   scrollTarget?: 'today' | 'follow-ups';
  *   highlightKpi?: 'today';
@@ -221,45 +196,6 @@ export function getDayPriority(ctx) {
       scrollTarget: 'today',
       highlightKpi: 'today',
       leadId: String(nearest.id || '').trim() || undefined,
-    };
-  }
-
-  const responded = [...(ctx.followUps || [])]
-    .filter((l) => l.hasContactInCycle && !l.doneForCurrentClass)
-    .sort((a, b) => (a.daysAgo ?? 0) - (b.daysAgo ?? 0));
-
-  if (responded.length > 0) {
-    const lead = responded[0];
-    const name = String(lead.name || 'Interessado').trim();
-    return {
-      type: 'urgent_followup',
-      message: `${name} já respondeu no WhatsApp. Acompanhe o próximo passo no retorno.`,
-      scrollTarget: 'follow-ups',
-      leadId: String(lead.id || '').trim() || undefined,
-    };
-  }
-
-  const cooling = [...(ctx.followUps || [])]
-    .filter(
-      (l) =>
-        !l.hasContactInCycle &&
-        (l.temperature === 'cooling' || l.temperature === 'critical')
-    )
-    .sort((a, b) => {
-      const order = { critical: 0, cooling: 1 };
-      const ta = order[a.temperature] ?? 2;
-      const tb = order[b.temperature] ?? 2;
-      if (ta !== tb) return ta - tb;
-      return (b.daysAgo ?? 0) - (a.daysAgo ?? 0);
-    });
-
-  if (cooling.length > 0) {
-    const lead = cooling[0];
-    return {
-      type: 'urgent_followup',
-      message: buildUrgentFollowupPriorityMessage(lead),
-      scrollTarget: 'follow-ups',
-      leadId: String(lead.id || '').trim() || undefined,
     };
   }
 

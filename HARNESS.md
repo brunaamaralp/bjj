@@ -45,32 +45,32 @@ Rodar test:ci antes de marcar o módulo como concluído.
 
 | Métrica | Atual | Threshold |
 |---|---|---|
-| Lines | 57.02% | 51% |
-| Functions | 66.25% | 62% |
-| Branches | 43.06% | 37% |
+| Lines | 63.22% | 61% |
+| Functions | 73.80% | 71% |
+| Branches | 49.68% | 47% |
 
 | Arquivo | Lines | Testes |
 |---|---|---|
+| financeTxAggregate.js | 100% | 14 |
 | inboxConversationState.js | 100% | — |
-| financeCategories.js | ~90% | 36 |
-| financeAccountCategories.js | ~85% | 28 |
-| financeTxFields.js | ~80% | 29 |
-| financeTxAggregate.js | ~90% | 14 |
-| bankReconciliationMatcher.js | ~85% | 21 |
-| bankReconciliationValidation.js | ~85% | 22 |
+| bankReconciliationMatcher.js | 91.25% | 21 |
+| financeTxFields.js | 87.24% | 53 |
+| bankReconciliationValidation.js | 85.36% | 22 |
+| financeAccountCategories.js | 84.84% | 28 |
+| financeCategories.js | 83.92% | 36 |
 | conversationsStore.js | 63.52% | 46 |
-| constants.js | ~74% | — |
-| agentRespond.js | ~58% | 5 integração |
-| zapsterWebhook.js | ~56% | 6 integração |
-| financeClosingData.js | ~30% | apenas puras |
+| constants.js | 73.91% | — |
+| agentRespond.js | 57.93% | 5 integração |
+| zapsterWebhook.js | 55.94% | 6 integração |
+| financeClosingData.js | 33.78% | 19 |
 | conversationsRealtime.js | 0% | frontend/realtime |
 
 ## Próximos ciclos
 
-- **financeClosingData.js** — deriveClosingTxResultFromPeriodItems e
-  buildClosingPayload têm lógica pura, candidatas ao próximo ciclo unitário
-- **conversationsStore.js** — funções restantes: getAcademyDocument,
-  getConversationDocById, updateConversationAiThreadCycle (mock Appwrite simples)
+- **financeClosingData.js** — 33% lines; listFinancialTxForMonth e
+  getCashClosing requerem mock Appwrite + Query
+- **agentRespond.js** — 57% lines; lógica de construção de prompt e
+  envio via Zapster ainda sem cobertura
 - **conversationsRealtime.js** — requer jsdom + Appwrite Realtime mock,
-  deixar para ciclo dedicado de testes de frontend
-- Meta: lines ≥ 63% após financeClosingData
+  deixar para ciclo dedicado
+- Meta: lines ≥ 67% após financeClosingData async

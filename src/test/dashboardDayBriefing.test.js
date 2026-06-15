@@ -131,7 +131,26 @@ describe('getDayPriority', () => {
     expect(priority.highlightKpi).toBe('today');
   });
 
-  it('prioriza follow-up urgente sobre aniversário', () => {
+  it('retorna leadId no callout de aula iminente', () => {
+    const priority = getDayPriority({
+      now,
+      todayScheduled: [
+        {
+          id: 'lead-123',
+          name: 'João',
+          scheduledTime: '18:00',
+          status: LEAD_STATUS.SCHEDULED,
+        },
+      ],
+      followUps: [],
+      todayBirthdays: [],
+    });
+    expect(priority.type).toBe('upcoming_class');
+    expect(priority.leadId).toBeDefined();
+    expect(priority.leadId).toBe('lead-123');
+  });
+
+  it('retorna fallback quando há retorno crítico sem aula iminente', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
@@ -146,13 +165,10 @@ describe('getDayPriority', () => {
       ],
       todayBirthdays: [{ id: 's1', name: 'Lucas' }],
     });
-    expect(priority.type).toBe('urgent_followup');
-    expect(priority.message).toBe(
-      'Maria está há 6 dias sem retorno desde a aula. Vale retomar com urgência.'
-    );
+    expect(priority.type).toBe('fallback');
   });
 
-  it('não prioriza lead que já respondeu no WhatsApp como sem retorno', () => {
+  it('retorna fallback quando há retorno com hasContactInCycle mas sem aula iminente', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
@@ -169,12 +185,10 @@ describe('getDayPriority', () => {
       ],
       todayBirthdays: [],
     });
-    expect(priority.message).toBe(
-      'Sabrina Brum já respondeu no WhatsApp. Acompanhe o próximo passo no retorno.'
-    );
+    expect(priority.type).toBe('fallback');
   });
 
-  it('mensagem de cooling descreve visita e falta de retorno', () => {
+  it('retorna fallback para retorno esfriando sem aula iminente', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
@@ -189,12 +203,10 @@ describe('getDayPriority', () => {
       ],
       todayBirthdays: [],
     });
-    expect(priority.message).toBe(
-      'Sabrina Brum veio ontem. Ainda sem retorno. Vale uma mensagem.'
-    );
+    expect(priority.type).toBe('fallback');
   });
 
-  it('mensagem de cooling para falta usa faltou ontem', () => {
+  it('retorna fallback para retorno de falta esfriando sem aula iminente', () => {
     const priority = getDayPriority({
       now,
       todayScheduled: [],
@@ -209,7 +221,27 @@ describe('getDayPriority', () => {
       ],
       todayBirthdays: [],
     });
-    expect(priority.message).toBe('Pedro faltou ontem. Ainda sem retorno. Vale uma mensagem.');
+    expect(priority.type).toBe('fallback');
+  });
+
+  it('retorna fallback quando há retorno crítico com hasContactInCycle mas sem aula iminente', () => {
+    const priority = getDayPriority({
+      now,
+      todayScheduled: [],
+      followUps: [
+        {
+          id: 'f4',
+          name: 'Carlos',
+          daysAgo: 6,
+          temperature: 'critical',
+          hasContactInCycle: true,
+          doneForCurrentClass: false,
+          status: LEAD_STATUS.COMPLETED,
+        },
+      ],
+      todayBirthdays: [],
+    });
+    expect(priority.type).toBe('fallback');
   });
 
   it('não prioriza aniversário no hero (banner dedicado na recepção)', () => {

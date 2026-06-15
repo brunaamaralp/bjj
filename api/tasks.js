@@ -1,4 +1,5 @@
-import { Client, Databases, Query, ID, Permission, Role } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Role } from 'node-appwrite';
+import { buildTasksListQueries } from '../lib/server/tasksListQueries.js';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import taskTemplatesHandler from '../lib/server/taskTemplatesHandler.js';
@@ -110,20 +111,21 @@ export default async function handler(req, res) {
     const status = String(req.query.status || '').trim();
     const assignedTo = String(req.query.assigned_to || '').trim();
     const leadId = String(req.query.lead_id || '').trim();
+    const overdue = String(req.query.overdue || '').trim() === '1';
     const cursor = String(req.query.cursor || '').trim();
     const limitRaw = Number(req.query.limit);
     const pageLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.trunc(limitRaw), 100) : 50;
 
     try {
-      const queries = [
-        Query.equal('academy_id', [academyId]),
-        Query.orderDesc('$createdAt'),
-        Query.limit(pageLimit),
-      ];
-      if (status && status !== 'all') queries.push(Query.equal('status', [status]));
-      if (assignedTo) queries.push(Query.equal('assigned_to', [assignedTo]));
-      if (leadId) queries.push(Query.equal('lead_id', [leadId]));
-      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const queries = buildTasksListQueries({
+        academyId,
+        status,
+        assignedTo,
+        leadId,
+        overdue,
+        cursor,
+        pageLimit,
+      });
 
       const list = await databases.listDocuments(DB_ID, TASKS_COL, queries);
       const docs = Array.isArray(list?.documents) ? list.documents : [];

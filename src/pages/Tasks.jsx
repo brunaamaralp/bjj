@@ -535,8 +535,12 @@ export default function Tasks() {
   const filterLeadId = filters.lead_id;
   const filterAssigned = filters.assigned_to;
   const apiTaskFilters = useMemo(
-    () => serverTaskFilters({ assigned_to: filterAssigned, lead_id: filterLeadId }),
-    [filterAssigned, filterLeadId]
+    () =>
+      serverTaskFilters(
+        { status: filters.status, assigned_to: filterAssigned, lead_id: filterLeadId },
+        userId
+      ),
+    [filters.status, filterAssigned, filterLeadId, userId]
   );
   const tasksFetchKey = useMemo(
     () => buildTasksFetchKey(academyId, apiTaskFilters),
@@ -554,7 +558,7 @@ export default function Tasks() {
     if (!keyChanged && !stale && !scopeMismatch) return;
 
     lastTasksFetchKeyRef.current = tasksFetchKey;
-    void fetchTasks(academyId, { reset: true, filters: apiTaskFilters });
+    void fetchTasks(academyId, { reset: true, filters: apiTaskFilters, scopeMismatch });
   }, [academyId, tasksFetchKey, apiTaskFilters, fetchTasks, staleMs]);
 
   const handleLoadMoreTasks = useCallback(() => {
@@ -620,16 +624,11 @@ export default function Tasks() {
   };
 
   const filteredTasksBase = useMemo(() => {
-    const userId = useLeadStore.getState().userId;
-    return tasks.filter(t => {
-      if (filters.status === 'minhas' && t.assigned_to !== userId) return false;
-      if (filters.status === 'vencidas' && (t.status === 'done' || !isVencida(t.due_date))) return false;
-      if (filters.status === 'pendentes' && t.status === 'done') return false;
-      if (filters.status === 'concluidas' && t.status !== 'done') return false;
+    return tasks.filter((t) => {
       if (filters.lead_id && t.lead_id !== filters.lead_id) return false;
       return true;
     });
-  }, [tasks, filters.status, filters.lead_id]);
+  }, [tasks, filters.lead_id]);
 
   const filteredTasks = useMemo(() => {
     let list = filteredTasksBase;

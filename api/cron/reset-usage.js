@@ -18,6 +18,7 @@ import { runSalesReconcileCron } from '../../lib/server/runSalesReconcileCron.js
 import { runFinanceRecurrenceCron } from '../../lib/server/runFinanceRecurrenceCron.js';
 import { runFinanceWhatsappAlerts } from '../../lib/server/runFinanceWhatsappAlerts.js';
 import { runStudentPaymentReconcileCron } from '../../lib/server/runStudentPaymentReconcileCron.js';
+import { runTasksDue } from '../../lib/server/runTasksDueCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -32,8 +33,6 @@ const LEADS_COL = process.env.VITE_APPWRITE_LEADS_COLLECTION_ID || process.env.A
 const STUDENTS_COL =
   process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID || process.env.APPWRITE_STUDENTS_COLLECTION_ID || '';
 const PEOPLE_COL = STUDENTS_COL || LEADS_COL;
-const TASKS_COL = process.env.APPWRITE_TASKS_COLLECTION_ID || process.env.VITE_APPWRITE_TASKS_COLLECTION_ID || '';
-const NOTE_NOTIFICATIONS_COL = process.env.APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || process.env.VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID || '';
 
 function safeCompare(a, b) {
   try {
@@ -252,46 +251,6 @@ async function runAutomations(databases) {
   return { scanned, due, sent, errors };
 }
 
-async function runTasksDue(databases) {
-  if (!DB_ID || !TASKS_COL || !NOTE_NOTIFICATIONS_COL) {
-    return { sucesso: false, erro: 'Configurações de banco de dados ausentes' };
-  }
-  const todayStr = new Date().toISOString().split('T')[0];
-  const tasksRes = await databases.listDocuments(DB_ID, TASKS_COL, [
-    Query.equal('status', 'pending'),
-    Query.limit(500),
-  ]);
-  const pendingTasks = tasksRes.documents || [];
-  let notifiedCount = 0;
-  const nowIso = new Date().toISOString();
-  for (const task of pendingTasks) {
-    const dueDate = String(task.due_date || '').trim();
-    const assignedTo = String(task.assigned_to || '').trim();
-    if (!dueDate || !assignedTo) continue;
-    if (dueDate.split('T')[0] > todayStr) continue;
-    const notifRes = await databases.listDocuments(DB_ID, NOTE_NOTIFICATIONS_COL, [
-      Query.equal('note_id', task.$id),
-      Query.equal('type', 'task_due'),
-      Query.limit(1),
-    ]);
-    if (notifRes.documents && notifRes.documents.length > 0) continue;
-    await databases.createDocument(DB_ID, NOTE_NOTIFICATIONS_COL, ID.unique(), {
-      academy_id: task.academy_id,
-      type: 'task_due',
-      note_id: task.$id,
-      conversation_id: '',
-      lead_id: task.lead_id || '',
-      lead_name: task.lead_name || '',
-      created_by_user_id: assignedTo,
-      created_by_name: 'Sistema',
-      created_at: nowIso,
-      read_by: [],
-    });
-    notifiedCount++;
-  }
-  return { sucesso: true, notified: notifiedCount };
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -322,7 +281,7 @@ export default async function handler(req, res) {
   if (action === 'tasks-due') {
     const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
     const databases = new Databases(client);
-    const out = await runTasksDue(databases);
+    const out = await runTasksDue(databases, DB_ID);
     return res.status(200).json({ mode: 'tasks-due', ...out });
   }
   if (action === 'collection-overdue') {

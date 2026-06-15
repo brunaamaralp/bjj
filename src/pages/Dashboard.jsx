@@ -488,6 +488,13 @@ const Dashboard = () => {
     };
 
     const handleDayPriorityAction = () => {
+        if (dayPriority.type === 'upcoming_class') {
+            const leadId = String(dayPriority.leadId || '').trim();
+            if (leadId) {
+                navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
+                return;
+            }
+        }
         const target = dayPriority.scrollTarget;
         if (target === 'today') {
             if (dashboardWeekOffset !== 0) setDashboardWeekOffset(0);

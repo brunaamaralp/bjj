@@ -5,6 +5,16 @@ export function isTaskOverdue(dateStr) {
   return due < now;
 }
 
+/** due_date cai no dia local de hoje (não inclui vencidas). */
+export function isTaskDueToday(dateStr) {
+  if (!dateStr) return false;
+  const due = new Date(dateStr.length === 10 ? `${dateStr}T00:00:00` : dateStr);
+  due.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due.getTime() === today.getTime();
+}
+
 export function formatTaskDueRelative(dateStr) {
   if (!dateStr) return null;
   const due = new Date(dateStr.length === 10 ? `${dateStr}T00:00:00` : dateStr);

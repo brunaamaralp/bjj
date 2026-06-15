@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   normalizeTxAmounts,
   txDirection,
@@ -13,11 +13,24 @@ import {
   parseRecurrenceEnd,
   mapFinanceTxDoc,
   financeTxDocumentForAppwrite,
+  buildFinanceTxPayload,
+  applyRecurrenceFields,
+  omitFinanceTxMetadata,
+  financeTxDocumentWithOptionals,
+  resolveCompetenceMonth,
 } from '../../../lib/server/financeTxFields.js';
 
 describe('financeTxFields', () => {
+  const nowIso = '2025-06-01T12:00:00.000Z';
+
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-06-01T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('BLOCO 1 — isExpenseType / txDirection', () => {
@@ -234,6 +247,247 @@ describe('financeTxFields', () => {
       });
       expect(doc.created_by).toBeUndefined();
       expect(doc.updated_at).toBeUndefined();
+    });
+  });
+
+  describe('BLOCO 7 — applyRecurrenceFields', () => {
+    it('input com recurrence_origin_id → payload recebe recurrence_origin_id, não aplica template', () => {
+      const payload = {};
+      applyRecurrenceFields(payload, {
+        recurrence_origin_id: 'origin-abc',
+        repeat_enabled: true,
+        recurrence_type: 'monthly',
+      });
+
+      expect(payload).toEqual({ recurrence_origin_id: 'origin-abc' });
+      expect(payload.is_recurrence_template).toBeUndefined();
+    });
+
+    it("input com repeat_enabled=true, recurrence_type='monthly', recurrence_day=10 → template mensal", () => {
+      const payload = {};
+      applyRecurrenceFields(payload, {
+        repeat_enabled: true,
+        recurrence_type: 'monthly',
+        recurrence_day: 10,
+      });
+
+      expect(payload).toEqual({
+        is_recurrence_template: true,
+        recurrence_type: 'monthly',
+        recurrence_day: 10,
+      });
+    });
+
+    it("input com repeat_enabled=true, recurrence_type='weekly', recurrence_day=3 → recurrence_day=3, recurrence_type='weekly'", () => {
+      const payload = {};
+      applyRecurrenceFields(payload, {
+        repeat_enabled: true,
+        recurrence_type: 'weekly',
+        recurrence_day: 3,
+      });
+
+      expect(payload).toEqual({
+        is_recurrence_template: true,
+        recurrence_type: 'weekly',
+        recurrence_day: 3,
+      });
+    });
+
+    it("input com repeat_enabled=true, recurrence_type='none' → NÃO define is_recurrence_template=true", () => {
+      const payload = {};
+      applyRecurrenceFields(payload, {
+        repeat_enabled: true,
+        recurrence_type: 'none',
+      });
+
+      expect(payload.is_recurrence_template).toBeUndefined();
+    });
+
+    it('input com is_recurrence_template=false explícito → payload recebe is_recurrence_template=false, recurrence_type=none', () => {
+      const payload = {};
+      applyRecurrenceFields(payload, { is_recurrence_template: false });
+
+      expect(payload).toEqual({
+        is_recurrence_template: false,
+        recurrence_type: 'none',
+      });
+    });
+
+    it("input com recurrence_end='2025-12' válido → payload recebe recurrence_end='2025-12'", () => {
+      const payload = {};
+      applyRecurrenceFields(payload, {
+        repeat_enabled: true,
+        recurrence_type: 'monthly',
+        recurrence_day: 1,
+        recurrence_end: '2025-12',
+      });
+
+      expect(payload.recurrence_end).toBe('2025-12');
+    });
+
+    it("input com recurrence_end='' → payload recebe recurrence_end=''", () => {
+      const payload = {};
+      applyRecurrenceFields(payload, {
+        repeat_enabled: true,
+        recurrence_type: 'monthly',
+        recurrence_day: 1,
+        recurrence_end: '',
+      });
+
+      expect(payload.recurrence_end).toBe('');
+    });
+
+    it('input sem nenhum campo de recorrência → payload não é modificado', () => {
+      const payload = { academyId: 'acad-1' };
+      const result = applyRecurrenceFields(payload, {});
+
+      expect(result).toBe(payload);
+      expect(payload).toEqual({ academyId: 'acad-1' });
+    });
+  });
+
+  describe('BLOCO 8 — buildFinanceTxPayload', () => {
+    function baseInput(overrides = {}) {
+      return {
+        academyId: 'acad-1',
+        type: 'plan',
+        gross: 200,
+        fee: 10,
+        method: 'pix',
+        status: 'pending',
+        ...overrides,
+      };
+    }
+
+    it('input mínimo (pending) → payload com campos obrigatórios, settledAt vazio e net=190', () => {
+      const payload = buildFinanceTxPayload(baseInput());
+
+      expect(payload.academyId).toBe('acad-1');
+      expect(payload.type).toBe('plan');
+      expect(payload.gross).toBe(200);
+      expect(payload.fee).toBe(10);
+      expect(payload.net).toBe(190);
+      expect(payload.status).toBe('pending');
+      expect(payload.method).toBe('pix');
+      expect(payload.category).toBe('Mensalidades');
+      expect(payload.planName).toBe('');
+      expect(payload.origin_type).toBe('manual');
+      expect(payload.created_by).toBe('system');
+      expect(payload.updated_by).toBe('system');
+      expect(payload.updated_at).toBe(nowIso);
+      expect(payload.settledAt).toBe('');
+    });
+
+    it("status='settled' sem settledAt explícito → settledAt=nowIso e competence_month='2025-06'", () => {
+      const payload = buildFinanceTxPayload(baseInput({ status: 'settled' }));
+
+      expect(payload.settledAt).toBe(nowIso);
+      expect(payload.competence_month).toBe('2025-06');
+      expect(resolveCompetenceMonth({}, payload.settledAt)).toBe('2025-06');
+    });
+
+    it("status='settled' com settledAt='2025-03-15T00:00:00Z' → settledAt e competence_month='2025-03'", () => {
+      const payload = buildFinanceTxPayload(
+        baseInput({
+          status: 'settled',
+          settledAt: '2025-03-15T00:00:00Z',
+        })
+      );
+
+      expect(payload.settledAt).toBe('2025-03-15T00:00:00Z');
+      expect(payload.competence_month).toBe('2025-03');
+    });
+
+    it("type='expense_operational', gross=50 → net=-50", () => {
+      const payload = buildFinanceTxPayload(
+        baseInput({
+          type: 'expense_operational',
+          gross: 50,
+          fee: 0,
+        })
+      );
+
+      expect(payload.net).toBe(-50);
+      expect(normalizeTxAmounts({ type: 'expense_operational', gross: 50 }).net).toBe(-50);
+    });
+
+    it('gross inválido (0) → lança erro (normalizeTxAmounts propaga)', () => {
+      expect(() => buildFinanceTxPayload(baseInput({ gross: 0 }))).toThrow('valor_invalido');
+    });
+
+    it('installments clamped: installments=20 → 12; installments=0 → 1', () => {
+      expect(buildFinanceTxPayload(baseInput({ installments: 20 })).installments).toBe(12);
+      expect(buildFinanceTxPayload(baseInput({ installments: 0 })).installments).toBe(1);
+    });
+
+    it('bank_account fornecido → aparece em payload.bank_account', () => {
+      const payload = buildFinanceTxPayload(baseInput({ bank_account: 'Sicoob' }));
+
+      expect(payload.bank_account).toBe('Sicoob');
+    });
+
+    it('note longa (>2000 chars) → truncada em 2000', () => {
+      const payload = buildFinanceTxPayload(baseInput({ note: 'x'.repeat(2500) }));
+
+      expect(payload.note).toHaveLength(2000);
+    });
+
+    it("meta.origin_type='webhook' → payload.origin_type='webhook'", () => {
+      const payload = buildFinanceTxPayload(baseInput(), { origin_type: 'webhook' });
+
+      expect(payload.origin_type).toBe('webhook');
+    });
+
+    it("meta.created_by='user-x' → payload.created_by='user-x'", () => {
+      const payload = buildFinanceTxPayload(baseInput(), { created_by: 'user-x' });
+
+      expect(payload.created_by).toBe('user-x');
+    });
+  });
+
+  describe('BLOCO 9 — omitFinanceTxMetadata / financeTxDocumentWithOptionals', () => {
+    it('omitFinanceTxMetadata remove metadados e mantém outros campos intactos', () => {
+      const result = omitFinanceTxMetadata({
+        academyId: 'acad-1',
+        type: 'plan',
+        created_by: 'u1',
+        createdBy: 'u2',
+        updated_by: 'u3',
+        updatedBy: 'u4',
+        updated_at: '2025-01-01T00:00:00.000Z',
+        updatedAt: '2025-01-02T00:00:00.000Z',
+        gross: 100,
+      });
+
+      expect(result).toEqual({
+        academyId: 'acad-1',
+        type: 'plan',
+        gross: 100,
+      });
+    });
+
+    it('financeTxDocumentWithOptionals inclui opcionais e NÃO inclui metadados', () => {
+      const doc = financeTxDocumentWithOptionals({
+        academyId: 'acad-1',
+        type: 'plan',
+        gross: 100,
+        fee: 0,
+        net: 100,
+        status: 'pending',
+        method: 'pix',
+        recurrence_type: 'monthly',
+        lead_id: 'lead-1',
+        competence_month: '2025-06',
+        created_by: 'user-1',
+        updated_at: '2025-06-01T12:00:00.000Z',
+      });
+
+      expect(doc.recurrence_type).toBe('monthly');
+      expect(doc.lead_id).toBe('lead-1');
+      expect(doc.competence_month).toBe('2025-06');
+      expect(doc.created_by).toBeUndefined();
+      expect(doc.updated_at).toBeUndefined();
+      expect(doc.updated_by).toBeUndefined();
     });
   });
 });

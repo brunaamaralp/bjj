@@ -4,16 +4,48 @@ import { getPaymentRowStatus } from './collectionOverdue.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from './financeiroReceivablesSections.js';
 import { FOLLOWUP_AGENDA_MAX_DAYS, getFollowupDaysAgo, getFollowupKind } from './followupState.js';
 import { computeFallbackTemperature } from './followupTemperature.js';
+import { isTaskDueToday, isTaskOverdue } from './taskDue.js';
 
-function ymdToday() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function isPendingTask(task) {
+  return String(task?.status || '').trim().toLowerCase() !== 'done';
 }
 
-function isTaskDueTodayOrOverdue(task) {
-  const due = String(task?.due_date || '').trim().slice(0, 10);
-  if (!due) return false;
-  return due <= ymdToday();
+/** Conta tarefas pendentes vencidas vs. que vencem hoje. */
+export function countTasksDueHub(tasks = []) {
+  let overdue = 0;
+  let dueToday = 0;
+  for (const t of tasks || []) {
+    if (!isPendingTask(t)) continue;
+    const due = String(t?.due_date || '').trim();
+    if (!due) continue;
+    if (isTaskOverdue(due)) overdue += 1;
+    else if (isTaskDueToday(due)) dueToday += 1;
+  }
+  return { overdue, dueToday, total: overdue + dueToday };
+}
+
+/** Label agregado do hub para tarefas com prazo hoje ou vencidas. */
+export function buildTasksDueHubLabel(overdueCount, dueTodayCount) {
+  const overdue = Number(overdueCount) || 0;
+  const dueToday = Number(dueTodayCount) || 0;
+  const total = overdue + dueToday;
+  if (total <= 0) return '';
+
+  if (overdue > 0 && dueToday === 0) {
+    return overdue === 1 ? '1 tarefa vencida' : `${overdue} tarefas vencidas`;
+  }
+  if (dueToday > 0 && overdue === 0) {
+    return dueToday === 1 ? '1 tarefa vence hoje' : `${dueToday} tarefas vencem hoje`;
+  }
+  return total === 1
+    ? '1 tarefa pendente — vencida ou vence hoje'
+    : `${total} tarefas pendentes — vencidas ou vencem hoje`;
+}
+
+function tasksDueHubHref(overdueCount, dueTodayCount) {
+  if (overdueCount > 0 && dueTodayCount === 0) return '/tarefas?status=vencidas';
+  if (dueTodayCount > 0 && overdueCount === 0) return '/tarefas?period=today';
+  return '/tarefas?status=vencidas';
 }
 
 /** Follow-ups pendentes na agenda (mesma lógica do Dashboard). */
@@ -65,15 +97,14 @@ export function countOverduePayments(leads = [], financeConfig) {
 export function buildProactiveHubItems({ tasks = [], leads = [], modules = {}, financeConfig = null }) {
   const items = [];
 
-  const tasksDue = (tasks || []).filter(
-    (t) => String(t?.status || '').trim().toLowerCase() !== 'done' && isTaskDueTodayOrOverdue(t)
-  );
-  if (tasksDue.length > 0) {
+  const { overdue: overdueTasks, dueToday: dueTodayTasks, total: tasksDueTotal } =
+    countTasksDueHub(tasks);
+  if (tasksDueTotal > 0) {
     items.push({
       id: 'tasks_due',
-      label: tasksDue.length === 1 ? '1 tarefa vence hoje' : `${tasksDue.length} tarefas vencem hoje`,
-      href: '/tarefas?period=today',
-      count: tasksDue.length,
+      label: buildTasksDueHubLabel(overdueTasks, dueTodayTasks),
+      href: tasksDueHubHref(overdueTasks, dueTodayTasks),
+      count: tasksDueTotal,
     });
   }
 

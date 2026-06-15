@@ -6,7 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import EmptyState from '../shared/EmptyState.jsx';
 import { useLeadStore } from '../../store/useLeadStore';
-import { useTaskStore } from '../../store/useTaskStore';
+import { useTaskStore, NOTIFICATION_TASKS_REFRESH_MS } from '../../store/useTaskStore';
 import { buildProactiveHubItems, proactiveHubTotalCount } from '../../lib/proactiveHub.js';
 import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
 
@@ -22,7 +22,8 @@ export default function NotificationBell({ academyId, userId }) {
   const leads = useLeadStore((s) => s.leads);
   const modules = useLeadStore((s) => s.modules);
   const financeConfig = useLeadStore((s) => s.financeConfig);
-  const tasks = useTaskStore((s) => s.tasks);
+  const tasks = useTaskStore((s) => s.notificationTasks);
+  const fetchNotificationTasks = useTaskStore((s) => s.fetchNotificationTasks);
   const proactiveItems = useMemo(
     () => buildProactiveHubItems({ tasks, leads, modules, financeConfig }),
     [tasks, leads, modules, financeConfig]
@@ -37,6 +38,15 @@ export default function NotificationBell({ academyId, userId }) {
     }
     return () => stopPolling();
   }, [academyId, userId, startPolling, stopPolling]);
+
+  useEffect(() => {
+    if (!academyId) return undefined;
+    void fetchNotificationTasks(academyId);
+    const timer = window.setInterval(() => {
+      void fetchNotificationTasks(academyId);
+    }, NOTIFICATION_TASKS_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [academyId, fetchNotificationTasks]);
 
   useEffect(() => {
     if (!academyId) return undefined;

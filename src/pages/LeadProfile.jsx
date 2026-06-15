@@ -4,12 +4,12 @@ import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.
 import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN, selectLeadById } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
-import { useTaskStore } from '../store/useTaskStore';
+import { useTaskStore, filterTasksForLead, leadProfileTaskFilters } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useToast } from '../hooks/useToast';
 import { ArrowLeft, ChevronDown, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
-import { databases, DB_ID, ACADEMIES_COL, createSessionJwt } from '../lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
@@ -409,90 +409,46 @@ const LeadProfile = () => {
     });
 
     const [studentPayments, setStudentPayments] = useState([]);
-    const [leadTasks, setLeadTasks] = useState([]);
-    const leadTaskProgress = useMemo(() => progressLabelForLead(id, leadTasks), [id, leadTasks]);
     const storeTasks = useTaskStore((s) => s.tasks);
+    const fetchTasks = useTaskStore((s) => s.fetchTasks);
+    const patchTaskLocal = useTaskStore((s) => s.patchTaskLocal);
+    const updateTask = useTaskStore((s) => s.updateTask);
     const isUpdatingLeadTask = useTaskStore((s) => s.isUpdating);
-
-    const loadLeadTasks = useCallback(() => {
-        if (!id || !academyId) return;
-        createSessionJwt().then((jwt) => {
-            if (!jwt) return;
-            fetch(`/api/tasks?academy_id=${encodeURIComponent(academyId)}&lead_id=${encodeURIComponent(id)}`, {
-                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId },
-            })
-                .then((r) => r.json())
-                .then((data) => {
-                    if (data.sucesso) {
-                        setLeadTasks(data.tasks || []);
-                    }
-                })
-                .catch(() => {});
-        });
-    }, [id, academyId]);
+    const leadTasks = useMemo(
+        () => filterTasksForLead(storeTasks, id),
+        [storeTasks, id]
+    );
+    const leadTaskProgress = useMemo(() => progressLabelForLead(id, leadTasks), [id, leadTasks]);
 
     useEffect(() => {
-        let cancelled = false;
         if (!id || !academyId) return undefined;
-        createSessionJwt().then((jwt) => {
-            if (!jwt || cancelled) return;
-            fetch(`/api/tasks?academy_id=${encodeURIComponent(academyId)}&lead_id=${encodeURIComponent(id)}`, {
-                headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': academyId },
-            })
-                .then((r) => r.json())
-                .then((data) => {
-                    if (!cancelled && data.sucesso) {
-                        setLeadTasks(data.tasks || []);
-                    }
-                })
-                .catch(() => {});
+        void fetchTasks(academyId, {
+            reset: true,
+            filters: leadProfileTaskFilters(id),
         });
-        return () => {
-            cancelled = true;
-        };
-    }, [id, academyId]);
+    }, [id, academyId, fetchTasks]);
 
     useEffect(() => {
-        if (!id) return;
-        const relevant = (storeTasks || []).filter(
-            (t) => String(t.lead_id || t.leadId || '').trim() === String(id).trim()
-        );
-        if (!relevant.length) return;
-        setLeadTasks((prev) => {
-            const byId = new Map(relevant.map((t) => [t.id, t]));
-            let changed = false;
-            const next = prev.map((t) => {
-                const hit = byId.get(t.id);
-                if (!hit) return t;
-                if (
-                    hit.status === t.status &&
-                    hit.title === t.title &&
-                    String(hit.due_date || '') === String(t.due_date || t.dueDate || '')
-                ) {
-                    return t;
-                }
-                changed = true;
-                return { ...t, ...hit };
-            });
-            return changed ? next : prev;
-        });
-    }, [storeTasks, id]);
-
-    useEffect(() => {
+        if (!id || !academyId) return undefined;
         const onVis = () => {
-            if (document.visibilityState === 'visible') loadLeadTasks();
+            if (document.visibilityState !== 'visible') return;
+            void fetchTasks(academyId, {
+                silent: true,
+                filters: leadProfileTaskFilters(id),
+            });
         };
         document.addEventListener('visibilitychange', onVis);
         return () => document.removeEventListener('visibilitychange', onVis);
-    }, [loadLeadTasks]);
+    }, [id, academyId, fetchTasks]);
 
     const toggleLeadTask = async (t) => {
         const newStatus = t.status === 'done' ? 'pending' : 'done';
-        setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: newStatus } : x));
+        const previousStatus = t.status;
+        patchTaskLocal(t.id, { status: newStatus });
         try {
-            await useTaskStore.getState().updateTask(t.id, { status: newStatus });
+            await updateTask(t.id, { status: newStatus });
         } catch {
-            setLeadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x));
+            patchTaskLocal(t.id, { status: previousStatus });
             toast.show({ type: 'error', message: 'Erro ao atualizar tarefa' });
         }
     };
@@ -1594,9 +1550,7 @@ const LeadProfile = () => {
                 lead_id: id,
                 lead_name: String(lead?.name || '').trim(),
             });
-            if (created) {
-                setLeadTasks((prev) => [created, ...prev]);
-            }
+            if (!created) return;
             toast.success('Tarefa criada.');
             resetInlineTaskForm();
         } catch (e) {

@@ -33,11 +33,15 @@ export function resetStoresForAcademyChange(academyId) {
 
   useTaskStore.setState({
     tasks: [],
+    notificationTasks: [],
     tasksCursor: null,
     tasksHasMore: false,
     tasksFetchKey: null,
+    fetchGeneration: 0,
+    notificationFetchGeneration: 0,
     loading: false,
     loadingMore: false,
+    notificationTasksLoading: false,
     error: null,
   });
 
