@@ -308,15 +308,15 @@ export const useLeadStore = create(
     };
 
     if (reset) {
-      set({ loading: false, leadsError: false });
+      if (get().loading && !externalSignal) return;
+      set({ loading: true, leadsError: false });
     } else if (get().loading) {
       return;
     } else if (get().loadingMore || !get().leadsHasMore || !get().leadsCursor) {
       return;
+    } else {
+      set({ loadingMore: true, leadsError: false });
     }
-
-    if (reset) set({ loading: true, leadsError: false });
-    else set({ loadingMore: true, leadsError: false });
 
     try {
       const operationalStatusSet = new Set(Object.values(LEAD_STATUS));

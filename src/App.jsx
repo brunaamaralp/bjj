@@ -152,6 +152,11 @@ const App = () => {
   const newLeadOpen = useUiStore((state) => state.newLeadModalOpen);
   const closeNewLeadModal = useUiStore((state) => state.closeNewLeadModal);
   const [nlOpen, setNlOpen] = useState(false);
+  const [nlChunkReady, setNlChunkReady] = useState(false);
+  const openNlCommandBar = React.useCallback(() => {
+    setNlChunkReady(true);
+    setNlOpen(true);
+  }, []);
   const nlPageOverrides = useNlCommandStore((s) => s.pageOverrides);
   const nlContext = useMemo(() => {
     const base = resolveNlContext(location.pathname);
@@ -241,6 +246,18 @@ const App = () => {
       console.error('Route prefetch:', e);
     });
   }, [academyReady, academyIdStore, location.pathname]);
+
+  useEffect(() => {
+    if (!academyReady || !academyIdStore || !aiModuleEnabled) return undefined;
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openNlCommandBar();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [academyReady, academyIdStore, aiModuleEnabled, openNlCommandBar]);
 
   useEffect(() => {
     const onNavPush = (e) => {
@@ -1116,7 +1133,7 @@ const App = () => {
             ) : null}
             {academyReady && academyIdStore && aiModuleEnabled ? (
               <div className="navi-topbar-search">
-                <NlCommandBarTrigger onClick={() => setNlOpen(true)} />
+                <NlCommandBarTrigger onClick={openNlCommandBar} />
               </div>
             ) : null}
             <div className="navi-topbar-actions">
@@ -1271,7 +1288,7 @@ const App = () => {
           <NewLeadModal open={newLeadOpen} onClose={closeNewLeadModal} />
         </Suspense>
       ) : null}
-      {academyReady && academyIdStore && aiModuleEnabled ? (
+      {academyReady && academyIdStore && aiModuleEnabled && nlChunkReady ? (
         <Suspense fallback={null}>
           <NlCommandBar
             open={nlOpen}

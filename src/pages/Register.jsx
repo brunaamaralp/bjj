@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '../styles/auth-pages.css';
 import { authService } from '../lib/auth';
 import { Eye, EyeOff, UserPlus, X, LogIn } from 'lucide-react';
 import NaviBrandLockup from '../components/NaviBrandLockup.jsx';

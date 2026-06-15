@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../styles/legal-pages.css';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import NaviBrandLockup from '../NaviBrandLockup.jsx';

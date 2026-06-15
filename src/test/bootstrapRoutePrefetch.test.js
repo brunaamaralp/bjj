@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveRouteBootstrapNeeds } from '../lib/bootstrapRoutePrefetch.js';
+import {
+  resolveRouteBootstrapNeeds,
+  shouldSkipLeadsListFetch,
+  shouldSkipStudentsListFetch,
+} from '../lib/bootstrapRoutePrefetch.js';
 
 describe('resolveRouteBootstrapNeeds', () => {
   it('prefetch dashboard com leads e alunos', () => {
@@ -35,5 +39,45 @@ describe('resolveRouteBootstrapNeeds', () => {
 
   it('recepcao precisa de alunos', () => {
     expect(resolveRouteBootstrapNeeds('/recepcao')).toEqual({ leads: false, students: true });
+  });
+});
+
+describe('shouldSkipLeadsListFetch', () => {
+  it('pula quando loading', () => {
+    expect(shouldSkipLeadsListFetch({ loading: true, leads: [], leadsLastFetchedAt: null })).toBe(true);
+  });
+
+  it('pula quando lista fresca', () => {
+    expect(
+      shouldSkipLeadsListFetch({
+        loading: false,
+        loadingMore: false,
+        leads: [{ id: '1' }],
+        leadsLastFetchedAt: Date.now(),
+      }),
+    ).toBe(true);
+  });
+
+  it('não pula quando vazio e sem fetch', () => {
+    expect(
+      shouldSkipLeadsListFetch({ loading: false, loadingMore: false, leads: [], leadsLastFetchedAt: null }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldSkipStudentsListFetch', () => {
+  it('pula quando loading', () => {
+    expect(shouldSkipStudentsListFetch({ loading: true, students: [], lastFetchedAt: null })).toBe(true);
+  });
+
+  it('pula quando lista fresca', () => {
+    expect(
+      shouldSkipStudentsListFetch({
+        loading: false,
+        loadingMore: false,
+        students: [{ id: '1' }],
+        lastFetchedAt: Date.now(),
+      }),
+    ).toBe(true);
   });
 });

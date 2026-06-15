@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import '../../styles/billing-portal.css';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Zap, Building2, Rocket } from 'lucide-react';
 import { isBillingLive } from '../../lib/billingEnabled';

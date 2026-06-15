@@ -39,6 +39,36 @@ export function resolveRouteBootstrapNeeds(pathname) {
   };
 }
 
+const DEFAULT_LIST_STALE_MS = 5 * 60 * 1000;
+
+/** Evita segundo fetch quando prefetch ou outra rota já carregou a lista. */
+export function shouldSkipLeadsListFetch(state, staleMs = DEFAULT_LIST_STALE_MS) {
+  if (!state) return false;
+  if (state.loading || state.loadingMore) return true;
+  if (
+    state.leads.length > 0 &&
+    state.leadsLastFetchedAt &&
+    Date.now() - state.leadsLastFetchedAt < staleMs
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Evita segundo fetch de alunos quando prefetch ou outra rota já carregou a lista. */
+export function shouldSkipStudentsListFetch(state, staleMs = DEFAULT_LIST_STALE_MS) {
+  if (!state) return false;
+  if (state.loading || state.loadingMore) return true;
+  if (
+    state.students.length > 0 &&
+    state.lastFetchedAt &&
+    Date.now() - state.lastFetchedAt < staleMs
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Prefetch leads/alunos só quando a rota atual precisa e o store ainda está vazio.
  * Não bloqueia o shell — chamadas devem usar `void prefetchRouteBootstrapData(...)`.

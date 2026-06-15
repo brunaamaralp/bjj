@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { shouldSkipLeadsListFetch, shouldSkipStudentsListFetch } from '../lib/bootstrapRoutePrefetch.js';
 import { useTaskStore } from '../store/useTaskStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
@@ -268,17 +269,8 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (!academyId) return undefined;
-        const STALE_MS = 5 * 60 * 1000;
-        const { leads, leadsLastFetchedAt, loading: leadsLoading } = useLeadStore.getState();
-        if (leadsLoading) {
-            return () => {
-                const { loading } = useLeadStore.getState();
-                if (loading) {
-                    useLeadStore.setState({ loading: false });
-                }
-            };
-        }
-        if (leads.length > 0 && leadsLastFetchedAt && Date.now() - leadsLastFetchedAt < STALE_MS) {
+        const leadState = useLeadStore.getState();
+        if (shouldSkipLeadsListFetch(leadState)) {
             return () => {
                 const { loading } = useLeadStore.getState();
                 if (loading) {
@@ -287,9 +279,9 @@ const Dashboard = () => {
             };
         }
         console.debug('[Dashboard] fetchLeads iniciado', {
-            loading: useLeadStore.getState().loading,
-            leadsLength: leads.length,
-            leadsLastFetchedAt,
+            loading: leadState.loading,
+            leadsLength: leadState.leads.length,
+            leadsLastFetchedAt: leadState.leadsLastFetchedAt,
         });
         void fetchLeads({ reset: true });
         return () => {
@@ -320,12 +312,8 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (!academyId) return;
-        const STALE_MS = 5 * 60 * 1000;
-        const { loading: studentsLoading, lastFetchedAt } = useStudentStore.getState();
-        if (studentsLoading) return;
-        if (students.length > 0 && lastFetchedAt && Date.now() - lastFetchedAt < STALE_MS) {
-            return;
-        }
+        const studentState = useStudentStore.getState();
+        if (shouldSkipStudentsListFetch(studentState)) return;
         void fetchStudents({ reset: true });
     }, [academyId, students.length, studentsLastFetchedAt, fetchStudents]);
 
