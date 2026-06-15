@@ -13,6 +13,10 @@ import {
   parseOnboardingChecklist,
   serializeOnboardingChecklistForDb,
 } from '../lib/onboardingChecklist.js';
+import {
+  buildLeadCreateDocumentPayload,
+  extractInitialNoteEvents,
+} from '../lib/leadCreatePayload.js';
 
 export { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 
@@ -437,29 +441,11 @@ export const useLeadStore = create(
       const perms = buildLeadDocumentPermissions({ teamId, userId: sessionUserId });
 
       const nowIso = new Date().toISOString();
-      const docPayload = {
-        name: String(lead.name || '').trim(),
-        phone: String(lead.phone || '').trim(),
-        type: lead.type || 'Adulto',
-        origin: String(lead.origin || ''),
-        status: lead.status || LEAD_STATUS.NEW,
-        scheduledDate: String(lead.scheduledDate || ''),
-        scheduledTime: String(lead.scheduledTime || ''),
-        parentName: String(lead.parentName || ''),
-        age: lead.age != null && lead.age !== '' ? String(lead.age) : '',
+      const docPayload = buildLeadCreateDocumentPayload(lead, {
         academyId,
-        is_first_experience: lead.isFirstExperience || 'Sim',
-        belt: lead.belt || '',
-        custom_answers_json: JSON.stringify(lead.customAnswers || {}),
-        birth_date: String(lead.birthDate || '').slice(0, 10),
-        ...(lead.sexo ? { sexo: String(lead.sexo).trim().slice(0, 16) } : {}),
-        pipeline_stage: lead.pipelineStage || 'Novo',
-        pipeline_stage_changed_at: nowIso,
-        status_changed_at: nowIso,
-      };
-      if (LEAD_TURMA_APPWRITE_KEY && lead.turma) {
-        docPayload[LEAD_TURMA_APPWRITE_KEY] = String(lead.turma).trim().slice(0, 128);
-      }
+        nowIso,
+        turmaAttrKey: LEAD_TURMA_APPWRITE_KEY,
+      });
       const doc = await databases.createDocument(DB_ID, LEADS_COL, ID.unique(), docPayload, perms);
 
       try {
@@ -476,21 +462,19 @@ export const useLeadStore = create(
         console.warn('Failed to insert lead_criado event:', evtErr);
       }
 
-      for (const ev of lead.notes || []) {
-        if (ev && ev.type === 'note' && String(ev.text || '').trim()) {
-          try {
-            await addLeadEvent({
-              academyId,
-              leadId: doc.$id,
-              type: 'note',
-              text: String(ev.text).slice(0, 1000),
-              at: ev.at || nowIso,
-              createdBy: 'user',
-              permissionContext: permCtx
-            });
-          } catch (evtErr) {
-            console.warn('Failed to insert lead note event:', evtErr);
-          }
+      for (const ev of extractInitialNoteEvents(lead, nowIso)) {
+        try {
+          await addLeadEvent({
+            academyId,
+            leadId: doc.$id,
+            type: 'note',
+            text: String(ev.text).slice(0, 1000),
+            at: ev.at || nowIso,
+            createdBy: 'user',
+            permissionContext: permCtx,
+          });
+        } catch (evtErr) {
+          console.warn('Failed to insert lead note event:', evtErr);
         }
       }
 
@@ -644,26 +628,15 @@ export const useLeadStore = create(
           continue;
         }
 
-        const importPayload = {
-            name: lead.name,
-            phone: lead.phone || '',
-            type: lead.type || 'Adulto',
-            origin: lead.origin || 'Planilha',
-            status: lead.status || LEAD_STATUS.NEW,
-            scheduledDate: lead.scheduledDate || '',
-            scheduledTime: lead.scheduledTime || '',
-            parentName: lead.parentName || '',
-            age: lead.age || '',
+        const importPayload = buildLeadCreateDocumentPayload(
+          { ...lead, origin: lead.origin || 'Planilha' },
+          {
             academyId,
-            pipeline_stage: lead.pipelineStage || 'Novo',
-            imported_at: nowIso,
-            status_changed_at: nowIso,
-            pipeline_stage_changed_at: nowIso,
-            birth_date: String(lead.birthDate || '').slice(0, 10),
-            is_first_experience: lead.isFirstExperience || 'Sim',
-            belt: lead.belt || '',
-            custom_answers_json: JSON.stringify(lead.customAnswers || {}),
-          };
+            nowIso,
+            turmaAttrKey: LEAD_TURMA_APPWRITE_KEY,
+          }
+        );
+        importPayload.imported_at = nowIso;
         const doc = await databases.createDocument(
           DB_ID,
           LEADS_COL,

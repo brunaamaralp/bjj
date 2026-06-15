@@ -195,9 +195,6 @@ export default function NewLeadForm({
         scheduledTime = '';
       }
       const initialNote = data.notes?.trim();
-      const history = initialNote
-        ? [{ type: 'note', text: initialNote, at: new Date().toISOString(), by: 'user' }]
-        : [];
 
       const cleanPhone = data.phone.replace(/\D/g, '');
       const turma = turmaValueFromForm(turmaSelect, turmaOther);
@@ -217,7 +214,7 @@ export default function NewLeadForm({
         age: data.age || '',
         scheduledDate: scheduledDateValue || '',
         scheduledTime: scheduledTime || '',
-        notes: history,
+        initialNote: initialNote || undefined,
       });
       if (created?.id && hasSchedule) {
         const autoResult = await afterExperimentalScheduled({

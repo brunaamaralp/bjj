@@ -780,7 +780,6 @@ export function useNlAction() {
           scheduledTime: '',
           parentName: '',
           age: '',
-          notes: [],
           isFirstExperience: 'Sim',
           belt: '',
           customAnswers: {},
