@@ -43,6 +43,12 @@ import {
   RECEIVABLES_SECTIONS,
   buildReceivablesSearchParams,
 } from '../lib/financeiroReceivablesSections.js';
+import {
+  parsePayablesSection,
+  getDefaultPayablesSection,
+  PAYABLES_SECTIONS,
+  buildPayablesSearchParams,
+} from '../lib/financeiroPayablesSections.js';
 
 import { useUserRole } from '../lib/useUserRole';
 
@@ -52,6 +58,7 @@ import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 
 const VisaoGeralTab = lazy(() => import('../components/finance/VisaoGeralTab.jsx'));
 const ReceivablesTab = lazy(() => import('../components/finance/ReceivablesTab.jsx'));
+const PayablesTab = lazy(() => import('../components/finance/PayablesTab.jsx'));
 const TransacoesTab = lazy(() => import('../components/finance/TransacoesTab.jsx'));
 const ForecastTab = lazy(() => import('../components/finance/ForecastTab.jsx'));
 const ReconciliationTab = lazy(() => import('../components/finance/ReconciliationTab.jsx'));
@@ -194,6 +201,8 @@ function CaixaPage() {
   const legacyFiltro = legacy.filtro;
   const receivablesSection = parseReceivablesSection(searchParams);
   const defaultReceivablesSection = getDefaultReceivablesSection({ isOwner, isAdmin });
+  const payablesSection = parsePayablesSection(searchParams);
+  const defaultPayablesSection = getDefaultPayablesSection();
 
 
 
@@ -265,6 +274,21 @@ function CaixaPage() {
     searchParams,
     setSearchParams,
   ]);
+
+  useEffect(() => {
+    if (activeTab !== FINANCEIRO_SECTIONS.A_PAGAR) return;
+    const currentQs = searchParams.toString();
+    const hasSectionParam = String(searchParams.get('section') || '').trim().length > 0;
+    if (hasSectionParam) return;
+    const next = buildPayablesSearchParams({
+      section: defaultPayablesSection,
+      search: searchParams.get('search') || undefined,
+    });
+    const nextQs = next.toString();
+    if (nextQs !== currentQs) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [activeTab, defaultPayablesSection, searchParams, setSearchParams]);
 
   const handleOverviewMonthConferred = useCallback((ym, conferred) => {
     const month = String(ym || '').trim();
@@ -344,6 +368,25 @@ function CaixaPage() {
             ? opts.filtro || undefined
             : searchParams.get('filtro') || searchParams.get('filter') || undefined,
         extra: opts.extra || {},
+      });
+      const currentQs = searchParams.toString();
+      const nextQs = next.toString();
+      if (nextQs !== currentQs) {
+        setSearchParams(next, { replace: false });
+      }
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const setPayablesSection = useCallback(
+    (section, opts = {}) => {
+      const nextSection = section || PAYABLES_SECTIONS.VISAO;
+      const next = buildPayablesSearchParams({
+        section: nextSection,
+        search:
+          opts.search !== undefined ? opts.search : searchParams.get('search') || undefined,
+        tx: opts.tx || searchParams.get('tx') || undefined,
+        new: opts.new || undefined,
       });
       const currentQs = searchParams.toString();
       const nextQs = next.toString();
@@ -488,6 +531,24 @@ function CaixaPage() {
               navRole={navRole}
               onSectionChange={setReceivablesSection}
               onReferenceMonthChange={setReferenceMonth}
+            />
+          </div>
+        ) : null}
+
+        {activeTab === FINANCEIRO_SECTIONS.A_PAGAR && academyId ? (
+          <div
+            role="tabpanel"
+            id={`finance-tabpanel-${FINANCEIRO_SECTIONS.A_PAGAR}`}
+            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.A_PAGAR}`}
+          >
+            <PayablesTab
+              academyId={academyId}
+              financeConfig={financeConfig}
+              activeSection={payablesSection}
+              defaultSection={defaultPayablesSection}
+              onSectionChange={setPayablesSection}
+              highlightTxId={String(searchParams.get('tx') || '').trim()}
+              openNewOnMount={searchParams.get('new') === '1'}
             />
           </div>
         ) : null}

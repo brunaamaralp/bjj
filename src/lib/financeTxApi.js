@@ -125,6 +125,21 @@ export async function fetchReceivables({ academyId, month }) {
   return body;
 }
 
+export async function fetchPayables({ academyId, from, to, section, search, category }) {
+  const params = new URLSearchParams({ route: 'payables' });
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  if (section) params.set('section', section);
+  if (search) params.set('search', search);
+  if (category) params.set('category', category);
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar contas a pagar');
+  return body;
+}
+
 export async function fetchFinanceForecast({ academyId, from, to, refresh = false }) {
   const params = new URLSearchParams({ route: 'forecast', from, to });
   if (refresh) params.set('_', String(Date.now()));

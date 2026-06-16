@@ -82,6 +82,7 @@ const ERROR_MAP = {
   forecast_failed: 'Não foi possível carregar a previsão. Tente novamente.',
   bank_balances_failed: 'Não foi possível carregar os saldos das contas. Tente novamente.',
   receivables_failed: 'Não foi possível carregar as contas a receber. Tente novamente.',
+  payables_failed: 'Não foi possível carregar as contas a pagar. Tente novamente.',
   reconcile_failed: 'Não foi possível verificar os lançamentos. Tente novamente.',
 };
 

@@ -18,6 +18,7 @@ import studentPaymentReconcileHandler from '../lib/server/studentPaymentReconcil
 import financeReceivablesHandler from '../lib/server/financeReceivablesHandler.js';
 import financeOverviewHandler from '../lib/server/financeOverviewHandler.js';
 import collectionQueueHandler from '../lib/server/collectionQueueHandler.js';
+import payablesHandler from '../lib/server/payablesHandler.js';
 
 export const config = {
   maxDuration: 60,
@@ -59,6 +60,9 @@ export default async function handler(req, res) {
   }
   if (route === 'collection-queue' || route === 'collection_queue') {
     return collectionQueueHandler(req, res);
+  }
+  if (route === 'payables' || route === 'a-pagar') {
+    return payablesHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);

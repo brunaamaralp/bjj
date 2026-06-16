@@ -1,0 +1,82 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  ensureAuth: vi.fn(),
+  ensureAcademyAccess: vi.fn(),
+  loadPayablesInputs: vi.fn(),
+}));
+
+vi.mock('../../../lib/server/academyAccess.js', () => ({
+  ensureAuth: (...args) => mocks.ensureAuth(...args),
+  ensureAcademyAccess: (...args) => mocks.ensureAcademyAccess(...args),
+}));
+
+vi.mock('../../../lib/server/payablesData.js', () => ({
+  loadPayablesInputs: (...args) => mocks.loadPayablesInputs(...args),
+}));
+
+import payablesHandler from '../../../lib/server/payablesHandler.js';
+
+function mockRes() {
+  const res = { statusCode: 200, body: null };
+  res.status = (code) => {
+    res.statusCode = code;
+    return res;
+  };
+  res.json = (body) => {
+    res.body = body;
+    return res;
+  };
+  return res;
+}
+
+describe('payablesHandler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.ensureAuth.mockResolvedValue({ $id: 'user-1' });
+    mocks.ensureAcademyAccess.mockResolvedValue({ academyId: 'ac-1', doc: {} });
+    mocks.loadPayablesInputs.mockResolvedValue({
+      pendingTransactions: [],
+      recurrenceTemplates: [],
+    });
+  });
+
+  it('rejects non-GET', async () => {
+    const res = mockRes();
+    await payablesHandler({ method: 'POST', query: {} }, res);
+    expect(res.statusCode).toBe(405);
+  });
+
+  it('returns payables payload', async () => {
+    const res = mockRes();
+    await payablesHandler({ method: 'GET', query: { route: 'payables', section: 'visao' } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.summary).toBeDefined();
+    expect(Array.isArray(res.body.items)).toBe(true);
+  });
+
+  it('filters vencidas section', async () => {
+    mocks.loadPayablesInputs.mockResolvedValue({
+      pendingTransactions: [
+        {
+          id: 'tx-1',
+          status: 'pending',
+          direction: 'out',
+          gross: 90,
+          planName: 'CPFL',
+          category: 'Luz / energia',
+          due_date: '2020-01-10',
+        },
+      ],
+      recurrenceTemplates: [],
+    });
+    const res = mockRes();
+    await payablesHandler(
+      { method: 'GET', query: { route: 'payables', section: 'vencidas' } },
+      res
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.body.items.every((it) => it.status === 'overdue')).toBe(true);
+  });
+});

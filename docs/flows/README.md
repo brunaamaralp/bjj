@@ -61,6 +61,7 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 | Fluxo | Arquivo | Status |
 |---|---|---|
 | A receber — mensalidades | [financeiro/a-receber-mensalidades.md](financeiro/a-receber-mensalidades.md) | revisado (código) |
+| A pagar — contas fixas | [financeiro/a-pagar-contas-fixas.md](financeiro/a-pagar-contas-fixas.md) | revisado (código) |
 | Lançamentos — caixa | [financeiro/lancamentos-caixa.md](financeiro/lancamentos-caixa.md) | revisado (código) |
 | Conciliação bancária | [financeiro/conciliacao-bancaria.md](financeiro/conciliacao-bancaria.md) | revisado (código) |
 | Conferência do mês | [financeiro/fechamento-mensal.md](financeiro/fechamento-mensal.md) | revisado (código) |

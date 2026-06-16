@@ -35,6 +35,23 @@ describe('salesCatalog', () => {
     expect(p.canAdd).toBe(false);
   });
 
+  it('enrichCatalogProduct usa current_quantity quando pools provisionados mas zerados', () => {
+    const p = enrichCatalogProduct({
+      id: 'v1',
+      nome: 'Kimono',
+      current_quantity: 5,
+      sale_quantity: 0,
+      rental_available: 0,
+      rental_out: 0,
+      is_for_sale: true,
+      is_active: true,
+      Tamanho: 'M',
+    });
+    expect(p.canSell).toBe(true);
+    expect(p.stockLevel).toBe('ok');
+    expect(p.sale_quantity).toBe(5);
+  });
+
   it('catalogProductsForSale keeps active for-sale items only', () => {
     const rows = [
       { id: '1', is_for_sale: true, is_active: true, current_quantity: 5, minimum_level: 0 },

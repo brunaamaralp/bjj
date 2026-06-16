@@ -1,0 +1,750 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import './finance.css';
+import { Link } from 'react-router-dom';
+import {
+  AlertCircle,
+  Calendar,
+  Plus,
+  RefreshCw,
+  Repeat,
+  TrendingDown,
+} from 'lucide-react';
+import { fetchPayables, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
+import { PAYABLE_SOURCE } from '../../lib/payablesAggregate.js';
+import {
+  PAYABLES_SECTIONS,
+  PAYABLES_SECTION_LABELS,
+  buildPayablesPath,
+} from '../../lib/financeiroPayablesSections.js';
+import { todayYmdLocal, addDaysYmd } from '../../lib/financeForecastCore.js';
+import {
+  FINANCE_CATEGORIES,
+  getUtilityExpenseCategories,
+  resolveFinanceCategory,
+} from '../../lib/financeCategories.js';
+import { currentCompetenceMonth } from '../../lib/financeCompetence.js';
+import { RECURRENCE_TYPES, normalizeRecurrenceDay, buildRecurrenceEndOptions } from '../../lib/financeRecurrence.js';
+import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
+import { validateBankAccountForPayment, hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
+import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
+import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
+import { useToast } from '../../hooks/useToast.js';
+import FinanceTabShell from './FinanceTabShell.jsx';
+import HubTabBar from '../shared/HubTabBar.jsx';
+import PageSkeleton from '../shared/PageSkeleton.jsx';
+import ErrorBanner from '../shared/ErrorBanner.jsx';
+import EmptyState from '../shared/EmptyState.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
+import FieldError from '../shared/FieldError.jsx';
+import BankAccountSelect from './BankAccountSelect.jsx';
+import { useModalA11y } from '../../hooks/useModalA11y.js';
+
+function fmtMoney(v) {
+  try {
+    return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  } catch {
+    return `R$ ${Number(v || 0).toFixed(2)}`;
+  }
+}
+
+function fmtCompactMoney(v) {
+  const n = Number(v) || 0;
+  if (n >= 1000) {
+    try {
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
+    } catch {
+      /* fall through */
+    }
+  }
+  return fmtMoney(n);
+}
+
+function fmtDateBr(ymd) {
+  const p = String(ymd || '').slice(0, 10).split('-');
+  if (p.length !== 3) return '—';
+  return `${p[2]}/${p[1]}/${p[0]}`;
+}
+
+function statusLabel(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'overdue') return 'Vencida';
+  if (s === 'due_soon') return 'Vence em breve';
+  if (s === 'open') return 'Em aberto';
+  return 'Programada';
+}
+
+function statusBadgeClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'overdue') return 'finance-badge-atraso';
+  if (s === 'due_soon') return 'finance-badge-aguardando';
+  return 'finance-badge-pendente';
+}
+
+const VALID_SECTIONS = new Set(Object.values(PAYABLES_SECTIONS));
+
+const defaultForm = () => ({
+  vendor: '',
+  category: FINANCE_CATEGORIES.LUZ.label,
+  gross: '',
+  due_date: todayYmdLocal(),
+  repeat_enabled: true,
+  recurrence_day: 10,
+  recurrence_end: '',
+  note: '',
+});
+
+export default function PayablesTab({
+  academyId,
+  financeConfig,
+  activeSection,
+  defaultSection,
+  onSectionChange,
+  highlightTxId = '',
+  openNewOnMount = false,
+}) {
+  const toast = useToast();
+  const resolvedSection = useMemo(() => {
+    if (VALID_SECTIONS.has(activeSection)) return activeSection;
+    if (VALID_SECTIONS.has(defaultSection)) return defaultSection;
+    return PAYABLES_SECTIONS.CONTAS_FIXAS;
+  }, [activeSection, defaultSection]);
+  const handleSectionChange = onSectionChange || (() => {});
+
+  const [loading, setLoading] = useState(true);
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [error, setError] = useState('');
+  const [data, setData] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [search, setSearch] = useState('');
+
+  const [showFormModal, setShowFormModal] = useState(openNewOnMount);
+  const [form, setForm] = useState(defaultForm);
+  const [formErrors, setFormErrors] = useState({});
+  const [savingForm, setSavingForm] = useState(false);
+
+  const [settleItem, setSettleItem] = useState(null);
+  const [settleAccount, setSettleAccount] = useState('');
+  const [settleMethod, setSettleMethod] = useState('pix');
+  const [settleGross, setSettleGross] = useState('');
+  const [settleSaving, setSettleSaving] = useState(false);
+  const [settleError, setSettleError] = useState('');
+
+  const range = useMemo(() => {
+    const today = todayYmdLocal();
+    return { from: today, to: addDaysYmd(today, 90) };
+  }, []);
+
+  const categoryOptions = useMemo(() => {
+    const utils = getUtilityExpenseCategories();
+    const extra = [
+      FINANCE_CATEGORIES.ALUGUEL_ESPACO,
+      FINANCE_CATEGORIES.SALARIOS,
+      FINANCE_CATEGORIES.SISTEMAS,
+      FINANCE_CATEGORIES.OUTRAS_DESPESAS,
+    ];
+    const seen = new Set();
+    return [...utils, ...extra].filter((c) => {
+      if (seen.has(c.label)) return false;
+      seen.add(c.label);
+      return true;
+    });
+  }, []);
+
+  const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
+
+  const load = useCallback(async () => {
+    if (!academyId) return;
+    setLoading(true);
+    setError('');
+    try {
+      const body = await fetchPayables({
+        academyId,
+        from: range.from,
+        to: range.to,
+        section: resolvedSection,
+        search: search.trim() || undefined,
+      });
+      setData(body);
+    } catch (e) {
+      console.error('[PayablesTab]', e);
+      setData(null);
+      setError('Não foi possível carregar as contas a pagar.');
+    } finally {
+      setLoading(false);
+      setLoadedOnce(true);
+    }
+  }, [academyId, range.from, range.to, resolvedSection, search]);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshToken]);
+
+  useEffect(() => {
+    const bump = () => setRefreshToken((t) => t + 1);
+    window.addEventListener('navi-financial-tx-settled', bump);
+    window.addEventListener('navi-finance-forecast-invalidate', bump);
+    return () => {
+      window.removeEventListener('navi-financial-tx-settled', bump);
+      window.removeEventListener('navi-finance-forecast-invalidate', bump);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!highlightTxId || !data?.items?.length) return;
+    const hit = data.items.find((it) => it.tx_id === highlightTxId);
+    if (hit && hit.source === PAYABLE_SOURCE.LANCAMENTO) {
+      setSettleItem(hit);
+      setSettleGross(String(hit.amount || ''));
+      setSettleAccount('');
+      setSettleMethod('pix');
+      setSettleError('');
+    }
+  }, [highlightTxId, data?.items]);
+
+  const summary = data?.summary || {
+    totalOpen: 0,
+    overdueCount: 0,
+    overdueAmount: 0,
+    dueSoonCount: 0,
+    dueSoonAmount: 0,
+    activeTemplates: 0,
+  };
+
+  const items = data?.items || [];
+
+  const sectionTabs = useMemo(() => {
+    const withAmount = (label, amount) => `${label} · ${fmtCompactMoney(amount)}`;
+    return [
+      {
+        id: PAYABLES_SECTIONS.VISAO,
+        label: withAmount(PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VISAO], summary.totalOpen),
+        shortLabel: PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VISAO],
+      },
+      {
+        id: PAYABLES_SECTIONS.CONTAS_FIXAS,
+        label: PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.CONTAS_FIXAS],
+        shortLabel: PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.CONTAS_FIXAS],
+      },
+      {
+        id: PAYABLES_SECTIONS.VENCIDAS,
+        label:
+          summary.overdueCount > 0
+            ? `${PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VENCIDAS]} (${summary.overdueCount})`
+            : PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VENCIDAS],
+        shortLabel: PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VENCIDAS],
+      },
+    ];
+  }, [summary.totalOpen, summary.overdueCount]);
+
+  function openSettle(item) {
+    if (!item?.tx_id || item.source === PAYABLE_SOURCE.TEMPLATE) return;
+    setSettleItem(item);
+    setSettleGross(String(item.amount || ''));
+    setSettleAccount('');
+    setSettleMethod('pix');
+    setSettleError('');
+  }
+
+  async function handleSaveForm(e) {
+    e.preventDefault();
+    const errors = {};
+    const vendor = String(form.vendor || '').trim();
+    if (!vendor) errors.vendor = 'Informe o fornecedor ou descrição.';
+    const grossNum = parseCurrencyBRL(form.gross);
+    if (!Number.isFinite(grossNum) || grossNum <= 0) errors.gross = 'Informe um valor válido.';
+    const due = String(form.due_date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) errors.due_date = 'Informe a data de vencimento.';
+    if (Object.keys(errors).length) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
+    const cat = resolveFinanceCategory(form.category) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+    const dueDay = due.split('-')[2];
+    const recurrenceDay = normalizeRecurrenceDay(
+      RECURRENCE_TYPES.MONTHLY,
+      form.repeat_enabled ? Number(dueDay) || form.recurrence_day : 1
+    );
+
+    setSavingForm(true);
+    try {
+      const payload = {
+        direction: 'out',
+        type: cat.type,
+        category: cat.label,
+        planName: vendor,
+        gross: grossNum,
+        note: String(form.note || '').trim(),
+        due_date: due,
+        competence_month: due.slice(0, 7) || currentCompetenceMonth(),
+        receive_now: false,
+        method: 'pix',
+      };
+      if (form.repeat_enabled) {
+        payload.is_recurrence_template = true;
+        payload.recurrence_type = RECURRENCE_TYPES.MONTHLY;
+        payload.recurrence_day = recurrenceDay;
+        if (form.recurrence_end) payload.recurrence_end = form.recurrence_end;
+      }
+      await createFinanceTx({ academyId, payload });
+      toast.success(form.repeat_enabled ? 'Conta fixa programada.' : 'Conta a pagar registrada.');
+      setShowFormModal(false);
+      setForm(defaultForm());
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+      setRefreshToken((t) => t + 1);
+    } catch (err) {
+      toast.error(err?.message || 'Não foi possível salvar a conta.');
+    } finally {
+      setSavingForm(false);
+    }
+  }
+
+  async function handleSettle(e) {
+    e.preventDefault();
+    if (!settleItem?.tx_id) return;
+    const accountCheck = validateBankAccountForPayment(settleAccount, financeConfig);
+    if (!accountCheck.valid) {
+      setSettleError(accountCheck.error || 'Selecione a conta bancária.');
+      return;
+    }
+    const grossNum = parseCurrencyBRL(settleGross);
+    if (!Number.isFinite(grossNum) || grossNum <= 0) {
+      setSettleError('Informe um valor válido.');
+      return;
+    }
+    setSettleSaving(true);
+    setSettleError('');
+    try {
+      await patchFinanceTx({
+        academyId,
+        id: settleItem.tx_id,
+        payload: {
+          gross: grossNum,
+          method: settleMethod,
+          bank_account: accountCheck.account,
+          direction: 'out',
+        },
+      });
+      const row = await patchFinanceTx({
+        academyId,
+        id: settleItem.tx_id,
+        payload: { action: 'settle' },
+      });
+      if (row) applyAccountingSideEffectsAuto(row, academyId);
+      toast.success('Pagamento registrado.');
+      setSettleItem(null);
+      window.dispatchEvent(new CustomEvent('navi-financial-tx-settled'));
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+      setRefreshToken((t) => t + 1);
+    } catch (err) {
+      setSettleError(err?.message || 'Não foi possível registrar o pagamento.');
+    } finally {
+      setSettleSaving(false);
+    }
+  }
+
+  async function handleCancelRecurrence(templateId) {
+    if (!templateId) return;
+    try {
+      await patchFinanceTx({
+        academyId,
+        id: templateId,
+        payload: { action: 'cancel_recurrence' },
+      });
+      toast.success('Recorrência cancelada.');
+      setRefreshToken((t) => t + 1);
+    } catch (err) {
+      toast.error(err?.message || 'Não foi possível cancelar a recorrência.');
+    }
+  }
+
+  const formModalRef = useModalA11y(showFormModal, () => setShowFormModal(false));
+  const settleModalRef = useModalA11y(!!settleItem, () => setSettleItem(null));
+
+  if (!academyId) {
+    return <p className="text-small text-muted">Selecione uma academia.</p>;
+  }
+
+  if (loading && !loadedOnce) {
+    return (
+      <div className="mt-2">
+        <PageSkeleton variant="table" rows={6} />
+      </div>
+    );
+  }
+
+  const refreshBtn = (
+    <button
+      type="button"
+      className="btn-outline btn-sm receivables-tab__refresh"
+      onClick={() => setRefreshToken((t) => t + 1)}
+      disabled={loading}
+      aria-busy={loading}
+      aria-label="Atualizar contas a pagar"
+    >
+      <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
+      <span className="receivables-tab__refresh-label">Atualizar</span>
+    </button>
+  );
+
+  const kpiStrip =
+    resolvedSection === PAYABLES_SECTIONS.VENCIDAS ? (
+      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+        <p className="finance-kpi__label">Vencidas</p>
+        <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.overdueAmount)}</p>
+        <p className="finance-kpi__hint">
+          {summary.overdueCount} conta{summary.overdueCount !== 1 ? 's' : ''} em atraso
+        </p>
+      </div>
+    ) : (
+      <div className="finance-kpi-row finance-kpi-row--compact">
+        <div className="finance-kpi finance-kpi--compact">
+          <p className="finance-kpi__label">Em aberto (90 dias)</p>
+          <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.totalOpen)}</p>
+        </div>
+        <div className="finance-kpi finance-kpi--compact">
+          <p className="finance-kpi__label">Vence em 7 dias</p>
+          <p className="finance-kpi__value">{fmtMoney(summary.dueSoonAmount)}</p>
+          <p className="finance-kpi__hint">{summary.dueSoonCount} conta(s)</p>
+        </div>
+        <div className="finance-kpi finance-kpi--compact">
+          <p className="finance-kpi__label">Fixas ativas</p>
+          <p className="finance-kpi__value">{summary.activeTemplates}</p>
+        </div>
+      </div>
+    );
+
+  const subNav = (
+    <div className="receivables-tab__subnav-bar">
+      <HubTabBar
+        tabs={sectionTabs}
+        activeId={resolvedSection}
+        onChange={handleSectionChange}
+        ariaLabel="Seções de contas a pagar"
+        variant="secondary"
+        size="sm"
+        fullWidth
+        panelIdPrefix="payables-"
+        className="receivables-tab__subnav-tabs"
+      />
+      <div className="receivables-tab__subnav-actions">
+        <button
+          type="button"
+          className="btn-primary btn-sm"
+          onClick={() => {
+            setForm(defaultForm());
+            setShowFormModal(true);
+          }}
+        >
+          <Plus size={14} aria-hidden />
+          Nova conta
+        </button>
+        {refreshBtn}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <FinanceTabShell panelClassName="receivables-tab finance-tab-panel--compact" kpiStrip={kpiStrip} subNav={subNav}>
+        {error ? <ErrorBanner message={error} onRetry={() => setRefreshToken((t) => t + 1)} /> : null}
+
+        {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS ? (
+          <div className="finance-filters-bar finance-filters-bar--compact mb-3">
+            <input
+              type="search"
+              className="form-input"
+              placeholder="Buscar fornecedor ou categoria…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Buscar contas a pagar"
+            />
+          </div>
+        ) : null}
+
+        {items.length === 0 && !error ? (
+          <EmptyState
+            variant="compact"
+            icon={TrendingDown}
+            title={
+              resolvedSection === PAYABLES_SECTIONS.VENCIDAS
+                ? 'Nenhuma conta vencida'
+                : 'Nenhuma conta programada'
+            }
+            description={
+              resolvedSection === PAYABLES_SECTIONS.VENCIDAS
+                ? 'Ótimo — não há despesas pendentes em atraso.'
+                : 'Cadastre contas fixas como água, luz e telefone para acompanhar vencimentos.'
+            }
+            primaryAction={{
+              label: 'Nova conta',
+              onClick: () => {
+                setForm(defaultForm());
+                setShowFormModal(true);
+              },
+            }}
+          />
+        ) : (
+          <div className="finance-table-wrap">
+            <table className="finance-table finance-table--compact">
+              <thead>
+                <tr>
+                  <th>Vencimento</th>
+                  <th>Fornecedor</th>
+                  <th>Categoria</th>
+                  <th className="text-right">Valor</th>
+                  <th>Status</th>
+                  <th aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <span className="finance-table__date">
+                        <Calendar size={14} aria-hidden />
+                        {fmtDateBr(item.due_date)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="finance-table__primary">
+                        {item.recurrence?.active ? (
+                          <Repeat size={14} title="Recorrente" aria-hidden className="mr-1" />
+                        ) : null}
+                        {item.vendor_label}
+                      </span>
+                      {item.source === PAYABLE_SOURCE.TEMPLATE ? (
+                        <span className="text-small text-muted d-block">
+                          Mensal · dia {item.recurrence?.day || '—'}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="text-small">{item.category || '—'}</td>
+                    <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
+                    <td>
+                      <span className={`finance-badge ${statusBadgeClass(item.status)}`}>
+                        {item.status === 'overdue' ? (
+                          <AlertCircle size={12} aria-hidden />
+                        ) : null}
+                        {statusLabel(item.status)}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm"
+                          onClick={() => openSettle(item)}
+                        >
+                          Pagar
+                        </button>
+                      ) : item.source === PAYABLE_SOURCE.TEMPLATE ? (
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm text-muted"
+                          onClick={() => handleCancelRecurrence(item.template_id)}
+                        >
+                          Cancelar
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {resolvedSection === PAYABLES_SECTIONS.VISAO && items.length > 0 ? (
+          <p className="text-small text-muted mt-3">
+            <Link to={buildPayablesPath({ section: PAYABLES_SECTIONS.CONTAS_FIXAS })}>
+              Ver todas as contas fixas
+            </Link>
+            {' · '}
+            <Link to="/financeiro?tab=previsao">Abrir previsão de caixa</Link>
+          </p>
+        ) : null}
+      </FinanceTabShell>
+
+      {showFormModal ? (
+        <ModalShell
+          ref={formModalRef}
+          title="Nova conta a pagar"
+          onClose={() => setShowFormModal(false)}
+          footer={
+            <>
+              <button type="button" className="btn-ghost" onClick={() => setShowFormModal(false)}>
+                Cancelar
+              </button>
+              <button type="submit" form="payable-form" className="btn-primary" disabled={savingForm}>
+                {savingForm ? 'Salvando…' : 'Salvar'}
+              </button>
+            </>
+          }
+        >
+          <form id="payable-form" onSubmit={handleSaveForm} className="form-stack">
+            <div>
+              <label htmlFor="payable-vendor">Fornecedor / descrição</label>
+              <input
+                id="payable-vendor"
+                className="form-input"
+                value={form.vendor}
+                onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}
+                placeholder="Ex.: CPFL, Sabesp, Vivo"
+              />
+              <FieldError message={formErrors.vendor} />
+            </div>
+            <div>
+              <label htmlFor="payable-category">Categoria</label>
+              <select
+                id="payable-category"
+                className="form-input"
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              >
+                {categoryOptions.map((c) => (
+                  <option key={c.label} value={c.label}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="payable-gross">Valor (R$)</label>
+              <input
+                id="payable-gross"
+                className="form-input"
+                inputMode="decimal"
+                value={form.gross}
+                onChange={(e) => setForm((f) => ({ ...f, gross: maskCurrency(e.target.value) }))}
+                placeholder="0,00"
+              />
+              <FieldError message={formErrors.gross} />
+            </div>
+            <div>
+              <label htmlFor="payable-due">Vencimento</label>
+              <input
+                id="payable-due"
+                type="date"
+                className="form-input"
+                value={form.due_date}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const day = Number(String(v).slice(8, 10)) || 1;
+                  setForm((f) => ({
+                    ...f,
+                    due_date: v,
+                    recurrence_day: normalizeRecurrenceDay(RECURRENCE_TYPES.MONTHLY, day),
+                  }));
+                }}
+              />
+              <FieldError message={formErrors.due_date} />
+            </div>
+            <label className="form-check">
+              <input
+                type="checkbox"
+                checked={form.repeat_enabled}
+                onChange={(e) => setForm((f) => ({ ...f, repeat_enabled: e.target.checked }))}
+              />
+              <span>Repetir todo mês (conta fixa)</span>
+            </label>
+            {form.repeat_enabled ? (
+              <div>
+                <label htmlFor="payable-recurrence-end">Repetir até (opcional)</label>
+                <select
+                  id="payable-recurrence-end"
+                  className="form-input"
+                  value={form.recurrence_end}
+                  onChange={(e) => setForm((f) => ({ ...f, recurrence_end: e.target.value }))}
+                >
+                  {recurrenceEndOptions.map((opt) => (
+                    <option key={opt.value || 'none'} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div>
+              <label htmlFor="payable-note">Observação (opcional)</label>
+              <textarea
+                id="payable-note"
+                className="form-input"
+                rows={2}
+                value={form.note}
+                onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+              />
+            </div>
+          </form>
+        </ModalShell>
+      ) : null}
+
+      {settleItem ? (
+        <ModalShell
+          ref={settleModalRef}
+          title={`Registrar pagamento — ${settleItem.vendor_label}`}
+          onClose={() => setSettleItem(null)}
+          footer={
+            <>
+              <button type="button" className="btn-ghost" onClick={() => setSettleItem(null)}>
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form="payable-settle-form"
+                className="btn-primary"
+                disabled={settleSaving || !hasConfiguredBankAccounts(financeConfig)}
+              >
+                {settleSaving ? 'Salvando…' : 'Confirmar pagamento'}
+              </button>
+            </>
+          }
+        >
+          <form id="payable-settle-form" onSubmit={handleSettle} className="form-stack">
+            {!hasConfiguredBankAccounts(financeConfig) ? (
+              <p className="text-small text-muted">
+                Cadastre uma conta em{' '}
+                <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Minha academia → Recebimento</Link>.
+              </p>
+            ) : null}
+            <div>
+              <label htmlFor="settle-gross">Valor pago (R$)</label>
+              <input
+                id="settle-gross"
+                className="form-input"
+                inputMode="decimal"
+                value={settleGross}
+                onChange={(e) => setSettleGross(maskCurrency(e.target.value))}
+              />
+            </div>
+            <div>
+              <label htmlFor="settle-method">Método</label>
+              <select
+                id="settle-method"
+                className="form-input"
+                value={settleMethod}
+                onChange={(e) => setSettleMethod(e.target.value)}
+              >
+                <option value="pix">PIX</option>
+                <option value="transferencia">Transferência</option>
+                <option value="debito">Débito</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="boleto">Boleto</option>
+              </select>
+            </div>
+            <BankAccountSelect
+              academyId={academyId}
+              financeConfig={financeConfig}
+              value={settleAccount}
+              onChange={setSettleAccount}
+              id="settle-account"
+              label="Conta bancária"
+              required
+            />
+            <FieldError message={settleError} />
+          </form>
+        </ModalShell>
+      ) : null}
+    </>
+  );
+}

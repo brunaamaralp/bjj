@@ -6,6 +6,7 @@
 export const FINANCEIRO_SECTIONS = {
   OVERVIEW: 'visao-geral',
   A_RECEBER: 'a-receber',
+  A_PAGAR: 'a-pagar',
   MENSALIDADES: 'mensalidades',
   CAIXA: 'caixa',
   CONTABILIDADE: 'contabilidade',
@@ -41,6 +42,7 @@ export const FINANCEIRO_EXTRATO_TAB = 'extrato';
 
 /** Abas gerenciais ocultas para recepcionista (member); URL direta redireciona ao fallback. */
 export const FINANCEIRO_MEMBER_RESTRICTED_TABS = new Set([
+  FINANCEIRO_SECTIONS.A_PAGAR,
   'previsao',
   'fechamento',
   'conciliacao',
@@ -57,6 +59,7 @@ const REDIRECT_TO_EMPRESA_CONFIG = new Set([
 const TAB_TO_SECTION = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: FINANCEIRO_SECTIONS.OVERVIEW,
   [FINANCEIRO_SECTIONS.A_RECEBER]: FINANCEIRO_SECTIONS.A_RECEBER,
+  [FINANCEIRO_SECTIONS.A_PAGAR]: FINANCEIRO_SECTIONS.A_PAGAR,
   [FINANCEIRO_SECTIONS.MENSALIDADES]: FINANCEIRO_SECTIONS.A_RECEBER,
   [FINANCEIRO_SECTIONS.CONFIG]: FINANCEIRO_SECTIONS.CONFIG,
   movimentacoes: 'movimentacoes',
@@ -73,6 +76,7 @@ const TAB_TO_SECTION = {
 const HUB_TAB_LABELS = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
   [FINANCEIRO_SECTIONS.A_RECEBER]: 'A receber',
+  [FINANCEIRO_SECTIONS.A_PAGAR]: 'A pagar',
   movimentacoes: 'Lançamentos',
   previsao: 'Previsão',
   fechamento: 'Conferência do mês',
@@ -83,6 +87,7 @@ const HUB_TAB_LABELS = {
 const HUB_TAB_SHORT_LABELS = {
   [FINANCEIRO_SECTIONS.OVERVIEW]: 'Visão Geral',
   [FINANCEIRO_SECTIONS.A_RECEBER]: 'A receber',
+  [FINANCEIRO_SECTIONS.A_PAGAR]: 'A pagar',
   movimentacoes: 'Lançamentos',
   previsao: 'Previsão',
   fechamento: 'Conferência',
@@ -184,6 +189,9 @@ export function buildFinanceiroAllowedLeafTabs({ navRole, financeModule, isOwner
     FINANCEIRO_SECTIONS.OVERVIEW,
     FINANCEIRO_SECTIONS.A_RECEBER,
   ];
+  if (role === 'owner' || role === 'admin') {
+    base.push(FINANCEIRO_SECTIONS.A_PAGAR);
+  }
   const operational = buildFinanceiroOperationalLeafTabs(role, financeModule);
   return [...base, ...operational];
 }

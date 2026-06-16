@@ -15,6 +15,8 @@ export const FINANCE_TERM_HINTS = {
     'Lançamento manual criado sem marcar “Receber agora”. Liquide em Lançamentos para entrar no saldo do Caixa.',
   cobrancaFila:
     'Mensalidades vencidas acumuladas nos últimos 12 meses. Independente do mês de referência em Mensalidades.',
+  aPagar:
+    'Despesas programadas e pendentes: contas fixas (água, luz, telefone), aluguel e outras saídas com vencimento.',
   diasAtraso: 'Dias após o vencimento (D+). Ex.: D+10 = dez dias de atraso.',
 };
 

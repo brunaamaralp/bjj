@@ -5,6 +5,10 @@ import {
   parseReceivablesSection,
   RECEIVABLES_SECTIONS,
 } from './financeiroReceivablesSections.js';
+import {
+  buildPayablesSearchParams,
+  PAYABLES_SECTIONS,
+} from './financeiroPayablesSections.js';
 
 /** Labels e estrutura compartilhada entre sidebar desktop e drawer mobile. */
 
@@ -166,6 +170,9 @@ export function isAccordionChildActive(child, location) {
       }
       return false;
     }
+    if (child.id === 'a-pagar') {
+      return tab === FINANCEIRO_SECTIONS.A_PAGAR;
+    }
     if (child.id === 'extrato') return tab === 'extrato' || tab === 'razao';
     if (child.group === 'Contabilidade') return child.id === tab;
     if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) return child.id === tab;
@@ -272,14 +279,26 @@ export function buildFinanceiroAccordion({
         section: RECEIVABLES_SECTIONS.MENSALIDADES,
       }).toString()}`,
       iconKey: 'mensalidades',
-    },
-    {
-      id: 'movimentacoes',
-      label: 'Lançamentos',
-      to: `${FINANCEIRO_HUB_PATH}?tab=movimentacoes`,
-      iconKey: 'movimentacoes',
     }
   );
+
+  if (isFinanceiroManagerNavRole(role)) {
+    children.push({
+      id: 'a-pagar',
+      label: 'A pagar',
+      to: `${FINANCEIRO_HUB_PATH}?${buildPayablesSearchParams({
+        section: PAYABLES_SECTIONS.CONTAS_FIXAS,
+      }).toString()}`,
+      iconKey: 'movimentacoes',
+    });
+  }
+
+  children.push({
+    id: 'movimentacoes',
+    label: 'Lançamentos',
+    to: `${FINANCEIRO_HUB_PATH}?tab=movimentacoes`,
+    iconKey: 'movimentacoes',
+  });
 
   return {
     id: NAV_ACCORDION_IDS.FINANCEIRO,

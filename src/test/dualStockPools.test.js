@@ -29,6 +29,12 @@ describe('dualStockPools', () => {
     expect(saleQuantity(item)).toBe(3);
   });
 
+  it('ignora pools com default 0 quando current_quantity legado tem saldo', () => {
+    const unmigrated = { sale_quantity: 0, rental_available: 0, rental_out: 0, current_quantity: 8 };
+    expect(hasDualPoolFields(unmigrated)).toBe(false);
+    expect(saleQuantity(unmigrated)).toBe(0);
+  });
+
   it('buildVariantPoolFields por tipo de produto', () => {
     expect(
       buildVariantPoolFields({ parentType: 'sale', initial_quantity: 4 })

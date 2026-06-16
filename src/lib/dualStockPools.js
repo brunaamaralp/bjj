@@ -16,6 +16,17 @@ function finiteNonNeg(n) {
   return Math.trunc(x);
 }
 
+function poolFieldPresent(raw) {
+  return raw !== undefined && raw !== null && raw !== '';
+}
+
+/** Saldo em current_quantity sem passar pelos pools (evita ciclo com hasDualPoolFields). */
+function legacyCurrentQuantityOnly(item) {
+  const raw = item?.current_quantity;
+  if (!poolFieldPresent(raw)) return 0;
+  return finiteNonNeg(raw);
+}
+
 /** @param {string|undefined|null} raw */
 export function normalizeProductType(raw) {
   const t = String(raw || '').trim().toLowerCase();
@@ -35,13 +46,31 @@ export function productTypeShowsRentalPools(type) {
   return t === PRODUCT_TYPES.RENTAL || t === PRODUCT_TYPES.BOTH;
 }
 
+/**
+ * Pools dual estão ativos quando há saldo nos pools ou o item já foi migrado (tudo zerado).
+ * Schema Appwrite com sale_quantity/rental_* default 0 + current_quantity legado → false.
+ */
 export function hasDualPoolFields(item) {
   if (!item || typeof item !== 'object') return false;
-  return (
-    item.sale_quantity !== undefined &&
-    item.sale_quantity !== null &&
-    item.sale_quantity !== ''
-  );
+
+  const hasAnyPoolField =
+    poolFieldPresent(item.sale_quantity) ||
+    poolFieldPresent(item.rental_available) ||
+    poolFieldPresent(item.rental_out);
+
+  if (!hasAnyPoolField) return false;
+
+  const poolSum =
+    finiteNonNeg(item.sale_quantity) +
+    finiteNonNeg(item.rental_available) +
+    finiteNonNeg(item.rental_out);
+
+  if (poolSum > 0) return true;
+
+  // Campos provisionados com default 0, mas estoque ainda só em current_quantity
+  if (legacyCurrentQuantityOnly(item) > 0) return false;
+
+  return true;
 }
 
 export function saleQuantity(item) {

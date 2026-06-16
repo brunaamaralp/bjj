@@ -150,6 +150,41 @@ export const FINANCE_CATEGORIES = {
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
   },
+  AGUA: {
+    label: 'Água e esgoto',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+  },
+  LUZ: {
+    label: 'Luz / energia',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+  },
+  TELEFONE_INTERNET: {
+    label: 'Telefone e internet',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+  },
+  CONDOMINIO: {
+    label: 'Condomínio',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+  },
+  IMPOSTOS_TAXAS: {
+    label: 'Impostos e taxas',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+  },
   OUTRAS_DESPESAS: {
     label: 'Outras despesas',
     type: 'expense_operational',
@@ -269,6 +304,13 @@ export function getExpenseCategories() {
   return Object.values(FINANCE_CATEGORIES).filter((c) => EXPENSE_TYPES_MANUAL.has(c.type));
 }
 
+const UTILITY_CATEGORY_KEYS = ['AGUA', 'LUZ', 'TELEFONE_INTERNET', 'CONDOMINIO', 'IMPOSTOS_TAXAS'];
+
+/** Categorias típicas de contas fixas (água, luz, telefone…). */
+export function getUtilityExpenseCategories() {
+  return UTILITY_CATEGORY_KEYS.map((k) => FINANCE_CATEGORIES[k]).filter(Boolean);
+}
+
 /** Chips e default ao trocar direção no modal de lançamento. */
 export const FREQUENT_TX_CATEGORY_LABELS = {
   in: [
@@ -278,6 +320,8 @@ export const FREQUENT_TX_CATEGORY_LABELS = {
     FINANCE_CATEGORIES.APORTE_CAPITAL.label,
   ],
   out: [
+    FINANCE_CATEGORIES.LUZ.label,
+    FINANCE_CATEGORIES.AGUA.label,
     FINANCE_CATEGORIES.OUTRAS_DESPESAS.label,
     FINANCE_CATEGORIES.MARKETING.label,
     FINANCE_CATEGORIES.TARIFAS_BANCARIAS.label,
