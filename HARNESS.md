@@ -32,6 +32,7 @@ Antes de rodar qualquer prompt de refatoração no Cursor:
 - src/lib/inboxConversationState.js — updates otimistas read/unread
 - Detecção de nova mensagem (helper puro)
 - **Financeiro / Lançamentos** — ver [docs/harness/finance-lancamentos.md](docs/harness/finance-lancamentos.md)
+- **Financeiro / Plano de contas + categorias** — ver [docs/harness/finance-plano-contas.md](docs/harness/finance-plano-contas.md)
 
 ## Adicionando novos testes
 

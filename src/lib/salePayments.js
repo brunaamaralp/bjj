@@ -1,6 +1,6 @@
 import { paymentLabel } from './salesSettings.js';
 import { formatBRL } from './moneyBr.js';
-import { PAYMENT_METHODS } from './paymentMethods.js';
+import { canonicalPaymentMethodKeyFromInput, PAYMENT_METHODS } from './paymentMethods.js';
 
 export const MAX_SALE_PAYMENTS = 3;
 
@@ -11,19 +11,8 @@ export const TROCO_FORM_OPTIONS = [
   { value: 'dinheiro', label: 'Dinheiro' },
 ];
 
-const FORMA_ALIASES = {
-  credito: 'cartao_credito',
-  debito: 'cartao_debito',
-  cartão_crédito: 'cartao_credito',
-  cartão_débito: 'cartao_debito',
-};
-
 export function normalizePaymentForma(raw) {
-  const k = String(raw || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_');
-  return FORMA_ALIASES[k] || k;
+  return canonicalPaymentMethodKeyFromInput(raw);
 }
 
 export function paymentFormLabel(forma) {

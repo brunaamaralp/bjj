@@ -3,6 +3,11 @@
  * + status derivados de calendário: soon | none
  */
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
+import {
+  canonicalPaymentMethodKey,
+  isCardPaymentMethod,
+  usesInstallmentCardFee,
+} from './paymentMethods.js';
 
 export const PAYMENT_DB_STATUSES = ['paid', 'pending', 'awaiting', 'partial', 'cancelled', 'covered', 'frozen'];
 
@@ -40,16 +45,17 @@ export const HISTORY_BADGE = {
 
 function cardFeePercent(financeConfig, method, installments) {
   const fees = financeConfig?.cardFees || {};
-  const m = String(method || '').toLowerCase();
-  if (m.includes('parcel') || m === 'credito_parcelado') {
+  const key = canonicalPaymentMethodKey(method);
+
+  if (usesInstallmentCardFee(key, installments)) {
     const n = Math.max(2, Math.min(12, Math.trunc(Number(installments) || 2)));
     const parcelado = fees.credito_parcelado || {};
     return Number(parcelado[String(n)] ?? parcelado[n] ?? 0) || 0;
   }
-  if (m === 'credito' || m === 'credito_avista' || m === 'cartao_credito') {
+  if (key === 'cartao_credito') {
     return Number(fees.credito_avista?.percent ?? 0) || 0;
   }
-  if (m === 'debito' || m === 'cartao_debito') {
+  if (key === 'cartao_debito') {
     return Number(fees.debito?.percent ?? 0) || 0;
   }
   return 0;
@@ -66,18 +72,10 @@ export function expectedAmountWithCardFee(student, financeConfig, method, instal
   const plan = (financeConfig?.plans || []).find((p) => String(p?.name || '').trim() === planName);
   if (!plan?.applyCardFee) return base;
 
-  const m = String(method || '').toLowerCase();
-  const isCard =
-    m === 'debito' ||
-    m === 'credito' ||
-    m === 'credito_avista' ||
-    m === 'credito_parcelado' ||
-    m.startsWith('cartao') ||
-    m.includes('credit') ||
-    m.includes('debit');
-  if (!isCard) return base;
+  const key = canonicalPaymentMethodKey(method);
+  if (!isCardPaymentMethod(key)) return base;
 
-  const pct = cardFeePercent(financeConfig, m, installments);
+  const pct = cardFeePercent(financeConfig, method, installments);
   if (!(pct > 0)) return base;
   return Math.round(base * (1 + pct / 100) * 100) / 100;
 }

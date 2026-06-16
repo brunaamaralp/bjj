@@ -105,7 +105,54 @@
 
 .bank-recon-pair--unmatched {
   background: var(--surface-hover);
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
+  cursor: pointer;
+}
+
+.bank-recon-pair--selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.bank-recon-pair__manual {
+  min-width: 0;
+}
+
+.bank-recon-orphan-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.bank-recon-navi-row--actionable {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.import-statement-table--editable .form-input--compact {
+  font-size: var(--font-sm);
+  padding: 4px 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.import-statement-row--low {
+  background: color-mix(in srgb, var(--finance-color-pending) 8%, transparent);
+}
+
+.import-statement-pdf-prompt {
+  padding: 12px;
+}
+
+@media (max-width: 640px) {
+  .bank-recon-pair--unmatched {
+    grid-template-columns: 1fr;
+  }
 }
 
 .bank-recon-pair__title {

@@ -154,6 +154,21 @@ export const KNOWN_DRE_GROUPS = [
   'Imposto s/ Lucro',
 ];
 
+/** Códigos de conta usados por categorias fixas — ocultos no select de lançamento. */
+export const CATEGORY_SELECT_HIDDEN_ACCOUNT_CODES = new Set(
+  Object.values(FINANCE_CATEGORIES)
+    .map((c) => String(c.dreAccount || '').trim())
+    .filter(Boolean)
+);
+
+function filterAccountsForCategorySelect(accounts) {
+  return (Array.isArray(accounts) ? accounts : []).filter((a) => {
+    if (a.isActive === false) return false;
+    const code = String(a.code || '').trim();
+    return code && !CATEGORY_SELECT_HIDDEN_ACCOUNT_CODES.has(code);
+  });
+}
+
 export function isKnownDreGroup(group) {
   const g = String(group || '').trim();
   return KNOWN_DRE_GROUPS.includes(g);
@@ -165,8 +180,48 @@ export function getCategoriesByGroup(group) {
 
 const EXPENSE_TYPES_MANUAL = new Set(['expense_operational', 'expense_financial', 'stock_purchase']);
 
+/** Ordem de exibição no select de saída (operacional antes de CMV). */
+export const EXPENSE_CATEGORY_GROUP_ORDER = [
+  'Despesas Operacionais',
+  'Resultado Financeiro',
+  'CMV/CPV',
+];
+
 export function getExpenseCategories() {
   return Object.values(FINANCE_CATEGORIES).filter((c) => EXPENSE_TYPES_MANUAL.has(c.type));
+}
+
+/** Chips e default ao trocar direção no modal de lançamento. */
+export const FREQUENT_TX_CATEGORY_LABELS = {
+  in: [
+    FINANCE_CATEGORIES.MENSALIDADE.label,
+    FINANCE_CATEGORIES.VENDA_PRODUTO.label,
+    FINANCE_CATEGORIES.OUTROS_RECEITA.label,
+  ],
+  out: [
+    FINANCE_CATEGORIES.OUTRAS_DESPESAS.label,
+    FINANCE_CATEGORIES.MARKETING.label,
+    FINANCE_CATEGORIES.SALARIOS.label,
+  ],
+};
+
+export function defaultCategoryForDirection(direction) {
+  return direction === 'out'
+    ? FINANCE_CATEGORIES.OUTRAS_DESPESAS
+    : FINANCE_CATEGORIES.MENSALIDADE;
+}
+
+function sortCategoryGroupMap(map, nature) {
+  if (nature !== 'out') return map;
+  const order = EXPENSE_CATEGORY_GROUP_ORDER;
+  const sorted = new Map();
+  for (const key of order) {
+    if (map.has(key)) sorted.set(key, map.get(key));
+  }
+  for (const [key, val] of map) {
+    if (!sorted.has(key)) sorted.set(key, val);
+  }
+  return sorted;
 }
 
 const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'other']);
@@ -183,8 +238,14 @@ export function getCategoryOptionsByNature(nature, accounts = null) {
     if (!map.has(c.dreGroup)) map.set(c.dreGroup, []);
     map.get(c.dreGroup).push(c);
   }
-  if (!accounts?.length) return map;
-  return mergeCategoryOptionGroups(map, getAccountCategoryOptionsByNature(accounts, nature));
+  let merged = map;
+  if (accounts?.length) {
+    const filtered = filterAccountsForCategorySelect(accounts);
+    if (filtered.length) {
+      merged = mergeCategoryOptionGroups(map, getAccountCategoryOptionsByNature(filtered, nature));
+    }
+  }
+  return sortCategoryGroupMap(merged, nature);
 }
 
 export function findCategoryKey(entry) {

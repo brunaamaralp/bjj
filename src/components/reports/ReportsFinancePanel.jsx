@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
-import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
+import { EMPRESA_FINANCE_CONFIG_PATH, EMPRESA_FINANCE_RAZAO_PATH } from '../../lib/financeiroHubTabs.js';
 
 import { Wallet2, Lock, TrendingDown, Scale, Clock } from 'lucide-react';
 
@@ -382,9 +382,9 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery, kpiGoals =
 
         <p className="mb-0">
 
-          <Link to={periodQuery ? `/financeiro?tab=extrato${periodQuery}` : '/financeiro?tab=extrato'} className="reports-inline-link">
+          <Link to={EMPRESA_FINANCE_RAZAO_PATH} className="reports-inline-link">
 
-            Ver DRE e fluxo de caixa →
+            Abrir razão contábil →
 
           </Link>
 

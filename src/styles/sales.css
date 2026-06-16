@@ -363,6 +363,25 @@
   margin-top: 0;
 }
 
+.sales-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  width: 100%;
+}
+
+.sales-modal-footer__hint {
+  margin: 0;
+  font-size: var(--font-sm, 13px);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.sales-modal-footer__hint--error {
+  color: var(--danger);
+}
+
 .nova-venda-modal__footer,
 .student-payment-modal__footer {
   display: flex;
@@ -604,7 +623,8 @@
   font: inherit;
 }
 
-.sales-suggestion:hover {
+.sales-suggestion:hover,
+.sales-suggestion--active {
   background: var(--surface-hover);
 }
 

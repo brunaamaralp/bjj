@@ -6,12 +6,16 @@ import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../../lib/finance
 export default function FinanceSettingsCollectionSection({
   collectionRules,
   onRulesChange,
+  overdueLabel,
+  onOverdueLabelChange,
 }) {
   return (
     <div className="finance-settings-section-body finance-settings-section-body--flush">
       <CollectionRulesSection
         collectionRules={collectionRules}
         onRulesChange={onRulesChange}
+        overdueLabel={overdueLabel}
+        onOverdueLabelChange={onOverdueLabelChange}
         embedded
       />
       <Link

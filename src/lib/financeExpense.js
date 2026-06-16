@@ -1,31 +1,24 @@
-
-function normalizeExpenseMethod(m) {
-  const raw = String(m || '').trim().toLowerCase();
-  if (!raw) return 'dinheiro';
-  const map = {
-    pix: 'pix',
-    dinheiro: 'dinheiro',
-    'cartão débito': 'cartão_débito',
-    'cartao débito': 'cartão_débito',
-    'cartão debito': 'cartão_débito',
-    'cartão crédito': 'cartão_crédito',
-    'cartao crédito': 'cartão_crédito',
-    transferência: 'transferência',
-    transferencia: 'transferência'
-  };
-  if (map[raw]) return map[raw];
-  if (['cartão_débito', 'cartão_crédito', 'transferência', 'dinheiro', 'pix'].includes(raw)) return raw;
-  return 'dinheiro';
-}
-
 import { createFinanceTx } from './financeTxApi.js';
 import { applyAccountingSideEffectsAuto } from './financeJournal.js';
 import { competenceMonthFromIso, currentCompetenceMonth } from './financeCompetence.js';
+import {
+  canonicalPaymentMethodKey,
+  isKnownStorageDialectMethod,
+  toStorageDialectMethod,
+} from './paymentMethods.js';
 import {
   FINANCE_CATEGORIES,
   normalizeFinanceCategory,
   resolveFinanceCategory,
 } from './financeCategories.js';
+
+function normalizeExpenseMethod(m) {
+  const key = canonicalPaymentMethodKey(m);
+  if (!key) return 'dinheiro';
+  const dialect = toStorageDialectMethod(m);
+  if (isKnownStorageDialectMethod(dialect)) return dialect;
+  return 'dinheiro';
+}
 
 /**
  * Registra despesa (saída) via API — valor positivo na UI, direction out, já liquidado.

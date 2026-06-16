@@ -1,13 +1,13 @@
 /**
- * Parser client-side de extrato bancário (OFX / CSV).
+ * Parser client-side de extrato bancário (OFX / CSV / Excel).
  */
 import Papa from 'papaparse';
 
-function roundMoney(n) {
+export function roundMoney(n) {
   return Math.round(Math.abs(Number(n) || 0) * 100) / 100;
 }
 
-function parseYmdFromUnknown(raw) {
+export function parseYmdFromUnknown(raw) {
   const s = String(raw || '').trim();
   if (!s) return null;
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -25,7 +25,7 @@ function parseYmdFromUnknown(raw) {
   return null;
 }
 
-function parseAmountBr(raw) {
+export function parseAmountBr(raw) {
   const s = String(raw || '').trim();
   if (!s) return NaN;
   const neg = s.includes('-') || /^\(.*\)$/.test(s);
@@ -34,7 +34,7 @@ function parseAmountBr(raw) {
   return neg ? -Math.abs(n) : n;
 }
 
-function normalizeRow(date, description, amountRaw) {
+export function normalizeRow(date, description, amountRaw) {
   const dateYmd = parseYmdFromUnknown(date);
   const amt = parseAmountBr(amountRaw);
   if (!dateYmd || !Number.isFinite(amt) || Math.abs(amt) < 0.01) return null;
@@ -47,17 +47,26 @@ function normalizeRow(date, description, amountRaw) {
   };
 }
 
-const DATE_KEYS = ['data', 'date', 'dt', 'data_movimento', 'data lancamento', 'data lançamento'];
-const DESC_KEYS = ['descricao', 'descrição', 'description', 'historico', 'histórico', 'memo', 'lancamento'];
-const AMOUNT_KEYS = ['valor', 'amount', 'value', 'quantia', 'credito', 'crédito', 'debito', 'débito'];
+export const DATE_KEYS = ['data', 'date', 'dt', 'data_movimento', 'data lancamento', 'data lançamento', 'data movimento'];
+export const DESC_KEYS = ['descricao', 'descrição', 'description', 'historico', 'histórico', 'memo', 'lancamento', 'detalhe', 'titulo', 'título'];
+export const AMOUNT_KEYS = ['valor', 'amount', 'value', 'quantia', 'credito', 'crédito', 'debito', 'débito', 'lancamento valor'];
 
-function pickColumn(headers, candidates) {
+export function pickColumn(headers, candidates) {
   const norm = headers.map((h) => String(h || '').trim().toLowerCase());
   for (const c of candidates) {
     const idx = norm.findIndex((h) => h === c || h.includes(c));
     if (idx >= 0) return headers[idx];
   }
   return null;
+}
+
+export function parseRowsToBankItems(rows, dateCol, descCol, amountCol) {
+  const items = [];
+  for (const row of rows || []) {
+    const item = normalizeRow(row[dateCol], row[descCol], row[amountCol]);
+    if (item) items.push(item);
+  }
+  return items;
 }
 
 export function parseCsvBankStatement(text) {
@@ -76,12 +85,13 @@ export function parseCsvBankStatement(text) {
   const descCol = pickColumn(headers, DESC_KEYS) || headers[1];
   const amountCol = pickColumn(headers, AMOUNT_KEYS) || headers[2];
 
-  const items = [];
-  for (const row of rows) {
-    const item = normalizeRow(row[dateCol], row[descCol], row[amountCol]);
-    if (item) items.push(item);
-  }
-  return { items, mapping: { dateCol, descCol, amountCol, separator: sep } };
+  const items = parseRowsToBankItems(rows, dateCol, descCol, amountCol);
+  return {
+    items,
+    mapping: { dateCol, descCol, amountCol, separator: sep },
+    headers,
+    rows: rows.slice(0, 200),
+  };
 }
 
 export function parseOfxBankStatement(text) {
@@ -141,7 +151,45 @@ export function summarizeParsedItems(items) {
 export function detectAndParseBankFile(fileName, text) {
   const lower = String(fileName || '').toLowerCase();
   if (lower.endsWith('.ofx') || lower.endsWith('.qfx') || text.includes('<OFX>') || text.includes('<ofx>')) {
-    return { format: 'ofx', ...parseOfxBankStatement(text) };
+    return { format: 'ofx', parse_method: 'deterministic', ...parseOfxBankStatement(text) };
   }
-  return { format: 'csv', ...parseCsvBankStatement(text) };
+  return { format: 'csv', parse_method: 'deterministic', ...parseCsvBankStatement(text) };
+}
+
+export function createEditableItem(overrides = {}) {
+  return {
+    _key: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    date: overrides.date || '',
+    description: overrides.description || '',
+    amount: overrides.amount ?? 0,
+    direction: overrides.direction === 'debit' ? 'debit' : 'credit',
+    low_confidence: Boolean(overrides.low_confidence),
+  };
+}
+
+export function toImportItems(editableItems) {
+  return (editableItems || [])
+    .map((it) => {
+      const amount = roundMoney(it.amount);
+      if (!it.date || amount < 0.01) return null;
+      return {
+        date: String(it.date).slice(0, 10),
+        description: String(it.description || 'Movimentação').trim().slice(0, 512) || 'Movimentação',
+        amount,
+        direction: it.direction === 'debit' ? 'debit' : 'credit',
+      };
+    })
+    .filter(Boolean);
+}
+
+export function itemsToEditable(items) {
+  return (items || []).map((it) =>
+    createEditableItem({
+      date: it.date,
+      description: it.description,
+      amount: it.amount,
+      direction: it.direction,
+      low_confidence: it.low_confidence,
+    })
+  );
 }

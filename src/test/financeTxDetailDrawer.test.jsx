@@ -25,14 +25,21 @@ const baseTx = {
   settledAt: '2026-06-15T12:00:00.000Z',
 };
 
+const chartAccounts = [
+  { id: 'acc-caixa', code: '1.1.1', name: 'Caixa', type: 'ativo', nature: 'devedora' },
+  { id: 'acc-receita', code: '4.1.1', name: 'Receita de Vendas', type: 'receita', nature: 'credora' },
+];
+
 function renderDrawer(props = {}) {
   const onClose = vi.fn();
   render(
     <MemoryRouter>
       <FinanceTxDetailDrawer
         tx={baseTx}
+        academyId="acad-1"
+        journalEntries={[]}
         leadNameById={new Map()}
-        chartAccounts={[]}
+        chartAccounts={chartAccounts}
         canManageAdvanced
         canAssignBankOnTx={() => false}
         rowBusy={false}
@@ -80,10 +87,12 @@ describe('FinanceTxDetailDrawer', () => {
 
   it('shows orphan fallback without link when lead missing', () => {
     renderDrawer({
-      tx: { ...baseTx, lead_id: 'orphan', lead_name: '' },
+      tx: { ...baseTx, lead_id: '', lead_name: '' },
     });
-    expect(screen.getByText('Aluno não encontrado')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Aluno não encontrado' })).not.toBeInTheDocument();
+    const alunoLabel = screen.getByText('Aluno');
+    const alunoField = alunoLabel.closest('.task-drawer-field');
+    expect(alunoField).toHaveTextContent('—');
+    expect(alunoField?.querySelector('button')).toBeNull();
   });
 
   it('calls onClose via close button and Escape', async () => {
@@ -95,5 +104,52 @@ describe('FinanceTxDetailDrawer', () => {
     onClose.mockClear();
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows espelho contábil for settled tx with posted journal', () => {
+    const journalEntries = [
+      {
+        financial_tx_id: 'tx-1',
+        memo: 'Liquidação',
+        lines: [
+          { accountId: 'acc-caixa', debit: 350, credit: 0 },
+          { accountId: 'acc-receita', debit: 0, credit: 350 },
+        ],
+      },
+    ];
+    renderDrawer({ journalEntries });
+    expect(screen.getByRole('heading', { name: /Espelho contábil/i })).toBeInTheDocument();
+    expect(screen.getByText('Gravado')).toBeInTheDocument();
+    expect(screen.getByText('1.1.1')).toBeInTheDocument();
+    expect(screen.getByText('Caixa')).toBeInTheDocument();
+    expect(screen.getByText('Receita de Vendas')).toBeInTheDocument();
+    expect(screen.getByLabelText('Débito')).toBeInTheDocument();
+    expect(screen.getByLabelText('Crédito')).toBeInTheDocument();
+    const razaoLink = screen.getByRole('link', { name: /Ver razão/i });
+    expect(razaoLink).toBeInTheDocument();
+    expect(razaoLink.getAttribute('href')).toContain('from=tx');
+    expect(razaoLink.getAttribute('href')).toContain('txId=tx-1');
+  });
+
+  it('shows Previsto badge when settled without journal entry', () => {
+    renderDrawer({
+      tx: { ...baseTx, id: 'tx-prev', status: 'settled' },
+      journalEntries: [],
+    });
+    expect(screen.getByText('Previsto')).toBeInTheDocument();
+    expect(screen.getByText(/Ainda não gravado no razão/i)).toBeInTheDocument();
+  });
+
+  it('hides espelho contábil for member without advanced access', () => {
+    renderDrawer({ canManageAdvanced: false, chartAccounts });
+    expect(screen.queryByRole('heading', { name: /Espelho contábil/i })).not.toBeInTheDocument();
+  });
+
+  it('shows pending message for unsettled tx', () => {
+    renderDrawer({
+      tx: { ...baseTx, id: 'tx-p', status: 'pending' },
+      journalEntries: [],
+    });
+    expect(screen.getByText(/Será contabilizado ao liquidar/i)).toBeInTheDocument();
   });
 });

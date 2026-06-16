@@ -18,6 +18,8 @@ export default function NovaVendaModal({ open, onClose }) {
     canSubmit: false,
     busy: false,
     label: 'Concluir venda',
+    footerHint: null,
+    footerError: null,
   });
 
   const handleSaleComplete = useCallback(() => {
@@ -54,18 +56,28 @@ export default function NovaVendaModal({ open, onClose }) {
         dialogClassName="sales-modal card nova-venda-modal"
         ariaLabelledBy="nova-venda-modal-title"
         footer={
-          <div className="nova-venda-modal__footer">
-            <button type="button" className="btn-outline" onClick={requestClose} disabled={creating}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form={NOVA_VENDA_FORM_ID}
-              className="btn-primary"
-              disabled={creating || !submitState.canSubmit}
-            >
-              {submitState.label}
-            </button>
+          <div className="sales-modal-footer">
+            {submitState.footerError || submitState.footerHint ? (
+              <p
+                className={`sales-modal-footer__hint${submitState.footerError ? ' sales-modal-footer__hint--error' : ''}`}
+                role={submitState.footerError ? 'alert' : 'status'}
+              >
+                {submitState.footerError || submitState.footerHint}
+              </p>
+            ) : null}
+            <div className="nova-venda-modal__footer">
+              <button type="button" className="btn-outline" onClick={requestClose} disabled={creating}>
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form={NOVA_VENDA_FORM_ID}
+                className="btn-primary"
+                disabled={creating || !submitState.canSubmit}
+              >
+                {submitState.label}
+              </button>
+            </div>
           </div>
         }
       >

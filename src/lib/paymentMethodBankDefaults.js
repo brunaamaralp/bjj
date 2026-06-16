@@ -1,27 +1,9 @@
-import { PAYMENT_METHODS } from './paymentMethods.js';
+import { PAYMENT_METHODS, canonicalPaymentMethodKey } from './paymentMethods.js';
 import {
   listBankAccountLabels,
   resolveDefaultBankAccountLabel,
   resolveBankAccountForPayment,
 } from './bankAccounts.js';
-
-const METHOD_ALIASES = {
-  'cartão_crédito': 'cartao_credito',
-  credito: 'cartao_credito',
-  credit: 'cartao_credito',
-  'cartão_débito': 'cartao_debito',
-  debito: 'cartao_debito',
-  debit: 'cartao_debito',
-  transferência: 'transferencia',
-  cash: 'dinheiro',
-};
-
-function canonicalPaymentMethodKey(method) {
-  const key = String(method || '').trim().toLowerCase();
-  if (!key) return '';
-  if (PAYMENT_METHODS.some((m) => m.value === key)) return key;
-  return METHOD_ALIASES[key] || key;
-}
 
 /** @param {object|null|undefined} financeConfig */
 export function readDefaultAccountByMethod(financeConfig) {

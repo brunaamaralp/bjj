@@ -1,5 +1,6 @@
 import { filterBankAccountsWithBank } from './bankAccounts.js';
 import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
+import { parseOverdueLabel } from './collectionRules.js';
 
 /** Slugs em ?tab=financeiro&section= */
 export const FINANCE_SETTINGS_SECTIONS = {
@@ -10,6 +11,7 @@ export const FINANCE_SETTINGS_SECTIONS = {
   WHATSAPP: 'lembretes-whatsapp',
   EXCECOES: 'excecoes',
   PLANO_CONTAS: 'plano-contas',
+  RAZAO: 'razao-contabil',
   CONTRATOS: 'contratos',
 };
 
@@ -79,7 +81,13 @@ export const FINANCE_SETTINGS_GROUPS = [
       {
         id: FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS,
         label: 'Plano de contas',
-        hint: 'Estrutura contábil e categorias',
+        hint: 'Subcontas de receita/despesa aparecem no lançamento; categorias fixas alimentam automações e DRE',
+        ownerOnly: true,
+      },
+      {
+        id: FINANCE_SETTINGS_SECTIONS.RAZAO,
+        label: 'Razão contábil',
+        hint: 'Partidas dobradas manuais e histórico por conta',
         ownerOnly: true,
       },
     ],
@@ -127,6 +135,9 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
         : `${banks.length} contas`;
 
   const rulesCount = Array.isArray(collectionRules) ? collectionRules.length : 0;
+  const overdue = parseOverdueLabel(financeConfig?.overdueLabel ?? financeConfig?.overdue_label);
+  const rulesPart =
+    rulesCount > 0 ? `${rulesCount} etapa${rulesCount === 1 ? '' : 's'}` : 'Padrão';
   const wa = normalizeWhatsappRemindersConfig(financeConfig?.whatsappReminders);
   const waParts = [];
   if (wa.dueSoon.enabled) waParts.push(`antes (${wa.dueSoon.daysBefore}d)`);
@@ -147,7 +158,7 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     },
     [FINANCE_SETTINGS_SECTIONS.REGUA]: {
       done: rulesCount > 0,
-      summary: rulesCount > 0 ? `${rulesCount} etapa${rulesCount === 1 ? '' : 's'}` : 'Padrão',
+      summary: `${rulesPart} · ${overdue}`,
     },
     [FINANCE_SETTINGS_SECTIONS.WHATSAPP]: {
       done: wa.dueSoon.enabled || wa.overdue.enabled,
@@ -160,6 +171,11 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS]: {
       done: (accountsCount || 0) > 0,
       summary: accountsCount > 0 ? `${accountsCount} conta${accountsCount === 1 ? '' : 's'}` : 'Não configurado',
+      hidden: !isOwner,
+    },
+    [FINANCE_SETTINGS_SECTIONS.RAZAO]: {
+      done: (accountsCount || 0) > 0,
+      summary: 'Partidas dobradas e histórico',
       hidden: !isOwner,
     },
     [FINANCE_SETTINGS_SECTIONS.CONTRATOS]: {

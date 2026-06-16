@@ -21,7 +21,17 @@ import {
   X,
 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import FieldError from '../shared/FieldError.jsx';
 import { accountCodeDepth } from '../../lib/financeAccountCategories.js';
+import { FINANCE_DRE_GROUP_OPTIONS } from '../../lib/financeDreGroups.js';
+import {
+  validateAccountForm,
+  inheritFromParentAccount,
+  suggestFieldsForType,
+  requiresDreGroup,
+  accountHasChildAccounts,
+  formatDeleteAccountDescription,
+} from '../../lib/financeAccountFormRules.js';
 import {
   DropdownMenuBackdrop,
   DropdownMenuPanel,
@@ -43,11 +53,21 @@ const EMPTY_FORM = {
 const ACCOUNT_TYPE_LABELS = {
   ativo: 'Ativo',
   passivo: 'Passivo',
-  pl: 'PL',
+  pl: 'Patrimônio Líquido',
   receita: 'Receita',
   custo: 'Custo',
   despesa: 'Despesa',
 };
+
+const ACCOUNT_TYPE_FILTER_OPTIONS = [
+  { value: '', label: 'Todos os tipos' },
+  { value: 'receita', label: 'Receita' },
+  { value: 'despesa', label: 'Despesa' },
+  { value: 'custo', label: 'Custo' },
+  { value: 'ativo', label: 'Ativo' },
+  { value: 'passivo', label: 'Passivo' },
+  { value: 'pl', label: 'Patrimônio Líquido' },
+];
 
 function mapDoc(d) {
   return {
@@ -89,12 +109,12 @@ function formatCreatedAt(iso) {
   }
 }
 
-function AccountTypeSelect({ value, onChange, className = 'form-input' }) {
+function AccountTypeSelect({ value, onChange, className = 'form-input', id }) {
   return (
-    <select className={className} value={value} onChange={onChange}>
+    <select id={id} className={className} value={value} onChange={onChange}>
       <option value="ativo">Ativo</option>
       <option value="passivo">Passivo</option>
-      <option value="pl">PL</option>
+      <option value="pl">Patrimônio Líquido</option>
       <option value="receita">Receita</option>
       <option value="custo">Custo</option>
       <option value="despesa">Despesa</option>
@@ -102,9 +122,9 @@ function AccountTypeSelect({ value, onChange, className = 'form-input' }) {
   );
 }
 
-function AccountNatureSelect({ value, onChange, className = 'form-input' }) {
+function AccountNatureSelect({ value, onChange, className = 'form-input', id }) {
   return (
-    <select className={className} value={value} onChange={onChange}>
+    <select id={id} className={className} value={value} onChange={onChange}>
       <option value="devedora">Devedora</option>
       <option value="credora">Credora</option>
     </select>
@@ -160,19 +180,58 @@ function AccountsActionMenu({ menu, onClose, onEdit, onAddSubconta, onDelete }) 
   );
 }
 
+function AccountDreSelect({ value, onChange, required, className = 'form-input', id, describedBy, invalid }) {
+  return (
+    <select
+      id={id}
+      className={className}
+      value={value}
+      required={required}
+      aria-invalid={invalid ? 'true' : undefined}
+      aria-describedby={describedBy}
+      onChange={onChange}
+    >
+      <option value="">—</option>
+      {FINANCE_DRE_GROUP_OPTIONS.map((g) => (
+        <option key={g} value={g}>
+          {g}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function AccountsAccountDrawer({
   open,
   mode,
   account,
+  parentAccount,
   usageCount,
   initialForm,
   saving,
+  formErrors,
   onClose,
   onSave,
   onDelete,
+  onFormChange,
+  onClearError,
 }) {
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...initialForm }));
-  const [accountingOpen, setAccountingOpen] = useState(true);
+  const [accountingOpen, setAccountingOpen] = useState(mode !== 'create');
+
+  useEffect(() => {
+    setForm({ ...EMPTY_FORM, ...initialForm });
+    setAccountingOpen(mode !== 'create');
+  }, [initialForm, mode]);
+
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -183,10 +242,30 @@ function AccountsAccountDrawer({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const patchForm = (patch) => {
+    setForm((p) => {
+      const next = { ...p, ...patch };
+      onFormChange?.(next);
+      return next;
+    });
+  };
+
+  const handleTypeChange = (type) => {
+    const suggested = suggestFieldsForType(type);
+    patchForm({ type, nature: suggested.nature, dreGrupo: suggested.dreGrupo });
+    onClearError?.('dreGrupo');
+  };
+
   if (!open) return null;
 
   const protectedRow = isProtectedAccountCode(form.code);
-  const title = mode === 'create' ? 'Nova conta' : 'Editar conta';
+  const title =
+    mode === 'create' && parentAccount
+      ? `Nova subconta de ${parentAccount.code}`
+      : mode === 'create'
+        ? 'Nova conta'
+        : 'Editar conta';
+  const showDreRequired = requiresDreGroup(form.type);
 
   return createPortal(
     <div className="accounts-side-drawer-backdrop" role="presentation" onClick={onClose}>
@@ -204,6 +283,8 @@ function AccountsAccountDrawer({
             </h2>
             {mode === 'edit' && form.code ? (
               <p className="accounts-side-drawer-subtitle">{form.code}</p>
+            ) : parentAccount ? (
+              <p className="accounts-side-drawer-subtitle">{parentAccount.name}</p>
             ) : null}
           </div>
           <button type="button" className="accounts-side-drawer-close" aria-label="Fechar" onClick={onClose}>
@@ -211,7 +292,13 @@ function AccountsAccountDrawer({
           </button>
         </header>
 
-        <div className="accounts-side-drawer-body">
+        <form
+          className="accounts-side-drawer-body"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSave(form);
+          }}
+        >
           <section className="accounts-drawer-section">
             <h3 className="accounts-drawer-section-title">Essencial</h3>
             <div className="form-group">
@@ -220,8 +307,15 @@ function AccountsAccountDrawer({
                 id="acc-drawer-code"
                 className="form-input"
                 value={form.code}
-                onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
+                autoFocus={mode === 'create'}
+                aria-invalid={formErrors?.code ? 'true' : undefined}
+                aria-describedby={formErrors?.code ? 'acc-drawer-code-error' : undefined}
+                onChange={(e) => {
+                  patchForm({ code: e.target.value });
+                  onClearError?.('code');
+                }}
               />
+              <FieldError id="acc-drawer-code-error">{formErrors?.code}</FieldError>
               {protectedRow ? (
                 <p className="accounts-protected-hint" role="status">
                   <Lock size={12} aria-hidden className="accounts-lock-icon" />
@@ -235,21 +329,29 @@ function AccountsAccountDrawer({
                 id="acc-drawer-name"
                 className="form-input"
                 value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                aria-invalid={formErrors?.name ? 'true' : undefined}
+                aria-describedby={formErrors?.name ? 'acc-drawer-name-error' : undefined}
+                onChange={(e) => {
+                  patchForm({ name: e.target.value });
+                  onClearError?.('name');
+                }}
               />
+              <FieldError id="acc-drawer-name-error">{formErrors?.name}</FieldError>
             </div>
             <div className="form-group">
               <label htmlFor="acc-drawer-type">Tipo</label>
               <AccountTypeSelect
+                id="acc-drawer-type"
                 value={form.type}
-                onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
+                onChange={(e) => handleTypeChange(e.target.value)}
               />
             </div>
             <div className="form-group">
               <label htmlFor="acc-drawer-nature">Natureza</label>
               <AccountNatureSelect
+                id="acc-drawer-nature"
                 value={form.nature}
-                onChange={(e) => setForm((p) => ({ ...p, nature: e.target.value }))}
+                onChange={(e) => patchForm({ nature: e.target.value })}
               />
             </div>
           </section>
@@ -267,20 +369,27 @@ function AccountsAccountDrawer({
             {accountingOpen ? (
               <div className="accounts-drawer-collapse-body">
                 <div className="form-group">
-                  <label htmlFor="acc-drawer-dre">Grupo DRE</label>
-                  <input
+                  <label htmlFor="acc-drawer-dre">
+                    Grupo DRE{showDreRequired ? ' *' : ''}
+                  </label>
+                  <AccountDreSelect
                     id="acc-drawer-dre"
-                    className="form-input"
                     value={form.dreGrupo}
-                    onChange={(e) => setForm((p) => ({ ...p, dreGrupo: e.target.value }))}
-                    placeholder="Receita Bruta, Deduções…"
+                    required={showDreRequired}
+                    invalid={Boolean(formErrors?.dreGrupo)}
+                    describedBy={formErrors?.dreGrupo ? 'acc-drawer-dre-error' : undefined}
+                    onChange={(e) => {
+                      patchForm({ dreGrupo: e.target.value });
+                      onClearError?.('dreGrupo');
+                    }}
                   />
+                  <FieldError id="acc-drawer-dre-error">{formErrors?.dreGrupo}</FieldError>
                 </div>
                 <div className="form-group">
                   <label htmlFor="acc-drawer-dfc">Classe DFC</label>
                   <AccountDfcSelect
                     value={form.dfcClasse}
-                    onChange={(e) => setForm((p) => ({ ...p, dfcClasse: e.target.value }))}
+                    onChange={(e) => patchForm({ dfcClasse: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
@@ -289,7 +398,7 @@ function AccountsAccountDrawer({
                     id="acc-drawer-dfc-sub"
                     className="form-input"
                     value={form.dfcSubclasse}
-                    onChange={(e) => setForm((p) => ({ ...p, dfcSubclasse: e.target.value }))}
+                    onChange={(e) => patchForm({ dfcSubclasse: e.target.value })}
                     placeholder="clientes, fornecedores…"
                   />
                 </div>
@@ -297,10 +406,13 @@ function AccountsAccountDrawer({
                   <input
                     type="checkbox"
                     checked={form.cash}
-                    onChange={(e) => setForm((p) => ({ ...p, cash: e.target.checked }))}
+                    onChange={(e) => patchForm({ cash: e.target.checked })}
                   />
                   Afeta caixa
                 </label>
+                <p className="text-small text-muted accounts-drawer-hint">
+                  Marque para contas que movimentam o fluxo de caixa direto (ex.: caixa bancário).
+                </p>
               </div>
             ) : null}
           </section>
@@ -320,7 +432,7 @@ function AccountsAccountDrawer({
                       <input
                         type="checkbox"
                         checked={form.isActive}
-                        onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
+                        onChange={(e) => patchForm({ isActive: e.target.checked })}
                       />
                       {form.isActive ? 'Ativa' : 'Inativa'}
                     </label>
@@ -333,7 +445,7 @@ function AccountsAccountDrawer({
               </dl>
             </section>
           ) : null}
-        </div>
+        </form>
 
         <footer className="accounts-side-drawer-footer">
           {mode === 'edit' && account ? (
@@ -379,10 +491,15 @@ export default function AccountsTab({
   const storageWarning = Boolean(academyId) && !ACCOUNTS_COL;
 
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [menu, setMenu] = useState(null);
   const [drawer, setDrawer] = useState(null);
   const [drawerSaving, setDrawerSaving] = useState(false);
+  const [drawerFormErrors, setDrawerFormErrors] = useState({});
+  const [drawerDirty, setDrawerDirty] = useState(false);
+  const [showDiscardDrawer, setShowDiscardDrawer] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(null);
+  const [deleteDescription, setDeleteDescription] = useState('');
 
   const accountUsageByCode = useMemo(() => {
     if (!journal?.length) return {};
@@ -391,18 +508,28 @@ export default function AccountsTab({
 
   const filteredAccounts = useMemo(() => {
     const q = String(search || '').trim().toLowerCase();
+    const tf = String(typeFilter || '').trim();
     const list = Array.isArray(accounts) ? [...accounts] : [];
     list.sort((a, b) => (a.code || '').localeCompare(b.code || '', 'pt-BR'));
-    if (!q) return list;
     return list.filter((a) => {
+      if (tf && String(a.type || '') !== tf) return false;
+      if (!q) return true;
       const code = String(a.code || '').toLowerCase();
       const name = String(a.name || '').toLowerCase();
       return code.includes(q) || name.includes(q);
     });
-  }, [accounts, search]);
+  }, [accounts, search, typeFilter]);
 
   const drawerInitialForm = useMemo(() => {
     if (!drawer || drawer.mode === 'create') {
+      if (drawer?.parentAccount) {
+        return {
+          ...EMPTY_FORM,
+          ...inheritFromParentAccount(drawer.parentAccount),
+          code: drawer.initialCode || '',
+          name: '',
+        };
+      }
       return drawer?.initialCode
         ? { ...EMPTY_FORM, code: drawer.initialCode, name: '' }
         : { ...EMPTY_FORM };
@@ -511,18 +638,33 @@ export default function AccountsTab({
   }, []);
 
   const openNewAccountDrawer = useCallback(() => {
-    setDrawer({ mode: 'create', account: null, initialCode: '' });
+    setDrawerFormErrors({});
+    setDrawerDirty(false);
+    setDrawer({ mode: 'create', account: null, parentAccount: null, initialCode: '' });
   }, []);
 
   const openEditDrawer = useCallback((acc) => {
-    setDrawer({ mode: 'edit', account: acc, initialCode: '' });
+    setDrawerFormErrors({});
+    setDrawerDirty(false);
+    setDrawer({ mode: 'edit', account: acc, parentAccount: null, initialCode: '' });
     setMenu(null);
   }, []);
+
+  const requestCloseDrawer = useCallback(() => {
+    if (drawerDirty) {
+      setShowDiscardDrawer(true);
+      return;
+    }
+    setDrawer(null);
+    setDrawerFormErrors({});
+  }, [drawerDirty]);
 
   const handleAddSubconta = useCallback((parent) => {
     const base = String(parent.code || '').trim();
     const prefix = base ? (base.endsWith('.') ? base : `${base}.`) : '';
-    setDrawer({ mode: 'create', account: null, initialCode: prefix });
+    setDrawerFormErrors({});
+    setDrawerDirty(false);
+    setDrawer({ mode: 'create', account: null, parentAccount: parent, initialCode: prefix });
     setMenu(null);
   }, []);
 
@@ -530,6 +672,13 @@ export default function AccountsTab({
     async (acc) => {
       if (!acc || isProtectedAccountCode(acc.code)) {
         addToast({ type: 'error', message: PROTECTED_CODE_DELETE_MESSAGE });
+        return;
+      }
+      if (accountHasChildAccounts(acc.code, accounts)) {
+        addToast({
+          type: 'error',
+          message: 'Remova ou reatribua as subcontas antes de excluir esta conta.',
+        });
         return;
       }
       const id = acc.id;
@@ -547,7 +696,7 @@ export default function AccountsTab({
       deleteAccount(id);
       addToast({ type: 'success', message: 'Conta excluída.' });
     },
-    [academyId, deleteAccount, addToast, drawer?.account?.id]
+    [academyId, deleteAccount, addToast, drawer?.account?.id, accounts]
   );
 
   const requestDeleteAccount = useCallback(
@@ -556,19 +705,39 @@ export default function AccountsTab({
         void handleDeleteAccount(acc);
         return;
       }
+      if (accountHasChildAccounts(acc.code, accounts)) {
+        addToast({
+          type: 'error',
+          message: 'Remova ou reatribua as subcontas antes de excluir esta conta.',
+        });
+        return;
+      }
       setMenu(null);
+      const usage = accountUsageByCode[acc.code] || 0;
+      setDeleteDescription(
+        formatDeleteAccountDescription(acc, {
+          usageCount: usage,
+          hasChildren: false,
+        })
+      );
       setConfirmDeleteAccount(acc);
     },
-    [handleDeleteAccount]
+    [handleDeleteAccount, accounts, accountUsageByCode, addToast]
   );
 
   const handleSaveDrawer = useCallback(
     async (form) => {
-      if (!String(form.code || '').trim() || !String(form.name || '').trim()) {
-        addToast({ type: 'error', message: 'Informe código e nome da conta.' });
+      if (!academyId) return;
+
+      const { errors } = validateAccountForm(form, accounts, {
+        mode: drawer?.mode || 'create',
+        excludeId: drawer?.account?.id,
+      });
+      if (Object.keys(errors).length > 0) {
+        setDrawerFormErrors(errors);
         return;
       }
-      if (!academyId) return;
+      setDrawerFormErrors({});
 
       setDrawerSaving(true);
       const payload = accountToPayload(academyId, form);
@@ -622,13 +791,14 @@ export default function AccountsTab({
           addToast({ type: 'success', message: 'Conta atualizada.' });
         }
         setDrawer(null);
+        setDrawerDirty(false);
       } catch {
         addToast({ type: 'error', message: 'Não foi possível salvar a conta.' });
       } finally {
         setDrawerSaving(false);
       }
     },
-    [academyId, drawer, addAccount, updateAccount, setAccounts, addToast]
+    [academyId, drawer, accounts, addAccount, updateAccount, setAccounts, addToast]
   );
 
   const renderTypeBadge = (type) => (
@@ -644,6 +814,8 @@ export default function AccountsTab({
           <tr>
             <th className="accounts-th-conta">Conta</th>
             <th className="accounts-th-tipo">Tipo</th>
+            <th className="accounts-th-dre">Grupo DRE</th>
+            <th className="accounts-th-ativa">Ativa</th>
             <th className="accounts-th-acoes" aria-label="Ações" />
           </tr>
         </thead>
@@ -678,6 +850,8 @@ export default function AccountsTab({
                   </div>
                 </td>
                 <td className="accounts-cell-tipo">{renderTypeBadge(acc.type)}</td>
+                <td className="accounts-cell-dre text-small">{acc.dreGrupo || '—'}</td>
+                <td className="accounts-cell-ativa text-small">{inactive ? 'Não' : 'Sim'}</td>
                 <td className="accounts-cell-acoes">
                   <button
                     type="button"
@@ -760,6 +934,18 @@ export default function AccountsTab({
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Buscar conta"
           />
+          <select
+            className="form-input accounts-type-filter"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            aria-label="Filtrar por tipo"
+          >
+            {ACCOUNT_TYPE_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value || 'all'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           {headingActions}
           <button type="button" className="btn-primary accounts-new-btn" onClick={openNewAccountDrawer}>
             <PlusCircle size={18} aria-hidden />
@@ -772,6 +958,14 @@ export default function AccountsTab({
         <div className="accounts-storage-warning" role="status">
           Plano de contas não está sendo salvo no servidor. Configure ACCOUNTS_COL nas variáveis de ambiente.
         </div>
+      ) : null}
+
+      {embedded ? (
+        <p className="accounts-onboarding-hint" role="note">
+          Contas de <strong>receita</strong> e <strong>despesa</strong> que você criar aqui aparecem como categorias no
+          novo lançamento. Categorias fixas (Mensalidades, Marketing…) continuam nas automações e no DRE — subcontas com
+          código diferente acrescentam opções extras no caixa.
+        </p>
       ) : null}
 
       {isMobile ? renderMobileList() : renderDesktopTable()}
@@ -789,17 +983,42 @@ export default function AccountsTab({
         open={Boolean(drawer)}
         mode={drawer?.mode || 'create'}
         account={drawer?.account}
+        parentAccount={drawer?.parentAccount}
         usageCount={drawerUsageCount}
         initialForm={drawerInitialForm}
         saving={drawerSaving}
-        onClose={() => setDrawer(null)}
+        formErrors={drawerFormErrors}
+        onClose={requestCloseDrawer}
         onSave={handleSaveDrawer}
         onDelete={(acc) => requestDeleteAccount(acc)}
+        onFormChange={() => setDrawerDirty(true)}
+        onClearError={(key) =>
+          setDrawerFormErrors((prev) => {
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          })
+        }
+      />
+      <ConfirmDialog
+        open={showDiscardDrawer}
+        title="Descartar alterações"
+        description="As alterações desta conta serão perdidas. Deseja fechar mesmo assim?"
+        confirmLabel="Descartar"
+        confirmVariant="danger"
+        onClose={() => setShowDiscardDrawer(false)}
+        onConfirm={() => {
+          setShowDiscardDrawer(false);
+          setDrawer(null);
+          setDrawerFormErrors({});
+          setDrawerDirty(false);
+        }}
       />
       <ConfirmDialog
         open={Boolean(confirmDeleteAccount)}
         title="Excluir conta"
-        description="Esta conta será removida do plano de contas. A operação não pode ser desfeita. Confirmar?"
+        description={deleteDescription || 'Esta conta será removida do plano de contas. A operação não pode ser desfeita. Confirmar?'}
         confirmLabel="Excluir"
         confirmVariant="danger"
         onClose={() => setConfirmDeleteAccount(null)}

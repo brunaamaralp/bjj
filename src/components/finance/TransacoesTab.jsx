@@ -44,9 +44,16 @@ import {
 import {
   FINANCE_CATEGORIES,
   defaultCategoryForTxType,
+  defaultCategoryForDirection,
+  FREQUENT_TX_CATEGORY_LABELS,
   getCategoryOptionsByNature,
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
+import {
+  loadRecentCategories,
+  recordRecentCategory,
+  mergeRecentWithFrequent,
+} from '../../lib/financeRecentCategories.js';
 import {
   encodeAccountCategoryValue,
   parseAccountCategoryValue,
@@ -254,6 +261,7 @@ export default function TransacoesTab({
 }) {
   const leads = useStudentStore((s) => s.students);
   const chartAccounts = useAccountingStore((s) => s.accounts);
+  const journalEntries = useAccountingStore((s) => s.journal);
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -424,6 +432,18 @@ export default function TransacoesTab({
     () => getCategoryOptionsByNature(txForm.direction === 'out' ? 'out' : 'in', chartAccounts),
     [txForm.direction, chartAccounts]
   );
+
+  const categoryChips = useMemo(() => {
+    const dir = txForm.direction === 'out' ? 'out' : 'in';
+    const recent = loadRecentCategories(academyId);
+    const resolveLabel = (value) => {
+      const cat = resolveFinanceCategory(value, chartAccounts);
+      return cat?.label || value;
+    };
+    return mergeRecentWithFrequent(recent, FREQUENT_TX_CATEGORY_LABELS[dir], resolveLabel).filter(
+      (chip) => resolveFinanceCategory(chip.value, chartAccounts)
+    );
+  }, [txForm.direction, academyId, chartAccounts]);
 
   const leadNameById = useMemo(
     () => buildLeadNameById(transactions, leads),
@@ -613,6 +633,23 @@ export default function TransacoesTab({
       return next;
     });
   }, []);
+
+  const applyTxCategory = useCallback(
+    (value) => {
+      const cat = resolveFinanceCategory(value, chartAccounts);
+      if (!cat) return;
+      setTxForm((prev) => ({
+        ...prev,
+        category: value,
+        type: cat.type || prev.type,
+        planName: cat.type === 'plan' ? prev.planName : '',
+      }));
+      clearTxFieldError('category');
+      clearTxFieldError('planName');
+      if (academyId) recordRecentCategory(academyId, value);
+    },
+    [chartAccounts, academyId, clearTxFieldError]
+  );
 
   const loadTransactions = useCallback(
     async (cursor = null, append = false) => {
@@ -1020,6 +1057,7 @@ export default function TransacoesTab({
         : parseCurrencyBRL(txForm.gross);
     const cat = resolveFinanceCategory(txForm.category, chartAccounts);
     if (!cat) return;
+    if (academyId) recordRecentCategory(academyId, txForm.category);
     let bankAccount = '';
     if (bankAccountLabels.length > 0) {
       const accountCheck = validateBankAccountForPayment(txForm.bankAccount, financeConfig);
@@ -1749,13 +1787,11 @@ export default function TransacoesTab({
                   value={txForm.direction}
                   onChange={(e) => {
                     const dir = e.target.value === 'out' ? 'out' : 'in';
-                    const groups = getCategoryOptionsByNature(dir, chartAccounts);
-                    const first = groups.values().next().value?.[0];
-                    const cat = first || (dir === 'out' ? FINANCE_CATEGORIES.OUTRAS_DESPESAS : FINANCE_CATEGORIES.MENSALIDADE);
+                    const cat = defaultCategoryForDirection(dir);
                     setTxForm((prev) => ({
                       ...prev,
                       direction: dir,
-                      category: cat.value || cat.label,
+                      category: cat.label,
                       type: cat.type,
                       fee: dir === 'out' ? '' : prev.fee,
                       installments: dir === 'out' ? 1 : prev.installments,
@@ -1772,27 +1808,38 @@ export default function TransacoesTab({
               </div>
               <div className="form-group">
                 <label htmlFor="finance-tx-category">Categoria</label>
+                {categoryChips.length > 0 ? (
+                  <div className="finance-tx-category-chips" role="group" aria-label="Categorias frequentes">
+                    {categoryChips.map((chip) => (
+                      <button
+                        key={chip.value}
+                        type="button"
+                        className={`finance-tx-category-chip${
+                          txForm.category === chip.value ? ' finance-tx-category-chip--active' : ''
+                        }`}
+                        onClick={() => applyTxCategory(chip.value)}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <SearchableGroupedSelect
                   id="finance-tx-category"
                   value={txForm.category}
                   groups={categoryOptionGroups}
                   getOptionValue={(c) => c.value || c.label}
                   getOptionLabel={(c) => c.label}
+                  getOptionTitle={(c) => c.title || ''}
                   placeholder="Digite para buscar categoria…"
+                  hint="Clique ou digite para buscar"
+                  hintId="finance-tx-category-hint"
                   emptyMessage="Nenhuma categoria encontrada para essa busca."
                   aria-invalid={txFormErrors.category ? 'true' : undefined}
-                  aria-describedby={txFormErrors.category ? 'finance-tx-category-error' : undefined}
-                  onChange={(value) => {
-                    const cat = resolveFinanceCategory(value, chartAccounts);
-                    setTxForm((prev) => ({
-                      ...prev,
-                      category: value,
-                      type: cat?.type || prev.type,
-                      planName: cat?.type === 'plan' ? prev.planName : '',
-                    }));
-                    clearTxFieldError('category');
-                    clearTxFieldError('planName');
-                  }}
+                  aria-describedby={
+                    txFormErrors.category ? 'finance-tx-category-error finance-tx-category-hint' : 'finance-tx-category-hint'
+                  }
+                  onChange={applyTxCategory}
                 />
                 <FieldError id="finance-tx-category-error">{txFormErrors.category}</FieldError>
               </div>
@@ -2120,6 +2167,8 @@ export default function TransacoesTab({
       {detailTx ? (
         <FinanceTxDetailDrawer
           tx={transactions.find((t) => String(t.id) === String(detailTx.id)) || detailTx}
+          academyId={academyId}
+          journalEntries={journalEntries}
           leadNameById={leadNameById}
           chartAccounts={chartAccounts}
           canManageAdvanced={canManageAdvanced}

@@ -40,6 +40,26 @@ export async function importBankStatement(academyId, payload) {
   return parseJson(res);
 }
 
+export async function parseBankStatementWithAi(academyId, payload) {
+  const jwt = await createSessionJwt();
+  const res = await authedFetch('/api/agent?route=import-bank-statement', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': academyId,
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const hint = String(body.hint || '').trim();
+    const base = body.error || body.detail || 'Erro ao interpretar extrato';
+    throw new Error(hint ? `${base} — ${hint}` : base);
+  }
+  return body;
+}
+
 export async function confirmBankMatch(academyId, { item_id, transaction_id }) {
   const res = await authedFetch('/api/bank-reconciliation?route=confirm-match', {
     method: 'POST',

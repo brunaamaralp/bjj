@@ -4,6 +4,20 @@
 
 import { UNCLASSIFIED_DRE_GROUP } from './financeCategories.js';
 
+/** Label amigável no select (código só no title). */
+export function accountCategoryDisplayLabel(account) {
+  const name = String(account?.name || '').trim();
+  const code = String(account?.code || '').trim();
+  return name || code || '';
+}
+
+export function accountCategoryDisplayTitle(account) {
+  const code = String(account?.code || '').trim();
+  const name = String(account?.name || '').trim();
+  if (!code) return name || '';
+  return name ? `${code} · ${name}` : code;
+}
+
 export const ACCOUNT_CATEGORY_PREFIX = 'acct:';
 
 const ACCOUNT_TYPE_LABELS = {
@@ -95,7 +109,8 @@ export function getAccountCategoryOptionsByNature(accounts, nature) {
     const group = dre || ACCOUNT_TYPE_LABELS[type] || 'Plano de contas';
     if (!map.has(group)) map.set(group, []);
     map.get(group).push({
-      label: accountCategoryLabel(account),
+      label: accountCategoryDisplayLabel(account),
+      title: accountCategoryDisplayTitle(account),
       value: encodeAccountCategoryValue(account.code),
       type: accountTypeToTxType(type, dre),
       dreGroup: dre || UNCLASSIFIED_DRE_GROUP,

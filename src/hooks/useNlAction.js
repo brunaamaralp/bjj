@@ -8,7 +8,13 @@ import { account, createSessionJwt } from '../lib/appwrite';
 import { createPayment, updatePayment } from '../lib/studentPayments';
 import { useSalesCatalog } from './useSalesCatalog';
 import { catalogProductsForNl } from '../../lib/nlStockMatch.js';
-import { normalizePaymentForma } from '../lib/salePayments';
+import {
+  canonicalPaymentMethodKey,
+  canonicalPaymentMethodKeyFromInput,
+  normalizePaymentMethodInput,
+  toStorageDialectMethod,
+  isKnownStorageDialectMethod,
+} from '../lib/paymentMethods.js';
 import { createExpenseTransaction } from '../lib/financeExpense';
 import { createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { freezeStudentApi } from '../lib/studentsApi.js';
@@ -46,46 +52,23 @@ const MOVE_PIPELINE_FORBIDDEN_TARGETS = new Set([
 const CREATE_LEAD_TYPES = new Set(['Adulto', 'Criança', 'Juniores']);
 
 function normalizePaymentMethod(m) {
-  const raw = String(m || '').trim().toLowerCase();
-  if (!raw) return 'pix';
-  const map = {
-    pix: 'pix',
-    dinheiro: 'dinheiro',
-    'cartão débito': 'cartão_débito',
-    'cartao débito': 'cartão_débito',
-    'cartão debito': 'cartão_débito',
-    'cartao debito': 'cartão_débito',
-    'cartão crédito': 'cartão_crédito',
-    'cartao crédito': 'cartão_crédito',
-    'cartão credito': 'cartão_crédito',
-    'cartao credito': 'cartão_crédito',
-    transferência: 'transferência',
-    transferencia: 'transferência'
-  };
-  if (map[raw]) return map[raw];
-  if (['cartão_débito', 'cartão_crédito', 'transferência', 'dinheiro', 'pix'].includes(raw)) return raw;
-  return 'pix';
+  if (!String(m || '').trim()) return 'pix';
+  const key = canonicalPaymentMethodKeyFromInput(m);
+  if (!key) return 'pix';
+  const dialect = toStorageDialectMethod(key);
+  return isKnownStorageDialectMethod(dialect) ? dialect : 'pix';
 }
 
 function mapNlPaymentFormToSale(form) {
-  const raw = String(form || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_');
-  const map = {
-    pix: 'pix',
-    dinheiro: 'dinheiro',
-    cartão_débito: 'cartao_debito',
-    cartao_debito: 'cartao_debito',
-    cartão_crédito: 'cartao_credito',
-    cartao_credito: 'cartao_credito',
-    transferência: 'transferencia',
-    transferencia: 'transferencia',
+  const raw = normalizePaymentMethodInput(form);
+  if (!raw) return 'pix';
+  const nlSaleMap = {
     link_pagbank: 'outro',
     pagbank: 'outro',
     outro: 'outro',
   };
-  return normalizePaymentForma(map[raw] || raw || 'pix');
+  if (nlSaleMap[raw]) return nlSaleMap[raw];
+  return canonicalPaymentMethodKeyFromInput(form) || 'pix';
 }
 
 export function useNlAction() {

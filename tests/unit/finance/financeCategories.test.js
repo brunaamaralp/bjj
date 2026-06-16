@@ -13,6 +13,9 @@ import {
   isKnownDreGroup,
   buildDreDisplayRows,
   UNCLASSIFIED_DRE_GROUP,
+  defaultCategoryForDirection,
+  getCategoryOptionsByNature,
+  EXPENSE_CATEGORY_GROUP_ORDER,
 } from '../../../src/lib/financeCategories.js';
 
 describe('financeCategories', () => {
@@ -208,6 +211,40 @@ describe('financeCategories', () => {
       const row = buildDreDisplayRows(dreData).find((r) => r.group === UNCLASSIFIED_DRE_GROUP);
       expect(row?.warn).toBe(true);
       expect(row?.unclassified).toBe(true);
+    });
+  });
+
+  describe('BLOCO 8 — plano de contas / categorias no lançamento', () => {
+    it('defaultCategoryForDirection out → Outras despesas', () => {
+      expect(defaultCategoryForDirection('out').label).toBe('Outras despesas');
+    });
+
+    it('defaultCategoryForDirection in → Mensalidades', () => {
+      expect(defaultCategoryForDirection('in').label).toBe('Mensalidades');
+    });
+
+    it('getCategoryOptionsByNature oculta conta 4.1.1 duplicando Mensalidades', () => {
+      const accounts = [
+        { code: '4.1.1', name: 'Receita de Vendas', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
+        { code: '4.1.2', name: 'Mensalidades premium', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
+      ];
+      const groups = getCategoryOptionsByNature('in', accounts);
+      const flat = [...groups.values()].flat();
+      const values = flat.map((c) => c.value || c.label);
+      expect(values).toContain('Mensalidades');
+      expect(values).not.toContain('acct:4.1.1');
+      expect(values).toContain('acct:4.1.2');
+    });
+
+    it('getCategoryOptionsByNature saída ordena Despesas Operacionais antes de CMV/CPV', () => {
+      const groups = getCategoryOptionsByNature('out', []);
+      const keys = [...groups.keys()];
+      const opIdx = keys.indexOf('Despesas Operacionais');
+      const cmvIdx = keys.indexOf('CMV/CPV');
+      expect(opIdx).toBeGreaterThanOrEqual(0);
+      expect(cmvIdx).toBeGreaterThanOrEqual(0);
+      expect(opIdx).toBeLessThan(cmvIdx);
+      expect(EXPENSE_CATEGORY_GROUP_ORDER[0]).toBe('Despesas Operacionais');
     });
   });
 });

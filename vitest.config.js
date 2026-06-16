@@ -9,6 +9,7 @@ export default defineConfig({
     include: [
       'tests/**/*.test.js',
       'src/**/*.test.js',
+      'src/**/*.test.jsx',
       'src/**/*.test.ts',
       'lib/**/*.test.js',
     ],

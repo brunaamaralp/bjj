@@ -18,6 +18,7 @@ import { defaultCategoryForTxType, resolveFinanceCategory } from '../../lib/fina
 import { isRecurrenceTx, recurrenceTooltip } from '../../lib/financeRecurrence.js';
 import { formatTxLeadCell, resolveTxLeadId, resolveTxLeadName } from '../../lib/financeTxLeadNames.js';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
+import FinanceTxJournalMirrorSection from './FinanceTxJournalMirrorSection.jsx';
 import '../../styles/tasks.css';
 import './styles/tx-drawer.css';
 
@@ -55,6 +56,8 @@ function DetailField({ label, children }) {
 
 export default function FinanceTxDetailDrawer({
   tx,
+  academyId,
+  journalEntries,
   leadNameById,
   chartAccounts,
   canManageAdvanced,
@@ -99,6 +102,7 @@ export default function FinanceTxDetailDrawer({
   const leadId = resolveTxLeadId(tx);
   const leadName = resolveTxLeadName(tx, leadNameById);
   const leadCell = formatTxLeadCell(tx, leadNameById);
+  const showMirror = canManageAdvanced && (chartAccounts?.length || 0) > 0;
 
   return (
     <>
@@ -200,6 +204,14 @@ export default function FinanceTxDetailDrawer({
               {String(tx.note || '').trim() || '—'}
             </span>
           </DetailField>
+          {showMirror ? (
+            <FinanceTxJournalMirrorSection
+              tx={tx}
+              academyId={academyId}
+              chartAccounts={chartAccounts}
+              journalEntries={journalEntries}
+            />
+          ) : null}
         </div>
         <div className="task-drawer-footer finance-tx-drawer-footer">
           <FinanceTxRowActions

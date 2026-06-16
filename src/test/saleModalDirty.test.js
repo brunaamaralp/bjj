@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isSaleCheckoutDirty, isStudentProductSaleDirty } from '../lib/saleModalDirty.js';
+import {
+  getSaleFooterHint,
+  isSaleCheckoutDirty,
+  isStudentProductSaleDirty,
+} from '../lib/saleModalDirty.js';
 
 describe('isSaleCheckoutDirty', () => {
   it('returns false for empty checkout', () => {
@@ -27,5 +31,27 @@ describe('isStudentProductSaleDirty', () => {
   it('returns true only when cart has items', () => {
     expect(isStudentProductSaleDirty([])).toBe(false);
     expect(isStudentProductSaleDirty([{ id: 1 }])).toBe(true);
+  });
+});
+
+describe('getSaleFooterHint', () => {
+  it('returns null while busy', () => {
+    expect(getSaleFooterHint({ cartLength: 0, busy: true })).toBe(null);
+  });
+
+  it('hints empty cart', () => {
+    expect(getSaleFooterHint({ cartLength: 0 })).toMatch(/item/i);
+  });
+
+  it('hints invalid payment when cart has items', () => {
+    expect(getSaleFooterHint({ cartLength: 2, paymentValid: false })).toMatch(/pagamento/i);
+  });
+
+  it('returns null when receiveLater bypasses payment', () => {
+    expect(getSaleFooterHint({ cartLength: 1, paymentValid: false, receiveLater: true })).toBe(null);
+  });
+
+  it('returns null when payment is valid', () => {
+    expect(getSaleFooterHint({ cartLength: 1, paymentValid: true })).toBe(null);
   });
 });

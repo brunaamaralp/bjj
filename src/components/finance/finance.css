@@ -1266,6 +1266,7 @@
 .finance-journal-head-title { margin: 0 0 5px; }
 .finance-journal-head-icon { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, rgba(108, 71, 216, 0.12), rgba(108, 71, 216, 0.04)); border: 0.5px solid var(--border-violet); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--color-primary); }
 .finance-journal-lead { font-size: var(--font-base); color: var(--text-secondary); line-height: 1.5; margin: 0; max-width: 640px; }
+.finance-journal-linked-tx { margin-bottom: 16px; }
 
 /* Painel de novo lançamento — white card limpo */
 .finance-journal-panel {
@@ -3983,6 +3984,35 @@
 }
 .accounts-drawer-collapse-trigger[aria-expanded='true'] .accounts-drawer-collapse-trigger__chevron {
   transform: rotate(180deg);
+}
+.accounts-type-filter { min-width: 140px; }
+.accounts-th-dre, .accounts-cell-dre { width: 22%; }
+.accounts-th-ativa, .accounts-cell-ativa { width: 64px; text-align: center; }
+.accounts-drawer-hint { margin: 6px 0 0; }
+.accounts-onboarding-hint {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+.finance-tx-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.finance-tx-category-chip {
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+.finance-tx-category-chip:hover,
+.finance-tx-category-chip--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* === Mobile grade — nota === */

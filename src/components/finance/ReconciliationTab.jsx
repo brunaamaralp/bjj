@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './finance.css';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, Check, Upload } from 'lucide-react';
 import ImportStatementModal from './ImportStatementModal.jsx';
+import BankReconPairRow from './BankReconPairRow.jsx';
+import BankReconOrphanList, { formatSourceLabel } from './BankReconOrphanList.jsx';
 import {
   listBankStatements,
   getBankStatementDetail,
@@ -48,50 +49,18 @@ const STATUS_BADGE_CLASS = {
   reconciled: 'finance-badge-pago',
 };
 
-function MatchRow({ item, tx, tone, onConfirm, onIgnore, busy }) {
-  return (
-    <div className={`bank-recon-pair bank-recon-pair--${tone}`}>
-      <div className="bank-recon-pair__bank">
-        <p className="bank-recon-pair__title">{item.description}</p>
-        <p className="text-xs text-muted">
-          {fmtDate(item.date)} · {item.direction === 'credit' ? 'Crédito' : 'Débito'} · {fmtMoney(item.amount)}
-          {item.match_score > 0 && item.match_score < 100 ? (
-            <span className="bank-recon-confidence"> · {item.match_score}% confiança</span>
-          ) : null}
-        </p>
-      </div>
-      <div className="bank-recon-pair__navi">
-        {tx ? (
-          <>
-            <p className="bank-recon-pair__title">{tx.planName || tx.category || tx.note || 'Lançamento'}</p>
-            <p className="text-xs text-muted">
-              {fmtDate(tx.settledAt || tx.createdAt)} · {fmtMoney(tx.gross)}
-              {tx.lead_id ? (
-                <>
-                  {' '}
-                  · <Link to={`/student/${tx.lead_id}`}>Aluno</Link>
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <p className="text-small text-muted">Sem lançamento vinculado</p>
-        )}
-      </div>
-      <div className="bank-recon-pair__actions">
-        {onConfirm && tx ? (
-          <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void onConfirm()}>
-            <Check size={14} /> Confirmar
-          </button>
-        ) : null}
-        {onIgnore ? (
-          <button type="button" className="btn-outline btn-sm" disabled={busy} onClick={() => void onIgnore()}>
-            Ignorar
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
+const RECON_ERROR_MESSAGES = {
+  direction_mismatch: 'A direção do lançamento não corresponde à linha do extrato.',
+  amount_mismatch: 'O valor do lançamento não corresponde à linha do extrato.',
+  bank_account_mismatch: 'A conta bancária não corresponde ao extrato.',
+  tx_already_reconciled: 'Este lançamento já foi conciliado.',
+  tx_not_settled: 'Só é possível vincular lançamentos liquidados.',
+};
+
+function reconFriendlyError(err) {
+  const code = String(err?.message || err || '').trim();
+  if (RECON_ERROR_MESSAGES[code]) return RECON_ERROR_MESSAGES[code];
+  return friendlyError(err, 'action');
 }
 
 export default function ReconciliationTab({ academyId }) {
@@ -108,6 +77,9 @@ export default function ReconciliationTab({ academyId }) {
   const [error, setError] = useState('');
   const [mirrorReconcileResult, setMirrorReconcileResult] = useState(null);
   const [mirrorReconcileBusy, setMirrorReconcileBusy] = useState(false);
+  const [selectedBankItemId, setSelectedBankItemId] = useState('');
+  const [unmatchedTxByItem, setUnmatchedTxByItem] = useState({});
+  const [showAllOrphans, setShowAllOrphans] = useState(false);
 
   const loadList = useCallback(async () => {
     if (!academyId) return;
@@ -153,6 +125,12 @@ export default function ReconciliationTab({ academyId }) {
     else setDetail(null);
   }, [selectedId, loadDetail]);
 
+  useEffect(() => {
+    setSelectedBankItemId('');
+    setUnmatchedTxByItem({});
+    setShowAllOrphans(false);
+  }, [selectedId, detail?.items?.length]);
+
   const grouped = useMemo(() => {
     if (!detail?.items) return { auto: [], suggested: [], unmatched: [], ignored: [] };
     const txById = new Map((detail.navi_transactions || []).map((t) => [t.id, t]));
@@ -188,6 +166,11 @@ export default function ReconciliationTab({ academyId }) {
     [detail?.navi_unmatched]
   );
 
+  const selectedBankItem = useMemo(
+    () => detail?.items?.find((i) => i.id === selectedBankItemId) || null,
+    [detail?.items, selectedBankItemId]
+  );
+
   const refresh = async () => {
     await loadList();
     if (selectedId) await loadDetail(selectedId);
@@ -205,11 +188,14 @@ export default function ReconciliationTab({ academyId }) {
       await refresh();
     } catch (e) {
       console.error(e);
-      setError(friendlyError(e, 'action'));
+      setError(reconFriendlyError(e));
     } finally {
       setBusy(false);
     }
   };
+
+  const linkItemToTx = (itemId, txId) =>
+    run(() => confirmBankMatch(academyId, { item_id: itemId, transaction_id: txId }));
 
   if (!academyId) return null;
 
@@ -245,12 +231,12 @@ export default function ReconciliationTab({ academyId }) {
         actions={listActions}
         intro={
           <StatusBanner variant="info" className="finance-tab-intro">
-            Importe o extrato do banco (OFX ou CSV), confira sugestões automáticas e vincule cada linha a um lançamento
-            do Caixa. Itens sem correspondência podem gerar um novo lançamento ou ser ignorados.
+            Importe o extrato do banco (OFX, CSV, Excel ou PDF), confira sugestões automáticas e vincule cada linha a
+            um lançamento do Caixa. Itens sem correspondência podem ser vinculados manualmente, gerar novo lançamento ou
+            ser ignorados.
           </StatusBanner>
         }
       >
-
         {mirrorReconcileResult ? (
           <StatusBanner variant={mirrorReconcileResult.failed > 0 ? 'warning' : 'success'} className="mb-3">
             {mirrorReconcileResult.repaired > 0
@@ -266,16 +252,14 @@ export default function ReconciliationTab({ academyId }) {
         ) : null}
 
         {loading ? <PageSkeleton variant="table" rows={4} columns={5} /> : null}
-        {error ? (
-          <ErrorBanner message={error} onRetry={() => void loadList()} className="mb-3" />
-        ) : null}
+        {error ? <ErrorBanner message={error} onRetry={() => void loadList()} className="mb-3" /> : null}
 
         {!loading && statements.length === 0 && !error ? (
           <EmptyState
             variant="compact"
             icon={Upload}
             title="Nenhum extrato importado ainda"
-            description="Importe um arquivo OFX ou CSV do seu banco para começar a conciliar."
+            description="Importe um arquivo OFX, CSV, Excel ou PDF do seu banco para começar a conciliar."
             primaryAction={{ label: 'Importar extrato', onClick: () => setShowImport(true) }}
           />
         ) : null}
@@ -286,6 +270,7 @@ export default function ReconciliationTab({ academyId }) {
               <thead>
                 <tr>
                   <th>Arquivo</th>
+                  <th>Formato</th>
                   <th>Período</th>
                   <th>Importado em</th>
                   <th className="finance-num">Créditos</th>
@@ -298,6 +283,10 @@ export default function ReconciliationTab({ academyId }) {
                 {statements.map((s) => (
                   <tr key={s.id}>
                     <td>{s.filename || '—'}</td>
+                    <td>
+                      {formatSourceLabel(s.source_format)}
+                      {s.parse_method === 'ai' ? ' (IA)' : ''}
+                    </td>
                     <td>
                       {fmtDate(s.period_start)} — {fmtDate(s.period_end)}
                     </td>
@@ -350,6 +339,7 @@ export default function ReconciliationTab({ academyId }) {
           <div className="card bank-recon-summary mb-3" role="status">
             <h4 className="finance-tab__section-title bank-recon-summary-title">
               {st.filename} · {STATUS_LABELS[st.status] || st.status}
+              {st.source_format ? ` · ${formatSourceLabel(st.source_format)}` : ''}
             </h4>
             <p className="text-small text-muted bank-recon-summary-period">
               {fmtDate(st.period_start)} — {fmtDate(st.period_end)}
@@ -421,11 +411,9 @@ export default function ReconciliationTab({ academyId }) {
             <div className="bank-recon-col">
               <h4 className="finance-tab__section-title">Extrato bancário</h4>
 
-              {grouped.auto.length > 0 ? (
-                <p className="text-xs text-muted mb-2">Já conciliados</p>
-              ) : null}
+              {grouped.auto.length > 0 ? <p className="text-xs text-muted mb-2">Já conciliados</p> : null}
               {grouped.auto.map(({ item, tx }) => (
-                <MatchRow
+                <BankReconPairRow
                   key={item.id}
                   item={item}
                   tx={tx}
@@ -433,7 +421,7 @@ export default function ReconciliationTab({ academyId }) {
                   busy={busy}
                   onConfirm={
                     item.status !== 'matched'
-                      ? () => run(() => confirmBankMatch(academyId, { item_id: item.id, transaction_id: tx?.id }))
+                      ? () => linkItemToTx(item.id, tx?.id)
                       : null
                   }
                 />
@@ -443,75 +431,59 @@ export default function ReconciliationTab({ academyId }) {
                 <p className="text-xs text-muted mb-2 mt-3">Sugestões — confirme antes de conciliar</p>
               ) : null}
               {grouped.suggested.map(({ item, tx }) => (
-                <MatchRow
+                <BankReconPairRow
                   key={item.id}
                   item={item}
                   tx={tx}
                   tone="suggested"
                   busy={busy}
-                  onConfirm={() =>
-                    run(() =>
-                      confirmBankMatch(academyId, {
-                        item_id: item.id,
-                        transaction_id: item.suggested_tx_id || tx?.id,
-                      })
-                    )
-                  }
+                  onConfirm={() => linkItemToTx(item.id, item.suggested_tx_id || tx?.id)}
                   onIgnore={() => run(() => ignoreBankItem(academyId, item.id))}
                 />
               ))}
 
               {grouped.unmatched.length > 0 ? (
-                <p className="text-xs text-muted mb-2 mt-3">Sem correspondência</p>
+                <p className="text-xs text-muted mb-2 mt-3">
+                  Sem correspondência — selecione uma linha e vincule à direita
+                </p>
               ) : null}
               {grouped.unmatched.map(({ item }) => (
-                <div key={item.id} className="bank-recon-pair bank-recon-pair--unmatched">
-                  <div className="bank-recon-pair__bank">
-                    <p className="bank-recon-pair__title">{item.description}</p>
-                    <p className="text-xs text-muted">
-                      {fmtDate(item.date)} · {fmtMoney(item.amount)}
-                    </p>
-                  </div>
-                  <div className="bank-recon-pair__actions">
-                    <button
-                      type="button"
-                      className="btn-primary btn-sm"
-                      disabled={busy}
-                      onClick={() => run(() => createTxFromBankItem(academyId, { item_id: item.id }))}
-                    >
-                      <Plus size={14} /> Criar lançamento
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm"
-                      disabled={busy}
-                      onClick={() => run(() => ignoreBankItem(academyId, item.id))}
-                    >
-                      Ignorar
-                    </button>
-                  </div>
-                </div>
+                <BankReconPairRow
+                  key={item.id}
+                  item={item}
+                  tone="unmatched"
+                  selected={selectedBankItemId === item.id}
+                  busy={busy}
+                  manualTxId={unmatchedTxByItem[item.id] || ''}
+                  manualTxOptions={manualTxOptions}
+                  onSelect={() => setSelectedBankItemId(item.id)}
+                  onManualTxChange={(txId) =>
+                    setUnmatchedTxByItem((prev) => ({ ...prev, [item.id]: txId }))
+                  }
+                  onLinkManual={() => {
+                    const txId = unmatchedTxByItem[item.id];
+                    if (!txId) return;
+                    return linkItemToTx(item.id, txId);
+                  }}
+                  onCreateTx={() => run(() => createTxFromBankItem(academyId, { item_id: item.id }))}
+                  onIgnore={() => run(() => ignoreBankItem(academyId, item.id))}
+                />
               ))}
             </div>
 
             <div className="bank-recon-col">
               <h4 className="finance-tab__section-title">Lançamentos Nave</h4>
-              <p className="text-xs text-muted mb-2">Liquidados no período ainda não conciliados</p>
-              {(detail.navi_unmatched || []).length === 0 ? (
-                <p className="text-small text-muted">Nenhum lançamento pendente de conferência.</p>
-              ) : (
-                (detail.navi_unmatched || []).map((tx) => (
-                  <div key={tx.id} className="bank-recon-navi-row">
-                    <div>
-                      <p className="bank-recon-pair__title">{tx.planName || tx.category || 'Lançamento'}</p>
-                      <p className="text-xs text-muted">
-                        {fmtDate(tx.settledAt)} · {tx.direction === 'out' ? 'Saída' : 'Entrada'} ·{' '}
-                        {fmtMoney(tx.gross)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
+              <BankReconOrphanList
+                orphans={detail.navi_unmatched || []}
+                selectedItem={selectedBankItem}
+                showAll={showAllOrphans}
+                busy={busy}
+                onToggleShowAll={setShowAllOrphans}
+                onLinkToSelected={(txId) => {
+                  if (!selectedBankItemId || !txId) return;
+                  return linkItemToTx(selectedBankItemId, txId);
+                }}
+              />
 
               <div className="card mt-3 bank-recon-manual-card">
                 <p className="text-xs text-muted mb-2">Conferir manualmente (sem linha no extrato)</p>
@@ -561,9 +533,7 @@ export default function ReconciliationTab({ academyId }) {
 
           {st.status !== 'reconciled' ? (
             <div className="card mt-4 bank-recon-complete-card">
-              <h4 className="finance-tab__section-title bank-recon-complete-title">
-                Finalizar conciliação
-              </h4>
+              <h4 className="finance-tab__section-title bank-recon-complete-title">Finalizar conciliação</h4>
               <textarea
                 className="form-input mb-2"
                 rows={2}
@@ -591,9 +561,7 @@ export default function ReconciliationTab({ academyId }) {
         </>
       ) : null}
 
-      {error ? (
-        <ErrorBanner message={error} onRetry={() => void loadDetail(selectedId)} className="mt-2" />
-      ) : null}
+      {error ? <ErrorBanner message={error} onRetry={() => void loadDetail(selectedId)} className="mt-2" /> : null}
     </FinanceTabShell>
   );
 }

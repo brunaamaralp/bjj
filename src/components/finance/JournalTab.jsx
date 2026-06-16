@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { databases, DB_ID, JOURNAL_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { PlusCircle, Trash2, Receipt } from 'lucide-react';
 import { fmt } from './financeFmt.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
@@ -19,6 +21,7 @@ export default function JournalTab({
   deleteEntry,
   sectionTitle = 'Lançamentos contábeis',
   embedded = false,
+  linkedTxId = '',
 }) {
   const [date, setDate] = useState('');
   const [memo, setMemo] = useState('');
@@ -28,6 +31,13 @@ export default function JournalTab({
   const [direction, setDirection] = useState('all');
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState(null);
   const [lines, setLines] = useState([{ accountId: '', debit: '', credit: '', cash: false, counterCode: '' }]);
+
+  useEffect(() => {
+    const id = String(linkedTxId || '').trim();
+    if (!id) return;
+    setSearch(id);
+  }, [linkedTxId]);
+
   const sortedAccounts = useMemo(() => {
     const copy = Array.isArray(accounts) ? [...accounts] : [];
     copy.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
@@ -182,6 +192,18 @@ export default function JournalTab({
           Registre partidas dobradas (soma de débitos = soma de créditos). Cada linha deve ter valor em débito ou em crédito — não nos dois.
         </p>
       )}
+
+      {linkedTxId ? (
+        <StatusBanner variant="info" className="finance-journal-linked-tx">
+          Partida filtrada pelo lançamento financeiro.{' '}
+          <Link
+            to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(linkedTxId)}`}
+            className="finance-tx-drawer-mirror__link"
+          >
+            Voltar ao lançamento
+          </Link>
+        </StatusBanner>
+      ) : null}
 
       <div className="finance-journal-panel">
         <p className="finance-journal-panel-title">Novo lançamento</p>

@@ -105,6 +105,8 @@ export default function StudentPaymentModal({
     canSubmit: false,
     busy: false,
     label: 'Confirmar venda',
+    footerHint: null,
+    footerError: null,
   });
 
   const handleClose = useCallback(() => {
@@ -168,23 +170,33 @@ export default function StudentPaymentModal({
       ariaLabelledBy="student-payment-modal-title"
       footer={
         isProduct ? (
-          <div className="student-payment-modal__footer">
-            <button
-              type="button"
-              className="btn-outline"
-              disabled={creatingSale}
-              onClick={requestClose}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form={STUDENT_PRODUCT_SALE_FORM_ID}
-              className="btn-primary"
-              disabled={creatingSale || !productSubmitState.canSubmit}
-            >
-              {productSubmitState.busy ? 'Registrando…' : 'Confirmar venda'}
-            </button>
+          <div className="sales-modal-footer">
+            {productSubmitState.footerError || productSubmitState.footerHint ? (
+              <p
+                className={`sales-modal-footer__hint${productSubmitState.footerError ? ' sales-modal-footer__hint--error' : ''}`}
+                role={productSubmitState.footerError ? 'alert' : 'status'}
+              >
+                {productSubmitState.footerError || productSubmitState.footerHint}
+              </p>
+            ) : null}
+            <div className="student-payment-modal__footer">
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={creatingSale}
+                onClick={requestClose}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form={STUDENT_PRODUCT_SALE_FORM_ID}
+                className="btn-primary"
+                disabled={creatingSale || !productSubmitState.canSubmit}
+              >
+                {productSubmitState.busy ? 'Registrando…' : 'Confirmar venda'}
+              </button>
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 8, width: '100%' }}>

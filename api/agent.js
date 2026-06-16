@@ -1,7 +1,7 @@
 /**
  * Hub do agente e rotas administrativas (Vercel Hobby).
  * Sub-rotas: process, respond, ai-prompt, nl-action, inventory-adjust/query,
- * import-finance, import-finance-tx, academy-create, team-members, whatsapp-templates, academy-settings.
+ * import-finance, import-finance-tx, import-bank-statement, academy-create, team-members, whatsapp-templates, academy-settings.
  * Import assistido de produtos (`ai_import_products`) permanece em api/leads.js (limite Hobby).
  */
 import { Client, Databases } from 'node-appwrite';
@@ -14,6 +14,7 @@ import agentTestHandler from '../lib/server/agentTest.js';
 import nlActionHandler from '../lib/server/nlActionHandler.js';
 import importFinanceHandler from '../lib/server/importFinanceHandler.js';
 import importFinanceTxHandler from '../lib/server/importFinanceTxHandler.js';
+import importBankStatementHandler from '../lib/server/importBankStatementHandler.js';
 import settleFinanceTxHandler from '../lib/server/settleFinanceTxHandler.js';
 import cancelFinanceTxHandler from '../lib/server/cancelFinanceTxHandler.js';
 import academyCreateHandler from '../lib/server/academiesCreate.js';
@@ -68,6 +69,7 @@ export default async function handler(req, res) {
     }
     if (route === 'import-finance') return importFinanceHandler(req, res);
     if (route === 'import-finance-tx') return importFinanceTxHandler(req, res);
+    if (route === 'import-bank-statement') return importBankStatementHandler(req, res);
     if (route === 'settle-finance-tx') return settleFinanceTxHandler(req, res);
     if (route === 'cancel-finance-tx') return cancelFinanceTxHandler(req, res);
     if (route === 'academy-create') return academyCreateHandler(req, res);

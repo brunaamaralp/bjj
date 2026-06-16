@@ -7,13 +7,10 @@ import { useUiStore } from '../../store/useUiStore';
 import { databases, DB_ID, ACCOUNTS_COL, ACADEMIES_COL } from '../../lib/appwrite';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import AccountsTab from './AccountsTab.jsx';
-import JournalTab from './JournalTab.jsx';
 import ImportFinanceModal from './ImportFinanceModal.jsx';
 import { useTerms } from '../../lib/terminology.js';
-import { Link } from 'react-router-dom';
 import { exportAccountsCsv } from '../../lib/exportAccountsCsv.js';
 import EmptyState from '../shared/EmptyState.jsx';
-import FinanceTabShell from './FinanceTabShell.jsx';
 
 const defaultFinanceConfig = () => ({
   cardFees: {
@@ -38,11 +35,8 @@ const mapAccountDoc = (d) => ({
   cash: Boolean(d.cash),
 });
 
-/**
- * Painel contábil owner.
- * @param {'settings' | 'operational'} scope — plano de contas vs extrato/lançamentos
- */
-export default function CaixaAccountingPanel({ scope = 'settings', isOwner = true }) {
+/** Painel do plano de contas (Minha academia → Financeiro → Plano de contas). */
+export default function CaixaAccountingPanel({ isOwner = true }) {
   const terms = useTerms();
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
@@ -52,10 +46,6 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
   const addAccount = useAccountingStore((s) => s.addAccount);
   const updateAccount = useAccountingStore((s) => s.updateAccount);
   const deleteAccount = useAccountingStore((s) => s.deleteAccount);
-  const journal = useAccountingStore((s) => s.journal);
-  const setJournal = useAccountingStore((s) => s.setJournal);
-  const addEntry = useAccountingStore((s) => s.addEntry);
-  const deleteEntry = useAccountingStore((s) => s.deleteEntry);
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [financeConfig, setFinanceConfig] = useState(defaultFinanceConfig);
@@ -165,82 +155,50 @@ export default function CaixaAccountingPanel({ scope = 'settings', isOwner = tru
       <EmptyState
         variant="compact"
         title={`Selecione uma ${terms.workspaceNoun}`}
-        description="Escolha uma academia para visualizar o extrato contábil."
+        description="Escolha uma academia para configurar o plano de contas."
       />
     );
   }
 
-  const showPlano = isOwner && scope === 'settings';
-  const showExtrato = scope === 'operational';
+  if (!isOwner) return null;
 
   return (
     <>
-      {showPlano ? (
-        <section id="finance-plano-contas" className="finance-config-section finance-config-section--accounting">
-          <AccountsTab
-            academyId={academyId}
-            accounts={accounts}
-            setAccounts={setAccounts}
-            addAccount={addAccount}
-            updateAccount={updateAccount}
-            deleteAccount={deleteAccount}
-            embedded={scope === 'settings'}
-            headingActions={
-              <>
-                <button
-                  type="button"
-                  className="btn-action-ghost"
-                  disabled={!accounts?.length}
-                  onClick={() => exportAccountsCsv(accounts)}
-                >
-                  ↓ Exportar plano
-                </button>
-                <button type="button" className="btn-action-ghost" onClick={() => setShowImportModal(true)}>
-                  ↑ Importar planilha
-                </button>
-              </>
-            }
-          />
-          <hr className="finance-config-section__divider" aria-hidden />
-        </section>
-      ) : null}
-      {showExtrato ? (
-        <FinanceTabShell
-          panelClassName="finance-extrato-panel"
-          title="Extrato contábil"
-          intro={
-            <p className="finance-tab-notice" role="status">
-              <span className="finance-tab-notice__text">
-                Visão contábil por conta. Operação do dia a dia:{' '}
-                <Link to="/financeiro?tab=movimentacoes">Lançamentos</Link>
-                {' · '}
-                <Link to="/financeiro?tab=a-receber">A receber</Link>
-              </span>
-            </p>
-          }
-        >
-          <JournalTab
-            academyId={academyId}
-            accounts={accounts}
-            journal={journal}
-            setJournal={setJournal}
-            addEntry={addEntry}
-            deleteEntry={deleteEntry}
-            sectionTitle="Extrato por conta"
-            embedded
-          />
-        </FinanceTabShell>
-      ) : null}
-      {showPlano ? (
-        <ImportFinanceModal
-          open={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          onConfirm={handleImportFinance}
+      <section id="finance-plano-contas" className="finance-config-section finance-config-section--accounting">
+        <AccountsTab
           academyId={academyId}
-          academyName={academyName}
-          hasExistingData={hasExistingData}
+          accounts={accounts}
+          setAccounts={setAccounts}
+          addAccount={addAccount}
+          updateAccount={updateAccount}
+          deleteAccount={deleteAccount}
+          embedded
+          headingActions={
+            <>
+              <button
+                type="button"
+                className="btn-action-ghost"
+                disabled={!accounts?.length}
+                onClick={() => exportAccountsCsv(accounts)}
+              >
+                ↓ Exportar plano
+              </button>
+              <button type="button" className="btn-action-ghost" onClick={() => setShowImportModal(true)}>
+                ↑ Importar planilha
+              </button>
+            </>
+          }
         />
-      ) : null}
+        <hr className="finance-config-section__divider" aria-hidden />
+      </section>
+      <ImportFinanceModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onConfirm={handleImportFinance}
+        academyId={academyId}
+        academyName={academyName}
+        hasExistingData={hasExistingData}
+      />
     </>
   );
 }

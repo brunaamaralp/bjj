@@ -24,3 +24,22 @@ export function isSaleCheckoutDirty({
 export function isStudentProductSaleDirty(cart = []) {
   return cart.length > 0;
 }
+
+/**
+ * Texto auxiliar no footer quando o botão de concluir está desabilitado.
+ * Retorna null quando não há mensagem a exibir.
+ */
+export function getSaleFooterHint({
+  cartLength = 0,
+  paymentValid = true,
+  deferredSale = false,
+  receiveLater = false,
+  busy = false,
+} = {}) {
+  if (busy) return null;
+  if (cartLength === 0) return 'Adicione pelo menos um item ao carrinho.';
+  if (!deferredSale && !receiveLater && !paymentValid) {
+    return 'Ajuste os valores de pagamento para cobrir o total.';
+  }
+  return null;
+}

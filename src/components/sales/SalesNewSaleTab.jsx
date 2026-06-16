@@ -44,11 +44,12 @@ import {
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
 import { refreshStockStores } from '../../lib/syncStockStores.js';
-import { isSaleCheckoutDirty } from '../../lib/saleModalDirty.js';
+import { getSaleFooterHint, isSaleCheckoutDirty } from '../../lib/saleModalDirty.js';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
 const SALE_ALUNO_SEARCH_ID = 'sale-aluno-search';
 const SALE_ALUNO_SUGGESTIONS_ID = 'sale-aluno-suggestions';
+const saleAlunoOptionId = (id) => `sale-aluno-option-${id}`;
 
 export default function SalesNewSaleTab({
   modalMode = false,
@@ -76,6 +77,7 @@ export default function SalesNewSaleTab({
   const [alunoId, setAlunoId] = useState('');
   const [alunoSearchText, setAlunoSearchText] = useState('');
   const [alunoSuggestions, setAlunoSuggestions] = useState([]);
+  const [alunoActiveIndex, setAlunoActiveIndex] = useState(-1);
   const [alunoBusy, setAlunoBusy] = useState(false);
   const [alunoNomeSel, setAlunoNomeSel] = useState('');
   const [alunoPhoneSel, setAlunoPhoneSel] = useState('');
@@ -324,8 +326,10 @@ export default function SalesNewSaleTab({
 
   useEffect(() => {
     if (!onSubmitStateChange) return;
+    const canSubmit = cart.length > 0 && paymentValid.ok && !creating && !shiftBlocksSale;
+    const footerError = localError || error ? friendlySaleError(localError || error) : null;
     onSubmitStateChange({
-      canSubmit: cart.length > 0 && paymentValid.ok && !creating && !shiftBlocksSale,
+      canSubmit,
       busy: creating,
       label:
         creating
@@ -333,6 +337,15 @@ export default function SalesNewSaleTab({
           : cart.length === 0
             ? 'Concluir venda'
             : `Concluir venda — ${totalMasked}`,
+      footerHint: canSubmit || footerError
+        ? null
+        : getSaleFooterHint({
+            cartLength: cart.length,
+            paymentValid: paymentValid.ok,
+            deferredSale,
+            busy: creating,
+          }),
+      footerError,
     });
   }, [
     cart.length,
@@ -340,6 +353,9 @@ export default function SalesNewSaleTab({
     creating,
     shiftBlocksSale,
     totalMasked,
+    deferredSale,
+    localError,
+    error,
     onSubmitStateChange,
   ]);
 
@@ -714,21 +730,69 @@ export default function SalesNewSaleTab({
     };
   }, [alunoSearchText, academyId]);
 
-  const chooseAluno = (s) => {
+  useEffect(() => {
+    setAlunoActiveIndex(alunoSuggestions.length > 0 ? 0 : -1);
+  }, [alunoSuggestions]);
+
+  useEffect(() => {
+    if (alunoActiveIndex < 0) return;
+    const hit = alunoSuggestions[alunoActiveIndex];
+    if (!hit) return;
+    document.getElementById(saleAlunoOptionId(hit.id))?.scrollIntoView({ block: 'nearest' });
+  }, [alunoActiveIndex, alunoSuggestions]);
+
+  const chooseAluno = useCallback((s) => {
     setAlunoId(s.id);
     setAlunoNomeSel(`${s.nome}${s.phone ? ` • ${s.phone}` : ''}`);
     setAlunoPhoneSel(String(s.phone || '').trim());
     setClienteNome('');
     setClienteTelefone('');
     setAlunoSuggestions([]);
+    setAlunoActiveIndex(-1);
     setAlunoSearchText('');
-  };
+  }, []);
+
+  const handleAlunoSearchKeyDown = useCallback(
+    (e) => {
+      if (alunoId) return;
+      const count = alunoSuggestions.length;
+
+      if (e.key === 'Escape') {
+        if (count > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          setAlunoSuggestions([]);
+          setAlunoActiveIndex(-1);
+        }
+        return;
+      }
+
+      if (count === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setAlunoActiveIndex((i) => Math.min(i < 0 ? 0 : i + 1, count - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setAlunoActiveIndex((i) => Math.max(i < 0 ? 0 : i - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' && alunoActiveIndex >= 0 && alunoSuggestions[alunoActiveIndex]) {
+        e.preventDefault();
+        chooseAluno(alunoSuggestions[alunoActiveIndex]);
+      }
+    },
+    [alunoId, alunoSuggestions, alunoActiveIndex, chooseAluno]
+  );
 
   const clearAluno = () => {
     setAlunoId('');
     setAlunoNomeSel('');
     setAlunoPhoneSel('');
     setAlunoSearchText('');
+    setAlunoActiveIndex(-1);
   };
 
   const clientDisplayName = alunoNomeSel || clienteNome.trim() || 'Cliente avulso';
@@ -1014,21 +1078,32 @@ export default function SalesNewSaleTab({
                   className="form-input"
                   value={alunoSearchText}
                   onChange={(e) => setAlunoSearchText(e.target.value)}
+                  onKeyDown={handleAlunoSearchKeyDown}
                   placeholder="Buscar por nome ou celular"
                   disabled={Boolean(alunoId)}
                   autoComplete="off"
+                  role="combobox"
                   aria-autocomplete="list"
                   aria-controls={alunoSuggestions.length > 0 ? SALE_ALUNO_SUGGESTIONS_ID : undefined}
                   aria-expanded={alunoSuggestions.length > 0}
+                  aria-activedescendant={
+                    alunoActiveIndex >= 0 && alunoSuggestions[alunoActiveIndex]
+                      ? saleAlunoOptionId(alunoSuggestions[alunoActiveIndex].id)
+                      : undefined
+                  }
                 />
                 {alunoSuggestions.length > 0 && (
                   <div className="sales-suggestions" id={SALE_ALUNO_SUGGESTIONS_ID} role="listbox">
-                    {alunoSuggestions.map((s) => (
+                    {alunoSuggestions.map((s, index) => (
                       <button
                         key={s.id}
+                        id={saleAlunoOptionId(s.id)}
                         type="button"
                         role="option"
-                        className="sales-suggestion"
+                        aria-selected={index === alunoActiveIndex}
+                        className={`sales-suggestion${index === alunoActiveIndex ? ' sales-suggestion--active' : ''}`}
+                        onMouseEnter={() => setAlunoActiveIndex(index)}
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => chooseAluno(s)}
                       >
                         <span>{s.nome}</span>

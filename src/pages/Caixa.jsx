@@ -29,7 +29,9 @@ import {
 
   EMPRESA_FINANCE_CONFIG_PATH,
 
-  FINANCEIRO_EXTRATO_TAB,
+  isFinanceiroExtratoLegacyTab,
+
+  financeiroExtratoLegacyRedirect,
 
   hasExplicitFinanceiroTabParam,
 
@@ -54,7 +56,6 @@ const TransacoesTab = lazy(() => import('../components/finance/TransacoesTab.jsx
 const ForecastTab = lazy(() => import('../components/finance/ForecastTab.jsx'));
 const ReconciliationTab = lazy(() => import('../components/finance/ReconciliationTab.jsx'));
 const MonthlyClosingTab = lazy(() => import('../components/finance/MonthlyClosingTab.jsx'));
-const CaixaAccountingPanel = lazy(() => import('../components/finance/CaixaAccountingPanel.jsx'));
 
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -99,6 +100,10 @@ export default function Caixa() {
 
   if (isFinanceiroDreLegacyTab(rawTab)) {
     return <Navigate to="/reports?tab=financeiro" replace />;
+  }
+
+  if (isFinanceiroExtratoLegacyTab(rawTab)) {
+    return <Navigate to={financeiroExtratoLegacyRedirect()} replace />;
   }
 
   return <CaixaPage />;
@@ -547,16 +552,6 @@ function CaixaPage() {
               referenceMonth={referenceMonth}
               onReferenceMonthChange={setReferenceMonth}
             />
-          </div>
-        ) : null}
-
-        {academyId && activeTab === FINANCEIRO_EXTRATO_TAB && isOwner && financeModule ? (
-          <div
-            role="tabpanel"
-            id={`finance-tabpanel-${FINANCEIRO_EXTRATO_TAB}`}
-            aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_EXTRATO_TAB}`}
-          >
-            <CaixaAccountingPanel scope="operational" isOwner={isOwner} />
           </div>
         ) : null}
         </Suspense>

@@ -4,6 +4,8 @@ import {
   parseAccountCategoryValue,
   findAccountByCode,
   accountCategoryLabel,
+  accountCategoryDisplayLabel,
+  accountCategoryDisplayTitle,
   accountToFinanceCategory,
   resolveAccountFinanceCategory,
   listSelectableAccounts,
@@ -55,6 +57,16 @@ describe('financeAccountCategories', () => {
 
     it("accountCategoryLabel({code:'', name:'Receitas'}) → 'Receitas'", () => {
       expect(accountCategoryLabel({ code: '', name: 'Receitas' })).toBe('Receitas');
+    });
+
+    it('accountCategoryDisplayLabel mostra só nome', () => {
+      expect(accountCategoryDisplayLabel({ code: '4.1.2', name: 'Marketing digital' })).toBe('Marketing digital');
+    });
+
+    it('accountCategoryDisplayTitle inclui código', () => {
+      expect(accountCategoryDisplayTitle({ code: '4.1.2', name: 'Marketing digital' })).toBe(
+        '4.1.2 · Marketing digital'
+      );
     });
   });
 

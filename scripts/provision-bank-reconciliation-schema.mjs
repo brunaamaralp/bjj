@@ -39,17 +39,26 @@ const PROJECT =
 const API_KEY = process.env.APPWRITE_API_KEY || '';
 const DB_ID = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 const FINANCIAL_TX_COL =
-  process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID || process.env.FINANCIAL_TX_COL || '';
+  (process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID || process.env.FINANCIAL_TX_COL || '').trim();
+
+function resolveColId(...candidates) {
+  for (const raw of candidates) {
+    const id = String(raw || '').trim();
+    if (id) return id;
+  }
+  return '';
+}
 
 async function ensureCollection(databases, colId, name) {
+  const id = String(colId || '').trim();
   try {
-    await databases.getCollection(DB_ID, colId);
-    console.log('collection exists:', colId);
-    return colId;
+    await databases.getCollection(DB_ID, id);
+    console.log('collection exists:', id);
+    return id;
   } catch {
     const created = await databases.createCollection(
       DB_ID,
-      colId || ID.unique(),
+      id || ID.unique(),
       name,
       [Permission.read(Role.users()), Permission.create(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]
     );
@@ -105,7 +114,11 @@ async function main() {
 
   const statementsId = await ensureCollection(
     databases,
-    process.env.BANK_STATEMENTS_COL || process.env.VITE_APPWRITE_BANK_STATEMENTS_COLLECTION_ID || '6a0e7102000ecb5a5579',
+    resolveColId(
+      process.env.BANK_STATEMENTS_COL,
+      process.env.VITE_APPWRITE_BANK_STATEMENTS_COLLECTION_ID,
+      '6a0e7102000ecb5a5579'
+    ),
     'bank_statements'
   );
   await ensureString(databases, statementsId, 'academy_id', 64, true);
@@ -119,10 +132,18 @@ async function main() {
   await ensureString(databases, statementsId, 'completion_note', 2000, false);
   await ensureDatetime(databases, statementsId, 'completed_at', false);
   await ensureString(databases, statementsId, 'completed_by', 64, false);
+  await ensureString(databases, statementsId, 'bank_account', 128, false);
+  await ensureString(databases, statementsId, 'source_format', 16, false);
+  await ensureString(databases, statementsId, 'parse_method', 16, false);
+  await ensureString(databases, statementsId, 'parse_warnings', 2000, false);
 
   const itemsId = await ensureCollection(
     databases,
-    process.env.BANK_STATEMENT_ITEMS_COL || process.env.VITE_APPWRITE_BANK_STATEMENT_ITEMS_COLLECTION_ID || '6a0e71030005e0afe2f9',
+    resolveColId(
+      process.env.BANK_STATEMENT_ITEMS_COL,
+      process.env.VITE_APPWRITE_BANK_STATEMENT_ITEMS_COLLECTION_ID,
+      '6a0e71030005e0afe2f9'
+    ),
     'bank_statement_items'
   );
   await ensureString(databases, itemsId, 'statement_id', 64, true);

@@ -46,6 +46,10 @@ function downloadFinanceImportTemplate() {
     ['1', 'Ativo', 'ativo', 'devedora', '', '', '', 'Não'],
     ['1.1', 'Circulante', 'ativo', 'devedora', '', '', '', 'Não'],
     ['1.1.1', 'Caixa', 'ativo', 'devedora', '', 'Operacional', '', 'Sim'],
+    ['4.1', 'Receitas', 'receita', 'credora', 'Receita Bruta', '', '', 'Não'],
+    ['4.1.2', 'Mensalidades premium', 'receita', 'credora', 'Receita Bruta', '', '', 'Não'],
+    ['6.2', 'Despesas operacionais', 'despesa', 'devedora', 'Despesas Operacionais', '', '', 'Não'],
+    ['6.2.3', 'Marketing', 'despesa', 'devedora', 'Despesas Operacionais', '', '', 'Não'],
   ];
   downloadCsvTemplate(headers, sampleRows, 'modelo-plano-de-contas-nave.csv');
 }

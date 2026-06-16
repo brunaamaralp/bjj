@@ -7,6 +7,10 @@ import {
   buildFinanceiroHubTabItems,
   FINANCEIRO_SECTIONS,
   FINANCEIRO_EXTRATO_TAB,
+  isFinanceiroExtratoLegacyTab,
+  financeiroExtratoLegacyRedirect,
+  EMPRESA_FINANCE_RAZAO_PATH,
+  buildEmpresaFinanceRazaoPath,
 } from '../lib/financeiroHubTabs.js';
 
 describe('financeiroHubTabs', () => {
@@ -50,12 +54,27 @@ describe('financeiroHubTabs', () => {
     expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(false);
   });
 
-  it('buildFinanceiroAllowedLeafTabs — owner com menu completo', () => {
+  it('buildFinanceiroAllowedLeafTabs — owner sem aba extrato', () => {
     const allowed = new Set(
       buildFinanceiroAllowedLeafTabs({ navRole: 'owner', financeModule: true })
     );
     expect(allowed.has('conciliacao')).toBe(true);
-    expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(true);
+    expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(false);
+  });
+
+  it('isFinanceiroExtratoLegacyTab e redirect para razão em config', () => {
+    expect(isFinanceiroExtratoLegacyTab('extrato')).toBe(true);
+    expect(isFinanceiroExtratoLegacyTab('razao')).toBe(true);
+    expect(isFinanceiroExtratoLegacyTab('movimentacoes')).toBe(false);
+    expect(financeiroExtratoLegacyRedirect()).toBe(EMPRESA_FINANCE_RAZAO_PATH);
+  });
+
+  it('buildEmpresaFinanceRazaoPath com contexto de transação', () => {
+    expect(buildEmpresaFinanceRazaoPath()).toBe(EMPRESA_FINANCE_RAZAO_PATH);
+    const path = buildEmpresaFinanceRazaoPath({ from: 'tx', txId: 'tx-abc' });
+    expect(path).toContain('section=razao-contabil');
+    expect(path).toContain('from=tx');
+    expect(path).toContain('txId=tx-abc');
   });
 
   it('member em ?tab= legado redireciona para a receber', () => {
@@ -81,6 +100,7 @@ describe('financeiroHubTabs', () => {
     const tabs = buildFinanceiroHubTabItems({ navRole: 'owner', financeModule: true });
     expect(tabs[0].id).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
     expect(tabs.some((t) => t.id === 'conciliacao')).toBe(true);
+    expect(tabs.some((t) => t.id === FINANCEIRO_EXTRATO_TAB)).toBe(false);
   });
 
   it('buildFinanceiroHubTabItems — shortLabel em abas longas no mobile', () => {
@@ -88,8 +108,5 @@ describe('financeiroHubTabs', () => {
     const fechamento = tabs.find((t) => t.id === 'fechamento');
     expect(fechamento?.label).toBe('Conferência do mês');
     expect(fechamento?.shortLabel).toBe('Conferência');
-    const extrato = tabs.find((t) => t.id === FINANCEIRO_EXTRATO_TAB);
-    expect(extrato?.label).toBe('Extrato contábil');
-    expect(extrato?.shortLabel).toBe('Extrato');
   });
 });

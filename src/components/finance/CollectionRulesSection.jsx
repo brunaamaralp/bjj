@@ -1,10 +1,12 @@
 import React from 'react';
 import { Bell, Plus, Trash2 } from 'lucide-react';
-import { DEFAULT_COLLECTION_RULES } from '../../lib/collectionRules.js';
+import { DEFAULT_COLLECTION_RULES, DEFAULT_OVERDUE_LABEL } from '../../lib/collectionRules.js';
 
 export default function CollectionRulesSection({
   collectionRules,
   onRulesChange,
+  overdueLabel,
+  onOverdueLabelChange,
   embedded = false,
 }) {
   const rules = Array.isArray(collectionRules) ? collectionRules : DEFAULT_COLLECTION_RULES;
@@ -47,6 +49,23 @@ export default function CollectionRulesSection({
         apenas cria tarefas para a equipe agir.
       </p>
       <div className="finance-config-section__body">
+        {typeof onOverdueLabelChange === 'function' ? (
+          <div className="form-group mensal-collection-overdue-label">
+            <label htmlFor="finance-overdue-label">Etiqueta de inadimplência</label>
+            <input
+              id="finance-overdue-label"
+              className="form-input finance-compact-input"
+              maxLength={30}
+              value={overdueLabel ?? ''}
+              placeholder={DEFAULT_OVERDUE_LABEL}
+              onChange={(e) => onOverdueLabelChange(e.target.value)}
+            />
+            <p className="text-small text-muted">
+              Exibida no badge do aluno quando a régua marca inadimplência. Alunos já marcados mantêm a
+              etiqueta anterior até a próxima atualização automática.
+            </p>
+          </div>
+        ) : null}
         <div className="mensal-collection-rules-list">
           {rules.map((rule, idx) => {
             const day = Number(rule.day) || 1;

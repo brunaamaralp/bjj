@@ -18,6 +18,7 @@ import SalesCatalogPicker from '../sales/SalesCatalogPicker';
 import SalesVariantPicker from '../sales/SalesVariantPicker';
 import SalesCart from '../sales/SalesCart';
 import SalesPaymentBlock from '../sales/SalesPaymentBlock';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import {
   createEmptyPaymentRow,
@@ -26,7 +27,7 @@ import {
   rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
 import { friendlySaleError } from '../../lib/errorMessages.js';
-import { isStudentProductSaleDirty } from '../../lib/saleModalDirty.js';
+import { getSaleFooterHint, isStudentProductSaleDirty } from '../../lib/saleModalDirty.js';
 
 export const STUDENT_PRODUCT_SALE_FORM_ID = 'student-product-sale-form';
 
@@ -68,6 +69,7 @@ export default function StudentProductSaleStep({
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [mobilePanel, setMobilePanel] = useState('catalog');
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
 
   const idempotencyKeyRef = useRef('');
 
@@ -169,12 +171,29 @@ export default function StudentProductSaleStep({
     if (!onSubmitStateChange) return;
     const canSubmit =
       cart.length > 0 && !creating && (receiveLater || paymentValid.ok);
+    const footerError = localError ? friendlySaleError(localError) : null;
     onSubmitStateChange({
       canSubmit,
       busy: creating,
       label: creating ? 'Registrando…' : 'Confirmar venda',
+      footerHint: canSubmit || footerError
+        ? null
+        : getSaleFooterHint({
+            cartLength: cart.length,
+            paymentValid: paymentValid.ok,
+            receiveLater,
+            busy: creating,
+          }),
+      footerError,
     });
-  }, [cart.length, creating, receiveLater, paymentValid.ok, onSubmitStateChange]);
+  }, [
+    cart.length,
+    creating,
+    receiveLater,
+    paymentValid.ok,
+    localError,
+    onSubmitStateChange,
+  ]);
 
   useEffect(() => {
     setPayments((prev) => {
@@ -458,9 +477,17 @@ export default function StudentProductSaleStep({
     onComplete?.();
   };
 
+  const requestBack = useCallback(() => {
+    if (saleDirty) {
+      setShowBackConfirm(true);
+      return;
+    }
+    onBack?.();
+  }, [saleDirty, onBack]);
+
   return (
     <div className="student-product-sale">
-      <button type="button" className="btn-ghost student-product-sale__back" onClick={onBack}>
+      <button type="button" className="btn-ghost student-product-sale__back" onClick={requestBack}>
         ← Voltar aos tipos
       </button>
       <p className="student-product-sale__context">
@@ -602,6 +629,19 @@ export default function StudentProductSaleStep({
           }}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={showBackConfirm}
+        title="Descartar venda?"
+        description="Os produtos no carrinho serão perdidos."
+        confirmLabel="Descartar"
+        confirmVariant="danger"
+        onConfirm={() => {
+          setShowBackConfirm(false);
+          onBack?.();
+        }}
+        onClose={() => setShowBackConfirm(false)}
+      />
     </div>
   );
 }

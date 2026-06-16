@@ -9,6 +9,7 @@ import {
 describe('financeSettingsSections', () => {
   it('isFinanceSettingsSection validates slugs', () => {
     expect(isFinanceSettingsSection('planos')).toBe('planos');
+    expect(isFinanceSettingsSection('razao-contabil')).toBe('razao-contabil');
     expect(isFinanceSettingsSection('invalid')).toBe(null);
   });
 

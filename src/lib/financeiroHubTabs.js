@@ -19,6 +19,20 @@ export const EMPRESA_FINANCE_CONFIG_PATH = `/empresa?tab=${EMPRESA_FINANCE_TAB}`
 /** Contas de recebimento (Minha academia → Financeiro → Recebimento). */
 export const EMPRESA_FINANCE_ACCOUNTS_PATH = `${EMPRESA_FINANCE_CONFIG_PATH}&section=recebimento#contas`;
 
+/** Razão contábil (Minha academia → Financeiro → Avançado). */
+export function buildEmpresaFinanceRazaoPath({ from, txId } = {}) {
+  const params = new URLSearchParams();
+  params.set('tab', EMPRESA_FINANCE_TAB);
+  params.set('section', 'razao-contabil');
+  const fromVal = String(from || '').trim();
+  const txIdVal = String(txId || '').trim();
+  if (fromVal) params.set('from', fromVal);
+  if (txIdVal) params.set('txId', txIdVal);
+  return `/empresa?${params.toString()}`;
+}
+
+export const EMPRESA_FINANCE_RAZAO_PATH = buildEmpresaFinanceRazaoPath();
+
 /** Abas folha sob a seção Operações (legado; hub usa abas planas). */
 export const FINANCEIRO_CAIXA_LEAF_TABS = ['movimentacoes', 'previsao', 'fechamento', 'conciliacao'];
 
@@ -75,6 +89,16 @@ const HUB_TAB_SHORT_LABELS = {
   conciliacao: 'Conciliação',
   [FINANCEIRO_EXTRATO_TAB]: 'Extrato',
 };
+
+/** Slug legado — redireciona para razão em Minha academia. */
+export function isFinanceiroExtratoLegacyTab(tab) {
+  const t = String(tab || '').trim().toLowerCase();
+  return t === FINANCEIRO_EXTRATO_TAB || t === 'razao';
+}
+
+export function financeiroExtratoLegacyRedirect() {
+  return EMPRESA_FINANCE_RAZAO_PATH;
+}
 
 /** Mapeia ?tab= legado do hub (ex-/caixa) para slug folha. */
 export function financeiroLegacyTabToSlug(raw) {
@@ -141,7 +165,7 @@ export function buildFinanceiroAdminLeafTabs({ financeModule }) {
 export function buildFinanceiroOwnerLeafTabs({ financeModule }) {
   const tabs = buildFinanceiroAdminLeafTabs({ financeModule });
   if (financeModule) {
-    tabs.push('conciliacao', FINANCEIRO_EXTRATO_TAB);
+    tabs.push('conciliacao');
   }
   return tabs;
 }

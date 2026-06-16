@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { templatesForPurpose } from '../../lib/contractPlanTemplates.js';
 import {
   FINANCE_SETTINGS_SECTIONS,
@@ -10,6 +11,7 @@ import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import { useFinanceConfigState } from '../../hooks/useFinanceConfigState.js';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import CaixaAccountingPanel from './CaixaAccountingPanel.jsx';
+import JournalTab from './JournalTab.jsx';
 import AcademyTabSettingsLayout from '../academy/settings/AcademyTabSettingsLayout.jsx';
 import FinanceSettingsStickySave from './settings/FinanceSettingsStickySave.jsx';
 import FinanceSettingsPlansSection from './settings/FinanceSettingsPlansSection.jsx';
@@ -34,6 +36,7 @@ const SECTION_META = Object.fromEntries(
 
 /** Minha academia → Financeiro — sidebar + subpáginas (mesmo layout das demais abas). */
 export default function FinanceiroConfigTab({ academyId, isOwner }) {
+  const [searchParams] = useSearchParams();
   const state = useFinanceConfigState(academyId, { isOwner });
   const { section, goSection } = useAcademyTabSection(
     'financeiro',
@@ -44,6 +47,15 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
   useEffect(() => {
     if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
   }, [academyId]);
+
+  const accounts = useAccountingStore((s) => s.accounts);
+  const journal = useAccountingStore((s) => s.journal);
+  const setJournal = useAccountingStore((s) => s.setJournal);
+  const addEntry = useAccountingStore((s) => s.addEntry);
+  const deleteEntry = useAccountingStore((s) => s.deleteEntry);
+
+  const linkedTxId =
+    searchParams.get('from') === 'tx' ? String(searchParams.get('txId') || '').trim() : '';
 
   const rescissionTemplates = useMemo(
     () => templatesForPurpose(state.contractTemplates, 'rescission'),
@@ -135,6 +147,8 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         <FinanceSettingsCollectionSection
           collectionRules={state.collectionRules}
           onRulesChange={state.setCollectionRules}
+          overdueLabel={state.overdueLabel}
+          onOverdueLabelChange={state.setOverdueLabel}
         />
       ) : null}
 
@@ -154,7 +168,23 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
 
       {activeSection === FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS && isOwner ? (
         <div className="finance-settings-section-body finance-settings-section-body--flush">
-          <CaixaAccountingPanel scope="settings" isOwner={isOwner} />
+          <CaixaAccountingPanel isOwner={isOwner} />
+        </div>
+      ) : null}
+
+      {activeSection === FINANCE_SETTINGS_SECTIONS.RAZAO && isOwner ? (
+        <div className="finance-settings-section-body finance-settings-section-body--flush">
+          <JournalTab
+            academyId={academyId}
+            accounts={accounts}
+            journal={journal}
+            setJournal={setJournal}
+            addEntry={addEntry}
+            deleteEntry={deleteEntry}
+            sectionTitle="Razão contábil"
+            embedded
+            linkedTxId={linkedTxId}
+          />
         </div>
       ) : null}
 
