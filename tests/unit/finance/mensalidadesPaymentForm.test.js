@@ -3,7 +3,9 @@ import {
   MENSALIDADES_CREDIT_METHOD,
   isMensalidadesCreditMethod,
   normalizeMensalidadesInstallments,
+  validateMensalidadesPaymentForm,
 } from '../../../src/lib/mensalidadesPaymentForm.js';
+import { PAYMENT_CATEGORY } from '../../../src/lib/studentPayments.js';
 
 describe('normalizeMensalidadesInstallments', () => {
   it('crédito mantém parcelas 1–12', () => {
@@ -29,6 +31,59 @@ describe('isMensalidadesCreditMethod', () => {
     expect(isMensalidadesCreditMethod('cartão_crédito')).toBe(true);
     expect(isMensalidadesCreditMethod('cartao_credito')).toBe(true);
     expect(isMensalidadesCreditMethod('pix')).toBe(false);
+  });
+});
+
+describe('validateMensalidadesPaymentForm', () => {
+  const financeConfig = {
+    bankAccounts: [{ bankName: 'Nubank', account: '12345-6' }],
+  };
+  const student = { plan: 'Mensal', plan_price: 200 };
+
+  it('rejeita valor zero', () => {
+    const { errors } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.PLAN,
+        amount: '0,00',
+        paid_at: '2026-06-15',
+        method: 'pix',
+        account: 'Nubank · 12345-6',
+      },
+      financeConfig,
+      student,
+    });
+    expect(errors.amount).toBeTruthy();
+  });
+
+  it('rejeita bundle sem mês de cobertura', () => {
+    const { errors } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.BUNDLE,
+        bundle_start_month: '',
+        amount: '200,00',
+        paid_at: '2026-06-15',
+        method: 'pix',
+        account: 'Nubank · 12345-6',
+      },
+      financeConfig,
+      student,
+    });
+    expect(errors.bundle_start_month).toBeTruthy();
+  });
+
+  it('rejeita sem conta bancária configurada', () => {
+    const { errors } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.PLAN,
+        amount: '200,00',
+        paid_at: '2026-06-15',
+        method: 'pix',
+        account: '',
+      },
+      financeConfig: { bankAccounts: [] },
+      student,
+    });
+    expect(errors.account).toMatch(/conta bancária/i);
   });
 });
 

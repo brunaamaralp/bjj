@@ -29,6 +29,8 @@ function CashTrocoFieldsInner({
   className = '',
   inputClassName = 'form-input',
   labelClassName = 'form-label',
+  cashReceivedId = '',
+  trocoAccountId = 'troco-account',
 }) {
   const amount = Number(amountNum);
   const troco = useMemo(() => computeTrocoFromPayForm(payForm, amount), [payForm, amount]);
@@ -51,6 +53,7 @@ function CashTrocoFieldsInner({
       <div className="form-group">
         <label className={labelClassName}>Valor recebido em dinheiro</label>
         <input
+          id={cashReceivedId || undefined}
           type="text"
           className={inputClassName}
           inputMode="decimal"
@@ -99,7 +102,7 @@ function CashTrocoFieldsInner({
       </div>
       {showTrocoAccount ? (
         <BankAccountSelect
-          id="troco-account"
+          id={trocoAccountId}
           academyId={academyId}
           financeConfig={financeConfig}
           value={payForm?.trocoAccount || ''}

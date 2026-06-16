@@ -46,6 +46,13 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 | Alunos — perfil e presença | [crm/aluno-perfil-presenca.md](crm/aluno-perfil-presenca.md) | revisado (código) |
 | Tarefas — operação diária | [crm/tarefas-operacao.md](crm/tarefas-operacao.md) | revisado (código) |
 | Conversas — inbox WhatsApp | [crm/conversas-inbox.md](crm/conversas-inbox.md) | revisado (código) |
+| Recepção — Control iD | [crm/recepcao-controlid.md](crm/recepcao-controlid.md) | revisado (código) |
+
+### Análise
+
+| Fluxo | Arquivo | Status |
+|---|---|---|
+| Relatórios — indicadores | [analise/relatorios-indicadores.md](analise/relatorios-indicadores.md) | revisado (código) |
 
 ### Financeiro — Fase 2A (operações)
 
@@ -84,6 +91,7 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 |---|---|---|
 | Onboarding da academia | [config/onboarding-academia.md](config/onboarding-academia.md) | revisado (código) |
 | Conta e assinatura do Nave | [config/conta-assinatura.md](config/conta-assinatura.md) | revisado (código) |
+| Equipe — colaboradores | [config/equipe-colaboradores.md](config/equipe-colaboradores.md) | revisado (código) |
 
 ## Criar um novo fluxo
 

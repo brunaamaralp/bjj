@@ -4,7 +4,7 @@ import {
   getAppwriteDevHint,
   parseUnknownAttributeFromMessage,
 } from '../lib/appwriteErrors.js';
-import { friendlyError, financeTxFriendlyError } from '../lib/errorMessages.js';
+import { friendlyError, financeTxFriendlyError, studentPaymentFriendlyError } from '../lib/errorMessages.js';
 
 describe('appwriteErrors', () => {
   it('extrai atributo desconhecido', () => {
@@ -43,6 +43,15 @@ describe('appwriteErrors', () => {
   it('financeTxFriendlyError traduz códigos da API', () => {
     expect(financeTxFriendlyError('cannot_settle_cancelled')).toContain('cancelado');
     expect(financeTxFriendlyError('create_failed')).toContain('criar');
+    expect(financeTxFriendlyError('valor_invalido')).toContain('valor');
+    expect(financeTxFriendlyError('valor_acima_do_limite')).toContain('limite');
+  });
+
+  it('studentPaymentFriendlyError traduz duplicata e códigos', () => {
+    expect(studentPaymentFriendlyError('Já existe um lançamento com este valor')).toContain(
+      'lançamento'
+    );
+    expect(studentPaymentFriendlyError('lead_id_required')).toContain('Aluno');
   });
 
   it('friendlyError não expõe mensagem crua do Appwrite', () => {

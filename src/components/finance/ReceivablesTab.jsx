@@ -216,19 +216,39 @@ export default function ReceivablesTab({
     </button>
   );
 
-  const kpiStrip = (
-    <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
-      <p className="finance-kpi__label">
-        <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.aReceber}>
-          Total a receber · {monthLabel}
-        </FinanceLabelWithHint>
-      </p>
-      <p className="finance-kpi__value">{fmtMoney(summary.total)}</p>
-      {summary.count > 0 ? (
-        <p className="finance-kpi__hint">{summary.count} item(ns) em aberto</p>
-      ) : null}
-    </div>
-  );
+  const cobrancaStudentCount = Number(cobrancaSummary?.students) || 0;
+  const kpiStrip =
+    resolvedSection === RECEIVABLES_SECTIONS.COBRANCA ? (
+      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+        <p className="finance-kpi__label">
+          <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.cobrancaFila}>
+            Fila acumulada · últimos 12 meses
+          </FinanceLabelWithHint>
+        </p>
+        <p className="finance-kpi__value finance-data">
+          {fmtMoney(cobrancaSummary?.totalOpen || 0)}
+        </p>
+        {cobrancaStudentCount > 0 ? (
+          <p className="finance-kpi__hint">
+            {cobrancaStudentCount} inadimplente{cobrancaStudentCount !== 1 ? 's' : ''}
+          </p>
+        ) : (
+          <p className="finance-kpi__hint">Nenhuma mensalidade em atraso na janela</p>
+        )}
+      </div>
+    ) : (
+      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+        <p className="finance-kpi__label">
+          <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.aReceber}>
+            Total a receber · {monthLabel}
+          </FinanceLabelWithHint>
+        </p>
+        <p className="finance-kpi__value">{fmtMoney(summary.total)}</p>
+        {summary.count > 0 ? (
+          <p className="finance-kpi__hint">{summary.count} item(ns) em aberto</p>
+        ) : null}
+      </div>
+    );
 
   const subNav = (
     <div className="receivables-tab__subnav-bar">

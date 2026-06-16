@@ -15,17 +15,19 @@ import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
-import { friendlyError } from '../../lib/errorMessages';
+import { friendlyError, studentPaymentFriendlyError } from '../../lib/errorMessages';
 import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, CheckCircle2, Download } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
 import MensalidadesStatusFilter from './MensalidadesStatusFilter.jsx';
-import { expectedAmountWithCardFee } from '../../lib/paymentStatus.js';
 import {
   isStorageCreditMethod,
   MENSALIDADES_CREDIT_METHOD,
   normalizeMensalidadesInstallments,
+  validateMensalidadesPaymentForm,
+  focusFirstMensalidadesPaymentError,
+  MENSALIDADES_PAY_FIELD_IDS,
 } from '../../lib/mensalidadesPaymentForm.js';
 import {
   orderedStorageDialectMethodsForModal,
@@ -37,6 +39,7 @@ import {
   RECEIVABLES_SECTIONS,
 } from '../../lib/financeiroReceivablesSections.js';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import FieldError from '../shared/FieldError.jsx';
 import './finance.css';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { useNlPageContext } from '../../hooks/useNlPageContext.js';
@@ -51,7 +54,6 @@ import {
 } from '../../lib/collectionRules.js';
 import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
 import {
-  validateBankAccountForPayment,
   hasConfiguredBankAccounts,
 } from '../../lib/bankAccounts.js';
 import {
@@ -80,7 +82,7 @@ import {
 import { formatPaymentDateLabel, isPaymentDateInFuture } from '../../lib/validations.js';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
-import { isCashPaymentMethod, trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../../lib/studentPaymentTroco.js';
+import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
 
 const METHOD_LABELS = storageDialectMethodLabelsMap();
 
@@ -232,6 +234,8 @@ export default function MensalidadesPanel({
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
   const [payForm, setPayForm] = useState({});
+  const [payFormErrors, setPayFormErrors] = useState({});
+  const [paymentFormError, setPaymentFormError] = useState('');
   const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
   const skipFuturePaidDateRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
@@ -587,6 +591,28 @@ export default function MensalidadesPanel({
   const linkStudentProfile = navRole === 'owner' || navRole === 'admin';
   const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
 
+  const clearPayFieldError = useCallback((field) => {
+    setPayFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    setPaymentFormError('');
+  }, []);
+
+  const setPayFormTroco = useCallback((updater) => {
+    setPayFormErrors((prev) => {
+      if (!prev.cash_received && !prev.trocoAccount) return prev;
+      const next = { ...prev };
+      delete next.cash_received;
+      delete next.trocoAccount;
+      return next;
+    });
+    setPaymentFormError('');
+    setPayForm(updater);
+  }, []);
+
   const openPaymentModal = useCallback((student, preset = {}) => {
     const refMonth = String(preset.reference_month || preset.bundle_start_month || currentMonth).trim() || currentMonth;
     const day = studentDueDay(student);
@@ -627,6 +653,8 @@ export default function MensalidadesPanel({
       trocoAccount: '',
       installments: Math.min(12, Math.max(1, Number(preset.installments) || 1)),
     });
+    setPayFormErrors({});
+    setPaymentFormError('');
     setShowModal(true);
   }, [currentMonth, financeConfig]);
 
@@ -664,48 +692,26 @@ export default function MensalidadesPanel({
     const isBundle = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
     const bundleMonths = Number(payForm.bundle_months) || 12;
     const coverageStart = String(payForm.bundle_start_month || '').trim();
-    if (isBundle && !/^\d{4}-\d{2}$/.test(coverageStart)) {
-      toast.show({ type: 'error', message: 'Informe o início da cobertura.' });
-      return;
-    }
 
-    let amountNum = parseCurrencyBRL(payForm.amount);
-    const installments = normalizeMensalidadesInstallments(payForm.method, payForm.installments);
-    const withFee = expectedAmountWithCardFee(
-      selectedStudent,
+    const { errors, amountNum, paymentAccount } = validateMensalidadesPaymentForm({
+      payForm,
       financeConfig,
-      payForm.method,
-      installments,
-      paymentMap[selectedStudent.id]
-    );
-    if (Number.isFinite(withFee) && withFee > amountNum) amountNum = withFee;
-    if (!Number.isFinite(amountNum) || amountNum <= 0) {
-      toast.show({ type: 'error', message: 'Informe um valor maior que zero.' });
+      student: selectedStudent,
+      existingPayment: paymentMap[selectedStudent.id],
+    });
+    if (Object.keys(errors).length > 0) {
+      setPayFormErrors(errors);
+      setPaymentFormError('');
+      focusFirstMensalidadesPaymentError(errors);
       return;
     }
+    setPayFormErrors({});
+    setPaymentFormError('');
+
+    const installments = normalizeMensalidadesInstallments(payForm.method, payForm.installments);
     const paidAtMs = new Date(String(payForm.paid_at || '').trim()).getTime();
-    if (!Number.isFinite(paidAtMs)) {
-      toast.show({ type: 'error', message: 'Informe uma data de pagamento válida.' });
-      return;
-    }
     const dueDayNum = Number(String(payForm.due_day || '').replace(/[^\d]/g, ''));
     const dueDayValid = Number.isFinite(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
-    if (!isBundle && String(payForm.due_day || '').trim() && !dueDayValid) {
-      toast.show({ type: 'error', message: 'Informe um dia de vencimento entre 1 e 31.' });
-      return;
-    }
-    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
-    if (!trocoCheck.ok) {
-      toast.show({ type: 'error', message: trocoCheck.message });
-      return;
-    }
-
-    const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
-    if (!accountCheck.ok) {
-      toast.show({ type: 'error', message: accountCheck.message });
-      return;
-    }
-    const paymentAccount = accountCheck.account || payForm.account || '';
 
     const paidAtYmd = String(payForm.paid_at || '').trim();
     if (!skipFuturePaidDateRef.current && isPaymentDateInFuture(paidAtYmd)) {
@@ -820,15 +826,18 @@ export default function MensalidadesPanel({
           duration: 10000,
         });
       }
-    } catch {
+    } catch (e) {
       setPayments(previousPayments);
       setSelectedStudent(student);
       setPayForm(payFormSnapshot);
       setShowModal(true);
-      toast.show({
-        type: 'error',
-        message: 'Não foi possível registrar o pagamento. Tente novamente.',
-      });
+      const msg = studentPaymentFriendlyError(e, 'save');
+      if (/já existe um lançamento/i.test(msg)) {
+        setPayFormErrors({ amount: msg });
+        setPaymentFormError('');
+      } else {
+        setPaymentFormError(msg);
+      }
     } finally {
       setSavingPayment(false);
     }
@@ -1428,6 +1437,23 @@ export default function MensalidadesPanel({
                 </div>
 
                 <div className="mensalidades-modal-body">
+                  {paymentFormError ? (
+                    <p
+                      role="alert"
+                      className="mensalidades-modal-form-error"
+                      style={{
+                        margin: '0 0 12px',
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        background: 'var(--danger-light, #fcebeb)',
+                        color: 'var(--danger)',
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {paymentFormError}
+                    </p>
+                  ) : null}
                   <div>
                     <div className="mensal-modal-field-label mensal-modal-field-label--spaced">
                       Tipo de pagamento
@@ -1496,15 +1522,24 @@ export default function MensalidadesPanel({
                       </div>
                       <div className="mensal-modal-col">
                         <DateInput
+                          id={MENSALIDADES_PAY_FIELD_IDS.bundle_start_month}
                           label="Início da cobertura"
                           type="month"
                           value={payForm.bundle_start_month || currentMonth}
-                          onChange={(e) =>
-                            setPayForm((f) => ({ ...f, bundle_start_month: e.target.value }))
-                          }
+                          onChange={(e) => {
+                            clearPayFieldError('bundle_start_month');
+                            setPayForm((f) => ({ ...f, bundle_start_month: e.target.value }));
+                          }}
                           required
                           className="mensal-modal-in"
+                          aria-invalid={payFormErrors.bundle_start_month ? 'true' : undefined}
+                          aria-describedby={
+                            payFormErrors.bundle_start_month ? 'mensal-bundle-start-error' : undefined
+                          }
                         />
+                        <FieldError id="mensal-bundle-start-error">
+                          {payFormErrors.bundle_start_month}
+                        </FieldError>
                       </div>
                     </div>
                   ) : null}
@@ -1519,25 +1554,38 @@ export default function MensalidadesPanel({
                           R$
                         </span>
                         <input
-                          id="mensal-pay-amount"
+                          id={MENSALIDADES_PAY_FIELD_IDS.amount}
                           className="mensal-modal-in mensal-modal-in--amount"
                           type="text"
                           inputMode="decimal"
                           value={payForm.amount}
-                          onChange={(e) => setPayForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
+                          onChange={(e) => {
+                            clearPayFieldError('amount');
+                            setPayForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }));
+                          }}
                           placeholder="0,00"
+                          aria-invalid={payFormErrors.amount ? 'true' : undefined}
+                          aria-describedby={payFormErrors.amount ? 'mensal-pay-amount-error' : undefined}
                         />
                       </div>
+                      <FieldError id="mensal-pay-amount-error">{payFormErrors.amount}</FieldError>
                     </div>
                     <div className="mensal-modal-col">
                       <DateInput
+                        id={MENSALIDADES_PAY_FIELD_IDS.paid_at}
                         label="Data do pagamento"
                         type="date"
                         value={payForm.paid_at}
-                        onChange={(e) => setPayForm((f) => ({ ...f, paid_at: e.target.value }))}
+                        onChange={(e) => {
+                          clearPayFieldError('paid_at');
+                          setPayForm((f) => ({ ...f, paid_at: e.target.value }));
+                        }}
                         required
                         className="mensal-modal-in"
+                        aria-invalid={payFormErrors.paid_at ? 'true' : undefined}
+                        aria-describedby={payFormErrors.paid_at ? 'mensal-pay-paid-at-error' : undefined}
                       />
+                      <FieldError id="mensal-pay-paid-at-error">{payFormErrors.paid_at}</FieldError>
                     </div>
                   </div>
                   {payForm.payment_type !== PAYMENT_CATEGORY.BUNDLE ? (
@@ -1546,15 +1594,21 @@ export default function MensalidadesPanel({
                         Dia de vencimento
                       </label>
                       <input
-                        id="mensal-pay-due-day"
+                        id={MENSALIDADES_PAY_FIELD_IDS.due_day}
                         className="mensal-modal-in"
                         type="number"
                         min={1}
                         max={31}
                         value={payForm.due_day || ''}
-                        onChange={(e) => setPayForm((f) => ({ ...f, due_day: e.target.value }))}
+                        onChange={(e) => {
+                          clearPayFieldError('due_day');
+                          setPayForm((f) => ({ ...f, due_day: e.target.value }));
+                        }}
                         placeholder="1 a 31"
+                        aria-invalid={payFormErrors.due_day ? 'true' : undefined}
+                        aria-describedby={payFormErrors.due_day ? 'mensal-pay-due-day-error' : undefined}
                       />
+                      <FieldError id="mensal-pay-due-day-error">{payFormErrors.due_day}</FieldError>
                     </div>
                   ) : null}
                   <div>
@@ -1621,29 +1675,45 @@ export default function MensalidadesPanel({
                     </div>
                   ) : null}
                   {isCashPaymentMethod(payForm.method) ? (
-                    <CashTrocoFields
-                      payForm={payForm}
-                      setPayForm={setPayForm}
-                      amountNum={parseCurrencyBRL(payForm.amount)}
-                      academyId={academyId}
-                      financeConfig={financeConfig}
-                      disabled={savingPayment}
-                      className="mensal-modal-troco"
-                      inputClassName="mensal-modal-in"
-                      labelClassName="mensal-modal-field-label"
-                    />
+                    <>
+                      <CashTrocoFields
+                        payForm={payForm}
+                        setPayForm={setPayFormTroco}
+                        amountNum={parseCurrencyBRL(payForm.amount)}
+                        academyId={academyId}
+                        financeConfig={financeConfig}
+                        disabled={savingPayment}
+                        className="mensal-modal-troco"
+                        inputClassName="mensal-modal-in"
+                        labelClassName="mensal-modal-field-label"
+                        cashReceivedId={MENSALIDADES_PAY_FIELD_IDS.cash_received}
+                        trocoAccountId={MENSALIDADES_PAY_FIELD_IDS.trocoAccount}
+                      />
+                      <FieldError id="mensal-pay-cash-received-error">
+                        {payFormErrors.cash_received}
+                      </FieldError>
+                      <FieldError id="mensal-pay-troco-account-error">
+                        {payFormErrors.trocoAccount}
+                      </FieldError>
+                    </>
                   ) : null}
                   {hasBankAccounts ? (
-                    <BankAccountSelect
-                      id="mensal-pay-account"
-                      academyId={academyId}
-                      financeConfig={financeConfig}
-                      value={payForm.account}
-                      onChange={(v) => setPayForm((f) => ({ ...f, account: v }))}
-                      label="Conta"
-                      required
-                      className="mensal-modal-in mensal-modal-account"
-                    />
+                    <>
+                      <BankAccountSelect
+                        id={MENSALIDADES_PAY_FIELD_IDS.account}
+                        academyId={academyId}
+                        financeConfig={financeConfig}
+                        value={payForm.account}
+                        onChange={(v) => {
+                          clearPayFieldError('account');
+                          setPayForm((f) => ({ ...f, account: v }));
+                        }}
+                        label="Conta"
+                        required
+                        className="mensal-modal-in mensal-modal-account"
+                      />
+                      <FieldError id="mensal-pay-account-error">{payFormErrors.account}</FieldError>
+                    </>
                   ) : (
                     <p className="text-small mensal-modal-no-accounts" role="alert">
                       Nenhuma conta configurada.{' '}

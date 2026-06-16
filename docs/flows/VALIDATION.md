@@ -13,6 +13,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | Testes Fase 3 | `npm test -- lojaSalesTabs nlAction onboardingChecklist` — **46 passed** |
 | Testes Fase 4 | `npm test -- productCatalog lojaInventoryTabs automacoesHub automacoesSetupWizard automationUx` — **40 passed** |
 | Testes Conta/assinatura | `npm test -- billingGateClient trialCopy` + `lib/billing/planOrder.test.js` — ver seção Conta |
+| Testes Opcionais (Recepção/Relatórios/Equipe) | `bootstrapRoutePrefetch`, `reports*`, `teamPermissions`, `teamMembershipLabel` — **66 passed** |
 | Staging | **Pendente** — itens marcados com ⚠️ requerem sessão logada |
 
 ## Resumo por fluxo — CRM
@@ -387,8 +388,81 @@ Harness: `billingGateClient`, `trialCopy`, `lib/billing/planOrder.test.js`.
 
 ---
 
+## Resumo por fluxo — Opcionais (Recepção, Relatórios, Equipe)
+
+| Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
+|---|---|---|---|---|
+| [recepcao-controlid](crm/recepcao-controlid.md) | 12 | 12 | 0 | 12 |
+| [relatorios-indicadores](analise/relatorios-indicadores.md) | 13 | 13 | 0 | 13 |
+| [equipe-colaboradores](config/equipe-colaboradores.md) | 11 | 11 | 0 | 11 |
+
+---
+
+## recepcao-controlid
+
+| # | Item | Resultado | Evidência |
+|---|---|---|---|
+| 1 | Rota `/recepcao` | ✅ Código | `App.jsx`, `Recepcao.jsx` |
+| 2 | Abas ao-vivo / historico | ✅ Código | `searchParams.tab` |
+| 3 | Setup em Integrações | ✅ Código | `Integracoes.jsx`, `ControlIdCatracaSection` |
+| 4 | Status via API | ✅ Código | `useAcademyControlId`, `/api/control-id/status` |
+| 5 | Poll monitor | ✅ Código | `RecepcaoLivePanel`, `pollControlIdMonitor` |
+| 6 | Liberar catraca | ✅ Código | `releaseControlIdGate` |
+| 7 | Feed entradas hoje | ✅ Código | `fetchControlIdAttendance` |
+| 8 | Histórico filtros | ✅ Código | `ControlIdAttendancePanel`, `DATE_RANGES` |
+| 9 | Sync todos alunos | ✅ Código | `syncAllControlId` |
+| 10 | Presença server-side | ✅ Código | `controlidHandlers.processAccessEvent` |
+| 11 | Bootstrap alunos | ✅ Código | `bootstrapRoutePrefetch.test.js` |
+| 12 | Link modo recepção | ✅ Código | `ControlIdAttendancePanel` → `/recepcao` |
+
+Nota UX: links de config apontam para `/integracoes?tab=catraca`.
+
+---
+
+## relatorios-indicadores
+
+| # | Item | Resultado | Evidência |
+|---|---|---|---|
+| 1 | `/reports` hub | ✅ Código | `Reports.jsx`, `HubTabBar` |
+| 2 | Abas por módulo | ✅ Código | `getReportTabItems` |
+| 3 | Default funil | ✅ Código | `getDefaultReportTab` |
+| 4 | Aliases tab legados | ✅ Código | `normalizeReportTabParam` — testes |
+| 5 | POST funnel/students | ✅ Código | `api/reports.js` |
+| 6 | Período toolbar | ✅ Código | `useReportsPeriod` |
+| 7 | Drill dialog | ✅ Código | `ReportsDrillDialog` |
+| 8 | Export CSV | ✅ Código | `useReportsLeadExport`, `reportsExport.test.js` |
+| 9 | KPI metas RAG | ✅ Código | `reportsKpiGoals` |
+| 10 | Painéis lazy fin/loja/estoque | ✅ Código | `ReportsTabPanels` |
+| 11 | Filtro operador loja | ✅ Código | `fetchTeamMemberships` em `Reports.jsx` |
+| 12 | Multi-tenant API | ✅ Código | `bodyAcademyId` vs token — 403 |
+| 13 | Menu sidebar | ✅ Código | `buildRelatoriosNavItem` |
+
+Harness: `reports.test.js`, `reportsExport.test.js`, `reportsFinanceParity.test.js`, `reportsPeople.test.js`.
+
+---
+
+## equipe-colaboradores
+
+| # | Item | Resultado | Evidência |
+|---|---|---|---|
+| 1 | Rota `/equipe` | ✅ Código | `App.jsx`, `Equipe.jsx` |
+| 2 | Menu usuário | ✅ Código | `NaviUserMenu.jsx` |
+| 3 | Convite membro | ✅ Código | `createTeamMember`, `EquipeSection` |
+| 4 | Matriz permissões | ✅ Código | `teamPermissions.js` — 7 testes |
+| 5 | Owner convida admin | ✅ Código | `canAddTeamMember` |
+| 6 | Admin só recepcionista | ✅ Código | `roleOptionsForAdd` |
+| 7 | Editar / remover | ✅ Código | `updateTeamMember`, `removeTeamMember` |
+| 8 | Reset senha | ✅ Código | `resetTeamMemberPassword` |
+| 9 | Auditoria owner | ✅ Código | `fetchTeamAuditEvents` |
+| 10 | Recepcionista read-only | ✅ Código | `!canManage` banner |
+| 11 | Legacy redirect | ✅ Código | `empresaLegacyRedirects.js` |
+
+Harness: `teamPermissions.test.js`, `teamMembershipLabel.test.js`.
+
+---
+
 ## Próximo passo
 
 1. Executar checklists em **staging** com academia demo e marcar `status: revisado` → `gravado-em-video` após gravação.
 2. Abrir issue para presença em `/students?view=presenca` via hub embutido (se prioritário).
-3. **Opcional:** Recepção Control iD, Relatórios, Equipe.
+3. ~~Corrigir link de config na recepção~~ — feito (`/integracoes?tab=catraca`).

@@ -8,6 +8,16 @@ import { apiSnoozeCollectionRegua } from '../../lib/studentPaymentsApi.js';
 import { buildCollectionTaskTitle, buildCollectionTaskDescription } from '../../lib/collectionRules.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import { friendlyError } from '../../lib/errorMessages.js';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+
+function endOfMonthLabel(ym) {
+  const s = String(ym || '').trim().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(s)) return 'o fim do mês';
+  const [y, m] = s.split('-').map(Number);
+  const last = new Date(y, m, 0);
+  if (Number.isNaN(last.getTime())) return 'o fim do mês';
+  return last.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export function waMeUrl(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -37,6 +47,7 @@ export default function CobrancaRowActions({
   const [negotiateOpen, setNegotiateOpen] = useState(false);
   const [negotiateNote, setNegotiateNote] = useState('');
   const [savingNegotiate, setSavingNegotiate] = useState(false);
+  const [snoozeConfirmOpen, setSnoozeConfirmOpen] = useState(false);
 
   const wa = waMeUrl(phone);
   const leadName = String(studentName || '').trim() || 'Aluno';
@@ -89,6 +100,7 @@ export default function CobrancaRowActions({
         type: 'success',
         message: 'Régua adiada para este aluno até o fim do mês — o cron não criará novas tarefas.',
       });
+      setSnoozeConfirmOpen(false);
       onSnoozed?.();
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'action') });
@@ -135,12 +147,25 @@ export default function CobrancaRowActions({
           type="button"
           className={btnClass}
           disabled={busy}
-          onClick={() => void handleSnooze()}
+          onClick={() => setSnoozeConfirmOpen(true)}
         >
           <Clock size={14} />
           Adiar régua
         </button>
       </div>
+
+      <ConfirmDialog
+        open={snoozeConfirmOpen}
+        title={`Adiar régua · ${leadName}`}
+        description={`O cron não criará novas tarefas de cobrança para este aluno até ${endOfMonthLabel(currentMonth)}.`}
+        confirmLabel="Adiar régua"
+        confirmVariant="primary"
+        loading={busy}
+        onClose={() => {
+          if (!busy) setSnoozeConfirmOpen(false);
+        }}
+        onConfirm={() => void handleSnooze()}
+      />
 
       <ModalShell
         open={negotiateOpen}
@@ -151,7 +176,6 @@ export default function CobrancaRowActions({
         maxWidth={480}
         className="navi-modal-overlay--form mensal-negotiate-overlay"
         dialogClassName="mensal-negotiate-modal"
-        ariaLabelledBy="cobranca-negotiate-title"
         footer={
           <div className="mensal-negotiate-modal__actions" style={{ width: '100%' }}>
             <button

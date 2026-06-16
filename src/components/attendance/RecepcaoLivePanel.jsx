@@ -211,8 +211,8 @@ export default function RecepcaoLivePanel() {
         {!isConfigured && (
           <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
             Configure a catraca em{' '}
-            <Link to="/empresa" style={{ color: 'var(--purple)', fontWeight: 600 }}>
-              Configurações da academia
+            <Link to="/integracoes?tab=catraca" style={{ color: 'var(--purple)', fontWeight: 600 }}>
+              Integrações
             </Link>
             .
           </p>

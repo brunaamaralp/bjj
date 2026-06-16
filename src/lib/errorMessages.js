@@ -99,6 +99,8 @@ const FINANCE_TX_CODES = {
   save_failed: 'Não foi possível salvar o lançamento. Tente novamente.',
   snapshot_mismatch: 'Os valores mudaram desde a última visualização. Recarregue e tente de novo.',
   duplicate_payment: 'Já existe um lançamento com este valor e data para este aluno.',
+  valor_invalido: 'Informe um valor maior que zero.',
+  valor_acima_do_limite: 'Valor acima do limite permitido para lançamentos.',
 };
 
 const DEFAULT_ERRORS = {
@@ -197,6 +199,24 @@ export function financeTxFriendlyError(codeOrErr, context = 'action') {
   if (code && FINANCE_TX_CODES[code]) return FINANCE_TX_CODES[code];
   if (/já existe um lançamento/i.test(code)) return FINANCE_TX_CODES.duplicate_payment;
   return friendlyError(codeOrErr, context);
+}
+
+const STUDENT_PAYMENT_CODES = {
+  lead_id_required: 'Aluno não identificado. Recarregue a página e tente novamente.',
+  reference_month_required: 'Mês de referência obrigatório.',
+  student_payments_collection_not_configured:
+    'Pagamentos de alunos não configurados. Fale com o suporte.',
+};
+
+/** Erros de createPayment / API student-payments (mensalidades, vendas). */
+export function studentPaymentFriendlyError(codeOrErr, context = 'save') {
+  const code = String(
+    typeof codeOrErr === 'string' ? codeOrErr : codeOrErr?.message || codeOrErr?.code || ''
+  ).trim();
+  if (code && STUDENT_PAYMENT_CODES[code]) return STUDENT_PAYMENT_CODES[code];
+  if (/já existe um lançamento/i.test(code)) return FINANCE_TX_CODES.duplicate_payment;
+  if (/valor deve estar entre/i.test(code)) return code;
+  return financeTxFriendlyError(codeOrErr, context);
 }
 
 export function friendlySaleError(err) {

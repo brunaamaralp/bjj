@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CobrancaPanel from '../components/finance/CobrancaPanel.jsx';
 
@@ -51,7 +51,8 @@ describe('CobrancaPanel', () => {
     );
     expect(await screen.findByText('Maria Silva')).toBeTruthy();
     expect(screen.getByText('Inadimplentes')).toBeTruthy();
-    expect(screen.getByText(/D\+10/)).toBeTruthy();
+    const tbody = screen.getByRole('table').tBodies[0];
+    expect(within(tbody).getByText(/D\+10/)).toBeTruthy();
   });
 
   it('expande meses em aberto', async () => {

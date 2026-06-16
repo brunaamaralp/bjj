@@ -9,11 +9,14 @@ import {
 } from '../../lib/financeiroReceivablesSections.js';
 import { FINANCE_SETTINGS_SECTIONS } from '../../lib/financeSettingsSections.js';
 import CobrancaRowActions from './CobrancaRowActions.jsx';
+import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import useDebounce from '../../hooks/useDebounce.js';
+import { useToast } from '../../hooks/useToast.js';
+import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 
 function fmtMonthShort(ym) {
   if (!ym) return '—';
@@ -28,6 +31,7 @@ function fmtMonthShort(ym) {
 }
 
 export default function CobrancaPanel({ academyId, onSectionChange }) {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [error, setError] = useState('');
@@ -84,6 +88,8 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
 
   const handleRegisterPayment = (row, month) => {
     if (!onSectionChange) return;
+    const monthLabel = fmtMonthShort(month.referenceMonth);
+    toast.info(`Abrindo pagamento de ${monthLabel} para ${row.name}.`);
     onSectionChange(RECEIVABLES_SECTIONS.MENSALIDADES, {
       search: row.name,
       filtro: '',
@@ -93,6 +99,9 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
       },
     });
   };
+
+  const totalRows = data?.rows?.length || 0;
+  const filterActive = stageFilter !== 'all' || debouncedSearch.trim().length > 0;
 
   if (!academyId) {
     return <p className="text-small text-muted">Selecione uma academia.</p>;
@@ -147,6 +156,20 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
             </div>
             <div className="mensal-collection-dashboard__label">Valor em aberto</div>
           </div>
+          <button
+            type="button"
+            className={[
+              'cobranca-stage-chip',
+              stageFilter === 'all' ? 'cobranca-stage-chip--active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-pressed={stageFilter === 'all'}
+            onClick={() => setStageFilter('all')}
+          >
+            <div className="mensal-collection-dashboard__value">{summary.students}</div>
+            <div className="mensal-collection-dashboard__label">Todos</div>
+          </button>
           {collectionRules.map((rule) => (
             <button
               key={rule.day}
@@ -157,6 +180,7 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
               ]
                 .filter(Boolean)
                 .join(' ')}
+              aria-pressed={stageFilter === String(rule.day)}
               onClick={() =>
                 setStageFilter((prev) => (prev === String(rule.day) ? 'all' : String(rule.day)))
               }
@@ -172,16 +196,37 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
         </div>
       </section>
 
+      {filterActive && totalRows > 0 ? (
+        <p className="cobranca-panel__filter-meta text-small text-muted" aria-live="polite">
+          Mostrando {filteredRows.length} de {totalRows} aluno{totalRows !== 1 ? 's' : ''}
+        </p>
+      ) : null}
+
       {filteredRows.length === 0 ? (
-        <EmptyState
-          variant="compact"
-          title="Nenhuma pendência em atraso"
-          description="Quando houver mensalidades vencidas, os alunos aparecerão nesta fila."
-          primaryAction={{
-            label: 'Configurar régua de cobrança',
-            href: reguaConfigPath,
-          }}
-        />
+        filterActive && totalRows > 0 ? (
+          <EmptyState
+            variant="compact"
+            title="Nenhum aluno neste filtro"
+            description="Ajuste a etapa da régua ou limpe a busca para ver toda a fila."
+            primaryAction={{
+              label: 'Mostrar todos',
+              onClick: () => {
+                setStageFilter('all');
+                setSearch('');
+              },
+            }}
+          />
+        ) : (
+          <EmptyState
+            variant="compact"
+            title="Nenhuma pendência em atraso"
+            description="Quando houver mensalidades vencidas, os alunos aparecerão nesta fila."
+            primaryAction={{
+              label: 'Configurar régua de cobrança',
+              href: reguaConfigPath,
+            }}
+          />
+        )
       ) : (
         <div className="finance-table-wrap cobranca-panel__table-wrap">
           <table className="finance-table cobranca-panel__table">
@@ -190,7 +235,9 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
                 <th aria-label="Expandir" />
                 <th>Aluno</th>
                 <th>Meses</th>
-                <th>D+</th>
+                <th>
+                  <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.diasAtraso}>D+</FinanceLabelWithHint>
+                </th>
                 <th>Etapa</th>
                 <th className="cobranca-panel__col-amount">Total</th>
                 <th>Ações</th>

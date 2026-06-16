@@ -113,7 +113,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 | Situação | Feedback esperado | Referência |
 |---|---|---|
-| Catraca não configurada | Botão liberar desabilitado; link para config | `RecepcaoLivePanel` → `/empresa` (UX: config real em `/integracoes`) |
+| Catraca não configurada | Botão liberar desabilitado; link para Integrações | `RecepcaoLivePanel` → `/integracoes?tab=catraca` |
 | Poll falha | Status **Offline** | `deviceOnline = false` |
 | Sync parcial | Toast warning com `failed` | `syncAllControlId` |
 | Release falha | Toast erro `friendlyError` | `useToast` |

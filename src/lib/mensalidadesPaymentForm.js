@@ -1,8 +1,18 @@
+import { parseCurrencyBRL } from './masks.js';
+import { expectedAmountWithCardFee } from './paymentStatus.js';
 import {
   isStorageCreditMethod,
   normalizeToStorageDialect,
   STORAGE_CREDIT_METHOD,
 } from './paymentMethods.js';
+import { PAYMENT_CATEGORY } from './studentPayments.js';
+import { validateBankAccountForPayment, hasConfiguredBankAccounts } from './bankAccounts.js';
+import {
+  computeTrocoFromPayForm,
+  isCashPaymentMethod,
+  parseCashReceivedAmount,
+  defaultTrocoAccount,
+} from './studentPaymentTroco.js';
 
 // Backwards-compatible re-export:
 // `MensalidadesPanel.jsx` (and older code) expects this symbol from this module.
@@ -28,4 +38,123 @@ export function isMensalidadesCreditMethod(method) {
 /** Garante dialect de storage ao salvar pagamento de mensalidade. */
 export function normalizeMensalidadesPaymentMethod(method) {
   return normalizeToStorageDialect(method, 'pix');
+}
+
+export const MENSALIDADES_PAY_FIELD_IDS = {
+  bundle_start_month: 'mensal-bundle-start-month',
+  amount: 'mensal-pay-amount',
+  paid_at: 'mensal-pay-paid-at',
+  due_day: 'mensal-pay-due-day',
+  cash_received: 'mensal-pay-cash-received',
+  trocoAccount: 'mensal-pay-troco-account',
+  account: 'mensal-pay-account',
+};
+
+const MENSALIDADES_ERROR_FOCUS_ORDER = [
+  'bundle_start_month',
+  'amount',
+  'paid_at',
+  'due_day',
+  'cash_received',
+  'trocoAccount',
+  'account',
+];
+
+export function resolveMensalidadesPaymentAmount(payForm, student, financeConfig, existingPayment) {
+  let amountNum = parseCurrencyBRL(payForm?.amount);
+  const installments = normalizeMensalidadesInstallments(payForm?.method, payForm?.installments);
+  const withFee = expectedAmountWithCardFee(
+    student,
+    financeConfig,
+    payForm?.method,
+    installments,
+    existingPayment
+  );
+  if (Number.isFinite(withFee) && withFee > amountNum) amountNum = withFee;
+  return amountNum;
+}
+
+/**
+ * Validação do modal de pagamento em Mensalidades (espelha regras do submit).
+ * @returns {{ errors: Record<string, string>, amountNum: number, paymentAccount: string }}
+ */
+export function validateMensalidadesPaymentForm({
+  payForm,
+  financeConfig,
+  student,
+  existingPayment = null,
+}) {
+  const errors = {};
+  const isBundle = payForm?.payment_type === PAYMENT_CATEGORY.BUNDLE;
+
+  if (isBundle) {
+    const coverageStart = String(payForm?.bundle_start_month || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(coverageStart)) {
+      errors.bundle_start_month = 'Informe o início da cobertura.';
+    }
+  }
+
+  const amountNum = resolveMensalidadesPaymentAmount(
+    payForm,
+    student,
+    financeConfig,
+    existingPayment
+  );
+  if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    errors.amount = 'Informe um valor maior que zero.';
+  }
+
+  const paidAtMs = new Date(String(payForm?.paid_at || '').trim()).getTime();
+  if (!Number.isFinite(paidAtMs)) {
+    errors.paid_at = 'Informe uma data de pagamento válida.';
+  }
+
+  if (!isBundle && String(payForm?.due_day || '').trim()) {
+    const dueDayNum = Number(String(payForm.due_day || '').replace(/[^\d]/g, ''));
+    if (!Number.isFinite(dueDayNum) || dueDayNum < 1 || dueDayNum > 31) {
+      errors.due_day = 'Informe um dia de vencimento entre 1 e 31.';
+    }
+  }
+
+  if (isCashPaymentMethod(payForm?.method) && Number.isFinite(amountNum) && amountNum > 0) {
+    const received = parseCashReceivedAmount(payForm);
+    if (received != null && received + 0.004 < amountNum) {
+      errors.cash_received = 'Valor recebido em dinheiro é menor que o valor da mensalidade.';
+    }
+    const troco = computeTrocoFromPayForm(payForm, amountNum);
+    if (troco > 0 && hasConfiguredBankAccounts(financeConfig)) {
+      const trocoAccount = String(
+        payForm?.trocoAccount || payForm?.troco_account || defaultTrocoAccount(payForm, financeConfig)
+      ).trim();
+      const trocoCheck = validateBankAccountForPayment(trocoAccount, financeConfig);
+      if (!trocoCheck.ok) {
+        errors.trocoAccount =
+          trocoCheck.message || 'Selecione a conta de onde saiu o troco.';
+      }
+    }
+  }
+
+  const accountCheck = validateBankAccountForPayment(payForm?.account, financeConfig);
+  if (!accountCheck.ok) {
+    errors.account = accountCheck.message;
+  }
+
+  return {
+    errors,
+    amountNum,
+    paymentAccount: accountCheck.ok ? accountCheck.account || payForm?.account || '' : '',
+  };
+}
+
+export function focusFirstMensalidadesPaymentError(errors) {
+  if (!errors || typeof document === 'undefined') return;
+  for (const key of MENSALIDADES_ERROR_FOCUS_ORDER) {
+    if (!errors[key]) continue;
+    const id = MENSALIDADES_PAY_FIELD_IDS[key];
+    const el = id ? document.getElementById(id) : null;
+    if (el && typeof el.focus === 'function') {
+      el.focus();
+      return;
+    }
+  }
 }

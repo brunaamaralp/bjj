@@ -203,8 +203,11 @@ export default function ControlIdAttendancePanel({
         >
           <DoorOpen size={14} />
           Catraca não configurada. Configure em{' '}
-          <Link to="/empresa" style={{ color: 'var(--warning)', fontWeight: 600, textDecoration: 'underline' }}>
-            Configurações da academia
+          <Link
+            to="/integracoes?tab=catraca"
+            style={{ color: 'var(--warning)', fontWeight: 600, textDecoration: 'underline' }}
+          >
+            Integrações
           </Link>
           .
         </div>
@@ -249,7 +252,7 @@ export default function ControlIdAttendancePanel({
           description={
             isConfigured
               ? `Os registros da catraca aparecem aqui quando ${terms.students.toLowerCase()} passam pelo equipamento.`
-              : 'Configure a integração Control iD nas configurações da academia.'
+              : 'Configure a integração Control iD em Integrações → Catraca.'
           }
           role="status"
         />
