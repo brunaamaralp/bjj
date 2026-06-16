@@ -34,7 +34,15 @@ describe('expectedAmountWithCardFee', () => {
     expect(expectedAmountWithCardFee(student, financeConfig, 'debito', null, null)).toBe(204);
   });
 
-  it('não aplica taxa em pix', () => {
+  it('aplica taxa PIX quando pix.percent configurado', () => {
+    const cfg = {
+      ...financeConfig,
+      cardFees: { ...financeConfig.cardFees, pix: { percent: 2 } },
+    };
+    expect(expectedAmountWithCardFee({ plan: 'Mensal' }, cfg, 'pix', null, null)).toBe(204);
+  });
+
+  it('não aplica taxa PIX quando percent é 0', () => {
     const student = { plan: 'Mensal' };
     expect(expectedAmountWithCardFee(student, financeConfig, 'pix', null, null)).toBe(200);
   });

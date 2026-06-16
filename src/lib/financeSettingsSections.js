@@ -22,7 +22,24 @@ export function isFinanceSettingsSection(raw) {
   return VALID.has(id) ? id : null;
 }
 
+/** Seção padrão para titular (planos). */
 export const FINANCE_DEFAULT_SECTION = FINANCE_SETTINGS_SECTIONS.PLANOS;
+
+export function canAccessEmpresaFinanceSettings(role) {
+  return role === 'owner' || role === 'admin';
+}
+
+/** Primeira seção ao abrir Financeiro conforme papel. */
+export function getFinanceDefaultSection(isOwner) {
+  return isOwner ? FINANCE_SETTINGS_SECTIONS.PLANOS : FINANCE_SETTINGS_SECTIONS.RECEBIMENTO;
+}
+
+/** Itens da sidebar (Minha Academia → Financeiro), filtrados por titular. */
+export function buildFinanceSettingsNavItems(isOwner) {
+  return FINANCE_SETTINGS_GROUPS.flatMap((group) =>
+    group.items.filter((item) => !(item.ownerOnly && !isOwner))
+  );
+}
 
 export const FINANCE_SETTINGS_GROUPS = [
   {
@@ -32,7 +49,8 @@ export const FINANCE_SETTINGS_GROUPS = [
       {
         id: FINANCE_SETTINGS_SECTIONS.PLANOS,
         label: 'Planos de mensalidade',
-        hint: 'Preços e duração das mensalidades',
+        hint: 'Preços das mensalidades e vínculo com contratos',
+        ownerOnly: true,
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.RECEBIMENTO,
@@ -54,6 +72,7 @@ export const FINANCE_SETTINGS_GROUPS = [
         id: FINANCE_SETTINGS_SECTIONS.REGUA,
         label: 'Régua de cobrança',
         hint: 'Lembretes e etiquetas após vencimento',
+        ownerOnly: true,
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.WHATSAPP,
@@ -147,6 +166,7 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.PLANOS]: {
       done: namedPlans.length > 0,
       summary: plansSummary,
+      hidden: !isOwner,
     },
     [FINANCE_SETTINGS_SECTIONS.RECEBIMENTO]: {
       done: banks.length > 0,
@@ -159,6 +179,7 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.REGUA]: {
       done: rulesCount > 0,
       summary: `${rulesPart} · ${overdue}`,
+      hidden: !isOwner,
     },
     [FINANCE_SETTINGS_SECTIONS.WHATSAPP]: {
       done: wa.dueSoon.enabled || wa.overdue.enabled,
@@ -189,13 +210,16 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
   };
 }
 
-export function financeSettingsProgress(summaries) {
-  const core = [
-    summaries[FINANCE_SETTINGS_SECTIONS.PLANOS],
-    summaries[FINANCE_SETTINGS_SECTIONS.RECEBIMENTO],
-    summaries[FINANCE_SETTINGS_SECTIONS.TAXAS],
-    summaries[FINANCE_SETTINGS_SECTIONS.REGUA],
-  ].filter(Boolean);
+export function financeSettingsProgress(summaries, { isOwner = true } = {}) {
+  const coreIds = [
+    FINANCE_SETTINGS_SECTIONS.PLANOS,
+    FINANCE_SETTINGS_SECTIONS.RECEBIMENTO,
+    FINANCE_SETTINGS_SECTIONS.TAXAS,
+    FINANCE_SETTINGS_SECTIONS.REGUA,
+  ].filter(
+    (id) => isOwner || (id !== FINANCE_SETTINGS_SECTIONS.PLANOS && id !== FINANCE_SETTINGS_SECTIONS.REGUA)
+  );
+  const core = coreIds.map((id) => summaries[id]).filter(Boolean);
   const done = core.filter((s) => s.done).length;
   return { done, total: core.length };
 }

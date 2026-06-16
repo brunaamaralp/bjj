@@ -42,12 +42,15 @@ function amountWithinPercent(a, b, pct = 0.05) {
 
 function filterOrphansBySelectedItem(orphans, selectedItem, showAll) {
   if (!selectedItem || showAll) return orphans || [];
-  return (orphans || []).filter((tx) => {
-    const dayDiff = daysBetween(selectedItem.date, txDateYmd(tx));
-    if (dayDiff > 3) return false;
-    const gross = Math.abs(Number(tx.gross) || 0);
-    return amountWithinPercent(selectedItem.amount, gross);
-  });
+  return (orphans || []).filter((tx) => isOrphanCandidateForItem(tx, selectedItem));
+}
+
+export function isOrphanCandidateForItem(tx, selectedItem) {
+  if (!selectedItem || !tx) return false;
+  const dayDiff = daysBetween(selectedItem.date, txDateYmd(tx));
+  if (dayDiff > 3) return false;
+  const gross = Math.abs(Number(tx.gross) || 0);
+  return amountWithinPercent(selectedItem.amount, gross);
 }
 
 const FORMAT_LABELS = {
@@ -97,8 +100,13 @@ export default function BankReconOrphanList({
             : 'Nenhum lançamento pendente de conferência.'}
         </p>
       ) : (
-        filtered.map((tx) => (
-          <div key={tx.id} className="bank-recon-navi-row bank-recon-navi-row--actionable">
+        filtered.map((tx) => {
+          const isCandidate = selectedItem && isOrphanCandidateForItem(tx, selectedItem);
+          return (
+          <div
+            key={tx.id}
+            className={`bank-recon-navi-row bank-recon-navi-row--actionable${isCandidate ? ' bank-recon-navi-row--candidate' : ''}`}
+          >
             <div>
               <p className="bank-recon-pair__title">{tx.planName || tx.category || 'Lançamento'}</p>
               <p className="text-xs text-muted">
@@ -115,7 +123,8 @@ export default function BankReconOrphanList({
               <Link2 size={14} /> Vincular
             </button>
           </div>
-        ))
+          );
+        })
       )}
     </div>
   );

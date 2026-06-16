@@ -41,10 +41,21 @@ describe('expectedAmountWithCardFee — métodos acentuados (Mensalidades)', () 
     expect(expectedAmountWithCardFee(student, financeConfig, 'credito', null, null)).toBe(accented);
   });
 
-  it('não aplica taxa em pix, dinheiro ou transferência', () => {
-    expect(expectedAmountWithCardFee(student, financeConfig, 'pix', null, null)).toBe(200);
+  it('não aplica taxa em dinheiro ou transferência', () => {
     expect(expectedAmountWithCardFee(student, financeConfig, 'dinheiro', null, null)).toBe(200);
     expect(expectedAmountWithCardFee(student, financeConfig, 'transferência', null, null)).toBe(200);
+  });
+
+  it('aplica taxa PIX quando pix.percent configurado e applyCardFee', () => {
+    const cfg = {
+      ...financeConfig,
+      cardFees: { ...financeConfig.cardFees, pix: { percent: 3 } },
+    };
+    expect(expectedAmountWithCardFee(student, cfg, 'pix', null, null)).toBe(206);
+  });
+
+  it('PIX sem percent configurado permanece base', () => {
+    expect(expectedAmountWithCardFee(student, financeConfig, 'pix', null, null)).toBe(200);
   });
 
   it('não aplica quando plano sem applyCardFee', () => {

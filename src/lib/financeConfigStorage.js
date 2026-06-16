@@ -168,7 +168,6 @@ export function compactPlanForStorage(plan) {
   const out = {
     name,
     price: Number(plan.price) || 0,
-    durationDays: Math.max(1, Math.trunc(Number(plan.durationDays) || 30)),
     applyCardFee: plan.applyCardFee !== false,
   };
   const description = String(plan.description ?? '').trim();

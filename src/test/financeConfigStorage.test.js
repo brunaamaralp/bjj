@@ -3,11 +3,25 @@ import {
   buildAcademyFinanceConfigUpdate,
   mergeFinanceConfigFromAcademyDoc,
   auditBankAccountsFromAcademyDoc,
+  compactPlanForStorage,
   FinanceConfigTooLargeError,
   FINANCE_CONFIG_LEGACY_MAX_CHARS,
 } from '../lib/financeConfigStorage.js';
 
 describe('financeConfigStorage', () => {
+  it('compactPlanForStorage omits legacy durationDays', () => {
+    const compact = compactPlanForStorage({
+      name: 'Mensal',
+      price: 150,
+      durationDays: 90,
+      description: 'x',
+      applyCardFee: true,
+    });
+    expect(compact).not.toHaveProperty('durationDays');
+    expect(compact.name).toBe('Mensal');
+    expect(compact.price).toBe(150);
+  });
+
   it('keeps bank accounts in financeConfig when under limit', () => {
     const merged = {
       plans: [{ name: 'Mensal', price: 200 }],
@@ -133,7 +147,6 @@ describe('financeConfigStorage', () => {
       name: `Plano longo ${i}`,
       price: 100 + i,
       description: 'd'.repeat(120),
-      durationDays: 30,
       applyCardFee: true,
     }));
     const merged = {

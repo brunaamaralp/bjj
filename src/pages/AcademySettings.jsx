@@ -2,6 +2,7 @@ import '../styles/settings-pages.css';
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
+import { canAccessEmpresaFinanceSettings } from '../lib/financeSettingsSections.js';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -47,8 +48,8 @@ const TAB_SKELETON_HEIGHT = {
 };
 
 function getTabDisabledState(tabId, { role }) {
-    if (tabId === 'financeiro' && role !== 'owner') {
-        return { disabled: true, title: 'Disponível para titulares' };
+    if (tabId === 'financeiro' && !canAccessEmpresaFinanceSettings(role)) {
+        return { disabled: true, title: 'Disponível para titulares e administradores' };
     }
     return { disabled: false, title: undefined };
 }

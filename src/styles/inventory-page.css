@@ -138,20 +138,14 @@
 
 .inventory-page__body .inventory-desktop-table-wrap .inventory-table thead th,
 .inventory-page__body .inventory-desktop-table-wrap .products-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  position: static;
   background: var(--surface-hover, var(--azul-gelo));
 }
 
 .inventory-page__body .inventory-filters-row {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   flex-shrink: 0;
   padding-bottom: 12px;
   margin-bottom: 0;
-  background: var(--surface);
   border-bottom: 0.5px solid var(--border-light, var(--v100));
 }
 

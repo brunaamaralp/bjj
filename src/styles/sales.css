@@ -120,6 +120,20 @@
   overflow: visible !important;
 }
 
+.loja-hub .products-filters-row,
+.loja-hub .inventory-filters-row {
+  position: static;
+  z-index: auto;
+}
+
+.loja-hub .products-desktop-table-wrap .products-table thead th,
+.loja-hub .products-desktop-table-wrap .navi-table thead th,
+.loja-hub .inventory-desktop-table-wrap .inventory-table thead th,
+.loja-hub .inventory-desktop-table-wrap .products-table thead th,
+.loja-hub .sales-history-table-wrap .sales-table thead th {
+  position: static;
+}
+
 .sales-page__body .sales-cart-list {
   max-height: none;
   overflow: visible;

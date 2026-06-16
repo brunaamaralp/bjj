@@ -109,6 +109,15 @@ export function isCardPaymentMethod(canonical) {
   return false;
 }
 
+/**
+ * Métodos cuja taxa em financeConfig.cardFees pode repassar ao aluno (mensalidade).
+ * @param {string} canonical — resultado de canonicalPaymentMethodKey
+ */
+export function isPlanFeeEligiblePaymentMethod(canonical) {
+  if (canonical === 'pix') return true;
+  return isCardPaymentMethod(canonical);
+}
+
 /** Usa taxa parcelada quando método é parcelado ou crédito com 2+ parcelas. */
 export function usesInstallmentCardFee(canonical, installments) {
   if (canonical === 'credito_parcelado') return true;

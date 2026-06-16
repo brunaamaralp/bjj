@@ -5,7 +5,7 @@
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
 import {
   canonicalPaymentMethodKey,
-  isCardPaymentMethod,
+  isPlanFeeEligiblePaymentMethod,
   usesInstallmentCardFee,
 } from './paymentMethods.js';
 
@@ -58,11 +58,14 @@ function cardFeePercent(financeConfig, method, installments) {
   if (key === 'cartao_debito') {
     return Number(fees.debito?.percent ?? 0) || 0;
   }
+  if (key === 'pix') {
+    return Number(fees.pix?.percent ?? 0) || 0;
+  }
   return 0;
 }
 
 /**
- * Valor esperado com taxa de cartão quando o plano tem applyCardFee e o método é cartão.
+ * Valor esperado com repasse de taxa (cartão ou PIX) quando o plano tem applyCardFee.
  */
 export function expectedAmountWithCardFee(student, financeConfig, method, installments, payment) {
   const base = expectedAmountForStudent(student, financeConfig, payment);
@@ -73,7 +76,7 @@ export function expectedAmountWithCardFee(student, financeConfig, method, instal
   if (!plan?.applyCardFee) return base;
 
   const key = canonicalPaymentMethodKey(method);
-  if (!isCardPaymentMethod(key)) return base;
+  if (!isPlanFeeEligiblePaymentMethod(key)) return base;
 
   const pct = cardFeePercent(financeConfig, method, installments);
   if (!(pct > 0)) return base;
@@ -196,6 +199,24 @@ export function historyStatusForMonth(student, payment, ym) {
   if (db === 'partial') return 'partial';
   if (db === 'pending') return 'pending';
   return 'none';
+}
+
+/**
+ * Status simplificado para banner/badge do perfil (mês corrente).
+ * `covered` e `frozen` contam como em dia — alinhado a getPaymentStatus e à grade de Mensalidades.
+ * @param {string|{ key?: string, status?: string }|null|undefined} raw
+ * @returns {'paid'|'pending'|'partial'|'awaiting'|'none'|string}
+ */
+export function normalizeProfilePaymentStatus(raw) {
+  const key = String(
+    raw && typeof raw === 'object' ? raw.key || raw.status || '' : raw || ''
+  ).toLowerCase();
+  if (!key || key === 'none') return 'none';
+  if (key === 'paid' || key === 'covered' || key === 'frozen') return 'paid';
+  if (key === 'awaiting') return 'awaiting';
+  if (key === 'partial') return 'partial';
+  if (key === 'pending') return 'pending';
+  return key;
 }
 
 export function mapDbStatusFromGridForm(gridKey) {

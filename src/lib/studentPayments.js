@@ -14,6 +14,7 @@ import {
   mirrorGrossForPayment,
   shouldMirrorPaymentToCaixa,
   expectedAmountWithCardFee,
+  normalizeProfilePaymentStatus,
 } from './paymentStatus.js';
 import { applyAccountingSideEffectsAuto } from './financeJournal.js';
 import { FINANCE_CATEGORIES } from './financeCategories.js';
@@ -793,10 +794,15 @@ export async function getPaymentStatus(leadId, academyId) {
     (res.documents || []).find(isMensalidadesGridPayment) || null;
   if (!doc) return { status: 'none', payment: null };
   const st = String(doc.status || '').toLowerCase();
-  if (st === 'paid' || st === 'covered') return { status: 'paid', payment: doc };
-  if (st === 'awaiting') return { status: 'awaiting', payment: doc };
-  if (st === 'partial') return { status: 'partial', payment: doc };
-  return { status: 'pending', payment: doc };
+  const profileSt = normalizeProfilePaymentStatus(st);
+  const status =
+    profileSt === 'paid' ||
+    profileSt === 'awaiting' ||
+    profileSt === 'partial' ||
+    profileSt === 'pending'
+      ? profileSt
+      : 'pending';
+  return { status, payment: doc };
 }
 
 export { PAYMENT_CATEGORY, normalizePaymentCategory, isMensalidadesGridPayment };

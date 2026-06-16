@@ -52,9 +52,17 @@ export default function SearchableSelect({
     if (!open) setQuery(selectedLabel);
   }, [selectedLabel, open]);
 
+  const filterQuery = useMemo(() => {
+    if (!open) return '';
+    const q = String(query || '').trim();
+    const selected = String(selectedLabel || '').trim();
+    if (q.toLowerCase() === selected.toLowerCase()) return '';
+    return query;
+  }, [open, query, selectedLabel]);
+
   const filteredOptions = useMemo(
-    () => filterOptions(options, open ? query : ''),
-    [options, open, query]
+    () => filterOptions(options, filterQuery),
+    [options, filterQuery]
   );
 
   const pick = (optionValue, optionLabel) => {

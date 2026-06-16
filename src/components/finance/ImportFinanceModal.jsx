@@ -280,7 +280,6 @@ export default function ImportFinanceModal({
               <tr>
                 <th scope="col">Nome</th>
                 <th scope="col">Valor</th>
-                <th scope="col">Duração</th>
               </tr>
             </thead>
             <tbody>
@@ -293,7 +292,6 @@ export default function ImportFinanceModal({
                       {row.name || '—'}
                     </td>
                     <td>{Number.isFinite(Number(row.price)) ? `R$ ${Number(row.price).toFixed(2)}` : '—'}</td>
-                    <td>{row.durationDays || 30} dias</td>
                   </tr>
                 );
               })}

@@ -169,7 +169,7 @@ function PlanRow({ pl, idx, onUpdate, onRemove }) {
         <button
           type="button"
           className="finance-bank-row__remove"
-          title={expanded ? 'Fechar detalhes' : 'Duração, descrição e mais'}
+          title={expanded ? 'Fechar detalhes' : 'Descrição e mais'}
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
         >
@@ -186,19 +186,6 @@ function PlanRow({ pl, idx, onUpdate, onRemove }) {
       </div>
       {expanded ? (
         <div className="finance-plan-detail">
-          <div className="form-group finance-form-group--tight">
-            <label>Duração (dias)</label>
-            <input
-              className="form-input finance-compact-input"
-              type="number"
-              min={1}
-              value={pl.durationDays ?? 30}
-              onChange={(e) => onUpdate(idx, { durationDays: Number(e.target.value || 0) })}
-            />
-            <p className="text-xs text-light finance-form-hint">
-              Usado para calcular vencimento da mensalidade.
-            </p>
-          </div>
           <div className="form-group finance-form-group--tight">
             <label>Descrição</label>
             <input
@@ -604,7 +591,6 @@ export default function ConfigTab({ academyId, layout = 'picker', isOwner = true
                 arr.push({
                   name: '',
                   price: 0,
-                  durationDays: 30,
                   description: '',
                   applyCardFee: true,
                 });

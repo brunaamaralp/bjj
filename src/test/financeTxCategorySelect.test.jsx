@@ -97,6 +97,19 @@ describe('financeTxCategorySelect', () => {
     expect(screen.getByTestId('selected-category')).toHaveTextContent('Marketing');
   });
 
+  it('ao abrir o select de entrada lista todas as categorias de receita, não só Mensalidades', async () => {
+    const user = userEvent.setup();
+    render(<TxCategoryHarness />);
+
+    const input = screen.getByLabelText('Categoria');
+    await user.click(input);
+
+    expect(screen.getByRole('option', { name: 'Mensalidades' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Vendas de produtos' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Matrículas' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Outras receitas' })).toBeInTheDocument();
+  });
+
   it('não lista acct:4.1.1 quando duplica Mensalidades', () => {
     const accounts = [
       { code: '4.1.1', name: 'Receita de Vendas', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },

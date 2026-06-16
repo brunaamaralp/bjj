@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './finance.css';
-import { ArrowLeft, Check, Upload } from 'lucide-react';
+import { ArrowLeft, Check, FileSpreadsheet, Upload } from 'lucide-react';
 import ImportStatementModal from './ImportStatementModal.jsx';
 import BankReconPairRow from './BankReconPairRow.jsx';
 import BankReconOrphanList, { formatSourceLabel } from './BankReconOrphanList.jsx';
+import BankReconSelectionBar from './BankReconSelectionBar.jsx';
+import BankReconKpiRow from './BankReconKpiRow.jsx';
 import {
   listBankStatements,
   getBankStatementDetail,
@@ -16,10 +18,12 @@ import {
 } from '../../lib/bankReconciliationApi.js';
 import { reconcileStudentPaymentMirrors } from '../../lib/financeTxApi.js';
 import { friendlyError } from '../../lib/errorMessages';
+import { useToast } from '../../hooks/useToast';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 
@@ -63,7 +67,22 @@ function reconFriendlyError(err) {
   return friendlyError(err, 'action');
 }
 
+const FORMAT_ICONS = {
+  ofx: FileSpreadsheet,
+  csv: FileSpreadsheet,
+  xlsx: FileSpreadsheet,
+  pdf: Upload,
+};
+
+function txLabel(tx, options) {
+  const fromOpts = options?.find((o) => o.value === tx?.id);
+  if (fromOpts) return fromOpts.label;
+  if (!tx) return 'lançamento';
+  return `${fmtDate(tx.settledAt)} — ${fmtMoney(tx.gross)} — ${tx.planName || tx.category || 'Lançamento'}`;
+}
+
 export default function ReconciliationTab({ academyId }) {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [statements, setStatements] = useState([]);
   const [selectedId, setSelectedId] = useState('');
@@ -80,6 +99,8 @@ export default function ReconciliationTab({ academyId }) {
   const [selectedBankItemId, setSelectedBankItemId] = useState('');
   const [unmatchedTxByItem, setUnmatchedTxByItem] = useState({});
   const [showAllOrphans, setShowAllOrphans] = useState(false);
+  const [focusPendingOnly, setFocusPendingOnly] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState(null);
 
   const loadList = useCallback(async () => {
     if (!academyId) return;
@@ -181,11 +202,15 @@ export default function ReconciliationTab({ academyId }) {
     void refresh();
   };
 
-  const run = async (fn) => {
+  const run = async (fn, { successMessage } = {}) => {
     setBusy(true);
     try {
-      await fn();
+      const result = await fn();
       await refresh();
+      if (successMessage) {
+        const msg = typeof successMessage === 'function' ? successMessage(result) : successMessage;
+        if (msg) toast.success(msg);
+      }
     } catch (e) {
       console.error(e);
       setError(reconFriendlyError(e));
@@ -194,8 +219,42 @@ export default function ReconciliationTab({ academyId }) {
     }
   };
 
-  const linkItemToTx = (itemId, txId) =>
-    run(() => confirmBankMatch(academyId, { item_id: itemId, transaction_id: txId }));
+  const linkItemToTx = (itemId, txId) => {
+    const tx = (detail?.navi_unmatched || []).find((t) => t.id === txId)
+      || (detail?.navi_transactions || []).find((t) => t.id === txId);
+    return run(() => confirmBankMatch(academyId, { item_id: itemId, transaction_id: txId }), {
+      successMessage: `Linha conciliada com ${txLabel(tx, manualTxOptions)}`,
+    });
+  };
+
+  const requestIgnore = (item) => {
+    setPendingConfirm({
+      type: 'ignore',
+      itemId: item.id,
+      label: item.description || 'esta linha',
+    });
+  };
+
+  const requestCreateTx = (item) => {
+    setPendingConfirm({
+      type: 'create',
+      itemId: item.id,
+      label: item.description || 'esta linha',
+    });
+  };
+
+  const executePendingConfirm = () => {
+    if (!pendingConfirm) return;
+    const { type, itemId } = pendingConfirm;
+    setPendingConfirm(null);
+    if (type === 'ignore') {
+      void run(() => ignoreBankItem(academyId, itemId), { successMessage: 'Linha ignorada.' });
+    } else if (type === 'create') {
+      void run(() => createTxFromBankItem(academyId, { item_id: itemId }), {
+        successMessage: 'Lançamento criado e conciliado.',
+      });
+    }
+  };
 
   if (!academyId) return null;
 
@@ -280,12 +339,17 @@ export default function ReconciliationTab({ academyId }) {
                 </tr>
               </thead>
               <tbody>
-                {statements.map((s) => (
+                {statements.map((s) => {
+                  const FormatIcon = FORMAT_ICONS[String(s.source_format || '').toLowerCase()] || FileSpreadsheet;
+                  return (
                   <tr key={s.id}>
                     <td>{s.filename || '—'}</td>
                     <td>
-                      {formatSourceLabel(s.source_format)}
-                      {s.parse_method === 'ai' ? ' (IA)' : ''}
+                      <span className="bank-recon-format-cell">
+                        <FormatIcon size={14} className="bank-recon-btn-icon" aria-hidden />
+                        {formatSourceLabel(s.source_format)}
+                        {s.parse_method === 'ai' ? ' (IA)' : ''}
+                      </span>
                     </td>
                     <td>
                       {fmtDate(s.period_start)} — {fmtDate(s.period_end)}
@@ -304,7 +368,8 @@ export default function ReconciliationTab({ academyId }) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -325,6 +390,11 @@ export default function ReconciliationTab({ academyId }) {
   const balanceGap = Number(balanceProof?.balance_gap ?? summary.balance_gap ?? summary.difference ?? 0);
   const st = detail?.statement;
 
+  const workspaceEmpty =
+    grouped.unmatched.length === 0 &&
+    grouped.suggested.length === 0 &&
+    Number(summary.pending_count || 0) === 0;
+
   return (
     <FinanceTabShell panelClassName="bank-recon">
       <button type="button" className="btn-outline btn-sm mb-3" onClick={() => setSelectedId('')}>
@@ -336,63 +406,19 @@ export default function ReconciliationTab({ academyId }) {
 
       {st && !detailLoading ? (
         <>
-          <div className="card bank-recon-summary mb-3" role="status">
-            <h4 className="finance-tab__section-title bank-recon-summary-title">
-              {st.filename} · {STATUS_LABELS[st.status] || st.status}
-              {st.source_format ? ` · ${formatSourceLabel(st.source_format)}` : ''}
-            </h4>
-            <p className="text-small text-muted bank-recon-summary-period">
-              {fmtDate(st.period_start)} — {fmtDate(st.period_end)}
-            </p>
-            <div className="bank-recon-summary__grid">
-              <div>
-                <span className="text-xs text-muted">Conciliados</span>
-                <strong className="bank-recon-summary-value bank-recon-summary-value--ok">
-                  {summary.reconciled_count} ({fmtMoney(summary.reconciled_amount)})
-                </strong>
-              </div>
-              <div>
-                <span className="text-xs text-muted">Pendentes</span>
-                <strong className="bank-recon-summary-value bank-recon-summary-value--warn">
-                  {summary.pending_count} ({fmtMoney(summary.pending_amount)})
-                </strong>
-              </div>
-              <div>
-                <span className="text-xs text-muted">Diferença (extrato × conciliado)</span>
-                <strong
-                  className={`bank-recon-summary-value${Math.abs(balanceGap) > 0.02 ? ' bank-recon-summary-value--warn' : ''}`}
-                >
-                  {fmtMoney(balanceGap)}
-                </strong>
-              </div>
-              {balanceProof ? (
-                <>
-                  <div>
-                    <span className="text-xs text-muted">Extrato líquido</span>
-                    <strong className="bank-recon-summary-value">{fmtMoney(balanceProof.statement_net)}</strong>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted">Conciliado</span>
-                    <strong className="bank-recon-summary-value bank-recon-summary-value--ok">
-                      {fmtMoney(balanceProof.reconciled_net)}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted">Pendente no extrato</span>
-                    <strong className="bank-recon-summary-value">{fmtMoney(balanceProof.pending_statement)}</strong>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted">Nave sem extrato</span>
-                    <strong className="bank-recon-summary-value">{fmtMoney(balanceProof.orphan_navi_net)}</strong>
-                  </div>
-                </>
-              ) : null}
-              <div>
-                <span className="text-xs text-muted">Lançamentos órfãos (qtd.)</span>
-                <strong className="bank-recon-summary-value">{summary.navi_orphan_count}</strong>
-              </div>
-            </div>
-          </div>
+          <BankReconKpiRow
+            filename={st.filename}
+            statusLabel={STATUS_LABELS[st.status] || st.status}
+            formatLabel={st.source_format ? formatSourceLabel(st.source_format) : ''}
+            periodLabel={`${fmtDate(st.period_start)} — ${fmtDate(st.period_end)}`}
+            pendingCount={summary.pending_count}
+            pendingAmount={summary.pending_amount}
+            balanceGap={balanceGap}
+            naviOrphanCount={summary.navi_orphan_count}
+            balanceProof={balanceProof}
+            reconciledCount={summary.reconciled_count}
+            reconciledAmount={summary.reconciled_amount}
+          />
 
           <div className="flex gap-2 mb-3 bank-recon-actions-head">
             {grouped.suggested.length > 0 ? (
@@ -400,19 +426,47 @@ export default function ReconciliationTab({ academyId }) {
                 type="button"
                 className="btn-outline btn-sm"
                 disabled={busy || st.status === 'reconciled'}
-                onClick={() => run(() => confirmAllBankMatches(academyId, st.id))}
+                onClick={() =>
+                  run(() => confirmAllBankMatches(academyId, st.id), {
+                    successMessage: (r) => {
+                      const n = r?.confirmed ?? grouped.suggested.length;
+                      return `${n} sugestão(ões) confirmada(s).`;
+                    },
+                  })
+                }
               >
                 Confirmar sugestões ({grouped.suggested.length})
               </button>
             ) : null}
+            <button
+              type="button"
+              className={`btn-outline btn-sm${focusPendingOnly ? ' btn-outline--active' : ''}`}
+              onClick={() => setFocusPendingOnly((v) => !v)}
+              aria-pressed={focusPendingOnly}
+            >
+              {focusPendingOnly ? 'Mostrar conciliados' : 'Focar pendências'}
+            </button>
           </div>
+
+          <BankReconSelectionBar
+            item={selectedBankItem}
+            onClear={() => setSelectedBankItemId('')}
+            hasOrphans={(detail.navi_unmatched || []).length > 0}
+          />
+
+          {workspaceEmpty && st.status !== 'reconciled' ? (
+            <StatusBanner variant="success" className="mb-3">
+              Todas as linhas do extrato foram tratadas. Revise a prova de saldo e finalize a conciliação abaixo.
+            </StatusBanner>
+          ) : null}
 
           <div className="bank-recon-columns">
             <div className="bank-recon-col">
               <h4 className="finance-tab__section-title">Extrato bancário</h4>
 
-              {grouped.auto.length > 0 ? <p className="text-xs text-muted mb-2">Já conciliados</p> : null}
-              {grouped.auto.map(({ item, tx }) => (
+              {grouped.auto.length > 0 && !focusPendingOnly ? <p className="text-xs text-muted mb-2">Já conciliados</p> : null}
+              {!focusPendingOnly
+                ? grouped.auto.map(({ item, tx }) => (
                 <BankReconPairRow
                   key={item.id}
                   item={item}
@@ -425,7 +479,8 @@ export default function ReconciliationTab({ academyId }) {
                       : null
                   }
                 />
-              ))}
+              ))
+                : null}
 
               {grouped.suggested.length > 0 ? (
                 <p className="text-xs text-muted mb-2 mt-3">Sugestões — confirme antes de conciliar</p>
@@ -438,14 +493,12 @@ export default function ReconciliationTab({ academyId }) {
                   tone="suggested"
                   busy={busy}
                   onConfirm={() => linkItemToTx(item.id, item.suggested_tx_id || tx?.id)}
-                  onIgnore={() => run(() => ignoreBankItem(academyId, item.id))}
+                  onIgnore={() => requestIgnore(item)}
                 />
               ))}
 
               {grouped.unmatched.length > 0 ? (
-                <p className="text-xs text-muted mb-2 mt-3">
-                  Sem correspondência — selecione uma linha e vincule à direita
-                </p>
+                <p className="text-xs text-muted mb-2 mt-3">Sem correspondência</p>
               ) : null}
               {grouped.unmatched.map(({ item }) => (
                 <BankReconPairRow
@@ -465,8 +518,8 @@ export default function ReconciliationTab({ academyId }) {
                     if (!txId) return;
                     return linkItemToTx(item.id, txId);
                   }}
-                  onCreateTx={() => run(() => createTxFromBankItem(academyId, { item_id: item.id }))}
-                  onIgnore={() => run(() => ignoreBankItem(academyId, item.id))}
+                  onCreateTx={() => requestCreateTx(item)}
+                  onIgnore={() => requestIgnore(item)}
                 />
               ))}
             </div>
@@ -546,11 +599,13 @@ export default function ReconciliationTab({ academyId }) {
                 className="btn-primary"
                 disabled={busy}
                 onClick={() =>
-                  run(() =>
-                    completeBankReconciliation(academyId, {
-                      statement_id: st.id,
-                      completion_note: completeNote,
-                    })
+                  run(
+                    () =>
+                      completeBankReconciliation(academyId, {
+                        statement_id: st.id,
+                        completion_note: completeNote,
+                      }),
+                    { successMessage: 'Conciliação finalizada.' }
                   )
                 }
               >
@@ -562,6 +617,27 @@ export default function ReconciliationTab({ academyId }) {
       ) : null}
 
       {error ? <ErrorBanner message={error} onRetry={() => void loadDetail(selectedId)} className="mt-2" /> : null}
+
+      <ConfirmDialog
+        open={pendingConfirm?.type === 'ignore'}
+        title="Ignorar linha do extrato?"
+        description={`A linha "${pendingConfirm?.label || ''}" não será conciliada. Você pode reabrir o extrato depois se necessário.`}
+        confirmLabel="Ignorar"
+        confirmVariant="danger"
+        loading={busy}
+        onConfirm={executePendingConfirm}
+        onClose={() => setPendingConfirm(null)}
+      />
+      <ConfirmDialog
+        open={pendingConfirm?.type === 'create'}
+        title="Criar lançamento a partir desta linha?"
+        description="Será criado um lançamento no Caixa com os dados do extrato e vinculado automaticamente a esta linha."
+        confirmLabel="Criar e conciliar"
+        confirmVariant="primary"
+        loading={busy}
+        onConfirm={executePendingConfirm}
+        onClose={() => setPendingConfirm(null)}
+      />
     </FinanceTabShell>
   );
 }

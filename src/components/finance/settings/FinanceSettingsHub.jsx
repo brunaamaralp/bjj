@@ -48,7 +48,7 @@ export default function FinanceSettingsHub({
     [financeConfig, collectionRules, accountsCount, contractTemplatesCount, isOwner]
   );
 
-  const progress = financeSettingsProgress(summaries);
+  const progress = financeSettingsProgress(summaries, { isOwner });
 
   return (
     <div className="finance-settings-hub animate-in">

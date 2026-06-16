@@ -22,6 +22,11 @@ import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
 import MensalidadesStatusFilter from './MensalidadesStatusFilter.jsx';
 import { expectedAmountWithCardFee } from '../../lib/paymentStatus.js';
+import {
+  isMensalidadesCreditMethod,
+  MENSALIDADES_CREDIT_METHOD,
+  normalizeMensalidadesInstallments,
+} from '../../lib/mensalidadesPaymentForm.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
@@ -623,6 +628,7 @@ export default function MensalidadesPanel({
       cash_received: '',
       formaTroco: 'pix',
       trocoAccount: '',
+      installments: Math.min(12, Math.max(1, Number(preset.installments) || 1)),
     });
     setShowModal(true);
   }, [currentMonth, financeConfig]);
@@ -650,11 +656,12 @@ export default function MensalidadesPanel({
     }
 
     let amountNum = parseCurrencyBRL(payForm.amount);
+    const installments = normalizeMensalidadesInstallments(payForm.method, payForm.installments);
     const withFee = expectedAmountWithCardFee(
       selectedStudent,
       financeConfig,
       payForm.method,
-      payForm.installments,
+      installments,
       paymentMap[selectedStudent.id]
     );
     if (Number.isFinite(withFee) && withFee > amountNum) amountNum = withFee;
@@ -708,6 +715,7 @@ export default function MensalidadesPanel({
       paid_amount: amountNum,
       method: payForm.method,
       account: paymentAccount,
+      installments,
       status: 'paid',
       payment_category: isBundle ? PAYMENT_CATEGORY.BUNDLE : PAYMENT_CATEGORY.PLAN,
       bundle_months: isBundle ? bundleMonths : null,
@@ -736,6 +744,7 @@ export default function MensalidadesPanel({
         amount: amountNum,
         method: payForm.method,
         account: paymentAccount,
+        installments,
         status: 'paid',
         paid_at: paidAtIso,
         due_date: null,
@@ -1584,6 +1593,8 @@ export default function MensalidadesPanel({
                                 setPayForm((f) => ({
                                   ...f,
                                   method: o.value,
+                                  installments:
+                                    o.value === MENSALIDADES_CREDIT_METHOD ? f.installments || 1 : 1,
                                   account: accountWhenPaymentMethodChanges(financeConfig, o.value) || f.account,
                                   ...(isCashPaymentMethod(o.value) && !f.cash_received
                                     ? { cash_received: f.amount || '' }
@@ -1602,6 +1613,30 @@ export default function MensalidadesPanel({
                       })()}
                     </div>
                   </div>
+                  {isMensalidadesCreditMethod(payForm.method) ? (
+                    <div className="form-group mensal-modal-installments">
+                      <label htmlFor="mensal-pay-installments" className="mensal-modal-field-label">
+                        Parcelas
+                      </label>
+                      <select
+                        id="mensal-pay-installments"
+                        className="form-input finance-compact-input mensal-modal-in"
+                        value={String(payForm.installments || 1)}
+                        onChange={(e) =>
+                          setPayForm((f) => ({
+                            ...f,
+                            installments: Number(e.target.value) || 1,
+                          }))
+                        }
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={String(n)}>
+                            {n}x
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
                   {isCashPaymentMethod(payForm.method) ? (
                     <CashTrocoFields
                       payForm={payForm}

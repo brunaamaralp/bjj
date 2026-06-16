@@ -212,9 +212,7 @@
 
 .products-page__body .products-desktop-table-wrap .products-table thead th,
 .products-page__body .products-desktop-table-wrap .navi-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  position: static;
   background: var(--surface);
 }
 
@@ -240,12 +238,9 @@
 }
 
 .products-page__body .products-filters-row {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  flex-shrink: 0;
   padding-bottom: 12px;
   margin-bottom: 0;
-  background: var(--surface);
   border-bottom: 0.5px solid var(--border-light, var(--v100));
 }
 

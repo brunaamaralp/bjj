@@ -396,7 +396,6 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         {
           name: '',
           price: 0,
-          durationDays: 30,
           description: '',
           applyCardFee: true,
         },

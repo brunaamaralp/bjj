@@ -855,6 +855,7 @@
 }
 
 .import-statement-actions {
+  width: 100%;
   justify-content: flex-end;
 }
 .finance-tx-totals {

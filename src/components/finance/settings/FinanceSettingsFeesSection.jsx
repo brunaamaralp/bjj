@@ -10,7 +10,7 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
   return (
     <div className="finance-settings-section-body">
       <p className="finance-settings-lead">
-        Percentuais descontados em pagamentos com cartão e PIX na mensalidade.
+        Percentuais repassados ao aluno em mensalidades pagas com cartão ou PIX.
       </p>
 
       <div className="finance-settings-fees-summary card" role="status">
@@ -36,6 +36,9 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
               }));
             }}
           />
+          <p className="text-small text-muted">
+            Aplica-se a mensalidades quando o plano repassa taxas ao aluno.
+          </p>
         </div>
         <div className="finance-settings-group__sep" aria-hidden />
         <div className="form-group">

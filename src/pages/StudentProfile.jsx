@@ -67,6 +67,7 @@ import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
 import StudentOverdueBadge from '../components/student/StudentOverdueBadge.jsx';
 import { resolveStudentListStatus } from '../lib/studentDisplayStatus.js';
+import { normalizeProfilePaymentStatus } from '../lib/paymentStatus.js';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { defaultEnrollmentDateIso } from '../lib/studentEnrollmentDate.js';
@@ -450,7 +451,7 @@ export default function StudentProfile() {
                 if (bundle?.student) mergeStudent(id, bundle.student);
                 if (bundle?.paymentStatus && bundle.paymentStatus.key) {
                     setPaymentStatus({
-                        status: bundle.paymentStatus.key === 'none' ? 'none' : bundle.paymentStatus.key,
+                        status: normalizeProfilePaymentStatus(bundle.paymentStatus),
                         payment: null,
                     });
                 }
@@ -678,7 +679,7 @@ export default function StudentProfile() {
             const statusPromise = canViewFinance
                 ? bundle?.paymentStatus?.key
                     ? Promise.resolve({
-                          status: bundle.paymentStatus.key === 'none' ? 'none' : bundle.paymentStatus.key,
+                          status: normalizeProfilePaymentStatus(bundle.paymentStatus),
                           payment: null,
                       })
                     : getPaymentStatus(leadId, academyId)
@@ -1389,8 +1390,9 @@ export default function StudentProfile() {
                 doc.reference_month === localYm &&
                 (paymentType === PAYMENT_CATEGORY.PLAN || paymentType === PAYMENT_CATEGORY.BUNDLE)
             ) {
-                if (doc.status === 'paid') setPaymentStatus({ status: 'paid', payment: doc });
-                else setPaymentStatus({ status: 'pending', payment: doc });
+                const profileSt = normalizeProfilePaymentStatus(doc.status);
+                if (profileSt === 'paid') setPaymentStatus({ status: 'paid', payment: doc });
+                else if (profileSt === 'pending') setPaymentStatus({ status: 'pending', payment: doc });
             }
             closePaymentModal();
             toast.show({

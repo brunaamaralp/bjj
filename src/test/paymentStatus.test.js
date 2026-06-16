@@ -6,6 +6,7 @@ import {
   shouldMirrorPaymentToCaixa,
   mirrorGrossForPayment,
   mapDbStatusFromGridForm,
+  normalizeProfilePaymentStatus,
 } from '../lib/paymentStatus.js';
 
 describe('paymentStatus', () => {
@@ -22,6 +23,14 @@ describe('paymentStatus', () => {
     const payment = { status: 'partial', paid_amount: 100, expected_amount: 200 };
     const r = resolveGridDisplayStatus(student, payment, '2026-05');
     expect(r.key).toBe('partial');
+  });
+
+  it('normalizeProfilePaymentStatus trata covered e frozen como paid', () => {
+    expect(normalizeProfilePaymentStatus('covered')).toBe('paid');
+    expect(normalizeProfilePaymentStatus('frozen')).toBe('paid');
+    expect(normalizeProfilePaymentStatus({ key: 'covered' })).toBe('paid');
+    expect(normalizeProfilePaymentStatus('pending')).toBe('pending');
+    expect(normalizeProfilePaymentStatus('none')).toBe('none');
   });
 
   it('resolveGridDisplayStatus covered', () => {

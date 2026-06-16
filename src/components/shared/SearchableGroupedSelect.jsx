@@ -80,9 +80,18 @@ export default function SearchableGroupedSelect({
     if (!open) setQuery(selectedLabel);
   }, [selectedLabel, open]);
 
+  const filterQuery = useMemo(() => {
+    if (!open) return '';
+    const q = String(query || '').trim();
+    const selected = String(selectedLabel || '').trim();
+    // Ao abrir, mostrar todas as opções até o usuário digitar algo diferente do valor selecionado.
+    if (q.toLowerCase() === selected.toLowerCase()) return '';
+    return query;
+  }, [open, query, selectedLabel]);
+
   const filteredGroups = useMemo(
-    () => filterGroupedOptions(groups, open ? query : '', getOptionLabel),
-    [groups, open, query, getOptionLabel]
+    () => filterGroupedOptions(groups, filterQuery, getOptionLabel),
+    [groups, filterQuery, getOptionLabel]
   );
 
   const flatOptions = useMemo(

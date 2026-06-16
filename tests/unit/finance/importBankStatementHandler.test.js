@@ -37,4 +37,13 @@ describe('importBankStatementHandler sanitize', () => {
     }));
     expect(sanitizeBankStatementItems(raw)).toHaveLength(500);
   });
+
+  it('preserves low_confidence flag', () => {
+    const items = sanitizeBankStatementItems([
+      { date: '2026-01-15', description: 'PIX', amount: 100, direction: 'credit', low_confidence: true },
+      { date: '2026-01-16', description: 'TED', amount: 50, direction: 'debit', low_confidence: false },
+    ]);
+    expect(items[0].low_confidence).toBe(true);
+    expect(items[1].low_confidence).toBe(false);
+  });
 });

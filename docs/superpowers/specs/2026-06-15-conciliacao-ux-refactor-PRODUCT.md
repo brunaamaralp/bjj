@@ -1,7 +1,7 @@
 # Conciliação — Refatoração UX/UI
 
 **Data:** 2026-06-15  
-**Status:** Spec para aprovação  
+**Status:** Implementado (Fases A–E, 2026-06-15)  
 **Pré-requisito:** [2026-06-15-conciliacao-multi-formato-PRODUCT.md](./2026-06-15-conciliacao-multi-formato-PRODUCT.md) (funcionalidade base já implementada)  
 **TECH:** [2026-06-15-conciliacao-ux-refactor-TECH.md](./2026-06-15-conciliacao-ux-refactor-TECH.md)
 
@@ -183,22 +183,22 @@ Problemas observados na implementação atual:
 ## 9. QA checklist
 
 **Feedback**
-- [ ] Toast ao vincular, confirmar lote, criar, finalizar
-- [ ] ConfirmDialog ignora / cria
-- [ ] Erros de parse em StatusBanner
+- [x] Toast ao vincular, confirmar lote, criar, finalizar
+- [x] ConfirmDialog ignora / cria
+- [x] Erros de parse em StatusBanner
 
 **Pareamento**
-- [ ] Barra contextual ao selecionar linha
-- [ ] Vincular à direita só com linha ativa
-- [ ] Filtro + “Mostrar todos”
-- [ ] Hierarquia visual dos botões
+- [x] Barra contextual ao selecionar linha
+- [x] Vincular à direita só com linha ativa
+- [x] Filtro + “Mostrar todos”
+- [x] Hierarquia visual dos botões
 
 **Import**
-- [ ] Stepper + drop zone
-- [ ] PDF auto-IA com loading
-- [ ] Linhas low_confidence destacadas
-- [ ] Busca no preview
+- [x] Stepper + drop zone
+- [x] PDF auto-IA com loading
+- [x] Linhas low_confidence destacadas
+- [x] Busca no preview
 
 **Regressão**
-- [ ] OFX/CSV/Excel import intacto
-- [ ] Matcher e validação server inalterados
+- [x] OFX/CSV/Excel import intacto
+- [x] Matcher e validação server inalterados

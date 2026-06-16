@@ -3,9 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { templatesForPurpose } from '../../lib/contractPlanTemplates.js';
 import {
   FINANCE_SETTINGS_SECTIONS,
-  FINANCE_DEFAULT_SECTION,
+  getFinanceDefaultSection,
   isFinanceSettingsSection,
   FINANCE_SETTINGS_GROUPS,
+  buildFinanceSettingsNavItems,
 } from '../../lib/financeSettingsSections.js';
 import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import { useFinanceConfigState } from '../../hooks/useFinanceConfigState.js';
@@ -37,10 +38,11 @@ const SECTION_META = Object.fromEntries(
 /** Minha academia → Financeiro — sidebar + subpáginas (mesmo layout das demais abas). */
 export default function FinanceiroConfigTab({ academyId, isOwner }) {
   const [searchParams] = useSearchParams();
+  const defaultSection = useMemo(() => getFinanceDefaultSection(isOwner), [isOwner]);
   const state = useFinanceConfigState(academyId, { isOwner });
   const { section, goSection } = useAcademyTabSection(
     'financeiro',
-    FINANCE_DEFAULT_SECTION,
+    defaultSection,
     isFinanceSettingsSection
   );
 
@@ -62,18 +64,12 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
     [state.contractTemplates]
   );
 
-  const allNavItems = useMemo(
-    () =>
-      FINANCE_SETTINGS_GROUPS.flatMap((g) =>
-        g.items.filter((item) => !(item.ownerOnly && !isOwner))
-      ),
-    [isOwner]
-  );
+  const allNavItems = useMemo(() => buildFinanceSettingsNavItems(isOwner), [isOwner]);
 
   const activeSection = useMemo(() => {
     if (allNavItems.some((item) => item.id === section)) return section;
-    return allNavItems[0]?.id || FINANCE_DEFAULT_SECTION;
-  }, [allNavItems, section]);
+    return allNavItems[0]?.id || defaultSection;
+  }, [allNavItems, section, defaultSection]);
 
   useEffect(() => {
     if (section !== activeSection) {

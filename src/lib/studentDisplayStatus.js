@@ -14,7 +14,7 @@ export function resolveStudentListStatus(student, paymentHint = null) {
   if (pay) {
     const key = String(pay.key || pay.status || '').toLowerCase();
     if (key === 'pending' || key === 'partial' || key === 'awaiting') return 'pendente';
-    if (key === 'paid') return 'pago';
+    if (key === 'paid' || key === 'covered' || key === 'frozen') return 'pago';
   }
   return 'ativo';
 }

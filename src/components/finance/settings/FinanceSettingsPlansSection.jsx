@@ -49,16 +49,6 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
             />
           </div>
           <div className="form-group">
-            <label>Duração (dias)</label>
-            <input
-              className="form-input"
-              type="number"
-              min={1}
-              value={pl.durationDays ?? 30}
-              onChange={(e) => onUpdate(idx, { durationDays: Number(e.target.value || 0) })}
-            />
-          </div>
-          <div className="form-group">
             <label>Descrição</label>
             <input
               className="form-input"
@@ -67,7 +57,7 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
             />
           </div>
           <div className="form-group">
-            <label>Aplica taxa de cartão</label>
+            <label>Repasse taxas de pagamento ao aluno</label>
             <select
               className="form-input"
               value={pl.applyCardFee ? 'sim' : 'nao'}
@@ -140,8 +130,8 @@ export default function FinanceSettingsPlansSection({
     <div className="finance-settings-section-body">
       <p className="finance-settings-lead">
         Usados em Mensalidades e matrícula. O <strong>dia de vencimento</strong> é definido no cadastro de
-        cada aluno (campo &quot;Vence dia&quot;), não no plano — aqui, &quot;Duração (dias)&quot; é a vigência
-        comercial do plano (ex.: 30 = mensal, 90 = trimestral). Contratos são opcionais; vincule em{' '}
+        cada aluno (campo &quot;Vence dia&quot;), não no plano — a cobrança mensal usa o <strong>preço</strong>{' '}
+        do plano por mês de referência. Contratos são opcionais; vincule em{' '}
         <Link to="/empresa?tab=financeiro&section=contratos" className="edit-link">
           Contratos
         </Link>
