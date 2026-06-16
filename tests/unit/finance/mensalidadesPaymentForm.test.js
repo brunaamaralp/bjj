@@ -104,6 +104,22 @@ describe('validateMensalidadesPaymentForm', () => {
     expect(errors.cash_received).toBeTruthy();
   });
 
+  it('aceita valor formatado com R$ (modal do aluno)', () => {
+    const { errors, amountNum } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.PLAN,
+        amount: 'R$ 200,00',
+        paid_at: '2026-06-15',
+        method: 'pix',
+        account: 'Nubank · 12345-6',
+      },
+      financeConfig,
+      student,
+    });
+    expect(errors.amount).toBeUndefined();
+    expect(amountNum).toBe(200);
+  });
+
   it('não exige data de pagamento quando status é pendente', () => {
     const { errors } = validateMensalidadesPaymentForm({
       payForm: {

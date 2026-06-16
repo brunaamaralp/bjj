@@ -89,6 +89,14 @@ describe('Máscaras de formatação', () => {
       expect(parseCurrencyBRL('0,00')).toBe(0);
     });
 
+    it('converte "R$ 200,00" para 200', () => {
+      expect(parseCurrencyBRL('R$ 200,00')).toBe(200);
+    });
+
+    it('converte "R$ 1.500,00" para 1500', () => {
+      expect(parseCurrencyBRL('R$ 1.500,00')).toBe(1500);
+    });
+
     it('retorna 0 para string vazia', () => {
       expect(parseCurrencyBRL('')).toBe(0);
     });

@@ -42,10 +42,12 @@ export function maskCurrency(value) {
     });
 }
 
-/** Converte texto formatado em pt-BR (ex.: 1.234,56) ou número em float. */
+/** Converte texto formatado em pt-BR (ex.: R$ 1.234,56 ou 1.234,56) ou número em float. */
 export function parseCurrencyBRL(value) {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     const s = String(value ?? '').trim();
     if (!s) return 0;
-    return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+    const cleaned = s.replace(/[^\d.,]/g, '');
+    if (!cleaned) return 0;
+    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
 }
