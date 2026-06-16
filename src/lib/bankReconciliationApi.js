@@ -60,11 +60,24 @@ export async function parseBankStatementWithAi(academyId, payload) {
   return body;
 }
 
-export async function confirmBankMatch(academyId, { item_id, transaction_id }) {
+export async function confirmBankMatch(academyId, { item_id, transaction_id, remember_payer }) {
   const res = await authedFetch('/api/bank-reconciliation?route=confirm-match', {
     method: 'POST',
     headers: await headers(academyId),
-    body: JSON.stringify({ item_id, transaction_id }),
+    body: JSON.stringify({
+      item_id,
+      transaction_id,
+      ...(remember_payer === true ? { remember_payer: true } : {}),
+    }),
+  });
+  return parseJson(res);
+}
+
+export async function rememberBankPayer(academyId, { lead_id, display }) {
+  const res = await authedFetch('/api/bank-reconciliation?route=remember-payer', {
+    method: 'POST',
+    headers: await headers(academyId),
+    body: JSON.stringify({ lead_id, display }),
   });
   return parseJson(res);
 }

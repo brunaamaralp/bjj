@@ -1,0 +1,35 @@
+.payment-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.payment-modal-footer__actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.payment-form-error-banner {
+  margin: 0 0 var(--space-3, 12px);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--danger-light, #fcebeb);
+  color: var(--danger);
+  font-size: var(--font-sm, 13px);
+  line-height: 1.45;
+}
+
+.payment-modal-footer-hint {
+  margin: 0;
+  width: 100%;
+  font-size: var(--font-sm, 13px);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.payment-modal-footer-hint--error {
+  color: var(--danger);
+}

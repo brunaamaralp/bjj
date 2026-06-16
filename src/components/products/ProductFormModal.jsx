@@ -16,6 +16,11 @@ import {
   variantRowIsDirty,
 } from '../../lib/productCatalog';
 import { centsToNumber, formatBRLFromCents, maskFromNumber, parseMaskToCents } from '../../lib/moneyBr';
+import {
+  productTypeShowsRentalPools,
+  productTypeShowsSalePools,
+  totalPhysicalQuantity,
+} from '../../lib/dualStockPools';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import useVisualViewportKeyboardOffset from '../../hooks/useVisualViewportKeyboardOffset.js';
@@ -97,6 +102,7 @@ function emptyParentForm() {
     descricao: '',
     saleMask: '',
     costMask: '',
+    rentalMask: '',
     type: 'sale',
     is_for_sale: true,
     is_active: true,
@@ -124,6 +130,7 @@ function parentFormFromProduct(p) {
     descricao: p?.descricao || '',
     saleMask: p?.sale_price != null ? maskFromNumber(p.sale_price) : '',
     costMask: p?.cost_price != null ? maskFromNumber(p.cost_price) : '',
+    rentalMask: p?.rental_price != null ? maskFromNumber(p.rental_price) : '',
     type: p?.type || (p?.is_for_sale === false ? 'supply' : 'sale'),
     is_for_sale: p?.is_for_sale !== false,
     is_active: p?.is_active !== false,
@@ -266,10 +273,27 @@ function ProductBaseFields({ form, setForm, categoryOptions }) {
           }}
         >
           <option value="sale">Venda</option>
+          <option value="both">Venda e aluguel</option>
           <option value="supply">Insumo</option>
           <option value="rental">Aluguel</option>
         </select>
       </Field>
+      {productTypeShowsRentalPools(form.type) ? (
+        <Field label="Preço de aluguel" hint="Valor cobrado por período de empréstimo.">
+          <input
+            className="form-input"
+            inputMode="numeric"
+            placeholder="R$ 0,00"
+            value={form.rentalMask}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                rentalMask: formatBRLFromCents(parseMaskToCents(e.target.value)),
+              }))
+            }
+          />
+        </Field>
+      ) : null}
       <ToggleRow
         label="É para venda?"
         checked={form.is_for_sale}
@@ -543,6 +567,7 @@ export default function ProductFormModal({
               onRemove,
               rowKeyPrefix,
               savedSuccess: Boolean(row._savedSuccess),
+              parentType: parentForm.type,
             })}
           </div>
         );
@@ -582,6 +607,7 @@ export default function ProductFormModal({
     descricao: parentForm.descricao.trim(),
     sale_price: centsToNumber(parseMaskToCents(parentForm.saleMask)),
     cost_price: centsToNumber(parseMaskToCents(parentForm.costMask)),
+    rental_price: centsToNumber(parseMaskToCents(parentForm.rentalMask)),
     type: parentForm.type,
     is_for_sale: parentForm.is_for_sale,
     is_active: parentForm.is_active,
@@ -692,7 +718,7 @@ export default function ProductFormModal({
     if (useVariantWizard && step === 2) {
       const dup = findDuplicateVariantIndexes(variants);
       if (dup.size > 0) return;
-      const normalized = normalizeVariantsInput(variants);
+      const normalized = normalizeVariantsInput(variants, parentForm.type);
       if (!normalized.length) return;
       onSave({ ...buildParentPayload(), variants: normalized }, { isEdit: false, isParent: true });
       return;
@@ -846,7 +872,8 @@ export default function ProductFormModal({
     const hasError = Boolean(row._error);
     const label = variantLabelForRow(row);
     const statusLabel = variantLifecycleLabel(row.lifecycle);
-    const canDelete = Number(row.current_quantity) === 0;
+    const physical = totalPhysicalQuantity(row);
+    const canDelete = (physical != null ? physical : Number(row.current_quantity) || 0) === 0;
     const expanded = isVariantExpanded(row.id);
 
     return (
@@ -868,7 +895,20 @@ export default function ProductFormModal({
           <div className="product-variant-card__identity-main">
             <span className="product-variant-card__identity-label">{label}</span>
             <div className="product-variant-card__identity-meta">
-              <span><span className="text-muted">Saldo:</span> {row.current_quantity}</span>
+              {productTypeShowsSalePools(parentForm.type) ? (
+                <span><span className="text-muted">Venda:</span> {row.sale_quantity ?? 0}</span>
+              ) : null}
+              {productTypeShowsRentalPools(parentForm.type) ? (
+                <>
+                  <span><span className="text-muted">Aluguel:</span> {row.rental_available ?? 0}</span>
+                  {(row.rental_out ?? 0) > 0 ? (
+                    <span><span className="text-muted">Emprestado:</span> {row.rental_out}</span>
+                  ) : null}
+                </>
+              ) : null}
+              {!productTypeShowsSalePools(parentForm.type) && !productTypeShowsRentalPools(parentForm.type) ? (
+                <span><span className="text-muted">Saldo:</span> {row.current_quantity}</span>
+              ) : null}
               {row.sku ? (
                 <span><span className="text-muted">SKU:</span> {row.sku}</span>
               ) : null}
@@ -982,7 +1022,11 @@ export default function ProductFormModal({
     onRemove,
     rowKeyPrefix = 'new',
     savedSuccess = false,
-  }) => (
+    parentType = 'sale',
+  }) => {
+    const showSale = productTypeShowsSalePools(parentType);
+    const showRental = productTypeShowsRentalPools(parentType);
+    return (
     <div
       key={`${rowKeyPrefix}-${idx}`}
       className={`product-variants-editor__row product-variants-editor__row--new new-variant-row${isDup || hasError ? ' product-variants-editor__row--error' : ''}${savedSuccess ? ' product-variants-editor__row--saved' : ''}`}
@@ -1011,17 +1055,62 @@ export default function ProductFormModal({
             onChange={(e) => onPatch(idx, { color: e.target.value })}
           />
         </VariantRowField>
-        <VariantRowField label="Saldo inicial">
-          <input
-            type="number"
-            min={0}
-            className="form-input"
-            aria-label="Saldo inicial"
-            placeholder="0"
-            value={row.initial_quantity}
-            onChange={(e) => onPatch(idx, { initial_quantity: e.target.value })}
-          />
-        </VariantRowField>
+        {showSale || showRental ? (
+          <>
+            {showSale ? (
+              <VariantRowField label={showRental ? 'Saldo inicial (venda)' : 'Saldo inicial'}>
+                <input
+                  type="number"
+                  min={0}
+                  className="form-input"
+                  aria-label="Saldo inicial venda"
+                  placeholder="0"
+                  value={showRental ? row.initial_sale_quantity : row.initial_quantity}
+                  onChange={(e) =>
+                    onPatch(
+                      idx,
+                      showRental
+                        ? { initial_sale_quantity: e.target.value }
+                        : { initial_quantity: e.target.value, initial_sale_quantity: e.target.value }
+                    )
+                  }
+                />
+              </VariantRowField>
+            ) : null}
+            {showRental ? (
+              <VariantRowField label={showSale ? 'Saldo inicial (aluguel)' : 'Saldo inicial'}>
+                <input
+                  type="number"
+                  min={0}
+                  className="form-input"
+                  aria-label="Saldo inicial aluguel"
+                  placeholder="0"
+                  value={showSale ? row.initial_rental_quantity : row.initial_quantity}
+                  onChange={(e) =>
+                    onPatch(
+                      idx,
+                      showSale
+                        ? { initial_rental_quantity: e.target.value }
+                        : { initial_quantity: e.target.value, initial_rental_quantity: e.target.value }
+                    )
+                  }
+                />
+              </VariantRowField>
+            ) : null}
+          </>
+        ) : (
+          <VariantRowField label="Saldo inicial">
+            <input
+              type="number"
+              min={0}
+              className="form-input"
+              aria-label="Saldo inicial"
+              placeholder="0"
+              value={row.initial_quantity}
+              onChange={(e) => onPatch(idx, { initial_quantity: e.target.value })}
+            />
+          </VariantRowField>
+        )}
         <VariantRowField label="Estoque mínimo">
           <input
             type="number"
@@ -1076,7 +1165,8 @@ export default function ProductFormModal({
         <span className="product-variants-editor__inline-err">{row._error}</span>
       ) : null}
     </div>
-  );
+    );
+  };
 
   return (
     <>

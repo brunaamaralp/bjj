@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, ChevronDown, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature } from 'lucide-react';
+import { User, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
@@ -11,7 +11,6 @@ import {
     cancelBundleCoverageFromMonth,
     PAYMENT_CATEGORY,
 } from '../lib/studentPayments.js';
-import { StudentPaymentsApiError } from '../lib/studentPaymentsApi.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
 import StudentContractsSection from '../components/student/StudentContractsSection.jsx';
 import StudentContractHeaderChip from '../components/student/StudentContractHeaderChip.jsx';
@@ -31,20 +30,23 @@ import StudentPaymentModal, {
     PAYMENT_MODAL_PRODUCT,
 } from '../components/student/StudentPaymentModal.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
+import ProfileComunicacaoSection from '../components/profile/ProfileComunicacaoSection.jsx';
+import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
+import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
+import { isWhatsAppIntegrationConnected } from '../lib/whatsappIntegrationState.js';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useCanManageStudentPayments } from '../lib/canManageStudentPayments.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { fetchReportsByStudent } from '../lib/reportsByStudentApi.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
-import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
-import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
-import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, selectStudentById } from '../store/useStudentStore';
 import '../styles/student-profile.css';
+import '../styles/profile-shared.css';
 import { useToast } from '../hooks/useToast';
-import { friendlyError } from '../lib/errorMessages.js';
+import { friendlyError, studentPaymentFriendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
@@ -77,14 +79,20 @@ import {
     emergencyMatchesRegistered,
 } from '../lib/studentEmergencyContact.js';
 import NaviChatWidgetPanel from '../components/chat-widget/NaviChatWidgetPanel.jsx';
-import { validateBankAccountForPayment, validatePreferredPaymentAccount } from '../lib/bankAccounts.js';
-import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../lib/studentPaymentTroco.js';
+import { validatePreferredPaymentAccount, hasConfiguredBankAccounts } from '../lib/bankAccounts.js';
+import { trocoFieldsForPaymentPayload } from '../lib/studentPaymentTroco.js';
+import {
+    validateMensalidadesPaymentForm,
+    focusFirstStudentPaymentError,
+} from '../lib/mensalidadesPaymentForm.js';
+import { useUserRole } from '../lib/useUserRole.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
+import StudentPayerAliasesSection from '../components/student/StudentPayerAliasesSection.jsx';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
 import {
@@ -349,6 +357,7 @@ export default function StudentProfile() {
         dueDay: '',
     });
     const [savingData, setSavingData] = useState(false);
+    const [payerAliases, setPayerAliases] = useState([]);
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
     const skipFuturePaidDateRef = useRef(false);
@@ -356,18 +365,13 @@ export default function StudentProfile() {
     const [activeTab, setActiveTab] = useState('frequency');
     const profileBundleRef = useRef(null);
     const controlIdCfg = useAcademyControlId(academyId, { fetch: activeTab === 'frequency' });
-    const waTemplateMenuRef = useRef(null);
-    const [waCtx, setWaCtx] = useState({
-        name: '',
-        zapster: '',
-        templates: DEFAULT_WHATSAPP_TEMPLATES,
+    const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
+        statusPollWhileMounted: true,
+        watchAcademyStatus: true,
     });
-    const { templates: waTemplatesHook, academyName: waNameHook, zapsterInstanceId: waZapHook } =
-        useWhatsappTemplates(academyId);
+    const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
     // Alinhado ao menu /inbox: aba sempre visível; estados vazios ficam no painel de chat.
     const showConversationTab = true;
-    const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
-    const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [note, setNote] = useState('');
     const [addingNote, setAddingNote] = useState(false);
     const [timelineEvents, setTimelineEvents] = useState([]);
@@ -391,6 +395,7 @@ export default function StudentProfile() {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [editingPaymentId, setEditingPaymentId] = useState(null);
     const [payFormError, setPayFormError] = useState('');
+    const [payFormErrors, setPayFormErrors] = useState({});
     const [paymentStatus, setPaymentStatus] = useState(null);
     const [payForm, setPayForm] = useState(() => buildDefaultPayForm(null));
     const [savingPayment, setSavingPayment] = useState(false);
@@ -413,6 +418,8 @@ export default function StudentProfile() {
         () => (academyList || []).find((a) => a.id === academyId) || null,
         [academyList, academyId]
     );
+    const navRole = useUserRole(academyDocForRole);
+    const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
 
     useEffect(() => {
@@ -518,6 +525,7 @@ export default function StudentProfile() {
             })
         );
         setEditingData(false);
+        setPayerAliases(Array.isArray(student.payerAliases) ? student.payerAliases : []);
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
     }, [student?.id]);
@@ -576,20 +584,6 @@ export default function StudentProfile() {
             setTimelineOpen(true);
         }
     }, [activeTab]);
-
-    useEffect(() => {
-        setTemplateMenuOpen(false);
-    }, [leadId]);
-
-    useEffect(() => {
-        if (!templateMenuOpen) return undefined;
-        const onPointerDown = (e) => {
-            if (waTemplateMenuRef.current?.contains(e.target)) return;
-            setTemplateMenuOpen(false);
-        };
-        document.addEventListener('mousedown', onPointerDown);
-        return () => document.removeEventListener('mousedown', onPointerDown);
-    }, [templateMenuOpen]);
 
     useEffect(() => {
         let cancelled = false;
@@ -816,15 +810,6 @@ export default function StudentProfile() {
     }, [loadPayments]);
 
     useEffect(() => {
-        if (!waTemplatesHook) return;
-        setWaCtx({
-            name: waNameHook || '',
-            zapster: waZapHook || '',
-            templates: waTemplatesHook,
-        });
-    }, [waTemplatesHook, waNameHook, waZapHook]);
-
-    useEffect(() => {
         if (!academyId) return;
         getAcademyDocument(academyId)
             .then((doc) => {
@@ -833,7 +818,6 @@ export default function StudentProfile() {
                 setAcademySettingsDoc(doc);
             })
             .catch(() => {
-                setWaCtx({ name: '', zapster: '', templates: DEFAULT_WHATSAPP_TEMPLATES });
                 setExitReasons(readStudentExitReasonsFromAcademyDoc(null));
                 setFreezeReasons(readStudentFreezeReasonsFromAcademyDoc(null));
                 setAcademySettingsDoc(null);
@@ -990,6 +974,7 @@ export default function StudentProfile() {
             })
         );
         setEditingData(false);
+        setPayerAliases(Array.isArray(student.payerAliases) ? student.payerAliases : []);
     }, [student, academyTurmas]);
 
     const handleSaveData = useCallback(async () => {
@@ -1058,6 +1043,7 @@ export default function StudentProfile() {
                 cpf: String(dataForm.cpf || '').replace(/\D/g, ''),
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
                 email: String(dataForm.email || '').trim(),
+                payerAliases,
             });
             setEditingData(false);
             toast.success('Dados salvos com sucesso.');
@@ -1066,43 +1052,7 @@ export default function StudentProfile() {
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, updateStudent, toast, financeConfig]);
-
-    const sendTemplateKey = async (key) => {
-        if (sendingWhatsapp || !student) return;
-        setSendingWhatsapp(true);
-        setTemplateMenuOpen(false);
-        try {
-            const r = await sendWhatsappTemplateOutbound({
-                lead: student,
-                academyId,
-                academyName: waCtx.name,
-                templateKey: key,
-                templatesMap: waCtx.templates,
-                zapsterInstanceId: waCtx.zapster,
-                onToast: (t) => toast.show(t),
-            });
-            if (!r?.ok) return;
-            try {
-                const label = WHATSAPP_TEMPLATE_LABELS[key] || key;
-                await addLeadEvent({
-                    academyId,
-                    leadId: leadId,
-                    type: 'message',
-                    text: `WhatsApp: template “${label}”`,
-                    createdBy: userId || 'user',
-                    permissionContext: permCtx,
-                });
-                await updateStudent(leadId, { lastWhatsappActivityAt: new Date().toISOString() });
-            } catch (err) {
-                console.error('Erro ao registrar evento WhatsApp', err);
-            }
-        } finally {
-            setSendingWhatsapp(false);
-        }
-    };
-
-    const handleWhatsAppPrimary = () => void sendTemplateKey('dashboard_contact');
+    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig]);
 
     const addNote = async () => {
         if (!note.trim() || addingNote) return;
@@ -1262,16 +1212,54 @@ export default function StudentProfile() {
         }
     };
 
+    const mobilePanelQuickActions = useMemo(() => {
+        if (!student) return [];
+        const actions = [
+            {
+                key: 'checkin',
+                label: checkingIn ? 'Registrando…' : `+ ${terms.attendance}`,
+                onClick: () => void handleCheckin(),
+                disabled: checkingIn || !leadId || !academyId || !isAttendanceConfigured(),
+            },
+        ];
+        if (showConversationTab) {
+            actions.push({
+                key: 'conversation',
+                label: waStatusChecked && !waConnected ? 'Conversa (offline)' : 'Conversa',
+                icon: MessageCircle,
+                onClick: () => setProfileTab('conversation'),
+            });
+        }
+        return actions;
+    }, [
+        student,
+        checkingIn,
+        leadId,
+        academyId,
+        terms.attendance,
+        showConversationTab,
+        waStatusChecked,
+        waConnected,
+        setProfileTab,
+    ]);
+
     const closePaymentModal = useCallback(() => {
         setShowPaymentModal(false);
         setEditingPaymentId(null);
         setPayFormError('');
+        setPayFormErrors({});
+    }, []);
+
+    const updatePayForm = useCallback((updater) => {
+        setPayForm(updater);
+        setPayFormErrors((prev) => (Object.keys(prev).length ? {} : prev));
     }, []);
 
     const openPaymentModal = useCallback((presetType = PAYMENT_CATEGORY.PLAN) => {
         if (!student) return;
         setEditingPaymentId(null);
         setPayFormError('');
+        setPayFormErrors({});
         setPayForm({ ...buildDefaultPayForm(student, financeConfig), payment_type: presetType });
         setShowPaymentModal(true);
     }, [student, financeConfig]);
@@ -1281,6 +1269,7 @@ export default function StudentProfile() {
             if (!student || !payment?.$id) return;
             setEditingPaymentId(payment.$id);
             setPayFormError('');
+            setPayFormErrors({});
             setPayForm(paymentFormFromDoc(payment, student, financeConfig));
             setShowPaymentModal(true);
         },
@@ -1294,34 +1283,34 @@ export default function StudentProfile() {
         const desc = String(payForm.note || '').trim();
         const isEdit = Boolean(editingPaymentId);
 
-        if (paymentType === PAYMENT_CATEGORY.FEE && !desc) {
-            toast.show({ type: 'error', message: 'Informe a descrição da taxa (ex.: taxa de competição).' });
-            return;
-        }
-
         if (isEdit && (paymentType === PAYMENT_CATEGORY.BUNDLE || paymentType === PAYMENT_MODAL_PRODUCT)) {
             toast.show({ type: 'error', message: 'Este tipo de lançamento não pode ser editado aqui.' });
             return;
         }
 
-        const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
-        if (!Number.isFinite(amountNum) || amountNum <= 0) {
-            toast.show({ type: 'error', message: 'Informe um valor maior que zero.' });
-            return;
+        const existingPayment = isEdit
+            ? payments.find((p) => p.$id === editingPaymentId) || null
+            : null;
+
+        let errors = {};
+        if (paymentType === PAYMENT_CATEGORY.FEE && !desc) {
+            errors.note = 'Informe a descrição da taxa (ex.: taxa de competição).';
         }
 
-        const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
-        if (!trocoCheck.ok) {
-            toast.show({ type: 'error', message: trocoCheck.message });
-            return;
-        }
+        const { errors: payErrors, amountNum, paymentAccount } = validateMensalidadesPaymentForm({
+            payForm,
+            financeConfig,
+            student,
+            existingPayment,
+        });
+        errors = { ...payErrors, ...errors };
 
-        const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
-        if (!accountCheck.ok) {
-            toast.show({ type: 'error', message: accountCheck.message });
+        if (Object.keys(errors).length > 0) {
+            setPayFormErrors(errors);
+            focusFirstStudentPaymentError(errors);
             return;
         }
-        const paymentAccount = accountCheck.account || payForm.account || '';
+        setPayFormErrors({});
 
         const paidAtIso =
             (payForm.status === 'paid' || paymentType === PAYMENT_CATEGORY.FEE || paymentType === PAYMENT_CATEGORY.OTHER) &&
@@ -1389,16 +1378,12 @@ export default function StudentProfile() {
                 message: isEdit ? 'Pagamento atualizado.' : 'Pagamento registrado.',
             });
         } catch (e) {
-            const isDup =
-                (e instanceof StudentPaymentsApiError && e.status === 409) ||
-                String(e?.message || '').includes('Já existe um lançamento');
-            if (isDup) {
-                setPayFormError(
-                    'Já existe um lançamento com este valor e data para este aluno.'
-                );
+            const msg = studentPaymentFriendlyError(e, 'save');
+            if (/já existe um lançamento/i.test(msg)) {
+                setPayFormError(msg);
                 return;
             }
-            toast.error(e, 'save');
+            toast.show({ type: 'error', message: msg });
         } finally {
             setSavingPayment(false);
         }
@@ -1408,6 +1393,7 @@ export default function StudentProfile() {
         savingPayment,
         payForm,
         editingPaymentId,
+        payments,
         userId,
         sessionUserName,
         toast,
@@ -1526,7 +1512,6 @@ export default function StudentProfile() {
         );
     }
 
-    const phoneHasDigits = Boolean(String(student.phone || '').replace(/\D/g, '').length);
     const attendanceReady = isAttendanceConfigured();
     const studentsPlural = terms.students;
     const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -2014,6 +1999,10 @@ export default function StudentProfile() {
                 </button>
             </div>
 
+            {waStatusChecked && !waConnected ? (
+                <ProfileWhatsAppOfflineBanner className="student-profile-wa-offline-banner" />
+            ) : null}
+
             <div className="student-panel-left__scroll" style={{ padding: '16px 14px' }}>
                 <div className="student-profile-hd">
                     {/* Avatar com iniciais */}
@@ -2238,111 +2227,12 @@ export default function StudentProfile() {
                     {checkingIn ? 'Registrando...' : `+ Registrar ${terms.attendance.toLowerCase()}`}
                 </button>
 
-                <div style={{ marginBottom: 22 }}>
-                    <p
-                        style={{
-                            margin: '0 0 10px',
-                            fontSize: 11,
-                            fontWeight: 800,
-                            color: 'var(--text-muted)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                        }}
-                    >
-                        Comunicação
-                    </p>
-                    <div ref={waTemplateMenuRef} style={{ display: 'flex', gap: 8, alignItems: 'stretch', position: 'relative' }}>
-                        <button
-                            type="button"
-                            disabled={!phoneHasDigits || sendingWhatsapp}
-                            onClick={() => void handleWhatsAppPrimary()}
-                            style={{
-                                flex: 1,
-                                height: 40,
-                                borderRadius: 10,
-                                border: 'none',
-                                background: 'var(--petroleo)',
-                                color: '#fff',
-                                fontWeight: 700,
-                                fontSize: 14,
-                                cursor: !phoneHasDigits || sendingWhatsapp ? 'not-allowed' : 'pointer',
-                                opacity: !phoneHasDigits ? 0.5 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                fontFamily: 'inherit',
-                            }}
-                        >
-                            <MessageCircle size={16} /> {sendingWhatsapp ? 'Enviando…' : 'WhatsApp'}
-                        </button>
-                        <button
-                            type="button"
-                            disabled={!phoneHasDigits || sendingWhatsapp}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setTemplateMenuOpen((o) => !o);
-                            }}
-                            style={{
-                                width: 44,
-                                borderRadius: 10,
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface)',
-                                cursor: !phoneHasDigits || sendingWhatsapp ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                            aria-label="Templates WhatsApp"
-                        >
-                            <ChevronDown size={18} color="var(--text-secondary)" />
-                        </button>
-                        {templateMenuOpen ? (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    top: '100%',
-                                    left: 0,
-                                    right: 0,
-                                    marginTop: 6,
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 10,
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                                    zIndex: 20,
-                                    maxHeight: 220,
-                                    overflowY: 'auto',
-                                }}
-                            >
-                                {Object.entries(waCtx.templates)
-                                    .filter(([, text]) => typeof text === 'string' && String(text).trim())
-                                    .map(([key]) => (
-                                        <button
-                                            key={key}
-                                            type="button"
-                                            onClick={() => void sendTemplateKey(key)}
-                                            style={{
-                                                display: 'block',
-                                                width: '100%',
-                                                textAlign: 'left',
-                                                padding: '10px 14px',
-                                                border: 'none',
-                                                borderBottom: '1px solid var(--border-light)',
-                                                background: 'none',
-                                                fontSize: 13,
-                                                cursor: 'pointer',
-                                                fontFamily: 'inherit',
-                                                color: 'var(--text)',
-                                            }}
-                                        >
-                                            {WHATSAPP_TEMPLATE_LABELS[key] || key}
-                                        </button>
-                                    ))}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
+                <ProfileComunicacaoSection
+                    waConnected={waConnected}
+                    waStatusChecked={waStatusChecked}
+                    phoneDigits={String(student.phone || '').replace(/\D/g, '')}
+                    onOpenConversation={() => setProfileTab('conversation')}
+                />
 
                 {renderOperationalActionsSection()}
 
@@ -2365,6 +2255,13 @@ export default function StudentProfile() {
                     </div>
                     {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
                 </div>
+
+                <StudentPayerAliasesSection
+                    aliases={payerAliases}
+                    responsavel={editingData ? dataForm.responsavel : student.responsavel}
+                    disabled={!editingData || savingData}
+                    onChange={setPayerAliases}
+                />
 
                 {controlIdCfg.enabled && (
                     <StudentControlIdPhoto
@@ -2527,11 +2424,14 @@ export default function StudentProfile() {
         </div>
     );
 
-    const tabBtn = (id, label) => (
+    const tabBtn = (id, label) => {
+        const isOfflineConversation = id === 'conversation' && waStatusChecked && !waConnected;
+        return (
         <button
             key={id}
             type="button"
             onClick={() => setProfileTab(id)}
+            className={isOfflineConversation ? 'student-profile-panel-tab--offline' : undefined}
             style={{
                 flex: 1,
                 padding: '10px 8px',
@@ -2548,7 +2448,8 @@ export default function StudentProfile() {
         >
             {label}
         </button>
-    );
+        );
+    };
 
     const rightColumn = (
         <div
@@ -2622,6 +2523,11 @@ export default function StudentProfile() {
                     <span style={{ width: 52, flexShrink: 0 }} aria-hidden />
                 </div>
             ) : null}
+
+            {stackedLayout && timelineOpen ? (
+                <ProfileMobileQuickActions actions={mobilePanelQuickActions} />
+            ) : null}
+
             <div
                 style={{
                     padding: '12px 14px',
@@ -2638,7 +2544,12 @@ export default function StudentProfile() {
                 {canViewFinance ? tabBtn('payments', 'Pagamentos') : null}
                 {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}
                 {tabBtn('timeline', 'Linha do tempo')}
-                {showConversationTab ? tabBtn('conversation', 'Conversa') : null}
+                {showConversationTab
+                    ? tabBtn(
+                          'conversation',
+                          waStatusChecked && !waConnected ? 'Conversa (offline)' : 'Conversa'
+                      )
+                    : null}
             </div>
 
             <div
@@ -3132,7 +3043,7 @@ export default function StudentProfile() {
                 academyId={academyId}
                 financeConfig={financeConfig}
                 payForm={payForm}
-                setPayForm={setPayForm}
+                setPayForm={updatePayForm}
                 saving={savingPayment}
                 inputStyle={inputStyle}
                 onClose={closePaymentModal}
@@ -3141,6 +3052,9 @@ export default function StudentProfile() {
                 onSaleComplete={() => void loadPayments()}
                 editingPaymentId={editingPaymentId}
                 formError={payFormError}
+                fieldErrors={payFormErrors}
+                requireBankAccountForSave={hasConfiguredBankAccounts(financeConfig)}
+                canConfigureBankAccounts={canConfigureBankAccounts}
             />
 
             <ConfirmDialog

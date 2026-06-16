@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link2 } from 'lucide-react';
+import { formatReconTxShortTitle } from '../../lib/financeReconTxLabel.js';
 
 function fmtMoney(v) {
   try {
@@ -108,7 +109,7 @@ export default function BankReconOrphanList({
             className={`bank-recon-navi-row bank-recon-navi-row--actionable${isCandidate ? ' bank-recon-navi-row--candidate' : ''}`}
           >
             <div>
-              <p className="bank-recon-pair__title">{tx.planName || tx.category || 'Lançamento'}</p>
+              <p className="bank-recon-pair__title">{formatReconTxShortTitle(tx)}</p>
               <p className="text-xs text-muted">
                 {fmtDate(tx.settledAt)} · {tx.direction === 'out' ? 'Saída' : 'Entrada'} · {fmtMoney(tx.gross)}
               </p>

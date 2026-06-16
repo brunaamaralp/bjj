@@ -6,10 +6,15 @@ import { useUiStore } from '../../store/useUiStore';
 import { useSalesCatalog } from '../../hooks/useSalesCatalog';
 import {
   suggestUnitPrice,
-  cartVariantOptions,
+  cartVariantOptionsForLineKind,
+  catalogLineAvailability,
+  variantCanAddForLineKind,
   parentNeedsVariantPicker,
   variantOptionLabel,
+  defaultLineKindForParent,
+  patchCartLineFromCatalog,
 } from '../../lib/salesCatalog';
+import { normalizeLineKind } from '../../lib/saleLineKind';
 import { readSalesSettings } from '../../lib/salesSettings';
 import { formatBRL } from '../../lib/moneyBr';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
@@ -66,6 +71,7 @@ export default function StudentProductSaleStep({
   const [localError, setLocalError] = useState('');
   const [flashProductId, setFlashProductId] = useState(null);
   const [variantPickerParent, setVariantPickerParent] = useState(null);
+  const [variantPickerLineKind, setVariantPickerLineKind] = useState('sale');
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [mobilePanel, setMobilePanel] = useState('catalog');
@@ -115,24 +121,25 @@ export default function StudentProductSaleStep({
         if (!line.parent_id) return line;
         const parent = products.find((p) => String(p.id) === String(line.parent_id));
         if (!parent) return line;
-        const variant_options = cartVariantOptions(parent);
-        const variant = (parent.variants || []).find(
-          (v) => String(v.id) === String(line.item_estoque_id)
+        const patch = patchCartLineFromCatalog(line, parent);
+        if (!patch) return line;
+        const enrichedOptions = cartVariantOptionsForLineKind(
+          parent,
+          normalizeLineKind(line.line_kind)
         );
-        const patch = {
-          variant_options,
-          disponivel: variant?.current_quantity ?? line.disponivel,
-          expected_quantity: variant?.current_quantity ?? line.expected_quantity,
+        const fullPatch = {
+          ...patch,
+          variant_options: enrichedOptions ?? patch.variant_options,
         };
         if (
-          patch.variant_options === line.variant_options &&
-          patch.disponivel === line.disponivel &&
-          patch.expected_quantity === line.expected_quantity
+          fullPatch.variant_options === line.variant_options &&
+          fullPatch.disponivel === line.disponivel &&
+          fullPatch.expected_quantity === line.expected_quantity
         ) {
           return line;
         }
         changed = true;
-        return { ...line, ...patch };
+        return { ...line, ...fullPatch };
       });
       return changed ? next : prev;
     });
@@ -211,31 +218,44 @@ export default function StudentProductSaleStep({
     });
   }, [totalFinalCents]);
 
-  const buildCartLine = useCallback((product, parent = null) => {
-    const { price } = suggestUnitPrice(product, { collaborator: false });
+  const buildCartLine = useCallback((product, parent = null, lineKind = 'sale') => {
+    const kind = normalizeLineKind(lineKind);
+    const { price } = suggestUnitPrice(product, { collaborator: false, lineKind: kind, parent });
     const unit = price != null ? price : null;
-    const multi = cartVariantOptions(parent);
+    const multi = parent && (parent.variants || []).length > 1;
+    const avail = parent
+      ? catalogLineAvailability(product, parent, kind)
+      : catalogLineAvailability(product, { type: product.type || kind }, kind);
     return {
+      line_kind: kind,
       item_estoque_id: product.id,
       product_variant_id: product.id,
       display_label: multi ? parent.nome || parent.display_label : product.display_label,
       variacao: variantOptionLabel(product),
       image_url: product.image_url || parent?.image_url || '',
       parent_id: parent?.id || product.product_id || null,
-      variant_options: cartVariantOptions(parent),
+      variant_options: cartVariantOptionsForLineKind(parent, kind),
       quantidade: 1,
       preco_unitario: unit,
       sale_price: product.sale_price,
       cost_price: product.cost_price,
-      disponivel: product.current_quantity,
-      expected_quantity: product.current_quantity,
+      disponivel: avail,
+      expected_quantity: avail,
     };
   }, []);
 
   const pickProduct = useCallback(
-    (product, parentId = null, parent = null) => {
+    (product, parentId = null, parent = null, lineKind = 'sale') => {
       setLocalError('');
-      const { price, warning } = suggestUnitPrice(product, { collaborator: false });
+      const kind = normalizeLineKind(lineKind);
+      const avail = parent
+        ? catalogLineAvailability(product, parent, kind)
+        : catalogLineAvailability(product, { type: product.type || kind }, kind);
+      const { price, warning } = suggestUnitPrice(product, {
+        collaborator: false,
+        lineKind: kind,
+        parent,
+      });
       if (warning) addToast({ type: 'warning', message: warning });
       if (salesSettings.lockPriceEdit && price == null) {
         addToast({
@@ -247,25 +267,28 @@ export default function StudentProductSaleStep({
 
       const stockId = product.id;
       const idx = cart.findIndex(
-        (c) => c.product_variant_id === stockId || c.item_estoque_id === stockId
+        (c) =>
+          (c.product_variant_id === stockId || c.item_estoque_id === stockId) &&
+          normalizeLineKind(c.line_kind) === kind
       );
       if (idx >= 0) {
         setCart((prev) => {
           const next = [...prev];
           const newQ = Number(next[idx].quantidade) + 1;
-          if (product.current_quantity > 0 && newQ > product.current_quantity) {
+          if (avail > 0 && newQ > avail) {
             addToast({ type: 'error', message: 'Quantidade acima do estoque disponível' });
             return prev;
           }
           next[idx] = {
             ...next[idx],
             quantidade: newQ,
-            expected_quantity: product.current_quantity,
+            expected_quantity: avail,
+            disponivel: avail,
           };
           return next;
         });
       } else {
-        setCart((prev) => [...prev, buildCartLine(product, parent)]);
+        setCart((prev) => [...prev, buildCartLine(product, parent, kind)]);
       }
 
       const flashId = parentId || stockId;
@@ -280,8 +303,10 @@ export default function StudentProductSaleStep({
   );
 
   const handleCatalogPick = useCallback(
-    (parent) => {
+    (parent, lineKind = 'sale') => {
+      const kind = normalizeLineKind(lineKind || defaultLineKindForParent(parent));
       if (parentNeedsVariantPicker(parent)) {
+        setVariantPickerLineKind(kind);
         setVariantPickerParent(parent);
         return;
       }
@@ -290,7 +315,8 @@ export default function StudentProductSaleStep({
         pickProduct(
           { ...variant, image_url: variant.image_url || parent.image_url || '' },
           parent.id,
-          parent
+          parent,
+          kind
         );
       }
     },
@@ -306,27 +332,40 @@ export default function StudentProductSaleStep({
         const variant = line.variant_options.find((v) => String(v.id) === String(variantId));
         if (!variant || String(variant.id) === String(line.item_estoque_id)) return prev;
 
+        const lineKind = normalizeLineKind(line.line_kind);
         const dupIdx = prev.findIndex(
-          (c, i) => i !== idx && String(c.item_estoque_id) === String(variant.id)
+          (c, i) =>
+            i !== idx &&
+            String(c.item_estoque_id) === String(variant.id) &&
+            normalizeLineKind(c.line_kind) === lineKind
         );
         if (dupIdx >= 0) {
           addToast({ type: 'warning', message: 'Este tamanho já está no carrinho' });
           return prev;
         }
 
-        if (!variant.canAdd) {
+        const parent = products.find((p) => String(p.id) === String(line.parent_id));
+        const canAdd =
+          variant.canAdd_for_line ??
+          (parent ? variantCanAddForLineKind(variant, parent, lineKind) : variant.canAdd);
+        if (!canAdd) {
           addToast({ type: 'error', message: 'Tamanho esgotado' });
           return prev;
         }
 
-        const { price, warning } = suggestUnitPrice(variant, { collaborator: false });
+        const avail =
+          variant.disponivel_for_line ??
+          (parent ? catalogLineAvailability(variant, parent, lineKind) : variant.current_quantity);
+
+        const { price, warning } = suggestUnitPrice(variant, {
+          collaborator: false,
+          lineKind,
+          parent,
+        });
         if (warning) addToast({ type: 'warning', message: warning });
 
         const next = [...prev];
-        const maxQty =
-          variant.current_quantity > 0
-            ? Math.min(Number(line.quantidade), variant.current_quantity)
-            : Number(line.quantidade);
+        const maxQty = avail > 0 ? Math.min(Number(line.quantidade), avail) : Number(line.quantidade);
 
         next[idx] = {
           ...line,
@@ -337,14 +376,15 @@ export default function StudentProductSaleStep({
           preco_unitario: price != null ? price : line.preco_unitario,
           sale_price: variant.sale_price,
           cost_price: variant.cost_price,
-          disponivel: variant.current_quantity,
-          expected_quantity: variant.current_quantity,
+          disponivel: avail,
+          expected_quantity: avail,
           quantidade: Math.max(1, maxQty),
+          variant_options: parent ? cartVariantOptionsForLineKind(parent, lineKind) : line.variant_options,
         };
         return next;
       });
     },
-    [addToast]
+    [addToast, products]
   );
 
   const updateCartQty = useCallback(
@@ -429,6 +469,7 @@ export default function StudentProductSaleStep({
       product_variant_id: it.product_variant_id || it.item_estoque_id,
       quantidade: Number(it.quantidade),
       preco_unitario: round2(Number(it.preco_unitario)),
+      line_kind: normalizeLineKind(it.line_kind),
       expected_quantity:
         it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
     }));
@@ -618,13 +659,15 @@ export default function StudentProductSaleStep({
       {variantPickerParent ? (
         <SalesVariantPicker
           parent={variantPickerParent}
+          lineKind={variantPickerLineKind}
           onClose={() => setVariantPickerParent(null)}
           onSelect={(variant) => {
             setVariantPickerParent(null);
             pickProduct(
               { ...variant, image_url: variant.image_url || variantPickerParent.image_url || '' },
               variantPickerParent.id,
-              variantPickerParent
+              variantPickerParent,
+              variantPickerLineKind
             );
           }}
         />

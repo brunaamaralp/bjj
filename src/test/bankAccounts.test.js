@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   hasConfiguredBankAccounts,
   resolveDefaultBankAccountLabel,
+  isUsableBankAccount,
+  normalizeBankAccountEntry,
 } from '../lib/bankAccounts.js';
 import { pickInitialBankAccountForPayment } from '../lib/paymentMethodBankDefaults.js';
 
@@ -48,5 +50,11 @@ describe('bankAccounts — conta inicial no pagamento', () => {
       defaultAccountByMethod: { pix: 'BB · 111' },
     };
     expect(pickInitialBankAccountForPayment(cfgWithMap, 'Caixa · 222', 'pix')).toBe('BB · 111');
+  });
+
+  it('isUsableBankAccount exige banco, conta ou PIX', () => {
+    expect(isUsableBankAccount(normalizeBankAccountEntry({ branch: '1234' }))).toBe(false);
+    expect(isUsableBankAccount(normalizeBankAccountEntry({ bankName: 'Nubank' }))).toBe(true);
+    expect(isUsableBankAccount(normalizeBankAccountEntry({ pixKey: 'a@b.com' }))).toBe(true);
   });
 });

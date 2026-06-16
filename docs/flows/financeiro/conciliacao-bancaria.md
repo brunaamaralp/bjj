@@ -8,13 +8,16 @@
 | **rotas** | `/financeiro?tab=conciliacao` |
 | **pré-requisitos** | Módulo `finance`; contas bancárias; lançamentos liquidados; extrato bancário (OFX/CSV/XLSX/PDF) |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-16 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
 - [2026-06-15-conciliacao-ux-refactor-PRODUCT.md](../../superpowers/specs/2026-06-15-conciliacao-ux-refactor-PRODUCT.md)
 - [2026-06-15-conciliacao-multi-formato-PRODUCT.md](../../superpowers/specs/2026-06-15-conciliacao-multi-formato-PRODUCT.md)
+- [2026-06-16-conciliacao-deduplicacao-extratos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-deduplicacao-extratos-PRODUCT.md)
+- [2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md) *(proposto)*
+- [2026-06-16-conciliacao-pagadores-conhecidos-TECH.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md) *(proposto)*
 
 **Harness relacionado:** `npm test -- bankRecon bankReconciliationMatcher bankReconciliationValidation`
 
@@ -55,7 +58,7 @@ flowchart TD
 |---|---|---|---|---|
 | 1 | `/financeiro?tab=conciliacao` | `ReconciliationTab` | Abrir aba (owner) | Lista de extratos importados |
 | 2 | Conciliação | **Importar** | Abrir `ImportStatementModal` | Upload arquivo; parsing |
-| 3 | Modal import | Selecionar conta / arquivo | Confirmar | Extrato na lista; status pendente/parcial |
+| 3 | Modal import | Selecionar conta / arquivo | Confirmar | Extrato na lista; hint no rodapé se botão desabilitado (`importDisabledReason`) |
 | 4 | Lista | **Abrir** extrato | Ver detalhe | KPIs: pendentes, conciliados, gap |
 | 5 | Detalhe | `BankReconPairRow` | Confirmar match sugerido | `confirmBankMatch` |
 | 6 | Detalhe | **Confirmar todos** | Batch | `confirmAllBankMatches` |
@@ -89,6 +92,7 @@ flowchart TD
 1. [ ] Owner: `/financeiro?tab=conciliacao` carrega lista (vazia ou com extratos)
 2. [ ] Admin/member: URL `?tab=conciliacao` redireciona para aba permitida
 3. [ ] Importar extrato OFX/CSV — extrato aparece na tabela
+3b. [ ] Importar sem conta selecionada — botão desabilitado com texto explicativo no rodapé
 4. [ ] Abrir extrato — KPIs e contadores coerentes
 5. [ ] Confirmar match sugerido — linha sai de pendentes
 6. [ ] **Confirmar todos** (se houver sugestões) — batch OK; toast
@@ -107,6 +111,7 @@ flowchart TD
 | `tx_not_settled` | Só liquidados | `ReconciliationTab` |
 | `tx_already_reconciled` | TX já usado | API |
 | Falha import | Toast / banner | `ImportStatementModal` |
+| Import sem conta / arquivo | Hint no rodapé do modal | `importDisabledReason` |
 
 ### Critérios de fluxo saudável vs regressão
 
@@ -158,3 +163,4 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2A |
+| 2026-06-16 | — | Hint `importDisabledReason` no rodapé do modal de import |

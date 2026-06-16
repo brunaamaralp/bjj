@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=movimentacoes`, `/financeiro?tab=movimentacoes&new=1`, `/financeiro?tab=movimentacoes&tx=` |
 | **pré-requisitos** | Módulo `finance`; categorias/plano de contas (recomendado); contas bancárias para liquidação |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-16 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -85,6 +85,7 @@ flowchart TD
 ### Checklist passo a passo
 
 1. [ ] `/financeiro?tab=movimentacoes` carrega sem erro persistente
+1b. [ ] Academia sem conta bancária — `FinanceBankAccountsSetupBanner` com link para Recebimento (owner/admin)
 2. [ ] Sidebar **Novo lançamento** abre modal (`?tab=movimentacoes&new=1`)
 3. [ ] Criar entrada pendente — aparece na lista com status pendente
 4. [ ] Liquidar lançamento — status muda para liquidado
@@ -154,3 +155,4 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2A |
+| 2026-06-16 | — | Banner `FinanceBankAccountsSetupBanner` quando sem conta |

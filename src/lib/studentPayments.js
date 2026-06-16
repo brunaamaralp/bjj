@@ -18,6 +18,7 @@ import {
 } from './paymentStatus.js';
 import { applyAccountingSideEffectsAuto } from './financeJournal.js';
 import { FINANCE_CATEGORIES } from './financeCategories.js';
+import { buildMirrorPlanName } from './financeReconTxLabel.js';
 import {
   PAYMENT_CATEGORY,
   normalizePaymentCategory,
@@ -222,7 +223,11 @@ async function syncFinancialTxMirror({
     type: FINANCE_CATEGORIES.MENSALIDADE.type,
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
     competence_month: competenceMonth,
-    planName: data.plan_name || data.note || '',
+    planName: buildMirrorPlanName({
+      studentName: student?.name,
+      planName: data.plan_name,
+      refMonth,
+    }),
     gross,
     fee,
     net,

@@ -74,6 +74,7 @@ import {
   DropdownMenuLabel,
 } from '../shared/menu';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
+import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
 import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
 import FinanceTxStudentField from './FinanceTxStudentField.jsx';
 import SearchField from '../shared/SearchField.jsx';
@@ -1155,6 +1156,11 @@ export default function TransacoesTab({
   return (
     <>
       <FinanceTabShell panelClassName="finance-tx-section finance-tab-panel--compact">
+        <FinanceBankAccountsSetupBanner
+          financeConfig={financeConfig}
+          canConfigure={canManageAdvanced}
+          className="finance-tx-bank-setup-banner"
+        />
         <FinanceFiltersBar panel className="finance-tx-toolbar">
           <div className="finance-hub-filters__row finance-tx-toolbar__filters">
             {academyId ? (

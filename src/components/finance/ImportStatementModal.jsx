@@ -288,6 +288,18 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
     if (!open) reset();
   }, [open]);
 
+  const importDisabledReason = useMemo(() => {
+    if (step !== 'review' || importing || aiBusy) return '';
+    if (!importItems.length) return 'Nenhuma linha para importar.';
+    if (overLimit) {
+      return `O extrato tem ${importItems.length} linhas; o limite é ${MAX_BANK_STATEMENT_ITEMS}. Remova linhas antes de importar.`;
+    }
+    if (!bankAccount.trim()) return 'Selecione a conta do extrato antes de importar.';
+    return '';
+  }, [step, importing, aiBusy, importItems.length, overLimit, bankAccount]);
+
+  const importConfirmDisabled =
+    importing || aiBusy || step !== 'review' || !importItems.length || overLimit || !bankAccount.trim();
   const currentStep = stepIndex(step);
   const progressPct = ((currentStep + 1) / STEPS.length) * 100;
 
@@ -302,7 +314,13 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
       className="navi-modal-overlay--form"
       dialogClassName="import-statement-dialog"
       footer={
-        <div className="flex gap-2 import-statement-actions">
+        <div className="import-statement-footer">
+          {importDisabledReason ? (
+            <p className="import-statement-footer__hint" role="status">
+              {importDisabledReason}
+            </p>
+          ) : null}
+          <div className="flex gap-2 import-statement-actions">
           {step === 'processing' ? (
             <button type="button" className="btn-outline" onClick={cancelAi}>
               Cancelar interpretação
@@ -315,13 +333,14 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
               <button
                 type="button"
                 className="btn-primary"
-                disabled={importing || aiBusy || step !== 'review' || !importItems.length || overLimit || !bankAccount.trim()}
+                disabled={importConfirmDisabled}
                 onClick={() => void confirmImport()}
               >
                 {importing ? 'Importando…' : 'Confirmar importação'}
               </button>
             </>
           )}
+          </div>
         </div>
       }
     >

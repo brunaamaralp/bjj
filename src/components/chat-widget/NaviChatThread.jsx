@@ -108,6 +108,7 @@ export default function NaviChatThread({
   inboxHref = '/inbox',
   waConnected = true,
   hideInboxLink = false,
+  suppressEmpty = false,
   onLoadMore,
   onRetry,
   retryFailedMessage,
@@ -159,7 +160,7 @@ export default function NaviChatThread({
         </div>
       ) : null}
 
-      {!loading && !error && !hasMessages ? (
+      {!loading && !error && !hasMessages && !suppressEmpty ? (
         <ChatThreadEmpty
           icon={MessageCircle}
           title="Nenhuma conversa ainda"

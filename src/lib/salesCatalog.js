@@ -1,19 +1,43 @@
 import { mapStockProductDoc } from './stockProducts.js';
 import { legacyStockItemsAsParents } from './productCatalog.js';
+import {
+  aggregatePoolTotals,
+  hasDualPoolFields,
+  normalizeProductType,
+  productTypeShowsRentalPools,
+  productTypeShowsSalePools,
+  rentalAvailable,
+  saleQuantity,
+} from './dualStockPools.js';
+import { availableQuantityForLineKind, normalizeLineKind } from './saleLineKind.js';
 
 /** Enriquece produto já mapeado (API) ou documento bruto para o picker de vendas. */
-export function enrichCatalogProduct(p) {
+export function enrichCatalogProduct(p, parentType = null) {
   const base = p?.id != null && p?.$id == null ? p : mapStockProductDoc(p);
+  const type = normalizeProductType(parentType || base.type || 'sale');
   const min = base.minimum_level;
-  const qty = base.current_quantity;
+  const legacyQty = Number(base.current_quantity) || 0;
+  const saleQty = hasDualPoolFields(base) ? saleQuantity(base) : type === 'rental' ? 0 : legacyQty;
+  const rentalQty = hasDualPoolFields(base) ? rentalAvailable(base) : type === 'rental' ? legacyQty : 0;
+  const qtyForLevel = hasDualPoolFields(base) ? saleQty + rentalQty : legacyQty;
   let stockLevel = 'ok';
-  if (qty === 0) stockLevel = 'out';
-  else if (min > 0 && qty <= min) stockLevel = 'low';
+  if (qtyForLevel === 0) stockLevel = 'out';
+  else if (min > 0 && qtyForLevel <= min) stockLevel = 'low';
+
+  const canSell = productTypeShowsSalePools(type) && saleQty > 0;
+  const canRent = productTypeShowsRentalPools(type) && rentalQty > 0;
 
   return {
     ...base,
+    type,
+    sale_quantity: saleQty,
+    rental_available: rentalQty,
     stockLevel,
-    canAdd: qty > 0,
+    canSell,
+    canRent,
+    canAdd: canSell || canRent,
+    canAddSale: canSell,
+    canAddRental: canRent,
   };
 }
 
@@ -133,12 +157,62 @@ export function cartVariantOptions(parent) {
   return parent.variants;
 }
 
+export function cartVariantOptionsForLineKind(parent, lineKind = 'sale') {
+  const opts = cartVariantOptions(parent);
+  if (!opts) return null;
+  const kind = normalizeLineKind(lineKind);
+  return opts.map((v) => ({
+    ...v,
+    disponivel_for_line: catalogLineAvailability(v, parent, kind),
+    canAdd_for_line: variantCanAddForLineKind(v, parent, kind),
+  }));
+}
+
+export function catalogLineAvailability(variant, parent, lineKind = 'sale') {
+  const parentType = parent?.type || variant?.type || 'sale';
+  return availableQuantityForLineKind(variant, lineKind, parentType);
+}
+
+export function variantCanAddForLineKind(variant, parent, lineKind = 'sale') {
+  return catalogLineAvailability(variant, parent, lineKind) > 0;
+}
+
+export function parentShowsDualPickActions(parent) {
+  const type = normalizeProductType(parent?.type);
+  if (type === 'both') return Boolean(parent?.canSell || parent?.canRent);
+  return Boolean(parent?.canSell && parent?.canRent);
+}
+
+export function defaultLineKindForParent(parent) {
+  const type = normalizeProductType(parent?.type);
+  return type === 'rental' ? 'rental' : 'sale';
+}
+
+export function patchCartLineFromCatalog(line, parent) {
+  if (!line || !parent) return null;
+  const variant = (parent.variants || []).find(
+    (v) => String(v.id) === String(line.item_estoque_id)
+  );
+  if (!variant) return null;
+  const lineKind = normalizeLineKind(line.line_kind);
+  const avail = catalogLineAvailability(variant, parent, lineKind);
+  return {
+    variant_options: cartVariantOptions(parent),
+    disponivel: avail,
+    expected_quantity: avail,
+  };
+}
+
 /** Agrupa variantes pelo produto pai para o catálogo de vendas. */
 /** Enriquece linha agrupada (pai + variantes) para o picker de vendas. */
 export function enrichSalesParentRow(parent) {
-  const vars = (parent.variants || []).map((v) => enrichCatalogProduct(v));
-  const totalQty = vars.reduce((n, x) => n + Number(x.current_quantity || 0), 0);
-  const canAdd = vars.some((x) => x.canAdd);
+  const parentType = normalizeProductType(parent.type || 'sale');
+  const vars = (parent.variants || []).map((v) => enrichCatalogProduct(v, parentType));
+  const poolTotals = aggregatePoolTotals(vars, parentType);
+  const totalQty = poolTotals.total_available;
+  const canSell = vars.some((x) => x.canSell);
+  const canRent = vars.some((x) => x.canRent);
+  const canAdd = canSell || canRent;
   const stockLevel = vars.some((x) => x.stockLevel === 'ok')
     ? 'ok'
     : vars.some((x) => x.stockLevel === 'low')
@@ -146,11 +220,18 @@ export function enrichSalesParentRow(parent) {
       : 'out';
   return {
     ...parent,
+    type: parentType,
+    rental_price: parent.rental_price ?? null,
     variants: vars,
     variant_count: vars.length,
     display_label: String(parent.display_label || parent.nome || '').trim(),
     image_url: String(parent.image_url || vars.find((v) => v.image_url)?.image_url || '').trim(),
     current_quantity: totalQty,
+    total_sale_quantity: poolTotals.total_sale_quantity,
+    total_rental_available: poolTotals.total_rental_available,
+    total_rental_out: poolTotals.total_rental_out,
+    canSell,
+    canRent,
     canAdd,
     stockLevel,
     _singleVariant: vars.length === 1 ? vars[0] : null,
@@ -187,10 +268,14 @@ export function catalogParentsFromVariants(variants) {
     .sort((a, b) => a.display_label.localeCompare(b.display_label, 'pt-BR'));
 }
 
-function parentEligibleForSale(parent) {
+function parentEligibleForCatalog(parent) {
   if (!parent || parent.is_for_sale === false) return false;
-  const type = String(parent.type || 'sale').trim().toLowerCase();
+  const type = normalizeProductType(parent.type || 'sale');
   return type !== 'supply' && type !== 'insumo';
+}
+
+function parentEligibleForSale(parent) {
+  return parentEligibleForCatalog(parent);
 }
 
 function parentsFromNestedCatalogProducts(products) {
@@ -288,7 +373,35 @@ export function filterCatalogParents(parents, opts) {
   return filterCatalogProducts(parents, opts);
 }
 
-export function suggestUnitPrice(product, { collaborator }) {
+export function catalogStockBadgeLabel(parent) {
+  const type = normalizeProductType(parent?.type);
+  if (type === 'both' || parentShowsDualPickActions(parent)) {
+    const sale = parent?.total_sale_quantity ?? 0;
+    const rental = parent?.total_rental_available ?? 0;
+    if (parent.stockLevel === 'out' && sale === 0 && rental === 0) return 'Esgotado';
+    if (parent.stockLevel === 'low') return `Baixo · ${sale} venda · ${rental} aluguel`;
+    return `${sale} venda · ${rental} aluguel`;
+  }
+  if (type === 'rental') {
+    const rental = parent?.total_rental_available ?? parent?.current_quantity ?? 0;
+    if (parent.stockLevel === 'out') return 'Esgotado';
+    if (parent.stockLevel === 'low') return `Baixo · ${rental}`;
+    return `Aluguel disp. ${rental}`;
+  }
+  if (parent.stockLevel === 'out') return 'Esgotado';
+  if (parent.stockLevel === 'low') return `Baixo · ${parent.current_quantity}`;
+  return `Disp. ${parent.current_quantity}`;
+}
+
+export function suggestUnitPrice(product, { collaborator, lineKind = 'sale', parent = null } = {}) {
+  const kind = normalizeLineKind(lineKind);
+  const rentalPrice = Number(parent?.rental_price ?? product?.rental_price);
+  if (kind === 'rental') {
+    if (Number.isFinite(rentalPrice) && rentalPrice > 0) {
+      return { price: rentalPrice, warning: null };
+    }
+    return { price: null, warning: 'Preço de aluguel não cadastrado.' };
+  }
   if (collaborator) {
     if (product.cost_price != null && Number.isFinite(product.cost_price)) {
       return { price: product.cost_price, warning: null };

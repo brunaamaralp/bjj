@@ -8,6 +8,7 @@ import {
   feesConfigured,
   financeSettingsProgress,
   FINANCE_SETTINGS_SECTIONS,
+  financeSettingsSectionLabel,
   getFinanceDefaultSection,
   isFinanceSettingsSection,
 } from '../lib/financeSettingsSections.js';
@@ -92,6 +93,13 @@ describe('financeSettingsSections', () => {
     expect(isFinanceSettingsSection('planos')).toBe('planos');
     expect(isFinanceSettingsSection('razao-contabil')).toBe('razao-contabil');
     expect(isFinanceSettingsSection('invalid')).toBe(null);
+  });
+
+  it('financeSettingsSectionLabel resolves nav label', () => {
+    expect(financeSettingsSectionLabel(FINANCE_SETTINGS_SECTIONS.PLANOS)).toBe('Planos de mensalidade');
+    expect(financeSettingsSectionLabel(FINANCE_SETTINGS_SECTIONS.RECEBIMENTO)).toBe(
+      'Contas para recebimento'
+    );
   });
 
   it('buildFinanceSettingsSummaries marks plans done when named', () => {

@@ -1,6 +1,11 @@
 import sdk from "node-appwrite";
 import { resolveCurrentQuantity, itemDisplayName } from "../stockBalance.mjs";
 import {
+  buildCancelStockPatch,
+  cancelStockMoveTipoForLineKind,
+  normalizeLineKind,
+} from "../../src/lib/saleLineKind.js";
+import {
   getUserFromRequest,
   assertUserAcademyAccess,
   isAcademyOwnerOrAdminUser,
@@ -153,24 +158,26 @@ export default async function (req, res) {
       if (stockAcademyId && String(stockAcademyId) !== String(academyId)) {
         return res.json({ ok: false, error: "forbidden" }, 403);
       }
+      const lineKind = normalizeLineKind(it.line_kind);
       const prevQty = resolveCurrentQuantity(itemStock);
-      const newQty = prevQty + qty;
+      const stockPatch = buildCancelStockPatch(itemStock, qty, lineKind);
 
       await databases.updateDocument(DB_ID, stockCol, stockId, {
-        current_quantity: newQty,
+        ...stockPatch,
         last_updated: new Date().toISOString(),
       });
 
       const unitPrice = Number(it.preco_unitario) || 0;
+      const isRental = lineKind === "rental";
       const movePayload = {
         item_estoque_id: stockId,
-        tipo: "reversao_venda",
+        tipo: cancelStockMoveTipoForLineKind(lineKind),
         quantidade: qty,
         referencia_id: venda_id,
-        motivo,
+        motivo: isRental ? "cancelamento_aluguel" : motivo,
         usuario_id: usuarioId,
         academy_id: academyId || itemStock.academy_id || null,
-        movement_kind: "return",
+        movement_kind: isRental ? "rental" : "return",
         sale_id: venda_id,
         sale_item_id: it.$id || null,
         lead_id: venda.aluno_id || null,

@@ -146,11 +146,44 @@ export function validateMensalidadesPaymentForm({
   };
 }
 
-export function focusFirstMensalidadesPaymentError(errors) {
+export function focusFirstMensalidadesPaymentError(errors, fieldIds = MENSALIDADES_PAY_FIELD_IDS) {
   if (!errors || typeof document === 'undefined') return;
   for (const key of MENSALIDADES_ERROR_FOCUS_ORDER) {
     if (!errors[key]) continue;
-    const id = MENSALIDADES_PAY_FIELD_IDS[key];
+    const id = fieldIds[key];
+    const el = id ? document.getElementById(id) : null;
+    if (el && typeof el.focus === 'function') {
+      el.focus();
+      return;
+    }
+  }
+}
+
+export const STUDENT_PAY_FIELD_IDS = {
+  note: 'student-pay-note',
+  bundle_start_month: 'student-pay-bundle-start',
+  amount: 'student-pay-amount',
+  paid_at: 'student-pay-paid-at',
+  cash_received: 'student-pay-cash-received',
+  trocoAccount: 'student-pay-troco-account',
+  account: 'student-pay-account',
+};
+
+const STUDENT_PAY_ERROR_FOCUS_ORDER = [
+  'note',
+  'bundle_start_month',
+  'amount',
+  'paid_at',
+  'cash_received',
+  'trocoAccount',
+  'account',
+];
+
+export function focusFirstStudentPaymentError(errors) {
+  if (!errors || typeof document === 'undefined') return;
+  for (const key of STUDENT_PAY_ERROR_FOCUS_ORDER) {
+    if (!errors[key]) continue;
+    const id = STUDENT_PAY_FIELD_IDS[key];
     const el = id ? document.getElementById(id) : null;
     if (el && typeof el.focus === 'function') {
       el.focus();

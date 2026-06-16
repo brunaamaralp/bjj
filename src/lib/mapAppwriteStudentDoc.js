@@ -1,5 +1,6 @@
 import { normalizeStudentStatus } from './studentStatus.js';
 import { normalizeSexo } from './leadSexo.js';
+import { parsePayerAliasesJson } from './studentPayerAliases.js';
 
 function parseCustomAnswersJson(raw) {
   if (!raw || typeof raw !== 'string') return {};
@@ -52,6 +53,7 @@ export function mapAppwriteDocToStudent(doc) {
     cpf: doc.cpf || '',
     responsavel: doc.responsavel || '',
     cpfResponsavel: doc.cpf_responsavel || doc.cpfResponsavel || '',
+    payerAliases: parsePayerAliasesJson(doc.payer_aliases_json),
     preferredPaymentMethod: doc.preferred_payment_method || '',
     preferredPaymentAccount: doc.preferred_payment_account || '',
     studentStatus: normalizeStudentStatus(doc.student_status ?? doc.studentStatus),

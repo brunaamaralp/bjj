@@ -1,25 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { MessageCircle, Sparkles, WifiOff } from 'lucide-react';
 import { useInboxConversation } from '../../hooks/useInboxConversation';
 import { useInboxDeferredBoot } from '../../hooks/useInboxDeferredBoot';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { useLeadStore } from '../../store/useLeadStore';
 import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
+import { isWhatsAppIntegrationConnected } from '../../lib/whatsappIntegrationState.js';
 import InboxComposer from './InboxComposer';
 import NaviChatThread from '../chat-widget/NaviChatThread';
+import ProfileConversationEmpty from './ProfileConversationEmpty.jsx';
+import ProfileWhatsAppOfflineEmptyActions from '../profile/ProfileWhatsAppOfflineEmptyActions.jsx';
+import ProfileWhatsAppOfflinePanelBanner from '../profile/ProfileWhatsAppOfflinePanelBanner.jsx';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
-
-function ProfileConversationEmpty({ icon: Icon, title, description, action }) {
-  return (
-    <div className="profile-conversation-empty">
-      {Icon ? <Icon size={40} strokeWidth={1.5} className="profile-conversation-empty__icon" aria-hidden /> : null}
-      <div className="profile-conversation-empty__title">{title}</div>
-      {description ? <p className="profile-conversation-empty__desc">{description}</p> : null}
-      {action || null}
-    </div>
-  );
-}
 
 function HandoffBanner({ onDismiss }) {
   return (
@@ -74,7 +66,7 @@ export default function ProfileConversationTab({
     statusPollWhileMounted: true,
     watchAcademyStatus: true,
   });
-  const waConnected = !waStatusChecked || String(waStatus || '').trim() === 'connected';
+  const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
 
   const [composerState, setComposerState] = useState({
     key: phoneDigits,
@@ -158,28 +150,28 @@ export default function ProfileConversationTab({
     );
   }
 
-  if (!waConnected && !loading && !hasMessages) {
+  if (!waStatusChecked || loading) {
+    return (
+      <div className="profile-conversation-tab profile-conversation-tab--loading">
+        <NaviChatThread loading displayName={displayName} suppressEmpty />
+      </div>
+    );
+  }
+
+  if (!waConnected && !hasMessages) {
     return (
       <ProfileConversationEmpty
         icon={WifiOff}
         title="WhatsApp não conectado"
-        description="Configure o WhatsApp em Configurações → Agente IA para ver as conversas."
-        action={
-          <Link to="/agente-ia" className="btn btn-primary" style={{ marginTop: 8 }}>
-            Configurar
-          </Link>
-        }
+        description="Conecte o WhatsApp em Agente IA para enviar e receber mensagens por aqui."
+        action={<ProfileWhatsAppOfflineEmptyActions phoneDigits={phoneDigits} />}
       />
     );
   }
 
   return (
     <div className="profile-conversation-tab">
-      {!waConnected ? (
-        <div role="status" className="profile-conversation-tab__wa-banner">
-          WhatsApp desconectado — não é possível enviar mensagens
-        </div>
-      ) : null}
+      {!waConnected ? <ProfileWhatsAppOfflinePanelBanner /> : null}
 
       <NaviChatThread
         messages={messages}
@@ -209,7 +201,9 @@ export default function ProfileConversationTab({
       <InboxComposer
         mode="compact"
         compactDisabled={!waConnected}
-        compactPlaceholder="Digite uma mensagem…"
+        compactPlaceholder={
+          waConnected ? 'Digite uma mensagem…' : 'Conecte o WhatsApp para enviar mensagens'
+        }
         draft={draft}
         setDraft={setDraft}
         handleDraftChange={handleDraftChange}

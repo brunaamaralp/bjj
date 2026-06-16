@@ -7,6 +7,7 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
 import { filterParentCatalog, findParentByProductOrVariantId } from '../lib/productCatalog';
+import { formatStockPoolsSummary } from '../lib/dualStockPools';
 import { formatBRL } from '../lib/moneyBr';
 import { refreshStockStores } from '../lib/syncStockStores';
 import ProductThumb from '../components/products/ProductThumb';
@@ -143,6 +144,7 @@ export default function Products() {
   const modules = useLeadStore((s) => s.modules);
   const products = useProductsStore((s) => s.products);
   const catalogMode = useProductsStore((s) => s.catalogMode);
+  const showDualStockColumns = catalogMode === 'parent_variant';
   const loadProducts = useProductsStore((s) => s.loadProducts);
   const createProduct = useProductsStore((s) => s.createProduct);
   const updateProduct = useProductsStore((s) => s.updateProduct);
@@ -264,6 +266,15 @@ export default function Products() {
           break;
         case 'total_quantity':
           out = cmpNum(a.total_quantity, b.total_quantity);
+          break;
+        case 'total_sale_quantity':
+          out = cmpNum(a.total_sale_quantity, b.total_sale_quantity);
+          break;
+        case 'total_rental_available':
+          out = cmpNum(a.total_rental_available, b.total_rental_available);
+          break;
+        case 'total_rental_out':
+          out = cmpNum(a.total_rental_out, b.total_rental_out);
           break;
         default:
           out = cmpStr(a.nome, b.nome);
@@ -688,7 +699,15 @@ export default function Products() {
                 <col className="products-table__col-product" />
                 <col className="products-table__col-cat" />
                 <col className="products-table__col-price" />
-                <col className="products-table__col-qty" />
+                {showDualStockColumns ? (
+                  <>
+                    <col className="products-table__col-qty" />
+                    <col className="products-table__col-qty" />
+                    <col className="products-table__col-qty" />
+                  </>
+                ) : (
+                  <col className="products-table__col-qty" />
+                )}
                 <col className="products-table__col-status" />
                 <col className="products-table__col-actions" />
               </colgroup>
@@ -698,7 +717,15 @@ export default function Products() {
                   <SortHeader label="Produto" sortKey="nome" className="products-table__col-product" />
                   <SortHeader label="Categoria" sortKey="categoria" className="products-table__col-cat" />
                   <SortHeader label="Preço" sortKey="sale_price" className="products-table__col-price" />
-                  <SortHeader label="Saldo" sortKey="total_quantity" className="products-table__col-qty" />
+                  {showDualStockColumns ? (
+                    <>
+                      <SortHeader label="Venda" sortKey="total_sale_quantity" className="products-table__col-qty" />
+                      <SortHeader label="Aluguel" sortKey="total_rental_available" className="products-table__col-qty" />
+                      <SortHeader label="Emprestado" sortKey="total_rental_out" className="products-table__col-qty" />
+                    </>
+                  ) : (
+                    <SortHeader label="Saldo" sortKey="total_quantity" className="products-table__col-qty" />
+                  )}
                   <SortHeader label="Status" sortKey="lifecycle" className="products-table__col-status" />
                   <th className="products-table__actions-head" aria-label="Ações" />
                 </tr>
@@ -747,9 +774,23 @@ export default function Products() {
                         <td className="products-table__col-price text-small products-table__price">
                           {p.sale_price != null ? formatBRL(p.sale_price) : '—'}
                         </td>
-                        <td className="products-table__col-qty products-table__qty">
-                          {p.total_quantity ?? p.current_quantity ?? 0}
-                        </td>
+                        {showDualStockColumns ? (
+                          <>
+                            <td className="products-table__col-qty products-table__qty">
+                              {p.total_sale_quantity ?? 0}
+                            </td>
+                            <td className="products-table__col-qty products-table__qty">
+                              {p.total_rental_available ?? 0}
+                            </td>
+                            <td className="products-table__col-qty products-table__qty">
+                              {p.total_rental_out ?? 0}
+                            </td>
+                          </>
+                        ) : (
+                          <td className="products-table__col-qty products-table__qty">
+                            {p.total_quantity ?? p.current_quantity ?? 0}
+                          </td>
+                        )}
                         <td className="products-table__col-status">
                           <ProductStatus lifecycleKey={lifecycleKey} />
                         </td>
@@ -784,7 +825,21 @@ export default function Products() {
                                 </td>
                                 <td className="products-table__col-cat products-table__cell-empty" aria-hidden />
                                 <td className="products-table__col-price products-table__cell-empty" aria-hidden />
-                                <td className="products-table__col-qty products-table__qty">{v.current_quantity}</td>
+                                {showDualStockColumns ? (
+                                  <>
+                                    <td className="products-table__col-qty products-table__qty">
+                                      {v.sale_quantity ?? 0}
+                                    </td>
+                                    <td className="products-table__col-qty products-table__qty">
+                                      {v.rental_available ?? 0}
+                                    </td>
+                                    <td className="products-table__col-qty products-table__qty">
+                                      {v.rental_out ?? 0}
+                                    </td>
+                                  </>
+                                ) : (
+                                  <td className="products-table__col-qty products-table__qty">{v.current_quantity}</td>
+                                )}
                                 <td className="products-table__col-status">
                                   <ProductStatus lifecycleKey={vLife} />
                                 </td>
@@ -826,7 +881,18 @@ export default function Products() {
                       <div className="products-mobile-card__row text-small">
                         <span>{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</span>
                         <span className="products-mobile-card__dot" aria-hidden>•</span>
-                        <span>Saldo: {p.total_quantity ?? p.current_quantity ?? 0}</span>
+                        <span>
+                          {showDualStockColumns
+                            ? formatStockPoolsSummary(
+                                {
+                                  sale_quantity: p.total_sale_quantity,
+                                  rental_available: p.total_rental_available,
+                                  rental_out: p.total_rental_out,
+                                },
+                                p.type
+                              )
+                            : `Saldo: ${p.total_quantity ?? p.current_quantity ?? 0}`}
+                        </span>
                       </div>
                       <ProductStatus lifecycleKey={lifecycleKey} />
                     </div>

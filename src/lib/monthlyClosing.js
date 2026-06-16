@@ -8,6 +8,8 @@ import {
   defaultCategoryForTxType,
   normalizeFinanceCategory,
 } from './financeCategories.js';
+import { parseCurrencyBRL } from './masks.js';
+import { validateBankAccountForPayment, hasConfiguredBankAccounts } from './bankAccounts.js';
 
 export const CLOSING_ORIGINS = ['mensalidade', 'matricula', 'produto', 'outro'];
 
@@ -437,6 +439,55 @@ export function exportClosingCsv(rows, { academyName = '', referenceMonth = '' }
     .replace(/^-|-$/g, '');
   const fileName = `fechamento_${slugAcademy || 'academia'}_${referenceMonth || 'mes'}.csv`;
   return { body, fileName };
+}
+
+export const CLOSING_MANUAL_FIELD_IDS = {
+  description: 'closing-manual-description',
+  gross: 'closing-manual-gross',
+  account: 'closing-manual-account',
+  date: 'closing-manual-date',
+};
+
+const CLOSING_MANUAL_ERROR_FOCUS_ORDER = ['description', 'gross', 'date', 'account'];
+
+/** Valida formulário inline de recebimento manual no fechamento. */
+export function validateClosingManualReceiptForm({ manualForm, financeConfig } = {}) {
+  const errors = {};
+  const grossNum = parseCurrencyBRL(manualForm?.gross);
+  if (!Number.isFinite(grossNum) || grossNum <= 0) {
+    errors.gross = 'Informe um valor maior que zero.';
+  }
+  const description = String(manualForm?.description || '').trim();
+  if (!description) {
+    errors.description = 'Informe a descrição.';
+  }
+  const dateStr = String(manualForm?.date || '').trim();
+  if (!dateStr || !Number.isFinite(new Date(`${dateStr}T12:00:00`).getTime())) {
+    errors.date = 'Informe uma data válida.';
+  }
+  let bankAccount = '';
+  if (hasConfiguredBankAccounts(financeConfig)) {
+    const accountCheck = validateBankAccountForPayment(manualForm?.account, financeConfig);
+    if (!accountCheck.ok) {
+      errors.account = accountCheck.message;
+    } else {
+      bankAccount = accountCheck.account || String(manualForm?.account || '').trim();
+    }
+  }
+  return { errors, grossNum, description, bankAccount };
+}
+
+export function focusFirstClosingManualError(errors) {
+  if (!errors || typeof document === 'undefined') return;
+  for (const key of CLOSING_MANUAL_ERROR_FOCUS_ORDER) {
+    if (!errors[key]) continue;
+    const id = CLOSING_MANUAL_FIELD_IDS[key];
+    const el = id ? document.getElementById(id) : null;
+    if (el && typeof el.focus === 'function') {
+      el.focus();
+      return;
+    }
+  }
 }
 
 export { mapOriginToTxType, mapTxTypeToOrigin };

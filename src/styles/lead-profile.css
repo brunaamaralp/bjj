@@ -937,10 +937,16 @@
   margin-top: 4px;
 }
 
-.lead-profile-loading {
-  padding-top: 24px;
-  padding-bottom: 40px;
+.lead-profile-wa-offline-banner {
+  flex-shrink: 0;
+  margin: 0 16px 12px;
 }
+
+.lead-profile-wa-offline-banner .profile-wa-offline-banner__text {
+  margin: 0;
+  line-height: 1.45;
+}
+
 
 .lead-profile-loading-text {
   text-align: center;
@@ -1234,6 +1240,18 @@
   color: var(--color-text);
   font-weight: 800;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.lead-profile-panel-tab--offline::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warning, #f59e0b);
+  margin-right: 5px;
+  vertical-align: middle;
+  transform: translateY(-1px);
 }
 
 .lead-profile-panel-tab:focus-visible {

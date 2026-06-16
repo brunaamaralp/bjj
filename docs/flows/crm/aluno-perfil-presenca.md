@@ -152,7 +152,7 @@ flowchart TD
 - **Alias de rota:** `/alunos` → `/students` (mesmo hub)
 - **Legado:** `/presenca` redireciona para `/students?view=presenca`, mas modo presença não ativa com `Students embedded` — preferir `/recepcao`
 - **NL command bar:** prefill de pagamento via evento `NL_PAYMENT_PREFILL_EVENT`
-- **Chat widget:** painel WhatsApp embutido no perfil (`NaviChatWidgetPanel`)
+- **Chat widget:** painel WhatsApp embutido no perfil (`NaviChatWidgetPanel`); seção **Comunicação** na coluna esquerda direciona para a aba **Conversa** (sem botão WA duplicado quando conectado)
 
 ---
 

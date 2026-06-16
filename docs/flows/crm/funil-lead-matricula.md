@@ -57,7 +57,9 @@ flowchart TD
 | 3 | `/pipeline` | Kanban / lista | Arrastar card ou menu de estágio | Estágio atualizado; automações disparam se configuradas |
 | 4 | `/pipeline` | Card do lead | Clicar no card | Navega para `/lead/:id` |
 | 5 | `/pipeline` | Menu ⋮ no card | WhatsApp, nota, matricular, excluir | Ação contextual sem sair do funil |
-| 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, ver timeline | Dados persistidos; eventos na linha do tempo |
+| 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, aba **Conversa** / **Histórico** | Dados persistidos; WhatsApp integrado na aba Conversa |
+| 6b | `/lead/:id` | Aba Conversa | WA desconectado | Banner + empty “WhatsApp não conectado” + **Configurar WhatsApp** + **Abrir WhatsApp Web** (manual) → `/agente-ia` |
+| 6c | `/lead/:id` | Aba Conversa | WA offline com histórico | Banner com link **Reconectar** → `/agente-ia`; thread read-only |
 | 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, data, perguntas customizadas |
 | 8 | Modal matrícula | `executeMatricula` | Confirmar | `performEnrollment` cria aluno; lead marcado matriculado |
 | 9 | `/pipeline` | Filtros (período, estágio) | Refinar visualização | Lista/kanban filtrados; contadores atualizados |
@@ -82,7 +84,9 @@ flowchart TD
 4. [ ] Mover lead para estágio "Aguardando decisão" ou equivalente — badge e contador da coluna atualizam
 5. [ ] Abrir perfil `/lead/:id` — dados consistentes com o card
 6. [ ] Registrar nota ou evento na timeline — evento aparece ordenado
-7. [ ] Enviar template WhatsApp — toast de sucesso ou erro claro
+7. [ ] Enviar mensagem ou template WhatsApp — pela aba **Conversa** (integrado); com WA offline, usar **Abrir WhatsApp Web** no empty (envio manual) ou reconectar em `/agente-ia`
+7b. [ ] Com WA desconectado — banner na coluna esquerda + empty na aba Conversa com CTAs **Configurar WhatsApp** e **Abrir WhatsApp Web**; tab “Conversa (offline)” com indicador âmbar
+7c. [ ] Com WA offline e histórico — banner no painel com **Reconectar**; composer desabilitado
 8. [ ] Iniciar matrícula — modal exige plano/data quando aplicável
 9. [ ] Confirmar matrícula — lead some do funil aberto; aluno criado em `/students`
 10. [ ] Abrir perfil do aluno `/student/:id` — vínculo com lead preservado
@@ -94,7 +98,7 @@ flowchart TD
 |---|---|---|
 | Telefone duplicado | Validação no modal / toast | `NewLeadModal` |
 | Matrícula sem plano obrigatório | Erro no modal de matrícula | `performEnrollment` |
-| Falha de rede na matrícula | Toast/ banner; lead não fica inconsistente | [docs/ux-feedback.md](../ux-feedback.md) |
+| WhatsApp desconectado no perfil | Banner warning + empty na aba Conversa (Configurar + wa.me) + tab “Conversa (offline)” + Reconectar com histórico | Spec [2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md](../superpowers/specs/2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md) |
 
 ### Permissões e multi-tenant
 

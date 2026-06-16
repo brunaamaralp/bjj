@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=fechamento` |
 | **pré-requisitos** | Módulo `finance`; lançamentos e mensalidades do mês; regime caixa/competência definido |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-16 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:** — (comportamento em `MonthlyClosingTab` + `src/lib/monthlyClosing.js`)
@@ -53,7 +53,7 @@ flowchart TD
 | 4 | Toolbar | Filtros origem/situação | Refinar linhas | `filterClosingRows` |
 | 5 | Toolbar | Busca | Por nome/descrição | Lista filtrada |
 | 6 | Tabela | Linhas por aluno/TX | Revisar valores e métodos | Totais no rodapé |
-| 7 | Toolbar | **Novo recebimento** | Form manual | `createFinanceTx` + toast |
+| 7 | Toolbar | **Novo recebimento** | Form manual | `validateClosingManualReceiptForm` + `createFinanceTx` com `bank_account`; `FieldError` inline |
 | 8 | Toolbar | **Exportar** | CSV | `exportClosingCsv` |
 | 9 | Toolbar | **Registrar conferência** | Abrir confirmação | `ConfirmDialog` |
 | 10 | Dialog | Confirmar | Gravar fechamento | `recordCashClosing`; toast sucesso |
@@ -87,7 +87,7 @@ flowchart TD
 6. [ ] Busca por nome de aluno encontra linha
 7. [ ] Totais do rodapé batem com linhas visíveis (após filtros)
 8. [ ] Export CSV baixa arquivo com nome da academia e mês
-9. [ ] Lançamento manual — nova linha aparece após reload
+9. [ ] Lançamento manual — validação inline (descrição, valor, data, conta); nova linha após salvar
 10. [ ] **Registrar conferência** — dialog de confirmação
 11. [ ] Após registrar — indicador de mês conferido; não permite duplicar sem mudança
 12. [ ] Erro `snapshot_mismatch` se totais mudaram — mensagem pede atualizar página
@@ -99,7 +99,8 @@ flowchart TD
 |---|---|---|
 | Falha ao carregar | `ErrorBanner` + retry | `MonthlyClosingTab` |
 | `snapshot_mismatch` | Toast + reload sugerido | `registerClosing` |
-| Falha manual TX | Toast erro | `friendlyError` |
+| Falha manual TX | `FieldError` inline ou toast (`friendlyError`) | `validateClosingManualReceiptForm` |
+| Sem conta bancária | `FinanceBankAccountsSetupBanner` no form manual | `MonthlyClosingTab` |
 
 ### Critérios de fluxo saudável vs regressão
 

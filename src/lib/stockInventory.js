@@ -22,8 +22,14 @@ export function legacyAvailable(item) {
 }
 
 /** Saldo efetivo: campo current_quantity ou legado. */
+import { availableFromPools, hasDualPoolFields } from './dualStockPools.js';
+
 export function resolveCurrentQuantity(item) {
   if (item == null) return 0;
+  if (hasDualPoolFields(item)) {
+    const pooled = availableFromPools(item);
+    if (pooled != null) return pooled;
+  }
   const raw = item.current_quantity;
   if (raw !== undefined && raw !== null && raw !== '') {
     const n = Number(raw);

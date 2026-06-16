@@ -47,7 +47,7 @@ export const FINANCE_CATEGORIES = {
   },
   ALUGUEL_RECEITA: {
     label: 'Aluguéis recebidos',
-    type: 'plan',
+    type: 'rental',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
     operationalBucket: 'operational',
@@ -303,7 +303,7 @@ function sortCategoryGroupMap(map, nature) {
   return sorted;
 }
 
-const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'other']);
+const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'rental', 'other']);
 
 const TYPE_TO_OPERATIONAL_BUCKET = {
   financial_revenue: 'financial',

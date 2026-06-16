@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-16 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -17,9 +17,9 @@
 - [2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md](../../superpowers/specs/2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md)
 - [2026-06-15-financeiro-nav-non-owner-PRODUCT.md](../../superpowers/specs/2026-06-15-financeiro-nav-non-owner-PRODUCT.md)
 
-**Harness relacionado:** `npm test -- mensalidades paymentMethods mensalidadesPaymentForm`
+**Harness relacionado:** `npm test -- mensalidadesPaymentForm appwriteErrors`
 
-**Arquivos-chave:** `src/pages/Caixa.jsx`, `src/components/finance/ReceivablesTab.jsx`, `src/components/finance/MensalidadesPanel.jsx`, `src/lib/financeiroReceivablesSections.js`
+**Arquivos-chave:** `src/pages/Caixa.jsx`, `src/components/finance/ReceivablesTab.jsx`, `src/components/finance/MensalidadesPanel.jsx`, `src/lib/mensalidadesPaymentForm.js`, `src/components/shared/PaymentFormErrorBanner.jsx`, `src/components/finance/FinanceBankAccountsSetupBanner.jsx`
 
 ---
 
@@ -64,9 +64,10 @@ flowchart TD
 | 7 | Modal | Tipo mensalidade / pacote | Escolher categoria | Valor e regras do plano |
 | 8 | Modal | Método de pagamento | PIX, dinheiro, débito, crédito, transferência | Taxa aplicada quando configurada |
 | 9 | Modal | Parcelas (só crédito) | Selecionar 1–12x | `expectedAmountWithCardFee` no total |
-| 10 | Modal | Conta bancária | Selecionar conta | Obrigatório se há contas configuradas |
-| 11 | Modal | Confirmar | Salvar pagamento | Toast sucesso; status na grade atualiza |
-| 12 | Mensalidades | Exportar CSV | Download planilha | Arquivo gerado (`exportMensalidadesGridCsv`) |
+| 10 | Modal | Conta bancária | Selecionar conta | Obrigatório; `FieldError` se inválida |
+| 11 | Modal | Confirmar | Salvar pagamento | Toast sucesso; duplicata/erro API em `PaymentFormErrorBanner` |
+| 12 | Modal (sem conta) | Rodapé | Tentar confirmar | Botão desabilitado + `PaymentModalFooterHint` com link para Recebimento |
+| 13 | Mensalidades | Exportar CSV | Download planilha | Arquivo gerado (`exportMensalidadesGridCsv`) |
 
 ---
 
@@ -98,20 +99,24 @@ flowchart TD
 6. [ ] Abrir modal de pagamento — valor do plano pré-preenchido
 7. [ ] PIX — total sem parcelas; confirmar → toast sucesso
 8. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa coerente com config
-9. [ ] Sem conta bancária configurada — CTA/link para `EMPRESA_FINANCE_ACCOUNTS_PATH`
-10. [ ] Após pagamento, célula do mês reflete status pago/parcial
-11. [ ] Sub-aba **Cobrança** — fila de régua (não é lista de mensalidades)
-12. [ ] Member acessando `?tab=conciliacao` — redirect para aba permitida
-13. [ ] Trocar academia — lista só alunos da academia atual
+9. [ ] Sem conta bancária — banner no painel + hint no rodapé do modal; botão Confirmar desabilitado; link `EMPRESA_FINANCE_ACCOUNTS_PATH` (owner/admin)
+10. [ ] Valor zero ou data inválida — `FieldError` no campo (não só toast)
+11. [ ] Dinheiro com valor recebido menor que o total — `FieldError` em valor recebido
+12. [ ] Duplicata (mesmo valor+data) — mensagem no banner do modal (`studentPaymentFriendlyError`)
+13. [ ] Após pagamento, célula do mês reflete status pago/parcial
+14. [ ] Sub-aba **Cobrança** — fila de régua (não é lista de mensalidades)
+15. [ ] Member acessando `?tab=conciliacao` — redirect para aba permitida
+16. [ ] Trocar academia — lista só alunos da academia atual
 
 ### Estados de erro conhecidos
 
 | Situação | Feedback esperado | Referência |
 |---|---|---|
 | Falha ao carregar pagamentos | `ErrorBanner` + retry | `MensalidadesPanel` |
-| Conta bancária inválida | Erro no modal / botão desabilitado | `validateBankAccountForPayment` |
+| Conta bancária ausente / inválida | Banner no painel + `FieldError` no campo conta + rodapé do modal | `validateMensalidadesPaymentForm`, `FinanceBankAccountsSetupBanner` |
+| Valor, data, troco inválidos | `FieldError` no campo; foco no primeiro erro | `validateMensalidadesPaymentForm`, `focusFirstMensalidadesPaymentError` |
+| Duplicata ou erro API ao salvar | `PaymentFormErrorBanner` persistente | `studentPaymentFriendlyError` |
 | Data futura inválida | Validação no formulário | `isPaymentDateInFuture` |
-| Falha ao salvar | Toast erro amigável | [docs/ux-feedback.md](../../ux-feedback.md) |
 
 ### Critérios de fluxo saudável vs regressão
 
@@ -166,3 +171,4 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2A |
+| 2026-06-16 | — | Auditoria salvamento: `FieldError`, banners, rodapé modal, matriz em VALIDATION.md |

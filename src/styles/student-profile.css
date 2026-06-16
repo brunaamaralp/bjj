@@ -96,11 +96,6 @@
   min-height: 0;
 }
 
-.student-profile-data-input:focus {
-  outline: none;
-  border: 1px solid var(--petroleo) !important;
-}
-
 @media (max-width: 1023px) {
   .student-profile--panel-open .student-panel-right-col {
     position: fixed;
@@ -225,4 +220,14 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
+}
+
+.student-profile-wa-offline-banner {
+  flex-shrink: 0;
+  margin: 0 14px 12px;
+}
+
+.student-profile-wa-offline-banner .profile-wa-offline-banner__text {
+  margin: 0;
+  line-height: 1.45;
 }

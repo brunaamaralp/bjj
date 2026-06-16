@@ -805,6 +805,24 @@
   padding: 20px;
 }
 
+.import-statement-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  width: 100%;
+}
+
+.import-statement-footer .import-statement-actions {
+  justify-content: flex-end;
+}
+
+.import-statement-footer__hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--danger);
+}
+
 .import-statement-title {
   margin-bottom: 12px;
 }
@@ -2672,7 +2690,15 @@
   border-top: 0.5px solid var(--border-light);
   padding: 16px 24px 24px;
   display: flex;
+  flex-direction: column;
   gap: 10px;
+  align-items: stretch;
+}
+
+.mensalidades-modal-footer__actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
   align-items: stretch;
 }
 
@@ -2915,11 +2941,11 @@
     grid-template-columns: 1fr;
   }
 
-  .mensalidades-modal-scope .mensalidades-modal-footer {
+  .mensalidades-modal-scope .mensalidades-modal-footer__actions {
     flex-direction: column;
   }
 
-  .mensalidades-modal-scope .mensalidades-modal-footer button {
+  .mensalidades-modal-scope .mensalidades-modal-footer__actions button {
     flex: 1 1 auto !important;
     width: 100%;
   }
@@ -3265,6 +3291,45 @@
   font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.finance-settings-sticky-save__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.finance-settings-sticky-save__hint-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
+.finance-settings-sticky-save__section-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--font-sm, 13px);
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.finance-settings-sticky-save__section-link:hover {
+  color: var(--primary-hover, var(--primary));
+}
+
+.finance-settings-sticky-save__hint {
+  margin: 0;
+  font-size: var(--font-sm, 13px);
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--danger);
 }
 
 .finance-settings-sticky-save__actions {

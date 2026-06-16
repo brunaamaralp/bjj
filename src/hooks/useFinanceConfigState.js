@@ -30,6 +30,11 @@ import {
   mergeFinanceConfigFromAcademyDoc,
   persistAcademyFinanceConfig,
 } from '../lib/financeConfigStorage.js';
+import {
+  formatFinanceConfigSaveError,
+  validateFinanceConfigBeforeSave,
+  firstFinanceConfigIssueSection,
+} from '../lib/financeConfigValidation.js';
 
 export const INSTALLMENT_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -315,6 +320,21 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
   const hasDirty = Object.values(dirty).some(Boolean);
 
+  const saveValidation = useMemo(
+    () => validateFinanceConfigBeforeSave({ financeConfig, isOwner }),
+    [financeConfig, isOwner]
+  );
+
+  const saveValidationHint = useMemo(() => {
+    if (saveValidation.ok || !hasDirty) return '';
+    return formatFinanceConfigSaveError(saveValidation.issues);
+  }, [saveValidation, hasDirty]);
+
+  const saveValidationSection = useMemo(() => {
+    if (saveValidation.ok || !hasDirty) return null;
+    return firstFinanceConfigIssueSection(saveValidation.issues);
+  }, [saveValidation, hasDirty]);
+
   const buildMergedConfig = useCallback(() => {
     let mergedCfg = mergeCollectionIntoFinanceConfig(financeConfig, {
       collectionRules,
@@ -337,6 +357,14 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
   const persistAll = useCallback(async () => {
     if (!academyId) return false;
+
+    const validation = validateFinanceConfigBeforeSave({ financeConfig, isOwner });
+    if (!validation.ok) {
+      const message = formatFinanceConfigSaveError(validation.issues);
+      addToast({ type: 'error', message });
+      return false;
+    }
+
     setSaving(true);
     try {
       const mergedCfg = buildMergedConfig();
@@ -374,7 +402,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     } finally {
       setSaving(false);
     }
-  }, [academyId, buildMergedConfig, addToast]);
+  }, [academyId, financeConfig, isOwner, buildMergedConfig, addToast]);
 
   const discardChanges = useCallback(() => {
     void reloadFromServer();
@@ -458,6 +486,8 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     setExceptionLabels,
     dirty,
     hasDirty,
+    saveValidationHint,
+    saveValidationSection,
     persistAll,
     discardChanges,
     updatePlan,

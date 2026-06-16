@@ -8,7 +8,7 @@
 | **rotas** | `/empresa?tab=financeiro`, `/empresa?tab=financeiro&section=<slug>` |
 | **pré-requisitos** | Módulo `finance` ativo na academia; papel owner ou admin |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-16 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -16,9 +16,9 @@
 - [2026-06-15-financeiro-nav-non-owner-PRODUCT.md](../../superpowers/specs/2026-06-15-financeiro-nav-non-owner-PRODUCT.md)
 - [2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md](../../superpowers/specs/2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md)
 
-**Harness relacionado:** `npm test -- financeSettingsSections`
+**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation`
 
-**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/hooks/useFinanceConfigState.js`
+**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/hooks/useFinanceConfigState.js`
 
 ---
 
@@ -66,7 +66,7 @@ flowchart TD
 | 6 | `&section=lembretes-whatsapp` | `FinanceSettingsWhatsappRemindersSection` | Ativar lembretes antes/depois vencimento | `whatsappReminders` |
 | 7 | `&section=excecoes` | `FinanceSettingsExceptionsSection` | Personalizar rótulos de bolsa/cortesia | `exceptionStatusLabels` |
 | 8 | `&section=contratos` (owner) | `ContractTemplatesPage` (embedded) | Modelos de contrato | Vínculo com planos na matrícula |
-| 9 | Qualquer seção editável | `FinanceSettingsStickySave` | **Salvar** ou **Descartar** | `persistAll` grava em `financeConfig` da academia |
+| 9 | Qualquer seção editável | `FinanceSettingsStickySave` | **Salvar** ou **Descartar** | `persistAll` grava em `financeConfig`; validação pré-save com hint + link para seção |
 | 10 | Onboarding | Checklist inicial | Clicar passo financeiro | Navega para `/empresa?tab=financeiro` |
 
 ### Seções da sidebar (grupos)
@@ -107,7 +107,9 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 1. [ ] `/empresa?tab=financeiro` abre com sidebar e seção **Planos** (default)
 2. [ ] Adicionar plano com nome e preço → barra **Alterações não salvas** aparece
 3. [ ] Salvar → toast sucesso; plano persiste após reload
+3b. [ ] Plano com nome vazio + Salvar → hint na barra fixa; link **Ir para Planos de mensalidade**; persistência bloqueada
 4. [ ] **Recebimento** (`#contas`): adicionar banco/PIX, saldo inicial, conta padrão por método de pagamento
+4b. [ ] Conta só com agência (sem banco/PIX/conta) → `FieldError` ao aplicar no modal; não some silenciosamente no save global
 5. [ ] **Taxas**: percentuais > 0 marcam progresso (`feesConfigured`)
 6. [ ] **Régua**: customizar etapa ou rótulo de atraso → `collectionRulesConfigured`
 7. [ ] **WhatsApp**: habilitar lembrete antes ou depois do vencimento
@@ -129,6 +131,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 
 | Situação | Feedback esperado | Referência |
 |---|---|---|
+| Plano sem nome ou conta incompleta | Hint na barra fixa + link para seção | `validateFinanceConfigBeforeSave`, `FinanceSettingsStickySave` |
 | `FinanceConfigTooLargeError` | Toast erro ao salvar | `useFinanceConfigState` |
 | Falha de rede no save | Toast `friendlyError` | `persistAll` |
 | Member tenta abrir aba | Tab desabilitada + tooltip | `getTabDisabledState` |
@@ -186,3 +189,4 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2B |
+| 2026-06-16 | — | Validação pré-save, link para seção com erro, conta incompleta no modal Recebimento |

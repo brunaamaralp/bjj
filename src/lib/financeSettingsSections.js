@@ -124,6 +124,15 @@ export const FINANCE_SETTINGS_GROUPS = [
   },
 ];
 
+export function financeSettingsSectionLabel(sectionId) {
+  const id = String(sectionId || '').trim();
+  for (const group of FINANCE_SETTINGS_GROUPS) {
+    const item = group.items.find((entry) => entry.id === id);
+    if (item) return item.label;
+  }
+  return 'Financeiro';
+}
+
 function formatBrl(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 'R$ 0';

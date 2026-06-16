@@ -18,9 +18,7 @@ import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
-import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
-import { hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
 import {
   formatBalanceDelta,
   formatMonthTitleCapitalized,
@@ -38,6 +36,7 @@ const EMPTY_MENSAL_KPIS = {
   overdueOpen: 0,
 };
 import StatusBanner from '../shared/StatusBanner.jsx';
+import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
 import ReceivablesOverviewCard from './ReceivablesOverviewCard.jsx';
 import BalanceDeltaBadge from './BalanceDeltaBadge.jsx';
@@ -225,8 +224,6 @@ export default function VisaoGeralTab({
 
   const monthLabel = useMemo(() => formatMonthTitleCapitalized(ym), [ym]);
 
-  const showAccountsSetupAlert = isOwner && !hasConfiguredBankAccounts(financeConfig);
-
   const receivablesTotal = receivables?.summary?.total ?? 0;
   const receivablesSectionPath = buildReceivablesPath({
     section:
@@ -306,12 +303,11 @@ export default function VisaoGeralTab({
       badge={regimeBadge}
       actions={refreshBtn}
       intro={
-        showAccountsSetupAlert ? (
-          <StatusBanner variant="warning" className="finance-tab-intro">
-            Configure ao menos uma conta de recebimento para que sua equipe consiga registrar pagamentos.{' '}
-            <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
-          </StatusBanner>
-        ) : null
+        <FinanceBankAccountsSetupBanner
+          financeConfig={financeConfig}
+          canConfigure={isOwner}
+          className="finance-tab-intro"
+        />
       }
     >
 

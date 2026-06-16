@@ -1,4 +1,4 @@
-# Validação dos fluxos — 2026-06-15
+# Validação dos fluxos — 2026-06-16
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
@@ -10,6 +10,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | Testes CRM | `npm test -- enrollmentFlow performEnrollment taskDue taskLinkablePeople inboxConversationState` — **17/17 OK** |
 | Testes Financeiro 2A | `npm test -- bankRecon … mensalidades paymentMethods` — **271 passed, 1 skipped** |
 | Testes Financeiro 2B | `npm test -- financeSettingsSections financeAccountFormRules … financeTxCategorySelect` — **99 passed** |
+| **Financeiro — auditoria salvamento** | `npm test -- mensalidadesPaymentForm financeConfigValidation appwriteErrors financeSettingsSections financeAccountFormRules bankReconciliation` — **151 passed** (2026-06-16) |
 | Testes Fase 3 | `npm test -- lojaSalesTabs nlAction onboardingChecklist` — **46 passed** |
 | Testes Fase 4 | `npm test -- productCatalog lojaInventoryTabs automacoesHub automacoesSetupWizard automationUx` — **40 passed** |
 | Testes Conta/assinatura | `npm test -- billingGateClient trialCopy` + `lib/billing/planOrder.test.js` — ver seção Conta |
@@ -55,6 +56,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | 1–2 | Novo lead + pipeline | ✅ Código | `NewLeadModal`, `Pipeline.jsx` |
 | 3 | Kanban ↔ lista | ⚠️ **Desktop only** | Mobile (`≤1023px`) usa lista agrupada; kanban só desktop |
 | 4–11 | Demais itens | ✅ Código | `performEnrollment`, export, perfil — testes `enrollmentFlow` passam |
+| 7b | WA offline no perfil | ✅ Código | Fases 1–3 + paridade aluno: `ProfileComunicacaoSection`, `ProfileMobileQuickActions` |
 
 **Nota adicionada** no fluxo sobre viewport mobile.
 
@@ -99,9 +101,9 @@ Harness inbox: módulos em [HARNESS.md](../../HARNESS.md). Teste `inboxConversat
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [a-receber-mensalidades](financeiro/a-receber-mensalidades.md) | 12 | 12 | 0 | 12 |
-| [lancamentos-caixa](financeiro/lancamentos-caixa.md) | 12 | 12 | 0 | 12 |
-| [conciliacao-bancaria](financeiro/conciliacao-bancaria.md) | 12 | 12 | 0 | 12 |
+| [a-receber-mensalidades](financeiro/a-receber-mensalidades.md) | 15 | 15 | 3 (2026-06-16) | 15 |
+| [lancamentos-caixa](financeiro/lancamentos-caixa.md) | 13 | 13 | 1 (2026-06-16) | 13 |
+| [conciliacao-bancaria](financeiro/conciliacao-bancaria.md) | 13 | 13 | 1 (2026-06-16) | 13 |
 | [fechamento-mensal](financeiro/fechamento-mensal.md) | 13 | 13 | 0 | 13 |
 
 **Permissões hub** (`financeiroHubTabs.js`):
@@ -123,10 +125,16 @@ URL `?tab=` fora de `buildFinanceiroAllowedLeafTabs` → redirect em `Caixa.jsx`
 | 1 | `/financeiro?tab=a-receber` | ✅ Código | `Caixa.jsx`, `ReceivablesTab` |
 | 2 | Sub-abas section | ✅ Código | `financeiroReceivablesSections.js` — visao, mensalidades, cobranca, outros |
 | 3 | `section=cobranca` ≠ mensalidades | ✅ Código | Régua de cobrança separada |
-| 4–11 | Filtros, modal pagamento, taxas, parcelas | ✅ Código | `MensalidadesPanel`, specs parcelamento/taxas |
+| 4–8 | Filtros, modal pagamento, taxas, parcelas | ✅ Código | `MensalidadesPanel`, specs parcelamento/taxas |
+| 9 | Sem conta bancária — banner + rodapé | ✅ Código | `FinanceBankAccountsSetupBanner`, `PaymentModalFooterHint`, botão desabilitado + `aria-describedby` |
+| 10 | Validação por campo no modal | ✅ Código + teste | `validateMensalidadesPaymentForm`, `FieldError`, `PaymentFormErrorBanner` |
+| 11 | Erro API (duplicata) no banner | ✅ Código + teste | `studentPaymentFriendlyError` em `appwriteErrors.test.js` |
 | 12 | Export CSV | ✅ Código | `exportMensalidadesGridCsv` |
+| 13 | Dinheiro: valor recebido insuficiente | ✅ Teste | `mensalidadesPaymentForm.test.js` — `errors.cash_received` |
+| 14 | Nova venda plano (LeadCloseSaleModal) | ✅ Código | `NovaVendaPlanPanel` reutiliza mesma validação + `StudentPaymentModal` |
+| 15 | Visão geral: banner conta | ✅ Código | `VisaoGeralTab` → `FinanceBankAccountsSetupBanner` |
 
-Harness: `mensalidades`, `paymentMethods`, `mensalidadesPaymentForm`.
+Harness: `mensalidadesPaymentForm`, `appwriteErrors` — ver [auditoria salvamento](#financeiro--auditoria-de-salvamento-2026-06-16).
 
 ---
 
@@ -138,8 +146,9 @@ Harness: `mensalidades`, `paymentMethods`, `mensalidadesPaymentForm`.
 | 2 | `?new=1` abre modal | ✅ Código | `FINANCEIRO_NOVO_LANCAMENTO_PATH` em `naviMenu.js` |
 | 3–11 | CRUD, liquidar, estornar, import, export | ✅ Código | `financeTxApi.js`, harness `finance-lancamentos.md` |
 | 12 | Deep link `?tx=` | ✅ Código | `FinanceTxDetailDrawer` |
+| 13 | Banner sem conta bancária | ✅ Código | `FinanceBankAccountsSetupBanner` em `TransacoesTab` |
 
-Harness: `financeTx` — testes passam.
+Harness: `financeTx` — testes unitários de payload/validação passam; integração JSX (`financeTxDetailDrawer`) pode falhar por timeout em ambiente lento.
 
 ---
 
@@ -150,6 +159,7 @@ Harness: `financeTx` — testes passam.
 | 1 | Owner: aba visível | ✅ Código | `buildFinanceiroOwnerLeafTabs` inclui `conciliacao` |
 | 2 | Admin/member: redirect | ✅ Código | Só owner em `allowedLeafTabs`; `Caixa.jsx` normaliza URL |
 | 3–4 | Import + detalhe | ✅ Código | `ImportStatementModal`, `ReconciliationTab` |
+| 4b | Import: hint quando botão desabilitado | ✅ Código | `importDisabledReason` no rodapé de `ImportStatementModal` |
 | 5–7 | Confirmar / confirmar todos / manual | ✅ Código | `confirmBankMatch`, `confirmAllBankMatches`, `manualReconcileTx` |
 | 8–9 | Erros `tx_not_settled`, mismatch | ✅ Código | `RECON_ERROR_MESSAGES` em `ReconciliationTab.jsx` |
 | 10–11 | Ignorar órfão + completar | ✅ Código | `ignoreBankItem`, `completeBankReconciliation` |
@@ -182,7 +192,7 @@ Harness: `monthlyClosing`, `financeClosingData`.
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [config-inicial-financeiro](financeiro/config-inicial-financeiro.md) | 12 owner + 5 admin | 17 | 0 | 17 |
+| [config-inicial-financeiro](financeiro/config-inicial-financeiro.md) | 14 owner + 5 admin | 19 | 3 (2026-06-16) | 19 |
 | [plano-contas-categorias](financeiro/plano-contas-categorias.md) | 12 | 12 | 0 | 12 |
 
 **Permissões Empresa → Financeiro** (`financeSettingsSections.js`):
@@ -210,10 +220,13 @@ Harness: `monthlyClosing`, `financeClosingData`.
 | 8 | Recebimento modal + defaults por método | ✅ Código | `FinanceSettingsBanksSection`, `#contas` |
 | 9 | Taxas percentuais | ✅ Código | `FinanceSettingsFeesSection`, `feesConfigured` |
 | 10 | Sticky save salvar/descartar | ✅ Código | `FinanceSettingsStickySave`, `hasDirty`, `persistAll` |
-| 11 | Onboarding setup_finance | ✅ Código | `onboardingChecklist.js` → `/empresa?tab=financeiro` |
-| 12 | Progress summaries | ✅ Código | `financeSettingsProgress` — owner 4 / admin 2 |
+| 10b | Sticky save: validação antes de persistir | ✅ Código + teste | `validateFinanceConfigBeforeSave`, `saveValidationHint` |
+| 10c | Link «Ir para seção» no sticky save | ✅ Código | `saveValidationSection` + `onGoToIssueSection` em `FinanceiroConfigTab` |
+| 11 | Recebimento: conta incompleta no modal | ✅ Código + teste | `isUsableBankAccount` em `FinanceSettingsBanksSection`; `financeConfigValidation.test.js` |
+| 12 | Onboarding setup_finance | ✅ Código | `onboardingChecklist.js` → `/empresa?tab=financeiro` |
+| 13 | Progress summaries | ✅ Código | `financeSettingsProgress` — owner 4 / admin 2 |
 
-Harness: `financeSettingsSections` — 11 testes passam.
+Harness: `financeSettingsSections`, `financeConfigValidation` — ver [auditoria salvamento](#financeiro--auditoria-de-salvamento-2026-06-16).
 
 ---
 
@@ -461,8 +474,55 @@ Harness: `teamPermissions.test.js`, `teamMembershipLabel.test.js`.
 
 ---
 
+## Financeiro — auditoria de salvamento (2026-06-16)
+
+Correções das sprints 1–3 + P0/P1 (validação por campo, banners de conta, sticky save, componentes compartilhados de feedback).
+
+### Harness automatizado
+
+```bash
+npm test -- mensalidadesPaymentForm financeConfigValidation appwriteErrors financeSettingsSections financeAccountFormRules bankReconciliation
+```
+
+**Resultado:** 151 passed (2026-06-16).
+
+### Matriz de cenários (salvamento)
+
+| # | Cenário | Código | Teste auto | Staging |
+|---|---|---|---|---|
+| 1 | Academia **sem** conta → mensalidade | ✅ Banner + rodapé + botão desabilitado | ✅ `errors.account` | ⚠️ Pendente |
+| 2 | Conta OK → PIX completo | ✅ `createPayment` | — | ⚠️ Pendente |
+| 3 | Valor zero | ✅ `FieldError` / validação | ✅ `errors.amount` | ⚠️ Pendente |
+| 4 | Dinheiro: recebido &lt; valor | ✅ `FieldError` cash_received | ✅ `errors.cash_received` | ⚠️ Pendente |
+| 5 | Duplicata valor+data | ✅ `PaymentFormErrorBanner` | ✅ `studentPaymentFriendlyError` | ⚠️ Pendente |
+| 6 | Plano de contas sem grupo DRE | ✅ `validateAccountForm` | ✅ `financeAccountFormRules` | ⚠️ Pendente |
+| 7 | Saída como recepcionista | ✅ handler API | — | ⚠️ Pendente |
+| 8 | Config: plano sem nome | ✅ bloqueio sticky save | ✅ `financeConfigValidation` | ⚠️ Pendente |
+| 9 | Banco só com agência | ✅ `FieldError` no modal | ✅ conta incompleta em `validateFinanceConfigBeforeSave` | ⚠️ Pendente |
+| 10 | Import extrato sem conta | ✅ `importDisabledReason` | — | ⚠️ Pendente |
+
+### Componentes compartilhados (novos)
+
+| Componente | Uso |
+|---|---|
+| `PaymentFormErrorBanner` | Erro persistente de API/submit em modais de pagamento |
+| `PaymentModalFooterHint` | Hint no rodapé quando submit desabilitado |
+| `FinanceBankAccountsSetupBanner` | Pré-requisito conta bancária (Mensalidades, Caixa, Visão geral) |
+
+### Sprint 4 — perfil, fechamento manual, grade (2026-06-16)
+
+| Fluxo | Melhoria |
+|---|---|
+| `StudentProfile` → pagamento | `validateMensalidadesPaymentForm`, `fieldErrors`, `PaymentFormErrorBanner`, `requireBankAccountForSave` |
+| `MonthlyClosingTab` | `validateClosingManualReceiptForm`, `FieldError`, `BankAccountSelect`, `bank_account` no payload |
+| `PaymentStatusPopover` / grade | Validação inline + `studentPaymentFriendlyError` no save |
+
+Harness: `npm test -- mensalidadesPaymentForm financeConfigValidation monthlyClosing paymentStatus appwriteErrors`
+
+---
+
 ## Próximo passo
 
-1. Executar checklists em **staging** com academia demo e marcar `status: revisado` → `gravado-em-video` após gravação.
+1. Executar a [matriz de salvamento](#matriz-de-cenários-salvamento) em **staging** com academia demo.
 2. Abrir issue para presença em `/students?view=presenca` via hub embutido (se prioritário).
 3. ~~Corrigir link de config na recepção~~ — feito (`/integracoes?tab=catraca`).

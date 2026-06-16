@@ -6,7 +6,8 @@ import EmptyState from '../../shared/EmptyState.jsx';
 import { DateInputField } from '../../DateInput';
 import { maskCurrency } from '../../../lib/masks.js';
 import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js';
-import { listBankAccountLabels } from '../../../lib/bankAccounts.js';
+import { listBankAccountLabels, isUsableBankAccount, normalizeBankAccountEntry } from '../../../lib/bankAccounts.js';
+import FieldError from '../../shared/FieldError.jsx';
 import { readDefaultAccountByMethod } from '../../../lib/paymentMethodBankDefaults.js';
 
 const EMPTY_BANK = {
@@ -44,12 +45,14 @@ export default function FinanceSettingsBanksSection({
 }) {
   const [editIdx, setEditIdx] = useState(null);
   const [draft, setDraft] = useState(EMPTY_BANK);
+  const [draftError, setDraftError] = useState('');
   const accounts = financeConfig.bankAccounts || [];
   const accountLabels = listBankAccountLabels(financeConfig);
   const defaultByMethod = readDefaultAccountByMethod(financeConfig);
 
   const openEdit = (idx) => {
     setEditIdx(idx);
+    setDraftError('');
     const acc = accounts[idx] || {};
     const ob = Number(acc.openingBalance);
     setDraft({
@@ -67,17 +70,29 @@ export default function FinanceSettingsBanksSection({
   const openNew = () => {
     setEditIdx('new');
     setDraft({ ...EMPTY_BANK });
+    setDraftError('');
   };
 
   const closeModal = () => {
     setEditIdx(null);
     setDraft(EMPTY_BANK);
+    setDraftError('');
   };
 
   const saveDraft = () => {
     if (editIdx == null) return;
+    if (!isUsableBankAccount(normalizeBankAccountEntry(draft))) {
+      setDraftError('Informe o banco, número da conta ou chave PIX.');
+      return;
+    }
+    setDraftError('');
     onSaveBank(editIdx, draft);
     closeModal();
+  };
+
+  const patchDraft = (patch) => {
+    setDraftError('');
+    setDraft((d) => ({ ...d, ...patch }));
   };
 
   return (
@@ -184,12 +199,16 @@ export default function FinanceSettingsBanksSection({
         }
       >
         <div className="flex flex-col gap-3">
+          {draftError ? <FieldError>{draftError}</FieldError> : null}
+          <p className="text-small text-muted" style={{ margin: 0 }}>
+            Preencha o banco com número da conta, ou informe uma chave PIX.
+          </p>
           <div className="form-group">
             <label>Banco</label>
             <input
               className="form-input"
               value={draft.bankName || ''}
-              onChange={(e) => setDraft((d) => ({ ...d, bankName: e.target.value }))}
+              onChange={(e) => patchDraft({ bankName: e.target.value })}
             />
           </div>
           <div className="form-group">
@@ -197,7 +216,7 @@ export default function FinanceSettingsBanksSection({
             <input
               className="form-input"
               value={draft.branch || ''}
-              onChange={(e) => setDraft((d) => ({ ...d, branch: e.target.value }))}
+              onChange={(e) => patchDraft({ branch: e.target.value })}
             />
           </div>
           <div className="form-group">
@@ -205,7 +224,7 @@ export default function FinanceSettingsBanksSection({
             <input
               className="form-input"
               value={draft.account || ''}
-              onChange={(e) => setDraft((d) => ({ ...d, account: e.target.value }))}
+              onChange={(e) => patchDraft({ account: e.target.value })}
             />
           </div>
           <div className="form-group">
@@ -213,7 +232,7 @@ export default function FinanceSettingsBanksSection({
             <input
               className="form-input"
               value={draft.accountName || ''}
-              onChange={(e) => setDraft((d) => ({ ...d, accountName: e.target.value }))}
+              onChange={(e) => patchDraft({ accountName: e.target.value })}
             />
           </div>
           <div className="form-group">
@@ -221,7 +240,7 @@ export default function FinanceSettingsBanksSection({
             <input
               className="form-input"
               value={draft.pixKey || ''}
-              onChange={(e) => setDraft((d) => ({ ...d, pixKey: e.target.value }))}
+              onChange={(e) => patchDraft({ pixKey: e.target.value })}
             />
           </div>
           <div className="form-group">
@@ -233,6 +252,7 @@ export default function FinanceSettingsBanksSection({
               placeholder="0,00"
               value={draft.openingBalance ?? ''}
               onChange={(e) => {
+                setDraftError('');
                 const d = e.target.value.replace(/\D/g, '');
                 if (!d) {
                   setDraft((prev) => ({ ...prev, openingBalance: '' }));
@@ -252,9 +272,7 @@ export default function FinanceSettingsBanksSection({
               className="form-input"
               type="date"
               value={draft.openingBalanceDate || ''}
-              onChange={(e) =>
-                setDraft((prev) => ({ ...prev, openingBalanceDate: e.target.value }))
-              }
+              onChange={(e) => patchDraft({ openingBalanceDate: e.target.value })}
               placeholder="Opcional"
             />
             <p className="text-small text-muted" style={{ marginTop: 6 }}>

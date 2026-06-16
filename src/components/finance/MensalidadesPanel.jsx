@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ModalShell from '../shared/ModalShell.jsx';
+import PaymentFormErrorBanner from '../shared/PaymentFormErrorBanner.jsx';
+import PaymentModalFooterHint from '../shared/PaymentModalFooterHint.jsx';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useToast } from '../../hooks/useToast';
 import { account } from '../../lib/appwrite';
@@ -64,6 +66,7 @@ import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
@@ -589,6 +592,7 @@ export default function MensalidadesPanel({
 
   const canReversePayment = navRole === 'owner' || navRole === 'admin';
   const linkStudentProfile = navRole === 'owner' || navRole === 'admin';
+  const canConfigureFinance = canReversePayment;
   const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
 
   const clearPayFieldError = useCallback((field) => {
@@ -1037,6 +1041,12 @@ export default function MensalidadesPanel({
           />
         ) : null}
 
+        <FinanceBankAccountsSetupBanner
+          financeConfig={financeConfig}
+          canConfigure={canConfigureFinance}
+          className="mensal-bank-setup-banner"
+        />
+
         <FinanceFiltersBar className="mensal-toolbar">
           <SearchField
             className="finance-filters-bar__search"
@@ -1407,27 +1417,42 @@ export default function MensalidadesPanel({
         ariaLabelledBy="mensalidades-modal-title"
         footer={
           <footer className="mensalidades-modal-footer">
-            <button
-              type="button"
-              className={`btn-outline mensalidades-modal-footer__cancel${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
-              onClick={() => setShowModal(false)}
-              disabled={savingPayment}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={savingPayment || !hasBankAccounts}
-              onClick={() => void handleSavePayment()}
-              className={`btn-primary mensalidades-modal-footer__confirm${savingPayment || !hasBankAccounts ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
-            >
-              <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
-              {savingPayment
-                ? 'Salvando…'
-                : payForm.payment_type === PAYMENT_CATEGORY.BUNDLE
-                  ? 'Confirmar plano'
-                  : 'Confirmar pagamento'}
-            </button>
+            {!hasBankAccounts ? (
+              <PaymentModalFooterHint variant="error" id="mensal-pay-footer-hint">
+                {canConfigureFinance ? (
+                  <>
+                    Cadastre uma conta de recebimento antes de confirmar.{' '}
+                    <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
+                  </>
+                ) : (
+                  'Peça ao titular ou administrador que cadastre uma conta em Minha academia → Financeiro → Recebimento.'
+                )}
+              </PaymentModalFooterHint>
+            ) : null}
+            <div className="mensalidades-modal-footer__actions">
+              <button
+                type="button"
+                className={`btn-outline mensalidades-modal-footer__cancel${savingPayment ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
+                onClick={() => setShowModal(false)}
+                disabled={savingPayment}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={savingPayment || !hasBankAccounts}
+                onClick={() => void handleSavePayment()}
+                className={`btn-primary mensalidades-modal-footer__confirm${savingPayment || !hasBankAccounts ? ' mensalidades-modal-footer__btn--disabled' : ''}`}
+                aria-describedby={!hasBankAccounts ? 'mensal-pay-footer-hint' : undefined}
+              >
+                <span className="ti ti-check mensalidades-modal-footer__confirm-icon" aria-hidden />
+                {savingPayment
+                  ? 'Salvando…'
+                  : payForm.payment_type === PAYMENT_CATEGORY.BUNDLE
+                    ? 'Confirmar plano'
+                    : 'Confirmar pagamento'}
+              </button>
+            </div>
           </footer>
         }
       >
@@ -1437,23 +1462,7 @@ export default function MensalidadesPanel({
                 </div>
 
                 <div className="mensalidades-modal-body">
-                  {paymentFormError ? (
-                    <p
-                      role="alert"
-                      className="mensalidades-modal-form-error"
-                      style={{
-                        margin: '0 0 12px',
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        background: 'var(--danger-light, #fcebeb)',
-                        color: 'var(--danger)',
-                        fontSize: 13,
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      {paymentFormError}
-                    </p>
-                  ) : null}
+                  <PaymentFormErrorBanner message={paymentFormError} />
                   <div>
                     <div className="mensal-modal-field-label mensal-modal-field-label--spaced">
                       Tipo de pagamento

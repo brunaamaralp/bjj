@@ -950,12 +950,63 @@
 
 .profile-conversation-tab__wa-banner {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 14px;
   background: var(--warning-light);
   color: var(--color-warning, var(--warning));
   font-size: 12px;
   font-weight: 600;
   border-bottom: 1px solid var(--border-light);
+}
+
+.profile-conversation-tab__wa-banner-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.profile-conversation-tab__wa-banner-link {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-warning, var(--warning));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.profile-conversation-tab__wa-banner-link:hover {
+  opacity: 0.85;
+}
+
+.profile-wa-offline-empty-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.profile-wa-offline-empty-actions__hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-width: 260px;
+}
+
+.profile-wa-offline-empty-actions--compact {
+  margin-top: 0;
+  max-width: none;
+  align-items: stretch;
+}
+
+.profile-wa-offline-empty-actions--compact .btn {
+  width: 100%;
 }
 
 .profile-conversation-tab__messages {

@@ -7,6 +7,7 @@ import {
   dateInReferenceMonth,
   studentDisplayNames,
   formatPaymentMethod,
+  validateClosingManualReceiptForm,
 } from '../lib/monthlyClosing.js';
 
 describe('monthlyClosing', () => {
@@ -185,5 +186,31 @@ describe('monthlyClosing', () => {
     });
     expect(filtered).toHaveLength(1);
     expect(filtered[0].origin).toBe('produto');
+  });
+
+  it('validateClosingManualReceiptForm rejects empty description and invalid gross', () => {
+    const { errors } = validateClosingManualReceiptForm({
+      manualForm: { description: '', gross: '', date: '2026-05-10', account: '' },
+      financeConfig: { bankAccounts: [] },
+    });
+    expect(errors.description).toBeTruthy();
+    expect(errors.gross).toBeTruthy();
+  });
+
+  it('validateClosingManualReceiptForm rejects unknown bank account when configured', () => {
+    const financeConfig = {
+      bankAccounts: [{ bankName: 'Sicoob', account: '1234-5' }],
+    };
+    const { errors, bankAccount } = validateClosingManualReceiptForm({
+      manualForm: {
+        description: 'Aula avulsa',
+        gross: 'R$ 50,00',
+        date: '2026-05-10',
+        account: 'Conta inexistente',
+      },
+      financeConfig,
+    });
+    expect(errors.account).toBeTruthy();
+    expect(bankAccount).toBe('');
   });
 });

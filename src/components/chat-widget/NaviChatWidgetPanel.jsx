@@ -1,15 +1,19 @@
 import '../../styles/chat-widget.css';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ExternalLink, Minus, Sparkles, User, X } from 'lucide-react';
+import { ExternalLink, MessageCircle, Minus, Sparkles, User, WifiOff, X } from 'lucide-react';
 import { useInboxConversation } from '../../hooks/useInboxConversation';
 import { useInboxDeferredBoot } from '../../hooks/useInboxDeferredBoot';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { useChatWidgetStore } from '../../store/useChatWidgetStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
+import { isWhatsAppIntegrationConnected } from '../../lib/whatsappIntegrationState.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 import InboxComposer from '../inbox/InboxComposer';
+import ProfileConversationEmpty from '../inbox/ProfileConversationEmpty.jsx';
+import ProfileWhatsAppOfflineEmptyActions from '../profile/ProfileWhatsAppOfflineEmptyActions.jsx';
+import ProfileWhatsAppOfflinePanelBanner from '../profile/ProfileWhatsAppOfflinePanelBanner.jsx';
 import NaviChatThread from './NaviChatThread';
 import NaviChatWidgetSwitcher from './NaviChatWidgetSwitcher';
 
@@ -76,7 +80,14 @@ export default function NaviChatWidgetPanel({
     statusPollWhileMounted: true,
     watchAcademyStatus: true,
   });
-  const waConnected = !waStatusChecked || String(waStatus || '').trim() === 'connected';
+  const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+  const hasMessages = messages.length > 0;
+  const showWaStatusLoading = !waStatusChecked;
+  const showOfflineEmpty = waStatusChecked && !waConnected && !loading && !hasMessages;
+  const showComposer = waStatusChecked && !showOfflineEmpty;
+  const composerPlaceholder = waConnected
+    ? 'Digite uma mensagem…'
+    : 'Conecte o WhatsApp para enviar mensagens';
 
   const [composerState, setComposerState] = useState({
     key: phoneDigits,
@@ -209,17 +220,18 @@ export default function NaviChatWidgetPanel({
             </button>
           </div>
         </header>
-        <div className="profile-conversation-empty">
-          <p className="profile-conversation-empty__title">Nenhum telefone cadastrado</p>
-          <p className="profile-conversation-empty__desc">
-            Adicione o telefone do contato para ver o histórico de mensagens.
-          </p>
-          {onRequestEditPhone ? (
-            <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} onClick={onRequestEditPhone}>
-              Adicionar telefone
-            </button>
-          ) : null}
-        </div>
+        <ProfileConversationEmpty
+          icon={MessageCircle}
+          title="Nenhum telefone cadastrado"
+          description="Adicione o telefone do contato para ver o histórico de mensagens."
+          action={
+            onRequestEditPhone ? (
+              <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} onClick={onRequestEditPhone}>
+                Adicionar telefone
+              </button>
+            ) : null
+          }
+        />
       </div>
     );
   }
@@ -293,28 +305,36 @@ export default function NaviChatWidgetPanel({
       </header>
 
       <div className="navi-chat-widget__body">
-        {!waConnected ? (
-          <div role="status" className="profile-conversation-tab__wa-banner">
-            WhatsApp desconectado — não é possível enviar mensagens
-          </div>
-        ) : null}
+        {showOfflineEmpty ? (
+          <ProfileConversationEmpty
+            icon={WifiOff}
+            title="WhatsApp não conectado"
+            description="Conecte o WhatsApp em Agente IA para enviar e receber mensagens por aqui."
+            action={<ProfileWhatsAppOfflineEmptyActions phoneDigits={phoneDigits} />}
+          />
+        ) : (
+          <>
+            {!waConnected ? <ProfileWhatsAppOfflinePanelBanner /> : null}
 
-        <NaviChatThread
-          messages={messages}
-          loading={loading}
-          loadingMore={loadingMore}
-          error={error}
-          hasMore={hasMore}
-          displayName={resolvedName}
-          phoneDigits={phoneDigits}
-          inboxHref={inboxHref}
-          waConnected={waConnected}
-          hideInboxLink={embedded}
-          onLoadMore={loadMore}
-          onRetry={refresh}
-          retryFailedMessage={retryFailedMessage}
-          scrollClassName="navi-chat-widget__messages"
-        />
+            <NaviChatThread
+              messages={messages}
+              loading={loading || showWaStatusLoading}
+              loadingMore={loadingMore}
+              error={error}
+              hasMore={hasMore}
+              displayName={resolvedName}
+              phoneDigits={phoneDigits}
+              inboxHref={inboxHref}
+              waConnected={waConnected}
+              hideInboxLink={embedded}
+              suppressEmpty={!waConnected && !hasMessages}
+              onLoadMore={loadMore}
+              onRetry={refresh}
+              retryFailedMessage={retryFailedMessage}
+              scrollClassName="navi-chat-widget__messages"
+            />
+          </>
+        )}
       </div>
 
       {sendError ? (
@@ -327,22 +347,24 @@ export default function NaviChatWidgetPanel({
         <HandoffBanner onDismiss={() => setHandoffBannerDismissed(true)} />
       ) : null}
 
-      <div className="navi-chat-widget__composer">
-        <InboxComposer
-          mode="compact"
-          compactDisabled={!waConnected}
-          compactPlaceholder="Digite uma mensagem…"
-          draft={draft}
-          setDraft={setDraft}
-          handleDraftChange={handleDraftChange}
-          sendManual={handleSend}
-          sending={sending}
-          selectedPhone={phoneDigits}
-          textareaRef={textareaRef}
-          inboxVvInset={0}
-          isMobile={isMobile}
-        />
-      </div>
+      {showComposer ? (
+        <div className="navi-chat-widget__composer">
+          <InboxComposer
+            mode="compact"
+            compactDisabled={!waConnected}
+            compactPlaceholder={composerPlaceholder}
+            draft={draft}
+            setDraft={setDraft}
+            handleDraftChange={handleDraftChange}
+            sendManual={handleSend}
+            sending={sending}
+            selectedPhone={phoneDigits}
+            textareaRef={textareaRef}
+            inboxVvInset={0}
+            isMobile={isMobile}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

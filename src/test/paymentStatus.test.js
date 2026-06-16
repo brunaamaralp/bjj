@@ -7,6 +7,7 @@ import {
   mirrorGrossForPayment,
   mapDbStatusFromGridForm,
   normalizeProfilePaymentStatus,
+  validatePaymentStatusPopoverForm,
 } from '../lib/paymentStatus.js';
 
 describe('paymentStatus', () => {
@@ -62,5 +63,23 @@ describe('paymentStatus', () => {
   it('mapDbStatusFromGridForm', () => {
     expect(mapDbStatusFromGridForm('awaiting')).toBe('awaiting');
     expect(mapDbStatusFromGridForm('soon')).toBe('pending');
+  });
+
+  it('validatePaymentStatusPopoverForm rejects paid without amount', () => {
+    const { errors } = validatePaymentStatusPopoverForm({
+      gridStatus: 'paid',
+      paidAmount: '',
+      paidAt: '2026-05-10',
+    });
+    expect(errors.paid_amount).toBeTruthy();
+  });
+
+  it('validatePaymentStatusPopoverForm rejects paid without date', () => {
+    const { errors } = validatePaymentStatusPopoverForm({
+      gridStatus: 'paid',
+      paidAmount: 'R$ 100,00',
+      paidAt: '',
+    });
+    expect(errors.paid_at).toBeTruthy();
   });
 });

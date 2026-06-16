@@ -1,16 +1,19 @@
 // Desacoplado do modal Nova Venda em 2026-05-27.
 // Reutilizado em: perfil do lead (LeadCloseSaleModal), funil (Pipeline).
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { searchStudentsForSale } from '../../lib/studentSaleSearch.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { createPayment, PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
-import { centsToNumber, parseMaskToCents } from '../../lib/moneyBr';
-import { validateBankAccountForPayment } from '../../lib/bankAccounts.js';
-import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../../lib/studentPaymentTroco.js';
+import { trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
 import { prefetchFinanceConfig } from '../../lib/prefetchFinanceConfig.js';
-import { friendlyError } from '../../lib/errorMessages.js';
+import { studentPaymentFriendlyError } from '../../lib/errorMessages.js';
+import {
+  validateMensalidadesPaymentForm,
+  focusFirstStudentPaymentError,
+} from '../../lib/mensalidadesPaymentForm.js';
+import { useUserRole } from '../../lib/useUserRole.js';
 import StudentPaymentModal, {
   buildDefaultPayForm,
 } from '../student/StudentPaymentModal.jsx';
@@ -40,9 +43,16 @@ export default function NovaVendaPlanPanel({
   showNotStudentHint = false,
 }) {
   const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
   const financeConfig = useLeadStore((s) => s.financeConfig);
   const userId = useLeadStore((s) => s.userId);
   const addToast = useUiStore((s) => s.addToast);
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
+  const navRole = useUserRole(academyDoc);
+  const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
 
   const [searchText, setSearchText] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -53,6 +63,12 @@ export default function NovaVendaPlanPanel({
   );
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [payFormErrors, setPayFormErrors] = useState({});
+
+  const updatePayForm = useCallback((updater) => {
+    setPayForm(updater);
+    setPayFormErrors((prev) => (Object.keys(prev).length ? {} : prev));
+  }, []);
 
   useEffect(() => {
     if (academyId) void prefetchFinanceConfig(academyId);
@@ -63,6 +79,7 @@ export default function NovaVendaPlanPanel({
     setStudent(prefilledStudent);
     setPayForm(buildPayFormForContact(prefilledStudent, financeConfig));
     setFormError('');
+    setPayFormErrors({});
   }, [prefilledStudent, financeConfig]);
 
   useEffect(() => {
@@ -97,6 +114,7 @@ export default function NovaVendaPlanPanel({
     setSuggestions([]);
     setPayForm(buildPayFormForContact(s, financeConfig));
     setFormError('');
+    setPayFormErrors({});
   }, [financeConfig]);
 
   const clearStudent = useCallback(() => {
@@ -104,6 +122,7 @@ export default function NovaVendaPlanPanel({
     setPayForm(null);
     setSearchText('');
     setFormError('');
+    setPayFormErrors({});
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -114,23 +133,18 @@ export default function NovaVendaPlanPanel({
       addToast({ type: 'error', message: 'Selecione mensalidade ou plano com cobertura.' });
       return;
     }
-    const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
-    if (!Number.isFinite(amountNum) || amountNum <= 0) {
-      addToast({ type: 'error', message: 'Informe um valor maior que zero.' });
-      return;
-    }
-    const trocoCheck = validateStudentPaymentTroco(payForm, amountNum, financeConfig);
-    if (!trocoCheck.ok) {
-      addToast({ type: 'error', message: trocoCheck.message });
-      return;
-    }
 
-    const accountCheck = validateBankAccountForPayment(payForm.account, financeConfig);
-    if (!accountCheck.ok) {
-      addToast({ type: 'error', message: accountCheck.message });
+    const { errors, amountNum, paymentAccount } = validateMensalidadesPaymentForm({
+      payForm,
+      financeConfig,
+      student,
+    });
+    if (Object.keys(errors).length > 0) {
+      setPayFormErrors(errors);
+      focusFirstStudentPaymentError(errors);
       return;
     }
-    const paymentAccount = accountCheck.account || payForm.account || '';
+    setPayFormErrors({});
 
     const paidAtIso =
       (payForm.status === 'paid' || paymentType === PAYMENT_CATEGORY.BUNDLE) && payForm.paid_at
@@ -181,12 +195,12 @@ export default function NovaVendaPlanPanel({
       }
       onComplete?.();
     } catch (e) {
-      const msg = String(e?.message || '');
-      if (msg.includes('Já existe um lançamento')) {
-        setFormError('Já existe um lançamento com este valor e data para este aluno.');
+      const msg = studentPaymentFriendlyError(e, 'save');
+      if (/já existe um lançamento/i.test(msg)) {
+        setFormError(msg);
         return;
       }
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      addToast({ type: 'error', message: msg });
     } finally {
       setSaving(false);
     }
@@ -220,7 +234,7 @@ export default function NovaVendaPlanPanel({
           academyId={academyId}
           financeConfig={financeConfig}
           payForm={payForm}
-          setPayForm={setPayForm}
+          setPayForm={updatePayForm}
           saving={saving}
           inputStyle={inputStyle}
           onClose={() => {
@@ -232,6 +246,9 @@ export default function NovaVendaPlanPanel({
           onSave={handleSave}
           salesEnabled={false}
           formError={formError}
+          fieldErrors={payFormErrors}
+          requireBankAccountForSave
+          canConfigureBankAccounts={canConfigureBankAccounts}
         />
       </>
     );

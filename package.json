@@ -31,6 +31,8 @@
     "provision:student-payments": "node scripts/provision_student_payments_schema.js",
     "provision:task-templates": "node scripts/provision-task-templates-schema.mjs",
     "provision:products-catalog": "node scripts/provision-products-catalog-schema.mjs",
+    "provision:dual-stock-pools": "node --env-file=.env scripts/provision-dual-stock-pools.mjs",
+    "migrate:dual-stock-pools": "node --env-file=.env scripts/migrate-dual-stock-pools.mjs",
     "provision:academy-events": "node scripts/provision-academy-events-schema.mjs",
     "provision:cash-shifts": "node --env-file=.env scripts/provision-cash-shifts-schema.mjs",
     "provision:pdv-sales": "node --env-file=.env scripts/provision-pdv-sales-schema.mjs",

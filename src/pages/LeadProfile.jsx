@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
 import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN, selectLeadById } from '../store/useLeadStore';
@@ -7,7 +6,7 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useTaskStore, filterTasksForLead, leadProfileTaskFilters } from '../store/useTaskStore';
 import { progressLabelForLead } from '../lib/taskTemplates.js';
 import { useToast } from '../hooks/useToast';
-import { ArrowLeft, ChevronDown, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck, MoreVertical } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Calendar, UserCheck, Phone, Send, Clock, Copy, Check, Pencil, X, Save, AlertTriangle, Trash2, StickyNote, Pin, Baby, Users, Dumbbell, CheckSquare, BadgeCheck } from 'lucide-react';
 import { canShowLeadCloseSale } from '../lib/leadCloseSale.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
@@ -66,15 +65,18 @@ import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
-import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../components/shared/menu';
+import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
+import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
+import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
+import { isWhatsAppIntegrationConnected } from '../lib/whatsappIntegrationState.js';
 import {
     leadHistoryFilterFromUrlParam,
     leadHistoryFilterToUrlParam,
 } from '../lib/leadProfileUrlState.js';
 import { buildCustomAnswersPatch } from '../lib/customLeadQuestions.js';
 import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx';
-import { useAnchoredMenuPosition } from '../hooks/useAnchoredMenuPosition.js';
 import '../styles/lead-profile.css';
+import '../styles/profile-shared.css';
 import '../styles/followup-shared.css';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
@@ -280,6 +282,12 @@ const LeadProfile = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
     const modules = useLeadStore((s) => s.modules);
+
+    const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
+        statusPollWhileMounted: true,
+        watchAcademyStatus: true,
+    });
+    const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
 
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -541,7 +549,6 @@ const LeadProfile = () => {
     const [phoneCopied, setPhoneCopied] = useState(false);
     const [formErrors, setFormErrors] = useState({});
     const [editBaseline, setEditBaseline] = useState(null);
-    const waMenuTriggerRef = useRef(null);
     const phoneEditInputRef = useRef(null);
     const startEditRef = useRef(null);
 
@@ -796,17 +803,8 @@ const LeadProfile = () => {
         });
     }, []);
 
-    const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
-    const waMenuStyle = useAnchoredMenuPosition(waMenuTriggerRef, templateMenuOpen, {
-        align: 'end',
-        maxHeight: 320,
-    });
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [profileQuickTimes, setProfileQuickTimes] = useState([]);
-
-    useEffect(() => {
-        setTemplateMenuOpen(false);
-    }, [id]);
 
     useEffect(() => {
         if (!waTemplatesHook) return;
@@ -1459,7 +1457,6 @@ const LeadProfile = () => {
     const sendTemplateKey = async (key, { recordFollowupContact = false } = {}) => {
         if (sendingWhatsapp) return;
         setSendingWhatsapp(true);
-        setTemplateMenuOpen(false);
         try {
             const r = await sendWhatsappTemplateOutbound({
                 lead,
@@ -1700,7 +1697,10 @@ const LeadProfile = () => {
         setProfileTab('timeline');
     };
 
-    const panelTabBtn = (tabId, label) => (
+    const panelTabBtn = (tabId, label) => {
+        const isOfflineConversation =
+            tabId === 'conversation' && waStatusChecked && !waConnected;
+        return (
         <button
             key={tabId}
             type="button"
@@ -1708,15 +1708,52 @@ const LeadProfile = () => {
             id={`lead-profile-panel-tab-${tabId}`}
             aria-selected={activeProfileTab === tabId}
             aria-controls={`lead-profile-panel-${tabId}`}
-            className={`lead-profile-panel-tab${activeProfileTab === tabId ? ' lead-profile-panel-tab--active' : ''}`}
+            className={`lead-profile-panel-tab${activeProfileTab === tabId ? ' lead-profile-panel-tab--active' : ''}${isOfflineConversation ? ' lead-profile-panel-tab--offline' : ''}`}
             onClick={() => setProfileTab(tabId)}
         >
             {label}
         </button>
-    );
+        );
+    };
 
-    const conversationTabLabel =
-        conversationUnreadCount > 0 ? `Conversa (${conversationUnreadCount})` : 'Conversa';
+    const conversationTabLabel = useMemo(() => {
+        if (waStatusChecked && !waConnected) return 'Conversa (offline)';
+        if (conversationUnreadCount > 0) return `Conversa (${conversationUnreadCount})`;
+        return 'Conversa';
+    }, [waStatusChecked, waConnected, conversationUnreadCount]);
+
+    const mobilePanelQuickActions = useMemo(() => {
+        if (!lead) return [];
+        const actions = [];
+        if (!lead.scheduledDate && lead.status !== LEAD_STATUS.LOST) {
+            actions.push({
+                key: 'schedule',
+                label: `Agendar ${terms.trialShort}`,
+                icon: Calendar,
+                onClick: () => setScheduleModalOpen(true),
+                disabled: updatingStatus,
+            });
+        }
+        if (nextActionCtas.primary) {
+            actions.push({
+                key: nextActionCtas.primary.key,
+                label: nextActionCtas.primary.label,
+                icon: nextActionCtas.primary.icon,
+                onClick: nextActionCtas.primary.onClick,
+                disabled: updatingStatus,
+            });
+        }
+        for (const cta of nextActionCtas.secondary.slice(0, 2)) {
+            actions.push({
+                key: cta.key,
+                label: cta.label,
+                icon: cta.icon,
+                onClick: cta.onClick,
+                disabled: updatingStatus,
+            });
+        }
+        return actions;
+    }, [lead, terms.trialShort, nextActionCtas, updatingStatus]);
 
     const heroOperationalStatusLabel = operationalStatusDisplayLabel(terms, lead.status);
     const heroShowOperationalStatusTag =
@@ -1814,6 +1851,10 @@ const LeadProfile = () => {
                 />
             ) : null}
 
+            {waStatusChecked && !waConnected ? (
+                <ProfileWhatsAppOfflineBanner className="lead-profile-wa-offline-banner" />
+            ) : null}
+
             <div className="lead-profile-left__scroll">
                 <div className="lead-profile-dados left-col-content">
                     <div className="lead-profile-hero profile-main-header">
@@ -1873,54 +1914,6 @@ const LeadProfile = () => {
                                         <span className="status-tag origin-status-tag">{lead.origin}</span>
                                     ) : null}
                                 </div>
-                                <DropdownMenu
-                                    open={templateMenuOpen}
-                                    onOpenChange={setTemplateMenuOpen}
-                                    className="comm-actions-wrap lead-profile-comm-actions lead-profile-hero__actions"
-                                    dismissExtraSelector="[data-lead-profile-wa-menu]"
-                                >
-                                    <button
-                                        ref={waMenuTriggerRef}
-                                        type="button"
-                                        className="comm-btn-dropdown"
-                                        disabled={!String(lead.phone || '').replace(/\D/g, '').length || sendingWhatsapp}
-                                        aria-label="Templates de WhatsApp"
-                                        aria-haspopup="menu"
-                                        aria-expanded={templateMenuOpen}
-                                        title="Templates de WhatsApp"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setTemplateMenuOpen((o) => !o);
-                                        }}
-                                    >
-                                        <MoreVertical size={18} aria-hidden />
-                                    </button>
-                                    {templateMenuOpen && waMenuStyle
-                                        ? createPortal(
-                                            <DropdownMenuPanel
-                                                className="comm-dropdown-menu"
-                                                fixed
-                                                elevated
-                                                style={waMenuStyle}
-                                                aria-label="Templates de WhatsApp"
-                                                data-lead-profile-wa-menu
-                                            >
-                                                {Object.entries(waCtx.templates)
-                                                    .filter(([, text]) => typeof text === 'string' && String(text).trim())
-                                                    .map(([key]) => (
-                                                        <DropdownMenuItem
-                                                            key={key}
-                                                            onClick={() => void sendTemplateKey(key)}
-                                                        >
-                                                            {WHATSAPP_TEMPLATE_LABELS[key] || key}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                            </DropdownMenuPanel>,
-                                            document.body
-                                        )
-                                        : null}
-                                </DropdownMenu>
                             </div>
                     </div>
 
@@ -2534,6 +2527,10 @@ const LeadProfile = () => {
                     <span className="lead-profile-mobile-panel-chrome__name">{lead.name}</span>
                     <span className="lead-profile-mobile-panel-chrome__spacer" aria-hidden />
                 </div>
+            ) : null}
+
+            {stackedLayout && panelOpen ? (
+                <ProfileMobileQuickActions actions={mobilePanelQuickActions} />
             ) : null}
 
             <div className="lead-profile-panel-tabs" role="tablist" aria-label="Detalhes do contato">

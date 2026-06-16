@@ -1,5 +1,15 @@
 import { getVariantStockStatus, resolveCurrentQuantity } from './stockInventory.js';
 import { centsToNumber, maskFromNumber, parseMaskToCents } from './moneyBr.js';
+import {
+  aggregatePoolTotals,
+  buildVariantPoolFields,
+  normalizeProductType,
+  productTypeShowsRentalPools,
+  productTypeShowsSalePools,
+  rentalAvailable,
+  rentalOut,
+  saleQuantity,
+} from './dualStockPools.js';
 
 const SEP = ' · ';
 
@@ -45,6 +55,8 @@ function parseOptionalPrice(raw) {
 export function mapParentProductDoc(doc) {
   const salePrice = parseOptionalPrice(doc.sale_price);
   const costPrice = parseOptionalPrice(doc.cost_price);
+  const rentalPrice = parseOptionalPrice(doc.rental_price);
+  const type = normalizeProductType(doc.type || 'sale');
   return {
     id: doc.$id,
     nome: String(doc.name || doc.nome || '').trim(),
@@ -52,8 +64,9 @@ export function mapParentProductDoc(doc) {
     categoria: String(doc.category || doc.categoria || 'Sem categoria').trim() || 'Sem categoria',
     sale_price: salePrice,
     cost_price: costPrice,
-    type: String(doc.type || 'sale').trim() || 'sale',
-    is_for_sale: doc.is_for_sale !== false && String(doc.type || 'sale') !== 'supply',
+    rental_price: rentalPrice,
+    type,
+    is_for_sale: doc.is_for_sale !== false && type !== 'supply',
     is_active: doc.is_active !== false,
     image_url: String(doc.image_url || doc.image || doc.photo_url || '').trim(),
     supplier: String(doc.supplier || '').trim(),
@@ -104,6 +117,9 @@ export function mapVariantDoc(doc, parent) {
     sku: String(doc.sku || '').trim(),
     unit: String(doc.unit || 'unidade').trim() || 'unidade',
     current_quantity: qty,
+    sale_quantity: saleQuantity(doc),
+    rental_available: rentalAvailable(doc),
+    rental_out: rentalOut(doc),
     minimum_level: min,
     status: getVariantStockStatus(qty, min),
     lifecycle,
@@ -131,7 +147,8 @@ export function buildParentCatalogRows(parents, variants) {
     const vars = (byParent.get(p.id) || []).slice().sort((a, b) =>
       String(a.display_label).localeCompare(String(b.display_label), 'pt-BR')
     );
-    const total_quantity = vars.reduce((n, v) => n + Number(v.current_quantity || 0), 0);
+    const poolTotals = aggregatePoolTotals(vars, p.type);
+    const total_quantity = poolTotals.total_quantity;
     const anyActive = vars.some((v) => v.lifecycle === 'ativo');
     const allInactive = vars.length > 0 && vars.every((v) => v.lifecycle === 'inativo');
     const allOut = vars.length > 0 && vars.every((v) => v.lifecycle === 'sem_estoque');
@@ -145,6 +162,9 @@ export function buildParentCatalogRows(parents, variants) {
       ...p,
       variants: vars,
       total_quantity,
+      total_sale_quantity: poolTotals.total_sale_quantity,
+      total_rental_available: poolTotals.total_rental_available,
+      total_rental_out: poolTotals.total_rental_out,
       lifecycle,
       variant_count: vars.length,
     };
@@ -235,6 +255,8 @@ export function emptyVariantRow() {
     size: '',
     color: '',
     initial_quantity: '0',
+    initial_sale_quantity: '0',
+    initial_rental_quantity: '0',
     minimum_level: '0',
     sku: '',
     priceOverrideMask: '',
@@ -249,6 +271,8 @@ export function duplicateVariantRowsFromProduct(product) {
     size: v.size || v.Tamanho || '',
     color: v.color || '',
     initial_quantity: '0',
+    initial_sale_quantity: '0',
+    initial_rental_quantity: '0',
     minimum_level: String(v.minimum_level ?? 0),
     sku: '',
   }));
@@ -360,6 +384,9 @@ export function variantRowsFromProduct(product) {
       supplier: String(v.supplier || '').trim(),
       is_active,
       current_quantity: Number(v.current_quantity) || 0,
+      sale_quantity: saleQuantity(v),
+      rental_available: rentalAvailable(v),
+      rental_out: rentalOut(v),
       lifecycle: v.lifecycle || 'ativo',
       _isNew: false,
       _dirty: false,
@@ -457,25 +484,64 @@ export function normalizeVariantEditRow(row) {
   const sku = String(row.sku ?? '').trim().slice(0, 64);
   const minimum_level = Math.max(0, Math.trunc(Number(row.minimum_level) || 0));
   const initial_quantity = Math.max(0, Math.trunc(Number(row.initial_quantity) || 0));
-  return { size, color, sku, minimum_level, initial_quantity };
+  const initial_sale_quantity = Math.max(0, Math.trunc(Number(row.initial_sale_quantity) || 0));
+  const initial_rental_quantity = Math.max(0, Math.trunc(Number(row.initial_rental_quantity) || 0));
+  return {
+    size,
+    color,
+    sku,
+    minimum_level,
+    initial_quantity,
+    initial_sale_quantity,
+    initial_rental_quantity,
+  };
 }
 
 
-export function normalizeVariantsInput(rows) {
+export function normalizeVariantsInput(rows, parentType = 'sale') {
+  const type = normalizeProductType(parentType);
   const out = [];
   for (const row of rows || []) {
     const size = String(row.size ?? row.Tamanho ?? '').trim().slice(0, 16) || 'Único';
     const color = String(row.color ?? '').trim().slice(0, 32);
     const sku = String(row.sku ?? '').trim().slice(0, 64);
     const initial_quantity = Math.max(0, Math.trunc(Number(row.initial_quantity) || 0));
+    const initial_sale_quantity = Math.max(
+      0,
+      Math.trunc(Number(row.initial_sale_quantity ?? row.initial_quantity) || 0)
+    );
+    const initial_rental_quantity = Math.max(
+      0,
+      Math.trunc(Number(row.initial_rental_quantity ?? row.initial_quantity) || 0)
+    );
     const minimum_level = Math.max(0, Math.trunc(Number(row.minimum_level) || 0));
     const price_override = maskToOptionalPrice(row.priceOverrideMask);
-    const entry = { size, color, sku, initial_quantity, minimum_level };
+    const pools = buildVariantPoolFields({
+      parentType: type,
+      initial_quantity,
+      initial_sale_quantity,
+      initial_rental_quantity,
+    });
+    const entry = {
+      size,
+      color,
+      sku,
+      initial_quantity,
+      initial_sale_quantity,
+      initial_rental_quantity,
+      minimum_level,
+      sale_quantity: pools.sale_quantity,
+      rental_available: pools.rental_available,
+      rental_out: pools.rental_out,
+      current_quantity: pools.current_quantity,
+    };
     if (price_override != null) entry.price_override = price_override;
     out.push(entry);
   }
   return out;
 }
+
+export { productTypeShowsRentalPools, productTypeShowsSalePools };
 
 /** Localiza o produto-pai na listagem a partir do id do pai ou de uma variante. */
 export function findParentByProductOrVariantId(products, id) {

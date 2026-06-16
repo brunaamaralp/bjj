@@ -28,6 +28,7 @@ import {
   studentTurma,
 } from '../../lib/mensalidadesExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import { studentPaymentFriendlyError } from '../../lib/errorMessages.js';
 import { Users } from 'lucide-react';
 
 const GRID_COLUMNS_STORAGE_PREFIX = 'navi-mensal-grid-cols';
@@ -248,7 +249,7 @@ export default function MonthlyPaymentGrid({
       upsertPaymentInState(doc);
       setPopover(null);
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      addToast({ type: 'error', message: studentPaymentFriendlyError(e, 'save') });
     } finally {
       setSavingId(null);
     }
@@ -284,7 +285,7 @@ export default function MonthlyPaymentGrid({
       });
       upsertPaymentInState(doc);
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      addToast({ type: 'error', message: studentPaymentFriendlyError(e, 'save') });
     } finally {
       setSavingId(null);
     }

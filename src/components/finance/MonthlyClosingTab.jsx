@@ -34,8 +34,22 @@ import {
   CLOSING_SITUATIONS,
   CLOSING_SITUATION_LABELS,
   mapOriginToTxType,
+  validateClosingManualReceiptForm,
+  focusFirstClosingManualError,
+  CLOSING_MANUAL_FIELD_IDS,
 } from '../../lib/monthlyClosing.js';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
+import BankAccountSelect from './BankAccountSelect.jsx';
+import FieldError from '../shared/FieldError.jsx';
+import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
+import {
+  hasConfiguredBankAccounts,
+  resolveBankAccountForPayment,
+} from '../../lib/bankAccounts.js';
+import {
+  accountWhenPaymentMethodChanges,
+  pickInitialBankAccountForPayment,
+} from '../../lib/paymentMethodBankDefaults.js';
 import {
   DropdownMenu,
   DropdownMenuPanel,
@@ -146,6 +160,7 @@ export default function MonthlyClosingTab({
   const debouncedSearch = useDebounce(search, 200);
   const [showManual, setShowManual] = useState(false);
   const [savingManual, setSavingManual] = useState(false);
+  const [manualFormErrors, setManualFormErrors] = useState({});
   const [closingPartialWarning, setClosingPartialWarning] = useState(false);
   const [cashClosing, setCashClosing] = useState(null);
   const [savingClosing, setSavingClosing] = useState(false);
@@ -182,6 +197,7 @@ export default function MonthlyClosingTab({
   );
   const navRole = useUserRole(academyDoc);
   const canRegisterClosing = navRole === 'owner' || navRole === 'admin';
+  const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
 
   const loadData = useCallback(async () => {
     if (!academyId) return;
@@ -337,16 +353,17 @@ export default function MonthlyClosingTab({
   };
 
   const saveManualReceipt = async () => {
-    const grossNum = parseCurrencyBRL(manualForm.gross);
-    if (!academyId || !Number.isFinite(grossNum) || grossNum <= 0) {
-      addToast({ type: 'error', message: 'Informe um valor válido.' });
+    if (!academyId) return;
+    const { errors, grossNum, description, bankAccount } = validateClosingManualReceiptForm({
+      manualForm,
+      financeConfig,
+    });
+    if (Object.keys(errors).length > 0) {
+      setManualFormErrors(errors);
+      focusFirstClosingManualError(errors);
       return;
     }
-    const desc = String(manualForm.description || '').trim();
-    if (!desc) {
-      addToast({ type: 'error', message: 'Informe a descrição.' });
-      return;
-    }
+    setManualFormErrors({});
     setSavingManual(true);
     try {
       const settledAt = manualForm.date
@@ -359,9 +376,10 @@ export default function MonthlyClosingTab({
           lead_id: manualForm.lead_id || '',
           method: manualForm.method,
           type: txType,
-          planName: desc,
+          planName: description,
           gross: grossNum,
-          note: desc,
+          note: description,
+          bank_account: bankAccount,
           receive_now: true,
           settledAt,
         },
@@ -374,7 +392,7 @@ export default function MonthlyClosingTab({
         description: '',
         gross: '',
         method: 'pix',
-        account: '',
+        account: pickInitialBankAccountForPayment(financeConfig, '', 'pix'),
         date: new Date().toISOString().slice(0, 10),
         origin: 'outro',
       });
@@ -467,7 +485,23 @@ export default function MonthlyClosingTab({
           Marcar mês como conferido
         </button>
       ) : null}
-      <button type="button" className="btn-secondary btn-sm" onClick={() => setShowManual((v) => !v)}>
+      <button
+        type="button"
+        className="btn-secondary btn-sm"
+        onClick={() => {
+          setShowManual((v) => {
+            const next = !v;
+            if (next) {
+              setManualFormErrors({});
+              setManualForm((f) => ({
+                ...f,
+                account: pickInitialBankAccountForPayment(financeConfig, f.account, f.method),
+              }));
+            }
+            return next;
+          });
+        }}
+      >
         <Plus size={14} className="monthly-closing-btn-icon--sm" aria-hidden />
         Lançar recebimento
       </button>
@@ -514,6 +548,9 @@ export default function MonthlyClosingTab({
 
       {showManual ? (
         <div className="card mb-3 monthly-closing-manual">
+          {!hasBankAccounts && canRegisterClosing ? (
+            <FinanceBankAccountsSetupBanner className="mb-3" />
+          ) : null}
           <div className="monthly-closing-manual__row">
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--student">
               <label className="text-xs">Aluno (opcional)</label>
@@ -547,27 +584,48 @@ export default function MonthlyClosingTab({
               ) : null}
             </div>
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--desc">
-              <label className="text-xs">Descrição</label>
+              <label className="text-xs" htmlFor={CLOSING_MANUAL_FIELD_IDS.description}>
+                Descrição
+              </label>
               <input
+                id={CLOSING_MANUAL_FIELD_IDS.description}
                 className="form-input"
                 value={manualForm.description}
-                onChange={(e) => setManualForm((f) => ({ ...f, description: e.target.value }))}
+                onChange={(e) => {
+                  setManualForm((f) => ({ ...f, description: e.target.value }));
+                  if (manualFormErrors.description) setManualFormErrors((prev) => ({ ...prev, description: '' }));
+                }}
               />
+              <FieldError id="closing-manual-description-error">{manualFormErrors.description}</FieldError>
             </div>
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--amount">
-              <label className="text-xs">Valor</label>
+              <label className="text-xs" htmlFor={CLOSING_MANUAL_FIELD_IDS.gross}>
+                Valor
+              </label>
               <input
+                id={CLOSING_MANUAL_FIELD_IDS.gross}
                 className="form-input"
                 value={manualForm.gross}
-                onChange={(e) => setManualForm((f) => ({ ...f, gross: maskCurrency(e.target.value) }))}
+                onChange={(e) => {
+                  setManualForm((f) => ({ ...f, gross: maskCurrency(e.target.value) }));
+                  if (manualFormErrors.gross) setManualFormErrors((prev) => ({ ...prev, gross: '' }));
+                }}
               />
+              <FieldError id="closing-manual-gross-error">{manualFormErrors.gross}</FieldError>
             </div>
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--method">
               <label className="text-xs">Forma</label>
               <select
                 className="form-input"
                 value={manualForm.method}
-                onChange={(e) => setManualForm((f) => ({ ...f, method: e.target.value }))}
+                onChange={(e) => {
+                  const method = e.target.value;
+                  setManualForm((f) => ({
+                    ...f,
+                    method,
+                    account: accountWhenPaymentMethodChanges(financeConfig, f.account, method),
+                  }));
+                }}
               >
                 {PAY_METHODS.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -576,14 +634,38 @@ export default function MonthlyClosingTab({
                 ))}
               </select>
             </div>
+            {hasBankAccounts ? (
+              <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--account">
+                <BankAccountSelect
+                  academyId={academyId}
+                  financeConfig={financeConfig}
+                  id={CLOSING_MANUAL_FIELD_IDS.account}
+                  label="Conta bancária"
+                  required
+                  value={manualForm.account || ''}
+                  onChange={(v) => {
+                    setManualForm((f) => ({ ...f, account: v }));
+                    if (manualFormErrors.account) setManualFormErrors((prev) => ({ ...prev, account: '' }));
+                  }}
+                />
+                <FieldError id="closing-manual-account-error">{manualFormErrors.account}</FieldError>
+              </div>
+            ) : null}
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--date">
-              <label className="text-xs">Data</label>
+              <label className="text-xs" htmlFor={CLOSING_MANUAL_FIELD_IDS.date}>
+                Data
+              </label>
               <DateInputField
+                id={CLOSING_MANUAL_FIELD_IDS.date}
                 type="date"
                 className="form-input navi-date-filter"
                 value={manualForm.date}
-                onChange={(e) => setManualForm((f) => ({ ...f, date: e.target.value }))}
+                onChange={(e) => {
+                  setManualForm((f) => ({ ...f, date: e.target.value }));
+                  if (manualFormErrors.date) setManualFormErrors((prev) => ({ ...prev, date: '' }));
+                }}
               />
+              <FieldError id="closing-manual-date-error">{manualFormErrors.date}</FieldError>
             </div>
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--origin">
               <label className="text-xs">Origem</label>
@@ -602,12 +684,19 @@ export default function MonthlyClosingTab({
             <button
               type="button"
               className="btn-primary btn-sm"
-              disabled={savingManual}
+              disabled={savingManual || (hasBankAccounts && !manualForm.account)}
               onClick={() => void saveManualReceipt()}
             >
               {savingManual ? 'Salvando…' : 'Salvar'}
             </button>
-            <button type="button" className="btn-outline btn-sm" onClick={() => setShowManual(false)}>
+            <button
+              type="button"
+              className="btn-outline btn-sm"
+              onClick={() => {
+                setShowManual(false);
+                setManualFormErrors({});
+              }}
+            >
               Cancelar
             </button>
           </div>

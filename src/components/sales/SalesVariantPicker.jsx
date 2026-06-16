@@ -1,17 +1,24 @@
 import React from 'react';
 import { formatBRL } from '../../lib/moneyBr';
-import { variantOptionLabel } from '../../lib/salesCatalog';
+import { catalogLineAvailability, variantCanAddForLineKind, variantOptionLabel } from '../../lib/salesCatalog';
+import { normalizeLineKind } from '../../lib/saleLineKind';
 import ModalShell from '../shared/ModalShell.jsx';
 import ProductThumb from '../products/ProductThumb';
 
-export default function SalesVariantPicker({ parent, onSelect, onClose }) {
+export default function SalesVariantPicker({ parent, lineKind = 'sale', onSelect, onClose }) {
   if (!parent) return null;
+
+  const kind = normalizeLineKind(lineKind);
+  const isRental = kind === 'rental';
 
   const variants = (parent.variants || []).slice().sort((a, b) => {
     const la = variantOptionLabel(a);
     const lb = variantOptionLabel(b);
     return la.localeCompare(lb, 'pt-BR', { numeric: true });
   });
+
+  const unitPrice =
+    isRental && parent.rental_price != null ? formatBRL(parent.rental_price) : null;
 
   return (
     <ModalShell
@@ -32,7 +39,7 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
       <div className="sales-variant-picker__head">
         <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={48} />
         <p className="text-small text-muted sales-variant-picker__subtitle">
-          Toque no tamanho vendido
+          {isRental ? 'Toque no tamanho para alugar' : 'Toque no tamanho vendido'}
         </p>
       </div>
       <div className="sales-variant-picker__chips" role="list">
@@ -41,7 +48,14 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
         ) : (
           variants.map((v) => {
             const label = variantOptionLabel(v);
-            const out = !v.canAdd;
+            const avail = catalogLineAvailability(v, parent, kind);
+            const out = !variantCanAddForLineKind(v, parent, kind);
+            const price =
+              isRental && unitPrice
+                ? unitPrice
+                : v.sale_price != null
+                  ? formatBRL(v.sale_price)
+                  : null;
             return (
               <button
                 key={v.id}
@@ -53,8 +67,8 @@ export default function SalesVariantPicker({ parent, onSelect, onClose }) {
               >
                 <span className="sales-variant-picker__chip-label">{label}</span>
                 <span className="sales-variant-picker__chip-meta text-small text-muted">
-                  {out ? 'Esgotado' : `Disp. ${v.current_quantity}`}
-                  {v.sale_price != null ? ` · ${formatBRL(v.sale_price)}` : ''}
+                  {out ? 'Esgotado' : `Disp. ${avail}`}
+                  {price ? ` · ${price}` : ''}
                 </span>
               </button>
             );

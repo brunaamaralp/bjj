@@ -4,6 +4,8 @@ import {
   isMensalidadesCreditMethod,
   normalizeMensalidadesInstallments,
   validateMensalidadesPaymentForm,
+  STUDENT_PAY_FIELD_IDS,
+  focusFirstStudentPaymentError,
 } from '../../../src/lib/mensalidadesPaymentForm.js';
 import { PAYMENT_CATEGORY } from '../../../src/lib/studentPayments.js';
 
@@ -84,6 +86,33 @@ describe('validateMensalidadesPaymentForm', () => {
       student,
     });
     expect(errors.account).toMatch(/conta bancária/i);
+  });
+
+  it('rejeita valor recebido em dinheiro menor que a mensalidade', () => {
+    const { errors } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.PLAN,
+        amount: '200,00',
+        paid_at: '2026-06-15',
+        method: 'dinheiro',
+        cash_received: '100,00',
+        account: 'Nubank · 12345-6',
+      },
+      financeConfig,
+      student,
+    });
+    expect(errors.cash_received).toBeTruthy();
+  });
+});
+
+describe('focusFirstStudentPaymentError', () => {
+  it('foca o primeiro campo com erro no modal de pagamento', () => {
+    const input = document.createElement('input');
+    input.id = STUDENT_PAY_FIELD_IDS.amount;
+    document.body.appendChild(input);
+    focusFirstStudentPaymentError({ amount: 'Informe um valor maior que zero.' });
+    expect(document.activeElement).toBe(input);
+    document.body.removeChild(input);
   });
 });
 

@@ -3,6 +3,11 @@ import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { formatBRL, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 import ProductThumb from '../products/ProductThumb';
 import { variantOptionLabel } from '../../lib/salesCatalog';
+import { normalizeLineKind } from '../../lib/saleLineKind';
+
+function lineKindLabel(lineKind) {
+  return normalizeLineKind(lineKind) === 'rental' ? 'Aluguel' : 'Venda';
+}
 
 export default function SalesCart({
   cart,
@@ -52,13 +57,18 @@ export default function SalesCart({
 
             return (
               <li
-                key={`${it.item_estoque_id}-${idx}`}
+                key={`${it.item_estoque_id}-${it.line_kind || 'sale'}-${idx}`}
                 className={`sales-cart-row${isRemoving ? ' sales-cart-row--removing' : ''}`}
               >
                 <div className="sales-cart-row__head">
                   <ProductThumb imageUrl={it.image_url} alt={it.display_label} size={40} />
                   <div className="sales-cart-row__info">
                     <span className="sales-cart-row__name">{it.display_label}</span>
+                    <span
+                      className={`sales-cart-row__kind sales-cart-row__kind--${normalizeLineKind(it.line_kind)}`}
+                    >
+                      {lineKindLabel(it.line_kind)}
+                    </span>
                     {Array.isArray(it.variant_options) && it.variant_options.length > 1 ? (
                       <div className="sales-cart-row__variant">
                         <label className="text-xs" htmlFor={`sale-variant-${idx}`}>
@@ -72,12 +82,17 @@ export default function SalesCart({
                         >
                           {it.variant_options.map((v) => {
                             const label = variantOptionLabel(v);
-                            const out = !v.canAdd && String(v.id) !== String(it.item_estoque_id);
+                            const canAdd = v.canAdd_for_line ?? v.canAdd;
+                            const avail = v.disponivel_for_line ?? v.current_quantity;
+                            const out =
+                              !canAdd &&
+                              String(v.id) !== String(it.item_estoque_id) &&
+                              avail <= 0;
                             return (
                               <option key={v.id} value={v.id} disabled={out}>
                                 {label}
                                 {out ? ' (esgotado)' : ''}
-                                {v.canAdd ? ` · disp. ${v.current_quantity}` : ''}
+                                {avail > 0 ? ` · disp. ${avail}` : ''}
                               </option>
                             );
                           })}

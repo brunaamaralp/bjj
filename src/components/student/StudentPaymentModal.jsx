@@ -1,7 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { DateInput } from '../DateInput';
 import ModalShell from '../shared/ModalShell.jsx';
+import PaymentFormErrorBanner from '../shared/PaymentFormErrorBanner.jsx';
+import PaymentModalFooterHint from '../shared/PaymentModalFooterHint.jsx';
+import FieldError from '../shared/FieldError.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankAccountSelect from '../finance/BankAccountSelect.jsx';
 import { PAYMENT_CATEGORY, normalizePaymentCategory } from '../../lib/studentPayments.js';
@@ -9,7 +12,9 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep, { STUDENT_PRODUCT_SALE_FORM_ID } from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
-import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { hasConfiguredBankAccounts, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
+import { STUDENT_PAY_FIELD_IDS } from '../../lib/mensalidadesPaymentForm.js';
 import {
   pickInitialBankAccountForPayment,
   accountWhenPaymentMethodChanges,
@@ -93,6 +98,9 @@ export default function StudentPaymentModal({
   onSaleComplete,
   editingPaymentId = null,
   formError = '',
+  fieldErrors = null,
+  requireBankAccountForSave = false,
+  canConfigureBankAccounts = false,
 }) {
   const navigate = useNavigate();
   const creatingSale = useSalesStore((s) => s.creating);
@@ -144,6 +152,10 @@ export default function StudentPaymentModal({
   const showPaidDate = payForm.status === 'paid' || isFee || isBundle || isOther;
   const showPlanFields = isPlan || isBundle;
   const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
+  const payFieldErrors = fieldErrors && typeof fieldErrors === 'object' ? fieldErrors : {};
+  const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
+  const saveBlockedByBank =
+    requireBankAccountForSave && !hasBankAccounts && (isPlan || isBundle);
 
   const typeOptions = [
     { value: PAYMENT_CATEGORY.PLAN, label: 'Mensalidade' },
@@ -199,45 +211,45 @@ export default function StudentPaymentModal({
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleClose}
-              className="btn-outline"
-              style={{ flex: 1 }}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void onSave()}
-              className="btn-primary"
-              style={{ flex: 1 }}
-            >
-              {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
-            </button>
+          <div className="payment-modal-footer">
+            {saveBlockedByBank ? (
+              <PaymentModalFooterHint variant="error" id="student-pay-footer-hint">
+                {canConfigureBankAccounts ? (
+                  <>
+                    Cadastre uma conta de recebimento antes de confirmar.{' '}
+                    <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
+                  </>
+                ) : (
+                  'Peça ao titular ou administrador que cadastre uma conta em Minha academia → Financeiro → Recebimento.'
+                )}
+              </PaymentModalFooterHint>
+            ) : null}
+            <div className="payment-modal-footer__actions">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleClose}
+                className="btn-outline"
+                style={{ flex: 1 }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={saving || saveBlockedByBank}
+                onClick={() => void onSave()}
+                className="btn-primary"
+                style={{ flex: 1 }}
+                aria-describedby={saveBlockedByBank ? 'student-pay-footer-hint' : undefined}
+              >
+                {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
+              </button>
+            </div>
           </div>
         )
       }
     >
-        {formError ? (
-          <p
-            role="alert"
-            style={{
-              margin: '0 0 12px',
-              padding: '10px 12px',
-              borderRadius: 8,
-              background: 'var(--danger-light, #fcebeb)',
-              color: 'var(--danger)',
-              fontSize: 13,
-              lineHeight: 1.45,
-            }}
-          >
-            {formError}
-          </p>
-        ) : null}
+        {formError ? <PaymentFormErrorBanner message={formError} /> : null}
 
         {isProduct ? (
           <>
@@ -361,6 +373,7 @@ export default function StudentPaymentModal({
                   </div>
                   <div>
                     <DateInput
+                      id={STUDENT_PAY_FIELD_IDS.bundle_start_month}
                       label="Início da cobertura"
                       type="month"
                       className="form-input"
@@ -371,14 +384,20 @@ export default function StudentPaymentModal({
                       }
                       required
                     />
+                    <FieldError id="student-pay-bundle-start-error">
+                      {payFieldErrors.bundle_start_month}
+                    </FieldError>
                   </div>
                 </>
               ) : null}
 
               {isFee || isOther ? (
                 <div className="form-group">
-                  <label className="form-label">Descrição{isFee ? ' *' : ''}</label>
+                  <label className="form-label" htmlFor={STUDENT_PAY_FIELD_IDS.note}>
+                    Descrição{isFee ? ' *' : ''}
+                  </label>
                   <input
+                    id={STUDENT_PAY_FIELD_IDS.note}
                     type="text"
                     className="form-input"
                     style={{ ...inputStyle, width: '100%' }}
@@ -387,6 +406,7 @@ export default function StudentPaymentModal({
                     onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
                     required={isFee}
                   />
+                  <FieldError id="student-pay-note-error">{payFieldErrors.note}</FieldError>
                   <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
                     Não aparece na grade de Mensalidades.
                   </p>
@@ -409,8 +429,11 @@ export default function StudentPaymentModal({
               ) : null}
 
               <div className="form-group">
-                <label className="form-label">Valor (R$)</label>
+                <label className="form-label" htmlFor={STUDENT_PAY_FIELD_IDS.amount}>
+                  Valor (R$)
+                </label>
                 <input
+                  id={STUDENT_PAY_FIELD_IDS.amount}
                   type="text"
                   inputMode="numeric"
                   placeholder="R$ 0,00"
@@ -424,11 +447,13 @@ export default function StudentPaymentModal({
                     }))
                   }
                 />
+                <FieldError id="student-pay-amount-error">{payFieldErrors.amount}</FieldError>
               </div>
 
               {showPaidDate ? (
                 <div>
                   <DateInput
+                    id={STUDENT_PAY_FIELD_IDS.paid_at}
                     label="Data do pagamento"
                     type="date"
                     className="form-input"
@@ -437,6 +462,7 @@ export default function StudentPaymentModal({
                     onChange={(e) => setPayForm((p) => ({ ...p, paid_at: e.target.value }))}
                     required
                   />
+                  <FieldError id="student-pay-paid-at-error">{payFieldErrors.paid_at}</FieldError>
                 </div>
               ) : null}
 
@@ -483,20 +509,30 @@ export default function StudentPaymentModal({
               </div>
 
               {showPaidDate && isCashPaymentMethod(payForm.method) ? (
-                <CashTrocoFields
-                  payForm={payForm}
-                  setPayForm={setPayForm}
-                  amountNum={amountNum}
-                  academyId={academyId}
-                  financeConfig={financeConfig}
-                  disabled={saving}
-                  inputClassName="form-input"
-                  labelClassName="form-label"
-                />
+                <>
+                  <CashTrocoFields
+                    payForm={payForm}
+                    setPayForm={setPayForm}
+                    amountNum={amountNum}
+                    academyId={academyId}
+                    financeConfig={financeConfig}
+                    disabled={saving}
+                    inputClassName="form-input"
+                    labelClassName="form-label"
+                    cashReceivedId={STUDENT_PAY_FIELD_IDS.cash_received}
+                    trocoAccountId={STUDENT_PAY_FIELD_IDS.trocoAccount}
+                  />
+                  <FieldError id="student-pay-cash-received-error">
+                    {payFieldErrors.cash_received}
+                  </FieldError>
+                  <FieldError id="student-pay-troco-account-error">
+                    {payFieldErrors.trocoAccount}
+                  </FieldError>
+                </>
               ) : null}
 
               <BankAccountSelect
-                id="student-pay-account"
+                id={STUDENT_PAY_FIELD_IDS.account}
                 academyId={academyId}
                 financeConfig={financeConfig}
                 value={payForm.account}
@@ -506,6 +542,7 @@ export default function StudentPaymentModal({
                 className="form-input"
                 style={{ width: '100%' }}
               />
+              <FieldError id="student-pay-account-error">{payFieldErrors.account}</FieldError>
 
               {showPlanFields ? (
                 <div className="form-group">

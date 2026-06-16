@@ -7,6 +7,7 @@ import {
   isFinanceSettingsSection,
   FINANCE_SETTINGS_GROUPS,
   buildFinanceSettingsNavItems,
+  financeSettingsSectionLabel,
 } from '../../lib/financeSettingsSections.js';
 import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import { useFinanceConfigState } from '../../hooks/useFinanceConfigState.js';
@@ -212,6 +213,14 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         saving={state.saving}
         onSave={state.persistAll}
         onDiscard={state.discardChanges}
+        saveHint={state.saveValidationHint}
+        saveIssueSectionId={state.saveValidationSection}
+        saveIssueSectionLabel={
+          state.saveValidationSection
+            ? financeSettingsSectionLabel(state.saveValidationSection)
+            : ''
+        }
+        onGoToIssueSection={goSection}
       />
 
       <ConfirmDialog

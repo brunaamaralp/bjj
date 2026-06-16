@@ -170,3 +170,77 @@ describe('bankReconciliationHandler create-tx', () => {
     );
   });
 });
+
+describe('bankReconciliationHandler confirm-match learn_payer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID = 'students';
+    mocks.ensureAuth.mockResolvedValue({ $id: 'user-1', name: 'Owner' });
+    mocks.ensureAcademyAccess.mockResolvedValue({ academyId: 'acad-1', doc: academyDoc });
+    mocks.isAcademyOwnerOrAdminUser.mockResolvedValue(true);
+  });
+
+  it('retorna learn_payer após confirmar match de crédito', async () => {
+    mocks.getDocument
+      .mockResolvedValueOnce({
+        $id: 'item-1',
+        statement_id: 'st-1',
+        direction: 'credit',
+        amount: 200,
+        description: 'PIX RECEBIDO JOSE SANTOS',
+        status: 'unmatched',
+      })
+      .mockResolvedValueOnce({ $id: 'st-1', academy_id: 'acad-1', bank_account: 'Sicoob' })
+      .mockResolvedValueOnce({
+        $id: 'tx-1',
+        academyId: 'acad-1',
+        lead_id: 'lead-1',
+        gross: 200,
+        direction: 'in',
+        status: 'settled',
+        settledAt: '2026-06-10',
+        bank_account: 'Sicoob',
+        reconciled: false,
+      })
+      .mockResolvedValueOnce({
+        $id: 'lead-1',
+        academyId: 'acad-1',
+        name: 'Pedro Santos',
+        responsavel: 'Ana Santos',
+        payer_aliases_json: '[]',
+      });
+
+    const { databases } = await import('../../../lib/server/academyAccess.js');
+    databases.listDocuments.mockResolvedValueOnce({
+      documents: [
+        {
+          $id: 'lead-1',
+          academyId: 'acad-1',
+          name: 'Pedro Santos',
+          responsavel: 'Ana Santos',
+          payer_aliases_json: '[]',
+        },
+      ],
+    });
+
+    mocks.updateDocument.mockResolvedValue({});
+
+    const res = mockRes();
+    await bankReconciliationHandler(
+      {
+        method: 'POST',
+        query: { route: 'confirm-match' },
+        body: { item_id: 'item-1', transaction_id: 'tx-1' },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.learn_payer).toMatchObject({
+      lead_id: 'lead-1',
+      extracted_normalized: 'JOSE SANTOS',
+      already_known: false,
+    });
+  });
+});

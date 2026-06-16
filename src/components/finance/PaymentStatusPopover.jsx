@@ -13,8 +13,13 @@ function buildInitialPaidAt(initialPaidAt) {
   return initialPaidAt ? String(initialPaidAt).slice(0, 10) : new Date().toISOString().slice(0, 10);
 }
 import { DateInputField } from '../DateInput';
-import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
-import { mapDbStatusFromGridForm } from '../../lib/paymentStatus';
+import FieldError from '../shared/FieldError.jsx';
+import { maskCurrency } from '../../lib/masks';
+import {
+  validatePaymentStatusPopoverForm,
+  focusFirstPaymentStatusPopoverError,
+  PAYMENT_STATUS_POPOVER_FIELD_IDS,
+} from '../../lib/paymentStatus';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 
 const STATUS_OPTIONS = [
@@ -40,6 +45,7 @@ function PaymentStatusPopoverForm({
   const [paidAmount, setPaidAmount] = useState(() => buildInitialPaidAmount(initialPaidAmount, expectedAmount));
   const [paidAt, setPaidAt] = useState(() => buildInitialPaidAt(initialPaidAt));
   const [note, setNote] = useState(() => initialNote || '');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -65,11 +71,17 @@ function PaymentStatusPopoverForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const paidNum = parseCurrencyBRL(paidAmount);
-    const dbStatus = mapDbStatusFromGridForm(status);
-    if ((dbStatus === 'paid' || dbStatus === 'partial') && (!Number.isFinite(paidNum) || paidNum < 0)) {
+    const { errors, dbStatus, paidNum } = validatePaymentStatusPopoverForm({
+      gridStatus: status,
+      paidAmount,
+      paidAt,
+    });
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      focusFirstPaymentStatusPopoverError(errors);
       return;
     }
+    setFieldErrors({});
     onSave({
       gridStatus: status,
       dbStatus,
@@ -95,7 +107,10 @@ function PaymentStatusPopoverForm({
         <select
           className="form-input payment-status-popover__input--compact"
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => {
+            setFieldErrors({});
+            setStatus(e.target.value);
+          }}
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -112,12 +127,19 @@ function PaymentStatusPopoverForm({
 
         {showAmount ? (
           <div>
-            <label className="text-xs payment-status-popover__field-label">Valor recebido</label>
+            <label className="text-xs payment-status-popover__field-label" htmlFor={PAYMENT_STATUS_POPOVER_FIELD_IDS.paid_amount}>
+              Valor recebido
+            </label>
             <input
+              id={PAYMENT_STATUS_POPOVER_FIELD_IDS.paid_amount}
               className="form-input payment-status-popover__input--amount"
               value={paidAmount}
-              onChange={(e) => setPaidAmount(maskCurrency(e.target.value))}
+              onChange={(e) => {
+                setFieldErrors((prev) => (prev.paid_amount ? { ...prev, paid_amount: '' } : prev));
+                setPaidAmount(maskCurrency(e.target.value));
+              }}
             />
+            <FieldError id="payment-popover-amount-error">{fieldErrors.paid_amount}</FieldError>
             {status === 'partial' && expectedAmount > 0 ? (
               <p className="text-xs text-muted payment-status-popover__hint">
                 Esperado: {expectedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -128,13 +150,20 @@ function PaymentStatusPopoverForm({
 
         {status !== 'awaiting' ? (
           <div>
-            <label className="text-xs payment-status-popover__field-label">Data</label>
+            <label className="text-xs payment-status-popover__field-label" htmlFor={PAYMENT_STATUS_POPOVER_FIELD_IDS.paid_at}>
+              Data
+            </label>
             <DateInputField
+              id={PAYMENT_STATUS_POPOVER_FIELD_IDS.paid_at}
               type="date"
               className="form-input payment-status-popover__input--compact"
               value={paidAt}
-              onChange={(e) => setPaidAt(e.target.value)}
+              onChange={(e) => {
+                setFieldErrors((prev) => (prev.paid_at ? { ...prev, paid_at: '' } : prev));
+                setPaidAt(e.target.value);
+              }}
             />
+            <FieldError id="payment-popover-paid-at-error">{fieldErrors.paid_at}</FieldError>
           </div>
         ) : null}
 

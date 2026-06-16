@@ -8,6 +8,13 @@ import {
   variantOptionLabel,
   parentNeedsVariantPicker,
   cartVariantOptions,
+  cartVariantOptionsForLineKind,
+  catalogLineAvailability,
+  variantCanAddForLineKind,
+  parentShowsDualPickActions,
+  defaultLineKindForParent,
+  suggestUnitPrice,
+  patchCartLineFromCatalog,
 } from '../lib/salesCatalog';
 
 describe('salesCatalog', () => {
@@ -275,5 +282,68 @@ describe('salesCatalog', () => {
     expect(parentNeedsVariantPicker(parent)).toBe(true);
     expect(cartVariantOptions(parent)).toHaveLength(2);
     expect(cartVariantOptions({ ...parent, variants: [parent.variants[0]] })).toBeNull();
+  });
+
+  it('dual pool helpers expose sale vs rental availability', () => {
+    const parent = enrichSalesParentRow({
+      id: 'p1',
+      nome: 'Kimono',
+      type: 'both',
+      rental_price: 40,
+      variants: [
+        enrichCatalogProduct({
+          id: 'v1',
+          sale_quantity: 2,
+          rental_available: 3,
+          rental_out: 1,
+          is_for_sale: true,
+          is_active: true,
+        }, 'both'),
+        enrichCatalogProduct({
+          id: 'v2',
+          sale_quantity: 0,
+          rental_available: 0,
+          rental_out: 0,
+          is_for_sale: true,
+          is_active: true,
+        }, 'both'),
+      ],
+    });
+    expect(parent.canSell).toBe(true);
+    expect(parent.canRent).toBe(true);
+    expect(parentShowsDualPickActions(parent)).toBe(true);
+    expect(defaultLineKindForParent(parent)).toBe('sale');
+    expect(catalogLineAvailability(parent.variants[0], parent, 'sale')).toBe(2);
+    expect(catalogLineAvailability(parent.variants[0], parent, 'rental')).toBe(3);
+    const rentalOpts = cartVariantOptionsForLineKind(parent, 'rental');
+    expect(rentalOpts).toHaveLength(2);
+    expect(rentalOpts[0].disponivel_for_line).toBe(3);
+    expect(rentalOpts[0].canAdd_for_line).toBe(true);
+    const { price } = suggestUnitPrice(parent.variants[0], { lineKind: 'rental', parent });
+    expect(price).toBe(40);
+  });
+
+  it('patchCartLineFromCatalog respects line_kind pool', () => {
+    const parent = enrichSalesParentRow({
+      id: 'p1',
+      nome: 'Kimono',
+      type: 'both',
+      variants: [
+        enrichCatalogProduct({
+          id: 'v1',
+          sale_quantity: 1,
+          rental_available: 4,
+          rental_out: 0,
+          is_for_sale: true,
+          is_active: true,
+        }, 'both'),
+      ],
+    });
+    const patch = patchCartLineFromCatalog(
+      { item_estoque_id: 'v1', line_kind: 'rental', parent_id: 'p1' },
+      parent
+    );
+    expect(patch.disponivel).toBe(4);
+    expect(patch.expected_quantity).toBe(4);
   });
 });

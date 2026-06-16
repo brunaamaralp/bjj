@@ -21,6 +21,7 @@ import {
 import { studentDueDay, dueDateInMonth } from '../../lib/collectionOverdue.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
+import { studentPaymentFriendlyError } from '../../lib/errorMessages.js';
 function displayNote(note, max = 80) {
   const s = String(note || '').trim();
   if (!s) return '';
@@ -220,7 +221,7 @@ export default function PaymentExceptionsView({
       checkResolvedAfterSave(student, doc, popover.row);
       setPopover(null);
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      addToast({ type: 'error', message: studentPaymentFriendlyError(e, 'save') });
     } finally {
       setSavingId(null);
     }
@@ -262,7 +263,7 @@ export default function PaymentExceptionsView({
       upsertPaymentInState(doc, sid);
       checkResolvedAfterSave(row.student, doc, row);
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'save') });
+      addToast({ type: 'error', message: studentPaymentFriendlyError(e, 'save') });
     } finally {
       setSavingId(null);
     }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './finance.css';
 import { ArrowLeft, Check, FileSpreadsheet, Upload } from 'lucide-react';
 import ImportStatementModal from './ImportStatementModal.jsx';
@@ -10,6 +10,7 @@ import {
   listBankStatements,
   getBankStatementDetail,
   confirmBankMatch,
+  rememberBankPayer,
   confirmAllBankMatches,
   ignoreBankItem,
   manualReconcileTx,
@@ -28,6 +29,7 @@ import FinanceTabShell from './FinanceTabShell.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import BankReconCreateTxModal from './BankReconCreateTxModal.jsx';
 import { useAccountingStore } from '../../store/useAccountingStore';
+import { formatReconTxSelectLabel } from '../../lib/financeReconTxLabel.js';
 
 function fmtMoney(v) {
   try {
@@ -80,7 +82,7 @@ function txLabel(tx, options) {
   const fromOpts = options?.find((o) => o.value === tx?.id);
   if (fromOpts) return fromOpts.label;
   if (!tx) return 'lançamento';
-  return `${fmtDate(tx.settledAt)} — ${fmtMoney(tx.gross)} — ${tx.planName || tx.category || 'Lançamento'}`;
+  return formatReconTxSelectLabel(tx, { formatDate: fmtDate, formatMoney: fmtMoney });
 }
 
 export default function ReconciliationTab({ academyId }) {
@@ -104,6 +106,8 @@ export default function ReconciliationTab({ academyId }) {
   const [focusPendingOnly, setFocusPendingOnly] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null);
   const [createTxItem, setCreateTxItem] = useState(null);
+  const [learnPayerPrompt, setLearnPayerPrompt] = useState(null);
+  const dismissedLearnKeys = useRef(new Set());
   const chartAccounts = useAccountingStore((s) => s.accounts);
 
   useEffect(() => {
@@ -177,6 +181,10 @@ export default function ReconciliationTab({ academyId }) {
         auto.push({ item, tx: txById.get(item.matched_tx_id) });
         continue;
       }
+      if (item.suggested_tx_candidates?.length >= 2) {
+        suggested.push({ item, tx: null, candidates: item.suggested_tx_candidates });
+        continue;
+      }
       if (item.suggested_tx_id && item.match_score >= 50) {
         suggested.push({ item, tx: txById.get(item.suggested_tx_id) });
         continue;
@@ -190,7 +198,7 @@ export default function ReconciliationTab({ academyId }) {
     () =>
       (detail?.navi_unmatched || []).map((tx) => ({
         value: tx.id,
-        label: `${fmtDate(tx.settledAt)} — ${fmtMoney(tx.gross)} — ${tx.planName || tx.category || 'Lançamento'}`,
+        label: formatReconTxSelectLabel(tx, { formatDate: fmtDate, formatMoney: fmtMoney }),
       })),
     [detail?.navi_unmatched]
   );
@@ -238,12 +246,47 @@ export default function ReconciliationTab({ academyId }) {
     }
   };
 
-  const linkItemToTx = (itemId, txId) => {
+  const maybePromptLearnPayer = (learn_payer) => {
+    if (!learn_payer || learn_payer.already_known) return;
+    const key = `${learn_payer.lead_id}:${learn_payer.extracted_normalized}`;
+    if (dismissedLearnKeys.current.has(key)) return;
+    setLearnPayerPrompt(learn_payer);
+  };
+
+  const linkItemToTx = async (itemId, txId) => {
     const tx = (detail?.navi_unmatched || []).find((t) => t.id === txId)
       || (detail?.navi_transactions || []).find((t) => t.id === txId);
-    return run(() => confirmBankMatch(academyId, { item_id: itemId, transaction_id: txId }), {
-      successMessage: `Linha conciliada com ${txLabel(tx, manualTxOptions)}`,
-    });
+    setBusy(true);
+    try {
+      const result = await confirmBankMatch(academyId, { item_id: itemId, transaction_id: txId });
+      await refresh();
+      toast.success(`Linha conciliada com ${txLabel(tx, manualTxOptions)}`);
+      maybePromptLearnPayer(result.learn_payer);
+    } catch (e) {
+      console.error(e);
+      setError(reconFriendlyError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeLearnPayerPrompt = (remember = false) => {
+    if (!learnPayerPrompt) return;
+    const key = `${learnPayerPrompt.lead_id}:${learnPayerPrompt.extracted_normalized}`;
+    dismissedLearnKeys.current.add(key);
+    const payload = learnPayerPrompt;
+    setLearnPayerPrompt(null);
+    if (remember) {
+      void rememberBankPayer(academyId, {
+        lead_id: payload.lead_id,
+        display: payload.extracted_display,
+      })
+        .then(() => toast.success('Pagador salvo para este aluno.'))
+        .catch((e) => {
+          console.error(e);
+          toast.show({ type: 'error', message: reconFriendlyError(e) });
+        });
+    }
   };
 
   const requestIgnore = (item) => {
@@ -512,14 +555,20 @@ export default function ReconciliationTab({ academyId }) {
               {grouped.suggested.length > 0 ? (
                 <p className="text-xs text-muted mb-2 mt-3">Sugestões — confirme antes de conciliar</p>
               ) : null}
-              {grouped.suggested.map(({ item, tx }) => (
+              {grouped.suggested.map(({ item, tx, candidates }) => (
                 <BankReconPairRow
                   key={item.id}
                   item={item}
                   tx={tx}
+                  candidates={candidates}
                   tone="suggested"
                   busy={busy}
-                  onConfirm={() => linkItemToTx(item.id, item.suggested_tx_id || tx?.id)}
+                  onConfirm={
+                    tx && !candidates?.length
+                      ? () => void linkItemToTx(item.id, item.suggested_tx_id || tx?.id)
+                      : null
+                  }
+                  onConfirmCandidate={(txId) => void linkItemToTx(item.id, txId)}
                   onIgnore={() => requestIgnore(item)}
                 />
               ))}
@@ -645,6 +694,21 @@ export default function ReconciliationTab({ academyId }) {
 
       {error ? <ErrorBanner message={error} onRetry={() => void loadDetail(selectedId)} className="mt-2" /> : null}
 
+      <ConfirmDialog
+        open={Boolean(learnPayerPrompt)}
+        title="Lembrar pagador?"
+        description={
+          learnPayerPrompt
+            ? `O extrato indica "${learnPayerPrompt.extracted_display}" como pagador de ${learnPayerPrompt.lead_name || 'este aluno'}. Deseja salvar para futuras conciliações?`
+            : ''
+        }
+        confirmLabel="Salvar pagador"
+        cancelLabel="Agora não"
+        confirmVariant="primary"
+        loading={busy}
+        onConfirm={() => closeLearnPayerPrompt(true)}
+        onClose={() => closeLearnPayerPrompt(false)}
+      />
       <ConfirmDialog
         open={pendingConfirm?.type === 'ignore'}
         title="Ignorar linha do extrato?"

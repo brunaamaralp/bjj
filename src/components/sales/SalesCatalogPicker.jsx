@@ -1,7 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
-import { filterCatalogProducts, groupByCategory } from '../../lib/salesCatalog';
+import {
+  catalogStockBadgeLabel,
+  defaultLineKindForParent,
+  filterCatalogProducts,
+  groupByCategory,
+  parentShowsDualPickActions,
+} from '../../lib/salesCatalog';
 import { formatBRL } from '../../lib/moneyBr';
 import ProductThumb from '../products/ProductThumb';
 
@@ -13,28 +19,16 @@ function stockBadgeClass(level) {
   return 'sales-stock-badge--ok';
 }
 
-function stockBadgeLabel(p) {
-  if (p.stockLevel === 'out') return 'Esgotado';
-  if (p.stockLevel === 'low') return `Baixo · ${p.current_quantity}`;
-  return `Disp. ${p.current_quantity}`;
+function catalogPriceLabel(p, lineKind) {
+  if (lineKind === 'rental') {
+    return p.rental_price != null ? formatBRL(p.rental_price) : 'Aluguel a definir';
+  }
+  return p.sale_price != null ? formatBRL(p.sale_price) : 'Preço a definir';
 }
 
-function CatalogCard({ p, flashProductId, onPick }) {
-  const priceLabel = p.sale_price != null ? formatBRL(p.sale_price) : 'Preço a definir';
-  const isOut = p.stockLevel === 'out';
-  const isFlashing = flashProductId === p.id;
-  const variantHint =
-    p.variant_count > 1 ? `${p.variant_count} variantes` : p._singleVariant?.Tamanho || p.Tamanho || null;
+function CatalogCardBody({ p, variantHint }) {
   return (
-    <button
-      type="button"
-      className={`sales-catalog__card${isOut ? ' sales-catalog__card--out' : ''}${
-        isFlashing ? ' sales-catalog__card--flash' : ''
-      }`}
-      disabled={!p.canAdd}
-      onClick={() => p.canAdd && onPick(p)}
-      title={p.canAdd ? (p.variant_count > 1 ? 'Escolher variante' : 'Adicionar ao carrinho') : 'Sem estoque'}
-    >
+    <>
       <div className="sales-catalog__card-media" aria-hidden={!p.image_url}>
         <ProductThumb imageUrl={p.image_url} alt={p.display_label || p.nome} size={64} />
       </div>
@@ -42,10 +36,81 @@ function CatalogCard({ p, flashProductId, onPick }) {
         <div className="sales-catalog__card-name">{p.display_label || p.nome}</div>
         {variantHint ? <span className="sales-catalog__card-var">{variantHint}</span> : null}
       </div>
-      <div className="sales-catalog__card-price">{priceLabel}</div>
       <span className={`sales-stock-badge ${stockBadgeClass(p.stockLevel)}`}>
-        {stockBadgeLabel(p)}
+        {catalogStockBadgeLabel(p)}
       </span>
+    </>
+  );
+}
+
+function CatalogCard({ p, flashProductId, onPick }) {
+  const dual = parentShowsDualPickActions(p);
+  const defaultKind = defaultLineKindForParent(p);
+  const isOut = !p.canAdd;
+  const isFlashing = flashProductId === p.id;
+  const variantHint =
+    p.variant_count > 1 ? `${p.variant_count} variantes` : p._singleVariant?.Tamanho || p.Tamanho || null;
+
+  if (dual) {
+    return (
+      <div
+        className={`sales-catalog__card sales-catalog__card--dual${isOut ? ' sales-catalog__card--out' : ''}${
+          isFlashing ? ' sales-catalog__card--flash' : ''
+        }`}
+      >
+        <CatalogCardBody p={p} variantHint={variantHint} />
+        <div className="sales-catalog__card-dual-prices">
+          <span className="sales-catalog__card-price">{catalogPriceLabel(p, 'sale')}</span>
+          <span className="sales-catalog__card-price sales-catalog__card-price--rental">
+            {catalogPriceLabel(p, 'rental')}
+          </span>
+        </div>
+        <div className="sales-catalog__card-actions">
+          <button
+            type="button"
+            className="btn-outline btn-sm sales-catalog__pick-btn"
+            disabled={!p.canSell}
+            onClick={() => p.canSell && onPick(p, 'sale')}
+          >
+            Vender
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm sales-catalog__pick-btn"
+            disabled={!p.canRent}
+            onClick={() => p.canRent && onPick(p, 'rental')}
+          >
+            Alugar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const lineKind = defaultKind;
+  const priceLabel = catalogPriceLabel(p, lineKind);
+  return (
+    <button
+      type="button"
+      className={`sales-catalog__card${isOut ? ' sales-catalog__card--out' : ''}${
+        isFlashing ? ' sales-catalog__card--flash' : ''
+      }`}
+      disabled={!p.canAdd}
+      onClick={() => p.canAdd && onPick(p, lineKind)}
+      title={
+        p.canAdd
+          ? p.variant_count > 1
+            ? lineKind === 'rental'
+              ? 'Escolher variante para alugar'
+              : 'Escolher variante'
+            : lineKind === 'rental'
+              ? 'Alugar'
+              : 'Adicionar ao carrinho'
+          : 'Sem estoque'
+      }
+    >
+      <CatalogCardBody p={p} variantHint={variantHint} />
+      <div className="sales-catalog__card-price">{priceLabel}</div>
     </button>
   );
 }

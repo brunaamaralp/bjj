@@ -8,6 +8,7 @@ import { buildStudentPayloadFromDoc } from '../lib/leadStudentPayload.js';
 import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyContext.js';
 import { STUDENT_STATUS, filterMappedStudentsByListStatus } from '../lib/studentStatus.js';
 import { stripUnknownStudentPatch } from '../lib/studentAppwritePatch.js';
+import { serializePayerAliases } from '../lib/studentPayerAliases.js';
 import { fetchStudentsList } from '../lib/studentsApi.js';
 import {
   findActiveStudentByPhone,
@@ -165,6 +166,9 @@ function updatesToStudentPatch(updates) {
   if (u.cpf !== undefined) patch.cpf = u.cpf || '';
   if (u.responsavel !== undefined) patch.responsavel = u.responsavel || '';
   if (u.cpfResponsavel !== undefined) patch.cpf_responsavel = u.cpfResponsavel || '';
+  if (u.payerAliases !== undefined) {
+    patch.payer_aliases_json = serializePayerAliases(u.payerAliases);
+  }
   if (u.preferredPaymentMethod !== undefined) {
     patch.preferred_payment_method = u.preferredPaymentMethod || '';
   }

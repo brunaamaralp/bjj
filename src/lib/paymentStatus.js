@@ -2,6 +2,7 @@
  * Status de mensalidade: paid | pending | awaiting | partial | cancelled
  * + status derivados de calendário: soon | none
  */
+import { parseCurrencyBRL } from './masks.js';
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
 import {
   canonicalPaymentMethodKey,
@@ -226,6 +227,43 @@ export function mapDbStatusFromGridForm(gridKey) {
   if (gridKey === 'pending') return 'pending';
   if (gridKey === 'soon') return 'pending';
   return 'pending';
+}
+
+export const PAYMENT_STATUS_POPOVER_FIELD_IDS = {
+  paid_amount: 'payment-popover-amount',
+  paid_at: 'payment-popover-paid-at',
+};
+
+/** Validação do popover de status na grade de mensalidades. */
+export function validatePaymentStatusPopoverForm({ gridStatus, paidAmount, paidAt }) {
+  const errors = {};
+  const dbStatus = mapDbStatusFromGridForm(gridStatus);
+  const paidNum = parseCurrencyBRL(paidAmount);
+  if (dbStatus === 'paid' || dbStatus === 'partial') {
+    if (!Number.isFinite(paidNum) || paidNum <= 0) {
+      errors.paid_amount = 'Informe um valor maior que zero.';
+    }
+  }
+  if (dbStatus !== 'awaiting') {
+    const paidAtStr = String(paidAt || '').trim();
+    if (!paidAtStr || !Number.isFinite(new Date(`${paidAtStr}T12:00:00`).getTime())) {
+      errors.paid_at = 'Informe uma data válida.';
+    }
+  }
+  return { errors, dbStatus, paidNum };
+}
+
+export function focusFirstPaymentStatusPopoverError(errors) {
+  if (!errors || typeof document === 'undefined') return;
+  for (const key of ['paid_amount', 'paid_at']) {
+    if (!errors[key]) continue;
+    const id = PAYMENT_STATUS_POPOVER_FIELD_IDS[key];
+    const el = id ? document.getElementById(id) : null;
+    if (el && typeof el.focus === 'function') {
+      el.focus();
+      return;
+    }
+  }
 }
 
 export function shouldMirrorPaymentToCaixa(status) {
