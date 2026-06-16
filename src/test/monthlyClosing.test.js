@@ -197,20 +197,36 @@ describe('monthlyClosing', () => {
     expect(errors.gross).toBeTruthy();
   });
 
-  it('validateClosingManualReceiptForm rejects unknown bank account when configured', () => {
+  it('validateClosingManualReceiptForm accepts valid manual receipt with bank account', () => {
     const financeConfig = {
       bankAccounts: [{ bankName: 'Sicoob', account: '1234-5' }],
     };
-    const { errors, bankAccount } = validateClosingManualReceiptForm({
+    const { errors, bankAccount, grossNum, description } = validateClosingManualReceiptForm({
       manualForm: {
         description: 'Aula avulsa',
-        gross: 'R$ 50,00',
+        gross: '50,00',
         date: '2026-05-10',
-        account: 'Conta inexistente',
+        account: 'Sicoob · 1234-5',
       },
       financeConfig,
     });
-    expect(errors.account).toBeTruthy();
+    expect(errors).toEqual({});
+    expect(bankAccount).toBe('Sicoob · 1234-5');
+    expect(grossNum).toBe(50);
+    expect(description).toBe('Aula avulsa');
+  });
+
+  it('validateClosingManualReceiptForm skips account validation when none configured', () => {
+    const { errors, bankAccount } = validateClosingManualReceiptForm({
+      manualForm: {
+        description: 'Aula avulsa',
+        gross: '50,00',
+        date: '2026-05-10',
+        account: '',
+      },
+      financeConfig: { bankAccounts: [] },
+    });
+    expect(errors.account).toBeUndefined();
     expect(bankAccount).toBe('');
   });
 });
