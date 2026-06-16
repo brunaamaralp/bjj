@@ -11,6 +11,10 @@ import {
   readCollectionSettingsFromFinanceConfig,
 } from './collectionRules.js';
 import { shiftMonthYm } from './financeiroOverview.js';
+import {
+  buildPaidBundleCoveredMonthsByLead,
+  isMonthCoveredByPaidBundle,
+} from './bundleCoverage.js';
 
 export const COLLECTION_QUEUE_LOOKBACK_MONTHS = 12;
 
@@ -139,6 +143,7 @@ export function buildCollectionQueue({
     readCollectionSettingsFromFinanceConfig(financeConfig).collectionRules
   );
   const payMap = buildPaymentsByLeadMonth(payments);
+  const bundleCoveredByLead = buildPaidBundleCoveredMonthsByLead(payments);
 
   const active = students.filter((s) => isActiveStudent(s) && String(s.plan || '').trim());
   const rows = [];
@@ -152,8 +157,10 @@ export function buildCollectionQueue({
       enrollYm && enrollYm > lookbackStart ? enrollYm : lookbackStart;
     const months = listMonthsInclusive(scanStart, currentMonth);
 
+    const bundleCoveredMonths = bundleCoveredByLead.get(studentId);
     const openMonths = [];
     for (const ym of months) {
+      if (isMonthCoveredByPaidBundle(ym, bundleCoveredMonths)) continue;
       const payment = paymentFromMap(payMap, studentId, ym);
       const entry = buildOpenMonthEntry(student, payment, ym, financeConfig, today);
       if (entry) openMonths.push(entry);

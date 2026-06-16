@@ -163,3 +163,56 @@ export function findAnchorPayment(payment, paymentsById) {
   if (!oid) return null;
   return paymentsById?.get?.(oid) || null;
 }
+
+function resolvePaidBundleAnchorMonths(payment) {
+  const st = String(payment?.status || '').toLowerCase();
+  if (st !== 'paid') return null;
+
+  const startYm = String(payment?.reference_month || '').trim().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(startYm)) return null;
+
+  let months = Number(payment?.bundle_months);
+  if (!Number.isFinite(months) || months < 1) {
+    if (isBundleAnchorPayment(payment)) months = 12;
+    else return null;
+  }
+
+  return { startYm, months: Math.trunc(months) };
+}
+
+/**
+ * Meses cobertos por âncoras pagas (plano anual/trimestral), mesmo sem registros `covered`.
+ * @returns {Map<string, Set<string>>} leadId → Set<YYYY-MM>
+ */
+export function buildPaidBundleCoveredMonthsByLead(payments = []) {
+  const byLead = new Map();
+
+  for (const raw of payments) {
+    const lid = String(raw?.lead_id || raw?.leadId || '').trim();
+    if (!lid) continue;
+
+    const anchor =
+      isBundleAnchorPayment(raw) || Number(raw?.bundle_months) >= 2
+        ? raw
+        : null;
+    if (!anchor) continue;
+
+    const spec = resolvePaidBundleAnchorMonths(anchor);
+    if (!spec) continue;
+
+    if (!byLead.has(lid)) byLead.set(lid, new Set());
+    const covered = byLead.get(lid);
+    for (const ym of enumerateCoverageMonths(spec.startYm, spec.months)) {
+      covered.add(ym);
+    }
+  }
+
+  return byLead;
+}
+
+/** @param {Set<string>|undefined} coveredMonths */
+export function isMonthCoveredByPaidBundle(ym, coveredMonths) {
+  const month = String(ym || '').trim().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return false;
+  return coveredMonths?.has(month) === true;
+}

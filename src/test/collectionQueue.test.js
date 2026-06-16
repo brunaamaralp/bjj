@@ -135,6 +135,74 @@ describe('buildCollectionQueue', () => {
     expect(out.rows).toHaveLength(0);
   });
 
+  it('excludes months within paid annual bundle coverage', () => {
+    const out = buildCollectionQueue({
+      students: [
+        {
+          id: 's1',
+          name: 'Eva',
+          plan: 'Anual',
+          dueDay: 5,
+          student_status: 'active',
+          converted_at: '2026-01-01',
+        },
+      ],
+      payments: [
+        {
+          lead_id: 's1',
+          reference_month: '2026-01',
+          status: 'paid',
+          amount: 2400,
+          payment_category: 'bundle',
+          bundle_months: 12,
+          paid_at: '2026-01-05',
+          $id: 'anchor-1',
+          bundle_origin_id: 'anchor-1',
+        },
+      ],
+      financeConfig: {
+        plans: [{ name: 'Anual', price: 200 }],
+      },
+      today,
+    });
+    expect(out.summary.students).toBe(0);
+    expect(out.rows).toHaveLength(0);
+  });
+
+  it('shows overdue only after bundle coverage ends', () => {
+    const out = buildCollectionQueue({
+      students: [
+        {
+          id: 's1',
+          name: 'Eva',
+          plan: 'Anual',
+          dueDay: 5,
+          student_status: 'active',
+          converted_at: '2025-01-01',
+        },
+      ],
+      payments: [
+        {
+          lead_id: 's1',
+          reference_month: '2025-01',
+          status: 'paid',
+          amount: 2400,
+          payment_category: 'bundle',
+          bundle_months: 12,
+          paid_at: '2025-01-05',
+          $id: 'anchor-1',
+          bundle_origin_id: 'anchor-1',
+        },
+      ],
+      financeConfig: {
+        plans: [{ name: 'Anual', price: 200 }],
+      },
+      today,
+    });
+    expect(out.summary.students).toBe(1);
+    expect(out.rows[0].openMonths.every((m) => m.referenceMonth >= '2026-01')).toBe(true);
+  });
+
   it('assigns collection stage from oldest overdue', () => {
     const out = buildCollectionQueue({
       students: [
