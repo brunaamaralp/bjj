@@ -31,6 +31,7 @@ Antes de rodar qualquer prompt de refatoração no Cursor:
 - lib/server/agentRespond.js — resposta Claude, handoff guard, retry
 - src/lib/inboxConversationState.js — updates otimistas read/unread
 - Detecção de nova mensagem (helper puro)
+- **Financeiro / Lançamentos** — ver [docs/harness/finance-lancamentos.md](docs/harness/finance-lancamentos.md)
 
 ## Adicionando novos testes
 

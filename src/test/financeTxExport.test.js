@@ -58,4 +58,30 @@ describe('applyFinanceTxFilters', () => {
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('3');
   });
+
+  it('filters by direction out', () => {
+    const rows = [
+      { id: '1', status: 'settled', type: 'plan', gross: 100 },
+      { id: '2', status: 'settled', type: 'expense', gross: 50, direction: 'out' },
+    ];
+    const out = applyFinanceTxFilters(rows, { directionFilter: 'out' }, new Map());
+    expect(out.map((r) => r.id)).toEqual(['2']);
+  });
+
+  it('filters by bank account', () => {
+    const rows = [
+      { id: '1', bankAccount: 'Sicoob', status: 'settled', type: 'plan', gross: 10 },
+      { id: '2', bankAccount: 'Nubank', status: 'settled', type: 'plan', gross: 20 },
+    ];
+    const out = applyFinanceTxFilters(rows, { bankAccountFilter: 'Sicoob' }, new Map());
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('1');
+  });
+
+  it('uses ctx.leadName in CSV export', () => {
+    const row = financeTxToCsvRow({ lead_id: 'x', type: 'plan', gross: 10, status: 'pending' }, {
+      leadName: 'Override',
+    });
+    expect(row.aluno).toBe('Override');
+  });
 });

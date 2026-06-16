@@ -50,3 +50,5 @@ scripts/*
 *.sln
 *.sw?
 tmp/
+
+.vercel

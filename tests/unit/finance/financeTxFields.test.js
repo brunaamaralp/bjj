@@ -202,6 +202,19 @@ describe('financeTxFields', () => {
       expect(mapped.category).toBe(financeCategoryLabelFromDoc(doc));
       expect(mapped.category).toBe('Mensalidades');
     });
+
+    it('maps lead_name from document', () => {
+      const mapped = mapFinanceTxDoc({
+        $id: 'tx-lead',
+        type: 'plan',
+        gross: 100,
+        status: 'settled',
+        lead_id: 'lead-1',
+        lead_name: 'Maria Souza',
+      });
+      expect(mapped.lead_name).toBe('Maria Souza');
+      expect(mapped.lead_id).toBe('lead-1');
+    });
   });
 
   describe('BLOCO 6 — financeTxDocumentForAppwrite', () => {

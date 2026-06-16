@@ -99,6 +99,17 @@ import {
   leadNameForExport,
   resolveTxLeadName,
 } from '../../lib/financeTxLeadNames.js';
+import {
+  OPTIONAL_TX_COLUMNS,
+  defaultTxColumnVisibility,
+  loadTxColumnVisibility,
+  saveTxColumnVisibility,
+  parseStatusFilterParam,
+  parseDirectionFilterParam,
+  patchFinanceTxUrlParam,
+  getTxModalTitle,
+  getTxModalSaveLabel,
+} from '../../lib/financeTxTabState.js';
 
 const BANK_FILTER_UNALLOCATED = '__unallocated__';
 
@@ -115,50 +126,6 @@ function contaParamFromBankFilter(value) {
   if (value === 'all') return '';
   if (value === BANK_FILTER_UNALLOCATED) return UNALLOCATED_BANK_LABEL;
   return String(value || '').trim();
-}
-
-const TX_COLUMNS_STORAGE_PREFIX = 'navi-finance-tx-cols';
-
-const OPTIONAL_TX_COLUMNS = [
-  { key: 'sale', label: 'Venda', defaultVisible: false },
-  { key: 'bank', label: 'Conta', defaultVisible: false },
-  { key: 'type', label: 'Tipo', defaultVisible: false },
-  { key: 'method', label: 'Método', defaultVisible: false },
-  { key: 'fee', label: 'Taxa', defaultVisible: false },
-  { key: 'nature', label: 'Natureza', defaultVisible: false },
-  { key: 'gross', label: 'Bruto', defaultVisible: false },
-];
-
-function defaultTxColumnVisibility() {
-  return Object.fromEntries(OPTIONAL_TX_COLUMNS.map((c) => [c.key, c.defaultVisible]));
-}
-
-function loadTxColumnVisibility(academyId) {
-  if (!academyId) return defaultTxColumnVisibility();
-  try {
-    const raw = localStorage.getItem(`${TX_COLUMNS_STORAGE_PREFIX}:${academyId}`);
-    if (!raw) return defaultTxColumnVisibility();
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return defaultTxColumnVisibility();
-    return {
-      ...defaultTxColumnVisibility(),
-      ...OPTIONAL_TX_COLUMNS.reduce((acc, col) => {
-        if (typeof parsed[col.key] === 'boolean') acc[col.key] = parsed[col.key];
-        return acc;
-      }, {}),
-    };
-  } catch {
-    return defaultTxColumnVisibility();
-  }
-}
-
-function saveTxColumnVisibility(academyId, visibility) {
-  if (!academyId) return;
-  try {
-    localStorage.setItem(`${TX_COLUMNS_STORAGE_PREFIX}:${academyId}`, JSON.stringify(visibility));
-  } catch {
-    /* ignore quota / private mode */
-  }
 }
 
 function formatTxDateStr(iso) {
@@ -219,32 +186,6 @@ const TX_FORM_FIELD_IDS = {
   bankAccount: 'finance-tx-bank-account',
   recurrence: 'finance-tx-recurrence-toggle',
 };
-
-function parseStatusFilterParam(raw) {
-  const s = String(raw || '').toLowerCase();
-  if (s === 'pending' || s === 'settled' || s === 'cancelled') return s;
-  return 'all';
-}
-
-function parseDirectionFilterParam(raw) {
-  const s = String(raw || '').toLowerCase();
-  if (s === 'in' || s === 'out') return s;
-  return 'all';
-}
-
-function getTxModalTitle({ editingRecurrenceOnly, editingTxId }) {
-  if (editingRecurrenceOnly) return 'Editar recorrência';
-  if (editingTxId) return 'Editar lançamento';
-  return 'Novo lançamento';
-}
-
-function getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow }) {
-  if (savingTx) return 'Salvando…';
-  if (editingRecurrenceOnly) return 'Salvar recorrência';
-  if (editingTxId) return 'Salvar alterações';
-  if (receiveNow) return 'Registrar e liquidar';
-  return 'Registrar lançamento';
-}
 
 function focusFirstTxFormError(errors) {
   for (const key of TX_FORM_ERROR_FOCUS_ORDER) {
@@ -492,12 +433,7 @@ export default function TransacoesTab({
   const setStatusFilter = useCallback(
     (value) => {
       setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (!value || value === 'all') next.delete('status');
-          else next.set('status', value);
-          return next;
-        },
+        (prev) => patchFinanceTxUrlParam(prev, 'status', value),
         { replace: true }
       );
     },
@@ -507,12 +443,7 @@ export default function TransacoesTab({
   const setDirectionFilter = useCallback(
     (value) => {
       setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (!value || value === 'all') next.delete('dir');
-          else next.set('dir', value);
-          return next;
-        },
+        (prev) => patchFinanceTxUrlParam(prev, 'dir', value),
         { replace: true }
       );
     },
@@ -522,13 +453,10 @@ export default function TransacoesTab({
   useEffect(() => {
     setSearchParams(
       (prev) => {
-        const next = new URLSearchParams(prev);
         const q = debouncedTxSearch.trim();
-        const current = next.get('q') || '';
+        const current = prev.get('q') || '';
         if (q === current) return prev;
-        if (q) next.set('q', q);
-        else next.delete('q');
-        return next;
+        return patchFinanceTxUrlParam(prev, 'q', q, { omitWhen: [''] });
       },
       { replace: true }
     );
