@@ -1,3 +1,4 @@
+import '../../styles/sales.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -17,6 +18,7 @@ import SalesCatalogPicker from '../sales/SalesCatalogPicker';
 import SalesVariantPicker from '../sales/SalesVariantPicker';
 import SalesCart from '../sales/SalesCart';
 import SalesPaymentBlock from '../sales/SalesPaymentBlock';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
@@ -24,6 +26,9 @@ import {
   rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
 import { friendlySaleError } from '../../lib/errorMessages.js';
+import { isStudentProductSaleDirty } from '../../lib/saleModalDirty.js';
+
+export const STUDENT_PRODUCT_SALE_FORM_ID = 'student-product-sale-form';
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
@@ -34,7 +39,17 @@ function createSaleIdempotencyKey() {
   return `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 }
 
-export default function StudentProductSaleStep({ student, onBack, onComplete }) {
+export default function StudentProductSaleStep({
+  student,
+  onBack,
+  onComplete,
+  formId = STUDENT_PRODUCT_SALE_FORM_ID,
+  hideSubmitButton = false,
+  onVariantPickerChange,
+  onDirtyChange,
+  onSubmitStateChange,
+  onNavigateAway,
+}) {
   const academyId = useLeadStore((s) => s.academyId);
   const addToast = useUiStore((s) => s.addToast);
   const createSale = useSalesStore((s) => s.createSale);
@@ -52,6 +67,7 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
   const [variantPickerParent, setVariantPickerParent] = useState(null);
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
+  const [mobilePanel, setMobilePanel] = useState('catalog');
 
   const idempotencyKeyRef = useRef('');
 
@@ -69,6 +85,7 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     setDueDate('');
     setLocalError('');
     setVariantPickerParent(null);
+    setMobilePanel('catalog');
   }, []);
 
   useEffect(() => {
@@ -132,6 +149,32 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
   );
 
   const totalMasked = useMemo(() => formatBRL(round2(totalCart)), [totalCart]);
+
+  const cartCount = useMemo(
+    () => cart.reduce((n, it) => n + Number(it.quantidade || 0), 0),
+    [cart]
+  );
+
+  const saleDirty = useMemo(() => isStudentProductSaleDirty(cart), [cart]);
+
+  useEffect(() => {
+    onVariantPickerChange?.(!!variantPickerParent);
+  }, [variantPickerParent, onVariantPickerChange]);
+
+  useEffect(() => {
+    onDirtyChange?.(saleDirty);
+  }, [saleDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!onSubmitStateChange) return;
+    const canSubmit =
+      cart.length > 0 && !creating && (receiveLater || paymentValid.ok);
+    onSubmitStateChange({
+      canSubmit,
+      busy: creating,
+      label: creating ? 'Registrando…' : 'Confirmar venda',
+    });
+  }, [cart.length, creating, receiveLater, paymentValid.ok, onSubmitStateChange]);
 
   useEffect(() => {
     setPayments((prev) => {
@@ -209,6 +252,10 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
       const flashId = parentId || stockId;
       setFlashProductId(flashId);
       window.setTimeout(() => setFlashProductId(null), 420);
+
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+        setMobilePanel('cart');
+      }
     },
     [salesSettings.lockPriceEdit, addToast, buildCartLine, cart]
   );
@@ -315,7 +362,14 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     return it.variacao && it.variant_options?.length > 1 ? `${base} · ${it.variacao}` : base;
   };
 
-  const submitSale = async () => {
+  const focusCartPanel = useCallback(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+      setMobilePanel('cart');
+    }
+  }, []);
+
+  const submitSale = async (e) => {
+    e?.preventDefault?.();
     setLocalError('');
     if (!studentId) {
       setLocalError('Aluno inválido para esta venda.');
@@ -323,25 +377,30 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
     }
     if (cart.length === 0) {
       setLocalError('Adicione pelo menos um produto');
+      focusCartPanel();
       return;
     }
     if (receiveLater) {
       if (!String(dueDate || '').trim()) {
         setLocalError('Informe a data de vencimento.');
+        focusCartPanel();
         return;
       }
     } else if (!paymentValid.ok) {
       setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+      focusCartPanel();
       return;
     }
     for (const it of cart) {
       const unit = Number(it.preco_unitario);
       if (!Number.isFinite(unit) || unit <= 0) {
         setLocalError(`Informe o preço de "${cartLineLabel(it)}"`);
+        focusCartPanel();
         return;
       }
       if (salesSettings.lockPriceEdit && unit <= 0) {
         setLocalError(`Preço obrigatório para "${cartLineLabel(it)}"`);
+        focusCartPanel();
         return;
       }
     }
@@ -400,87 +459,134 @@ export default function StudentProductSaleStep({ student, onBack, onComplete }) 
   };
 
   return (
-    <div className="student-product-sale" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <button type="button" className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={onBack}>
+    <div className="student-product-sale">
+      <button type="button" className="btn-ghost student-product-sale__back" onClick={onBack}>
         ← Voltar aos tipos
       </button>
-      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+      <p className="student-product-sale__context">
         Venda para <strong>{studentName}</strong>
       </p>
+
       {localError ? (
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)' }} role="alert">
-          {localError}
-        </p>
+        <StatusBanner variant="error" message={localError} className="student-product-sale__error" />
       ) : null}
-      <SalesCatalogPicker
-        products={products}
-        loading={catalogLoading}
-        onPick={handleCatalogPick}
-        flashProductId={flashProductId}
-      />
-      {cart.length > 0 ? (
-        <SalesCart
-          cart={cart}
-          lockPriceEdit={salesSettings.lockPriceEdit}
-          onQtyChange={updateCartQty}
-          onPriceChange={updateCartPrice}
-          onVariantChange={changeCartVariant}
-          onRemove={removeFromCart}
-          subtotalMasked={totalMasked}
-          descGeralMasked={formatBRL(0)}
-          totalMasked={totalMasked}
-        />
-      ) : null}
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 14,
-          cursor: creating ? 'default' : 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={receiveLater}
-          disabled={creating || cart.length === 0}
-          onChange={(e) => {
-            setReceiveLater(e.target.checked);
-            setLocalError('');
-          }}
-        />
-        Receber depois
-      </label>
-      {receiveLater ? (
-        <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-            Data de vencimento <span style={{ color: 'var(--danger)' }}>*</span>
-          </label>
-          <DateInput
-            type="date"
-            value={dueDate}
-            disabled={creating || cart.length === 0}
-            onChange={(e) => setDueDate(e.target.value)}
-            required
-          />
+
+      <form id={formId} className="student-product-sale__form" onSubmit={(e) => void submitSale(e)}>
+        <div className="sales-mobile-tabs" role="tablist" aria-label="Catálogo e carrinho">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'catalog'}
+            className={`sales-mobile-tab${mobilePanel === 'catalog' ? ' sales-mobile-tab--active' : ''}`}
+            onClick={() => setMobilePanel('catalog')}
+          >
+            Catálogo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'cart'}
+            className={`sales-mobile-tab${mobilePanel === 'cart' ? ' sales-mobile-tab--active' : ''}`}
+            onClick={() => setMobilePanel('cart')}
+          >
+            Carrinho
+            {cartCount > 0 ? <span className="sales-mobile-tab__badge">{cartCount}</span> : null}
+          </button>
         </div>
-      ) : (
-        <SalesPaymentBlock
-          totalCents={totalFinalCents}
-          payments={payments}
-          onChange={setPayments}
-          disabled={creating || cart.length === 0}
-        />
-      )}
-      <button
-        type="button"
-        className="btn-primary"
-        disabled={creating || cart.length === 0}
-        style={{ width: '100%' }}
-        onClick={() => void submitSale()}
-      >
-        {creating ? 'Registrando…' : 'Confirmar venda'}
-      </button>
+
+        <div className="sales-layout student-product-sale__layout">
+          <div
+            className={`sales-layout__catalog sales-panel${
+              mobilePanel === 'catalog' ? ' sales-panel--active' : ''
+            }`}
+          >
+            <SalesCatalogPicker
+              products={products}
+              loading={catalogLoading}
+              onPick={handleCatalogPick}
+              flashProductId={flashProductId}
+              onNavigateAway={onNavigateAway}
+            />
+          </div>
+
+          <aside
+            className={`sales-layout__checkout sales-panel${
+              mobilePanel === 'cart' ? ' sales-panel--active' : ''
+            }`}
+          >
+            <div className="sales-checkout card student-product-sale__checkout">
+              {cart.length > 0 ? (
+                <SalesCart
+                  cart={cart}
+                  lockPriceEdit={salesSettings.lockPriceEdit}
+                  onQtyChange={updateCartQty}
+                  onPriceChange={updateCartPrice}
+                  onVariantChange={changeCartVariant}
+                  onRemove={removeFromCart}
+                  subtotalMasked={totalMasked}
+                  descGeralMasked={formatBRL(0)}
+                  totalMasked={totalMasked}
+                />
+              ) : (
+                <p className="text-small text-muted student-product-sale__empty-cart">
+                  Adicione produtos pelo catálogo.
+                </p>
+              )}
+
+              <label className="sales-collab-toggle__label student-product-sale__defer">
+                <input
+                  type="checkbox"
+                  checked={receiveLater}
+                  disabled={creating || cart.length === 0}
+                  onChange={(e) => {
+                    setReceiveLater(e.target.checked);
+                    setLocalError('');
+                  }}
+                />
+                <span className="sales-collab-toggle__text">Receber depois</span>
+              </label>
+
+              {receiveLater ? (
+                <div className="form-group sales-checkout__field">
+                  <label htmlFor="student-product-sale-due">
+                    Data de vencimento <span className="sales-field-required">*</span>
+                  </label>
+                  <DateInput
+                    id="student-product-sale-due"
+                    type="date"
+                    value={dueDate}
+                    disabled={creating || cart.length === 0}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : (
+                <SalesPaymentBlock
+                  totalCents={totalFinalCents}
+                  payments={payments}
+                  onChange={setPayments}
+                  disabled={creating || cart.length === 0}
+                  inlineValidate
+                />
+              )}
+
+              {!hideSubmitButton ? (
+                <button
+                  type="submit"
+                  className="btn-primary sales-submit-btn"
+                  disabled={
+                    creating ||
+                    cart.length === 0 ||
+                    (!receiveLater && !paymentValid.ok)
+                  }
+                >
+                  {creating ? 'Registrando…' : 'Confirmar venda'}
+                </button>
+              ) : null}
+            </div>
+          </aside>
+        </div>
+      </form>
 
       {variantPickerParent ? (
         <SalesVariantPicker

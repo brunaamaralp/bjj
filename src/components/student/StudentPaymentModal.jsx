@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DateInput } from '../DateInput';
 import ModalShell from '../shared/ModalShell.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankAccountSelect from '../finance/BankAccountSelect.jsx';
 import { PAYMENT_CATEGORY, normalizePaymentCategory } from '../../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
-import StudentProductSaleStep from './StudentProductSaleStep.jsx';
+import StudentProductSaleStep, { STUDENT_PRODUCT_SALE_FORM_ID } from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
@@ -16,6 +18,7 @@ import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } from '../../lib/moneyBr';
 import CashTrocoFields from '../finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../../lib/studentPaymentTroco.js';
+import { useSalesStore } from '../../store/useSalesStore';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -91,19 +94,43 @@ export default function StudentPaymentModal({
   editingPaymentId = null,
   formError = '',
 }) {
+  const navigate = useNavigate();
+  const creatingSale = useSalesStore((s) => s.creating);
   const [productStep, setProductStep] = useState(false);
   const [showProductDeferHint, setShowProductDeferHint] = useState(false);
+  const [productDirty, setProductDirty] = useState(false);
+  const [productVariantPickerOpen, setProductVariantPickerOpen] = useState(false);
+  const [showDiscardProductDialog, setShowDiscardProductDialog] = useState(false);
+  const [productSubmitState, setProductSubmitState] = useState({
+    canSubmit: false,
+    busy: false,
+    label: 'Confirmar venda',
+  });
 
   const handleClose = useCallback(() => {
     setProductStep(false);
     setShowProductDeferHint(false);
+    setProductDirty(false);
     onClose();
   }, [onClose]);
 
   const requestClose = useCallback(() => {
-    if (saving) return;
+    if (saving || creatingSale) return;
+    const isProductFlow = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
+    if (isProductFlow && productDirty) {
+      setShowDiscardProductDialog(true);
+      return;
+    }
     handleClose();
-  }, [saving, handleClose]);
+  }, [saving, creatingSale, payForm.payment_type, productStep, productDirty, handleClose]);
+
+  const handleProductNavigateAway = useCallback(
+    (path) => {
+      handleClose();
+      navigate(path);
+    },
+    [handleClose, navigate]
+  );
 
   if (!open || !student) return null;
 
@@ -127,19 +154,39 @@ export default function StudentPaymentModal({
   const modalTitle = isProduct ? 'Venda de produto' : editingPaymentId ? 'Editar pagamento' : 'Registrar pagamento';
 
   return (
+    <>
     <ModalShell
       open={open && Boolean(student)}
       title={modalTitle}
       onClose={requestClose}
       closeOnOverlay={!isProduct && !saving}
-      closeOnEsc={!saving}
-      showCloseButton={!saving}
+      closeOnEsc={!saving && !(isProduct && productVariantPickerOpen)}
+      showCloseButton={!saving && !creatingSale}
       maxWidth={isProduct ? 560 : 480}
       className="navi-modal-overlay--form"
       dialogClassName="student-payment-modal"
       ariaLabelledBy="student-payment-modal-title"
       footer={
-        !isProduct ? (
+        isProduct ? (
+          <div className="student-payment-modal__footer">
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={creatingSale}
+              onClick={requestClose}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form={STUDENT_PRODUCT_SALE_FORM_ID}
+              className="btn-primary"
+              disabled={creatingSale || !productSubmitState.canSubmit}
+            >
+              {productSubmitState.busy ? 'Registrando…' : 'Confirmar venda'}
+            </button>
+          </div>
+        ) : (
           <div style={{ display: 'flex', gap: 8, width: '100%' }}>
             <button
               type="button"
@@ -160,7 +207,7 @@ export default function StudentPaymentModal({
               {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
             </button>
           </div>
-        ) : null
+        )
       }
     >
         {formError ? (
@@ -201,6 +248,11 @@ export default function StudentPaymentModal({
             ) : null}
             <StudentProductSaleStep
             student={student}
+            hideSubmitButton
+            onVariantPickerChange={setProductVariantPickerOpen}
+            onDirtyChange={setProductDirty}
+            onSubmitStateChange={setProductSubmitState}
+            onNavigateAway={handleProductNavigateAway}
             onBack={() => {
               setProductStep(false);
               setShowProductDeferHint(false);
@@ -479,5 +531,19 @@ export default function StudentPaymentModal({
           </>
         )}
     </ModalShell>
+
+    <ConfirmDialog
+      open={showDiscardProductDialog}
+      title="Descartar venda?"
+      description="Os produtos no carrinho serão perdidos."
+      confirmLabel="Descartar"
+      confirmVariant="danger"
+      onConfirm={() => {
+        setShowDiscardProductDialog(false);
+        handleClose();
+      }}
+      onClose={() => setShowDiscardProductDialog(false)}
+    />
+    </>
   );
 }

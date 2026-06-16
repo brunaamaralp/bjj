@@ -252,18 +252,6 @@
 }
 
 /* —— Modal Nova Venda (atalho sidebar) —— */
-.nova-venda-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 2400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 4, 53, 0.35);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-}
-
 .nova-venda-modal {
   max-width: min(960px, 96vw);
   width: 100%;
@@ -373,6 +361,73 @@
 
 .nova-venda-modal .sales-new-sale {
   margin-top: 0;
+}
+
+.nova-venda-modal__footer,
+.student-payment-modal__footer {
+  display: flex;
+  gap: var(--space-2, 8px);
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.nova-venda-modal__footer .btn-outline,
+.nova-venda-modal__footer .btn-primary,
+.student-payment-modal__footer .btn-outline,
+.student-payment-modal__footer .btn-primary {
+  min-width: 0;
+}
+
+.student-payment-modal__footer .btn-outline,
+.student-payment-modal__footer .btn-primary {
+  flex: 1;
+}
+
+.sales-checkout__error {
+  margin: 0;
+}
+
+.student-product-sale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.student-product-sale__back {
+  align-self: flex-start;
+  font-size: var(--font-sm, 13px);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.student-product-sale__context {
+  margin: 0;
+  font-size: var(--font-sm, 13px);
+  color: var(--text-secondary);
+}
+
+.student-product-sale__error {
+  margin: 0;
+}
+
+.student-product-sale__form {
+  margin: 0;
+}
+
+.student-product-sale__layout {
+  margin-top: 0;
+}
+
+.student-product-sale__checkout {
+  padding: var(--space-4, 16px);
+}
+
+.student-product-sale__empty-cart {
+  margin: 0 0 var(--space-2, 8px);
+}
+
+.student-product-sale__defer {
+  margin-top: var(--space-2, 8px);
 }
 
 .nova-venda-plan-panel__back {

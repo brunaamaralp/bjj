@@ -44,8 +44,23 @@ import {
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
 import { refreshStockStores } from '../../lib/syncStockStores.js';
+import { isSaleCheckoutDirty } from '../../lib/saleModalDirty.js';
+import StatusBanner from '../shared/StatusBanner.jsx';
 
-export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdvMode = false }) {
+const SALE_ALUNO_SEARCH_ID = 'sale-aluno-search';
+const SALE_ALUNO_SUGGESTIONS_ID = 'sale-aluno-suggestions';
+
+export default function SalesNewSaleTab({
+  modalMode = false,
+  onSaleComplete,
+  pdvMode = false,
+  formId,
+  hideSubmitButton = false,
+  onVariantPickerChange,
+  onDirtyChange,
+  onSubmitStateChange,
+  onNavigateAway,
+}) {
   const createSale = useSalesStore((s) => s.createSale);
   const creating = useSalesStore((s) => s.creating);
   const lastSale = useSalesStore((s) => s.lastSale);
@@ -285,6 +300,49 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
   const shiftBlocksSale =
     salesSettings.requireCashShift && !openCashShift && !modalMode;
 
+  const checkoutDirty = useMemo(
+    () =>
+      isSaleCheckoutDirty({
+        cart,
+        alunoId,
+        clienteNome,
+        clienteTelefone,
+        descGeralCents,
+        descGeralPct,
+        deferredSale,
+      }),
+    [cart, alunoId, clienteNome, clienteTelefone, descGeralCents, descGeralPct, deferredSale]
+  );
+
+  useEffect(() => {
+    onVariantPickerChange?.(!!variantPickerParent);
+  }, [variantPickerParent, onVariantPickerChange]);
+
+  useEffect(() => {
+    onDirtyChange?.(checkoutDirty);
+  }, [checkoutDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!onSubmitStateChange) return;
+    onSubmitStateChange({
+      canSubmit: cart.length > 0 && paymentValid.ok && !creating && !shiftBlocksSale,
+      busy: creating,
+      label:
+        creating
+          ? 'Registrando venda…'
+          : cart.length === 0
+            ? 'Concluir venda'
+            : `Concluir venda — ${totalMasked}`,
+    });
+  }, [
+    cart.length,
+    paymentValid.ok,
+    creating,
+    shiftBlocksSale,
+    totalMasked,
+    onSubmitStateChange,
+  ]);
+
   useEffect(() => {
     setManualPaymentOpen(!pdvMode);
   }, [pdvMode]);
@@ -505,15 +563,17 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
       setFlashProductId(flashId);
       window.setTimeout(() => setFlashProductId(null), 420);
 
-      addToast({
-        type: 'success',
-        message: `${product.display_label || product.nome} adicionado ao carrinho`,
-      });
+      if (!modalMode) {
+        addToast({
+          type: 'success',
+          message: `${product.display_label || product.nome} adicionado ao carrinho`,
+        });
+      }
       if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
         setMobilePanel('cart');
       }
     },
-    [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast, buildCartLine]
+    [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast, buildCartLine, modalMode]
   );
 
   const handleCatalogPick = useCallback(
@@ -673,34 +733,46 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
 
   const clientDisplayName = alunoNomeSel || clienteNome.trim() || 'Cliente avulso';
 
+  const focusCheckoutPanel = useCallback(() => {
+    if (modalMode && typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+      setMobilePanel('cart');
+    }
+  }, [modalMode]);
+
   const submit = async (e) => {
     e.preventDefault();
     setLocalError('');
     if (cart.length === 0) {
       setLocalError('Adicione pelo menos um item');
+      focusCheckoutPanel();
       return;
     }
     if (shiftBlocksSale) {
       setLocalError('Abra o caixa antes de registrar a venda.');
+      focusCheckoutPanel();
       return;
     }
     if (deferredSale) {
       if (!String(dueDate || '').trim()) {
         setLocalError('Informe a data de vencimento da venda a prazo.');
+        focusCheckoutPanel();
         return;
       }
     } else if (!paymentValid.ok) {
       setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+      focusCheckoutPanel();
       return;
     }
     for (const it of cart) {
       const unit = Number(it.preco_unitario);
       if (!Number.isFinite(unit) || unit <= 0) {
         setLocalError(`Informe o preço de "${it.display_label}"`);
+        focusCheckoutPanel();
         return;
       }
       if (salesSettings.lockPriceEdit && unit <= 0) {
         setLocalError(`Preço obrigatório para "${it.display_label}"`);
+        focusCheckoutPanel();
         return;
       }
     }
@@ -837,7 +909,12 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
         />
       ) : null}
 
-      <form ref={formRef} className="sales-new-sale animate-in" onSubmit={submit}>
+      <form
+        id={formId || undefined}
+        ref={formRef}
+        className="sales-new-sale animate-in"
+        onSubmit={submit}
+      >
         <div className="sales-mobile-tabs" role="tablist" aria-label="Catálogo e carrinho">
           <button
             type="button"
@@ -877,6 +954,7 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
               loading={catalogLoading}
               onPick={handleCatalogPick}
               flashProductId={flashProductId}
+              onNavigateAway={onNavigateAway}
             />
           </div>
 
@@ -930,8 +1008,9 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
               ) : null}
 
               <div className="form-group sales-checkout__field sales-checkout__field--aluno">
-                <label>Aluno (opcional)</label>
+                <label htmlFor={SALE_ALUNO_SEARCH_ID}>Aluno (opcional)</label>
                 <input
+                  id={SALE_ALUNO_SEARCH_ID}
                   className="form-input"
                   value={alunoSearchText}
                   onChange={(e) => setAlunoSearchText(e.target.value)}
@@ -939,12 +1018,19 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
                   disabled={Boolean(alunoId)}
                   autoComplete="off"
                   aria-autocomplete="list"
+                  aria-controls={alunoSuggestions.length > 0 ? SALE_ALUNO_SUGGESTIONS_ID : undefined}
                   aria-expanded={alunoSuggestions.length > 0}
                 />
                 {alunoSuggestions.length > 0 && (
-                  <div className="sales-suggestions" role="listbox">
+                  <div className="sales-suggestions" id={SALE_ALUNO_SUGGESTIONS_ID} role="listbox">
                     {alunoSuggestions.map((s) => (
-                      <button key={s.id} type="button" className="sales-suggestion" onClick={() => chooseAluno(s)}>
+                      <button
+                        key={s.id}
+                        type="button"
+                        role="option"
+                        className="sales-suggestion"
+                        onClick={() => chooseAluno(s)}
+                      >
                         <span>{s.nome}</span>
                         {s.phone ? <span className="text-small text-muted">{s.phone}</span> : null}
                       </button>
@@ -987,6 +1073,8 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
                     value={clienteTelefone}
                     onChange={(e) => setClienteTelefone(maskPhone(e.target.value))}
                     placeholder="(00) 00000-0000"
+                    inputMode="tel"
+                    autoComplete="tel"
                     tabIndex={alunoId ? -1 : 0}
                   />
                 </div>
@@ -1123,28 +1211,36 @@ export default function SalesNewSaleTab({ modalMode = false, onSaleComplete, pdv
                 ) : null}
               </div>
 
-              <SalesPosHints pdvMode={pdvMode} />
+              {!modalMode ? <SalesPosHints pdvMode={pdvMode} /> : null}
 
-              <button
-                type="submit"
-                className="btn-primary sales-submit-btn"
-                disabled={creating || cart.length === 0 || !paymentValid.ok || shiftBlocksSale}
-              >
-                <ShoppingCart size={18} aria-hidden />
-                <span>
-                  {creating ? 'Registrando venda…' : cart.length === 0 ? 'Concluir venda' : `Concluir venda — ${totalMasked}`}
-                </span>
-              </button>
+              {(localError || error) ? (
+                <StatusBanner
+                  variant="error"
+                  message={friendlySaleError(localError || error)}
+                  className="sales-checkout__error"
+                />
+              ) : null}
+
+              {!hideSubmitButton ? (
+                <button
+                  type="submit"
+                  className="btn-primary sales-submit-btn"
+                  disabled={creating || cart.length === 0 || !paymentValid.ok || shiftBlocksSale}
+                >
+                  <ShoppingCart size={18} aria-hidden />
+                  <span>
+                    {creating
+                      ? 'Registrando venda…'
+                      : cart.length === 0
+                        ? 'Concluir venda'
+                        : `Concluir venda — ${totalMasked}`}
+                  </span>
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>
       </form>
-
-      {(localError || error) ? (
-              <p className="text-small mt-2 sales-form-error">
-          {friendlySaleError(localError || error)}
-        </p>
-      ) : null}
 
       {variantPickerParent ? (
         <SalesVariantPicker

@@ -19,6 +19,12 @@
   to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .navi-modal-shell {
+    animation: none;
+  }
+}
+
 .navi-modal-shell {
   width: min(100%, 560px);
   margin: var(--space-4);
@@ -138,14 +144,16 @@
 .navi-modal-shell.nova-venda-modal,
 .navi-modal-shell.new-lead-modal,
 .navi-modal-shell.sales-modal,
-.navi-modal-shell.contracts-modal {
+.navi-modal-shell.contracts-modal,
+.navi-modal-shell.student-payment-modal {
   max-height: min(90vh, calc(100dvh - 48px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.navi-modal-shell.nova-venda-modal {
+.navi-modal-shell.nova-venda-modal,
+.navi-modal-shell.student-payment-modal {
   max-height: min(92vh, calc(100dvh - 32px));
 }
 
@@ -153,7 +161,8 @@
 .navi-modal-shell.nova-venda-modal .navi-modal-shell__header,
 .navi-modal-shell.new-lead-modal .navi-modal-shell__header,
 .navi-modal-shell.sales-modal .navi-modal-shell__header,
-.navi-modal-shell.contracts-modal .navi-modal-shell__header {
+.navi-modal-shell.contracts-modal .navi-modal-shell__header,
+.navi-modal-shell.student-payment-modal .navi-modal-shell__header {
   flex-shrink: 0;
 }
 
@@ -161,7 +170,8 @@
 .navi-modal-shell.nova-venda-modal .navi-modal-shell__body,
 .navi-modal-shell.new-lead-modal .navi-modal-shell__body,
 .navi-modal-shell.sales-modal .navi-modal-shell__body,
-.navi-modal-shell.contracts-modal .navi-modal-shell__body {
+.navi-modal-shell.contracts-modal .navi-modal-shell__body,
+.navi-modal-shell.student-payment-modal .navi-modal-shell__body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -173,7 +183,8 @@
 .navi-modal-shell.nova-venda-modal .navi-modal-shell__footer,
 .navi-modal-shell.new-lead-modal .navi-modal-shell__footer,
 .navi-modal-shell.sales-modal .navi-modal-shell__footer,
-.navi-modal-shell.contracts-modal .navi-modal-shell__footer {
+.navi-modal-shell.contracts-modal .navi-modal-shell__footer,
+.navi-modal-shell.student-payment-modal .navi-modal-shell__footer {
   flex-shrink: 0;
 }
 

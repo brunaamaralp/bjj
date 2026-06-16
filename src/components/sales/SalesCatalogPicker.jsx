@@ -55,6 +55,7 @@ export default function SalesCatalogPicker({
   loading,
   onPick,
   flashProductId,
+  onNavigateAway,
 }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -128,6 +129,8 @@ export default function SalesCatalogPicker({
         <div className="sales-catalog__chips" role="tablist" aria-label="Categorias">
         <button
           type="button"
+          role="tab"
+          aria-selected={category === 'all'}
           className={`sales-catalog__chip${category === 'all' ? ' active' : ''}`}
           onClick={() => setCategory('all')}
         >
@@ -137,6 +140,8 @@ export default function SalesCatalogPicker({
           <button
             key={c}
             type="button"
+            role="tab"
+            aria-selected={category === c}
             className={`sales-catalog__chip${category === c ? ' active' : ''}`}
             onClick={() => setCategory(c)}
           >
@@ -157,7 +162,15 @@ export default function SalesCatalogPicker({
           <p className="sales-catalog-empty__hint">
             Cadastre os produtos da academia para começar a registrar vendas.
           </p>
-          <Link to="/produtos" className="btn-primary sales-catalog-empty__cta">
+          <Link
+            to="/produtos"
+            className="btn-primary sales-catalog-empty__cta"
+            onClick={(e) => {
+              if (!onNavigateAway) return;
+              e.preventDefault();
+              onNavigateAway('/produtos');
+            }}
+          >
             Cadastrar produtos
           </Link>
         </div>
