@@ -341,8 +341,9 @@ function CaixaPage() {
             : searchParams.get('search') || undefined,
         filtro:
           opts.filtro !== undefined
-            ? opts.filtro
+            ? opts.filtro || undefined
             : searchParams.get('filtro') || searchParams.get('filter') || undefined,
+        extra: opts.extra || {},
       });
       const currentQs = searchParams.toString();
       const nextQs = next.toString();

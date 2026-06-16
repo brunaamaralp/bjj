@@ -4,6 +4,7 @@ import { RECEIVABLE_SOURCE } from './receivablesAggregate.js';
 export const RECEIVABLES_SECTIONS = {
   VISAO: 'visao',
   MENSALIDADES: 'mensalidades',
+  COBRANCA: 'cobranca',
   OUTROS: 'outros',
 };
 
@@ -12,6 +13,7 @@ const VALID = new Set(Object.values(RECEIVABLES_SECTIONS));
 export const RECEIVABLES_SECTION_LABELS = {
   [RECEIVABLES_SECTIONS.VISAO]: 'Visão geral',
   [RECEIVABLES_SECTIONS.MENSALIDADES]: 'Mensalidades',
+  [RECEIVABLES_SECTIONS.COBRANCA]: 'Cobrança',
   [RECEIVABLES_SECTIONS.OUTROS]: 'Outros',
 };
 
@@ -24,6 +26,9 @@ export function filterReceivablesForSection(section, items = []) {
       (it) =>
         it.source === RECEIVABLE_SOURCE.LANCAMENTO || it.source === RECEIVABLE_SOURCE.VENDA
     );
+  }
+  if (section === RECEIVABLES_SECTIONS.COBRANCA) {
+    return [];
   }
   return items;
 }
@@ -81,6 +86,16 @@ export function normalizeLegacyFinanceiroTab(searchParams) {
       section: RECEIVABLES_SECTIONS.MENSALIDADES,
       search,
       filtro,
+      changed: true,
+    };
+  }
+
+  if (filtro === 'overdue') {
+    return {
+      tab: FINANCEIRO_SECTIONS.A_RECEBER,
+      section: RECEIVABLES_SECTIONS.COBRANCA,
+      search,
+      filtro: undefined,
       changed: true,
     };
   }

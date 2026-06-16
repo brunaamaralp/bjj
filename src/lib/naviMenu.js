@@ -143,7 +143,11 @@ export function isAccordionChildActive(child, location) {
       const tab = String(params.get('tab') || '').toLowerCase();
       if (tab === FINANCEIRO_SECTIONS.MENSALIDADES) return true;
       if (tab === FINANCEIRO_SECTIONS.A_RECEBER) {
-        return parseReceivablesSection(params) === RECEIVABLES_SECTIONS.MENSALIDADES;
+        const section = parseReceivablesSection(params);
+        return (
+          section === RECEIVABLES_SECTIONS.MENSALIDADES ||
+          section === RECEIVABLES_SECTIONS.COBRANCA
+        );
       }
     }
   }
@@ -154,7 +158,11 @@ export function isAccordionChildActive(child, location) {
       const params = new URLSearchParams(location.search || '');
       if (tab === FINANCEIRO_SECTIONS.MENSALIDADES) return true;
       if (tab === FINANCEIRO_SECTIONS.A_RECEBER) {
-        return parseReceivablesSection(params) === RECEIVABLES_SECTIONS.MENSALIDADES;
+        const section = parseReceivablesSection(params);
+        return (
+          section === RECEIVABLES_SECTIONS.MENSALIDADES ||
+          section === RECEIVABLES_SECTIONS.COBRANCA
+        );
       }
       return false;
     }

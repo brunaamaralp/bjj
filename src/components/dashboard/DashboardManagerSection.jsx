@@ -168,8 +168,7 @@ export default function DashboardManagerSection({
         onClick: () =>
           navigate(
             buildReceivablesPath({
-              section: RECEIVABLES_SECTIONS.MENSALIDADES,
-              filtro: 'overdue',
+              section: RECEIVABLES_SECTIONS.COBRANCA,
             })
           ),
       });

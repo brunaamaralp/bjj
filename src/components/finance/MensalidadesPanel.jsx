@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ModalShell from '../shared/ModalShell.jsx';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useToast } from '../../hooks/useToast';
@@ -32,7 +32,10 @@ import {
   storageDialectMethodLabelsMap,
 } from '../../lib/paymentMethods.js';
 import { formatBRL } from '../../lib/moneyBr.js';
-import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
+import {
+  buildReceivablesPath,
+  RECEIVABLES_SECTIONS,
+} from '../../lib/financeiroReceivablesSections.js';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import './finance.css';
 import { useUserRole } from '../../lib/useUserRole.js';
@@ -192,6 +195,7 @@ export default function MensalidadesPanel({
   const terms = useTerms();
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [currentMonth, setCurrentMonth] = useState(
     () => String(referenceMonthProp || '').trim() || new Date().toISOString().slice(0, 7)
@@ -506,9 +510,16 @@ export default function MensalidadesPanel({
     return { dueToday, dueWeek, overdue, paid };
   }, [students, paymentMap, currentMonth, getStatus]);
 
-  const toggleReceptionFilter = useCallback((next) => {
-    setFilter((cur) => (cur === next ? 'all' : next));
-  }, []);
+  const toggleReceptionFilter = useCallback(
+    (next) => {
+      if (next === 'overdue' && sectionMode) {
+        navigate(buildReceivablesPath({ section: RECEIVABLES_SECTIONS.COBRANCA }));
+        return;
+      }
+      setFilter((cur) => (cur === next ? 'all' : next));
+    },
+    [sectionMode, navigate]
+  );
 
   const filterCounts = useMemo(() => {
     const c = {
@@ -630,6 +641,23 @@ export default function MensalidadesPanel({
     window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
     return () => window.removeEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
   }, [students, currentMonth, openPaymentModal]);
+
+  const payDeepLinkHandled = useRef('');
+  useEffect(() => {
+    const payStudent = String(searchParams.get('pay_student') || '').trim();
+    const payMonth = String(searchParams.get('pay_month') || '').trim().slice(0, 7);
+    if (!payStudent || !students.length) return;
+    const key = `${payStudent}|${payMonth}`;
+    if (payDeepLinkHandled.current === key) return;
+    const student = students.find((s) => String(s.id || '').trim() === payStudent);
+    if (!student) return;
+    payDeepLinkHandled.current = key;
+    if (payMonth && /^\d{4}-\d{2}$/.test(payMonth)) {
+      setCurrentMonth(payMonth);
+      onReferenceMonthChange?.(payMonth);
+    }
+    openPaymentModal(student, { reference_month: payMonth || currentMonth });
+  }, [searchParams, students, openPaymentModal, currentMonth, onReferenceMonthChange]);
 
   const handleSavePayment = async () => {
     if (!selectedStudent || !academyId || savingPayment) return;
@@ -1257,6 +1285,20 @@ export default function MensalidadesPanel({
             })}
           </div>
         )}
+        {sectionMode && !loading ? (
+          <p className="mensal-cobranca-link-wrap">
+            <Link
+              to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.COBRANCA })}
+              className="finance-config-context-link"
+            >
+              Abrir fila de cobrança
+              {collectionDashboard.total > 0
+                ? ` · ${collectionDashboard.total} inadimplente${collectionDashboard.total !== 1 ? 's' : ''}`
+                : ''}{' '}
+              →
+            </Link>
+          </p>
+        ) : null}
       </section>
 
       {loadingError ? (
@@ -1338,51 +1380,6 @@ export default function MensalidadesPanel({
         </details>
       ) : null}
 
-      {!loading && collectionDashboard.total > 0 ? (
-        <details className="mensal-collapsible-section mensal-collapsible-section--collection">
-          <summary className="mensal-collapsible-section__summary">
-            <span>
-              Régua de cobrança · {collectionDashboard.total} inadimplente
-              {collectionDashboard.total !== 1 ? 's' : ''}
-            </span>
-            <ChevronDown size={16} className="mensal-collapsible-section__chevron" aria-hidden />
-          </summary>
-          <section className="mensal-collection-dashboard card">
-            <div className="mensal-collection-dashboard__grid">
-              <div>
-                <div className="mensal-collection-dashboard__value mensal-collection-dashboard__value--alert">
-                  {collectionDashboard.total}
-                </div>
-                <div className="mensal-collection-dashboard__label">Inadimplentes (D+1+)</div>
-              </div>
-              <div>
-                <div className="mensal-collection-dashboard__value finance-data">
-                  {fmtMoney(collectionDashboard.totalOpen)}
-                </div>
-                <div className="mensal-collection-dashboard__label">Valor em aberto</div>
-              </div>
-              {collectionRules.map((rule) => (
-                <div key={rule.day}>
-                  <div className="mensal-collection-dashboard__value">
-                    {collectionDashboard.byStage[String(rule.day)] || 0}
-                  </div>
-                  <div className="mensal-collection-dashboard__label">
-                    D+{rule.day} · {rule.label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <CollectionInadimplenciaPanel
-            students={students}
-            studentOverdueMeta={studentOverdueMeta}
-            paymentMap={paymentMap}
-            collectionRules={collectionRules}
-            currentMonth={currentMonth}
-            financeConfig={financeConfig}
-          />
-        </details>
-      ) : null}
       </>
       ) : null}
 

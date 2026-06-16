@@ -20,8 +20,7 @@ export default function FinanceSettingsCollectionSection({
       />
       <Link
         to={buildReceivablesPath({
-          section: RECEIVABLES_SECTIONS.MENSALIDADES,
-          filtro: 'overdue',
+          section: RECEIVABLES_SECTIONS.COBRANCA,
         })}
         className="finance-config-context-link"
       >

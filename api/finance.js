@@ -17,6 +17,7 @@ import financeBankBalancesHandler from '../lib/server/financeBankBalancesHandler
 import studentPaymentReconcileHandler from '../lib/server/studentPaymentReconcileHandler.js';
 import financeReceivablesHandler from '../lib/server/financeReceivablesHandler.js';
 import financeOverviewHandler from '../lib/server/financeOverviewHandler.js';
+import collectionQueueHandler from '../lib/server/collectionQueueHandler.js';
 
 export const config = {
   maxDuration: 60,
@@ -55,6 +56,9 @@ export default async function handler(req, res) {
   }
   if (route === 'overview' || route === 'visao-geral') {
     return financeOverviewHandler(req, res);
+  }
+  if (route === 'collection-queue' || route === 'collection_queue') {
+    return collectionQueueHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);

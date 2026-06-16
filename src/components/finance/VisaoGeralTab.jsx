@@ -229,7 +229,10 @@ export default function VisaoGeralTab({
 
   const receivablesTotal = receivables?.summary?.total ?? 0;
   const receivablesSectionPath = buildReceivablesPath({
-    section: RECEIVABLES_SECTIONS.MENSALIDADES,
+    section:
+      mensalKpis.overdueCount > 0
+        ? RECEIVABLES_SECTIONS.COBRANCA
+        : RECEIVABLES_SECTIONS.MENSALIDADES,
   });
   const receivablesPendingPath = buildReceivablesPath({
     section: RECEIVABLES_SECTIONS.MENSALIDADES,

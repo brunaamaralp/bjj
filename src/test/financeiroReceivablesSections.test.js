@@ -32,6 +32,33 @@ describe('financeiroReceivablesSections', () => {
     expect(getDefaultReceivablesSection({ isOwner: true })).toBe(RECEIVABLES_SECTIONS.VISAO);
   });
 
+  it('parseReceivablesSection — cobranca explícita', () => {
+    const p = new URLSearchParams('section=cobranca');
+    expect(parseReceivablesSection(p)).toBe(RECEIVABLES_SECTIONS.COBRANCA);
+  });
+
+  it('buildReceivablesSearchParams — cobranca e pay deep link', () => {
+    const p = buildReceivablesSearchParams({
+      section: RECEIVABLES_SECTIONS.COBRANCA,
+    });
+    expect(p.get('section')).toBe('cobranca');
+    const pay = buildReceivablesSearchParams({
+      section: RECEIVABLES_SECTIONS.MENSALIDADES,
+      search: 'Maria',
+      extra: { pay_student: 's1', pay_month: '2026-05' },
+    });
+    expect(pay.get('pay_student')).toBe('s1');
+    expect(pay.get('pay_month')).toBe('2026-05');
+  });
+
+  it('normalizeLegacyFinanceiroTab — filtro overdue vira cobranca', () => {
+    const input = new URLSearchParams('tab=a-receber&section=mensalidades&filtro=overdue');
+    const out = normalizeLegacyFinanceiroTab(input);
+    expect(out.section).toBe(RECEIVABLES_SECTIONS.COBRANCA);
+    expect(out.changed).toBe(true);
+    expect(out.filtro).toBeUndefined();
+  });
+
   it('buildReceivablesSearchParams — preserva search e filtro', () => {
     const p = buildReceivablesSearchParams({
       section: RECEIVABLES_SECTIONS.MENSALIDADES,

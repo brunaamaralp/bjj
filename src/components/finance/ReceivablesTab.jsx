@@ -13,11 +13,13 @@ import {
 import { formatMonthTitleCapitalized } from '../../lib/financeiroOverview.js';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import MensalidadesPanel from './MensalidadesPanel.jsx';
+import CobrancaPanel from './CobrancaPanel.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
+import { fetchCollectionQueue } from '../../lib/collectionQueueApi.js';
 
 function fmtMoney(v) {
   try {
@@ -91,6 +93,7 @@ export default function ReceivablesTab({
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [cobrancaSummary, setCobrancaSummary] = useState(null);
 
   const load = useCallback(async () => {
     if (!academyId || !ym) return;
@@ -114,6 +117,21 @@ export default function ReceivablesTab({
   }, [load, refreshToken]);
 
   useEffect(() => {
+    if (!academyId) return;
+    let active = true;
+    void fetchCollectionQueue({ academyId })
+      .then((body) => {
+        if (active) setCobrancaSummary(body?.summary || null);
+      })
+      .catch(() => {
+        if (active) setCobrancaSummary(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [academyId, refreshToken]);
+
+  useEffect(() => {
     const bump = () => setRefreshToken((t) => t + 1);
     window.addEventListener('navi-student-payment-updated', bump);
     window.addEventListener('navi-financial-tx-settled', bump);
@@ -131,6 +149,11 @@ export default function ReceivablesTab({
       (Number(bySource[RECEIVABLE_SOURCE.LANCAMENTO]) || 0) +
       (Number(bySource[RECEIVABLE_SOURCE.VENDA]) || 0);
     const withAmount = (baseLabel, amount) => `${baseLabel} · ${fmtCompactMoney(amount)}`;
+    const cobrancaCount = Number(cobrancaSummary?.students) || 0;
+    const cobrancaLabel =
+      cobrancaCount > 0
+        ? `${RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.COBRANCA]} (${cobrancaCount})`
+        : RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.COBRANCA];
     return [
       {
         id: RECEIVABLES_SECTIONS.VISAO,
@@ -146,12 +169,17 @@ export default function ReceivablesTab({
         shortLabel: RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.MENSALIDADES],
       },
       {
+        id: RECEIVABLES_SECTIONS.COBRANCA,
+        label: cobrancaLabel,
+        shortLabel: RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.COBRANCA],
+      },
+      {
         id: RECEIVABLES_SECTIONS.OUTROS,
         label: withAmount(RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.OUTROS], outrosTotal),
         shortLabel: RECEIVABLES_SECTION_LABELS[RECEIVABLES_SECTIONS.OUTROS],
       },
     ];
-  }, [summary.total, bySource]);
+  }, [summary.total, bySource, cobrancaSummary?.students]);
 
   const items = useMemo(
     () => filterReceivablesForSection(resolvedSection, data?.items || []),
@@ -232,6 +260,8 @@ export default function ReceivablesTab({
           referenceMonth={referenceMonth}
           onReferenceMonthChange={onReferenceMonthChange}
         />
+      ) : resolvedSection === RECEIVABLES_SECTIONS.COBRANCA ? (
+        <CobrancaPanel academyId={academyId} onSectionChange={handleSectionChange} />
       ) : items.length === 0 ? (
         <EmptyState
           variant="compact"
