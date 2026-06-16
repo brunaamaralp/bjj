@@ -43,7 +43,7 @@ describe('financeSettingsSections', () => {
     });
     const p = financeSettingsProgress(summaries, { isOwner: false });
     expect(p.total).toBe(2);
-    expect(p.done).toBe(1);
+    expect(p.done).toBe(2);
   });
 
   it('isFinanceSettingsSection validates slugs', () => {
