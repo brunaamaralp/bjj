@@ -101,6 +101,45 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.sales-page__body,
+.products-page__body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Vendas — scroll na página, listas/tabelas com altura natural */
+.sales-page .sales-history-table-wrap {
+  max-height: none;
+  overflow: visible;
+  position: relative;
+}
+
+.sales-page__body .sales-history-table-wrap {
+  flex: none;
+}
+
+.sales-page__body .sales-cart-list {
+  max-height: none;
+  overflow: visible;
+}
+
+.sales-page__body .sales-cart--with-sticky-footer .sales-cart-list {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+.sales-page--pdv .sales-layout__checkout {
+  max-height: none;
+  overflow: visible;
+}
+
+@media (max-width: 900px) {
+  .sales-page__body .sales-panel.sales-panel--active .sales-cart--with-sticky-footer {
+    max-height: none;
+  }
+}
+
 /* ===== Sales (/vendas) — carrinho: scroll 640px+ e cartões <640px; desktop ≥768px inalterado ===== */
 .sales-cart-table-wrap {
   width: 100%;
@@ -1335,9 +1374,7 @@
 }
 .sales-history-search-input { padding-left: 32px; }
 .sales-history-table-wrap {
-  max-height: calc(100vh - 320px);
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 .sales-page__body .sales-history-table-wrap {
