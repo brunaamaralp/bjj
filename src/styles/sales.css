@@ -839,13 +839,41 @@
 .sales-catalog__card-dual-prices {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.sales-catalog__card-price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.sales-catalog__card-price-wrap {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   width: 100%;
 }
 
+.sales-catalog__card-price-tag {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sales-catalog__card-price-tag--rental {
+  color: var(--color-accent-dark);
+}
+
 .sales-catalog__card-price--rental {
-  color: var(--text-muted);
-  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  font-weight: 600;
 }
 
 .sales-catalog__card-actions {
@@ -858,6 +886,17 @@
 .sales-catalog__pick-btn {
   flex: 1;
   justify-content: center;
+  min-height: 40px;
+}
+
+.sales-catalog__pick-btn--rental:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
+.sales-catalog__pick-btn--rental:not(:disabled):hover {
+  background: var(--color-accent-surface);
+  border-color: var(--color-accent-dark);
 }
 
 .sales-catalog__card-top {
@@ -1025,13 +1064,13 @@
 }
 
 .sales-cart-row__kind--sale {
-  background: rgba(108, 71, 216, 0.12);
-  color: var(--v700);
+  background: var(--color-primary-surface);
+  color: var(--color-primary-dark);
 }
 
 .sales-cart-row__kind--rental {
-  background: rgba(14, 116, 144, 0.12);
-  color: #0e7490;
+  background: var(--color-accent-surface);
+  color: var(--color-accent-dark);
 }
 
 .sales-cart-row__var {
@@ -1219,10 +1258,23 @@
 
 .sales-variant-picker__head {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.sales-variant-picker__kind {
+  margin-bottom: 6px;
+}
+
+.sales-variant-picker__unit-price {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+}
+
+.sales-variant-picker__unit-price strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .sales-variant-picker__head-text {

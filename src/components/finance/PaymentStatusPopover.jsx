@@ -1,17 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-
-function normalizeGridStatus(initialStatus) {
-  return initialStatus === 'soon' || initialStatus === 'none' ? 'pending' : initialStatus;
-}
-
-function buildInitialPaidAmount(initialPaidAmount, expectedAmount) {
-  const amt = initialPaidAmount > 0 ? initialPaidAmount : expectedAmount;
-  return maskCurrency(String(Math.round(amt * 100)));
-}
-
-function buildInitialPaidAt(initialPaidAt) {
-  return initialPaidAt ? String(initialPaidAt).slice(0, 10) : new Date().toISOString().slice(0, 10);
-}
 import { DateInputField } from '../DateInput';
 import FieldError from '../shared/FieldError.jsx';
 import { maskCurrency } from '../../lib/masks';
@@ -28,6 +15,19 @@ const STATUS_OPTIONS = [
   { value: 'partial', label: 'Parcial' },
   { value: 'pending', label: 'Pendente' },
 ];
+
+function normalizeGridStatus(initialStatus) {
+  return initialStatus === 'soon' || initialStatus === 'none' ? 'pending' : initialStatus;
+}
+
+function buildInitialPaidAmount(initialPaidAmount, expectedAmount) {
+  const amt = initialPaidAmount > 0 ? initialPaidAmount : expectedAmount;
+  return maskCurrency(String(Math.round(amt * 100)));
+}
+
+function buildInitialPaidAt(initialPaidAt) {
+  return initialPaidAt ? String(initialPaidAt).slice(0, 10) : new Date().toISOString().slice(0, 10);
+}
 
 function PaymentStatusPopoverForm({
   anchorRect,

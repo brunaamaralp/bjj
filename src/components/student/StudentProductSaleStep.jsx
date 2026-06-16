@@ -340,7 +340,7 @@ export default function StudentProductSaleStep({
             normalizeLineKind(c.line_kind) === lineKind
         );
         if (dupIdx >= 0) {
-          addToast({ type: 'warning', message: 'Este tamanho já está no carrinho' });
+          addToast({ type: 'warning', message: 'Este tamanho já está no carrinho nesta modalidade' });
           return prev;
         }
 

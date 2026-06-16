@@ -105,8 +105,10 @@ export function validateMensalidadesPaymentForm({
   }
 
   const paidAtMs = new Date(String(payForm?.paid_at || '').trim()).getTime();
-  if (!Number.isFinite(paidAtMs)) {
-    errors.paid_at = 'Informe uma data de pagamento válida.';
+  if (String(payForm?.status || '').toLowerCase() !== 'pending') {
+    if (!Number.isFinite(paidAtMs)) {
+      errors.paid_at = 'Informe uma data de pagamento válida.';
+    }
   }
 
   if (!isBundle && String(payForm?.due_day || '').trim()) {

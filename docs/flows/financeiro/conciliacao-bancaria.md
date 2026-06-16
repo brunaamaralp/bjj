@@ -16,8 +16,8 @@
 - [2026-06-15-conciliacao-ux-refactor-PRODUCT.md](../../superpowers/specs/2026-06-15-conciliacao-ux-refactor-PRODUCT.md)
 - [2026-06-15-conciliacao-multi-formato-PRODUCT.md](../../superpowers/specs/2026-06-15-conciliacao-multi-formato-PRODUCT.md)
 - [2026-06-16-conciliacao-deduplicacao-extratos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-deduplicacao-extratos-PRODUCT.md)
-- [2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md) *(proposto)*
-- [2026-06-16-conciliacao-pagadores-conhecidos-TECH.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md) *(proposto)*
+- [2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md) *(P0a/P0b/P1 implementados)*
+- [2026-06-16-conciliacao-pagadores-conhecidos-TECH.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md) *(P0a/P0b/P1 implementados)*
 
 **Harness relacionado:** `npm test -- bankRecon bankReconciliationMatcher bankReconciliationValidation`
 
@@ -100,6 +100,8 @@ flowchart TD
 8. [ ] Tentar match com TX pendente — erro `tx_not_settled` amigável
 9. [ ] Valor/direção divergente — mensagem `amount_mismatch` / `direction_mismatch`
 10. [ ] Ignorar linha órfã — some da fila de ação
+10b. [ ] Linha órfã crédito com mensalidade pendente compatível — bloco “Possível mensalidade não registrada” + link para mensalidades com prefill
+10c. [ ] Após registrar pagamento via deep link — banner “volte ao extrato” retorna à conciliação (`?tab=conciliacao&statement=`)
 11. [ ] Completar conciliação — status extrato → reconciliado
 12. [ ] Trocar academia — só extratos da academia atual
 

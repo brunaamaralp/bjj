@@ -1,7 +1,7 @@
 # Conciliação — Pagadores conhecidos (TECH)
 
 **Data:** 2026-06-16  
-**Status:** P0a implementado (2026-06-16) · P0b implementado (2026-06-16)  
+**Status:** P0a implementado (2026-06-16) · P0b implementado (2026-06-16) · P1 implementado (2026-06-16)  
 **PRODUCT:** [2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md](./2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md)
 
 ---

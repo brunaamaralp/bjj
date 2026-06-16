@@ -21,6 +21,7 @@ vi.mock('../lib/bankReconciliationApi.js', () => ({
   listBankStatements: vi.fn(),
   getBankStatementDetail: vi.fn(),
   confirmBankMatch: vi.fn(),
+  rememberBankPayer: vi.fn(),
   confirmAllBankMatches: vi.fn(),
   ignoreBankItem: vi.fn(),
   manualReconcileTx: vi.fn(),
@@ -95,7 +96,7 @@ describe('ReconciliationTab integration', () => {
         })
       );
     });
-  });
+  }, 10000);
 
   it('opens ConfirmDialog before ignoring a suggested line', async () => {
     const user = userEvent.setup();

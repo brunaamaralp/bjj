@@ -67,6 +67,8 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
+import { buildBankReconReturnPath } from '../../lib/bankReconPaymentHintLink.js';
 import SearchField from '../shared/SearchField.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
@@ -201,6 +203,8 @@ export default function MensalidadesPanel({
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const reconStatementId = String(searchParams.get('recon_statement') || '').trim();
 
   const [currentMonth, setCurrentMonth] = useState(
     () => String(referenceMonthProp || '').trim() || new Date().toISOString().slice(0, 7)
@@ -678,6 +682,8 @@ export default function MensalidadesPanel({
   useEffect(() => {
     const payStudent = String(searchParams.get('pay_student') || '').trim();
     const payMonth = String(searchParams.get('pay_month') || '').trim().slice(0, 7);
+    const payAmountRaw = String(searchParams.get('pay_amount') || '').trim();
+    const payAmount = Number(payAmountRaw.replace(',', '.'));
     if (!payStudent || !students.length) return;
     const key = `${payStudent}|${payMonth}`;
     if (payDeepLinkHandled.current === key) return;
@@ -688,7 +694,10 @@ export default function MensalidadesPanel({
       setCurrentMonth(payMonth);
       onReferenceMonthChange?.(payMonth);
     }
-    openPaymentModal(student, { reference_month: payMonth || currentMonth });
+    openPaymentModal(student, {
+      reference_month: payMonth || currentMonth,
+      ...(Number.isFinite(payAmount) && payAmount > 0 ? { amount: payAmount } : {}),
+    });
   }, [searchParams, students, openPaymentModal, currentMonth, onReferenceMonthChange]);
 
   const handleSavePayment = async () => {
@@ -1046,6 +1055,13 @@ export default function MensalidadesPanel({
           canConfigure={canConfigureFinance}
           className="mensal-bank-setup-banner"
         />
+
+        {reconStatementId ? (
+          <StatusBanner variant="info" className="mb-3">
+            Você veio da conciliação bancária. Após registrar o pagamento,{' '}
+            <Link to={buildBankReconReturnPath(reconStatementId)}>volte ao extrato</Link> para vincular a linha.
+          </StatusBanner>
+        ) : null}
 
         <FinanceFiltersBar className="mensal-toolbar">
           <SearchField

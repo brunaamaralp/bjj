@@ -1212,6 +1212,27 @@ export default function StudentProfile() {
         }
     };
 
+    const setProfileTab = useCallback(
+        (tabId) => {
+            setActiveTab(tabId);
+            setTimelineOpen(true);
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (tabId === 'frequency') next.delete('tab');
+                    else next.set('tab', tabId);
+                    return next;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
+
+    const handleConversationClose = useCallback(() => {
+        setProfileTab('frequency');
+    }, [setProfileTab]);
+
     const mobilePanelQuickActions = useMemo(() => {
         if (!student) return [];
         const actions = [
@@ -1444,27 +1465,6 @@ export default function StudentProfile() {
         },
         [student, academyId, cancellingCoverage, payments, userId, sessionUserName, loadPayments, toast]
     );
-
-    const setProfileTab = useCallback(
-        (tabId) => {
-            setActiveTab(tabId);
-            setTimelineOpen(true);
-            setSearchParams(
-                (prev) => {
-                    const next = new URLSearchParams(prev);
-                    if (tabId === 'frequency') next.delete('tab');
-                    else next.set('tab', tabId);
-                    return next;
-                },
-                { replace: true }
-            );
-        },
-        [setSearchParams]
-    );
-
-    const handleConversationClose = useCallback(() => {
-        setProfileTab('frequency');
-    }, [setProfileTab]);
 
     const handleRequestEditPhone = useCallback(() => {
         setTimelineOpen(false);

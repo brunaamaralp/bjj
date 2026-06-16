@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './finance.css';
 import { ArrowLeft, Check, FileSpreadsheet, Upload } from 'lucide-react';
 import ImportStatementModal from './ImportStatementModal.jsx';
@@ -87,6 +88,7 @@ function txLabel(tx, options) {
 
 export default function ReconciliationTab({ academyId }) {
   const toast = useToast();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [statements, setStatements] = useState([]);
   const [selectedId, setSelectedId] = useState('');
@@ -152,6 +154,11 @@ export default function ReconciliationTab({ academyId }) {
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  useEffect(() => {
+    const sid = String(searchParams.get('statement') || '').trim();
+    if (sid) setSelectedId(sid);
+  }, [searchParams]);
 
   useEffect(() => {
     if (selectedId) void loadDetail(selectedId);
@@ -581,6 +588,7 @@ export default function ReconciliationTab({ academyId }) {
                   key={item.id}
                   item={item}
                   tone="unmatched"
+                  reconStatementId={selectedId}
                   selected={selectedBankItemId === item.id}
                   busy={busy}
                   manualTxId={unmatchedTxByItem[item.id] || ''}

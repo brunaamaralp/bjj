@@ -103,6 +103,23 @@ describe('validateMensalidadesPaymentForm', () => {
     });
     expect(errors.cash_received).toBeTruthy();
   });
+
+  it('não exige data de pagamento quando status é pendente', () => {
+    const { errors } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.PLAN,
+        status: 'pending',
+        amount: '200,00',
+        paid_at: '',
+        method: 'pix',
+        account: 'Nubank · 12345-6',
+      },
+      financeConfig,
+      student,
+    });
+    expect(errors.paid_at).toBeUndefined();
+    expect(errors.amount).toBeUndefined();
+  });
 });
 
 describe('focusFirstStudentPaymentError', () => {

@@ -1,7 +1,7 @@
 # Conciliação — Pagadores conhecidos e matching por nome no extrato
 
 **Data:** 2026-06-16  
-**Status:** P0a implementado (2026-06-16) · P0b implementado (2026-06-16)  
+**Status:** P0a implementado (2026-06-16) · P0b implementado (2026-06-16) · P1 implementado (2026-06-16)  
 **Contexto:** extensão de [conciliação bancária](../../flows/financeiro/conciliacao-bancaria.md) e análise de eficiência para academias de jiu-jitsu (mensalidades PIX, famílias, valores repetidos)  
 **TECH:** [2026-06-16-conciliacao-pagadores-conhecidos-TECH.md](./2026-06-16-conciliacao-pagadores-conhecidos-TECH.md)
 

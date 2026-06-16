@@ -608,9 +608,10 @@ export default function SalesNewSaleTab({
       window.setTimeout(() => setFlashProductId(null), 420);
 
       if (!modalMode) {
+        const kindLabel = kind === 'rental' ? 'aluguel' : 'venda';
         addToast({
           type: 'success',
-          message: `${product.display_label || product.nome} adicionado ao carrinho`,
+          message: `${product.display_label || product.nome} adicionado ao carrinho (${kindLabel})`,
         });
       }
       if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
@@ -681,7 +682,7 @@ export default function SalesNewSaleTab({
             normalizeLineKind(c.line_kind) === lineKind
         );
         if (dupIdx >= 0) {
-          addToast({ type: 'warning', message: 'Este tamanho já está no carrinho' });
+          addToast({ type: 'warning', message: 'Este tamanho já está no carrinho nesta modalidade' });
           return prev;
         }
 

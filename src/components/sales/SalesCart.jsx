@@ -66,6 +66,7 @@ export default function SalesCart({
                     <span className="sales-cart-row__name">{it.display_label}</span>
                     <span
                       className={`sales-cart-row__kind sales-cart-row__kind--${normalizeLineKind(it.line_kind)}`}
+                      aria-label={`Tipo: ${lineKindLabel(it.line_kind)}`}
                     >
                       {lineKindLabel(it.line_kind)}
                     </span>

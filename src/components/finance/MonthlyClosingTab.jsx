@@ -44,7 +44,6 @@ import FieldError from '../shared/FieldError.jsx';
 import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
 import {
   hasConfiguredBankAccounts,
-  resolveBankAccountForPayment,
 } from '../../lib/bankAccounts.js';
 import {
   accountWhenPaymentMethodChanges,
@@ -548,8 +547,12 @@ export default function MonthlyClosingTab({
 
       {showManual ? (
         <div className="card mb-3 monthly-closing-manual">
-          {!hasBankAccounts && canRegisterClosing ? (
-            <FinanceBankAccountsSetupBanner className="mb-3" />
+          {!hasBankAccounts ? (
+            <FinanceBankAccountsSetupBanner
+              financeConfig={financeConfig}
+              canConfigure={canRegisterClosing}
+              className="mb-3"
+            />
           ) : null}
           <div className="monthly-closing-manual__row">
             <div className="form-group monthly-closing-manual__field monthly-closing-manual__field--student">

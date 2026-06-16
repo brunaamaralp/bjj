@@ -26,6 +26,13 @@ function catalogPriceLabel(p, lineKind) {
   return p.sale_price != null ? formatBRL(p.sale_price) : 'Preço a definir';
 }
 
+function pickButtonTitle(p, lineKind) {
+  const isRental = lineKind === 'rental';
+  const can = isRental ? p.canRent : p.canSell;
+  if (can) return isRental ? `Alugar ${p.display_label || p.nome}` : `Vender ${p.display_label || p.nome}`;
+  return isRental ? 'Sem estoque para aluguel' : 'Sem estoque para venda';
+}
+
 function CatalogCardBody({ p, variantHint }) {
   return (
     <>
@@ -60,24 +67,36 @@ function CatalogCard({ p, flashProductId, onPick }) {
       >
         <CatalogCardBody p={p} variantHint={variantHint} />
         <div className="sales-catalog__card-dual-prices">
-          <span className="sales-catalog__card-price">{catalogPriceLabel(p, 'sale')}</span>
-          <span className="sales-catalog__card-price sales-catalog__card-price--rental">
-            {catalogPriceLabel(p, 'rental')}
-          </span>
+          <div className="sales-catalog__card-price-row">
+            <span className="sales-catalog__card-price-tag">Venda</span>
+            <span className="sales-catalog__card-price">{catalogPriceLabel(p, 'sale')}</span>
+          </div>
+          <div className="sales-catalog__card-price-row">
+            <span className="sales-catalog__card-price-tag sales-catalog__card-price-tag--rental">
+              Aluguel
+            </span>
+            <span className="sales-catalog__card-price sales-catalog__card-price--rental">
+              {catalogPriceLabel(p, 'rental')}
+            </span>
+          </div>
         </div>
         <div className="sales-catalog__card-actions">
           <button
             type="button"
             className="btn-outline btn-sm sales-catalog__pick-btn"
             disabled={!p.canSell}
+            title={pickButtonTitle(p, 'sale')}
+            aria-label={pickButtonTitle(p, 'sale')}
             onClick={() => p.canSell && onPick(p, 'sale')}
           >
             Vender
           </button>
           <button
             type="button"
-            className="btn-secondary btn-sm sales-catalog__pick-btn"
+            className="btn-outline btn-sm sales-catalog__pick-btn sales-catalog__pick-btn--rental"
             disabled={!p.canRent}
+            title={pickButtonTitle(p, 'rental')}
+            aria-label={pickButtonTitle(p, 'rental')}
             onClick={() => p.canRent && onPick(p, 'rental')}
           >
             Alugar
@@ -110,7 +129,14 @@ function CatalogCard({ p, flashProductId, onPick }) {
       }
     >
       <CatalogCardBody p={p} variantHint={variantHint} />
-      <div className="sales-catalog__card-price">{priceLabel}</div>
+      <div className="sales-catalog__card-price-wrap">
+        {lineKind === 'rental' ? (
+          <span className="sales-catalog__card-price-tag sales-catalog__card-price-tag--rental">
+            Aluguel
+          </span>
+        ) : null}
+        <div className="sales-catalog__card-price">{priceLabel}</div>
+      </div>
     </button>
   );
 }
@@ -223,9 +249,9 @@ export default function SalesCatalogPicker({
           <div className="sales-catalog-empty__icon" aria-hidden>
             <ShoppingCart size={40} strokeWidth={1.5} />
           </div>
-          <h4 className="sales-catalog-empty__title">Nenhum produto disponível para venda</h4>
+          <h4 className="sales-catalog-empty__title">Nenhum produto disponível</h4>
           <p className="sales-catalog-empty__hint">
-            Cadastre os produtos da academia para começar a registrar vendas.
+            Cadastre produtos com estoque de venda ou aluguel para registrar movimentações no PDV.
           </p>
           <Link
             to="/produtos"
