@@ -5,7 +5,7 @@ import {
   normalizeToStorageDialect,
   STORAGE_CREDIT_METHOD,
 } from './paymentMethods.js';
-import { PAYMENT_CATEGORY } from './studentPayments.js';
+import { PAYMENT_CATEGORY, normalizePaymentCategory } from './studentPayments.js';
 import { validateBankAccountForPayment, hasConfiguredBankAccounts } from './bankAccounts.js';
 import {
   computeTrocoFromPayForm,
@@ -61,7 +61,10 @@ const MENSALIDADES_ERROR_FOCUS_ORDER = [
 ];
 
 export function resolveMensalidadesPaymentAmount(payForm, student, financeConfig, existingPayment) {
-  let amountNum = parseCurrencyBRL(payForm?.amount);
+  const amountNum = parseCurrencyBRL(payForm?.amount);
+  const category = normalizePaymentCategory(payForm?.payment_type ?? payForm?.payment_category);
+  if (category !== PAYMENT_CATEGORY.PLAN) return amountNum;
+
   const installments = normalizeMensalidadesInstallments(payForm?.method, payForm?.installments);
   const withFee = expectedAmountWithCardFee(
     student,
@@ -70,7 +73,7 @@ export function resolveMensalidadesPaymentAmount(payForm, student, financeConfig
     installments,
     existingPayment
   );
-  if (Number.isFinite(withFee) && withFee > amountNum) amountNum = withFee;
+  if (Number.isFinite(withFee) && withFee > amountNum) return withFee;
   return amountNum;
 }
 

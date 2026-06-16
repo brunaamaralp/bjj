@@ -120,6 +120,41 @@ describe('validateMensalidadesPaymentForm', () => {
     expect(amountNum).toBe(200);
   });
 
+  it('preserva valor informado para taxa/avulso (nao aplica preco do plano)', () => {
+    const { errors, amountNum } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.FEE,
+        amount: 'R$ 90,00',
+        paid_at: '2026-06-15',
+        method: 'pix',
+        account: 'Nubank · 12345-6',
+        note: 'Taxa de competição',
+      },
+      financeConfig,
+      student,
+    });
+    expect(errors.amount).toBeUndefined();
+    expect(amountNum).toBe(90);
+  });
+
+  it('mensalidade continua alinhando ao valor minimo do plano', () => {
+    const { amountNum } = validateMensalidadesPaymentForm({
+      payForm: {
+        payment_type: PAYMENT_CATEGORY.PLAN,
+        amount: '50,00',
+        paid_at: '2026-06-15',
+        method: 'pix',
+        account: 'Nubank · 12345-6',
+      },
+      financeConfig: {
+        ...financeConfig,
+        plans: [{ name: 'Mensal', price: 200 }],
+      },
+      student,
+    });
+    expect(amountNum).toBe(200);
+  });
+
   it('não exige data de pagamento quando status é pendente', () => {
     const { errors } = validateMensalidadesPaymentForm({
       payForm: {
