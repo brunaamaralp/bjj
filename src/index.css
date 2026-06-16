@@ -1531,9 +1531,9 @@ a.btn-ghost:focus-visible {
 /*
  * Páginas “viewport-fill”: preenchem main e delegam scroll à lista/painel interno.
  * O Suspense/Routes entre main e a página precisa esticar (não é filho direto).
+ * Loja (.loja-hub) fica de fora — scroll no main-content (ver sales.css).
  */
 .main-content:has(.container.inbox-page),
-.main-content:has(.loja-hub),
 .main-content:has(.container.students-page),
 .main-content:has(.lead-profile-page-root.lead-profile--panel-open),
 .main-content:has(.student-profile-page-root.student-profile--panel-open) {
@@ -1542,6 +1542,16 @@ a.btn-ghost:focus-visible {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.main-content:has(.loja-hub) {
+  flex: 1 1 0%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .main-content.pipeline-active {
@@ -1566,7 +1576,6 @@ a.btn-ghost:focus-visible {
 }
 
 .main-content:has(.container.inbox-page) > *:last-child,
-.main-content:has(.loja-hub) > *:last-child,
 .main-content:has(.container.students-page) > *:last-child {
   flex: 1 1 0%;
   min-height: 0;
@@ -1574,6 +1583,15 @@ a.btn-ghost:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.main-content:has(.loja-hub) > *:last-child {
+  flex: 0 0 auto;
+  min-height: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
 .main-content.pipeline-active > *:last-child {
@@ -1608,7 +1626,14 @@ a.btn-ghost:focus-visible {
   max-width: none;
 }
 
-.main-content .loja-hub,
+.main-content .loja-hub {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
 .main-content .container.students-page {
   flex: 1 1 0%;
   min-height: 0;

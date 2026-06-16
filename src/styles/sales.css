@@ -1,12 +1,12 @@
 /* Sales (Loja /vendas) */
 
-/* —— Hub Loja: Produtos e Estoque preenchem a altura útil (via Suspense; ver index.css) —— */
+/* —— Hub Loja: scroll no main-content; conteúdo com altura natural —— */
 .main-content .loja-hub {
-  flex: 1 1 0%;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .loja-hub__tabs {
@@ -62,24 +62,24 @@
 
 /* Suspense lazy entre abas e painel da aba */
 .loja-hub > :last-child {
-  flex: 1 1 0%;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .loja-hub .container.products-page,
 .loja-hub .container.inventory-page,
 .loja-hub .container.sales-page {
-  flex: 1 1 0%;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   display: flex;
   flex-direction: column;
   padding-top: 0;
   padding-bottom: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sales-page > .loja-subnav,
@@ -94,11 +94,9 @@
 .sales-page__body,
 .products-page__body,
 .inventory-page__body {
-  flex: 1 1 0%;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
 }
 
 .sales-page__body,
@@ -107,15 +105,19 @@
   flex-direction: column;
 }
 
-/* Vendas — scroll na página, listas/tabelas com altura natural */
-.sales-page .sales-history-table-wrap {
-  max-height: none;
-  overflow: visible;
-  position: relative;
+/* Loja — tabelas/listas sem scroll interno */
+.loja-hub .navi-desktop-table-wrap,
+.loja-hub .inventory-desktop-table-wrap,
+.loja-hub .products-desktop-table-wrap,
+.loja-hub .sales-history-table-wrap {
+  max-height: none !important;
+  overflow: visible !important;
 }
 
-.sales-page__body .sales-history-table-wrap {
-  flex: none;
+.loja-hub .inventory-mobile-list,
+.loja-hub .products-mobile-list,
+.loja-hub .sales-history-mobile-list {
+  overflow: visible !important;
 }
 
 .sales-page__body .sales-cart-list {
