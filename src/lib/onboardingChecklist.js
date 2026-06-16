@@ -241,6 +241,10 @@ export function onboardingStepPath(stepId) {
       return '/automacoes?wizard=1';
     case 'setup_finance':
       return '/empresa?tab=financeiro';
+    case 'first_product':
+      return '/loja?tab=produtos';
+    case 'first_stock_entry':
+      return '/loja?tab=estoque';
     case 'company_tax':
       return '/empresa?focus=tax';
     case 'install_pwa':

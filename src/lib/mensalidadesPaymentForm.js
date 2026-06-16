@@ -4,6 +4,10 @@ import {
   STORAGE_CREDIT_METHOD,
 } from './paymentMethods.js';
 
+// Backwards-compatible re-export:
+// `MensalidadesPanel.jsx` (and older code) expects this symbol from this module.
+export { isStorageCreditMethod };
+
 /** @deprecated Use STORAGE_CREDIT_METHOD from paymentMethods.js */
 export const MENSALIDADES_CREDIT_METHOD = STORAGE_CREDIT_METHOD;
 

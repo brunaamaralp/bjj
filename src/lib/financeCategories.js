@@ -6,11 +6,22 @@
 
 import {
   getAccountCategoryOptionsByNature,
+  getBalanceSheetCategoryOptionsByNature,
   mergeCategoryOptionGroups,
   resolveAccountFinanceCategory,
 } from './financeAccountCategories.js';
 
 export const UNCLASSIFIED_DRE_GROUP = 'Não classificado';
+
+/** Classificação gerencial para relatório operacional e DFC. */
+export const OPERATIONAL_BUCKETS = {
+  OPERATIONAL: 'operational',
+  FINANCIAL: 'financial',
+  FINANCING: 'financing',
+  NEUTRAL: 'neutral',
+};
+
+export const PATRIMONIAL_FLOW_GROUP = 'Fluxo patrimonial / financiamento';
 
 export const FINANCE_CATEGORIES = {
   MENSALIDADE: {
@@ -18,108 +29,168 @@ export const FINANCE_CATEGORIES = {
     type: 'plan',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
+    operationalBucket: 'operational',
   },
   VENDA_PRODUTO: {
     label: 'Vendas de produtos',
     type: 'product',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
+    operationalBucket: 'operational',
   },
   MATRICULA: {
     label: 'Matrículas',
     type: 'enrollment',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
+    operationalBucket: 'operational',
   },
   ALUGUEL_RECEITA: {
     label: 'Aluguéis recebidos',
     type: 'plan',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
+    operationalBucket: 'operational',
   },
   OUTROS_RECEITA: {
     label: 'Outras receitas',
     type: 'other',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
+    operationalBucket: 'operational',
+  },
+  RECEITA_FINANCEIRA: {
+    label: 'Receitas financeiras',
+    type: 'financial_revenue',
+    dreGroup: 'Resultado Financeiro',
+    dreAccount: '7.1.2',
+    operationalBucket: 'financial',
+  },
+  APORTE_CAPITAL: {
+    label: 'Aporte de capital',
+    type: 'equity_injection',
+    dreGroup: '',
+    dreAccount: '3.1.1',
+    operationalBucket: 'financing',
+  },
+  EMPRESTIMO_RECEBIDO: {
+    label: 'Empréstimo recebido',
+    type: 'loan_proceeds',
+    dreGroup: '',
+    dreAccount: '2.2.1',
+    operationalBucket: 'financing',
+  },
+  TRANSFERENCIA_RECEBIDA: {
+    label: 'Transferência recebida',
+    type: 'internal_transfer',
+    dreGroup: '',
+    dreAccount: '1.1.9',
+    operationalBucket: 'neutral',
   },
   CANCELAMENTO: {
     label: 'Cancelamentos',
     type: 'refund',
     dreGroup: 'Deduções',
     dreAccount: '4.9.1',
+    operationalBucket: 'operational',
   },
   DESCONTO: {
     label: 'Descontos concedidos',
     type: 'refund',
     dreGroup: 'Deduções',
     dreAccount: '4.9.1',
+    operationalBucket: 'operational',
   },
   CUSTO_ESTOQUE: {
     label: 'Custo de estoque',
     type: 'stock_purchase',
     dreGroup: 'CMV/CPV',
     dreAccount: '5.1.1',
+    operationalBucket: 'operational',
   },
   CUSTO_SERVICO: {
     label: 'Custo do serviço',
     type: 'stock_purchase',
     dreGroup: 'CMV/CPV',
     dreAccount: '5.1.1',
+    operationalBucket: 'operational',
   },
   ALUGUEL_ESPACO: {
     label: 'Aluguel do espaço',
     type: 'expense_operational',
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
+    operationalBucket: 'operational',
   },
   SALARIOS: {
     label: 'Salários e encargos',
     type: 'expense_operational',
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
+    operationalBucket: 'operational',
   },
   MARKETING: {
     label: 'Marketing',
     type: 'expense_operational',
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
+    operationalBucket: 'operational',
   },
   SISTEMAS: {
     label: 'Sistemas / Software',
     type: 'expense_operational',
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
+    operationalBucket: 'operational',
   },
   MANUTENCAO: {
     label: 'Manutenção',
     type: 'expense_operational',
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
+    operationalBucket: 'operational',
   },
   OUTRAS_DESPESAS: {
     label: 'Outras despesas',
     type: 'expense_operational',
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+  },
+  EMPRESTIMO_PAGO: {
+    label: 'Pagamento de empréstimo',
+    type: 'loan_repayment',
+    dreGroup: '',
+    dreAccount: '2.2.1',
+    operationalBucket: 'financing',
+  },
+  TRANSFERENCIA_ENVIADA: {
+    label: 'Transferência enviada',
+    type: 'internal_transfer',
+    dreGroup: '',
+    dreAccount: '1.1.9',
+    operationalBucket: 'neutral',
   },
   TARIFAS_BANCARIAS: {
     label: 'Tarifas bancárias',
     type: 'expense_financial',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
+    operationalBucket: 'financial',
   },
   JUROS: {
     label: 'Juros',
     type: 'expense_financial',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
+    operationalBucket: 'financial',
   },
   TAXA_CARTAO: {
     label: 'Taxas de cartão',
     type: 'card_fee',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
+    operationalBucket: 'financial',
   },
 };
 
@@ -185,6 +256,13 @@ export const EXPENSE_CATEGORY_GROUP_ORDER = [
   'Despesas Operacionais',
   'Resultado Financeiro',
   'CMV/CPV',
+  PATRIMONIAL_FLOW_GROUP,
+];
+
+const INFLOW_CATEGORY_GROUP_ORDER = [
+  'Receita Bruta',
+  'Resultado Financeiro',
+  PATRIMONIAL_FLOW_GROUP,
 ];
 
 export function getExpenseCategories() {
@@ -196,12 +274,14 @@ export const FREQUENT_TX_CATEGORY_LABELS = {
   in: [
     FINANCE_CATEGORIES.MENSALIDADE.label,
     FINANCE_CATEGORIES.VENDA_PRODUTO.label,
-    FINANCE_CATEGORIES.OUTROS_RECEITA.label,
+    FINANCE_CATEGORIES.RECEITA_FINANCEIRA.label,
+    FINANCE_CATEGORIES.APORTE_CAPITAL.label,
   ],
   out: [
     FINANCE_CATEGORIES.OUTRAS_DESPESAS.label,
     FINANCE_CATEGORIES.MARKETING.label,
-    FINANCE_CATEGORIES.SALARIOS.label,
+    FINANCE_CATEGORIES.TARIFAS_BANCARIAS.label,
+    FINANCE_CATEGORIES.EMPRESTIMO_PAGO.label,
   ],
 };
 
@@ -212,8 +292,7 @@ export function defaultCategoryForDirection(direction) {
 }
 
 function sortCategoryGroupMap(map, nature) {
-  if (nature !== 'out') return map;
-  const order = EXPENSE_CATEGORY_GROUP_ORDER;
+  const order = nature === 'out' ? EXPENSE_CATEGORY_GROUP_ORDER : INFLOW_CATEGORY_GROUP_ORDER;
   const sorted = new Map();
   for (const key of order) {
     if (map.has(key)) sorted.set(key, map.get(key));
@@ -226,26 +305,102 @@ function sortCategoryGroupMap(map, nature) {
 
 const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'other']);
 
+const TYPE_TO_OPERATIONAL_BUCKET = {
+  financial_revenue: 'financial',
+  expense_financial: 'financial',
+  card_fee: 'financial',
+  equity_injection: 'financing',
+  loan_proceeds: 'financing',
+  loan_repayment: 'financing',
+  balance_sheet_in: 'financing',
+  balance_sheet_out: 'financing',
+  internal_transfer: 'neutral',
+};
+
 export function getRevenueCategories() {
   return Object.values(FINANCE_CATEGORIES).filter((c) => REVENUE_TYPES.has(c.type));
 }
 
+function getFinancialInflowCategories() {
+  return [FINANCE_CATEGORIES.RECEITA_FINANCEIRA];
+}
+
+function getPatrimonialInflowCategories() {
+  return [
+    FINANCE_CATEGORIES.APORTE_CAPITAL,
+    FINANCE_CATEGORIES.EMPRESTIMO_RECEBIDO,
+    FINANCE_CATEGORIES.TRANSFERENCIA_RECEBIDA,
+  ];
+}
+
+function getPatrimonialOutflowCategories() {
+  return [FINANCE_CATEGORIES.EMPRESTIMO_PAGO, FINANCE_CATEGORIES.TRANSFERENCIA_ENVIADA];
+}
+
 /** Agrupa categorias por dreGroup para optgroup no select. */
 export function getCategoryOptionsByNature(nature, accounts = null) {
-  const list = nature === 'out' ? getExpenseCategories() : getRevenueCategories();
-  const map = new Map();
-  for (const c of list) {
-    if (!map.has(c.dreGroup)) map.set(c.dreGroup, []);
-    map.get(c.dreGroup).push(c);
+  let map = new Map();
+
+  if (nature === 'out') {
+    for (const c of getExpenseCategories()) {
+      if (!map.has(c.dreGroup)) map.set(c.dreGroup, []);
+      map.get(c.dreGroup).push(c);
+    }
+    map.set(PATRIMONIAL_FLOW_GROUP, [...getPatrimonialOutflowCategories()]);
+  } else {
+    for (const c of getRevenueCategories()) {
+      if (!map.has(c.dreGroup)) map.set(c.dreGroup, []);
+      map.get(c.dreGroup).push(c);
+    }
+    const financial = getFinancialInflowCategories();
+    if (financial.length) {
+      map.set('Resultado Financeiro', [...(map.get('Resultado Financeiro') || []), ...financial]);
+    }
+    map.set(PATRIMONIAL_FLOW_GROUP, [...getPatrimonialInflowCategories()]);
   }
-  let merged = map;
+
   if (accounts?.length) {
     const filtered = filterAccountsForCategorySelect(accounts);
     if (filtered.length) {
-      merged = mergeCategoryOptionGroups(map, getAccountCategoryOptionsByNature(filtered, nature));
+      map = mergeCategoryOptionGroups(map, getAccountCategoryOptionsByNature(filtered, nature));
     }
+    map = mergeCategoryOptionGroups(map, getBalanceSheetCategoryOptionsByNature(accounts, nature));
   }
-  return sortCategoryGroupMap(merged, nature);
+
+  return sortCategoryGroupMap(map, nature);
+}
+
+export function operationalBucketForCategory(value, accounts = null) {
+  const cat = resolveFinanceCategory(value, accounts);
+  if (cat?.operationalBucket) return cat.operationalBucket;
+  if (cat?.type && TYPE_TO_OPERATIONAL_BUCKET[cat.type]) return TYPE_TO_OPERATIONAL_BUCKET[cat.type];
+  if (cat?.type && REVENUE_TYPES.has(cat.type)) return 'operational';
+  if (cat?.type === 'refund') return 'operational';
+  if (cat?.type === 'expense_financial' || cat?.type === 'card_fee') return 'financial';
+  if (cat?.type === 'expense_operational' || cat?.type === 'stock_purchase') return 'operational';
+  return 'operational';
+}
+
+export function operationalBucketForTx(doc, accounts = null) {
+  const category = String(doc?.category || '').trim();
+  if (category) {
+    const fromCat = operationalBucketForCategory(category, accounts);
+    if (resolveFinanceCategory(category, accounts)) return fromCat;
+  }
+  const type = String(doc?.type || '').toLowerCase();
+  if (TYPE_TO_OPERATIONAL_BUCKET[type]) return TYPE_TO_OPERATIONAL_BUCKET[type];
+  if (REVENUE_TYPES.has(type) || type === 'refund') return 'operational';
+  if (type === 'expense_financial' || type === 'card_fee') return 'financial';
+  if (['expense_operational', 'expense', 'stock_purchase'].includes(type)) return 'operational';
+  return 'operational';
+}
+
+export function isOperationalInflowTx(doc, accounts = null) {
+  return operationalBucketForTx(doc, accounts) === 'operational';
+}
+
+export function isOperationalOutflowTx(doc, accounts = null) {
+  return operationalBucketForTx(doc, accounts) === 'operational';
 }
 
 export function findCategoryKey(entry) {
@@ -260,7 +415,7 @@ export function findCategoryKey(entry) {
  * Resolve categoria por chave (MENSALIDADE), label, acct:CODE ou type legado.
  * @returns {typeof FINANCE_CATEGORIES.MENSALIDADE | null}
  */
-export function resolveFinanceCategory(value, accounts = null) {
+export function resolveFinanceCategory(value, accounts = null, options = {}) {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (BY_KEY[raw]) return BY_KEY[raw];
@@ -269,7 +424,8 @@ export function resolveFinanceCategory(value, accounts = null) {
   const keyUpper = raw.toUpperCase().replace(/\s+/g, '_');
   if (BY_KEY[keyUpper]) return BY_KEY[keyUpper];
   if (accounts?.length) {
-    const fromAccount = resolveAccountFinanceCategory(raw, accounts);
+    const nature = options.direction === 'out' ? 'out' : 'in';
+    const fromAccount = resolveAccountFinanceCategory(raw, accounts, nature);
     if (fromAccount) return fromAccount;
   }
   return null;
@@ -291,6 +447,11 @@ export function defaultCategoryForTxType(type) {
   if (t === 'stock_purchase') return FINANCE_CATEGORIES.CUSTO_ESTOQUE.label;
   if (t === 'card_fee') return FINANCE_CATEGORIES.TAXA_CARTAO.label;
   if (t === 'expense_financial') return FINANCE_CATEGORIES.TARIFAS_BANCARIAS.label;
+  if (t === 'financial_revenue') return FINANCE_CATEGORIES.RECEITA_FINANCEIRA.label;
+  if (t === 'equity_injection') return FINANCE_CATEGORIES.APORTE_CAPITAL.label;
+  if (t === 'loan_proceeds') return FINANCE_CATEGORIES.EMPRESTIMO_RECEBIDO.label;
+  if (t === 'loan_repayment') return FINANCE_CATEGORIES.EMPRESTIMO_PAGO.label;
+  if (t === 'internal_transfer') return FINANCE_CATEGORIES.TRANSFERENCIA_RECEBIDA.label;
   if (t === 'expense' || t === 'expense_operational') return FINANCE_CATEGORIES.OUTRAS_DESPESAS.label;
   return FINANCE_CATEGORIES.OUTROS_RECEITA.label;
 }

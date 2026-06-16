@@ -106,8 +106,8 @@ describe('financeTxCategorySelect', () => {
 
     expect(screen.getByRole('option', { name: 'Mensalidades' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Vendas de produtos' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Matrículas' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Outras receitas' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Aporte de capital' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Receitas financeiras' })).toBeInTheDocument();
   });
 
   it('não lista acct:4.1.1 quando duplica Mensalidades', () => {

@@ -9,6 +9,8 @@ import {
   accountToFinanceCategory,
   resolveAccountFinanceCategory,
   listSelectableAccounts,
+  listBalanceSheetAccounts,
+  getBalanceSheetCategoryOptionsByNature,
   accountCodeDepth,
   mergeCategoryOptionGroups,
 } from '../../../src/lib/financeAccountCategories.js';
@@ -182,6 +184,39 @@ describe('financeAccountCategories', () => {
       const sample = [{ code: '4.1.1', name: 'Receitas', type: 'receita', dreGrupo: 'Receita Bruta' }];
       const cat = resolveAccountFinanceCategory('acct:4.1.1', sample);
       expect(cat?.accountCode).toBe('4.1.1');
+    });
+  });
+
+  describe('BLOCO 6 — passivo/PL no select', () => {
+    const balanceSheetAccounts = [
+      { code: '3.1.1', name: 'Capital social', type: 'pl', isActive: true },
+      { code: '2.2.1', name: 'Empréstimos', type: 'passivo', isActive: true },
+      { code: '4.1.1', name: 'Receitas', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
+    ];
+
+    it('listBalanceSheetAccounts retorna passivo e pl ativos', () => {
+      const out = listBalanceSheetAccounts(balanceSheetAccounts);
+      expect(out.map((a) => a.code)).toEqual(['2.2.1', '3.1.1']);
+    });
+
+    it('accountToFinanceCategory mapeia PL com bucket financing', () => {
+      const cat = accountToFinanceCategory(balanceSheetAccounts[0], 'in');
+      expect(cat.type).toBe('balance_sheet_in');
+      expect(cat.operationalBucket).toBe('financing');
+      expect(cat.isBalanceSheetCategory).toBe(true);
+    });
+
+    it('accountToFinanceCategory mapeia passivo saída como balance_sheet_out', () => {
+      const cat = accountToFinanceCategory(balanceSheetAccounts[1], 'out');
+      expect(cat.type).toBe('balance_sheet_out');
+      expect(cat.operationalBucket).toBe('financing');
+    });
+
+    it('getBalanceSheetCategoryOptionsByNature agrupa em Fluxo patrimonial', () => {
+      const groups = getBalanceSheetCategoryOptionsByNature(balanceSheetAccounts, 'in');
+      const patrimonial = groups.get('Fluxo patrimonial / financiamento') || [];
+      expect(patrimonial.some((c) => c.value === 'acct:3.1.1')).toBe(true);
+      expect(patrimonial.some((c) => c.value === 'acct:2.2.1')).toBe(true);
     });
   });
 });

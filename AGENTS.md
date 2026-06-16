@@ -67,6 +67,26 @@ Deploy falha silenciosamente ou functions são truncadas sem aviso.
 
 Padrões de UI, tokens e componentes compartilhados: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md).
 
+## Jornadas do usuário
+
+Índice: [docs/flows/README.md](docs/flows/README.md) · Template: [docs/flows/_template.md](docs/flows/_template.md) · Validação: [docs/flows/VALIDATION.md](docs/flows/VALIDATION.md)
+
+Antes de auditar UX ou descrever comportamento de um módulo, consulte o fluxo correspondente em `docs/flows/`. Specs de feature ficam em `docs/superpowers/specs/` — **linkar**, não duplicar.
+
+### Governança (manter docs atualizados)
+
+Atualize `docs/flows/` **no mesmo PR** quando mudar:
+
+- Rotas ou redirects (`src/App.jsx`, `src/components/routing/*`)
+- Navegação (`src/lib/naviMenu.js`, sidebar/mobile)
+- Jornada visível ao usuário em `src/pages/*` (novo passo, modal, filtro, handoff, matrícula)
+
+No fluxo afetado: metadados, mapa de telas, checklist da Seção A; Seção B (demo) só se a narrativa mudou. Novo módulo → copiar `_template.md` e indexar no README.
+
+Se código e checklist divergirem, corrigir o fluxo e registrar em `docs/flows/VALIDATION.md`. Rotas canônicas em `naviMenu.js` / `App.jsx`; aliases legados só em nota de rodapé.
+
+Rule Cursor (gatilho em arquivos de rota/nav): `.cursor/rules/docs-user-flows.mdc`
+
 ## Feedback visual (toasts, banners, erros)
 
 Ao adicionar alertas ou mensagens de erro, siga [docs/ux-feedback.md](docs/ux-feedback.md): use `useToast` para ações transitórias, `StatusBanner`/`ErrorBanner` para erros persistentes de página, `FieldError` em formulários e `ConfirmDialog` em vez de `window.confirm`.

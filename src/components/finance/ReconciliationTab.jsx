@@ -26,6 +26,8 @@ import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
+import BankReconCreateTxModal from './BankReconCreateTxModal.jsx';
+import { useAccountingStore } from '../../store/useAccountingStore';
 
 function fmtMoney(v) {
   try {
@@ -101,6 +103,12 @@ export default function ReconciliationTab({ academyId }) {
   const [showAllOrphans, setShowAllOrphans] = useState(false);
   const [focusPendingOnly, setFocusPendingOnly] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null);
+  const [createTxItem, setCreateTxItem] = useState(null);
+  const chartAccounts = useAccountingStore((s) => s.accounts);
+
+  useEffect(() => {
+    if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
+  }, [academyId]);
 
   const loadList = useCallback(async () => {
     if (!academyId) return;
@@ -161,7 +169,7 @@ export default function ReconciliationTab({ academyId }) {
     const ignored = [];
 
     for (const item of detail.items) {
-      if (item.status === 'ignored') {
+      if (item.status === 'ignored' || item.status === 'duplicate') {
         ignored.push(item);
         continue;
       }
@@ -197,9 +205,20 @@ export default function ReconciliationTab({ academyId }) {
     if (selectedId) await loadDetail(selectedId);
   };
 
-  const onImported = (statementId) => {
+  const onImported = (statementId, result) => {
     setSelectedId(statementId);
     void refresh();
+    const parts = ['Extrato importado.'];
+    if (result?.suggested_matches) {
+      parts.push(`${result.suggested_matches} sugestão(ões).`);
+    }
+    if (result?.duplicate_count) {
+      parts.push(`${result.duplicate_count} duplicata(s) ignorada(s).`);
+    }
+    if (result?.dedup_partial) {
+      parts.push('Deduplicação parcial — extrato sem conta não verificou duplicatas por banco.');
+    }
+    toast.success(parts.join(' '));
   };
 
   const run = async (fn, { successMessage } = {}) => {
@@ -236,11 +255,7 @@ export default function ReconciliationTab({ academyId }) {
   };
 
   const requestCreateTx = (item) => {
-    setPendingConfirm({
-      type: 'create',
-      itemId: item.id,
-      label: item.description || 'esta linha',
-    });
+    setCreateTxItem(item);
   };
 
   const executePendingConfirm = () => {
@@ -249,10 +264,6 @@ export default function ReconciliationTab({ academyId }) {
     setPendingConfirm(null);
     if (type === 'ignore') {
       void run(() => ignoreBankItem(academyId, itemId), { successMessage: 'Linha ignorada.' });
-    } else if (type === 'create') {
-      void run(() => createTxFromBankItem(academyId, { item_id: itemId }), {
-        successMessage: 'Lançamento criado e conciliado.',
-      });
     }
   };
 
@@ -330,6 +341,7 @@ export default function ReconciliationTab({ academyId }) {
                 <tr>
                   <th>Arquivo</th>
                   <th>Formato</th>
+                  <th>Conta</th>
                   <th>Período</th>
                   <th>Importado em</th>
                   <th className="finance-num">Créditos</th>
@@ -350,6 +362,13 @@ export default function ReconciliationTab({ academyId }) {
                         {formatSourceLabel(s.source_format)}
                         {s.parse_method === 'ai' ? ' (IA)' : ''}
                       </span>
+                    </td>
+                    <td title={s.bank_account || ''}>
+                      {s.bank_account
+                        ? s.bank_account.length > 20
+                          ? `${s.bank_account.slice(0, 20)}…`
+                          : s.bank_account
+                        : '—'}
                     </td>
                     <td>
                       {fmtDate(s.period_start)} — {fmtDate(s.period_end)}
@@ -411,6 +430,7 @@ export default function ReconciliationTab({ academyId }) {
             statusLabel={STATUS_LABELS[st.status] || st.status}
             formatLabel={st.source_format ? formatSourceLabel(st.source_format) : ''}
             periodLabel={`${fmtDate(st.period_start)} — ${fmtDate(st.period_end)}`}
+            bankAccountLabel={st.bank_account || ''}
             pendingCount={summary.pending_count}
             pendingAmount={summary.pending_amount}
             balanceGap={balanceGap}
@@ -419,6 +439,13 @@ export default function ReconciliationTab({ academyId }) {
             reconciledCount={summary.reconciled_count}
             reconciledAmount={summary.reconciled_amount}
           />
+
+          {!st.bank_account ? (
+            <StatusBanner variant="warning" className="mb-3">
+              Este extrato não tem conta bancária associada — os lançamentos órfãos não estão filtrados por banco.
+              Ao importar novos extratos, selecione a conta correspondente.
+            </StatusBanner>
+          ) : null}
 
           <div className="flex gap-2 mb-3 bank-recon-actions-head">
             {grouped.suggested.length > 0 ? (
@@ -628,15 +655,20 @@ export default function ReconciliationTab({ academyId }) {
         onConfirm={executePendingConfirm}
         onClose={() => setPendingConfirm(null)}
       />
-      <ConfirmDialog
-        open={pendingConfirm?.type === 'create'}
-        title="Criar lançamento a partir desta linha?"
-        description="Será criado um lançamento no Caixa com os dados do extrato e vinculado automaticamente a esta linha."
-        confirmLabel="Criar e conciliar"
-        confirmVariant="primary"
-        loading={busy}
-        onConfirm={executePendingConfirm}
-        onClose={() => setPendingConfirm(null)}
+      <BankReconCreateTxModal
+        open={Boolean(createTxItem)}
+        item={createTxItem}
+        chartAccounts={chartAccounts}
+        busy={busy}
+        onClose={() => setCreateTxItem(null)}
+        onConfirm={({ category }) => {
+          if (!createTxItem?.id) return;
+          const itemId = createTxItem.id;
+          setCreateTxItem(null);
+          void run(() => createTxFromBankItem(academyId, { item_id: itemId, category }), {
+            successMessage: 'Lançamento criado e conciliado.',
+          });
+        }}
       />
     </FinanceTabShell>
   );

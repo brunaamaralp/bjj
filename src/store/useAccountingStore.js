@@ -64,11 +64,14 @@ export function seedAccounts() {
     { id: crypto.randomUUID(), code: '1.2.1', name: 'Imobilizado', type: 'ativo', nature: 'devedora', dreGrupo: '', dfcClasse: 'Investimento', dfcSubclasse: 'capex', cash: false, parentCode: '1.2' },
     { id: crypto.randomUUID(), code: '2.1.1', name: 'Fornecedores', type: 'passivo', nature: 'credora', dreGrupo: '', dfcClasse: 'Operacional', dfcSubclasse: 'fornecedores', cash: false, parentCode: '2.1' },
     { id: crypto.randomUUID(), code: '2.2.1', name: 'Empréstimos', type: 'passivo', nature: 'credora', dreGrupo: '', dfcClasse: 'Financiamento', dfcSubclasse: 'empréstimos', cash: false, parentCode: '2.2' },
+    { id: crypto.randomUUID(), code: '3.1.1', name: 'Capital social / Aportes', type: 'pl', nature: 'credora', dreGrupo: '', dfcClasse: 'Financiamento', dfcSubclasse: 'capital', cash: false, parentCode: '3.1' },
+    { id: crypto.randomUUID(), code: '1.1.9', name: 'Transferências entre contas', type: 'ativo', nature: 'devedora', dreGrupo: '', dfcClasse: 'Financiamento', dfcSubclasse: 'transferências', cash: false, parentCode: '1.1' },
     { id: crypto.randomUUID(), code: '4.1.1', name: 'Receita de Vendas', type: 'receita', nature: 'credora', dreGrupo: 'Receita Bruta', dfcClasse: 'Operacional', dfcSubclasse: 'clientes', cash: false, parentCode: '4.1' },
     { id: crypto.randomUUID(), code: '4.9.1', name: 'Deduções/Impostos s/ Vendas', type: 'receita', nature: 'devedora', dreGrupo: 'Deduções', dfcClasse: 'Operacional', dfcSubclasse: '', cash: false, parentCode: '4.9' },
     { id: crypto.randomUUID(), code: '5.1.1', name: 'CMV/CPV', type: 'custo', nature: 'devedora', dreGrupo: 'CMV/CPV', dfcClasse: 'Operacional', dfcSubclasse: 'fornecedores', cash: false, parentCode: '5.1' },
     { id: crypto.randomUUID(), code: '6.2.1', name: 'Despesas Gerais e Adm', type: 'despesa', nature: 'devedora', dreGrupo: 'Despesas Operacionais', dfcClasse: 'Operacional', dfcSubclasse: 'folha', cash: false, parentCode: '6.2' },
     { id: crypto.randomUUID(), code: '7.1.1', name: 'Despesas Financeiras', type: 'despesa', nature: 'devedora', dreGrupo: 'Resultado Financeiro', dfcClasse: 'Financiamento', dfcSubclasse: 'juros', cash: true, parentCode: '7.1' },
+    { id: crypto.randomUUID(), code: '7.1.2', name: 'Receitas financeiras', type: 'receita', nature: 'credora', dreGrupo: 'Resultado Financeiro', dfcClasse: 'Financiamento', dfcSubclasse: 'rendimentos', cash: false, parentCode: '7.1' },
     { id: crypto.randomUUID(), code: '6.3.1', name: 'Depreciação e Amortização', type: 'despesa', nature: 'devedora', dreGrupo: 'Depreciação/Amortização', dfcClasse: 'Operacional', dfcSubclasse: '', cash: false, parentCode: '6.3' },
   ];
   return rows;

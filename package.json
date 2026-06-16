@@ -27,6 +27,7 @@
     "recover:bank-accounts": "node --env-file=.env scripts/recover-bank-accounts.mjs",
     "unify:bank-labels": "node --env-file=.env scripts/unify-bank-account-labels.mjs",
     "restore:bank-definitions": "node --env-file=.env scripts/restore-bank-account-definitions.mjs",
+    "backfill:chart-accounts": "node --env-file=.env scripts/backfill-chart-accounts.mjs",
     "provision:student-payments": "node scripts/provision_student_payments_schema.js",
     "provision:task-templates": "node scripts/provision-task-templates-schema.mjs",
     "provision:products-catalog": "node scripts/provision-products-catalog-schema.mjs",

@@ -28,6 +28,13 @@ vi.mock('../lib/bankReconciliationApi.js', () => ({
   completeBankReconciliation: vi.fn(),
 }));
 
+vi.mock('../store/useAccountingStore.js', () => {
+  const loadByAcademy = vi.fn();
+  const store = (sel) => sel({ accounts: [] });
+  store.getState = () => ({ loadByAcademy });
+  return { useAccountingStore: store };
+});
+
 function renderRecon() {
   return render(
     <MemoryRouter>
@@ -139,5 +146,133 @@ describe('ReconciliationTab integration', () => {
     expect(
       screen.getByText(/Clique em uma linha pendente do extrato para vincular/i)
     ).toBeInTheDocument();
+  });
+
+  it('does not show warning banner when statement has a bank account', async () => {
+    const user = userEvent.setup();
+    // default fixture already has bank_account: 'Sicoob · 1'
+    renderRecon();
+    await openStatementWorkspace(user);
+
+    expect(screen.queryByText(/não tem conta bancária associada/i)).not.toBeInTheDocument();
+  });
+
+  it('shows warning banner for legacy statement without bank account', async () => {
+    bankApi.getBankStatementDetail.mockResolvedValue(
+      buildBankReconDetail({ statement: { bank_account: '' } })
+    );
+    const user = userEvent.setup();
+    renderRecon();
+    await openStatementWorkspace(user);
+
+    expect(screen.getByText(/não tem conta bancária associada/i)).toBeInTheDocument();
+  });
+
+  it('shows account label in the KPI header when statement has bank_account', async () => {
+    const user = userEvent.setup();
+    renderRecon();
+    await openStatementWorkspace(user);
+
+    // KPI header should contain the bank account label
+    const kpi = document.querySelector('.bank-recon-kpi__header');
+    expect(kpi).toHaveTextContent(/Sicoob · 1/i);
+  });
+
+  it('opens category modal before creating tx from unmatched line (not silent other)', async () => {
+    bankApi.createTxFromBankItem.mockResolvedValue({ ok: true, transaction: { id: 'tx-new' } });
+    const user = userEvent.setup();
+    renderRecon();
+    await openStatementWorkspace(user);
+
+    const unmatchedRow = screen.getByText('PIX Cliente').closest('.bank-recon-pair--unmatched');
+    expect(unmatchedRow).toBeTruthy();
+    const createBtn = within(unmatchedRow).getByRole('button', { name: /Criar lançamento/i });
+    await user.click(createBtn);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: /Criar lançamento/i })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Aporte, empréstimo e transferência não entram no faturamento operacional/i)
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Categoria/i)).toBeInTheDocument();
+
+    const categoryInput = within(dialog).getByLabelText(/Categoria/i);
+    await user.click(categoryInput);
+    await user.click(screen.getByRole('option', { name: 'Aporte de capital' }));
+
+    await user.click(within(dialog).getByRole('button', { name: /Criar e conciliar/i }));
+
+    await waitFor(() => {
+      expect(bankApi.createTxFromBankItem).toHaveBeenCalledWith('acad-1', {
+        item_id: 'item-1',
+        category: 'Aporte de capital',
+      });
+    });
+  });
+
+  it('does not render incompatible-bank orphan when filtered by backend', async () => {
+    // Simulate backend already filtered tx-far (Nubank) out of navi_unmatched
+    bankApi.getBankStatementDetail.mockResolvedValue(
+      buildBankReconDetail({
+        navi_unmatched: [
+          {
+            id: 'tx-1',
+            gross: 100,
+            settledAt: '2026-01-15',
+            planName: 'Mensalidade João',
+            direction: 'in',
+            reconciled: false,
+          },
+          {
+            id: 'tx-2',
+            gross: 10,
+            settledAt: '2026-01-16',
+            category: 'Taxa banco',
+            direction: 'out',
+            reconciled: false,
+          },
+        ],
+      })
+    );
+    const user = userEvent.setup();
+    renderRecon();
+    await openStatementWorkspace(user);
+
+    expect(screen.getByText('Mensalidade João')).toBeInTheDocument();
+    expect(screen.queryByText('Fora do filtro')).not.toBeInTheDocument();
+  });
+
+  it('does not show duplicate lines in Sem correspondência section', async () => {
+    bankApi.getBankStatementDetail.mockResolvedValue(
+      buildBankReconDetail({
+        items: [
+          {
+            id: 'item-dup',
+            date: '2026-01-10',
+            description: 'PIX duplicado',
+            amount: 100,
+            direction: 'credit',
+            status: 'duplicate',
+          },
+          {
+            id: 'item-1',
+            date: '2026-01-15',
+            description: 'PIX Cliente',
+            amount: 100,
+            direction: 'credit',
+            status: 'unmatched',
+            match_score: 0,
+          },
+        ],
+        summary: { pending_count: 1, pending_amount: 100, navi_orphan_count: 1 },
+      })
+    );
+    const user = userEvent.setup();
+    renderRecon();
+    await openStatementWorkspace(user);
+
+    expect(screen.getByText('PIX Cliente')).toBeInTheDocument();
+    expect(screen.queryByText('PIX duplicado')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sem correspondência/i)).toBeInTheDocument();
   });
 });

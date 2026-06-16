@@ -4,6 +4,7 @@ import {
   bankAccountMatchLevel,
   matchBankItemsToTransactions,
   partitionMatchResults,
+  txEligibleForStatementBank,
   BANK_MATCH_SUGGEST_SCORE,
 } from '../../../lib/server/bankReconciliationMatcher.js';
 
@@ -160,7 +161,35 @@ describe('bankReconciliationMatcher', () => {
     });
   });
 
-  describe('BLOCO 4 — partitionMatchResults', () => {
+  describe('BLOCO 4 — txEligibleForStatementBank', () => {
+    it('extrato sem conta → todos os lançamentos elegíveis', () => {
+      const tx = fakeTx({ bankAccount: 'Nubank' });
+      expect(txEligibleForStatementBank('', tx)).toBe(true);
+      expect(txEligibleForStatementBank(null, tx)).toBe(true);
+    });
+
+    it('mesma conta (ok) → elegível', () => {
+      const tx = fakeTx({ bankAccount: 'Sicoob' });
+      expect(txEligibleForStatementBank('Sicoob', tx)).toBe(true);
+    });
+
+    it('lançamento sem conta (partial) → elegível', () => {
+      const tx = fakeTx({ bankAccount: '' });
+      expect(txEligibleForStatementBank('Sicoob', tx)).toBe(true);
+    });
+
+    it('contas diferentes (mismatch) → não elegível', () => {
+      const tx = fakeTx({ bankAccount: 'Nubank' });
+      expect(txEligibleForStatementBank('Sicoob', tx)).toBe(false);
+    });
+
+    it('comparação case-insensitive', () => {
+      const tx = fakeTx({ bankAccount: 'SICOOB' });
+      expect(txEligibleForStatementBank('sicoob', tx)).toBe(true);
+    });
+  });
+
+  describe('BLOCO 5 — partitionMatchResults', () => {
     it("resultado com status='matched' → vai para auto", () => {
       const { auto, suggested, unmatched } = partitionMatchResults([
         { status: 'matched', match_score: 100, suggested_tx_id: 'tx1' },

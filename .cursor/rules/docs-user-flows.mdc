@@ -1,0 +1,49 @@
+---
+description: Manter docs/flows/ alinhados quando rotas, navegação ou jornadas de usuário mudarem
+globs: src/App.jsx,src/lib/naviMenu.js,src/lib/mobileMoreNav.js,src/pages/**/*.{jsx,tsx},src/components/layout/Navi*.jsx,src/components/routing/**/*
+alwaysApply: false
+---
+
+# Governança — jornadas do usuário (`docs/flows/`)
+
+Fluxos end-to-end para auditoria e demos: [docs/flows/README.md](../../docs/flows/README.md).  
+Template: [docs/flows/_template.md](../../docs/flows/_template.md).  
+Validação: [docs/flows/VALIDATION.md](../../docs/flows/VALIDATION.md).
+
+## Quando atualizar (mesmo PR)
+
+Atualize o fluxo correspondente em `docs/flows/` se a mudança afetar **como o usuário percorre o sistema**:
+
+- Rotas ou redirects (`src/App.jsx`, `src/components/routing/*`)
+- Sidebar, mobile nav, accordions (`src/lib/naviMenu.js`, `NaviSidebarNav`, `mobileMoreNav.js`)
+- Página hub, modais globais, fluxo principal de um módulo (`src/pages/*`)
+- Labels de menu, query params canônicos (`?tab=`, `?filter=`), deep links
+
+Se não houver fluxo ainda: copie `_template.md` → `docs/flows/<modulo>/<nome>.md` e adicione linha no índice do README.
+
+## O que atualizar no fluxo
+
+1. Metadados (`rotas`, `arquivos-chave`, `última revisão`)
+2. Mapa de telas e diagrama mermaid (se o caminho mudou)
+3. **Seção A — Auditoria:** checklist passo a passo
+4. **Seção B — Demo:** só se a narrativa ou telas mudaram
+
+Registre divergências encontradas em `docs/flows/VALIDATION.md`.
+
+## Não fazer
+
+- Duplicar requisitos de `docs/superpowers/specs/*-PRODUCT.md` — **linkar** a spec
+- Duplicar QA técnico de `docs/harness/` ou `HARNESS.md` — referenciar comandos `npm test`
+- Documentar rotas legadas como caminho principal (`/caixa`, `/mensalidades`); usar path canônico e nota de rodapé
+- Marcar `revisado-staging` sem checklist manual; `revisado (código)` basta após conferência estática
+
+## Fontes de verdade no código
+
+- Labels e estrutura de menu: `src/lib/naviMenu.js`
+- Rotas: `src/App.jsx`
+- Specs de feature (escopo/requisitos): `docs/superpowers/specs/`
+
+## Presença (armadilha conhecida)
+
+Presença ao vivo: **`/recepcao`**.  
+`/students?view=presenca` não ativa modo presença com `Students embedded` em `Alunos.jsx` — não documentar como caminho principal até corrigir no produto.

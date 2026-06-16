@@ -274,7 +274,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
         parse_method: parseMethod,
         parse_warnings: parseWarnings || undefined,
       });
-      onImported?.(result.statement_id);
+      onImported?.(result.statement_id, result);
       handleClose();
     } catch (err) {
       console.error(err);
@@ -315,7 +315,7 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
               <button
                 type="button"
                 className="btn-primary"
-                disabled={importing || aiBusy || step !== 'review' || !importItems.length || overLimit}
+                disabled={importing || aiBusy || step !== 'review' || !importItems.length || overLimit || !bankAccount.trim()}
                 onClick={() => void confirmImport()}
               >
                 {importing ? 'Importando…' : 'Confirmar importação'}
@@ -423,10 +423,14 @@ export default function ImportStatementModal({ academyId, open, onClose, onImpor
               value={bankAccount}
               onChange={setBankAccount}
               id="import-statement-bank-account"
-              label="Conta do extrato"
-              allowEmpty
-              emptyLabel="Selecione a conta (recomendado)"
+              label="Conta do extrato *"
+              required
             />
+            {!bankAccount.trim() ? (
+              <p className="navi-field-error" role="alert">
+                Selecione a conta deste extrato antes de importar.
+              </p>
+            ) : null}
           </div>
 
           {parseMethod === 'ai' && parseWarnings ? (

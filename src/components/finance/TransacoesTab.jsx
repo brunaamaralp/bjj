@@ -446,7 +446,7 @@ export default function TransacoesTab({
       return cat?.label || value;
     };
     return mergeRecentWithFrequent(recent, FREQUENT_TX_CATEGORY_LABELS[dir], resolveLabel).filter(
-      (chip) => resolveFinanceCategory(chip.value, chartAccounts)
+      (chip) => resolveFinanceCategory(chip.value, chartAccounts, { direction: dir })
     );
   }, [txForm.direction, academyId, chartAccounts]);
 
@@ -641,17 +641,20 @@ export default function TransacoesTab({
 
   const applyTxCategory = useCallback(
     (value) => {
-      const cat = resolveFinanceCategory(value, chartAccounts);
-      if (!cat) return;
-      setTxForm((prev) => ({
-        ...prev,
-        category: value,
-        type: cat.type || prev.type,
-        planName: cat.type === 'plan' ? prev.planName : '',
-      }));
+      setTxForm((prev) => {
+        const dir = prev.direction === 'out' ? 'out' : 'in';
+        const cat = resolveFinanceCategory(value, chartAccounts, { direction: dir });
+        if (!cat) return prev;
+        if (academyId) recordRecentCategory(academyId, value);
+        return {
+          ...prev,
+          category: value,
+          type: cat.type || prev.type,
+          planName: cat.type === 'plan' ? prev.planName : '',
+        };
+      });
       clearTxFieldError('category');
       clearTxFieldError('planName');
-      if (academyId) recordRecentCategory(academyId, value);
     },
     [chartAccounts, academyId, clearTxFieldError]
   );
@@ -1060,7 +1063,8 @@ export default function TransacoesTab({
       typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
         ? txForm.gross
         : parseCurrencyBRL(txForm.gross);
-    const cat = resolveFinanceCategory(txForm.category, chartAccounts);
+    const dir = txForm.direction === 'out' ? 'out' : 'in';
+    const cat = resolveFinanceCategory(txForm.category, chartAccounts, { direction: dir });
     if (!cat) return;
     if (academyId) recordRecentCategory(academyId, txForm.category);
     let bankAccount = '';
@@ -1083,6 +1087,7 @@ export default function TransacoesTab({
         category: cat.isAccountCategory
           ? encodeAccountCategoryValue(cat.accountCode)
           : cat.label,
+        direction: dir,
         competence_month: txForm.competence_month || currentCompetenceMonth(),
         planName: txForm.planName || '',
         gross: grossNum,
@@ -1837,7 +1842,7 @@ export default function TransacoesTab({
                   getOptionLabel={(c) => c.label}
                   getOptionTitle={(c) => c.title || ''}
                   placeholder="Digite para buscar categoria…"
-                  hint="Clique ou digite para buscar"
+                  hint="Aporte, empréstimo e transferência não entram no faturamento operacional."
                   hintId="finance-tx-category-hint"
                   emptyMessage="Nenhuma categoria encontrada para essa busca."
                   aria-invalid={txFormErrors.category ? 'true' : undefined}

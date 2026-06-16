@@ -11,6 +11,7 @@ export const mockStatementList = {
       total_credit: 100,
       total_debit: 10,
       status: 'pending',
+      bank_account: 'Sicoob · 1',
     },
   ],
 };
@@ -72,10 +73,13 @@ export function buildBankReconDetail(overrides = {}) {
       planName: 'Fora do filtro',
       direction: 'in',
       reconciled: false,
+      bank_account: 'Nubank',
     },
   ];
 
-  const pendingItems = items.filter((i) => i.status !== 'matched' && i.status !== 'ignored');
+  const pendingItems = items.filter(
+    (i) => i.status !== 'matched' && i.status !== 'ignored' && i.status !== 'duplicate'
+  );
 
   return {
     statement: {
@@ -87,6 +91,7 @@ export function buildBankReconDetail(overrides = {}) {
       source_format: 'csv',
       total_credit: 100,
       total_debit: 10,
+      bank_account: 'Sicoob · 1',
       ...overrides.statement,
     },
     items,

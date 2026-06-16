@@ -21,6 +21,10 @@ Garantir consistência visual entre módulos, reduzir regressões e facilitar ev
 - [docs/ux-feedback.md](docs/ux-feedback.md)
 - [docs/css-audit.md](docs/css-audit.md)
 
+## Jornadas do usuário
+
+Fluxos end-to-end para auditoria e roteiros de demonstração: [docs/flows/README.md](docs/flows/README.md).
+
 ## Tokens e organização
 
 Arquivos de tokens:

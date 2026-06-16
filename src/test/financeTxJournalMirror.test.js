@@ -129,4 +129,27 @@ describe('financeTxJournalMirror', () => {
     });
     expect(r.state).toBe('post_missing');
   });
+
+  it('montarLancamento espelha aporte D Caixa C Capital', async () => {
+    const { montarLancamento } = await import('../components/finance/montarLancamento.js');
+    const capAccounts = [
+      { id: 'acc-caixa', code: '1.1.1', name: 'Caixa', type: 'ativo', nature: 'devedora' },
+      { id: 'acc-cap', code: '3.1.1', name: 'Capital social / Aportes', type: 'pl', nature: 'credora' },
+    ];
+    const entry = montarLancamento(
+      {
+        id: 'tx-aporte',
+        status: 'settled',
+        type: 'equity_injection',
+        category: 'Aporte de capital',
+        gross: 10000,
+        direction: 'in',
+      },
+      capAccounts,
+      'acad-1'
+    );
+    expect(entry?.lines).toHaveLength(2);
+    expect(entry.lines[0]).toMatchObject({ accountId: 'acc-caixa', debit: 10000 });
+    expect(entry.lines[1]).toMatchObject({ accountId: 'acc-cap', credit: 10000 });
+  });
 });

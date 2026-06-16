@@ -13,6 +13,7 @@ export default function BankReconKpiRow({
   statusLabel,
   formatLabel,
   periodLabel,
+  bankAccountLabel = '',
   pendingCount = 0,
   pendingAmount = 0,
   balanceGap = 0,
@@ -29,6 +30,7 @@ export default function BankReconKpiRow({
         <h4 className="finance-tab__section-title bank-recon-summary-title">
           {filename} · {statusLabel}
           {formatLabel ? ` · ${formatLabel}` : ''}
+          {bankAccountLabel ? ` · ${bankAccountLabel}` : ''}
         </h4>
         {periodLabel ? (
           <p className="text-small text-muted bank-recon-summary-period">{periodLabel}</p>

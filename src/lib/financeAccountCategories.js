@@ -2,7 +2,7 @@
  * Categorias de lançamento vinculadas a contas do plano de contas (acct:CODE).
  */
 
-import { UNCLASSIFIED_DRE_GROUP } from './financeCategories.js';
+import { PATRIMONIAL_FLOW_GROUP, UNCLASSIFIED_DRE_GROUP } from './financeCategories.js';
 
 /** Label amigável no select (código só no title). */
 export function accountCategoryDisplayLabel(account) {
@@ -24,10 +24,13 @@ const ACCOUNT_TYPE_LABELS = {
   receita: 'Receitas',
   custo: 'Custos',
   despesa: 'Despesas',
+  passivo: 'Passivo',
+  pl: 'Patrimônio Líquido',
 };
 
 const REVENUE_ACCOUNT_TYPES = new Set(['receita']);
 const EXPENSE_ACCOUNT_TYPES = new Set(['custo', 'despesa']);
+const BALANCE_SHEET_ACCOUNT_TYPES = new Set(['passivo', 'pl']);
 
 export function encodeAccountCategoryValue(code) {
   const c = String(code || '').trim();
@@ -54,8 +57,11 @@ export function accountCategoryLabel(account) {
   return name ? `${code} · ${name}` : code;
 }
 
-function accountTypeToTxType(accountType, dreGrupo) {
+function accountTypeToTxType(accountType, dreGrupo, nature = 'in') {
   if (accountType === 'receita') return 'other';
+  if (accountType === 'passivo' || accountType === 'pl') {
+    return nature === 'out' ? 'balance_sheet_out' : 'balance_sheet_in';
+  }
   if (accountType === 'custo') return 'stock_purchase';
   if (accountType === 'despesa') {
     return String(dreGrupo || '').trim() === 'Resultado Financeiro'
@@ -65,28 +71,36 @@ function accountTypeToTxType(accountType, dreGrupo) {
   return 'expense_operational';
 }
 
-export function accountToFinanceCategory(account) {
+export function accountToFinanceCategory(account, nature = 'in') {
   if (!account) return null;
   const code = String(account.code || '').trim();
   if (!code) return null;
   const accountType = String(account.type || '').trim().toLowerCase();
   const dreGroup = String(account.dreGrupo || '').trim() || UNCLASSIFIED_DRE_GROUP;
+  const isBalanceSheet = BALANCE_SHEET_ACCOUNT_TYPES.has(accountType);
+  const operationalBucket = isBalanceSheet
+    ? 'financing'
+    : accountType === 'receita' && dreGroup === 'Resultado Financeiro'
+      ? 'financial'
+      : 'operational';
   return {
     label: accountCategoryLabel(account),
-    type: accountTypeToTxType(accountType, dreGroup),
-    dreGroup,
+    type: accountTypeToTxType(accountType, dreGroup, nature),
+    dreGroup: isBalanceSheet ? '' : dreGroup,
     dreAccount: code,
     accountCode: code,
     isAccountCategory: true,
     isRevenue: REVENUE_ACCOUNT_TYPES.has(accountType),
+    isBalanceSheetCategory: isBalanceSheet,
+    operationalBucket,
   };
 }
 
-export function resolveAccountFinanceCategory(value, accounts) {
+export function resolveAccountFinanceCategory(value, accounts, nature = 'in') {
   const code = parseAccountCategoryValue(value);
   if (!code) return null;
   const account = findAccountByCode(accounts, code);
-  return account ? accountToFinanceCategory(account) : null;
+  return account ? accountToFinanceCategory(account, nature) : null;
 }
 
 export function listSelectableAccounts(accounts, nature) {
@@ -101,6 +115,13 @@ export function listSelectableAccounts(accounts, nature) {
     .sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), 'pt-BR'));
 }
 
+export function listBalanceSheetAccounts(accounts) {
+  return (Array.isArray(accounts) ? accounts : [])
+    .filter((a) => a.isActive !== false)
+    .filter((a) => BALANCE_SHEET_ACCOUNT_TYPES.has(String(a.type || '').trim().toLowerCase()))
+    .sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), 'pt-BR'));
+}
+
 export function getAccountCategoryOptionsByNature(accounts, nature) {
   const map = new Map();
   for (const account of listSelectableAccounts(accounts, nature)) {
@@ -108,18 +129,44 @@ export function getAccountCategoryOptionsByNature(accounts, nature) {
     const type = String(account.type || '').trim().toLowerCase();
     const group = dre || ACCOUNT_TYPE_LABELS[type] || 'Plano de contas';
     if (!map.has(group)) map.set(group, []);
+    const cat = accountToFinanceCategory(account, nature);
     map.get(group).push({
       label: accountCategoryDisplayLabel(account),
       title: accountCategoryDisplayTitle(account),
       value: encodeAccountCategoryValue(account.code),
-      type: accountTypeToTxType(type, dre),
-      dreGroup: dre || UNCLASSIFIED_DRE_GROUP,
-      dreAccount: String(account.code || '').trim(),
-      accountCode: String(account.code || '').trim(),
+      type: cat.type,
+      dreGroup: cat.dreGroup,
+      dreAccount: cat.dreAccount,
+      accountCode: cat.accountCode,
       isAccountCategory: true,
-      isRevenue: REVENUE_ACCOUNT_TYPES.has(type),
+      isRevenue: cat.isRevenue,
+      isBalanceSheetCategory: cat.isBalanceSheetCategory,
+      operationalBucket: cat.operationalBucket,
     });
   }
+  return map;
+}
+
+export function getBalanceSheetCategoryOptionsByNature(accounts, nature) {
+  const map = new Map();
+  const items = [];
+  for (const account of listBalanceSheetAccounts(accounts)) {
+    const cat = accountToFinanceCategory(account, nature);
+    items.push({
+      label: accountCategoryDisplayLabel(account),
+      title: accountCategoryDisplayTitle(account),
+      value: encodeAccountCategoryValue(account.code),
+      type: cat.type,
+      dreGroup: cat.dreGroup,
+      dreAccount: cat.dreAccount,
+      accountCode: cat.accountCode,
+      isAccountCategory: true,
+      isRevenue: false,
+      isBalanceSheetCategory: true,
+      operationalBucket: 'financing',
+    });
+  }
+  if (items.length) map.set(PATRIMONIAL_FLOW_GROUP, items);
   return map;
 }
 
@@ -127,6 +174,10 @@ export function mergeCategoryOptionGroups(fixedGroups, accountGroups) {
   const merged = new Map(fixedGroups);
   for (const [group, items] of accountGroups) {
     if (!items.length) continue;
+    if (group === PATRIMONIAL_FLOW_GROUP && merged.has(group)) {
+      merged.set(group, [...(merged.get(group) || []), ...items]);
+      continue;
+    }
     const key = merged.has(group) ? `${group} (contas)` : group;
     merged.set(key, [...(merged.get(key) || []), ...items]);
   }

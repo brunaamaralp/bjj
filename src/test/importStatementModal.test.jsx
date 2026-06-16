@@ -8,7 +8,14 @@ import * as parseXlsx from '../lib/bankStatementParseXlsx.js';
 import * as bankParse from '../lib/bankStatementParse.js';
 
 vi.mock('../components/finance/BankAccountSelect.jsx', () => ({
-  default: ({ id, label }) => <div data-testid="bank-account-select">{label}</div>,
+  default: ({ id, label, onChange }) => (
+    <div data-testid="bank-account-select">
+      {label}
+      <button type="button" data-testid="bank-account-select-pick" onClick={() => onChange?.('Sicoob')}>
+        Selecionar Sicoob
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../lib/bankReconciliationApi.js', () => ({
@@ -120,6 +127,61 @@ describe('ImportStatementModal integration', () => {
     await waitFor(() => expect(screen.getByDisplayValue('PDF linha')).toBeInTheDocument());
     expect(screen.getByText(/Revisar linhas destacadas/i)).toBeInTheDocument();
     expect(document.querySelector('.import-statement-row--low')).toBeTruthy();
+  });
+
+  it('disables confirm button when no bank account is selected on review step', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await uploadFile(user);
+
+    await waitFor(() => expect(screen.getByDisplayValue('PIX Alpha')).toBeInTheDocument());
+
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar importação/i });
+    expect(confirmBtn).toBeDisabled();
+    expect(screen.getByText(/Selecione a conta deste extrato/i)).toBeInTheDocument();
+  });
+
+  it('enables confirm button after selecting a bank account', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await uploadFile(user);
+
+    await waitFor(() => expect(screen.getByDisplayValue('PIX Alpha')).toBeInTheDocument());
+
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar importação/i });
+    expect(confirmBtn).toBeDisabled();
+
+    await user.click(screen.getByTestId('bank-account-select-pick'));
+
+    expect(confirmBtn).not.toBeDisabled();
+    expect(screen.queryByText(/Selecione a conta deste extrato/i)).not.toBeInTheDocument();
+  });
+
+  it('passes full import result to onImported callback', async () => {
+    const user = userEvent.setup();
+    const onImported = vi.fn();
+    render(
+      <ImportStatementModal academyId="acad-1" open onClose={vi.fn()} onImported={onImported} />
+    );
+    await uploadFile(user);
+    await waitFor(() => expect(screen.getByDisplayValue('PIX Alpha')).toBeInTheDocument());
+    await user.click(screen.getByTestId('bank-account-select-pick'));
+
+    bankApi.importBankStatement.mockResolvedValue({
+      statement_id: 'st-new',
+      suggested_matches: 2,
+      duplicate_count: 3,
+      dedup_partial: false,
+    });
+
+    await user.click(screen.getByRole('button', { name: /Confirmar importação/i }));
+
+    await waitFor(() => {
+      expect(onImported).toHaveBeenCalledWith('st-new', expect.objectContaining({
+        duplicate_count: 3,
+        suggested_matches: 2,
+      }));
+    });
   });
 
   it('shows StatusBanner when deterministic parse fails', async () => {

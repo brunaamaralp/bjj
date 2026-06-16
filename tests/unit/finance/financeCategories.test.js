@@ -16,6 +16,8 @@ import {
   defaultCategoryForDirection,
   getCategoryOptionsByNature,
   EXPENSE_CATEGORY_GROUP_ORDER,
+  operationalBucketForTx,
+  isOperationalInflowTx,
 } from '../../../src/lib/financeCategories.js';
 
 describe('financeCategories', () => {
@@ -234,6 +236,20 @@ describe('financeCategories', () => {
       expect(values).toContain('Mensalidades');
       expect(values).not.toContain('acct:4.1.1');
       expect(values).toContain('acct:4.1.2');
+    });
+
+    it('getCategoryOptionsByNature entrada inclui fluxo patrimonial', () => {
+      const groups = getCategoryOptionsByNature('in', []);
+      const flat = [...groups.values()].flat().map((c) => c.label);
+      expect(flat).toContain('Aporte de capital');
+      expect(flat).toContain('Receitas financeiras');
+      expect(flat).toContain('Empréstimo recebido');
+    });
+
+    it('operationalBucketForTx exclui aporte do operacional', () => {
+      const doc = { type: 'equity_injection', category: 'Aporte de capital', status: 'settled', gross: 50000 };
+      expect(operationalBucketForTx(doc)).toBe('financing');
+      expect(isOperationalInflowTx(doc)).toBe(false);
     });
 
     it('getCategoryOptionsByNature saída ordena Despesas Operacionais antes de CMV/CPV', () => {
