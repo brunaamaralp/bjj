@@ -2966,132 +2966,10 @@
   padding-bottom: calc(var(--space-12) + 56px);
 }
 
-.finance-settings-hub {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.finance-settings-progress {
-  padding: var(--space-4);
-  border-radius: 12px;
-}
-
-.finance-settings-progress__title {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-md);
-  font-weight: 600;
-  color: var(--text);
-}
-
-.finance-settings-progress__bar {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--border-light);
-  overflow: hidden;
-}
-
-.finance-settings-progress__fill {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-primary);
-  transition: width 0.25s var(--ease-standard);
-}
-
-.finance-settings-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.finance-settings-group__label,
-.finance-settings-group__toggle {
-  margin: 0;
-  padding: 0 var(--space-1);
-  font-size: var(--font-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.finance-settings-group__toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding-top: var(--space-1);
-  padding-bottom: var(--space-1);
-}
-
-.finance-settings-group__list {
-  padding: 0;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
 .finance-settings-group__sep {
   height: 1px;
   background: var(--border-light);
   margin: 0 var(--space-4);
-}
-
-.finance-settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-4);
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.finance-settings-row:hover {
-  background: var(--surface-hover);
-}
-
-.finance-settings-row__main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.finance-settings-row__label {
-  font-size: var(--font-lg);
-  font-weight: 600;
-  color: var(--text);
-}
-
-.finance-settings-row__value {
-  font-size: var(--font-base);
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.finance-settings-row__aside {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-
-.finance-settings-row__check {
-  color: var(--success, #16a34a);
-}
-
-.finance-settings-row__pending {
-  color: var(--border);
 }
 
 .finance-settings-detail-header {
@@ -3484,9 +3362,6 @@
   height: 100%;
   border-radius: inherit;
   transition: width 0.25s var(--ease-standard);
-}
-.finance-settings-progress__fill {
-  width: var(--progress-pct, 0%);
 }
 
 /* === Payment status popover === */

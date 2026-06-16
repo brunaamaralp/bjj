@@ -55,6 +55,7 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
               value={pl.description || ''}
               onChange={(e) => onUpdate(idx, { description: e.target.value })}
             />
+            <p className="text-small text-muted">Opcional — nota interna; não aparece no modal de pagamento.</p>
           </div>
           <div className="form-group">
             <label>Repasse taxas de pagamento ao aluno</label>

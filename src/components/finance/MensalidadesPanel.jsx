@@ -23,10 +23,14 @@ import { isRealPaymentException } from '../../lib/paymentExceptions.js';
 import MensalidadesStatusFilter from './MensalidadesStatusFilter.jsx';
 import { expectedAmountWithCardFee } from '../../lib/paymentStatus.js';
 import {
-  isMensalidadesCreditMethod,
+  isStorageCreditMethod,
   MENSALIDADES_CREDIT_METHOD,
   normalizeMensalidadesInstallments,
 } from '../../lib/mensalidadesPaymentForm.js';
+import {
+  orderedStorageDialectMethodsForModal,
+  storageDialectMethodLabelsMap,
+} from '../../lib/paymentMethods.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import CollectionInadimplenciaPanel from './CollectionInadimplenciaPanel.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
@@ -75,24 +79,7 @@ import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from '../../lib/studentPaymentTroco.js';
 
-const PAY_METHODS = [
-  { value: 'pix', label: 'PIX' },
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartão_débito', label: 'Cartão débito' },
-  { value: 'cartão_crédito', label: 'Cartão crédito' },
-  { value: 'transferência', label: 'Transferência' },
-];
-
-const METHOD_LABELS = {
-  pix: 'PIX',
-  dinheiro: 'Dinheiro',
-  cartão_débito: 'Cartão débito',
-  cartão_crédito: 'Cartão crédito',
-  transferência: 'Transferência',
-};
-
-/** Ordem visual no modal (mesmos `value` do <select> anterior). */
-const PAY_METHOD_MODAL_ORDER = ['pix', 'cartão_débito', 'cartão_crédito', 'dinheiro', 'transferência'];
+const METHOD_LABELS = storageDialectMethodLabelsMap();
 
 const PAY_METHOD_MODAL_ICONS = {
   pix: 'ti-qrcode',
@@ -103,8 +90,7 @@ const PAY_METHOD_MODAL_ICONS = {
 };
 
 function orderedPayMethodsForModal() {
-  const byVal = Object.fromEntries(PAY_METHODS.map((o) => [o.value, o]));
-  return PAY_METHOD_MODAL_ORDER.map((v) => byVal[v]).filter(Boolean);
+  return orderedStorageDialectMethodsForModal();
 }
 
 function startOfLocalDay(d) {
@@ -1613,7 +1599,7 @@ export default function MensalidadesPanel({
                       })()}
                     </div>
                   </div>
-                  {isMensalidadesCreditMethod(payForm.method) ? (
+                  {isStorageCreditMethod(payForm.method) ? (
                     <div className="form-group mensal-modal-installments">
                       <label htmlFor="mensal-pay-installments" className="mensal-modal-field-label">
                         Parcelas

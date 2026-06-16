@@ -10,6 +10,7 @@ import {
   dispatchNlSalePrefill,
 } from '../lib/nlCorrect.js';
 import { paymentFormLabel } from '../lib/salePayments.js';
+import { formatPaymentMethod } from '../lib/paymentMethodLabels.js';
 import NlResponseMarkdown from './NlResponseMarkdown.jsx';
 import { buildNlQuerySummary, nlQueryMarkdownBody } from '../lib/nlQuerySummary.js';
 import { NlCommandBarTrigger } from './NlCommandBarTrigger.jsx';
@@ -37,17 +38,10 @@ function formatBrl(value) {
   }
 }
 
-const PAYMENT_METHOD_LABELS = {
-  pix: 'PIX',
-  dinheiro: 'Dinheiro',
-  cartão_débito: 'Cartão débito',
-  cartão_crédito: 'Cartão crédito',
-  transferência: 'Transferência',
-};
-
 function formatNlPaymentMethod(method) {
-  const k = String(method || '').trim().toLowerCase();
-  return PAYMENT_METHOD_LABELS[k] || (k ? k : '—');
+  const out = formatPaymentMethod(method);
+  const raw = String(method || '').trim();
+  return out === '—' && raw ? raw : out;
 }
 
 const ASK_SUGGESTIONS = [

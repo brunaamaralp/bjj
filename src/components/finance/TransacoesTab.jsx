@@ -97,6 +97,11 @@ import {
   validateBankAccountForPayment,
 } from '../../lib/bankAccounts.js';
 import { accountWhenPaymentMethodChanges } from '../../lib/paymentMethodBankDefaults.js';
+import {
+  isStorageCreditMethod,
+  STORAGE_CREDIT_METHOD,
+  storageDialectPaymentMethodOptions,
+} from '../../lib/paymentMethods.js';
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import useDebounce from '../../hooks/useDebounce.js';
@@ -1066,7 +1071,7 @@ export default function TransacoesTab({
     const feePct =
       txForm.direction === 'out' ? 0 : parseFloat(String(txForm.fee || '').replace(',', '.')) || 0;
     const installments =
-      txForm.method === 'cartão_crédito' ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
+      txForm.method === STORAGE_CREDIT_METHOD ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
     setSavingTx(true);
     try {
       const payload = {
@@ -1950,19 +1955,19 @@ export default function TransacoesTab({
                     setTxForm({
                       ...txForm,
                       method: m,
-                      installments: m === 'cartão_crédito' ? (txForm.installments || 1) : 1,
+                      installments: isStorageCreditMethod(m) ? (txForm.installments || 1) : 1,
                       bankAccount: accountWhenPaymentMethodChanges(financeConfig, m) || txForm.bankAccount,
                     });
                   }}
                 >
-                  <option value="pix">PIX</option>
-                  <option value="dinheiro">Dinheiro</option>
-                  <option value="cartão_débito">Cartão débito</option>
-                  <option value="cartão_crédito">Cartão crédito</option>
-                  <option value="transferência">Transferência</option>
+                  {storageDialectPaymentMethodOptions().map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
                 </select>
               </div>
-              {txForm.method === 'cartão_crédito' && (
+              {isStorageCreditMethod(txForm.method) && (
                 <div className="form-group">
                   <label>Parcelas</label>
                   <select

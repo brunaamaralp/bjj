@@ -60,6 +60,7 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
+import { storageDialectMethodLabelsMap, storageDialectPaymentMethodOptions } from '../lib/paymentMethods.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
@@ -198,13 +199,7 @@ const EMERGENCY_FIELDS = [
     { key: 'emergencyPhone', label: 'Telefone de emergência', type: 'tel', placeholder: 'Celular' },
 ];
 
-const PREFERRED_PAYMENT_SELECT_OPTIONS = [
-    { value: 'pix', label: 'PIX' },
-    { value: 'dinheiro', label: 'Dinheiro' },
-    { value: 'cartão_débito', label: 'Cartão débito' },
-    { value: 'cartão_crédito', label: 'Cartão crédito' },
-    { value: 'transferência', label: 'Transferência' },
-];
+const PREFERRED_PAYMENT_SELECT_OPTIONS = storageDialectPaymentMethodOptions();
 
 const PAYMENT_HABIT_FIELDS = [
     {
@@ -256,13 +251,7 @@ function formatReferenceMonthLong(ym) {
     }
 }
 
-const METHOD_PAYMENT_LABELS = {
-    pix: 'PIX',
-    dinheiro: 'Dinheiro',
-    cartão_débito: 'Cartão débito',
-    cartão_crédito: 'Cartão crédito',
-    transferência: 'Transferência',
-};
+const METHOD_PAYMENT_LABELS = storageDialectMethodLabelsMap();
 
 export default function StudentProfile() {
     const { id } = useParams();

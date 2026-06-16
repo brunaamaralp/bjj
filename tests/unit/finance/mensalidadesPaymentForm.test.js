@@ -25,9 +25,9 @@ describe('normalizeMensalidadesInstallments', () => {
 });
 
 describe('isMensalidadesCreditMethod', () => {
-  it('reconhece dialect do modal', () => {
+  it('reconhece dialect do modal e canônico', () => {
     expect(isMensalidadesCreditMethod('cartão_crédito')).toBe(true);
-    expect(isMensalidadesCreditMethod('cartao_credito')).toBe(false);
+    expect(isMensalidadesCreditMethod('cartao_credito')).toBe(true);
     expect(isMensalidadesCreditMethod('pix')).toBe(false);
   });
 });

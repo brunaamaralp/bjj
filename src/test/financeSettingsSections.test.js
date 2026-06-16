@@ -3,6 +3,9 @@ import {
   buildFinanceSettingsSummaries,
   buildFinanceSettingsNavItems,
   canAccessEmpresaFinanceSettings,
+  collectionRulesConfigured,
+  exceptionLabelsCustomized,
+  feesConfigured,
   financeSettingsProgress,
   FINANCE_SETTINGS_SECTIONS,
   getFinanceDefaultSection,
@@ -43,7 +46,46 @@ describe('financeSettingsSections', () => {
     });
     const p = financeSettingsProgress(summaries, { isOwner: false });
     expect(p.total).toBe(2);
-    expect(p.done).toBe(2);
+    expect(p.done).toBe(1);
+  });
+
+  it('feesConfigured is false when all percents are zero', () => {
+    expect(feesConfigured({ pix: { percent: 0 }, debito: { percent: 0 }, credito_avista: { percent: 0 } })).toBe(
+      false
+    );
+    expect(feesConfigured({ pix: { percent: 2 } })).toBe(true);
+  });
+
+  it('collectionRulesConfigured is false for defaults without persist', () => {
+    expect(
+      collectionRulesConfigured(
+        [{ day: 1, label: '1ª tentativa', defaultMessage: 'x', escalate: false }],
+        {}
+      )
+    ).toBe(false);
+    expect(
+      collectionRulesConfigured([], { collectionRules: [{ day: 5, label: 'Custom', defaultMessage: '', escalate: false }] })
+    ).toBe(true);
+  });
+
+  it('buildFinanceSettingsSummaries marks taxas not done when zero', () => {
+    const summaries = buildFinanceSettingsSummaries({
+      financeConfig: { plans: [], bankAccounts: [], cardFees: { pix: { percent: 0 } } },
+      collectionRules: [],
+      accountsCount: 0,
+      isOwner: true,
+    });
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.TAXAS].done).toBe(false);
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.TAXAS].summary).toContain('Nenhuma taxa');
+  });
+
+  it('exceptionLabelsCustomized detects custom labels', () => {
+    expect(exceptionLabelsCustomized({})).toBe(false);
+    expect(
+      exceptionLabelsCustomized({
+        exceptionStatusLabels: { pending: 'Em aberto' },
+      })
+    ).toBe(true);
   });
 
   it('isFinanceSettingsSection validates slugs', () => {
@@ -65,13 +107,18 @@ describe('financeSettingsSections', () => {
 
   it('financeSettingsProgress counts core sections', () => {
     const summaries = buildFinanceSettingsSummaries({
-      financeConfig: { plans: [], bankAccounts: [{ bankName: 'BB' }], cardFees: {} },
-      collectionRules: [],
+      financeConfig: {
+        plans: [],
+        bankAccounts: [{ bankName: 'BB' }],
+        cardFees: { debito: { percent: 1.5 } },
+        collectionRules: [{ day: 3, label: 'Custom', defaultMessage: 'oi', escalate: false }],
+      },
+      collectionRules: [{ day: 3, label: 'Custom', defaultMessage: 'oi', escalate: false }],
       accountsCount: 0,
       isOwner: true,
     });
     const p = financeSettingsProgress(summaries);
     expect(p.total).toBe(4);
-    expect(p.done).toBeGreaterThanOrEqual(1);
+    expect(p.done).toBeGreaterThanOrEqual(2);
   });
 });

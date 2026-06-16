@@ -45,3 +45,24 @@ describe('cross-module parity', () => {
     expect(normalizePaymentForma('cartão crédito')).toBe('cartao_credito');
   });
 });
+
+describe('storage dialect UI helpers', () => {
+  it('storageDialectPaymentMethodOptions usa dialect acentuado', async () => {
+    const {
+      storageDialectPaymentMethodOptions,
+      STORAGE_CREDIT_METHOD,
+      orderedStorageDialectMethodsForModal,
+    } = await import('../../../src/lib/paymentMethods.js');
+    const opts = storageDialectPaymentMethodOptions();
+    expect(opts.find((o) => o.canonical === 'cartao_credito')?.value).toBe(STORAGE_CREDIT_METHOD);
+    expect(orderedStorageDialectMethodsForModal()[0].value).toBe('pix');
+  });
+
+  it('normalizeToStorageDialect aceita canônico e dialect', async () => {
+    const { normalizeToStorageDialect, STORAGE_CREDIT_METHOD } = await import(
+      '../../../src/lib/paymentMethods.js'
+    );
+    expect(normalizeToStorageDialect('cartao_credito')).toBe(STORAGE_CREDIT_METHOD);
+    expect(normalizeToStorageDialect('cartão_crédito')).toBe(STORAGE_CREDIT_METHOD);
+  });
+});

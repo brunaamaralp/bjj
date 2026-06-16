@@ -22,6 +22,7 @@ import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
+import { storageDialectPaymentMethodOptions } from '../../lib/paymentMethods.js';
 import {
   buildClosingRows,
   filterClosingRows,
@@ -92,13 +93,7 @@ function closingNameCell(row) {
   return row.guardian ? `${row.name} (${row.guardian})` : row.name;
 }
 
-const PAY_METHODS = [
-  { value: 'pix', label: 'PIX' },
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartão_débito', label: 'Cartão de débito' },
-  { value: 'cartão_crédito', label: 'Cartão de crédito' },
-  { value: 'transferência', label: 'Transferência' },
-];
+const PAY_METHODS = storageDialectPaymentMethodOptions({ labelStyle: 'full' });
 
 function currentYm() {
   const d = new Date();

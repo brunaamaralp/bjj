@@ -1,11 +1,7 @@
 import { createFinanceTx } from './financeTxApi.js';
 import { applyAccountingSideEffectsAuto } from './financeJournal.js';
 import { competenceMonthFromIso, currentCompetenceMonth } from './financeCompetence.js';
-import {
-  canonicalPaymentMethodKey,
-  isKnownStorageDialectMethod,
-  toStorageDialectMethod,
-} from './paymentMethods.js';
+import { normalizeToStorageDialect } from './paymentMethods.js';
 import {
   FINANCE_CATEGORIES,
   normalizeFinanceCategory,
@@ -13,11 +9,7 @@ import {
 } from './financeCategories.js';
 
 function normalizeExpenseMethod(m) {
-  const key = canonicalPaymentMethodKey(m);
-  if (!key) return 'dinheiro';
-  const dialect = toStorageDialectMethod(m);
-  if (isKnownStorageDialectMethod(dialect)) return dialect;
-  return 'dinheiro';
+  return normalizeToStorageDialect(m, 'dinheiro');
 }
 
 /**

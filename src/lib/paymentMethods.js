@@ -50,6 +50,85 @@ const STORAGE_DIALECT_VALUES = new Set([
 
 const LABEL_BY_VALUE = Object.fromEntries(PAYMENT_METHODS.map((o) => [o.value, o.label]));
 
+/** Canônicos que usam dialect acentuado em mensalidades, transações e perfil do aluno. */
+const STORAGE_DIALECT_CANONICALS = PAYMENT_METHODS.map((m) => m.value).filter((v) => v !== 'outro');
+
+/** Labels curtos em modais operacionais (Mensalidades, perfil). */
+const STORAGE_DIALECT_SHORT_LABELS = {
+  pix: 'PIX',
+  dinheiro: 'Dinheiro',
+  cartao_credito: 'Cartão crédito',
+  cartao_debito: 'Cartão débito',
+  transferencia: 'Transferência',
+};
+
+/** Ordem visual no modal de pagamento de Mensalidades. */
+export const STORAGE_DIALECT_MODAL_ORDER = [
+  'pix',
+  STORAGE_DIALECT_BY_CANONICAL.cartao_debito,
+  STORAGE_DIALECT_BY_CANONICAL.cartao_credito,
+  'dinheiro',
+  STORAGE_DIALECT_BY_CANONICAL.transferencia,
+];
+
+/** Dialect gravado para cartão de crédito (mensalidades / transações). */
+export const STORAGE_CREDIT_METHOD = STORAGE_DIALECT_BY_CANONICAL.cartao_credito;
+
+/** Dialect gravado para cartão de débito. */
+export const STORAGE_DEBIT_METHOD = STORAGE_DIALECT_BY_CANONICAL.cartao_debito;
+
+/**
+ * Opções de select com valores no dialect de storage (acentuado onde aplicável).
+ * @param {{ labelStyle?: 'short' | 'full' }} [opts]
+ */
+export function storageDialectPaymentMethodOptions({ labelStyle = 'short' } = {}) {
+  return STORAGE_DIALECT_CANONICALS.map((canonical) => {
+    const value = toStorageDialectMethod(canonical);
+    const fullLabel = LABEL_BY_VALUE[canonical] || value;
+    const label =
+      labelStyle === 'full' ? fullLabel : STORAGE_DIALECT_SHORT_LABELS[canonical] || fullLabel;
+    return { value, label, canonical };
+  });
+}
+
+/** Lista ordenada para o grid de métodos no modal de Mensalidades. */
+export function orderedStorageDialectMethodsForModal() {
+  const byValue = Object.fromEntries(
+    storageDialectPaymentMethodOptions().map((o) => [o.value, o])
+  );
+  return STORAGE_DIALECT_MODAL_ORDER.map((v) => byValue[v]).filter(Boolean);
+}
+
+/** Mapa value (dialect) → label curto — exibição em listas. */
+export function storageDialectMethodLabelsMap() {
+  return Object.fromEntries(storageDialectPaymentMethodOptions().map((o) => [o.value, o.label]));
+}
+
+/** @param {string|null|undefined} method */
+export function storageDialectMethodLabel(method) {
+  const key = canonicalPaymentMethodKey(method);
+  if (!key) return '—';
+  const dialect = toStorageDialectMethod(key);
+  return STORAGE_DIALECT_SHORT_LABELS[key] || LABEL_BY_VALUE[key] || dialect;
+}
+
+/** Crédito no dialect de storage ou canônico equivalente. */
+export function isStorageCreditMethod(method) {
+  return canonicalPaymentMethodKey(method) === 'cartao_credito';
+}
+
+/**
+ * Normaliza para dialect gravado em mensalidades/transações; fallback se desconhecido.
+ * @param {string|null|undefined} method
+ * @param {string} [fallback='dinheiro']
+ */
+export function normalizeToStorageDialect(method, fallback = 'dinheiro') {
+  const key = canonicalPaymentMethodKey(method);
+  if (!key) return fallback;
+  const dialect = toStorageDialectMethod(key);
+  return isKnownStorageDialectMethod(dialect) ? dialect : fallback;
+}
+
 /**
  * Normaliza forma de pagamento para chave canônica (conta bancária, taxas, etc.).
  * @param {string|null|undefined} method

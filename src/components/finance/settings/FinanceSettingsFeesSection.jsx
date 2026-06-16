@@ -10,7 +10,8 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
   return (
     <div className="finance-settings-section-body">
       <p className="finance-settings-lead">
-        Percentuais repassados ao aluno em mensalidades pagas com cartão ou PIX.
+        Percentuais repassados ao aluno em mensalidades pagas com cartão ou PIX. Apenas o campo
+        percentual (%) é aplicado — taxa fixa em reais não entra no cálculo.
       </p>
 
       <div className="finance-settings-fees-summary card" role="status">

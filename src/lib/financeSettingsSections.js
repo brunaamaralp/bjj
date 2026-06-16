@@ -1,6 +1,17 @@
 import { filterBankAccountsWithBank } from './bankAccounts.js';
 import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
-import { parseOverdueLabel } from './collectionRules.js';
+import {
+  DEFAULT_OVERDUE_LABEL,
+  DEFAULT_COLLECTION_RULES,
+  parseCollectionRules,
+  parseOverdueLabel,
+  serializeCollectionRules,
+} from './collectionRules.js';
+import {
+  DEFAULT_EXCEPTION_STATUS_LABELS,
+  EXCEPTION_STATUS_KEYS,
+  readExceptionStatusLabels,
+} from './paymentExceptions.js';
 
 /** Slugs em ?tab=financeiro&section= */
 export const FINANCE_SETTINGS_SECTIONS = {
@@ -130,6 +141,33 @@ function feesSummary(cardFees) {
   return parts.join(' · ');
 }
 
+/** Taxa configurada (percentual > 0 em algum método). Ignora `fixed` — só percent entra no cálculo. */
+export function feesConfigured(cardFees) {
+  const pix = Number(cardFees?.pix?.percent ?? 0);
+  const deb = Number(cardFees?.debito?.percent ?? 0);
+  const cre = Number(cardFees?.credito_avista?.percent ?? 0);
+  const parcelado = cardFees?.credito_parcelado || {};
+  const hasParcel = Object.values(parcelado).some((v) => Number(v) > 0);
+  return pix > 0 || deb > 0 || cre > 0 || hasParcel;
+}
+
+export function collectionRulesConfigured(collectionRules, financeConfig) {
+  const overdue = parseOverdueLabel(financeConfig?.overdueLabel ?? financeConfig?.overdue_label);
+  if (overdue !== DEFAULT_OVERDUE_LABEL) return true;
+  const persisted = financeConfig?.collectionRules ?? financeConfig?.collection_rules;
+  if (persisted == null || persisted === '') return false;
+  const rules =
+    Array.isArray(collectionRules) && collectionRules.length > 0
+      ? collectionRules
+      : parseCollectionRules(persisted);
+  return serializeCollectionRules(rules) !== serializeCollectionRules(DEFAULT_COLLECTION_RULES);
+}
+
+export function exceptionLabelsCustomized(financeConfig) {
+  const current = readExceptionStatusLabels(financeConfig);
+  return EXCEPTION_STATUS_KEYS.some((key) => current[key] !== DEFAULT_EXCEPTION_STATUS_LABELS[key]);
+}
+
 export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, accountsCount, isOwner, contractTemplatesCount = 0 }) {
   const plans = financeConfig?.plans || [];
   const namedPlans = plans.filter((p) => String(p?.name || '').trim());
@@ -155,8 +193,10 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
 
   const rulesCount = Array.isArray(collectionRules) ? collectionRules.length : 0;
   const overdue = parseOverdueLabel(financeConfig?.overdueLabel ?? financeConfig?.overdue_label);
-  const rulesPart =
-    rulesCount > 0 ? `${rulesCount} etapa${rulesCount === 1 ? '' : 's'}` : 'Padrão';
+  const reguaConfigured = collectionRulesConfigured(collectionRules, financeConfig);
+  const rulesPart = reguaConfigured
+    ? `${rulesCount} etapa${rulesCount === 1 ? '' : 's'}`
+    : 'Padrão do sistema';
   const wa = normalizeWhatsappRemindersConfig(financeConfig?.whatsappReminders);
   const waParts = [];
   if (wa.dueSoon.enabled) waParts.push(`antes (${wa.dueSoon.daysBefore}d)`);
@@ -173,11 +213,13 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
       summary: banksSummary,
     },
     [FINANCE_SETTINGS_SECTIONS.TAXAS]: {
-      done: true,
-      summary: feesSummary(financeConfig?.cardFees),
+      done: feesConfigured(financeConfig?.cardFees),
+      summary: feesConfigured(financeConfig?.cardFees)
+        ? feesSummary(financeConfig?.cardFees)
+        : 'Nenhuma taxa configurada',
     },
     [FINANCE_SETTINGS_SECTIONS.REGUA]: {
-      done: rulesCount > 0,
+      done: reguaConfigured,
       summary: `${rulesPart} · ${overdue}`,
       hidden: !isOwner,
     },
@@ -186,8 +228,10 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
       summary: waParts.length ? waParts.join(' · ') : 'Desativado',
     },
     [FINANCE_SETTINGS_SECTIONS.EXCECOES]: {
-      done: true,
-      summary: 'Personalização opcional',
+      done: exceptionLabelsCustomized(financeConfig),
+      summary: exceptionLabelsCustomized(financeConfig)
+        ? 'Rótulos personalizados'
+        : 'Padrão do sistema',
     },
     [FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS]: {
       done: (accountsCount || 0) > 0,
