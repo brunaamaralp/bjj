@@ -3,12 +3,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   ensureAuth: vi.fn(),
   ensureAcademyAccess: vi.fn(),
+  isAcademyOwnerOrAdminUser: vi.fn(),
   loadPayablesInputs: vi.fn(),
 }));
 
 vi.mock('../../../lib/server/academyAccess.js', () => ({
   ensureAuth: (...args) => mocks.ensureAuth(...args),
   ensureAcademyAccess: (...args) => mocks.ensureAcademyAccess(...args),
+  isAcademyOwnerOrAdminUser: (...args) => mocks.isAcademyOwnerOrAdminUser(...args),
 }));
 
 vi.mock('../../../lib/server/payablesData.js', () => ({
@@ -34,7 +36,8 @@ describe('payablesHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ensureAuth.mockResolvedValue({ $id: 'user-1' });
-    mocks.ensureAcademyAccess.mockResolvedValue({ academyId: 'ac-1', doc: {} });
+    mocks.ensureAcademyAccess.mockResolvedValue({ academyId: 'ac-1', doc: { ownerId: 'user-1' } });
+    mocks.isAcademyOwnerOrAdminUser.mockResolvedValue(true);
     mocks.loadPayablesInputs.mockResolvedValue({
       pendingTransactions: [],
       recurrenceTemplates: [],
@@ -45,6 +48,14 @@ describe('payablesHandler', () => {
     const res = mockRes();
     await payablesHandler({ method: 'POST', query: {} }, res);
     expect(res.statusCode).toBe(405);
+  });
+
+  it('forbids member without owner/admin role', async () => {
+    mocks.isAcademyOwnerOrAdminUser.mockResolvedValue(false);
+    const res = mockRes();
+    await payablesHandler({ method: 'GET', query: { route: 'payables', section: 'visao' } }, res);
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error).toBe('forbidden');
   });
 
   it('returns payables payload', async () => {

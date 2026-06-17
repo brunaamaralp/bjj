@@ -3,6 +3,7 @@ import {
   buildPendingPayableItems,
   buildProjectedPayableItems,
   buildTemplatePayableItems,
+  buildPayablesSummaryItems,
   classifyPayableStatus,
   mergePayableItems,
   PAYABLE_SOURCE,
@@ -113,5 +114,46 @@ describe('payablesAggregate', () => {
     expect(items).toHaveLength(1);
     expect(items[0].source).toBe(PAYABLE_SOURCE.TEMPLATE);
     expect(items[0].vendor_label).toBe('Sabesp');
+  });
+
+  it('buildPayablesSummaryItems dedupes template and projected for same due date', () => {
+    const templates = buildTemplatePayableItems(
+      [
+        {
+          id: 'tpl-1',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 450,
+          planName: 'CPFL',
+          category: 'Luz / energia',
+        },
+      ],
+      { today: '2026-06-01', pending: [] }
+    );
+    const projected = buildProjectedPayableItems(
+      [
+        {
+          id: 'tpl-1',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 450,
+          planName: 'CPFL',
+          category: 'Luz / energia',
+        },
+      ],
+      '2026-06-01',
+      '2026-08-31',
+      [],
+      { today: '2026-06-01' }
+    );
+    const summaryItems = buildPayablesSummaryItems([], templates, projected);
+    const juneRows = summaryItems.filter((it) => it.due_date === '2026-06-10');
+    expect(juneRows).toHaveLength(1);
+    const summary = summarizePayables(summaryItems, { today: '2026-06-01' });
+    expect(summary.totalOpen).toBe(1350);
   });
 });

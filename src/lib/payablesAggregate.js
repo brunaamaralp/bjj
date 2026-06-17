@@ -229,6 +229,24 @@ export function mergePayableItems(...groups) {
   return rows;
 }
 
+/** Summary KPIs: pending + projected, plus templates only when not already covered. */
+export function buildPayablesSummaryItems(pending = [], templates = [], projected = []) {
+  const rows = mergePayableItems(pending, projected);
+  const covered = new Set();
+  for (const it of rows) {
+    const tid = String(it.template_id || '').trim();
+    const due = String(it.due_date || '').slice(0, 10);
+    if (tid && due) covered.add(`${tid}|${due}`);
+  }
+  const extraTemplates = templates.filter((tpl) => {
+    const tid = String(tpl.template_id || tpl.tx_id || '').trim();
+    const due = String(tpl.due_date || '').slice(0, 10);
+    if (!tid || !due) return true;
+    return !covered.has(`${tid}|${due}`);
+  });
+  return mergePayableItems(rows, extraTemplates);
+}
+
 export function summarizePayables(items = [], { today = todayYmdLocal() } = {}) {
   const todayYmd = String(today || todayYmdLocal()).slice(0, 10);
   let totalOpen = 0;
@@ -326,7 +344,7 @@ export function buildPayablesSnapshot({
     items = mergePayableItems(pending, projected.slice(0, 24));
   }
 
-  const summarySource = mergePayableItems(pending, templates, projected);
+  const summarySource = buildPayablesSummaryItems(pending, templates, projected);
   const summary = summarizePayables(summarySource, { today: todayYmd });
 
   return { items, summary, from, to, section };

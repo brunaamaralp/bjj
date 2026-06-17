@@ -28,6 +28,8 @@ import {
   recurrenceTooltip,
   normalizeRecurrenceDay,
 } from '../../lib/financeRecurrence.js';
+import { dueDateForRecurrenceMonth } from '../../lib/financeRecurrenceDedup.js';
+import { todayYmdLocal } from '../../lib/financeForecastCore.js';
 import { useToast } from '../../hooks/useToast';
 import { financeTxFriendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
@@ -1102,6 +1104,15 @@ export default function TransacoesTab({
           payload.recurrence_type = txForm.recurrence_type || RECURRENCE_TYPES.MONTHLY;
           payload.recurrence_day = normalizeRecurrenceDay(payload.recurrence_type, txForm.recurrence_day);
           if (txForm.recurrence_end) payload.recurrence_end = txForm.recurrence_end;
+        }
+        if (dir === 'out') {
+          const cm = payload.competence_month || currentCompetenceMonth();
+          if (txForm.repeat_enabled) {
+            payload.due_date = dueDateForRecurrenceMonth(payload.recurrence_day, cm);
+          } else if (!receiveNow) {
+            const today = todayYmdLocal();
+            payload.due_date = cm === today.slice(0, 7) ? today : dueDateForRecurrenceMonth(28, cm);
+          }
         }
         const row = await createFinanceTx({ academyId, payload });
         if (receiveNow && row) applyAccountingSideEffectsAuto(row, academyId);
