@@ -1571,17 +1571,6 @@ export default function StudentProfile() {
         return raw != null && String(raw).trim() ? String(raw).trim() : '';
     };
 
-    const dataFormInputStyle = {
-        width: '100%',
-        boxSizing: 'border-box',
-        padding: '6px 10px',
-        fontSize: 13,
-        borderRadius: 'var(--radius-sm)',
-        border: '0.5px solid var(--border-light)',
-        background: 'var(--surface)',
-        color: 'var(--text)',
-        fontFamily: 'inherit',
-    };
 
     const renderStudentDataViewRow = (field) => {
         const raw = field.key === 'turma' ? student.turma || student.className : student[field.key];
@@ -1604,7 +1593,6 @@ export default function StudentProfile() {
                 <SexoSelect
                     id={`student-data-${field.key}`}
                     className="student-profile-data-input"
-                    style={dataFormInputStyle}
                     disabled={savingData}
                     value={dataForm.sexo}
                     onChange={(v) => setDataForm((p) => ({ ...p, sexo: v }))}
@@ -1619,7 +1607,6 @@ export default function StudentProfile() {
                     onSelectChange={(v) => setDataForm((p) => ({ ...p, turmaSelect: v }))}
                     onOtherChange={(v) => setDataForm((p) => ({ ...p, turmaOther: v }))}
                     className="student-profile-data-input"
-                    style={dataFormInputStyle}
                     disabled={savingData}
                 />
             ) : field.type === 'plan' ? (
@@ -1629,17 +1616,15 @@ export default function StudentProfile() {
                     value={dataForm.plan}
                     onChange={(v) => setDataForm((p) => ({ ...p, plan: v }))}
                     className="student-profile-data-input"
-                    style={dataFormInputStyle}
                     disabled={savingData}
                 />
             ) : field.type === 'select' && Array.isArray(field.options) ? (
                 <select
                     id={`student-data-${field.key}`}
-                    className="student-profile-data-input"
+                    className="student-profile-data-input student-profile-data-input--select"
                     disabled={savingData || field.disabled}
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => setDataForm((p) => ({ ...p, [field.key]: e.target.value }))}
-                    style={{ ...dataFormInputStyle, cursor: 'pointer' }}
                 >
                     <option value="">Selecione…</option>
                     {field.options.map((o) => (
@@ -1657,7 +1642,6 @@ export default function StudentProfile() {
                     disabled={savingData || field.disabled}
                     value={dataForm[field.key] ?? ''}
                     onChange={(e) => setDataForm((p) => ({ ...p, [field.key]: e.target.value.trim() }))}
-                    style={dataFormInputStyle}
                     autoComplete="email"
                 />
             ) : field.type === 'date' ? (
@@ -1701,7 +1685,6 @@ export default function StudentProfile() {
                               }
                             : undefined
                     }
-                    style={dataFormInputStyle}
                 />
             )}
             {field.key === 'cpf' && cpfErrors.cpf ? (
@@ -2236,7 +2219,6 @@ export default function StudentProfile() {
                                 emptyLabel="Nenhuma (opcional)"
                                 disabled={savingData}
                                 className="student-profile-data-input"
-                                style={dataFormInputStyle}
                             />
                         </>
                     ) : (

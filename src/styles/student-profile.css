@@ -230,6 +230,7 @@
 
 .student-profile-data-input {
   width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px;
   border-radius: 8px;
   border: 0.5px solid var(--color-border-secondary, var(--border-light));
@@ -237,6 +238,10 @@
   color: var(--color-text-primary, var(--text));
   font-family: inherit;
   font-size: 13px;
+}
+
+.student-profile-data-input--select {
+  cursor: pointer;
 }
 
 .student-profile-emergency-check {
