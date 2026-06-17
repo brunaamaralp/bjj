@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
 import {
   buildPipelineStageLeadCounts,
+  buildPipelineMovePayload,
+  getPipelineMoveSuccessMessage,
   getStageUpdatePayload,
   isLeadScheduledForExperimental,
   isLeadVisibleOnExperimentalAgenda,
   isOpenFunnelLead,
+  leadBelongsInPipelineColumn,
   pipelineStageFromLeadStatus,
   resolveLeadPipelineStageId,
+  willAutoConfirmTriageOnMove,
 } from '../lib/leadStageRules.js';
 import { buildDefaultPipelineStages } from '../lib/pipelineStagesConfig.js';
 
@@ -23,6 +27,57 @@ describe('leadStageRules', () => {
     expect(getStageUpdatePayload('custom-etapa-xyz')).toEqual({
       pipelineStage: 'custom-etapa-xyz',
     });
+  });
+
+  it('buildPipelineMovePayload confirma triagem ao sair de Novo', () => {
+    const pending = { triageStatus: 'pending', inboundAuto: true, status: LEAD_STATUS.NEW };
+    expect(buildPipelineMovePayload(pending, 'Primeiro contato')).toEqual({
+      pipelineStage: 'Primeiro contato',
+      status: LEAD_STATUS.NEW,
+      triageStatus: 'confirmed',
+    });
+    expect(buildPipelineMovePayload(pending, 'Novo')).toEqual({
+      pipelineStage: 'Novo',
+      status: LEAD_STATUS.NEW,
+    });
+    expect(buildPipelineMovePayload({ triageStatus: 'confirmed' }, 'Primeiro contato')).toEqual({
+      pipelineStage: 'Primeiro contato',
+      status: LEAD_STATUS.NEW,
+    });
+  });
+
+  it('getPipelineMoveSuccessMessage diferencia auto-confirmação de triagem', () => {
+    const pending = { triageStatus: 'pending', inboundAuto: true };
+    expect(willAutoConfirmTriageOnMove(pending, 'Primeiro contato')).toBe(true);
+    expect(getPipelineMoveSuccessMessage(pending, 'Primeiro contato')).toBe(
+      'Lead confirmado ao mudar de etapa'
+    );
+    expect(getPipelineMoveSuccessMessage(pending, 'Novo')).toBe('Movido no pipeline');
+    expect(getPipelineMoveSuccessMessage({ triageStatus: 'confirmed' }, 'Primeiro contato')).toBe(
+      'Movido no pipeline'
+    );
+  });
+
+  it('leadBelongsInPipelineColumn coloca triagem pendente em Novo e custom na coluna certa', () => {
+    const stages = [...buildDefaultPipelineStages(), { id: 'Primeiro contato', label: 'Primeiro contato' }];
+    const displayIds = new Set(stages.map((s) => s.id));
+    const mapStage = (lead) => resolveLeadPipelineStageId(lead, { stages, isPendingTriage: () => false });
+    const pending = { triageStatus: 'pending', inboundAuto: true, status: LEAD_STATUS.NEW };
+    const mapPending = (lead) => resolveLeadPipelineStageId(lead, {
+      stages,
+      isPendingTriage: (l) => l === pending || l?.triageStatus === 'pending',
+    });
+
+    expect(leadBelongsInPipelineColumn(pending, 'Novo', mapPending, displayIds)).toBe(true);
+    expect(leadBelongsInPipelineColumn(pending, 'Primeiro contato', mapPending, displayIds)).toBe(false);
+
+    const moved = {
+      triageStatus: 'confirmed',
+      status: LEAD_STATUS.NEW,
+      pipelineStage: 'Primeiro contato',
+    };
+    expect(leadBelongsInPipelineColumn(moved, 'Primeiro contato', mapStage, displayIds)).toBe(true);
+    expect(leadBelongsInPipelineColumn(moved, 'Novo', mapStage, displayIds)).toBe(false);
   });
 
   it('isLeadScheduledForExperimental exige data YYYY-MM-DD e regras de funil', () => {

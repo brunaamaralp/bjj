@@ -12,6 +12,7 @@
 
 **Specs relacionadas:**
 
+- [2026-06-17-funil-correcao-definitiva-PRODUCT.md](../superpowers/specs/2026-06-17-funil-correcao-definitiva-PRODUCT.md) — triagem desktop, movimentação e colunas custom
 - [2026-06-10-followup-experimental-design.md](../superpowers/specs/2026-06-10-followup-experimental-design.md) — ações pós-experimental
 - [2026-06-12-lead-history-summary-cache-design.md](../superpowers/specs/2026-06-12-lead-history-summary-cache-design.md) — resumo IA no perfil
 - [2026-06-11-conversa-cadastro-lead-ia-design.md](../superpowers/specs/2026-06-11-conversa-cadastro-lead-ia-design.md) — cadastro via conversa
@@ -55,7 +56,9 @@ flowchart TD
 | 1 | (global) | `NewLeadModal` | Sidebar **Novo lead** ou FAB mobile | Modal com nome, telefone, origem, estágio inicial |
 | 2 | `/pipeline` | `Pipeline.jsx` | Salvar novo lead | Lead aparece na coluna do estágio escolhido |
 | 3 | `/pipeline` | Kanban / lista | Arrastar card ou menu de estágio | Estágio atualizado; automações disparam se configuradas |
-| 4 | `/pipeline` | Card do lead | Clicar no card | Navega para `/lead/:id` |
+| 3b | `/pipeline` (kanban desktop) | `InboxTriageCard` no card | Confirmar / Vincular aluno / Não é lead | Triagem concluída **sem** abrir perfil; mover para etapa ≠ Novo confirma triagem implicitamente |
+| 3c | `/pipeline` (lista mobile) | Link **Triar no Inbox** | Abrir conversa | Triagem no Inbox — **sem** callout no card mobile |
+| 4 | `/pipeline` | Card do lead | Clicar no card (fora da área de triagem) | Navega para `/lead/:id` |
 | 5 | `/pipeline` | Menu ⋮ no card | WhatsApp, nota, matricular, excluir | Ação contextual sem sair do funil |
 | 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, aba **Conversa** / **Histórico** | Dados persistidos; WhatsApp integrado na aba Conversa |
 | 6b | `/lead/:id` | Aba Conversa | WA desconectado | Banner + empty “WhatsApp não conectado” + **Configurar WhatsApp** + **Abrir WhatsApp Web** (manual) → `/agente-ia` |
@@ -82,6 +85,9 @@ flowchart TD
 1. [ ] Abrir **Novo lead** — modal visível e campos obrigatórios validados
 2. [ ] Criar lead "Teste Fluxo" — aparece em `/pipeline` no estágio correto
 3. [ ] Alternar kanban ↔ lista **(desktop; largura > 1023px)** — mesmo lead visível em ambas
+3b. [ ] Lead inbound em **Novo** (desktop) — callout triagem: Confirmar / Vincular / Não é lead **sem** navegar ao perfil
+3c. [ ] Mover lead inbound para etapa custom (ex.: Primeiro contato) — card permanece na coluna; toast de confirmação implícita
+3d. [ ] Mobile — link **Triar no Inbox** na coluna Novo; sem callout no card
 4. [ ] Mover lead para estágio "Aguardando decisão" ou equivalente — badge e contador da coluna atualizam
 5. [ ] Abrir perfil `/lead/:id` — dados consistentes com o card
 6. [ ] Registrar nota ou evento na timeline — evento aparece ordenado
@@ -111,7 +117,9 @@ flowchart TD
 
 **Saudável:** Contadores de coluna batem com cards visíveis; matrícula idempotente (não duplica aluno); automações disparam com feedback (`automationUx`).
 
-**Regressão:** Card some sem mudança de estágio; matrícula parcial (aluno sem lead); kanban não persiste drag; filtros de período incorretos.
+**Regressão:** Card some sem mudança de estágio; matrícula parcial (aluno sem lead); kanban não persiste drag; filtros de período incorretos; botões de triagem abrem perfil do lead; lead em etapa custom reaparece só em Novo.
+
+**Spec:** [2026-06-17-funil-correcao-definitiva-PRODUCT.md](../superpowers/specs/2026-06-17-funil-correcao-definitiva-PRODUCT.md)
 
 ---
 

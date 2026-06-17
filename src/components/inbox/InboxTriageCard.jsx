@@ -17,11 +17,22 @@ export default function InboxTriageCard({
 }) {
   const linkLabel = `Vincular ${String(studentLabel || 'aluno').trim().toLowerCase()}`;
 
+  const stopCardBubble = (e) => {
+    e.stopPropagation();
+  };
+
+  const runAction = (e, action) => {
+    e.stopPropagation();
+    action?.();
+  };
+
   return (
     <div
       className={`inbox-triage-callout${compact ? ' inbox-triage-callout--compact' : ''}`}
       role="region"
       aria-label="Triagem WhatsApp"
+      onClick={stopCardBubble}
+      onMouseDown={stopCardBubble}
     >
       <div className="inbox-triage-callout__head">
         <div className="inbox-triage-callout__title-row">
@@ -44,7 +55,7 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-primary btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'confirm' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
-          onClick={() => onConfirm?.()}
+          onClick={(e) => runAction(e, onConfirm)}
         >
           <UserCheck size={14} aria-hidden />
           Confirmar
@@ -53,7 +64,7 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'link_student' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
-          onClick={() => onLinkStudent?.()}
+          onClick={(e) => runAction(e, onLinkStudent)}
         >
           <GraduationCap size={14} aria-hidden />
           {linkLabel}
@@ -62,7 +73,7 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted${suggestedAction === 'dismiss' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
-          onClick={() => onDismiss?.()}
+          onClick={(e) => runAction(e, onDismiss)}
         >
           <Trash2 size={14} aria-hidden />
           Não é lead

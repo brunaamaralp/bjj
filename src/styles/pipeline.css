@@ -1026,6 +1026,12 @@
   text-decoration: underline;
 }
 
+.pipeline-mobile-triage-hint {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
 .pipeline-container .lead-automation-badge {
   font-family: var(--ff-mono);
   font-size: 0.6875rem;

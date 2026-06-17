@@ -3,7 +3,7 @@ import '../styles/pipeline.css';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { addLeadEvent } from '../lib/leadEvents.js';
-import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN } from '../store/useLeadStore';
+import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN, patchLeadInStore, revertLeadsInStore } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
@@ -20,8 +20,10 @@ import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
 import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
 import {
     buildPipelineStageLeadCounts,
-    getStageUpdatePayload,
+    buildPipelineMovePayload,
+    getPipelineMoveSuccessMessage,
     isOpenFunnelLead,
+    leadBelongsInPipelineColumn,
     normalizePipelineStageId,
     resolveLeadPipelineStageId,
 } from '../lib/leadStageRules.js';
@@ -159,7 +161,7 @@ const dropAnimation = {
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
-const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, mapLeadToStageId, openNote, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, ...props }) => {
+const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationConfig, isDragging, isOverlay, isMoving, navigate, onOpenLeadProfile, openMenuId, scheduleModalLeadId, moverOpenId, setOpenMenuId, setWaDropdownOpenId, handleWaCardClick, waDropdownOpenId, templateSendKeys, sendTemplateFromPipeline, stages, moveToStatus, handleCopyPhone, copiedId, handleMarkAsLost, handleDeleteLead, canDeleteLead, onConfirmTriage, onDismissTriage, onLinkStudent, onOpenScheduleModal, onCloseSale, onOpenMatricula, handleConfirmPresence, setMissedModalLead, openMover, mapLeadToStageId, openNote, pipelineStageId, pipelineStageColorIndex = 0, pipelineMenuTrialLc, pipelineMenuAttendanceLc, pipelineMenuEnrollment, triageBusyLeadId, linkStudentLead, linkStudentSaving, ...props }) => {
     const terms = useTerms();
     const menuTriggerRef = useRef(null);
     const waToggleRef = useRef(null);
@@ -204,6 +206,9 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
     );
     const triageSuggested = useMemo(() => suggestTriageAction(lead), [lead]);
     const triageContext = useMemo(() => triageContextLine(lead, { terms }), [lead, terms]);
+    const triageBusy =
+        triageBusyLeadId === lead.id ||
+        (linkStudentSaving && linkStudentLead?.id === lead.id);
     const handleSuggestedActionClick = useCallback((e) => {
         e.stopPropagation();
         if (!suggestedAction) return;
@@ -348,12 +353,13 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
                 <div className="pipeline-lead-triage-wrap" data-no-dnd="true">
                     <InboxTriageCard
                         compact
+                        busy={triageBusy}
                         suggestedAction={triageSuggested}
                         contextLine={triageContext}
                         studentLabel={terms.student}
                         onConfirm={() => onConfirmTriage?.(lead)}
                         onLinkStudent={() => onLinkStudent?.(lead)}
-                        onDismiss={() => onDismissTriage?.({ stopPropagation: () => {} }, lead)}
+                        onDismiss={() => onDismissTriage?.(lead)}
                     />
                 </div>
             ) : null}
@@ -808,16 +814,6 @@ const leadMatchesContactType = (lead) => {
 };
 
 const ENROLLED_PIPELINE_STAGE_ID = 'Matriculado';
-const PIPELINE_NOVO_STAGE_ID = 'Novo';
-
-function leadBelongsInPipelineColumn(lead, columnId, mapLeadToStageId, displayStageIds) {
-    const colId = normalizePipelineStageId(columnId);
-    const stageId = normalizePipelineStageId(mapLeadToStageId(lead));
-    if (stageId === colId) return true;
-    if (colId === PIPELINE_NOVO_STAGE_ID && isLeadPendingTriage(lead)) return true;
-    if (colId === PIPELINE_NOVO_STAGE_ID && stageId && !displayStageIds.has(stageId)) return true;
-    return false;
-}
 
 const boardContactOrigin = (contact) =>
     String(contact?.origin || contact?.sourceOrigin || '').trim();
@@ -868,7 +864,7 @@ function formatMobileListScheduleDate(ymd) {
 }
 
 /**
- * Vista lista agrupada por etapa (mobile). Não altera filtros nem store.
+ * Vista lista agrupada por etapa (mobile). Triagem WhatsApp: desktop kanban only — mobile usa /inbox.
  */
 const MobileLeadList = React.memo(function MobileLeadList({
     stages,
@@ -1001,6 +997,17 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                     <span className="pipeline-mobile-schedule-badge">
                                                         {`${formatMobileListScheduleDate(lead.scheduledDate)}${lead.scheduledTime ? ` às ${lead.scheduledTime}` : ''}`}
                                                     </span>
+                                                ) : null}
+                                                {String(stage.id || '').trim() === 'Novo' &&
+                                                isLeadPendingTriage(lead) &&
+                                                normalizeKanbanPhone(lead.phone) ? (
+                                                    <Link
+                                                        to={`/inbox?phone=${encodeURIComponent(normalizeKanbanPhone(lead.phone))}`}
+                                                        className="pipeline-mobile-triage-hint lead-inbox-link"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        Triar no Inbox
+                                                    </Link>
                                                 ) : null}
                                             </div>
                                             <div className="pipeline-mobile-lead-actions">
@@ -1143,12 +1150,6 @@ const Pipeline = () => {
     const navRole = useUserRole(academyDocForRole);
     const canDeleteLead = navRole === 'owner' || navRole === 'admin';
 
-    const patchLeadLocal = useCallback((leadId, patch) => {
-        useLeadStore.setState((state) => ({
-            leads: state.leads.map((l) => (l.id === leadId ? { ...l, ...patch } : l)),
-        }));
-    }, []);
-
     const beginLeadMove = useCallback((leadId) => {
         setMovingLeadIds((prev) => new Set([...prev, leadId]));
     }, []);
@@ -1162,7 +1163,7 @@ const Pipeline = () => {
     }, []);
 
     const revertLeads = useCallback((previousLeads) => {
-        useLeadStore.setState({ leads: previousLeads });
+        revertLeadsInStore(previousLeads);
     }, []);
     const leadsLoading = useLeadStore((s) => s.loading);
     const leadsHasMore = useLeadStore((s) => s.leadsHasMore);
@@ -1264,6 +1265,7 @@ const Pipeline = () => {
     const [lostModalLead, setLostModalLead] = useState(null);
     const [linkStudentLead, setLinkStudentLead] = useState(null);
     const [linkStudentSaving, setLinkStudentSaving] = useState(false);
+    const [triageBusyLeadId, setTriageBusyLeadId] = useState(null);
     const studentsLoading = useStudentStore((s) => s.loading);
     const [filterDateFrom, setFilterDateFrom] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateFrom);
     const [filterDateTo, setFilterDateTo] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateTo);
@@ -1514,17 +1516,21 @@ const Pipeline = () => {
 
     const handleConfirmTriage = useCallback(async (lead) => {
         const leadId = String(lead?.id || '').trim();
-        if (!leadId) return;
+        if (!leadId || triageBusyLeadId) return;
+        setTriageBusyLeadId(leadId);
         try {
             await updateLead(leadId, buildTriageConfirmClientPatch(lead));
             toast.success('Lead confirmado');
         } catch (err) {
             toast.error(err, 'update');
+        } finally {
+            setTriageBusyLeadId(null);
         }
-    }, [toast, updateLead]);
+    }, [toast, triageBusyLeadId, updateLead]);
 
-    const handleDismissTriage = useCallback((e, lead) => {
-        e.stopPropagation();
+    const handleDismissTriage = useCallback((eOrLead, maybeLead) => {
+        const lead = maybeLead ?? eOrLead;
+        if (eOrLead?.stopPropagation) eOrLead.stopPropagation();
         setOpenMenuId(null);
         const leadId = String(lead?.id || '').trim();
         if (!leadId) return;
@@ -2589,9 +2595,9 @@ const Pipeline = () => {
         }
 
         const previousLeads = useLeadStore.getState().leads;
-        const payload = getStageUpdatePayload(status);
+        const payload = buildPipelineMovePayload(lead, status);
         beginLeadMove(leadId);
-        patchLeadLocal(leadId, payload);
+        patchLeadInStore(leadId, payload);
 
         try {
             await addLeadEvent({
@@ -2619,7 +2625,7 @@ const Pipeline = () => {
                 'waiting_decision'
             );
             reportAutomations(autoResult);
-            toast.success('Movido no pipeline');
+            toast.success(getPipelineMoveSuccessMessage(lead, status));
         } catch {
             revertLeads(previousLeads);
             toast.show({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
@@ -2697,9 +2703,9 @@ const Pipeline = () => {
         }
 
         const previousLeads = useLeadStore.getState().leads;
-        const payload = getStageUpdatePayload(toStage);
+        const payload = buildPipelineMovePayload(lead, toStage);
         beginLeadMove(leadId);
-        patchLeadLocal(leadId, payload);
+        patchLeadInStore(leadId, payload);
 
         try {
             if (fromStage !== toStage) {
@@ -2729,7 +2735,7 @@ const Pipeline = () => {
                 'waiting_decision'
             );
             reportAutomations(autoResult);
-            toast.success('Movido no pipeline');
+            toast.success(getPipelineMoveSuccessMessage(lead, toStage));
         } catch {
             revertLeads(previousLeads);
             toast.show({ type: 'error', message: 'Não foi possível mover o card. Tente novamente.' });
@@ -2751,7 +2757,6 @@ const Pipeline = () => {
         userId,
         permCtx,
         beginLeadMove,
-        patchLeadLocal,
         updateLead,
         revertLeads,
         endLeadMove,
@@ -2820,6 +2825,9 @@ const Pipeline = () => {
             onConfirmTriage: handleConfirmTriage,
             onDismissTriage: handleDismissTriage,
             onLinkStudent: handleLinkStudent,
+            triageBusyLeadId,
+            linkStudentLead,
+            linkStudentSaving,
             onOpenScheduleModal: setScheduleModalLead,
             onCloseSale: (lead) => openMatriculaModal(lead, { paymentShortcut: true }),
             onOpenMatricula: openMatriculaModal,
@@ -2854,6 +2862,9 @@ const Pipeline = () => {
             handleConfirmTriage,
             handleDismissTriage,
             handleLinkStudent,
+            triageBusyLeadId,
+            linkStudentLead,
+            linkStudentSaving,
             handleWaCardClick,
             handleConfirmPresence,
             openMover,

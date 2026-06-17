@@ -61,10 +61,14 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 |---|---|---|---|
 | 1–2 | Novo lead + pipeline | ✅ Código | `NewLeadModal`, `Pipeline.jsx` |
 | 3 | Kanban ↔ lista | ⚠️ **Desktop only** | Mobile (`≤1023px`) usa lista agrupada; kanban só desktop |
+| 3b | Triagem WhatsApp no funil | ✅ Código | Desktop kanban: `InboxTriageCard`; mobile: link **Triar no Inbox** — `leadStageRules.js`, `patchLeadInStore` |
+| 3c | Mover para etapa custom | ✅ Código | `buildPipelineMovePayload` + `leadBelongsInPipelineColumn` |
 | 4–11 | Demais itens | ✅ Código | `performEnrollment`, export, perfil — testes `enrollmentFlow` passam |
 | 7b | WA offline no perfil | ✅ Código | Fases 1–3 + paridade aluno: `ProfileComunicacaoSection`, `ProfileMobileQuickActions` |
 
-**Nota adicionada** no fluxo sobre viewport mobile.
+**Nota adicionada** no fluxo sobre viewport mobile e triagem (desktop kanban / mobile Inbox).
+
+**Correções aplicadas (2026-06-17):** spec [funil-correcao-definitiva](../superpowers/specs/2026-06-17-funil-correcao-definitiva-PRODUCT.md) — triagem, movimentação custom, store otimista.
 
 ---
 

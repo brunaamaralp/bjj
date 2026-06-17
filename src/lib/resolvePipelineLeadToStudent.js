@@ -21,6 +21,7 @@ export async function resolvePipelineLeadToStudent({ lead, studentId, academyId,
 
   if (phone && academyId) {
     try {
+      // lead_id = ID do aluno (STUDENTS_COL); API tenta students antes de leads.
       await postInboxConversation({
         phone,
         academyId,

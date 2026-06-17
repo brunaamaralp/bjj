@@ -1,5 +1,7 @@
 import { LEAD_STATUS } from './leadStatus.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import { isLeadPendingTriage } from './leadTriage.js';
+import { buildTriageConfirmClientPatch } from '../../lib/agentClassificationFields.js';
 
 /**
  * Dado um pipelineStage (id da coluna do Kanban), retorna o status canônico.
@@ -9,6 +11,7 @@ export const STAGE_TO_STATUS = {
   Novo: LEAD_STATUS.NEW,
   'Novo lead': LEAD_STATUS.NEW,
   'Em contato': LEAD_STATUS.NEW,
+  'Primeiro contato': LEAD_STATUS.NEW,
   'Contato feito': LEAD_STATUS.NEW,
   'Aula experimental': LEAD_STATUS.SCHEDULED,
   [PIPELINE_WAITING_DECISION_STAGE]: LEAD_STATUS.COMPLETED,
@@ -138,6 +141,52 @@ export function getStageUpdatePayload(pipelineStage) {
     return { pipelineStage };
   }
   return { pipelineStage, status };
+}
+
+/**
+ * Payload ao mover card no funil — confirma triagem WhatsApp ao sair de «Novo».
+ * @param {object | null | undefined} lead
+ * @param {string} toStage
+ */
+export function buildPipelineMovePayload(lead, toStage) {
+  const payload = getStageUpdatePayload(toStage);
+  const target = normalizePipelineStageId(toStage);
+  if (isLeadPendingTriage(lead) && target && target !== 'Novo') {
+    return { ...payload, ...buildTriageConfirmClientPatch(lead) };
+  }
+  return payload;
+}
+
+/** Triagem WhatsApp será confirmada implicitamente ao mover para etapa ≠ Novo. */
+export function willAutoConfirmTriageOnMove(lead, toStage) {
+  const target = normalizePipelineStageId(toStage);
+  return Boolean(isLeadPendingTriage(lead) && target && target !== 'Novo');
+}
+
+/** Toast após movimentação bem-sucedida no funil. */
+export function getPipelineMoveSuccessMessage(leadBeforeMove, toStage) {
+  if (willAutoConfirmTriageOnMove(leadBeforeMove, toStage)) {
+    return 'Lead confirmado ao mudar de etapa';
+  }
+  return 'Movido no pipeline';
+}
+
+const PIPELINE_NOVO_STAGE_ID = 'Novo';
+
+/**
+ * Lead pertence à coluna do kanban (mesma regra do filtro visual).
+ * @param {object} lead
+ * @param {string} columnId
+ * @param {(lead: object) => string} mapLeadToStageId
+ * @param {Set<string>} displayStageIds
+ */
+export function leadBelongsInPipelineColumn(lead, columnId, mapLeadToStageId, displayStageIds) {
+  const colId = normalizePipelineStageId(columnId);
+  const stageId = normalizePipelineStageId(mapLeadToStageId(lead));
+  if (stageId === colId) return true;
+  if (colId === PIPELINE_NOVO_STAGE_ID && isLeadPendingTriage(lead)) return true;
+  if (colId === PIPELINE_NOVO_STAGE_ID && stageId && !displayStageIds.has(stageId)) return true;
+  return false;
 }
 
 function hasExperimentalCalendarDate(lead) {
