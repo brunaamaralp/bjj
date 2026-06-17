@@ -34,8 +34,8 @@ export default function FinanceSettingsAcquirerFeesFields({
         </div>
       ) : null}
 
-      <div className="finance-settings-inset card">
-        <div className="form-group">
+      <div className="finance-settings-inset card finance-acquirer-fields__rates">
+        <div className="form-group finance-acquirer-fields__rate">
           <label htmlFor={`${idPrefix}-pix`}>PIX — taxa (%)</label>
           <input
             id={`${idPrefix}-pix`}
@@ -43,6 +43,7 @@ export default function FinanceSettingsAcquirerFeesFields({
             type="number"
             min={0}
             step="0.01"
+            inputMode="decimal"
             value={fees.pix?.percent ?? 0}
             onChange={(e) =>
               patch((f) => ({
@@ -52,8 +53,8 @@ export default function FinanceSettingsAcquirerFeesFields({
             }
           />
         </div>
-        <div className="finance-settings-group__sep" aria-hidden />
-        <div className="form-group">
+        <div className="finance-settings-group__sep finance-acquirer-fields__sep" aria-hidden />
+        <div className="form-group finance-acquirer-fields__rate">
           <label htmlFor={`${idPrefix}-debito`}>Débito — taxa (%)</label>
           <input
             id={`${idPrefix}-debito`}
@@ -61,6 +62,7 @@ export default function FinanceSettingsAcquirerFeesFields({
             type="number"
             min={0}
             step="0.01"
+            inputMode="decimal"
             value={fees.debito?.percent ?? 0}
             onChange={(e) =>
               patch((f) => ({
@@ -70,8 +72,8 @@ export default function FinanceSettingsAcquirerFeesFields({
             }
           />
         </div>
-        <div className="finance-settings-group__sep" aria-hidden />
-        <div className="form-group">
+        <div className="finance-settings-group__sep finance-acquirer-fields__sep" aria-hidden />
+        <div className="form-group finance-acquirer-fields__rate">
           <label htmlFor={`${idPrefix}-credito`}>Crédito à vista — taxa (%)</label>
           <input
             id={`${idPrefix}-credito`}
@@ -79,6 +81,7 @@ export default function FinanceSettingsAcquirerFeesFields({
             type="number"
             min={0}
             step="0.01"
+            inputMode="decimal"
             value={fees.credito_avista?.percent ?? 0}
             onChange={(e) =>
               patch((f) => ({

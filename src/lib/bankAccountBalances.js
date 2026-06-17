@@ -68,6 +68,7 @@ export function computeBankAccountBalances({ accounts = [], transactions = [], a
   for (const tx of transactions) {
     const st = String(tx?.status || '').toLowerCase();
     if (st === 'cancelled' || st !== 'settled') continue;
+    if (String(tx?.origin_type || tx?.originType || '').toLowerCase() === 'sale_cmv') continue;
 
     const settledYmd = txSettledYmd(tx);
     if (settledYmd && settledYmd > asOf) continue;

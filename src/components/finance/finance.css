@@ -3538,10 +3538,163 @@
   margin-top: 0;
 }
 
+/* —— Taxas da maquininha: grid responsivo —— */
+.finance-acquirer-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-acquirer-fields__rates {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.finance-acquirer-fields__sep {
+  display: none;
+}
+
+.finance-acquirer-fields__rate label {
+  font-size: var(--text-sm, 13px);
+}
+
+@media (min-width: 520px) {
+  .finance-acquirer-fields__rates {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: var(--space-4);
+  }
+}
+
+.finance-acquirer-fields--compact {
+  gap: var(--space-2);
+}
+
+.finance-acquirer-fields--compact .finance-settings-fees-summary {
+  padding: var(--space-2) var(--space-3);
+}
+
+.finance-acquirer-fields--compact .finance-settings-fees-summary__text {
+  font-size: var(--text-sm, 13px);
+  line-height: 1.4;
+}
+
+.finance-acquirer-fields--compact .finance-settings-inset,
+.finance-acquirer-fields--compact .finance-acquirer-fields__rates {
+  padding: var(--space-3);
+  background: var(--color-card-bg, #fff);
+  box-shadow: none;
+}
+
+.finance-acquirer-fields--compact .finance-installments-toggle {
+  margin-top: 0;
+}
+
 .finance-acquirer-policy {
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-card-border, #e8e5f5);
+}
+
+/* —— Modal conta bancária —— */
+.finance-bank-account-modal.navi-modal-shell {
+  width: min(100% - var(--space-4), 600px);
+  max-height: min(92dvh, 920px);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+}
+
+.finance-bank-account-modal .navi-modal-shell__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+
+.finance-bank-account-modal .navi-modal-shell__footer {
+  flex-shrink: 0;
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--border-light);
+}
+
+.finance-bank-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.finance-bank-modal-form__intro {
+  margin: 0;
+}
+
+.finance-bank-modal-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-bank-modal-form__section-label {
+  margin: 0;
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.finance-bank-modal-form__row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+@media (min-width: 520px) {
+  .finance-bank-modal-form__row--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.finance-bank-modal-form__hint {
+  margin: calc(-1 * var(--space-1)) 0 0;
+}
+
+.finance-bank-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  width: 100%;
+}
+
+@media (max-width: 479px) {
+  .finance-bank-account-modal.navi-modal-shell {
+    width: 100%;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+    align-self: flex-end;
+  }
+
+  .finance-bank-modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .finance-bank-modal-footer .btn-primary,
+  .finance-bank-modal-footer .btn-outline {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.finance-bank-fees-panel__chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }
 
 .finance-settings-method-accounts {
@@ -3559,6 +3712,120 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-3);
+}
+
+@media (max-width: 479px) {
+  .finance-settings-method-accounts__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-settings-bank-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .finance-settings-bank-card__main {
+    padding: var(--space-2) var(--space-1);
+  }
+
+  .finance-settings-bank-card__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    padding: var(--space-2) var(--space-1) 0;
+    margin-top: var(--space-2);
+    border-top: 1px solid var(--border-light);
+  }
+
+  .finance-settings-bank-card__title {
+    font-size: var(--font-base);
+  }
+
+  .finance-settings-bank-card__badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  .finance-bank-fees-panel__header {
+    align-items: flex-start;
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .finance-bank-fees-panel__body {
+    padding: 0 var(--space-3) var(--space-3);
+  }
+
+  .finance-bank-fees-toggle {
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .finance-bank-fees-toggle__label {
+    line-height: 1.35;
+    padding-top: 2px;
+  }
+
+  .finance-installments-toggle {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .finance-installments-toggle__summary {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .finance-installments-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .finance-field-col label {
+    font-size: 11px;
+  }
+
+  .finance-settings-account-fees-overview {
+    padding: var(--space-3);
+  }
+
+  .finance-settings-account-fees-overview__item {
+    padding: var(--space-2);
+  }
+}
+
+@media (min-width: 480px) {
+  .finance-settings-bank-card__actions {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+@media (min-width: 640px) {
+  .finance-settings-bank-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+}
+
+@media (min-width: 768px) {
+  .finance-settings-account-fees-overview__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+}
+
+@media (min-width: 1100px) {
+  .finance-settings-account-fees-overview__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .finance-settings-bank-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .finance-settings-sticky-save {

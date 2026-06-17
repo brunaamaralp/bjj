@@ -227,9 +227,10 @@ export default function FinanceSettingsBanksSection({
         open={editIdx != null}
         title={editIdx === 'new' ? 'Nova conta' : 'Editar conta'}
         onClose={closeModal}
-        maxWidth={560}
+        maxWidth={600}
+        dialogClassName="navi-modal-shell--scroll-body finance-bank-account-modal"
         footer={
-          <div className="flex gap-2 justify-end">
+          <div className="finance-bank-modal-footer">
             <button type="button" className="btn-outline" onClick={closeModal}>
               Cancelar
             </button>
@@ -239,91 +240,109 @@ export default function FinanceSettingsBanksSection({
           </div>
         }
       >
-        <div className="flex flex-col gap-3">
+        <div className="finance-bank-modal-form">
           {draftError ? <FieldError>{draftError}</FieldError> : null}
-          <p className="text-small text-muted" style={{ margin: 0 }}>
+          <p className="text-small text-muted finance-bank-modal-form__intro">
             Preencha o banco com número da conta, ou informe uma chave PIX.
           </p>
-          <div className="form-group">
-            <label htmlFor="bank-draft-name">Banco</label>
-            <input
-              id="bank-draft-name"
-              className="form-input"
-              value={draft.bankName || ''}
-              onChange={(e) => patchDraft({ bankName: e.target.value })}
-            />
+
+          <div className="finance-bank-modal-form__section">
+            <p className="finance-bank-modal-form__section-label ctx-label">Dados bancários</p>
+            <div className="finance-bank-modal-form__row finance-bank-modal-form__row--2">
+              <div className="form-group">
+                <label htmlFor="bank-draft-name">Banco</label>
+                <input
+                  id="bank-draft-name"
+                  className="form-input"
+                  value={draft.bankName || ''}
+                  onChange={(e) => patchDraft({ bankName: e.target.value })}
+                  autoComplete="organization"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="bank-draft-branch">Agência</label>
+                <input
+                  id="bank-draft-branch"
+                  className="form-input"
+                  value={draft.branch || ''}
+                  onChange={(e) => patchDraft({ branch: e.target.value })}
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
+            <div className="finance-bank-modal-form__row finance-bank-modal-form__row--2">
+              <div className="form-group">
+                <label htmlFor="bank-draft-account">Conta</label>
+                <input
+                  id="bank-draft-account"
+                  className="form-input"
+                  value={draft.account || ''}
+                  onChange={(e) => patchDraft({ account: e.target.value })}
+                  inputMode="numeric"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="bank-draft-holder">Titular</label>
+                <input
+                  id="bank-draft-holder"
+                  className="form-input"
+                  value={draft.accountName || ''}
+                  onChange={(e) => patchDraft({ accountName: e.target.value })}
+                  autoComplete="name"
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label htmlFor="bank-draft-pix">Chave PIX</label>
+              <input
+                id="bank-draft-pix"
+                className="form-input"
+                value={draft.pixKey || ''}
+                onChange={(e) => patchDraft({ pixKey: e.target.value })}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label htmlFor="bank-draft-branch">Agência</label>
-            <input
-              id="bank-draft-branch"
-              className="form-input"
-              value={draft.branch || ''}
-              onChange={(e) => patchDraft({ branch: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="bank-draft-account">Conta</label>
-            <input
-              id="bank-draft-account"
-              className="form-input"
-              value={draft.account || ''}
-              onChange={(e) => patchDraft({ account: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="bank-draft-holder">Titular</label>
-            <input
-              id="bank-draft-holder"
-              className="form-input"
-              value={draft.accountName || ''}
-              onChange={(e) => patchDraft({ accountName: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="bank-draft-pix">Chave PIX</label>
-            <input
-              id="bank-draft-pix"
-              className="form-input"
-              value={draft.pixKey || ''}
-              onChange={(e) => patchDraft({ pixKey: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="bank-draft-opening">Saldo inicial (R$)</label>
-            <input
-              id="bank-draft-opening"
-              className="form-input"
-              type="text"
-              inputMode="numeric"
-              placeholder="0,00"
-              value={draft.openingBalance ?? ''}
-              onChange={(e) => {
-                setDraftError('');
-                const d = e.target.value.replace(/\D/g, '');
-                if (!d) {
-                  setDraft((prev) => ({ ...prev, openingBalance: '' }));
-                  return;
-                }
-                const n = parseInt(d, 10) / 100;
-                setDraft((prev) => ({
-                  ...prev,
-                  openingBalance: maskCurrency(String(Math.round(n * 100))),
-                }));
-              }}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="bank-draft-opening-date">Válido a partir de</label>
-            <DateInputField
-              id="bank-draft-opening-date"
-              className="form-input"
-              type="date"
-              value={draft.openingBalanceDate || ''}
-              onChange={(e) => patchDraft({ openingBalanceDate: e.target.value })}
-              placeholder="Opcional"
-            />
-            <p className="text-small text-muted" style={{ marginTop: 6 }}>
+
+          <div className="finance-bank-modal-form__section">
+            <p className="finance-bank-modal-form__section-label ctx-label">Saldo inicial no Caixa</p>
+            <div className="finance-bank-modal-form__row finance-bank-modal-form__row--2">
+              <div className="form-group">
+                <label htmlFor="bank-draft-opening">Saldo inicial (R$)</label>
+                <input
+                  id="bank-draft-opening"
+                  className="form-input"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0,00"
+                  value={draft.openingBalance ?? ''}
+                  onChange={(e) => {
+                    setDraftError('');
+                    const d = e.target.value.replace(/\D/g, '');
+                    if (!d) {
+                      setDraft((prev) => ({ ...prev, openingBalance: '' }));
+                      return;
+                    }
+                    const n = parseInt(d, 10) / 100;
+                    setDraft((prev) => ({
+                      ...prev,
+                      openingBalance: maskCurrency(String(Math.round(n * 100))),
+                    }));
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="bank-draft-opening-date">Válido a partir de</label>
+                <DateInputField
+                  id="bank-draft-opening-date"
+                  className="form-input"
+                  type="date"
+                  value={draft.openingBalanceDate || ''}
+                  onChange={(e) => patchDraft({ openingBalanceDate: e.target.value })}
+                  placeholder="Opcional"
+                />
+              </div>
+            </div>
+            <p className="text-small text-muted finance-bank-modal-form__hint">
               Se vazio, o saldo inicial vale para todo o histórico no Caixa.
             </p>
           </div>
@@ -333,6 +352,7 @@ export default function FinanceSettingsBanksSection({
               type="button"
               className="finance-bank-fees-panel__header"
               aria-expanded={feesPanelOpen}
+              aria-controls="bank-draft-fees-body"
               onClick={() => setFeesPanelOpen((v) => !v)}
             >
               <span className="finance-bank-fees-panel__icon" aria-hidden>
@@ -344,11 +364,13 @@ export default function FinanceSettingsBanksSection({
                   {FINANCE_TERM_HINTS.maquininhaPorConta}
                 </span>
               </span>
-              {feesPanelOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              <span className="finance-bank-fees-panel__chevron" aria-hidden>
+                {feesPanelOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </span>
             </button>
 
             {feesPanelOpen ? (
-              <div className="finance-bank-fees-panel__body">
+              <div id="bank-draft-fees-body" className="finance-bank-fees-panel__body">
                 <label className="finance-bank-fees-toggle">
                   <input
                     type="checkbox"
@@ -377,8 +399,7 @@ export default function FinanceSettingsBanksSection({
                   />
                 ) : (
                   <p className="text-small text-muted finance-bank-fees-panel__default-note">
-                    As taxas configuradas em Minha Academia → Taxas serão usadas para pagamentos nesta
-                    conta.
+                    As taxas em Minha Academia → Taxas serão usadas para pagamentos nesta conta.
                   </p>
                 )}
               </div>

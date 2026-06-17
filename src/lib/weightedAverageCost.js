@@ -40,3 +40,14 @@ export function readLastPurchaseCost(doc) {
   const n = Number(doc?.last_purchase_cost);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
+
+/** Custo unitário para CMV: médio ponderado, depois última compra, depois preço de custo do catálogo. */
+export function resolveCmvUnitCost(doc) {
+  const avg = readAverageCost(doc);
+  if (avg > 0) return avg;
+  const last = readLastPurchaseCost(doc);
+  if (last > 0) return last;
+  const catalog = Number(doc?.cost_price ?? doc?.preco_custo);
+  if (Number.isFinite(catalog) && catalog > 0) return roundUnitCost(catalog);
+  return 0;
+}
