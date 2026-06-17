@@ -382,6 +382,25 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         return;
       }
 
+      const raw = await res.text();
+      const data = safeParseJson(raw) || {};
+      if (res.status === 404 || isInstanceNotFoundResponse(res, data, raw)) {
+        try {
+          if (storageKey && typeof window !== 'undefined') {
+            window.localStorage.removeItem(storageKey);
+          }
+        } catch {
+          void 0;
+        }
+        await clearStaleZapsterLinkInAppwrite(jwt, aid);
+        resetWaToNoInstanceSilently();
+        if (debugOn) {
+          console.warn('[WA Debug] registerWebhooks stale instance cleared', { instanceId: id });
+        }
+        cb?.({ ok: false, stale: true });
+        return;
+      }
+
       if (debugOn) {
         console.warn('[WA Debug] registerWebhooks non-ok', { instanceId: id, status: res.status });
       }
@@ -392,7 +411,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       }
       onRegisterWebhooksResultRef.current?.({ ok: false });
     }
-  }, []);
+  }, [resetWaToNoInstanceSilently]);
 
   const fetchWaInfo = useCallback(async ({ silent = false, quiet = false } = {}) => {
     const debugOn = inboxDebugEnabled();
@@ -434,6 +453,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       let qrcode = data?.qrcode ?? null;
       let waPhoneFromApi = normalizeWaPhoneDigits(data?.wa_phone || '');
       const zapsterStatusFromApi = String(data?.zapster_status || '').trim();
+      let instanceLiveOnZapster = false;
 
       if (incomingId && status.toLowerCase() === 'unknown') {
         const { blocked: probeBlocked, res: probeResp } = await fetchWithBillingGuard(
@@ -452,6 +472,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
             return;
           }
           if (probeResp.ok && probeData && typeof probeData === 'object' && probeData.sucesso !== false) {
+            instanceLiveOnZapster = true;
             const st = String(probeData.status || '').trim();
             if (st) {
               status = st;
@@ -462,6 +483,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
             }
           }
         }
+      } else if (incomingId) {
+        instanceLiveOnZapster = status.toLowerCase() !== 'unknown';
       }
 
       if (incomingId && status === 'connected' && !waPhoneFromApi) {
@@ -525,7 +548,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         });
       }
 
-      if (incomingId && String(finalStatus || '').trim().toLowerCase() === 'connected') {
+      if (incomingId && String(finalStatus || '').trim().toLowerCase() === 'connected' && instanceLiveOnZapster) {
         void registerWebhooks(incomingId);
       }
 
