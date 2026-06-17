@@ -157,10 +157,16 @@ async function main() {
   await ensureString(databases, itemsId, 'status', 16, false);
 
   if (FINANCIAL_TX_COL) {
+    console.log('\n--- FINANCIAL_TX (conciliação) ---');
     await ensureBool(databases, FINANCIAL_TX_COL, 'reconciled', false);
     await ensureDatetime(databases, FINANCIAL_TX_COL, 'reconciled_at', false);
     await ensureString(databases, FINANCIAL_TX_COL, 'reconciled_by', 64, false);
     await ensureString(databases, FINANCIAL_TX_COL, 'bank_statement_id', 64, false);
+  } else {
+    console.warn(
+      '\nAVISO: VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID não definido — atributos reconciled* não foram criados.',
+    );
+    console.warn('Rode também: node scripts/provision-finance-features-schema.mjs');
   }
 
   console.log('\nProvisionamento concluído.');
