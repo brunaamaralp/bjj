@@ -1,10 +1,11 @@
 /** Abas do hub /automacoes?tab= */
 export const AUTOMACOES_TABS = [
-  { id: 'processos', label: 'Tarefas da equipe' },
+  { id: 'processos', label: 'Processos' },
   { id: 'modelos', label: 'Modelos de Mensagem' },
   { id: 'configuracoes', label: 'Configurações' },
 ];
 
+/** @deprecated Use AUTOMACOES_COPY em automacoesCopy.js */
 export const AUTOMACOES_TAB_HINTS = {
   processos: 'Checklists e follow-ups internos — não envia WhatsApp automaticamente.',
   modelos: 'Textos das mensagens usadas pelos gatilhos de WhatsApp.',

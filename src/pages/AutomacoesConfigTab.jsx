@@ -12,7 +12,11 @@ import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import AutomacoesSection from '../components/academy/AutomacoesSection.jsx';
 import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
 
-export default function AutomacoesConfigTab({ onGuardStateChange, setupGuideActive = false }) {
+export default function AutomacoesConfigTab({
+  onGuardStateChange,
+  setupGuideActive = false,
+  showTabIntro = false,
+}) {
   const terms = useTerms();
   const automationLabels = useMemo(
     () => ({
@@ -204,6 +208,7 @@ export default function AutomacoesConfigTab({ onGuardStateChange, setupGuideActi
       onRetrySave={() => void persistAutomations(automationsConfig)}
       previewLead={previewLead}
       setupGuideActive={setupGuideActive}
+      showTabIntro={showTabIntro}
     />
   );
 }

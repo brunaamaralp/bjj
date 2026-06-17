@@ -13,6 +13,7 @@ import {
     delayHintForAutomation,
 } from '../../lib/automationUx.js';
 import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
+import AutomacoesTabIntroBanner from './AutomacoesTabIntroBanner.jsx';
 import AutomationPreviewLeadPicker from './AutomationPreviewLeadPicker.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
@@ -235,6 +236,7 @@ const AutomacoesSection = ({
     onRetrySave,
     previewLead,
     setupGuideActive = false,
+    showTabIntro = false,
 }) => {
     const applyConfigChange = (buildNext, { persist = false, successMessage } = {}) => {
         setAutomationsConfig((prev) => {
@@ -319,6 +321,7 @@ const AutomacoesSection = ({
 
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
+            {showTabIntro ? <AutomacoesTabIntroBanner tabId="configuracoes" /> : null}
             <h3 className="navi-section-heading" style={{ margin: '0 0 6px' }}>
                 Mensagens automáticas
             </h3>
@@ -346,7 +349,7 @@ const AutomacoesSection = ({
                     , depois ative os gatilhos abaixo.
                 </p>
             ) : null}
-            {!setupGuideActive ? <AutomacoesReadinessBanner readiness={readiness} /> : null}
+            <AutomacoesReadinessBanner readiness={readiness} />
             {previewLead ? (
                 <AutomationPreviewLeadPicker
                     className="mb-3"

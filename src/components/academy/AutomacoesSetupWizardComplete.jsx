@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { AUTOMACOES_COPY } from '../../lib/automacoesCopy.js';
 
 export default function AutomacoesSetupWizardComplete() {
   return (
@@ -12,9 +13,7 @@ export default function AutomacoesSetupWizardComplete() {
         <CheckCircle2 size={28} className="automacoes-setup-wizard__complete-icon" aria-hidden />
         <div>
           <h2 className="automacoes-setup-wizard__complete-title">Tudo pronto!</h2>
-          <p className="automacoes-setup-wizard__complete-desc">
-            Modelos, WhatsApp e gatilhos configurados. Você pode ajustar quando quiser.
-          </p>
+          <p className="automacoes-setup-wizard__complete-desc">{AUTOMACOES_COPY.wizard.complete}</p>
         </div>
       </div>
     </section>

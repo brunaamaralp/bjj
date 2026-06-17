@@ -3,33 +3,38 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.j
 import {
   areTemplatesCustomized,
   computeAutomacoesWizardState,
+  getCompactWizardContent,
   isAutomacoesWizardStepDone,
   isModelosWizardStepDone,
   resolveWizardCtaLabel,
+  resolveWizardSurface,
   shouldShowSetupWizardOnTab,
   automacoesWizardDismissStorageKey,
+  automacoesModelosAckStorageKey,
+  tabForWizardStep,
   AUTOMACOES_WIZARD_STEPS,
 } from '../lib/automacoesSetupWizard.js';
 
 describe('automacoesSetupWizard', () => {
   it('storage key é por academia', () => {
     expect(automacoesWizardDismissStorageKey('abc')).toContain('abc');
+    expect(automacoesModelosAckStorageKey('abc')).toContain('abc');
   });
 
   it('modelos não conclui só com templates padrão', () => {
     expect(
       isModelosWizardStepDone({
         templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
-        modelosTabVisited: false,
+        modelosAcknowledged: false,
       })
     ).toBe(false);
   });
 
-  it('modelos conclui após visitar aba ou customizar', () => {
+  it('modelos conclui após ack explícito ou customizar', () => {
     expect(
       isModelosWizardStepDone({
         templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
-        modelosTabVisited: true,
+        modelosAcknowledged: true,
       })
     ).toBe(true);
     expect(
@@ -40,11 +45,20 @@ describe('automacoesSetupWizard', () => {
     ).toBe(true);
   });
 
+  it('modelos não conclui só por visitar aba (legado)', () => {
+    expect(
+      isModelosWizardStepDone({
+        templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
+        modelosTabVisited: true,
+      })
+    ).toBe(false);
+  });
+
   it('passos whatsapp e gatilhos', () => {
     expect(
       isAutomacoesWizardStepDone('whatsapp', {
         templatesMap: DEFAULT_WHATSAPP_TEMPLATES,
-        modelosTabVisited: true,
+        modelosAcknowledged: true,
         zapsterOk: true,
         activeCount: 0,
       })
@@ -52,7 +66,7 @@ describe('automacoesSetupWizard', () => {
     expect(
       isAutomacoesWizardStepDone('configuracoes', {
         templatesMap: DEFAULT_WHATSAPP_TEMPLATES,
-        modelosTabVisited: true,
+        modelosAcknowledged: true,
         zapsterOk: true,
         activeCount: 2,
       })
@@ -62,7 +76,7 @@ describe('automacoesSetupWizard', () => {
   it('mostra guia quando incompleto e não dispensado', () => {
     const state = computeAutomacoesWizardState({
       templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
-      modelosTabVisited: false,
+      modelosAcknowledged: false,
       zapsterOk: false,
       activeCount: 0,
       dismissed: false,
@@ -74,7 +88,7 @@ describe('automacoesSetupWizard', () => {
   it('oculta guia quando dispensado', () => {
     const state = computeAutomacoesWizardState({
       templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
-      modelosTabVisited: false,
+      modelosAcknowledged: false,
       zapsterOk: false,
       activeCount: 0,
       dismissed: true,
@@ -85,7 +99,7 @@ describe('automacoesSetupWizard', () => {
   it('oculta guia quando todos os passos concluídos', () => {
     const state = computeAutomacoesWizardState({
       templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES, confirm: 'Olá custom' },
-      modelosTabVisited: true,
+      modelosAcknowledged: true,
       zapsterOk: true,
       activeCount: 1,
       dismissed: false,
@@ -97,7 +111,7 @@ describe('automacoesSetupWizard', () => {
   it('avança passo atual para whatsapp após modelos', () => {
     const state = computeAutomacoesWizardState({
       templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
-      modelosTabVisited: true,
+      modelosAcknowledged: true,
       zapsterOk: false,
       activeCount: 0,
       dismissed: false,
@@ -111,11 +125,56 @@ describe('automacoesSetupWizard', () => {
     expect(resolveWizardCtaLabel(step, 'configuracoes')).toBe('Abrir Modelos de Mensagem');
   });
 
-  it('shouldShowSetupWizardOnTab por aba do passo', () => {
+  it('tabForWizardStep mapeia passo externo para modelos', () => {
+    expect(tabForWizardStep('whatsapp')).toBe('modelos');
+    expect(tabForWizardStep('configuracoes')).toBe('configuracoes');
+  });
+
+  it('resolveWizardSurface — processos + whatsapp → compact', () => {
+    const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
+    expect(
+      resolveWizardSurface({
+        currentStep: whatsappStep,
+        activeTab: 'processos',
+        wizardShow: true,
+      })
+    ).toBe('compact');
+  });
+
+  it('resolveWizardSurface — modelos + passo modelos → full', () => {
+    const modelosStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'modelos');
+    expect(
+      resolveWizardSurface({
+        currentStep: modelosStep,
+        activeTab: 'modelos',
+        wizardShow: true,
+      })
+    ).toBe('full');
+  });
+
+  it('resolveWizardSurface — ?wizard=1 força full em processos', () => {
+    const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
+    expect(
+      resolveWizardSurface({
+        currentStep: whatsappStep,
+        activeTab: 'processos',
+        forceWizard: true,
+        wizardShow: true,
+      })
+    ).toBe('full');
+  });
+
+  it('shouldShowSetupWizardOnTab compatível com resolveWizardSurface', () => {
     const modelosStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'modelos');
     const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
     expect(shouldShowSetupWizardOnTab(modelosStep, 'modelos')).toBe(true);
     expect(shouldShowSetupWizardOnTab(modelosStep, 'configuracoes')).toBe(false);
     expect(shouldShowSetupWizardOnTab(whatsappStep, 'configuracoes')).toBe(true);
+    expect(shouldShowSetupWizardOnTab(whatsappStep, 'processos')).toBe(true);
+  });
+
+  it('getCompactWizardContent por passo', () => {
+    expect(getCompactWizardContent('whatsapp').message).toContain('WhatsApp');
+    expect(getCompactWizardContent('modelos').ctaLabel).toBe('Continuar configuração');
   });
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, Suspense, useState } from 'react';
+import React, { useCallback, useEffect, Suspense, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import { resolveHubTab } from '../lib/hubTabs.js';
@@ -6,16 +6,20 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
-import { AUTOMACOES_TABS, AUTOMACOES_TAB_HINTS } from '../lib/automacoesHub.js';
+import { AUTOMACOES_TABS } from '../lib/automacoesHub.js';
+import { AUTOMACOES_COPY } from '../lib/automacoesCopy.js';
 import {
   AUTOMACOES_WIZARD_STEPS,
-  readAutomacoesModelosVisited,
-  writeAutomacoesModelosVisited,
-  shouldShowSetupWizardOnTab,
+  getCompactWizardContent,
+  readAutomacoesModelosAck,
+  resolveWizardSurface,
+  tabForWizardStep,
 } from '../lib/automacoesSetupWizard.js';
 import { useAutomacoesSetupWizard } from '../hooks/useAutomacoesSetupWizard.js';
 import AutomacoesSetupWizard from '../components/academy/AutomacoesSetupWizard.jsx';
+import AutomacoesSetupWizardCompact from '../components/academy/AutomacoesSetupWizardCompact.jsx';
 import AutomacoesSetupWizardComplete from '../components/academy/AutomacoesSetupWizardComplete.jsx';
+import AutomacoesHubScopeBanner from '../components/academy/AutomacoesHubScopeBanner.jsx';
 import { useLeadStore } from '../store/useLeadStore';
 
 const AutomacoesProcessosTab = lazyWithRetry(() => import('./AutomacoesProcessosTab.jsx'));
@@ -29,15 +33,28 @@ export default function Automacoes() {
   const navigate = useNavigate();
   const academyId = useLeadStore((s) => s.academyId);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [modelosTabVisited, setModelosTabVisited] = useState(() => readAutomacoesModelosVisited(academyId));
-  const wizard = useAutomacoesSetupWizard({ modelosTabVisited });
+  const [modelosAcknowledged, setModelosAcknowledged] = useState(() => readAutomacoesModelosAck(academyId));
+  const wizard = useAutomacoesSetupWizard({ modelosAcknowledged });
+  const forceWizard = searchParams.get('wizard') === '1';
   const tabParam = String(searchParams.get('tab') || '').trim().toLowerCase();
   const hasExplicitTab = ALLOWED.has(tabParam);
-  const fallbackTab = !wizard.loading && wizard.show ? wizard.currentStepId : 'configuracoes';
+  const fallbackTab =
+    !wizard.loading && wizard.show ? tabForWizardStep(wizard.currentStepId) : 'processos';
   const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, fallbackTab);
-  const setupGuideVisible =
-    !wizard.loading && wizard.show && shouldShowSetupWizardOnTab(wizard.currentStep, activeTab);
-  const setupGuideActive = setupGuideVisible;
+
+  const wizardSurface = useMemo(() => {
+    if (wizard.loading || wizard.justCompleted || !wizard.show || !wizard.currentStep) return 'hidden';
+    return resolveWizardSurface({
+      currentStep: wizard.currentStep,
+      activeTab,
+      forceWizard,
+      wizardShow: wizard.show,
+    });
+  }, [wizard.loading, wizard.justCompleted, wizard.show, wizard.currentStep, activeTab, forceWizard]);
+
+  const setupGuideActive = wizardSurface === 'full';
+  const compactWizard = getCompactWizardContent(wizard.currentStep?.id);
+
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
   const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
   const [configGuard, setConfigGuard] = useState({ isDirty: false, isSaving: false });
@@ -49,6 +66,10 @@ export default function Automacoes() {
       if (prev.isDirty === next.isDirty && prev.isSaving === next.isSaving) return prev;
       return next;
     });
+  }, []);
+
+  const handleModelosAckChange = useCallback((ack) => {
+    setModelosAcknowledged(Boolean(ack));
   }, []);
 
   if (activeTab !== prevActiveTab) {
@@ -64,14 +85,8 @@ export default function Automacoes() {
   }
 
   useEffect(() => {
-    setModelosTabVisited(readAutomacoesModelosVisited(academyId));
+    setModelosAcknowledged(readAutomacoesModelosAck(academyId));
   }, [academyId]);
-
-  useEffect(() => {
-    if (activeTab !== 'modelos' || !academyId) return;
-    writeAutomacoesModelosVisited(academyId);
-    setModelosTabVisited(true);
-  }, [activeTab, academyId]);
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
@@ -86,8 +101,9 @@ export default function Automacoes() {
 
   useEffect(() => {
     if (wizard.loading || !wizard.show || hasExplicitTab) return;
-    if (activeTab !== wizard.currentStepId) {
-      setSearchParams({ tab: wizard.currentStepId }, { replace: true });
+    const targetTab = tabForWizardStep(wizard.currentStepId);
+    if (activeTab !== targetTab) {
+      setSearchParams({ tab: targetTab }, { replace: true });
     }
   }, [
     wizard.loading,
@@ -121,6 +137,17 @@ export default function Automacoes() {
     if (step.tab) requestTab(step.tab);
   };
 
+  const handleCompactWizardCta = () => {
+    const stepId = wizard.currentStep?.id;
+    if (!stepId) return;
+    if (stepId === 'whatsapp') {
+      setSearchParams({ tab: 'modelos', wizard: '1' }, { replace: false });
+      return;
+    }
+    const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === stepId);
+    if (step?.tab) requestTab(step.tab);
+  };
+
   const confirmLeaveConfig = () => {
     const next = pendingTab;
     setLeaveConfirmOpen(false);
@@ -139,7 +166,7 @@ export default function Automacoes() {
         const next = new URLSearchParams(prev);
         next.set('wizard', '1');
         if (!ALLOWED.has(String(next.get('tab') || '').trim().toLowerCase())) {
-          next.set('tab', wizard.currentStepId || 'modelos');
+          next.set('tab', tabForWizardStep(wizard.currentStepId) || 'modelos');
         }
         return next;
       },
@@ -147,11 +174,14 @@ export default function Automacoes() {
     );
   };
 
+  const showModelosTabIntro = activeTab === 'modelos' && wizardSurface !== 'full';
+  const showConfigTabIntro = activeTab === 'configuracoes';
+
   return (
     <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
       <PageHeader
         title="Automações"
-        subtitle={AUTOMACOES_TAB_HINTS[activeTab]}
+        subtitle={AUTOMACOES_COPY.hub.subtitle}
         meta={
           wizard.canReopenGuide ? (
             <button type="button" className="edit-link automacoes-reopen-guide" onClick={handleReopenGuide}>
@@ -161,8 +191,9 @@ export default function Automacoes() {
         }
       />
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={requestTab} ariaLabel="Automações" fullWidth />
+      <AutomacoesHubScopeBanner className="automacoes-setup-wizard--below-tabs" />
       {wizard.justCompleted ? <AutomacoesSetupWizardComplete /> : null}
-      {!wizard.justCompleted && setupGuideVisible ? (
+      {!wizard.justCompleted && wizardSurface === 'full' ? (
         <AutomacoesSetupWizard
           className="automacoes-setup-wizard--below-tabs"
           steps={wizard.steps}
@@ -174,6 +205,14 @@ export default function Automacoes() {
           onStepAction={handleWizardStepAction}
         />
       ) : null}
+      {!wizard.justCompleted && wizardSurface === 'compact' ? (
+        <AutomacoesSetupWizardCompact
+          className="automacoes-setup-wizard--below-tabs"
+          message={compactWizard.message}
+          ctaLabel={compactWizard.ctaLabel}
+          onCta={handleCompactWizardCta}
+        />
+      ) : null}
       <div className="mt-3 animate-in">
         <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
           {visitedTabs.has('processos') ? (
@@ -183,7 +222,11 @@ export default function Automacoes() {
           ) : null}
           {visitedTabs.has('modelos') ? (
             <div hidden={activeTab !== 'modelos'} aria-hidden={activeTab !== 'modelos'}>
-              <AutomacoesModelosTab />
+              <AutomacoesModelosTab
+                showTabIntro={showModelosTabIntro}
+                modelosAcknowledged={modelosAcknowledged}
+                onModelosAckChange={handleModelosAckChange}
+              />
             </div>
           ) : null}
           {visitedTabs.has('configuracoes') ? (
@@ -191,6 +234,7 @@ export default function Automacoes() {
               <AutomacoesConfigTab
                 onGuardStateChange={handleConfigGuardChange}
                 setupGuideActive={setupGuideActive}
+                showTabIntro={showConfigTabIntro}
               />
             </div>
           ) : null}

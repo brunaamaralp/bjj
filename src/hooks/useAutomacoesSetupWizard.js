@@ -31,10 +31,10 @@ function writeWizardDismissed(academyId) {
 }
 
 /**
- * Carrega estado do guia P3 (modelos → WhatsApp → gatilhos).
- * @param {{ modelosTabVisited?: boolean }} [options]
+ * Carrega estado do guia (modelos → WhatsApp → gatilhos).
+ * @param {{ modelosAcknowledged?: boolean }} [options]
  */
-export function useAutomacoesSetupWizard({ modelosTabVisited = false } = {}) {
+export function useAutomacoesSetupWizard({ modelosAcknowledged = false } = {}) {
   const academyId = useLeadStore((s) => s.academyId);
   const completeOnboardingStepIds = useLeadStore((s) => s.completeOnboardingStepIds);
   const [searchParams] = useSearchParams();
@@ -122,12 +122,12 @@ export function useAutomacoesSetupWizard({ modelosTabVisited = false } = {}) {
     () =>
       computeAutomacoesWizardState({
         templatesMap,
-        modelosTabVisited,
+        modelosAcknowledged,
         zapsterOk: readiness.zapsterOk,
         activeCount: readiness.activeCount,
         dismissed: dismissed && !forceWizard,
       }),
-    [templatesMap, modelosTabVisited, readiness, dismissed, forceWizard]
+    [templatesMap, modelosAcknowledged, readiness, dismissed, forceWizard]
   );
 
   const dismiss = useCallback(() => {

@@ -11,7 +11,7 @@
 | **última revisão** | 2026-06-15 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** — (gatilhos em `lib/automationCore.js`)
+**Specs relacionadas:** [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md) (UX hub, avisos, wizard contextual — rascunho)
 
 **Harness relacionado:** `npm test -- automacoesHub automacoesSetupWizard automationUx`
 
@@ -49,7 +49,7 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/automacoes` | `Automacoes` | Abrir hub | `HubTabBar` 3 abas |
+| 1 | `/automacoes` | `Automacoes` | Abrir hub | `HubTabBar` 3 abas; banner de escopo (Processos × WhatsApp) |
 | 2 | `?tab=processos` | `AutomacoesProcessosTab` | Templates de tarefa | `TaskTemplatesSection` |
 | 3 | Processos | Playbook retorno | `FollowupPlaybookSection` | Rotinas pós-matrícula |
 | 4 | `?tab=modelos` | `AutomacoesModelosTab` | Editar textos WhatsApp | `whatsappTemplates` |

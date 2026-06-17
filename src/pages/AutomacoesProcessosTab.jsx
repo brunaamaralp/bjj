@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
 import FollowupPlaybookSection from '../components/academy/FollowupPlaybookSection.jsx';
+import AutomacoesTabIntroBanner from '../components/academy/AutomacoesTabIntroBanner.jsx';
 
 /** Aba Processos em Automações — templates e aviso de tarefa legada pós-matrícula. */
 export default function AutomacoesProcessosTab() {
@@ -56,18 +56,7 @@ export default function AutomacoesProcessosTab() {
 
   return (
     <>
-      <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-        Tarefas e playbooks que a equipe executa no CRM — não enviam WhatsApp sozinhos. Para mensagens
-        automáticas, use{' '}
-        <Link to="/automacoes?tab=modelos" className="edit-link">
-          Modelos de Mensagem
-        </Link>{' '}
-        e{' '}
-        <Link to="/automacoes?tab=configuracoes" className="edit-link">
-          Configurações
-        </Link>
-        .
-      </p>
+      <AutomacoesTabIntroBanner tabId="processos" />
       <TaskTemplatesSection academyId={academyId} teamId={academy?.teamId || ''} />
       <FollowupPlaybookSection
         academyId={academyId}

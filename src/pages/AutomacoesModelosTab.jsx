@@ -24,12 +24,22 @@ import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import AutomationPreviewLeadPicker from '../components/academy/AutomationPreviewLeadPicker.jsx';
 import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import { AUTOMACOES_COPY } from '../lib/automacoesCopy.js';
+import {
+  areTemplatesCustomized,
+  writeAutomacoesModelosAck,
+} from '../lib/automacoesSetupWizard.js';
+import AutomacoesTabIntroBanner from '../components/academy/AutomacoesTabIntroBanner.jsx';
 import '../lib/whatsappTemplates.css';
 
 const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
 
-export default function AutomacoesModelosTab() {
+export default function AutomacoesModelosTab({
+  showTabIntro = true,
+  modelosAcknowledged = false,
+  onModelosAckChange,
+}) {
   const terms = useTerms();
   const placeholders = useMemo(
     () =>
@@ -287,6 +297,21 @@ export default function AutomacoesModelosTab() {
     [templates, original, templateIds]
   );
 
+  const templatesCustomized = useMemo(() => areTemplatesCustomized(templates), [templates]);
+
+  useEffect(() => {
+    if (templatesCustomized && !modelosAcknowledged && academyId) {
+      writeAutomacoesModelosAck(academyId, true);
+      onModelosAckChange?.(true);
+    }
+  }, [templatesCustomized, modelosAcknowledged, academyId, onModelosAckChange]);
+
+  const handleModelosAckToggle = (e) => {
+    const checked = e.target.checked;
+    if (academyId) writeAutomacoesModelosAck(academyId, checked);
+    onModelosAckChange?.(checked);
+  };
+
   const filteredIds = useMemo(() => {
     const q = String(filter || '').trim().toLowerCase();
     if (!q) return templateIds;
@@ -348,6 +373,7 @@ export default function AutomacoesModelosTab() {
 
   return (
     <div className="automacoes-modelos-tab">
+      {showTabIntro ? <AutomacoesTabIntroBanner tabId="modelos" /> : null}
       <h2 className="navi-section-heading" style={{ marginTop: 0 }}>Modelos de mensagens</h2>
       <p className="tpl-page-note">
         O sistema oferece <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} modelos fixos</strong>. Você está personalizando{' '}
@@ -362,6 +388,19 @@ export default function AutomacoesModelosTab() {
       <p className="navi-eyebrow" style={{ marginTop: 6, marginBottom: 14 }}>
         {loading ? 'Carregando…' : !canEdit ? 'Somente leitura.' : changed ? 'Você tem alterações não salvas.' : 'Tudo salvo.'}
       </p>
+      {canEdit && !templatesCustomized ? (
+        <label className="automacoes-modelos-ack" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 14 }}>
+          <input
+            type="checkbox"
+            checked={modelosAcknowledged}
+            onChange={handleModelosAckToggle}
+            style={{ marginTop: 3 }}
+          />
+          <span className="text-small" style={{ lineHeight: 1.45, color: 'var(--text-secondary)' }}>
+            {AUTOMACOES_COPY.wizard.modelos.confirm}
+          </span>
+        </label>
+      ) : null}
       <div className="page-header-card">
         <div className="page-header-row navi-toolbar">
           <SearchField
