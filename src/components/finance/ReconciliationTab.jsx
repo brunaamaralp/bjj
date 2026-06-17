@@ -30,6 +30,8 @@ import FinanceTabShell from './FinanceTabShell.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import BankReconCreateTxModal from './BankReconCreateTxModal.jsx';
 import { useAccountingStore } from '../../store/useAccountingStore';
+import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
+import { buildLeadNameById } from '../../lib/financeTxLeadNames.js';
 import { formatReconTxSelectLabel } from '../../lib/financeReconTxLabel.js';
 
 function fmtMoney(v) {
@@ -108,6 +110,7 @@ export default function ReconciliationTab({ academyId }) {
   const [focusPendingOnly, setFocusPendingOnly] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null);
   const [createTxItem, setCreateTxItem] = useState(null);
+  const [detailTx, setDetailTx] = useState(null);
   const [learnPayerPrompt, setLearnPayerPrompt] = useState(null);
   const dismissedLearnKeys = useRef(new Set());
   const chartAccounts = useAccountingStore((s) => s.accounts);
@@ -207,6 +210,11 @@ export default function ReconciliationTab({ academyId }) {
         value: tx.id,
         label: formatReconTxSelectLabel(tx, { formatDate: fmtDate, formatMoney: fmtMoney }),
       })),
+    [detail?.navi_unmatched]
+  );
+
+  const leadNameById = useMemo(
+    () => buildLeadNameById(detail?.navi_unmatched || [], []),
     [detail?.navi_unmatched]
   );
 
@@ -616,6 +624,7 @@ export default function ReconciliationTab({ academyId }) {
                 showAll={showAllOrphans}
                 busy={busy}
                 onToggleShowAll={setShowAllOrphans}
+                onViewDetails={setDetailTx}
                 onLinkToSelected={(txId) => {
                   if (!selectedBankItemId || !txId) return;
                   return linkItemToTx(selectedBankItemId, txId);
@@ -742,6 +751,31 @@ export default function ReconciliationTab({ academyId }) {
           });
         }}
       />
+      {detailTx ? (
+        <FinanceTxDetailDrawer
+          tx={detailTx}
+          academyId={academyId}
+          journalEntries={[]}
+          leadNameById={leadNameById}
+          chartAccounts={chartAccounts}
+          canManageAdvanced={false}
+          canAssignBankOnTx={() => false}
+          rowBusy={false}
+          menuOpenId=""
+          onMenuOpenChange={() => {}}
+          onClose={() => setDetailTx(null)}
+          readOnly
+          onEdit={() => {}}
+          onSettle={() => {}}
+          onCancel={() => {}}
+          onReverse={() => {}}
+          onAssignBank={() => {}}
+          onEditRecurrence={() => {}}
+          onCancelRecurrence={() => {}}
+          recurrenceCancelLoadingId=""
+          reverseLoadingId=""
+        />
+      ) : null}
     </FinanceTabShell>
   );
 }

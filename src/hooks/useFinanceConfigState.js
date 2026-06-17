@@ -30,6 +30,7 @@ import {
   mergeFinanceConfigFromAcademyDoc,
   persistAcademyFinanceConfig,
 } from '../lib/financeConfigStorage.js';
+import { normalizeFinanceVendors } from '../lib/financeVendors.js';
 import {
   formatFinanceConfigSaveError,
   validateFinanceConfigBeforeSave,
@@ -50,6 +51,7 @@ export const defaultFinanceConfig = () => ({
   bankAccounts: [],
   defaultAccountByMethod: {},
   plans: [],
+  vendors: [],
   whatsappReminders: defaultWhatsappRemindersConfig(),
 });
 
@@ -67,6 +69,10 @@ export function digestCardFees(cardFees) {
 
 export function digestPlans(plans) {
   return JSON.stringify(plans || []);
+}
+
+export function digestVendors(vendors) {
+  return JSON.stringify(normalizeFinanceVendors(vendors));
 }
 
 function digestCollection(rules, overdueLabel) {
@@ -110,6 +116,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
   const [exceptionLabels, setExceptionLabels] = useState(() => readExceptionStatusLabels(null));
   const [pendingRemovePlan, setPendingRemovePlan] = useState(null);
   const [pendingRemoveBank, setPendingRemoveBank] = useState(null);
+  const [pendingRemoveVendor, setPendingRemoveVendor] = useState(null);
 
   const [savedDigests, setSavedDigests] = useState({
     accounts: digestBankAccounts([], defaultFinanceConfig()),
@@ -118,6 +125,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     collection: digestCollection(DEFAULT_COLLECTION_RULES, 'Inadimplente'),
     exceptions: digestExceptionLabels(readExceptionStatusLabels(null)),
     whatsapp: digestWhatsappReminders(defaultWhatsappRemindersConfig()),
+    vendors: digestVendors([]),
   });
 
   const applyLoadedState = useCallback((mergedCfg, coll) => {
@@ -137,6 +145,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       collection: digestCollection(coll.collectionRules, coll.overdueLabel),
       exceptions: digestExceptionLabels(labels),
       whatsapp: digestWhatsappReminders(cfg.whatsappReminders),
+      vendors: digestVendors(cfg.vendors),
     });
   }, []);
 
@@ -314,6 +323,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       collection: digestCollection(collectionRules, overdueLabel) !== savedDigests.collection,
       exceptions: digestExceptionLabels(exceptionLabels) !== savedDigests.exceptions,
       whatsapp: digestWhatsappReminders(financeConfig.whatsappReminders) !== savedDigests.whatsapp,
+      vendors: digestVendors(financeConfig.vendors) !== savedDigests.vendors,
     }),
     [financeConfig, collectionRules, overdueLabel, exceptionLabels, savedDigests]
   );
@@ -351,6 +361,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         readDefaultAccountByMethod(mergedCfg),
         mergedCfg
       ),
+      vendors: normalizeFinanceVendors(mergedCfg.vendors),
     };
     return mergedCfg;
   }, [financeConfig, collectionRules, overdueLabel, exceptionLabels]);
@@ -384,6 +395,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),
         exceptions: digestExceptionLabels(labels),
         whatsapp: digestWhatsappReminders(savedCfg.whatsappReminders),
+        vendors: digestVendors(savedCfg.vendors),
       });
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
       return true;
@@ -473,6 +485,39 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     });
   }, []);
 
+  const updateVendor = useCallback((idx, patch) => {
+    setFinanceConfig((prev) => {
+      const arr = [...(prev.vendors || [])];
+      arr[idx] = { ...(arr[idx] || {}), ...patch };
+      return { ...prev, vendors: arr };
+    });
+  }, []);
+
+  const addVendor = useCallback(() => {
+    setFinanceConfig((prev) => ({
+      ...prev,
+      vendors: [
+        ...(prev.vendors || []),
+        {
+          id:
+            typeof crypto !== 'undefined' && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `v_${Date.now()}`,
+          name: '',
+          active: true,
+        },
+      ],
+    }));
+  }, []);
+
+  const removeVendor = useCallback((idx) => {
+    setFinanceConfig((prev) => {
+      const arr = [...(prev.vendors || [])];
+      arr.splice(idx, 1);
+      return { ...prev, vendors: arr };
+    });
+  }, []);
+
   return {
     loading,
     saving,
@@ -500,6 +545,11 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     setPendingRemovePlan,
     pendingRemoveBank,
     setPendingRemoveBank,
+    pendingRemoveVendor,
+    setPendingRemoveVendor,
+    updateVendor,
+    addVendor,
+    removeVendor,
     contractTemplates,
     contractTemplatesConfigured,
     runEnsureContractSetup,

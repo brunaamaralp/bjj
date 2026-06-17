@@ -1,15 +1,37 @@
 /**
  * Monta payload Appwrite para coleção students a partir de doc lead (raw) ou objeto UI.
+ *
+ * `age` e `is_first_experience` não são atributos de students — ficam em leads;
+ * na matrícula, `is_first_experience` é copiado para custom_answers_json.primeira_experiencia.
  */
 
-function parseCustomAnswersJson(raw) {
-  if (!raw) return '{}';
-  if (typeof raw === 'string') return raw;
+/** Chave em custom_answers_json para histórico de qualificação do funil. */
+export const STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY = 'primeira_experiencia';
+
+function parseCustomAnswersObject(raw) {
+  if (!raw) return {};
   try {
-    return JSON.stringify(raw && typeof raw === 'object' ? raw : {});
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? { ...parsed } : {};
   } catch {
-    return '{}';
+    return {};
   }
+}
+
+/**
+ * Preserva "primeira experiência" do funil em custom_answers (sem novo atributo Appwrite).
+ * @param {object|string} existingCustomAnswers
+ * @param {{ is_first_experience?: string, isFirstExperience?: string }} source
+ */
+export function mergeLeadQualificationIntoCustomAnswers(existingCustomAnswers, source = {}) {
+  const answers = parseCustomAnswersObject(existingCustomAnswers);
+  const firstExp = String(
+    source.is_first_experience ?? source.isFirstExperience ?? ''
+  ).trim();
+  if (firstExp && answers[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY] == null) {
+    answers[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY] = firstExp;
+  }
+  return JSON.stringify(answers).slice(0, 8192);
 }
 
 /**
@@ -40,7 +62,6 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     birth_date: String(d.birth_date ?? d.birthDate ?? '').slice(0, 10),
     sexo: String(d.sexo || '').trim().slice(0, 16),
     parentName: String(d.parentName ?? d.parent_name ?? '').trim(),
-    age: d.age != null && d.age !== '' ? String(d.age) : '',
     emergencyContact: String(d.emergencyContact ?? d.emergency_contact ?? '').trim(),
     emergencyPhone: String(d.emergencyPhone ?? d.emergency_phone ?? '').trim(),
     cpf: String(d.cpf || '').trim(),
@@ -54,10 +75,11 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     )
       .trim()
       .slice(0, 128),
-    custom_answers_json: parseCustomAnswersJson(d.custom_answers_json ?? d.customAnswers),
-    is_first_experience: String(d.is_first_experience ?? d.isFirstExperience ?? 'Sim'),
+    custom_answers_json: mergeLeadQualificationIntoCustomAnswers(
+      d.custom_answers_json ?? d.customAnswers,
+      d
+    ),
     belt: String(d.belt || '').trim(),
-    // label_ids omitido se a coleção students atingir limite de atributos no Appwrite
     exit_reason: String(d.exit_reason ?? d.exitReason ?? '').trim(),
     exit_date: String(d.exit_date ?? d.exitDate ?? '').trim().slice(0, 10) || null,
   };

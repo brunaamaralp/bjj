@@ -175,6 +175,78 @@
   flex-wrap: wrap;
 }
 
+.bank-recon-orphan-list__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.bank-recon-orphan-list__search {
+  position: relative;
+  display: block;
+}
+
+.bank-recon-orphan-list__search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.bank-recon-orphan-list__search-input {
+  width: 100%;
+  padding-left: 32px;
+}
+
+.bank-recon-orphan-list__direction {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bank-recon-orphan-list__direction-btn--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.bank-recon-orphan-list__hint {
+  margin: 0 0 10px;
+}
+
+.bank-recon-orphan-list__scroll {
+  max-height: min(52vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.bank-recon-navi-row__main {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-xs, 4px);
+}
+
+.bank-recon-navi-row__main:hover {
+  background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.bank-recon-navi-row__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .bank-recon-navi-row--actionable {
   display: flex;
   align-items: center;
@@ -348,6 +420,11 @@
 
   .bank-recon-navi-row--actionable .btn-sm {
     min-height: 44px;
+  }
+
+  .bank-recon-navi-row__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 }
 

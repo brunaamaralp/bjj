@@ -218,7 +218,7 @@ function orderFinanceiroHubTabIds(navRole, tabIds) {
 }
 
 /** Itens do HubTabBar do /financeiro (ordem e visibilidade por perfil). */
-export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner }) {
+export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner, tabBadges = {} }) {
   const role =
     navRole ||
     (isOwner === true ? 'owner' : isOwner === false ? 'member' : 'member');
@@ -226,9 +226,19 @@ export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner }) 
     role,
     buildFinanceiroAllowedLeafTabs({ navRole: role, financeModule })
   );
-  return ids.map((id) => ({
-    id,
-    label: HUB_TAB_LABELS[id] || id,
-    shortLabel: HUB_TAB_SHORT_LABELS[id] || HUB_TAB_LABELS[id] || id,
-  }));
+  return ids.map((id) => {
+    const badgeCount = Number(tabBadges[id]) > 0 ? Number(tabBadges[id]) : undefined;
+    return {
+      id,
+      label: HUB_TAB_LABELS[id] || id,
+      shortLabel: HUB_TAB_SHORT_LABELS[id] || HUB_TAB_LABELS[id] || id,
+      badgeCount,
+      badgeAriaLabel:
+        badgeCount && id === FINANCEIRO_SECTIONS.A_PAGAR
+          ? `${badgeCount} conta(s) vencida(s)`
+          : badgeCount
+            ? `${badgeCount} pendente(s)`
+            : undefined,
+    };
+  });
 }

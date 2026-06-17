@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import BankReconSelectionBar from '../components/finance/BankReconSelectionBar.jsx';
 import BankReconPairRow from '../components/finance/BankReconPairRow.jsx';
@@ -59,5 +59,25 @@ describe('BankReconPairRow button hierarchy (unmatched)', () => {
       />
     );
     expect(screen.getByText('Selecionada')).toBeInTheDocument();
+  });
+});
+
+describe('BankReconPairRow suggested confirm', () => {
+  it('shows Confirmar when single suggested_tx_candidate exists alongside tx', () => {
+    const onConfirm = vi.fn();
+    render(
+      <BankReconPairRow
+        item={{
+          ...sampleItem,
+          suggested_tx_candidates: [{ tx_id: 'tx-1', score: 80, lead_name: 'João' }],
+        }}
+        tx={{ id: 'tx-1', gross: 150, settledAt: '2026-01-15', category: 'Mensalidades', lead_name: 'João' }}
+        tone="suggested"
+        onConfirm={onConfirm}
+      />
+    );
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar/i });
+    expect(confirmBtn).toBeInTheDocument();
+    expect(confirmBtn).not.toBeDisabled();
   });
 });

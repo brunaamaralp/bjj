@@ -160,7 +160,6 @@ function updatesToStudentPatch(updates) {
   if (u.birthDate !== undefined) copyIf('birth_date', String(u.birthDate || '').slice(0, 10));
   if (u.sexo !== undefined) copyIf('sexo', String(u.sexo || '').trim().slice(0, 16));
   if (u.parentName !== undefined) copyIf('parentName', u.parentName);
-  if (u.age !== undefined) copyIf('age', u.age != null && u.age !== '' ? String(u.age) : '');
   if (u.emergencyContact !== undefined) copyIf('emergencyContact', u.emergencyContact);
   if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);
   if (u.cpf !== undefined) patch.cpf = u.cpf || '';
@@ -178,7 +177,6 @@ function updatesToStudentPatch(updates) {
   if (u.customAnswers !== undefined) {
     patch.custom_answers_json = JSON.stringify(u.customAnswers || {});
   }
-  if (u.isFirstExperience !== undefined) copyIf('is_first_experience', u.isFirstExperience);
   if (u.belt !== undefined) copyIf('belt', u.belt);
   if (u.studentStatus !== undefined) {
     copyIf('student_status', String(u.studentStatus || '').trim() || STUDENT_STATUS.ACTIVE);

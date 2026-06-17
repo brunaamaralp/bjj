@@ -2,6 +2,7 @@
  * Helpers para a aba Visão Geral do hub Financeiro (somente agregação no cliente).
  */
 import { forecast30DaysRange, todayYmdLocal } from './financeForecastCore.js';
+import { PAYABLE_SOURCE } from './payablesAggregate.js';
 import {
   expectedAmountForStudent,
   receivedAmountForPayment,
@@ -74,6 +75,7 @@ export function forecastNext30Range() {
 
 export const OVERVIEW_RECEIVABLES_TOP_N = 5;
 export const OVERVIEW_FORECAST_TOP_N = 5;
+export const OVERVIEW_PAYABLES_TOP_N = 5;
 
 /** Resumo enxuto de recebíveis para Visão Geral (top N por vencimento). */
 export function trimReceivablesForOverview(snapshot, limit = OVERVIEW_RECEIVABLES_TOP_N) {
@@ -84,6 +86,27 @@ export function trimReceivablesForOverview(snapshot, limit = OVERVIEW_RECEIVABLE
     .slice(0, limit);
   return {
     referenceMonth: snapshot.referenceMonth,
+    summary: snapshot.summary,
+    topItems,
+    totalItems: items.length,
+  };
+}
+
+/** Resumo enxuto de contas a pagar para Visão Geral. */
+export function trimPayablesForOverview(snapshot, limit = OVERVIEW_PAYABLES_TOP_N) {
+  if (!snapshot) return null;
+  const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+  const topItems = [...items]
+    .filter((it) => it.source !== PAYABLE_SOURCE.TEMPLATE)
+    .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')))
+    .slice(0, limit)
+    .map((it) => ({
+      id: it.id,
+      vendor_label: it.vendor_label,
+      due_date: it.due_date,
+      amount: it.amount,
+    }));
+  return {
     summary: snapshot.summary,
     topItems,
     totalItems: items.length,

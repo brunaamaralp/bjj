@@ -14,6 +14,7 @@ import {
 } from './onboardingChecklist.js';
 import { parseCollectionRules, parseOverdueLabel } from './collectionRules.js';
 import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
+import { normalizeFinanceVendors } from './financeVendors.js';
 
 /** Limite legado do atributo financeConfig (string) no Appwrite. */
 export const FINANCE_CONFIG_LEGACY_MAX_CHARS = 2500;
@@ -232,6 +233,8 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   if (settings[SETTINGS_WHATSAPP_OFFLOAD_FLAG] && whatsappFromSettings) {
     merged = { ...merged, whatsappReminders: whatsappFromSettings };
   }
+
+  merged = { ...merged, vendors: normalizeFinanceVendors(merged.vendors) };
 
   return merged;
 }

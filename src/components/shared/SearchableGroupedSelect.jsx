@@ -116,7 +116,6 @@ export default function SearchableGroupedSelect({
       width: rect.width,
       top: openUp ? rect.top - height - 4 : rect.bottom + 4,
       maxHeight: height,
-      zIndex: 1200,
     });
   }, []);
 

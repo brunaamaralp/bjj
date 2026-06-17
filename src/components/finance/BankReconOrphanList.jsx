@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { Link2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Eye, Link2, Search } from 'lucide-react';
 import { formatReconTxShortTitle } from '../../lib/financeReconTxLabel.js';
+import { filterBankReconOrphans, isOrphanCandidateForItem } from '../../lib/bankReconOrphanFilter.js';
 
 function fmtMoney(v) {
   try {
@@ -16,44 +17,6 @@ function fmtDate(ymd) {
   return `${p[2]}/${p[1]}/${p[0]}`;
 }
 
-function parseYmd(s) {
-  const raw = String(s || '').trim().slice(0, 10);
-  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
-}
-
-function daysBetween(aYmd, bYmd) {
-  const a = parseYmd(aYmd);
-  const b = parseYmd(bYmd);
-  if (!a || !b) return 999;
-  return Math.abs(Math.round((a.getTime() - b.getTime()) / 86400000));
-}
-
-function txDateYmd(tx) {
-  return String(tx.settledAt || tx.settled_at || tx.createdAt || '').slice(0, 10);
-}
-
-function amountWithinPercent(a, b, pct = 0.05) {
-  const x = Math.abs(Number(a) || 0);
-  const y = Math.abs(Number(b) || 0);
-  if (x < 0.01) return false;
-  return Math.abs(x - y) / x <= pct;
-}
-
-function filterOrphansBySelectedItem(orphans, selectedItem, showAll) {
-  if (!selectedItem || showAll) return orphans || [];
-  return (orphans || []).filter((tx) => isOrphanCandidateForItem(tx, selectedItem));
-}
-
-export function isOrphanCandidateForItem(tx, selectedItem) {
-  if (!selectedItem || !tx) return false;
-  const dayDiff = daysBetween(selectedItem.date, txDateYmd(tx));
-  if (dayDiff > 3) return false;
-  const gross = Math.abs(Number(tx.gross) || 0);
-  return amountWithinPercent(selectedItem.amount, gross);
-}
-
 const FORMAT_LABELS = {
   ofx: 'OFX',
   csv: 'CSV',
@@ -66,6 +29,14 @@ export function formatSourceLabel(format) {
   return FORMAT_LABELS[key] || (key ? key.toUpperCase() : '—');
 }
 
+export { isOrphanCandidateForItem };
+
+const DIRECTION_FILTERS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'in', label: 'Entradas' },
+  { id: 'out', label: 'Saídas' },
+];
+
 export default function BankReconOrphanList({
   orphans = [],
   selectedItem = null,
@@ -73,19 +44,32 @@ export default function BankReconOrphanList({
   onToggleShowAll,
   busy = false,
   onLinkToSelected,
+  onViewDetails,
 }) {
+  const [query, setQuery] = useState('');
+  const [direction, setDirection] = useState('all');
+
   const filtered = useMemo(
-    () => filterOrphansBySelectedItem(orphans, selectedItem, showAll),
-    [orphans, selectedItem, showAll]
+    () =>
+      filterBankReconOrphans(orphans, {
+        selectedItem,
+        showAll,
+        query,
+        direction,
+      }),
+    [orphans, selectedItem, showAll, query, direction]
   );
+
+  const totalCount = orphans.length;
+  const hasActiveFilters = Boolean(query.trim()) || direction !== 'all';
 
   return (
     <div className="bank-recon-orphan-list">
       <div className="bank-recon-orphan-list__head">
         <p className="text-xs text-muted mb-0">
           {selectedItem && !showAll
-            ? `Filtrando por valor e data da linha selecionada (${filtered.length})`
-            : `${filtered.length} lançamento(s) pendente(s)`}
+            ? `Compatíveis com a linha selecionada (${filtered.length} de ${totalCount})`
+            : `${filtered.length} de ${totalCount} lançamento(s) pendente(s)`}
         </p>
         {selectedItem ? (
           <button type="button" className="btn-text btn-sm" onClick={() => onToggleShowAll?.(!showAll)}>
@@ -94,38 +78,96 @@ export default function BankReconOrphanList({
         ) : null}
       </div>
 
+      <div className="bank-recon-orphan-list__filters">
+        <label className="bank-recon-orphan-list__search" htmlFor="bank-recon-orphan-search">
+          <Search size={14} aria-hidden className="bank-recon-orphan-list__search-icon" />
+          <input
+            id="bank-recon-orphan-search"
+            type="search"
+            className="form-input form-input--compact bank-recon-orphan-list__search-input"
+            placeholder="Buscar por aluno, valor, categoria…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <div className="bank-recon-orphan-list__direction" role="group" aria-label="Filtrar por natureza">
+          {DIRECTION_FILTERS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`btn-outline btn-sm bank-recon-orphan-list__direction-btn${
+                direction === opt.id ? ' bank-recon-orphan-list__direction-btn--active' : ''
+              }`}
+              aria-pressed={direction === opt.id}
+              onClick={() => setDirection(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!selectedItem ? (
+        <p className="text-xs text-muted bank-recon-orphan-list__hint">
+          Selecione uma linha do extrato para ver sugestões por valor e data, ou use a busca acima.
+        </p>
+      ) : null}
+
       {filtered.length === 0 ? (
         <p className="text-small text-muted">
-          {selectedItem && !showAll
-            ? 'Nenhum lançamento próximo. Use "Mostrar todos" ou ajuste a seleção.'
-            : 'Nenhum lançamento pendente de conferência.'}
+          {selectedItem && !showAll && !hasActiveFilters
+            ? 'Nenhum lançamento próximo. Use "Mostrar todos" ou refine a busca.'
+            : hasActiveFilters
+              ? 'Nenhum lançamento corresponde aos filtros.'
+              : 'Nenhum lançamento pendente de conferência.'}
         </p>
       ) : (
-        filtered.map((tx) => {
-          const isCandidate = selectedItem && isOrphanCandidateForItem(tx, selectedItem);
-          return (
-          <div
-            key={tx.id}
-            className={`bank-recon-navi-row bank-recon-navi-row--actionable${isCandidate ? ' bank-recon-navi-row--candidate' : ''}`}
-          >
-            <div>
-              <p className="bank-recon-pair__title">{formatReconTxShortTitle(tx)}</p>
-              <p className="text-xs text-muted">
-                {fmtDate(tx.settledAt)} · {tx.direction === 'out' ? 'Saída' : 'Entrada'} · {fmtMoney(tx.gross)}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn-outline btn-sm"
-              disabled={busy || !selectedItem}
-              title={selectedItem ? 'Vincular à linha selecionada' : 'Selecione uma linha do extrato'}
-              onClick={() => void onLinkToSelected?.(tx.id)}
-            >
-              <Link2 size={14} /> Vincular
-            </button>
-          </div>
-          );
-        })
+        <div className="bank-recon-orphan-list__scroll">
+          {filtered.map((tx) => {
+            const isCandidate = selectedItem && isOrphanCandidateForItem(tx, selectedItem);
+            return (
+              <div
+                key={tx.id}
+                className={`bank-recon-navi-row bank-recon-navi-row--actionable${
+                  isCandidate ? ' bank-recon-navi-row--candidate' : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  className="bank-recon-navi-row__main"
+                  aria-label={`Ver detalhes: ${formatReconTxShortTitle(tx)}`}
+                  onClick={() => onViewDetails?.(tx)}
+                >
+                  <p className="bank-recon-pair__title">{formatReconTxShortTitle(tx)}</p>
+                  <p className="text-xs text-muted">
+                    {fmtDate(tx.settledAt)} · {tx.direction === 'out' ? 'Saída' : 'Entrada'} ·{' '}
+                    {fmtMoney(tx.gross)}
+                  </p>
+                </button>
+                <div className="bank-recon-navi-row__actions">
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    disabled={busy}
+                    title="Ver detalhes"
+                    onClick={() => onViewDetails?.(tx)}
+                  >
+                    <Eye size={14} /> Detalhes
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    disabled={busy || !selectedItem}
+                    title={selectedItem ? 'Vincular à linha selecionada' : 'Selecione uma linha do extrato'}
+                    onClick={() => void onLinkToSelected?.(tx.id)}
+                  >
+                    <Link2 size={14} /> Vincular
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

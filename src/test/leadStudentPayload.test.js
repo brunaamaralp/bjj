@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildStudentPayloadFromDoc, isLegacyStudentLeadDoc } from '../lib/leadStudentPayload.js';
+import {
+  buildStudentPayloadFromDoc,
+  isLegacyStudentLeadDoc,
+  mergeLeadQualificationIntoCustomAnswers,
+  STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY,
+} from '../lib/leadStudentPayload.js';
 
 describe('leadStudentPayload', () => {
   it('isLegacyStudentLeadDoc detects matriculado or contact_type student', () => {
@@ -22,5 +27,31 @@ describe('leadStudentPayload', () => {
     expect(payload.source_origin).toBe('Instagram');
     expect(payload.plan).toBe('Mensal');
     expect(payload.student_status).toBe('active');
+  });
+
+  it('does not persist age or is_first_experience on students payload', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      age: '8',
+      is_first_experience: 'Não',
+    });
+    expect(payload).not.toHaveProperty('age');
+    expect(payload).not.toHaveProperty('is_first_experience');
+    const custom = JSON.parse(payload.custom_answers_json);
+    expect(custom[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY]).toBe('Não');
+  });
+
+  it('mergeLeadQualificationIntoCustomAnswers preserves existing answers', () => {
+    const raw = JSON.stringify({ outro: 'x' });
+    const merged = mergeLeadQualificationIntoCustomAnswers(raw, { isFirstExperience: 'Sim' });
+    const obj = JSON.parse(merged);
+    expect(obj.outro).toBe('x');
+    expect(obj[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY]).toBe('Sim');
+  });
+
+  it('does not overwrite primeira_experiencia already in custom_answers', () => {
+    const raw = JSON.stringify({ [STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY]: 'Não' });
+    const merged = mergeLeadQualificationIntoCustomAnswers(raw, { isFirstExperience: 'Sim' });
+    expect(JSON.parse(merged)[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY]).toBe('Não');
   });
 });

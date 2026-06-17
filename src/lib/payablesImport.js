@@ -1,0 +1,138 @@
+/**
+ * Importação CSV de contas a pagar (contas fixas / pendentes).
+ */
+import { resolveFinanceCategory, FINANCE_CATEGORIES } from './financeCategories.js';
+import { parseNumberCell } from './productImport.js';
+
+export const MAX_PAYABLES_IMPORT_ROWS = 200;
+
+export const PAYABLES_IMPORT_HEADERS = [
+  'fornecedor',
+  'categoria',
+  'valor',
+  'vencimento',
+  'recorrente',
+  'dia_recorrencia',
+];
+
+const HEADER_ALIASES = {
+  fornecedor: ['fornecedor', 'vendor', 'descricao', 'descrição', 'nome'],
+  categoria: ['categoria', 'category'],
+  valor: ['valor', 'amount', 'value', 'preco', 'preço'],
+  vencimento: ['vencimento', 'due_date', 'data', 'data_vencimento'],
+  recorrente: ['recorrente', 'repeat', 'mensal', 'fixa'],
+  dia_recorrencia: ['dia_recorrencia', 'dia', 'recurrence_day', 'dia_vencimento'],
+};
+
+function normalizeHeader(h) {
+  return String(h || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_');
+}
+
+export function mapPayablesImportColumns(headers = []) {
+  const map = {};
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+    for (let i = 0; i < headers.length; i += 1) {
+      const h = normalizeHeader(headers[i]);
+      if (aliases.includes(h)) {
+        map[field] = i;
+        break;
+      }
+    }
+  }
+  return map;
+}
+
+function parseDateCell(raw) {
+  const s = String(raw || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const br = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (br) {
+    const dd = String(br[1]).padStart(2, '0');
+    const mm = String(br[2]).padStart(2, '0');
+    return `${br[3]}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+function parseBoolCell(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  return ['sim', 's', 'yes', 'y', '1', 'true', 'x'].includes(s);
+}
+
+export function buildPayablesImportPreviewRows(rows, columnMap) {
+  const preview = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (!row || !row.length) continue;
+    const vendor = String(row[columnMap.fornecedor] ?? '').trim();
+    const categoryRaw = String(row[columnMap.categoria] ?? '').trim();
+    const amount = parseNumberCell(row[columnMap.valor]);
+    const due = parseDateCell(row[columnMap.vencimento]);
+    const recurring = columnMap.recorrente != null ? parseBoolCell(row[columnMap.recorrente]) : false;
+    const dayRaw = Number(row[columnMap.dia_recorrencia]);
+    const recurrenceDay =
+      Number.isFinite(dayRaw) && dayRaw >= 1 && dayRaw <= 28
+        ? Math.floor(dayRaw)
+        : due
+          ? Number(due.split('-')[2])
+          : 10;
+
+    const errors = [];
+    if (!vendor) errors.push('Fornecedor obrigatório');
+    if (!Number.isFinite(amount) || amount <= 0) errors.push('Valor inválido');
+    if (!due) errors.push('Vencimento inválido (use AAAA-MM-DD ou DD/MM/AAAA)');
+
+    const cat = resolveFinanceCategory(categoryRaw) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+
+    preview.push({
+      rowIndex: i + 1,
+      vendor,
+      category: cat.label,
+      amount,
+      due_date: due,
+      recurring,
+      recurrence_day: recurrenceDay,
+      errors,
+      valid: errors.length === 0,
+    });
+  }
+  return preview.slice(0, MAX_PAYABLES_IMPORT_ROWS);
+}
+
+export function payableImportRowToPayload(row) {
+  const cat = resolveFinanceCategory(row.category) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+  const payload = {
+    direction: 'out',
+    type: cat.type,
+    category: cat.label,
+    planName: row.vendor,
+    gross: row.amount,
+    due_date: row.due_date,
+    competence_month: String(row.due_date || '').slice(0, 7),
+    receive_now: false,
+    method: 'pix',
+  };
+  if (row.recurring) {
+    payload.is_recurrence_template = true;
+    payload.recurrence_type = 'monthly';
+    payload.recurrence_day = row.recurrence_day || Number(String(row.due_date).slice(8, 10)) || 10;
+  }
+  return payload;
+}
+
+export function downloadPayablesImportTemplate() {
+  const header = PAYABLES_IMPORT_HEADERS.join(';');
+  const sample = 'CPFL;Luz / energia;450,00;2026-06-10;sim;10';
+  const blob = new Blob([`${header}\n${sample}\n`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'modelo-contas-a-pagar.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}

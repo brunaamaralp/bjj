@@ -237,6 +237,15 @@
   border-color: color-mix(in srgb, var(--color-primary) 18%, var(--border-light));
 }
 
+.financeiro-overview-card--payables {
+  border-color: color-mix(in srgb, var(--finance-color-negative, var(--danger)) 22%, var(--border-light));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--danger-light, rgba(220, 38, 38, 0.08)) 55%, var(--color-card-bg)) 0%,
+    var(--color-card-bg) 52%
+  );
+}
+
 .financeiro-overview-hero--compact {
   margin-bottom: 4px;
 }

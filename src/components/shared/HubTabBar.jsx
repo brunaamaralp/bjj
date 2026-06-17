@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Abas de hub interno (?tab=) — estilos globais em index.css (.navi-hub-tabs).
- * @param {{ id: string, label: string, shortLabel?: string, disabled?: boolean, disabledTitle?: string }[]} tabs
+ * @param {{ id: string, label: string, shortLabel?: string, disabled?: boolean, disabledTitle?: string, badgeCount?: number, badgeAriaLabel?: string }[]} tabs
  * @param {'primary'|'secondary'|'underline'} [variant]
  * @param {'sm'|'md'} [size]
  * @param {boolean} [fullWidth]
@@ -63,6 +63,14 @@ export default function HubTabBar({
           >
             <span className="navi-hub-tab__label--long">{tab.label}</span>
             <span className="navi-hub-tab__label--short">{tab.shortLabel || tab.label}</span>
+            {Number(tab.badgeCount) > 0 ? (
+              <span
+                className="navi-hub-tab__badge"
+                aria-label={tab.badgeAriaLabel || `${tab.badgeCount} pendente(s)`}
+              >
+                {tab.badgeCount > 99 ? '99+' : tab.badgeCount}
+              </span>
+            ) : null}
           </button>
         );
       })}

@@ -76,12 +76,14 @@ export async function fetchFinanceOverview({
   regime,
   includeForecast = false,
   includeContracts = false,
+  includePayables = false,
   bankCompareAsOf,
 }) {
   const params = new URLSearchParams({ route: 'overview', month });
   if (regime) params.set('regime', regime);
   if (includeForecast) params.set('includeForecast', '1');
   if (includeContracts) params.set('includeContracts', '1');
+  if (includePayables) params.set('includePayables', '1');
   if (bankCompareAsOf) params.set('bankCompareAsOf', bankCompareAsOf);
   const res = await authedFetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),

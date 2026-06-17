@@ -48,6 +48,8 @@
   right: auto;
   top: auto;
   margin-top: 0;
+  /* Acima de navi-modal-overlay (--z-modal: 9999) */
+  z-index: calc(var(--z-modal, 9999) + 1);
 }
 
 .searchable-grouped-select__panel--empty {

@@ -83,4 +83,38 @@ describe('BankReconOrphanList candidate highlight', () => {
     await user.click(screen.getByRole('button', { name: /Mostrar todos/i }));
     expect(onToggle).toHaveBeenCalledWith(true);
   });
+
+  it('filters orphans by search query', async () => {
+    const user = userEvent.setup();
+    render(
+      <BankReconOrphanList
+        orphans={orphans}
+        selectedItem={null}
+        showAll={false}
+        onToggleShowAll={vi.fn()}
+        onLinkToSelected={vi.fn()}
+      />
+    );
+    await user.type(screen.getByPlaceholderText(/Buscar por aluno/i), 'Match');
+    expect(screen.getByText('Match')).toBeInTheDocument();
+    expect(screen.queryByText('Far')).not.toBeInTheDocument();
+  });
+
+  it('opens details when row is clicked', async () => {
+    const user = userEvent.setup();
+    const onViewDetails = vi.fn();
+    render(
+      <BankReconOrphanList
+        orphans={orphans}
+        selectedItem={null}
+        showAll={false}
+        onToggleShowAll={vi.fn()}
+        onLinkToSelected={vi.fn()}
+        onViewDetails={onViewDetails}
+      />
+    );
+    const detailButtons = screen.getAllByRole('button', { name: /^Detalhes$/i });
+    await user.click(detailButtons[0]);
+    expect(onViewDetails).toHaveBeenCalledWith(expect.objectContaining({ id: 'tx-1' }));
+  });
 });

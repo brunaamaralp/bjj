@@ -19,6 +19,7 @@ import FinanceSettingsStickySave from './settings/FinanceSettingsStickySave.jsx'
 import FinanceSettingsPlansSection from './settings/FinanceSettingsPlansSection.jsx';
 import FinanceSettingsFeesSection from './settings/FinanceSettingsFeesSection.jsx';
 import FinanceSettingsBanksSection from './settings/FinanceSettingsBanksSection.jsx';
+import FinanceSettingsVendorsSection from './settings/FinanceSettingsVendorsSection.jsx';
 import { normalizeBankAccountEntry } from '../../lib/bankAccounts.js';
 import { parseCurrencyBRL } from '../../lib/masks.js';
 import FinanceSettingsCollectionSection from './settings/FinanceSettingsCollectionSection.jsx';
@@ -140,6 +141,15 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         />
       ) : null}
 
+      {activeSection === FINANCE_SETTINGS_SECTIONS.FORNECEDORES && isOwner ? (
+        <FinanceSettingsVendorsSection
+          financeConfig={state.financeConfig}
+          onUpdate={state.updateVendor}
+          onAdd={state.addVendor}
+          onRemoveRequest={state.setPendingRemoveVendor}
+        />
+      ) : null}
+
       {activeSection === FINANCE_SETTINGS_SECTIONS.REGUA && isOwner ? (
         <FinanceSettingsCollectionSection
           collectionRules={state.collectionRules}
@@ -248,6 +258,20 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
           if (typeof state.pendingRemoveBank !== 'number') return;
           state.removeBankAccount(state.pendingRemoveBank);
           state.setPendingRemoveBank(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={typeof state.pendingRemoveVendor === 'number'}
+        title="Remover fornecedor"
+        description="O fornecedor será removido da lista. Contas já registradas não serão alteradas."
+        confirmLabel="Remover"
+        confirmVariant="danger"
+        onClose={() => state.setPendingRemoveVendor(null)}
+        onConfirm={() => {
+          if (typeof state.pendingRemoveVendor !== 'number') return;
+          state.removeVendor(state.pendingRemoveVendor);
+          state.setPendingRemoveVendor(null);
         }}
       />
     </div>

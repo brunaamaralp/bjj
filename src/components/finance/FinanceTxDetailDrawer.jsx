@@ -75,6 +75,7 @@ export default function FinanceTxDetailDrawer({
   onCancelRecurrence,
   recurrenceCancelLoadingId,
   reverseLoadingId,
+  readOnly = false,
 }) {
   const navigate = useNavigate();
 
@@ -213,28 +214,30 @@ export default function FinanceTxDetailDrawer({
             />
           ) : null}
         </div>
-        <div className="task-drawer-footer finance-tx-drawer-footer">
-          <FinanceTxRowActions
-            txId={tx.id}
-            status={st}
-            direction={dir}
-            canManageAdvanced={canManageAdvanced}
-            canAssignBank={canAssignBankOnTx(tx)}
-            showRecMenu={showRecMenu}
-            rowBusy={rowBusy}
-            menuOpen={menuOpenId}
-            onMenuOpenChange={onMenuOpenChange}
-            onEdit={onEdit}
-            onSettle={onSettle}
-            onCancel={onCancel}
-            onReverse={onReverse}
-            onAssignBank={onAssignBank}
-            onEditRecurrence={onEditRecurrence}
-            onCancelRecurrence={onCancelRecurrence}
-            recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
-            reverseLoading={reverseLoadingId === tx.id}
-          />
-        </div>
+        {!readOnly ? (
+          <div className="task-drawer-footer finance-tx-drawer-footer">
+            <FinanceTxRowActions
+              txId={tx.id}
+              status={st}
+              direction={dir}
+              canManageAdvanced={canManageAdvanced}
+              canAssignBank={canAssignBankOnTx(tx)}
+              showRecMenu={showRecMenu}
+              rowBusy={rowBusy}
+              menuOpen={menuOpenId}
+              onMenuOpenChange={onMenuOpenChange}
+              onEdit={onEdit}
+              onSettle={onSettle}
+              onCancel={onCancel}
+              onReverse={onReverse}
+              onAssignBank={onAssignBank}
+              onEditRecurrence={onEditRecurrence}
+              onCancelRecurrence={onCancelRecurrence}
+              recurrenceCancelLoading={recurrenceCancelLoadingId === tx.id}
+              reverseLoading={reverseLoadingId === tx.id}
+            />
+          </div>
+        ) : null}
       </aside>
     </>
   );

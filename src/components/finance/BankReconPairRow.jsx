@@ -41,6 +41,7 @@ export default function BankReconPairRow({
   const showNavi = !isUnmatched;
   const tierLabel = matchTierLabel(item?.match_tier);
   const candidateList = candidates?.length ? candidates : item?.suggested_tx_candidates;
+  const showMultiCandidates = (candidateList?.length ?? 0) >= 2;
   const paymentHints =
     isUnmatched && item?.direction === 'credit' ? item?.pending_payment_hints || [] : [];
 
@@ -98,7 +99,7 @@ export default function BankReconPairRow({
 
       {showNavi ? (
         <div className="bank-recon-pair__navi">
-          {candidateList?.length >= 2 ? (
+          {showMultiCandidates ? (
             <div className="bank-recon-candidates">
               <p className="text-xs text-muted mb-2">Várias correspondências — escolha uma:</p>
               <ul className="bank-recon-candidates__list">
@@ -165,7 +166,7 @@ export default function BankReconPairRow({
             <Check size={14} /> Vincular
           </button>
         ) : null}
-        {onConfirm && tx && !candidateList?.length ? (
+        {onConfirm && tx && !showMultiCandidates ? (
           <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void onConfirm()}>
             <Check size={14} /> Confirmar
           </button>

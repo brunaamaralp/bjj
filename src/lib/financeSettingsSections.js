@@ -18,6 +18,7 @@ export const FINANCE_SETTINGS_SECTIONS = {
   PLANOS: 'planos',
   TAXAS: 'taxas',
   RECEBIMENTO: 'recebimento',
+  FORNECEDORES: 'fornecedores',
   REGUA: 'regua',
   WHATSAPP: 'lembretes-whatsapp',
   EXCECOES: 'excecoes',
@@ -67,6 +68,12 @@ export const FINANCE_SETTINGS_GROUPS = [
         id: FINANCE_SETTINGS_SECTIONS.RECEBIMENTO,
         label: 'Contas para recebimento',
         hint: 'Banco, agência e PIX nos comprovantes',
+      },
+      {
+        id: FINANCE_SETTINGS_SECTIONS.FORNECEDORES,
+        label: 'Fornecedores',
+        hint: 'Água, luz, telefone — autocompletar em contas a pagar',
+        ownerOnly: true,
       },
     ],
   },
@@ -220,6 +227,14 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.RECEBIMENTO]: {
       done: banks.length > 0,
       summary: banksSummary,
+    },
+    [FINANCE_SETTINGS_SECTIONS.FORNECEDORES]: {
+      done: (financeConfig?.vendors || []).filter((v) => v?.active !== false && String(v?.name || '').trim()).length > 0,
+      summary:
+        (financeConfig?.vendors || []).filter((v) => String(v?.name || '').trim()).length > 0
+          ? `${(financeConfig?.vendors || []).filter((v) => String(v?.name || '').trim()).length} fornecedor(es)`
+          : 'Nenhum cadastrado',
+      hidden: !isOwner,
     },
     [FINANCE_SETTINGS_SECTIONS.TAXAS]: {
       done: feesConfigured(financeConfig?.cardFees),

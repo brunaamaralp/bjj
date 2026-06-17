@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { fetchFinanceSummary, fetchMonthlyClosing } from '../lib/financeTxApi.js';
+import { fetchFinanceSummary, fetchMonthlyClosing, fetchPayables } from '../lib/financeTxApi.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../lib/financeTermHints.js';
 
 import { getFinanceRegime } from '../lib/financeCompetence.js';
@@ -67,6 +67,7 @@ const MonthlyClosingTab = lazy(() => import('../components/finance/MonthlyClosin
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import { currentMonthYm, monthPeriodBounds } from '../lib/financeiroOverview.js';
+import { todayYmdLocal, addDaysYmd } from '../lib/financeForecastCore.js';
 
 import '../components/finance/finance-shell.css';
 
@@ -164,8 +165,29 @@ function CaixaPage() {
   const isAdmin = navRole === 'admin';
 
   const financeModule = modules?.finance === true;
+  const showPayablesPreview = isOwner || isAdmin;
 
+  const [payablesOverdueBadge, setPayablesOverdueBadge] = useState(0);
 
+  const reportPayablesBadge = useCallback(
+    (count) => {
+      if (!showPayablesPreview) return;
+      setPayablesOverdueBadge(Math.max(0, Number(count) || 0));
+    },
+    [showPayablesPreview]
+  );
+
+  useEffect(() => {
+    if (!showPayablesPreview) setPayablesOverdueBadge(0);
+  }, [showPayablesPreview]);
+
+  const financeHubTabBadges = useMemo(
+    () =>
+      payablesOverdueBadge > 0
+        ? { [FINANCEIRO_SECTIONS.A_PAGAR]: payablesOverdueBadge }
+        : {},
+    [payablesOverdueBadge]
+  );
 
   const allowedLeafTabs = useMemo(
     () => new Set(buildFinanceiroAllowedLeafTabs({ navRole, financeModule })),
@@ -222,6 +244,40 @@ function CaixaPage() {
     [transactionsForNl]
   );
   useNlPageContext(nlPageCtx);
+
+  useEffect(() => {
+    if (!academyId || !showPayablesPreview) return;
+
+    let timer;
+    const refreshBadgeFromApi = () => {
+      if (
+        activeTab === FINANCEIRO_SECTIONS.OVERVIEW ||
+        activeTab === FINANCEIRO_SECTIONS.A_PAGAR
+      ) {
+        return;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const today = todayYmdLocal();
+        void fetchPayables({
+          academyId,
+          from: today,
+          to: addDaysYmd(today, 90),
+          section: 'visao',
+        })
+          .then((body) => reportPayablesBadge(body?.summary?.overdueCount))
+          .catch(() => reportPayablesBadge(0));
+      }, 300);
+    };
+
+    window.addEventListener('navi-financial-tx-settled', refreshBadgeFromApi);
+    window.addEventListener('navi-finance-forecast-invalidate', refreshBadgeFromApi);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('navi-financial-tx-settled', refreshBadgeFromApi);
+      window.removeEventListener('navi-finance-forecast-invalidate', refreshBadgeFromApi);
+    };
+  }, [academyId, showPayablesPreview, activeTab, reportPayablesBadge]);
 
   useEffect(() => {
     if (!hasExplicitTab) {
@@ -496,6 +552,8 @@ function CaixaPage() {
 
           access={{ navRole, isOwner, financeModule }}
 
+          tabBadges={financeHubTabBadges}
+
         />
 
         <div className="navi-hub-page__body">
@@ -511,8 +569,10 @@ function CaixaPage() {
               financeModule={financeModule}
               modules={modules}
               isOwner={isOwner}
+              showPayablesPreview={showPayablesPreview}
               referenceMonth={referenceMonth}
               onMonthConferred={handleOverviewMonthConferred}
+              onPayablesSummaryChange={reportPayablesBadge}
             />
           </div>
         ) : null}
@@ -549,6 +609,7 @@ function CaixaPage() {
               onSectionChange={setPayablesSection}
               highlightTxId={String(searchParams.get('tx') || '').trim()}
               openNewOnMount={searchParams.get('new') === '1'}
+              onPayablesSummaryChange={reportPayablesBadge}
             />
           </div>
         ) : null}

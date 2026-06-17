@@ -41,6 +41,16 @@ describe('financeReconTxLabel', () => {
     expect(title).toBe('Pedro Santos — Plano Kids — Jun/2026');
   });
 
+  it('formatReconTxShortTitle usa Mensalidade — aluno quando categoria é genérica', () => {
+    const title = formatReconTxShortTitle({
+      lead_name: 'Ana Lima',
+      category: 'Mensalidades',
+      type: 'plan',
+      competence_month: '2026-01',
+    });
+    expect(title).toBe('Mensalidade — Ana Lima — Jan/2026');
+  });
+
   it('formatReconTxSelectLabel inclui data e valor', () => {
     const label = formatReconTxSelectLabel(
       {

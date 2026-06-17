@@ -64,6 +64,7 @@ flowchart TD
 | 6 | Detalhe | **Confirmar todos** | Batch | `confirmAllBankMatches` |
 | 7 | Detalhe | Match manual | Escolher TX + nota | `manualReconcileTx` |
 | 8 | Detalhe | Órfãos Nave / banco | Criar TX ou ignorar | `createTxFromBankItem` / `ignoreBankItem` |
+| 8b | Detalhe | Lista órfãos Nave | Buscar / filtrar entradas-saídas / ver detalhes | Filtro local + `FinanceTxDetailDrawer` |
 | 9 | Detalhe | **Completar conciliação** | Nota opcional | `completeBankReconciliation`; status reconciliado |
 | 10 | Detalhe | Espelhos mensalidades | Reconciliar mirrors | `reconcileStudentPaymentMirrors` |
 | 11 | Detalhe | Voltar | Lista de extratos | `setSelectedId('')` |
@@ -102,6 +103,7 @@ flowchart TD
 10. [ ] Ignorar linha órfã — some da fila de ação
 10b. [ ] Linha órfã crédito com mensalidade pendente compatível — bloco “Possível mensalidade não registrada” + link para mensalidades com prefill
 10c. [ ] Após registrar pagamento via deep link — banner “volte ao extrato” retorna à conciliação (`?tab=conciliacao&statement=`)
+10d. [ ] Lista órfãos Nave — busca por aluno/valor; filtro Entradas/Saídas; clique abre detalhes do lançamento
 11. [ ] Completar conciliação — status extrato → reconciliado
 12. [ ] Trocar academia — só extratos da academia atual
 

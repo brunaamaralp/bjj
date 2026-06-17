@@ -35,6 +35,11 @@ function subjectIncludesLead(subject, leadName) {
   return firstToken.length >= 3 && subj.includes(firstToken);
 }
 
+function isGenericMensalidadeLabel(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return text === 'mensalidade' || text === 'mensalidades';
+}
+
 /** Título curto para pareamento na conciliação (sem data/valor). */
 export function formatReconTxShortTitle(tx) {
   if (!tx) return 'Lançamento';
@@ -43,8 +48,20 @@ export function formatReconTxShortTitle(tx) {
   const planName = String(tx.planName || '').trim();
   const category = String(tx.category || '').trim();
   const note = String(tx.note || '').trim();
-  const subject = planName || category || note || 'Lançamento';
+  const txType = String(tx.type || '').trim();
   const competence = formatCompetenceMonthShort(tx.competence_month);
+  const subject = planName || category || note || 'Lançamento';
+
+  const genericMensalidade =
+    txType === 'plan' ||
+    isGenericMensalidadeLabel(category) ||
+    (isGenericMensalidadeLabel(planName) && !planName.includes('—'));
+
+  if (genericMensalidade && leadName) {
+    const parts = [`Mensalidade — ${leadName}`];
+    if (competence) parts.push(competence);
+    return parts.join(' — ');
+  }
 
   const parts = [];
   if (leadName && !subjectIncludesLead(subject, leadName)) {

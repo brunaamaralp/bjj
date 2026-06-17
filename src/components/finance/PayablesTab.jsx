@@ -4,11 +4,14 @@ import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   Calendar,
+  FileSpreadsheet,
   Plus,
   RefreshCw,
   Repeat,
   TrendingDown,
 } from 'lucide-react';
+import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
+import ImportPayablesModal from './ImportPayablesModal.jsx';
 import { fetchPayables, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
 import { PAYABLE_SOURCE } from '../../lib/payablesAggregate.js';
 import {
@@ -38,6 +41,7 @@ import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
+import useDebounce from '../../hooks/useDebounce.js';
 
 function fmtMoney(v) {
   try {
@@ -101,6 +105,7 @@ export default function PayablesTab({
   onSectionChange,
   highlightTxId = '',
   openNewOnMount = false,
+  onPayablesSummaryChange,
 }) {
   const toast = useToast();
   const resolvedSection = useMemo(() => {
@@ -116,8 +121,10 @@ export default function PayablesTab({
   const [data, setData] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 200);
 
   const [showFormModal, setShowFormModal] = useState(openNewOnMount);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState({});
   const [savingForm, setSavingForm] = useState(false);
@@ -150,6 +157,42 @@ export default function PayablesTab({
     });
   }, []);
 
+  const vendorOptions = useMemo(
+    () => activeFinanceVendors(financeConfig),
+    [financeConfig]
+  );
+
+  const applyVendorDefaults = useCallback(
+    (vendorName) => {
+      const match = findFinanceVendorByName(financeConfig, vendorName);
+      if (!match) return;
+      setForm((f) => {
+        const next = { ...f, vendor: match.name };
+        if (match.defaultCategory) next.category = match.defaultCategory;
+        if (match.defaultDueDay) {
+          const today = todayYmdLocal();
+          const ym = today.slice(0, 7);
+          const day = String(match.defaultDueDay).padStart(2, '0');
+          next.due_date = `${ym}-${day}`;
+          next.recurrence_day = match.defaultDueDay;
+        }
+        return next;
+      });
+    },
+    [financeConfig]
+  );
+
+  const handleVendorChange = useCallback(
+    (value) => {
+      setForm((f) => ({ ...f, vendor: value }));
+      const trimmed = String(value || '').trim();
+      if (trimmed && findFinanceVendorByName(financeConfig, trimmed)) {
+        applyVendorDefaults(trimmed);
+      }
+    },
+    [financeConfig, applyVendorDefaults]
+  );
+
   const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
 
   const load = useCallback(async () => {
@@ -162,18 +205,20 @@ export default function PayablesTab({
         from: range.from,
         to: range.to,
         section: resolvedSection,
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
       setData(body);
+      onPayablesSummaryChange?.(Number(body?.summary?.overdueCount) || 0);
     } catch (e) {
       console.error('[PayablesTab]', e);
       setData(null);
       setError('Não foi possível carregar as contas a pagar.');
+      onPayablesSummaryChange?.(0);
     } finally {
       setLoading(false);
       setLoadedOnce(true);
     }
-  }, [academyId, range.from, range.to, resolvedSection, search]);
+  }, [academyId, range.from, range.to, resolvedSection, debouncedSearch, onPayablesSummaryChange]);
 
   useEffect(() => {
     void load();
@@ -430,6 +475,14 @@ export default function PayablesTab({
       <div className="receivables-tab__subnav-actions">
         <button
           type="button"
+          className="btn-outline btn-sm"
+          onClick={() => setShowImportModal(true)}
+        >
+          <FileSpreadsheet size={14} aria-hidden />
+          Importar CSV
+        </button>
+        <button
+          type="button"
           className="btn-primary btn-sm"
           onClick={() => {
             setForm(defaultForm());
@@ -588,11 +641,18 @@ export default function PayablesTab({
               <input
                 id="payable-vendor"
                 className="form-input"
+                list="payable-vendor-options"
                 value={form.vendor}
-                onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}
-                placeholder="Ex.: CPFL, Sabesp, Vivo"
+                onChange={(e) => handleVendorChange(e.target.value)}
+                onBlur={(e) => applyVendorDefaults(e.target.value)}
+                placeholder="Ex.: CPFL, Sabesp, Vivo…"
               />
-              <FieldError message={formErrors.vendor} />
+              <datalist id="payable-vendor-options">
+                {vendorOptions.map((v) => (
+                  <option key={v.id} value={v.name} />
+                ))}
+              </datalist>
+              {formErrors.vendor ? <FieldError>{formErrors.vendor}</FieldError> : null}
             </div>
             <div>
               <label htmlFor="payable-category">Categoria</label>
@@ -619,7 +679,7 @@ export default function PayablesTab({
                 onChange={(e) => setForm((f) => ({ ...f, gross: maskCurrency(e.target.value) }))}
                 placeholder="0,00"
               />
-              <FieldError message={formErrors.gross} />
+              {formErrors.gross ? <FieldError>{formErrors.gross}</FieldError> : null}
             </div>
             <div>
               <label htmlFor="payable-due">Vencimento</label>
@@ -638,7 +698,7 @@ export default function PayablesTab({
                   }));
                 }}
               />
-              <FieldError message={formErrors.due_date} />
+              {formErrors.due_date ? <FieldError>{formErrors.due_date}</FieldError> : null}
             </div>
             <label className="form-check">
               <input
@@ -741,10 +801,17 @@ export default function PayablesTab({
               label="Conta bancária"
               required
             />
-            <FieldError message={settleError} />
+            {settleError ? <FieldError>{settleError}</FieldError> : null}
           </form>
         </ModalShell>
       ) : null}
+
+      <ImportPayablesModal
+        open={showImportModal}
+        academyId={academyId}
+        onClose={() => setShowImportModal(false)}
+        onImported={() => setRefreshToken((t) => t + 1)}
+      />
     </>
   );
 }

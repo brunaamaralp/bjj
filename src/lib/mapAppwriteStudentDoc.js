@@ -1,6 +1,9 @@
 import { normalizeStudentStatus } from './studentStatus.js';
 import { normalizeSexo } from './leadSexo.js';
 import { parsePayerAliasesJson } from './studentPayerAliases.js';
+import {
+  STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY,
+} from './leadStudentPayload.js';
 
 function parseCustomAnswersJson(raw) {
   if (!raw || typeof raw !== 'string') return {};
@@ -12,6 +15,17 @@ function parseCustomAnswersJson(raw) {
   }
 }
 
+function ageYearsFromBirthDate(ymd) {
+  const m = String(ymd || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  const birth = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  const monthDelta = today.getMonth() - birth.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birth.getDate())) years -= 1;
+  return years >= 0 && years <= 120 ? String(years) : '';
+}
+
 /**
  * Mapeia documento Appwrite (students) → objeto UI (camelCase).
  * @param {object} doc
@@ -20,6 +34,8 @@ export function mapAppwriteDocToStudent(doc) {
   const dueDayRaw = Number(doc.due_day ?? doc.dueDay ?? 0);
   const dueDay = Number.isFinite(dueDayRaw) && dueDayRaw >= 1 && dueDayRaw <= 31 ? Math.trunc(dueDayRaw) : null;
   const turmaRaw = String(doc.turma ?? doc.class_name ?? doc.className ?? '').trim();
+  const birthDate = doc.birth_date || doc.birthDate || '';
+  const customAnswers = parseCustomAnswersJson(doc.custom_answers_json);
 
   return {
     id: doc.$id,
@@ -37,12 +53,15 @@ export function mapAppwriteDocToStudent(doc) {
     contact_type: 'student',
     pipelineStage: 'Matriculado',
     parentName: doc.parentName || '',
-    age: doc.age || '',
-    birthDate: doc.birth_date || doc.birthDate || '',
+    age: String(doc.age || '').trim() || ageYearsFromBirthDate(birthDate),
+    birthDate,
     notes: [],
-    isFirstExperience: doc.is_first_experience || 'Sim',
+    isFirstExperience:
+      doc.is_first_experience ||
+      customAnswers[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY] ||
+      'Sim',
     belt: doc.belt || '',
-    customAnswers: parseCustomAnswersJson(doc.custom_answers_json),
+    customAnswers,
     createdAt: doc.$createdAt,
     convertedAt: doc.converted_at || doc.convertedAt || null,
     plan: doc.plan || '',

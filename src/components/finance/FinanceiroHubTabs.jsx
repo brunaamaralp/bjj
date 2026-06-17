@@ -8,15 +8,16 @@ import { buildFinanceiroHubTabItems } from '../../lib/financeiroHubTabs.js';
  * @param {(leafTab: string) => void} onLeafChange
  * @param {{ navRole?: string, isOwner?: boolean, financeModule: boolean }} access
  */
-export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access }) {
+export default function FinanceiroHubTabs({ activeLeafTab, onLeafChange, access, tabBadges }) {
   const topTabs = useMemo(
     () =>
       buildFinanceiroHubTabItems({
         navRole: access?.navRole,
         isOwner: access?.isOwner,
         financeModule: access?.financeModule,
+        tabBadges,
       }),
-    [access?.navRole, access?.isOwner, access?.financeModule]
+    [access?.navRole, access?.isOwner, access?.financeModule, tabBadges]
   );
 
   return (

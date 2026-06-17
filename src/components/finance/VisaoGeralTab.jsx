@@ -39,6 +39,8 @@ import StatusBanner from '../shared/StatusBanner.jsx';
 import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
 import BankBalancesOverview from './BankBalancesOverview.jsx';
 import ReceivablesOverviewCard from './ReceivablesOverviewCard.jsx';
+import PayablesOverviewCard from './PayablesOverviewCard.jsx';
+import { buildPayablesPath, PAYABLES_SECTIONS } from '../../lib/financeiroPayablesSections.js';
 import BalanceDeltaBadge from './BalanceDeltaBadge.jsx';
 import PeriodFlowMiniChart from './PeriodFlowMiniChart.jsx';
 
@@ -93,8 +95,10 @@ export default function VisaoGeralTab({
   financeModule,
   modules,
   isOwner = false,
+  showPayablesPreview = false,
   referenceMonth,
   onMonthConferred,
+  onPayablesSummaryChange,
 }) {
   const financeConfig = useLeadStore((s) => s.financeConfig);
 
@@ -117,6 +121,8 @@ export default function VisaoGeralTab({
   const [mensalKpis, setMensalKpis] = useState(EMPTY_MENSAL_KPIS);
   const [receivables, setReceivables] = useState(null);
   const [receivablesFailed, setReceivablesFailed] = useState(false);
+  const [payables, setPayables] = useState(null);
+  const [payablesFailed, setPayablesFailed] = useState(false);
   const [bankBalancesData, setBankBalancesData] = useState(null);
   const [bankBalancesCompare, setBankBalancesCompare] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -134,6 +140,7 @@ export default function VisaoGeralTab({
     setPaymentsFailed(false);
     setForecastFailed(false);
     setReceivablesFailed(false);
+    setPayablesFailed(false);
     try {
       const regimeVal = getFinanceRegime(academyId);
 
@@ -143,6 +150,7 @@ export default function VisaoGeralTab({
         regime: regimeVal,
         includeForecast: financeModule,
         includeContracts: Boolean(modules?.finance),
+        includePayables: showPayablesPreview,
         bankCompareAsOf,
       });
 
@@ -158,6 +166,21 @@ export default function VisaoGeralTab({
       } else {
         setReceivables(null);
         setReceivablesFailed(true);
+      }
+
+      if (showPayablesPreview) {
+        if (overview.payablesPreview) {
+          setPayables(overview.payablesPreview);
+          setPayablesFailed(false);
+          onPayablesSummaryChange?.(Number(overview.payablesPreview.summary?.overdueCount) || 0);
+        } else {
+          setPayables(null);
+          setPayablesFailed(true);
+          onPayablesSummaryChange?.(0);
+        }
+      } else {
+        setPayables(null);
+        setPayablesFailed(false);
       }
 
       if (financeModule) {
@@ -196,6 +219,8 @@ export default function VisaoGeralTab({
     financeModule,
     bankCompareAsOf,
     modules?.finance,
+    showPayablesPreview,
+    onPayablesSummaryChange,
     onMonthConferred,
   ]);
 
@@ -216,6 +241,9 @@ export default function VisaoGeralTab({
   const forecastInflowTotal = forecastPreview?.inflowTotal ?? 0;
   const forecastTop = forecastPreview?.topItems ?? [];
   const receivablesTop = receivables?.topItems ?? [];
+  const payablesTop = payables?.topItems ?? [];
+  const payablesOverdueCount = payables?.summary?.overdueCount ?? 0;
+  const payablesTotalOpen = payables?.summary?.totalOpen ?? 0;
 
   const balanceDelta = useMemo(
     () => formatBalanceDelta(summary?.periodBalance, summaryPrev?.periodBalance),
@@ -240,6 +268,8 @@ export default function VisaoGeralTab({
     mensalKpis.overdueCount > 0 ||
     pendingTxCount > 0 ||
     receivablesTotal > 0 ||
+    payablesOverdueCount > 0 ||
+    (showPayablesPreview && payablesTotalOpen > 0) ||
     (modules?.finance && contractsAwaiting > 0) ||
     (financeModule && closingDivergences > 0);
 
@@ -378,6 +408,15 @@ export default function VisaoGeralTab({
           loading={loading}
         />
 
+        {showPayablesPreview ? (
+          <PayablesOverviewCard
+            summary={payables?.summary}
+            topItems={payablesTop}
+            failed={payablesFailed}
+            loading={loading}
+          />
+        ) : null}
+
         <OverviewCard title="Mensalidades" eyebrow={`Referência ${monthLabel}`} className="financeiro-overview-card--pair">
           {paymentsFailed ? (
             <CardLoadError message="Não foi possível carregar as mensalidades. Tente atualizar." />
@@ -436,6 +475,15 @@ export default function VisaoGeralTab({
                   <strong>{pendingTxCount}</strong> lançamento(s) pendente(s)
                 </span>
                 <Link to="/financeiro?tab=movimentacoes">Ver</Link>
+              </li>
+            ) : null}
+            {showPayablesPreview && !payablesFailed && payablesOverdueCount > 0 ? (
+              <li>
+                <AlertCircle size={16} aria-hidden />
+                <span>
+                  <strong>{payablesOverdueCount}</strong> conta(s) a pagar vencida(s)
+                </span>
+                <Link to={buildPayablesPath({ section: PAYABLES_SECTIONS.VENCIDAS })}>Ver</Link>
               </li>
             ) : null}
             {modules?.finance && contractsAwaiting > 0 ? (
