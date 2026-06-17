@@ -36,6 +36,7 @@ scripts/*
 !scripts/verify-contracts-autentique.mjs
 !scripts/recover-bank-accounts.mjs
 !scripts/unify-bank-account-labels.mjs
+!scripts/audit-sale-financial-mirror.mjs
 !scripts/restore-bank-account-definitions.mjs
 !scripts/ensure-inbox-media-bucket.mjs
 !scripts/backfill-conversation-team-perms.mjs
