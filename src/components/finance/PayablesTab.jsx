@@ -410,8 +410,8 @@ export default function PayablesTab({
     }
   }
 
-  const formModalRef = useModalA11y(showFormModal, () => setShowFormModal(false));
-  const settleModalRef = useModalA11y(!!settleItem, () => setSettleItem(null));
+  useModalA11y({ isOpen: showFormModal, onClose: () => setShowFormModal(false) });
+  useModalA11y({ isOpen: !!settleItem, onClose: () => setSettleItem(null) });
 
   if (!academyId) {
     return <p className="text-small text-muted">Selecione uma academia.</p>;
@@ -628,7 +628,7 @@ export default function PayablesTab({
 
       {showFormModal ? (
         <ModalShell
-          ref={formModalRef}
+          open={showFormModal}
           title="Nova conta a pagar"
           onClose={() => setShowFormModal(false)}
           footer={
@@ -755,7 +755,7 @@ export default function PayablesTab({
 
       {settleItem ? (
         <ModalShell
-          ref={settleModalRef}
+          open={!!settleItem}
           title={`Registrar pagamento — ${settleItem.vendor_label}`}
           onClose={() => setSettleItem(null)}
           footer={

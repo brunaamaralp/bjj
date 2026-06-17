@@ -192,6 +192,7 @@ export default function ImportPayablesModal({ open, academyId, onClose, onImport
   return (
     <>
       <ModalShell
+        open={open}
         title="Importar contas a pagar"
         onClose={handleClose}
         footer={
