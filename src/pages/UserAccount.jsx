@@ -1,21 +1,27 @@
 import '../styles/settings-pages.css';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Shield, User } from 'lucide-react';
 import { useLeadStore } from '../store/useLeadStore';
 import { onboardingDismissStorageKey } from '../lib/onboardingChecklist.js';
 import { authService } from '../lib/auth';
-import { resolveHubTab } from '../lib/hubTabs';
-import HubTabBar from '../components/shared/HubTabBar';
+import {
+  ACCOUNT_DEFAULT_SECTION,
+  ACCOUNT_SETTINGS_ITEMS,
+  ACCOUNT_SETTINGS_SECTIONS,
+  isAccountSettingsSection,
+  resolveAccountNavState,
+} from '../lib/accountSettingsSections.js';
 import PlansTabContent from '../components/account/PlansTabContent.jsx';
 import AvancadoSection from '../components/academy/AvancadoSection';
+import AcademyTabSettingsLayout from '../components/academy/settings/AcademyTabSettingsLayout.jsx';
 import { useUiStore } from '../store/useUiStore';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useTerms } from '../lib/terminology.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
+import '../components/finance/finance.css';
 
-const ACCOUNT_TABS = new Set(['perfil', 'assinatura', 'dados']);
 const MIN_PWD = 8;
 
 const UserAccount = ({ user }) => {
@@ -33,18 +39,18 @@ const UserAccount = ({ user }) => {
   const [pwdSaving, setPwdSaving] = useState(false);
   const [pwdInlineError, setPwdInlineError] = useState('');
 
-  const activeTab = resolveHubTab(searchParams.get('tab'), ACCOUNT_TABS, 'perfil');
+  const rawTab = searchParams.get('tab');
+  const navState = resolveAccountNavState(rawTab);
+  const activeTab = navState.section;
+  const sectionMeta = navState.meta;
 
   useEffect(() => {
-    const t = String(searchParams.get('tab') || '').trim().toLowerCase();
-    if (t === 'seguranca') {
-      setSearchParams({ tab: 'perfil' }, { replace: true });
-      return;
+    const resolved = isAccountSettingsSection(rawTab);
+    const target = resolved || ACCOUNT_DEFAULT_SECTION;
+    if (String(rawTab || '').trim().toLowerCase() !== target) {
+      setSearchParams({ tab: target }, { replace: true });
     }
-    if (!ACCOUNT_TABS.has(t)) {
-      setSearchParams({ tab: activeTab }, { replace: true });
-    }
-  }, [activeTab, searchParams, setSearchParams]);
+  }, [rawTab, setSearchParams]);
 
   const openPasswordModal = () => {
     setPwdInlineError('');
@@ -108,7 +114,7 @@ const UserAccount = ({ user }) => {
   const email = user?.email || '';
   const displayName = String(user?.name || '').trim() || email.split('@')[0] || 'Conta';
 
-  const academyForRole = React.useMemo(() => {
+  const academyForRole = useMemo(() => {
     const fromList = (academyList || []).find((a) => a.id === academyId);
     return {
       ownerId: String(fromList?.ownerId || ''),
@@ -116,16 +122,73 @@ const UserAccount = ({ user }) => {
     };
   }, [academyList, academyId]);
 
-  const tabs = [
-    { id: 'perfil', label: 'Perfil' },
-    { id: 'assinatura', label: 'Assinatura' },
-    { id: 'dados', label: 'Avançado' },
-  ];
-
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
+  let sectionBody = null;
+  if (activeTab === ACCOUNT_SETTINGS_SECTIONS.PERFIL) {
+    sectionBody = (
+      <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="account-profile-card">
+          <div className="account-profile-card__avatar" aria-hidden>
+            {displayName
+              .split(' ')
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w) => w[0].toUpperCase())
+              .join('') || <User size={20} />}
+          </div>
+          <div className="account-profile-card__info">
+            <p className="account-profile-card__name">{displayName}</p>
+            <p className="account-profile-card__email">{email || '—'}</p>
+          </div>
+        </div>
+
+        <div className="settings-card">
+          <div className="settings-row">
+            <div className="settings-row__icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+              <Shield size={16} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="settings-row__label" style={{ marginBottom: 2 }}>
+                Senha da conta
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+                Mínimo {MIN_PWD} caracteres
+              </p>
+            </div>
+            <button type="button" className="btn-outline navi-btn--toolbar" onClick={openPasswordModal}>
+              Alterar
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  } else if (activeTab === ACCOUNT_SETTINGS_SECTIONS.ASSINATURA) {
+    sectionBody = <PlansTabContent embeddedInLayout user={user} />;
+  } else if (activeTab === ACCOUNT_SETTINGS_SECTIONS.DADOS) {
+    sectionBody = (
+      <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="settings-card">
+          <div className="settings-row" style={{ flexWrap: 'wrap' }}>
+            <p className="settings-row__label">Reexibir checklist de configuração</p>
+            <button
+              type="button"
+              className="btn-outline navi-btn--toolbar"
+              onClick={showOnboardingChecklistAgain}
+              disabled={!academyId}
+              title={!academyId ? `Selecione uma ${terms.workspaceNoun} primeiro` : undefined}
+            >
+              Mostrar checklist
+            </button>
+          </div>
+        </div>
+        <AvancadoSection academy={academyForRole} leads={leads} showAutentique={false} />
+      </section>
+    );
+  }
+
   return (
-    <div className="container navi-hub-page">
+    <div className="container navi-hub-page account-hub-page">
       <PageHeader
         className="navi-page-header--flush"
         title="Minha conta"
@@ -133,75 +196,20 @@ const UserAccount = ({ user }) => {
         meta={email || displayName}
       />
 
-      <HubTabBar tabs={tabs} activeId={activeTab} onChange={setTab} ariaLabel="Conta" fullWidth />
+      <section className="account-settings-section animate-in mt-3">
+        <AcademyTabSettingsLayout
+          navLabel="Minha conta"
+          items={ACCOUNT_SETTINGS_ITEMS}
+          activeId={activeTab}
+          onSelect={setTab}
+          title={sectionMeta?.panelTitle}
+          subtitle={sectionMeta?.hint}
+        >
+          {sectionBody}
+        </AcademyTabSettingsLayout>
+      </section>
 
-      <div style={{ marginTop: 20 }}>
-        {activeTab === 'perfil' && (
-          <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* Card de perfil com avatar de iniciais */}
-            <div className="account-profile-card">
-              <div className="account-profile-card__avatar" aria-hidden>
-                {displayName
-                  .split(' ')
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map((w) => w[0].toUpperCase())
-                  .join('') || <User size={20} />}
-              </div>
-              <div className="account-profile-card__info">
-                <p className="account-profile-card__name">{displayName}</p>
-                <p className="account-profile-card__email">{email || '—'}</p>
-              </div>
-            </div>
-
-            {/* Settings card — linha de senha */}
-            <div className="settings-card">
-              <div className="settings-row">
-                <div className="settings-row__icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                  <Shield size={16} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="settings-row__label" style={{ marginBottom: 2 }}>Senha da conta</p>
-                  <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                    Mínimo {MIN_PWD} caracteres
-                  </p>
-                </div>
-                <button type="button" className="btn-outline navi-btn--toolbar" onClick={openPasswordModal}>
-                  Alterar
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'assinatura' && <PlansTabContent user={user} />}
-
-        {activeTab === 'dados' && (
-          <section className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="settings-card">
-              <div className="settings-row" style={{ flexWrap: 'wrap' }}>
-                <p className="settings-row__label">Reexibir checklist de configuração</p>
-                <button
-                  type="button"
-                  className="btn-outline navi-btn--toolbar"
-                  onClick={showOnboardingChecklistAgain}
-                  disabled={!academyId}
-                  title={!academyId ? `Selecione uma ${terms.workspaceNoun} primeiro` : undefined}
-                >
-                  Mostrar checklist
-                </button>
-              </div>
-            </div>
-            <AvancadoSection academy={academyForRole} leads={leads} showAutentique={false} />
-          </section>
-        )}
-
-      <ModalShell
-        open={pwdModalOpen}
-        title="Alterar senha"
-        onClose={closePasswordModal}
-        maxWidth={420}
-      >
+      <ModalShell open={pwdModalOpen} title="Alterar senha" onClose={closePasswordModal} maxWidth={420}>
         <form className="settings-form" onSubmit={submitPassword}>
           <div className="form-group">
             <label htmlFor="acc-old-pwd">Senha atual</label>
@@ -254,10 +262,8 @@ const UserAccount = ({ user }) => {
           </div>
         </form>
       </ModalShell>
-      </div>
     </div>
   );
 };
 
 export default UserAccount;
-

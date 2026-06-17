@@ -27,8 +27,14 @@ export default function AcademyTabSettingsLayout({
             className={`finance-settings-sidenav__item${activeId === item.id ? ' finance-settings-sidenav__item--active' : ''}`}
             onClick={() => onSelect(item.id)}
             aria-current={activeId === item.id ? 'page' : undefined}
+            title={item.label}
           >
-            {item.label}
+            <span className="finance-settings-sidenav__label finance-settings-sidenav__label--long">
+              {item.label}
+            </span>
+            <span className="finance-settings-sidenav__label finance-settings-sidenav__label--short">
+              {item.shortLabel || item.label}
+            </span>
           </button>
         ))}
       </nav>

@@ -20,7 +20,6 @@ import {
     CheckCircle2,
     DoorOpen,
     Loader2,
-    Users,
     CheckSquare,
 } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
@@ -31,7 +30,6 @@ import DashboardBirthdayModal from '../components/dashboard/DashboardBirthdayMod
 import {
     buildHeroDateLine,
     buildDaySummaryLine,
-    followUpsNeedingContact,
     getDayPriority,
     getTimeOfDayPeriod,
     countWeeklyEnrollments,
@@ -41,7 +39,6 @@ import {
     attendedButtonLabel,
     missedButtonLabel,
     followupsAllDoneTitle,
-    followupKpiLabel,
     toastAttendedSuccess,
     toastMissedSuccess,
     followupMicroToastMessage,
@@ -87,7 +84,15 @@ import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { useDashboardLeadAgenda } from '../hooks/useDashboardLeadAgenda.js';
 import { useDashboardFollowupLeads } from '../hooks/useDashboardFollowupLeads.js';
-import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEnrollmentMetrics.js';
+import HubTabBar from '../components/shared/HubTabBar.jsx';
+import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
+import {
+    buildRecepcaoHubTabItems,
+    isRecepcaoCatracaHistoricoSection,
+    RECEPCAO_TAB_CATRACA,
+    RECEPCAO_TAB_EXPERIMENTAIS,
+    resolveRecepcaoHubTab,
+} from '../lib/recepcaoHubTabs.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
 
@@ -105,24 +110,6 @@ function buildTodayKpiFootnote(count) {
         : { footnote: 'Nenhuma agendada', footnoteTone: 'neutral' };
 }
 
-function buildEnrollmentKpiFootnote(metrics) {
-    if (metrics.sub) {
-        return {
-            footnote: metrics.sub,
-            footnoteTone: metrics.subTone === 'positive' ? 'positive' : 'neutral',
-        };
-    }
-    return metrics.enrolledInMonth > 0
-        ? { footnote: 'Neste mês civil', footnoteTone: 'neutral' }
-        : { footnote: 'Nenhuma neste mês', footnoteTone: 'neutral' };
-}
-
-function buildFollowupKpiFootnote(count, urgentCount) {
-    if (count === 0) return { footnote: 'Tudo em dia', footnoteTone: 'neutral' };
-    if (urgentCount > 0) return { footnote: 'Prioridade na lista', footnoteTone: 'neutral' };
-    return { footnote: 'Retornos na lista', footnoteTone: 'neutral' };
-}
-
 function buildTasksKpiFootnote(count) {
     return count > 0
         ? { footnote: 'Pendentes hoje', footnoteTone: 'neutral' }
@@ -132,6 +119,10 @@ function buildTasksKpiFootnote(count) {
 const Dashboard = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const hubTab = resolveRecepcaoHubTab(searchParams.get('tab'));
+    const isCatracaTab = hubTab === RECEPCAO_TAB_CATRACA;
+    const catracaShowHistorico =
+        isCatracaTab && isRecepcaoCatracaHistoricoSection(searchParams.get('section'));
     const {
         loading,
         fetchLeads,
@@ -172,7 +163,7 @@ const Dashboard = () => {
     const addToast = useUiStore((s) => s.addToast);
     const [controlIdFetchEnabled, setControlIdFetchEnabled] = useState(false);
     const controlIdCfg = useAcademyControlId(academyId, { fetch: controlIdFetchEnabled });
-    useControlIdMonitor(academyId, controlIdFetchEnabled && controlIdCfg.enabled);
+    useControlIdMonitor(academyId, controlIdFetchEnabled && controlIdCfg.enabled && isCatracaTab);
     const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
     const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -223,6 +214,7 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(true);
+    const [mobileWeekExpandSignal, setMobileWeekExpandSignal] = useState(0);
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
     const retornosRowRef = useRef(null);
@@ -405,7 +397,6 @@ const Dashboard = () => {
     const {
         followUps,
         followUpsKanbanOnlyCount,
-        followupTemperatureCounts,
         followUpGroups,
         followupHealthSummary,
         showFollowupHealthPanel,
@@ -438,13 +429,35 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
-        if (searchParams.get('retornos') !== '1') return;
-        scrollToFollowUps();
+        const tabParam = searchParams.get('tab');
+        const legacyRetornos = searchParams.get('retornos') === '1' || tabParam === 'retornos';
+        const resolved = resolveRecepcaoHubTab(legacyRetornos ? 'retornos' : tabParam);
         const next = new URLSearchParams(searchParams);
-        next.delete('retornos');
-        setSearchParams(next, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- scroll once when ?retornos=1
+        let dirty = false;
+
+        if (searchParams.get('retornos') === '1') {
+            next.delete('retornos');
+            dirty = true;
+        }
+        if (tabParam === 'retornos' || tabParam === 'porta') {
+            if (resolved === RECEPCAO_TAB_EXPERIMENTAIS) next.delete('tab');
+            else next.set('tab', resolved);
+            dirty = true;
+        } else if (tabParam && tabParam !== resolved) {
+            next.set('tab', resolved);
+            dirty = true;
+        }
+
+        if (dirty) setSearchParams(next, { replace: true });
+        if (legacyRetornos) scrollToFollowUps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- normaliza aliases legados e scroll retornos
     }, [searchParams]);
+
+    useEffect(() => {
+        if (hubTab !== RECEPCAO_TAB_EXPERIMENTAIS) return;
+        if (typeof window === 'undefined' || window.location.hash !== '#follow-ups') return;
+        scrollToFollowUps();
+    }, [hubTab]);
 
     const {
         outcomeLead: followupOutcomeLead,
@@ -507,26 +520,46 @@ const Dashboard = () => {
     };
 
     const handleKpiClick = (cardKey) => {
-        if (cardKey === 'followup') {
-            scrollToFollowUps();
-            return;
-        }
         if (cardKey === 'tasks') {
             navigate('/tarefas?status=pendentes&period=today');
-            return;
-        }
-        if (cardKey === 'enrollments') {
-            navigate('/reports?tab=funil');
             return;
         }
         if (cardKey === 'today') {
             if (dashboardWeekOffset !== 0) {
                 setDashboardWeekOffset(0);
             }
+            if (isDashboardMobile) {
+                setMobileWeekExpandSignal((n) => n + 1);
+            }
             scrollToWeekSection();
             return;
         }
         setListModalType(cardKey);
+    };
+
+    const recepcaoHubTabs = useMemo(
+        () => buildRecepcaoHubTabItems({ followUpCount: followUps.length }),
+        [followUps.length]
+    );
+
+    const handleRecepcaoHubTabChange = (tabId) => {
+        const next = new URLSearchParams(searchParams);
+        if (tabId === RECEPCAO_TAB_EXPERIMENTAIS) {
+            next.delete('tab');
+            next.delete('section');
+        } else {
+            next.set('tab', tabId);
+            if (tabId !== RECEPCAO_TAB_CATRACA) next.delete('section');
+        }
+        setSearchParams(next, { replace: true });
+    };
+
+    const setCatracaHistorico = (historico) => {
+        const next = new URLSearchParams(searchParams);
+        next.set('tab', RECEPCAO_TAB_CATRACA);
+        if (historico) next.set('section', 'historico');
+        else next.delete('section');
+        setSearchParams(next, { replace: true });
     };
 
     const academyDisplayName = useMemo(() => {
@@ -537,8 +570,6 @@ const Dashboard = () => {
     }, [dashWaName, academyWa.name, academyList, academyId]);
 
     const weeklyEnrollmentsCount = useMemo(() => countWeeklyEnrollments(students), [students]);
-
-    const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
 
     const dayPriority = useMemo(
         () =>
@@ -592,15 +623,7 @@ const Dashboard = () => {
     const showWeekAgendaPanel = !isZeroState;
 
     const heroStats = useMemo(() => {
-        const followUpsAwaitingContact = followUpsNeedingContact(followUps);
-        const followupUrgent =
-            followupTemperatureCounts.cooling + followupTemperatureCounts.critical;
         const todayFootnote = buildTodayKpiFootnote(todayScheduled.length);
-        const enrollmentFootnote = buildEnrollmentKpiFootnote(monthEnrollmentMetrics);
-        const followupFootnote = buildFollowupKpiFootnote(
-            followUpsAwaitingContact.length,
-            followupUrgent
-        );
         const tasksFootnote = buildTasksKpiFootnote(pendingTasksToday.length);
 
         return [
@@ -613,44 +636,15 @@ const Dashboard = () => {
                 ...todayFootnote,
             },
             {
-                key: 'enrollments',
-                label: 'Matrículas no mês',
-                count: monthEnrollmentMetrics.enrolledInMonth,
-                tone: monthEnrollmentMetrics.enrolledInMonth > 0 ? 'success' : 'muted',
-                icon: <Users {...HERO_KPI_ICON_PROPS} aria-hidden />,
-                ...enrollmentFootnote,
-            },
-            {
-                key: 'followup',
-                label: followupKpiLabel(),
-                count: followUpsAwaitingContact.length,
-                tone:
-                    followupTemperatureCounts.critical > 0
-                        ? 'attention'
-                        : followUpsAwaitingContact.length > 0
-                          ? 'default'
-                          : 'success',
-                icon: <MessageCircle {...HERO_KPI_ICON_PROPS} aria-hidden />,
-                ...followupFootnote,
-            },
-            {
                 key: 'tasks',
-                label: 'Tarefas',
+                label: 'Tarefas hoje',
                 count: pendingTasksToday.length,
                 tone: pendingTasksToday.length > 0 ? 'attention' : 'muted',
                 icon: <CheckSquare {...HERO_KPI_ICON_PROPS} aria-hidden />,
                 ...tasksFootnote,
             },
         ];
-    }, [
-        trialSeriesPlural,
-        todayScheduled.length,
-        monthEnrollmentMetrics,
-        followUps,
-        pendingTasksToday.length,
-        followupTemperatureCounts.cooling,
-        followupTemperatureCounts.critical,
-    ]);
+    }, [trialSeriesPlural, todayScheduled.length, pendingTasksToday.length]);
 
     const modalListItems =
         listModalType === 'today'
@@ -1055,11 +1049,11 @@ const Dashboard = () => {
             <div className="reception-agenda-inner reception-agenda-inner--wide">
             <PageHeader
                 className="reception-page-header reception-dashboard-page-header"
-                title="Hoje"
+                title="Recepção"
                 subtitle={receptionSubtitle}
                 actions={
                     <>
-                        {controlIdCfg.enabled && (
+                        {controlIdCfg.enabled && isCatracaTab && (
                             <button
                                 type="button"
                                 className="btn-secondary reception-gate-release-btn"
@@ -1091,6 +1085,25 @@ const Dashboard = () => {
                 />
             )}
 
+            <HubTabBar
+                tabs={recepcaoHubTabs}
+                activeId={hubTab}
+                onChange={handleRecepcaoHubTabChange}
+                ariaLabel="Recepção"
+                fullWidth
+                className="mb-3"
+            />
+
+            {hubTab === RECEPCAO_TAB_CATRACA ? (
+                <RecepcaoCatracaTab
+                    showHistorico={catracaShowHistorico}
+                    onShowLive={() => setCatracaHistorico(false)}
+                    onShowHistorico={() => setCatracaHistorico(true)}
+                />
+            ) : null}
+
+            {hubTab === RECEPCAO_TAB_EXPERIMENTAIS ? (
+            <>
             <section
                 className={`dashboard-day-hero dashboard-day-hero--${heroPeriod} animate-in`}
                 style={{ animationDelay: '0.04s' }}
@@ -1150,7 +1163,7 @@ const Dashboard = () => {
                 <div className="dashboard-day-hero__metrics" aria-label="Indicadores do dia">
                     <div className="dashboard-day-hero__stats" role="list">
                         {loading ? (
-                            <SkeletonCard variant="hero-kpi" count={4} className="dashboard-day-hero__skeletons" />
+                            <SkeletonCard variant="hero-kpi" count={2} className="dashboard-day-hero__skeletons" />
                         ) : (
                             heroStats.map((stat) => (
                                 <div key={stat.key} role="listitem" className="dashboard-day-hero__stat-cell">
@@ -1209,6 +1222,8 @@ const Dashboard = () => {
                     trialSeriesPlural={trialSeriesPlural}
                     agendaWeekLeads={agendaWeekLeads}
                     visibleWeekCount={visibleWeekAgendaCount}
+                    todayCount={todayScheduled.length}
+                    expandWeekSignal={mobileWeekExpandSignal}
                 />
             ) : null}
 
@@ -1352,6 +1367,8 @@ const Dashboard = () => {
             ) : null}
             </div>
             </div>
+            </>
+            ) : null}
 
             <ModalShell
                 open={Boolean(listModalType)}

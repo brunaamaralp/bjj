@@ -1,56 +1,67 @@
 import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import HubTabBar from '../components/shared/HubTabBar.jsx';
-import { resolveHubTab } from '../lib/hubTabs.js';
 import { useLeadStore } from '../store/useLeadStore';
+import {
+  INTEGRACOES_DEFAULT_SECTION,
+  INTEGRACOES_SETTINGS_ITEMS,
+  INTEGRACOES_SETTINGS_SECTIONS,
+  isIntegracoesSettingsSection,
+  resolveIntegracoesNavState,
+} from '../lib/integracoesSettingsSections.js';
 import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import ContractsAutentiqueSection from '../components/academy/ContractsAutentiqueSection.jsx';
+import AcademyTabSettingsLayout from '../components/academy/settings/AcademyTabSettingsLayout.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
-
-const TABS = [
-  { id: 'catraca', label: 'Catraca' },
-  { id: 'autentique', label: 'Autentique' },
-];
-
-const ALLOWED = new Set(TABS.map((t) => t.id));
+import '../components/finance/finance.css';
 
 export default function Integracoes() {
   const academyId = useLeadStore((s) => s.academyId);
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, 'catraca');
+  const rawTab = searchParams.get('tab');
+  const navState = resolveIntegracoesNavState(rawTab);
+  const activeTab = navState.section;
+  const sectionMeta = navState.meta;
 
   useEffect(() => {
-    const t = String(searchParams.get('tab') || '').trim().toLowerCase();
-    if (!ALLOWED.has(t)) {
-      setSearchParams({ tab: activeTab }, { replace: true });
+    const resolved = isIntegracoesSettingsSection(rawTab);
+    const target = resolved || INTEGRACOES_DEFAULT_SECTION;
+    if (String(rawTab || '').trim().toLowerCase() !== target) {
+      setSearchParams({ tab: target }, { replace: true });
     }
-  }, [activeTab, searchParams, setSearchParams]);
+  }, [rawTab, setSearchParams]);
 
   const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
 
+  let sectionBody = null;
+  if (!academyId) {
+    sectionBody = (
+      <p className="text-small text-muted">Selecione uma academia para configurar integrações.</p>
+    );
+  } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.CATRACA) {
+    sectionBody = <ControlIdCatracaSection embeddedInLayout academyId={academyId} />;
+  } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.AUTENTIQUE) {
+    sectionBody = <ContractsAutentiqueSection embeddedInLayout academyId={academyId} />;
+  }
+
   return (
-    <div className="container navi-hub-page">
+    <div className="container navi-hub-page integracoes-hub-page">
       <PageHeader
         title="Integrações"
         subtitle="Conecte catraca Control iD e assinatura digital Autentique."
       />
 
-      <HubTabBar tabs={TABS} activeId={activeTab} onChange={setTab} ariaLabel="Integrações" fullWidth />
-
-      <div className="mt-3 animate-in">
-        {!academyId ? (
-          <p className="text-small text-muted">Selecione uma academia para configurar integrações.</p>
-        ) : null}
-        {academyId && activeTab === 'catraca' ? <ControlIdCatracaSection academyId={academyId} /> : null}
-        {academyId && activeTab === 'autentique' ? (
-          <section className="empresa-section mt-2">
-            <p className="text-small text-muted mb-3" style={{ lineHeight: 1.45 }}>
-              Serviços opcionais que exigem configuração fora do Nave.
-            </p>
-            <ContractsAutentiqueSection academyId={academyId} />
-          </section>
-        ) : null}
-      </div>
+      <section className="integracoes-settings-section animate-in mt-3">
+        <AcademyTabSettingsLayout
+          navLabel="Integrações"
+          items={INTEGRACOES_SETTINGS_ITEMS}
+          activeId={activeTab}
+          onSelect={setTab}
+          title={sectionMeta?.panelTitle}
+          subtitle={sectionMeta?.hint}
+        >
+          {sectionBody}
+        </AcademyTabSettingsLayout>
+      </section>
     </div>
   );
 }

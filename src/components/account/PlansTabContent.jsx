@@ -18,7 +18,7 @@ import SubscriptionActionsPanel from './billing/SubscriptionActionsPanel.jsx';
 const PLAN_ICONS = { starter: Zap, studio: Building2, pro: Rocket };
 const PLAN_ORDER = ['starter', 'studio', 'pro'];
 
-export default function PlansTabContent({ user }) {
+export default function PlansTabContent({ embeddedInLayout = false, user }) {
   const navigate = useNavigate();
   const billingLive = isBillingLive();
   const academyId = useLeadStore((s) => s.academyId);
@@ -145,10 +145,12 @@ export default function PlansTabContent({ user }) {
 
   return (
     <div className="billing-portal">
-      <p className="navi-subtitle" style={{ marginTop: 0, marginBottom: 20 }}>
-        Assinatura do Nave — pague com PIX, boleto ou cartão via Asaas. {trialMarketing.plansFree} em qualquer plano do
-        sistema.
-      </p>
+      {!embeddedInLayout ? (
+        <p className="navi-subtitle" style={{ marginTop: 0, marginBottom: 20 }}>
+          Assinatura do Nave — pague com PIX, boleto ou cartão via Asaas. {trialMarketing.plansFree} em qualquer plano do
+          sistema.
+        </p>
+      ) : null}
 
       {!billingLive && (
         <p

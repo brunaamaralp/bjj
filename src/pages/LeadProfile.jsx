@@ -304,7 +304,7 @@ const LeadProfile = () => {
 
     const profileBreadcrumb = useMemo(() => {
         if (profileFrom === LEAD_PROFILE_FROM_DASHBOARD) {
-            return { parentLabel: 'Hoje', parentTo: '/', restorePipeline: false };
+            return { parentLabel: 'Recepção', parentTo: '/', restorePipeline: false };
         }
         if (profileFrom === LEAD_PROFILE_FROM_PIPELINE) {
             return { parentLabel: pipelineLabel, parentTo: '/pipeline', restorePipeline: true };

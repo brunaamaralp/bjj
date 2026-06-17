@@ -108,6 +108,27 @@ describe('fetchTasks serialização', () => {
     expect(useTaskStore.getState().loading).toBe(false);
     expect(useTaskStore.getState().tasks.map((t) => t.id)).toEqual(['all-1']);
   });
+
+  it('fetch silencioso não grava erro global (ex.: Dashboard)', async () => {
+    fetch.mockRejectedValue(new Error('HTTP 503'));
+
+    await useTaskStore.getState().fetchTasks('acad-a', {
+      silent: true,
+      filters: { status: 'pending' },
+    });
+
+    expect(useTaskStore.getState().error).toBeNull();
+  });
+
+  it('fetch com erro expõe mensagem amigável', async () => {
+    fetch.mockRejectedValue(new Error('HTTP 503'));
+
+    await useTaskStore.getState().fetchTasks('acad-a', {
+      filters: serverTaskFilters({ status: 'all' }),
+    });
+
+    expect(useTaskStore.getState().error).toBeTruthy();
+  });
 });
 
 describe('notificationTasks slice', () => {

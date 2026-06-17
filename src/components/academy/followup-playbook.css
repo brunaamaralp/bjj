@@ -140,3 +140,38 @@
   margin-top: 8px;
   line-height: 1.5;
 }
+
+@media (max-width: 640px) {
+  .followup-playbook-section__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .followup-playbook-section__toggle {
+    white-space: normal;
+  }
+
+  .followup-playbook-step__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .followup-playbook-step__order {
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+
+  .followup-playbook-step__offset {
+    width: 100%;
+  }
+
+  .followup-playbook-section__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .followup-playbook-section__actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

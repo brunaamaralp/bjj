@@ -236,7 +236,7 @@ export const useTaskStore = create((set, get) => ({
       set({
         loading: false,
         loadingMore: false,
-        error: friendlyError(e, 'load'),
+        ...(opts.silent ? {} : { error: friendlyError(e, 'load') }),
       });
     }
   },

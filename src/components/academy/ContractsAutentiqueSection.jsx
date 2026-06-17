@@ -12,7 +12,7 @@ const WEBHOOK_URL =
 const AUTENTIQUE_HELP_URL = 'https://ajuda.autentique.com.br/';
 const AUTENTIQUE_TOKEN_HELP_URL = 'https://app.autentique.com.br/configuracoes/integracoes';
 
-export default function ContractsAutentiqueSection({ academyId }) {
+export default function ContractsAutentiqueSection({ embeddedInLayout = false, academyId }) {
   const addToast = useUiStore((s) => s.addToast);
   const [copied, setCopied] = useState(false);
 
@@ -98,10 +98,12 @@ export default function ContractsAutentiqueSection({ academyId }) {
   return (
     <>
       <div className="card" style={{ padding: 16 }}>
-        <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
-          <FileSignature size={18} strokeWidth={1.75} color="var(--v500)" aria-hidden />
-          <strong style={{ fontSize: 15 }}>Contratos digitais (Autentique)</strong>
-        </div>
+        {!embeddedInLayout ? (
+          <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+            <FileSignature size={18} strokeWidth={1.75} color="var(--v500)" aria-hidden />
+            <strong style={{ fontSize: 15 }}>Contratos digitais (Autentique)</strong>
+          </div>
+        ) : null}
         <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
           Quando um contrato é assinado ou atualizado no Autentique, o Nave recebe a notificação automaticamente
           pelo webhook e atualiza o status em Alunos → Contratos.
@@ -153,18 +155,22 @@ export default function ContractsAutentiqueSection({ academyId }) {
         </a>
       </div>
 
-      <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
+      <section className="empresa-section animate-in" style={{ marginTop: embeddedInLayout ? 12 : 16 }}>
         <div className="card" style={{ padding: 16, border: '1px solid var(--border-light)' }}>
-          <h3
-            className="navi-section-heading"
-            style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
-          >
-            <FileSignature size={18} color="var(--v500)" aria-hidden />
-            Conta Autentique
-          </h3>
-          <p className="text-small text-muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
-            Token e e-mail da conta usados para enviar e assinar contratos digitais desta academia.
-          </p>
+          {!embeddedInLayout ? (
+            <>
+              <h3
+                className="navi-section-heading"
+                style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <FileSignature size={18} color="var(--v500)" aria-hidden />
+                Conta Autentique
+              </h3>
+              <p className="text-small text-muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+                Token e e-mail da conta usados para enviar e assinar contratos digitais desta academia.
+              </p>
+            </>
+          ) : null}
 
           {statusPhase === 'loading' ? (
             <p className="text-small text-muted" style={{ margin: 0, lineHeight: 1.45 }}>

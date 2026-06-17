@@ -47,6 +47,7 @@ function emptyStep(offset = 0) {
 }
 
 export default function FollowupPlaybookSection({
+  embeddedInLayout = false,
   academyId,
   academySettings,
   settingsLoading = false,
@@ -289,24 +290,37 @@ export default function FollowupPlaybookSection({
   };
 
   return (
-    <section className="empresa-section animate-in followup-playbook-section" style={{ marginTop: 16 }}>
+    <section
+      className="empresa-section animate-in followup-playbook-section"
+      style={{ marginTop: embeddedInLayout ? 0 : 16 }}
+    >
       <div className="card" style={{ padding: 16 }}>
         <div className="followup-playbook-section__head">
-          <div>
-            <h3 className="navi-section-heading" style={{ margin: 0 }}>
-              Acompanhamento após a experimental
-            </h3>
-            <p className="text-small text-muted" style={{ marginTop: 6 }}>
-              Define o que a recepção deve sugerir para cada lead depois da aula experimental — na tela{' '}
-              <strong>Hoje</strong>, em <strong>Retornos pendentes</strong>. Cada etapa vira a próxima ação
-              sugerida na lista.
-            </p>
-            <p className="text-small text-muted followup-playbook-reception-note">
-              A etapa do dia seguinte (mensagem de retorno) pode ser enviada automaticamente pela automação{' '}
-              <strong>Retorno no dia seguinte (compareceu)</strong>, em Configurações → Automações — desde que
-              ainda não tenha havido contato com o lead.
-            </p>
-          </div>
+          {!embeddedInLayout ? (
+            <div>
+              <h3 className="navi-section-heading" style={{ margin: 0 }}>
+                Acompanhamento após a experimental
+              </h3>
+              <p className="text-small text-muted" style={{ marginTop: 6 }}>
+                Define o que a recepção deve sugerir para cada lead depois da aula experimental — na tela{' '}
+                <strong>Hoje</strong>, em <strong>Retornos pendentes</strong>. Cada etapa vira a próxima ação
+                sugerida na lista.
+              </p>
+              <p className="text-small text-muted followup-playbook-reception-note">
+                A etapa do dia seguinte (mensagem de retorno) pode ser enviada automaticamente pela automação{' '}
+                <strong>Retorno no dia seguinte (compareceu)</strong>, em Configurações → Automações — desde que
+                ainda não tenha havido contato com o lead.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-small text-muted followup-playbook-reception-note" style={{ margin: 0 }}>
+                A etapa do dia seguinte (mensagem de retorno) pode ser enviada automaticamente pela automação{' '}
+                <strong>Retorno no dia seguinte (compareceu)</strong>, em Mensagens do funil — desde que ainda não
+                tenha havido contato com o lead.
+              </p>
+            </div>
+          )}
           <label className="followup-playbook-section__toggle text-small">
             <input
               type="checkbox"

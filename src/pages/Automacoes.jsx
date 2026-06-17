@@ -1,82 +1,45 @@
-import React, { useCallback, useEffect, Suspense, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, Suspense, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { teams } from '../lib/appwrite';
-import HubTabBar from '../components/shared/HubTabBar.jsx';
-import { resolveHubTab } from '../lib/hubTabs.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import AcademyTabSettingsLayout from '../components/academy/settings/AcademyTabSettingsLayout.jsx';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
-import { AUTOMACOES_GATILHOS_TAB_ID, AUTOMACOES_TABS, normalizeAutomacoesTab } from '../lib/automacoesHub.js';
+import { AUTOMACOES_GATILHOS_TAB_ID, normalizeAutomacoesTab } from '../lib/automacoesHub.js';
 import { AUTOMACOES_COPY } from '../lib/automacoesCopy.js';
-import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import {
-  AUTOMACOES_WIZARD_STEPS,
-  readAutomacoesModelosAck,
-  resolveWizardSurface,
-  resolveWizardPrimaryDisabled,
-  tabForWizardStep,
-} from '../lib/automacoesSetupWizard.js';
-import { useAutomacoesSetupWizard } from '../hooks/useAutomacoesSetupWizard.js';
-import AutomacoesSetupWizard from '../components/academy/AutomacoesSetupWizard.jsx';
-import AutomacoesSetupWizardComplete from '../components/academy/AutomacoesSetupWizardComplete.jsx';
+  AUTOMACOES_SETTINGS_NAV_ITEMS,
+  getAutomacoesDefaultSection,
+  parseAutomacoesSettingsNavId,
+  resolveAutomacoesNavState,
+  resolveAutomacoesSection,
+} from '../lib/automacoesSettingsSections.js';
+import { readAutomacoesModelosAck } from '../lib/automacoesSetupWizard.js';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
+import '../components/finance/finance.css';
 
 const AutomacoesModelosTab = lazyWithRetry(() => import('./AutomacoesModelosTab.jsx'));
 const AutomacoesConfigTab = lazyWithRetry(() => import('./AutomacoesConfigTab.jsx'));
 
-const TABS = AUTOMACOES_TABS;
-const ALLOWED = new Set(TABS.map((t) => t.id));
 const MIGRATION_PROCESSOS_KEY = 'navi_migrated_processos_v1';
 
 export default function Automacoes() {
   const navigate = useNavigate();
   const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
-  const userId = useLeadStore((s) => s.userId);
-  const academyList = useLeadStore((s) => s.academyList);
-  const academyDoc = useMemo(
-    () => (academyList || []).find((a) => a.id === academyId) || null,
-    [academyList, academyId]
-  );
-  const [membership, setMembership] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [modelosAcknowledged, setModelosAcknowledged] = useState(() => readAutomacoesModelosAck(academyId));
-  const wizard = useAutomacoesSetupWizard({ modelosAcknowledged });
-  const forceWizard = searchParams.get('wizard') === '1';
-  const tabParam = String(searchParams.get('tab') || '').trim().toLowerCase();
-  const hasExplicitTab = ALLOWED.has(tabParam) || tabParam === 'configuracoes';
-  const canEdit = canEditWhatsappTemplates(userId, academyDoc, membership);
-  const fallbackTab =
-    !wizard.loading && wizard.show && canEdit ? tabForWizardStep(wizard.currentStepId) : 'modelos';
-  const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, fallbackTab);
 
-  const wizardSurface = useMemo(() => {
-    if (!canEdit) return 'hidden';
-    if (wizard.loading || wizard.justCompleted || !wizard.show || !wizard.currentStep) return 'hidden';
-    return resolveWizardSurface({
-      currentStep: wizard.currentStep,
-      activeTab,
-      forceWizard,
-      wizardShow: wizard.show,
-    });
-  }, [
-    canEdit,
-    wizard.loading,
-    wizard.justCompleted,
-    wizard.show,
-    wizard.currentStep,
-    activeTab,
-    forceWizard,
-  ]);
-
-  const setupGuideActive = wizardSurface === 'full';
+  const normalizedTab = normalizeAutomacoesTab(searchParams.get('tab') || 'modelos');
+  const tabForState = normalizedTab.kind === 'tab' ? normalizedTab.tab : 'modelos';
+  const navState = resolveAutomacoesNavState(tabForState, searchParams.get('section'));
+  const { tab: activeTab, section: activeSection, navId: activeNavId, meta: sectionMeta } = navState;
 
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
   const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
   const [configGuard, setConfigGuard] = useState({ isDirty: false, isSaving: false });
-  const [pendingTab, setPendingTab] = useState(null);
+  const [pendingNavId, setPendingNavId] = useState(null);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   const handleConfigGuardChange = useCallback((next) => {
@@ -127,147 +90,102 @@ export default function Automacoes() {
       return;
     }
 
+    const tab = normalized.tab;
+    const section =
+      resolveAutomacoesSection(tab, searchParams.get('section')) || getAutomacoesDefaultSection(tab);
+
     if (t && normalized.tab !== t) {
-      setSearchParams({ tab: normalized.tab }, { replace: true });
+      setSearchParams({ tab, section }, { replace: true });
       return;
     }
 
     if (!t) {
-      setSearchParams({ tab: normalized.tab }, { replace: true });
+      setSearchParams({ tab, section }, { replace: true });
+      return;
+    }
+
+    if (searchParams.get('section') !== section) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', tab);
+          next.set('section', section);
+          return next;
+        },
+        { replace: true }
+      );
     }
   }, [addToast, navigate, searchParams, setSearchParams]);
 
-  useEffect(() => {
-    if (!canEdit || wizard.loading || !wizard.show || hasExplicitTab) return;
-    const targetTab = tabForWizardStep(wizard.currentStepId);
-    if (activeTab !== targetTab) {
-      setSearchParams({ tab: targetTab }, { replace: true });
-    }
-  }, [
-    canEdit,
-    wizard.loading,
-    wizard.show,
-    wizard.currentStepId,
-    hasExplicitTab,
-    activeTab,
-    setSearchParams,
-  ]);
+  const applyNav = useCallback(
+    (navId) => {
+      const { tab, section } = parseAutomacoesSettingsNavId(navId);
+      setSearchParams({ tab, section }, { replace: false });
+    },
+    [setSearchParams]
+  );
 
-  const applyTab = (id) => setSearchParams({ tab: id }, { replace: false });
-
-  const requestTab = (id) => {
-    if (id === activeTab) return;
-    const leavingGatilhos = activeTab === AUTOMACOES_GATILHOS_TAB_ID && id !== AUTOMACOES_GATILHOS_TAB_ID;
+  const requestNav = (navId) => {
+    if (navId === activeNavId) return;
+    const { tab } = parseAutomacoesSettingsNavId(navId);
+    const leavingGatilhos = activeTab === AUTOMACOES_GATILHOS_TAB_ID && tab !== AUTOMACOES_GATILHOS_TAB_ID;
     if (leavingGatilhos && (configGuard.isDirty || configGuard.isSaving)) {
-      setPendingTab(id);
+      setPendingNavId(navId);
       setLeaveConfirmOpen(true);
       return;
     }
-    applyTab(id);
-  };
-
-  const handleWizardStepAction = (stepId) => {
-    const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === stepId);
-    if (!step) return;
-    if (step.path) {
-      navigate(step.path);
-      return;
-    }
-    if (step.tab) requestTab(step.tab);
+    applyNav(navId);
   };
 
   const confirmLeaveConfig = () => {
-    const next = pendingTab;
+    const next = pendingNavId;
     setLeaveConfirmOpen(false);
-    setPendingTab(null);
-    if (next) applyTab(next);
+    setPendingNavId(null);
+    if (next) applyNav(next);
   };
 
   const leaveConfirmDescription = configGuard.isSaving
     ? 'Uma alteração ainda está sendo salva. Se sair agora, a configuração pode ficar inconsistente.'
     : 'A última alteração não foi salva. Se sair agora, ela será descartada.';
 
-  const handleReopenGuide = () => {
-    wizard.reopenGuide();
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('wizard', '1');
-        if (!ALLOWED.has(String(next.get('tab') || '').trim().toLowerCase())) {
-          next.set('tab', tabForWizardStep(wizard.currentStepId) || 'modelos');
-        }
-        return next;
-      },
-      { replace: false }
-    );
-  };
-
-  const showModelosTabIntro = activeTab === 'modelos' && wizardSurface !== 'full';
-  const showGatilhosTabIntro = activeTab === AUTOMACOES_GATILHOS_TAB_ID && wizardSurface !== 'full';
-
-  const wizardPrimaryCtaDisabled =
-    wizard.currentStep?.id === 'modelos' &&
-    resolveWizardPrimaryDisabled(wizard.currentStep, {
-      templatesMap: wizard.templatesMap,
-      modelosAcknowledged,
-    });
-
   return (
-    <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
-      <PageHeader
-        title={AUTOMACOES_COPY.hub.title}
-        subtitle={AUTOMACOES_COPY.hub.subtitle}
-        meta={
-          canEdit && wizard.canReopenGuide ? (
-            <button type="button" className="edit-link automacoes-reopen-guide" onClick={handleReopenGuide}>
-              Ver guia de configuração
-            </button>
-          ) : null
-        }
-      />
-      <HubTabBar tabs={TABS} activeId={activeTab} onChange={requestTab} ariaLabel="Mensagens do funil" fullWidth />
-      {canEdit && wizard.justCompleted ? <AutomacoesSetupWizardComplete /> : null}
-      {canEdit && !wizard.justCompleted && wizardSurface === 'full' ? (
-        <AutomacoesSetupWizard
-          className="automacoes-setup-wizard--below-tabs"
-          steps={wizard.steps}
-          currentStep={wizard.currentStep}
-          activeTab={activeTab}
-          doneCount={wizard.doneCount}
-          totalSteps={wizard.totalSteps}
-          onDismiss={wizard.dismiss}
-          onStepAction={handleWizardStepAction}
-          primaryCtaDisabled={wizardPrimaryCtaDisabled}
-          primaryCtaBlockedHint={
-            wizardPrimaryCtaDisabled ? AUTOMACOES_COPY.wizard.modelos.ctaBlockedHint : ''
-          }
-        />
-      ) : null}
-      <div className="mt-3 animate-in">
-        <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
-          {visitedTabs.has('modelos') ? (
-            <div hidden={activeTab !== 'modelos'} aria-hidden={activeTab !== 'modelos'}>
-              <AutomacoesModelosTab
-                showTabIntro={showModelosTabIntro}
-                modelosAcknowledged={modelosAcknowledged}
-                onModelosAckChange={handleModelosAckChange}
-              />
-            </div>
-          ) : null}
-          {visitedTabs.has(AUTOMACOES_GATILHOS_TAB_ID) ? (
-            <div
-              hidden={activeTab !== AUTOMACOES_GATILHOS_TAB_ID}
-              aria-hidden={activeTab !== AUTOMACOES_GATILHOS_TAB_ID}
-            >
-              <AutomacoesConfigTab
-                onGuardStateChange={handleConfigGuardChange}
-                setupGuideActive={setupGuideActive}
-                showTabIntro={showGatilhosTabIntro}
-              />
-            </div>
-          ) : null}
-        </Suspense>
-      </div>
+    <div className="container navi-hub-page automacoes-hub-page" style={{ paddingBottom: 30 }}>
+      <PageHeader title={AUTOMACOES_COPY.hub.title} subtitle={AUTOMACOES_COPY.hub.subtitle} />
+      <section className="automacoes-settings-section animate-in mt-3">
+        <AcademyTabSettingsLayout
+          navLabel="Mensagens do funil"
+          items={AUTOMACOES_SETTINGS_NAV_ITEMS}
+          activeId={activeNavId}
+          onSelect={requestNav}
+          title={sectionMeta?.panelTitle}
+          subtitle={sectionMeta?.panelHint}
+        >
+          <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
+            {visitedTabs.has('modelos') ? (
+              <div hidden={activeTab !== 'modelos'} aria-hidden={activeTab !== 'modelos'}>
+                <AutomacoesModelosTab
+                  embeddedInLayout
+                  activeGroupId={activeTab === 'modelos' ? activeSection : null}
+                  modelosAcknowledged={modelosAcknowledged}
+                  onModelosAckChange={handleModelosAckChange}
+                />
+              </div>
+            ) : null}
+            {visitedTabs.has(AUTOMACOES_GATILHOS_TAB_ID) ? (
+              <div
+                hidden={activeTab !== AUTOMACOES_GATILHOS_TAB_ID}
+                aria-hidden={activeTab !== AUTOMACOES_GATILHOS_TAB_ID}
+              >
+                <AutomacoesConfigTab
+                  embeddedInLayout
+                  activeGroupSection={activeTab === AUTOMACOES_GATILHOS_TAB_ID ? activeSection : null}
+                  onGuardStateChange={handleConfigGuardChange}
+                />
+              </div>
+            ) : null}
+          </Suspense>
+        </AcademyTabSettingsLayout>
+      </section>
 
       <ConfirmDialog
         open={leaveConfirmOpen}
@@ -280,7 +198,7 @@ export default function Automacoes() {
         onConfirm={confirmLeaveConfig}
         onClose={() => {
           setLeaveConfirmOpen(false);
-          setPendingTab(null);
+          setPendingNavId(null);
         }}
       />
     </div>

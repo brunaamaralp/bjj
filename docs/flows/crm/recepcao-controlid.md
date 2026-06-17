@@ -49,7 +49,7 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/integracoes?tab=catraca` | `ControlIdCatracaSection` | Ativar integração | Checkbox «Integração ativa» |
+| 1 | `/integracoes?tab=catraca` | `Integracoes` + `ControlIdCatracaSection` | Ativar integração | Sidebar Integrações; checkbox «Integração ativa» |
 | 2 | Catraca | Testar conexão | IP, porta, usuário, senha | Lista de portais; toast sucesso |
 | 3 | Catraca | Salvar | `saveControlIdConfig` | Config persistida por academia |
 | 4 | `/recepcao` | `Recepcao` | Abrir recepção | Aba default **Ao vivo** |

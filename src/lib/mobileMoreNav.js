@@ -4,6 +4,7 @@ import {
   isLeadProfilePath,
   matchNavTarget,
   NAV_ACCORDION_IDS,
+  NOVO_LANCAMENTO_MENU_ACTION,
 } from './naviMenu.js';
 
 function isFinanceiroHubPath(pathname) {
@@ -12,7 +13,7 @@ function isFinanceiroHubPath(pathname) {
 }
 
 /**
- * Rotas cobertas pelos 3 slots fixos da bottom nav (Hoje, Conversas, Alunos).
+ * Rotas cobertas pelos 3 slots fixos da bottom nav (Recepção, Conversas, Alunos).
  */
 export function isBottomNavPrimaryRoute(pathname) {
   const p = String(pathname || '');
@@ -23,7 +24,7 @@ export function isBottomNavPrimaryRoute(pathname) {
   return false;
 }
 
-/** Slot "Mais" ativo quando a rota atual não é Hoje, Conversas nem Alunos. */
+/** Slot "Mais" ativo quando a rota atual não é Recepção, Conversas nem Alunos. */
 export function isBottomNavMaisActive(pathname) {
   return !isBottomNavPrimaryRoute(pathname);
 }
@@ -59,12 +60,15 @@ export function buildMobileMoreItems({
 
   const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
   if (financeiro) {
-    add({
-      id: 'financeiro',
-      label: financeiro.label,
-      to: financeiro.defaultTo,
-      iconKey: financeiro.iconKey || 'financeiro',
-    });
+    for (const child of financeiro.children) {
+      add({
+        id: `financeiro-${child.id}`,
+        label: child.label,
+        to: child.to || financeiro.defaultTo,
+        iconKey: child.iconKey || 'financeiro',
+        action: child.action,
+      });
+    }
   }
 
   const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
@@ -77,13 +81,12 @@ export function buildMobileMoreItems({
     });
   }
 
-  const relatorios = loja?.children?.find((c) => c.id === 'relatorios');
-  if (relatorios) {
+  for (const rel of model.analise || []) {
     add({
       id: 'reports',
-      label: relatorios.label,
-      to: relatorios.to,
-      iconKey: relatorios.iconKey || 'relatorios',
+      label: rel.label,
+      to: rel.to,
+      iconKey: rel.iconKey || 'relatorios',
     });
   }
 
@@ -121,8 +124,14 @@ export function isMobileMoreItemActive(item, location) {
     return matchNavTarget('/pipeline', loc) || isLeadProfilePath(loc.pathname);
   }
   if (id === 'tarefas') return loc.pathname === '/tarefas';
-  if (id === 'financeiro') {
-    return isFinanceiroHubPath(loc.pathname) || loc.pathname === '/mensalidades';
+  if (id.startsWith('financeiro-')) {
+    if (item.action === NOVO_LANCAMENTO_MENU_ACTION) {
+      return (
+        isFinanceiroHubPath(loc.pathname) &&
+        new URLSearchParams(loc.search || '').get('new') === '1'
+      );
+    }
+    return matchNavTarget(item.to, loc) || (id === 'financeiro-a-receber' && loc.pathname === '/mensalidades');
   }
   if (id === 'loja') {
     return (

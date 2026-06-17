@@ -7,6 +7,7 @@ import {
     AUTOMATION_GROUP_HINTS,
     templateOptionsForAutomation,
 } from '../../lib/useAutomations.js';
+import { GATILHOS_SECTION_TO_GROUP_KEY } from '../../lib/automacoesSettingsSections.js';
 import { WHATSAPP_TEMPLATE_LABELS } from '../../../lib/whatsappTemplateDefaults.js';
 import {
     previewAutomationMessage,
@@ -221,7 +222,15 @@ function AutomationRow({
     );
 }
 
+const GATILHOS_GROUP_TITLES = {
+    captacao: 'Captação',
+    posMatricula: 'Pós-matrícula',
+    rotinas: 'Rotinas diárias',
+};
+
 const AutomacoesSection = ({
+    embeddedInLayout = false,
+    activeGroupSection = null,
     automationLabels,
     automationsConfig,
     setAutomationsConfig,
@@ -236,7 +245,6 @@ const AutomacoesSection = ({
     onPersistConfig,
     onRetrySave,
     previewLead,
-    setupGuideActive = false,
     showTabIntro = false,
 }) => {
     const applyConfigChange = (buildNext, { persist = false, successMessage } = {}) => {
@@ -249,13 +257,17 @@ const AutomacoesSection = ({
         });
     };
 
-    const renderGroup = (title, groupKey, keys) => (
+    const renderGroup = (title, groupKey, keys, { hideHeading = false } = {}) => (
         <section className="automacoes-group" aria-labelledby={`automacoes-group-${groupKey}`}>
-            <h4 id={`automacoes-group-${groupKey}`} className="automacoes-group-title">
-                {title}
-            </h4>
-            {AUTOMATION_GROUP_HINTS[groupKey] ? (
-                <p className="automacoes-group-hint">{AUTOMATION_GROUP_HINTS[groupKey]}</p>
+            {!hideHeading ? (
+                <>
+                    <h4 id={`automacoes-group-${groupKey}`} className="automacoes-group-title">
+                        {title}
+                    </h4>
+                    {AUTOMATION_GROUP_HINTS[groupKey] ? (
+                        <p className="automacoes-group-hint">{AUTOMATION_GROUP_HINTS[groupKey]}</p>
+                    ) : null}
+                </>
             ) : null}
             <div className="automacoes-trigger-list">
                 {keys.map((key) => {
@@ -320,13 +332,29 @@ const AutomacoesSection = ({
         </section>
     );
 
+    const activeGroupKey = activeGroupSection
+        ? GATILHOS_SECTION_TO_GROUP_KEY[activeGroupSection]
+        : null;
+    const groupsToRender = activeGroupKey
+        ? [[GATILHOS_GROUP_TITLES[activeGroupKey], activeGroupKey, AUTOMATION_GROUPS[activeGroupKey]]]
+        : [
+              ['Captação', 'captacao', AUTOMATION_GROUPS.captacao],
+              ['Pós-matrícula', 'posMatricula', AUTOMATION_GROUPS.posMatricula],
+              ['Rotinas diárias', 'rotinas', AUTOMATION_GROUPS.rotinas],
+          ];
+
     return (
-        <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
+        <section
+            className={`empresa-section animate-in${embeddedInLayout ? ' automacoes-section--embedded' : ''}`}
+            style={{ animationDelay: '0.05s' }}
+        >
             {showTabIntro ? <AutomacoesTabIntroBanner tabId="gatilhos" /> : null}
             {readiness?.zapsterPartial ? <AutomacoesZapsterOfflineBanner /> : null}
-            <h3 className="navi-section-heading" style={{ margin: '0 0 6px' }}>
-                Mensagens automáticas
-            </h3>
+            {!embeddedInLayout ? (
+                <h3 className="navi-section-heading" style={{ margin: '0 0 6px' }}>
+                    Mensagens automáticas
+                </h3>
+            ) : null}
             {canEdit ? (
                 <p className="navi-eyebrow automacoes-config-save-status" role="status" style={{ marginBottom: 12 }}>
                     {savingAutomations
@@ -342,7 +370,7 @@ const AutomacoesSection = ({
                     vinculados.
                 </p>
             ) : null}
-            {!setupGuideActive && !showTabIntro ? (
+            {!showTabIntro ? (
                 <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
                     Personalize os textos em{' '}
                     <Link to="/automacoes?tab=modelos" className="edit-link" style={{ fontWeight: 600 }}>
@@ -375,9 +403,9 @@ const AutomacoesSection = ({
                     onRetry={() => void onRetrySave?.()}
                 />
             ) : null}
-            {renderGroup('Captação', 'captacao', AUTOMATION_GROUPS.captacao)}
-            {renderGroup('Pós-matrícula', 'posMatricula', AUTOMATION_GROUPS.posMatricula)}
-            {renderGroup('Rotinas diárias', 'rotinas', AUTOMATION_GROUPS.rotinas)}
+            {groupsToRender.map(([title, groupKey, keys]) =>
+                renderGroup(title, groupKey, keys, { hideHeading: embeddedInLayout })
+            )}
         </section>
     );
 };

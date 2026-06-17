@@ -616,11 +616,92 @@
           text-align: center;
         }
         .reception-week-panel__title-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          width: 100%;
+          min-width: 0;
+        }
+        .reception-week-panel__refresh-btn {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
+          justify-content: center;
+          flex-shrink: 0;
+          min-width: 40px;
+          min-height: 40px;
+          margin-top: 2px;
+          padding: 0;
+          border: none;
+          border-radius: 8px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-heading);
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .reception-week-panel__refresh-btn:hover:not(:disabled) {
+          background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-secondary));
+          color: var(--color-primary);
+        }
+        .reception-week-panel__refresh-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .reception-week-panel--today-only .reception-week-embed {
+          overflow-x: visible;
+        }
+        .agenda-week-section__toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          width: 100%;
+          padding: 0;
+          margin: 0;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font: inherit;
+          text-align: left;
+          color: inherit;
+        }
+        .agenda-week-section__toggle:hover .reception-section-heading {
+          color: var(--petroleo);
+        }
+        .agenda-week-section__toggle-label {
+          flex: 1;
           min-width: 0;
+        }
+        .agenda-week-section__chevron {
+          flex-shrink: 0;
+          color: var(--ameixa);
+          transition: transform 0.2s ease;
+        }
+        .agenda-week-section__chevron--open {
+          transform: rotate(180deg);
+        }
+        .agenda-week-expand-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          width: 100%;
+          margin-top: 12px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+          background: color-mix(in srgb, var(--color-primary-surface) 55%, var(--color-content-bg));
+          color: var(--color-primary-dark);
+          font-size: 13px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .agenda-week-expand-btn:hover {
+          border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+          box-shadow: 0 4px 12px rgba(108, 71, 216, 0.1);
         }
         .reception-week-panel__title.navi-section-heading,
         .reception-week-panel__title {

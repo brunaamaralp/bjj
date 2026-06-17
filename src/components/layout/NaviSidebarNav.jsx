@@ -2,36 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { preloadInbox } from '../../lib/preloadRoutes.js';
 import {
-  LayoutGrid,
-  Kanban,
-  GraduationCap,
-  CheckSquare,
   Plus,
   PlusCircle,
-  MessageCircle,
-  Zap,
-  FileSignature,
-  Bot,
-  Users,
-  BarChart3,
-  Landmark,
-  ShoppingBag,
-  ArrowLeftRight,
-  Lock,
-  Calculator,
-  Receipt,
-  Package,
-  Boxes,
-  TrendingUp,
-  Scale,
-  SlidersHorizontal,
-  BookOpen,
   ChevronDown,
-  ShoppingCart,
-  DoorOpen,
+  MessageCircle,
 } from 'lucide-react';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 import { dispatchOpenNewLeadModal } from '../../lib/newLeadModal.js';
+import { getNavMenuIcon } from '../../lib/naviMenuIcons.js';
 import {
   buildSidebarNavModel,
   getAccordionIdForLocation,
@@ -45,38 +23,6 @@ import {
   NOVO_LANCAMENTO_MENU_ACTION,
   FINANCEIRO_NOVO_LANCAMENTO_PATH,
 } from '../../lib/naviMenu.js';
-
-const ICONS = {
-  inicio: LayoutGrid,
-  pipeline: Kanban,
-  students: GraduationCap,
-  tarefas: CheckSquare,
-  conversas: MessageCircle,
-  automacoes: Zap,
-  agente: Bot,
-  mensalidades: Users,
-  contratos: FileSignature,
-  caixa: Landmark,
-  financeiro: Landmark,
-  visaoGeralFinanceiro: LayoutGrid,
-  loja: ShoppingBag,
-  movimentacoes: ArrowLeftRight,
-  previsao: TrendingUp,
-  fechamento: Lock,
-  conciliacao: Scale,
-  extratoContabil: BookOpen,
-  configuracaoFinanceira: SlidersHorizontal,
-  contabilidade: Calculator,
-  vendas: Receipt,
-  novaVenda: ShoppingCart,
-  novoLancamento: PlusCircle,
-  produtos: Package,
-  estoque: Boxes,
-  relatorios: BarChart3,
-  reports: BarChart3,
-  catraca: DoorOpen,
-  presenca: DoorOpen,
-};
 
 function SidebarSection({ title, children, collapsed, footer = false, showDivider = false }) {
   const items = React.Children.toArray(children).filter(Boolean);
@@ -198,7 +144,7 @@ function SideNavSectionItems({ items, collapsed, sideLinkClass, location }) {
   return (
     <>
       {items.map((child, idx) => {
-        const Icon = ICONS[child.iconKey] || LayoutGrid;
+        const Icon = getNavMenuIcon(child.iconKey);
         const childActive = isAccordionChildActive(child, location);
         const prevGroup = idx > 0 ? items[idx - 1]?.group : null;
         const showGroup = child.group && child.group !== prevGroup;
@@ -505,7 +451,7 @@ export default function NaviSidebarNav({
             to={item.to}
             end={item.end}
             label={item.label}
-            Icon={ICONS[item.iconKey] || LayoutGrid}
+            Icon={getNavMenuIcon(item.iconKey)}
             collapsed={collapsed}
             className={sideLinkClass}
             onClick={
@@ -545,7 +491,7 @@ export default function NaviSidebarNav({
         ) : automacoesAccordion ? (
           <SideNavAccordion
             accordion={automacoesAccordion}
-            icon={ICONS.automacoes}
+            icon={getNavMenuIcon('automacoes')}
             collapsed={collapsed}
             expanded={expandedAccordionId === automacoesAccordion.id}
             onExpandExclusive={expandExclusive}
@@ -579,6 +525,17 @@ export default function NaviSidebarNav({
         <SidebarSection title="Vendas" collapsed={collapsed} showDivider>
           <SideNavSectionItems
             items={lojaAccordion.children}
+            collapsed={collapsed}
+            sideLinkClass={sideLinkClass}
+            location={location}
+          />
+        </SidebarSection>
+      ) : null}
+
+      {navModel.analise?.length ? (
+        <SidebarSection title="Análise" collapsed={collapsed} showDivider>
+          <SideNavSectionItems
+            items={navModel.analise}
             collapsed={collapsed}
             sideLinkClass={sideLinkClass}
             location={location}

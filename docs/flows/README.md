@@ -43,7 +43,7 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 
 | Fluxo | Arquivo | Status |
 |---|---|---|
-| Hoje — rotina diária | [crm/hoje-dashboard.md](crm/hoje-dashboard.md) | revisado (código) |
+| Recepção — mesa do dia | [crm/hoje-dashboard.md](crm/hoje-dashboard.md) | revisado (código) |
 | Funil — lead à matrícula | [crm/funil-lead-matricula.md](crm/funil-lead-matricula.md) | revisado (código) |
 | Alunos — perfil e presença | [crm/aluno-perfil-presenca.md](crm/aluno-perfil-presenca.md) | revisado (código) |
 | Tarefas — operação diária | [crm/tarefas-operacao.md](crm/tarefas-operacao.md) | revisado (código) |

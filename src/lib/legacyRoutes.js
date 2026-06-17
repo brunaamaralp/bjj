@@ -36,6 +36,8 @@ export const LEGACY_ROUTE_REDIRECTS = [
     preserveSearch: true,
     forceTab: 'mensalidades',
   },
+  { id: 'presenca', from: '/presenca', to: '/?tab=catraca&section=historico' },
+  { id: 'recepcao', from: '/recepcao', to: '/?tab=catraca', preserveSearch: true },
   {
     id: 'automacoes-agente',
     from: '/automacoes',

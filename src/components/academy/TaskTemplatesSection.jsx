@@ -29,7 +29,12 @@ const emptyItem = (order) => ({
   order,
 });
 
-export default function TaskTemplatesSection({ academyId, teamId = '', onTemplatesMetaChange }) {
+export default function TaskTemplatesSection({
+  embeddedInLayout = false,
+  academyId,
+  teamId = '',
+  onTemplatesMetaChange,
+}) {
   const addToast = useUiStore((s) => s.addToast);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -279,10 +284,12 @@ export default function TaskTemplatesSection({ academyId, teamId = '', onTemplat
 
   if (!configurado) {
     return (
-      <section className="empresa-section" style={{ marginTop: 8 }}>
-        <h3 className="navi-section-heading flex items-center gap-2" style={{ marginBottom: 12 }}>
-          <CheckSquare size={18} color="var(--v500)" /> Templates de tarefas
-        </h3>
+      <section className="empresa-section" style={{ marginTop: embeddedInLayout ? 0 : 8 }}>
+        {!embeddedInLayout ? (
+          <h3 className="navi-section-heading flex items-center gap-2" style={{ marginBottom: 12 }}>
+            <CheckSquare size={18} color="var(--v500)" /> Templates de tarefas
+          </h3>
+        ) : null}
         <EmptyState
           variant="compact"
           tone="dashed"
@@ -296,18 +303,23 @@ export default function TaskTemplatesSection({ academyId, teamId = '', onTemplat
   }
 
   return (
-    <section className="empresa-section" style={{ marginTop: 8 }}>
+    <section className="empresa-section" style={{ marginTop: embeddedInLayout ? 0 : 8 }}>
       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h3 className="navi-section-heading flex items-center gap-2" style={{ margin: 0 }}>
-            <CheckSquare size={18} color="var(--v500)" /> Templates de tarefas
-          </h3>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 560, lineHeight: 1.45 }}>
-            Processo de onboarding (gatilho <strong>Matrícula</strong>) e checklist de desligamento. Ao
-            matricular, o sistema cria automaticamente todas as tarefas com prazos em dias.
-          </p>
-        </div>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+        {!embeddedInLayout ? (
+          <div>
+            <h3 className="navi-section-heading flex items-center gap-2" style={{ margin: 0 }}>
+              <CheckSquare size={18} color="var(--v500)" /> Templates de tarefas
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 560, lineHeight: 1.45 }}>
+              Processo de onboarding (gatilho <strong>Matrícula</strong>) e checklist de desligamento. Ao
+              matricular, o sistema cria automaticamente todas as tarefas com prazos em dias.
+            </p>
+          </div>
+        ) : null}
+        <div
+          className="flex gap-2"
+          style={{ flexWrap: 'wrap', marginLeft: embeddedInLayout ? 'auto' : undefined }}
+        >
           <button type="button" className="btn-outline" onClick={() => void provisionDefaults()}>
             Restaurar padrões
           </button>

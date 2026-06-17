@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { resolveHubTab } from '../lib/hubTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -15,6 +15,7 @@ const TAB_LISTA = 'lista';
 const TAB_CONTRATOS = 'contratos';
 
 export default function Alunos() {
+  const navigate = useNavigate();
   const modules = useLeadStore((s) => s.modules);
   const financeOn = modules?.finance === true;
   const terms = useTerms();
@@ -29,6 +30,12 @@ export default function Alunos() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
   const activeTab = resolveHubTab(rawTab, allowedTabs, TAB_LISTA);
+
+  useEffect(() => {
+    if (searchParams.get('view') === 'presenca') {
+      navigate('/?tab=catraca&section=historico', { replace: true });
+    }
+  }, [navigate, searchParams]);
 
   useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();

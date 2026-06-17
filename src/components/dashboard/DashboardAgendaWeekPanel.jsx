@@ -1,9 +1,10 @@
-import React, { memo } from 'react';
-import { Calendar, RefreshCcw } from 'lucide-react';
+import React, { memo, useEffect, useState } from 'react';
+import { Calendar, ChevronDown, RefreshCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AgendaCalendarWeek, { formatWeekRangeLabel } from '../AgendaCalendarWeek.jsx';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import { LEAD_PROFILE_FROM_DASHBOARD } from '../../lib/pipelineSessionState.js';
+
 function DashboardAgendaWeekPanel({
   weekSectionRef,
   weekOffset,
@@ -19,64 +20,138 @@ function DashboardAgendaWeekPanel({
   trialSeriesPlural,
   agendaWeekLeads,
   visibleWeekCount,
+  todayCount = 0,
+  expandWeekSignal = 0,
 }) {
   const navigate = useNavigate();
+  const [weekExpanded, setWeekExpanded] = useState(() => !isDashboardMobile);
+
+  useEffect(() => {
+    if (!isDashboardMobile) {
+      setWeekExpanded(true);
+    }
+  }, [isDashboardMobile]);
+
+  useEffect(() => {
+    if (expandWeekSignal > 0 && isDashboardMobile) {
+      setWeekExpanded(true);
+    }
+  }, [expandWeekSignal, isDashboardMobile]);
+
+  const showWeekView = !isDashboardMobile || weekExpanded;
+  const badgeCount = showWeekView ? visibleWeekCount : todayCount;
+  const badgeTitle = showWeekView
+    ? `${trialSeriesPlural} na semana exibida`
+    : `${trialSeriesPlural} agendadas hoje`;
+
+  const handleCollapseWeek = () => {
+    if (weekOffset !== 0) onWeekOffsetChange(0);
+    setWeekExpanded(false);
+  };
 
   return (
     <section
       ref={weekSectionRef}
-      className="animate-in agenda-week-section reception-section reception-week-panel reception-week-panel--secondary"
+      className={`animate-in agenda-week-section reception-section reception-week-panel reception-week-panel--secondary${
+        isDashboardMobile && !showWeekView ? ' reception-week-panel--today-only' : ''
+      }`}
       style={{ animationDelay: '0.15s' }}
     >
       <div className="reception-week-panel__head">
-        <div className="reception-week-panel__title-row">
-          <ReportSectionHeading
-            className="reception-report-heading reception-week-panel__title"
-            title={
-              <>
-                <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-                Agenda da semana
-              </>
-            }
-            action={
-              <span className="badge reception-week-count-badge" title={`${trialSeriesPlural} na semana exibida`}>
-                {visibleWeekCount}
-              </span>
-            }
-          />
-        </div>
-        <div className="week-nav-pill">
+        {isDashboardMobile && showWeekView ? (
           <button
             type="button"
-            className="week-nav-pill__btn"
-            onClick={() => onWeekOffsetChange(weekOffset - 1)}
-            aria-label="Semana anterior"
+            className="agenda-week-section__toggle"
+            onClick={handleCollapseWeek}
+            aria-expanded
+            aria-controls="agenda-week-panel-body"
           >
-            ‹
+            <span className="agenda-week-section__toggle-label">
+              <ReportSectionHeading
+                className="reception-report-heading reception-week-panel__title"
+                title={
+                  <>
+                    <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
+                    Agenda da semana
+                  </>
+                }
+                action={
+                  <span className="badge reception-week-count-badge" title={badgeTitle}>
+                    {badgeCount}
+                  </span>
+                }
+              />
+            </span>
+            <ChevronDown
+              size={18}
+              strokeWidth={2}
+              className="agenda-week-section__chevron agenda-week-section__chevron--open"
+              aria-hidden
+            />
           </button>
-          <span className="week-nav-pill__range" aria-live="polite">
-            {formatWeekRangeLabel(weekOffset, { endOnSaturday: true })}
-          </span>
-          <button
-            type="button"
-            className="week-nav-pill__btn"
-            onClick={() => onWeekOffsetChange(weekOffset + 1)}
-            aria-label="Próxima semana"
-          >
-            ›
-          </button>
-          <button
-            type="button"
-            className="week-nav-pill__refresh"
-            onClick={onRefresh}
-            disabled={loading || isRefreshing}
-            aria-label="Atualizar agenda"
-          >
-            <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
-          </button>
-        </div>
+        ) : (
+          <div className="reception-week-panel__title-row">
+            <ReportSectionHeading
+              className="reception-report-heading reception-week-panel__title"
+              title={
+                <>
+                  <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
+                  {showWeekView ? 'Agenda da semana' : 'Hoje'}
+                </>
+              }
+              action={
+                <span className="badge reception-week-count-badge" title={badgeTitle}>
+                  {badgeCount}
+                </span>
+              }
+            />
+            {isDashboardMobile && !showWeekView ? (
+              <button
+                type="button"
+                className="reception-week-panel__refresh-btn"
+                onClick={onRefresh}
+                disabled={loading || isRefreshing}
+                aria-label="Atualizar agenda de hoje"
+              >
+                <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
+              </button>
+            ) : null}
+          </div>
+        )}
+        {showWeekView ? (
+          <div className="week-nav-pill">
+            <button
+              type="button"
+              className="week-nav-pill__btn"
+              onClick={() => onWeekOffsetChange(weekOffset - 1)}
+              aria-label="Semana anterior"
+            >
+              ‹
+            </button>
+            <span className="week-nav-pill__range" aria-live="polite">
+              {formatWeekRangeLabel(weekOffset, { endOnSaturday: true })}
+            </span>
+            <button
+              type="button"
+              className="week-nav-pill__btn"
+              onClick={() => onWeekOffsetChange(weekOffset + 1)}
+              aria-label="Próxima semana"
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              className="week-nav-pill__refresh"
+              onClick={onRefresh}
+              disabled={loading || isRefreshing}
+              aria-label="Atualizar agenda"
+            >
+              <RefreshCcw size={16} className={isRefreshing ? 'spin-refresh' : ''} strokeWidth={2} />
+            </button>
+          </div>
+        ) : null}
       </div>
-      <div className="agenda-week-fullwidth reception-week-embed">
+      <div id="agenda-week-panel-body" className="agenda-week-fullwidth reception-week-embed">
         <AgendaCalendarWeek
           leads={agendaWeekLeads}
           onCompareceu={onCompareceu}
@@ -85,17 +160,30 @@ function DashboardAgendaWeekPanel({
             navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
           }
           savingPresence={savingPresence}
-          weekOffset={weekOffset}
+          weekOffset={showWeekView ? weekOffset : 0}
           onWeekOffsetChange={onWeekOffsetChange}
           hideNav
-          prioritizeTodayOnMobile={isDashboardMobile}
+          prioritizeTodayOnMobile={isDashboardMobile && showWeekView}
+          todayOnly={isDashboardMobile && !showWeekView}
           vertical={vertical}
         />
       </div>
-      {visibleWeekCount > 0 ? (
+      {badgeCount > 0 ? (
         <p className="reception-calendar-hint">
           Toque no card para abrir o contato · use Veio / Não veio para registrar presença
         </p>
+      ) : null}
+      {isDashboardMobile && !showWeekView ? (
+        <button
+          type="button"
+          className="agenda-week-expand-btn"
+          onClick={() => setWeekExpanded(true)}
+          aria-expanded={false}
+          aria-controls="agenda-week-panel-body"
+        >
+          Ver semana
+          <ChevronDown size={16} strokeWidth={2} aria-hidden />
+        </button>
       ) : null}
     </section>
   );

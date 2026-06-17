@@ -1,25 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutGrid,
-  Kanban,
-  GraduationCap,
-  CheckSquare,
-  PlusCircle,
-  ArrowLeftRight,
-  MessageCircle,
-  Zap,
-  Landmark,
-  ShoppingBag,
-  BarChart3,
-  Receipt,
-  ShoppingCart,
-  TrendingUp,
-  Lock,
-  Scale,
-  SlidersHorizontal,
-  BookOpen,
-  Users,
   X,
 } from 'lucide-react';
 import {
@@ -30,31 +11,10 @@ import {
 } from '../../lib/naviMenu.js';
 import { dispatchOpenNovaVendaModal } from '../../lib/novaVendaModal.js';
 import { dispatchOpenNewLeadModal } from '../../lib/newLeadModal.js';
-
-const ICONS = {
-  inicio: LayoutGrid,
-  pipeline: Kanban,
-  students: GraduationCap,
-  tarefas: CheckSquare,
-  conversas: MessageCircle,
-  automacoes: Zap,
-  financeiro: Landmark,
-  visaoGeralFinanceiro: LayoutGrid,
-  mensalidades: Users,
-  movimentacoes: ArrowLeftRight,
-  previsao: TrendingUp,
-  fechamento: Lock,
-  conciliacao: Scale,
-  extratoContabil: BookOpen,
-  configuracaoFinanceira: SlidersHorizontal,
-  loja: ShoppingBag,
-  reports: BarChart3,
-  relatorios: BarChart3,
-  vendas: Receipt,
-  novoLancamento: PlusCircle,
-};
+import { getNavMenuIcon } from '../../lib/naviMenuIcons.js';
 
 const PIPELINE_PATH = '/pipeline';
+const NewLeadIcon = getNavMenuIcon('newLead');
 
 export default function NaviMobileDrawer({
   open,
@@ -112,7 +72,7 @@ export default function NaviMobileDrawer({
                     onClose();
                   }}
                 >
-                  <PlusCircle size={18} strokeWidth={2.25} aria-hidden />
+                  <NewLeadIcon size={18} strokeWidth={2.25} aria-hidden />
                   <span>{newLeadLabel}</span>
                 </button>
               </div>
@@ -123,7 +83,7 @@ export default function NaviMobileDrawer({
                   <span className="navi-mobile-drawer__section-title">{section.title}</span>
                 ) : null}
                 {section.items.map((item) => {
-                  const Icon = ICONS[item.iconKey] || LayoutGrid;
+                  const Icon = getNavMenuIcon(item.iconKey);
                   if (item.action === NOVA_VENDA_MENU_ACTION) {
                     return (
                       <button

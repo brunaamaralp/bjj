@@ -15,7 +15,7 @@
 
 **Harness relacionado:** `npm test -- billingGateClient trialCopy` + `lib/billing/planOrder.test.js`
 
-**Arquivos-chave:** `src/pages/UserAccount.jsx`, `src/components/account/PlansTabContent.jsx`, `src/lib/billingApi.js`, `src/lib/planConfig.js`, `api/billing.js`
+**Arquivos-chave:** `src/pages/UserAccount.jsx`, `src/lib/accountSettingsSections.js`, `src/components/account/PlansTabContent.jsx`, `src/lib/billingApi.js`, `src/lib/planConfig.js`, `api/billing.js`
 
 ---
 
@@ -52,7 +52,7 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/conta` | `UserAccount` | Abrir **Minha conta** | Default `tab=perfil` |
+| 1 | `/conta` | `UserAccount` | Abrir **Minha conta** | Sidebar `AcademyTabSettingsLayout`; default `tab=perfil` |
 | 2 | `?tab=perfil` | Card perfil | Ver nome/e-mail | Avatar iniciais |
 | 3 | Perfil | **Alterar senha** | `ModalShell` + `authService.updatePassword` | Toast sucesso; `FieldError` se senha atual errada |
 | 4 | `?tab=assinatura` | `PlansTabContent` | Ver planos e status | Cards Starter / Studio / Pro |
@@ -68,13 +68,13 @@ flowchart TD
 | 14 | Dados | `AvancadoSection` | Preferências/export | Dados da academia selecionada |
 | 15 | Topbar | Chip **Trial: N dias** | Clique | Navega `?tab=assinatura` |
 
-### Abas da conta
+### Abas da conta (sidebar)
 
 | Tab | Conteúdo |
 |---|---|
 | `perfil` | Identidade + alteração de senha |
 | `assinatura` | Planos Nave, checkout, faturas, cancelamento |
-| `dados` | Checklist + seção avançada |
+| `dados` | Checklist + seção avançada (exportar / limpar dados) |
 
 ---
 
@@ -109,7 +109,7 @@ Mutations de CRM podem ser bloqueadas pelo gate quando `accessLevel` ≠ `full` 
 
 ### Checklist passo a passo — owner
 
-1. [ ] Menu usuário → `/conta` abre com abas
+1. [ ] Menu usuário → `/conta` abre com sidebar Perfil / Assinatura / Avançado
 2. [ ] `?tab=seguranca` legacy → redirect `perfil`
 3. [ ] Alterar senha: mínimo 8 caracteres; confirmação deve coincidir
 4. [ ] `?tab=assinatura` carrega status e três planos (`PLAN_CONFIG`)

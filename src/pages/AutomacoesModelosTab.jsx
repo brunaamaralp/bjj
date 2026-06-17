@@ -37,6 +37,8 @@ const DEFAULT_TEMPLATES = DEFAULT_WHATSAPP_TEMPLATES;
 const labelFor = WHATSAPP_TEMPLATE_LABELS;
 
 export default function AutomacoesModelosTab({
+  embeddedInLayout = false,
+  activeGroupId = null,
   showTabIntro = true,
   modelosAcknowledged = false,
   onModelosAckChange,
@@ -515,10 +517,20 @@ export default function AutomacoesModelosTab({
     );
   };
 
+  const visibleGroups = useMemo(() => {
+    const groups = WHATSAPP_TEMPLATE_UI_GROUPS;
+    if (!activeGroupId) return groups;
+    return groups.filter((group) => group.id === activeGroupId);
+  }, [activeGroupId]);
+
   return (
     <div className="automacoes-modelos-tab">
       {showTabIntro ? <AutomacoesTabIntroBanner tabId="modelos" /> : null}
-      <h2 className="navi-section-heading" style={{ marginTop: 0 }}>Modelos de mensagens</h2>
+      {!embeddedInLayout ? (
+        <h2 className="navi-section-heading" style={{ marginTop: 0 }}>
+          Modelos de mensagens
+        </h2>
+      ) : null}
       <p className="tpl-page-note">
         O sistema oferece <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} modelos fixos</strong>. Você está personalizando{' '}
         <strong>{SYSTEM_WHATSAPP_TEMPLATE_COUNT} de {SYSTEM_WHATSAPP_TEMPLATE_COUNT}</strong> modelos
@@ -577,13 +589,17 @@ export default function AutomacoesModelosTab({
         onSampleManualChange={setSampleManual}
       />
 
-      {WHATSAPP_TEMPLATE_UI_GROUPS.map((group) => {
+      {visibleGroups.map((group) => {
         const groupIds = group.keys.filter((id) => filteredIdSet.has(id));
         if (groupIds.length === 0) return null;
         return (
           <section key={group.id} className="automacoes-modelos-group mt-3">
-            <h3 className="automacoes-modelos-group__title">{group.title}</h3>
-            {group.hint ? <p className="automacoes-modelos-group__hint">{group.hint}</p> : null}
+            {!embeddedInLayout ? (
+              <>
+                <h3 className="automacoes-modelos-group__title">{group.title}</h3>
+                {group.hint ? <p className="automacoes-modelos-group__hint">{group.hint}</p> : null}
+              </>
+            ) : null}
             <div className="flex-col tpl-template-list">
               {groupIds.map((id, i) => renderTemplateCard(id, i))}
             </div>

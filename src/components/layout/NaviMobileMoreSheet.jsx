@@ -1,32 +1,8 @@
 import React, { useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  Kanban,
-  CheckSquare,
-  Users,
-  Landmark,
-  ShoppingBag,
-  BarChart3,
-  Zap,
-  Building2,
-  Plug,
-  X,
-} from 'lucide-react';
+import { X } from 'lucide-react';
 import { isMobileMoreItemActive } from '../../lib/mobileMoreNav.js';
-
-const ICONS = {
-  pipeline: Kanban,
-  tarefas: CheckSquare,
-  mensalidades: Users,
-  financeiro: Landmark,
-  loja: ShoppingBag,
-  reports: BarChart3,
-  relatorios: BarChart3,
-  automacoes: Zap,
-  empresa: Building2,
-  equipe: Users,
-  integracoes: Plug,
-};
+import { getNavMenuIcon } from '../../lib/naviMenuIcons.js';
 
 const SWIPE_CLOSE_PX = 56;
 
@@ -93,7 +69,7 @@ export default function NaviMobileMoreSheet({ open, onClose, items }) {
         </div>
         <nav className="navi-mobile-more-sheet__nav" aria-label="Atalhos">
           {items.map((item) => {
-            const Icon = ICONS[item.iconKey] || Kanban;
+            const Icon = getNavMenuIcon(item.iconKey);
             const active = isMobileMoreItemActive(item, location);
             return (
               <button

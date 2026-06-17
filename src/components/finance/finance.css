@@ -3116,6 +3116,86 @@
   max-width: 52ch;
 }
 
+.automacoes-settings-section .finance-settings-layout .finance-settings-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-title-size, var(--font-2xl));
+  font-weight: var(--finance-settings-title-weight, 600);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+}
+
+.automacoes-settings-section .finance-settings-layout .finance-settings-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--finance-settings-subtitle-size, var(--font-base));
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  max-width: 52ch;
+}
+
+.processos-settings-section .finance-settings-layout .finance-settings-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-title-size, var(--font-2xl));
+  font-weight: var(--finance-settings-title-weight, 600);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+}
+
+.processos-settings-section .finance-settings-layout .finance-settings-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--finance-settings-subtitle-size, var(--font-base));
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  max-width: 52ch;
+}
+
+.account-settings-section .finance-settings-layout .finance-settings-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-title-size, var(--font-2xl));
+  font-weight: var(--finance-settings-title-weight, 600);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+}
+
+.account-settings-section .finance-settings-layout .finance-settings-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--finance-settings-subtitle-size, var(--font-base));
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  max-width: 52ch;
+}
+
+.integracoes-settings-section .finance-settings-layout .finance-settings-title {
+  font-family: var(--ff-ui);
+  font-size: var(--finance-settings-title-size, var(--font-2xl));
+  font-weight: var(--finance-settings-title-weight, 600);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+}
+
+.integracoes-settings-section .finance-settings-layout .finance-settings-subtitle {
+  font-family: var(--ff-body);
+  font-size: var(--finance-settings-subtitle-size, var(--font-base));
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  max-width: 52ch;
+}
+
 .finance-settings-section-body {
   display: flex;
   flex-direction: column;
@@ -3422,22 +3502,92 @@
 @media (max-width: 768px) {
   .finance-settings-layout {
     grid-template-columns: 1fr;
+    margin-top: var(--space-2);
   }
 
   .finance-settings-sidenav {
     border-right: none;
     border-bottom: 0.5px solid var(--border-violet);
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 4px;
     background: var(--v50);
     padding: var(--space-2);
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+
+  .finance-settings-sidenav::-webkit-scrollbar {
+    display: none;
   }
 
   .finance-settings-sidenav__item {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     padding: 6px 12px;
     font-size: var(--font-sm);
+    max-width: none;
+  }
+
+  .finance-settings-sidenav__label--long {
+    display: none;
+  }
+
+  .finance-settings-sidenav__label--short {
+    display: inline;
+  }
+
+  .finance-settings-layout__content {
+    padding: var(--space-3);
+  }
+
+  .finance-settings-detail-header__back {
+    margin-bottom: var(--space-2);
+  }
+
+  .automacoes-settings-section .automacoes-modelos-tab .page-header-card .navi-toolbar,
+  .processos-settings-section .page-header-card .navi-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .automacoes-settings-section .automacoes-modelos-tab .navi-search,
+  .automacoes-settings-section .automacoes-modelos-tab .page-header-search {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .account-settings-section .settings-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .account-settings-section .settings-row .btn-outline,
+  .account-settings-section .settings-row .navi-btn--toolbar {
+    margin-left: auto;
+  }
+
+  .integracoes-settings-section .flex.gap-2.mt-3 {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .integracoes-settings-section .flex.gap-2.mt-3 .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 769px) {
+  .finance-settings-sidenav__label--short {
+    display: none;
+  }
+
+  .finance-settings-sidenav__label--long {
+    display: inline;
   }
 }
 

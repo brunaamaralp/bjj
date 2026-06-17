@@ -12,6 +12,7 @@ import StatusBanner from '../shared/StatusBanner.jsx';
  * Aviso de migração quando ainda existe tarefa legada em academy.settings (fora dos templates).
  */
 export default function EnrollmentFollowUpSection({
+  embeddedInLayout = false,
   academyId,
   academySettings,
   settingsLoading = false,
@@ -75,15 +76,19 @@ export default function EnrollmentFollowUpSection({
   };
 
   return (
-    <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
+    <section className="empresa-section animate-in" style={{ marginTop: embeddedInLayout ? 0 : 16 }}>
       <div className="card" style={{ padding: 16, border: '1px solid var(--border-light)' }}>
         <StatusBanner variant="warning" className="enrollment-followup-extra-task-banner">
           <p style={{ margin: 0 }}>
             Há uma tarefa adicional legada configurada ({followUp.title}, {followUp.days} dia
             {followUp.days === 1 ? '' : 's'} após a matrícula). Migre para um template com gatilho{' '}
             <strong>Matrícula</strong> em{' '}
-            <Link to="/tarefas?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
-              Automações → Processos
+            <Link
+              to="/tarefas?tab=processos&section=templates"
+              className="edit-link"
+              style={{ fontWeight: 600 }}
+            >
+              Templates de tarefas
             </Link>{' '}
             e remova a configuração antiga abaixo.
           </p>

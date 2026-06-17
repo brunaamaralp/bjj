@@ -68,6 +68,7 @@ flowchart TD
 | 8 | Detalhe | Órfãos Nave / banco | Criar TX ou ignorar | `createTxFromBankItem` / `ignoreBankItem` |
 | 8b | Detalhe | Lista órfãos Nave | Buscar / filtrar entradas-saídas / ver detalhes | Filtro local + `FinanceTxDetailDrawer` |
 | 9 | Detalhe | **Completar conciliação** | Nota opcional | `completeBankReconciliation`; status reconciliado |
+| 9b | Detalhe | **Handoff fechamento** | Após `completed_at` | Card com link `/financeiro?tab=fechamento&month=YYYY-MM` |
 | 10 | Detalhe | Espelhos mensalidades | Reconciliar mirrors | `reconcileStudentPaymentMirrors` |
 | 11 | Detalhe | Voltar | Lista de extratos | `setSelectedId('')` |
 

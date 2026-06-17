@@ -17,11 +17,12 @@ import {
 } from '../lib/naviMenu.js';
 
 describe('naviMenu', () => {
-  it('buildAutomacoesAccordion — Mensagens do funil com modelos e gatilhos', () => {
-    const accordion = buildAutomacoesAccordion({ canConfigureAgenteIa: true });
-    expect(accordion.label).toBe('Mensagens do funil');
+  it('buildAutomacoesAccordion — link único Mensagens Automáticas', () => {
+    const accordion = buildAutomacoesAccordion();
+    expect(accordion.label).toBe('Mensagens Automáticas');
     expect(accordion.defaultTo).toBe('/automacoes?tab=modelos');
-    expect(accordion.children.map((c) => c.id)).toEqual(['modelos', 'gatilhos', 'agente']);
+    expect(accordion.linkOnly).toBe(true);
+    expect(accordion.children).toEqual([]);
     expect(
       isAccordionChildActive(
         { id: 'gatilhos', to: '/automacoes?tab=gatilhos' },
@@ -30,13 +31,14 @@ describe('naviMenu', () => {
     ).toBe(true);
   });
 
-  it('buildSidebarNavModel includes Processos da equipe', () => {
+  it('buildSidebarNavModel keeps Processos da equipe inside /tarefas hub only', () => {
     const model = buildSidebarNavModel({
       modules: { finance: false, inventory: false, sales: false },
       canConfigureAgenteIa: false,
       isOwner: true,
     });
-    expect(model.primary.some((p) => p.to === '/tarefas?tab=processos')).toBe(true);
+    expect(model.primary.some((p) => p.to === '/tarefas?tab=processos')).toBe(false);
+    expect(model.primary.some((p) => p.to === '/tarefas')).toBe(true);
   });
 
   it('getNewLeadLabel singularizes', () => {
@@ -62,7 +64,7 @@ describe('naviMenu', () => {
     expect(getAccordionIdForLocation({ pathname: '/caixa', search: '?tab=fechamento' })).toBe('financeiro');
     expect(getAccordionIdForLocation({ pathname: '/loja', search: '?tab=vendas' })).toBe('loja');
     expect(getAccordionIdForLocation({ pathname: '/students', search: '' })).toBe(null);
-    expect(getAccordionIdForLocation({ pathname: '/reports', search: '?tab=funil' })).toBe('loja');
+    expect(getAccordionIdForLocation({ pathname: '/reports', search: '?tab=funil' })).toBe(null);
   });
 
   it('isDirectNavPath for flat routes', () => {
@@ -123,14 +125,24 @@ describe('naviMenu', () => {
       action: NOVA_VENDA_MENU_ACTION,
     });
     expect(loja.children[1].id).toBe('vendas');
-    expect(loja.children[loja.children.length - 1]).toMatchObject({
+    expect(loja.children.some((c) => c.id === 'relatorios')).toBe(false);
+    const estoqueIdx = loja.children.findIndex((c) => c.id === 'estoque');
+    expect(estoqueIdx).toBeGreaterThan(-1);
+  });
+
+  it('buildSidebarNavModel — Relatórios na seção Análise', () => {
+    const model = buildSidebarNavModel({
+      modules: { finance: false, inventory: false, sales: false },
+      canConfigureAgenteIa: false,
+      isOwner: true,
+    });
+    expect(model.analise).toHaveLength(1);
+    expect(model.analise[0]).toMatchObject({
       id: 'relatorios',
-      label: 'Relatórios',
       to: '/reports?tab=funil',
     });
-    const estoqueIdx = loja.children.findIndex((c) => c.id === 'estoque');
-    const relIdx = loja.children.findIndex((c) => c.id === 'relatorios');
-    expect(relIdx).toBe(estoqueIdx + 1);
+    expect(model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA)).toBeUndefined();
+    expect(model.primary[0]).toMatchObject({ label: 'Recepção', to: '/' });
   });
 
   it('buildSidebarNavModel respects modules and owner', () => {
@@ -144,9 +156,9 @@ describe('naviMenu', () => {
     });
     expect(model.accordions.map((a) => a.id)).toContain('financeiro');
     expect(model.accordions.map((a) => a.id)).toContain('loja');
-    expect(model.accordions.map((a) => a.id)).not.toContain('relatorios');
+    expect(model.analise).toHaveLength(1);
     const loja = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.LOJA);
-    expect(loja.children.some((c) => c.id === 'relatorios')).toBe(true);
+    expect(loja.children.some((c) => c.id === 'relatorios')).toBe(false);
     const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
     expect(financeiro.label).toBe('Financeiro');
     expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
@@ -158,6 +170,9 @@ describe('naviMenu', () => {
     });
     expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(true);
     expect(financeiro.children.some((c) => c.id === 'movimentacoes' && c.label === 'Lançamentos')).toBe(true);
+    expect(financeiro.children.find((c) => c.id === 'a-receber')?.iconKey).toBe('aReceber');
+    expect(financeiro.children.find((c) => c.id === 'a-pagar')?.iconKey).toBe('aPagar');
+    expect(financeiro.children.find((c) => c.id === 'movimentacoes')?.iconKey).toBe('movimentacoes');
     expect(financeiro.children.some((c) => c.id === 'previsao')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'fechamento')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'conciliacao')).toBe(false);
@@ -203,6 +218,7 @@ describe('naviMenu', () => {
     const titles = all.map((s) => s.title);
     expect(titles).toContain('Financeiro');
     expect(titles).toContain('Vendas');
+    expect(titles).toContain('Análise');
 
     const none = buildMobileDrawerSections({
       modules: { finance: false, inventory: false, sales: false },
@@ -212,7 +228,9 @@ describe('naviMenu', () => {
     });
     expect(none.map((s) => s.title)).not.toContain('Financeiro');
     const vendasSection = none.find((s) => s.title === 'Vendas');
-    expect(vendasSection?.items).toEqual([
+    expect(vendasSection).toBeUndefined();
+    const analiseSection = none.find((s) => s.title === 'Análise');
+    expect(analiseSection?.items).toEqual([
       expect.objectContaining({ id: 'relatorios', label: 'Relatórios' }),
     ]);
   });

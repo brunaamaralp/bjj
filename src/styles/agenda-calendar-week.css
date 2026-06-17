@@ -20,6 +20,12 @@
         .agenda-hoje__grid--six {
           grid-template-columns: repeat(6, minmax(72px, 1fr));
         }
+        .agenda-hoje__grid--single {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .agenda-hoje__grid--single .day-col {
+          min-height: 120px;
+        }
         .day-col {
           min-height: 168px;
           padding: 12px 10px;

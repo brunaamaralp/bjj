@@ -6,7 +6,7 @@ import { useAcademyControlId } from '../../hooks/useAcademyControlId.js';
 import { testControlIdConnection, saveControlIdConfig } from '../../lib/controlidApi';
 import EmptyState from '../shared/EmptyState.jsx';
 
-export default function ControlIdCatracaSection({ academyId }) {
+export default function ControlIdCatracaSection({ embeddedInLayout = false, academyId }) {
   const addToast = useUiStore((s) => s.addToast);
   const controlId = useAcademyControlId(academyId);
 
@@ -95,19 +95,23 @@ export default function ControlIdCatracaSection({ academyId }) {
   };
 
   return (
-    <section className="empresa-section animate-in" style={{ marginTop: 16 }}>
+    <section className="empresa-section animate-in" style={{ marginTop: embeddedInLayout ? 0 : 16 }}>
       <div className="card" style={{ padding: 16, border: '1px solid var(--border-light)' }}>
-        <h3
-          className="navi-section-heading"
-          style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
-        >
-          <DoorOpen size={18} color="var(--v500)" aria-hidden />
-          Integração com catraca (Control iD)
-        </h3>
-        <p className="text-small text-muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
-          Reconhecimento facial e liberação de acesso na recepção. Para ativar a catraca, o servidor local precisa
-          estar rodando na recepção. Consulte o responsável técnico ou o suporte Nave.
-        </p>
+        {!embeddedInLayout ? (
+          <>
+            <h3
+              className="navi-section-heading"
+              style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <DoorOpen size={18} color="var(--v500)" aria-hidden />
+              Integração com catraca (Control iD)
+            </h3>
+            <p className="text-small text-muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+              Reconhecimento facial e liberação de acesso na recepção. Para ativar a catraca, o servidor local precisa
+              estar rodando na recepção. Consulte o responsável técnico ou o suporte Nave.
+            </p>
+          </>
+        ) : null}
 
         <label className="flex items-center gap-2" style={{ marginBottom: 14, fontSize: 14 }}>
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />

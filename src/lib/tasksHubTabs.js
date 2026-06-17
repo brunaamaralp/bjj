@@ -1,7 +1,7 @@
 /** Abas do hub /tarefas?tab= */
 export const TASKS_HUB_TABS = [
-  { id: 'operacao', label: 'Operação' },
-  { id: 'processos', label: 'Processos da equipe' },
+  { id: 'operacao', label: 'Operação', shortLabel: 'Operação' },
+  { id: 'processos', label: 'Processos da equipe', shortLabel: 'Processos' },
 ];
 
 export const TASKS_TAB_OPERACAO = 'operacao';

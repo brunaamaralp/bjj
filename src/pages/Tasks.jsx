@@ -28,6 +28,7 @@ import {
 import { useUiStore } from '../store/useUiStore';
 import { fetchTeamMemberships } from '../lib/teamApi.js';
 import { TASKS_HUB_TABS, TASKS_TAB_OPERACAO, TASKS_TAB_PROCESSOS, resolveTasksHubTab } from '../lib/tasksHubTabs.js';
+import { PROCESSOS_DEFAULT_SECTION } from '../lib/processosSettingsSections.js';
 import { TASKS_COPY } from '../lib/tasksCopy.js';
 import TaskProcessosTab from './TaskProcessosTab.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -376,8 +377,12 @@ export default function Tasks() {
           const next = new URLSearchParams(prev);
           if (id === TASKS_TAB_OPERACAO) {
             next.delete('tab');
+            next.delete('section');
           } else {
             next.set('tab', id);
+            if (!String(next.get('section') || '').trim()) {
+              next.set('section', PROCESSOS_DEFAULT_SECTION);
+            }
           }
           return next;
         },
@@ -576,8 +581,9 @@ export default function Tasks() {
 
   useEffect(() => {
     if (!academyId) return;
-    const { tasksLastFetchedAt, tasksFetchKey: cachedKey } = useTaskStore.getState();
-    const stale = !tasksLastFetchedAt || Date.now() - tasksLastFetchedAt > staleMs;
+    const { tasksLastFetchedAt, tasksFetchKey: cachedKey, error: storeError } = useTaskStore.getState();
+    const stale =
+      !tasksLastFetchedAt || Date.now() - tasksLastFetchedAt > staleMs || Boolean(storeError);
     const keyChanged = lastTasksFetchKeyRef.current !== tasksFetchKey;
     const scopeMismatch = cachedKey !== tasksFetchKey;
     if (!keyChanged && !stale && !scopeMismatch) return;
@@ -1432,7 +1438,11 @@ export default function Tasks() {
       </header>
 
       {!isProcessosHub && error ? (
-        <ErrorBanner className="mt-3" message={friendlyError(error, 'load')} onRetry={() => fetchTasks(academyId, { reset: true, filters: apiTaskFilters })} />
+        <ErrorBanner
+          className="mt-3"
+          message={typeof error === 'string' ? error : friendlyError(error, 'load')}
+          onRetry={() => fetchTasks(academyId, { reset: true, filters: apiTaskFilters })}
+        />
       ) : null}
 
       {!isProcessosHub && tasks.length >= 500 ? (
@@ -1448,7 +1458,7 @@ export default function Tasks() {
       <div className={`tasks-board mt-4${loading && tasks.length === 0 ? ' tasks-board--loading' : ''}`}>
         {loading && tasks.length === 0 ? (
           renderTasksLoadingSkeleton()
-        ) : tasks.length === 0 && !hasActiveFilters ? (
+        ) : tasks.length === 0 && !error && !hasActiveFilters ? (
           <EmptyState
             variant="default"
             tone="dashed"

@@ -17,8 +17,9 @@ import AutomacoesSection from '../components/academy/AutomacoesSection.jsx';
 import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
 
 export default function AutomacoesConfigTab({
+  embeddedInLayout = false,
+  activeGroupSection = null,
   onGuardStateChange,
-  setupGuideActive = false,
   showTabIntro = false,
 }) {
   const terms = useTerms();
@@ -199,6 +200,8 @@ export default function AutomacoesConfigTab({
 
   return (
     <AutomacoesSection
+      embeddedInLayout={embeddedInLayout}
+      activeGroupSection={activeGroupSection}
       automationLabels={automationLabels}
       automationsConfig={automationsConfig}
       setAutomationsConfig={setAutomationsConfig}
@@ -213,7 +216,6 @@ export default function AutomacoesConfigTab({
       onPersistConfig={persistAutomations}
       onRetrySave={() => void persistAutomations(automationsConfig)}
       previewLead={previewLead}
-      setupGuideActive={setupGuideActive}
       showTabIntro={showTabIntro}
     />
   );

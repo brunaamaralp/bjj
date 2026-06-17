@@ -8,11 +8,11 @@ import BankReconPairRow from './BankReconPairRow.jsx';
 import BankReconOrphanList, { formatSourceLabel } from './BankReconOrphanList.jsx';
 import BankReconSelectionBar from './BankReconSelectionBar.jsx';
 import BankReconKpiRow from './BankReconKpiRow.jsx';
-import BankReconSetupWizard from './BankReconSetupWizard.jsx';
 import BankReconTour from './BankReconTour.jsx';
 import BankReconNextPendingBar from './BankReconNextPendingBar.jsx';
 import BankReconRegisterPaymentModal from './BankReconRegisterPaymentModal.jsx';
 import BankReconRulesModal from './BankReconRulesModal.jsx';
+import BankReconClosingHandoffCard from './BankReconClosingHandoffCard.jsx';
 import {
   listBankStatements,
   getBankStatementDetail,
@@ -28,7 +28,7 @@ import { reconcileStudentPaymentMirrors } from '../../lib/financeTxApi.js';
 import { friendlyError } from '../../lib/errorMessages';
 import { useToast } from '../../hooks/useToast';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
-import { useBankReconWizard } from '../../hooks/useBankReconWizard.js';
+import { useBankReconTour } from '../../hooks/useBankReconTour.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -44,6 +44,11 @@ import { useAccountingStore } from '../../store/useAccountingStore';
 import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
 import { buildLeadNameById } from '../../lib/financeTxLeadNames.js';
 import { formatReconTxSelectLabel } from '../../lib/financeReconTxLabel.js';
+import { CASH_CLOSING_UPDATED_EVENT } from '../../lib/financeTermHints.js';
+
+function closingHandoffDismissKey(statementId) {
+  return `navi_recon_closing_handoff_dismiss_${String(statementId || '').trim()}`;
+}
 
 function fmtMoney(v) {
   try {
@@ -127,7 +132,7 @@ export default function ReconciliationTab({ academyId }) {
   const [registerPaymentHint, setRegisterPaymentHint] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [mobilePanel, setMobilePanel] = useState('extrato');
-  const [hasImportedOnce, setHasImportedOnce] = useState(false);
+  const [handoffDismissed, setHandoffDismissed] = useState(false);
   const dismissedLearnKeys = useRef(new Set());
   const chartAccounts = useAccountingStore((s) => s.accounts);
   const financeConfig = useLeadStore((s) =>
@@ -136,18 +141,9 @@ export default function ReconciliationTab({ academyId }) {
   const isMobileRecon = useMediaQuery('(max-width: 900px)');
   const tourBlockedByModal = Boolean(createTxItem || learnPayerPrompt || registerPaymentHint || showRulesModal);
 
-  const {
-    wizard,
-    showTour,
-    dismissWizard,
-    reopenWizard,
-    completeTour,
-    advanceWizardStep,
-  } = useBankReconWizard({
+  const { showTour, completeTour } = useBankReconTour({
     academyId,
-    statementsCount: statements.length,
     inDetail: Boolean(selectedId),
-    hasImported: hasImportedOnce,
   });
 
   useEffect(() => {
@@ -207,6 +203,36 @@ export default function ReconciliationTab({ academyId }) {
     if (selectedId) void loadDetail(selectedId);
     else setDetail(null);
   }, [selectedId, loadDetail]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setHandoffDismissed(false);
+      return;
+    }
+    try {
+      setHandoffDismissed(sessionStorage.getItem(closingHandoffDismissKey(selectedId)) === '1');
+    } catch {
+      setHandoffDismissed(false);
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
+    const onClosingUpdated = () => {
+      if (selectedId) void loadDetail(selectedId);
+    };
+    window.addEventListener(CASH_CLOSING_UPDATED_EVENT, onClosingUpdated);
+    return () => window.removeEventListener(CASH_CLOSING_UPDATED_EVENT, onClosingUpdated);
+  }, [selectedId, loadDetail]);
+
+  const dismissClosingHandoff = useCallback(() => {
+    if (!selectedId) return;
+    try {
+      sessionStorage.setItem(closingHandoffDismissKey(selectedId), '1');
+    } catch {
+      /* ignore */
+    }
+    setHandoffDismissed(true);
+  }, [selectedId]);
 
   useEffect(() => {
     setSelectedBankItemId('');
@@ -276,7 +302,6 @@ export default function ReconciliationTab({ academyId }) {
 
   const onImported = (statementId, result) => {
     setSelectedId(statementId);
-    setHasImportedOnce(true);
     void refresh();
     const parts = ['Extrato importado.'];
     if (result?.suggested_matches) {
@@ -370,18 +395,6 @@ export default function ReconciliationTab({ academyId }) {
     if (next) selectBankItem(next.id);
   };
 
-  const handleWizardAction = (step) => {
-    if (step.action === 'openImport') {
-      setShowImport(true);
-      return;
-    }
-    if (step.action === 'dismiss') {
-      dismissWizard();
-      return;
-    }
-    advanceWizardStep();
-  };
-
   const registerPaymentItem = useMemo(
     () =>
       registerPaymentHint && detail?.items
@@ -449,27 +462,9 @@ export default function ReconciliationTab({ academyId }) {
             Importe o extrato do banco (OFX, CSV, Excel ou PDF), confira sugestões automáticas e vincule cada linha a
             um lançamento do Caixa. Itens sem correspondência podem ser vinculados manualmente, gerar novo lançamento ou
             ser ignorados.
-            {wizard.canReopen ? (
-              <>
-                {' '}
-                <button type="button" className="btn-text btn-sm p-0" onClick={reopenWizard}>
-                  Ver guia de conciliação
-                </button>
-              </>
-            ) : null}
           </StatusBanner>
         }
       >
-        {wizard.show ? (
-          <BankReconSetupWizard
-            steps={wizard.steps}
-            currentStep={wizard.currentStep}
-            doneCount={wizard.doneCount}
-            totalSteps={wizard.totalSteps}
-            onDismiss={dismissWizard}
-            onAction={handleWizardAction}
-          />
-        ) : null}
         {mirrorReconcileResult ? (
           <StatusBanner variant={mirrorReconcileResult.failed > 0 ? 'warning' : 'success'} className="mb-3">
             {mirrorReconcileResult.repaired > 0
@@ -787,7 +782,9 @@ export default function ReconciliationTab({ academyId }) {
               />
 
               <div className="card mt-3 bank-recon-manual-card">
-                <p className="text-xs text-muted mb-2">Conferir manualmente (sem linha no extrato)</p>
+                <p className="text-xs text-muted mb-2">
+                  Vincular lançamento liquidado sem linha correspondente no extrato (não fecha o mês no caixa).
+                </p>
                 <label className="form-label text-xs" htmlFor="bank-recon-manual-tx">
                   Lançamento
                 </label>
@@ -808,7 +805,7 @@ export default function ReconciliationTab({ academyId }) {
                   id="bank-recon-manual-note"
                   className="form-input mb-2"
                   rows={2}
-                  placeholder="Obrigatória para conferência manual"
+                  placeholder="Obrigatória para conciliação manual"
                   value={manualNote}
                   onChange={(e) => setManualNote(e.target.value)}
                 />
@@ -826,7 +823,7 @@ export default function ReconciliationTab({ academyId }) {
                     )
                   }
                 >
-                  Marcar como conferido
+                  Conciliar manualmente
                 </button>
               </div>
             </div>
@@ -839,7 +836,7 @@ export default function ReconciliationTab({ academyId }) {
             onSelectNext={selectNextPending}
           />
 
-          {st.status !== 'reconciled' ? (
+          {!st.completed_at ? (
             <div className="card mt-4 bank-recon-complete-card">
               <h4 className="finance-tab__section-title bank-recon-complete-title">Finalizar conciliação</h4>
               <textarea
@@ -867,6 +864,15 @@ export default function ReconciliationTab({ academyId }) {
                 Finalizar conciliação
               </button>
             </div>
+          ) : null}
+
+          {st.completed_at && detail?.closingHints ? (
+            <BankReconClosingHandoffCard
+              closingHints={detail.closingHints}
+              statementStatus={st.status}
+              dismissed={handoffDismissed}
+              onDismiss={dismissClosingHandoff}
+            />
           ) : null}
         </>
       ) : null}

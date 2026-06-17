@@ -48,6 +48,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/financeiro?tab=fechamento` | `MonthlyClosingTab` | Abrir **Conferência do mês** | Tabela do mês de referência |
+| 1b | Conciliação → handoff | `BankReconClosingHandoffCard` | Após finalizar extrato (owner) | Link `?tab=fechamento&month=YYYY-MM` |
 | 2 | Fechamento | Seletor mês | Trocar `referenceMonth` | Dados recarregam |
 | 3 | Fechamento | `FinanceRegimeToggle` | Caixa vs competência | Colunas e totais ajustam |
 | 4 | Toolbar | Filtros origem/situação | Refinar linhas | `filterClosingRows` |

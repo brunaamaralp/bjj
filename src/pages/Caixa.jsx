@@ -68,6 +68,7 @@ const MonthlyClosingTab = lazyWithRetry(() => import('../components/finance/Mont
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import { currentMonthYm, monthPeriodBounds } from '../lib/financeiroOverview.js';
+import { parseReferenceMonth } from '../lib/monthlyClosing.js';
 import { todayYmdLocal, addDaysYmd } from '../lib/financeForecastCore.js';
 
 import '../components/finance/finance-shell.css';
@@ -142,6 +143,13 @@ function CaixaPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const summaryReqRef = useRef(0);
   const [conferredMonths, setConferredMonths] = useState(() => new Set());
+
+  const monthParam = searchParams.get('month');
+
+  useEffect(() => {
+    const parsed = parseReferenceMonth(monthParam);
+    if (parsed) setReferenceMonth(parsed);
+  }, [monthParam]);
 
 
 

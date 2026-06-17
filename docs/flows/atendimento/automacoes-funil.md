@@ -5,7 +5,7 @@
 | **id** | `atendimento.automacoes.funil` |
 | **módulo** | Atendimento |
 | **personas** | owner, admin (editar gatilhos/templates); member (visualizar processos) |
-| **rotas** | `/automacoes?tab=modelos|gatilhos`, `/automacoes?wizard=1` (alias `configuracoes` → `gatilhos`; `processos` → `/tarefas?tab=processos`) |
+| **rotas** | `/automacoes?tab=modelos|gatilhos&section=`, `/automacoes?wizard=1` (alias `configuracoes` → `gatilhos`; `processos` → `/tarefas?tab=processos`) |
 | **pré-requisitos** | WhatsApp conectado para envios automáticos; modelos revisados |
 | **status** | revisado (código) |
 | **última revisão** | 2026-06-17 |
@@ -15,7 +15,7 @@
 
 **Harness relacionado:** `npm test -- automacoesHub automacoesSetupWizard automationUx`
 
-**Arquivos-chave:** `src/pages/Automacoes.jsx`, `src/pages/AutomacoesConfigTab.jsx`, `src/lib/automacoesHub.js`, `src/lib/automacoesSetupWizard.js`, `src/components/academy/AutomacoesSection.jsx`
+**Arquivos-chave:** `src/pages/Automacoes.jsx`, `src/pages/AutomacoesConfigTab.jsx`, `src/lib/automacoesHub.js`, `src/lib/automacoesSettingsSections.js`, `src/lib/automacoesSetupWizard.js`, `src/components/academy/AutomacoesSection.jsx`
 
 ---
 
@@ -48,12 +48,12 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/automacoes` | `Automacoes` | Abrir hub | `HubTabBar` Modelos + Gatilhos; título «Mensagens do funil» |
-| 2 | `?tab=modelos` | `AutomacoesModelosTab` | Editar textos WhatsApp | `whatsappTemplates` |
+| 1 | `/automacoes` | `Automacoes` | Abrir hub | Sidebar `AcademyTabSettingsLayout` (Modelos + Gatilhos por grupo); título «Mensagens do funil» |
+| 2 | `?tab=modelos&section=captacao|rotinas` | `AutomacoesModelosTab` | Editar textos WhatsApp do grupo | `whatsappTemplates` |
 | 3 | Modelos | Personalizar vs padrão | Diff com `DEFAULT_WHATSAPP_TEMPLATES` | `areTemplatesCustomized` |
-| 4 | `?tab=gatilhos` | `AutomacoesConfigTab` | Ligar/desligar gatilho | `automationsConfig` persistido |
+| 4 | `?tab=gatilhos&section=captacao|pos-matricula|rotinas` | `AutomacoesConfigTab` | Ligar/desligar gatilho do grupo | `automationsConfig` persistido |
 | 5 | Gatilhos | Readiness | WhatsApp desconectado | Aviso `computeAutomationReadiness` |
-| 6 | Gatilhos | Sair com dirty | Trocar aba | `ConfirmDialog` guard |
+| 6 | Gatilhos | Sair com dirty | Trocar para Modelos na sidebar | `ConfirmDialog` guard |
 | 7 | `?wizard=1` | Setup wizard | Primeira visita | Passos modelos → WA → gatilhos |
 | 8 | Wizard | Ir WhatsApp | Navigate | `/agente-ia` |
 | 9 | Legado `?tab=processos` | Redirect | `/tarefas?tab=processos` | Toast único (session) |
@@ -90,22 +90,23 @@ flowchart TD
 
 ### Checklist passo a passo
 
-1. [ ] `/automacoes?tab=modelos` carrega modelos
-2. [ ] `?tab=gatilhos` — toggle gatilho persiste após reload
-3. [ ] `?tab=configuracoes` redireciona para `?tab=gatilhos`
-4. [ ] `?tab=processos` redireciona para `/tarefas?tab=processos`
-5. [ ] WhatsApp offline → indicador readiness na aba Gatilhos
-5. [ ] Wizard primeira visita redireciona para aba do passo atual
-6. [ ] Dispensar wizard → `automacoesWizardDismissStorageKey`
-7. [ ] Ack modelos (`navi_automacoes_modelos_ack_{academyId}`) ou template customizado conclui passo do wizard
-8. [ ] Sair da aba config com alterações → confirmação
-9. [ ] `?tab=agente` legacy → redirect `/agente-ia`
-10. [ ] Gatilho `converted` dispara após matrícula (ver [funil-lead-matricula.md](../crm/funil-lead-matricula.md))
-11. [ ] Cron `automations-frequent` processa fila (backend — não duplicar doc API)
-12. [ ] Multi-tenant: config isolada por `academyId`
-13. [ ] Aba Processos com wizard pendente → faixa compacta (não card full)
-14. [ ] Configurações com WhatsApp offline → `StatusBanner` warning + readiness visível com wizard ativo
-15. [ ] P3: compact passo WhatsApp → `/agente-ia` (não Modelos)
+1. [ ] `/automacoes?tab=modelos` carrega modelos (section default `captacao`)
+2. [ ] Sidebar navega entre grupos (`?section=`) sem perder estado do wizard
+3. [ ] `?tab=gatilhos` — toggle gatilho persiste após reload
+4. [ ] `?tab=configuracoes` redireciona para `?tab=gatilhos`
+5. [ ] `?tab=processos` redireciona para `/tarefas?tab=processos`
+6. [ ] WhatsApp offline → indicador readiness na aba Gatilhos
+7. [ ] Wizard primeira visita redireciona para aba do passo atual
+8. [ ] Dispensar wizard → `automacoesWizardDismissStorageKey`
+9. [ ] Ack modelos (`navi_automacoes_modelos_ack_{academyId}`) ou template customizado conclui passo do wizard
+10. [ ] Sair da aba config com alterações → confirmação
+11. [ ] `?tab=agente` legacy → redirect `/agente-ia`
+12. [ ] Gatilho `converted` dispara após matrícula (ver [funil-lead-matricula.md](../crm/funil-lead-matricula.md))
+13. [ ] Cron `automations-frequent` processa fila (backend — não duplicar doc API)
+14. [ ] Multi-tenant: config isolada por `academyId`
+15. [ ] Aba Processos com wizard pendente → faixa compacta (não card full)
+16. [ ] Configurações com WhatsApp offline → `StatusBanner` warning + readiness visível com wizard ativo
+17. [ ] P3: compact passo WhatsApp → `/agente-ia` (não Modelos)
 16. [ ] P3: Processos com compact → sem tab intro duplicado
 17. [ ] P3: scope banner dispensável; reabre ao “Ver guia”
 18. [ ] P3: member sem wizard; Modelos agrupados Captação/Rotinas

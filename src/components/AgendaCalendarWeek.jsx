@@ -110,6 +110,7 @@ function timeSortMinutes(lead) {
  * @param {boolean} [props.hideSunday] — se true, exibe só seg–sáb (padrão: true)
  * @param {Record<string, boolean>} [props.savingPresence]
  * @param {boolean} [props.prioritizeTodayOnMobile] — no mobile, coluna de hoje primeiro
+ * @param {boolean} [props.todayOnly] — exibe só o dia de hoje (modo colapsado no mobile)
  * @param {string} [props.vertical] — 'physio' | martial arts (rótulos de presença)
  */
 export default function AgendaCalendarWeek({
@@ -123,6 +124,7 @@ export default function AgendaCalendarWeek({
     hideNav = false,
     hideSunday = true,
     prioritizeTodayOnMobile = false,
+    todayOnly = false,
     vertical = '',
 }) {
     const [weekOffsetInternal, setWeekOffsetInternal] = useState(0);
@@ -188,16 +190,22 @@ export default function AgendaCalendarWeek({
     );
 
     const orderedDayDates = useMemo(() => {
+        if (todayOnly) {
+            const todayDate = displayDayDates.find((dayDate) => ymdOf(dayDate) === todayYmd);
+            return todayDate ? [todayDate] : [];
+        }
         if (!prioritizeTodayOnMobile || weekOffset !== 0) return displayDayDates;
         const todayIdx = displayDayDates.findIndex((dayDate) => ymdOf(dayDate) === todayYmd);
         if (todayIdx <= 0) return displayDayDates;
         return [...displayDayDates.slice(todayIdx), ...displayDayDates.slice(0, todayIdx)];
-    }, [displayDayDates, prioritizeTodayOnMobile, weekOffset, todayYmd]);
+    }, [displayDayDates, prioritizeTodayOnMobile, todayOnly, weekOffset, todayYmd]);
 
-    const weekHasAny = useMemo(
-        () => displayDayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0),
-        [displayDayDates, weekLeadsByYmd]
-    );
+    const weekHasAny = useMemo(() => {
+        if (todayOnly) {
+            return orderedDayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0);
+        }
+        return displayDayDates.some((dayDate) => (weekLeadsByYmd[ymdOf(dayDate)] || []).length > 0);
+    }, [todayOnly, orderedDayDates, displayDayDates, weekLeadsByYmd]);
 
     const openLeadFromCard = (lead) => {
         if (typeof onOpenLead === 'function') onOpenLead(lead);
@@ -229,12 +237,24 @@ export default function AgendaCalendarWeek({
                         variant="compact"
                         tone="dashed"
                         icon={Calendar}
-                        title="Nenhum agendamento nesta semana."
+                        title={
+                            todayOnly
+                                ? 'Nenhuma experimental agendada para hoje.'
+                                : 'Nenhum agendamento nesta semana.'
+                        }
                         role="status"
                         className="agenda-hoje__empty"
                     />
                 ) : (
-                    <div className={`agenda-hoje__grid${hideSunday ? ' agenda-hoje__grid--six' : ''}`}>
+                    <div
+                        className={`agenda-hoje__grid${
+                            todayOnly
+                                ? ' agenda-hoje__grid--single'
+                                : hideSunday
+                                  ? ' agenda-hoje__grid--six'
+                                  : ''
+                        }`}
+                    >
                         {orderedDayDates.map((dayDate) => {
                             const key = ymdOf(dayDate);
                             const colLeads = weekLeadsByYmd[key] || [];

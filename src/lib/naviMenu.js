@@ -110,6 +110,7 @@ const DIRECT_NAV_PATHS = new Set([
   '/student',
   '/presenca',
   '/recepcao',
+  '/reports',
 ]);
 
 export function isDirectNavPath(pathname) {
@@ -130,7 +131,7 @@ export function getAccordionIdForLocation({ pathname }) {
   const p = String(pathname || '');
   if (p === '/automacoes' || p === '/agente-ia') return NAV_ACCORDION_IDS.AUTOMACOES;
   if (p === '/equipe' || p === '/integracoes') return null;
-  if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque' || p === '/reports')
+  if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque')
     return NAV_ACCORDION_IDS.LOJA;
   if (isFinanceiroHubPath(p)) return NAV_ACCORDION_IDS.FINANCEIRO;
   return null;
@@ -193,24 +194,14 @@ export function isAccordionParentPartial(accordion, location) {
   return accordion.children.some((c) => isAccordionChildActive(c, location));
 }
 
-export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
-  const children = [
-    { id: 'modelos', label: 'Modelos', to: '/automacoes?tab=modelos' },
-    { id: 'gatilhos', label: 'Gatilhos', to: '/automacoes?tab=gatilhos' },
-  ];
-  if (canConfigureAgenteIa) {
-    children.push({
-      id: 'agente',
-      label: 'Agente IA',
-      to: '/agente-ia',
-    });
-  }
+export function buildAutomacoesAccordion() {
   return {
     id: NAV_ACCORDION_IDS.AUTOMACOES,
-    label: 'Mensagens do funil',
+    label: 'Mensagens Automáticas',
     iconKey: 'automacoes',
     defaultTo: '/automacoes?tab=modelos',
-    children,
+    children: [],
+    linkOnly: true,
   };
 }
 
@@ -236,12 +227,12 @@ export function buildLojaAccordion({ modules }) {
   if (modules.inventory === true) {
     children.push({ id: 'estoque', label: 'Estoque', to: '/loja?tab=estoque', iconKey: 'estoque' });
   }
-  children.push(buildRelatoriosNavItem());
+  if (children.length === 0) return null;
   return {
     id: NAV_ACCORDION_IDS.LOJA,
     label: 'Vendas',
     iconKey: 'loja',
-    defaultTo: children[0].to,
+    defaultTo: children.find((c) => c.to)?.to || '/loja',
     children,
   };
 }
@@ -286,7 +277,7 @@ export function buildFinanceiroAccordion({
       to: `${FINANCEIRO_HUB_PATH}?${buildReceivablesSearchParams({
         section: RECEIVABLES_SECTIONS.MENSALIDADES,
       }).toString()}`,
-      iconKey: 'mensalidades',
+      iconKey: 'aReceber',
     }
   );
 
@@ -297,7 +288,7 @@ export function buildFinanceiroAccordion({
       to: `${FINANCEIRO_HUB_PATH}?${buildPayablesSearchParams({
         section: PAYABLES_SECTIONS.CONTAS_FIXAS,
       }).toString()}`,
-      iconKey: 'movimentacoes',
+      iconKey: 'aPagar',
     });
   }
 
@@ -328,7 +319,7 @@ export function buildRelatoriosNavItem() {
 }
 
 /**
- * @deprecated Relatórios ficam na seção Vendas (após Estoque). Mantido para testes legados.
+ * @deprecated Relatórios ficam na seção Análise da sidebar. Mantido para testes legados.
  */
 export function buildRelatoriosAccordion() {
   const item = buildRelatoriosNavItem();
@@ -355,7 +346,7 @@ export function buildSidebarNavModel({
   isOwner = true,
 }) {
   const accordions = [];
-  const automacoes = buildAutomacoesAccordion({ canConfigureAgenteIa });
+  const automacoes = buildAutomacoesAccordion();
   accordions.push(automacoes);
 
   if (modules.finance === true) {
@@ -376,13 +367,13 @@ export function buildSidebarNavModel({
       ? { label: newLeadLabel, iconKey: 'newLead', action: NEW_LEAD_MENU_ACTION }
       : null,
     primary: [
-      { to: '/', label: 'Hoje', iconKey: 'inicio', end: true },
+      { to: '/', label: 'Recepção', iconKey: 'inicio', end: true },
       { to: '/pipeline', label: pipelineLabel, iconKey: 'pipeline' },
       { to: '/students', label: navStudentsLabel, iconKey: 'students' },
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
-      { to: '/tarefas?tab=processos', label: 'Processos da equipe', iconKey: 'tarefas' },
     ],
     atendimento: [{ to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
+    analise: [buildRelatoriosNavItem()],
     financeDirect: [],
     accordions,
     footerAccordions: [],
@@ -398,22 +389,22 @@ export function flattenNavItemsForMobile(model) {
   for (const item of model.primary) push({ ...item, section: null });
   for (const item of model.atendimento) push({ ...item, section: 'Atendimento' });
 
-  push({
-    to:
-      model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES)?.defaultTo ||
-      '/automacoes?tab=modelos',
-    label: 'Mensagens do funil',
-    iconKey: 'automacoes',
-    section: 'Atendimento',
-  });
   const auto = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
   if (auto) {
-    for (const c of auto.children) {
-      push({
-        ...c,
-        iconKey: c.iconKey || (c.id === 'agente' ? 'agente' : 'automacoes'),
-        section: 'Atendimento',
-      });
+    push({
+      to: auto.defaultTo,
+      label: auto.label,
+      iconKey: auto.iconKey || 'automacoes',
+      section: 'Atendimento',
+    });
+    if (!auto.linkOnly) {
+      for (const c of auto.children) {
+        push({
+          ...c,
+          iconKey: c.iconKey || 'automacoes',
+          section: 'Atendimento',
+        });
+      }
     }
   }
 
@@ -433,9 +424,19 @@ export function flattenNavItemsForMobile(model) {
     for (const c of loja.children) {
       push({
         ...c,
-        iconKey: c.iconKey || (c.id === 'relatorios' ? 'relatorios' : 'loja'),
+        iconKey: c.iconKey || 'loja',
         section: 'Vendas',
         to: c.to || (c.action === NOVA_VENDA_MENU_ACTION ? '/loja' : '/loja'),
+      });
+    }
+  }
+
+  if (model.analise?.length) {
+    for (const c of model.analise) {
+      push({
+        ...c,
+        iconKey: c.iconKey || 'relatorios',
+        section: 'Análise',
       });
     }
   }

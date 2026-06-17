@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 
-/** Rota legada — presença da catraca ficou em Alunos e Recepção. */
+/** Rota legada — histórico da catraca ficou em Recepção (/?tab=catraca&section=historico). */
 export default function Attendance() {
-  return <Navigate to="/students?view=presenca" replace />;
+  return <Navigate to="/?tab=catraca&section=historico" replace />;
 }

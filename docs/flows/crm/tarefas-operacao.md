@@ -5,22 +5,22 @@
 | **id** | `crm.tarefas.operacao` |
 | **módulo** | CRM |
 | **personas** | recepcionista, owner, instrutor |
-| **rotas** | `/tarefas`, `/tarefas?tab=processos`, `/tarefas?lead_id=`, `/tarefas?new=1`, `/tarefas?filter=overdue` |
+| **rotas** | `/tarefas`, `/tarefas?tab=processos&section=`, `/tarefas?lead_id=`, `/tarefas?new=1`, `/tarefas?filter=overdue` |
 | **pré-requisitos** | Usuário autenticado; equipe com `teamId` para atribuição |
 | **status** | revisado |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-17 |
 
 **Specs relacionadas:** — (tarefas de cobrança seguem `src/lib/collectionRules.js`)
 
 **Harness relacionado:** `npm test -- taskDue taskLinkablePeople`
 
-**Arquivos-chave:** `src/pages/Tasks.jsx`, `src/store/useTaskStore.js`, `src/components/shared/TaskCard.jsx`
+**Arquivos-chave:** `src/pages/Tasks.jsx`, `src/pages/TaskProcessosTab.jsx`, `src/lib/processosSettingsSections.js`, `src/store/useTaskStore.js`, `src/components/shared/TaskCard.jsx`
 
 ---
 
 ## Resumo
 
-A página **Tarefas** organiza pendências da equipe em quatro visualizações (por aluno, lista, kanban, calendário), com filtros por status, responsável e prazo. A aba **Processos da equipe** (`?tab=processos`) concentra templates de tarefa, playbook e follow-up pós-matrícula — configuração CRM sem envio automático de WhatsApp.
+A página **Tarefas** organiza pendências da equipe em quatro visualizações (por aluno, lista, kanban, calendário), com filtros por status, responsável e prazo. A aba **Processos da equipe** (`?tab=processos`) usa sidebar com **Templates de tarefas**, **Após a experimental** e, se houver config legada, **Tarefa pós-matrícula (legado)** — configuração CRM sem envio automático de WhatsApp.
 
 ---
 
@@ -54,7 +54,7 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/tarefas` | `Tasks.jsx` | Abrir **Tarefas** na sidebar | Header + toggle de visualização |
+| 1 | `/tarefas` | `Tasks.jsx` | Abrir **Tarefas** na sidebar | Header + aba **Operação** + toggle de visualização |
 | 2 | `/tarefas` | `HubTabBar` | Escolher Por aluno / Lista / Kanban / Calendário | View persiste em `localStorage` (`nave_tasks_view`) |
 | 3 | `/tarefas` | Filter chips | Todas, Pendentes, Minhas, Vencidas, Concluídas | Lista filtrada; chip ativo destacado |
 | 4 | `/tarefas` | Chip **Esta semana** | Alternar período | Tarefas fora da semana ocultas; hint se sem prazo |
@@ -90,8 +90,9 @@ flowchart TD
 9. [ ] Kanban: arrastar de A fazer → Concluídas — persistido após refresh
 10. [ ] Deep link `/tarefas?lead_id=X` — filtro aplicado; ✕ remove filtro
 11. [ ] Limite 500 tarefas — aviso `tasks-limit-notice` se atingido
-12. [ ] Link "Configurar processos automáticos" → `/tarefas?tab=processos`
-13. [ ] `/tarefas?tab=processos` — templates, playbook e follow-up legado
+12. [ ] Aba **Processos da equipe** — sidebar com templates, playbook e (se existir) migração legada
+13. [ ] Link "Configurar processos automáticos" → `/tarefas?tab=processos` (section default `templates`)
+14. [ ] Navegação `?section=playbook` entre grupos sem perder estado da aba Operação
 
 ### Estados de erro conhecidos
 

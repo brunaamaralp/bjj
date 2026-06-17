@@ -1315,7 +1315,7 @@ const App = () => {
         <nav className="navi-bottom-nav" aria-label="Navegação">
           <Link to="/" className={`navi-nav-item${isActive('/') ? ' active' : ''}`}>
             <LayoutGrid size={22} strokeWidth={1.75} />
-            <span>Hoje</span>
+            <span>Recepção</span>
           </Link>
           <Link to="/inbox" className={`navi-nav-item${isInboxPath ? ' active' : ''}`}>
             <MessageCircle size={22} strokeWidth={1.75} />

@@ -55,6 +55,75 @@
   margin-bottom: 8px;
 }
 
+.bank-recon-closing-handoff__title {
+  margin-bottom: 10px;
+}
+
+.bank-recon-closing-handoff__banner {
+  margin-bottom: 12px;
+}
+
+.bank-recon-closing-handoff__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bank-recon-closing-handoff__item {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-light);
+  background: var(--surface-muted, var(--surface));
+}
+
+.bank-recon-closing-handoff__item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.bank-recon-closing-handoff__icon--ok {
+  color: var(--color-success, #16a34a);
+  flex-shrink: 0;
+}
+
+.bank-recon-closing-handoff__icon--pending {
+  color: var(--color-warning, #d97706);
+  flex-shrink: 0;
+}
+
+.bank-recon-closing-handoff__meta {
+  margin: 0 0 10px;
+}
+
+.bank-recon-closing-handoff__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bank-recon-closing-handoff__hint {
+  margin: 12px 0 0;
+}
+
+.bank-recon-closing-handoff__dismiss {
+  margin-top: 10px;
+  border: none;
+  background: none;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.bank-recon-closing-handoff__dismiss:hover {
+  text-decoration: underline;
+}
+
 .bank-recon-summary__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
