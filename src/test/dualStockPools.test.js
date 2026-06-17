@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregatePoolTotals,
   availableFromPools,
+  buildAvailableQuantityPatch,
   buildVariantPoolFields,
   formatStockPoolsSummary,
   hasDualPoolFields,
@@ -124,5 +125,30 @@ describe('dualStockPools', () => {
     expect(text).toContain('1 venda');
     expect(text).toContain('2 aluguel');
     expect(text).toContain('1 emprestado');
+  });
+
+  it('buildAvailableQuantityPatch reduz sale_quantity ao remover estoque', () => {
+    const item = { sale_quantity: 5, rental_available: 0, rental_out: 0, current_quantity: 5 };
+    expect(buildAvailableQuantityPatch(item, 'sale', 3)).toEqual({
+      sale_quantity: 3,
+      rental_available: 0,
+      rental_out: 0,
+      current_quantity: 3,
+    });
+  });
+
+  it('buildAvailableQuantityPatch reduz sale antes de rental em produto both', () => {
+    const item = { sale_quantity: 2, rental_available: 4, rental_out: 1, current_quantity: 6 };
+    expect(buildAvailableQuantityPatch(item, 'both', 3)).toEqual({
+      sale_quantity: 0,
+      rental_available: 3,
+      rental_out: 1,
+      current_quantity: 3,
+    });
+  });
+
+  it('buildAvailableQuantityPatch não altera item legado sem pools ativos', () => {
+    const item = { current_quantity: 8 };
+    expect(buildAvailableQuantityPatch(item, 'sale', 5)).toEqual({ current_quantity: 5 });
   });
 });
