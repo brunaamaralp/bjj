@@ -449,7 +449,7 @@ export default function PayablesTab({
         </p>
       </div>
     ) : (
-      <div className="finance-kpi-row finance-kpi-row--compact">
+      <>
         <div className="finance-kpi finance-kpi--compact">
           <p className="finance-kpi__label">Em aberto (90 dias)</p>
           <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.totalOpen)}</p>
@@ -463,7 +463,7 @@ export default function PayablesTab({
           <p className="finance-kpi__label">Fixas ativas</p>
           <p className="finance-kpi__value">{summary.activeTemplates}</p>
         </div>
-      </div>
+      </>
     );
 
   const subNav = (
@@ -506,7 +506,7 @@ export default function PayablesTab({
 
   return (
     <>
-      <FinanceTabShell panelClassName="receivables-tab finance-tab-panel--compact" kpiStrip={kpiStrip} subNav={subNav}>
+      <FinanceTabShell panelClassName="payables-tab receivables-tab finance-tab-panel--compact" kpiStrip={kpiStrip} subNav={subNav}>
         {error ? <ErrorBanner message={error} onRetry={() => setRefreshToken((t) => t + 1)} /> : null}
 
         {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS ? (
