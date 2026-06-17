@@ -164,6 +164,8 @@ export default function BankReconPairRow({
                 ) : null}
               </p>
             </>
+          ) : item.suggested_tx_id ? (
+            <p className="text-small text-muted">Lançamento sugerido — confirme para vincular</p>
           ) : (
             <p className="text-small text-muted">Sem lançamento vinculado</p>
           )}
@@ -191,7 +193,7 @@ export default function BankReconPairRow({
             <Check size={14} /> Vincular
           </button>
         ) : null}
-        {onConfirm && tx && !showMultiCandidates ? (
+        {onConfirm && !showMultiCandidates ? (
           <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void onConfirm()}>
             <Check size={14} /> Confirmar
           </button>

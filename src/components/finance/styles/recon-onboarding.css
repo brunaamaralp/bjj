@@ -9,7 +9,8 @@
   position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
-  pointer-events: auto;
+  /* Visual only — não bloquear cliques na conciliação durante o tour */
+  pointer-events: none;
 }
 
 .bank-recon-tour__highlight {

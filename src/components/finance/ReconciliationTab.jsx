@@ -341,6 +341,10 @@ export default function ReconciliationTab({ academyId }) {
   };
 
   const linkItemToTx = async (itemId, txId) => {
+    if (!itemId || !txId) {
+      setError('Selecione um lançamento para vincular.');
+      return;
+    }
     const tx = (detail?.navi_unmatched || []).find((t) => t.id === txId)
       || (detail?.navi_transactions || []).find((t) => t.id === txId);
     setBusy(true);
@@ -722,7 +726,7 @@ export default function ReconciliationTab({ academyId }) {
                   tone="suggested"
                   busy={busy}
                   onConfirm={
-                    tx && !candidates?.length
+                    !candidates?.length && (tx || item.suggested_tx_id)
                       ? () => void linkItemToTx(item.id, item.suggested_tx_id || tx?.id)
                       : null
                   }

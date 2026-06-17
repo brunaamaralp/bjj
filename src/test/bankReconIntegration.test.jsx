@@ -269,6 +269,44 @@ describe('ReconciliationTab integration', () => {
     expect(screen.queryByText('Fora do filtro')).not.toBeInTheDocument();
   });
 
+  it('shows Confirmar on suggested row when suggested_tx_id exists but tx is not in navi_transactions', async () => {
+    bankApi.getBankStatementDetail.mockResolvedValue(
+      buildBankReconDetail({
+        items: [
+          {
+            id: 'item-sug',
+            date: '2026-01-16',
+            description: 'Taxa banco',
+            amount: 10,
+            direction: 'debit',
+            status: 'unmatched',
+            suggested_tx_id: 'tx-outside-period',
+            match_score: 72,
+          },
+        ],
+        navi_unmatched: [],
+        navi_transactions: [],
+        summary: { pending_count: 1, pending_amount: 10, navi_orphan_count: 0 },
+      })
+    );
+    const user = userEvent.setup();
+    renderRecon();
+    await waitFor(() => expect(screen.getByText('extrato.csv')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^Abrir$/i }));
+    await waitFor(() => expect(screen.getByText('Taxa banco')).toBeInTheDocument());
+
+    const confirmBtn = screen.getByRole('button', { name: /^Confirmar$/i });
+    expect(confirmBtn).toBeInTheDocument();
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(bankApi.confirmBankMatch).toHaveBeenCalledWith('acad-1', {
+        item_id: 'item-sug',
+        transaction_id: 'tx-outside-period',
+      });
+    });
+  });
+
   it('does not show duplicate lines in Sem correspondência section', async () => {
     bankApi.getBankStatementDetail.mockResolvedValue(
       buildBankReconDetail({
