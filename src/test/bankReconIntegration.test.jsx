@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ReconciliationTab from '../components/finance/ReconciliationTab.jsx';
 import { buildBankReconDetail, mockStatementList } from './fixtures/bankReconDetail.js';
+import { writeReconTourSeen, writeReconWizardDismissed } from '../lib/bankReconOnboarding.js';
 import * as bankApi from '../lib/bankReconciliationApi.js';
 
 const addToast = vi.fn();
@@ -53,6 +54,9 @@ async function openStatementWorkspace(user) {
 describe('ReconciliationTab integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    writeReconTourSeen('acad-1');
+    writeReconWizardDismissed('acad-1');
     bankApi.listBankStatements.mockResolvedValue(mockStatementList);
     bankApi.getBankStatementDetail.mockResolvedValue(buildBankReconDetail());
     bankApi.confirmBankMatch.mockResolvedValue({ ok: true });

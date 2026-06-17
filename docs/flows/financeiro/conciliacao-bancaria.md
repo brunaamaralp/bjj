@@ -18,6 +18,8 @@
 - [2026-06-16-conciliacao-deduplicacao-extratos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-deduplicacao-extratos-PRODUCT.md)
 - [2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-PRODUCT.md) *(P0a/P0b/P1 implementados)*
 - [2026-06-16-conciliacao-pagadores-conhecidos-TECH.md](../../superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md) *(P0a/P0b/P1 implementados)*
+- [2026-06-16-conciliacao-ux-evolucao-PRODUCT.md](../../superpowers/specs/2026-06-16-conciliacao-ux-evolucao-PRODUCT.md) *(rascunho — onboarding, mobile, mensalidade inline, regras)*
+- [2026-06-16-conciliacao-ux-evolucao-TECH.md](../../superpowers/specs/2026-06-16-conciliacao-ux-evolucao-TECH.md)
 
 **Harness relacionado:** `npm test -- bankRecon bankReconciliationMatcher bankReconciliationValidation`
 

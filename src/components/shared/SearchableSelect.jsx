@@ -4,7 +4,11 @@ import './SearchableGroupedSelect.css';
 function filterOptions(options, query) {
   const q = String(query || '').trim().toLowerCase();
   if (!q) return options;
-  return options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
+  return options.filter((opt) => {
+    const label = String(opt.label || '').toLowerCase();
+    const extra = String(opt.searchText || '').toLowerCase();
+    return label.includes(q) || extra.includes(q);
+  });
 }
 
 function findOptionLabel(options, value) {

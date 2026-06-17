@@ -1,12 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import './finance.css';
+import './styles/recon-onboarding.css';
 import { ArrowLeft, Check, FileSpreadsheet, Upload } from 'lucide-react';
 import ImportStatementModal from './ImportStatementModal.jsx';
 import BankReconPairRow from './BankReconPairRow.jsx';
 import BankReconOrphanList, { formatSourceLabel } from './BankReconOrphanList.jsx';
 import BankReconSelectionBar from './BankReconSelectionBar.jsx';
 import BankReconKpiRow from './BankReconKpiRow.jsx';
+import BankReconSetupWizard from './BankReconSetupWizard.jsx';
+import BankReconTour from './BankReconTour.jsx';
+import BankReconNextPendingBar from './BankReconNextPendingBar.jsx';
+import BankReconRegisterPaymentModal from './BankReconRegisterPaymentModal.jsx';
+import BankReconRulesModal from './BankReconRulesModal.jsx';
 import {
   listBankStatements,
   getBankStatementDetail,
@@ -21,11 +27,16 @@ import {
 import { reconcileStudentPaymentMirrors } from '../../lib/financeTxApi.js';
 import { friendlyError } from '../../lib/errorMessages';
 import { useToast } from '../../hooks/useToast';
+import useMediaQuery from '../../hooks/useMediaQuery.js';
+import { useBankReconWizard } from '../../hooks/useBankReconWizard.js';
+import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
+import { useLeadStore } from '../../store/useLeadStore';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 import BankReconCreateTxModal from './BankReconCreateTxModal.jsx';
@@ -112,12 +123,41 @@ export default function ReconciliationTab({ academyId }) {
   const [createTxItem, setCreateTxItem] = useState(null);
   const [detailTx, setDetailTx] = useState(null);
   const [learnPayerPrompt, setLearnPayerPrompt] = useState(null);
+  const [learnAutoSuggest, setLearnAutoSuggest] = useState(false);
+  const [registerPaymentHint, setRegisterPaymentHint] = useState(null);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState('extrato');
+  const [hasImportedOnce, setHasImportedOnce] = useState(false);
   const dismissedLearnKeys = useRef(new Set());
   const chartAccounts = useAccountingStore((s) => s.accounts);
+  const financeConfig = useLeadStore((s) =>
+    s.financeConfigAcademyId === academyId ? s.financeConfig : null
+  );
+  const isMobileRecon = useMediaQuery('(max-width: 900px)');
+  const tourBlockedByModal = Boolean(createTxItem || learnPayerPrompt || registerPaymentHint || showRulesModal);
+
+  const {
+    wizard,
+    showTour,
+    dismissWizard,
+    reopenWizard,
+    completeTour,
+    advanceWizardStep,
+  } = useBankReconWizard({
+    academyId,
+    statementsCount: statements.length,
+    inDetail: Boolean(selectedId),
+    hasImported: hasImportedOnce,
+  });
 
   useEffect(() => {
     if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
   }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId || financeConfig) return;
+    void loadMergedFinanceConfigForAcademy(academyId);
+  }, [academyId, financeConfig]);
 
   const loadList = useCallback(async () => {
     if (!academyId) return;
@@ -209,8 +249,14 @@ export default function ReconciliationTab({ academyId }) {
       (detail?.navi_unmatched || []).map((tx) => ({
         value: tx.id,
         label: formatReconTxSelectLabel(tx, { formatDate: fmtDate, formatMoney: fmtMoney }),
+        searchText: (tx.search_keywords || []).join(' '),
       })),
     [detail?.navi_unmatched]
+  );
+
+  const unmatchedItems = useMemo(
+    () => grouped.unmatched.map(({ item }) => item),
+    [grouped.unmatched]
   );
 
   const leadNameById = useMemo(
@@ -230,6 +276,7 @@ export default function ReconciliationTab({ academyId }) {
 
   const onImported = (statementId, result) => {
     setSelectedId(statementId);
+    setHasImportedOnce(true);
     void refresh();
     const parts = ['Extrato importado.'];
     if (result?.suggested_matches) {
@@ -290,19 +337,59 @@ export default function ReconciliationTab({ academyId }) {
     const key = `${learnPayerPrompt.lead_id}:${learnPayerPrompt.extracted_normalized}`;
     dismissedLearnKeys.current.add(key);
     const payload = learnPayerPrompt;
+    const autoSuggest = learnAutoSuggest;
     setLearnPayerPrompt(null);
+    setLearnAutoSuggest(false);
     if (remember) {
       void rememberBankPayer(academyId, {
         lead_id: payload.lead_id,
         display: payload.extracted_display,
+        auto_suggest: autoSuggest,
       })
-        .then(() => toast.success('Pagador salvo para este aluno.'))
+        .then(() =>
+          toast.success(
+            autoSuggest ? 'Pagador e regra de sugestão salvos.' : 'Pagador salvo para este aluno.'
+          )
+        )
         .catch((e) => {
           console.error(e);
           toast.show({ type: 'error', message: reconFriendlyError(e) });
         });
     }
   };
+
+  const selectBankItem = (itemId) => {
+    setSelectedBankItemId(itemId);
+    if (isMobileRecon && itemId) setMobilePanel('lancamentos');
+  };
+
+  const selectNextPending = () => {
+    if (!unmatchedItems.length) return;
+    const currentIdx = unmatchedItems.findIndex((item) => item.id === selectedBankItemId);
+    const next = unmatchedItems[(currentIdx + 1) % unmatchedItems.length];
+    if (next) selectBankItem(next.id);
+  };
+
+  const handleWizardAction = (step) => {
+    if (step.action === 'openImport') {
+      setShowImport(true);
+      return;
+    }
+    if (step.action === 'dismiss') {
+      dismissWizard();
+      return;
+    }
+    advanceWizardStep();
+  };
+
+  const registerPaymentItem = useMemo(
+    () =>
+      registerPaymentHint && detail?.items
+        ? detail.items.find((i) => i.pending_payment_hints?.some((h) => h.payment_id === registerPaymentHint.payment_id)) ||
+          detail.items.find((i) => i.id === selectedBankItemId)
+        : null,
+    [registerPaymentHint, detail?.items, selectedBankItemId]
+  );
 
   const requestIgnore = (item) => {
     setPendingConfirm({
@@ -362,9 +449,27 @@ export default function ReconciliationTab({ academyId }) {
             Importe o extrato do banco (OFX, CSV, Excel ou PDF), confira sugestões automáticas e vincule cada linha a
             um lançamento do Caixa. Itens sem correspondência podem ser vinculados manualmente, gerar novo lançamento ou
             ser ignorados.
+            {wizard.canReopen ? (
+              <>
+                {' '}
+                <button type="button" className="btn-text btn-sm p-0" onClick={reopenWizard}>
+                  Ver guia de conciliação
+                </button>
+              </>
+            ) : null}
           </StatusBanner>
         }
       >
+        {wizard.show ? (
+          <BankReconSetupWizard
+            steps={wizard.steps}
+            currentStep={wizard.currentStep}
+            doneCount={wizard.doneCount}
+            totalSteps={wizard.totalSteps}
+            onDismiss={dismissWizard}
+            onAction={handleWizardAction}
+          />
+        ) : null}
         {mirrorReconcileResult ? (
           <StatusBanner variant={mirrorReconcileResult.failed > 0 ? 'warning' : 'success'} className="mb-3">
             {mirrorReconcileResult.repaired > 0
@@ -483,20 +588,31 @@ export default function ReconciliationTab({ academyId }) {
 
       {st && !detailLoading ? (
         <>
-          <BankReconKpiRow
-            filename={st.filename}
-            statusLabel={STATUS_LABELS[st.status] || st.status}
-            formatLabel={st.source_format ? formatSourceLabel(st.source_format) : ''}
-            periodLabel={`${fmtDate(st.period_start)} — ${fmtDate(st.period_end)}`}
-            bankAccountLabel={st.bank_account || ''}
-            pendingCount={summary.pending_count}
-            pendingAmount={summary.pending_amount}
-            balanceGap={balanceGap}
-            naviOrphanCount={summary.navi_orphan_count}
-            balanceProof={balanceProof}
-            reconciledCount={summary.reconciled_count}
-            reconciledAmount={summary.reconciled_amount}
-          />
+          <div data-recon-tour="kpi">
+            <BankReconKpiRow
+              filename={st.filename}
+              statusLabel={STATUS_LABELS[st.status] || st.status}
+              formatLabel={st.source_format ? formatSourceLabel(st.source_format) : ''}
+              periodLabel={`${fmtDate(st.period_start)} — ${fmtDate(st.period_end)}`}
+              bankAccountLabel={st.bank_account || ''}
+              pendingCount={summary.pending_count}
+              pendingAmount={summary.pending_amount}
+              balanceGap={balanceGap}
+              naviOrphanCount={summary.navi_orphan_count}
+              balanceProof={balanceProof}
+              reconciledCount={summary.reconciled_count}
+              reconciledAmount={summary.reconciled_amount}
+            />
+          </div>
+
+          {(detail.rules_applied || []).length > 0 ? (
+            <StatusBanner variant="info" className="mb-3">
+              {detail.rules_applied.length} regra(s) de pagador aplicável(is) neste extrato.{' '}
+              <button type="button" className="btn-text btn-sm p-0" onClick={() => setShowRulesModal(true)}>
+                Gerenciar regras
+              </button>
+            </StatusBanner>
+          ) : null}
 
           {!st.bank_account ? (
             <StatusBanner variant="warning" className="mb-3">
@@ -510,6 +626,7 @@ export default function ReconciliationTab({ academyId }) {
               <button
                 type="button"
                 className="btn-outline btn-sm"
+                data-recon-tour="confirm-all"
                 disabled={busy || st.status === 'reconciled'}
                 onClick={() =>
                   run(() => confirmAllBankMatches(academyId, st.id), {
@@ -545,8 +662,39 @@ export default function ReconciliationTab({ academyId }) {
             </StatusBanner>
           ) : null}
 
+          {isMobileRecon ? (
+            <div className="bank-recon-mobile-tabs" role="tablist" aria-label="Painéis da conciliação">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobilePanel === 'extrato'}
+                className={`bank-recon-mobile-tabs__btn${mobilePanel === 'extrato' ? ' bank-recon-mobile-tabs__btn--active' : ''}`}
+                onClick={() => setMobilePanel('extrato')}
+              >
+                Extrato
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobilePanel === 'lancamentos'}
+                className={`bank-recon-mobile-tabs__btn${mobilePanel === 'lancamentos' ? ' bank-recon-mobile-tabs__btn--active' : ''}`}
+                onClick={() => setMobilePanel('lancamentos')}
+              >
+                Lançamentos
+                {selectedBankItemId ? (
+                  <span className="bank-recon-mobile-tabs__badge" aria-hidden>
+                    1
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          ) : null}
+
           <div className="bank-recon-columns">
-            <div className="bank-recon-col">
+            <div
+              className={`bank-recon-col${isMobileRecon && mobilePanel !== 'extrato' ? ' bank-recon-col--hidden-mobile' : ''}`}
+              data-recon-tour="extrato-col"
+            >
               <h4 className="finance-tab__section-title">Extrato bancário</h4>
 
               {grouped.auto.length > 0 && !focusPendingOnly ? <p className="text-xs text-muted mb-2">Já conciliados</p> : null}
@@ -601,7 +749,11 @@ export default function ReconciliationTab({ academyId }) {
                   busy={busy}
                   manualTxId={unmatchedTxByItem[item.id] || ''}
                   manualTxOptions={manualTxOptions}
-                  onSelect={() => setSelectedBankItemId(item.id)}
+                  onSelect={() => selectBankItem(item.id)}
+                  onRegisterPayment={(hint) => {
+                    selectBankItem(item.id);
+                    setRegisterPaymentHint(hint);
+                  }}
                   onManualTxChange={(txId) =>
                     setUnmatchedTxByItem((prev) => ({ ...prev, [item.id]: txId }))
                   }
@@ -616,7 +768,10 @@ export default function ReconciliationTab({ academyId }) {
               ))}
             </div>
 
-            <div className="bank-recon-col">
+            <div
+              className={`bank-recon-col${isMobileRecon && mobilePanel !== 'lancamentos' ? ' bank-recon-col--hidden-mobile' : ''}`}
+              data-recon-tour="lancamentos-col"
+            >
               <h4 className="finance-tab__section-title">Lançamentos Nave</h4>
               <BankReconOrphanList
                 orphans={detail.navi_unmatched || []}
@@ -677,6 +832,13 @@ export default function ReconciliationTab({ academyId }) {
             </div>
           </div>
 
+          <BankReconNextPendingBar
+            unmatchedItems={unmatchedItems}
+            selectedItemId={selectedBankItemId}
+            busy={busy}
+            onSelectNext={selectNextPending}
+          />
+
           {st.status !== 'reconciled' ? (
             <div className="card mt-4 bank-recon-complete-card">
               <h4 className="finance-tab__section-title bank-recon-complete-title">Finalizar conciliação</h4>
@@ -711,21 +873,42 @@ export default function ReconciliationTab({ academyId }) {
 
       {error ? <ErrorBanner message={error} onRetry={() => void loadDetail(selectedId)} className="mt-2" /> : null}
 
-      <ConfirmDialog
+      <BankReconTour
+        open={showTour && Boolean(st) && !detailLoading && !tourBlockedByModal}
+        hasConfirmAll={grouped.suggested.length > 0}
+        onComplete={completeTour}
+        onSkip={completeTour}
+      />
+
+      <ModalShell
         open={Boolean(learnPayerPrompt)}
+        onClose={() => closeLearnPayerPrompt(false)}
         title="Lembrar pagador?"
         description={
           learnPayerPrompt
-            ? `O extrato indica "${learnPayerPrompt.extracted_display}" como pagador de ${learnPayerPrompt.lead_name || 'este aluno'}. Deseja salvar para futuras conciliações?`
+            ? `O extrato indica "${learnPayerPrompt.extracted_display}" como pagador de ${learnPayerPrompt.lead_name || 'este aluno'}.`
             : ''
         }
-        confirmLabel="Salvar pagador"
-        cancelLabel="Agora não"
-        confirmVariant="primary"
-        loading={busy}
-        onConfirm={() => closeLearnPayerPrompt(true)}
-        onClose={() => closeLearnPayerPrompt(false)}
-      />
+        footer={
+          <>
+            <button type="button" className="btn-outline" disabled={busy} onClick={() => closeLearnPayerPrompt(false)}>
+              Agora não
+            </button>
+            <button type="button" className="btn-primary" disabled={busy} onClick={() => closeLearnPayerPrompt(true)}>
+              Salvar pagador
+            </button>
+          </>
+        }
+      >
+        <label className="bank-recon-learn-rule text-sm">
+          <input
+            type="checkbox"
+            checked={learnAutoSuggest}
+            onChange={(e) => setLearnAutoSuggest(e.target.checked)}
+          />
+          Sempre sugerir este vínculo na conciliação
+        </label>
+      </ModalShell>
       <ConfirmDialog
         open={pendingConfirm?.type === 'ignore'}
         title="Ignorar linha do extrato?"
@@ -750,6 +933,28 @@ export default function ReconciliationTab({ academyId }) {
             successMessage: 'Lançamento criado e conciliado.',
           });
         }}
+      />
+      <BankReconRegisterPaymentModal
+        open={Boolean(registerPaymentHint)}
+        hint={registerPaymentHint}
+        bankItem={registerPaymentItem}
+        statementId={selectedId}
+        academyId={academyId}
+        financeConfig={financeConfig}
+        busy={busy}
+        onClose={() => setRegisterPaymentHint(null)}
+        onSuccess={(result) => {
+          setRegisterPaymentHint(null);
+          void refresh();
+          toast.success('Mensalidade registrada e linha conciliada.');
+          maybePromptLearnPayer(result.learn_payer);
+        }}
+      />
+      <BankReconRulesModal
+        open={showRulesModal}
+        academyId={academyId}
+        onClose={() => setShowRulesModal(false)}
+        onChanged={() => void refresh()}
       />
       {detailTx ? (
         <FinanceTxDetailDrawer

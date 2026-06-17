@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
+import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 import './finance.css';
 import { Link } from 'react-router-dom';
 import {
@@ -42,7 +43,7 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import useDebounce from '../../hooks/useDebounce.js';
 
-const ImportPayablesModal = lazy(() => import('./ImportPayablesModal.jsx'));
+const ImportPayablesModal = lazyWithRetry(() => import('./ImportPayablesModal.jsx'));
 
 function fmtMoney(v) {
   try {

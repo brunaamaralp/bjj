@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLeadStore } from '../store/useLeadStore';
 import {
   countEnrollmentsInMonth,
@@ -6,21 +6,70 @@ import {
   currentMonthRange,
   previousMonthRange,
 } from '../lib/dashboardManagerMetrics.js';
+import { fetchStudentMetricsForRange } from '../lib/reportsStudentMetricsApi.js';
+import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
+
+function monthYmdBounds(range) {
+  return {
+    from: formatLocalYmd(range.from),
+    to: formatLocalYmd(range.to),
+  };
+}
 
 /**
- * KPI de matrículas do mês — subscribe isolado em `leads[]` para métricas mensais.
+ * KPI de matrículas do mês — contagem canônica via API (todos os alunos);
+ * fallback local enquanto carrega ou se a API falhar.
  * @param {Array} students
  */
 export function useDashboardMonthEnrollmentMetrics(students) {
+  const academyId = useLeadStore((s) => s.academyId);
   const leads = useLeadStore((s) => s.leads);
+  const [serverMetrics, setServerMetrics] = useState(null);
 
-  return useMemo(() => {
-    const monthRange = currentMonthRange();
-    const prevRange = previousMonthRange();
+  const monthRange = useMemo(() => currentMonthRange(), []);
+  const prevRange = useMemo(() => previousMonthRange(), []);
+
+  useEffect(() => {
+    if (!academyId) {
+      setServerMetrics(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const { from, to } = monthYmdBounds(monthRange);
+
+    fetchStudentMetricsForRange({ academyId, from, to })
+      .then((sm) => {
+        if (!cancelled) setServerMetrics(sm);
+      })
+      .catch(() => {
+        if (!cancelled) setServerMetrics(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId, monthRange.ym]);
+
+  const clientMetrics = useMemo(() => {
     const enrolledInMonth = countEnrollmentsInMonth(leads, students, monthRange);
     const leadsInMonth = countLeadsCreatedInMonth(leads, monthRange);
     const enrolledPrevMonth = countEnrollmentsInMonth(leads, students, prevRange);
+    return { enrolledInMonth, leadsInMonth, enrolledPrevMonth };
+  }, [leads, students, monthRange, prevRange]);
+
+  return useMemo(() => {
+    const enrolledInMonth =
+      serverMetrics?.newStudents != null
+        ? Number(serverMetrics.newStudents) || 0
+        : clientMetrics.enrolledInMonth;
+    const enrolledPrevMonth =
+      serverMetrics?.previous?.newStudents != null
+        ? Number(serverMetrics.previous.newStudents) || 0
+        : clientMetrics.enrolledPrevMonth;
+    const { leadsInMonth } = clientMetrics;
     const delta = enrolledInMonth - enrolledPrevMonth;
+
     let sub = '';
     let subTone = '';
     if (leadsInMonth > 0) {
@@ -33,6 +82,7 @@ export function useDashboardMonthEnrollmentMetrics(students) {
       sub = `${delta} vs mês passado`;
       subTone = 'neutral';
     }
+
     return { enrolledInMonth, sub, subTone };
-  }, [leads, students]);
+  }, [serverMetrics, clientMetrics]);
 }

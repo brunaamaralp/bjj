@@ -39,6 +39,7 @@ export function parsePayerAliasesJson(raw) {
           source: SOURCE_RANK[source] ? source : 'manual',
         };
         if (entry?.learned_at) out.learned_at = String(entry.learned_at).slice(0, 64);
+        if (entry?.auto_suggest === true) out.auto_suggest = true;
         return out;
       })
       .filter(Boolean)
@@ -59,7 +60,7 @@ export function aliasExists(aliases, normalized) {
   return (aliases || []).some((a) => a.normalized === key);
 }
 
-export function appendPayerAlias(existing, { display, source = 'manual', learnedAt = null } = {}) {
+export function appendPayerAlias(existing, { display, source = 'manual', learnedAt = null, auto_suggest = false } = {}) {
   const disp = String(display || '').trim().slice(0, PAYER_ALIAS_DISPLAY_MAX);
   const normalized = normalizePayerName(disp);
   if (!disp || !normalized) {
@@ -74,15 +75,16 @@ export function appendPayerAlias(existing, { display, source = 'manual', learned
     const current = list[idx];
     const currentRank = SOURCE_RANK[current.source] || 0;
     const nextRank = SOURCE_RANK[src] || 0;
-    if (nextRank > currentRank) {
+    if (nextRank > currentRank || auto_suggest) {
       list[idx] = {
         ...current,
         display: disp,
-        source: src,
+        source: nextRank > currentRank ? src : current.source,
         ...(src === 'learned' && learnedAt ? { learned_at: learnedAt } : {}),
+        ...(auto_suggest ? { auto_suggest: true } : current.auto_suggest ? { auto_suggest: true } : {}),
       };
     }
-    return { aliases: list, added: false, updated: nextRank > currentRank };
+    return { aliases: list, added: false, updated: nextRank > currentRank || auto_suggest };
   }
 
   if (list.length >= PAYER_ALIAS_MAX) {
@@ -94,6 +96,7 @@ export function appendPayerAlias(existing, { display, source = 'manual', learned
     normalized,
     source: src,
     ...(src === 'learned' && learnedAt ? { learned_at: learnedAt } : {}),
+    ...(auto_suggest ? { auto_suggest: true } : {}),
   });
 
   return { aliases: list, added: true };

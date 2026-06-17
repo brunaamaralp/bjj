@@ -73,11 +73,40 @@ export async function confirmBankMatch(academyId, { item_id, transaction_id, rem
   return parseJson(res);
 }
 
-export async function rememberBankPayer(academyId, { lead_id, display }) {
+export async function rememberBankPayer(academyId, { lead_id, display, auto_suggest }) {
   const res = await authedFetch('/api/bank-reconciliation?route=remember-payer', {
     method: 'POST',
     headers: await headers(academyId),
-    body: JSON.stringify({ lead_id, display }),
+    body: JSON.stringify({
+      lead_id,
+      display,
+      ...(auto_suggest === true ? { auto_suggest: true } : {}),
+    }),
+  });
+  return parseJson(res);
+}
+
+export async function registerBankReconPayment(academyId, payload) {
+  const res = await authedFetch('/api/bank-reconciliation?route=recon-register-payment', {
+    method: 'POST',
+    headers: await headers(academyId),
+    body: JSON.stringify(payload),
+  });
+  return parseJson(res);
+}
+
+export async function listReconPayerRules(academyId) {
+  const res = await authedFetch('/api/bank-reconciliation?route=recon-payer-rules', {
+    headers: await headers(academyId),
+  });
+  return parseJson(res);
+}
+
+export async function disableReconPayerRule(academyId, { lead_id, normalized }) {
+  const res = await authedFetch('/api/bank-reconciliation?route=recon-disable-payer-rule', {
+    method: 'POST',
+    headers: await headers(academyId),
+    body: JSON.stringify({ lead_id, normalized }),
   });
   return parseJson(res);
 }

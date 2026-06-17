@@ -8,14 +8,19 @@ Banco de Dados
 
 Coleções (Collections)
 - LEADS_COL (Leads/Interessados — só funil, sem matriculados)
-  - Atributos: name, phone, type, origin, status (Novo…Não fechou — não Matriculado), pipeline_stage, scheduledDate, scheduledTime, parentName, age, birth_date, sexo, academyId, lostReason, whatsapp_*, label_ids, custom_answers_json, ai_history_summary_json (cache do Resumo IA), etc.
+  - Atributos: name, phone, type, origin, status (Novo…Não fechou — não Matriculado), pipeline_stage, scheduledDate, scheduledTime, parentName, **age**, **birth_date**, sexo, **is_first_experience**, academyId, lostReason, whatsapp_*, **label_ids**, custom_answers_json, ai_history_summary_json (cache do Resumo IA), etc.
+  - Timestamps de funil (`pipeline_stage_changed_at`, `attended_at`, `lost_at`, `imported_at`, …): tipo **datetime** no Appwrite (manifesto em `scripts/verify-and-fix-schema-crm.mjs`).
   - Índices sugeridos: equality em academyId; opcional em status; ordenação por $createdAt
   - Após migrar alunos para `students`: `npm run cleanup:lead-student-attrs` (dry-run) e depois `DRY_RUN=0 CONFIRM=1 npm run cleanup:lead-student-attrs`
 - STUDENTS_COL (Alunos matriculados)
-  - Provisionar: `npm run provision:students`
+  - Fonte de verdade do schema: `STUDENTS_ATTRS` em `scripts/verify-and-fix-schema-crm.mjs` · verificar/provisionar: `npm run verify-and-fix-schema-crm`
+  - Auditoria código × manifesto × live: `npm run audit:students-attrs` (opcional `--sample`)
+  - Provisionar legado: `npm run provision:students`
   - Migrar dados legados: `npm run migrate:leads-to-students` (DRY_RUN=1 para prévia)
-  - Atributos: name, phone, type, academyId, source_origin, student_status, plan, due_day, enrollmentDate, converted_at, turma, preferred_payment_*, freeze_*, controlid_*, photo_url, cpf, etc.
-  - Índices: academyId, student_status, phone, name
+  - Atributos principais: name, phone, email, type, academyId, **birth_date** (idade derivada na UI — **não** gravar `age`), source_origin, student_status, plan, plan_billing, due_day, enrollmentDate, converted_at, turma, belt, cpf, responsavel, cpf_responsavel, **payer_aliases_json** (pagadores conhecidos / conciliação), preferred_payment_*, emergencyContact/Phone, custom_answers_json, freeze_*, controlid_*, photo_url, collection_snooze_*, overdue/overdue_label, exit_reason, exit_date, etc.
+  - **Não** usar em `students`: `age`, `is_first_experience`, `label_ids` (ficam só em leads; na matrícula, `is_first_experience` do funil vira `custom_answers_json.primeira_experiencia`). Remoção live: `npm run cleanup:students-unused-attrs` (dry-run) → `DRY_RUN=0 CONFIRM=1 npm run cleanup:students-unused-attrs`
+  - Matrícula pública (`/inscricao/:token`): exige **data de nascimento** para Criança/Juniores; não envia `age`.
+  - Índices: academyId, student_status, phone, plan
   - FKs em outras coleções continuam como `lead_id` (mesmo $id do documento)
 - ACADEMIES_COL (Academias)
   - Provisionar atributos extras: `npm run provision:academy-attrs` (`settings`, `student_freeze_reasons`, `student_exit_reasons`, `onboardingChecklist`)
@@ -49,6 +54,11 @@ Coleções (Collections)
 - TASKS_COL (Tarefas por Turma)
   - Atributos: academyId (string), title (string), dueDate (string YYYY‑MM‑DD), dueTime (string HH:mm), classId (string), studentId (string), studentName (string), status (string: "open" | "done"), notes (string)
   - Índices sugeridos: equality em academyId; range em dueDate (>=, <=)
+
+Schema CRM (manifesto único)
+- `npm run verify-and-fix-schema-crm` — LEADS, STUDENTS, TASKS, LEAD_EVENTS, extrato bancário, ACCOUNTS, JOURNAL, etc.
+- Coleções com timestamps **datetime** no Appwrite (não `string`): ex. LEADS (`pipeline_stage_changed_at`, `attended_at`, …), TASKS (`updated_at`), LEAD_EVENTS (`at`), JOURNAL (`date`), BANK_STATEMENTS (`import_date`, `completed_at`).
+- Spec pagadores conhecidos: `docs/superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md`
 
 Funções (Functions) e Variáveis de Ambiente (Function Variables)
 - Inventário — Movimentar Estoque (INVENTORY_MOVE_FN_ID)

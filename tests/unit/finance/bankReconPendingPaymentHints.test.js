@@ -57,7 +57,7 @@ describe('bankReconPendingPaymentHints', () => {
       { paymentsByMonth, payerContextByLeadId }
     );
 
-    expect(hints).toHaveLength(2);
+    expect(hints).toHaveLength(3);
     expect(hints[0].lead_id).toBe('lead-a');
     expect(hints[0].payment_id).toBe('pay-a');
     expect(hints[1].lead_id).toBe('lead-b');

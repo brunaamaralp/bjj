@@ -1,3 +1,5 @@
+import { LEAD_STATUS } from './leadStatus.js';
+
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** YYYY-MM-DD no fuso local (evita deslocamento de toISOString). */
@@ -48,6 +50,46 @@ export function contactEnrolledInYmdRange(contact, from, to) {
   if (from && ymd < from) return false;
   if (to && ymd > to) return false;
   return true;
+}
+
+export function isImportedSpreadsheetContact(contact) {
+  return (
+    String(contact?.origin || contact?.sourceOrigin || contact?.source_origin || '').trim() ===
+    'Planilha'
+  );
+}
+
+/** Aluno matriculado ou lead convertido elegível para KPI de matrículas. */
+export function shouldCountEnrollmentContact(contact) {
+  if (isImportedSpreadsheetContact(contact)) return false;
+  if (contact?._isStudent || contact?.contact_type === 'student') return true;
+  const status = String(contact?.status || '').trim();
+  return status === LEAD_STATUS.CONVERTED;
+}
+
+/** Matrícula no período civil (ingresso → converted_at), comparando só YYYY-MM-DD. */
+export function matriculationYmdInRange(contact, fromYmd, toYmd) {
+  const ymd = enrollmentDateYmd(contact);
+  if (!ymd) return false;
+  if (fromYmd && ymd < fromYmd) return false;
+  if (toYmd && ymd > toYmd) return false;
+  return true;
+}
+
+/**
+ * Conta matrículas no período sobre lista já deduplicada por id (servidor / relatórios).
+ * @param {object[]} people
+ * @param {string} fromYmd
+ * @param {string} toYmd
+ */
+export function countEnrollmentsInPeoplePeriod(people, fromYmd, toYmd) {
+  let count = 0;
+  for (const contact of people || []) {
+    if (!shouldCountEnrollmentContact(contact)) continue;
+    if (!matriculationYmdInRange(contact, fromYmd, toYmd)) continue;
+    count += 1;
+  }
+  return count;
 }
 
 /** Data de ingresso padrão: cadastro existente ou data de criação do lead. */

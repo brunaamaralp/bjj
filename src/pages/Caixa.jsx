@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef, Suspense } from 'react';
+import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 
 import { fetchFinanceSummary, fetchMonthlyClosing, fetchPayables } from '../lib/financeTxApi.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../lib/financeTermHints.js';
@@ -56,13 +57,13 @@ import FinanceiroHubTabs from '../components/finance/FinanceiroHubTabs.jsx';
 import FinanceMonthPicker from '../components/finance/FinanceMonthPicker.jsx';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 
-const VisaoGeralTab = lazy(() => import('../components/finance/VisaoGeralTab.jsx'));
-const ReceivablesTab = lazy(() => import('../components/finance/ReceivablesTab.jsx'));
-const PayablesTab = lazy(() => import('../components/finance/PayablesTab.jsx'));
-const TransacoesTab = lazy(() => import('../components/finance/TransacoesTab.jsx'));
-const ForecastTab = lazy(() => import('../components/finance/ForecastTab.jsx'));
-const ReconciliationTab = lazy(() => import('../components/finance/ReconciliationTab.jsx'));
-const MonthlyClosingTab = lazy(() => import('../components/finance/MonthlyClosingTab.jsx'));
+const VisaoGeralTab = lazyWithRetry(() => import('../components/finance/VisaoGeralTab.jsx'));
+const ReceivablesTab = lazyWithRetry(() => import('../components/finance/ReceivablesTab.jsx'));
+const PayablesTab = lazyWithRetry(() => import('../components/finance/PayablesTab.jsx'));
+const TransacoesTab = lazyWithRetry(() => import('../components/finance/TransacoesTab.jsx'));
+const ForecastTab = lazyWithRetry(() => import('../components/finance/ForecastTab.jsx'));
+const ReconciliationTab = lazyWithRetry(() => import('../components/finance/ReconciliationTab.jsx'));
+const MonthlyClosingTab = lazyWithRetry(() => import('../components/finance/MonthlyClosingTab.jsx'));
 
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';

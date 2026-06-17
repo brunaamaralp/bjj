@@ -44,6 +44,7 @@ export default function PublicStudentEnrollment() {
   });
 
   const leadType = watch('type');
+  const minorProfile = leadType === 'Criança' || leadType === 'Juniores';
 
   useEffect(() => {
     if (!token) {
@@ -104,7 +105,6 @@ export default function PublicStudentEnrollment() {
           type: data.type,
           plan: data.plan || '',
           parentName: data.parentName || '',
-          age: data.age || '',
           sexo,
           turma,
           birthDate: data.birthDate || '',
@@ -119,6 +119,8 @@ export default function PublicStudentEnrollment() {
           setSubmitError(body.message || 'Este telefone já está cadastrado.');
         } else if (body.erro === 'plan_required') {
           setSubmitError(body.message || 'Selecione o plano.');
+        } else if (body.erro === 'birth_date_required' || body.erro === 'birth_date_invalid') {
+          setSubmitError(body.message || 'Informe a data de nascimento do aluno.');
         } else {
           setSubmitError(body.message || 'Não foi possível concluir a matrícula. Tente novamente.');
         }
@@ -197,8 +199,23 @@ export default function PublicStudentEnrollment() {
                 </div>
 
                 <div className="form-group">
-                  <label>Data de nascimento</label>
-                  <DateInputField {...register('birthDate')} type="date" className="form-input" />
+                  <label>
+                    Data de nascimento
+                    {minorProfile ? ' *' : ''}
+                  </label>
+                  <DateInputField
+                    {...register('birthDate', {
+                      required: minorProfile ? 'Informe a data de nascimento do aluno.' : false,
+                    })}
+                    type="date"
+                    className="form-input"
+                  />
+                  {errors.birthDate ? <FieldError>{errors.birthDate.message || 'Obrigatório'}</FieldError> : null}
+                  {!minorProfile ? (
+                    <p className="text-small text-muted" style={{ marginTop: 6, marginBottom: 0 }}>
+                      Opcional — usamos para calcular a idade no cadastro.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -246,10 +263,6 @@ export default function PublicStudentEnrollment() {
                       placeholder="Nome do pai, mãe ou responsável"
                     />
                     {errors.parentName ? <FieldError>Obrigatório</FieldError> : null}
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Idade do aluno</label>
-                    <input {...register('age')} type="number" className="form-input" placeholder="Ex: 8" min={1} max={99} />
                   </div>
                 </div>
               )}

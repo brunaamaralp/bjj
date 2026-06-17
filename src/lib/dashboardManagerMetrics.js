@@ -1,6 +1,10 @@
-import { LEAD_STATUS } from '../store/useLeadStore';
 import { isActiveStudent } from './studentStatus.js';
-import { enrollmentDateYmd, formatLocalYmd } from './studentEnrollmentDate.js';
+import {
+  formatLocalYmd,
+  isImportedSpreadsheetContact,
+  matriculationYmdInRange,
+  shouldCountEnrollmentContact,
+} from './studentEnrollmentDate.js';
 /** Limites do mês civil corrente (início → fim do dia de hoje se mês atual). */
 export function currentMonthRange() {
   const now = new Date();
@@ -37,14 +41,14 @@ export function isTimestampInRange(iso, from, to) {
   return t >= from.getTime() && t <= to.getTime();
 }
 
-const excludeImported = (l) =>
-  String(l?.origin || l?.sourceOrigin || l?.source_origin || '').trim() !== 'Planilha';
+const excludeImported = (l) => !isImportedSpreadsheetContact(l);
 
-/** Matrícula no período: data de ingresso; sem ingresso, usa converted_at (matrícula pelo funil). */
 function matriculatedInRange(contact, range) {
-  const ymd = enrollmentDateYmd(contact);
-  if (!ymd) return false;
-  return isTimestampInRange(`${ymd}T12:00:00`, range.from, range.to);
+  return matriculationYmdInRange(
+    contact,
+    formatLocalYmd(range.from),
+    formatLocalYmd(range.to)
+  );
 }
 
 /** Leads criados no mês corrente (exclui importação planilha). */
@@ -59,18 +63,15 @@ export function countEnrollmentsInMonth(leads, students, range = currentMonthRan
   const ids = new Set();
 
   const tryAdd = (contact) => {
-    if (!excludeImported(contact)) return;
+    if (!shouldCountEnrollmentContact(contact)) return;
     const id = String(contact?.id || contact?.$id || '').trim();
     if (!id || ids.has(id)) return;
     if (!matriculatedInRange(contact, range)) return;
     ids.add(id);
   };
 
-  for (const s of students || []) tryAdd(s);
-  for (const l of leads || []) {
-    if (String(l?.status || '').trim() !== LEAD_STATUS.CONVERTED) continue;
-    tryAdd(l);
-  }
+  for (const s of students || []) tryAdd({ ...s, _isStudent: true });
+  for (const l of leads || []) tryAdd(l);
 
   return ids.size;
 }

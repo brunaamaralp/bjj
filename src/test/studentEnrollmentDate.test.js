@@ -5,6 +5,8 @@ import {
   enrollmentIngressYmd,
   contactEnrolledInYmdRange,
   formatLocalYmd,
+  matriculationYmdInRange,
+  countEnrollmentsInPeoplePeriod,
 } from '../lib/studentEnrollmentDate.js';
 
 describe('defaultEnrollmentDateIso', () => {
@@ -73,6 +75,32 @@ describe('contactEnrolledInYmdRange', () => {
     expect(
       contactEnrolledInYmdRange({ createdAt: '2026-06-01T00:00:00.000Z' }, '2026-06-01', '2026-06-30')
     ).toBe(false);
+  });
+});
+
+describe('matriculationYmdInRange', () => {
+  it('usa comparação YMD e fallback convertedAt', () => {
+    expect(
+      matriculationYmdInRange({ convertedAt: '2026-06-10T12:00:00.000Z' }, '2026-06-01', '2026-06-30')
+    ).toBe(true);
+    expect(
+      matriculationYmdInRange(
+        { enrollmentDate: '2024-03-15', convertedAt: '2026-06-10T12:00:00.000Z' },
+        '2026-06-01',
+        '2026-06-30'
+      )
+    ).toBe(false);
+  });
+});
+
+describe('countEnrollmentsInPeoplePeriod', () => {
+  it('conta alunos e ignora leads não convertidos', () => {
+    const people = [
+      { $id: 's1', contact_type: 'student', enrollmentDate: '2026-06-10', source_origin: 'WhatsApp' },
+      { $id: 'l1', status: 'Novo', convertedAt: '2026-06-10T12:00:00.000Z', origin: 'Instagram' },
+      { $id: 'l2', status: 'Matriculado', convertedAt: '2026-06-03T12:00:00.000Z', origin: 'Instagram' },
+    ];
+    expect(countEnrollmentsInPeoplePeriod(people, '2026-06-01', '2026-06-30')).toBe(2);
   });
 });
 

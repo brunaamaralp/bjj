@@ -80,4 +80,20 @@ describe('BankReconPairRow suggested confirm', () => {
     expect(confirmBtn).toBeInTheDocument();
     expect(confirmBtn).not.toBeDisabled();
   });
+
+  it('shows tier label instead of raw percent when match_tier is set', () => {
+    render(
+      <BankReconPairRow
+        item={{
+          ...sampleItem,
+          match_score: 85,
+          match_tier: 'amount_date_name',
+        }}
+        tx={{ id: 'tx-1', gross: 150, settledAt: '2026-01-15', category: 'Mensalidades' }}
+        tone="suggested"
+      />
+    );
+    expect(screen.getByText(/Alta \(valor \+ data \+ nome\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/85% confiança/i)).not.toBeInTheDocument();
+  });
 });

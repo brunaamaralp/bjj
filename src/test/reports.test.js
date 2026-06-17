@@ -126,12 +126,37 @@ describe('relatório — convertidos (countsAsConvertedInPeriod)', () => {
   const from = '2026-04-01T00:00:00.000Z';
   const to = '2026-04-30T23:59:59.999Z';
 
-  it('conta por converted_at no período', () => {
-    const l = makeLeads([{ converted_at: '2026-04-18T00:00:00.000Z' }])[0];
+  it('conta aluno por converted_at quando ingresso ausente', () => {
+    const l = makeLeads([
+      { contact_type: 'student', converted_at: '2026-04-18T00:00:00.000Z' },
+    ])[0];
     expect(countsAsConvertedInPeriod(l, from, to)).toBe(true);
   });
 
-  it('não conta aluno só por $updatedAt sem converted_at', () => {
+  it('prioriza data de ingresso sobre converted_at', () => {
+    const l = makeLeads([
+      {
+        contact_type: 'student',
+        enrollmentDate: '2023-08-12',
+        converted_at: '2026-04-18T00:00:00.000Z',
+      },
+    ])[0];
+    expect(countsAsNewStudentInPeriod(l, from, to)).toBe(false);
+  });
+
+  it('conta pela data de ingresso no período', () => {
+    const l = makeLeads([
+      { contact_type: 'student', enrollmentDate: '2026-04-15', converted_at: '2026-01-01T00:00:00.000Z' },
+    ])[0];
+    expect(countsAsNewStudentInPeriod(l, from, to)).toBe(true);
+  });
+
+  it('não conta lead do funil sem status convertido', () => {
+    const l = makeLeads([{ converted_at: '2026-04-18T00:00:00.000Z' }])[0];
+    expect(countsAsNewStudentInPeriod(l, from, to)).toBe(false);
+  });
+
+  it('não conta aluno só por $updatedAt sem data de matrícula', () => {
     const l = makeLeads([
       {
         contact_type: 'student',
@@ -291,6 +316,32 @@ describe('aggregateStudentMetricsOnly', () => {
     expect(out.studentMetrics).toBeDefined();
     expect(out.metrics).toBeUndefined();
     expect(out.chart).toBeUndefined();
+  });
+
+  it('newStudents segue data de ingresso (não converted_at retroativo)', () => {
+    const people = [
+      {
+        $id: 's1',
+        contact_type: 'student',
+        enrollmentDate: '2026-04-15',
+        converted_at: '2026-04-15T12:00:00.000Z',
+        origin: 'WhatsApp',
+      },
+      {
+        $id: 's2',
+        contact_type: 'student',
+        enrollmentDate: '2023-01-10',
+        converted_at: '2026-04-20T12:00:00.000Z',
+        origin: 'Instagram',
+      },
+    ];
+    const out = aggregateStudentMetricsOnly(people, {
+      from: '2026-04-01T00:00:00.000Z',
+      to: '2026-04-30T23:59:59.999Z',
+      prevFrom: '2026-03-01T00:00:00.000Z',
+      prevTo: '2026-03-31T23:59:59.999Z',
+    });
+    expect(out.studentMetrics.newStudents).toBe(1);
   });
 });
 

@@ -5,6 +5,15 @@ import SearchableSelect from '../shared/SearchableSelect.jsx';
 import { formatReconTxShortTitle, matchTierLabel } from '../../lib/financeReconTxLabel.js';
 import { buildBankReconPaymentHintPath } from '../../lib/bankReconPaymentHintLink.js';
 
+function confidenceLabel(item) {
+  const tierLabel = matchTierLabel(item?.match_tier);
+  if (tierLabel) return tierLabel;
+  if (item?.match_score > 0 && item?.match_score < 100) {
+    return `Confiança média (${item.match_score}%)`;
+  }
+  return '';
+}
+
 function fmtMoney(v) {
   try {
     return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -36,10 +45,11 @@ export default function BankReconPairRow({
   onCreateTx,
   onLinkManual,
   reconStatementId = '',
+  onRegisterPayment,
 }) {
   const isUnmatched = tone === 'unmatched';
   const showNavi = !isUnmatched;
-  const tierLabel = matchTierLabel(item?.match_tier);
+  const confidenceText = confidenceLabel(item);
   const candidateList = candidates?.length ? candidates : item?.suggested_tx_candidates;
   const showMultiCandidates = (candidateList?.length ?? 0) >= 2;
   const paymentHints =
@@ -68,10 +78,10 @@ export default function BankReconPairRow({
         <p className="bank-recon-pair__title">{item.description}</p>
         <p className="text-xs text-muted">
           {fmtDate(item.date)} · {item.direction === 'credit' ? 'Crédito' : 'Débito'} · {fmtMoney(item.amount)}
-          {item.match_score > 0 && item.match_score < 100 ? (
-            <span className="bank-recon-confidence"> · {item.match_score}% confiança</span>
+          {confidenceText ? (
+            <span className="bank-recon-confidence"> · {confidenceText}</span>
           ) : null}
-          {tierLabel ? <span className="bank-recon-confidence"> · {tierLabel}</span> : null}
+          {item.from_rule ? <span className="bank-recon-rule-badge">Regra salva</span> : null}
         </p>
         {paymentHints.length > 0 ? (
           <div className="bank-recon-pending-hints">
@@ -84,12 +94,25 @@ export default function BankReconPairRow({
                   <span className="text-xs">
                     {hint.lead_name} · {hint.reference_month} · {fmtMoney(hint.expected_amount)}
                   </span>
-                  <Link
-                    to={buildBankReconPaymentHintPath(hint, { reconStatementId })}
-                    className="btn-outline btn-sm"
-                  >
-                    Registrar pagamento
-                  </Link>
+                  {onRegisterPayment ? (
+                    <button
+                      type="button"
+                      className="btn-outline btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRegisterPayment(hint);
+                      }}
+                    >
+                      Registrar e conciliar
+                    </button>
+                  ) : (
+                    <Link
+                      to={buildBankReconPaymentHintPath(hint, { reconStatementId })}
+                      className="btn-outline btn-sm"
+                    >
+                      Registrar pagamento
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -108,10 +131,12 @@ export default function BankReconPairRow({
                     <div>
                       <p className="bank-recon-pair__title text-sm">
                         {c.lead_name || 'Aluno'}
-                        {c.score ? ` · ${c.score}%` : ''}
+                        {c.from_rule ? <span className="bank-recon-rule-badge">Regra salva</span> : null}
                       </p>
                       {c.match_tier ? (
                         <p className="text-xs text-muted">{matchTierLabel(c.match_tier)}</p>
+                      ) : c.score ? (
+                        <p className="text-xs text-muted">Confiança média ({c.score}%)</p>
                       ) : null}
                     </div>
                     <button

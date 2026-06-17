@@ -5,6 +5,8 @@
  * na matrícula, `is_first_experience` é copiado para custom_answers_json.primeira_experiencia.
  */
 
+import { formatLocalYmd } from './studentEnrollmentDate.js';
+
 /** Chave em custom_answers_json para histórico de qualificação do funil. */
 export const STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY = 'primeira_experiencia';
 
@@ -56,7 +58,7 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     plan: String(d.plan || '').trim(),
     enrollmentDate:
       String(d.enrollmentDate ?? d.enrollment_date ?? '').trim().slice(0, 10) ||
-      new Date().toISOString().slice(0, 10),
+      formatLocalYmd(new Date()),
     converted_at:
       String(d.converted_at ?? d.convertedAt ?? '').trim() || new Date().toISOString(),
     birth_date: String(d.birth_date ?? d.birthDate ?? '').slice(0, 10),

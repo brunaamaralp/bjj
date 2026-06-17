@@ -7,6 +7,7 @@ import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.j
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 
 function normalizePhone(v) {
   return String(v || '').replace(/\D/g, '');
@@ -87,7 +88,7 @@ export function useStudentsCreateForm({
         origin: newStudent.origin || 'Cadastro manual',
         plan: planName,
         dueDay: new Date().getDate(),
-        enrollmentDate: new Date().toISOString().slice(0, 10),
+        enrollmentDate: formatLocalYmd(new Date()),
         studentStatus: STUDENT_STATUS.ACTIVE,
       });
       const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
