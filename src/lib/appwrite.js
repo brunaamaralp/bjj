@@ -13,6 +13,13 @@ const client = new Client()
     .setEndpoint(selectedEndpoint)
     .setProject(project);
 
+// Browser: sessão via cookie no client principal. JWT só em Authorization (/api/*).
+try {
+  client.setJWT('');
+} catch {
+  void 0;
+}
+
 const account = new Account(client);
 const databases = new Databases(client);
 const functions = new Functions(client);
@@ -130,19 +137,19 @@ async function mintSessionJwtFromCookie() {
 }
 
 /**
- * Sincroniza JWT da sessão no client Appwrite (Realtime + Databases no browser).
- * Necessário quando cookies de sessão não bastam ou expiraram.
+ * Emite JWT em cache para rotas /api. Não chama setJWT no client — Appwrite rejeita
+ * JWT + cookie de sessão na mesma requisição (Databases, Teams, Realtime usam cookie).
  */
 export async function syncClientSessionJwt() {
-  const token = await createSessionJwt();
-  if (token) client.setJWT(token);
-  return token;
+  clearClientJwt();
+  return createSessionJwt();
 }
 
 /** JWT de curta duração para rotas /api (ex.: billing, academies/create). */
 export async function createSessionJwt() {
   const now = Date.now();
   if (cachedSessionJwt && now < cachedSessionJwtExpiresAt) {
+    clearClientJwt();
     return cachedSessionJwt;
   }
   if (now < sessionJwtCooldownUntil) {

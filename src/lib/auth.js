@@ -1,4 +1,4 @@
-import { account, client, clearClientJwt, clearSessionJwtCache, syncClientSessionJwt } from './appwrite';
+import { account, client, clearClientJwt, clearSessionJwtCache, createSessionJwt } from './appwrite';
 import { ID } from 'appwrite';
 
 export const authService = {
@@ -60,7 +60,7 @@ export const authService = {
 
     async refreshJwt() {
         try {
-            return await syncClientSessionJwt();
+            return await createSessionJwt();
         } catch {
             return null;
         }
