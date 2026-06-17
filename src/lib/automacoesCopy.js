@@ -22,7 +22,7 @@ export const AUTOMACOES_COPY = {
     step: {
       modelos: 'Revisar modelos',
       whatsapp: 'Conectar WhatsApp',
-      configuracoes: 'Configurações',
+      gatilhos: 'Ativar gatilhos',
     },
     modelos: {
       title: 'Personalize os textos',
@@ -47,9 +47,12 @@ export const AUTOMACOES_COPY = {
     compact: {
       modelos: 'Falta revisar os modelos para o funil enviar WhatsApp.',
       whatsapp: 'Falta conectar o WhatsApp para os gatilhos automáticos funcionarem.',
-      configuracoes: 'Falta ativar gatilhos automáticos nas Configurações.',
-      cta: 'Continuar configuração',
+      gatilhos: 'Falta ativar gatilhos automáticos nas Configurações.',
+      ctaModelos: 'Ir para Modelos',
+      ctaWhatsapp: 'Abrir Agente IA',
+      ctaGatilhos: 'Ir para Configurações',
     },
+    scopeBannerDismiss: 'Entendi',
     complete:
       'Modelos, WhatsApp e gatilhos configurados. Mensagens automáticas do funil prontas — ajuste quando quiser.',
   },

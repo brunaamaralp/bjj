@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, Suspense, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { teams } from '../lib/appwrite';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import { resolveHubTab } from '../lib/hubTabs.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -8,13 +9,17 @@ import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 import { AUTOMACOES_TABS } from '../lib/automacoesHub.js';
 import { AUTOMACOES_COPY } from '../lib/automacoesCopy.js';
+import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import {
   AUTOMACOES_WIZARD_STEPS,
+  clearAutomacoesScopeBannerDismissed,
   getCompactWizardContent,
   readAutomacoesModelosAck,
+  readAutomacoesScopeBannerDismissed,
   resolveWizardSurface,
-  tabForWizardStep,
   resolveWizardPrimaryDisabled,
+  tabForWizardStep,
+  writeAutomacoesScopeBannerDismissed,
 } from '../lib/automacoesSetupWizard.js';
 import { useAutomacoesSetupWizard } from '../hooks/useAutomacoesSetupWizard.js';
 import AutomacoesSetupWizard from '../components/academy/AutomacoesSetupWizard.jsx';
@@ -33,17 +38,29 @@ const ALLOWED = new Set(TABS.map((t) => t.id));
 export default function Automacoes() {
   const navigate = useNavigate();
   const academyId = useLeadStore((s) => s.academyId);
+  const userId = useLeadStore((s) => s.userId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
+  const [membership, setMembership] = useState(null);
+  const [scopeBannerDismissed, setScopeBannerDismissed] = useState(() =>
+    readAutomacoesScopeBannerDismissed(academyId)
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const [modelosAcknowledged, setModelosAcknowledged] = useState(() => readAutomacoesModelosAck(academyId));
   const wizard = useAutomacoesSetupWizard({ modelosAcknowledged });
   const forceWizard = searchParams.get('wizard') === '1';
   const tabParam = String(searchParams.get('tab') || '').trim().toLowerCase();
   const hasExplicitTab = ALLOWED.has(tabParam);
+  const canEdit = canEditWhatsappTemplates(userId, academyDoc, membership);
   const fallbackTab =
-    !wizard.loading && wizard.show ? tabForWizardStep(wizard.currentStepId) : 'processos';
+    !wizard.loading && wizard.show && canEdit ? tabForWizardStep(wizard.currentStepId) : 'processos';
   const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, fallbackTab);
 
   const wizardSurface = useMemo(() => {
+    if (!canEdit) return 'hidden';
     if (wizard.loading || wizard.justCompleted || !wizard.show || !wizard.currentStep) return 'hidden';
     return resolveWizardSurface({
       currentStep: wizard.currentStep,
@@ -51,7 +68,15 @@ export default function Automacoes() {
       forceWizard,
       wizardShow: wizard.show,
     });
-  }, [wizard.loading, wizard.justCompleted, wizard.show, wizard.currentStep, activeTab, forceWizard]);
+  }, [
+    canEdit,
+    wizard.loading,
+    wizard.justCompleted,
+    wizard.show,
+    wizard.currentStep,
+    activeTab,
+    forceWizard,
+  ]);
 
   const setupGuideActive = wizardSurface === 'full';
   const compactWizard = getCompactWizardContent(wizard.currentStep?.id);
@@ -90,6 +115,25 @@ export default function Automacoes() {
   }, [academyId]);
 
   useEffect(() => {
+    setScopeBannerDismissed(readAutomacoesScopeBannerDismissed(academyId));
+  }, [academyId]);
+
+  useEffect(() => {
+    if (!academyDoc?.teamId || !userId) return;
+    if (String(academyDoc.ownerId || '') === String(userId)) {
+      setMembership(null);
+      return;
+    }
+    teams
+      .listMemberships(academyDoc.teamId)
+      .then((res) => {
+        const m = (res.memberships || []).find((x) => String(x.userId) === String(userId));
+        setMembership(m || null);
+      })
+      .catch(() => setMembership(null));
+  }, [academyDoc?.teamId, academyDoc?.ownerId, userId]);
+
+  useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
     if (t === 'agente') {
       navigate('/agente-ia', { replace: true });
@@ -101,12 +145,13 @@ export default function Automacoes() {
   }, [activeTab, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (wizard.loading || !wizard.show || hasExplicitTab) return;
+    if (!canEdit || wizard.loading || !wizard.show || hasExplicitTab) return;
     const targetTab = tabForWizardStep(wizard.currentStepId);
     if (activeTab !== targetTab) {
       setSearchParams({ tab: targetTab }, { replace: true });
     }
   }, [
+    canEdit,
     wizard.loading,
     wizard.show,
     wizard.currentStepId,
@@ -141,13 +186,14 @@ export default function Automacoes() {
   const handleCompactWizardCta = () => {
     const stepId = wizard.currentStep?.id;
     if (!stepId) return;
-    if (stepId === 'whatsapp') {
-      setSearchParams({ tab: 'modelos', wizard: '1' }, { replace: false });
-      return;
-    }
-    const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === stepId);
-    if (step?.tab) requestTab(step.tab);
+    handleWizardStepAction(stepId);
   };
+
+  const handleDismissScopeBanner = useCallback(() => {
+    if (!academyId) return;
+    writeAutomacoesScopeBannerDismissed(academyId, true);
+    setScopeBannerDismissed(true);
+  }, [academyId]);
 
   const confirmLeaveConfig = () => {
     const next = pendingTab;
@@ -161,6 +207,8 @@ export default function Automacoes() {
     : 'A última alteração não foi salva. Se sair agora, ela será descartada.';
 
   const handleReopenGuide = () => {
+    if (academyId) clearAutomacoesScopeBannerDismissed(academyId);
+    setScopeBannerDismissed(false);
     wizard.reopenGuide();
     setSearchParams(
       (prev) => {
@@ -177,6 +225,7 @@ export default function Automacoes() {
 
   const showModelosTabIntro = activeTab === 'modelos' && wizardSurface !== 'full';
   const showConfigTabIntro = activeTab === 'configuracoes' && wizardSurface !== 'full';
+  const showProcessosTabIntro = activeTab === 'processos' && wizardSurface !== 'compact';
 
   const wizardPrimaryCtaDisabled =
     wizard.currentStep?.id === 'modelos' &&
@@ -191,7 +240,7 @@ export default function Automacoes() {
         title="Automações"
         subtitle={AUTOMACOES_COPY.hub.subtitle}
         meta={
-          wizard.canReopenGuide ? (
+          canEdit && wizard.canReopenGuide ? (
             <button type="button" className="edit-link automacoes-reopen-guide" onClick={handleReopenGuide}>
               Ver guia de configuração
             </button>
@@ -199,9 +248,14 @@ export default function Automacoes() {
         }
       />
       <HubTabBar tabs={TABS} activeId={activeTab} onChange={requestTab} ariaLabel="Automações" fullWidth />
-      <AutomacoesHubScopeBanner className="automacoes-setup-wizard--below-tabs" />
-      {wizard.justCompleted ? <AutomacoesSetupWizardComplete /> : null}
-      {!wizard.justCompleted && wizardSurface === 'full' ? (
+      {!scopeBannerDismissed ? (
+        <AutomacoesHubScopeBanner
+          className="automacoes-setup-wizard--below-tabs"
+          onDismiss={handleDismissScopeBanner}
+        />
+      ) : null}
+      {canEdit && wizard.justCompleted ? <AutomacoesSetupWizardComplete /> : null}
+      {canEdit && !wizard.justCompleted && wizardSurface === 'full' ? (
         <AutomacoesSetupWizard
           className="automacoes-setup-wizard--below-tabs"
           steps={wizard.steps}
@@ -217,7 +271,7 @@ export default function Automacoes() {
           }
         />
       ) : null}
-      {!wizard.justCompleted && wizardSurface === 'compact' ? (
+      {canEdit && !wizard.justCompleted && wizardSurface === 'compact' ? (
         <AutomacoesSetupWizardCompact
           className="automacoes-setup-wizard--below-tabs"
           message={compactWizard.message}
@@ -229,7 +283,7 @@ export default function Automacoes() {
         <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
           {visitedTabs.has('processos') ? (
             <div hidden={activeTab !== 'processos'} aria-hidden={activeTab !== 'processos'}>
-              <AutomacoesProcessosTab />
+              <AutomacoesProcessosTab showTabIntro={showProcessosTabIntro} />
             </div>
           ) : null}
           {visitedTabs.has('modelos') ? (

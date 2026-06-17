@@ -49,6 +49,33 @@ describe('automationUx', () => {
     expect(r.activationLabel).toContain('Nenhum gatilho ativo');
   });
 
+  it('computeAutomationReadiness não marca desconectado em estado transitório', () => {
+    const r = computeAutomationReadiness({
+      automationsConfig: AUTOMATION_DEFAULTS,
+      templatesMap: { confirm: 'Olá {nome}' },
+      waConnected: false,
+      waOfflineUi: false,
+      waStatusChecked: true,
+      hasZapsterInstance: true,
+    });
+    expect(r.zapsterPartial).toBe(false);
+    expect(r.zapsterPending).toBe(true);
+    expect(r.infraSteps.find((s) => s.id === 'zapster')?.label).toContain('Verificando');
+  });
+
+  it('computeAutomationReadiness marca desconectado só com waOfflineUi', () => {
+    const r = computeAutomationReadiness({
+      automationsConfig: AUTOMATION_DEFAULTS,
+      templatesMap: { confirm: 'Olá {nome}' },
+      waConnected: false,
+      waOfflineUi: true,
+      waStatusChecked: true,
+      hasZapsterInstance: true,
+    });
+    expect(r.zapsterPartial).toBe(true);
+    expect(r.infraSteps.find((s) => s.id === 'zapster')?.label).toContain('desconectado');
+  });
+
   it('getLeadAutomationBadges lists pending', () => {
     const badges = getLeadAutomationBadges(
       {

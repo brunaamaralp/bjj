@@ -23,13 +23,43 @@ export const AUTOMACOES_WIZARD_STEPS = [
   },
   {
     id: 'configuracoes',
-    label: AUTOMACOES_COPY.wizard.step.configuracoes,
+    label: AUTOMACOES_COPY.wizard.step.gatilhos,
     title: AUTOMACOES_COPY.wizard.configuracoes.title,
     description: AUTOMACOES_COPY.wizard.configuracoes.description,
     tab: 'configuracoes',
     ctaLabel: AUTOMACOES_COPY.wizard.configuracoes.ctaLabel,
   },
 ];
+
+export function automacoesScopeBannerDismissStorageKey(academyId) {
+  return `navi_automacoes_scope_dismissed_${String(academyId || '').trim()}`;
+}
+
+export function readAutomacoesScopeBannerDismissed(academyId) {
+  if (!academyId) return false;
+  try {
+    return localStorage.getItem(automacoesScopeBannerDismissStorageKey(academyId)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeAutomacoesScopeBannerDismissed(academyId, dismissed = true) {
+  if (!academyId) return;
+  try {
+    if (dismissed) {
+      localStorage.setItem(automacoesScopeBannerDismissStorageKey(academyId), '1');
+    } else {
+      localStorage.removeItem(automacoesScopeBannerDismissStorageKey(academyId));
+    }
+  } catch {
+    void 0;
+  }
+}
+
+export function clearAutomacoesScopeBannerDismissed(academyId) {
+  writeAutomacoesScopeBannerDismissed(academyId, false);
+}
 
 export function automacoesWizardDismissStorageKey(academyId) {
   return `navi_automacoes_wizard_dismissed_${String(academyId || '').trim()}`;
@@ -128,10 +158,10 @@ export function shouldShowSetupWizardOnTab(currentStep, activeTab) {
 export function getCompactWizardContent(stepId) {
   const id = String(stepId || '').trim();
   const copy = AUTOMACOES_COPY.wizard.compact;
-  if (id === 'modelos') return { message: copy.modelos, ctaLabel: copy.cta };
-  if (id === 'whatsapp') return { message: copy.whatsapp, ctaLabel: copy.cta };
-  if (id === 'configuracoes') return { message: copy.configuracoes, ctaLabel: copy.cta };
-  return { message: '', ctaLabel: copy.cta };
+  if (id === 'modelos') return { message: copy.modelos, ctaLabel: copy.ctaModelos };
+  if (id === 'whatsapp') return { message: copy.whatsapp, ctaLabel: copy.ctaWhatsapp };
+  if (id === 'configuracoes') return { message: copy.gatilhos, ctaLabel: copy.ctaGatilhos };
+  return { message: '', ctaLabel: copy.ctaModelos };
 }
 
 /** True quando pelo menos um modelo difere do texto padrão do sistema. */

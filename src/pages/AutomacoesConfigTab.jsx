@@ -8,6 +8,10 @@ import { AUTOMATION_LABELS, parseAutomationsConfig, serializeAutomationsConfig }
 import { useTerms } from '../lib/terminology.js';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
 import { computeAutomationReadiness } from '../lib/automationUx.js';
+import {
+  isWhatsAppIntegrationConnected,
+  isWhatsAppIntegrationDisconnected,
+} from '../lib/whatsappIntegrationState.js';
 import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import AutomacoesSection from '../components/academy/AutomacoesSection.jsx';
 import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
@@ -57,11 +61,13 @@ export default function AutomacoesConfigTab({
 
   const canEdit = canEditWhatsappTemplates(userId, academyDoc, membership);
 
-  const { waConnected, waInfo } = useZapsterWhatsAppConnection(academyId, {
+  const { waStatus, waStatusChecked, waInfo } = useZapsterWhatsAppConnection(academyId, {
     deferInitialFetch: true,
     statusPollWhileMounted: true,
     watchAcademyStatus: true,
   });
+  const waIntegrationConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+  const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
   const [academy, setAcademy] = useState({
     automationsConfigRaw: '',
@@ -133,11 +139,13 @@ export default function AutomacoesConfigTab({
       computeAutomationReadiness({
         automationsConfig,
         templatesMap,
-        waConnected,
+        waConnected: waIntegrationConnected,
+        waOfflineUi,
+        waStatusChecked,
         hasZapsterInstance: Boolean(waInfo?.instance_id),
         financeModuleOn,
       }),
-    [automationsConfig, templatesMap, waConnected, waInfo?.instance_id, financeModuleOn]
+    [automationsConfig, templatesMap, waIntegrationConnected, waOfflineUi, waStatusChecked, waInfo?.instance_id, financeModuleOn]
   );
 
   const persistAutomations = useCallback(

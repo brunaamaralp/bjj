@@ -4,6 +4,10 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.j
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import { computeAutomationReadiness } from '../lib/automationUx.js';
 import {
+  isWhatsAppIntegrationConnected,
+  isWhatsAppIntegrationDisconnected,
+} from '../lib/whatsappIntegrationState.js';
+import {
   automacoesWizardDismissStorageKey,
   clearAutomacoesWizardDismissed,
   computeAutomacoesWizardState,
@@ -47,11 +51,13 @@ export function useAutomacoesSetupWizard({ modelosAcknowledged = false } = {}) {
   const [academyLoad, setAcademyLoad] = useState({ academyId: '', templates: '', automationsRaw: '' });
   const [loading, setLoading] = useState(Boolean(academyId));
 
-  const { waConnected, waInfo } = useZapsterWhatsAppConnection(academyId, {
+  const { waStatus, waStatusChecked, waInfo } = useZapsterWhatsAppConnection(academyId, {
     deferInitialFetch: true,
     statusPollWhileMounted: true,
     watchAcademyStatus: true,
   });
+  const waIntegrationConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+  const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
   useEffect(() => {
     setDismissed(readWizardDismissed(academyId));
@@ -113,10 +119,12 @@ export function useAutomacoesSetupWizard({ modelosAcknowledged = false } = {}) {
       computeAutomationReadiness({
         automationsConfig,
         templatesMap,
-        waConnected,
+        waConnected: waIntegrationConnected,
+        waOfflineUi,
+        waStatusChecked,
         hasZapsterInstance: Boolean(waInfo?.instance_id),
       }),
-    [automationsConfig, templatesMap, waConnected, waInfo?.instance_id]
+    [automationsConfig, templatesMap, waIntegrationConnected, waOfflineUi, waStatusChecked, waInfo?.instance_id]
   );
 
   const wizard = useMemo(

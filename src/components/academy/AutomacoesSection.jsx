@@ -323,7 +323,7 @@ const AutomacoesSection = ({
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
             {showTabIntro ? <AutomacoesTabIntroBanner tabId="configuracoes" /> : null}
-            {!readiness?.zapsterOk ? <AutomacoesZapsterOfflineBanner /> : null}
+            {readiness?.zapsterPartial ? <AutomacoesZapsterOfflineBanner /> : null}
             <h3 className="navi-section-heading" style={{ margin: '0 0 6px' }}>
                 Mensagens automáticas
             </h3>
@@ -351,7 +351,11 @@ const AutomacoesSection = ({
                     , depois ative os gatilhos abaixo.
                 </p>
             ) : null}
-            <AutomacoesReadinessBanner readiness={readiness} suppressZapsterLink={!readiness?.zapsterOk} />
+            <AutomacoesReadinessBanner
+              readiness={readiness}
+              suppressZapsterLink={readiness?.zapsterPartial}
+              hideZapsterStep={Boolean(readiness?.zapsterPartial)}
+            />
             {previewLead ? (
                 <AutomationPreviewLeadPicker
                     className="mb-3"

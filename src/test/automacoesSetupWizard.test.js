@@ -13,6 +13,9 @@ import {
   resolveWizardPrimaryDisabled,
   automacoesWizardDismissStorageKey,
   automacoesModelosAckStorageKey,
+  readAutomacoesScopeBannerDismissed,
+  writeAutomacoesScopeBannerDismissed,
+  clearAutomacoesScopeBannerDismissed,
   tabForWizardStep,
   AUTOMACOES_WIZARD_STEPS,
 } from '../lib/automacoesSetupWizard.js';
@@ -177,7 +180,23 @@ describe('automacoesSetupWizard', () => {
 
   it('getCompactWizardContent por passo', () => {
     expect(getCompactWizardContent('whatsapp').message).toContain('WhatsApp');
-    expect(getCompactWizardContent('modelos').ctaLabel).toBe('Continuar configuração');
+    expect(getCompactWizardContent('whatsapp').ctaLabel).toBe('Abrir Agente IA');
+    expect(getCompactWizardContent('modelos').ctaLabel).toBe('Ir para Modelos');
+    expect(getCompactWizardContent('configuracoes').ctaLabel).toBe('Ir para Configurações');
+  });
+
+  it('passo configuracoes usa label Ativar gatilhos', () => {
+    const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'configuracoes');
+    expect(step?.label).toBe('Ativar gatilhos');
+  });
+
+  it('scope banner dismiss por academia', () => {
+    const aid = 'ac-test-scope';
+    expect(readAutomacoesScopeBannerDismissed(aid)).toBe(false);
+    writeAutomacoesScopeBannerDismissed(aid, true);
+    expect(readAutomacoesScopeBannerDismissed(aid)).toBe(true);
+    clearAutomacoesScopeBannerDismissed(aid);
+    expect(readAutomacoesScopeBannerDismissed(aid)).toBe(false);
   });
 
   it('resolveWizardPrimaryDisabled bloqueia passo modelos sem ack', () => {

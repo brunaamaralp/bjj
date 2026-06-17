@@ -133,6 +133,8 @@ export function computeAutomationReadiness({
   automationsConfig,
   templatesMap,
   waConnected,
+  waOfflineUi = false,
+  waStatusChecked = true,
   hasZapsterInstance,
   financeModuleOn = false,
 }) {
@@ -140,7 +142,19 @@ export function computeAutomationReadiness({
   const activeCount = entries.filter(([, c]) => c?.active === true).length;
   const templatesOk = Object.values(templatesMap || {}).some((v) => String(v || '').trim());
   const zapsterOk = Boolean(hasZapsterInstance && waConnected);
-  const zapsterPartial = Boolean(hasZapsterInstance && !waConnected);
+  const zapsterPartial = Boolean(hasZapsterInstance && waOfflineUi);
+  const zapsterPending = Boolean(
+    hasZapsterInstance && waStatusChecked && !waConnected && !waOfflineUi
+  );
+
+  let zapsterLabel = 'Conecte o WhatsApp no Agente IA';
+  if (zapsterOk) {
+    zapsterLabel = 'WhatsApp conectado';
+  } else if (zapsterPartial) {
+    zapsterLabel = 'WhatsApp desconectado — reconecte no Agente IA';
+  } else if (zapsterPending) {
+    zapsterLabel = 'Verificando conexão WhatsApp…';
+  }
 
   const infraSteps = [
     {
@@ -151,11 +165,7 @@ export function computeAutomationReadiness({
     {
       id: 'zapster',
       ok: zapsterOk,
-      label: zapsterOk
-        ? 'WhatsApp conectado'
-        : zapsterPartial
-          ? 'WhatsApp desconectado — reconecte no Agente IA'
-          : 'Conecte o WhatsApp no Agente IA',
+      label: zapsterLabel,
     },
   ];
 
@@ -184,6 +194,8 @@ export function computeAutomationReadiness({
     activationLabel,
     templatesOk,
     zapsterOk,
+    zapsterPartial,
+    zapsterPending,
   };
 }
 

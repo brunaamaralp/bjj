@@ -8,10 +8,10 @@
 | **rotas** | `/automacoes?tab=processos|modelos|configuracoes`, `/automacoes?wizard=1` |
 | **pré-requisitos** | WhatsApp conectado para envios automáticos; modelos revisados |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md) (UX hub, avisos, wizard contextual — rascunho)
+**Specs relacionadas:** [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md) · [2026-06-17-automacoes-ux-clareza-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ux-clareza-PRODUCT.md)
 
 **Harness relacionado:** `npm test -- automacoesHub automacoesSetupWizard automationUx`
 
@@ -107,6 +107,10 @@ flowchart TD
 12. [ ] Multi-tenant: config isolada por `academyId`
 13. [ ] Aba Processos com wizard pendente → faixa compacta (não card full)
 14. [ ] Configurações com WhatsApp offline → `StatusBanner` warning + readiness visível com wizard ativo
+15. [ ] P3: compact passo WhatsApp → `/agente-ia` (não Modelos)
+16. [ ] P3: Processos com compact → sem tab intro duplicado
+17. [ ] P3: scope banner dispensável; reabre ao “Ver guia”
+18. [ ] P3: member sem wizard; Modelos agrupados Captação/Rotinas
 
 ### Estados de erro conhecidos
 
@@ -165,4 +169,5 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-16 | — | UX onboarding P0/P1: scope banner, wizard contextual, ack modelos, readiness |
+| 2026-06-17 | — | P3 clareza: bug compact WA, menos banners, scope dismiss, grupos modelos |
 | 2026-06-16 | — | P2 polish: barra de progresso, passos pill, compact sem gradiente |

@@ -25,6 +25,7 @@ import AutomationPreviewLeadPicker from '../components/academy/AutomationPreview
 import { useAutomationPreviewLead } from '../hooks/useAutomationPreviewLead.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { AUTOMACOES_COPY } from '../lib/automacoesCopy.js';
+import { WHATSAPP_TEMPLATE_UI_GROUPS } from '../lib/automacoesHub.js';
 import {
   areTemplatesCustomized,
   writeAutomacoesModelosAck,
@@ -322,6 +323,8 @@ export default function AutomacoesModelosTab({
     });
   }, [filter, templateIds, templates]);
 
+  const filteredIdSet = useMemo(() => new Set(filteredIds), [filteredIds]);
+
   const copyText = async (text, key) => {
     try {
       await navigator.clipboard.writeText(String(text || ''));
@@ -367,6 +370,147 @@ export default function AutomacoesModelosTab({
             <li key={a.key}>{a.label}</li>
           ))}
         </ul>
+      </div>
+    );
+  };
+
+  const renderTemplateCard = (id, i) => {
+    const raw = String(templates[id] || '');
+    const preview = renderTemplate(raw);
+    const isChanged = String(templates[id] || '') !== String(original[id] || '');
+    const isOpen = expandedId === id;
+    const copyKeyRaw = `raw:${id}`;
+    const copyKeyPreview = `preview:${id}`;
+    const canTest = Boolean(String(sampleData?.phone || '').replace(/\D/g, ''));
+    const len = raw.length;
+    const atLimit = len > WHATSAPP_TEMPLATE_CHAR_LIMIT;
+    const nearLimit = len >= WHATSAPP_TEMPLATE_CHAR_LIMIT - 74 && !atLimit;
+    const inUse = isTemplateInUse(usageByKey?.[id]);
+    const unknown = unknownById[id] || [];
+
+    return (
+      <div key={id} className="tpl-card animate-in" style={{ animationDelay: `${0.02 * i}s` }}>
+        <div
+          role="button"
+          tabIndex={0}
+          className="tpl-card-header"
+          style={{
+            borderBottom: isOpen ? '0.5px solid var(--border-light)' : '0.5px solid transparent',
+          }}
+          onClick={() => setExpandedId(isOpen ? null : id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setExpandedId(isOpen ? null : id);
+            }
+          }}
+        >
+          <div className="tpl-card-header-left">
+            <strong className="tpl-card-title">{labelFor[id] || id}</strong>
+            {inUse && <span className="tpl-badge-in-use">Em uso</span>}
+            {id === 'birthday' && inUse ? <span className="tpl-badge-auto">Automático</span> : null}
+            {isChanged && <span className="tpl-badge">Não salvo</span>}
+            <span
+              className={`tpl-char-count${atLimit ? ' tpl-char-count--error' : nearLimit ? ' tpl-char-count--warn' : ''}`}
+            >
+              {len} / {WHATSAPP_TEMPLATE_CHAR_LIMIT}
+            </span>
+          </div>
+          <div className="tpl-card-header-actions" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="btn btn-secondary" onClick={() => copyText(raw, copyKeyRaw)}>
+              {copiedKey === copyKeyRaw ? <Check size={16} /> : <Copy size={16} />} Copiar
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => copyText(preview, copyKeyPreview)}>
+              {copiedKey === copyKeyPreview ? <Check size={16} /> : <Copy size={16} />} Preview
+            </button>
+            <span className="tpl-chevron" aria-hidden>
+              {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </span>
+          </div>
+        </div>
+        <div className={`tpl-accordion-panel${isOpen ? ' is-open' : ''}`}>
+          <div className="tpl-accordion-inner" inert={!isOpen ? true : undefined}>
+            <div className="tpl-card-body">
+              {renderUsedBy(id)}
+              {id === 'birthday' && (
+                <p className="text-xs text-light" style={{ marginBottom: 8, lineHeight: 1.45 }}>
+                  Para envio automático no dia do aniversário, ative em{' '}
+                  <Link to="/automacoes?tab=configuracoes" className="edit-link">
+                    Configurações
+                  </Link>
+                  .
+                </p>
+              )}
+              <div className="tpl-vars">
+                <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
+                  Variáveis
+                </div>
+                <div className="tpl-vars-scroll" ref={popoverRef}>
+                  {placeholders.map((ph) => (
+                    <span key={ph.key} style={{ position: 'relative', display: 'inline-block' }}>
+                      <button
+                        type="button"
+                        className={`tpl-chip${unknown.includes(ph.key) ? '' : ''}`}
+                        onClick={() => handleInsertPlaceholder(ph.key, id)}
+                        onMouseEnter={() => setOpenPopover(`${id}:${ph.key}`)}
+                        onFocus={() => setOpenPopover(`${id}:${ph.key}`)}
+                        aria-describedby={openPopover === `${id}:${ph.key}` ? `popover-${id}-${ph.token}` : undefined}
+                      >
+                        {ph.key}
+                      </button>
+                      {openPopover === `${id}:${ph.key}` && (
+                        <div className="tpl-popover" id={`popover-${id}-${ph.token}`} role="tooltip">
+                          <div className="tpl-popover-title">{ph.label}</div>
+                          <div>
+                            Exemplo: <code>{ph.key}</code> → &quot;{ph.example}&quot;
+                          </div>
+                        </div>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                {unknown.length > 0 && (
+                  <p className="tpl-placeholder-warn" role="alert">
+                    <Info size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    Variáveis não reconhecidas: {unknown.join(', ')} — serão omitidas no envio.
+                  </p>
+                )}
+              </div>
+              <textarea
+                id={`tpl-${id}`}
+                className={`form-input tpl-template-textarea${atLimit ? ' tpl-template-textarea--error' : ''}`}
+                rows={5}
+                value={templates[id] || ''}
+                disabled={!canEdit}
+                onChange={(e) => setTemplates((prev) => ({ ...prev, [id]: e.target.value }))}
+              />
+              <div className="tpl-preview">
+                <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
+                  Preview
+                </div>
+                <div className="tpl-preview-box text-small">{preview || '—'}</div>
+                <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => openWhatsAppTest(raw)}
+                    disabled={!canTest}
+                  >
+                    <Send size={16} /> Testar no WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => handleResetOne(id)}
+                    disabled={saving}
+                  >
+                    <RotateCcw size={16} /> Restaurar este
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -433,159 +577,30 @@ export default function AutomacoesModelosTab({
         onSampleManualChange={setSampleManual}
       />
 
-      <div className="flex-col tpl-template-list mt-3">
-        {filteredIds.map((id, i) => {
-          const raw = String(templates[id] || '');
-          const preview = renderTemplate(raw);
-          const isChanged = String(templates[id] || '') !== String(original[id] || '');
-          const isOpen = expandedId === id;
-          const copyKeyRaw = `raw:${id}`;
-          const copyKeyPreview = `preview:${id}`;
-          const canTest = Boolean(String(sampleData?.phone || '').replace(/\D/g, ''));
-          const len = raw.length;
-          const atLimit = len > WHATSAPP_TEMPLATE_CHAR_LIMIT;
-          const nearLimit = len >= WHATSAPP_TEMPLATE_CHAR_LIMIT - 74 && !atLimit;
-          const inUse = isTemplateInUse(usageByKey?.[id]);
-          const unknown = unknownById[id] || [];
-
-          return (
-            <div key={id} className="tpl-card animate-in" style={{ animationDelay: `${0.02 * i}s` }}>
-              <div
-                role="button"
-                tabIndex={0}
-                className="tpl-card-header"
-                style={{
-                  borderBottom: isOpen ? '0.5px solid var(--border-light)' : '0.5px solid transparent',
-                }}
-                onClick={() => setExpandedId(isOpen ? null : id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setExpandedId(isOpen ? null : id);
-                  }
-                }}
-              >
-                <div className="tpl-card-header-left">
-                  <strong className="tpl-card-title">{labelFor[id] || id}</strong>
-                  {inUse && <span className="tpl-badge-in-use">Em uso</span>}
-                  {id === 'birthday' && inUse ? <span className="tpl-badge-auto">Automático</span> : null}
-                  {isChanged && <span className="tpl-badge">Não salvo</span>}
-                  <span
-                    className={`tpl-char-count${atLimit ? ' tpl-char-count--error' : nearLimit ? ' tpl-char-count--warn' : ''}`}
-                  >
-                    {len} / {WHATSAPP_TEMPLATE_CHAR_LIMIT}
-                  </span>
-                </div>
-                <div className="tpl-card-header-actions" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" className="btn btn-secondary" onClick={() => copyText(raw, copyKeyRaw)}>
-                    {copiedKey === copyKeyRaw ? <Check size={16} /> : <Copy size={16} />} Copiar
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => copyText(preview, copyKeyPreview)}>
-                    {copiedKey === copyKeyPreview ? <Check size={16} /> : <Copy size={16} />} Preview
-                  </button>
-                  <span className="tpl-chevron" aria-hidden>
-                    {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </span>
-                </div>
-              </div>
-              <div className={`tpl-accordion-panel${isOpen ? ' is-open' : ''}`}>
-                <div className="tpl-accordion-inner" inert={!isOpen ? true : undefined}>
-                  <div className="tpl-card-body">
-                    {renderUsedBy(id)}
-                    {id === 'birthday' && (
-                      <p className="text-xs text-light" style={{ marginBottom: 8, lineHeight: 1.45 }}>
-                        Para envio automático no dia do aniversário, ative em{' '}
-                        <Link to="/automacoes?tab=configuracoes" className="edit-link">
-                          Configurações
-                        </Link>
-                        .
-                      </p>
-                    )}
-                    <div className="tpl-vars">
-                      <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
-                        Variáveis
-                      </div>
-                      <div className="tpl-vars-scroll" ref={popoverRef}>
-                        {placeholders.map((ph) => (
-                          <span key={ph.key} style={{ position: 'relative', display: 'inline-block' }}>
-                            <button
-                              type="button"
-                              className={`tpl-chip${unknown.includes(ph.key) ? '' : ''}`}
-                              onClick={() => handleInsertPlaceholder(ph.key, id)}
-                              onMouseEnter={() => setOpenPopover(`${id}:${ph.key}`)}
-                              onFocus={() => setOpenPopover(`${id}:${ph.key}`)}
-                              aria-describedby={openPopover === `${id}:${ph.key}` ? `popover-${id}-${ph.token}` : undefined}
-                            >
-                              {ph.key}
-                            </button>
-                            {openPopover === `${id}:${ph.key}` && (
-                              <div className="tpl-popover" id={`popover-${id}-${ph.token}`} role="tooltip">
-                                <div className="tpl-popover-title">{ph.label}</div>
-                                <div>
-                                  Exemplo: <code>{ph.key}</code> → &quot;{ph.example}&quot;
-                                </div>
-                              </div>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                      {unknown.length > 0 && (
-                        <p className="tpl-placeholder-warn" role="alert">
-                          <Info size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                          Variáveis não reconhecidas: {unknown.join(', ')} — serão omitidas no envio.
-                        </p>
-                      )}
-                    </div>
-                    <textarea
-                      id={`tpl-${id}`}
-                      className={`form-input tpl-template-textarea${atLimit ? ' tpl-template-textarea--error' : ''}`}
-                      rows={5}
-                      value={templates[id] || ''}
-                      disabled={!canEdit}
-                      onChange={(e) => setTemplates((prev) => ({ ...prev, [id]: e.target.value }))}
-                    />
-                    <div className="tpl-preview">
-                      <div className="navi-section-heading" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
-                        Preview
-                      </div>
-                      <div className="tpl-preview-box text-small">{preview || '—'}</div>
-                      <div className="flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => openWhatsAppTest(raw)}
-                          disabled={!canTest}
-                        >
-                          <Send size={16} /> Testar no WhatsApp
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => handleResetOne(id)}
-                          disabled={saving}
-                        >
-                          <RotateCcw size={16} /> Restaurar este
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {WHATSAPP_TEMPLATE_UI_GROUPS.map((group) => {
+        const groupIds = group.keys.filter((id) => filteredIdSet.has(id));
+        if (groupIds.length === 0) return null;
+        return (
+          <section key={group.id} className="automacoes-modelos-group mt-3">
+            <h3 className="automacoes-modelos-group__title">{group.title}</h3>
+            {group.hint ? <p className="automacoes-modelos-group__hint">{group.hint}</p> : null}
+            <div className="flex-col tpl-template-list">
+              {groupIds.map((id, i) => renderTemplateCard(id, i))}
             </div>
-          );
-        })}
-        {filteredIds.length === 0 && (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <EmptyState
-              insideCard
-              variant="compact"
-              tone="dashed"
-              title={`Nenhum template encontrado para “${filter}”.`}
-              role="status"
-            />
-          </div>
-        )}
-      </div>
+          </section>
+        );
+      })}
+      {filteredIds.length === 0 ? (
+        <div className="card mt-3" style={{ padding: 0, overflow: 'hidden' }}>
+          <EmptyState
+            insideCard
+            variant="compact"
+            tone="dashed"
+            title={`Nenhum template encontrado para “${filter}”.`}
+            role="status"
+          />
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(pendingConfirm)}

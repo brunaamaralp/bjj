@@ -7,7 +7,7 @@ import FollowupPlaybookSection from '../components/academy/FollowupPlaybookSecti
 import AutomacoesTabIntroBanner from '../components/academy/AutomacoesTabIntroBanner.jsx';
 
 /** Aba Processos em Automações — templates e aviso de tarefa legada pós-matrícula. */
-export default function AutomacoesProcessosTab() {
+export default function AutomacoesProcessosTab({ showTabIntro = true }) {
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const academy = useMemo(() => {
@@ -56,20 +56,26 @@ export default function AutomacoesProcessosTab() {
 
   return (
     <>
-      <AutomacoesTabIntroBanner tabId="processos" />
-      <TaskTemplatesSection academyId={academyId} teamId={academy?.teamId || ''} />
-      <FollowupPlaybookSection
-        academyId={academyId}
-        academySettings={academySettings}
-        settingsLoading={settingsLoading}
-        onSettingsSaved={handleSettingsSaved}
-      />
-      <EnrollmentFollowUpSection
-        academyId={academyId}
-        academySettings={academySettings}
-        settingsLoading={settingsLoading}
-        onSettingsSaved={handleSettingsSaved}
-      />
+      {showTabIntro ? <AutomacoesTabIntroBanner tabId="processos" /> : null}
+      <section className="automacoes-processos-block">
+        <TaskTemplatesSection academyId={academyId} teamId={academy?.teamId || ''} />
+      </section>
+      <section className="automacoes-processos-block">
+        <FollowupPlaybookSection
+          academyId={academyId}
+          academySettings={academySettings}
+          settingsLoading={settingsLoading}
+          onSettingsSaved={handleSettingsSaved}
+        />
+      </section>
+      <section className="automacoes-processos-block">
+        <EnrollmentFollowUpSection
+          academyId={academyId}
+          academySettings={academySettings}
+          settingsLoading={settingsLoading}
+          onSettingsSaved={handleSettingsSaved}
+        />
+      </section>
     </>
   );
 }

@@ -14,16 +14,20 @@ import { FINANCE_WHATSAPP_REMINDERS_PATH } from '../../lib/automacoesHub.js';
  *   };
  *   showModelsLink?: boolean;
  *   suppressZapsterLink?: boolean;
+ *   hideZapsterStep?: boolean;
  * }} props
  */
 export default function AutomacoesReadinessBanner({
   readiness,
   showModelsLink = true,
   suppressZapsterLink = false,
+  hideZapsterStep = false,
 }) {
   if (!readiness) return null;
 
-  const infraSteps = readiness.infraSteps || readiness.steps || [];
+  const infraSteps = (readiness.infraSteps || readiness.steps || []).filter(
+    (step) => !(hideZapsterStep && step.id === 'zapster')
+  );
   const infraReady = readiness.infraReady ?? readiness.ready ?? false;
   const activationLabel = readiness.activationLabel || '';
   const activeCount = Number(readiness.activeCount) || 0;

@@ -14,3 +14,19 @@ export const AUTOMACOES_TAB_HINTS = {
 
 export const FINANCE_WHATSAPP_REMINDERS_PATH =
   '/empresa?tab=financeiro&section=lembretes-whatsapp';
+
+/** Agrupamento visual da aba Modelos (espelha categorias de gatilhos). */
+export const WHATSAPP_TEMPLATE_UI_GROUPS = [
+  {
+    id: 'captacao',
+    title: 'Captação e funil',
+    hint: 'Textos usados nos gatilhos de leads e aulas experimentais.',
+    keys: ['confirm', 'reminder', 'post_class', 'missed', 'recovery', 'dashboard_contact'],
+  },
+  {
+    id: 'rotinas',
+    title: 'Rotinas diárias',
+    hint: 'Mensagens automáticas por data, sem ação manual no funil.',
+    keys: ['birthday'],
+  },
+];
