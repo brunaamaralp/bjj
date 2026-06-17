@@ -4895,6 +4895,28 @@
   cursor: pointer;
 }
 
+.finance-payment-methods__toggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.finance-payment-methods__toggle strong {
+  display: block;
+  font-weight: 600;
+}
+
+.finance-payment-methods__toggle .text-muted {
+  display: block;
+  line-height: 1.4;
+}
+
+.finance-payment-methods__credit-days p {
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
 .finance-payment-methods__toggle input {
   margin-top: 4px;
 }
@@ -4977,12 +4999,6 @@
   background: var(--surface-muted, rgba(0, 0, 0, 0.03));
 }
 
-.finance-capture-methods__item-badges {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
 
 .finance-capture-methods__badge {
   font-size: 0.6875rem;
@@ -5023,17 +5039,41 @@
   flex-direction: column;
   gap: 0.75rem;
   margin: 0;
+  background: var(--surface-2, rgba(148, 163, 184, 0.06));
+  border: 1px solid var(--border-subtle, var(--border-light));
 }
 
-.finance-capture-methods__item-header {
+.finance-capture-methods__item-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.finance-capture-methods__item-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+.finance-capture-methods__active {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.finance-capture-methods__remove {
+  flex-shrink: 0;
+  margin-top: 1.625rem;
+}
+
+
 .finance-capture-methods__name {
-  flex: 1 1 200px;
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
 }
 
@@ -5055,10 +5095,14 @@
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
   padding: 0.75rem;
+  background: var(--surface-2, rgba(148, 163, 184, 0.06));
+  border: 1px solid var(--border-subtle, var(--border-light));
+  border-radius: 10px;
 }
 
 .capture-method-fee-matrix__grid {
   margin-top: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 }
 
 .capture-method-fee-matrix__installment {

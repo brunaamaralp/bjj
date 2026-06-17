@@ -17,6 +17,8 @@ export default function CaptureMethodSelect({
   hint = '',
   onBlur,
   showRequired = true,
+  labelClassName = '',
+  wrapperClassName = '',
 }) {
   if (!needsCaptureMethodSelect(financeConfig, method)) return null;
 
@@ -30,10 +32,20 @@ export default function CaptureMethodSelect({
 
   return (
     <div
-      className={isCompact ? 'sales-payment-row__capture-field' : 'form-group capture-method-select'}
+      className={[
+        isCompact ? 'sales-payment-row__capture-field' : 'form-group capture-method-select',
+        wrapperClassName,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <label
-        className={isCompact ? 'text-xs sales-payment-row__field-label' : 'form-label'}
+        className={[
+          isCompact ? 'text-xs sales-payment-row__field-label' : 'form-label',
+          labelClassName,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         htmlFor={id}
       >
         Recebido via
