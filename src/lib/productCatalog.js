@@ -209,7 +209,10 @@ export function buildParentCatalogRows(parents, variants) {
 
   return (parents || []).map((p) => {
     const vars = (byParent.get(p.id) || []).slice().sort((a, b) =>
-      String(a.display_label).localeCompare(String(b.display_label), 'pt-BR')
+      String(a.display_label || a.nome || '').localeCompare(
+        String(b.display_label || b.nome || ''),
+        'pt-BR'
+      )
     );
     const poolTotals = aggregatePoolTotals(vars, p.type);
     const total_quantity = poolTotals.total_quantity;

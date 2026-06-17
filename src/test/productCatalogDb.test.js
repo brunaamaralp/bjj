@@ -40,9 +40,6 @@ describe('appendUnmigratedLegacyCatalog', () => {
   });
 
   it('não duplica quando caller já filtra legado vinculado', () => {
-    const legacyDocs = [
-      { $id: 'legacy-1', nome: 'Kimono', current_quantity: 1, migrated: false },
-    ];
     const { products, variants } = appendUnmigratedLegacyCatalog([], [], []);
     expect(products).toHaveLength(0);
     expect(variants).toHaveLength(0);
