@@ -384,6 +384,30 @@ Harness: `lojaInventoryTabs`.
 
 Harness: `automacoesHub`, `automacoesSetupWizard`, `automationUx`.
 
+### Auditoria de campos — audiência v3 (GBLP, 2026-06-17)
+
+Script: `npm run audit:audience-fields-gblp` → `scripts/audit-audience-fields-gblp.mjs`
+
+Academia GBLP (`699f21b70006985daa90`) · 76 alunos ativos (`student_status != inactive`)
+
+| campo | preenchidos | % | decisão UI |
+|---|---|---|---|
+| `type` | 76/76 | 100% | ✅ exibir filtro |
+| `plan` | 69/76 | 90,8% | ✅ exibir filtro |
+| `turma` | 70/76 | 92,1% | ✅ exibir filtro |
+| `enrollmentDate` | 76/76 | 100% | ✅ exibir filtro tenure |
+
+**Valores distintos:**
+
+- `type`: Adulto (42), Criança (30), Juniores (4)
+- `plan`: Anual adulto (25), Recorrente Adulto (7), Recorrente Infantil (7), Mensal Infantil (5), Mensal (5), Anual infantil (4), Recorrente (3), Recorrente Promocional (3), Anual (3), Mensal Adulto (3), Recorrente Família (2), Mensal (Promocional) (1), Diária (1)
+- `turma`: Adultos (37), Kids (27), Juniores (6)
+- `enrollmentDate`: 100% preenchido; `converted_at` também 76/76 (fallback tenure não necessário nesta academia)
+
+**Inconsistências:** nenhuma variação de capitalização/accent no mesmo valor normalizado. Observação de qualidade (não bloqueante): nomes de plano misturam grafias (`Anual adulto` vs `Anual infantil` vs `Anual`); turma usa `Kids` enquanto `type` usa `Criança` — normalização futura opcional, não corrigido nesta auditoria.
+
+**Harness audiência:** `npm test -- automationAudience` — **41 passed**. Implementação v4: UI audiência + cron retenção + `automation_logs` (`npm run provision:automation-logs`).
+
 ---
 
 ## Resumo por fluxo — Conta

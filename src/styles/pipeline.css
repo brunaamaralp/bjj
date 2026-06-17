@@ -2266,6 +2266,142 @@
   line-height: 1.45;
 }
 
+.automacoes-audience {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 10px;
+}
+
+.automacoes-audience-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.automacoes-audience-toggle-label {
+  font-weight: 600;
+  font-size: var(--font-sm);
+}
+
+.automacoes-audience-toggle-value {
+  flex: 1;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.automacoes-audience-toggle-value--has-removed {
+  color: var(--danger, #c62828);
+}
+
+.automacoes-audience-badge {
+  font-size: var(--font-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.automacoes-audience-badge--active {
+  background: rgba(25, 118, 210, 0.12);
+  color: var(--primary, #1976d2);
+}
+
+.automacoes-audience-badge--warn {
+  background: rgba(245, 124, 0, 0.15);
+  color: var(--warning, #e65100);
+}
+
+.automacoes-audience-panel {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.automacoes-audience-hint {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.automacoes-audience-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.automacoes-audience-legend {
+  display: block;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+
+.automacoes-audience-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.automacoes-audience-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.automacoes-audience-optgroup {
+  margin-bottom: 8px;
+}
+
+.automacoes-audience-optgroup-label {
+  display: block;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.automacoes-audience-search {
+  margin-bottom: 8px;
+  max-width: 280px;
+}
+
+.automacoes-audience-preview {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.automacoes-audience-preview--loading {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.automacoes-audience-unsaved-banner,
+.automacoes-audience-zero-banner {
+  margin-bottom: 0;
+}
+
+.automacoes-audience-zero-warn {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--warning, #e65100);
+}
+
+.automacoes-audience-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .automacoes-preview {
   margin: 10px 0 0;
   padding: 10px 12px;

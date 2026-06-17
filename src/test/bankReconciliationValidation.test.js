@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validateTxForBankReconciliation,
   amountsReconcileEqual,
+  amountsReconcileWithinPercent,
   bankItemDirectionMatchesTx,
   bankItemAmountMatchesTx,
   reconciliationNoteWithJustification,
@@ -36,12 +37,24 @@ describe('bankReconciliationValidation', () => {
     expect(result.error).toBe('tx_not_settled');
   });
 
-  it('rejects amount mismatch', () => {
+  it('rejects amount mismatch beyond matcher tolerance', () => {
     const result = validateTxForBankReconciliation(settledTx, {
       academyId,
-      item: { amount: 99, direction: 'credit' },
+      item: { amount: 50, direction: 'credit' },
     });
     expect(result.error).toBe('amount_mismatch');
+  });
+
+  it('accepts amount within matcher percent tolerance', () => {
+    expect(
+      validateTxForBankReconciliation(
+        { ...settledTx, gross: 100, net: 97 },
+        { academyId, item: { amount: 97, direction: 'credit' } }
+      ).ok
+    ).toBe(true);
+    expect(
+      bankItemAmountMatchesTx({ amount: 97 }, { gross: 100, net: 96.5 })
+    ).toBe(true);
   });
 
   it('accepts matching item', () => {
@@ -55,6 +68,12 @@ describe('bankReconciliationValidation', () => {
   it('amountsReconcileEqual within tolerance', () => {
     expect(amountsReconcileEqual(100, 100.01)).toBe(true);
     expect(amountsReconcileEqual(100, 102)).toBe(false);
+  });
+
+  it('amountsReconcileWithinPercent matches matcher band', () => {
+    expect(amountsReconcileWithinPercent(100, 97)).toBe(true);
+    expect(amountsReconcileWithinPercent(100, 96)).toBe(true);
+    expect(amountsReconcileWithinPercent(100, 94)).toBe(false);
   });
 
   it('direction and amount helpers', () => {

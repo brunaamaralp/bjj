@@ -20,6 +20,8 @@ import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
 import AutomacoesTabIntroBanner from './AutomacoesTabIntroBanner.jsx';
 import AutomacoesZapsterOfflineBanner from './AutomacoesZapsterOfflineBanner.jsx';
 import AutomationPreviewLeadPicker from './AutomationPreviewLeadPicker.jsx';
+import AutomationAudienceSection from './AutomationAudienceSection.jsx';
+import { CRON_TRIGGERS_WITH_AUDIENCE } from '../../lib/automationAudience.js';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
 function AutomationRow({
@@ -37,6 +39,11 @@ function AutomationRow({
     onTemplateChange,
     onDelayChange,
     onThresholdChange,
+    showAudience,
+    academy,
+    activeStudents,
+    studentsLoading = false,
+    onSaveAudience,
 }) {
     const isBirthdayCron = automationKey === 'birthday';
     const isRetentionCron = automationKey === 'absent_student' || automationKey === 'newcomer_at_risk';
@@ -52,7 +59,13 @@ function AutomationRow({
         : !noTemplatesAvailable &&
           Boolean(cfg.templateKey) &&
           rowTemplateOptions.some((o) => o.id === cfg.templateKey);
-    const switchDisabled = !canEdit || savingAutomations || noTemplatesAvailable || !hasValidTemplate;
+    const [audienceDirty, setAudienceDirty] = useState(false);
+    const switchDisabled =
+        !canEdit ||
+        savingAutomations ||
+        noTemplatesAvailable ||
+        !hasValidTemplate ||
+        (showAudience && audienceDirty);
     const [previewOpen, setPreviewOpen] = useState(false);
 
     const scheduleDate =
@@ -118,6 +131,8 @@ function AutomationRow({
                             ? 'Somente titular ou administrador pode alterar'
                             : savingAutomations
                               ? 'Salvando…'
+                              : audienceDirty
+                                ? 'Salve a audiência antes de ativar'
                               : switchDisabled
                                 ? noTemplatesAvailable
                                     ? 'Revise os modelos em Modelos de Mensagem'
@@ -135,7 +150,9 @@ function AutomationRow({
             </div>
             {switchDisabled && canEdit ? (
                 <p className="text-xs" style={{ marginTop: 8, color: 'var(--warning)', marginBottom: 0 }}>
-                    {noTemplatesAvailable ? (
+                    {audienceDirty ? (
+                        'Salve ou descarte a audiência antes de ativar o gatilho.'
+                    ) : noTemplatesAvailable ? (
                         <>
                             Nenhum texto de modelo disponível.{' '}
                             <Link to="/automacoes?tab=modelos" className="edit-link">
@@ -262,6 +279,19 @@ function AutomationRow({
                     </Link>
                 </p>
             ) : null}
+            {showAudience ? (
+                <AutomationAudienceSection
+                    triggerKey={automationKey}
+                    audience={cfg.audience}
+                    academy={academy}
+                    activeStudents={activeStudents}
+                    studentsLoading={studentsLoading}
+                    canEdit={canEdit}
+                    saving={savingAutomations}
+                    onSaveAudience={onSaveAudience}
+                    onDirtyChange={setAudienceDirty}
+                />
+            ) : null}
         </article>
     );
 }
@@ -290,6 +320,11 @@ const AutomacoesSection = ({
     onRetrySave,
     previewLead,
     showTabIntro = false,
+    academy = {},
+    activeStudents = [],
+    studentsLoading = false,
+    onToggleTriggerActive,
+    onSaveTriggerAudience,
 }) => {
     const applyConfigChange = (buildNext, { persist = false, successMessage } = {}) => {
         setAutomationsConfig((prev) => {
@@ -339,6 +374,10 @@ const AutomacoesSection = ({
                             onToggle={() => {
                                 const nextActive = !(automationsConfig?.[key]?.active === true);
                                 const label = meta?.label || key;
+                                if (onToggleTriggerActive) {
+                                    void onToggleTriggerActive(key, nextActive, label);
+                                    return;
+                                }
                                 applyConfigChange(
                                     (prev) => {
                                         const patch = {
@@ -383,6 +422,11 @@ const AutomacoesSection = ({
                                     { persist: true }
                                 )
                             }
+                            showAudience={CRON_TRIGGERS_WITH_AUDIENCE.includes(key)}
+                            academy={academy}
+                            activeStudents={activeStudents}
+                            studentsLoading={studentsLoading}
+                            onSaveAudience={onSaveTriggerAudience}
                         />
                     );
                 })}
