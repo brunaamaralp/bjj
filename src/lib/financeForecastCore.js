@@ -6,9 +6,41 @@ export function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
 }
 
+export const FINANCE_TIMEZONE = 'America/Sao_Paulo';
+
+/** Partes da data no fuso das academias (Brasil). */
+export function financeDateParts(date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: FINANCE_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value])
+  );
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    weekday: parts.weekday || '',
+  };
+}
+
+export function todayYmdFinance(date = new Date()) {
+  const { year, month, day } = financeDateParts(date);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+export function currentYmFinance(date = new Date()) {
+  const { year, month } = financeDateParts(date);
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
 export function todayYmdLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return todayYmdFinance();
 }
 
 export function parseYmd(s) {
@@ -218,6 +250,28 @@ export function buildForecastChartRows(weeks, openingBalance) {
 
 export function forecast30DaysRange(from = todayYmdLocal()) {
   return { from, to: addDaysYmd(from, 30) };
+}
+
+/**
+ * Data de vencimento/previsão de um lançamento no Caixa para a previsão de fluxo.
+ * Prioriza liquidação bancária agendada (`expected_settlement_at`).
+ */
+export function forecastTxDueYmd(doc, mapped = null) {
+  const m = mapped || {};
+  const expected = String(doc?.expected_settlement_at || m.expected_settlement_at || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(expected)) return expected;
+
+  const dueRaw = doc?.due_date != null ? doc.due_date : m.due_date;
+  if (dueRaw) {
+    const due = String(dueRaw).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(due)) return due;
+  }
+
+  const cm = String(m.competence_month || doc?.competence_month || '').trim();
+  if (/^\d{4}-\d{2}$/.test(cm)) return `${cm}-28`;
+
+  if (doc?.$createdAt) return String(doc.$createdAt).slice(0, 10);
+  return todayYmdLocal();
 }
 
 export const FORECAST_PERIOD_PRESETS = {

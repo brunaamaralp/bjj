@@ -19,6 +19,7 @@ import FinanceSettingsStickySave from './settings/FinanceSettingsStickySave.jsx'
 import FinanceSettingsPlansSection from './settings/FinanceSettingsPlansSection.jsx';
 import FinanceSettingsFeesSection from './settings/FinanceSettingsFeesSection.jsx';
 import FinanceSettingsBanksSection from './settings/FinanceSettingsBanksSection.jsx';
+import FinanceSettingsPaymentMethodsSection from './settings/FinanceSettingsPaymentMethodsSection.jsx';
 import FinanceSettingsVendorsSection from './settings/FinanceSettingsVendorsSection.jsx';
 import { normalizeBankAccountEntry } from '../../lib/bankAccounts.js';
 import { parseCurrencyBRL } from '../../lib/masks.js';
@@ -135,9 +136,15 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
       {activeSection === FINANCE_SETTINGS_SECTIONS.RECEBIMENTO ? (
         <FinanceSettingsBanksSection
           financeConfig={state.financeConfig}
-          setFinanceConfig={state.setFinanceConfig}
           onSaveBank={saveBank}
           onRemoveRequest={state.setPendingRemoveBank}
+        />
+      ) : null}
+
+      {activeSection === FINANCE_SETTINGS_SECTIONS.FORMAS ? (
+        <FinanceSettingsPaymentMethodsSection
+          financeConfig={state.financeConfig}
+          setFinanceConfig={state.setFinanceConfig}
         />
       ) : null}
 

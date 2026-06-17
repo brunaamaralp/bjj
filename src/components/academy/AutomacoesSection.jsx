@@ -5,6 +5,7 @@ import {
     AUTOMATION_DELAY_OPTIONS,
     AUTOMATION_GROUPS,
     AUTOMATION_GROUP_HINTS,
+    AUTOMATION_THRESHOLD_OPTIONS,
     templateOptionsForAutomation,
 } from '../../lib/useAutomations.js';
 import { GATILHOS_SECTION_TO_GROUP_KEY } from '../../lib/automacoesSettingsSections.js';
@@ -33,14 +34,18 @@ function AutomationRow({
     onToggle,
     onTemplateChange,
     onDelayChange,
+    onThresholdChange,
 }) {
-    const isDailyCron = automationKey === 'birthday';
+    const isBirthdayCron = automationKey === 'birthday';
+    const isRetentionCron = automationKey === 'absent_student' || automationKey === 'newcomer_at_risk';
+    const isDailyCron = isBirthdayCron || isRetentionCron;
     const delayOptions = isDailyCron ? null : AUTOMATION_DELAY_OPTIONS[automationKey];
+    const thresholdOptions = isRetentionCron ? AUTOMATION_THRESHOLD_OPTIONS[automationKey] : null;
     const rowTemplateOptions = useMemo(
         () => templateOptionsForAutomation(automationKey, templateOptions),
         [automationKey, templateOptions]
     );
-    const hasValidTemplate = isDailyCron
+    const hasValidTemplate = isBirthdayCron
         ? Boolean(String(templatesMap?.birthday || '').trim())
         : !noTemplatesAvailable &&
           Boolean(cfg.templateKey) &&
@@ -133,7 +138,7 @@ function AutomationRow({
                 </p>
             ) : null}
             <div className="automacoes-trigger-card__controls">
-                {isDailyCron ? (
+                {isBirthdayCron ? (
                     <div className="automacoes-trigger-card__model-field">
                         <select
                             className="form-input"
@@ -176,8 +181,30 @@ function AutomationRow({
                         )}
                     </select>
                 )}
-                {isDailyCron ? (
+                {isBirthdayCron ? (
                     <span className="automacoes-trigger-card__timing">Envio diário (~9h, Brasília)</span>
+                ) : isRetentionCron ? (
+                    <>
+                        <select
+                            className="form-input"
+                            value={Number(
+                                cfg.thresholdDays ??
+                                    thresholdOptions?.[0]?.value ??
+                                    (automationKey === 'newcomer_at_risk' ? 7 : 10)
+                            )}
+                            disabled={!canEdit || savingAutomations || noTemplatesAvailable}
+                            onChange={(e) => onThresholdChange(Number(e.target.value))}
+                            style={{ flex: '0 1 220px' }}
+                            aria-label={`Limite de dias: ${meta.label}`}
+                        >
+                            {(thresholdOptions || []).map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                        <span className="automacoes-trigger-card__timing">Varredura diária (~9h, Brasília)</span>
+                    </>
                 ) : delayOptions ? (
                     <select
                         className="form-input"
@@ -321,6 +348,15 @@ const AutomacoesSection = ({
                                     (prev) => ({
                                         ...prev,
                                         [key]: { ...(prev?.[key] || {}), delayMinutes },
+                                    }),
+                                    { persist: true }
+                                )
+                            }
+                            onThresholdChange={(thresholdDays) =>
+                                applyConfigChange(
+                                    (prev) => ({
+                                        ...prev,
+                                        [key]: { ...(prev?.[key] || {}), thresholdDays },
                                     }),
                                     { persist: true }
                                 )

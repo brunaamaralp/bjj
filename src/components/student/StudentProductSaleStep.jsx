@@ -57,6 +57,7 @@ export default function StudentProductSaleStep({
   onNavigateAway,
 }) {
   const academyId = useLeadStore((s) => s.academyId);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
   const addToast = useUiStore((s) => s.addToast);
   const createSale = useSalesStore((s) => s.createSale);
   const creating = useSalesStore((s) => s.creating);
@@ -635,6 +636,7 @@ export default function StudentProductSaleStep({
                   onChange={setPayments}
                   disabled={creating || cart.length === 0}
                   inlineValidate
+                  financeConfig={financeConfig}
                 />
               )}
 

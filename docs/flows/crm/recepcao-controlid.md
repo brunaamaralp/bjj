@@ -8,14 +8,14 @@
 | **rotas** | `/recepcao`, `/recepcao?tab=historico`, `/integracoes?tab=catraca` (setup) |
 | **pré-requisitos** | Academia com alunos; hardware Control iD na rede local; servidor/ponte na recepção (quando aplicável) |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** —
+**Specs relacionadas:** [2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md](../superpowers/specs/2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md)
 
 **Harness relacionado:** `bootstrapRoutePrefetch.test.js` (`/recepcao` exige bootstrap de alunos)
 
-**Arquivos-chave:** `src/pages/Recepcao.jsx`, `src/components/attendance/RecepcaoLivePanel.jsx`, `src/components/attendance/ControlIdAttendancePanel.jsx`, `src/components/academy/ControlIdCatracaSection.jsx`, `src/lib/controlidApi.js`, `lib/server/controlidHandlers.js`
+**Arquivos-chave:** `src/pages/Recepcao.jsx`, `src/components/attendance/RecepcaoLivePanel.jsx`, `src/components/attendance/ControlIdAttendancePanel.jsx`, `src/components/attendance/AttendanceAtRiskSection.jsx`, `src/components/academy/ControlIdCatracaSection.jsx`, `src/lib/controlidApi.js`, `lib/server/controlidHandlers.js`
 
 **Fluxo relacionado:** [aluno-perfil-presenca.md](aluno-perfil-presenca.md) (perfil do aluno, foto na catraca)
 
@@ -54,12 +54,14 @@ flowchart TD
 | 3 | Catraca | Salvar | `saveControlIdConfig` | Config persistida por academia |
 | 4 | `/recepcao` | `Recepcao` | Abrir recepção | Aba default **Ao vivo** |
 | 5 | Ao vivo | `RecepcaoLivePanel` | Ver status dispositivo | Online / offline / não configurado |
-| 6 | Ao vivo | **Liberar catraca** | `releaseControlIdGate` | Toast; entrada manual no feed |
+| 6 | Ao vivo | **Liberar catraca** | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed com resumo do motivo |
 | 7 | Ao vivo | Feed entradas hoje | Poll automático | Novos registros com hora e link ao perfil |
 | 8 | `?tab=historico` | `ControlIdAttendancePanel` | Trocar período | Hoje, 7 dias, 30 dias, etc. |
+| 8b | Catraca (final) | `AttendanceAtRiskSection` | Ver alunos sumidos / em risco | KPIs + tabela; WhatsApp, ausência, em contato, desligar |
+| 8c | Catraca (sem Control iD) | `AttendanceAtRiskSection` | Presença só manual (`VITE_APPWRITE_ATTENDANCE_COL_ID`) | Banner info + fila de retenção; feed ao vivo indisponível |
 | 9 | Histórico | Atualizar / sync | `syncAllControlId` | Toast com contagem sincronizada |
 | 10 | Histórico | Liberar catraca | Mesmo endpoint de release | Liberação remota |
-| 11 | `/` Hoje | Atalho catraca (se configurado) | Liberar catraca | `ConfirmDialog` + release |
+| 11 | `/` Hoje | Atalho catraca (se configurado) | Liberar catraca + motivo | `ControlIdReleaseDialog` + release |
 | 12 | `/student/:id` | Foto Control iD | Sincronizar rosto | `StudentControlIdPhoto` quando integração ativa |
 
 ### Abas da recepção
@@ -94,17 +96,20 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 1. [ ] Menu usuário → **Integrações** → aba **Catraca**
 2. [ ] Marcar «Integração ativa»
-3. [ ] Preencher IP, porta, usuário; senha na primeira vez ou ao retestar
-4. [ ] **Testar conexão** → portais listados
-5. [ ] Selecionar portal e **Salvar**
-6. [ ] No histórico (ou painel de alunos), **Sincronizar todos** se necessário
+3. [ ] Preencher **URL do servidor na recepção** (relay local), se diferente do padrão da instalação
+4. [ ] Preencher IP, porta, usuário; senha na primeira vez ou ao retestar
+5. [ ] **Testar conexão** → portais listados
+6. [ ] Selecionar portal e **Salvar** (inclui intervalo entre entradas, se configurado)
+7. [ ] Conferir **Última sincronização** (atualiza após sync de alunos)
+8. [ ] No histórico (ou painel de alunos), **Sincronizar todos** se necessário
+9. [ ] (Opcional) Ativar **Bloquear inadimplentes** se módulo financeiro estiver ativo
 
 ### Checklist passo a passo — operação diária
 
 1. [ ] Abrir `/recepcao` (voltar para Alunos via link no topo)
 2. [ ] Status **Online** com IP visível quando polling OK
 3. [ ] Entrada na catraca aparece no feed em até um ciclo de poll (~intervalo configurado no painel)
-4. [ ] **Liberar catraca** habilitado só com integração configurada
+4. [ ] **Liberar catraca** habilitado só com integração configurada; exige motivo (3–500 caracteres)
 5. [ ] Clique em «ver perfil» abre `/student/:id`
 6. [ ] Aba **Histórico** carrega registros do período
 7. [ ] Troca de academia recarrega feed e status
@@ -114,10 +119,13 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 | Situação | Feedback esperado | Referência |
 |---|---|---|
 | Catraca não configurada | Botão liberar desabilitado; link para Integrações | `RecepcaoLivePanel` → `/integracoes?tab=catraca` |
+| Presença manual sem Control iD | Banner info no topo; **Alunos sumidos** visível se `ATTENDANCE_COL` configurado | `RecepcaoCatracaTab` |
 | Poll falha | Status **Offline** | `deviceOnline = false` |
 | Sync parcial | Toast warning com `failed` | `syncAllControlId` |
 | Release falha | Toast erro `friendlyError` | `useToast` |
 | Aluno sem vínculo na catraca | Evento ignorado no servidor | `processAccessEvent` retorna null |
+| Cooldown / inadimplente | Linha «ignorada» no feed ao vivo (amarelo) | `ignored` no monitor |
+| Sync inadimplente com bloqueio ativo | Toast aviso; aluno não vai ao equipamento | `controlid_sync` / `sync-all` |
 
 ### Critérios de fluxo saudável vs regressão
 
@@ -171,4 +179,11 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-17 | — | Spec PRODUCT/TECH marcados implementados; VALIDATION F1–F4 |
+| 2026-06-17 | — | P2: seções na config, badge bloqueado, última sync no histórico |
+| 2026-06-17 | — | P0/P1: sync ignora inadimplentes, feed de entradas ignoradas, release para recepcionista |
+| 2026-06-17 | — | F4 catraca: bloqueio de inadimplentes |
+| 2026-06-17 | — | F3 catraca: anti-passback (intervalo entre entradas) |
+| 2026-06-17 | — | F2 catraca: justificativa obrigatória na liberação manual |
+| 2026-06-17 | — | F1 catraca: URL relay na UI, última sincronização visível |
 | 2026-06-15 | — | Criação inicial |

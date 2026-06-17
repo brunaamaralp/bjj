@@ -175,7 +175,12 @@ export function buildForecastInstallmentItems({
     const totalN = schedule.length;
 
     for (const inst of schedule) {
-      if (!inRange(inst.due_date)) continue;
+      const kind = customerSchedule.length ? 'parcela' : 'liquidacao';
+      const forecastDate =
+        kind === 'liquidacao' && inst.expected_settlement_date
+          ? String(inst.expected_settlement_date).slice(0, 10)
+          : inst.due_date;
+      if (!inRange(forecastDate)) continue;
       const grossClient = roundMoney(inst.gross ?? inst.amount);
       const method = p.method || 'pix';
       const installments = Math.min(12, Math.max(1, Number(p.installments) || totalN));
@@ -192,7 +197,6 @@ export function buildForecastInstallmentItems({
             );
       const amt = roundMoney(amounts.amount);
       if (amt < 0.01) continue;
-      const kind = customerSchedule.length ? 'parcela' : 'liquidacao';
       items.push({
         type: kind,
         label:
@@ -201,7 +205,7 @@ export function buildForecastInstallmentItems({
             : `Parcela ${inst.installment_number}/${totalN} — ${plan} — ${name}`,
         amount: amt,
         amount_gross: roundMoney(amounts.amount_gross ?? grossClient),
-        due_date: inst.due_date,
+        due_date: forecastDate,
         lead_id: leadId || undefined,
         student_name: name,
         status: 'esperado',

@@ -1,5 +1,6 @@
 import { filterBankAccountsWithBank } from './bankAccounts.js';
 import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
+import { paymentMethodsConfiguredSummary } from './paymentMethodSettings.js';
 import {
   DEFAULT_OVERDUE_LABEL,
   DEFAULT_COLLECTION_RULES,
@@ -18,6 +19,7 @@ export const FINANCE_SETTINGS_SECTIONS = {
   PLANOS: 'planos',
   TAXAS: 'taxas',
   RECEBIMENTO: 'recebimento',
+  FORMAS: 'formas-recebimento',
   FORNECEDORES: 'fornecedores',
   REGUA: 'regua',
   WHATSAPP: 'lembretes-whatsapp',
@@ -66,8 +68,13 @@ export const FINANCE_SETTINGS_GROUPS = [
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.RECEBIMENTO,
-        label: 'Contas para recebimento',
+        label: 'Contas bancárias',
         hint: 'Banco, agência e PIX nos comprovantes',
+      },
+      {
+        id: FINANCE_SETTINGS_SECTIONS.FORMAS,
+        label: 'Formas de recebimento',
+        hint: 'PIX, cartão e dinheiro — conta padrão e automações',
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.FORNECEDORES,
@@ -237,6 +244,17 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.RECEBIMENTO]: {
       done: banks.length > 0,
       summary: banksSummary,
+    },
+    [FINANCE_SETTINGS_SECTIONS.FORMAS]: {
+      done: (() => {
+        const { configured, active } = paymentMethodsConfiguredSummary(financeConfig);
+        return active > 0 && configured === active;
+      })(),
+      summary: (() => {
+        const { configured, active } = paymentMethodsConfiguredSummary(financeConfig);
+        if (active === 0) return 'Nenhuma forma ativa';
+        return `${configured}/${active} configurada${active === 1 ? '' : 's'}`;
+      })(),
     },
     [FINANCE_SETTINGS_SECTIONS.FORNECEDORES]: {
       done: activeNamedVendors.length > 0,

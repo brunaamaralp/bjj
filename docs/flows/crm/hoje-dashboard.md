@@ -36,7 +36,7 @@ flowchart TD
   login[Login + academia selecionada] --> recepcao["/ — Recepção"]
   recepcao --> tabExp["?tab=experimentais (default)"]
   recepcao --> tabCat["?tab=catraca"]
-  tabExp --> kpi[KPIs: experimentais hoje + matrículas + tarefas]
+  tabExp --> kpi[KPIs: experimentais, matrículas, follow-ups e tarefas]
   tabExp --> agenda[Agenda da semana]
   tabExp --> followup[Retornos pendentes]
   tabExp --> birthday[Banner aniversários]
@@ -59,7 +59,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/` | `Dashboard.jsx` | Abrir app (item **Recepção** na sidebar) | Abas **Experimentais** (default) e **Catraca** |
-| 2 | `/` | `DashboardHeroKpi` | Clicar KPI | Aulas hoje → agenda; Matrículas no mês → `/reports?tab=funil`; Tarefas → `/tarefas?status=pendentes&period=today` |
+| 2 | `/` | `DashboardHeroKpi` | Clicar KPI | Aulas hoje → agenda; Matrículas no mês → `/reports?tab=funil`; Follow-ups pendentes → lista de follow-ups; Tarefas → `/tarefas?status=pendentes&period=today` |
 | 3 | `/` | Lista **Retornos pendentes** | **Concluir retorno** (ícone ✓) | `FollowupOutcomeDialog` abre; após confirmar, lead atualiza/some da lista |
 | 4 | `/` | `DashboardAgendaWeekPanel` | **Compareceu** / **Faltou** na aula do dia | Registro direto (`markLeadAttended` / `markLeadMissed`); toast de sucesso |
 | 5 | `/` | `FollowupCopilotButtons` | Escolher ação sugerida (WhatsApp, remarcar, etc.) | Ação correspondente (template, estágio, perfil) |
@@ -86,7 +86,7 @@ flowchart TD
 ### Checklist passo a passo
 
 1. [ ] Acessar `/` logado — página carrega sem `ErrorBanner` persistente
-2. [ ] Hero exibe linha de data e KPIs (aulas hoje, matrículas no mês e tarefas)
+2. [ ] Hero exibe linha de data e KPIs (aulas hoje, matrículas no mês, follow-ups pendentes e tarefas)
 3. [ ] Lista **Retornos pendentes** mostra leads que precisam de contato (badge de temperatura quando aplicável)
 4. [ ] Clicar **Concluir retorno** (✓) em um retorno — `FollowupOutcomeDialog` abre; após confirmar, lead some da lista ou atualiza estado
 5. [ ] Na **Agenda da semana**, marcar **Compareceu** ou **Faltou** — toast de sucesso; lead atualiza estágio (sem dialog de outcome)

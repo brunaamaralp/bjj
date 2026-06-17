@@ -21,7 +21,7 @@ import { freezeStudentApi } from '../lib/studentsApi.js';
 import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js';
 import { sanitizeStudentUpdatesForNl } from '../../lib/studentNlUpdates.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
-import { sanitizePaymentUpdatesForNl } from '../../lib/paymentNlUpdates.js';
+import { isPaymentMethodActive } from '../lib/paymentMethodSettings.js';
 import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 import { addLeadEvent } from '../lib/leadEvents';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
@@ -254,6 +254,11 @@ export function useNlAction() {
           throw new Error('Informe o valor do pagamento ou cadastre o preço do plano.');
         }
         const method = normalizePaymentMethod(d.method);
+        if (method && !isPaymentMethodActive(financeConfig, method)) {
+          throw new Error(
+            'Esta forma de pagamento está desativada. Ative em Financeiro → Configurações → Formas de recebimento.'
+          );
+        }
         const planName = String(d.plan_name || student?.plan || '').trim();
         const doc = await createPayment({
           lead_id: leadId,
@@ -325,6 +330,11 @@ export function useNlAction() {
         if (!Number.isFinite(unit) || unit <= 0) throw new Error('Preço da venda inválido');
 
         const forma = mapNlPaymentFormToSale(d.payment_form || d.method);
+        if (forma && !isPaymentMethodActive(financeConfig, forma)) {
+          throw new Error(
+            'Esta forma de pagamento está desativada. Ative em Financeiro → Configurações → Formas de recebimento.'
+          );
+        }
         const pagamentos = [
           {
             forma,

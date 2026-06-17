@@ -7,6 +7,7 @@ import StatusBadge from '../shared/StatusBadge.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useUiStore } from '../../store/useUiStore';
+import { useLeadStore } from '../../store/useLeadStore';
 import SalesPaymentBlock from './SalesPaymentBlock';
 import {
   createEmptyPaymentRow,
@@ -27,6 +28,7 @@ function SaleDetailModalContent({
   const liquidateSale = useSalesStore((s) => s.liquidateSale);
   const creating = useSalesStore((s) => s.creating);
   const addToast = useUiStore((s) => s.addToast);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
 
   const [liquidateOpen, setLiquidateOpen] = useState(false);
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
@@ -189,6 +191,7 @@ function SaleDetailModalContent({
                   payments={payments}
                   onChange={setPayments}
                   disabled={creating}
+                  financeConfig={financeConfig}
                 />
                 <div className="sales-liquidate-panel__actions">
                   <button

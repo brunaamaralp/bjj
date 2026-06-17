@@ -710,6 +710,7 @@ async function main() {
       { key: 'idx_attendance_student_id', attributes: ['student_id'] },
       { key: 'idx_attendance_lead_id', attributes: ['lead_id'] },
       { key: 'idx_attendance_checked_in_at', attributes: ['checked_in_at'] },
+      { key: 'idx_attendance_academy_checked_in', attributes: ['academy_id', 'checked_in_at'] },
     ],
   });
 

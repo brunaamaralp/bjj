@@ -81,6 +81,18 @@ describe('acquirerFees', () => {
     expect(rows[0].net).toBe(97);
   });
 
+  it('enrichInstallmentScheduleWithAcquirerFees adiciona expected_settlement_date com creditDays', () => {
+    const rows = enrichInstallmentScheduleWithAcquirerFees(
+      [{ installment_number: 1, due_date: '2026-04-10', amount: 100 }],
+      'cartao_credito',
+      1,
+      financeConfigWithMdr.acquirerFees,
+      30
+    );
+    expect(rows[0].expected_settlement_date).toBe('2026-05-10');
+    expect(rows[0].creditDays).toBe(30);
+  });
+
   it('mensalidadeForecastNetAmount usa método do pagamento', () => {
     const student = { plan: 'Mensal' };
     const payment = { status: 'pending', amount: 200, method: 'cartao_credito', installments: 1 };

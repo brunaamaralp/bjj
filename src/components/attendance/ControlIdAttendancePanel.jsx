@@ -16,6 +16,8 @@ import {
   avatarInitial,
   groupByDate,
 } from './controlIdAttendanceUtils.js';
+import ControlIdReleaseDialog from './ControlIdReleaseDialog.jsx';
+import { formatControlIdLastSync } from '../../lib/controlidDisplay.js';
 
 /**
  * Histórico de presenças da catraca Control iD (filtros, sync, liberar porta).
@@ -35,6 +37,7 @@ export default function ControlIdAttendancePanel({
   const [range, setRange] = useState('today');
   const [syncing, setSyncing] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const hasFetched = useRef(false);
 
   const load = useCallback(
@@ -73,11 +76,19 @@ export default function ControlIdAttendancePanel({
       if (!data.sucesso) throw new Error(data.erro || 'Erro ao sincronizar');
       const msg =
         data.synced > 0
-          ? `${data.synced} aluno(s) sincronizado(s)${data.failed > 0 ? `, ${data.failed} com erro` : ''}.`
+          ? `${data.synced} aluno(s) sincronizado(s)${data.failed > 0 ? `, ${data.failed} com erro` : ''}${
+              data.skipped_overdue > 0 ? `, ${data.skipped_overdue} inadimplente(s) ignorado(s)` : ''
+            }.`
           : data.failed > 0
             ? `${data.failed} erro(s) de sincronização.`
-            : 'Nenhum aluno precisava de sincronização.';
+            : data.skipped_overdue > 0
+              ? `${data.skipped_overdue} inadimplente(s) ignorado(s); nenhum aluno precisava de sincronização.`
+              : 'Nenhum aluno precisava de sincronização.';
       addToast({ type: data.failed > 0 ? 'warning' : 'success', message: msg });
+      if (data.synced > 0) {
+        controlId.refresh();
+        addToast({ type: 'info', message: 'Última sincronização da catraca atualizada.' });
+      }
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
@@ -85,13 +96,14 @@ export default function ControlIdAttendancePanel({
     }
   };
 
-  const handleRelease = async () => {
+  const handleRelease = async (reason) => {
     if (!academyId) return;
     setReleasing(true);
     try {
-      const data = await releaseControlIdGate(academyId);
+      const data = await releaseControlIdGate(academyId, { reason });
       if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar');
       addToast({ type: 'success', message: 'Catraca liberada.' });
+      setReleaseOpen(false);
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
@@ -122,7 +134,7 @@ export default function ControlIdAttendancePanel({
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => void handleRelease()}
+                onClick={() => setReleaseOpen(true)}
                 disabled={releasing}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
               >
@@ -171,8 +183,8 @@ export default function ControlIdAttendancePanel({
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: 8,
+            flexDirection: 'column',
+            gap: 4,
             padding: '8px 14px',
             borderRadius: 8,
             background: 'var(--success-light)',
@@ -183,8 +195,13 @@ export default function ControlIdAttendancePanel({
             fontWeight: 600,
           }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
-          Catraca configurada — {controlId.device_ip || controlId.ip}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+            Catraca configurada — {controlId.device_ip || controlId.ip}
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', paddingLeft: 16 }}>
+            Última sync de alunos: {formatControlIdLastSync(controlId.last_sync)}
+          </span>
         </div>
       ) : (
         <div
@@ -283,6 +300,12 @@ export default function ControlIdAttendancePanel({
           ))}
         </div>
       )}
+      <ControlIdReleaseDialog
+        open={releaseOpen}
+        loading={releasing}
+        onClose={() => !releasing && setReleaseOpen(false)}
+        onConfirm={(reason) => void handleRelease(reason)}
+      />
     </div>
   );
 }

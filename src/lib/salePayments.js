@@ -1,6 +1,7 @@
 import { paymentLabel } from './salesSettings.js';
 import { formatBRL } from './moneyBr.js';
 import { canonicalPaymentMethodKeyFromInput, PAYMENT_METHODS } from './paymentMethods.js';
+import { listActivePaymentMethods } from './paymentMethodSettings.js';
 
 export const MAX_SALE_PAYMENTS = 3;
 
@@ -10,6 +11,19 @@ export const TROCO_FORM_OPTIONS = [
   { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
 ];
+
+/** Formas de pagamento ativas para PDV (canônico). Sem config → todas. */
+export function salePaymentFormOptionsForFinance(financeConfig) {
+  if (!financeConfig) return SALE_PAYMENT_FORM_OPTIONS;
+  return listActivePaymentMethods(financeConfig);
+}
+
+/** Opções de troco (PIX/dinheiro) respeitando formas ativas. */
+export function trocoFormOptionsForFinance(financeConfig) {
+  if (!financeConfig) return TROCO_FORM_OPTIONS;
+  const active = new Set(listActivePaymentMethods(financeConfig).map((m) => m.value));
+  return TROCO_FORM_OPTIONS.filter((o) => active.has(o.value));
+}
 
 export function normalizePaymentForma(raw) {
   return canonicalPaymentMethodKeyFromInput(raw);

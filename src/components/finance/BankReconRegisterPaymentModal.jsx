@@ -13,7 +13,7 @@ import {
   validateMensalidadesPaymentForm,
 } from '../../lib/mensalidadesPaymentForm.js';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
-import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
+import { orderedActiveStorageDialectMethodsForModal } from '../../lib/paymentMethodSettings.js';
 
 function fmtMonth(ym) {
   const p = String(ym || '').slice(0, 7);
@@ -45,8 +45,8 @@ export default function BankReconRegisterPaymentModal({
   const [saving, setSaving] = useState(false);
 
   const methodOptions = useMemo(
-    () => PAYMENT_METHODS.filter((o) => o.value !== 'bundle'),
-    []
+    () => orderedActiveStorageDialectMethodsForModal(financeConfig),
+    [financeConfig]
   );
 
   useEffect(() => {

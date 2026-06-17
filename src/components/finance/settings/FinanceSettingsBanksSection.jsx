@@ -5,9 +5,8 @@ import ModalShell from '../../shared/ModalShell.jsx';
 import EmptyState from '../../shared/EmptyState.jsx';
 import { DateInputField } from '../../DateInput';
 import { maskCurrency } from '../../../lib/masks.js';
-import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js';
+import { FINANCE_SETTINGS_SECTIONS } from '../../../lib/financeSettingsSections.js';
 import {
-  listBankAccountLabels,
   isUsableBankAccount,
   normalizeBankAccountEntry,
   hasCustomAcquirerFees,
@@ -16,7 +15,6 @@ import {
 import { defaultAcquirerFees, normalizeAcquirerFees } from '../../../lib/acquirerFees.js';
 import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
 import FieldError from '../../shared/FieldError.jsx';
-import { readDefaultAccountByMethod } from '../../../lib/paymentMethodBankDefaults.js';
 import FinanceSettingsAcquirerFeesFields from './FinanceSettingsAcquirerFeesFields.jsx';
 
 const EMPTY_BANK = {
@@ -50,7 +48,6 @@ function bankCardSub(acc) {
 
 export default function FinanceSettingsBanksSection({
   financeConfig,
-  setFinanceConfig,
   onSaveBank,
   onRemoveRequest,
 }) {
@@ -59,8 +56,6 @@ export default function FinanceSettingsBanksSection({
   const [draftError, setDraftError] = useState('');
   const [feesPanelOpen, setFeesPanelOpen] = useState(true);
   const accounts = financeConfig.bankAccounts || [];
-  const accountLabels = listBankAccountLabels(financeConfig);
-  const defaultByMethod = readDefaultAccountByMethod(financeConfig);
   const usesDefaultFees = usesDefaultAcquirerFees(draft);
 
   const openEdit = (idx) => {
@@ -182,41 +177,16 @@ export default function FinanceSettingsBanksSection({
         </button>
       ) : null}
 
-      {accounts.length > 0 && setFinanceConfig ? (
-        <div className="finance-settings-inset card finance-settings-method-accounts">
-          <h3 className="finance-settings-subtitle">Conta padrão por forma de pagamento</h3>
-          <p className="text-small text-muted">
-            Ao registrar um pagamento, a conta é preenchida automaticamente conforme o método escolhido.
-          </p>
-          <div className="finance-settings-method-accounts__grid">
-            {PAYMENT_METHODS.map(({ value, label }) => (
-              <div key={value} className="form-group">
-                <label>{label}</label>
-                <select
-                  className="form-input"
-                  value={defaultByMethod[value] || ''}
-                  onChange={(e) => {
-                    const next = String(e.target.value || '').trim();
-                    setFinanceConfig((prev) => {
-                      const current = readDefaultAccountByMethod(prev);
-                      const updated = { ...current };
-                      if (next) updated[value] = next;
-                      else delete updated[value];
-                      return { ...prev, defaultAccountByMethod: updated };
-                    });
-                  }}
-                >
-                  <option value="">Padrão geral</option>
-                  {accountLabels.map((lbl) => (
-                    <option key={lbl} value={lbl}>
-                      {lbl}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
+      {accounts.length > 0 ? (
+        <p className="text-small text-muted">
+          Conta padrão por forma de pagamento:{' '}
+          <Link
+            to={`/empresa?tab=financeiro&section=${FINANCE_SETTINGS_SECTIONS.FORMAS}`}
+            className="finance-config-context-link"
+          >
+            Formas de recebimento →
+          </Link>
+        </p>
       ) : null}
 
       <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">

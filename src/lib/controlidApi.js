@@ -90,8 +90,11 @@ export function revokeControlIdStudent(academyId, { leadId } = {}) {
   return controlIdFetch('controlid_revoke', { academyId, body: { lead_id: leadId } });
 }
 
-export function releaseControlIdGate(academyId, body = {}) {
-  return controlIdFetch('controlid_release', { academyId, body });
+export function releaseControlIdGate(academyId, { reason, leadId } = {}) {
+  return controlIdFetch('controlid_release', {
+    academyId,
+    body: { reason, lead_id: leadId },
+  });
 }
 
 export function pollControlIdMonitor(academyId) {

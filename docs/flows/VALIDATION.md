@@ -405,7 +405,7 @@ Harness: `billingGateClient`, `trialCopy`, `lib/billing/planOrder.test.js`.
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [recepcao-controlid](crm/recepcao-controlid.md) | 12 | 12 | 0 | 12 |
+| [recepcao-controlid](crm/recepcao-controlid.md) | 20 | 20 | 0 | 20 |
 | [relatorios-indicadores](analise/relatorios-indicadores.md) | 13 | 13 | 0 | 13 |
 | [equipe-colaboradores](config/equipe-colaboradores.md) | 11 | 11 | 0 | 11 |
 
@@ -427,8 +427,16 @@ Harness: `billingGateClient`, `trialCopy`, `lib/billing/planOrder.test.js`.
 | 10 | Presença server-side | ✅ Código | `controlidHandlers.processAccessEvent` |
 | 11 | Bootstrap alunos | ✅ Código | `bootstrapRoutePrefetch.test.js` |
 | 12 | Link modo recepção | ✅ Código | `ControlIdAttendancePanel` → `/recepcao` |
+| 13 | F1 relay + last_sync | ✅ Código | `ControlIdCatracaSection`, `touchControlIdLastSync` |
+| 14 | F2 justificativa release | ✅ Código | `ControlIdReleaseDialog`, `controlidRelease.js` |
+| 15 | F3 cooldown | ✅ Código | `controlidCooldown.js`, feed `ignored` |
+| 16 | F4 bloqueio inadimplente | ✅ Código | `controlidOverdueAccess.js`, sync skip |
+| 17 | P0/P1 integração | ✅ Código | sync skip overdue, `ensureAcademyAccess` release |
+| 18 | P2 UX config + badge | ✅ Código | seções Integrações, `controlIdSyncBadgeMeta` |
+| 19 | Spec PRODUCT/TECH | ✅ Doc | `2026-06-17-catraca-gaps-prioridade-alta-*.md` |
+| 20 | QA hardware + relay | ⚠️ Staging | Revogar/re-sync inadimplente no equipamento |
 
-Nota UX: links de config apontam para `/integracoes?tab=catraca`.
+Nota UX: links de config apontam para `/integracoes?tab=catraca`. Spec: [catraca gaps PRODUCT](../superpowers/specs/2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md).
 
 ---
 

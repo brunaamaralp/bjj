@@ -30,6 +30,7 @@ describe('financeSettingsSections', () => {
     const adminNav = buildFinanceSettingsNavItems(false);
     const ids = adminNav.map((item) => item.id);
     expect(ids).toContain(FINANCE_SETTINGS_SECTIONS.RECEBIMENTO);
+    expect(ids).toContain(FINANCE_SETTINGS_SECTIONS.FORMAS);
     expect(ids).toContain(FINANCE_SETTINGS_SECTIONS.TAXAS);
     expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.PLANOS);
     expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.REGUA);
@@ -91,15 +92,15 @@ describe('financeSettingsSections', () => {
 
   it('isFinanceSettingsSection validates slugs', () => {
     expect(isFinanceSettingsSection('planos')).toBe('planos');
+    expect(isFinanceSettingsSection('formas-recebimento')).toBe('formas-recebimento');
     expect(isFinanceSettingsSection('razao-contabil')).toBe('razao-contabil');
     expect(isFinanceSettingsSection('invalid')).toBe(null);
   });
 
   it('financeSettingsSectionLabel resolves nav label', () => {
     expect(financeSettingsSectionLabel(FINANCE_SETTINGS_SECTIONS.PLANOS)).toBe('Planos de mensalidade');
-    expect(financeSettingsSectionLabel(FINANCE_SETTINGS_SECTIONS.RECEBIMENTO)).toBe(
-      'Contas para recebimento'
-    );
+    expect(financeSettingsSectionLabel(FINANCE_SETTINGS_SECTIONS.RECEBIMENTO)).toBe('Contas bancárias');
+    expect(financeSettingsSectionLabel(FINANCE_SETTINGS_SECTIONS.FORMAS)).toBe('Formas de recebimento');
   });
 
   it('buildFinanceSettingsSummaries marks plans done when named', () => {

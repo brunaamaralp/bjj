@@ -60,6 +60,7 @@
     { "source": "/api/sales", "destination": "/api/leads.js?hub=sales" },
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
     { "source": "/api/cron/plan-freeze", "destination": "/api/cron/reset-usage.js?action=plan-freeze" },
+    { "source": "/api/cron/attendance-retention", "destination": "/api/cron/reset-usage.js?action=attendance-retention" },
     { "source": "/api/students/freeze", "destination": "/api/leads.js?route=students&action=freeze" },
     { "source": "/api/students/deactivate", "destination": "/api/leads.js?route=students&action=deactivate" },
     { "source": "/api/students/collection-snooze", "destination": "/api/leads.js?route=students&action=collection-snooze" },
@@ -74,6 +75,9 @@
     { "source": "/api/reports/by-operator", "destination": "/api/reports.js?route=by-operator" },
     { "source": "/api/reports/by-student", "destination": "/api/reports.js?route=by-student" },
     { "source": "/api/reports/audit-feed", "destination": "/api/reports.js?route=audit-feed" },
+    { "source": "/api/reports/attendance-retention", "destination": "/api/reports.js?route=attendance-retention" },
+    { "source": "/api/reports/attendance-frequency", "destination": "/api/reports.js?route=attendance-frequency" },
+    { "source": "/api/students/retention-action", "destination": "/api/leads.js?route=students&action=retention-action" },
     { "source": "/api/students/list", "destination": "/api/leads.js?route=students&action=list" },
     { "source": "/api/students/:id/profile", "destination": "/api/leads.js?route=students&action=profile&student_id=$1" },
     { "source": "/api/academy/whatsapp-templates", "destination": "/api/agent.js?route=whatsapp-templates" },
@@ -130,11 +134,19 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/reset-usage?action=finance-settle-scheduled",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/reset-usage?action=finance-whatsapp-alerts",
       "schedule": "45 11 * * *"
     },
     {
       "path": "/api/leads/cron-aniversario",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/attendance-retention",
       "schedule": "0 12 * * *"
     }
   ]

@@ -8,6 +8,7 @@ const ReportsLojaPanel = lazy(() => import('./ReportsLojaPanel.jsx'));
 const ReportsEstoquePanel = lazy(() => import('./ReportsEstoquePanel.jsx'));
 const ReportsStudentsPanel = lazy(() => import('./ReportsStudentsPanel.jsx'));
 const ReportsAtividadePanel = lazy(() => import('./ReportsAtividadePanel.jsx'));
+const ReportsFrequenciaPanel = lazy(() => import('./ReportsFrequenciaPanel.jsx'));
 
 const lazyFallback = <PageSkeleton variant="cards" rows={4} />;
 
@@ -157,6 +158,17 @@ export default function ReportsTabPanels({
             operatorTeam={operatorTeam}
             operatorFilter={operatorFilter}
             onOperatorFilterChange={onOperatorFilterChange}
+          />
+        </Suspense>
+      ) : null}
+
+      {activeTab === 'frequencia' ? (
+        <Suspense fallback={lazyFallback}>
+          <ReportsFrequenciaPanel
+            academyId={academyId}
+            rangeFrom={range.from}
+            rangeTo={range.to}
+            periodLabel={periodLabel}
           />
         </Suspense>
       ) : null}

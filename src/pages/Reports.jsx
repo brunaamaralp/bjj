@@ -26,6 +26,7 @@ import { useFunnelDerived } from '../hooks/useFunnelDerived.js';
 import { useReportsLeadExport } from '../hooks/useReportsLeadExport.js';
 import { ReportsExportSlotProvider, useReportsExportSlot } from '../hooks/useReportsExportSlot.jsx';
 import { fetchTeamMemberships } from '../lib/teamApi.js';
+import { isAttendanceConfigured } from '../lib/attendance.js';
 import '../components/reports/reports.css';
 
 function ReportsPeriodToolbarBridge({
@@ -129,15 +130,16 @@ export default function Reports() {
     const hasFinance = modules?.finance === true;
     const hasSales = modules?.sales === true;
     const hasInventory = modules?.inventory === true;
+    const hasAttendance = isAttendanceConfigured();
 
     const reportTabItems = useMemo(
-        () => getReportTabItems({ hasFinance, hasSales, hasInventory }),
-        [hasFinance, hasSales, hasInventory]
+        () => getReportTabItems({ hasFinance, hasSales, hasInventory, hasAttendance }),
+        [hasFinance, hasSales, hasInventory, hasAttendance]
     );
 
     const defaultReportTab = useMemo(
-        () => getDefaultReportTab({ hasFinance, hasSales, hasInventory }),
-        [hasFinance, hasSales, hasInventory]
+        () => getDefaultReportTab({ hasFinance, hasSales, hasInventory, hasAttendance }),
+        [hasFinance, hasSales, hasInventory, hasAttendance]
     );
 
     const allowedReportTabIds = useMemo(

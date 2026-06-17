@@ -249,6 +249,7 @@ const Students = ({ embedded = false }) => {
             student={student}
             academyId={academyId}
             controlIdEnabled={controlIdCfg.enabled}
+            blockOverdueAccess={controlIdCfg.block_overdue_access === true}
             studentSingular={studentSingular}
             financeConfig={financeConfig}
             onOpenProfile={openProfile}

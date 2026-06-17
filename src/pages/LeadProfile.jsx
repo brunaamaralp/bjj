@@ -188,6 +188,9 @@ const TIMELINE_EVENT_LABELS = {
     lead_updated: 'Cadastro atualizado',
     student_updated: 'Cadastro atualizado',
     profile_field_updated: 'Cadastro atualizado',
+    attendance: 'Presença na catraca',
+    attendance_denied: 'Entrada bloqueada',
+    manual_release: 'Liberação manual',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {

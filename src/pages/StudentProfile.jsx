@@ -47,6 +47,7 @@ import { useStudentStore, selectStudentById } from '../store/useStudentStore';
 import '../styles/student-profile.css';
 import '../styles/profile-shared.css';
 import { useToast } from '../hooks/useToast';
+import { showPaymentSettlementToasts } from '../lib/financeTxSettlementDisplay.js';
 import { friendlyError, studentPaymentFriendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
@@ -63,13 +64,16 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
-import { storageDialectMethodLabelsMap, storageDialectPaymentMethodOptions } from '../lib/paymentMethods.js';
+import { storageDialectMethodLabelsMap } from '../lib/paymentMethods.js';
+import { storageDialectPaymentMethodOptionsForFinance } from '../lib/paymentMethodSettings.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
 import StudentOverdueBadge from '../components/student/StudentOverdueBadge.jsx';
+import AttendanceRiskBadge from '../components/attendance/AttendanceRiskBadge.jsx';
+import { isAtRiskTableStatus } from '../../lib/attendanceRetentionCore.js';
 import { resolveStudentListStatus } from '../lib/studentDisplayStatus.js';
 import { normalizeProfilePaymentStatus } from '../lib/paymentStatus.js';
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
@@ -162,6 +166,9 @@ const TIMELINE_EVENT_LABELS = {
     student_reactivated: 'Reativação',
     student_freeze_started: 'Trancamento iniciado',
     student_freeze_ended: 'Trancamento encerrado',
+    attendance: 'Presença na catraca',
+    attendance_denied: 'Entrada bloqueada',
+    manual_release: 'Liberação manual',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {
@@ -215,15 +222,7 @@ const EMERGENCY_FIELDS = [
     { key: 'emergencyPhone', label: 'Telefone de emergência', type: 'tel', placeholder: 'Celular' },
 ];
 
-const PREFERRED_PAYMENT_SELECT_OPTIONS = storageDialectPaymentMethodOptions();
-
-const PAYMENT_HABIT_FIELDS = [
-    {
-        key: 'preferredPaymentMethod',
-        label: 'Forma de pagamento habitual',
-        type: 'select',
-        options: PREFERRED_PAYMENT_SELECT_OPTIONS,
-    },
+const PAYMENT_HABIT_STATIC_FIELDS = [
     {
         key: 'dueDay',
         label: 'Dia de vencimento',
@@ -285,6 +284,18 @@ export default function StudentProfile() {
     const academyId = useLeadStore((s) => s.academyId);
     const modules = useLeadStore((s) => s.modules);
     const financeConfig = useLeadStore((s) => s.financeConfig);
+    const paymentHabitFields = useMemo(
+        () => [
+            {
+                key: 'preferredPaymentMethod',
+                label: 'Forma de pagamento habitual',
+                type: 'select',
+                options: storageDialectPaymentMethodOptionsForFinance(financeConfig),
+            },
+            ...PAYMENT_HABIT_STATIC_FIELDS,
+        ],
+        [financeConfig]
+    );
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
     const academyList = useLeadStore((s) => s.academyList);
@@ -393,6 +404,7 @@ export default function StudentProfile() {
     const [checkingIn, setCheckingIn] = useState(false);
     const [sessionUserName, setSessionUserName] = useState('Usuário');
     const [checkins, setCheckins] = useState([]);
+    const [attendanceRisk, setAttendanceRisk] = useState(null);
     const [freqStats, setFreqStats] = useState(null);
     const [loadingFreq, setLoadingFreq] = useState(true);
     const [freqError, setFreqError] = useState(false);
@@ -465,6 +477,9 @@ export default function StudentProfile() {
                 }
                 if (bundle?.attendanceStats) {
                     setFreqStats(bundle.attendanceStats);
+                }
+                if (bundle?.attendanceRisk) {
+                    setAttendanceRisk(bundle.attendanceRisk);
                 }
             })
             .catch((e) => console.warn('[StudentProfile] profile bundle:', e?.message || e));
@@ -1447,6 +1462,15 @@ export default function StudentProfile() {
                 type: 'success',
                 message: isEdit ? 'Pagamento atualizado.' : 'Pagamento registrado.',
             });
+            if (!isEdit) {
+                showPaymentSettlementToasts(toast, {
+                    financeConfig,
+                    method: payForm.method,
+                    requestedStatus: payForm.status || 'paid',
+                    actualStatus: doc?.status,
+                    paidAt: paidAtIso || new Date().toISOString(),
+                });
+            }
         } catch (e) {
             const msg = studentPaymentFriendlyError(e, 'save');
             if (/já existe um lançamento/i.test(msg)) {
@@ -1575,6 +1599,8 @@ export default function StudentProfile() {
         .slice(0, 2)
         .map((w) => w[0].toUpperCase())
         .join('');
+    const showAttendanceRiskBadge =
+        attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
@@ -2239,6 +2265,12 @@ export default function StudentProfile() {
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, paymentStatus)}
                         />
+                        {showAttendanceRiskBadge ? (
+                            <AttendanceRiskBadge
+                                status={attendanceRisk.status}
+                                label={attendanceRisk.statusLabel}
+                            />
+                        ) : null}
                         {modules?.finance === true ? (
                             <StudentOverdueBadge student={student} financeConfig={financeConfig} />
                         ) : null}
@@ -2522,7 +2554,7 @@ export default function StudentProfile() {
                     <h3 className="profile-section-heading">Pagamento habitual</h3>
                     {editingData ? (
                         <>
-                            {PAYMENT_HABIT_FIELDS.map(renderStudentDataEditRow)}
+                            {paymentHabitFields.map(renderStudentDataEditRow)}
                             <BankAccountSelect
                                 id="student-preferred-account"
                                 academyId={academyId}
@@ -2538,7 +2570,7 @@ export default function StudentProfile() {
                         </>
                     ) : (
                         <>
-                            {PAYMENT_HABIT_FIELDS.map(renderStudentDataViewRow)}
+                            {paymentHabitFields.map(renderStudentDataViewRow)}
                             {canConfigureBankAccounts
                                 ? renderStudentInlineField({
                                       key: 'preferredPaymentAccount',
@@ -2746,6 +2778,35 @@ export default function StudentProfile() {
                             </div>
                         ) : (
                             <>
+                                {showAttendanceRiskBadge ? (
+                                    <div
+                                        className="student-freq-risk-summary"
+                                        style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '8px 10px',
+                                            background: 'var(--surface)',
+                                            border: '0.5px solid var(--border-light)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 13,
+                                        }}
+                                    >
+                                        <AttendanceRiskBadge
+                                            status={attendanceRisk.status}
+                                            label={attendanceRisk.statusLabel}
+                                        />
+                                        <span style={{ color: 'var(--text-secondary)' }}>
+                                            {attendanceRisk.lastCheckinAt
+                                                ? `Último treino: ${formatCheckinAt(attendanceRisk.lastCheckinAt)}`
+                                                : 'Nenhum check-in registrado'}
+                                            {attendanceRisk.daysWithoutCheckin != null
+                                                ? ` · ${attendanceRisk.daysWithoutCheckin} dia(s) sem treinar`
+                                                : ''}
+                                        </span>
+                                    </div>
+                                ) : null}
                                 <div
                                     className="student-freq-stats-grid"
                                     style={{
@@ -2995,6 +3056,9 @@ export default function StudentProfile() {
                                         else if (type === 'schedule') dotColor = '#0088CC';
                                         else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) dotColor = '#888780';
                                         else if (type === 'pipeline_change') dotColor = '#F5A623';
+                                        else if (type === 'attendance_denied') dotColor = 'var(--warning)';
+                                        else if (type === 'manual_release') dotColor = 'var(--purple)';
+                                        else if (type === 'attendance') dotColor = 'var(--success)';
 
                                         let label = n.text || '';
                                         if (type === 'schedule') {

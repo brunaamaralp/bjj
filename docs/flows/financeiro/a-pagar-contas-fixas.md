@@ -31,7 +31,7 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 | 3 | Nova conta | Modal cadastro | Avulsa ou recorrente mensal |
 | 4 | Pagar | Modal liquidação | TX `settled` + espelho contábil |
 | 5 | `&section=vencidas` | Regularizar atrasos | Filtro overdue |
-| 6 | Cancelar (template) | Cancelar recorrência | Template desativado |
+| 6 | Cancelar (template) | Confirmar cancelamento | Template desativado; pendentes gerados permanecem |
 
 ---
 

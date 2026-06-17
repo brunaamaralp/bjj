@@ -31,6 +31,7 @@ import {
 } from '../../lib/financeRecurrence.js';
 import { dueDateForRecurrenceMonth } from '../../lib/financeRecurrenceDedup.js';
 import { todayYmdLocal } from '../../lib/financeForecastCore.js';
+import { txSettlementSubtitle } from '../../lib/financeTxSettlementDisplay.js';
 import { useToast } from '../../hooks/useToast';
 import { financeTxFriendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
@@ -1429,6 +1430,7 @@ export default function TransacoesTab({
               filteredTransactions.map((tx) => {
                 const descCell = getTxDescriptionCell(tx, chartAccounts);
                 const st = String(tx.status || '').toLowerCase();
+                const settlementHint = txSettlementSubtitle(tx);
                 const dir = txDirection(tx);
                 const netFmt = formatSignedMoney(displayNet(tx), dir);
                 const alumStr = formatTxLeadCell(tx, leadNameById);
@@ -1467,6 +1469,9 @@ export default function TransacoesTab({
                       {descCell.title}
                     </p>
                     <div className="finance-mobile-card__meta text-small text-muted">{descCell.subtitle}</div>
+                    {settlementHint ? (
+                      <div className="finance-mobile-card__meta text-small text-muted">{settlementHint}</div>
+                    ) : null}
                     {tx.lead_id ? (
                       <div className="finance-mobile-card__student">{alumStr}</div>
                     ) : null}
@@ -1613,6 +1618,7 @@ export default function TransacoesTab({
                     alumFull.length > 20 ? `${alumFull.slice(0, 20)}…` : alumFull;
                   const leadId = String(tx.lead_id || '').trim();
                   const st = String(tx.status || '').toLowerCase();
+                  const settlementHint = txSettlementSubtitle(tx);
                   const statusBadge =
                     st === 'pending' ? (
                       <span className="finance-badge-pendente">Pendente</span>
@@ -1663,6 +1669,9 @@ export default function TransacoesTab({
                           <span className="finance-tx-competence-missing" title="Sem competência definida — usando data de pagamento">
                             sem competência
                           </span>
+                        ) : null}
+                        {settlementHint ? (
+                          <span className="finance-tx-settlement-hint text-small text-muted">{settlementHint}</span>
                         ) : null}
                       </td>
                       <td>

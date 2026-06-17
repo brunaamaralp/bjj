@@ -37,6 +37,9 @@ function LeadProfileTimelineEventsList({
         else if (type === 'followup_done') dotColor = 'var(--color-accent-dark)';
         else if (type === 'followup_contact') dotColor = 'var(--color-accent)';
         else if (type === 'followup_snooze') dotColor = 'var(--color-warning)';
+        else if (type === 'attendance_denied') dotColor = 'var(--color-warning)';
+        else if (type === 'manual_release') dotColor = 'var(--color-accent)';
+        else if (type === 'attendance') dotColor = 'var(--color-success)';
         else if (type === 'task_created') dotColor = 'var(--color-primary)';
         else if (type === 'task_done') dotColor = 'var(--color-accent-dark)';
         else if (['stage_change', 'attended', 'missed', 'converted', 'lost'].includes(type)) {

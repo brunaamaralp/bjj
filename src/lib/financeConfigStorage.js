@@ -16,6 +16,7 @@ import { parseCollectionRules, parseOverdueLabel } from './collectionRules.js';
 import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
 import { normalizeFinanceVendors } from './financeVendors.js';
 import { normalizeAcquirerFees, normalizeAcquirerFeePolicy } from './acquirerFees.js';
+import { normalizePaymentMethodSettings } from './paymentMethodSettings.js';
 
 /** Limite legado do atributo financeConfig (string) no Appwrite. */
 export const FINANCE_CONFIG_LEGACY_MAX_CHARS = 2500;
@@ -238,6 +239,10 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   merged = { ...merged, vendors: normalizeFinanceVendors(merged.vendors) };
   merged = { ...merged, acquirerFees: normalizeAcquirerFees(merged.acquirerFees) };
   merged = { ...merged, acquirerFeePolicy: normalizeAcquirerFeePolicy(merged.acquirerFeePolicy) };
+  merged = {
+    ...merged,
+    paymentMethodSettings: normalizePaymentMethodSettings(merged),
+  };
 
   return merged;
 }

@@ -20,7 +20,11 @@ import {
   mergeCollectionIntoFinanceConfig,
 } from '../lib/collectionRules.js';
 import { filterBankAccountsWithBank, hasConfiguredBankAccounts } from '../lib/bankAccounts.js';
-import { digestMethodBankDefaults, normalizeDefaultAccountByMethodMap, readDefaultAccountByMethod } from '../lib/paymentMethodBankDefaults.js';
+import { normalizeDefaultAccountByMethodMap, readDefaultAccountByMethod } from '../lib/paymentMethodBankDefaults.js';
+import {
+  digestPaymentMethodSettings,
+  normalizePaymentMethodSettings,
+} from '../lib/paymentMethodSettings.js';
 import {
   defaultWhatsappRemindersConfig,
   digestWhatsappReminders,
@@ -54,6 +58,7 @@ export const defaultFinanceConfig = () => ({
   acquirerFeePolicy: 'absorb',
   bankAccounts: [],
   defaultAccountByMethod: {},
+  paymentMethodSettings: {},
   plans: [],
   vendors: [],
   whatsappReminders: defaultWhatsappRemindersConfig(),
@@ -63,7 +68,7 @@ export function digestBankAccounts(accounts, financeConfig = null) {
   if (!financeConfig) return JSON.stringify(accounts || []);
   return JSON.stringify({
     accounts: accounts || [],
-    defaultAccountByMethod: digestMethodBankDefaults(financeConfig),
+    paymentMethods: digestPaymentMethodSettings(financeConfig),
   });
 }
 
@@ -130,6 +135,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     exceptions: digestExceptionLabels(readExceptionStatusLabels(null)),
     whatsapp: digestWhatsappReminders(defaultWhatsappRemindersConfig()),
     vendors: digestVendors([]),
+    paymentMethods: digestPaymentMethodSettings(defaultFinanceConfig()),
   });
 
   const applyLoadedState = useCallback((mergedCfg, coll) => {
@@ -150,6 +156,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       exceptions: digestExceptionLabels(labels),
       whatsapp: digestWhatsappReminders(cfg.whatsappReminders),
       vendors: digestVendors(cfg.vendors),
+      paymentMethods: digestPaymentMethodSettings(cfg),
     });
   }, []);
 
@@ -361,6 +368,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     });
     mergedCfg = {
       ...mergedCfg,
+      paymentMethodSettings: normalizePaymentMethodSettings(mergedCfg),
       defaultAccountByMethod: normalizeDefaultAccountByMethodMap(
         readDefaultAccountByMethod(mergedCfg),
         mergedCfg
@@ -399,8 +407,9 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         collection: digestCollection(coll.collectionRules, coll.overdueLabel),
         exceptions: digestExceptionLabels(labels),
         whatsapp: digestWhatsappReminders(savedCfg.whatsappReminders),
-        vendors: digestVendors(savedCfg.vendors),
-      });
+      vendors: digestVendors(savedCfg.vendors),
+      paymentMethods: digestPaymentMethodSettings(savedCfg),
+    });
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
       return true;
     } catch (e) {

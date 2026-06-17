@@ -2,12 +2,12 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
 import {
-  SALE_PAYMENT_FORM_OPTIONS,
-  TROCO_FORM_OPTIONS,
   MAX_SALE_PAYMENTS,
   rowTrocoCents,
   netPaidCentsFromRows,
   paymentsUiValid,
+  salePaymentFormOptionsForFinance,
+  trocoFormOptionsForFinance,
 } from '../../lib/salePayments';
 
 function rebalanceFirstRow(rows, totalCents) {
@@ -26,9 +26,19 @@ export default function SalesPaymentBlock({
   onChange,
   disabled,
   inlineValidate = false,
+  financeConfig = null,
 }) {
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
   const [touched, setTouched] = useState({});
+
+  const paymentFormOptions = useMemo(
+    () => salePaymentFormOptionsForFinance(financeConfig),
+    [financeConfig]
+  );
+  const trocoFormOptions = useMemo(
+    () => trocoFormOptionsForFinance(financeConfig),
+    [financeConfig]
+  );
 
   const markTouched = useCallback((key) => {
     setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
@@ -136,7 +146,7 @@ export default function SalesPaymentBlock({
                     updateRow(idx, patch);
                   }}
                 >
-                  {SALE_PAYMENT_FORM_OPTIONS.map((o) => (
+                  {paymentFormOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
@@ -209,7 +219,7 @@ export default function SalesPaymentBlock({
                       value={row.formaTroco || 'pix'}
                       onChange={(e) => updateRow(idx, { formaTroco: e.target.value })}
                     >
-                      {TROCO_FORM_OPTIONS.map((o) => (
+                      {trocoFormOptions.map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
                         </option>

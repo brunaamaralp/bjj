@@ -478,6 +478,10 @@ const STUDENTS_ATTRS = [
   { key: 'photo_url', type: 'string', size: 512 },
   { key: 'collection_snooze_month', type: 'string', size: 7 },
   { key: 'collection_snooze_until', type: 'string', size: 32 },
+  { key: 'retention_in_contact', type: 'boolean' },
+  { key: 'retention_snoozed_until', type: 'string', size: 16 },
+  { key: 'last_retention_automation_at', type: 'string', size: 32 },
+  { key: 'retention_automation_anchor', type: 'string', size: 32 },
   { key: 'overdue', type: 'boolean' },
   { key: 'overdue_label', type: 'string', size: 30 },
 ];

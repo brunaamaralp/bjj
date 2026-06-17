@@ -19,7 +19,7 @@ import {
   pickInitialBankAccountForPayment,
   accountWhenPaymentMethodChanges,
 } from '../../lib/paymentMethodBankDefaults.js';
-import { PAYMENT_METHODS } from '../../lib/paymentMethods.js';
+import { orderedActiveStorageDialectMethodsForModal } from '../../lib/paymentMethodSettings.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } from '../../lib/moneyBr';
 import CashTrocoFields from '../finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../../lib/studentPaymentTroco.js';
@@ -539,7 +539,7 @@ export default function StudentPaymentModal({
                     }));
                   }}
                 >
-                  {PAYMENT_METHODS.map((o) => (
+                  {orderedActiveStorageDialectMethodsForModal(financeConfig).map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>

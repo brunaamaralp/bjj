@@ -14,6 +14,11 @@ import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { resolveTxBankAccount } from '../../lib/bankAccountBalances.js';
 import { txTemporalIso } from '../../lib/financeCompetence.js';
+import {
+  expectedSettlementYmd,
+  formatYmdBr,
+  txSettlementSubtitle,
+} from '../../lib/financeTxSettlementDisplay.js';
 import { defaultCategoryForTxType, resolveFinanceCategory } from '../../lib/financeCategories.js';
 import { isRecurrenceTx, recurrenceTooltip } from '../../lib/financeRecurrence.js';
 import { formatTxLeadCell, resolveTxLeadId, resolveTxLeadName } from '../../lib/financeTxLeadNames.js';
@@ -112,6 +117,9 @@ export default function FinanceTxDetailDrawer({
     canManageAdvanced &&
     canRegisterAnticipation(tx, { hasChild: Boolean(anticipationTx) }) &&
     typeof onAnticipate === 'function';
+  const settlementYmd = expectedSettlementYmd(tx);
+  const settlementHint = txSettlementSubtitle(tx);
+  const settledAtYmd = String(tx.settledAt || '').slice(0, 10);
 
   return (
     <>
@@ -203,6 +211,14 @@ export default function FinanceTxDetailDrawer({
             {tx.bankAccount || resolveTxBankAccount(tx) || '—'}
           </DetailField>
           <DetailField label="Status">{statusBadge(tx.status)}</DetailField>
+          {settlementHint ? (
+            <DetailField label={st === 'pending' ? 'Liquida em' : 'Crédito previsto em'}>
+              {formatYmdBr(settlementYmd)}
+            </DetailField>
+          ) : null}
+          {st === 'settled' && settledAtYmd && /^\d{4}-\d{2}-\d{2}$/.test(settledAtYmd) ? (
+            <DetailField label="Liquidado em">{formatYmdBr(settledAtYmd)}</DetailField>
+          ) : null}
           <DetailField label="Competência">{tx.competence_month || '—'}</DetailField>
           {tx.saleId ? (
             <DetailField label="Venda">{formatSaleIdShort(tx.saleId)}</DetailField>

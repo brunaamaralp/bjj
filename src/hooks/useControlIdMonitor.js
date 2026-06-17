@@ -18,13 +18,17 @@ export function useControlIdMonitor(academyId, enabled) {
       try {
         const data = await pollControlIdMonitor(academyId);
         if (data.sucesso && Array.isArray(data.events) && data.events.length > 0) {
-          const names = data.events.map((e) => e.name).filter(Boolean).join(', ');
-          addToast({
-            type: 'success',
-            message: names
-              ? `Presença registrada: ${names}`
-              : `${data.events.length} presença(s) pela catraca`,
-          });
+          const names = data.events
+            .filter((e) => !e.skipped)
+            .map((e) => e.name)
+            .filter(Boolean)
+            .join(', ');
+          if (names) {
+            addToast({
+              type: 'success',
+              message: `Presença registrada: ${names}`,
+            });
+          }
         }
       } catch (e) {
         console.warn('[controlid monitor]', e?.message || e);

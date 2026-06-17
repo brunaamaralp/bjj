@@ -25,7 +25,7 @@ export function followupsAllDoneTitle() {
 }
 
 export function followupKpiLabel() {
-  return 'Retornos pendentes';
+  return 'Follow-ups pendentes';
 }
 
 export function toastAttendedSuccess(isFirstOfDay) {

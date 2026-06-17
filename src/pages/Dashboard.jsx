@@ -31,6 +31,7 @@ import DashboardBirthdayModal from '../components/dashboard/DashboardBirthdayMod
 import {
     buildHeroDateLine,
     buildDaySummaryLine,
+    followUpsNeedingContact,
     getDayPriority,
     getTimeOfDayPeriod,
     countWeeklyEnrollments,
@@ -40,6 +41,7 @@ import {
     attendedButtonLabel,
     missedButtonLabel,
     followupsAllDoneTitle,
+    followupKpiLabel,
     toastAttendedSuccess,
     toastMissedSuccess,
     followupMicroToastMessage,
@@ -63,7 +65,7 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
-import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import ControlIdReleaseDialog from '../components/attendance/ControlIdReleaseDialog.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import DashboardHeroKpi from '../components/dashboard/DashboardHeroKpi.jsx';
@@ -122,6 +124,12 @@ function buildEnrollmentKpiFootnote(metrics) {
     return metrics.enrolledInMonth > 0
         ? { footnote: 'Neste mês civil', footnoteTone: 'neutral' }
         : { footnote: 'Nenhuma neste mês', footnoteTone: 'neutral' };
+}
+
+function buildFollowupKpiFootnote(count, urgentCount) {
+    if (count === 0) return { footnote: 'Tudo em dia', footnoteTone: 'neutral' };
+    if (urgentCount > 0) return { footnote: 'Prioridade na lista', footnoteTone: 'neutral' };
+    return { footnote: 'Follow-ups na lista', footnoteTone: 'neutral' };
 }
 
 function buildTasksKpiFootnote(count) {
@@ -411,6 +419,7 @@ const Dashboard = () => {
     const {
         followUps,
         followUpsKanbanOnlyCount,
+        followupTemperatureCounts,
         followUpGroups,
         followupHealthSummary,
         showFollowupHealthPanel,
@@ -534,6 +543,10 @@ const Dashboard = () => {
     };
 
     const handleKpiClick = (cardKey) => {
+        if (cardKey === 'followup') {
+            scrollToFollowUps();
+            return;
+        }
         if (cardKey === 'tasks') {
             navigate('/tarefas?status=pendentes&period=today');
             return;
@@ -643,8 +656,15 @@ const Dashboard = () => {
     const showWeekAgendaPanel = !isZeroState;
 
     const heroStats = useMemo(() => {
+        const followUpsAwaitingContact = followUpsNeedingContact(followUps);
+        const followupUrgent =
+            followupTemperatureCounts.cooling + followupTemperatureCounts.critical;
         const todayFootnote = buildTodayKpiFootnote(todayScheduled.length);
         const enrollmentFootnote = buildEnrollmentKpiFootnote(monthEnrollmentMetrics);
+        const followupFootnote = buildFollowupKpiFootnote(
+            followUpsAwaitingContact.length,
+            followupUrgent
+        );
         const tasksFootnote = buildTasksKpiFootnote(pendingTasksToday.length);
 
         return [
@@ -665,6 +685,19 @@ const Dashboard = () => {
                 ...enrollmentFootnote,
             },
             {
+                key: 'followup',
+                label: followupKpiLabel(),
+                count: followUpsAwaitingContact.length,
+                tone:
+                    followupTemperatureCounts.critical > 0
+                        ? 'attention'
+                        : followUpsAwaitingContact.length > 0
+                          ? 'default'
+                          : 'success',
+                icon: <MessageCircle {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...followupFootnote,
+            },
+            {
                 key: 'tasks',
                 label: 'Tarefas',
                 count: pendingTasksToday.length,
@@ -677,7 +710,10 @@ const Dashboard = () => {
         trialSeriesPlural,
         todayScheduled.length,
         monthEnrollmentMetrics,
+        followUps,
         pendingTasksToday.length,
+        followupTemperatureCounts.cooling,
+        followupTemperatureCounts.critical,
     ]);
 
     const modalListItems =
@@ -902,11 +938,11 @@ const Dashboard = () => {
         }
     };
 
-    const confirmGateRelease = async () => {
+    const confirmGateRelease = async (reason) => {
         if (!academyId || gateReleasing) return;
         setGateReleasing(true);
         try {
-            const data = await releaseControlIdGate(academyId);
+            const data = await releaseControlIdGate(academyId, { reason });
             if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar catraca');
             addToast({ type: 'success', message: 'Catraca liberada.' });
             setGateReleaseOpen(false);
@@ -1087,7 +1123,7 @@ const Dashboard = () => {
                 subtitle={receptionSubtitle}
                 actions={
                     <>
-                        {controlIdCfg.enabled && isCatracaTab && (
+                        {controlIdCfg.enabled && controlIdCfg.configured && isCatracaTab && (
                             <button
                                 type="button"
                                 className="btn-secondary reception-gate-release-btn"
@@ -1197,7 +1233,7 @@ const Dashboard = () => {
                 <div className="dashboard-day-hero__metrics" aria-label="Indicadores do dia">
                     <div className="dashboard-day-hero__stats" role="list">
                         {loading ? (
-                            <SkeletonCard variant="hero-kpi" count={3} className="dashboard-day-hero__skeletons" />
+                            <SkeletonCard variant="hero-kpi" count={4} className="dashboard-day-hero__skeletons" />
                         ) : (
                             heroStats.map((stat) => (
                                 <div key={stat.key} role="listitem" className="dashboard-day-hero__stat-cell">
@@ -1484,14 +1520,10 @@ const Dashboard = () => {
                 onClose={() => setFollowUpMicroToastOpen(false)}
             />
 
-            <ConfirmDialog
+            <ControlIdReleaseDialog
                 open={gateReleaseOpen}
-                title="Liberar passagem?"
-                description="A catraca será liberada remotamente para entrada manual na recepção."
-                confirmLabel="Liberar"
-                confirmVariant="primary"
                 loading={gateReleasing}
-                onConfirm={() => void confirmGateRelease()}
+                onConfirm={(reason) => void confirmGateRelease(reason)}
                 onClose={() => !gateReleasing && setGateReleaseOpen(false)}
             />
 

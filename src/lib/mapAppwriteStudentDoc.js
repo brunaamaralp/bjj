@@ -89,6 +89,8 @@ export function mapAppwriteDocToStudent(doc) {
     freeze_days_used: Number(doc.freeze_days_used ?? doc.freezeDaysUsed ?? 0) || 0,
     freeze_status: doc.freeze_status || doc.freezeStatus || null,
     freeze_quota_year: String(doc.freeze_quota_year || doc.freezeQuotaYear || '').trim() || null,
+    retention_in_contact: doc.retention_in_contact === true,
+    retention_snoozed_until: String(doc.retention_snoozed_until ?? doc.retentionSnoozedUntil ?? '').trim(),
     overdue: doc.overdue === true,
     overdueLabel: String(doc.overdue_label ?? doc.overdueLabel ?? '').trim() || null,
   };

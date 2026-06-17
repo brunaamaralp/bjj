@@ -6,6 +6,7 @@ import {
   canonicalPaymentMethodKey,
   usesInstallmentCardFee,
 } from './paymentMethods.js';
+import { addDaysYmd } from './financeForecastCore.js';
 
 export const ACQUIRER_FEE_POLICIES = new Set(['absorb', 'pass_through']);
 
@@ -215,9 +216,11 @@ export function enrichInstallmentScheduleWithAcquirerFees(
   schedule = [],
   method,
   installments,
-  acquirerFees
+  acquirerFees,
+  creditDays = 0
 ) {
   const totalInstallments = Math.max(1, Math.trunc(Number(installments) || 1));
+  const days = Math.max(0, Math.trunc(Number(creditDays) || 0));
   return schedule.map((row) => {
     const gross = roundMoney(row.amount ?? row.gross);
     const { fee, net } = computeAcquirerFee({
@@ -226,12 +229,19 @@ export function enrichInstallmentScheduleWithAcquirerFees(
       installments: totalInstallments,
       acquirerFees,
     });
+    const dueDate = String(row.due_date || '').slice(0, 10);
+    const expected_settlement_date =
+      days > 0 && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)
+        ? addDaysYmd(dueDate, days)
+        : dueDate;
     return {
       ...row,
       amount: gross,
       gross,
       fee,
       net,
+      creditDays: days,
+      expected_settlement_date,
     };
   });
 }

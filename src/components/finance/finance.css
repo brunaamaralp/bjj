@@ -4774,3 +4774,133 @@
 .cobranca-panel__filter-meta {
   margin: calc(-1 * var(--space-2)) 0 0;
 }
+
+/* Formas de recebimento — master/detail */
+.finance-payment-methods__layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .finance-payment-methods__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.finance-payment-methods__list {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-payment-methods__search {
+  position: relative;
+}
+
+.finance-payment-methods__search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.finance-payment-methods__search-input {
+  padding-left: 34px;
+  width: 100%;
+}
+
+.finance-payment-methods__table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finance-payment-methods__head,
+.finance-payment-methods__row {
+  display: grid;
+  grid-template-columns: 1fr 52px 40px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.finance-payment-methods__head {
+  padding: 0 var(--space-2) var(--space-2);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.finance-payment-methods__row {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  padding: var(--space-2) var(--space-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.finance-payment-methods__row:hover {
+  background: var(--surface-hover);
+}
+
+.finance-payment-methods__row--active {
+  background: var(--surface-selected, rgba(0, 0, 0, 0.04));
+  outline: 1px solid var(--border-subtle, var(--color-border));
+}
+
+.finance-payment-methods__name {
+  font-weight: 500;
+  font-size: var(--font-md);
+}
+
+.finance-payment-method-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.finance-payment-method-status--ok {
+  color: var(--color-success, #16a34a);
+}
+
+.finance-payment-methods__detail {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-payment-methods__toggles {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-payment-methods__toggle {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.finance-payment-methods__toggle input {
+  margin-top: 4px;
+}
+
+.finance-payment-methods__taxas-hint {
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle, var(--color-border));
+}

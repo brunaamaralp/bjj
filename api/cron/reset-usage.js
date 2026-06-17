@@ -16,7 +16,9 @@ import { runSalesReconcileCron } from '../../lib/server/runSalesReconcileCron.js
 import { runFinanceRecurrenceCron } from '../../lib/server/runFinanceRecurrenceCron.js';
 import { runFinanceWhatsappAlerts } from '../../lib/server/runFinanceWhatsappAlerts.js';
 import { runStudentPaymentReconcileCron } from '../../lib/server/runStudentPaymentReconcileCron.js';
+import { runFinanceSettleScheduledCron } from '../../lib/server/runFinanceSettleScheduledCron.js';
 import { runTasksDue } from '../../lib/server/runTasksDueCron.js';
+import { runAttendanceRetentionCron } from '../../lib/server/runAttendanceRetentionCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -228,6 +230,16 @@ export default async function handler(req, res) {
   if (action === 'student-payment-reconcile') {
     const out = await runStudentPaymentReconcileCron();
     return res.status(200).json({ mode: 'student-payment-reconcile', ...out });
+  }
+  if (action === 'finance-settle-scheduled') {
+    const out = await runFinanceSettleScheduledCron();
+    return res.status(200).json({ mode: 'finance-settle-scheduled', ...out });
+  }
+  if (action === 'attendance-retention') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const out = await runAttendanceRetentionCron(databases, DB_ID);
+    return res.status(200).json({ mode: 'attendance-retention', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

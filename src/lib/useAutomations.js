@@ -48,12 +48,22 @@ export const AUTOMATION_LABELS = {
     description: 'Enviada automaticamente no dia do aniversário de cada aluno matriculado.',
     triggerWhere: 'Cron diário → ~9h (horário de Brasília)',
   },
+  absent_student: {
+    label: 'Aluno sumido',
+    description: 'Reativação automática quando o aluno fica muitos dias sem check-in na catraca.',
+    triggerWhere: 'Cron diário → varredura de frequência',
+  },
+  newcomer_at_risk: {
+    label: 'Novato em risco',
+    description: 'Mensagem para alunos matriculados há pouco tempo que pararam de treinar.',
+    triggerWhere: 'Cron diário → varredura de frequência',
+  },
 };
 
 export const AUTOMATION_GROUP_HINTS = {
   captacao: 'Mensagens ligadas ao funil de leads e aulas experimentais.',
   posMatricula: 'Mensagem de boas-vindas após a matrícula.',
-  rotinas: 'Envios automáticos por data, sem ação manual no funil.',
+  rotinas: 'Envios automáticos por data ou varredura diária, sem ação manual no funil.',
 };
 
 /** Eventos de funil / WhatsApp vs pós-matrícula (UI em Empresa → Automações). */
@@ -67,7 +77,20 @@ export const AUTOMATION_GROUPS = {
     'schedule_reminder',
   ],
   posMatricula: ['converted'],
-  rotinas: ['birthday'],
+  rotinas: ['birthday', 'absent_student', 'newcomer_at_risk'],
+};
+
+export const AUTOMATION_THRESHOLD_OPTIONS = {
+  absent_student: [
+    { value: 10, label: '10 dias sem treinar' },
+    { value: 12, label: '12 dias sem treinar' },
+    { value: 15, label: '15 dias sem treinar' },
+  ],
+  newcomer_at_risk: [
+    { value: 7, label: '7 dias sem treinar' },
+    { value: 10, label: '10 dias sem treinar' },
+    { value: 14, label: '14 dias sem treinar' },
+  ],
 };
 
 export const AUTOMATION_DELAY_OPTIONS = {

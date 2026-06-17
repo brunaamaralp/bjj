@@ -1,6 +1,7 @@
 export const REPORT_TABS = new Set([
   'funil',
   'alunos',
+  'frequencia',
   'financeiro',
   'loja',
   'estoque',
@@ -10,23 +11,25 @@ export const REPORT_TABS = new Set([
 export const REPORT_TAB_ITEMS_BASE = [
   { id: 'funil', label: 'Funil' },
   { id: 'alunos', label: 'Alunos' },
+  { id: 'frequencia', label: 'Frequência' },
   { id: 'financeiro', label: 'Financeiro' },
   { id: 'loja', label: 'Vendas' },
   { id: 'estoque', label: 'Estoque' },
   { id: 'atividade', label: 'Atividade' },
 ];
 
-export function getReportTabItems({ hasFinance, hasSales, hasInventory }) {
+export function getReportTabItems({ hasFinance, hasSales, hasInventory, hasAttendance }) {
   return REPORT_TAB_ITEMS_BASE.filter((t) => {
     if (t.id === 'financeiro') return hasFinance;
     if (t.id === 'loja') return hasSales;
     if (t.id === 'estoque') return hasInventory;
+    if (t.id === 'frequencia') return hasAttendance;
     return true;
   });
 }
 
-export function getDefaultReportTab({ hasFinance, hasSales, hasInventory }) {
-  return getReportTabItems({ hasFinance, hasSales, hasInventory })[0]?.id ?? 'funil';
+export function getDefaultReportTab({ hasFinance, hasSales, hasInventory, hasAttendance }) {
+  return getReportTabItems({ hasFinance, hasSales, hasInventory, hasAttendance })[0]?.id ?? 'funil';
 }
 
 /** Aliases legados de ?tab= → slug canônico (null = inválido / redirecionar ao default). */
@@ -42,12 +45,14 @@ export function getReportsTabFlags(activeTab) {
   const isLeadReportTab = activeTab === 'funil';
   const needsFunnelReport = isLeadReportTab;
   const needsStudentMetrics = activeTab === 'alunos';
+  const needsFrequencyReport = activeTab === 'frequencia';
   const isPeriodTab =
     needsFunnelReport ||
     needsStudentMetrics ||
+    needsFrequencyReport ||
     activeTab === 'financeiro' ||
     activeTab === 'loja' ||
     activeTab === 'estoque' ||
     activeTab === 'atividade';
-  return { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab };
+  return { isLeadReportTab, needsFunnelReport, needsStudentMetrics, needsFrequencyReport, isPeriodTab };
 }

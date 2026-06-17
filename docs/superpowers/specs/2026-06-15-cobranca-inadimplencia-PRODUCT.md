@@ -27,9 +27,10 @@ O controle de inadimplentes está escondido dentro de **Mensalidades**: filtro �
 ## 3. Non-Goals (v1)
 
 - WhatsApp em massa
-- Bloqueio de catraca
 - Exportação CSV
 - Tarefas embutidas na tela (link para `/tarefas` permanece)
+
+**Fora deste spec (épico separado):** bloqueio de catraca Control iD — ver [2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md](./2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md) (implementado 2026-06-17).
 
 ---
 

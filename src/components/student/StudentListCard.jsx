@@ -13,6 +13,7 @@ function StudentListCard({
   student,
   academyId,
   controlIdEnabled,
+  blockOverdueAccess = false,
   studentSingular,
   financeConfig,
   onOpenProfile,
@@ -71,7 +72,11 @@ function StudentListCard({
             ) : null}
           </div>
           {controlIdEnabled ? (
-            <ControlIdSyncBadge academyId={academyId} student={student} />
+            <ControlIdSyncBadge
+              academyId={academyId}
+              student={student}
+              blockOverdueAccess={blockOverdueAccess}
+            />
           ) : null}
           <p className="student-card-desktop-meta text-small" style={{ margin: '4px 0 0' }}>
             {[

@@ -293,6 +293,7 @@ describe('getReportsTabFlags', () => {
       isLeadReportTab: false,
       needsFunnelReport: false,
       needsStudentMetrics: true,
+      needsFrequencyReport: false,
       isPeriodTab: true,
     });
     expect(getReportsTabFlags('funil').isLeadReportTab).toBe(true);

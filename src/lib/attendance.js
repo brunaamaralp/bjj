@@ -92,7 +92,22 @@ export async function createCheckin(data, permissionContext = {}) {
         teamId: permissionContext.teamId,
         userId: permissionContext.userId,
     });
-    return databases.createDocument(DB_ID, ATTENDANCE_COL, ID.unique(), doc, perms);
+    const created = await databases.createDocument(DB_ID, ATTENDANCE_COL, ID.unique(), doc, perms);
+    const personId = String(data.student_id || data.lead_id || '').trim();
+    void clearRetentionContactAfterCheckin(personId);
+    return created;
+}
+
+/** Limpa flag «em contato» após check-in manual (fire-and-forget). */
+async function clearRetentionContactAfterCheckin(studentId) {
+    const sid = String(studentId || '').trim();
+    if (!sid) return;
+    try {
+        const { postAttendanceRetentionAction } = await import('./attendanceRetentionApi.js');
+        await postAttendanceRetentionAction({ student_id: sid, action: 'clear_contact' });
+    } catch {
+        /* não bloqueia check-in */
+    }
 }
 
 const DIAS_UTEIS_MES_REF = 26;

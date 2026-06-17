@@ -12,6 +12,7 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
 import { findPlanByName, planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
+import { showPaymentSettlementToasts } from '../../lib/financeTxSettlementDisplay.js';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from './PaymentExceptionsView.jsx';
@@ -32,9 +33,9 @@ import {
   MENSALIDADES_PAY_FIELD_IDS,
 } from '../../lib/mensalidadesPaymentForm.js';
 import {
-  orderedStorageDialectMethodsForModal,
   storageDialectMethodLabelsMap,
 } from '../../lib/paymentMethods.js';
+import { orderedActiveStorageDialectMethodsForModal } from '../../lib/paymentMethodSettings.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import {
   buildReceivablesPath,
@@ -105,8 +106,8 @@ const PAY_METHOD_MODAL_ICONS = {
   transferência: 'ti-building-bank',
 };
 
-function orderedPayMethodsForModal() {
-  return orderedStorageDialectMethodsForModal();
+function orderedPayMethodsForModal(financeConfig) {
+  return orderedActiveStorageDialectMethodsForModal(financeConfig);
 }
 
 function startOfLocalDay(d) {
@@ -854,6 +855,13 @@ export default function MensalidadesPanel({
       toast.show({
         type: studentPrefsWarning ? 'warning' : 'success',
         message: successMsg,
+      });
+      showPaymentSettlementToasts(toast, {
+        financeConfig,
+        method: payForm.method,
+        requestedStatus: 'paid',
+        actualStatus: doc?.status,
+        paidAt: paidAtIso,
       });
       if (doc?.warning) {
         toast.show({
@@ -1693,7 +1701,7 @@ export default function MensalidadesPanel({
                     </div>
                     <div className="mensal-modal-method-grid">
                       {(() => {
-                        const list = orderedPayMethodsForModal();
+                        const list = orderedPayMethodsForModal(financeConfig);
                         return list.map((o, idx) => {
                           const active = payForm.method === o.value;
                           const iconClass = PAY_METHOD_MODAL_ICONS[o.value] || 'ti-cash';

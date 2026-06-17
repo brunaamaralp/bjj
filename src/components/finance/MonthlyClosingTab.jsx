@@ -22,7 +22,7 @@ import SearchField from '../shared/SearchField.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/paymentMethodLabels.js';
-import { storageDialectPaymentMethodOptions } from '../../lib/paymentMethods.js';
+import { storageDialectPaymentMethodOptionsForFinance } from '../../lib/paymentMethodSettings.js';
 import {
   buildClosingRows,
   enrichClosingRowsWithMirrorAmounts,
@@ -109,8 +109,6 @@ function closingNameCell(row) {
   return row.guardian ? `${row.name} (${row.guardian})` : row.name;
 }
 
-const PAY_METHODS = storageDialectPaymentMethodOptions({ labelStyle: 'full' });
-
 function currentYm() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -142,6 +140,10 @@ export default function MonthlyClosingTab({
 }) {
   const leads = useStudentStore((s) => s.students);
   const academyList = useLeadStore((s) => s.academyList);
+  const payMethods = useMemo(
+    () => storageDialectPaymentMethodOptionsForFinance(financeConfig, { labelStyle: 'full' }),
+    [financeConfig]
+  );
   const addToast = useUiStore((s) => s.addToast);
   const isMobile = useMatchMobile();
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
@@ -554,6 +556,14 @@ export default function MonthlyClosingTab({
           </span>
         </p>
       ) : null}
+      <p className="finance-tab-notice" role="status">
+        <span className="finance-tab-notice__text text-muted">
+          Lançamentos com liquidação agendada são confirmados automaticamente na data prevista
+          (conforme dias para cair na conta em{' '}
+          <Link to="/empresa?tab=financeiro&section=formas-recebimento">Formas de recebimento</Link>
+          ).
+        </span>
+      </p>
 
       {showManual ? (
         <div className="card mb-3 monthly-closing-manual">
@@ -636,11 +646,11 @@ export default function MonthlyClosingTab({
                   setManualForm((f) => ({
                     ...f,
                     method,
-                    account: accountWhenPaymentMethodChanges(financeConfig, f.account, method),
+                    account: accountWhenPaymentMethodChanges(financeConfig, method),
                   }));
                 }}
               >
-                {PAY_METHODS.map((m) => (
+                {payMethods.map((m) => (
                   <option key={m.value} value={m.value}>
                     {m.label}
                   </option>

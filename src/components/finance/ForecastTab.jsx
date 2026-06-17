@@ -185,6 +185,11 @@ export default function ForecastTab({ academyId }) {
         ) : null}
       </FinanceFiltersBar>
 
+      <p className="text-small text-muted finance-forecast__credit-hint">
+        Datas de cartão e transferência consideram os dias para cair na conta configurados em{' '}
+        <Link to="/empresa?tab=financeiro&section=formas-recebimento">Formas de recebimento</Link>.
+      </p>
+
       {loading && !data ? <PageSkeleton variant="cards" rows={2} /> : null}
       {error ? (
         <ErrorBanner

@@ -73,6 +73,7 @@ export default function SalesNewSaleTab({
   const lastSale = useSalesStore((s) => s.lastSale);
   const error = useSalesStore((s) => s.error);
   const academyId = useLeadStore((s) => s.academyId);
+  const financeConfig = useLeadStore((s) => s.financeConfig);
   const addToast = useUiStore((s) => s.addToast);
   const { products, loading: catalogLoading, reload: reloadCatalog, error: catalogError } =
     useSalesCatalog(academyId);
@@ -1264,6 +1265,7 @@ export default function SalesNewSaleTab({
                     onApply={applyQuickPay}
                     onFocusCashReceived={focusCashReceived}
                     compact={!pdvMode}
+                    financeConfig={financeConfig}
                   />
                   <button
                     type="button"
@@ -1280,6 +1282,7 @@ export default function SalesNewSaleTab({
                       onChange={setPayments}
                       disabled={creating || cart.length === 0}
                       inlineValidate
+                      financeConfig={financeConfig}
                     />
                   ) : null}
                 </>

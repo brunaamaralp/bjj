@@ -41,6 +41,7 @@ describe('payablesHandler', () => {
     mocks.loadPayablesInputs.mockResolvedValue({
       pendingTransactions: [],
       recurrenceTemplates: [],
+      pendingTruncated: false,
     });
   });
 
@@ -83,6 +84,7 @@ describe('payablesHandler', () => {
         },
       ],
       recurrenceTemplates: [],
+      pendingTruncated: false,
     });
     const res = mockRes();
     await payablesHandler(

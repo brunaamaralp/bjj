@@ -4,15 +4,17 @@ import {
   resolveDefaultBankAccountLabel,
   resolveBankAccountForPayment,
 } from './bankAccounts.js';
+import { readPaymentMethodSettings } from './paymentMethodSettings.js';
 
 /** @param {object|null|undefined} financeConfig */
 export function readDefaultAccountByMethod(financeConfig) {
-  const raw =
-    financeConfig?.defaultAccountByMethod ||
-    financeConfig?.methodBankDefaults ||
-    {};
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  return { ...raw };
+  const settings = readPaymentMethodSettings(financeConfig);
+  const out = {};
+  for (const { value } of PAYMENT_METHODS) {
+    const label = String(settings[value]?.defaultBankAccountLabel || '').trim();
+    if (label) out[value] = label;
+  }
+  return out;
 }
 
 /** Mantém só rótulos de contas cadastradas. */

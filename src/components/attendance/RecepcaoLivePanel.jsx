@@ -13,6 +13,9 @@ import {
 } from '../../lib/controlidApi';
 import { avatarInitial, todayStartIso } from './controlIdAttendanceUtils.js';
 import { friendlyError } from '../../lib/errorMessages.js';
+import ControlIdReleaseDialog from './ControlIdReleaseDialog.jsx';
+import { summarizeReleaseReason } from '../../../lib/controlidRelease.js';
+import { controlIdIgnoreReasonLabel } from '../../lib/controlidDisplay.js';
 
 const POLL_INTERVAL_MS = 6000;
 const MAX_FEED_ITEMS = 30;
@@ -35,6 +38,7 @@ export default function RecepcaoLivePanel() {
 
   const [feed, setFeed] = useState([]);
   const [releasing, setReleasing] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const [polling, setPolling] = useState(false);
   const [lastPoll, setLastPoll] = useState(null);
   const [deviceOnline, setDeviceOnline] = useState(null);
@@ -68,6 +72,21 @@ export default function RecepcaoLivePanel() {
       setLastPoll(new Date());
 
       const events = data?.events || [];
+      const ignored = data?.ignored || [];
+
+      if (ignored.length > 0) {
+        const ignoredEntries = ignored.map((item, i) => ({
+          $id: `ignored-${item.reason}-${item.leadId}-${Date.now()}-${i}`,
+          student_name: item.name,
+          student_id: item.leadId,
+          checked_in_at: new Date().toISOString(),
+          source: 'ignored',
+          ignore_reason: item.reason,
+          _isIgnored: true,
+        }));
+        setFeed((prev) => [...ignoredEntries, ...prev].slice(0, MAX_FEED_ITEMS));
+      }
+
       if (events.length > 0) {
         const fresh = await fetchControlIdAttendance(academyId, {
           start: todayStartIso(),
@@ -125,13 +144,14 @@ export default function RecepcaoLivePanel() {
     };
   }, [academyId, controlId.configured, controlId.enabled, loadToday, doPoll]);
 
-  const handleRelease = async () => {
+  const handleRelease = async (reason) => {
     if (!academyId) return;
     setReleasing(true);
     try {
-      const data = await releaseControlIdGate(academyId);
+      const data = await releaseControlIdGate(academyId, { reason });
       if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar');
       addToast({ type: 'success', message: 'Catraca liberada.' });
+      setReleaseOpen(false);
       setFeed((prev) =>
         [
           {
@@ -139,6 +159,7 @@ export default function RecepcaoLivePanel() {
             student_name: 'Liberação manual',
             checked_in_at: new Date().toISOString(),
             source: 'manual',
+            release_reason: reason,
             _isManual: true,
           },
           ...prev,
@@ -181,7 +202,7 @@ export default function RecepcaoLivePanel() {
       <div style={{ marginBottom: 28 }}>
         <button
           type="button"
-          onClick={() => void handleRelease()}
+          onClick={() => setReleaseOpen(true)}
           disabled={releasing || !isConfigured}
           className="recepcao-live-panel__release-btn"
           style={{
@@ -265,6 +286,12 @@ export default function RecepcaoLivePanel() {
           </div>
         )}
       </div>
+      <ControlIdReleaseDialog
+        open={releaseOpen}
+        loading={releasing}
+        onClose={() => !releasing && setReleaseOpen(false)}
+        onConfirm={(reason) => void handleRelease(reason)}
+      />
     </div>
   );
 }
@@ -305,6 +332,12 @@ function DeviceStatus({ configured, online, polling, ip }) {
 function FeedEntry({ rec, isNew }) {
   const name = rec.student_name || (rec._isManual ? 'Liberação manual' : '—');
   const isManual = rec.source === 'manual' || rec._isManual;
+  const isIgnored = rec.source === 'ignored' || rec._isIgnored;
+  const reasonSummary = isManual
+    ? summarizeReleaseReason(rec.release_reason)
+    : isIgnored
+      ? controlIdIgnoreReasonLabel(rec.ignore_reason)
+      : '';
 
   return (
     <div
@@ -315,7 +348,7 @@ function FeedEntry({ rec, isNew }) {
         padding: '10px 14px',
         borderRadius: 10,
         background: 'var(--surface)',
-        border: `1px solid ${isNew ? 'var(--success)' : 'var(--border-light)'}`,
+        border: `1px solid ${isNew ? (isIgnored ? 'var(--warning)' : 'var(--success)') : 'var(--border-light)'}`,
         animation: isNew ? 'slideIn 0.3s ease' : 'none',
       }}
     >
@@ -324,8 +357,8 @@ function FeedEntry({ rec, isNew }) {
           width: 38,
           height: 38,
           borderRadius: '50%',
-          background: isManual ? 'var(--warning-light)' : 'var(--purple-light)',
-          color: isManual ? 'var(--warning)' : 'var(--purple)',
+          background: isManual ? 'var(--warning-light)' : isIgnored ? 'var(--warning-light)' : 'var(--purple-light)',
+          color: isManual ? 'var(--warning)' : isIgnored ? 'var(--warning)' : 'var(--purple)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -334,7 +367,7 @@ function FeedEntry({ rec, isNew }) {
           flexShrink: 0,
         }}
       >
-        {isManual ? <DoorOpen size={18} /> : avatarInitial(name)}
+        {isManual ? <DoorOpen size={18} /> : isIgnored ? '!' : avatarInitial(name)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
@@ -349,6 +382,11 @@ function FeedEntry({ rec, isNew }) {
         >
           {name}
         </div>
+        {reasonSummary ? (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.35 }}>
+            {reasonSummary}
+          </div>
+        ) : null}
         {rec.student_id && !rec._isManual && (
           <Link to={`/student/${rec.student_id}`} style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none' }}>
             ver perfil →
@@ -359,7 +397,9 @@ function FeedEntry({ rec, isNew }) {
         <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
           {formatTime(rec.checked_in_at)}
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{isManual ? 'manual' : 'catraca'}</div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+          {isManual ? 'manual' : isIgnored ? 'ignorada' : 'catraca'}
+        </div>
       </div>
     </div>
   );

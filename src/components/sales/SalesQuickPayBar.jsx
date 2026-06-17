@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { formatBRLFromCents } from '../../lib/moneyBr';
 import { buildQuickPayment } from '../../lib/salePayments';
+import { listActivePaymentMethods } from '../../lib/paymentMethodSettings.js';
 
 const QUICK_FORMS = [
   { forma: 'pix', label: 'PIX' },
@@ -15,9 +16,16 @@ export default function SalesQuickPayBar({
   onApply,
   onFocusCashReceived,
   compact = false,
+  financeConfig = null,
 }) {
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
   const totalLabel = formatBRLFromCents(total);
+
+  const quickForms = useMemo(() => {
+    if (!financeConfig) return QUICK_FORMS;
+    const active = new Set(listActivePaymentMethods(financeConfig).map((m) => m.value));
+    return QUICK_FORMS.filter((q) => active.has(q.forma));
+  }, [financeConfig]);
 
   const handleClick = (forma) => {
     onApply?.(buildQuickPayment(forma, total));
@@ -30,7 +38,7 @@ export default function SalesQuickPayBar({
     <div className={`sales-quick-pay${compact ? ' sales-quick-pay--compact' : ''}`}>
       <span className="sales-quick-pay__label text-xs text-muted">Pagamento rápido</span>
       <div className="sales-quick-pay__buttons" role="group" aria-label="Pagamento rápido">
-        {QUICK_FORMS.map((q) => (
+        {quickForms.map((q) => (
           <button
             key={q.forma}
             type="button"

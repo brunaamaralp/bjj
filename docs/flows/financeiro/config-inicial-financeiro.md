@@ -8,7 +8,7 @@
 | **rotas** | `/empresa?tab=financeiro`, `/empresa?tab=financeiro&section=<slug>` |
 | **pré-requisitos** | Módulo `finance` ativo na academia; papel owner ou admin |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-16 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -60,7 +60,8 @@ flowchart TD
 |---|---|---|---|---|
 | 1 | `/empresa?tab=financeiro` | `AcademySettings` + `FinanceiroConfigTab` | Abrir **Minha academia → Financeiro** | Layout sidebar + painel da seção ativa |
 | 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço, repasse de taxas, contratos opcionais |
-| 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; conta padrão por método |
+| 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; taxas opcionais por conta |
+| 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações | `paymentMethodSettings` |
 | 4 | `&section=taxas` | `FinanceSettingsFeesSection` | Definir % PIX, débito, crédito, parcelas | `cardFees` atualizado |
 | 5 | `&section=regua` (owner) | `FinanceSettingsCollectionSection` | Etapas e rótulo de atraso | `collectionRules` + `overdueLabel` |
 | 6 | `&section=lembretes-whatsapp` | `FinanceSettingsWhatsappRemindersSection` | Ativar lembretes antes/depois vencimento | `whatsappReminders` |
@@ -75,6 +76,7 @@ flowchart TD
 |---|---|---|---|
 | Essencial | `planos` | ✅ | — |
 | Essencial | `recebimento` | ✅ | ✅ |
+| Essencial | `formas-recebimento` | ✅ | ✅ |
 | Recomendado | `taxas` | ✅ | ✅ |
 | Recomendado | `regua` | ✅ | — |
 | Recomendado | `lembretes-whatsapp` | ✅ | ✅ |
@@ -108,7 +110,8 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 2. [ ] Adicionar plano com nome e preço → barra **Alterações não salvas** aparece
 3. [ ] Salvar → toast sucesso; plano persiste após reload
 3b. [ ] Plano com nome vazio + Salvar → hint na barra fixa; link **Ir para Planos de mensalidade**; persistência bloqueada
-4. [ ] **Recebimento** (`#contas`): adicionar banco/PIX, saldo inicial, conta padrão por método de pagamento
+4. [ ] **Contas bancárias** (`#contas`): adicionar banco/PIX, saldo inicial
+4b. [ ] **Formas de recebimento**: ativar/desativar forma; conta padrão; toggles de automação; coluna OK
 4b. [ ] Conta só com agência (sem banco/PIX/conta) → `FieldError` ao aplicar no modal; não some silenciosamente no save global
 5. [ ] **Taxas**: percentuais > 0 marcam progresso (`feesConfigured`)
 6. [ ] **Régua**: customizar etapa ou rótulo de atraso → `collectionRulesConfigured`

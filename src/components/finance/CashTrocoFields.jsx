@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr.js';
-import { TROCO_FORM_OPTIONS } from '../../lib/salePayments.js';
+import { trocoFormOptionsForFinance } from '../../lib/salePayments.js';
 import {
   computeTrocoFromPayForm,
   defaultTrocoAccount,
@@ -34,6 +34,10 @@ function CashTrocoFieldsInner({
 }) {
   const amount = Number(amountNum);
   const troco = useMemo(() => computeTrocoFromPayForm(payForm, amount), [payForm, amount]);
+  const trocoFormOptions = useMemo(
+    () => trocoFormOptionsForFinance(financeConfig),
+    [financeConfig]
+  );
   const received = parseCashReceivedAmount(payForm);
   const insuficiente =
     Number.isFinite(amount) && amount > 0 && received != null && received + 0.004 < amount;
@@ -93,7 +97,7 @@ function CashTrocoFieldsInner({
             }));
           }}
         >
-          {TROCO_FORM_OPTIONS.map((o) => (
+          {trocoFormOptions.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
