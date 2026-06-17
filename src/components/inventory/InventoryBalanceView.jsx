@@ -391,7 +391,8 @@ export default function InventoryBalanceView({
                 </thead>
                 <tbody>
                   {filtered.map((parent) => {
-                    const variants = parent.variants || [];
+                    const variants = (parent.variants || []).filter((v) => v?.id);
+                    if (!variants.length) return null;
                     const hasVariants = variants.length > 1;
                     const expanded = expandedIds.has(parent.id);
                     const solo = !hasVariants;
@@ -669,7 +670,8 @@ export default function InventoryBalanceView({
             </div>
             <div className="navi-mobile-list inventory-mobile-list" aria-label="Lista de estoque">
               {filtered.map((parent) => {
-                const variants = parent.variants || [];
+                const variants = (parent.variants || []).filter((v) => v?.id);
+                if (!variants.length) return null;
                 const hasVariants = variants.length > 1;
                 const expanded = expandedIds.has(parent.id);
                 const solo = !hasVariants;

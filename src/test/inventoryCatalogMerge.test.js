@@ -65,4 +65,16 @@ describe('inventoryCatalogMerge', () => {
     expect(parents.some((p) => (p.variants || []).some((v) => v.id === 'v-old'))).toBe(false);
     expect(parents.some((p) => p.variants?.[0]?.id === 'legacy-1')).toBe(true);
   });
+
+  it('ignora produto pai sem variantes válidas', () => {
+    const parents = mergeCatalogWithInventoryItems(
+      [
+        { id: 'p-empty', nome: 'Sem SKU', variants: [] },
+        { id: 'p1', nome: 'Kimono', variants: [{ id: 'v1', size: 'M' }] },
+      ],
+      [{ id: 'v1', current_quantity: 2 }]
+    );
+    expect(parents).toHaveLength(1);
+    expect(parents[0].id).toBe('p1');
+  });
 });

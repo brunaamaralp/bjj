@@ -294,6 +294,15 @@ export default function SalesNewSaleTab({
     return rest > 0 ? rest / totalCart : 0;
   }, [descontoGeralValor, totalCart]);
 
+  const totalMasked = useMemo(() => {
+    const val = round2(totalCart * fatorGeral);
+    try {
+      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch {
+      return `R$ ${val.toFixed(2)}`.replace('.', ',');
+    }
+  }, [totalCart, fatorGeral]);
+
   const totalFinalCents = useMemo(
     () => Math.max(0, Math.round(round2(totalCart * fatorGeral) * 100)),
     [totalCart, fatorGeral]
@@ -496,15 +505,6 @@ export default function SalesNewSaleTab({
       return rebalancePaymentsForTotal(prev, totalFinalCents);
     });
   }, [totalFinalCents]);
-
-  const totalMasked = useMemo(() => {
-    const val = round2(totalCart * fatorGeral);
-    try {
-      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${val.toFixed(2)}`.replace('.', ',');
-    }
-  }, [totalCart, fatorGeral]);
 
   const subtotalMasked = useMemo(() => {
     try {

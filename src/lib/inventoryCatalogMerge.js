@@ -13,6 +13,10 @@ export function variantSizeLabel(v) {
   return [v?.size || v?.Tamanho, v?.color].filter(Boolean).join(' / ') || 'Único';
 }
 
+function validVariants(list) {
+  return (list || []).filter((v) => v && String(v.id || '').trim());
+}
+
 function enrichVariant(v, inv) {
   const size =
     String(v.size || v.Tamanho || inv?.Tamanho || inv?.size || '').trim() ||
@@ -53,7 +57,7 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
 
   const matchedIds = new Set();
   let parents = (parentProducts || []).map((parent) => {
-    const variants = (parent.variants || []).map((v) => {
+    const variants = validVariants(parent.variants).map((v) => {
       const id = String(v.id);
       matchedIds.add(id);
       return enrichVariant(v, invById.get(id));
@@ -82,7 +86,9 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
   if (orphans.length) {
     const legacy = legacyStockItemsAsParents(orphans);
     for (const row of legacy) {
-      const variants = (row.variants || []).map((v) => enrichVariant(v, invById.get(String(v.id))));
+      const variants = validVariants(row.variants).map((v) =>
+        enrichVariant(v, invById.get(String(v.id)))
+      );
       const statuses = variants.map((x) => x.status);
       parents.push({
         ...row,
@@ -97,7 +103,9 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
 
   if (!parents.length && orphans.length) {
     parents = legacyStockItemsAsParents(orphans).map((row) => {
-      const variants = (row.variants || []).map((v) => enrichVariant(v, invById.get(String(v.id))));
+      const variants = validVariants(row.variants).map((v) =>
+        enrichVariant(v, invById.get(String(v.id)))
+      );
       const statuses = variants.map((x) => x.status);
       return {
         ...row,
@@ -110,7 +118,9 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
     });
   }
 
-  return parents.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  return parents
+    .filter((p) => validVariants(p.variants).length > 0)
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 export function filterInventoryParents(
