@@ -22,6 +22,76 @@ export function parseBaseNameFromLegacyNome(nome) {
   return raw;
 }
 
+/** Chave estável para deduplicar produtos pai pelo nome. */
+export function normalizeParentNameKey(nome) {
+  return String(parseBaseNameFromLegacyNome(nome) || nome || '')
+    .trim()
+    .toLowerCase();
+}
+
+function isLegacyLikeParentId(id) {
+  const s = String(id || '').trim();
+  return !s || s.startsWith('legacy-group:');
+}
+
+function preferCatalogParentRow(candidate, current) {
+  if (!current) return true;
+  const candLegacy = Boolean(candidate._legacy) || isLegacyLikeParentId(candidate.id);
+  const curLegacy = Boolean(current._legacy) || isLegacyLikeParentId(current.id);
+  if (curLegacy && !candLegacy) return true;
+  if (!curLegacy && candLegacy) return false;
+  return validCatalogVariants(candidate.variants).length > validCatalogVariants(current.variants).length;
+}
+
+function validCatalogVariants(list) {
+  return (list || []).filter((v) => v && String(v.id || '').trim());
+}
+
+/** Une linhas pai com o mesmo nome (ex.: catálogo + stub órfão + legado). */
+export function mergeCatalogParentRowsByName(...groups) {
+  const byName = new Map();
+  for (const rows of groups) {
+    for (const row of rows || []) {
+      const key = normalizeParentNameKey(row.nome);
+      if (!key) continue;
+      const incomingVariants = validCatalogVariants(row.variants);
+      if (!byName.has(key)) {
+        byName.set(key, { ...row, variants: [...incomingVariants] });
+        continue;
+      }
+      const existing = byName.get(key);
+      const seen = new Set(existing.variants.map((v) => String(v.id)));
+      for (const v of incomingVariants) {
+        const id = String(v.id);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        existing.variants.push(v);
+      }
+      if (preferCatalogParentRow(row, existing)) {
+        const mergedVariants = existing.variants;
+        byName.set(key, { ...row, variants: mergedVariants });
+      }
+    }
+  }
+  return Array.from(byName.values());
+}
+
+/** Índice de ids do catálogo para evitar reexibir legado vinculado. */
+export function collectCatalogVariantLinks(parentRows) {
+  const variantIds = new Set();
+  const legacyStockIds = new Set();
+  const nameKeys = new Set();
+  for (const p of parentRows || []) {
+    nameKeys.add(normalizeParentNameKey(p.nome));
+    for (const v of validCatalogVariants(p.variants)) {
+      variantIds.add(String(v.id));
+      const leg = String(v.legacy_stock_item_id || '').trim();
+      if (leg) legacyStockIds.add(leg);
+    }
+  }
+  return { variantIds, legacyStockIds, nameKeys };
+}
+
 /** Tamanho/variação a partir de legado: campo Tamanho ou sufixo após " · ". */
 export function parseLegacyVariantSize(doc) {
   const tam = String(doc?.Tamanho ?? doc?.tamanho ?? '').trim();
@@ -178,6 +248,7 @@ export function normalizeProductsCatalogFromApi(data) {
         ? legacyStockItemsAsParents(parentProducts)
         : parentRowsFromFlatVariants(flatVariants);
     }
+    parentProducts = mergeCatalogParentRowsByName(parentProducts);
     return { catalogMode, parentProducts, variants: flatVariants, needsMigration };
   }
 

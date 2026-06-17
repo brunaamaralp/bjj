@@ -6,6 +6,9 @@ import {
   legacyStockItemsAsParents,
   parseLegacyVariantSize,
   variantDisplayLabel,
+  collectCatalogVariantLinks,
+  mergeCatalogParentRowsByName,
+  normalizeParentNameKey,
 } from './productCatalog.js';
 
 /** Rótulo de tamanho/cor igual à página Produtos. */
@@ -76,16 +79,23 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
     };
   });
 
+  const { legacyStockIds, nameKeys: catalogNameKeys } = collectCatalogVariantLinks(parents);
+
   const orphans = (inventoryItems || []).filter((it) => {
     const id = String(it.id);
     if (matchedIds.has(id)) return false;
+    if (legacyStockIds.has(id)) return false;
     const pid = String(it.product_id || '').trim();
     if (pid && catalogParentIds.size > 0 && !catalogParentIds.has(pid)) return false;
+    const orphanName = normalizeParentNameKey(it.parent_nome || it.nome);
+    if (orphanName && catalogNameKeys.has(orphanName)) return false;
     return true;
   });
   if (orphans.length) {
     const legacy = legacyStockItemsAsParents(orphans);
     for (const row of legacy) {
+      const nameKey = normalizeParentNameKey(row.nome);
+      if (nameKey && catalogNameKeys.has(nameKey)) continue;
       const variants = validVariants(row.variants).map((v) =>
         enrichVariant(v, invById.get(String(v.id)))
       );
@@ -98,6 +108,7 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
         hasVariants: variants.length > 1,
         status: aggregateParentStockStatus(statuses),
       });
+      if (nameKey) catalogNameKeys.add(nameKey);
     }
   }
 
@@ -117,6 +128,20 @@ export function mergeCatalogWithInventoryItems(parentProducts, inventoryItems) {
       };
     });
   }
+
+  parents = mergeCatalogParentRowsByName(parents).map((parent) => {
+    const variants = validVariants(parent.variants);
+    const total_quantity = variants.reduce((n, x) => n + Number(x.current_quantity || 0), 0);
+    const statuses = variants.map((x) => x.status);
+    return {
+      ...parent,
+      variants,
+      total_quantity,
+      variant_count: variants.length,
+      hasVariants: variants.length > 1,
+      status: aggregateParentStockStatus(statuses),
+    };
+  });
 
   return parents
     .filter((p) => validVariants(p.variants).length > 0)

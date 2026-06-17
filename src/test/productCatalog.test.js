@@ -12,6 +12,8 @@ import {
   findDuplicateVariantIds,
   variantComboKey,
   duplicateVariantRowsFromProduct,
+  mergeCatalogParentRowsByName,
+  normalizeParentNameKey,
   findParentByProductOrVariantId,
   normalizeVariantsInput,
 } from '../lib/productCatalog.js';
@@ -42,6 +44,20 @@ describe('productCatalog', () => {
     expect(parents[0].nome).toBe('Kimono');
     expect(parents[0].variants).toHaveLength(2);
     expect(parents[0].total_quantity).toBe(3);
+  });
+
+  it('mergeCatalogParentRowsByName une pais com o mesmo nome', () => {
+    const merged = mergeCatalogParentRowsByName(
+      [{ id: 'p-real', nome: 'Kimono', variants: [{ id: 'v1', size: 'P' }] }],
+      [{ id: 'deleted', nome: 'Kimono', _legacy: true, variants: [{ id: 'v2', size: 'M' }] }]
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('p-real');
+    expect(merged[0].variants.map((v) => v.id).sort()).toEqual(['v1', 'v2']);
+  });
+
+  it('normalizeParentNameKey ignora sufixo de tamanho legado', () => {
+    expect(normalizeParentNameKey('Kimono · M')).toBe(normalizeParentNameKey('Kimono'));
   });
 
   it('findDuplicateVariantIndexes detects same size+color', () => {
