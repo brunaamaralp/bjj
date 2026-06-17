@@ -13,6 +13,7 @@ import {
   displayFee,
   formatSignedMoney,
   labelForFinanceTxType,
+  getTxDescriptionCell,
   NATURE_STYLES,
 } from '../../lib/financeTxDisplay.js';
 import { formatSaleIdShort } from '../../lib/salesHistory.js';
@@ -98,8 +99,8 @@ import { accountWhenPaymentMethodChanges } from '../../lib/paymentMethodBankDefa
 import {
   isStorageCreditMethod,
   STORAGE_CREDIT_METHOD,
-  storageDialectPaymentMethodOptions,
 } from '../../lib/paymentMethods.js';
+import { storageDialectPaymentMethodOptionsForFinance } from '../../lib/paymentMethodSettings.js';
 import { resolveTxBankAccount, UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import useDebounce from '../../hooks/useDebounce.js';
@@ -153,34 +154,6 @@ function formatMoneyBRL(value) {
   }
 }
 
-function getTxCategoryBadge(tx, accounts = null) {
-  const raw = String(tx.category || '').trim() || defaultCategoryForTxType(tx.type);
-  if (!raw) return null;
-  const cat = resolveFinanceCategory(raw, accounts);
-  const label = cat?.label || raw;
-  const type = cat?.type || String(tx.type || '').toLowerCase();
-  let className = 'finance-tx-badge finance-tx-badge--other';
-  if (type === 'plan' || type === 'enrollment') className = 'finance-tx-badge finance-tx-badge--plan';
-  else if (type === 'product') className = 'finance-tx-badge finance-tx-badge--product';
-  else if (type === 'stock_purchase') className = 'finance-tx-badge finance-tx-badge--expense';
-  else if (type === 'expense' || type === 'expense_operational' || type === 'expense_financial' || type === 'card_fee') {
-    className = 'finance-tx-badge finance-tx-badge--expense';
-  }
-  return { label, className };
-}
-
-function getTxSubtitle(tx) {
-  const method = formatPaymentMethod(tx.method, tx.installments);
-  const t = String(tx.type || '').toLowerCase();
-  if (t === 'plan') {
-    const plan = tx.planName ? String(tx.planName) : 'Plano';
-    return `${plan} · ${method}`;
-  }
-  const typeLabel = labelForFinanceTxType(t);
-  if (typeLabel && typeLabel !== '—') return `${typeLabel} · ${method}`;
-  return method;
-}
-
 function getTxTypeLabelDesktop(tx) {
   const t = String(tx.type || '').toLowerCase();
   if (t === 'plan') return `Plano${tx.planName ? ` • ${tx.planName}` : ''}`;
@@ -192,6 +165,7 @@ const TX_FORM_ERROR_FOCUS_ORDER = ['category', 'planName', 'gross', 'bankAccount
 const TX_FORM_FIELD_IDS = {
   category: 'finance-tx-category',
   planName: 'finance-tx-plan',
+  description: 'finance-tx-description',
   gross: 'finance-tx-gross',
   bankAccount: 'finance-tx-bank-account',
   recurrence: 'finance-tx-recurrence-toggle',
@@ -200,7 +174,10 @@ const TX_FORM_FIELD_IDS = {
 function focusFirstTxFormError(errors) {
   for (const key of TX_FORM_ERROR_FOCUS_ORDER) {
     if (!errors[key]) continue;
-    const el = document.getElementById(TX_FORM_FIELD_IDS[key]);
+    const primaryId = TX_FORM_FIELD_IDS[key];
+    const el =
+      document.getElementById(primaryId) ||
+      (key === 'planName' ? document.getElementById(TX_FORM_FIELD_IDS.description) : null);
     if (el && typeof el.focus === 'function') {
       el.focus();
       return;
@@ -236,6 +213,10 @@ function validateTxFormFields({
     errors.category = 'Selecione uma categoria válida.';
   } else if (cat.type === 'plan' && !String(txForm.planName || '').trim()) {
     errors.planName = 'Selecione um plano.';
+  } else if (txForm.direction === 'out' && !String(txForm.planName || '').trim()) {
+    errors.planName = 'Informe uma descrição para identificar a saída.';
+  } else if (cat.type !== 'plan' && !String(txForm.planName || '').trim()) {
+    errors.planName = 'Informe uma descrição para identificar o lançamento.';
   }
 
   if (bankAccountLabels.length > 0) {
@@ -274,6 +255,10 @@ export default function TransacoesTab({
   const [searchParams, setSearchParams] = useSearchParams();
   const canManageAdvanced = isOwner || isAdmin;
   const isMobileList = useMediaQuery('(max-width: 767px)');
+  const activePaymentMethodOptions = useMemo(
+    () => storageDialectPaymentMethodOptionsForFinance(financeConfig),
+    [financeConfig]
+  );
   const [fromDate, setFromDate] = useState(periodFrom);
   const [toDate, setToDate] = useState(periodTo);
   const [txLoading, setTxLoading] = useState(false);
@@ -293,6 +278,7 @@ export default function TransacoesTab({
     competence_month: currentCompetenceMonth(),
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
     bankAccount: '',
+    due_date: todayYmdLocal(),
     ...defaultRecurrenceForm(),
   }));
   const [savingTx, setSavingTx] = useState(false);
@@ -386,6 +372,7 @@ export default function TransacoesTab({
     competence_month: currentCompetenceMonth(),
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
     bankAccount: '',
+    due_date: todayYmdLocal(),
     ...defaultRecurrenceForm(),
   });
 
@@ -642,13 +629,18 @@ export default function TransacoesTab({
     (value) => {
       setTxForm((prev) => {
         const dir = prev.direction === 'out' ? 'out' : 'in';
+        const prevCat = resolveFinanceCategory(prev.category, chartAccounts, { direction: dir });
         const cat = resolveFinanceCategory(value, chartAccounts, { direction: dir });
         if (!cat) return prev;
+        const wasPlan = prevCat?.type === 'plan';
+        const isPlan = cat.type === 'plan';
+        let planName = prev.planName;
+        if (wasPlan !== isPlan) planName = '';
         return {
           ...prev,
           category: value,
           type: cat.type || prev.type,
-          planName: cat.type === 'plan' ? prev.planName : '',
+          planName,
         };
       });
       clearTxFieldError('category');
@@ -806,6 +798,7 @@ export default function TransacoesTab({
       bankAccount:
         String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
         resolveBankAccountForPayment('', financeConfig),
+      due_date: String(tx.due_date || tx.dueDate || '').slice(0, 10) || todayYmdLocal(),
     });
     const leadName = resolveTxLeadName(tx, leadNameById);
     setStudentDisplayName(leadName === 'Aluno não encontrado' ? '' : leadName);
@@ -827,6 +820,7 @@ export default function TransacoesTab({
         bankAccount:
           String(tx.bankAccount || resolveTxBankAccount(tx) || '').trim() ||
           resolveBankAccountForPayment('', financeConfig),
+        due_date: String(tx.due_date || tx.dueDate || '').slice(0, 10) || todayYmdLocal(),
       },
       student: leadName === 'Aluno não encontrado' ? '' : leadName,
     });
@@ -1082,13 +1076,21 @@ export default function TransacoesTab({
       focusFirstTxFormError(fieldErrors);
       return;
     }
+    const dir = txForm.direction === 'out' ? 'out' : 'in';
+    if (dir === 'out' && (!receiveNow || editingTxId) && !editingRecurrenceOnly) {
+      const due = String(txForm.due_date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) {
+        setTxFormErrors({ due_date: 'Informe a data de vencimento.' });
+        focusFirstTxFormError({ due_date: 'x' });
+        return;
+      }
+    }
     setTxFormErrors({});
 
     const grossNum =
       typeof txForm.gross === 'number' && Number.isFinite(txForm.gross)
         ? txForm.gross
         : parseCurrencyBRL(txForm.gross);
-    const dir = txForm.direction === 'out' ? 'out' : 'in';
     const cat = resolveFinanceCategory(txForm.category, chartAccounts, { direction: dir });
     if (!cat) return;
     let bankAccount = '';
@@ -1148,11 +1150,12 @@ export default function TransacoesTab({
         }
         if (dir === 'out') {
           const cm = payload.competence_month || currentCompetenceMonth();
-          if (txForm.repeat_enabled) {
+          if (txForm.repeat_enabled && !editingTxId) {
             payload.due_date = dueDateForRecurrenceMonth(payload.recurrence_day, cm);
-          } else if (!receiveNow) {
-            const today = todayYmdLocal();
-            payload.due_date = cm === today.slice(0, 7) ? today : dueDateForRecurrenceMonth(28, cm);
+          } else if (!receiveNow || editingTxId) {
+            const due = String(txForm.due_date || '').slice(0, 10) || todayYmdLocal();
+            payload.due_date = due;
+            if (!editingTxId) payload.competence_month = due.slice(0, 7) || cm;
           }
         }
         const row = await createFinanceTx({ academyId, payload });
@@ -1424,7 +1427,7 @@ export default function TransacoesTab({
                 </div>
               ) : (
               filteredTransactions.map((tx) => {
-                const badge = getTxCategoryBadge(tx, chartAccounts);
+                const descCell = getTxDescriptionCell(tx, chartAccounts);
                 const st = String(tx.status || '').toLowerCase();
                 const dir = txDirection(tx);
                 const netFmt = formatSignedMoney(displayNet(tx), dir);
@@ -1461,9 +1464,9 @@ export default function TransacoesTab({
                       </span>
                     </div>
                     <p className="finance-mobile-card__title">
-                      {badge ? badge.label : '—'}
+                      {descCell.title}
                     </p>
-                    <div className="finance-mobile-card__meta text-small text-muted">{getTxSubtitle(tx)}</div>
+                    <div className="finance-mobile-card__meta text-small text-muted">{descCell.subtitle}</div>
                     {tx.lead_id ? (
                       <div className="finance-mobile-card__student">{alumStr}</div>
                     ) : null}
@@ -1599,7 +1602,7 @@ export default function TransacoesTab({
                     regime === FINANCE_REGIME.COMPETENCE && competenceMonthMissing(tx);
                   const dir = txDirection(tx);
                   const nature = NATURE_STYLES[dir];
-                  const catBadge = getTxCategoryBadge(tx, chartAccounts);
+                  const descCell = getTxDescriptionCell(tx, chartAccounts);
                   const grossFmt = formatSignedMoney(displayGross(tx), dir);
                   const feeFmt = formatMoneyBRL(displayFee(tx));
                   const netFmt = formatSignedMoney(displayNet(tx), dir);
@@ -1664,14 +1667,10 @@ export default function TransacoesTab({
                       </td>
                       <td>
                         <div className="finance-tx-desc-cell">
-                          {catBadge ? (
-                            <span className={`finance-tx-desc-cell__title ${catBadge.className}`}>
-                              {catBadge.label}
-                            </span>
-                          ) : (
-                            <span className="finance-tx-desc-cell__title">—</span>
-                          )}
-                          <span className="finance-tx-desc-cell__sub">{getTxSubtitle(tx)}</span>
+                          <span className={descCell.titleClassName}>
+                            {descCell.title}
+                          </span>
+                          <span className="finance-tx-desc-cell__sub">{descCell.subtitle}</span>
                         </div>
                       </td>
                       <td title={alumFull}>
@@ -1836,15 +1835,22 @@ export default function TransacoesTab({
                   onChange={(e) => {
                     const dir = e.target.value === 'out' ? 'out' : 'in';
                     const cat = defaultCategoryForDirection(dir);
-                    setTxForm((prev) => ({
-                      ...prev,
-                      direction: dir,
-                      category: cat.label,
-                      type: cat.type,
-                      fee: dir === 'out' ? '' : prev.fee,
-                      installments: dir === 'out' ? 1 : prev.installments,
-                      planName: cat.type === 'plan' ? prev.planName : '',
-                    }));
+                    setTxForm((prev) => {
+                      const prevCat = resolveFinanceCategory(prev.category, chartAccounts, {
+                        direction: prev.direction === 'out' ? 'out' : 'in',
+                      });
+                      const isPlan = cat.type === 'plan';
+                      const wasPlan = prevCat?.type === 'plan';
+                      return {
+                        ...prev,
+                        direction: dir,
+                        category: cat.label,
+                        type: cat.type,
+                        fee: dir === 'out' ? '' : prev.fee,
+                        installments: dir === 'out' ? 1 : prev.installments,
+                        planName: wasPlan !== isPlan ? '' : prev.planName,
+                      };
+                    });
                     clearTxFieldError('category');
                     clearTxFieldError('planName');
                   }}
@@ -1882,10 +1888,28 @@ export default function TransacoesTab({
                     checked={receiveNow}
                     onChange={(e) => setReceiveNow(e.target.checked)}
                   />
-                  Recebido agora (já liquidado no caixa)
+                  {txForm.direction === 'out' ? 'Pago agora (já liquidado)' : 'Recebido agora (já liquidado no caixa)'}
                 </label>
               ) : null}
-              {resolveFinanceCategory(txForm.category, chartAccounts)?.type === 'plan' && (
+              {txForm.direction === 'out' && (!receiveNow || editingTxId) && !editingRecurrenceOnly ? (
+                <div className="form-group">
+                  <label htmlFor="finance-tx-due">Vencimento</label>
+                  <input
+                    id="finance-tx-due"
+                    type="date"
+                    className="form-input"
+                    value={String(txForm.due_date || '').slice(0, 10)}
+                    aria-invalid={txFormErrors.due_date ? 'true' : undefined}
+                    aria-describedby={txFormErrors.due_date ? 'finance-tx-due-error' : undefined}
+                    onChange={(e) => {
+                      setTxForm((prev) => ({ ...prev, due_date: e.target.value }));
+                      clearTxFieldError('due_date');
+                    }}
+                  />
+                  <FieldError id="finance-tx-due-error">{txFormErrors.due_date}</FieldError>
+                </div>
+              ) : null}
+              {resolveFinanceCategory(txForm.category, chartAccounts)?.type === 'plan' ? (
                 <div className="form-group">
                   <label htmlFor="finance-tx-plan">Plano</label>
                   <PlanSelect
@@ -1910,6 +1934,29 @@ export default function TransacoesTab({
                     }}
                   />
                   <FieldError id="finance-tx-plan-error">{txFormErrors.planName}</FieldError>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="finance-tx-description">
+                    Descrição <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    id="finance-tx-description"
+                    className="form-input"
+                    type="text"
+                    maxLength={200}
+                    required
+                    aria-required="true"
+                    placeholder="Ex.: Salário Hugo, Compra de frutas"
+                    value={txForm.planName}
+                    aria-invalid={txFormErrors.planName ? 'true' : undefined}
+                    aria-describedby={txFormErrors.planName ? 'finance-tx-description-error' : undefined}
+                    onChange={(e) => {
+                      setTxForm((prev) => ({ ...prev, planName: e.target.value }));
+                      clearTxFieldError('planName');
+                    }}
+                  />
+                  <FieldError id="finance-tx-description-error">{txFormErrors.planName}</FieldError>
                 </div>
               )}
               <div className="form-group">
@@ -1987,7 +2034,7 @@ export default function TransacoesTab({
                     });
                   }}
                 >
-                  {storageDialectPaymentMethodOptions().map((m) => (
+                  {activePaymentMethodOptions.map((m) => (
                     <option key={m.value} value={m.value}>
                       {m.label}
                     </option>

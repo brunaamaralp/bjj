@@ -44,10 +44,11 @@ export async function createExpenseTransaction({
     payload: {
       type: cat.type,
       category: catLabel,
+      direction: 'out',
       competence_month: cm,
       gross: abs,
       method: normalizeExpenseMethod(method),
-      note,
+      planName: note,
       receive_now: true,
       status: 'settled',
       settledAt: settledIso,

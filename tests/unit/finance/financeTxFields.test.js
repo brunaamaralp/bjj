@@ -14,6 +14,7 @@ import {
   mapFinanceTxDoc,
   financeTxDocumentForAppwrite,
   buildFinanceTxPayload,
+  validateManualFinanceTxIdentity,
   applyRecurrenceFields,
   omitFinanceTxMetadata,
   financeTxDocumentWithOptionals,
@@ -455,6 +456,38 @@ describe('financeTxFields', () => {
       const payload = buildFinanceTxPayload(baseInput(), { created_by: 'user-x' });
 
       expect(payload.created_by).toBe('user-x');
+    });
+  });
+
+  describe('validateManualFinanceTxIdentity', () => {
+    it('exige descrição em saída manual', () => {
+      expect(
+        validateManualFinanceTxIdentity({
+          direction: 'out',
+          type: 'expense_operational',
+          category: 'Salários e encargos',
+          planName: '',
+        })
+      ).toMatch(/descrição/i);
+    });
+
+    it('aceita saída manual com planName', () => {
+      expect(
+        validateManualFinanceTxIdentity({
+          direction: 'out',
+          type: 'expense_operational',
+          planName: 'Salário Hugo',
+        })
+      ).toBeNull();
+    });
+
+    it('ignora lançamentos automáticos de venda', () => {
+      expect(
+        validateManualFinanceTxIdentity(
+          { direction: 'out', type: 'expense_operational', planName: '' },
+          { origin_type: 'sale_cmv' }
+        )
+      ).toBeNull();
     });
   });
 

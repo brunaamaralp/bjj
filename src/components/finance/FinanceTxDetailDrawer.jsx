@@ -158,12 +158,16 @@ export default function FinanceTxDetailDrawer({
             </span>
           </DetailField>
           <DetailField label="Categoria">{catBadge}</DetailField>
+          {String(tx.type || '').toLowerCase() === 'plan' ? (
+            tx.planName ? <DetailField label="Plano">{tx.planName}</DetailField> : null
+          ) : tx.planName ? (
+            <DetailField label="Descrição">{tx.planName}</DetailField>
+          ) : null}
           <DetailField label="Tipo">
             {String(tx.type || '').toLowerCase() === 'plan'
-              ? `Plano${tx.planName ? ` • ${tx.planName}` : ''}`
+              ? 'Plano'
               : labelForFinanceTxType(tx.type)}
           </DetailField>
-          {tx.planName ? <DetailField label="Plano">{tx.planName}</DetailField> : null}
           <DetailField label="Aluno">
             {leadId ? (
               <button

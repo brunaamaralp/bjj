@@ -5,7 +5,9 @@ import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   Calendar,
+  ExternalLink,
   FileSpreadsheet,
+  Pencil,
   Plus,
   RefreshCw,
   Repeat,
@@ -39,6 +41,7 @@ import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import useDebounce from '../../hooks/useDebounce.js';
@@ -123,10 +126,12 @@ export default function PayablesTab({
   const [data, setData] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const debouncedSearch = useDebounce(search, 200);
 
   const [showFormModal, setShowFormModal] = useState(openNewOnMount);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [editingTxId, setEditingTxId] = useState('');
   const [form, setForm] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState({});
   const [savingForm, setSavingForm] = useState(false);
@@ -135,8 +140,12 @@ export default function PayablesTab({
   const [settleAccount, setSettleAccount] = useState('');
   const [settleMethod, setSettleMethod] = useState('pix');
   const [settleGross, setSettleGross] = useState('');
+  const [settlePaidAt, setSettlePaidAt] = useState(() => todayYmdLocal());
   const [settleSaving, setSettleSaving] = useState(false);
   const [settleError, setSettleError] = useState('');
+  const [showValueConfirm, setShowValueConfirm] = useState(false);
+  const [cancelTemplateId, setCancelTemplateId] = useState('');
+  const [cancelTemplateSaving, setCancelTemplateSaving] = useState(false);
 
   const range = useMemo(() => {
     const today = todayYmdLocal();
@@ -249,8 +258,11 @@ export default function PayablesTab({
     const base = catalog
       ? selectPayablesItems(catalog, resolvedSection)
       : data?.items || [];
-    return filterPayablesSearch(base, debouncedSearch);
-  }, [data?.catalog, data?.items, resolvedSection, debouncedSearch]);
+    let rows = filterPayablesSearch(base, debouncedSearch);
+    const cat = String(categoryFilter || '').trim();
+    if (cat) rows = rows.filter((it) => String(it.category || '').trim() === cat);
+    return rows;
+  }, [data?.catalog, data?.items, resolvedSection, debouncedSearch, categoryFilter]);
 
   useEffect(() => {
     if (!highlightTxId || !items.length) return;
@@ -260,6 +272,7 @@ export default function PayablesTab({
       setSettleGross(String(hit.amount || ''));
       setSettleAccount('');
       setSettleMethod('pix');
+      setSettlePaidAt(todayYmdLocal());
       setSettleError('');
     }
   }, [highlightTxId, items]);
@@ -294,7 +307,33 @@ export default function PayablesTab({
     setSettleGross(String(item.amount || ''));
     setSettleAccount('');
     setSettleMethod('pix');
+    setSettlePaidAt(todayYmdLocal());
     setSettleError('');
+    setShowValueConfirm(false);
+  }
+
+  function openEdit(item) {
+    if (!item?.tx_id || item.source !== PAYABLE_SOURCE.LANCAMENTO) return;
+    setEditingTxId(item.tx_id);
+    setForm({
+      vendor: item.vendor_label || '',
+      category: item.category || FINANCE_CATEGORIES.LUZ.label,
+      gross: maskCurrency(String(Math.round((Number(item.amount) || 0) * 100))),
+      due_date: String(item.due_date || '').slice(0, 10) || todayYmdLocal(),
+      repeat_enabled: false,
+      recurrence_day: 10,
+      recurrence_end: '',
+      note: '',
+    });
+    setFormErrors({});
+    setShowFormModal(true);
+  }
+
+  function openNewForm() {
+    setEditingTxId('');
+    setForm(defaultForm());
+    setFormErrors({});
+    setShowFormModal(true);
   }
 
   async function handleSaveForm(e) {
@@ -320,27 +359,46 @@ export default function PayablesTab({
 
     setSavingForm(true);
     try {
-      const payload = {
-        direction: 'out',
-        type: cat.type,
-        category: cat.label,
-        planName: vendor,
-        gross: grossNum,
-        note: String(form.note || '').trim(),
-        due_date: due,
-        competence_month: due.slice(0, 7) || currentCompetenceMonth(),
-        receive_now: false,
-        method: 'pix',
-      };
-      if (form.repeat_enabled) {
-        payload.is_recurrence_template = true;
-        payload.recurrence_type = RECURRENCE_TYPES.MONTHLY;
-        payload.recurrence_day = recurrenceDay;
-        if (form.recurrence_end) payload.recurrence_end = form.recurrence_end;
+      if (editingTxId) {
+        await patchFinanceTx({
+          academyId,
+          id: editingTxId,
+          payload: {
+            direction: 'out',
+            type: cat.type,
+            category: cat.label,
+            planName: vendor,
+            gross: grossNum,
+            note: String(form.note || '').trim(),
+            due_date: due,
+            competence_month: due.slice(0, 7) || currentCompetenceMonth(),
+          },
+        });
+        toast.success('Conta atualizada.');
+      } else {
+        const payload = {
+          direction: 'out',
+          type: cat.type,
+          category: cat.label,
+          planName: vendor,
+          gross: grossNum,
+          note: String(form.note || '').trim(),
+          due_date: due,
+          competence_month: due.slice(0, 7) || currentCompetenceMonth(),
+          receive_now: false,
+          method: 'pix',
+        };
+        if (form.repeat_enabled) {
+          payload.is_recurrence_template = true;
+          payload.recurrence_type = RECURRENCE_TYPES.MONTHLY;
+          payload.recurrence_day = recurrenceDay;
+          if (form.recurrence_end) payload.recurrence_end = form.recurrence_end;
+        }
+        await createFinanceTx({ academyId, payload });
+        toast.success(form.repeat_enabled ? 'Conta fixa programada.' : 'Conta a pagar registrada.');
       }
-      await createFinanceTx({ academyId, payload });
-      toast.success(form.repeat_enabled ? 'Conta fixa programada.' : 'Conta a pagar registrada.');
       setShowFormModal(false);
+      setEditingTxId('');
       setForm(defaultForm());
       window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
       setRefreshToken((t) => t + 1);
@@ -351,8 +409,7 @@ export default function PayablesTab({
     }
   }
 
-  async function handleSettle(e) {
-    e.preventDefault();
+  async function submitSettle({ skipValueCheck = false } = {}) {
     if (!settleItem?.tx_id) return;
     const accountCheck = validateBankAccountForPayment(settleAccount, financeConfig);
     if (!accountCheck.ok) {
@@ -364,23 +421,35 @@ export default function PayablesTab({
       setSettleError('Informe um valor válido.');
       return;
     }
+    const paidYmd = String(settlePaidAt || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paidYmd)) {
+      setSettleError('Informe a data do pagamento.');
+      return;
+    }
+    const original = Number(settleItem.amount) || 0;
+    if (!skipValueCheck && original > 0) {
+      const diff = Math.abs(grossNum - original) / original;
+      if (diff > 0.05) {
+        setShowValueConfirm(true);
+        return;
+      }
+    }
     setSettleSaving(true);
     setSettleError('');
+    setShowValueConfirm(false);
     try {
-      await patchFinanceTx({
+      const paidIso = new Date(`${paidYmd}T12:00:00`).toISOString();
+      const row = await patchFinanceTx({
         academyId,
         id: settleItem.tx_id,
         payload: {
+          action: 'settle',
           gross: grossNum,
           method: settleMethod,
           bank_account: accountCheck.account,
           direction: 'out',
+          settledAt: paidIso,
         },
-      });
-      const row = await patchFinanceTx({
-        academyId,
-        id: settleItem.tx_id,
-        payload: { action: 'settle' },
       });
       if (row) applyAccountingSideEffectsAuto(row, academyId);
       toast.success('Pagamento registrado.');
@@ -395,18 +464,27 @@ export default function PayablesTab({
     }
   }
 
-  async function handleCancelRecurrence(templateId) {
-    if (!templateId) return;
+  async function handleSettle(e) {
+    e.preventDefault();
+    await submitSettle();
+  }
+
+  async function confirmCancelRecurrence() {
+    if (!cancelTemplateId) return;
+    setCancelTemplateSaving(true);
     try {
       await patchFinanceTx({
         academyId,
-        id: templateId,
+        id: cancelTemplateId,
         payload: { action: 'cancel_recurrence' },
       });
-      toast.success('Recorrência cancelada.');
+      toast.success('Recorrência cancelada. Instâncias pendentes já geradas permanecem na fila.');
+      setCancelTemplateId('');
       setRefreshToken((t) => t + 1);
     } catch (err) {
       toast.error(err?.message || 'Não foi possível cancelar a recorrência.');
+    } finally {
+      setCancelTemplateSaving(false);
     }
   }
 
@@ -491,10 +569,7 @@ export default function PayablesTab({
         <button
           type="button"
           className="btn-primary btn-sm"
-          onClick={() => {
-            setForm(defaultForm());
-            setShowFormModal(true);
-          }}
+          onClick={openNewForm}
         >
           <Plus size={14} aria-hidden />
           Nova conta
@@ -509,6 +584,12 @@ export default function PayablesTab({
       <FinanceTabShell panelClassName="payables-tab receivables-tab finance-tab-panel--compact" kpiStrip={kpiStrip} subNav={subNav}>
         {error ? <ErrorBanner message={error} onRetry={() => setRefreshToken((t) => t + 1)} /> : null}
 
+        {summary.pendingTruncated ? (
+          <p className="text-small text-muted mb-2" role="status">
+            Exibindo as {300} contas pendentes mais recentes. Regularize ou liquide itens antigos em Lançamentos.
+          </p>
+        ) : null}
+
         {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS ? (
           <div className="finance-filters-bar finance-filters-bar--compact mb-3">
             <input
@@ -519,6 +600,19 @@ export default function PayablesTab({
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Buscar contas a pagar"
             />
+            <select
+              className="form-input"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              aria-label="Filtrar por categoria"
+            >
+              <option value="">Todas as categorias</option>
+              {categoryOptions.map((c) => (
+                <option key={c.label} value={c.label}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
 
@@ -538,10 +632,7 @@ export default function PayablesTab({
             }
             primaryAction={{
               label: 'Nova conta',
-              onClick: () => {
-                setForm(defaultForm());
-                setShowFormModal(true);
-              },
+              onClick: openNewForm,
             }}
           />
         ) : (
@@ -590,23 +681,42 @@ export default function PayablesTab({
                       </span>
                     </td>
                     <td className="text-right">
-                      {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
-                        <button
-                          type="button"
-                          className="btn-outline btn-sm"
-                          onClick={() => openSettle(item)}
-                        >
-                          Pagar
-                        </button>
-                      ) : item.source === PAYABLE_SOURCE.TEMPLATE ? (
-                        <button
-                          type="button"
-                          className="btn-ghost btn-sm text-muted"
-                          onClick={() => handleCancelRecurrence(item.template_id)}
-                        >
-                          Cancelar
-                        </button>
-                      ) : null}
+                      <div className="finance-table__actions">
+                        {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm"
+                              onClick={() => openSettle(item)}
+                            >
+                              Pagar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-ghost btn-sm"
+                              onClick={() => openEdit(item)}
+                              aria-label={`Editar ${item.vendor_label}`}
+                            >
+                              <Pencil size={14} aria-hidden />
+                            </button>
+                            <Link
+                              to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
+                              className="btn-ghost btn-sm"
+                              aria-label={`Ver lançamento ${item.vendor_label}`}
+                            >
+                              <ExternalLink size={14} aria-hidden />
+                            </Link>
+                          </>
+                        ) : item.source === PAYABLE_SOURCE.TEMPLATE ? (
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm text-muted"
+                            onClick={() => setCancelTemplateId(item.template_id)}
+                          >
+                            Cancelar
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -629,8 +739,11 @@ export default function PayablesTab({
       {showFormModal ? (
         <ModalShell
           open={showFormModal}
-          title="Nova conta a pagar"
-          onClose={() => setShowFormModal(false)}
+          title={editingTxId ? 'Editar conta a pagar' : 'Nova conta a pagar'}
+          onClose={() => {
+            setShowFormModal(false);
+            setEditingTxId('');
+          }}
           footer={
             <>
               <button type="button" className="btn-ghost" onClick={() => setShowFormModal(false)}>
@@ -644,15 +757,19 @@ export default function PayablesTab({
         >
           <form id="payable-form" onSubmit={handleSaveForm} className="form-stack">
             <div>
-              <label htmlFor="payable-vendor">Fornecedor / descrição</label>
+              <label htmlFor="payable-vendor">
+                Fornecedor / descrição <span className="text-danger">*</span>
+              </label>
               <input
                 id="payable-vendor"
                 className="form-input"
                 list="payable-vendor-options"
                 value={form.vendor}
+                required
+                aria-required="true"
                 onChange={(e) => handleVendorChange(e.target.value)}
                 onBlur={(e) => applyVendorDefaults(e.target.value)}
-                placeholder="Ex.: CPFL, Sabesp, Vivo…"
+                placeholder="Ex.: Salário Hugo, CPFL, Compra de frutas…"
               />
               <datalist id="payable-vendor-options">
                 {vendorOptions.map((v) => (
@@ -718,11 +835,12 @@ export default function PayablesTab({
               <input
                 type="checkbox"
                 checked={form.repeat_enabled}
+                disabled={Boolean(editingTxId)}
                 onChange={(e) => setForm((f) => ({ ...f, repeat_enabled: e.target.checked }))}
               />
               <span>Repetir todo mês (conta fixa)</span>
             </label>
-            {form.repeat_enabled ? (
+            {form.repeat_enabled && !editingTxId ? (
               <div>
                 <label htmlFor="payable-recurrence-end">Repetir até (opcional)</label>
                 <select
@@ -806,6 +924,16 @@ export default function PayablesTab({
                 <option value="boleto">Boleto</option>
               </select>
             </div>
+            <div>
+              <label htmlFor="settle-paid-at">Data do pagamento</label>
+              <input
+                id="settle-paid-at"
+                type="date"
+                className="form-input"
+                value={settlePaidAt}
+                onChange={(e) => setSettlePaidAt(e.target.value)}
+              />
+            </div>
             <BankAccountSelect
               academyId={academyId}
               financeConfig={financeConfig}
@@ -819,6 +947,32 @@ export default function PayablesTab({
           </form>
         </ModalShell>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(cancelTemplateId)}
+        title="Cancelar recorrência?"
+        description="A conta fixa deixa de gerar novas parcelas. Parcelas pendentes já criadas continuam na fila até serem pagas ou canceladas em Lançamentos."
+        confirmLabel="Cancelar recorrência"
+        confirmVariant="danger"
+        loading={cancelTemplateSaving}
+        onConfirm={() => void confirmCancelRecurrence()}
+        onClose={() => {
+          if (!cancelTemplateSaving) setCancelTemplateId('');
+        }}
+      />
+
+      <ConfirmDialog
+        open={showValueConfirm}
+        title="Valor diferente do previsto"
+        description={`O valor informado (${fmtMoney(parseCurrencyBRL(settleGross))}) difere mais de 5% do previsto (${fmtMoney(settleItem?.amount)}). Deseja registrar mesmo assim?`}
+        confirmLabel="Registrar pagamento"
+        confirmVariant="primary"
+        loading={settleSaving}
+        onConfirm={() => void submitSettle({ skipValueCheck: true })}
+        onClose={() => {
+          if (!settleSaving) setShowValueConfirm(false);
+        }}
+      />
 
       {showImportModal ? (
         <Suspense fallback={null}>
