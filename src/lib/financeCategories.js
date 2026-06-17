@@ -47,6 +47,7 @@ export const FINANCE_CATEGORIES = {
   },
   ALUGUEL_RECEITA: {
     label: 'Aluguéis recebidos',
+    title: 'Kimonos, uniformes e equipamentos emprestados',
     type: 'rental',
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
@@ -312,23 +313,6 @@ export function getUtilityExpenseCategories() {
 }
 
 /** Chips e default ao trocar direção no modal de lançamento. */
-export const FREQUENT_TX_CATEGORY_LABELS = {
-  in: [
-    FINANCE_CATEGORIES.MENSALIDADE.label,
-    FINANCE_CATEGORIES.VENDA_PRODUTO.label,
-    FINANCE_CATEGORIES.RECEITA_FINANCEIRA.label,
-    FINANCE_CATEGORIES.APORTE_CAPITAL.label,
-  ],
-  out: [
-    FINANCE_CATEGORIES.LUZ.label,
-    FINANCE_CATEGORIES.AGUA.label,
-    FINANCE_CATEGORIES.OUTRAS_DESPESAS.label,
-    FINANCE_CATEGORIES.MARKETING.label,
-    FINANCE_CATEGORIES.TARIFAS_BANCARIAS.label,
-    FINANCE_CATEGORIES.EMPRESTIMO_PAGO.label,
-  ],
-};
-
 export function defaultCategoryForDirection(direction) {
   return direction === 'out'
     ? FINANCE_CATEGORIES.OUTRAS_DESPESAS

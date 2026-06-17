@@ -113,6 +113,26 @@ describe('financeSettingsSections', () => {
     expect(summaries[FINANCE_SETTINGS_SECTIONS.PLANOS].summary).toContain('Mensal');
   });
 
+  it('buildFinanceSettingsSummaries marks fornecedores done when active and named', () => {
+    const summaries = buildFinanceSettingsSummaries({
+      financeConfig: {
+        plans: [],
+        vendors: [
+          { name: 'CPFL', defaultCategory: 'Luz / energia', active: true },
+          { name: '', active: true },
+        ],
+        bankAccounts: [],
+        cardFees: {},
+      },
+      collectionRules: [],
+      accountsCount: 0,
+      isOwner: true,
+    });
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.FORNECEDORES].done).toBe(true);
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.FORNECEDORES].summary).toContain('CPFL');
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.FORNECEDORES].summary).toContain('Luz');
+  });
+
   it('financeSettingsProgress counts core sections', () => {
     const summaries = buildFinanceSettingsSummaries({
       financeConfig: {

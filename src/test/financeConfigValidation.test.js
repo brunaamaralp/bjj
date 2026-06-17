@@ -50,6 +50,45 @@ describe('validateFinanceConfigBeforeSave', () => {
     });
     expect(ok).toBe(true);
   });
+
+  it('rejeita fornecedor sem nome (titular)', () => {
+    const { ok, issues } = validateFinanceConfigBeforeSave({
+      isOwner: true,
+      financeConfig: {
+        plans: [{ name: 'Mensal', price: 150 }],
+        bankAccounts: [{ pixKey: 'a@b.com' }],
+        vendors: [{ name: 'CPFL' }, { name: '   ' }],
+      },
+    });
+    expect(ok).toBe(false);
+    expect(issues.some((i) => i.sectionId === FINANCE_SETTINGS_SECTIONS.FORNECEDORES)).toBe(true);
+    expect(issues.some((i) => i.message.includes('Fornecedor 2'))).toBe(true);
+  });
+
+  it('rejeita fornecedor com nome duplicado (titular)', () => {
+    const { ok, issues } = validateFinanceConfigBeforeSave({
+      isOwner: true,
+      financeConfig: {
+        plans: [{ name: 'Mensal', price: 150 }],
+        bankAccounts: [{ pixKey: 'a@b.com' }],
+        vendors: [{ name: 'CPFL' }, { name: 'cpfl' }],
+      },
+    });
+    expect(ok).toBe(false);
+    expect(issues[0].sectionId).toBe(FINANCE_SETTINGS_SECTIONS.FORNECEDORES);
+    expect(issues[0].message).toContain('duplicado');
+  });
+
+  it('ignora validação de fornecedores para não-titular', () => {
+    const { ok } = validateFinanceConfigBeforeSave({
+      isOwner: false,
+      financeConfig: {
+        bankAccounts: [{ pixKey: 'a@b.com' }],
+        vendors: [{ name: '' }],
+      },
+    });
+    expect(ok).toBe(true);
+  });
 });
 
 describe('formatFinanceConfigSaveError', () => {

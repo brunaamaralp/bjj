@@ -3194,6 +3194,11 @@
   gap: 6px;
 }
 
+.finance-settings-vendor__meta--inactive {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .finance-settings-inset {
   padding: var(--space-4);
   border-radius: 12px;
@@ -3979,6 +3984,18 @@
   width: var(--progress-pct, 0%);
   animation: none;
   background: var(--color-primary);
+}
+
+.payables-import-preview-wrap {
+  max-height: 280px;
+  overflow: auto;
+}
+
+.payables-import-progress {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-primary-surface) 40%, var(--color-card-bg));
+  border: 0.5px solid var(--border-light);
 }
 
 .finance-whatsapp-reminders-intro,

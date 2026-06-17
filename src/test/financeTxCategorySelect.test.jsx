@@ -1,18 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SearchableGroupedSelect from '../components/shared/SearchableGroupedSelect.jsx';
 import {
   FINANCE_CATEGORIES,
   defaultCategoryForDirection,
-  FREQUENT_TX_CATEGORY_LABELS,
   getCategoryOptionsByNature,
-  resolveFinanceCategory,
 } from '../lib/financeCategories.js';
-import { loadRecentCategories, mergeRecentWithFrequent } from '../lib/financeRecentCategories.js';
 
-function TxCategoryHarness({ chartAccounts = [], academyId = 'acad-1', initialDirection = 'in' }) {
+function TxCategoryHarness({ chartAccounts = [], initialDirection = 'in' }) {
   const [direction, setDirection] = useState(initialDirection);
   const [category, setCategory] = useState(FINANCE_CATEGORIES.MENSALIDADE.label);
 
@@ -20,15 +17,6 @@ function TxCategoryHarness({ chartAccounts = [], academyId = 'acad-1', initialDi
     () => getCategoryOptionsByNature(direction === 'out' ? 'out' : 'in', chartAccounts),
     [direction, chartAccounts]
   );
-
-  const categoryChips = useMemo(() => {
-    const dir = direction === 'out' ? 'out' : 'in';
-    const recent = loadRecentCategories(academyId);
-    const resolveLabel = (value) => resolveFinanceCategory(value, chartAccounts)?.label || value;
-    return mergeRecentWithFrequent(recent, FREQUENT_TX_CATEGORY_LABELS[dir], resolveLabel).filter(
-      (chip) => resolveFinanceCategory(chip.value, chartAccounts)
-    );
-  }, [direction, academyId, chartAccounts]);
 
   const handleDirectionChange = (dir) => {
     const cat = defaultCategoryForDirection(dir);
@@ -48,13 +36,6 @@ function TxCategoryHarness({ chartAccounts = [], academyId = 'acad-1', initialDi
         <option value="in">Entrada</option>
         <option value="out">Saída</option>
       </select>
-      <div className="finance-tx-category-chips" role="group" aria-label="Categorias frequentes">
-        {categoryChips.map((chip) => (
-          <button key={chip.value} type="button" onClick={() => setCategory(chip.value)}>
-            {chip.label}
-          </button>
-        ))}
-      </div>
       <SearchableGroupedSelect
         id="finance-tx-category"
         aria-label="Categoria"
@@ -89,14 +70,6 @@ describe('financeTxCategorySelect', () => {
     expect(screen.getByTestId('selected-category')).toHaveTextContent('Outras despesas');
   });
 
-  it('chips selecionam categoria em um clique', async () => {
-    const user = userEvent.setup();
-    render(<TxCategoryHarness initialDirection="out" />);
-
-    await user.click(screen.getByRole('button', { name: 'Marketing' }));
-    expect(screen.getByTestId('selected-category')).toHaveTextContent('Marketing');
-  });
-
   it('ao abrir o select de entrada lista todas as categorias de receita, não só Mensalidades', async () => {
     const user = userEvent.setup();
     render(<TxCategoryHarness />);
@@ -106,8 +79,29 @@ describe('financeTxCategorySelect', () => {
 
     expect(screen.getByRole('option', { name: 'Mensalidades' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Vendas de produtos' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Aluguéis recebidos' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Aporte de capital' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Receitas financeiras' })).toBeInTheDocument();
+  });
+
+  it('busca por kimono encontra Aluguéis recebidos', async () => {
+    render(<TxCategoryHarness />);
+
+    const input = screen.getByLabelText('Categoria');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'kimono' } });
+
+    expect(await screen.findByRole('option', { name: 'Aluguéis recebidos' })).toBeInTheDocument();
+  });
+
+  it('dropdown seleciona Aluguéis recebidos', async () => {
+    const user = userEvent.setup();
+    render(<TxCategoryHarness />);
+
+    const input = screen.getByLabelText('Categoria');
+    await user.click(input);
+    await user.click(screen.getByRole('option', { name: 'Aluguéis recebidos' }));
+    expect(screen.getByTestId('selected-category')).toHaveTextContent('Aluguéis recebidos');
   });
 
   it('não lista acct:4.1.1 quando duplica Mensalidades', () => {

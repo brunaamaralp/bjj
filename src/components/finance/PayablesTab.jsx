@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import './finance.css';
 import { Link } from 'react-router-dom';
 import {
@@ -11,7 +11,6 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
-import ImportPayablesModal from './ImportPayablesModal.jsx';
 import { fetchPayables, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
 import { PAYABLE_SOURCE } from '../../lib/payablesAggregate.js';
 import {
@@ -29,7 +28,7 @@ import { currentCompetenceMonth } from '../../lib/financeCompetence.js';
 import { RECURRENCE_TYPES, normalizeRecurrenceDay, buildRecurrenceEndOptions } from '../../lib/financeRecurrence.js';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { validateBankAccountForPayment, hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
-import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
+import { EMPRESA_FINANCE_ACCOUNTS_PATH, EMPRESA_FINANCE_VENDORS_PATH } from '../../lib/financeiroHubTabs.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
 import { useToast } from '../../hooks/useToast.js';
 import FinanceTabShell from './FinanceTabShell.jsx';
@@ -42,6 +41,8 @@ import FieldError from '../shared/FieldError.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import useDebounce from '../../hooks/useDebounce.js';
+
+const ImportPayablesModal = lazy(() => import('./ImportPayablesModal.jsx'));
 
 function fmtMoney(v) {
   try {
@@ -91,7 +92,7 @@ const defaultForm = () => ({
   category: FINANCE_CATEGORIES.LUZ.label,
   gross: '',
   due_date: todayYmdLocal(),
-  repeat_enabled: true,
+  repeat_enabled: false,
   recurrence_day: 10,
   recurrence_end: '',
   note: '',
@@ -653,6 +654,13 @@ export default function PayablesTab({
                 ))}
               </datalist>
               {formErrors.vendor ? <FieldError>{formErrors.vendor}</FieldError> : null}
+              {vendorOptions.length === 0 ? (
+                <p className="text-small text-muted mt-1">
+                  Cadastre fornecedores em{' '}
+                  <Link to={EMPRESA_FINANCE_VENDORS_PATH}>Minha academia → Fornecedores</Link>{' '}
+                  para autocompletar categoria e vencimento.
+                </p>
+              ) : null}
             </div>
             <div>
               <label htmlFor="payable-category">Categoria</label>
@@ -806,12 +814,16 @@ export default function PayablesTab({
         </ModalShell>
       ) : null}
 
-      <ImportPayablesModal
-        open={showImportModal}
-        academyId={academyId}
-        onClose={() => setShowImportModal(false)}
-        onImported={() => setRefreshToken((t) => t + 1)}
-      />
+      {showImportModal ? (
+        <Suspense fallback={null}>
+          <ImportPayablesModal
+            open={showImportModal}
+            academyId={academyId}
+            onClose={() => setShowImportModal(false)}
+            onImported={() => setRefreshToken((t) => t + 1)}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }

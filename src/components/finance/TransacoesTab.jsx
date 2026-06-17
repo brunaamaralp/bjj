@@ -45,15 +45,9 @@ import {
   FINANCE_CATEGORIES,
   defaultCategoryForTxType,
   defaultCategoryForDirection,
-  FREQUENT_TX_CATEGORY_LABELS,
   getCategoryOptionsByNature,
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
-import {
-  loadRecentCategories,
-  recordRecentCategory,
-  mergeRecentWithFrequent,
-} from '../../lib/financeRecentCategories.js';
 import {
   encodeAccountCategoryValue,
   parseAccountCategoryValue,
@@ -439,18 +433,6 @@ export default function TransacoesTab({
     [txForm.direction, chartAccounts]
   );
 
-  const categoryChips = useMemo(() => {
-    const dir = txForm.direction === 'out' ? 'out' : 'in';
-    const recent = loadRecentCategories(academyId);
-    const resolveLabel = (value) => {
-      const cat = resolveFinanceCategory(value, chartAccounts);
-      return cat?.label || value;
-    };
-    return mergeRecentWithFrequent(recent, FREQUENT_TX_CATEGORY_LABELS[dir], resolveLabel).filter(
-      (chip) => resolveFinanceCategory(chip.value, chartAccounts, { direction: dir })
-    );
-  }, [txForm.direction, academyId, chartAccounts]);
-
   const leadNameById = useMemo(
     () => buildLeadNameById(transactions, leads),
     [transactions, leads]
@@ -646,7 +628,6 @@ export default function TransacoesTab({
         const dir = prev.direction === 'out' ? 'out' : 'in';
         const cat = resolveFinanceCategory(value, chartAccounts, { direction: dir });
         if (!cat) return prev;
-        if (academyId) recordRecentCategory(academyId, value);
         return {
           ...prev,
           category: value,
@@ -657,7 +638,7 @@ export default function TransacoesTab({
       clearTxFieldError('category');
       clearTxFieldError('planName');
     },
-    [chartAccounts, academyId, clearTxFieldError]
+    [chartAccounts, clearTxFieldError]
   );
 
   const loadTransactions = useCallback(
@@ -1067,7 +1048,6 @@ export default function TransacoesTab({
     const dir = txForm.direction === 'out' ? 'out' : 'in';
     const cat = resolveFinanceCategory(txForm.category, chartAccounts, { direction: dir });
     if (!cat) return;
-    if (academyId) recordRecentCategory(academyId, txForm.category);
     let bankAccount = '';
     if (bankAccountLabels.length > 0) {
       const accountCheck = validateBankAccountForPayment(txForm.bankAccount, financeConfig);
@@ -1824,22 +1804,6 @@ export default function TransacoesTab({
               </div>
               <div className="form-group">
                 <label htmlFor="finance-tx-category">Categoria</label>
-                {categoryChips.length > 0 ? (
-                  <div className="finance-tx-category-chips" role="group" aria-label="Categorias frequentes">
-                    {categoryChips.map((chip) => (
-                      <button
-                        key={chip.value}
-                        type="button"
-                        className={`finance-tx-category-chip${
-                          txForm.category === chip.value ? ' finance-tx-category-chip--active' : ''
-                        }`}
-                        onClick={() => applyTxCategory(chip.value)}
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
                 <SearchableGroupedSelect
                   id="finance-tx-category"
                   value={txForm.category}

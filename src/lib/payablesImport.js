@@ -5,6 +5,7 @@ import { resolveFinanceCategory, FINANCE_CATEGORIES } from './financeCategories.
 import { parseNumberCell } from './productImport.js';
 
 export const MAX_PAYABLES_IMPORT_ROWS = 200;
+export const PAYABLES_IMPORT_CONCURRENCY = 5;
 
 export const PAYABLES_IMPORT_HEADERS = [
   'fornecedor',
@@ -102,6 +103,62 @@ export function buildPayablesImportPreviewRows(rows, columnMap) {
     });
   }
   return preview.slice(0, MAX_PAYABLES_IMPORT_ROWS);
+}
+
+/** Chave estável para dedupe: fornecedor + vencimento + valor. */
+export function payablesImportMatchKey({ vendor, due_date, amount }) {
+  const v = String(vendor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const d = String(due_date || '').slice(0, 10);
+  const a = Math.round((Number(amount) || 0) * 100) / 100;
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(d) || a < 0.01) return null;
+  return `${v}|${d}|${a.toFixed(2)}`;
+}
+
+/**
+ * Marca duplicatas no arquivo e contra chaves já existentes (contas pendentes).
+ */
+export function markPayablesImportDuplicates(rows, existingKeys = new Set()) {
+  const seenInFile = new Set();
+  return rows.map((row) => {
+    if (!row.valid) return row;
+    const key = payablesImportMatchKey(row);
+    if (!key) return row;
+    if (seenInFile.has(key)) {
+      return {
+        ...row,
+        valid: false,
+        errors: [...row.errors, 'Duplicada no arquivo'],
+        duplicate: true,
+      };
+    }
+    if (existingKeys.has(key)) {
+      return {
+        ...row,
+        valid: false,
+        errors: [...row.errors, 'Já cadastrada no sistema'],
+        duplicate: true,
+      };
+    }
+    seenInFile.add(key);
+    return row;
+  });
+}
+
+export function collectPayablesImportExistingKeys(items = []) {
+  const keys = new Set();
+  for (const it of items) {
+    const key = payablesImportMatchKey({
+      vendor: it.vendor_label || it.planName,
+      due_date: it.due_date,
+      amount: it.amount,
+    });
+    if (key) keys.add(key);
+  }
+  return keys;
 }
 
 export function payableImportRowToPayload(row) {

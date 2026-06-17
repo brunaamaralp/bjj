@@ -4,6 +4,14 @@ import {
   financeSettingsSectionLabel,
 } from './financeSettingsSections.js';
 
+function normalizeVendorNameKey(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 /**
  * Valida planos e contas antes de persistir financeConfig na academia.
  * @returns {{ ok: boolean, issues: Array<{ sectionId: string, message: string }> }}
@@ -22,6 +30,28 @@ export function validateFinanceConfigBeforeSave({ financeConfig, isOwner = true 
           message: `Plano ${idx + 1}: informe o nome.`,
         });
       }
+    });
+
+    const vendors = Array.isArray(cfg.vendors) ? cfg.vendors : [];
+    const seenVendorNames = new Set();
+    vendors.forEach((vendor, idx) => {
+      const name = String(vendor?.name || '').trim();
+      if (!name) {
+        issues.push({
+          sectionId: FINANCE_SETTINGS_SECTIONS.FORNECEDORES,
+          message: `Fornecedor ${idx + 1}: informe o nome.`,
+        });
+        return;
+      }
+      const key = normalizeVendorNameKey(name);
+      if (seenVendorNames.has(key)) {
+        issues.push({
+          sectionId: FINANCE_SETTINGS_SECTIONS.FORNECEDORES,
+          message: `Fornecedor ${idx + 1}: nome duplicado (“${name}”).`,
+        });
+        return;
+      }
+      seenVendorNames.add(key);
     });
   }
 

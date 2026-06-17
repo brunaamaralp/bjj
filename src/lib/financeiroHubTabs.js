@@ -20,6 +20,9 @@ export const EMPRESA_FINANCE_CONFIG_PATH = `/empresa?tab=${EMPRESA_FINANCE_TAB}`
 /** Contas de recebimento (Minha academia → Financeiro → Recebimento). */
 export const EMPRESA_FINANCE_ACCOUNTS_PATH = `${EMPRESA_FINANCE_CONFIG_PATH}&section=recebimento#contas`;
 
+/** Fornecedores (Minha academia → Financeiro → Fornecedores). */
+export const EMPRESA_FINANCE_VENDORS_PATH = `${EMPRESA_FINANCE_CONFIG_PATH}&section=fornecedores`;
+
 /** Razão contábil (Minha academia → Financeiro → Avançado). */
 export function buildEmpresaFinanceRazaoPath({ from, txId } = {}) {
   const params = new URLSearchParams();

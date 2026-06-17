@@ -160,8 +160,8 @@ describe('financeCategories', () => {
       expect(items.every((c) => allowed.has(c.type))).toBe(true);
     });
 
-    it("getRevenueCategories() → types plan, product, enrollment ou other", () => {
-      const allowed = new Set(['plan', 'product', 'enrollment', 'other']);
+    it("getRevenueCategories() → types plan, product, enrollment, rental ou other", () => {
+      const allowed = new Set(['plan', 'product', 'enrollment', 'rental', 'other']);
       const items = getRevenueCategories();
       expect(items.length).toBeGreaterThan(0);
       expect(items.every((c) => allowed.has(c.type))).toBe(true);

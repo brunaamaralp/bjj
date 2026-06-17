@@ -11,6 +11,9 @@ import {
   mapPayablesImportColumns,
   buildPayablesImportPreviewRows,
   payableImportRowToPayload,
+  payablesImportMatchKey,
+  markPayablesImportDuplicates,
+  collectPayablesImportExistingKeys,
 } from '../lib/payablesImport.js';
 
 describe('financeVendors', () => {
@@ -73,5 +76,54 @@ describe('payablesImport', () => {
     const payload = payableImportRowToPayload(rows[0]);
     expect(payload.planName).toBe('CPFL');
     expect(payload.is_recurrence_template).toBe(true);
+  });
+
+  it('builds stable match keys for dedupe', () => {
+    const key = payablesImportMatchKey({
+      vendor: 'CPFL',
+      due_date: '2026-06-10',
+      amount: 450,
+    });
+    expect(key).toBe('cpfl|2026-06-10|450.00');
+    expect(
+      payablesImportMatchKey({ vendor: '  cpfl  ', due_date: '2026-06-10', amount: 450.005 })
+    ).toBe('cpfl|2026-06-10|450.01');
+  });
+
+  it('marks duplicate rows in file and against existing payables', () => {
+    const base = {
+      rowIndex: 1,
+      vendor: 'CPFL',
+      category: 'Luz / energia',
+      amount: 450,
+      due_date: '2026-06-10',
+      recurring: true,
+      recurrence_day: 10,
+      errors: [],
+      valid: true,
+    };
+    const dupInFile = { ...base, rowIndex: 2 };
+    const existingKeys = collectPayablesImportExistingKeys([
+      { vendor_label: 'Sabesp', due_date: '2026-06-12', amount: 120 },
+    ]);
+    const marked = markPayablesImportDuplicates(
+      [
+        base,
+        dupInFile,
+        {
+          ...base,
+          rowIndex: 3,
+          vendor: 'Sabesp',
+          amount: 120,
+          due_date: '2026-06-12',
+        },
+      ],
+      existingKeys
+    );
+    expect(marked[0].valid).toBe(true);
+    expect(marked[1].valid).toBe(false);
+    expect(marked[1].errors).toContain('Duplicada no arquivo');
+    expect(marked[2].valid).toBe(false);
+    expect(marked[2].errors).toContain('Já cadastrada no sistema');
   });
 });

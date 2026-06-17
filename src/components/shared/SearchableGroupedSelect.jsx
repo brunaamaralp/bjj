@@ -3,7 +3,13 @@ import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import './SearchableGroupedSelect.css';
 
-function filterGroupedOptions(groups, query, getOptionLabel) {
+const defaultGetOptionValue = (item) => item.value || item.label;
+const defaultGetOptionLabel = (item) => item.label;
+const defaultGetOptionTitle = (item) => item.title || '';
+const defaultGetOptionSearchText = (item) =>
+  [defaultGetOptionLabel(item), defaultGetOptionTitle(item)].filter(Boolean).join(' ');
+
+function filterGroupedOptions(groups, query, getOptionLabel, getOptionSearchText) {
   const q = String(query || '').trim().toLowerCase();
   if (!q) return groups;
 
@@ -12,7 +18,10 @@ function filterGroupedOptions(groups, query, getOptionLabel) {
     const groupMatch = String(group || '').toLowerCase().includes(q);
     const matched = groupMatch
       ? items
-      : items.filter((item) => String(getOptionLabel(item) || '').toLowerCase().includes(q));
+      : items.filter((item) => {
+          const haystack = String(getOptionSearchText?.(item) || getOptionLabel(item) || '').toLowerCase();
+          return haystack.includes(q);
+        });
     if (matched.length) filtered.set(group, matched);
   }
   return filtered;
@@ -52,9 +61,10 @@ export default function SearchableGroupedSelect({
   value,
   onChange,
   groups,
-  getOptionValue = (item) => item.value || item.label,
-  getOptionLabel = (item) => item.label,
-  getOptionTitle = (item) => item.title || '',
+  getOptionValue = defaultGetOptionValue,
+  getOptionLabel = defaultGetOptionLabel,
+  getOptionTitle = defaultGetOptionTitle,
+  getOptionSearchText = defaultGetOptionSearchText,
   placeholder = 'Digite para buscar…',
   emptyMessage = 'Nenhuma opção encontrada.',
   hint,
@@ -90,8 +100,8 @@ export default function SearchableGroupedSelect({
   }, [open, query, selectedLabel]);
 
   const filteredGroups = useMemo(
-    () => filterGroupedOptions(groups, filterQuery, getOptionLabel),
-    [groups, filterQuery, getOptionLabel]
+    () => filterGroupedOptions(groups, filterQuery, getOptionLabel, getOptionSearchText),
+    [groups, filterQuery, getOptionLabel, getOptionSearchText]
   );
 
   const flatOptions = useMemo(

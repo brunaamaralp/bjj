@@ -218,6 +218,16 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
   if (wa.dueSoon.enabled) waParts.push(`antes (${wa.dueSoon.daysBefore}d)`);
   if (wa.overdue.enabled) waParts.push(`atraso (${wa.overdue.daysAfter}d)`);
 
+  const vendors = financeConfig?.vendors || [];
+  const namedVendors = vendors.filter((v) => String(v?.name || '').trim());
+  const activeNamedVendors = namedVendors.filter((v) => v?.active !== false);
+  const vendorsSummary =
+    namedVendors.length === 0
+      ? 'Nenhum cadastrado'
+      : namedVendors.length === 1
+        ? `${namedVendors[0].name}${namedVendors[0].defaultCategory ? ` · ${namedVendors[0].defaultCategory}` : ''}`
+        : `${namedVendors.length} fornecedor(es)`;
+
   return {
     [FINANCE_SETTINGS_SECTIONS.PLANOS]: {
       done: namedPlans.length > 0,
@@ -229,11 +239,8 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
       summary: banksSummary,
     },
     [FINANCE_SETTINGS_SECTIONS.FORNECEDORES]: {
-      done: (financeConfig?.vendors || []).filter((v) => v?.active !== false && String(v?.name || '').trim()).length > 0,
-      summary:
-        (financeConfig?.vendors || []).filter((v) => String(v?.name || '').trim()).length > 0
-          ? `${(financeConfig?.vendors || []).filter((v) => String(v?.name || '').trim()).length} fornecedor(es)`
-          : 'Nenhum cadastrado',
+      done: activeNamedVendors.length > 0,
+      summary: vendorsSummary,
       hidden: !isOwner,
     },
     [FINANCE_SETTINGS_SECTIONS.TAXAS]: {
