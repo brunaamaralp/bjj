@@ -172,6 +172,7 @@ export const useProductsStore = create((set, get) => ({
       });
       return {
         has_sales: Boolean(data.has_sales),
+        has_stock_moves: Boolean(data.has_stock_moves),
         can_delete: Boolean(data.can_delete),
         current_quantity: Number(data.current_quantity) || 0,
       };
