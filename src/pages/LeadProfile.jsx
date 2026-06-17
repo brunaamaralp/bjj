@@ -1341,6 +1341,7 @@ const LeadProfile = () => {
     };
 
     const onConfirmScheduleFromModal = async ({ date, time, note }) => {
+        const wasReschedule = Boolean(String(lead?.scheduledDate || '').trim());
         const patch = buildSchedulePatch(lead, { date, time });
         const textBody = String(note || '').trim() || `${terms.trial} agendada`;
         try {
@@ -1355,9 +1356,9 @@ const LeadProfile = () => {
                     permissionContext: permCtx,
                     payloadJson: { date, time },
                 });
-                await updateLead(id, patch);
+                await updateLead(id, patch, { fallbackLead: lead });
             } catch {
-                await updateLead(id, patch);
+                await updateLead(id, patch, { fallbackLead: lead });
             }
             const autoResult = await safeAutomationDispatch(
                 afterExperimentalScheduled({
@@ -1380,7 +1381,7 @@ const LeadProfile = () => {
             );
             notifyAutomationFeedback(toast.addToast, autoResult);
             await refreshTimeline();
-            toast.success('Aula agendada com sucesso.');
+            toast.success(wasReschedule ? 'Aula reagendada com sucesso.' : 'Aula agendada com sucesso.');
         } catch (e) {
             toast.error(e, 'save');
             throw e;

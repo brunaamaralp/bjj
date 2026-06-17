@@ -101,8 +101,12 @@ export async function afterExperimentalScheduled(ctx) {
   const refreshed = typeof getLead === 'function' ? getLead() : null;
   const base = refreshed && typeof refreshed === 'object' ? refreshed : mergedLead;
   const patch = buildPendingLeadPatch(base, 'schedule_reminder', sendAt);
-  await updateLead(leadId, patch);
-  result.scheduled.push({ key: 'schedule_reminder', sendAt });
+  try {
+    await updateLead(leadId, patch);
+    result.scheduled.push({ key: 'schedule_reminder', sendAt });
+  } catch (e) {
+    console.warn('[afterExperimentalScheduled] schedule_reminder patch failed:', e?.message || e);
+  }
   return result;
 }
 

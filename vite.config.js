@@ -106,7 +106,20 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: apiProxyTarget,
-          changeOrigin: true
+          changeOrigin: true,
+          configure(proxy) {
+            proxy.on('error', (err, _req, res) => {
+              console.error('[vite] /api proxy error:', err?.message || err);
+              if (!res || res.headersSent) return;
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  sucesso: false,
+                  erro: 'api_proxy_unavailable',
+                })
+              );
+            });
+          },
         },
         // Roteia chamadas ao equipamento Control iD via servidor local (porta 4000).
         // Necessário para evitar CORS — o browser não consegue chamar IPs de rede local diretamente.

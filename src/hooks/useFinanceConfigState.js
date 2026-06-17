@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { databases, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
+import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { friendlyError } from '../lib/errorMessages';
@@ -156,7 +157,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     if (!academyId) return;
     setLoading(true);
     try {
-      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const doc = await getAcademyDocument(academyId);
       let cfg = mergeFinanceConfigFromAcademyDoc(doc);
       if (!cfg || Object.keys(cfg).length === 0) {
         cfg = defaultFinanceConfig();

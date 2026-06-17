@@ -37,6 +37,11 @@ describe('isWhatsAppIntegrationDisconnected', () => {
   it('returns true for confirmed offline states', () => {
     expect(isWhatsAppIntegrationDisconnected('disconnected', true)).toBe(true);
     expect(isWhatsAppIntegrationDisconnected('offline', true)).toBe(true);
-    expect(isWhatsAppIntegrationDisconnected('qrcode', true)).toBe(true);
+  });
+
+  it('returns false during QR / pareamento', () => {
+    expect(isWhatsAppIntegrationDisconnected('qrcode', true)).toBe(false);
+    expect(isWhatsAppIntegrationDisconnected('open', true)).toBe(false);
+    expect(isWhatsAppIntegrationDisconnected('scanning', true)).toBe(false);
   });
 });

@@ -519,6 +519,7 @@ const LEAD_EVENTS_ATTRS = [
   { key: 'at', type: 'datetime' },
   { key: 'created_by', type: 'string', size: 64 },
   { key: 'payload_json', type: 'string', size: 65535 },
+  { key: 'is_pinned', type: 'boolean', default: false },
 ];
 
 const TASK_TEMPLATES_ATTRS = [
@@ -765,6 +766,8 @@ async function main() {
       { key: 'idx_lead_events_lead_id', attributes: ['lead_id'] },
       { key: 'idx_lead_events_type', attributes: ['type'] },
       { key: 'idx_lead_events_at', attributes: ['at'] },
+      { key: 'idx_lead_events_lead_academy_at', attributes: ['lead_id', 'academy_id', 'at'] },
+      { key: 'idx_lead_events_academy_type_at', attributes: ['academy_id', 'type', 'at'] },
     ],
   });
 

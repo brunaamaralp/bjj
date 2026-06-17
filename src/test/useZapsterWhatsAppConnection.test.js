@@ -105,7 +105,7 @@ describe('useZapsterWhatsAppConnection', () => {
     vi.useRealTimers();
   });
 
-  it('fetchWaInfo: ignora chamada paralela enquanto a primeira está em andamento', async () => {
+  it('fetchWaInfo: enfileira chamada paralela enquanto a primeira está em andamento', async () => {
     waMocks.getDelayMs = 200;
     const { useZapsterWhatsAppConnection } = await import('../hooks/useZapsterWhatsAppConnection.js');
     const { result } = renderHook(() => useZapsterWhatsAppConnection('acad-1'));
@@ -125,13 +125,14 @@ describe('useZapsterWhatsAppConnection', () => {
       await Promise.all([p1, p2]);
     });
 
-    expect(waMocks.instancesGetCalls).toBe(1);
+    expect(waMocks.instancesGetCalls).toBe(2);
     expect(result.current.waLoading).toBe(false);
 
     await act(async () => {
       await result.current.fetchWaInfo({ silent: true, quiet: true });
+      await new Promise((r) => setTimeout(r, 250));
     });
-    expect(waMocks.instancesGetCalls).toBe(2);
+    expect(waMocks.instancesGetCalls).toBe(3);
   });
 
   it('createWaInstance: duplo clique dispara apenas um POST de criação', async () => {
@@ -245,5 +246,94 @@ describe('useZapsterWhatsAppConnection', () => {
     expect(result.current.waConnected).toBe(true);
 
     fetchWithBillingGuard.mockImplementation(defaultImpl);
+  });
+
+  it('cache desconectado não confirma waStatusChecked até fetch bem-sucedido', async () => {
+    const { fetchWithBillingGuard } = await import('../lib/billingBlockedFetch');
+    const { invalidateWaConnectionCache, useZapsterWhatsAppConnection } = await import(
+      '../hooks/useZapsterWhatsAppConnection.js'
+    );
+    const academyId = 'acad-stale-cache';
+    invalidateWaConnectionCache(academyId);
+
+    const defaultImpl = fetchWithBillingGuard.getMockImplementation();
+    fetchWithBillingGuard.mockImplementation(async (url, init = {}) => {
+      const u = String(url);
+      const method = String(init?.method || 'GET').toUpperCase();
+      if (u.includes('/api/zapster/instances') && method === 'GET' && !u.includes('action=')) {
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            text: async () =>
+              JSON.stringify({
+                instance_id: 'inst-old',
+                status: 'disconnected',
+                zapster_status: 'disconnected',
+                qrcode: null,
+              }),
+          },
+        };
+      }
+      if (typeof defaultImpl === 'function') return defaultImpl(url, init);
+      return { blocked: false, res: { ok: true, text: async () => '{}' } };
+    });
+
+    const { unmount } = renderHook(() => useZapsterWhatsAppConnection(academyId));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150));
+    });
+    unmount();
+
+    fetchWithBillingGuard.mockImplementation(async (url, init = {}) => {
+      const u = String(url);
+      const method = String(init?.method || 'GET').toUpperCase();
+      if (u.includes('/api/zapster/instances') && method === 'GET' && !u.includes('action=')) {
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            text: async () =>
+              JSON.stringify({
+                instance_id: 'inst-old',
+                status: 'connected',
+                zapster_status: 'connected',
+                qrcode: null,
+                wa_phone: '5511999999999',
+              }),
+          },
+        };
+      }
+      if (u.includes('action=qrcode')) {
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ codigo: 'INSTANCE_CONNECTED', status: 'connected' }),
+            text: async () => JSON.stringify({ codigo: 'INSTANCE_CONNECTED', status: 'connected' }),
+          },
+        };
+      }
+      if (typeof defaultImpl === 'function') return defaultImpl(url, init);
+      return { blocked: false, res: { ok: true, text: async () => '{}' } };
+    });
+
+    const { result } = renderHook(() =>
+      useZapsterWhatsAppConnection(academyId, { deferInitialFetch: true })
+    );
+
+    expect(result.current.waStatusChecked).toBe(false);
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150));
+    });
+
+    expect(result.current.waStatus).toBe('connected');
+    expect(result.current.waStatusChecked).toBe(true);
+
+    fetchWithBillingGuard.mockImplementation(defaultImpl);
+    invalidateWaConnectionCache(academyId);
   });
 });

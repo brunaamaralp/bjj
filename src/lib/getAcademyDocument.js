@@ -1,4 +1,5 @@
-import { databases, DB_ID, ACADEMIES_COL } from './appwrite';
+import { createSessionJwt, databases, DB_ID, ACADEMIES_COL } from './appwrite';
+import { authedFetch } from './authInterceptor.js';
 import { useLeadStore } from '../store/useLeadStore';
 import { parseOnboardingChecklist } from './onboardingChecklist.js';
 import { patchAcademyEmailInList } from './academyContactEmail.js';
@@ -14,6 +15,33 @@ export function invalidateAcademyDocumentCache(academyId) {
     return;
   }
   cache.clear();
+}
+
+async function fetchAcademyDocumentFromApi(academyId) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+
+  const id = String(academyId || '').trim();
+  if (!id) throw new Error('academy_id_required');
+
+  const params = new URLSearchParams({ route: 'academy-document' });
+  const res = await authedFetch(`/api/leads?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': id,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || data.erro || `error_${res.status}`);
+  }
+  const doc = data.document;
+  if (!doc || typeof doc !== 'object') throw new Error('academy_document_missing');
+  return doc;
+}
+
+async function fetchAcademyDocumentDirect(academyId) {
+  return databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
 }
 
 /**
@@ -35,8 +63,14 @@ export async function getAcademyDocument(academyId, opts = {}) {
     return entry.promise;
   }
 
-  const promise = databases
-    .getDocument(DB_ID, ACADEMIES_COL, id)
+  const promise = (async () => {
+    try {
+      return await fetchAcademyDocumentFromApi(id);
+    } catch (err) {
+      console.warn('[getAcademyDocument] API indisponível, tentando Appwrite direto:', err?.message);
+      return fetchAcademyDocumentDirect(id);
+    }
+  })()
     .then((doc) => {
       cache.set(id, { doc, fetchedAt: Date.now() });
       return doc;

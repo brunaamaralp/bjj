@@ -108,6 +108,17 @@ function mergeHubNotificationTasks(taskLists) {
   return [...byId.values()];
 }
 
+async function readApiJson(res) {
+  const getHeader =
+    typeof res.headers?.get === 'function' ? (key) => res.headers.get(key) : () => '';
+  const contentType = String(getHeader('content-type') || '');
+  if (contentType && !contentType.includes('application/json')) {
+    const text = await res.text().catch(() => '');
+    return text ? { erro: text.slice(0, 240) } : {};
+  }
+  return res.json().catch(() => ({}));
+}
+
 async function requestTasksPage(academyId, filters, opts = {}) {
   const jwt = await createSessionJwt();
   if (!jwt) throw new Error('jwt_missing');
@@ -119,7 +130,7 @@ async function requestTasksPage(academyId, filters, opts = {}) {
       'x-academy-id': academyId,
     },
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await readApiJson(res);
   if (!res.ok || !data?.sucesso) {
     throw new Error(data?.erro || `HTTP ${res.status}`);
   }

@@ -30,6 +30,8 @@ import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
 import publicEnrollmentHandler from '../lib/server/publicEnrollmentHandler.js';
+import leadEventsListHandler from '../lib/server/leadEventsListHandler.js';
+import academyDocumentHandler from '../lib/server/academyDocumentHandler.js';
 import {
   controlidStatusHandler,
   controlidTestHandler,
@@ -272,6 +274,8 @@ export default async function handler(req, res) {
   if (req.query.route === 'sales') return salesHistoryHandler(req, res);
   if (req.query.route === 'sales_by_student') return salesByStudentHandler(req, res);
   if (req.query.route === 'students') return studentsHandler(req, res);
+  if (req.query.route === 'lead-events') return leadEventsListHandler(req, res);
+  if (req.query.route === 'academy-document') return academyDocumentHandler(req, res);
   if (req.query.route === 'controlid_status') return controlidStatusHandler(req, res);
   if (req.query.route === 'controlid_test') return controlidTestHandler(req, res);
   if (req.query.route === 'controlid_save_config') return controlidSaveConfigHandler(req, res);

@@ -1,5 +1,13 @@
 const WA_CONNECTED_STATUSES = new Set(['connected', 'online']);
-const WA_TRANSIENT_STATUSES = new Set(['connecting', 'syncing', 'unknown']);
+/** Pareamento / reconexão — não exibir “não conectado” como estado final. */
+const WA_TRANSIENT_STATUSES = new Set([
+  'connecting',
+  'syncing',
+  'unknown',
+  'open',
+  'qrcode',
+  'scanning',
+]);
 
 /** Estado de conexão Zapster para UI de conversa integrada. */
 export function isWhatsAppIntegrationConnected(waStatus, waStatusChecked) {

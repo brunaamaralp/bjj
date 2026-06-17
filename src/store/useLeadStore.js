@@ -5,6 +5,7 @@ import { ID, Query } from 'appwrite';
 import { addLeadEvent } from '../lib/leadEvents.js';
 import { buildLeadDocumentPermissions } from '../lib/clientDocumentPermissions.js';
 import { assertClientBillingMutationsAllowed } from '../lib/billingGateClient.js';
+import { stripUnknownLeadPatch } from '../lib/leadAppwritePatch.js';
 import { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 import { mapAppwriteDocToLead } from '../lib/mapAppwriteLeadDoc.js';
 import {
@@ -555,7 +556,15 @@ export const useLeadStore = create(
         console.debug('[updateLead] patch', { id, patch });
       }
 
-      await databases.updateDocument(DB_ID, LEADS_COL, lid, patch);
+      try {
+        await databases.updateDocument(DB_ID, LEADS_COL, lid, patch);
+      } catch (e) {
+        const msg = String(e?.message || '');
+        if (!/unknown attribute/i.test(msg)) throw e;
+        const lean = stripUnknownLeadPatch(patch, msg);
+        if (Object.keys(lean).length === 0) throw e;
+        await databases.updateDocument(DB_ID, LEADS_COL, lid, lean);
+      }
 
       const mergedLead = { ...currentLead, ...normalizedUpdates };
       if (typeof filtered.status !== 'undefined' && filtered.status !== currentLead.status) {

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "npx vercel dev --listen 3000",
     "build": "vite build && next build",
     "lint": "eslint src",
     "preview": "vite preview",

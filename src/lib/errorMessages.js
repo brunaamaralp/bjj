@@ -27,7 +27,11 @@ const ERROR_MAP = {
   academy_required: 'Academia não selecionada. Recarregue a página.',
   academy_missing: 'Academia não selecionada. Recarregue a página.',
   jwt_missing: 'Sessão expirada. Faça login novamente.',
+  'JWT inválido': 'Sessão expirada. Faça login novamente.',
+  'JWT ausente': 'Sessão expirada. Faça login novamente.',
   user_missing: 'Usuário não identificado. Recarregue a página.',
+  api_proxy_unavailable:
+    'Servidor de API local indisponível. Rode `npx vercel dev --listen 3000` e recarregue a página.',
 
   // Zapster
   instance_not_found: 'WhatsApp desconectado. Verifique a página Agente IA.',
@@ -152,6 +156,10 @@ function logTechnicalError(err, friendly, raw) {
 export function friendlyError(err, context = 'action') {
   const raw = extractRawMessage(err);
   const errObj = typeof err === 'object' && err !== null ? err : { message: raw };
+
+  if (errObj?.name === 'BillingGateClientError' && raw) {
+    return raw;
+  }
 
   const appwriteSpecific = describeAppwriteError(errObj);
   if (appwriteSpecific) {

@@ -3,8 +3,9 @@
  * Criar manualmente: academy_id, lead_id, type, from, to, text, at, created_by, payload_json.
  * Env: VITE_APPWRITE_LEAD_EVENTS_COLLECTION_ID
  */
-import { databases, DB_ID, LEAD_EVENTS_COL } from './appwrite';
+import { createSessionJwt, databases, DB_ID, LEAD_EVENTS_COL } from './appwrite';
 import { ID, Query } from 'appwrite';
+import { authedFetch } from './authInterceptor.js';
 import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import { emitLeadTimelineChanged } from './leadTimelineEvents.js';
 import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
@@ -127,16 +128,52 @@ export async function addLeadEvent({
   }
 }
 
+async function fetchLeadEventsFromApi(leadId, academyId, limit) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+
+  const aid = String(academyId || '').trim();
+  const lid = String(leadId || '').trim();
+  if (!aid || !lid) throw new Error('academy_required');
+
+  const params = new URLSearchParams({
+    route: 'lead-events',
+    lead_id: lid,
+    limit: String(limit),
+  });
+
+  const res = await authedFetch(`/api/leads?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': aid,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || data.erro || `error_${res.status}`);
+  }
+  const documents = Array.isArray(data.documents) ? data.documents : [];
+  return { documents, total: Number(data.total) || documents.length };
+}
+
+/** Histórico do lead — via API (evita 401 no client Appwrite); fallback direto em dev. */
 export async function getLeadEvents(leadId, academyId, opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
+
+  try {
+    return await fetchLeadEventsFromApi(leadId, academyId, limit);
+  } catch (err) {
+    console.warn('[leadEvents] API indisponível, tentando Appwrite direto:', err?.message);
+  }
+
   if (!LEAD_EVENTS_COL) {
     return { documents: [], total: 0 };
   }
-  const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
   const res = await databases.listDocuments(DB_ID, LEAD_EVENTS_COL, [
     Query.equal('lead_id', String(leadId || '').trim()),
     Query.equal('academy_id', String(academyId || '').trim()),
     Query.orderDesc('at'),
-    Query.limit(limit)
+    Query.limit(limit),
   ]);
   return res;
 }

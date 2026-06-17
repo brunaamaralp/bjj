@@ -1871,32 +1871,37 @@ const Pipeline = () => {
         const patch = buildSchedulePatch(lead, { date: ymd, time });
         const textBody = String(note || '').trim() || `${terms.trial} agendada`;
         try {
-            await addLeadEvent({
-                academyId,
-                leadId: lead.id,
-                type: 'schedule',
-                to: ymd,
-                text: textBody,
-                createdBy: userId || 'user',
-                permissionContext: permCtx,
-                payloadJson: { date: ymd, time },
-            });
-            await updateLead(lead.id, patch);
-        } catch {
-            await updateLead(lead.id, patch);
+            try {
+                await addLeadEvent({
+                    academyId,
+                    leadId: lead.id,
+                    type: 'schedule',
+                    to: ymd,
+                    text: textBody,
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                    payloadJson: { date: ymd, time },
+                });
+                await updateLead(lead.id, patch, { fallbackLead: lead });
+            } catch {
+                await updateLead(lead.id, patch, { fallbackLead: lead });
+            }
+            const autoResult = await safeAutomationDispatch(
+                afterExperimentalScheduled({
+                    lead: { ...lead, ...patch },
+                    ymd,
+                    time,
+                    ...automationCtxBase(),
+                    getLead: () => getLeadById(lead.id) || { ...lead, ...patch },
+                }),
+                'schedule_confirm'
+            );
+            reportAutomations(autoResult);
+            toast.success(`Reagendado para ${ymd} ${time}`);
+        } catch (e) {
+            toast.error(e, 'save');
+            throw e;
         }
-        const autoResult = await safeAutomationDispatch(
-            afterExperimentalScheduled({
-                lead: { ...lead, ...patch },
-                ymd,
-                time,
-                ...automationCtxBase(),
-                getLead: () => getLeadById(lead.id) || { ...lead, ...patch },
-            }),
-            'schedule_confirm'
-        );
-        reportAutomations(autoResult);
-        toast.success(`Reagendado para ${ymd} ${time}`);
     };
 
     const onConfirmSchedulePipeline = async ({ date, time, note }) => {

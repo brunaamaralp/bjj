@@ -52,6 +52,19 @@ function writeWaConnectionCache(academyId, academyWaStatus, waInfo) {
   });
 }
 
+export function invalidateWaConnectionCache(academyId) {
+  const id = String(academyId || '').trim();
+  if (!id) return;
+  waConnectionCache.delete(id);
+}
+
+function isWaCacheConnected(entry) {
+  const st = String(entry?.academyWaStatus || entry?.waInfo?.status || '')
+    .trim()
+    .toLowerCase();
+  return st === 'connected' || st === 'online';
+}
+
 function safeParseJson(raw) {
   try {
     return JSON.parse(raw);
@@ -85,7 +98,14 @@ function normalizeApiError(raw, fallback) {
   return friendlyError({ message: s }, 'action');
 }
 
-const WA_TRANSIENT_STATUSES = new Set(['connecting', 'syncing', 'unknown']);
+const WA_TRANSIENT_STATUSES = new Set([
+  'connecting',
+  'syncing',
+  'unknown',
+  'open',
+  'qrcode',
+  'scanning',
+]);
 
 function resolveWaStatus(academyZapsterStatus, apiStatus, instanceId) {
   const docSt = String(academyZapsterStatus || '').trim().toLowerCase();
@@ -180,7 +200,8 @@ async function shouldOverrideConnectedStatusAfterQrProbe(academyId, jwt, instanc
   if (blocked || !res) return false;
 
   if (res.ok) {
-    const ct = String(res.headers.get('content-type') || '');
+    const ct =
+      typeof res.headers?.get === 'function' ? String(res.headers.get('content-type') || '') : '';
     // Backend retorna 200 + JSON { codigo: 'INSTANCE_CONNECTED' } quando a instância já está conectada.
     // Isso significa QR indisponível (instância conectada) — não forçar override do status.
     if (ct.includes('application/json')) {
@@ -252,6 +273,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const waInfoRef = useRef({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
   const hookMountedRef = useRef(true);
   const deferredTimersRef = useRef([]);
+  const fetchWaPendingRef = useRef(null);
 
   useEffect(() => {
     onRegisterWebhooksResultRef.current = options?.onRegisterWebhooksResult;
@@ -377,10 +399,14 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       });
     }
     if (!aid) return;
-    if (isFetchingWaInfoRef.current) return;
+    if (isFetchingWaInfoRef.current) {
+      fetchWaPendingRef.current = { silent, quiet };
+      return;
+    }
     isFetchingWaInfoRef.current = true;
     if (!silent) setConnectionError('');
     if (!quiet) setWaLoading(true);
+    let fetchConfirmed = false;
     try {
       const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
@@ -518,6 +544,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         resolvedWaStatus,
         cachedWaInfo
       );
+      fetchConfirmed = true;
+      if (hookMountedRef.current) setWaStatusChecked(true);
     } catch (e) {
       if (debugOn) {
         console.error('[WA Debug] fetchWaInfo exception', e);
@@ -530,11 +558,18 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       ) {
         setWaTokenMissing(true);
       }
-      if (!silent) setConnectionError(friendlyError({ message: msg }, 'action'));
+      if (!silent) {
+        setConnectionError(friendlyError({ message: msg }, 'action'));
+        if (hookMountedRef.current) setWaStatusChecked(true);
+      }
     } finally {
       isFetchingWaInfoRef.current = false;
       if (!quiet) setWaLoading(false);
-      if (hookMountedRef.current) setWaStatusChecked(true);
+      const pending = fetchWaPendingRef.current;
+      fetchWaPendingRef.current = null;
+      if (pending && hookMountedRef.current) {
+        void fetchWaInfo(pending);
+      }
     }
   }, [resetWaToNoInstanceSilently, registerWebhooks]);
 
@@ -1134,8 +1169,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     if (cached) {
       setAcademyWaStatus(cached.academyWaStatus);
       setWaInfo(cached.waInfo);
-      setWaStatusChecked(true);
-      if (!options?.deferInitialFetch) {
+      setWaStatusChecked(isWaCacheConnected(cached));
+      const shouldRefresh = !isWaCacheConnected(cached) || !options?.deferInitialFetch;
+      if (shouldRefresh) {
         void fetchWaInfo({ silent: true, quiet: true });
       }
       return;
@@ -1165,6 +1201,15 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       // Reconexão: reflete na UI na hora. Desconexão: confirma via API (evita banner falso em flap transitório).
       if (st === 'connected' || st === 'online') {
         setAcademyWaStatus('connected');
+        setWaInfo((prev) => {
+          const next = {
+            ...prev,
+            status: 'connected',
+          };
+          writeWaConnectionCache(academyIdRef.current, 'connected', next);
+          return next;
+        });
+        if (hookMountedRef.current) setWaStatusChecked(true);
       }
       void fetchWaInfo({ silent: true, quiet: true });
     };

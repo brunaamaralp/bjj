@@ -5,7 +5,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { isLeadPendingTriage } from '../../lib/leadTriage.js';
 import { buildPipelineStageLeadCounts } from '../../lib/leadStageRules.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
-import { invalidateAcademyDocumentCache } from '../../lib/getAcademyDocument.js';
+import { invalidateAcademyDocumentCache, getAcademyDocument } from '../../lib/getAcademyDocument.js';
 import {
   buildAcademyStagesConfigSavePayload,
   readStagesConfigRawFromAcademyDoc,
@@ -52,7 +52,7 @@ export default function PipelineStagesSection({
   const loadStages = useCallback(async () => {
     if (!academyId) return;
     try {
-      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const doc = await getAcademyDocument(academyId);
       setStages(
         normalizePipelineStagesFromDoc(readStagesConfigRawFromAcademyDoc(doc), { vertical, terms })
       );
@@ -72,7 +72,7 @@ export default function PipelineStagesSection({
     setSaving(true);
     try {
       const cleaned = cleanStagesForSave(stages);
-      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const doc = await getAcademyDocument(academyId);
       await databases.updateDocument(
         DB_ID,
         ACADEMIES_COL,

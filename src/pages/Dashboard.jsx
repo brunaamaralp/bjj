@@ -20,6 +20,7 @@ import {
     CheckCircle2,
     DoorOpen,
     Loader2,
+    Users,
     CheckSquare,
 } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
@@ -84,6 +85,7 @@ import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { useDashboardLeadAgenda } from '../hooks/useDashboardLeadAgenda.js';
 import { useDashboardFollowupLeads } from '../hooks/useDashboardFollowupLeads.js';
+import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEnrollmentMetrics.js';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import {
@@ -108,6 +110,18 @@ function buildTodayKpiFootnote(count) {
     return count > 0
         ? { footnote: 'Ver agenda da semana', footnoteTone: 'neutral' }
         : { footnote: 'Nenhuma agendada', footnoteTone: 'neutral' };
+}
+
+function buildEnrollmentKpiFootnote(metrics) {
+    if (metrics.sub) {
+        return {
+            footnote: metrics.sub,
+            footnoteTone: metrics.subTone === 'positive' ? 'positive' : 'neutral',
+        };
+    }
+    return metrics.enrolledInMonth > 0
+        ? { footnote: 'Neste mês civil', footnoteTone: 'neutral' }
+        : { footnote: 'Nenhuma neste mês', footnoteTone: 'neutral' };
 }
 
 function buildTasksKpiFootnote(count) {
@@ -524,6 +538,10 @@ const Dashboard = () => {
             navigate('/tarefas?status=pendentes&period=today');
             return;
         }
+        if (cardKey === 'enrollments') {
+            navigate('/reports?tab=funil');
+            return;
+        }
         if (cardKey === 'today') {
             if (dashboardWeekOffset !== 0) {
                 setDashboardWeekOffset(0);
@@ -570,6 +588,8 @@ const Dashboard = () => {
     }, [dashWaName, academyWa.name, academyList, academyId]);
 
     const weeklyEnrollmentsCount = useMemo(() => countWeeklyEnrollments(students), [students]);
+
+    const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
 
     const dayPriority = useMemo(
         () =>
@@ -624,6 +644,7 @@ const Dashboard = () => {
 
     const heroStats = useMemo(() => {
         const todayFootnote = buildTodayKpiFootnote(todayScheduled.length);
+        const enrollmentFootnote = buildEnrollmentKpiFootnote(monthEnrollmentMetrics);
         const tasksFootnote = buildTasksKpiFootnote(pendingTasksToday.length);
 
         return [
@@ -636,15 +657,28 @@ const Dashboard = () => {
                 ...todayFootnote,
             },
             {
+                key: 'enrollments',
+                label: 'Matrículas no mês',
+                count: monthEnrollmentMetrics.enrolledInMonth,
+                tone: monthEnrollmentMetrics.enrolledInMonth > 0 ? 'success' : 'muted',
+                icon: <Users {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...enrollmentFootnote,
+            },
+            {
                 key: 'tasks',
-                label: 'Tarefas hoje',
+                label: 'Tarefas',
                 count: pendingTasksToday.length,
                 tone: pendingTasksToday.length > 0 ? 'attention' : 'muted',
                 icon: <CheckSquare {...HERO_KPI_ICON_PROPS} aria-hidden />,
                 ...tasksFootnote,
             },
         ];
-    }, [trialSeriesPlural, todayScheduled.length, pendingTasksToday.length]);
+    }, [
+        trialSeriesPlural,
+        todayScheduled.length,
+        monthEnrollmentMetrics,
+        pendingTasksToday.length,
+    ]);
 
     const modalListItems =
         listModalType === 'today'
@@ -1163,7 +1197,7 @@ const Dashboard = () => {
                 <div className="dashboard-day-hero__metrics" aria-label="Indicadores do dia">
                     <div className="dashboard-day-hero__stats" role="list">
                         {loading ? (
-                            <SkeletonCard variant="hero-kpi" count={2} className="dashboard-day-hero__skeletons" />
+                            <SkeletonCard variant="hero-kpi" count={3} className="dashboard-day-hero__skeletons" />
                         ) : (
                             heroStats.map((stat) => (
                                 <div key={stat.key} role="listitem" className="dashboard-day-hero__stat-cell">

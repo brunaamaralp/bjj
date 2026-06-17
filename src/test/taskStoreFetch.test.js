@@ -129,6 +129,21 @@ describe('fetchTasks serialização', () => {
 
     expect(useTaskStore.getState().error).toBeTruthy();
   });
+
+  it('mapeia api_proxy_unavailable para mensagem de dev', async () => {
+    fetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ sucesso: false, erro: 'api_proxy_unavailable' }),
+    });
+
+    await useTaskStore.getState().fetchTasks('acad-a', {
+      filters: serverTaskFilters({ status: 'all' }),
+    });
+
+    expect(useTaskStore.getState().error).toMatch(/vercel dev/i);
+  });
 });
 
 describe('notificationTasks slice', () => {

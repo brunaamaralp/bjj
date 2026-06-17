@@ -189,6 +189,15 @@ export default function Inbox() {
   useEffect(() => {
     fetchWaInfoDeferredRef.current = fetchWaInfoDeferred;
   }, [fetchWaInfoDeferred]);
+
+  useEffect(() => {
+    if (!academyId) return;
+    const timer = window.setTimeout(() => {
+      const waFn = fetchWaInfoDeferredRef.current;
+      if (typeof waFn === 'function') void waFn();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [academyId]);
   const terms = useTerms();
   const labels = useLeadStore((s) => s.labels);
   const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
