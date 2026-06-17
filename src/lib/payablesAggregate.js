@@ -310,13 +310,22 @@ export function filterPayablesForSection(section, items = []) {
   return items;
 }
 
-export function buildPayablesSnapshot({
+export function filterPayablesSearch(items = [], search = '') {
+  const q = String(search || '').trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((it) => {
+    const hay = `${it.vendor_label || ''} ${it.category || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+/** Blocos completos (pendentes, templates, projeções) para filtrar seção no cliente. */
+export function buildPayablesCatalog({
   pendingTransactions = [],
   recurrenceTemplates = [],
   fromYmd,
   toYmd,
   today,
-  section = 'visao',
 }) {
   const todayYmd = String(today || todayYmdLocal()).slice(0, 10);
   const from = String(fromYmd || todayYmd).slice(0, 10);
@@ -335,17 +344,41 @@ export function buildPayablesSnapshot({
     { today: todayYmd }
   );
 
-  let items;
-  if (section === 'contas-fixas') {
-    items = mergePayableItems(pending, templates);
-  } else if (section === 'vencidas') {
-    items = mergePayableItems(pending).filter((it) => it.status === 'overdue');
-  } else {
-    items = mergePayableItems(pending, projected.slice(0, 24));
-  }
-
   const summarySource = buildPayablesSummaryItems(pending, templates, projected);
   const summary = summarizePayables(summarySource, { today: todayYmd });
 
-  return { items, summary, from, to, section };
+  return { pending, templates, projected, summary, from, to };
+}
+
+export function selectPayablesItems(catalog, section = 'visao') {
+  const s = String(section || '').trim().toLowerCase();
+  const pending = catalog?.pending || [];
+  const templates = catalog?.templates || [];
+  const projected = catalog?.projected || [];
+  if (s === 'contas-fixas') {
+    return mergePayableItems(pending, templates);
+  }
+  if (s === 'vencidas') {
+    return mergePayableItems(pending).filter((it) => it.status === 'overdue');
+  }
+  return mergePayableItems(pending, projected.slice(0, 24));
+}
+
+export function buildPayablesSnapshot({
+  pendingTransactions = [],
+  recurrenceTemplates = [],
+  fromYmd,
+  toYmd,
+  today,
+  section = 'visao',
+}) {
+  const catalog = buildPayablesCatalog({
+    pendingTransactions,
+    recurrenceTemplates,
+    fromYmd,
+    toYmd,
+    today,
+  });
+  const items = selectPayablesItems(catalog, section);
+  return { items, summary: catalog.summary, from: catalog.from, to: catalog.to, section };
 }

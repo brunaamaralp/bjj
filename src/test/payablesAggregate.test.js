@@ -4,6 +4,8 @@ import {
   buildProjectedPayableItems,
   buildTemplatePayableItems,
   buildPayablesSummaryItems,
+  buildPayablesCatalog,
+  selectPayablesItems,
   classifyPayableStatus,
   mergePayableItems,
   PAYABLE_SOURCE,
@@ -155,5 +157,50 @@ describe('payablesAggregate', () => {
     expect(juneRows).toHaveLength(1);
     const summary = summarizePayables(summaryItems, { today: '2026-06-01' });
     expect(summary.totalOpen).toBe(1350);
+  });
+
+  it('selectPayablesItems picks section-specific rows from catalog', () => {
+    const catalog = buildPayablesCatalog({
+      pendingTransactions: [
+        {
+          id: 'p-over',
+          status: 'pending',
+          direction: 'out',
+          gross: 100,
+          due_date: '2026-05-01',
+          planName: 'Vencida',
+        },
+        {
+          id: 'p-open',
+          status: 'pending',
+          direction: 'out',
+          gross: 50,
+          due_date: '2026-07-01',
+          planName: 'Futura',
+        },
+      ],
+      recurrenceTemplates: [
+        {
+          id: 'tpl-1',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 200,
+          planName: 'CPFL',
+        },
+      ],
+      fromYmd: '2026-06-01',
+      toYmd: '2026-06-30',
+      today: '2026-06-16',
+    });
+
+    const vencidas = selectPayablesItems(catalog, 'vencidas');
+    expect(vencidas).toHaveLength(1);
+    expect(vencidas[0].vendor_label).toBe('Vencida');
+
+    const fixas = selectPayablesItems(catalog, 'contas-fixas');
+    expect(fixas.some((it) => it.source === PAYABLE_SOURCE.TEMPLATE)).toBe(true);
+    expect(fixas.some((it) => it.vendor_label === 'Vencida')).toBe(true);
   });
 });

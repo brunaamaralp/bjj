@@ -58,13 +58,15 @@ describe('payablesHandler', () => {
     expect(res.body.error).toBe('forbidden');
   });
 
-  it('returns payables payload', async () => {
+  it('returns payables payload with catalog', async () => {
     const res = mockRes();
     await payablesHandler({ method: 'GET', query: { route: 'payables', section: 'visao' } }, res);
     expect(res.statusCode).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.summary).toBeDefined();
     expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.catalog).toBeDefined();
+    expect(Array.isArray(res.body.catalog.pending)).toBe(true);
   });
 
   it('filters vencidas section', async () => {

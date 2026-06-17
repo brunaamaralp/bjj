@@ -127,13 +127,14 @@ export async function fetchReceivables({ academyId, month }) {
   return body;
 }
 
-export async function fetchPayables({ academyId, from, to, section, search, category }) {
+export async function fetchPayables({ academyId, from, to, section, search, category, refresh = false }) {
   const params = new URLSearchParams({ route: 'payables' });
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   if (section) params.set('section', section);
   if (search) params.set('search', search);
   if (category) params.set('category', category);
+  if (refresh) params.set('refresh', '1');
   const res = await authedFetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),
   });

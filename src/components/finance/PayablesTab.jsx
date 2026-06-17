@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
 import { fetchPayables, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
-import { PAYABLE_SOURCE } from '../../lib/payablesAggregate.js';
+import { PAYABLE_SOURCE, selectPayablesItems, filterPayablesSearch } from '../../lib/payablesAggregate.js';
 import {
   PAYABLES_SECTIONS,
   PAYABLES_SECTION_LABELS,
@@ -206,8 +206,7 @@ export default function PayablesTab({
         academyId,
         from: range.from,
         to: range.to,
-        section: resolvedSection,
-        search: debouncedSearch.trim() || undefined,
+        refresh: refreshToken > 0,
       });
       setData(body);
       onPayablesSummaryChange?.(Number(body?.summary?.overdueCount) || 0);
@@ -220,11 +219,11 @@ export default function PayablesTab({
       setLoading(false);
       setLoadedOnce(true);
     }
-  }, [academyId, range.from, range.to, resolvedSection, debouncedSearch, onPayablesSummaryChange]);
+  }, [academyId, range.from, range.to, refreshToken, onPayablesSummaryChange]);
 
   useEffect(() => {
     void load();
-  }, [load, refreshToken]);
+  }, [load]);
 
   useEffect(() => {
     const bump = () => setRefreshToken((t) => t + 1);
@@ -236,18 +235,6 @@ export default function PayablesTab({
     };
   }, []);
 
-  useEffect(() => {
-    if (!highlightTxId || !data?.items?.length) return;
-    const hit = data.items.find((it) => it.tx_id === highlightTxId);
-    if (hit && hit.source === PAYABLE_SOURCE.LANCAMENTO) {
-      setSettleItem(hit);
-      setSettleGross(String(hit.amount || ''));
-      setSettleAccount('');
-      setSettleMethod('pix');
-      setSettleError('');
-    }
-  }, [highlightTxId, data?.items]);
-
   const summary = data?.summary || {
     totalOpen: 0,
     overdueCount: 0,
@@ -257,7 +244,25 @@ export default function PayablesTab({
     activeTemplates: 0,
   };
 
-  const items = data?.items || [];
+  const items = useMemo(() => {
+    const catalog = data?.catalog;
+    const base = catalog
+      ? selectPayablesItems(catalog, resolvedSection)
+      : data?.items || [];
+    return filterPayablesSearch(base, debouncedSearch);
+  }, [data?.catalog, data?.items, resolvedSection, debouncedSearch]);
+
+  useEffect(() => {
+    if (!highlightTxId || !items.length) return;
+    const hit = items.find((it) => it.tx_id === highlightTxId);
+    if (hit && hit.source === PAYABLE_SOURCE.LANCAMENTO) {
+      setSettleItem(hit);
+      setSettleGross(String(hit.amount || ''));
+      setSettleAccount('');
+      setSettleMethod('pix');
+      setSettleError('');
+    }
+  }, [highlightTxId, items]);
 
   const sectionTabs = useMemo(() => {
     const withAmount = (label, amount) => `${label} · ${fmtCompactMoney(amount)}`;
