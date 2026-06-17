@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { CreditCard, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import ModalShell from '../../shared/ModalShell.jsx';
 import EmptyState from '../../shared/EmptyState.jsx';
 import { DateInputField } from '../../DateInput';
 import { maskCurrency } from '../../../lib/masks.js';
 import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js';
-import { listBankAccountLabels, isUsableBankAccount, normalizeBankAccountEntry } from '../../../lib/bankAccounts.js';
+import {
+  listBankAccountLabels,
+  isUsableBankAccount,
+  normalizeBankAccountEntry,
+  hasCustomAcquirerFees,
+  usesDefaultAcquirerFees,
+} from '../../../lib/bankAccounts.js';
+import { defaultAcquirerFees, normalizeAcquirerFees } from '../../../lib/acquirerFees.js';
+import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
 import FieldError from '../../shared/FieldError.jsx';
 import { readDefaultAccountByMethod } from '../../../lib/paymentMethodBankDefaults.js';
+import FinanceSettingsAcquirerFeesFields from './FinanceSettingsAcquirerFeesFields.jsx';
 
 const EMPTY_BANK = {
   bankName: '',
@@ -18,6 +27,8 @@ const EMPTY_BANK = {
   pixKey: '',
   openingBalance: '',
   openingBalanceDate: '',
+  useDefaultAcquirerFees: true,
+  acquirerFees: defaultAcquirerFees(),
 };
 
 function bankCardLabel(acc) {
@@ -46,18 +57,25 @@ export default function FinanceSettingsBanksSection({
   const [editIdx, setEditIdx] = useState(null);
   const [draft, setDraft] = useState(EMPTY_BANK);
   const [draftError, setDraftError] = useState('');
+  const [feesPanelOpen, setFeesPanelOpen] = useState(true);
   const accounts = financeConfig.bankAccounts || [];
   const accountLabels = listBankAccountLabels(financeConfig);
   const defaultByMethod = readDefaultAccountByMethod(financeConfig);
+  const usesDefaultFees = usesDefaultAcquirerFees(draft);
 
   const openEdit = (idx) => {
     setEditIdx(idx);
     setDraftError('');
+    setFeesPanelOpen(true);
     const acc = accounts[idx] || {};
     const ob = Number(acc.openingBalance);
     setDraft({
       ...EMPTY_BANK,
       ...acc,
+      useDefaultAcquirerFees: acc.useDefaultAcquirerFees !== false,
+      acquirerFees: normalizeAcquirerFees(
+        acc.useDefaultAcquirerFees === false ? acc.acquirerFees : financeConfig?.acquirerFees || defaultAcquirerFees()
+      ),
       openingBalance:
         Number.isFinite(ob) && ob > 0
           ? maskCurrency(String(Math.round(ob * 100)))
@@ -69,8 +87,12 @@ export default function FinanceSettingsBanksSection({
 
   const openNew = () => {
     setEditIdx('new');
-    setDraft({ ...EMPTY_BANK });
+    setDraft({
+      ...EMPTY_BANK,
+      acquirerFees: normalizeAcquirerFees(financeConfig?.acquirerFees || defaultAcquirerFees()),
+    });
     setDraftError('');
+    setFeesPanelOpen(false);
   };
 
   const closeModal = () => {
@@ -95,11 +117,25 @@ export default function FinanceSettingsBanksSection({
     setDraft((d) => ({ ...d, ...patch }));
   };
 
+  const toggleDefaultFees = (useDefault) => {
+    patchDraft({
+      useDefaultAcquirerFees: useDefault,
+      ...(useDefault
+        ? {}
+        : {
+            acquirerFees: normalizeAcquirerFees(
+              draft.acquirerFees || financeConfig?.acquirerFees || defaultAcquirerFees()
+            ),
+          }),
+    });
+    if (!useDefault) setFeesPanelOpen(true);
+  };
+
   return (
     <div id="contas" className="finance-settings-section-body">
       <p className="text-small text-muted">
-        Dados exibidos em comprovantes e no cálculo de saldo do Caixa (saldo inicial + movimentações liquidadas).
-        Defina abaixo a conta padrão para cada forma de pagamento.
+        Dados exibidos em comprovantes e no cálculo de saldo do Caixa (saldo inicial + movimentações
+        liquidadas). Se usar mais de uma maquininha, configure as taxas em cada conta.
       </p>
 
       {accounts.length === 0 ? (
@@ -113,7 +149,12 @@ export default function FinanceSettingsBanksSection({
           {accounts.map((acc, idx) => (
             <div key={`bank-${idx}`} className="finance-settings-bank-card card">
               <button type="button" className="finance-settings-bank-card__main" onClick={() => openEdit(idx)}>
-                <span className="finance-settings-bank-card__title">{bankCardLabel(acc)}</span>
+                <span className="finance-settings-bank-card__title-row">
+                  <span className="finance-settings-bank-card__title">{bankCardLabel(acc)}</span>
+                  {hasCustomAcquirerFees(acc) ? (
+                    <span className="finance-settings-bank-card__badge">Taxas próprias</span>
+                  ) : null}
+                </span>
                 <span className="finance-settings-bank-card__sub text-small text-muted">{bankCardSub(acc)}</span>
               </button>
               <div className="finance-settings-bank-card__actions">
@@ -186,7 +227,7 @@ export default function FinanceSettingsBanksSection({
         open={editIdx != null}
         title={editIdx === 'new' ? 'Nova conta' : 'Editar conta'}
         onClose={closeModal}
-        maxWidth={480}
+        maxWidth={560}
         footer={
           <div className="flex gap-2 justify-end">
             <button type="button" className="btn-outline" onClick={closeModal}>
@@ -204,48 +245,54 @@ export default function FinanceSettingsBanksSection({
             Preencha o banco com número da conta, ou informe uma chave PIX.
           </p>
           <div className="form-group">
-            <label>Banco</label>
+            <label htmlFor="bank-draft-name">Banco</label>
             <input
+              id="bank-draft-name"
               className="form-input"
               value={draft.bankName || ''}
               onChange={(e) => patchDraft({ bankName: e.target.value })}
             />
           </div>
           <div className="form-group">
-            <label>Agência</label>
+            <label htmlFor="bank-draft-branch">Agência</label>
             <input
+              id="bank-draft-branch"
               className="form-input"
               value={draft.branch || ''}
               onChange={(e) => patchDraft({ branch: e.target.value })}
             />
           </div>
           <div className="form-group">
-            <label>Conta</label>
+            <label htmlFor="bank-draft-account">Conta</label>
             <input
+              id="bank-draft-account"
               className="form-input"
               value={draft.account || ''}
               onChange={(e) => patchDraft({ account: e.target.value })}
             />
           </div>
           <div className="form-group">
-            <label>Titular</label>
+            <label htmlFor="bank-draft-holder">Titular</label>
             <input
+              id="bank-draft-holder"
               className="form-input"
               value={draft.accountName || ''}
               onChange={(e) => patchDraft({ accountName: e.target.value })}
             />
           </div>
           <div className="form-group">
-            <label>Chave PIX</label>
+            <label htmlFor="bank-draft-pix">Chave PIX</label>
             <input
+              id="bank-draft-pix"
               className="form-input"
               value={draft.pixKey || ''}
               onChange={(e) => patchDraft({ pixKey: e.target.value })}
             />
           </div>
           <div className="form-group">
-            <label>Saldo inicial (R$)</label>
+            <label htmlFor="bank-draft-opening">Saldo inicial (R$)</label>
             <input
+              id="bank-draft-opening"
               className="form-input"
               type="text"
               inputMode="numeric"
@@ -267,8 +314,9 @@ export default function FinanceSettingsBanksSection({
             />
           </div>
           <div className="form-group">
-            <label>Válido a partir de</label>
+            <label htmlFor="bank-draft-opening-date">Válido a partir de</label>
             <DateInputField
+              id="bank-draft-opening-date"
               className="form-input"
               type="date"
               value={draft.openingBalanceDate || ''}
@@ -278,6 +326,63 @@ export default function FinanceSettingsBanksSection({
             <p className="text-small text-muted" style={{ marginTop: 6 }}>
               Se vazio, o saldo inicial vale para todo o histórico no Caixa.
             </p>
+          </div>
+
+          <div className="finance-bank-fees-panel card">
+            <button
+              type="button"
+              className="finance-bank-fees-panel__header"
+              aria-expanded={feesPanelOpen}
+              onClick={() => setFeesPanelOpen((v) => !v)}
+            >
+              <span className="finance-bank-fees-panel__icon" aria-hidden>
+                <CreditCard size={18} />
+              </span>
+              <span className="finance-bank-fees-panel__titles">
+                <span className="finance-bank-fees-panel__title">Taxas desta conta / maquininha</span>
+                <span className="text-small text-muted finance-bank-fees-panel__lead">
+                  {FINANCE_TERM_HINTS.maquininhaPorConta}
+                </span>
+              </span>
+              {feesPanelOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
+
+            {feesPanelOpen ? (
+              <div className="finance-bank-fees-panel__body">
+                <label className="finance-bank-fees-toggle">
+                  <input
+                    type="checkbox"
+                    className="finance-bank-fees-toggle__input"
+                    checked={usesDefaultFees}
+                    onChange={(e) => toggleDefaultFees(e.target.checked)}
+                  />
+                  <span className="finance-bank-fees-toggle__track" aria-hidden />
+                  <span className="finance-bank-fees-toggle__label">Usar as taxas padrão da academia</span>
+                </label>
+
+                {!usesDefaultFees ? (
+                  <FinanceSettingsAcquirerFeesFields
+                    fees={draft.acquirerFees}
+                    onChange={(updater) =>
+                      patchDraft({
+                        acquirerFees: updater(
+                          normalizeAcquirerFees(draft.acquirerFees || defaultAcquirerFees())
+                        ),
+                      })
+                    }
+                    idPrefix="bank-draft-acquirer"
+                    showSummary
+                    showAnticipation
+                    compact
+                  />
+                ) : (
+                  <p className="text-small text-muted finance-bank-fees-panel__default-note">
+                    As taxas configuradas em Minha Academia → Taxas serão usadas para pagamentos nesta
+                    conta.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </ModalShell>

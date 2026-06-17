@@ -5,7 +5,7 @@ import { parseYmd, formatYmd } from './financeForecastCore.js';
 import { forecastPaymentDueYmd } from './financeForecastInflows.js';
 import { openMensalidadeAmount } from './receivablesAggregate.js';
 import { usesInstallmentCardFee, canonicalPaymentMethodKey } from './paymentMethods.js';
-import { forecastInflowAmounts } from './acquirerFees.js';
+import { forecastInflowAmounts } from './resolveAcquirerFees.js';
 
 function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -182,7 +182,14 @@ export function buildForecastInstallmentItems({
       const amounts =
         Number.isFinite(Number(inst.net)) && Number(inst.net) > 0 && inst.gross != null
           ? { amount: roundMoney(inst.net), amount_gross: grossClient }
-          : forecastInflowAmounts(grossClient, method, installments, financeConfig);
+          : forecastInflowAmounts(
+              grossClient,
+              method,
+              installments,
+              financeConfig,
+              undefined,
+              String(p.account || '').trim()
+            );
       const amt = roundMoney(amounts.amount);
       if (amt < 0.01) continue;
       const kind = customerSchedule.length ? 'parcela' : 'liquidacao';
@@ -217,7 +224,14 @@ export function buildForecastInstallmentItems({
       const amounts =
         Number.isFinite(Number(inst.net)) && Number(inst.net) > 0 && inst.gross != null
           ? { amount: roundMoney(inst.net), amount_gross: grossClient }
-          : forecastInflowAmounts(grossClient, method, installments, financeConfig);
+          : forecastInflowAmounts(
+              grossClient,
+              method,
+              installments,
+              financeConfig,
+              undefined,
+              String(sale.bank_account || sale.conta_bancaria || '').trim()
+            );
       const amt = roundMoney(amounts.amount);
       if (amt < 0.01) continue;
       items.push({

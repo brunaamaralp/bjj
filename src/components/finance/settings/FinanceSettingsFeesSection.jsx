@@ -14,7 +14,7 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
     <div className="finance-settings-section-body">
       <p className="finance-settings-lead">
         Repasse ao aluno: percentuais acrescidos ao valor da mensalidade quando o plano repassa taxas
-        de pagamento. Não confunda com a taxa (MDR) que a operadora desconta no extrato bancário.
+        de pagamento. Não confunda com a taxa da maquininha no extrato bancário.
         Apenas o campo percentual (%) é aplicado — taxa fixa em reais não entra no cálculo.
       </p>
 

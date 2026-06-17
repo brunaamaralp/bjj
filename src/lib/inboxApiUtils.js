@@ -1,28 +1,16 @@
-import { account } from './appwrite';
+import { clearSessionJwtCache, createSessionJwt } from './appwrite';
 import { friendlyError } from './errorMessages.js';
 
-const JWT_CACHE_TTL_MS = 45_000;
-
-/** @type {{ jwt: string, expiresAt: number } | null} */
-let jwtCache = null;
-
 export function clearInboxJwtCache() {
-  jwtCache = null;
+  clearSessionJwtCache();
 }
 
 /**
  * @param {{ forceRefresh?: boolean }} [opts]
  */
 export async function getInboxJwt(opts = {}) {
-  const forceRefresh = Boolean(opts?.forceRefresh);
-  const now = Date.now();
-  if (!forceRefresh && jwtCache && jwtCache.expiresAt > now) {
-    return jwtCache.jwt;
-  }
-  const jwt = await account.createJWT();
-  const token = String(jwt?.jwt || '').trim();
-  jwtCache = { jwt: token, expiresAt: now + JWT_CACHE_TTL_MS };
-  return token;
+  if (opts?.forceRefresh) clearSessionJwtCache();
+  return createSessionJwt();
 }
 
 export function safeParseInboxJson(raw) {

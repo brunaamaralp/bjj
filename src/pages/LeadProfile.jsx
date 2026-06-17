@@ -83,7 +83,7 @@ import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useCanEditProfile } from '../lib/profilePermissions.js';
-import { saveLeadProfileField } from '../lib/profileLeadFieldSave.js';
+import { friendlyError } from '../lib/errorMessages.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { FOLLOWUP_OUTCOMES } from '../lib/followupOutcomes.js';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
@@ -1177,20 +1177,34 @@ const LeadProfile = () => {
         setSaving(true);
         try {
             const digitsPhone = String(payload.phone || '').replace(/\D/g, '');
-            const { turmaSelect, turmaOther, customAnswers: rawCustomAnswers, ...rest } = payload;
+            const {
+                turmaSelect,
+                turmaOther,
+                customAnswers: rawCustomAnswers,
+                plan: _plan,
+                enrollmentDate: _enrollmentDate,
+                emergencyContact: _emergencyContact,
+                emergencyPhone: _emergencyPhone,
+                contact_type: _contactType,
+                ...rest
+            } = payload;
             const existingCustom =
                 lead.customAnswers && typeof lead.customAnswers === 'object' ? lead.customAnswers : {};
             const customAnswers = {
                 ...existingCustom,
                 ...buildCustomAnswersPatch(customQuestions, rawCustomAnswers),
             };
-            await updateLead(id, {
-                ...rest,
-                phone: digitsPhone,
-                turma: turmaValueFromForm(turmaSelect, turmaOther),
-                sexo: payload.sexo || '',
-                customAnswers,
-            });
+            await updateLead(
+                id,
+                {
+                    ...rest,
+                    phone: digitsPhone,
+                    turma: turmaValueFromForm(turmaSelect, turmaOther),
+                    sexo: payload.sexo || '',
+                    customAnswers,
+                },
+                { fallbackLead: lead }
+            );
             setEditing(false);
             setEditBaseline(null);
             setFormErrors({});
@@ -1214,8 +1228,13 @@ const LeadProfile = () => {
         }
         const hasDate = String(payload.scheduledDate || '').trim().length > 0;
         if (hasDate && lead.status !== LEAD_STATUS.CONVERTED) {
-            payload.status = LEAD_STATUS.SCHEDULED;
-            payload.pipelineStage = 'Aula experimental';
+            Object.assign(
+                payload,
+                buildSchedulePatch(lead, {
+                    date: payload.scheduledDate,
+                    time: payload.scheduledTime || '',
+                })
+            );
         }
         if (payload.status === LEAD_STATUS.CONVERTED) {
             payload.contact_type = 'student';
@@ -1239,17 +1258,21 @@ const LeadProfile = () => {
 
     const saveLeadFieldInline = useCallback(
         async (fieldKey, draftValue) => {
-            await saveLeadProfileField({
-                fieldKey,
-                draftValue,
-                lead,
-                leadId: id,
-                updateLead,
-                academyId,
-                actorUserId: userId || 'user',
-                permissionContext: permCtx,
-            });
-            await refreshTimeline();
+            try {
+                await saveLeadProfileField({
+                    fieldKey,
+                    draftValue,
+                    lead,
+                    leadId: id,
+                    updateLead,
+                    academyId,
+                    actorUserId: userId || 'user',
+                    permissionContext: permCtx,
+                });
+                await refreshTimeline();
+            } catch (e) {
+                throw new Error(friendlyError(e, 'save'));
+            }
         },
         [lead, id, updateLead, academyId, userId, permCtx, refreshTimeline]
     );

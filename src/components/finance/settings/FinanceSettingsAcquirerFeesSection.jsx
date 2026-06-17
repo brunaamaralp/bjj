@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
 import {
-  ACQUIRER_INSTALLMENT_COUNTS,
   acquirerFeesSummary,
   defaultAcquirerFees,
   normalizeAcquirerFees,
 } from '../../../lib/acquirerFees.js';
+import {
+  filterBankAccountsWithBank,
+  formatBankAccountLabel,
+  hasCustomAcquirerFees,
+} from '../../../lib/bankAccounts.js';
 import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
 import StatusBanner from '../../shared/StatusBanner.jsx';
+import FinanceSettingsAcquirerFeesFields from './FinanceSettingsAcquirerFeesFields.jsx';
 
 export default function FinanceSettingsAcquirerFeesSection({ financeConfig, setFinanceConfig }) {
-  const [installmentsExpanded, setInstallmentsExpanded] = useState(false);
   const acquirerFees = normalizeAcquirerFees(financeConfig?.acquirerFees || defaultAcquirerFees());
-  const parcelado = acquirerFees.credito_parcelado || {};
+  const customAccounts = filterBankAccountsWithBank(financeConfig?.bankAccounts).filter(
+    hasCustomAcquirerFees
+  );
 
   const patchAcquirer = (updater) => {
     setFinanceConfig((prev) => {
@@ -24,136 +29,51 @@ export default function FinanceSettingsAcquirerFeesSection({ financeConfig, setF
   return (
     <div className="finance-settings-section-body mt-4 finance-settings-acquirer">
       <hr className="finance-settings-section-divider" aria-hidden />
-      <h3 className="finance-settings-subtitle">Taxas da operadora (MDR)</h3>
+      <h3 className="finance-settings-subtitle">Taxas padrão da maquininha</h3>
       <p className="finance-settings-lead">
-        Custo que a maquininha ou adquirente desconta do valor transacionado. Usado no Caixa, na
-        previsão e nos relatórios como taxa financeira — diferente do repasse ao aluno acima.
+        Taxa da maquininha: percentual descontado do valor recebido antes de cair na conta. Estas são
+        as taxas padrão da academia, usadas quando a conta do pagamento não tiver taxas próprias. Não
+        confunda com o repasse ao aluno (acréscimo na mensalidade).
       </p>
 
       <StatusBanner variant="info" className="mb-3">
         {FINANCE_TERM_HINTS.previsaoMdrOpcional}
       </StatusBanner>
 
-      <div className="finance-settings-fees-summary card" role="status">
-        <span className="finance-settings-fees-summary__text">{acquirerFeesSummary(acquirerFees)}</span>
-      </div>
-
-      <div className="finance-settings-inset card">
-        <div className="form-group">
-          <label>PIX — MDR (%)</label>
-          <input
-            className="form-input"
-            type="number"
-            min={0}
-            step="0.01"
-            value={acquirerFees.pix?.percent ?? 0}
-            onChange={(e) =>
-              patchAcquirer((fees) => ({
-                ...fees,
-                pix: { percent: Number(e.target.value || 0), fixed: 0 },
-              }))
-            }
-          />
-        </div>
-        <div className="finance-settings-group__sep" aria-hidden />
-        <div className="form-group">
-          <label>Débito — MDR (%)</label>
-          <input
-            className="form-input"
-            type="number"
-            min={0}
-            step="0.01"
-            value={acquirerFees.debito?.percent ?? 0}
-            onChange={(e) =>
-              patchAcquirer((fees) => ({
-                ...fees,
-                debito: { percent: Number(e.target.value || 0), fixed: 0 },
-              }))
-            }
-          />
-        </div>
-        <div className="finance-settings-group__sep" aria-hidden />
-        <div className="form-group">
-          <label>Crédito à vista — MDR (%)</label>
-          <input
-            className="form-input"
-            type="number"
-            min={0}
-            step="0.01"
-            value={acquirerFees.credito_avista?.percent ?? 0}
-            onChange={(e) =>
-              patchAcquirer((fees) => ({
-                ...fees,
-                credito_avista: { percent: Number(e.target.value || 0), fixed: 0 },
-              }))
-            }
-          />
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="finance-installments-toggle"
-        aria-expanded={installmentsExpanded}
-        aria-controls="finance-acquirer-installments-grid"
-        onClick={() => setInstallmentsExpanded((v) => !v)}
-      >
-        <span className="ctx-label finance-installments-toggle__label">MDR parcelado</span>
-        <span className="text-small text-muted finance-installments-toggle__summary">
-          {ACQUIRER_INSTALLMENT_COUNTS.filter((n) => Number(parcelado[String(n)] || 0) > 0).length
-            ? `${ACQUIRER_INSTALLMENT_COUNTS.filter((n) => Number(parcelado[String(n)] || 0) > 0).length} faixa(s)`
-            : 'Opcional'}
-        </span>
-        {installmentsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </button>
-
-      {installmentsExpanded ? (
-        <div id="finance-acquirer-installments-grid" className="finance-installments-grid">
-          {ACQUIRER_INSTALLMENT_COUNTS.map((n) => (
-            <div key={n} className="finance-field-col">
-              <label>{n}x MDR (%)</label>
-              <input
-                className="form-input finance-compact-input"
-                type="number"
-                min={0}
-                step="0.01"
-                value={parcelado[String(n)] ?? 0}
-                onChange={(e) =>
-                  patchAcquirer((fees) => {
-                    const mp = { ...(fees.credito_parcelado || {}) };
-                    mp[String(n)] = Number(e.target.value || 0);
-                    return { ...fees, credito_parcelado: mp };
-                  })
-                }
-              />
-            </div>
-          ))}
+      {customAccounts.length > 0 ? (
+        <div className="finance-settings-account-fees-overview card" role="status">
+          <p className="finance-settings-account-fees-overview__title ctx-label">
+            Contas com taxas próprias
+          </p>
+          <ul className="finance-settings-account-fees-overview__list">
+            {customAccounts.map((acc) => {
+              const label = formatBankAccountLabel(acc);
+              return (
+                <li key={label} className="finance-settings-account-fees-overview__item">
+                  <span className="finance-settings-account-fees-overview__name">{label}</span>
+                  <span className="text-small text-muted">
+                    {acquirerFeesSummary(acc.acquirerFees)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-small text-muted finance-settings-account-fees-overview__hint">
+            Edite em Recebimento → conta → Taxas desta conta / maquininha.
+          </p>
         </div>
       ) : null}
 
-      <div className="form-group mt-3">
-        <label htmlFor="finance-acquirer-anticipation-pct">Antecipação — taxa (%)</label>
-        <input
-          id="finance-acquirer-anticipation-pct"
-          className="form-input"
-          type="number"
-          min={0}
-          step="0.01"
-          value={acquirerFees.antecipacao?.percent ?? 0}
-          onChange={(e) =>
-            patchAcquirer((fees) => ({
-              ...fees,
-              antecipacao: { percent: Number(e.target.value || 0), fixed: 0 },
-            }))
-          }
-        />
-        <p className="text-small text-muted">
-          Usada ao registrar antecipação de recebíveis no Caixa (desconto sobre o líquido).
-        </p>
-      </div>
+      <FinanceSettingsAcquirerFeesFields
+        fees={acquirerFees}
+        onChange={patchAcquirer}
+        idPrefix="finance-acquirer-global"
+        showSummary
+        showAnticipation
+      />
 
-      <div className="form-group mb-3">
-        <label htmlFor="finance-acquirer-fee-policy">Quem absorve o MDR?</label>
+      <div className="form-group mb-3 finance-acquirer-policy">
+        <label htmlFor="finance-acquirer-fee-policy">Quem paga a taxa da maquininha?</label>
         <select
           id="finance-acquirer-fee-policy"
           className="form-input"
@@ -165,14 +85,15 @@ export default function FinanceSettingsAcquirerFeesSection({ financeConfig, setF
             }))
           }
         >
-          <option value="absorb">Academia absorve (recomendado) — MDR sobre valor cobrado</option>
+          <option value="absorb">
+            A academia paga a taxa da maquininha (recomendado)
+          </option>
           <option value="pass_through">
-            Repasse no preço — MDR sobre base do plano (use com repasse ao aluno nos planos)
+            Já está no preço cobrado do aluno (use com repasse nos planos)
           </option>
         </select>
         <p className="text-small text-muted">
-          No modo absorver, o líquido no caixa é bruto menos MDR. O modo repasse no preço só faz
-          sentido quando o plano repassa taxas ao aluno.
+          Quando a academia paga, o líquido no Caixa é o valor bruto menos a taxa da maquininha.
         </p>
       </div>
     </div>

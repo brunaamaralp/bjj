@@ -271,6 +271,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const isCreatingRef = useRef(false);
   const isFetchingWaInfoRef = useRef(false);
   const waInfoRef = useRef({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
+  const academyWaStatusRef = useRef('');
   const hookMountedRef = useRef(true);
   const deferredTimersRef = useRef([]);
   const fetchWaPendingRef = useRef(null);
@@ -305,6 +306,10 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   useEffect(() => {
     waInfoRef.current = waInfo;
   }, [waInfo]);
+
+  useEffect(() => {
+    academyWaStatusRef.current = academyWaStatus;
+  }, [academyWaStatus]);
 
   /** Instância órfã (Zapster sem o id): limpa UI sem toast nem connectionError. */
   const resetWaToNoInstanceSilently = useCallback(() => {
@@ -459,7 +464,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         }
       }
 
-      if (incomingId && status === 'connected') {
+      if (incomingId && status === 'connected' && !waPhoneFromApi) {
         const stale = await shouldOverrideConnectedStatusAfterQrProbe(academyIdRef.current, jwt, incomingId);
         if (stale) {
           status = 'disconnected';
@@ -573,6 +578,70 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     }
   }, [resetWaToNoInstanceSilently, registerWebhooks]);
 
+  const syncConnectedUiState = useCallback((phoneRaw) => {
+    const instanceId = String(waInfoRef.current?.instance_id || '').trim();
+    if (!instanceId) return;
+    const next = {
+      instance_id: instanceId,
+      status: 'connected',
+      qrcode: null,
+      phone: waPhoneForStatus('connected', phoneRaw, waInfoRef.current?.phone),
+    };
+    setAcademyWaStatus('connected');
+    setWaInfo((prev) => (waInfoSnapshotEqual(prev, next) ? prev : next));
+    writeWaConnectionCache(academyIdRef.current, 'connected', next);
+    setWaStatusChecked(true);
+    setWaQrShown(false);
+    setWaQrError(false);
+    setWaQrLoadFailedOnce(false);
+    setWaTokenMissing(false);
+  }, []);
+
+  const readResolvedWaStatus = useCallback(
+    () =>
+      resolveWaStatus(
+        academyWaStatusRef.current,
+        waInfoRef.current?.status,
+        waInfoRef.current?.instance_id
+      ),
+    []
+  );
+
+  /** Após recover/already_linked: atualiza UI e abre QR se ainda não estiver conectado de fato. */
+  const applyRecoverLinkResult = useCallback(
+    async (recoverData) => {
+      const linkedId = String(recoverData?.instance_id || waInfoRef.current?.instance_id || '').trim();
+      if (linkedId && !waInfoRef.current?.instance_id) {
+        setWaInfo((prev) => ({ ...prev, instance_id: linkedId }));
+      }
+      invalidateWaConnectionCache(academyIdRef.current);
+      await fetchWaInfo({ silent: true, quiet: true });
+
+      const resolved = readResolvedWaStatus();
+      if (resolved === 'connected' || resolved === 'online') {
+        useUiStore.getState().addToast({ type: 'success', message: 'WhatsApp conectado!' });
+        return true;
+      }
+
+      const hasInstance = Boolean(String(waInfoRef.current?.instance_id || linkedId || '').trim());
+      if (!hasInstance) return false;
+
+      const recovered = Boolean(recoverData?.recovered);
+      useUiStore.getState().addToast({
+        type: 'success',
+        message: recovered
+          ? 'Vínculo recuperado. Exiba o QR code e escaneie no celular para concluir a conexão.'
+          : 'Instância encontrada. Exiba o QR code para concluir o pareamento.',
+      });
+      setWaQrShown(true);
+      setWaQrError(false);
+      setWaQrLoadFailedOnce(false);
+      setWaQrTick((v) => v + 1);
+      return true;
+    },
+    [fetchWaInfo, readResolvedWaStatus]
+  );
+
   const createWaInstance = useCallback(async () => {
     if (!academyIdRef.current) return;
     if (isCreatingRef.current) return;
@@ -592,12 +661,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         const recoverData = safeParseJson(recoverRaw) || {};
         if (recoverResp.ok && (recoverData.recovered || recoverData.already_linked)) {
           setWaPersistFailed(false);
-          await fetchWaInfo({ silent: true });
-          useUiStore.getState().addToast({
-            type: 'success',
-            message: recoverData.recovered ? 'Conexão do WhatsApp recuperada com sucesso!' : 'WhatsApp já estava vinculado.'
-          });
-          return;
+          const handled = await applyRecoverLinkResult(recoverData);
+          if (handled) return;
         }
       } catch {
         // Se recover falhar por rede/serviço, segue para tentativa de criação.
@@ -659,7 +724,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       setIsCreating(false);
       setWaLoading(false);
     }
-  }, [fetchWaInfo]);
+  }, [applyRecoverLinkResult, fetchWaInfo]);
 
   const revealWaQrCode = useCallback(async () => {
     if (!academyIdRef.current) return;
@@ -713,7 +778,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (blocked || !resp) return null;
 
         if (resp.ok) {
-          const ct = String(resp.headers.get('content-type') || '');
+          const ct =
+            typeof resp.headers?.get === 'function' ? String(resp.headers.get('content-type') || '') : '';
           // Backend retorna HTTP 200 + JSON quando a instância já está conectada (Zapster 406 → connected).
           if (ct.includes('application/json')) {
             let jsonPayload = null;
@@ -723,11 +789,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
               void 0;
             }
             if (jsonPayload?.codigo === 'INSTANCE_CONNECTED' || jsonPayload?.status === 'connected') {
-              // Dispositivo conectado — atualiza status e encerra (sem QR para exibir).
-              setWaInfo((prev) => ({ ...prev, status: 'connected' }));
-              setWaQrShown(false);
-              setWaQrError(false);
-              setWaQrLoadFailedOnce(false);
+              syncConnectedUiState(jsonPayload?.wa_phone);
               return null;
             }
             // Outro JSON inesperado com 200 — sem QR disponível.
@@ -737,7 +799,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           return URL.createObjectURL(blob);
         }
 
-        const ct = String(resp.headers.get('content-type') || '');
+        const ct =
+          typeof resp.headers?.get === 'function' ? String(resp.headers.get('content-type') || '') : '';
         let errJson = null;
         if (ct.includes('application/json')) {
           try {
@@ -788,7 +851,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     } catch {
       return null;
     }
-  }, [fetchWaInfo]);
+  }, [fetchWaInfo, syncConnectedUiState]);
 
   const recoverZapsterInstance = useCallback(async () => {
     if (!academyIdRef.current) return;
@@ -806,16 +869,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
         throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao recuperar vínculo'));
       }
-      if (data.recovered) {
-        useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo recuperado com sucesso!' });
+      if (data.recovered || data.already_linked) {
         setWaPersistFailed(false);
-        await fetchWaInfo({ silent: true });
-        return;
-      }
-      if (data.already_linked) {
-        setWaPersistFailed(false);
-        await fetchWaInfo({ silent: true });
-        useUiStore.getState().addToast({ type: 'success', message: 'Dispositivo já estava vinculado.' });
+        await applyRecoverLinkResult(data);
         return;
       }
       const errMsg = String(data.erro || '').trim();
@@ -829,7 +885,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     } finally {
       setWaLoading(false);
     }
-  }, [fetchWaInfo]);
+  }, [applyRecoverLinkResult]);
 
   const disconnectWaInstance = useCallback(async () => {
     const id = String(waInfo?.instance_id || '').trim();

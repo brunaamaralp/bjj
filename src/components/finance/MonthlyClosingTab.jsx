@@ -744,7 +744,7 @@ export default function MonthlyClosingTab({
             </div>
             <div className="finance-kpi">
               <p className="finance-kpi__label">
-                <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.taxaCaixaMdr}>
+                <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.taxaCaixaMaquininha}>
                   Taxa (Caixa)
                 </FinanceLabelWithHint>
               </p>

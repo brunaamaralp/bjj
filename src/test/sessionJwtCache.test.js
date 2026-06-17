@@ -10,6 +10,9 @@ vi.mock('appwrite', () => {
     setProject() {
       return this;
     }
+    setJWT() {
+      return this;
+    }
   }
   class Account {
     createJWT(...args) {
@@ -59,6 +62,16 @@ describe('createSessionJwt cache', () => {
     createJWT.mockResolvedValueOnce({ jwt: 'token-b' });
     const next = await mod.createSessionJwt();
     expect(next).toBe('token-b');
+    expect(createJWT).toHaveBeenCalledTimes(2);
+  });
+
+  it('retenta emissão após 403 com JWT expirado no client', async () => {
+    const mod = await import('../lib/appwrite.js');
+    createJWT
+      .mockRejectedValueOnce({ code: 403, message: 'User missing scope' })
+      .mockResolvedValueOnce({ jwt: 'token-after-403' });
+    const token = await mod.createSessionJwt();
+    expect(token).toBe('token-after-403');
     expect(createJWT).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,4 +1,4 @@
-import { account, client, clearSessionJwtCache } from './appwrite';
+import { account, client, clearClientJwt, clearSessionJwtCache, syncClientSessionJwt } from './appwrite';
 import { ID } from 'appwrite';
 
 export const authService = {
@@ -38,6 +38,7 @@ export const authService = {
 
     async getCurrentUser() {
         try {
+            clearClientJwt();
             return await account.get();
         } catch {
             return null;
@@ -57,8 +58,11 @@ export const authService = {
         return await account.updatePassword(newPassword, oldPassword);
     },
 
-    // Mantido apenas para não quebrar referências no App.jsx
     async refreshJwt() {
-        return null;
+        try {
+            return await syncClientSessionJwt();
+        } catch {
+            return null;
+        }
     }
 };

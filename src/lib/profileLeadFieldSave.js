@@ -96,7 +96,7 @@ export async function saveLeadProfileField({
     lead
   );
 
-  await updateLead(leadId, patch);
+  await updateLead(leadId, patch, { fallbackLead: lead });
 
   void logProfileFieldUpdate({
     academyId: academyId || lead.academyId,

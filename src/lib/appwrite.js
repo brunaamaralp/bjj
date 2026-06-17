@@ -96,6 +96,19 @@ export function clearSessionJwtCache() {
   cachedSessionJwtExpiresAt = 0;
   sessionJwtInFlight = null;
   sessionJwtCooldownUntil = 0;
+  clearClientJwt();
+}
+
+/**
+ * Appwrite prioriza JWT sobre cookie de sessão no client compartilhado.
+ * Operações de conta (get, createJWT) precisam do cookie — limpar JWT antes.
+ */
+export function clearClientJwt() {
+  try {
+    client.setJWT('');
+  } catch {
+    void 0;
+  }
 }
 
 function isJwtRateLimitedError(err) {
@@ -103,6 +116,17 @@ function isJwtRateLimitedError(err) {
   if (status === 429) return true;
   const msg = String(err?.message || err || '').toLowerCase();
   return msg.includes('429') || msg.includes('too many requests') || msg.includes('rate limit');
+}
+
+function isJwtForbiddenError(err) {
+  const status = Number(err?.code ?? err?.status ?? err?.response?.status);
+  return status === 403;
+}
+
+async function mintSessionJwtFromCookie() {
+  clearClientJwt();
+  const jwt = await account.createJWT();
+  return String(jwt?.jwt || '').trim();
 }
 
 /**
@@ -130,8 +154,18 @@ export async function createSessionJwt() {
 
   sessionJwtInFlight = (async () => {
     try {
-      const jwt = await account.createJWT();
-      const token = String(jwt?.jwt || '').trim();
+      let token = '';
+      try {
+        token = await mintSessionJwtFromCookie();
+      } catch (err) {
+        if (isJwtForbiddenError(err)) {
+          cachedSessionJwt = '';
+          cachedSessionJwtExpiresAt = 0;
+          token = await mintSessionJwtFromCookie();
+        } else {
+          throw err;
+        }
+      }
       if (token) {
         cachedSessionJwt = token;
         cachedSessionJwtExpiresAt = Date.now() + SESSION_JWT_CACHE_MS;

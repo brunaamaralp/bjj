@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import { computeAnticipationFee } from '../../lib/acquirerFees.js';
+import { resolveAcquirerFeesForAccount } from '../../lib/resolveAcquirerFees.js';
+import { resolveTxBankAccount } from '../../lib/bankAccountBalances.js';
 import { displayNet } from '../../lib/financeTxDisplay.js';
 
 function fmtMoney(v) {
@@ -21,10 +23,14 @@ export default function FinanceTxAnticipationDialog({
   onConfirm,
 }) {
   const netBase = useMemo(() => Math.abs(Number(displayNet(tx)) || 0), [tx]);
-  const suggested = useMemo(
-    () => computeAnticipationFee(netBase, financeConfig?.acquirerFees),
-    [netBase, financeConfig?.acquirerFees]
+  const accountLabel = useMemo(
+    () => String(tx?.bankAccount || resolveTxBankAccount(tx) || '').trim(),
+    [tx]
   );
+  const suggested = useMemo(() => {
+    const fees = resolveAcquirerFeesForAccount(financeConfig, accountLabel);
+    return computeAnticipationFee(netBase, fees);
+  }, [netBase, financeConfig, accountLabel]);
   const [feeAmount, setFeeAmount] = useState('');
 
   useEffect(() => {

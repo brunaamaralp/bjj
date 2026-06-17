@@ -1,44 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const createJWT = vi.fn();
+const createSessionJwt = vi.fn();
+const clearSessionJwtCache = vi.fn();
 
 vi.mock('../lib/appwrite', () => ({
-  account: {
-    createJWT: (...args) => createJWT(...args),
-  },
+  createSessionJwt: (...args) => createSessionJwt(...args),
+  clearSessionJwtCache: (...args) => clearSessionJwtCache(...args),
 }));
 
 import { getInboxJwt, clearInboxJwtCache } from '../lib/inboxApiUtils.js';
 
 describe('getInboxJwt cache', () => {
   beforeEach(() => {
-    clearInboxJwtCache();
-    createJWT.mockReset();
-    createJWT.mockResolvedValue({ jwt: 'token-a' });
+    clearSessionJwtCache.mockReset();
+    createSessionJwt.mockReset();
+    createSessionJwt.mockResolvedValue('token-a');
   });
 
-  it('reuses cached jwt within TTL', async () => {
+  it('delegates to createSessionJwt', async () => {
     const a = await getInboxJwt();
     const b = await getInboxJwt();
     expect(a).toBe('token-a');
     expect(b).toBe('token-a');
-    expect(createJWT).toHaveBeenCalledTimes(1);
+    expect(createSessionJwt).toHaveBeenCalledTimes(2);
   });
 
-  it('forceRefresh bypasses cache', async () => {
+  it('forceRefresh clears session jwt cache first', async () => {
     await getInboxJwt();
-    createJWT.mockResolvedValueOnce({ jwt: 'token-b' });
+    createSessionJwt.mockResolvedValueOnce('token-b');
     const b = await getInboxJwt({ forceRefresh: true });
     expect(b).toBe('token-b');
-    expect(createJWT).toHaveBeenCalledTimes(2);
+    expect(clearSessionJwtCache).toHaveBeenCalledTimes(1);
+    expect(createSessionJwt).toHaveBeenCalledTimes(2);
   });
 
-  it('clearInboxJwtCache forces new fetch', async () => {
+  it('clearInboxJwtCache clears shared session cache', async () => {
     await getInboxJwt();
     clearInboxJwtCache();
-    createJWT.mockResolvedValueOnce({ jwt: 'token-c' });
+    createSessionJwt.mockResolvedValueOnce('token-c');
     const c = await getInboxJwt();
     expect(c).toBe('token-c');
-    expect(createJWT).toHaveBeenCalledTimes(2);
+    expect(clearSessionJwtCache).toHaveBeenCalledTimes(1);
   });
 });

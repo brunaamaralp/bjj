@@ -556,22 +556,29 @@ export const useLeadStore = create(
         console.debug('[updateLead] patch', { id, patch });
       }
 
-      try {
-        await databases.updateDocument(DB_ID, LEADS_COL, lid, patch);
-      } catch (e) {
-        const msg = String(e?.message || '');
-        if (!/unknown attribute/i.test(msg)) throw e;
-        const lean = stripUnknownLeadPatch(patch, msg);
-        if (Object.keys(lean).length === 0) throw e;
-        await databases.updateDocument(DB_ID, LEADS_COL, lid, lean);
+      let appliedPatch = patch;
+      while (true) {
+        try {
+          await databases.updateDocument(DB_ID, LEADS_COL, lid, appliedPatch);
+          break;
+        } catch (e) {
+          const msg = String(e?.message || '');
+          if (!/unknown attribute/i.test(msg)) throw e;
+          const lean = stripUnknownLeadPatch(appliedPatch, msg);
+          if (Object.keys(lean).length === 0) throw e;
+          const removed = Object.keys(appliedPatch).some((k) => !(k in lean));
+          if (!removed) throw e;
+          appliedPatch = lean;
+        }
       }
 
       const mergedLead = { ...currentLead, ...normalizedUpdates };
       if (typeof filtered.status !== 'undefined' && filtered.status !== currentLead.status) {
-        mergedLead.statusChangedAt = patch.status_changed_at || mergedLead.statusChangedAt;
+        mergedLead.statusChangedAt = appliedPatch.status_changed_at || mergedLead.statusChangedAt;
       }
       if (typeof filtered.pipelineStage !== 'undefined' && filtered.pipelineStage !== currentLead.pipelineStage) {
-        mergedLead.pipelineStageChangedAt = patch.pipeline_stage_changed_at || mergedLead.pipelineStageChangedAt;
+        mergedLead.pipelineStageChangedAt =
+          appliedPatch.pipeline_stage_changed_at || mergedLead.pipelineStageChangedAt;
       }
 
       set((state) => {

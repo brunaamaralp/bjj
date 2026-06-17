@@ -174,19 +174,28 @@ export function mirrorAmountsForPayment({
 /**
  * Previsão: amount = líquido estimado; amount_gross = valor do cliente.
  */
-export function forecastInflowAmounts(gross, method, installments, financeConfig, planBase) {
+/** Valores para previsão com fees já resolvidas. */
+export function forecastInflowAmountsFromFees(
+  gross,
+  method,
+  installments,
+  acquirerFees,
+  policy,
+  planBase
+) {
   const g = roundMoney(gross);
   if (g < 0.01) return { amount: 0, amount_gross: 0 };
-  if (!hasAcquirerFeesConfigured(financeConfig?.acquirerFees)) {
+  const fees = normalizeAcquirerFees(acquirerFees);
+  if (!hasAcquirerFeesConfigured(fees)) {
     return { amount: g, amount_gross: g };
   }
   const { fee, net } = computeAcquirerFee({
     gross: g,
     planBase,
-    policy: financeConfig?.acquirerFeePolicy,
+    policy,
     method,
     installments,
-    acquirerFees: financeConfig?.acquirerFees,
+    acquirerFees: fees,
   });
   return { amount: net, amount_gross: g, acquirer_fee: fee };
 }
@@ -230,10 +239,11 @@ export function enrichInstallmentScheduleWithAcquirerFees(
 export function acquirerFeesSummary(acquirerFees) {
   const fees = normalizeAcquirerFees(acquirerFees);
   const parts = [];
-  if (fees.pix?.percent > 0) parts.push(`PIX MDR ${fees.pix.percent}%`);
+  if (fees.pix?.percent > 0) parts.push(`PIX ${fees.pix.percent}%`);
   if (fees.debito?.percent > 0) parts.push(`Déb. ${fees.debito.percent}%`);
   if (fees.credito_avista?.percent > 0) parts.push(`Créd. ${fees.credito_avista.percent}%`);
   const parcelHits = ACQUIRER_INSTALLMENT_COUNTS.filter((n) => Number(fees.credito_parcelado?.[String(n)] || 0) > 0);
   if (parcelHits.length) parts.push(`Parcelado (${parcelHits.length} faixas)`);
-  return parts.length ? parts.join(' · ') : 'Nenhuma taxa da operadora';
+  if (fees.antecipacao?.percent > 0) parts.push(`Antec. ${fees.antecipacao.percent}%`);
+  return parts.length ? parts.join(' · ') : 'Nenhuma taxa configurada';
 }

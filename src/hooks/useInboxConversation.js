@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { account, realtime, DB_ID, CONVERSATIONS_COL, syncClientSessionJwt } from '../lib/appwrite';
+import { createSessionJwt, realtime, DB_ID, CONVERSATIONS_COL, syncClientSessionJwt } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { inboxPhonesMatch, primaryInboxPhone } from '../lib/normalizeInboxPhone';
@@ -12,8 +12,7 @@ const REALTIME_DEBOUNCE_MS = 250;
 const REALTIME_SUBSCRIBE_DELAY_MS = 300;
 
 async function getJwt() {
-  const jwt = await account.createJWT();
-  return String(jwt?.jwt || '').trim();
+  return createSessionJwt();
 }
 
 function parseApiError(raw, fallback) {

@@ -12,7 +12,7 @@ import { formatYmd } from './financeForecastCore.js';
 import { openMensalidadeAmount, buildDeferredSaleReceivableItems } from './receivablesAggregate.js';
 import { expectedAmountForStudent } from './paymentStatus.js';
 import { saleHasInstallmentForecast } from './installmentSchedule.js';
-import { forecastInflowAmounts } from './acquirerFees.js';
+import { forecastInflowAmounts } from './resolveAcquirerFees.js';
 
 const OPEN_STATUSES = new Set(['pending', 'awaiting', 'partial']);
 
@@ -161,5 +161,12 @@ export function mensalidadeForecastNetAmount(student, payment, financeConfig) {
   const method = payment?.method || 'pix';
   const installments = Math.min(12, Math.max(1, Number(payment?.installments) || 1));
   const planBase = expectedAmountForStudent(student, financeConfig, payment);
-  return forecastInflowAmounts(gross, method, installments, financeConfig, planBase);
+  return forecastInflowAmounts(
+    gross,
+    method,
+    installments,
+    financeConfig,
+    planBase,
+    String(payment?.account || '').trim()
+  );
 }

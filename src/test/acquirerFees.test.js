@@ -3,13 +3,14 @@ import {
   computeAcquirerFee,
   defaultAcquirerFees,
   enrichInstallmentScheduleWithAcquirerFees,
-  forecastInflowAmounts,
+  forecastInflowAmountsFromFees,
   hasAcquirerFeesConfigured,
   computeAnticipationFee,
   mirrorAmountsForPayment,
   normalizeAcquirerFees,
   resolveMdrGross,
 } from '../lib/acquirerFees.js';
+import { forecastInflowAmounts } from '../lib/resolveAcquirerFees.js';
 import { pushForecastItem, finalizeWeeks, sumForecastFlows } from '../lib/financeForecastCore.js';
 import { mensalidadeForecastNetAmount } from '../lib/financeForecastInflows.js';
 import { canRegisterAnticipation } from '../lib/financeAnticipation.js';

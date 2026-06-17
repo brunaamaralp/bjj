@@ -20,7 +20,7 @@ import {
 import { applyAccountingSideEffectsAuto } from './financeJournal.js';
 import { FINANCE_CATEGORIES } from './financeCategories.js';
 import { buildMirrorPlanName } from './financeReconTxLabel.js';
-import { mirrorAmountsForPayment } from './acquirerFees.js';
+import { mirrorAmountsForPaymentWithAccount } from './resolveAcquirerFees.js';
 import {
   PAYMENT_CATEGORY,
   normalizePaymentCategory,
@@ -198,13 +198,15 @@ async function syncFinancialTxMirror({
 
   const installments = Math.min(12, Math.max(1, Number(data.installments) || 1));
   const planBase = expectedAmountForStudent(student, financeConfig, data);
-  const { fee, net } = mirrorAmountsForPayment({
+  const bankAccount = String(data.account || '').trim().slice(0, 128);
+  const { fee, net } = mirrorAmountsForPaymentWithAccount({
     gross,
     planBase,
     policy: financeConfig?.acquirerFeePolicy,
     method: data.method,
     installments,
-    acquirerFees: financeConfig?.acquirerFees,
+    financeConfig,
+    bankAccount,
   });
   const competenceMonth = refMonth && /^\d{4}-\d{2}$/.test(refMonth) ? refMonth : '';
   const paymentId = String(paymentDoc?.$id || data.id || '').trim();
@@ -236,7 +238,7 @@ async function syncFinancialTxMirror({
     created_by: String(data.registered_by || '').trim() || 'system',
     updated_by: String(data.registered_by || '').trim() || 'system',
     updated_at: now,
-    bank_account: String(data.account || '').trim().slice(0, 128),
+    bank_account: bankAccount,
   };
 
   const stripOptionalMirrorAttrs = (payload) => {

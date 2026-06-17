@@ -23,21 +23,26 @@ export const FINANCE_TERM_HINTS = {
     'Despesas programadas e pendentes: contas fixas (água, luz, telefone), aluguel e outras saídas com vencimento.',
   diasAtraso: 'Dias após o vencimento (D+). Ex.: D+10 = dez dias de atraso.',
   cardFeesRepasse:
-    'Percentuais acrescidos ao valor da mensalidade cobrados do aluno (cartão ou PIX). Não são a taxa que a operadora desconta no extrato bancário.',
+    'Percentuais acrescidos ao valor da mensalidade cobrados do aluno (cartão ou PIX). Não são a taxa da maquininha no extrato bancário.',
   liquidoBancario:
-    'Valor que entra na conta após taxas da operadora. Hoje isso depende de lançamento manual no Caixa ou da conciliação bancária, salvo quando a taxa foi informada no próprio lançamento.',
+    'Valor que entra na conta após a taxa da maquininha. Configure em Minha Academia → Taxas ou por conta em Recebimento.',
   previsaoBrutoCliente:
-    'Total que você espera receber dos alunos e clientes no período, antes das taxas da operadora. O saldo em conta pode ser menor.',
+    'Total que você espera receber dos alunos e clientes no período, antes da taxa da maquininha. O saldo em conta pode ser menor.',
   previsaoLiquidoEstimado:
-    'Entrada líquida estimada no banco após taxas da operadora (disponível quando MDR estiver configurado).',
+    'Entrada líquida estimada no banco após a taxa da maquininha (quando configurada).',
   previsaoSaldoAcumulado:
-    'Saldo projetado semana a semana com entradas líquidas estimadas (após MDR) menos saídas previstas.',
+    'Saldo projetado semana a semana com entradas líquidas estimadas (após taxa da maquininha) menos saídas previstas.',
   previsaoMdrOpcional:
-    'Opcional: configure o MDR em Configurações → Taxas da operadora para estimar o líquido no banco. Sem MDR, bruto e líquido coincidem.',
+    'Opcional: configure as taxas da maquininha em Minha Academia → Taxas para estimar o líquido no banco. Sem taxas, bruto e líquido coincidem.',
   brutoCaixa:
     'Soma do valor bruto cobrado nos lançamentos espelhados do Caixa (mensalidades pagas com financial_tx_id).',
+  taxaCaixaMaquininha:
+    'Taxa da maquininha registrada no espelho do Caixa — não é o repasse ao aluno configurado nos planos.',
+  /** @deprecated use taxaCaixaMaquininha */
   taxaCaixaMdr:
-    'Taxa da operadora (MDR) registrada no espelho do Caixa — não é o repasse ao aluno configurado nos planos.',
+    'Taxa da maquininha registrada no espelho do Caixa — não é o repasse ao aluno configurado nos planos.',
+  maquininhaPorConta:
+    'Se cada conta recebe por uma maquininha com taxas diferentes, desligue o padrão e informe as taxas desta conta.',
 };
 
 /** Evento após marcar mês como conferido (MonthlyClosingTab → FinanceMonthPicker). */

@@ -4,6 +4,8 @@ import {
   resolveDefaultBankAccountLabel,
   isUsableBankAccount,
   normalizeBankAccountEntry,
+  hasCustomAcquirerFees,
+  usesDefaultAcquirerFees,
 } from '../lib/bankAccounts.js';
 import { pickInitialBankAccountForPayment } from '../lib/paymentMethodBankDefaults.js';
 
@@ -56,5 +58,24 @@ describe('bankAccounts — conta inicial no pagamento', () => {
     expect(isUsableBankAccount(normalizeBankAccountEntry({ branch: '1234' }))).toBe(false);
     expect(isUsableBankAccount(normalizeBankAccountEntry({ bankName: 'Nubank' }))).toBe(true);
     expect(isUsableBankAccount(normalizeBankAccountEntry({ pixKey: 'a@b.com' }))).toBe(true);
+  });
+
+  it('normalizeBankAccountEntry preserva taxas próprias da maquininha', () => {
+    const raw = {
+      bankName: 'Sicoob',
+      account: '99',
+      useDefaultAcquirerFees: false,
+      acquirerFees: { debito: { percent: 1.5, fixed: 0 } },
+    };
+    const n = normalizeBankAccountEntry(raw);
+    expect(usesDefaultAcquirerFees(n)).toBe(false);
+    expect(hasCustomAcquirerFees(n)).toBe(true);
+    expect(n.acquirerFees.debito.percent).toBe(1.5);
+  });
+
+  it('normalizeBankAccountEntry omite acquirerFees quando usa padrão', () => {
+    const n = normalizeBankAccountEntry({ bankName: 'BB', account: '1', useDefaultAcquirerFees: true });
+    expect(usesDefaultAcquirerFees(n)).toBe(true);
+    expect(n.acquirerFees).toBeUndefined();
   });
 });

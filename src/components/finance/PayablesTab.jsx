@@ -355,8 +355,8 @@ export default function PayablesTab({
     e.preventDefault();
     if (!settleItem?.tx_id) return;
     const accountCheck = validateBankAccountForPayment(settleAccount, financeConfig);
-    if (!accountCheck.valid) {
-      setSettleError(accountCheck.error || 'Selecione a conta bancária.');
+    if (!accountCheck.ok) {
+      setSettleError(accountCheck.message || 'Selecione a conta bancária.');
       return;
     }
     const grossNum = parseCurrencyBRL(settleGross);

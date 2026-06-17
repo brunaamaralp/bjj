@@ -3345,6 +3345,205 @@
   flex-shrink: 0;
 }
 
+.finance-settings-bank-card__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.finance-settings-bank-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--color-primary-surface, #ede9fb);
+  color: var(--color-badge-primary-text, #4a2fa3);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.finance-settings-account-fees-overview {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-primary-surface, #ede9fb) 55%, var(--color-card-bg, #fff));
+}
+
+.finance-settings-account-fees-overview__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.finance-settings-account-fees-overview__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.finance-settings-account-fees-overview__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 8px;
+  background: var(--color-card-bg, #fff);
+  border: 1px solid var(--color-card-border, #e8e5f5);
+}
+
+.finance-settings-account-fees-overview__name {
+  font-weight: 600;
+  font-size: var(--font-base);
+}
+
+.finance-settings-account-fees-overview__hint {
+  margin: var(--space-2) 0 0;
+}
+
+.finance-bank-fees-panel {
+  margin-top: var(--space-1);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-card-border, #e8e5f5);
+  background: color-mix(in srgb, var(--color-primary-surface, #ede9fb) 35%, var(--color-card-bg, #fff));
+}
+
+.finance-bank-fees-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.finance-bank-fees-panel__header:hover {
+  background: color-mix(in srgb, var(--color-primary-surface, #ede9fb) 50%, transparent);
+}
+
+.finance-bank-fees-panel__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: var(--color-card-bg, #fff);
+  color: var(--color-primary, #6c47d8);
+  border: 1px solid var(--color-card-border, #e8e5f5);
+}
+
+.finance-bank-fees-panel__titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finance-bank-fees-panel__title {
+  font-weight: 600;
+  font-size: var(--font-base);
+  color: var(--color-text-primary, #18162a);
+}
+
+.finance-bank-fees-panel__lead {
+  line-height: 1.45;
+}
+
+.finance-bank-fees-panel__body {
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-bank-fees-panel__default-note {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: 8px;
+  background: var(--color-card-bg, #fff);
+  border: 1px dashed var(--color-card-border, #e8e5f5);
+}
+
+.finance-bank-fees-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.finance-bank-fees-toggle__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.finance-bank-fees-toggle__track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--color-card-border, #d8d4ec);
+  transition: background 0.2s ease;
+}
+
+.finance-bank-fees-toggle__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(24, 22, 42, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.finance-bank-fees-toggle__input:checked + .finance-bank-fees-toggle__track {
+  background: var(--color-primary, #6c47d8);
+}
+
+.finance-bank-fees-toggle__input:checked + .finance-bank-fees-toggle__track::after {
+  transform: translateX(20px);
+}
+
+.finance-bank-fees-toggle__input:focus-visible + .finance-bank-fees-toggle__track {
+  outline: 2px solid var(--color-primary, #6c47d8);
+  outline-offset: 2px;
+}
+
+.finance-bank-fees-toggle__label {
+  font-weight: 500;
+  font-size: var(--font-base);
+  color: var(--color-text-primary, #18162a);
+}
+
+.finance-acquirer-fields--compact .finance-settings-inset {
+  margin-top: 0;
+}
+
+.finance-acquirer-policy {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-card-border, #e8e5f5);
+}
+
 .finance-settings-method-accounts {
   margin-top: var(--space-4);
 }
