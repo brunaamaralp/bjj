@@ -12,7 +12,17 @@ async function headers(academyId) {
 
 async function parseJson(res) {
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || body.detail || 'Erro na conciliação');
+  if (!res.ok) {
+    const code = String(body.error || '').trim();
+    const detail = String(body.detail || '').trim();
+    if (
+      detail
+      && (code === 'reconciliation_failed' || code === 'reconciliation_schema_incomplete')
+    ) {
+      throw new Error(detail);
+    }
+    throw new Error(code || detail || 'Erro na conciliação');
+  }
   return body;
 }
 

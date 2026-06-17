@@ -82,11 +82,17 @@ const RECON_ERROR_MESSAGES = {
   bank_account_mismatch: 'A conta bancária não corresponde ao extrato.',
   tx_already_reconciled: 'Este lançamento já foi conciliado.',
   tx_not_settled: 'Só é possível vincular lançamentos liquidados.',
+  reconciliation_schema_incomplete:
+    'Conciliação indisponível: o banco de dados precisa do schema de conciliação. Rode o script de provisionamento ou fale com o suporte.',
+  reconciliation_failed: 'Não foi possível concluir a conciliação. Tente novamente.',
 };
 
 function reconFriendlyError(err) {
   const code = String(err?.message || err || '').trim();
   if (RECON_ERROR_MESSAGES[code]) return RECON_ERROR_MESSAGES[code];
+  if (/invalid document structure/i.test(code) || /unknown attribute/i.test(code)) {
+    return RECON_ERROR_MESSAGES.reconciliation_schema_incomplete;
+  }
   return friendlyError(err, 'action');
 }
 
