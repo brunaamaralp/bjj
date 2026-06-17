@@ -13,9 +13,14 @@ import { FINANCE_WHATSAPP_REMINDERS_PATH } from '../../lib/automacoesHub.js';
  *     activeCount?: number;
  *   };
  *   showModelsLink?: boolean;
+ *   suppressZapsterLink?: boolean;
  * }} props
  */
-export default function AutomacoesReadinessBanner({ readiness, showModelsLink = true }) {
+export default function AutomacoesReadinessBanner({
+  readiness,
+  showModelsLink = true,
+  suppressZapsterLink = false,
+}) {
   if (!readiness) return null;
 
   const infraSteps = readiness.infraSteps || readiness.steps || [];
@@ -51,7 +56,7 @@ export default function AutomacoesReadinessBanner({ readiness, showModelsLink = 
                 <Circle size={14} className="automacoes-readiness-icon--pending" aria-hidden />
               )}
               <span>{step.label}</span>
-              {step.id === 'zapster' && !step.ok ? (
+              {step.id === 'zapster' && !step.ok && !suppressZapsterLink ? (
                 <Link to="/agente-ia" className="edit-link" style={{ marginLeft: 6, fontSize: '0.85rem' }}>
                   Abrir Agente IA
                 </Link>

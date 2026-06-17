@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DateInput } from '../DateInput';
 import ModalShell from '../shared/ModalShell.jsx';
@@ -24,6 +24,8 @@ import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } fr
 import CashTrocoFields from '../finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../../lib/studentPaymentTroco.js';
 import { useSalesStore } from '../../store/useSalesStore';
+import PaymentReceiptDateBanner from '../finance/PaymentReceiptDateBanner.jsx';
+import { suggestPaidAtYmd } from '../../lib/paymentReceiptDate.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -73,7 +75,7 @@ export function buildDefaultPayForm(student, financeConfig = null) {
       ? pickInitialBankAccountForPayment(financeConfig, preferredAccount, method)
       : preferredAccount,
     status: 'paid',
-    paid_at: new Date().toISOString().slice(0, 10),
+    paid_at: suggestPaidAtYmd({ coverageMonth: ym }),
     due_date: '',
     plan_name: student?.plan || '',
     note: '',
@@ -116,6 +118,28 @@ export default function StudentPaymentModal({
     footerHint: null,
     footerError: null,
   });
+  const paidAtTouchedRef = useRef(false);
+
+  useEffect(() => {
+    if (open) paidAtTouchedRef.current = false;
+  }, [open, editingPaymentId]);
+
+  const syncPaidAtFromCoverage = useCallback(
+    (coverageYm) => {
+      if (paidAtTouchedRef.current) return;
+      setPayForm((p) => ({ ...p, paid_at: suggestPaidAtYmd({ coverageMonth: coverageYm }) }));
+    },
+    [setPayForm]
+  );
+
+  const applyCoveragePaidAt = useCallback(() => {
+    const isBundleType = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
+    const coverageYm = isBundleType
+      ? String(payForm.bundle_start_month || '').trim()
+      : String(payForm.reference_month || '').trim();
+    paidAtTouchedRef.current = false;
+    setPayForm((p) => ({ ...p, paid_at: suggestPaidAtYmd({ coverageMonth: coverageYm }) }));
+  }, [payForm.payment_type, payForm.bundle_start_month, payForm.reference_month, setPayForm]);
 
   const handleClose = useCallback(() => {
     setProductStep(false);
@@ -250,6 +274,12 @@ export default function StudentPaymentModal({
       }
     >
         {formError ? <PaymentFormErrorBanner message={formError} /> : null}
+        {!isProduct && showPaidDate ? (
+          <PaymentReceiptDateBanner
+            payForm={payForm}
+            onUseCoverageDate={applyCoveragePaidAt}
+          />
+        ) : null}
 
         {isProduct ? (
           <>
@@ -341,12 +371,16 @@ export default function StudentPaymentModal({
               {isPlan ? (
                 <div>
                   <DateInput
-                    label="Mês de referência"
+                    label="Mês de referência (cobertura)"
                     type="month"
                     className="form-input"
                     style={{ width: '100%' }}
                     value={payForm.reference_month}
-                    onChange={(e) => setPayForm((p) => ({ ...p, reference_month: e.target.value }))}
+                    onChange={(e) => {
+                      const ym = e.target.value;
+                      setPayForm((p) => ({ ...p, reference_month: ym }));
+                      syncPaidAtFromCoverage(ym);
+                    }}
                     required
                   />
                 </div>
@@ -379,9 +413,11 @@ export default function StudentPaymentModal({
                       className="form-input"
                       style={{ width: '100%' }}
                       value={payForm.bundle_start_month}
-                      onChange={(e) =>
-                        setPayForm((p) => ({ ...p, bundle_start_month: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        const ym = e.target.value;
+                        setPayForm((p) => ({ ...p, bundle_start_month: ym }));
+                        syncPaidAtFromCoverage(ym);
+                      }}
                       required
                     />
                     <FieldError id="student-pay-bundle-start-error">
@@ -454,12 +490,15 @@ export default function StudentPaymentModal({
                 <div>
                   <DateInput
                     id={STUDENT_PAY_FIELD_IDS.paid_at}
-                    label="Data do pagamento"
+                    label="Data em que o dinheiro entrou na conta"
                     type="date"
                     className="form-input"
                     style={{ width: '100%' }}
                     value={payForm.paid_at}
-                    onChange={(e) => setPayForm((p) => ({ ...p, paid_at: e.target.value }))}
+                    onChange={(e) => {
+                      paidAtTouchedRef.current = true;
+                      setPayForm((p) => ({ ...p, paid_at: e.target.value }));
+                    }}
                     required
                   />
                   <FieldError id="student-pay-paid-at-error">{payFieldErrors.paid_at}</FieldError>

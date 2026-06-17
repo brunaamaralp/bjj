@@ -3,12 +3,14 @@ import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.j
 import {
   areTemplatesCustomized,
   computeAutomacoesWizardState,
+  computeWizardProgressPercent,
   getCompactWizardContent,
   isAutomacoesWizardStepDone,
   isModelosWizardStepDone,
   resolveWizardCtaLabel,
   resolveWizardSurface,
   shouldShowSetupWizardOnTab,
+  resolveWizardPrimaryDisabled,
   automacoesWizardDismissStorageKey,
   automacoesModelosAckStorageKey,
   tabForWizardStep,
@@ -176,5 +178,50 @@ describe('automacoesSetupWizard', () => {
   it('getCompactWizardContent por passo', () => {
     expect(getCompactWizardContent('whatsapp').message).toContain('WhatsApp');
     expect(getCompactWizardContent('modelos').ctaLabel).toBe('Continuar configuração');
+  });
+
+  it('resolveWizardPrimaryDisabled bloqueia passo modelos sem ack', () => {
+    const modelosStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'modelos');
+    expect(
+      resolveWizardPrimaryDisabled(modelosStep, {
+        templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
+        modelosAcknowledged: false,
+      })
+    ).toBe(true);
+    expect(
+      resolveWizardPrimaryDisabled(modelosStep, {
+        templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
+        modelosAcknowledged: true,
+      })
+    ).toBe(false);
+  });
+
+  it('resolveWizardPrimaryDisabled ignora outros passos', () => {
+    const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
+    expect(
+      resolveWizardPrimaryDisabled(whatsappStep, {
+        templatesMap: { ...DEFAULT_WHATSAPP_TEMPLATES },
+        modelosAcknowledged: false,
+      })
+    ).toBe(false);
+  });
+
+  it('computeWizardProgressPercent usa posição do passo atual', () => {
+    const steps = AUTOMACOES_WIZARD_STEPS;
+    expect(computeWizardProgressPercent(steps, 'modelos', 3)).toEqual({
+      percent: 33,
+      value: 1,
+      max: 3,
+    });
+    expect(computeWizardProgressPercent(steps, 'whatsapp', 3)).toEqual({
+      percent: 67,
+      value: 2,
+      max: 3,
+    });
+    expect(computeWizardProgressPercent(steps, 'configuracoes', 3)).toEqual({
+      percent: 100,
+      value: 3,
+      max: 3,
+    });
   });
 });

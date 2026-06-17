@@ -71,6 +71,24 @@ function firstTrialTimeLabel(leads) {
   return null;
 }
 
+/** Plural em português para rótulos de experimental/avaliação no hero. */
+function pluralizeTrialNoun(phrase, count) {
+  const lower = String(phrase || 'aula experimental').trim().toLowerCase();
+  if (count === 1) return lower;
+
+  const known = {
+    'aula experimental': 'aulas experimentais',
+    experimental: 'experimentais',
+    avaliação: 'avaliações',
+  };
+  if (known[lower]) return known[lower];
+
+  if (lower.endsWith('ão')) return `${lower.slice(0, -2)}ões`;
+  if (lower.endsWith('al')) return `${lower.slice(0, -1)}is`;
+  if (lower.endsWith('s')) return lower;
+  return lower;
+}
+
 /** Retornos abertos que ainda precisam de contato (sem WhatsApp/resposta no ciclo). */
 export function followUpsNeedingContact(followUps) {
   return (followUps || []).filter((lead) => !lead?.hasContactInCycle);
@@ -81,13 +99,14 @@ export function followUpsNeedingContact(followUps) {
  *   todayScheduled: object[];
  *   followUps: object[];
  *   pendingTasks: object[];
- *   trialShort: string;
+ *   trial?: string;
+ *   trialShort?: string;
  *   weeklyEnrollments?: number;
  *   omitTodaySchedule?: boolean;
  * }} ctx
  */
 export function buildDaySummaryLine(ctx) {
-  const trial = String(ctx.trialShort || 'aula experimental').toLowerCase();
+  const trial = String(ctx.trial || ctx.trialShort || 'aula experimental').toLowerCase();
   const pendingToday = ctx.omitTodaySchedule ? [] : ctx.todayScheduled || [];
   const agendaToday = ctx.omitTodaySchedule ? [] : ctx.todayOnAgenda || pendingToday;
   const pendingCount = pendingToday.length;
@@ -97,8 +116,7 @@ export function buildDaySummaryLine(ctx) {
   const weekly = Number(ctx.weeklyEnrollments) || 0;
 
   const parts = [];
-  const trialNoun = (count) =>
-    count === 1 ? trial : trial.endsWith('s') ? trial : `${trial}s`;
+  const trialNoun = (count) => pluralizeTrialNoun(trial, count);
 
   if (pendingCount > 0) {
     const firstTime = firstTrialTimeLabel(pendingToday);

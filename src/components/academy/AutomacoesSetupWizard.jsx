@@ -1,7 +1,11 @@
 import React from 'react';
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react';
 import { AUTOMACOES_COPY } from '../../lib/automacoesCopy.js';
-import { isWizardExternalStep, resolveWizardCtaLabel } from '../../lib/automacoesSetupWizard.js';
+import {
+  computeWizardProgressPercent,
+  isWizardExternalStep,
+  resolveWizardCtaLabel,
+} from '../../lib/automacoesSetupWizard.js';
 
 /**
  * @param {{
@@ -12,6 +16,8 @@ import { isWizardExternalStep, resolveWizardCtaLabel } from '../../lib/automacoe
  *   onDismiss: () => void;
  *   activeTab?: string;
  *   onStepAction: (stepId: string) => void;
+ *   primaryCtaDisabled?: boolean;
+ *   primaryCtaBlockedHint?: string;
  * }} props
  */
 export default function AutomacoesSetupWizard({
@@ -22,11 +28,17 @@ export default function AutomacoesSetupWizard({
   totalSteps,
   onDismiss,
   onStepAction,
+  primaryCtaDisabled = false,
+  primaryCtaBlockedHint = '',
   className = '',
 }) {
   if (!steps?.length || !currentStep) return null;
 
-  const progressPct = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+  const { percent: progressPct, value: progressValue, max: progressMax } = computeWizardProgressPercent(
+    steps,
+    currentStep.id,
+    totalSteps
+  );
   const externalStep = isWizardExternalStep(currentStep);
 
   return (
@@ -53,15 +65,15 @@ export default function AutomacoesSetupWizard({
       <div
         className="automacoes-setup-wizard__progress-bar"
         role="progressbar"
-        aria-valuenow={doneCount}
+        aria-valuenow={progressValue}
         aria-valuemin={0}
-        aria-valuemax={totalSteps}
-        aria-label={`Progresso: ${doneCount} de ${totalSteps} passos`}
+        aria-valuemax={progressMax}
+        aria-label={`Progresso: passo ${progressValue} de ${progressMax}`}
       >
         <div className="automacoes-setup-wizard__progress-bar-fill" style={{ width: `${progressPct}%` }} />
       </div>
 
-      <ul className="automacoes-setup-wizard__steps" role="list">
+      <ul className="automacoes-setup-wizard__steps" role="list" aria-label="Etapas da configuração">
         {steps.map((step, index) => {
           const isCurrent = step.id === currentStep.id && !step.done;
           return (
@@ -93,18 +105,21 @@ export default function AutomacoesSetupWizard({
       </ul>
 
       <div className="automacoes-setup-wizard__panel">
-        <p className="automacoes-setup-wizard__progress" role="status">
-          Passo {Math.min(doneCount + 1, totalSteps)} de {totalSteps}
-        </p>
         <h3 className="automacoes-setup-wizard__panel-title">{currentStep.title}</h3>
         <p className="automacoes-setup-wizard__panel-desc">{currentStep.description}</p>
         {externalStep && currentStep.ctaHint ? (
           <p className="automacoes-setup-wizard__external-hint text-xs text-muted">{currentStep.ctaHint}</p>
         ) : null}
+        {primaryCtaDisabled && primaryCtaBlockedHint ? (
+          <p className="automacoes-setup-wizard__blocked-hint text-xs text-muted" role="status">
+            {primaryCtaBlockedHint}
+          </p>
+        ) : null}
         <button
           type="button"
           className={externalStep ? 'btn-secondary automacoes-setup-wizard__cta' : 'btn-action-primary automacoes-setup-wizard__cta'}
           onClick={() => onStepAction(currentStep.id)}
+          disabled={primaryCtaDisabled && !externalStep}
         >
           {externalStep ? <ExternalLink size={16} aria-hidden /> : null}
           {resolveWizardCtaLabel(currentStep, activeTab)}

@@ -63,10 +63,40 @@ describe('buildDaySummaryLine', () => {
       todayOnAgenda: [{ id: '1', status: LEAD_STATUS.COMPLETED, scheduledDate: '2026-06-11' }],
       followUps: [{ id: '2', hasContactInCycle: false }],
       pendingTasks: [],
-      trialShort: 'Aula experimental',
+      trial: 'Aula experimental',
     });
     expect(line).toContain('Hoje teve 1 aula experimental');
     expect(line).not.toContain('Nenhuma');
+  });
+
+  it('pluraliza em português (não "experimentals")', () => {
+    const line = buildDaySummaryLine({
+      todayScheduled: [],
+      todayOnAgenda: [
+        { id: '1', status: LEAD_STATUS.COMPLETED },
+        { id: '2', status: LEAD_STATUS.COMPLETED },
+      ],
+      followUps: [],
+      pendingTasks: [],
+      trial: 'Aula experimental',
+    });
+    expect(line).toContain('Hoje foram 2 aulas experimentais');
+    expect(line).not.toContain('experimentals');
+  });
+
+  it('pluraliza rótulo curto "Experimental" em português', () => {
+    const line = buildDaySummaryLine({
+      todayScheduled: [],
+      todayOnAgenda: [
+        { id: '1', status: LEAD_STATUS.COMPLETED },
+        { id: '2', status: LEAD_STATUS.COMPLETED },
+      ],
+      followUps: [],
+      pendingTasks: [],
+      trialShort: 'Experimental',
+    });
+    expect(line).toContain('Hoje foram 2 experimentais');
+    expect(line).not.toContain('experimentals');
   });
 
   it('conta só retornos sem contato no ciclo', () => {

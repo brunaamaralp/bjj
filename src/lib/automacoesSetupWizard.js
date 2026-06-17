@@ -171,8 +171,26 @@ export function resolveWizardCtaLabel(step, activeTab) {
   return step.ctaLabel || '';
 }
 
+export function computeWizardProgressPercent(steps, currentStepId, totalSteps) {
+  const total = Number(totalSteps) || (Array.isArray(steps) ? steps.length : 0) || 0;
+  if (!total) return { percent: 0, value: 0, max: 0 };
+  const idx = (steps || []).findIndex((s) => s.id === currentStepId);
+  const value = idx >= 0 ? idx + 1 : 0;
+  return {
+    percent: Math.round((value / total) * 100),
+    value,
+    max: total,
+  };
+}
+
 export function isWizardExternalStep(step) {
   return Boolean(step?.path || step?.external);
+}
+
+/** Bloqueia CTA primário do passo Modelos até ack ou customização. */
+export function resolveWizardPrimaryDisabled(step, { templatesMap, modelosAcknowledged } = {}) {
+  if (!step || step.id !== 'modelos') return false;
+  return !isModelosWizardStepDone({ templatesMap, modelosAcknowledged });
 }
 
 /**

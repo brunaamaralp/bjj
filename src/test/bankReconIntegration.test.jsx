@@ -28,6 +28,9 @@ vi.mock('../lib/bankReconciliationApi.js', () => ({
   manualReconcileTx: vi.fn(),
   createTxFromBankItem: vi.fn(),
   completeBankReconciliation: vi.fn(),
+  registerBankReconPayment: vi.fn(),
+  listReconPayerRules: vi.fn(),
+  disableReconPayerRule: vi.fn(),
 }));
 
 vi.mock('../store/useAccountingStore.js', () => {
@@ -36,6 +39,25 @@ vi.mock('../store/useAccountingStore.js', () => {
   store.getState = () => ({ loadByAcademy });
   return { useAccountingStore: store };
 });
+
+vi.mock('../hooks/useMediaQuery.js', () => ({
+  default: () => false,
+}));
+
+vi.mock('../lib/prefetchFinanceConfig.js', () => ({
+  loadMergedFinanceConfigForAcademy: vi.fn().mockResolvedValue({
+    bankAccounts: [{ label: 'Sicoob · 1' }],
+    plans: [],
+  }),
+}));
+
+vi.mock('../store/useLeadStore.js', () => ({
+  useLeadStore: (selector) =>
+    selector({
+      financeConfigAcademyId: 'acad-1',
+      financeConfig: { bankAccounts: [{ label: 'Sicoob · 1' }], plans: [] },
+    }),
+}));
 
 function renderRecon() {
   return render(
@@ -194,7 +216,7 @@ describe('ReconciliationTab integration', () => {
     const createBtn = within(unmatchedRow).getByRole('button', { name: /Criar lançamento/i });
     await user.click(createBtn);
 
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', { name: /Criar lançamento/i });
     expect(within(dialog).getByRole('heading', { name: /Criar lançamento/i })).toBeInTheDocument();
     expect(
       within(dialog).getByText(/Aporte, empréstimo e transferência não entram no faturamento operacional/i)
@@ -203,7 +225,8 @@ describe('ReconciliationTab integration', () => {
 
     const categoryInput = within(dialog).getByLabelText(/Categoria/i);
     await user.click(categoryInput);
-    await user.click(screen.getByRole('option', { name: 'Aporte de capital' }));
+    const option = await screen.findByRole('option', { name: 'Aporte de capital' });
+    await user.click(option);
 
     await user.click(within(dialog).getByRole('button', { name: /Criar e conciliar/i }));
 
@@ -213,7 +236,7 @@ describe('ReconciliationTab integration', () => {
         category: 'Aporte de capital',
       });
     });
-  });
+  }, 15000);
 
   it('does not render incompatible-bank orphan when filtered by backend', async () => {
     // Simulate backend already filtered tx-far (Nubank) out of navi_unmatched

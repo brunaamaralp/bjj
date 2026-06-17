@@ -7,6 +7,7 @@ import {
   automacoesWizardDismissStorageKey,
   clearAutomacoesWizardDismissed,
   computeAutomacoesWizardState,
+  isModelosWizardStepDone,
 } from '../lib/automacoesSetupWizard.js';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { useLeadStore } from '../store/useLeadStore.js';
@@ -157,9 +158,13 @@ export function useAutomacoesSetupWizard({ modelosAcknowledged = false } = {}) {
 
   const canReopenGuide = !loading && !wizard.allComplete && !wizard.show && !justCompleted;
 
+  const modelosStepReady = isModelosWizardStepDone({ templatesMap, modelosAcknowledged });
+
   return {
     loading,
     readiness,
+    templatesMap,
+    modelosStepReady,
     dismiss,
     reopenGuide,
     canReopenGuide,

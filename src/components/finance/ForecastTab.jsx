@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Calendar, Clock, RefreshCw, Repeat, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Calendar, Clock, FileText, RefreshCw, Repeat, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { fetchFinanceForecast } from '../../lib/financeTxApi.js';
 import {
   FORECAST_PERIOD_PRESETS,
@@ -40,6 +40,7 @@ const STATUS_LABELS = {
   esperado: 'Esperado',
   confirmado: 'Confirmado',
   awaiting: 'Aguardando',
+  partial: 'Parcial',
 };
 
 function fmtMoney(v) {
@@ -59,6 +60,8 @@ function fmtDateBr(ymd) {
 function TypeIcon({ type }) {
   if (type === 'mensalidade') return <Calendar size={14} aria-hidden />;
   if (type === 'recorrencia') return <Repeat size={14} aria-hidden />;
+  if (type === 'contrato') return <FileText size={14} aria-hidden />;
+  if (type === 'parcela' || type === 'liquidacao' || type === 'venda') return <Wallet size={14} aria-hidden />;
   return <Clock size={14} aria-hidden />;
 }
 
@@ -132,6 +135,10 @@ export default function ForecastTab({ academyId }) {
     return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }, [data?.cached_at]);
   const contentBusy = loading && Boolean(data);
+  const openingBalanceHint =
+    data?.opening_balance_source === 'bank'
+      ? FINANCE_TERM_HINTS.saldoAtualBancario
+      : FINANCE_TERM_HINTS.saldoAtualLedger;
 
   const statusLabel = (status) => {
     const raw = String(status || '').trim();
@@ -196,7 +203,7 @@ export default function ForecastTab({ academyId }) {
             <div className="finance-kpi-strip finance-forecast-summary">
               <div className="finance-kpi finance-kpi--hero">
                 <p className="finance-kpi__label">
-                  <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.realizado}>
+                  <FinanceLabelWithHint hint={openingBalanceHint}>
                     Saldo atual
                   </FinanceLabelWithHint>
                 </p>

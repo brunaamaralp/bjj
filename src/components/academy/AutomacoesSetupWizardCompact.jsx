@@ -9,7 +9,7 @@ export default function AutomacoesSetupWizardCompact({ message, ctaLabel, onCta,
 
   return (
     <div
-      className={`automacoes-setup-wizard automacoes-setup-wizard--compact ${className}`.trim()}
+      className={`automacoes-setup-wizard--compact ${className}`.trim()}
       role="status"
       aria-label="Configuração de mensagens automáticas pendente"
     >

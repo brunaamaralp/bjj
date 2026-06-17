@@ -360,6 +360,8 @@ const STUDENT_PAYMENTS_ATTRS = [
   { key: 'payment_category', type: 'string', size: 32 },
   { key: 'financial_tx_id', type: 'string', size: 64 },
   { key: 'financial_tx_sync_pending', type: 'boolean' },
+  { key: 'installments', type: 'integer' },
+  { key: 'installment_schedule_json', type: 'string', size: 4096 },
 ];
 
 const AUDIT_ATTRS = [
@@ -427,6 +429,8 @@ const SALES_ATTRS = [
   { key: 'origin_detail', type: 'string', size: 128 },
   { key: 'deferred', type: 'boolean' },
   { key: 'due_date', type: 'string', size: 16 },
+  { key: 'installments', type: 'integer' },
+  { key: 'installment_schedule_json', type: 'string', size: 4096 },
 ];
 
 function printLineSummary(name, s) {

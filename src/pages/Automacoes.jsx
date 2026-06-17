@@ -14,6 +14,7 @@ import {
   readAutomacoesModelosAck,
   resolveWizardSurface,
   tabForWizardStep,
+  resolveWizardPrimaryDisabled,
 } from '../lib/automacoesSetupWizard.js';
 import { useAutomacoesSetupWizard } from '../hooks/useAutomacoesSetupWizard.js';
 import AutomacoesSetupWizard from '../components/academy/AutomacoesSetupWizard.jsx';
@@ -175,7 +176,14 @@ export default function Automacoes() {
   };
 
   const showModelosTabIntro = activeTab === 'modelos' && wizardSurface !== 'full';
-  const showConfigTabIntro = activeTab === 'configuracoes';
+  const showConfigTabIntro = activeTab === 'configuracoes' && wizardSurface !== 'full';
+
+  const wizardPrimaryCtaDisabled =
+    wizard.currentStep?.id === 'modelos' &&
+    resolveWizardPrimaryDisabled(wizard.currentStep, {
+      templatesMap: wizard.templatesMap,
+      modelosAcknowledged,
+    });
 
   return (
     <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
@@ -203,6 +211,10 @@ export default function Automacoes() {
           totalSteps={wizard.totalSteps}
           onDismiss={wizard.dismiss}
           onStepAction={handleWizardStepAction}
+          primaryCtaDisabled={wizardPrimaryCtaDisabled}
+          primaryCtaBlockedHint={
+            wizardPrimaryCtaDisabled ? AUTOMACOES_COPY.wizard.modelos.ctaBlockedHint : ''
+          }
         />
       ) : null}
       {!wizard.justCompleted && wizardSurface === 'compact' ? (

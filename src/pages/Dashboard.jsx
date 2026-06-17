@@ -559,7 +559,7 @@ const Dashboard = () => {
                 todayOnAgenda,
                 followUps,
                 pendingTasks: pendingTasksToday,
-                trialShort: terms.trialShort,
+                trial: terms.trial,
                 weeklyEnrollments: weeklyEnrollmentsCount,
                 omitTodaySchedule: dayPriority.type === 'upcoming_class',
             }),
@@ -568,7 +568,7 @@ const Dashboard = () => {
             todayOnAgenda,
             followUps,
             pendingTasksToday,
-            terms.trialShort,
+            terms.trial,
             weeklyEnrollmentsCount,
             dayPriority.type,
         ]

@@ -1834,7 +1834,8 @@
 
 .automacoes-setup-wizard--complete {
   border-color: rgba(46, 125, 50, 0.35);
-  background: rgba(46, 125, 50, 0.06);
+  background: linear-gradient(180deg, rgba(46, 125, 50, 0.08) 0%, var(--surface) 100%);
+  padding: 14px 16px;
 }
 
 .automacoes-setup-wizard__complete-inner {
@@ -1875,7 +1876,7 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .automacoes-setup-wizard__eyebrow {
@@ -1953,10 +1954,6 @@
   color: var(--color-primary, var(--primary));
 }
 
-.automacoes-setup-wizard__step-num {
-  font-weight: 700;
-}
-
 .automacoes-setup-wizard__panel {
   padding: 14px 16px;
   border-radius: 10px;
@@ -1990,6 +1987,11 @@
   margin: 0 0 10px;
 }
 
+.automacoes-setup-wizard__blocked-hint {
+  margin: 0 0 10px;
+  color: var(--warning, #b45309);
+}
+
 .automacoes-setup-wizard__cta {
   display: inline-flex;
   align-items: center;
@@ -1998,16 +2000,17 @@
 
 .automacoes-setup-wizard__progress-bar {
   height: 4px;
-  border-radius: 2px;
+  border-radius: 999px;
   background: var(--color-primary-surface, rgba(108, 71, 216, 0.12));
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   overflow: hidden;
 }
 
 .automacoes-setup-wizard__progress-bar-fill {
   height: 100%;
+  border-radius: inherit;
   background: var(--color-primary, var(--primary));
-  transition: width 0.2s ease;
+  transition: width 0.25s ease;
 }
 
 .automacoes-setup-wizard__step-item {
@@ -2018,20 +2021,33 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px;
-  margin: -4px -6px;
-  border: none;
-  border-radius: 8px;
+  padding: 6px 10px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
   background: transparent;
   font: inherit;
   font-size: var(--font-sm);
   color: inherit;
   cursor: pointer;
   text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .automacoes-setup-wizard__step-btn:hover {
   background: var(--surface-hover);
+}
+
+.automacoes-setup-wizard__step-btn:focus-visible {
+  outline: 2px solid var(--color-primary, var(--primary));
+  outline-offset: 2px;
+}
+
+.automacoes-setup-wizard__step-btn.automacoes-setup-wizard__step--current {
+  background: var(--color-primary-surface, rgba(108, 71, 216, 0.1));
+  border-color: rgba(108, 71, 216, 0.22);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .automacoes-setup-wizard--compact {
@@ -2043,7 +2059,9 @@
   margin-bottom: 0;
   border-radius: 10px;
   border: 1px solid var(--border-light);
+  border-left: 3px solid var(--color-primary, var(--primary));
   background: var(--surface);
+  box-shadow: none;
 }
 
 .automacoes-setup-wizard--compact.automacoes-setup-wizard--below-tabs {
@@ -2058,6 +2076,7 @@
 .automacoes-setup-wizard__compact-text {
   margin: 0;
   flex: 1;
+  min-width: 0;
   font-size: var(--font-sm);
   line-height: 1.45;
   color: var(--text-secondary);
@@ -2066,6 +2085,14 @@
 .automacoes-setup-wizard__compact-cta {
   flex-shrink: 0;
   white-space: nowrap;
+  padding: 4px 0;
+  font-weight: 600;
+}
+
+.automacoes-setup-wizard__compact-cta:focus-visible {
+  outline: 2px solid var(--color-primary, var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .automacoes-hub-scope-banner {

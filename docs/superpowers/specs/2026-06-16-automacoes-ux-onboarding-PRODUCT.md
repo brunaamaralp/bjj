@@ -1,7 +1,7 @@
 # Automações — UX, avisos visuais e onboarding
 
 **Data:** 2026-06-16  
-**Status:** implementado (2026-06-16)  
+**Status:** implementado (2026-06-16, P0–P2)  
 **TECH:** [2026-06-16-automacoes-ux-onboarding-TECH.md](./2026-06-16-automacoes-ux-onboarding-TECH.md)
 
 **Fluxos relacionados:**

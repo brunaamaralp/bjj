@@ -99,12 +99,14 @@ flowchart TD
 4. [ ] WhatsApp offline → indicador readiness na config
 5. [ ] Wizard primeira visita redireciona para aba do passo atual
 6. [ ] Dispensar wizard → `automacoesWizardDismissStorageKey`
-7. [ ] Visitar modelos marca `automacoesModelosVisited` no localStorage
+7. [ ] Ack modelos (`navi_automacoes_modelos_ack_{academyId}`) ou template customizado conclui passo do wizard
 8. [ ] Sair da aba config com alterações → confirmação
 9. [ ] `?tab=agente` legacy → redirect `/agente-ia`
 10. [ ] Gatilho `converted` dispara após matrícula (ver [funil-lead-matricula.md](../crm/funil-lead-matricula.md))
 11. [ ] Cron `automations-frequent` processa fila (backend — não duplicar doc API)
 12. [ ] Multi-tenant: config isolada por `academyId`
+13. [ ] Aba Processos com wizard pendente → faixa compacta (não card full)
+14. [ ] Configurações com WhatsApp offline → `StatusBanner` warning + readiness visível com wizard ativo
 
 ### Estados de erro conhecidos
 
@@ -151,7 +153,7 @@ flowchart TD
 
 ## Variações e atalhos
 
-- **Processos vs WhatsApp:** aba Processos **não envia** WhatsApp (`AUTOMACOES_TAB_HINTS.processos`)
+- **Processos vs WhatsApp:** aba Processos **não envia** WhatsApp; banner `AutomacoesTabIntroBanner` + wizard compacto se WA pendente
 - **Financeiro:** lembretes de mensalidade em `FINANCE_WHATSAPP_REMINDERS_PATH` — não confundir com gatilhos do funil
 - **Menu:** accordion Automações em `naviMenu.js` — Agente IA como filho se `canConfigureAgenteIa`
 - **Relacionado:** [agente-ia-whatsapp.md](agente-ia-whatsapp.md), [conversas-inbox.md](../crm/conversas-inbox.md)
@@ -162,4 +164,5 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
-| 2026-06-15 | — | Criação Fase 4 |
+| 2026-06-16 | — | UX onboarding P0/P1: scope banner, wizard contextual, ack modelos, readiness |
+| 2026-06-16 | — | P2 polish: barra de progresso, passos pill, compact sem gradiente |

@@ -29,6 +29,8 @@ export const AUTOMACOES_COPY = {
       description: 'Revise as mensagens que o funil envia automaticamente no WhatsApp.',
       ctaLabel: 'Abrir Modelos de Mensagem',
       confirm: 'Revisei os modelos padrão — posso seguir para o próximo passo.',
+      ctaBlockedHint:
+        'Marque a confirmação na aba Modelos ou personalize pelo menos um texto para continuar.',
     },
     whatsapp: {
       title: 'Conecte o WhatsApp',

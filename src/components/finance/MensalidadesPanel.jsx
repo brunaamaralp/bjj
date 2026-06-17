@@ -85,6 +85,12 @@ import {
   studentTurma,
 } from '../../lib/paymentExceptions.js';
 import { formatPaymentDateLabel, isPaymentDateInFuture } from '../../lib/validations.js';
+import {
+  suggestPaidAtYmd,
+  paidAtMonthDivergesFromCoverage,
+  paidAtCoverageDivergenceConfirmDescription,
+} from '../../lib/paymentReceiptDate.js';
+import PaymentReceiptDateBanner from './PaymentReceiptDateBanner.jsx';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
@@ -244,7 +250,10 @@ export default function MensalidadesPanel({
   const [payFormErrors, setPayFormErrors] = useState({});
   const [paymentFormError, setPaymentFormError] = useState('');
   const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
+  const [paidAtDivergenceConfirm, setPaidAtDivergenceConfirm] = useState(null);
   const skipFuturePaidDateRef = useRef(false);
+  const skipPaidAtDivergenceRef = useRef(false);
+  const paidAtTouchedRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [viewMode, setViewMode] = useState('list');
   const [gridTurmaFilter, setGridTurmaFilter] = useState('all');
@@ -632,10 +641,13 @@ export default function MensalidadesPanel({
     const method = preset.method || student.preferredPaymentMethod || 'pix';
     const planName = preset.plan_name || student.plan || '';
     const plan = findPlanByName(financeConfig, planName);
+    const bundleStart = String(preset.bundle_start_month || refMonth).trim() || refMonth;
+    const coverageYm = isBundle ? bundleStart : refMonth;
+    paidAtTouchedRef.current = false;
     setPayForm({
       payment_type: paymentType,
       reference_month: refMonth,
-      bundle_start_month: String(preset.bundle_start_month || refMonth).trim() || refMonth,
+      bundle_start_month: bundleStart,
       bundle_months: Number(preset.bundle_months) || 12,
       amount:
         Number.isFinite(amountNum) && amountNum > 0
@@ -650,7 +662,7 @@ export default function MensalidadesPanel({
         method
       ),
       status: 'paid',
-      paid_at: new Date().toISOString().slice(0, 10),
+      paid_at: suggestPaidAtYmd({ coverageMonth: coverageYm }),
       due_date: dueDate ? dueDate.toISOString().slice(0, 10) : '',
       due_day: day ? String(day) : '',
       plan_name: planName,
@@ -732,6 +744,17 @@ export default function MensalidadesPanel({
       return;
     }
     skipFuturePaidDateRef.current = false;
+
+    if (
+      !skipPaidAtDivergenceRef.current &&
+      paidAtMonthDivergesFromCoverage(payForm, { referenceMonth: currentMonth })
+    ) {
+      setPaidAtDivergenceConfirm(
+        paidAtCoverageDivergenceConfirmDescription(payForm, { referenceMonth: currentMonth })
+      );
+      return;
+    }
+    skipPaidAtDivergenceRef.current = false;
 
     const student = selectedStudent;
     const payFormSnapshot = { ...payForm };
@@ -1479,6 +1502,22 @@ export default function MensalidadesPanel({
 
                 <div className="mensalidades-modal-body">
                   <PaymentFormErrorBanner message={paymentFormError} />
+                  <PaymentReceiptDateBanner
+                    payForm={payForm}
+                    referenceMonth={currentMonth}
+                    className="mensal-modal-receipt-banner"
+                    onUseCoverageDate={() => {
+                      const isBundleType = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
+                      const coverageYm = isBundleType
+                        ? String(payForm.bundle_start_month || currentMonth).trim()
+                        : currentMonth;
+                      paidAtTouchedRef.current = false;
+                      setPayForm((f) => ({
+                        ...f,
+                        paid_at: suggestPaidAtYmd({ coverageMonth: coverageYm }),
+                      }));
+                    }}
+                  />
                   <div>
                     <div className="mensal-modal-field-label mensal-modal-field-label--spaced">
                       Tipo de pagamento
@@ -1506,11 +1545,15 @@ export default function MensalidadesPanel({
                             financeConfig,
                             payForm.plan_name || selectedStudent.plan
                           );
+                          const bundleStart = payForm.bundle_start_month || currentMonth;
                           setPayForm((f) => ({
                             ...f,
                             payment_type: PAYMENT_CATEGORY.BUNDLE,
-                            bundle_start_month: f.bundle_start_month || currentMonth,
+                            bundle_start_month: bundleStart,
                             amount: f.amount || (plan ? planPriceToPayAmountString(plan) : ''),
+                            ...(paidAtTouchedRef.current
+                              ? {}
+                              : { paid_at: suggestPaidAtYmd({ coverageMonth: bundleStart }) }),
                           }));
                         }}
                       >
@@ -1553,7 +1596,14 @@ export default function MensalidadesPanel({
                           value={payForm.bundle_start_month || currentMonth}
                           onChange={(e) => {
                             clearPayFieldError('bundle_start_month');
-                            setPayForm((f) => ({ ...f, bundle_start_month: e.target.value }));
+                            const ym = e.target.value;
+                            setPayForm((f) => ({
+                              ...f,
+                              bundle_start_month: ym,
+                              ...(paidAtTouchedRef.current
+                                ? {}
+                                : { paid_at: suggestPaidAtYmd({ coverageMonth: ym }) }),
+                            }));
                           }}
                           required
                           className="mensal-modal-in"
@@ -1598,10 +1648,11 @@ export default function MensalidadesPanel({
                     <div className="mensal-modal-col">
                       <DateInput
                         id={MENSALIDADES_PAY_FIELD_IDS.paid_at}
-                        label="Data do pagamento"
+                        label="Data em que o dinheiro entrou na conta"
                         type="date"
                         value={payForm.paid_at}
                         onChange={(e) => {
+                          paidAtTouchedRef.current = true;
                           clearPayFieldError('paid_at');
                           setPayForm((f) => ({ ...f, paid_at: e.target.value }));
                         }}
@@ -1783,6 +1834,20 @@ export default function MensalidadesPanel({
           void handleSavePayment();
         }}
         onClose={() => !savingPayment && setFuturePaidDateLabel(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(paidAtDivergenceConfirm)}
+        title="Data de recebimento diferente da cobertura"
+        description={paidAtDivergenceConfirm || ''}
+        confirmLabel="Registrar assim mesmo"
+        confirmVariant="primary"
+        loading={savingPayment}
+        onConfirm={() => {
+          setPaidAtDivergenceConfirm(null);
+          skipPaidAtDivergenceRef.current = true;
+          void handleSavePayment();
+        }}
+        onClose={() => !savingPayment && setPaidAtDivergenceConfirm(null)}
       />
     </div>
   );

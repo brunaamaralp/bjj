@@ -102,6 +102,10 @@ import {
     isValidCPF,
 } from '../lib/validations.js';
 import { buildReceivablesPath } from '../lib/financeiroReceivablesSections.js';
+import {
+    paidAtMonthDivergesFromCoverage,
+    paidAtCoverageDivergenceConfirmDescription,
+} from '../lib/paymentReceiptDate.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -360,7 +364,9 @@ export default function StudentProfile() {
     const [payerAliases, setPayerAliases] = useState([]);
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
+    const [paidAtDivergenceConfirm, setPaidAtDivergenceConfirm] = useState(null);
     const skipFuturePaidDateRef = useRef(false);
+    const skipPaidAtDivergenceRef = useRef(false);
     const [timelineOpen, setTimelineOpen] = useState(readInitialTimelineOpen);
     const [activeTab, setActiveTab] = useState('frequency');
     const profileBundleRef = useRef(null);
@@ -1346,6 +1352,12 @@ export default function StudentProfile() {
             return;
         }
         skipFuturePaidDateRef.current = false;
+
+        if (!skipPaidAtDivergenceRef.current && paidAtMonthDivergesFromCoverage(payForm)) {
+            setPaidAtDivergenceConfirm(paidAtCoverageDivergenceConfirmDescription(payForm));
+            return;
+        }
+        skipPaidAtDivergenceRef.current = false;
 
         const data = {
             lead_id: student.id,
@@ -3083,6 +3095,20 @@ export default function StudentProfile() {
                     void saveStudentPayment();
                 }}
                 onClose={() => !savingPayment && setFuturePaidDateLabel(null)}
+            />
+            <ConfirmDialog
+                open={Boolean(paidAtDivergenceConfirm)}
+                title="Data de recebimento diferente da cobertura"
+                description={paidAtDivergenceConfirm || ''}
+                confirmLabel="Registrar assim mesmo"
+                confirmVariant="primary"
+                loading={savingPayment}
+                onConfirm={() => {
+                    setPaidAtDivergenceConfirm(null);
+                    skipPaidAtDivergenceRef.current = true;
+                    void saveStudentPayment();
+                }}
+                onClose={() => !savingPayment && setPaidAtDivergenceConfirm(null)}
             />
         </div>
     );

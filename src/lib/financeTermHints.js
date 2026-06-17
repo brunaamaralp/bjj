@@ -6,6 +6,10 @@ export const FINANCE_TERM_HINTS = {
   projetado:
     'Valor esperado com base em mensalidades e lançamentos recorrentes ainda não recebidos.',
   realizado: 'Valor efetivamente recebido ou pago até hoje.',
+  saldoAtualBancario:
+    'Saldo consolidado das contas bancárias cadastradas (mesma base da Visão Geral).',
+  saldoAtualLedger:
+    'Saldo do caixa contábil (lançamentos liquidados). Cadastre contas bancárias em Minha Academia para alinhar com o extrato.',
   inadimplentes: 'Alunos com mensalidade em aberto após o vencimento.',
   aReceber:
     'Soma de mensalidades em aberto no mês, lançamentos de entrada pendentes no Caixa e vendas marcadas como a receber.',
