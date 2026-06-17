@@ -283,7 +283,6 @@ export default function Inbox() {
   } = useFollowupEventsByLead(academyId, {
     defer: true,
     enableRealtime: false,
-    allowClientFallback: false,
     disableInboundPoll: true,
   });
   const followupPlaybook = useMemo(

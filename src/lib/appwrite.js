@@ -105,6 +105,16 @@ function isJwtRateLimitedError(err) {
   return msg.includes('429') || msg.includes('too many requests') || msg.includes('rate limit');
 }
 
+/**
+ * Sincroniza JWT da sessão no client Appwrite (Realtime + Databases no browser).
+ * Necessário quando cookies de sessão não bastam ou expiraram.
+ */
+export async function syncClientSessionJwt() {
+  const token = await createSessionJwt();
+  if (token) client.setJWT(token);
+  return token;
+}
+
 /** JWT de curta duração para rotas /api (ex.: billing, academies/create). */
 export async function createSessionJwt() {
   const now = Date.now();

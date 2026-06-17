@@ -1,4 +1,5 @@
 import { extractLastUserMessageAt } from './followupInbound.js';
+import { syncClientSessionJwt } from './appwrite.js';
 
 export const REALTIME_DEBOUNCE_MS = 250;
 export const REALTIME_SUBSCRIBE_DELAY_MS = 300;
@@ -79,19 +80,20 @@ export function subscribeConversationsRealtime({
 
   subscribeTimer = setTimeout(() => {
     if (cancelled) return;
-    void realtimeClient
-      .subscribe(channel, handleEvent)
-      .then((sub) => {
+    void (async () => {
+      try {
+        await syncClientSessionJwt();
+        const sub = await realtimeClient.subscribe(channel, handleEvent);
         if (cancelled) {
           void sub?.close?.();
           return;
         }
         subscription = sub;
         onConnected?.();
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) onError?.(err);
-      });
+      }
+    })();
   }, subscribeDelayMs);
 
   return {

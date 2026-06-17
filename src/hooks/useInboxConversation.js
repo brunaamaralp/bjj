@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { account, realtime, DB_ID, CONVERSATIONS_COL } from '../lib/appwrite';
+import { account, realtime, DB_ID, CONVERSATIONS_COL, syncClientSessionJwt } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { inboxPhonesMatch, primaryInboxPhone } from '../lib/normalizeInboxPhone';
@@ -506,19 +506,20 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
 
     subscribeTimer = window.setTimeout(() => {
       if (cancelledRef.current) return;
-      void realtime
-        .subscribe(channel, onRealtimeEvent)
-        .then((sub) => {
+      void (async () => {
+        try {
+          await syncClientSessionJwt();
+          const sub = await realtime.subscribe(channel, onRealtimeEvent);
           if (cancelledRef.current) {
             void sub?.close?.();
             return;
           }
           subscription = sub;
           setRealtimeOn(true);
-        })
-        .catch(() => {
+        } catch {
           if (!cancelledRef.current) setRealtimeOn(false);
-        });
+        }
+      })();
     }, REALTIME_SUBSCRIBE_DELAY_MS);
 
     return () => {

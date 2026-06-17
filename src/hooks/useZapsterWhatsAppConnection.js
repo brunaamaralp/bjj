@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createSessionJwt, realtime, ACADEMIES_COL, DB_ID } from '../lib/appwrite';
+import { createSessionJwt, realtime, ACADEMIES_COL, DB_ID, syncClientSessionJwt } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useUiStore } from '../store/useUiStore';
 import { normalizeWaPhoneDigits } from '../../lib/zapsterInstancePhone.js';
@@ -1169,18 +1169,19 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       void fetchWaInfo({ silent: true, quiet: true });
     };
 
-    void realtime
-      .subscribe(channel, onAcademyEvent)
-      .then((sub) => {
+    void (async () => {
+      try {
+        await syncClientSessionJwt();
+        const sub = await realtime.subscribe(channel, onAcademyEvent);
         if (cancelled) {
           void sub?.close?.();
           return;
         }
         subscription = sub;
-      })
-      .catch(() => {
+      } catch {
         void 0;
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;

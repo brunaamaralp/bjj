@@ -1,24 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Query } from 'appwrite';
-import { databases, DB_ID, LEAD_EVENTS_COL } from '../lib/appwrite';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { getInboxJwt } from '../lib/inboxApiUtils.js';
-import { buildFollowupEventMapsFromDocs } from '../lib/followupEventsMaps.js';
 import {
   getFollowupEventsCache,
   invalidateFollowupEventsCache,
   patchFollowupInboundCache,
   setFollowupEventsCache,
 } from '../lib/followupEventsCache.js';
-import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
+import { mergeFollowupInboundMaps } from '../lib/followupInboundClient.js';
 import { FOLLOWUP_INBOUND_CHANGED, FOLLOWUP_INBOUND_REFRESH } from '../lib/leadTimelineEvents.js';
 import { getInboundPollMs } from '../lib/followupInboundPoll.js';
-import {
-  isInboundMapsEmpty,
-  loadFollowupInboundMapsFromClient,
-  mergeFollowupInboundMaps,
-  scanRecentInboundMapsFromClient,
-} from '../lib/followupInboundClient.js';
 import { useFollowupInboundRealtime } from './useFollowupInboundRealtime.js';
 
 function scheduleDeferredWork(run) {
@@ -68,35 +59,7 @@ async function loadFollowupEventsFromApi(academyId) {
   }
 }
 
-/** Fallback legado no browser — só se a API não estiver disponível. */
-async function loadFollowupEventsClient(academyId) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - FOLLOWUP_AGENDA_MAX_DAYS);
-  const cutoffIso = cutoff.toISOString();
-
-  const docs = [];
-  let cursor = null;
-  let pageCount = 0;
-  do {
-    const queries = [
-      Query.equal('academy_id', [String(academyId || '').trim()]),
-      Query.equal('type', ['followup_done', 'followup_contact', 'followup_snooze', 'whatsapp_template_sent']),
-      Query.greaterThan('at', cutoffIso),
-      Query.orderDesc('at'),
-      Query.limit(100),
-    ];
-    if (cursor) queries.push(Query.cursorAfter(cursor));
-    const res = await databases.listDocuments(DB_ID, LEAD_EVENTS_COL, queries);
-    const page = Array.isArray(res?.documents) ? res.documents : [];
-    docs.push(...page);
-    cursor = page.length === 100 ? page[page.length - 1]?.$id : null;
-    pageCount += 1;
-  } while (cursor && pageCount < 10);
-
-  return buildFollowupEventMapsFromDocs(docs);
-}
-
-async function loadFollowupEvents(academyId, { allowClientFallback = true } = {}) {
+async function loadFollowupEvents(academyId) {
   const fromApi = await loadFollowupEventsFromApi(academyId);
   if (fromApi.ok) {
     return {
@@ -105,14 +68,7 @@ async function loadFollowupEvents(academyId, { allowClientFallback = true } = {}
       snoozeUntilByLead: fromApi.snoozeUntilByLead || {},
     };
   }
-  if (!allowClientFallback || !LEAD_EVENTS_COL) {
-    return { doneByLead: {}, contactByLead: {}, snoozeUntilByLead: {} };
-  }
-  try {
-    return await loadFollowupEventsClient(academyId);
-  } catch {
-    return { doneByLead: {}, contactByLead: {}, snoozeUntilByLead: {} };
-  }
+  return { doneByLead: {}, contactByLead: {}, snoozeUntilByLead: {} };
 }
 
 async function loadInboundAfterMapsFromApi(academyId) {
@@ -140,7 +96,7 @@ async function loadInboundAfterMapsFromApi(academyId) {
   }
 }
 
-async function loadInboundAfterMaps(academyId, followupLeads = [], { allowClientFallback = true } = {}) {
+async function loadInboundAfterMaps(academyId) {
   const cached = getFollowupEventsCache(academyId);
   const cachedInbound = cached
     ? {
@@ -156,34 +112,22 @@ async function loadInboundAfterMaps(academyId, followupLeads = [], { allowClient
         inboundAfterByPhone: fromApi.inboundAfterByPhone || {},
       }
     : null;
-  let inbound = mergeFollowupInboundMaps(cachedInbound, apiMaps);
+  const inbound = mergeFollowupInboundMaps(cachedInbound, apiMaps);
 
-  if (allowClientFallback && !fromApi.ok && (followupLeads || []).length) {
-    const fromLeads = await loadFollowupInboundMapsFromClient(academyId, followupLeads);
-    inbound = mergeFollowupInboundMaps(inbound, fromLeads);
-  }
-
-  if (allowClientFallback && !fromApi.ok && isInboundMapsEmpty(inbound)) {
-    const fromScan = await scanRecentInboundMapsFromClient(academyId);
-    inbound = mergeFollowupInboundMaps(inbound, fromScan);
-  }
-
-  if (isInboundMapsEmpty(inbound) && cachedInbound) return cachedInbound;
+  if (cachedInbound && !fromApi.ok) return cachedInbound;
   return inbound || { inboundAfterByLead: {}, inboundAfterByPhone: {} };
 }
 
-async function fetchFollowupEventsBundle(academyId, followupLeads = [], { allowClientFallback = true } = {}) {
-  const [events, inbound] = await Promise.all([
-    loadFollowupEvents(academyId, { allowClientFallback }),
-    loadInboundAfterMaps(academyId, followupLeads, { allowClientFallback }),
-  ]);
+async function fetchFollowupEventsBundle(academyId) {
+  const [events, inbound] = await Promise.all([loadFollowupEvents(academyId), loadInboundAfterMaps(academyId)]);
   return { ...events, ...inbound };
 }
 
 /**
  * Carrega eventos recentes de retorno + inbound WhatsApp por lead (cache compartilhado com Dashboard).
+ * Dados vêm apenas de /api/agent (sem fallback direto ao Appwrite no browser).
  * @param {string} academyId
- * @param {{ defer?: boolean; enableRealtime?: boolean; allowClientFallback?: boolean; disableInboundPoll?: boolean }} [opts]
+ * @param {{ defer?: boolean; enableRealtime?: boolean; eagerInbound?: boolean; disableInboundPoll?: boolean }} [opts]
  */
 export function useFollowupEventsByLead(
   academyId,
@@ -191,8 +135,6 @@ export function useFollowupEventsByLead(
     defer = false,
     enableRealtime = true,
     eagerInbound = false,
-    followupLeads = [],
-    allowClientFallback = true,
     disableInboundPoll = false,
   } = {}
 ) {
@@ -222,11 +164,11 @@ export function useFollowupEventsByLead(
   const refreshFollowupEvents = useCallback(
     async ({ force = false } = {}) => {
       const aid = String(academyId || '').trim();
-      if (!aid || !LEAD_EVENTS_COL) return;
+      if (!aid) return;
       if (force) invalidateFollowupEventsCache(aid);
       setLoading(true);
       try {
-        const bundle = await fetchFollowupEventsBundle(aid, followupLeads, { allowClientFallback });
+        const bundle = await fetchFollowupEventsBundle(aid);
         applyBundle(bundle);
         setFollowupEventsCache(aid, bundle);
       } catch {
@@ -243,13 +185,13 @@ export function useFollowupEventsByLead(
         setLoading(false);
       }
     },
-    [academyId, followupLeads, applyBundle, allowClientFallback]
+    [academyId, applyBundle]
   );
 
   const refreshInboundOnly = useCallback(async () => {
     const aid = String(academyId || '').trim();
     if (!aid) return;
-    const inbound = await loadInboundAfterMaps(aid, followupLeads, { allowClientFallback });
+    const inbound = await loadInboundAfterMaps(aid);
     if (!inbound) return;
     const cached = getFollowupEventsCache(aid) || {
       doneByLead: {},
@@ -261,10 +203,10 @@ export function useFollowupEventsByLead(
     const bundle = { ...cached, ...inbound };
     applyBundle(bundle);
     setFollowupEventsCache(aid, bundle);
-  }, [academyId, followupLeads, applyBundle, allowClientFallback]);
+  }, [academyId, applyBundle]);
 
   useEffect(() => {
-    if (!academyId || !LEAD_EVENTS_COL) {
+    if (!academyId) {
       applyBundle({
         doneByLead: {},
         contactByLead: {},
@@ -283,7 +225,7 @@ export function useFollowupEventsByLead(
       if (cancelled) return;
       setLoading(true);
       try {
-        const bundle = await fetchFollowupEventsBundle(academyId, followupLeads, { allowClientFallback });
+        const bundle = await fetchFollowupEventsBundle(academyId);
         if (!cancelled) {
           applyBundle(bundle);
           setFollowupEventsCache(academyId, bundle);
@@ -306,20 +248,20 @@ export function useFollowupEventsByLead(
     const cancelSchedule = defer ? scheduleDeferredWork(() => void load()) : (void load(), () => {});
 
     let cancelInbound = () => {};
-    if (eagerInbound && academyId && LEAD_EVENTS_COL) {
+    if (eagerInbound && academyId) {
       cancelInbound = (() => {
         let cancelledInbound = false;
         void (async () => {
-          const inbound = await loadInboundAfterMaps(academyId, followupLeads, { allowClientFallback });
+          const inbound = await loadInboundAfterMaps(academyId);
           if (cancelledInbound || !inbound) return;
-          const cached = getFollowupEventsCache(academyId) || {
+          const cachedNow = getFollowupEventsCache(academyId) || {
             doneByLead: {},
             contactByLead: {},
             snoozeUntilByLead: {},
             inboundAfterByLead: {},
             inboundAfterByPhone: {},
           };
-          const bundle = { ...cached, ...inbound };
+          const bundle = { ...cachedNow, ...inbound };
           applyBundle(bundle);
           setFollowupEventsCache(academyId, bundle);
         })();
@@ -334,7 +276,7 @@ export function useFollowupEventsByLead(
       cancelSchedule();
       cancelInbound();
     };
-  }, [academyId, defer, eagerInbound, followupLeads, applyBundle, allowClientFallback]);
+  }, [academyId, defer, eagerInbound, applyBundle]);
 
   useEffect(() => {
     if (disableInboundPoll || !academyId || typeof window === 'undefined') return undefined;
@@ -389,7 +331,7 @@ export function useFollowupEventsByLead(
       window.removeEventListener(FOLLOWUP_INBOUND_REFRESH, onInboundRefresh);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [academyId, disableInboundPoll, refreshFromCache, refreshInboundOnly, realtimeOn, followupLeads]);
+  }, [academyId, disableInboundPoll, refreshFromCache, refreshInboundOnly, realtimeOn]);
 
   return {
     loading,

@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../lib/appwrite.js', () => ({
+  syncClientSessionJwt: vi.fn().mockResolvedValue('test-jwt'),
+}));
+
 import {
   buildConversationsChannel,
   conversationEventToInboundPatch,
@@ -72,6 +77,7 @@ describe('conversationsRealtime', () => {
     });
 
     vi.advanceTimersByTime(100);
+    await Promise.resolve();
     await Promise.resolve();
 
     expect(subscribe).toHaveBeenCalledTimes(1);
