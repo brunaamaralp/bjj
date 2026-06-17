@@ -40,6 +40,7 @@ scripts/*
 !scripts/restore-bank-account-definitions.mjs
 !scripts/ensure-inbox-media-bucket.mjs
 !scripts/backfill-conversation-team-perms.mjs
+!scripts/backfill-finance-tx-description.mjs
 
 # Editor directories and files
 .vscode/*
