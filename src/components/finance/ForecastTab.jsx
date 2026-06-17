@@ -125,6 +125,9 @@ export default function ForecastTab({ academyId }) {
   );
 
   const summary = data?.summary || {};
+  const inflowGross = Number(summary.expected_inflow_gross ?? summary.expected_inflow ?? 0);
+  const inflowNet = Number(summary.expected_inflow ?? 0);
+  const showNetInflow = Math.abs(inflowGross - inflowNet) >= 0.01;
   const projected = Number(data?.closing_balance ?? 0);
   const projectedPositive = projected >= 0;
   const cachedAtLabel = useMemo(() => {
@@ -210,9 +213,23 @@ export default function ForecastTab({ academyId }) {
                 <p className="finance-kpi__value">{fmtMoney(data.opening_balance)}</p>
               </div>
               <div className="finance-kpi">
-                <p className="finance-kpi__label">Entradas previstas</p>
-                <p className="finance-kpi__value finance-value-positive">{fmtMoney(summary.expected_inflow)}</p>
+                <p className="finance-kpi__label">
+                  <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.previsaoBrutoCliente}>
+                    A receber do cliente
+                  </FinanceLabelWithHint>
+                </p>
+                <p className="finance-kpi__value finance-value-positive">{fmtMoney(inflowGross)}</p>
               </div>
+              {showNetInflow ? (
+                <div className="finance-kpi">
+                  <p className="finance-kpi__label">
+                    <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.previsaoLiquidoEstimado}>
+                      Líquido estimado
+                    </FinanceLabelWithHint>
+                  </p>
+                  <p className="finance-kpi__value finance-value-positive">{fmtMoney(inflowNet)}</p>
+                </div>
+              ) : null}
               <div className="finance-kpi">
                 <p className="finance-kpi__label">Saídas previstas</p>
                 <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.expected_outflow)}</p>
@@ -259,9 +276,9 @@ export default function ForecastTab({ academyId }) {
                     <Tooltip
                       formatter={(value, name) => {
                         const labels = {
-                          inflow: 'Entradas',
+                          inflow: 'A receber (bruto)',
                           outflow: 'Saídas',
-                          balance: 'Saldo acumulado',
+                          balance: 'Saldo acumulado (líquido est.)',
                         };
                         return [fmtMoney(value), labels[name] || name];
                       }}
@@ -302,17 +319,22 @@ export default function ForecastTab({ academyId }) {
               <div className="flex gap-3 mt-2 text-xs text-muted finance-forecast-legend">
                 <span>
                   <i className="finance-forecast-legend__swatch finance-forecast-legend__swatch--inflow" />
-                  Entradas
+                  A receber do cliente (bruto)
                 </span>
                 <span>
                   <i className="finance-forecast-legend__swatch finance-forecast-legend__swatch--outflow" />
-                  Saídas
+                  Saídas previstas
                 </span>
                 <span>
                   <i className="finance-forecast-legend__swatch finance-forecast-legend__swatch--balance" />
-                  Saldo acumulado
+                  Saldo acumulado (líquido est.)
                 </span>
               </div>
+              <p className="text-xs text-muted mt-2 mb-0 finance-forecast-basis-note" role="note">
+                {showNetInflow
+                  ? `${FINANCE_TERM_HINTS.previsaoBrutoCliente} ${FINANCE_TERM_HINTS.previsaoLiquidoEstimado}`
+                  : FINANCE_TERM_HINTS.previsaoMdrOpcional}
+              </p>
             </div>
 
             <div className="finance-forecast-weeks">
@@ -329,7 +351,17 @@ export default function ForecastTab({ academyId }) {
                     </div>
                     <div className="text-small finance-forecast-week__totals">
                       <div>
-                        <span className="finance-forecast-week__inflow">+{fmtMoney(week.expected_inflow)}</span>
+                        <span className="finance-forecast-week__inflow">
+                          +{fmtMoney(week.expected_inflow_gross ?? week.expected_inflow)}
+                        </span>
+                        {showNetInflow ? (
+                          <>
+                            {' '}
+                            <span className="text-muted text-xs">
+                              (líq. {fmtMoney(week.expected_inflow)})
+                            </span>
+                          </>
+                        ) : null}
                         {' · '}
                         <span className="finance-forecast-week__outflow">-{fmtMoney(week.expected_outflow)}</span>
                       </div>
@@ -351,7 +383,13 @@ export default function ForecastTab({ academyId }) {
                     />
                   ) : (
                     <ul className="finance-forecast-week__list">
-                      {week.items.map((item, idx) => (
+                      {week.items.map((item, idx) => {
+                        const itemGross =
+                          item.flow === 'in' ? Number(item.amount_gross ?? item.amount) : null;
+                        const itemNet = Number(item.amount ?? 0);
+                        const showItemGross =
+                          itemGross != null && Math.abs(itemGross - itemNet) >= 0.01;
+                        return (
                         <li key={`${week.week_start}-${idx}`} className="finance-forecast-week__item">
                           <span className="finance-forecast-week__icon" aria-hidden>
                             <TypeIcon type={item.type} />
@@ -390,18 +428,26 @@ export default function ForecastTab({ academyId }) {
                               ) : null}
                             </span>
                           </div>
-                          <span
-                            className={`finance-forecast-week__amount ${
+                          <div
+                            className={`finance-forecast-week__amount${
                               item.flow === 'out'
-                                ? 'finance-forecast-week__amount--out'
-                                : 'finance-forecast-week__amount--in'
+                                ? ' finance-forecast-week__amount--out'
+                                : ' finance-forecast-week__amount--in'
                             }`}
                           >
-                            {item.flow === 'out' ? '−' : '+'}
-                            {fmtMoney(item.amount)}
-                          </span>
+                            <span>
+                              {item.flow === 'out' ? '−' : '+'}
+                              {fmtMoney(itemNet)}
+                            </span>
+                            {showItemGross ? (
+                              <span className="finance-forecast-week__amount-gross text-xs text-muted">
+                                bruto {fmtMoney(itemGross)}
+                              </span>
+                            ) : null}
+                          </div>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </div>

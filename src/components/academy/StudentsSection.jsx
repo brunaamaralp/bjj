@@ -266,7 +266,7 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
   const automationsFootnote = (
     <>
       Para tarefas automáticas ao desligar ou matricular, configure em{' '}
-      <Link to="/automacoes?tab=processos" className="edit-link">
+      <Link to="/tarefas?tab=processos" className="edit-link">
         Automações → Processos
       </Link>
       .

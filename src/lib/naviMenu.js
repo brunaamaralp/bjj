@@ -177,6 +177,15 @@ export function isAccordionChildActive(child, location) {
     if (child.group === 'Contabilidade') return child.id === tab;
     if (child.group === FINANCEIRO_NAV_GROUP_OPERACOES) return child.id === tab;
   }
+  if (location.pathname === '/automacoes') {
+    const tab = String(new URLSearchParams(location.search || '').get('tab') || '').toLowerCase();
+    if (
+      (child.id === 'gatilhos' || child.id === 'configuracoes') &&
+      (tab === 'gatilhos' || tab === 'configuracoes')
+    ) {
+      return true;
+    }
+  }
   return matchNavTarget(child.to, location);
 }
 
@@ -186,22 +195,21 @@ export function isAccordionParentPartial(accordion, location) {
 
 export function buildAutomacoesAccordion({ canConfigureAgenteIa }) {
   const children = [
-    { id: 'processos', label: 'Processos', to: '/automacoes?tab=processos' },
-    { id: 'modelos', label: 'Modelos de Mensagem', to: '/automacoes?tab=modelos' },
-    { id: 'configuracoes', label: 'Configurações', to: '/automacoes?tab=configuracoes' },
+    { id: 'modelos', label: 'Modelos', to: '/automacoes?tab=modelos' },
+    { id: 'gatilhos', label: 'Gatilhos', to: '/automacoes?tab=gatilhos' },
   ];
   if (canConfigureAgenteIa) {
     children.push({
       id: 'agente',
-      label: 'Agente de Atendimento',
+      label: 'Agente IA',
       to: '/agente-ia',
     });
   }
   return {
     id: NAV_ACCORDION_IDS.AUTOMACOES,
-    label: 'Automações',
+    label: 'Mensagens do funil',
     iconKey: 'automacoes',
-    defaultTo: '/automacoes?tab=processos',
+    defaultTo: '/automacoes?tab=modelos',
     children,
   };
 }
@@ -372,6 +380,7 @@ export function buildSidebarNavModel({
       { to: '/pipeline', label: pipelineLabel, iconKey: 'pipeline' },
       { to: '/students', label: navStudentsLabel, iconKey: 'students' },
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
+      { to: '/tarefas?tab=processos', label: 'Processos da equipe', iconKey: 'tarefas' },
     ],
     atendimento: [{ to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
     financeDirect: [],
@@ -389,7 +398,14 @@ export function flattenNavItemsForMobile(model) {
   for (const item of model.primary) push({ ...item, section: null });
   for (const item of model.atendimento) push({ ...item, section: 'Atendimento' });
 
-  push({ to: model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES)?.defaultTo || '/automacoes?tab=processos', label: 'Automações', iconKey: 'automacoes', section: 'Atendimento' });
+  push({
+    to:
+      model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES)?.defaultTo ||
+      '/automacoes?tab=modelos',
+    label: 'Mensagens do funil',
+    iconKey: 'automacoes',
+    section: 'Atendimento',
+  });
   const auto = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
   if (auto) {
     for (const c of auto.children) {

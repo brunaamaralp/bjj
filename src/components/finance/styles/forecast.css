@@ -76,10 +76,18 @@
 }
 
 .finance-forecast-week__amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   font-weight: 600;
   font-size: var(--font-base);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+
+.finance-forecast-week__amount-gross {
+  font-weight: 400;
 }
 
 .finance-forecast-week__amount--in {

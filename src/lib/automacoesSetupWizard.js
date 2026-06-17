@@ -22,12 +22,12 @@ export const AUTOMACOES_WIZARD_STEPS = [
     external: true,
   },
   {
-    id: 'configuracoes',
+    id: 'gatilhos',
     label: AUTOMACOES_COPY.wizard.step.gatilhos,
-    title: AUTOMACOES_COPY.wizard.configuracoes.title,
-    description: AUTOMACOES_COPY.wizard.configuracoes.description,
-    tab: 'configuracoes',
-    ctaLabel: AUTOMACOES_COPY.wizard.configuracoes.ctaLabel,
+    title: AUTOMACOES_COPY.wizard.gatilhos.title,
+    description: AUTOMACOES_COPY.wizard.gatilhos.description,
+    tab: 'gatilhos',
+    ctaLabel: AUTOMACOES_COPY.wizard.gatilhos.ctaLabel,
   },
 ];
 
@@ -128,7 +128,7 @@ export function clearAutomacoesWizardDismissed(academyId) {
 /** Aba do hub para um passo do wizard (passos externos → modelos). */
 export function tabForWizardStep(stepId) {
   const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === stepId);
-  if (!step) return 'processos';
+  if (!step) return 'modelos';
   if (step.tab) return step.tab;
   return 'modelos';
 }
@@ -140,28 +140,14 @@ export function tabForWizardStep(stepId) {
 export function resolveWizardSurface({ currentStep, activeTab, forceWizard = false, wizardShow = true }) {
   if (!wizardShow || !currentStep) return 'hidden';
   if (forceWizard) return 'full';
-
-  if (activeTab === 'processos') return 'compact';
-
   if (currentStep.path) return 'full';
-
   if (currentStep.tab === activeTab) return 'full';
-
   return 'hidden';
 }
 
 /** @deprecated Use resolveWizardSurface */
 export function shouldShowSetupWizardOnTab(currentStep, activeTab) {
-  return resolveWizardSurface({ currentStep, activeTab, wizardShow: true }) !== 'hidden';
-}
-
-export function getCompactWizardContent(stepId) {
-  const id = String(stepId || '').trim();
-  const copy = AUTOMACOES_COPY.wizard.compact;
-  if (id === 'modelos') return { message: copy.modelos, ctaLabel: copy.ctaModelos };
-  if (id === 'whatsapp') return { message: copy.whatsapp, ctaLabel: copy.ctaWhatsapp };
-  if (id === 'configuracoes') return { message: copy.gatilhos, ctaLabel: copy.ctaGatilhos };
-  return { message: '', ctaLabel: copy.ctaModelos };
+  return resolveWizardSurface({ currentStep, activeTab, wizardShow: true }) === 'full';
 }
 
 /** True quando pelo menos um modelo difere do texto padrão do sistema. */
@@ -188,7 +174,7 @@ export function isAutomacoesWizardStepDone(
       return isModelosWizardStepDone({ templatesMap, modelosAcknowledged });
     case 'whatsapp':
       return Boolean(zapsterOk);
-    case 'configuracoes':
+    case 'gatilhos':
       return Number(activeCount) > 0;
     default:
       return false;

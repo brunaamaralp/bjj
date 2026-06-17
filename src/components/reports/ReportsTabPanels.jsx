@@ -7,6 +7,7 @@ const ReportsFinancePanel = lazy(() => import('./ReportsFinancePanel.jsx'));
 const ReportsLojaPanel = lazy(() => import('./ReportsLojaPanel.jsx'));
 const ReportsEstoquePanel = lazy(() => import('./ReportsEstoquePanel.jsx'));
 const ReportsStudentsPanel = lazy(() => import('./ReportsStudentsPanel.jsx'));
+const ReportsAtividadePanel = lazy(() => import('./ReportsAtividadePanel.jsx'));
 
 const lazyFallback = <PageSkeleton variant="cards" rows={4} />;
 
@@ -48,6 +49,9 @@ export default function ReportsTabPanels({
   academyId,
   operatorFilter = '',
   onDrill,
+  isOwner = false,
+  operatorTeam = [],
+  onOperatorFilterChange,
 }) {
   return (
     <>
@@ -139,6 +143,20 @@ export default function ReportsTabPanels({
             to={range.to}
             hasInventory={hasInventory}
             kpiGoals={kpiGoals}
+          />
+        </Suspense>
+      ) : null}
+
+      {activeTab === 'atividade' ? (
+        <Suspense fallback={lazyFallback}>
+          <ReportsAtividadePanel
+            academyId={academyId}
+            from={range.from}
+            to={range.to}
+            isOwner={isOwner}
+            operatorTeam={operatorTeam}
+            operatorFilter={operatorFilter}
+            onOperatorFilterChange={onOperatorFilterChange}
           />
         </Suspense>
       ) : null}

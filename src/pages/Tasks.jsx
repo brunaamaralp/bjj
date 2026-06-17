@@ -26,7 +26,10 @@ import {
   profilePathForLinkablePerson,
 } from '../lib/taskLinkablePeople.js';
 import { useUiStore } from '../store/useUiStore';
-import { teams } from '../lib/appwrite';
+import { fetchTeamMemberships } from '../lib/teamApi.js';
+import { TASKS_HUB_TABS, TASKS_TAB_OPERACAO, TASKS_TAB_PROCESSOS, resolveTasksHubTab } from '../lib/tasksHubTabs.js';
+import { TASKS_COPY } from '../lib/tasksCopy.js';
+import TaskProcessosTab from './TaskProcessosTab.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -362,7 +365,27 @@ export default function Tasks() {
   const isUpdating = useTaskStore((s) => s.isUpdating);
   const addToast = useUiStore((s) => s.addToast);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hubTab = resolveTasksHubTab(searchParams.get('tab'));
+  const isProcessosHub = hubTab === TASKS_TAB_PROCESSOS;
+
+  const handleHubTabChange = useCallback(
+    (id) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id === TASKS_TAB_OPERACAO) {
+            next.delete('tab');
+          } else {
+            next.set('tab', id);
+          }
+          return next;
+        },
+        { replace: id === TASKS_TAB_OPERACAO }
+      );
+    },
+    [setSearchParams]
+  );
   const initLeadId = searchParams.get('lead_id') || '';
   const initNew = searchParams.get('new') === '1';
 
@@ -501,9 +524,9 @@ export default function Tasks() {
     }
   }, [initLeadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Membros da equipe (responsável) — teamId da academia ativa, não só o do store global
+  // Membros da equipe (responsável) — API server enriquece nome/e-mail (SDK cliente omite por privacidade)
   useEffect(() => {
-    if (!effectiveTeamId) {
+    if (!academyId) {
       setMembers([]);
       setMembersError(false);
       setMembersLoading(false);
@@ -512,10 +535,12 @@ export default function Tasks() {
     let cancelled = false;
     setMembersLoading(true);
     setMembersError(false);
-    teams
-      .listMemberships(effectiveTeamId)
-      .then((res) => {
-        if (!cancelled) setMembers(res.memberships || []);
+    fetchTeamMemberships(academyId)
+      .then((data) => {
+        if (!cancelled) {
+          const rows = (data.memberships || []).filter((m) => String(m?.userId || '').trim());
+          setMembers(rows);
+        }
       })
       .catch((e) => {
         console.error('Erro ao buscar membros', e);
@@ -530,7 +555,7 @@ export default function Tasks() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveTeamId]);
+  }, [academyId]);
 
   const filterLeadId = filters.lead_id;
   const filterAssigned = filters.assigned_to;
@@ -1293,25 +1318,55 @@ export default function Tasks() {
     return creator ? membershipPrimaryLabel(creator) : raw;
   }
 
+  function formatCompletedByLabel(task) {
+    const stored = String(task?.completed_by_name || '').trim();
+    if (stored) return stored;
+    const raw = String(task?.completed_by || '').trim();
+    if (!raw) return '—';
+    const member = members.find((m) => String(m.userId) === raw || String(m.id) === raw);
+    return member ? membershipPrimaryLabel(member) : raw;
+  }
+
   return (
     <div className="container navi-hub-page tasks-page--padded">
       <header className="animate-in">
         <PageHeader
           className="navi-page-header--flush"
-          title="Tarefas"
-          subtitle="Organize pendências por aluno, lista, kanban ou calendário."
+          title={isProcessosHub ? TASKS_COPY.processos.title : TASKS_COPY.operacao.title}
+          subtitle={isProcessosHub ? TASKS_COPY.processos.subtitle : TASKS_COPY.operacao.subtitle}
           actions={
-            <>
-              <Link to="/automacoes?tab=processos" className="edit-link text-small">
-                Configurar processos automáticos
-              </Link>
-              <button type="button" className="btn-primary" onClick={openNew}>
-                <PlusCircle size={16} /> Nova tarefa
-              </button>
-            </>
+            isProcessosHub ? null : (
+              <>
+                <button
+                  type="button"
+                  className="edit-link text-small"
+                  onClick={() => handleHubTabChange(TASKS_TAB_PROCESSOS)}
+                >
+                  Configurar processos automáticos
+                </button>
+                <button type="button" className="btn-primary" onClick={openNew}>
+                  <PlusCircle size={16} /> Nova tarefa
+                </button>
+              </>
+            )
           }
         />
 
+        <HubTabBar
+          tabs={TASKS_HUB_TABS}
+          activeId={hubTab}
+          onChange={handleHubTabChange}
+          ariaLabel="Tarefas"
+          fullWidth
+          className="mb-3"
+        />
+
+        {isProcessosHub ? (
+          <div className="mt-3 animate-in">
+            <TaskProcessosTab />
+          </div>
+        ) : (
+          <>
         <HubTabBar
           tabs={[
             { id: 'by_student', label: 'Por aluno' },
@@ -1372,13 +1427,15 @@ export default function Tasks() {
             {semPrazoExcluidasCount} {semPrazoExcluidasCount === 1 ? 'tarefa sem prazo definido não aparece' : 'tarefas sem prazo definido não aparecem'} neste filtro.
           </p>
         ) : null}
+          </>
+        )}
       </header>
 
-      {error ? (
+      {!isProcessosHub && error ? (
         <ErrorBanner className="mt-3" message={friendlyError(error, 'load')} onRetry={() => fetchTasks(academyId, { reset: true, filters: apiTaskFilters })} />
       ) : null}
 
-      {tasks.length >= 500 ? (
+      {!isProcessosHub && tasks.length >= 500 ? (
         <div className="tasks-limit-notice" role="status">
           <AlertTriangle className="tasks-limit-notice__icon" size={18} strokeWidth={2} aria-hidden />
           <span>
@@ -1387,6 +1444,7 @@ export default function Tasks() {
         </div>
       ) : null}
 
+      {!isProcessosHub ? (
       <div className={`tasks-board mt-4${loading && tasks.length === 0 ? ' tasks-board--loading' : ''}`}>
         {loading && tasks.length === 0 ? (
           renderTasksLoadingSkeleton()
@@ -1400,7 +1458,7 @@ export default function Tasks() {
             secondaryAction={{
               label: 'Configurar processos automáticos',
               variant: 'link',
-              onClick: () => navigate('/automacoes?tab=processos'),
+              onClick: () => handleHubTabChange(TASKS_TAB_PROCESSOS),
             }}
             role="status"
           />
@@ -1683,6 +1741,7 @@ export default function Tasks() {
           </div>
         )}
       </div>
+      ) : null}
 
       {showModal &&
         createPortal(
@@ -1954,6 +2013,12 @@ export default function Tasks() {
                     : ''}
                 </p>
               </div>
+              {String(detailTask.status || '').toLowerCase() === 'done' ? (
+                <div className="task-drawer-field">
+                  <span className="task-drawer-label">Concluída por</span>
+                  <p className="task-drawer-value">{formatCompletedByLabel(detailTask)}</p>
+                </div>
+              ) : null}
               <div className="task-drawer-field">
                 <span className="task-drawer-label">Atualizado em</span>
                 <p className="task-drawer-value">

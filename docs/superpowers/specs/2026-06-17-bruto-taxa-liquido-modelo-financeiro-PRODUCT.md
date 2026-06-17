@@ -1,7 +1,7 @@
 # Bruto / Taxa / Líquido — alinhamento do modelo financeiro — PRODUCT Spec
 
 **Data:** 2026-06-17  
-**Status:** Rascunho  
+**Status:** Fase 1 implementada (2026-06-17) · Fase 2 pendente  
 **TECH:** [2026-06-17-bruto-taxa-liquido-modelo-financeiro-TECH.md](./2026-06-17-bruto-taxa-liquido-modelo-financeiro-TECH.md)  
 **Relacionado:**
 - [mensalidades-parcelamento-taxas](./2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md) (repasse `cardFees` + parcelas)

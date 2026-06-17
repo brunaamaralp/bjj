@@ -21,7 +21,8 @@ describe('financeForecastCore', () => {
     pushForecastItem(weeks, {
       type: 'mensalidade',
       label: 'Teste',
-      amount: 100,
+      amount: 97,
+      amount_gross: 100,
       due_date: '2026-05-15',
       status: 'esperado',
       _flow: 'in',
@@ -29,7 +30,8 @@ describe('financeForecastCore', () => {
     finalizeWeeks(weeks);
     const idx = findWeekIndex(weeks, '2026-05-15');
     expect(idx).toBeGreaterThanOrEqual(0);
-    expect(weeks[idx].expected_inflow).toBe(100);
+    expect(weeks[idx].expected_inflow).toBe(97);
+    expect(weeks[idx].expected_inflow_gross).toBe(100);
   });
 
   it('projeta recorrência mensal', () => {

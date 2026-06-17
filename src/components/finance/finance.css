@@ -3131,6 +3131,12 @@
   padding-top: 0;
 }
 
+.finance-settings-section-divider {
+  border: 0;
+  border-top: 1px solid var(--border-subtle, var(--color-border));
+  margin: var(--space-4) 0;
+}
+
 .finance-settings-add-row {
   display: inline-flex;
   align-items: center;

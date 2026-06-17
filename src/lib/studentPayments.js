@@ -14,11 +14,13 @@ import {
   mirrorGrossForPayment,
   shouldMirrorPaymentToCaixa,
   expectedAmountWithCardFee,
+  expectedAmountForStudent,
   normalizeProfilePaymentStatus,
 } from './paymentStatus.js';
 import { applyAccountingSideEffectsAuto } from './financeJournal.js';
 import { FINANCE_CATEGORIES } from './financeCategories.js';
 import { buildMirrorPlanName } from './financeReconTxLabel.js';
+import { mirrorAmountsForPayment } from './acquirerFees.js';
 import {
   PAYMENT_CATEGORY,
   normalizePaymentCategory,
@@ -194,22 +196,16 @@ async function syncFinancialTxMirror({
   let gross = mirrorGrossForPayment(status, paidAmt, expected);
   if (!Number.isFinite(gross) || gross <= 0) return { mirrorId: txId || null };
 
-  let fee = 0;
-  if (financeConfig && student) {
-    const withFee = expectedAmountWithCardFee(
-      student,
-      financeConfig,
-      data.method,
-      data.installments,
-      data
-    );
-    const base = mirrorGrossForPayment(status, paidAmt, expected);
-    if (Number.isFinite(withFee) && withFee > base) {
-      fee = Math.round((withFee - base) * 100) / 100;
-    }
-  }
-
-  const net = Math.max(0, gross - fee);
+  const installments = Math.min(12, Math.max(1, Number(data.installments) || 1));
+  const planBase = expectedAmountForStudent(student, financeConfig, data);
+  const { fee, net } = mirrorAmountsForPayment({
+    gross,
+    planBase,
+    policy: financeConfig?.acquirerFeePolicy,
+    method: data.method,
+    installments,
+    acquirerFees: financeConfig?.acquirerFees,
+  });
   const competenceMonth = refMonth && /^\d{4}-\d{2}$/.test(refMonth) ? refMonth : '';
   const paymentId = String(paymentDoc?.$id || data.id || '').trim();
   const now = new Date().toISOString();
@@ -219,7 +215,7 @@ async function syncFinancialTxMirror({
     saleId: '',
     lead_id: data.lead_id,
     method: data.method || 'pix',
-    installments: Math.min(12, Math.max(1, Number(data.installments) || 1)),
+    installments,
     type: FINANCE_CATEGORIES.MENSALIDADE.type,
     category: FINANCE_CATEGORIES.MENSALIDADE.label,
     competence_month: competenceMonth,

@@ -136,7 +136,6 @@ export function computeAutomationReadiness({
   waOfflineUi = false,
   waStatusChecked = true,
   hasZapsterInstance,
-  financeModuleOn = false,
 }) {
   const entries = Object.entries(automationsConfig || {});
   const activeCount = entries.filter(([, c]) => c?.active === true).length;
@@ -168,15 +167,6 @@ export function computeAutomationReadiness({
       label: zapsterLabel,
     },
   ];
-
-  if (financeModuleOn) {
-    infraSteps.push({
-      id: 'finance_reminders',
-      ok: true,
-      informational: true,
-      label: 'Cobrança: lembretes de mensalidade no Financeiro',
-    });
-  }
 
   const infraReady = infraSteps.filter((s) => !s.informational).every((s) => s.ok);
   const activationLabel =

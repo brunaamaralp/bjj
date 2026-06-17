@@ -226,11 +226,11 @@ export default function Reports() {
     }, []);
 
     useEffect(() => {
-        if (activeTab !== 'loja') setOperatorFilter('');
+        if (activeTab !== 'loja' && activeTab !== 'atividade') setOperatorFilter('');
     }, [activeTab]);
 
     useEffect(() => {
-        if (activeTab !== 'loja' || !academyId || !hasSales) {
+        if ((activeTab !== 'loja' && activeTab !== 'atividade') || !academyId) {
             setSalesTeam([]);
             return undefined;
         }
@@ -245,7 +245,7 @@ export default function Reports() {
         return () => {
             alive = false;
         };
-    }, [activeTab, academyId, hasSales]);
+    }, [activeTab, academyId]);
 
     const showNoLeadsEmpty =
         isLeadReportTab && !error && !showInitialLoad && leadsReady && leadsCount === 0 && !leadsLoading;
@@ -386,6 +386,9 @@ export default function Reports() {
                     periodLabel={prettyRange}
                     academyId={academyId}
                     operatorFilter={operatorFilter}
+                    onOperatorFilterChange={setOperatorFilter}
+                    isOwner={isOwner}
+                    operatorTeam={salesTeam}
                     onDrill={setDrillKey}
                         />
                     </ReportsExportSlotProvider>

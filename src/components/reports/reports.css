@@ -1549,6 +1549,49 @@
   color: var(--warning, #854d0e);
 }
 
+.reports-activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3, 12px);
+  margin-bottom: var(--space-3, 12px);
+}
+
+.reports-activity-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.reports-activity-filter__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.reports-activity-domain {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+.reports-activity-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+}
+
+.reports-activity-link:hover {
+  color: var(--color-text-primary);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .report-kpi-card--clickable:hover {
     transform: none;

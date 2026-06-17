@@ -24,15 +24,14 @@ describe('automationUx', () => {
     expect(r.activationLabel).toContain('1 gatilho');
   });
 
-  it('computeAutomationReadiness inclui passo financeiro informativo', () => {
+  it('computeAutomationReadiness não inclui passo financeiro', () => {
     const r = computeAutomationReadiness({
       automationsConfig: AUTOMATION_DEFAULTS,
       templatesMap: { confirm: 'Olá {nome}' },
       waConnected: true,
       hasZapsterInstance: true,
-      financeModuleOn: true,
     });
-    expect(r.infraSteps.some((s) => s.id === 'finance_reminders')).toBe(true);
+    expect(r.infraSteps.some((s) => s.id === 'finance_reminders')).toBe(false);
     expect(r.infraReady).toBe(true);
   });
 

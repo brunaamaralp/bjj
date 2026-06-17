@@ -1,10 +1,13 @@
 import { Client, Databases, ID, Permission, Role } from 'node-appwrite';
 import { buildTasksListQueries } from '../lib/server/tasksListQueries.js';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
-import { addLeadEventServer } from '../lib/server/leadEvents.js';
 import taskTemplatesHandler from '../lib/server/taskTemplatesHandler.js';
 import { taskDescriptionForAppwrite } from '../src/lib/stockInventory.js';
 import { respondApiError } from '../lib/server/friendlyError.js';
+import { updateDocumentResilient } from '../lib/server/appwriteSchemaResilient.js';
+import { actorDisplayName, applyTaskCompletionFields } from '../lib/server/taskCompletionFields.js';
+import { recordAuditEvent, actorFromMe } from '../lib/server/auditLog.js';
+import { AUDIT_EVENTS } from '../lib/server/auditEventTypes.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -68,6 +71,8 @@ function mapTask(d) {
     template_id: d.template_id ? String(d.template_id) : '',
     template_batch_id: d.template_batch_id ? String(d.template_batch_id) : '',
     template_name: d.template_name ? String(d.template_name) : '',
+    completed_by: d.completed_by ? String(d.completed_by) : '',
+    completed_by_name: d.completed_by_name ? String(d.completed_by_name) : '',
   };
 }
 
@@ -226,30 +231,41 @@ export default async function handler(req, res) {
       }
 
       const leadIdForTimeline = String(payload.lead_id || '').trim();
-      if (leadIdForTimeline) {
-        try {
-          const duePtBr = String(payload.due_date || '').trim()
-            ? new Date(`${String(payload.due_date).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR')
-            : '';
-          const timelineText =
-            `Tarefa criada: ${payload.title}` + (duePtBr ? ` · prazo ${duePtBr}` : '');
-          await addLeadEventServer({
-            academyId,
-            leadId: leadIdForTimeline,
-            type: 'task_created',
-            text: timelineText,
-            createdBy: String(payload.created_by || me?.$id || 'user'),
-            payloadJson: {
-              task_id: String(doc?.$id || ''),
-              title: String(payload.title || ''),
-              due_date: String(payload.due_date || ''),
-              assigned_to: String(payload.assigned_to || ''),
-            },
-          });
-        } catch (e) {
-          console.warn('[tasks] Falha ao registrar evento na timeline:', e?.message || e);
-        }
-      }
+      const duePtBr = String(payload.due_date || '').trim()
+        ? new Date(`${String(payload.due_date).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR')
+        : '';
+      const timelineText =
+        `Tarefa criada: ${payload.title}` + (duePtBr ? ` · prazo ${duePtBr}` : '');
+      const createdBy = String(payload.created_by || me?.$id || 'user');
+      const actor = actorFromMe({ $id: createdBy, name: req.body.created_by_name || me?.name, email: me?.email });
+      recordAuditEvent({
+        eventType: AUDIT_EVENTS.TASKS_CREATED,
+        academyId,
+        actor,
+        target: { type: 'task', id: String(doc?.$id || ''), name: String(payload.title || '') },
+        context: leadIdForTimeline ? { lead_id: leadIdForTimeline } : {},
+        source: 'api.tasks.post',
+        payload: {
+          task_id: String(doc?.$id || ''),
+          title: String(payload.title || ''),
+          due_date: String(payload.due_date || ''),
+          assigned_to: String(payload.assigned_to || ''),
+        },
+        projectToLeadTimeline: leadIdForTimeline
+          ? {
+              leadId: leadIdForTimeline,
+              type: 'task_created',
+              text: timelineText,
+              createdBy,
+              payloadJson: {
+                task_id: String(doc?.$id || ''),
+                title: String(payload.title || ''),
+                due_date: String(payload.due_date || ''),
+                assigned_to: String(payload.assigned_to || ''),
+              },
+            }
+          : undefined,
+      }).catch((e) => console.warn('[tasks] Falha ao registrar auditoria de criação:', e?.message || e));
 
       return json(res, 201, { sucesso: true, task: mapTask(doc) });
     } catch (e) {
@@ -266,12 +282,12 @@ export default async function handler(req, res) {
     const patch = { ...(req.body || {}) };
     delete patch.academy_id;
     delete patch.created_by;
+    delete patch.completed_by;
+    delete patch.completed_by_name;
     delete patch.updated_at;
 
     const keys = Object.keys(patch);
     if (keys.length === 0) return json(res, 400, { sucesso: false, erro: 'Nenhum campo para atualizar' });
-
-    patch.updated_at = new Date().toISOString();
 
     try {
       const current = await databases.getDocument(DB_ID, TASKS_COL, taskId);
@@ -279,28 +295,56 @@ export default async function handler(req, res) {
         return json(res, 403, { sucesso: false, erro: 'Tarefa não encontrada nesta academia' });
       }
 
-      const updated = await databases.updateDocument(DB_ID, TASKS_COL, taskId, patch);
+      const patchWithCompletion = applyTaskCompletionFields(patch, current, me);
+      patchWithCompletion.updated_at = new Date().toISOString();
+
+      const updated = await updateDocumentResilient(
+        databases,
+        DB_ID,
+        TASKS_COL,
+        taskId,
+        patchWithCompletion
+      );
 
       const prevStatus = String(current?.status || '').trim().toLowerCase();
       const nextStatus = String(updated?.status || '').trim().toLowerCase();
       const leadIdForTimeline = String(updated?.lead_id || current?.lead_id || '').trim();
-      if (leadIdForTimeline && prevStatus !== 'done' && nextStatus === 'done') {
-        try {
-          await addLeadEventServer({
-            academyId,
-            leadId: leadIdForTimeline,
-            type: 'task_done',
-            text: `Tarefa concluída: ${String(updated?.title || current?.title || 'Sem título')}`.slice(0, 1000),
-            createdBy: String(me?.$id || 'user'),
-            payloadJson: {
-              task_id: String(updated?.$id || current?.$id || ''),
-              title: String(updated?.title || current?.title || ''),
-              completed_at: new Date().toISOString(),
-            },
-          });
-        } catch (e) {
-          console.warn('[tasks] Falha ao registrar conclusão na timeline:', e?.message || e);
-        }
+      if (prevStatus !== 'done' && nextStatus === 'done') {
+        const byName = String(updated?.completed_by_name || actorDisplayName(me)).trim() || actorDisplayName(me);
+        const title = String(updated?.title || current?.title || 'Sem título');
+        const taskId = String(updated?.$id || current?.$id || '');
+        const completedAt = new Date().toISOString();
+        const timelineText = `Tarefa concluída: ${title} · por ${byName}`.slice(0, 1000);
+        recordAuditEvent({
+          eventType: AUDIT_EVENTS.TASKS_COMPLETED,
+          academyId,
+          actor: actorFromMe({ $id: updated?.completed_by || me?.$id, name: byName, email: me?.email }),
+          target: { type: 'task', id: taskId, name: title },
+          context: leadIdForTimeline ? { lead_id: leadIdForTimeline } : {},
+          source: 'api.tasks.patch',
+          payload: {
+            task_id: taskId,
+            title,
+            completed_at: completedAt,
+            completed_by: String(updated?.completed_by || me?.$id || ''),
+            completed_by_name: byName,
+          },
+          projectToLeadTimeline: leadIdForTimeline
+            ? {
+                leadId: leadIdForTimeline,
+                type: 'task_done',
+                text: timelineText,
+                createdBy: String(me?.$id || 'user'),
+                payloadJson: {
+                  task_id: taskId,
+                  title,
+                  completed_at: completedAt,
+                  completed_by: String(updated?.completed_by || me?.$id || ''),
+                  completed_by_name: byName,
+                },
+              }
+            : undefined,
+        }).catch((e) => console.warn('[tasks] Falha ao registrar auditoria de conclusão:', e?.message || e));
       }
 
       return json(res, 200, { sucesso: true, task: mapTask(updated) });

@@ -31,6 +31,7 @@ import {
   persistAcademyFinanceConfig,
 } from '../lib/financeConfigStorage.js';
 import { normalizeFinanceVendors } from '../lib/financeVendors.js';
+import { defaultAcquirerFees, normalizeAcquirerFees, normalizeAcquirerFeePolicy } from '../lib/acquirerFees.js';
 import {
   formatFinanceConfigSaveError,
   validateFinanceConfigBeforeSave,
@@ -48,6 +49,8 @@ export const defaultFinanceConfig = () => ({
       '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '11': 0, '12': 0,
     },
   },
+  acquirerFees: defaultAcquirerFees(),
+  acquirerFeePolicy: 'absorb',
   bankAccounts: [],
   defaultAccountByMethod: {},
   plans: [],

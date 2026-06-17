@@ -12,10 +12,33 @@ import {
   NOVA_VENDA_MENU_ACTION,
   NOVO_LANCAMENTO_MENU_ACTION,
   buildLojaAccordion,
+  buildAutomacoesAccordion,
   buildFinanceiroAccordion,
 } from '../lib/naviMenu.js';
 
 describe('naviMenu', () => {
+  it('buildAutomacoesAccordion — Mensagens do funil com modelos e gatilhos', () => {
+    const accordion = buildAutomacoesAccordion({ canConfigureAgenteIa: true });
+    expect(accordion.label).toBe('Mensagens do funil');
+    expect(accordion.defaultTo).toBe('/automacoes?tab=modelos');
+    expect(accordion.children.map((c) => c.id)).toEqual(['modelos', 'gatilhos', 'agente']);
+    expect(
+      isAccordionChildActive(
+        { id: 'gatilhos', to: '/automacoes?tab=gatilhos' },
+        { pathname: '/automacoes', search: '?tab=configuracoes' }
+      )
+    ).toBe(true);
+  });
+
+  it('buildSidebarNavModel includes Processos da equipe', () => {
+    const model = buildSidebarNavModel({
+      modules: { finance: false, inventory: false, sales: false },
+      canConfigureAgenteIa: false,
+      isOwner: true,
+    });
+    expect(model.primary.some((p) => p.to === '/tarefas?tab=processos')).toBe(true);
+  });
+
   it('getNewLeadLabel singularizes', () => {
     expect(getNewLeadLabel('Alunos')).toBe('Novo Aluno');
     expect(getNewLeadLabel('Leads')).toBe('Novo Lead');

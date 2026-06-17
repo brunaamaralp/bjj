@@ -63,6 +63,7 @@ export function buildWeekRanges(fromYmd, toYmd) {
         week_start: cursor,
         week_end: wEnd > end ? end : wEnd,
         expected_inflow: 0,
+        expected_inflow_gross: 0,
         expected_outflow: 0,
         net: 0,
         items: [],
@@ -88,16 +89,26 @@ export function pushForecastItem(weeks, item) {
   const idx = findWeekIndex(weeks, item.due_date);
   if (idx < 0) return;
   const w = weeks[idx];
-  const amt = roundMoney(item.amount);
-  if (amt <= 0) return;
-  w.items.push({ ...item, amount: amt });
-  if (item._flow === 'out') w.expected_outflow += amt;
-  else w.expected_inflow += amt;
+  const grossAmt = roundMoney(item.amount_gross ?? item.amount);
+  const netAmt = roundMoney(item.amount);
+  if (netAmt <= 0 && grossAmt <= 0) return;
+  w.items.push({
+    ...item,
+    amount: netAmt,
+    amount_gross: grossAmt,
+  });
+  if (item._flow === 'out') {
+    w.expected_outflow += netAmt;
+  } else {
+    w.expected_inflow += netAmt;
+    w.expected_inflow_gross = roundMoney((w.expected_inflow_gross || 0) + grossAmt);
+  }
 }
 
 export function finalizeWeeks(weeks) {
   for (const w of weeks) {
     w.expected_inflow = roundMoney(w.expected_inflow);
+    w.expected_inflow_gross = roundMoney(w.expected_inflow_gross || w.expected_inflow);
     w.expected_outflow = roundMoney(w.expected_outflow);
     w.net = roundMoney(w.expected_inflow - w.expected_outflow);
     w.items.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
@@ -107,12 +118,18 @@ export function finalizeWeeks(weeks) {
 
 export function sumForecastFlows(weeks) {
   let inflow = 0;
+  let inflowGross = 0;
   let outflow = 0;
   for (const w of weeks) {
     inflow += w.expected_inflow;
+    inflowGross += w.expected_inflow_gross || w.expected_inflow;
     outflow += w.expected_outflow;
   }
-  return { inflow: roundMoney(inflow), outflow: roundMoney(outflow) };
+  return {
+    inflow: roundMoney(inflow),
+    inflow_gross: roundMoney(inflowGross),
+    outflow: roundMoney(outflow),
+  };
 }
 
 function buildRecurrenceItem(template, ymd, gross) {
@@ -190,7 +207,8 @@ export function buildForecastChartRows(weeks, openingBalance) {
       week_start: w.week_start,
       week_end: w.week_end,
       label: start,
-      inflow: w.expected_inflow,
+      inflow: w.expected_inflow_gross ?? w.expected_inflow,
+      inflow_net: w.expected_inflow,
       outflow: w.expected_outflow,
       net: w.net,
       balance: cumulative,

@@ -4,7 +4,6 @@ import {
   areTemplatesCustomized,
   computeAutomacoesWizardState,
   computeWizardProgressPercent,
-  getCompactWizardContent,
   isAutomacoesWizardStepDone,
   isModelosWizardStepDone,
   resolveWizardCtaLabel,
@@ -69,7 +68,7 @@ describe('automacoesSetupWizard', () => {
       })
     ).toBe(true);
     expect(
-      isAutomacoesWizardStepDone('configuracoes', {
+      isAutomacoesWizardStepDone('gatilhos', {
         templatesMap: DEFAULT_WHATSAPP_TEMPLATES,
         modelosAcknowledged: true,
         zapsterOk: true,
@@ -125,25 +124,15 @@ describe('automacoesSetupWizard', () => {
   });
 
   it('resolveWizardCtaLabel contextual', () => {
-    const step = { tab: 'modelos', ctaLabel: 'Abrir Modelos de Mensagem' };
+    const step = { tab: 'modelos', ctaLabel: 'Abrir Modelos' };
     expect(resolveWizardCtaLabel(step, 'modelos')).toBe('Continuar aqui');
-    expect(resolveWizardCtaLabel(step, 'configuracoes')).toBe('Abrir Modelos de Mensagem');
+    expect(resolveWizardCtaLabel(step, 'gatilhos')).toBe('Abrir Modelos');
   });
 
   it('tabForWizardStep mapeia passo externo para modelos', () => {
     expect(tabForWizardStep('whatsapp')).toBe('modelos');
-    expect(tabForWizardStep('configuracoes')).toBe('configuracoes');
-  });
-
-  it('resolveWizardSurface — processos + whatsapp → compact', () => {
-    const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
-    expect(
-      resolveWizardSurface({
-        currentStep: whatsappStep,
-        activeTab: 'processos',
-        wizardShow: true,
-      })
-    ).toBe('compact');
+    expect(tabForWizardStep('gatilhos')).toBe('gatilhos');
+    expect(tabForWizardStep('unknown')).toBe('modelos');
   });
 
   it('resolveWizardSurface — modelos + passo modelos → full', () => {
@@ -157,12 +146,23 @@ describe('automacoesSetupWizard', () => {
     ).toBe('full');
   });
 
-  it('resolveWizardSurface — ?wizard=1 força full em processos', () => {
-    const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
+  it('resolveWizardSurface — gatilhos oculto em modelos', () => {
+    const gatilhosStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'gatilhos');
     expect(
       resolveWizardSurface({
-        currentStep: whatsappStep,
-        activeTab: 'processos',
+        currentStep: gatilhosStep,
+        activeTab: 'modelos',
+        wizardShow: true,
+      })
+    ).toBe('hidden');
+  });
+
+  it('resolveWizardSurface — ?wizard=1 força full', () => {
+    const gatilhosStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'gatilhos');
+    expect(
+      resolveWizardSurface({
+        currentStep: gatilhosStep,
+        activeTab: 'modelos',
         forceWizard: true,
         wizardShow: true,
       })
@@ -173,21 +173,15 @@ describe('automacoesSetupWizard', () => {
     const modelosStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'modelos');
     const whatsappStep = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'whatsapp');
     expect(shouldShowSetupWizardOnTab(modelosStep, 'modelos')).toBe(true);
-    expect(shouldShowSetupWizardOnTab(modelosStep, 'configuracoes')).toBe(false);
-    expect(shouldShowSetupWizardOnTab(whatsappStep, 'configuracoes')).toBe(true);
-    expect(shouldShowSetupWizardOnTab(whatsappStep, 'processos')).toBe(true);
+    expect(shouldShowSetupWizardOnTab(modelosStep, 'gatilhos')).toBe(false);
+    expect(shouldShowSetupWizardOnTab(whatsappStep, 'gatilhos')).toBe(true);
+    expect(shouldShowSetupWizardOnTab(whatsappStep, 'modelos')).toBe(true);
   });
 
-  it('getCompactWizardContent por passo', () => {
-    expect(getCompactWizardContent('whatsapp').message).toContain('WhatsApp');
-    expect(getCompactWizardContent('whatsapp').ctaLabel).toBe('Abrir Agente IA');
-    expect(getCompactWizardContent('modelos').ctaLabel).toBe('Ir para Modelos');
-    expect(getCompactWizardContent('configuracoes').ctaLabel).toBe('Ir para Configurações');
-  });
-
-  it('passo configuracoes usa label Ativar gatilhos', () => {
-    const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'configuracoes');
+  it('passo gatilhos usa label Ativar gatilhos', () => {
+    const step = AUTOMACOES_WIZARD_STEPS.find((s) => s.id === 'gatilhos');
     expect(step?.label).toBe('Ativar gatilhos');
+    expect(step?.tab).toBe('gatilhos');
   });
 
   it('scope banner dismiss por academia', () => {
@@ -237,7 +231,7 @@ describe('automacoesSetupWizard', () => {
       value: 2,
       max: 3,
     });
-    expect(computeWizardProgressPercent(steps, 'configuracoes', 3)).toEqual({
+    expect(computeWizardProgressPercent(steps, 'gatilhos', 3)).toEqual({
       percent: 100,
       value: 3,
       max: 3,

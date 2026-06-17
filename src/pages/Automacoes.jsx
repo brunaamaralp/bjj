@@ -7,36 +7,32 @@ import PageHeader from '../components/layout/PageHeader.jsx';
 import PageSkeleton from '../components/shared/PageSkeleton.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
-import { AUTOMACOES_TABS } from '../lib/automacoesHub.js';
+import { AUTOMACOES_GATILHOS_TAB_ID, AUTOMACOES_TABS, normalizeAutomacoesTab } from '../lib/automacoesHub.js';
 import { AUTOMACOES_COPY } from '../lib/automacoesCopy.js';
 import { canEditWhatsappTemplates } from '../lib/canEditWhatsappTemplates.js';
 import {
   AUTOMACOES_WIZARD_STEPS,
-  clearAutomacoesScopeBannerDismissed,
-  getCompactWizardContent,
   readAutomacoesModelosAck,
-  readAutomacoesScopeBannerDismissed,
   resolveWizardSurface,
   resolveWizardPrimaryDisabled,
   tabForWizardStep,
-  writeAutomacoesScopeBannerDismissed,
 } from '../lib/automacoesSetupWizard.js';
 import { useAutomacoesSetupWizard } from '../hooks/useAutomacoesSetupWizard.js';
 import AutomacoesSetupWizard from '../components/academy/AutomacoesSetupWizard.jsx';
-import AutomacoesSetupWizardCompact from '../components/academy/AutomacoesSetupWizardCompact.jsx';
 import AutomacoesSetupWizardComplete from '../components/academy/AutomacoesSetupWizardComplete.jsx';
-import AutomacoesHubScopeBanner from '../components/academy/AutomacoesHubScopeBanner.jsx';
 import { useLeadStore } from '../store/useLeadStore';
+import { useUiStore } from '../store/useUiStore';
 
-const AutomacoesProcessosTab = lazyWithRetry(() => import('./AutomacoesProcessosTab.jsx'));
 const AutomacoesModelosTab = lazyWithRetry(() => import('./AutomacoesModelosTab.jsx'));
 const AutomacoesConfigTab = lazyWithRetry(() => import('./AutomacoesConfigTab.jsx'));
 
 const TABS = AUTOMACOES_TABS;
 const ALLOWED = new Set(TABS.map((t) => t.id));
+const MIGRATION_PROCESSOS_KEY = 'navi_migrated_processos_v1';
 
 export default function Automacoes() {
   const navigate = useNavigate();
+  const addToast = useUiStore((s) => s.addToast);
   const academyId = useLeadStore((s) => s.academyId);
   const userId = useLeadStore((s) => s.userId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -45,18 +41,15 @@ export default function Automacoes() {
     [academyList, academyId]
   );
   const [membership, setMembership] = useState(null);
-  const [scopeBannerDismissed, setScopeBannerDismissed] = useState(() =>
-    readAutomacoesScopeBannerDismissed(academyId)
-  );
   const [searchParams, setSearchParams] = useSearchParams();
   const [modelosAcknowledged, setModelosAcknowledged] = useState(() => readAutomacoesModelosAck(academyId));
   const wizard = useAutomacoesSetupWizard({ modelosAcknowledged });
   const forceWizard = searchParams.get('wizard') === '1';
   const tabParam = String(searchParams.get('tab') || '').trim().toLowerCase();
-  const hasExplicitTab = ALLOWED.has(tabParam);
+  const hasExplicitTab = ALLOWED.has(tabParam) || tabParam === 'configuracoes';
   const canEdit = canEditWhatsappTemplates(userId, academyDoc, membership);
   const fallbackTab =
-    !wizard.loading && wizard.show && canEdit ? tabForWizardStep(wizard.currentStepId) : 'processos';
+    !wizard.loading && wizard.show && canEdit ? tabForWizardStep(wizard.currentStepId) : 'modelos';
   const activeTab = resolveHubTab(searchParams.get('tab'), ALLOWED, fallbackTab);
 
   const wizardSurface = useMemo(() => {
@@ -79,7 +72,6 @@ export default function Automacoes() {
   ]);
 
   const setupGuideActive = wizardSurface === 'full';
-  const compactWizard = getCompactWizardContent(wizard.currentStep?.id);
 
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
   const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
@@ -115,34 +107,35 @@ export default function Automacoes() {
   }, [academyId]);
 
   useEffect(() => {
-    setScopeBannerDismissed(readAutomacoesScopeBannerDismissed(academyId));
-  }, [academyId]);
-
-  useEffect(() => {
-    if (!academyDoc?.teamId || !userId) return;
-    if (String(academyDoc.ownerId || '') === String(userId)) {
-      setMembership(null);
-      return;
-    }
-    teams
-      .listMemberships(academyDoc.teamId)
-      .then((res) => {
-        const m = (res.memberships || []).find((x) => String(x.userId) === String(userId));
-        setMembership(m || null);
-      })
-      .catch(() => setMembership(null));
-  }, [academyDoc?.teamId, academyDoc?.ownerId, userId]);
-
-  useEffect(() => {
     const t = String(searchParams.get('tab') || '').trim().toLowerCase();
     if (t === 'agente') {
       navigate('/agente-ia', { replace: true });
       return;
     }
-    if (!ALLOWED.has(t)) {
-      setSearchParams({ tab: activeTab }, { replace: true });
+
+    const normalized = normalizeAutomacoesTab(t);
+    if (normalized.kind === 'redirect') {
+      try {
+        if (!sessionStorage.getItem(MIGRATION_PROCESSOS_KEY)) {
+          sessionStorage.setItem(MIGRATION_PROCESSOS_KEY, '1');
+          addToast?.({ type: 'info', message: AUTOMACOES_COPY.migration.processosMoved });
+        }
+      } catch {
+        void 0;
+      }
+      navigate(normalized.to, { replace: true });
+      return;
     }
-  }, [activeTab, navigate, searchParams, setSearchParams]);
+
+    if (t && normalized.tab !== t) {
+      setSearchParams({ tab: normalized.tab }, { replace: true });
+      return;
+    }
+
+    if (!t) {
+      setSearchParams({ tab: normalized.tab }, { replace: true });
+    }
+  }, [addToast, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!canEdit || wizard.loading || !wizard.show || hasExplicitTab) return;
@@ -164,8 +157,8 @@ export default function Automacoes() {
 
   const requestTab = (id) => {
     if (id === activeTab) return;
-    const leavingConfig = activeTab === 'configuracoes' && id !== 'configuracoes';
-    if (leavingConfig && (configGuard.isDirty || configGuard.isSaving)) {
+    const leavingGatilhos = activeTab === AUTOMACOES_GATILHOS_TAB_ID && id !== AUTOMACOES_GATILHOS_TAB_ID;
+    if (leavingGatilhos && (configGuard.isDirty || configGuard.isSaving)) {
       setPendingTab(id);
       setLeaveConfirmOpen(true);
       return;
@@ -183,18 +176,6 @@ export default function Automacoes() {
     if (step.tab) requestTab(step.tab);
   };
 
-  const handleCompactWizardCta = () => {
-    const stepId = wizard.currentStep?.id;
-    if (!stepId) return;
-    handleWizardStepAction(stepId);
-  };
-
-  const handleDismissScopeBanner = useCallback(() => {
-    if (!academyId) return;
-    writeAutomacoesScopeBannerDismissed(academyId, true);
-    setScopeBannerDismissed(true);
-  }, [academyId]);
-
   const confirmLeaveConfig = () => {
     const next = pendingTab;
     setLeaveConfirmOpen(false);
@@ -207,8 +188,6 @@ export default function Automacoes() {
     : 'A última alteração não foi salva. Se sair agora, ela será descartada.';
 
   const handleReopenGuide = () => {
-    if (academyId) clearAutomacoesScopeBannerDismissed(academyId);
-    setScopeBannerDismissed(false);
     wizard.reopenGuide();
     setSearchParams(
       (prev) => {
@@ -224,8 +203,7 @@ export default function Automacoes() {
   };
 
   const showModelosTabIntro = activeTab === 'modelos' && wizardSurface !== 'full';
-  const showConfigTabIntro = activeTab === 'configuracoes' && wizardSurface !== 'full';
-  const showProcessosTabIntro = activeTab === 'processos' && wizardSurface !== 'compact';
+  const showGatilhosTabIntro = activeTab === AUTOMACOES_GATILHOS_TAB_ID && wizardSurface !== 'full';
 
   const wizardPrimaryCtaDisabled =
     wizard.currentStep?.id === 'modelos' &&
@@ -237,7 +215,7 @@ export default function Automacoes() {
   return (
     <div className="container navi-hub-page" style={{ paddingBottom: 30 }}>
       <PageHeader
-        title="Automações"
+        title={AUTOMACOES_COPY.hub.title}
         subtitle={AUTOMACOES_COPY.hub.subtitle}
         meta={
           canEdit && wizard.canReopenGuide ? (
@@ -247,13 +225,7 @@ export default function Automacoes() {
           ) : null
         }
       />
-      <HubTabBar tabs={TABS} activeId={activeTab} onChange={requestTab} ariaLabel="Automações" fullWidth />
-      {!scopeBannerDismissed ? (
-        <AutomacoesHubScopeBanner
-          className="automacoes-setup-wizard--below-tabs"
-          onDismiss={handleDismissScopeBanner}
-        />
-      ) : null}
+      <HubTabBar tabs={TABS} activeId={activeTab} onChange={requestTab} ariaLabel="Mensagens do funil" fullWidth />
       {canEdit && wizard.justCompleted ? <AutomacoesSetupWizardComplete /> : null}
       {canEdit && !wizard.justCompleted && wizardSurface === 'full' ? (
         <AutomacoesSetupWizard
@@ -271,21 +243,8 @@ export default function Automacoes() {
           }
         />
       ) : null}
-      {canEdit && !wizard.justCompleted && wizardSurface === 'compact' ? (
-        <AutomacoesSetupWizardCompact
-          className="automacoes-setup-wizard--below-tabs"
-          message={compactWizard.message}
-          ctaLabel={compactWizard.ctaLabel}
-          onCta={handleCompactWizardCta}
-        />
-      ) : null}
       <div className="mt-3 animate-in">
         <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
-          {visitedTabs.has('processos') ? (
-            <div hidden={activeTab !== 'processos'} aria-hidden={activeTab !== 'processos'}>
-              <AutomacoesProcessosTab showTabIntro={showProcessosTabIntro} />
-            </div>
-          ) : null}
           {visitedTabs.has('modelos') ? (
             <div hidden={activeTab !== 'modelos'} aria-hidden={activeTab !== 'modelos'}>
               <AutomacoesModelosTab
@@ -295,12 +254,15 @@ export default function Automacoes() {
               />
             </div>
           ) : null}
-          {visitedTabs.has('configuracoes') ? (
-            <div hidden={activeTab !== 'configuracoes'} aria-hidden={activeTab !== 'configuracoes'}>
+          {visitedTabs.has(AUTOMACOES_GATILHOS_TAB_ID) ? (
+            <div
+              hidden={activeTab !== AUTOMACOES_GATILHOS_TAB_ID}
+              aria-hidden={activeTab !== AUTOMACOES_GATILHOS_TAB_ID}
+            >
               <AutomacoesConfigTab
                 onGuardStateChange={handleConfigGuardChange}
                 setupGuideActive={setupGuideActive}
-                showTabIntro={showConfigTabIntro}
+                showTabIntro={showGatilhosTabIntro}
               />
             </div>
           ) : null}

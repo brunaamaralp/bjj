@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { teams } from '../lib/appwrite';
+import { fetchTeamMemberships } from '../lib/teamApi.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { getInboxJwt } from '../lib/inboxApiUtils.js';
 
@@ -27,19 +27,19 @@ export function useInboxDeferredBoot(academyId, academyDoc) {
   const [agentIaActive, setAgentIaActive] = useState(false);
 
   useEffect(() => {
-    const teamId = String(academyDoc?.teamId || '').trim();
-    if (!teamId) {
+    if (!academyId) {
       setTeamMembers([]);
       return undefined;
     }
 
     let cancelled = false;
     const loadTeamMembers = () => {
-      teams
-        .listMemberships(teamId)
-        .then((res) => {
+      fetchTeamMemberships(academyId)
+        .then((data) => {
           if (cancelled) return;
-          const rows = (res.memberships || []).filter((m) => String(m?.joined || '').trim());
+          const rows = (data.memberships || []).filter(
+            (m) => String(m?.userId || '').trim() && String(m?.joined || '').trim()
+          );
           setTeamMembers(rows);
         })
         .catch(() => {
@@ -55,7 +55,7 @@ export function useInboxDeferredBoot(academyId, academyDoc) {
       cancelled = true;
       cancelIdleWork(id);
     };
-  }, [academyDoc?.teamId]);
+  }, [academyId]);
 
   useEffect(() => {
     if (!academyId) {

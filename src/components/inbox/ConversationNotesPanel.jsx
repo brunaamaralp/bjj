@@ -23,6 +23,14 @@ function formatNoteWhen(iso) {
   return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function noteAuthorLabel(note) {
+  const name = String(note?.author_name || '').trim();
+  if (name) return name;
+  const id = String(note?.author_id || '').trim();
+  if (id === 'ai-agent') return 'Assistente IA';
+  return '';
+}
+
 export default function ConversationNotesPanel({ conversationId, addToast }) {
   const academyId = useLeadStore((s) => s.academyId);
   const userId = useLeadStore((s) => s.userId);
@@ -277,7 +285,9 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
               <EmptyState variant="compact" tone="dashed" title="Nenhuma nota ainda." role="status" />
             </li>
           )}
-          {notes.map((n) => (
+          {notes.map((n) => {
+            const author = noteAuthorLabel(n);
+            return (
             <li
               key={n.$id}
               style={{
@@ -326,7 +336,8 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
                       </div>
                       {n.edited_at && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: 4 }}>
-                          editado · {formatDistanceToNow(new Date(n.edited_at), { addSuffix: true, locale: ptBR })}
+                          {n.edited_by_name ? `${n.edited_by_name} editou · ` : 'editado · '}
+                          {formatDistanceToNow(new Date(n.edited_at), { addSuffix: true, locale: ptBR })}
                         </div>
                       )}
                     </>
@@ -377,10 +388,12 @@ export default function ConversationNotesPanel({ conversationId, addToast }) {
                   </div>
               </div>
               <div className="text-small" style={{ color: 'var(--text-secondary)', marginTop: 8 }}>
+                {author ? `${author} · ` : ''}
                 {formatNoteWhen(n.created_at)}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

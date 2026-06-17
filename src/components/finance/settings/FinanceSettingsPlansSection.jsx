@@ -67,6 +67,10 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
               <option value="sim">Sim</option>
               <option value="nao">Não</option>
             </select>
+            <p className="text-small text-muted">
+              Quando ativo, cartão e PIX podem acrescer taxas configuradas em Taxas — repasse ao aluno,
+              não o desconto da operadora no banco.
+            </p>
           </div>
           {enrollmentTemplates.length > 0 ? (
             <div className="form-group">

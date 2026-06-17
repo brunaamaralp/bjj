@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { INSTALLMENT_COUNTS, installmentSummary } from '../../../hooks/useFinanceConfigState.js';
+import StatusBanner from '../../shared/StatusBanner.jsx';
+import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
+import FinanceSettingsAcquirerFeesSection from './FinanceSettingsAcquirerFeesSection.jsx';
 
 export default function FinanceSettingsFeesSection({ financeConfig, setFinanceConfig }) {
   const [installmentsExpanded, setInstallmentsExpanded] = useState(false);
@@ -10,9 +13,14 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
   return (
     <div className="finance-settings-section-body">
       <p className="finance-settings-lead">
-        Percentuais repassados ao aluno em mensalidades pagas com cartão ou PIX. Apenas o campo
-        percentual (%) é aplicado — taxa fixa em reais não entra no cálculo.
+        Repasse ao aluno: percentuais acrescidos ao valor da mensalidade quando o plano repassa taxas
+        de pagamento. Não confunda com a taxa (MDR) que a operadora desconta no extrato bancário.
+        Apenas o campo percentual (%) é aplicado — taxa fixa em reais não entra no cálculo.
       </p>
+
+      <StatusBanner variant="info" className="mb-3">
+        {FINANCE_TERM_HINTS.liquidoBancario}
+      </StatusBanner>
 
       <div className="finance-settings-fees-summary card" role="status">
         <span className="finance-settings-fees-summary__text">{installmentSummary(parcelado)}</span>
@@ -126,6 +134,11 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
       <Link to="/financeiro?tab=movimentacoes" className="finance-config-context-link">
         Ver lançamentos →
       </Link>
+
+      <FinanceSettingsAcquirerFeesSection
+        financeConfig={financeConfig}
+        setFinanceConfig={setFinanceConfig}
+      />
     </div>
   );
 }

@@ -4,10 +4,9 @@ import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import TaskTemplatesSection from '../components/academy/TaskTemplatesSection.jsx';
 import EnrollmentFollowUpSection from '../components/academy/EnrollmentFollowUpSection.jsx';
 import FollowupPlaybookSection from '../components/academy/FollowupPlaybookSection.jsx';
-import AutomacoesTabIntroBanner from '../components/academy/AutomacoesTabIntroBanner.jsx';
 
-/** Aba Processos em Automações — templates e aviso de tarefa legada pós-matrícula. */
-export default function AutomacoesProcessosTab({ showTabIntro = true }) {
+/** Aba Processos da equipe em /tarefas?tab=processos — templates e playbook CRM. */
+export default function TaskProcessosTab() {
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const academy = useMemo(() => {
@@ -35,7 +34,7 @@ export default function AutomacoesProcessosTab({ showTabIntro = true }) {
         }
       })
       .catch((e) => {
-        console.error('[AutomacoesProcessos]', e);
+        console.error('[TaskProcessos]', e);
         if (!cancelled) {
           setSettingsLoad({ academyId, settings: null });
         }
@@ -56,7 +55,6 @@ export default function AutomacoesProcessosTab({ showTabIntro = true }) {
 
   return (
     <>
-      {showTabIntro ? <AutomacoesTabIntroBanner tabId="processos" /> : null}
       <section className="automacoes-processos-block">
         <TaskTemplatesSection academyId={academyId} teamId={academy?.teamId || ''} />
       </section>

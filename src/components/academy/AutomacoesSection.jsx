@@ -322,7 +322,7 @@ const AutomacoesSection = ({
 
     return (
         <section className="empresa-section animate-in" style={{ animationDelay: '0.05s' }}>
-            {showTabIntro ? <AutomacoesTabIntroBanner tabId="configuracoes" /> : null}
+            {showTabIntro ? <AutomacoesTabIntroBanner tabId="gatilhos" /> : null}
             {readiness?.zapsterPartial ? <AutomacoesZapsterOfflineBanner /> : null}
             <h3 className="navi-section-heading" style={{ margin: '0 0 6px' }}>
                 Mensagens automáticas

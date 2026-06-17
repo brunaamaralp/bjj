@@ -1,15 +1,19 @@
 /** Abas do hub /automacoes?tab= */
+export const AUTOMACOES_GATILHOS_TAB_ID = 'gatilhos';
+
 export const AUTOMACOES_TABS = [
-  { id: 'processos', label: 'Processos' },
-  { id: 'modelos', label: 'Modelos de Mensagem' },
-  { id: 'configuracoes', label: 'Configurações' },
+  { id: 'modelos', label: 'Modelos' },
+  { id: AUTOMACOES_GATILHOS_TAB_ID, label: 'Gatilhos' },
 ];
+
+const AUTOMACOES_TAB_ALIASES = {
+  configuracoes: AUTOMACOES_GATILHOS_TAB_ID,
+};
 
 /** @deprecated Use AUTOMACOES_COPY em automacoesCopy.js */
 export const AUTOMACOES_TAB_HINTS = {
-  processos: 'Checklists e follow-ups internos — não envia WhatsApp automaticamente.',
   modelos: 'Textos das mensagens usadas pelos gatilhos de WhatsApp.',
-  configuracoes: 'Ligue ou desligue cada gatilho automático do funil e das rotinas diárias.',
+  gatilhos: 'Ligue ou desligue cada gatilho automático do funil e das rotinas diárias.',
 };
 
 export const FINANCE_WHATSAPP_REMINDERS_PATH =
@@ -30,3 +34,16 @@ export const WHATSAPP_TEMPLATE_UI_GROUPS = [
     keys: ['birthday'],
   },
 ];
+
+/**
+ * Normaliza tab legada → canônica ou redirect externo.
+ * @param {string | null | undefined} tab
+ * @returns {{ kind: 'tab', tab: string } | { kind: 'redirect', to: string }}
+ */
+export function normalizeAutomacoesTab(tab) {
+  const t = String(tab || '').trim().toLowerCase();
+  if (t === 'processos') return { kind: 'redirect', to: '/tarefas?tab=processos' };
+  if (AUTOMACOES_TAB_ALIASES[t]) return { kind: 'tab', tab: AUTOMACOES_TAB_ALIASES[t] };
+  if (AUTOMACOES_TABS.some((x) => x.id === t)) return { kind: 'tab', tab: t };
+  return { kind: 'tab', tab: 'modelos' };
+}

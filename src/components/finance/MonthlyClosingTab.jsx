@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './finance.css';
 import { Link } from 'react-router-dom';
 import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
-import { CASH_CLOSING_UPDATED_EVENT } from '../../lib/financeTermHints.js';
+import { CASH_CLOSING_UPDATED_EVENT, FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import { fetchMonthlyClosing, createFinanceTx, recordCashClosing } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments } from '../../lib/studentPayments';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -25,6 +25,8 @@ import { formatPaymentMethod as formatPaymentMethodLabel } from '../../lib/payme
 import { storageDialectPaymentMethodOptions } from '../../lib/paymentMethods.js';
 import {
   buildClosingRows,
+  enrichClosingRowsWithMirrorAmounts,
+  computeClosingMirrorTotals,
   filterClosingRows,
   sortClosingRows,
   computeClosingTotals,
@@ -39,6 +41,7 @@ import {
   CLOSING_MANUAL_FIELD_IDS,
 } from '../../lib/monthlyClosing.js';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
+import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
@@ -270,7 +273,8 @@ export default function MonthlyClosingTab({
       referenceMonth,
       regime,
     });
-    return rows.filter((r) => r.origin !== 'produto' || salesEnabled);
+    const filtered = rows.filter((r) => r.origin !== 'produto' || salesEnabled);
+    return enrichClosingRowsWithMirrorAmounts(filtered, transactions);
   }, [payments, transactions, leadById, financeConfig, referenceMonth, salesEnabled, regime]);
 
   const methodOptions = useMemo(() => {
@@ -300,6 +304,12 @@ export default function MonthlyClosingTab({
 
   const sortedRows = useMemo(() => sortClosingRows(filteredRows, sortBy), [filteredRows, sortBy]);
   const totals = useMemo(() => computeClosingTotals(sortedRows), [sortedRows]);
+  const mirrorTotals = useMemo(() => computeClosingMirrorTotals(sortedRows), [sortedRows]);
+  const hasMirrorBreakdown = mirrorTotals.count > 0;
+  const desktopTableColCountWithMirror = useMemo(
+    () => desktopTableColCount + (hasMirrorBreakdown ? 3 : 0),
+    [desktopTableColCount, hasMirrorBreakdown]
+  );
 
   const studentMatches = useMemo(() => {
     const q = String(manualForm.studentQuery || '').trim().toLowerCase();
@@ -719,6 +729,33 @@ export default function MonthlyClosingTab({
           <p className="finance-kpi__label">Total pendente</p>
           <p className="finance-kpi__value finance-value-negative">{fmtMoney(totals.pending)}</p>
         </div>
+        {hasMirrorBreakdown ? (
+          <>
+            <div className="finance-kpi">
+              <p className="finance-kpi__label">
+                <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.brutoCaixa}>
+                  Bruto (Caixa)
+                </FinanceLabelWithHint>
+              </p>
+              <p className="finance-kpi__value">{fmtMoney(mirrorTotals.gross)}</p>
+              <p className="finance-kpi__hint text-xs text-muted">
+                {mirrorTotals.count} linha{mirrorTotals.count !== 1 ? 's' : ''} com espelho
+              </p>
+            </div>
+            <div className="finance-kpi">
+              <p className="finance-kpi__label">
+                <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.taxaCaixaMdr}>
+                  Taxa (Caixa)
+                </FinanceLabelWithHint>
+              </p>
+              <p className="finance-kpi__value">{fmtMoney(mirrorTotals.fee)}</p>
+            </div>
+            <div className="finance-kpi">
+              <p className="finance-kpi__label">Líquido (Caixa)</p>
+              <p className="finance-kpi__value finance-value-positive">{fmtMoney(mirrorTotals.net)}</p>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <FinanceFiltersBar panel className="monthly-closing-filters">
@@ -853,6 +890,13 @@ export default function MonthlyClosingTab({
                     <span>Recebido: {fmtMoney(row.received)}</span>
                     <span>Pendente: {row.pending > 0.009 ? fmtMoney(row.pending) : '—'}</span>
                   </div>
+                  {row.mirrorAmounts ? (
+                    <div className="monthly-closing-mobile-card__grid text-small">
+                      <span>Bruto: {fmtMoney(row.mirrorAmounts.gross)}</span>
+                      <span>Taxa: {fmtMoney(row.mirrorAmounts.fee)}</span>
+                      <span>Líquido: {fmtMoney(row.mirrorAmounts.net)}</span>
+                    </div>
+                  ) : null}
                   <p className="text-small monthly-closing-mobile-card__method">{row.paymentMethod}</p>
                 </article>
               ))
@@ -903,6 +947,13 @@ export default function MonthlyClosingTab({
               <th className="finance-num">Esperado</th>
               <th className="finance-num">Recebido</th>
               <th className="finance-num">Pendente</th>
+              {hasMirrorBreakdown ? (
+                <>
+                  <th className="finance-num">Bruto</th>
+                  <th className="finance-num">Taxa</th>
+                  <th className="finance-num">Líquido</th>
+                </>
+              ) : null}
               <th>Forma</th>
               <th>Data</th>
               <th>Situação</th>
@@ -912,7 +963,7 @@ export default function MonthlyClosingTab({
           <tbody>
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={desktopTableColCount} className="monthly-closing-empty-cell">
+                <td colSpan={desktopTableColCountWithMirror} className="monthly-closing-empty-cell">
                   <EmptyState
                     variant="table-cell"
                     icon={Receipt}
@@ -958,6 +1009,32 @@ export default function MonthlyClosingTab({
                         '—'
                       )}
                     </td>
+                    {hasMirrorBreakdown ? (
+                      <>
+                        <td className="finance-num">
+                          {row.mirrorAmounts ? fmtMoney(row.mirrorAmounts.gross) : '—'}
+                        </td>
+                        <td className="finance-num">
+                          {row.mirrorAmounts ? fmtMoney(row.mirrorAmounts.fee) : '—'}
+                        </td>
+                        <td className="finance-num">
+                          {row.mirrorAmounts ? (
+                            row.financialTxId ? (
+                              <Link
+                                to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(row.financialTxId)}`}
+                                className="edit-link"
+                              >
+                                {fmtMoney(row.mirrorAmounts.net)}
+                              </Link>
+                            ) : (
+                              fmtMoney(row.mirrorAmounts.net)
+                            )
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </>
+                    ) : null}
                     <td className="text-small">{row.paymentMethod}</td>
                     <td>
                       {dateStr}

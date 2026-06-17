@@ -5,13 +5,13 @@
 | **id** | `atendimento.automacoes.funil` |
 | **módulo** | Atendimento |
 | **personas** | owner, admin (editar gatilhos/templates); member (visualizar processos) |
-| **rotas** | `/automacoes?tab=processos|modelos|configuracoes`, `/automacoes?wizard=1` |
+| **rotas** | `/automacoes?tab=modelos|gatilhos`, `/automacoes?wizard=1` (alias `configuracoes` → `gatilhos`; `processos` → `/tarefas?tab=processos`) |
 | **pré-requisitos** | WhatsApp conectado para envios automáticos; modelos revisados |
 | **status** | revisado (código) |
 | **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md) · [2026-06-17-automacoes-ux-clareza-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ux-clareza-PRODUCT.md)
+**Specs relacionadas:** [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md) · [2026-06-17-automacoes-ux-clareza-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ux-clareza-PRODUCT.md) · [2026-06-17-automacoes-ia-restructure-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ia-restructure-PRODUCT.md) (aprovada P4) · [IMPLEMENTATION P4.1](../../superpowers/specs/2026-06-17-automacoes-ia-restructure-IMPLEMENTATION.md)
 
 **Harness relacionado:** `npm test -- automacoesHub automacoesSetupWizard automationUx`
 
@@ -21,7 +21,7 @@
 
 ## Resumo
 
-Em **Automações**, a equipe define **processos internos** (templates de tarefa, playbook de retorno), personaliza **modelos de mensagem** WhatsApp e **liga/desliga gatilhos** do funil (confirmação de aula, falta, matrícula, aniversário, etc.). Um wizard inicial guia modelos → WhatsApp → gatilhos.
+Em **Mensagens do funil** (`/automacoes`), a equipe personaliza **modelos de mensagem** WhatsApp e **liga/desliga gatilhos** do funil (confirmação de aula, falta, matrícula, aniversário, etc.). Um wizard inicial guia modelos → WhatsApp → gatilhos. Processos da equipe (templates de tarefa, playbook) ficam em `/tarefas?tab=processos`.
 
 ---
 
@@ -33,12 +33,11 @@ flowchart TD
   wizard -->|Sim| guide[AutomacoesSetupWizard]
   guide --> modelos[tab=modelos]
   guide --> agente[/agente-ia]
-  guide --> config[tab=configuracoes]
+  guide --> gatilhos[tab=gatilhos]
   open --> tabs{tab}
-  tabs --> processos[Processos — tarefas equipe]
   tabs --> modelos
-  tabs --> config
-  config --> toggle[Ligar gatilho]
+  tabs --> gatilhos
+  gatilhos --> toggle[Ligar gatilho]
   toggle --> cron[Cron / evento funil]
   cron --> zap[Envio Zapster]
 ```
@@ -49,17 +48,15 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/automacoes` | `Automacoes` | Abrir hub | `HubTabBar` 3 abas; banner de escopo (Processos × WhatsApp) |
-| 2 | `?tab=processos` | `AutomacoesProcessosTab` | Templates de tarefa | `TaskTemplatesSection` |
-| 3 | Processos | Playbook retorno | `FollowupPlaybookSection` | Rotinas pós-matrícula |
-| 4 | `?tab=modelos` | `AutomacoesModelosTab` | Editar textos WhatsApp | `whatsappTemplates` |
-| 5 | Modelos | Personalizar vs padrão | Diff com `DEFAULT_WHATSAPP_TEMPLATES` | `areTemplatesCustomized` |
-| 6 | `?tab=configuracoes` | `AutomacoesConfigTab` | Ligar/desligar gatilho | `automationsConfig` persistido |
-| 7 | Config | Readiness | WhatsApp desconectado | Aviso `computeAutomationReadiness` |
-| 8 | Config | Sair com dirty | Trocar aba | `ConfirmDialog` guard |
-| 9 | `?wizard=1` | Setup wizard | Primeira visita | Passos modelos → WA → gatilhos |
-| 10 | Wizard | Ir WhatsApp | Navigate | `/agente-ia` |
-| 11 | Onboarding | `setup_automations` | `/automacoes?wizard=1` | Fora do core do banner principal |
+| 1 | `/automacoes` | `Automacoes` | Abrir hub | `HubTabBar` Modelos + Gatilhos; título «Mensagens do funil» |
+| 2 | `?tab=modelos` | `AutomacoesModelosTab` | Editar textos WhatsApp | `whatsappTemplates` |
+| 3 | Modelos | Personalizar vs padrão | Diff com `DEFAULT_WHATSAPP_TEMPLATES` | `areTemplatesCustomized` |
+| 4 | `?tab=gatilhos` | `AutomacoesConfigTab` | Ligar/desligar gatilho | `automationsConfig` persistido |
+| 5 | Gatilhos | Readiness | WhatsApp desconectado | Aviso `computeAutomationReadiness` |
+| 6 | Gatilhos | Sair com dirty | Trocar aba | `ConfirmDialog` guard |
+| 7 | `?wizard=1` | Setup wizard | Primeira visita | Passos modelos → WA → gatilhos |
+| 8 | Wizard | Ir WhatsApp | Navigate | `/agente-ia` |
+| 9 | Legado `?tab=processos` | Redirect | `/tarefas?tab=processos` | Toast único (session) |
 
 ### Gatilhos principais (`AUTOMATION_LABELS`)
 
@@ -93,10 +90,11 @@ flowchart TD
 
 ### Checklist passo a passo
 
-1. [ ] `/automacoes?tab=processos` carrega seções de tarefas
-2. [ ] `?tab=modelos` — editar template e salvar (owner/admin)
-3. [ ] `?tab=configuracoes` — toggle gatilho persiste após reload
-4. [ ] WhatsApp offline → indicador readiness na config
+1. [ ] `/automacoes?tab=modelos` carrega modelos
+2. [ ] `?tab=gatilhos` — toggle gatilho persiste após reload
+3. [ ] `?tab=configuracoes` redireciona para `?tab=gatilhos`
+4. [ ] `?tab=processos` redireciona para `/tarefas?tab=processos`
+5. [ ] WhatsApp offline → indicador readiness na aba Gatilhos
 5. [ ] Wizard primeira visita redireciona para aba do passo atual
 6. [ ] Dispensar wizard → `automacoesWizardDismissStorageKey`
 7. [ ] Ack modelos (`navi_automacoes_modelos_ack_{academyId}`) ou template customizado conclui passo do wizard

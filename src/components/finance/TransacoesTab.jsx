@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import './finance.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx } from '../../lib/financeTxApi.js';
+import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx, anticipateFinanceTx } from '../../lib/financeTxApi.js';
 import {
   FINANCE_TX_LIST_INITIAL_PAGE_SIZE,
   FINANCE_TX_LIST_PAGE_SIZE,
@@ -72,6 +72,7 @@ import {
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx';
 import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
+import FinanceTxAnticipationDialog from './FinanceTxAnticipationDialog.jsx';
 import FinanceTxStudentField from './FinanceTxStudentField.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
@@ -322,6 +323,9 @@ export default function TransacoesTab({
   const [txSearch, setTxSearch] = useState(() => searchParams.get('q') || '');
   const debouncedTxSearch = useDebounce(txSearch, 200);
   const [detailTx, setDetailTx] = useState(null);
+  const [anticipateTarget, setAnticipateTarget] = useState(null);
+  const [pendingAnticipation, setPendingAnticipation] = useState(null);
+  const [anticipateSaving, setAnticipateSaving] = useState(false);
   const [showDiscardTxModal, setShowDiscardTxModal] = useState(false);
   const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState('');
@@ -513,6 +517,16 @@ export default function TransacoesTab({
     [transactions, statusFilter, directionFilter, bankAccountFilter, debouncedTxSearch, leadNameById]
   );
 
+  const anticipationByParentId = useMemo(() => {
+    const map = new Map();
+    for (const tx of transactions) {
+      if (String(tx.origin_type || '').toLowerCase() !== 'anticipation_fee') continue;
+      const parentId = String(tx.origin_id || '').trim();
+      if (parentId) map.set(parentId, tx);
+    }
+    return map;
+  }, [transactions]);
+
   const hasActiveTxFilters =
     statusFilter !== 'all' ||
     directionFilter !== 'all' ||
@@ -689,6 +703,33 @@ export default function TransacoesTab({
       }
     },
     [academyId, fromDate, toDate, regime]
+  );
+
+  const confirmAnticipation = useCallback(
+    async ({ tx, feeAmount }) => {
+      if (!academyId || !tx?.id || anticipateSaving) return;
+      setAnticipateSaving(true);
+      try {
+        await anticipateFinanceTx({
+          academyId,
+          txId: tx.id,
+          feeAmount,
+        });
+        toast.show({ type: 'success', message: 'Antecipação registrada.' });
+        setPendingAnticipation(null);
+        setAnticipateTarget(null);
+        void loadTransactions();
+        onTxMutated?.();
+      } catch (e) {
+        toast.show({
+          type: 'error',
+          message: financeTxFriendlyError(e) || 'Não foi possível registrar a antecipação.',
+        });
+      } finally {
+        setAnticipateSaving(false);
+      }
+    },
+    [academyId, anticipateSaving, loadTransactions, onTxMutated, toast]
   );
 
   const loadMoreTransactions = useCallback(() => {
@@ -2185,8 +2226,38 @@ export default function TransacoesTab({
           onCancelRecurrence={() => requestCancelRecurrence(detailTx.id)}
           recurrenceCancelLoadingId={recurrenceCancelLoadingId}
           reverseLoadingId={reverseLoadingId}
+          anticipationTx={anticipationByParentId.get(String(detailTx.id)) || null}
+          onAnticipate={(tx) => setAnticipateTarget(tx)}
         />
       ) : null}
+
+      <FinanceTxAnticipationDialog
+        open={Boolean(anticipateTarget)}
+        tx={anticipateTarget}
+        financeConfig={financeConfig}
+        saving={anticipateSaving}
+        onClose={() => !anticipateSaving && setAnticipateTarget(null)}
+        onConfirm={({ feeAmount }) => {
+          setPendingAnticipation({ tx: anticipateTarget, feeAmount });
+          setAnticipateTarget(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingAnticipation)}
+        title="Confirmar antecipação"
+        description={
+          pendingAnticipation
+            ? `Será criada uma despesa de taxa de antecipação de ${Number(pendingAnticipation.feeAmount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} vinculada a este recebimento. Deseja continuar?`
+            : ''
+        }
+        confirmLabel="Registrar antecipação"
+        onConfirm={() => {
+          if (!pendingAnticipation) return;
+          void confirmAnticipation(pendingAnticipation);
+        }}
+        onClose={() => !anticipateSaving && setPendingAnticipation(null)}
+      />
 
       <ConfirmDialog
         open={showDiscardTxModal}

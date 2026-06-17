@@ -102,6 +102,15 @@ const FINANCE_TX_CODES = {
   duplicate_payment: 'Já existe um lançamento com este valor e data para este aluno.',
   valor_invalido: 'Informe um valor maior que zero.',
   valor_acima_do_limite: 'Valor acima do limite permitido para lançamentos.',
+  only_settled: 'Só é possível antecipar lançamentos já liquidados.',
+  only_inflow: 'Só é possível antecipar entradas (recebimentos).',
+  method_not_eligible: 'Antecipação disponível apenas para PIX e cartão.',
+  already_anticipated: 'Este lançamento já tem uma taxa de antecipação registrada.',
+  anticipation_fee_required:
+    'Informe a taxa de antecipação ou configure o percentual em Configurações → Taxas da operadora.',
+  fee_exceeds_net: 'A taxa de antecipação não pode ser maior que o valor líquido do lançamento.',
+  invalid_origin: 'Este tipo de lançamento não pode ser antecipado.',
+  tx_id_required: 'Lançamento não identificado. Recarregue a página e tente novamente.',
 };
 
 const DEFAULT_ERRORS = {

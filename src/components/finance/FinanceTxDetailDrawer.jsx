@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { X, Repeat } from 'lucide-react';
 import {
   txDirection,
@@ -19,6 +19,7 @@ import { isRecurrenceTx, recurrenceTooltip } from '../../lib/financeRecurrence.j
 import { formatTxLeadCell, resolveTxLeadId, resolveTxLeadName } from '../../lib/financeTxLeadNames.js';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import FinanceTxJournalMirrorSection from './FinanceTxJournalMirrorSection.jsx';
+import { canRegisterAnticipation } from '../../lib/financeAnticipation.js';
 import '../../styles/tasks.css';
 import './styles/tx-drawer.css';
 
@@ -76,6 +77,8 @@ export default function FinanceTxDetailDrawer({
   recurrenceCancelLoadingId,
   reverseLoadingId,
   readOnly = false,
+  anticipationTx = null,
+  onAnticipate,
 }) {
   const navigate = useNavigate();
 
@@ -104,6 +107,11 @@ export default function FinanceTxDetailDrawer({
   const leadName = resolveTxLeadName(tx, leadNameById);
   const leadCell = formatTxLeadCell(tx, leadNameById);
   const showMirror = canManageAdvanced && (chartAccounts?.length || 0) > 0;
+  const showAnticipate =
+    !readOnly &&
+    canManageAdvanced &&
+    canRegisterAnticipation(tx, { hasChild: Boolean(anticipationTx) }) &&
+    typeof onAnticipate === 'function';
 
   return (
     <>
@@ -200,6 +208,20 @@ export default function FinanceTxDetailDrawer({
               {recurrenceTooltip(tx) || 'Sim'}
             </DetailField>
           ) : null}
+          {anticipationTx ? (
+            <DetailField label="Antecipação">
+              <span className="text-small">
+                Taxa registrada: {formatMoneyBRL(Math.abs(Number(anticipationTx.gross) || 0))}
+                {' · '}
+                <Link
+                  to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(anticipationTx.id)}`}
+                  className="finance-tx-drawer-mirror__link"
+                >
+                  Ver lançamento da taxa
+                </Link>
+              </span>
+            </DetailField>
+          ) : null}
           <DetailField label="Observação">
             <span className="task-drawer-value--multiline">
               {String(tx.note || '').trim() || '—'}
@@ -216,6 +238,11 @@ export default function FinanceTxDetailDrawer({
         </div>
         {!readOnly ? (
           <div className="task-drawer-footer finance-tx-drawer-footer">
+            {showAnticipate ? (
+              <button type="button" className="btn-outline btn-sm mb-2" onClick={() => onAnticipate(tx)}>
+                Registrar antecipação
+              </button>
+            ) : null}
             <FinanceTxRowActions
               txId={tx.id}
               status={st}

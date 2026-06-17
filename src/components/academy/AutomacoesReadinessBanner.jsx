@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Circle, AlertCircle, Wallet } from 'lucide-react';
-import { FINANCE_WHATSAPP_REMINDERS_PATH } from '../../lib/automacoesHub.js';
+import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 
 /**
  * @param {{
@@ -53,7 +52,7 @@ export default function AutomacoesReadinessBanner({
               className={step.informational ? 'automacoes-readiness-steps__item--info' : undefined}
             >
               {step.informational ? (
-                <Wallet size={14} className="automacoes-readiness-icon--info" aria-hidden />
+                <Circle size={14} className="automacoes-readiness-icon--pending" aria-hidden />
               ) : step.ok ? (
                 <CheckCircle2 size={14} className="automacoes-readiness-icon--ok" aria-hidden />
               ) : (
@@ -72,15 +71,6 @@ export default function AutomacoesReadinessBanner({
                   style={{ marginLeft: 6, fontSize: '0.85rem' }}
                 >
                   Modelos
-                </Link>
-              ) : null}
-              {step.id === 'finance_reminders' ? (
-                <Link
-                  to={FINANCE_WHATSAPP_REMINDERS_PATH}
-                  className="edit-link"
-                  style={{ marginLeft: 6, fontSize: '0.85rem' }}
-                >
-                  Lembretes WhatsApp
                 </Link>
               ) : null}
             </li>

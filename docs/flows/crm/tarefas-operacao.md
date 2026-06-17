@@ -5,7 +5,7 @@
 | **id** | `crm.tarefas.operacao` |
 | **módulo** | CRM |
 | **personas** | recepcionista, owner, instrutor |
-| **rotas** | `/tarefas`, `/tarefas?lead_id=`, `/tarefas?new=1`, `/tarefas?filter=overdue` |
+| **rotas** | `/tarefas`, `/tarefas?tab=processos`, `/tarefas?lead_id=`, `/tarefas?new=1`, `/tarefas?filter=overdue` |
 | **pré-requisitos** | Usuário autenticado; equipe com `teamId` para atribuição |
 | **status** | revisado |
 | **última revisão** | 2026-06-15 |
@@ -20,7 +20,7 @@
 
 ## Resumo
 
-A página **Tarefas** organiza pendências da equipe em quatro visualizações (por aluno, lista, kanban, calendário), com filtros por status, responsável e prazo. O operador cria tarefas vinculadas a leads/alunos, conclui ou reabre itens, e usa o kanban para arrastar entre colunas — incluindo tarefas automáticas de cobrança quando configuradas.
+A página **Tarefas** organiza pendências da equipe em quatro visualizações (por aluno, lista, kanban, calendário), com filtros por status, responsável e prazo. A aba **Processos da equipe** (`?tab=processos`) concentra templates de tarefa, playbook e follow-up pós-matrícula — configuração CRM sem envio automático de WhatsApp.
 
 ---
 
@@ -90,7 +90,8 @@ flowchart TD
 9. [ ] Kanban: arrastar de A fazer → Concluídas — persistido após refresh
 10. [ ] Deep link `/tarefas?lead_id=X` — filtro aplicado; ✕ remove filtro
 11. [ ] Limite 500 tarefas — aviso `tasks-limit-notice` se atingido
-12. [ ] Link "Configurar processos automáticos" → `/automacoes?tab=processos`
+12. [ ] Link "Configurar processos automáticos" → `/tarefas?tab=processos`
+13. [ ] `/tarefas?tab=processos` — templates, playbook e follow-up legado
 
 ### Estados de erro conhecidos
 

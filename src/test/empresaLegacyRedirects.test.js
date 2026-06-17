@@ -2,17 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
 
 describe('empresaLegacyRedirects', () => {
-  it('redireciona abas removidas de /empresa', () => {
-    expect(resolveEmpresaLegacyTabRedirect('tarefas')).toBe('/automacoes?tab=processos');
-    expect(resolveEmpresaLegacyTabRedirect('vendas')).toBe('/loja?tab=vendas&config=1');
-    expect(resolveEmpresaLegacyTabRedirect('estoque')).toBe('/loja?tab=estoque');
-    expect(resolveEmpresaLegacyTabRedirect('automacoes')).toBe('/automacoes?tab=configuracoes');
-    expect(resolveEmpresaLegacyTabRedirect('contratos')).toBe('/empresa?tab=financeiro&section=contratos');
+  it('redireciona tarefas para processos em Tarefas', () => {
+    expect(resolveEmpresaLegacyTabRedirect('tarefas')).toBe('/tarefas?tab=processos');
   });
 
-  it('retorna null para abas atuais', () => {
-    expect(resolveEmpresaLegacyTabRedirect('estudio')).toBeNull();
-    expect(resolveEmpresaLegacyTabRedirect('financeiro')).toBeNull();
-    expect(resolveEmpresaLegacyTabRedirect('')).toBeNull();
+  it('redireciona automacoes para gatilhos', () => {
+    expect(resolveEmpresaLegacyTabRedirect('automacoes')).toBe('/automacoes?tab=gatilhos');
   });
 });

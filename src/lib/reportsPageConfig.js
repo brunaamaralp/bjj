@@ -4,6 +4,7 @@ export const REPORT_TABS = new Set([
   'financeiro',
   'loja',
   'estoque',
+  'atividade',
 ]);
 
 export const REPORT_TAB_ITEMS_BASE = [
@@ -12,6 +13,7 @@ export const REPORT_TAB_ITEMS_BASE = [
   { id: 'financeiro', label: 'Financeiro' },
   { id: 'loja', label: 'Vendas' },
   { id: 'estoque', label: 'Estoque' },
+  { id: 'atividade', label: 'Atividade' },
 ];
 
 export function getReportTabItems({ hasFinance, hasSales, hasInventory }) {
@@ -45,6 +47,7 @@ export function getReportsTabFlags(activeTab) {
     needsStudentMetrics ||
     activeTab === 'financeiro' ||
     activeTab === 'loja' ||
-    activeTab === 'estoque';
+    activeTab === 'estoque' ||
+    activeTab === 'atividade';
   return { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab };
 }

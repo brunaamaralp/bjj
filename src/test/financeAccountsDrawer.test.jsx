@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccountsTab from '../components/finance/AccountsTab.jsx';
 
 const addToast = vi.fn();
 const listDocuments = vi.fn().mockResolvedValue({ documents: [] });
-const createDocument = vi.fn();
+const createDocument = vi.fn().mockResolvedValue({
+  $id: 'new-acc',
+  code: '9.9.9',
+  name: 'Teste',
+  type: 'ativo',
+  nature: 'devedora',
+  is_active: true,
+});
 
 vi.mock('../lib/appwrite.js', () => ({
   databases: {
@@ -83,18 +90,25 @@ describe('financeAccountsDrawer', () => {
     });
   });
 
-  it('mostra FieldError ao salvar conta sem código e nome', async () => {
-    const user = userEvent.setup();
-    render(<Harness />);
+  it(
+    'mostra FieldError ao salvar conta sem código e nome',
+    async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
 
-    await user.click(await screen.findByRole('button', { name: /Nova conta/i }));
+      await user.click(await screen.findByRole('button', { name: /Nova conta/i }));
 
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /^Salvar$/i }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: /^Salvar$/i }));
 
-    expect(await within(dialog).findByText(/Informe o código da conta/i)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Informe o nome da conta/i)).toBeInTheDocument();
-  });
+      await waitFor(() => {
+        expect(within(dialog).getByText(/Informe o código da conta/i)).toBeInTheDocument();
+        expect(within(dialog).getByText(/Informe o nome da conta/i)).toBeInTheDocument();
+      });
+      expect(createDocument).not.toHaveBeenCalled();
+    },
+    15_000
+  );
 
   it('subconta herda tipo, natureza e grupo DRE do pai', async () => {
     const user = userEvent.setup();

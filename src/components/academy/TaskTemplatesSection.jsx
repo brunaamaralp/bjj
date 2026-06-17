@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckSquare, Plus, Trash2, ChevronUp, ChevronDown, Play } from 'lucide-react';
-import { account, teams } from '../../lib/appwrite';
+import { account } from '../../lib/appwrite';
+import { fetchTeamMemberships } from '../../lib/teamApi.js';
 import { membershipPrimaryLabel } from '../../lib/teamMembershipLabel.js';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
@@ -40,17 +41,18 @@ export default function TaskTemplatesSection({ academyId, teamId = '', onTemplat
   const [membersLoading, setMembersLoading] = useState(false);
 
   useEffect(() => {
-    const tid = String(teamId || '').trim();
-    if (!tid) {
+    if (!academyId) {
       setMembers([]);
       return;
     }
     let cancelled = false;
     setMembersLoading(true);
-    teams
-      .listMemberships(tid)
-      .then((result) => {
-        if (!cancelled) setMembers(result.memberships || []);
+    fetchTeamMemberships(academyId)
+      .then((data) => {
+        if (!cancelled) {
+          const rows = (data.memberships || []).filter((m) => String(m?.userId || '').trim());
+          setMembers(rows);
+        }
       })
       .catch(() => {
         if (!cancelled) setMembers([]);
@@ -61,7 +63,7 @@ export default function TaskTemplatesSection({ academyId, teamId = '', onTemplat
     return () => {
       cancelled = true;
     };
-  }, [teamId]);
+  }, [academyId]);
 
   const load = useCallback(async () => {
     if (!academyId) return;

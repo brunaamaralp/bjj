@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildClosingRows,
+  enrichClosingRowsWithMirrorAmounts,
+  computeClosingMirrorTotals,
   filterClosingRows,
   computeClosingTotals,
   exportClosingCsv,
@@ -67,6 +69,70 @@ describe('monthlyClosing', () => {
     expect(rows[0].origin).toBe('mensalidade');
     expect(rows[0].received).toBe(200);
     expect(formatPaymentMethod('pix', 'Sicoob')).toBe('PIX — Sicoob');
+  });
+
+  it('enrichClosingRowsWithMirrorAmounts attaches gross/fee/net from linked tx', () => {
+    const payments = [
+      {
+        $id: 'p1',
+        lead_id: 's1',
+        status: 'paid',
+        reference_month: '2026-05',
+        expected_amount: 208,
+        paid_amount: 208,
+        paid_at: '2026-05-10T12:00:00Z',
+        plan_name: 'Mensal',
+        method: 'cartão_crédito',
+        financial_tx_id: 'tx1',
+      },
+    ];
+    const transactions = [
+      {
+        id: 'tx1',
+        type: 'plan',
+        gross: 208,
+        fee: 8,
+        net: 200,
+        status: 'settled',
+        settledAt: '2026-05-10T12:00:00Z',
+        lead_id: 's1',
+      },
+    ];
+    const leadById = new Map([[student.id, student]]);
+    const { rows } = buildClosingRows({
+      payments,
+      transactions,
+      leadById,
+      financeConfig,
+      referenceMonth: '2026-05',
+    });
+    const enriched = enrichClosingRowsWithMirrorAmounts(rows, transactions);
+    expect(enriched[0].mirrorAmounts).toEqual({ gross: 208, fee: 8, net: 200 });
+    const mirrorTotals = computeClosingMirrorTotals(enriched);
+    expect(mirrorTotals).toMatchObject({ gross: 208, fee: 8, net: 200, count: 1 });
+  });
+
+  it('enrichClosingRowsWithMirrorAmounts leaves null without financial_tx_id', () => {
+    const { rows } = buildClosingRows({
+      payments: [
+        {
+          $id: 'p2',
+          lead_id: 's1',
+          status: 'paid',
+          reference_month: '2026-05',
+          expected_amount: 200,
+          paid_amount: 200,
+          paid_at: '2026-05-10T12:00:00Z',
+          method: 'pix',
+        },
+      ],
+      transactions: [],
+      leadById: new Map([[student.id, student]]),
+      financeConfig,
+      referenceMonth: '2026-05',
+    });
+    const enriched = enrichClosingRowsWithMirrorAmounts(rows, []);
+    expect(enriched[0].mirrorAmounts).toBeNull();
   });
 
   it('includes product transaction', () => {

@@ -5,7 +5,7 @@
 | **id** | `atendimento.agente.automacoes` |
 | **módulo** | Atendimento |
 | **personas** | owner, member (config IA/WhatsApp); admin sem item Agente no menu |
-| **rotas** | `/agente-ia`, `/automacoes?tab=processos`, `/automacoes?tab=modelos`, `/automacoes?tab=configuracoes`, `/automacoes?wizard=1` |
+| **rotas** | `/agente-ia`, `/automacoes?tab=modelos|gatilhos`, `/tarefas?tab=processos`, `/automacoes?wizard=1` |
 | **pré-requisitos** | Integração Zapster; billing conforme plano |
 | **status** | revisado (código) |
 | **última revisão** | 2026-06-15 |
@@ -22,7 +22,8 @@
 Jornada em duas áreas complementares:
 
 1. **Agente IA** (`/agente-ia`): conectar WhatsApp (QR Zapster), configurar prompt/FAQ do assistente e ativar atendimento automático (3 passos na UI).
-2. **Automações** (`/automacoes`): modelos de mensagem do funil, gatilhos on/off, tarefas internas da equipe (sem WhatsApp automático) e wizard de setup inicial.
+2. **Mensagens do funil** (`/automacoes`): modelos de mensagem e gatilhos on/off; wizard de setup inicial.
+3. **Processos da equipe** (`/tarefas?tab=processos`): templates de tarefa e playbook — sem WhatsApp automático.
 
 Onboarding do CRM aponta `connect_whatsapp` e `setup_ai` para `/agente-ia`; `setup_automations` para `/automacoes?wizard=1`.
 
@@ -36,12 +37,14 @@ flowchart TD
     a1[Passo 1: WhatsApp QR] --> a2[Passo 2: Prompt e FAQ]
     a2 --> a3[Passo 3: Ativar agente]
   end
-  subgraph auto [Automações]
+  subgraph funil [Mensagens do funil]
     w[Wizard: Modelos] --> w2[Wizard: WhatsApp]
     w2 --> w3[Wizard: Gatilhos]
     m[tab=modelos] --> tpl[Editar templates WhatsApp]
-    c[tab=configuracoes] --> trig[Ligar gatilhos funil]
-    p[tab=processos] --> tasks[Templates tarefa equipe]
+    g[tab=gatilhos] --> trig[Ligar gatilhos funil]
+  end
+  subgraph processos [Processos da equipe]
+    p[/tarefas?tab=processos] --> tasks[Templates tarefa equipe]
   end
   a1 --> w2
   tpl --> trig
@@ -64,12 +67,12 @@ flowchart TD
 
 | # | Rota | Ação | Resultado |
 |---|---|---|---|
-| 7 | `/automacoes?tab=processos` | Templates de tarefa | `TaskTemplatesSection` — **não envia WA** |
+| 7 | `/tarefas?tab=processos` | Templates de tarefa | `TaskProcessosTab` — **não envia WA** |
 | 8 | Processos | Playbook follow-up | `FollowupPlaybookSection` |
 | 9 | `?tab=modelos` | Editar textos | `AutomacoesModelosTab`; placeholders |
 | 10 | Modelos | Preview com lead | `AutomationPreviewLeadPicker` |
-| 11 | `?tab=configuracoes` | Toggle gatilhos | `AutomacoesSection`; `automations_config` |
-| 12 | Config | Salvar gatilhos | Persistência academia; guard dirty ao trocar aba |
+| 11 | `?tab=gatilhos` | Toggle gatilhos | `AutomacoesSection`; `automations_config` |
+| 12 | Gatilhos | Salvar gatilhos | Persistência academia; guard dirty ao trocar aba |
 | 13 | Wizard | Guia inicial | `AutomacoesSetupWizard` até 3 passos done |
 | 14 | Legacy | `?tab=agente` | Redirect → `/agente-ia` |
 
@@ -99,15 +102,14 @@ flowchart TD
 
 ### Checklist — Automações
 
-1. [ ] `/automacoes` default `tab=processos` ou wizard step se guia ativo
+1. [ ] `/automacoes` default `tab=modelos` ou wizard step se guia ativo
 2. [ ] Wizard: modelos visitados ou textos customizados → passo 1 done
 3. [ ] Wizard: Zapster OK → passo WhatsApp done
 4. [ ] Wizard: `activeCount > 0` → passo gatilhos done
 5. [ ] Modelos: placeholders `{{nome}}` validados
-6. [ ] Config: readiness UX (`computeAutomationReadiness`) sem WA conectado
-7. [ ] Sair de configurações com dirty → `ConfirmDialog`
-8. [ ] Processos: copy deixa claro que não envia WhatsApp
-9. [ ] Lembretes financeiros linkam `FINANCE_WHATSAPP_REMINDERS_PATH`
+6. [ ] Gatilhos: readiness UX (`computeAutomationReadiness`) sem WA conectado
+7. [ ] Sair de gatilhos com dirty → `ConfirmDialog`
+8. [ ] Processos em Tarefas: copy deixa claro que não envia WhatsApp
 10. [ ] `?wizard=1` reabre guia (`handleReopenGuide`)
 
 ### Critérios saudável vs regressão

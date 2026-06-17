@@ -2,7 +2,7 @@
 
 **Data:** 2026-06-17  
 **PRODUCT:** [2026-06-17-bruto-taxa-liquido-modelo-financeiro-PRODUCT.md](./2026-06-17-bruto-taxa-liquido-modelo-financeiro-PRODUCT.md)  
-**Status:** Rascunho
+**Status:** Fase 1 implementada (2026-06-17) · Fase 2 pendente
 
 ---
 

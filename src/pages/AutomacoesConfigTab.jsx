@@ -36,7 +36,6 @@ export default function AutomacoesConfigTab({
   const academyId = useLeadStore((s) => s.academyId);
   const userId = useLeadStore((s) => s.userId);
   const academyList = useLeadStore((s) => s.academyList);
-  const financeModuleOn = useLeadStore((s) => s.modules?.finance === true);
   const previewLead = useAutomationPreviewLead();
   const addToast = useUiStore((s) => s.addToast);
   const [membership, setMembership] = useState(null);
@@ -143,9 +142,8 @@ export default function AutomacoesConfigTab({
         waOfflineUi,
         waStatusChecked,
         hasZapsterInstance: Boolean(waInfo?.instance_id),
-        financeModuleOn,
       }),
-    [automationsConfig, templatesMap, waIntegrationConnected, waOfflineUi, waStatusChecked, waInfo?.instance_id, financeModuleOn]
+    [automationsConfig, templatesMap, waIntegrationConnected, waOfflineUi, waStatusChecked, waInfo?.instance_id]
   );
 
   const persistAutomations = useCallback(

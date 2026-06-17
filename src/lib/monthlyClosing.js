@@ -313,6 +313,51 @@ export function buildClosingRows({
   return { rows: monthlyUniqueRows, linkedTxIds, saleIdsInTx };
 }
 
+function mirrorAmountsFromTx(tx) {
+  if (!tx) return null;
+  const gross = roundMoney(tx.gross);
+  if (gross < 0.009) return null;
+  const fee = roundMoney(Math.abs(Number(tx.fee) || 0));
+  const net = roundMoney(Number.isFinite(Number(tx.net)) ? tx.net : gross - fee);
+  return { gross, fee, net };
+}
+
+/** Anexa gross/fee/net do FINANCIAL_TX espelhado quando `financialTxId` resolve na lista de TX. */
+export function enrichClosingRowsWithMirrorAmounts(rows = [], transactions = []) {
+  const txById = new Map();
+  for (const tx of transactions) {
+    const id = String(tx.id || tx.$id || '').trim();
+    if (id) txById.set(id, tx);
+  }
+  return rows.map((row) => {
+    const txId = String(row.financialTxId || '').trim();
+    if (!txId) return { ...row, mirrorAmounts: null };
+    const amounts = mirrorAmountsFromTx(txById.get(txId));
+    return { ...row, mirrorAmounts: amounts };
+  });
+}
+
+export function computeClosingMirrorTotals(rows = []) {
+  let gross = 0;
+  let fee = 0;
+  let net = 0;
+  let count = 0;
+  for (const row of rows) {
+    const m = row.mirrorAmounts;
+    if (!m) continue;
+    gross += m.gross;
+    fee += m.fee;
+    net += m.net;
+    count += 1;
+  }
+  return {
+    gross: roundMoney(gross),
+    fee: roundMoney(fee),
+    net: roundMoney(net),
+    count,
+  };
+}
+
 export function filterClosingRows(rows, filters = {}) {
   const {
     origins = new Set(CLOSING_ORIGINS),
@@ -400,6 +445,7 @@ function csvEscape(cell) {
 }
 
 export function exportClosingCsv(rows, { academyName = '', referenceMonth = '' }) {
+  const includeMirror = rows.some((r) => r.mirrorAmounts);
   const header = [
     'Nome',
     'Responsável',
@@ -407,6 +453,7 @@ export function exportClosingCsv(rows, { academyName = '', referenceMonth = '' }
     'Valor Esperado',
     'Valor Recebido',
     'Valor Pendente',
+    ...(includeMirror ? ['Bruto (Caixa)', 'Taxa (Caixa)', 'Líquido (Caixa)'] : []),
     'Forma de Pagamento',
     'Data',
     'Situação',
@@ -414,22 +461,28 @@ export function exportClosingCsv(rows, { academyName = '', referenceMonth = '' }
   ];
   const lines = [
     header.join(';'),
-    ...rows.map((r) =>
-      [
+    ...rows.map((r) => {
+      const mirror = r.mirrorAmounts;
+      return [
         r.name,
         r.guardian,
         r.description,
         fmtMoneyBr(r.expected),
         fmtMoneyBr(r.received),
         r.pending > 0.009 ? fmtMoneyBr(r.pending) : '',
+        ...(includeMirror
+          ? mirror
+            ? [fmtMoneyBr(mirror.gross), fmtMoneyBr(mirror.fee), fmtMoneyBr(mirror.net)]
+            : ['', '', '']
+          : []),
         r.paymentMethod,
         fmtDateBr(r.date),
         CLOSING_SITUATION_LABELS[r.situation] || r.situation,
         CLOSING_ORIGIN_LABELS[r.origin] || r.origin,
       ]
         .map(csvEscape)
-        .join(';')
-    ),
+        .join(';');
+    }),
   ];
   const body = `\uFEFF${lines.join('\r\n')}`;
   const slugAcademy = String(academyName || 'academia')

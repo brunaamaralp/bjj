@@ -82,7 +82,7 @@ export default function EnrollmentFollowUpSection({
             Há uma tarefa adicional legada configurada ({followUp.title}, {followUp.days} dia
             {followUp.days === 1 ? '' : 's'} após a matrícula). Migre para um template com gatilho{' '}
             <strong>Matrícula</strong> em{' '}
-            <Link to="/automacoes?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
+            <Link to="/tarefas?tab=processos" className="edit-link" style={{ fontWeight: 600 }}>
               Automações → Processos
             </Link>{' '}
             e remova a configuração antiga abaixo.

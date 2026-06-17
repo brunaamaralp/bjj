@@ -1,19 +1,16 @@
-/** Copy canônica do hub /automacoes (spec 2026-06-16-automacoes-ux-onboarding). */
+/** Copy canônica do hub /automacoes — Mensagens do funil (P4). */
 export const AUTOMACOES_COPY = {
   hub: {
-    subtitle: 'Processos internos da equipe e mensagens automáticas no WhatsApp do funil.',
+    title: 'Mensagens do funil',
+    subtitle:
+      'Textos e gatilhos que enviam WhatsApp automaticamente quando o número está conectado no Agente IA.',
   },
   tab: {
-    processos: {
-      hint: 'Checklists e follow-ups para a equipe executar no CRM.',
-      banner:
-        'Esta aba não envia WhatsApp. Para mensagens automáticas, use Modelos de Mensagem e Configurações.',
-    },
     modelos: {
       hint: 'Textos usados pelos gatilhos automáticos do funil.',
     },
-    configuracoes: {
-      hint: 'Ative ou desative cada gatilho de envio automático.',
+    gatilhos: {
+      hint: 'Ative ou desative cada gatilho de envio automático do funil.',
     },
   },
   wizard: {
@@ -27,36 +24,30 @@ export const AUTOMACOES_COPY = {
     modelos: {
       title: 'Personalize os textos',
       description: 'Revise as mensagens que o funil envia automaticamente no WhatsApp.',
-      ctaLabel: 'Abrir Modelos de Mensagem',
+      ctaLabel: 'Abrir Modelos',
       confirm: 'Revisei os modelos padrão — posso seguir para o próximo passo.',
       ctaBlockedHint:
         'Marque a confirmação na aba Modelos ou personalize pelo menos um texto para continuar.',
     },
     whatsapp: {
       title: 'Conecte o WhatsApp',
-      description:
-        'Os gatilhos do funil usam o número conectado no Agente IA. Processos (outra aba) não enviam mensagens.',
+      description: 'Os gatilhos do funil usam o número conectado no Agente IA.',
       ctaLabel: 'Abrir Agente IA',
       ctaHint: 'Você sairá desta página.',
     },
-    configuracoes: {
+    gatilhos: {
       title: 'Ative os gatilhos',
       description: 'Ligue só os envios que sua academia precisa — você pode mudar depois.',
-      ctaLabel: 'Ir para Configurações',
+      ctaLabel: 'Ir para Gatilhos',
     },
-    compact: {
-      modelos: 'Falta revisar os modelos para o funil enviar WhatsApp.',
-      whatsapp: 'Falta conectar o WhatsApp para os gatilhos automáticos funcionarem.',
-      gatilhos: 'Falta ativar gatilhos automáticos nas Configurações.',
-      ctaModelos: 'Ir para Modelos',
-      ctaWhatsapp: 'Abrir Agente IA',
-      ctaGatilhos: 'Ir para Configurações',
-    },
-    scopeBannerDismiss: 'Entendi',
     complete:
       'Modelos, WhatsApp e gatilhos configurados. Mensagens automáticas do funil prontas — ajuste quando quiser.',
   },
   readiness: {
     zapsterOffline: 'WhatsApp desconectado — gatilhos não enviam até reconectar.',
+  },
+  migration: {
+    processosMoved:
+      'Processos da equipe agora ficam em Tarefas — use o menu ou a aba Processos da equipe.',
   },
 };

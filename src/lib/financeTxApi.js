@@ -184,3 +184,20 @@ export async function reconcileStudentPaymentMirrors(academyId) {
   if (!res.ok) throw new Error(body.error || 'Erro ao verificar espelhos');
   return body;
 }
+
+/** Registra taxa de antecipação vinculada a um lançamento liquidado. */
+export async function anticipateFinanceTx({ academyId, txId, feeAmount, settledAt, note }) {
+  const res = await authedFetch('/api/finance?route=anticipate', {
+    method: 'POST',
+    headers: await financeHeaders(academyId),
+    body: JSON.stringify({
+      tx_id: txId,
+      fee_amount: feeAmount,
+      settled_at: settledAt,
+      note,
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao registrar antecipação');
+  return body;
+}

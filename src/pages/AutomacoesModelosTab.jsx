@@ -435,7 +435,7 @@ export default function AutomacoesModelosTab({
               {id === 'birthday' && (
                 <p className="text-xs text-light" style={{ marginBottom: 8, lineHeight: 1.45 }}>
                   Para envio automático no dia do aniversário, ative em{' '}
-                  <Link to="/automacoes?tab=configuracoes" className="edit-link">
+                  <Link to="/automacoes?tab=gatilhos" className="edit-link">
                     Configurações
                   </Link>
                   .

@@ -1889,7 +1889,7 @@ const LeadProfile = () => {
                                 {saving ? 'Salvando…' : <Save size={14} aria-hidden />}
                             </button>
                         </>
-                    )}
+                    ) : null}
                 </div>
             </div>
 
@@ -2555,7 +2555,7 @@ const LeadProfile = () => {
                                           displayValue: String(lead.turma || lead.className || '').trim(),
                                           editValue: resolveTurmaFormState(lead.turma || lead.className, academyTurmas),
                                           empty: !String(lead.turma || lead.className || '').trim(),
-                                          renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                                          renderEditor: ({ draft, setDraft, commitEdit, disabled: saving }) => (
                                               <div
                                                   className="profile-inline-field__turma-wrap"
                                                   onBlur={(e) => {

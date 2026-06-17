@@ -19,6 +19,7 @@ import financeReceivablesHandler from '../lib/server/financeReceivablesHandler.j
 import financeOverviewHandler from '../lib/server/financeOverviewHandler.js';
 import collectionQueueHandler from '../lib/server/collectionQueueHandler.js';
 import payablesHandler from '../lib/server/payablesHandler.js';
+import financeAnticipationHandler from '../lib/server/financeAnticipationHandler.js';
 
 export const config = {
   maxDuration: 60,
@@ -63,6 +64,9 @@ export default async function handler(req, res) {
   }
   if (route === 'payables' || route === 'a-pagar') {
     return payablesHandler(req, res);
+  }
+  if (route === 'anticipate' || route === 'anticipation') {
+    return financeAnticipationHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);

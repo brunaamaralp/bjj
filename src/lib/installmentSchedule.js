@@ -5,6 +5,7 @@ import { parseYmd, formatYmd } from './financeForecastCore.js';
 import { forecastPaymentDueYmd } from './financeForecastInflows.js';
 import { openMensalidadeAmount } from './receivablesAggregate.js';
 import { usesInstallmentCardFee, canonicalPaymentMethodKey } from './paymentMethods.js';
+import { forecastInflowAmounts } from './acquirerFees.js';
 
 function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -175,7 +176,14 @@ export function buildForecastInstallmentItems({
 
     for (const inst of schedule) {
       if (!inRange(inst.due_date)) continue;
-      const amt = roundMoney(inst.amount);
+      const grossClient = roundMoney(inst.gross ?? inst.amount);
+      const method = p.method || 'pix';
+      const installments = Math.min(12, Math.max(1, Number(p.installments) || totalN));
+      const amounts =
+        Number.isFinite(Number(inst.net)) && Number(inst.net) > 0 && inst.gross != null
+          ? { amount: roundMoney(inst.net), amount_gross: grossClient }
+          : forecastInflowAmounts(grossClient, method, installments, financeConfig);
+      const amt = roundMoney(amounts.amount);
       if (amt < 0.01) continue;
       const kind = customerSchedule.length ? 'parcela' : 'liquidacao';
       items.push({
@@ -185,6 +193,7 @@ export function buildForecastInstallmentItems({
             ? `Liquidação ${inst.installment_number}/${totalN} — ${plan} — ${name}`
             : `Parcela ${inst.installment_number}/${totalN} — ${plan} — ${name}`,
         amount: amt,
+        amount_gross: roundMoney(amounts.amount_gross ?? grossClient),
         due_date: inst.due_date,
         lead_id: leadId || undefined,
         student_name: name,
@@ -202,12 +211,20 @@ export function buildForecastInstallmentItems({
 
     for (const inst of schedule) {
       if (!inRange(inst.due_date)) continue;
-      const amt = roundMoney(inst.amount);
+      const grossClient = roundMoney(inst.gross ?? inst.amount);
+      const method = sale.forma_pagamento || sale.method || 'outro';
+      const installments = Math.min(12, Math.max(1, Number(sale.installments) || totalN));
+      const amounts =
+        Number.isFinite(Number(inst.net)) && Number(inst.net) > 0 && inst.gross != null
+          ? { amount: roundMoney(inst.net), amount_gross: grossClient }
+          : forecastInflowAmounts(grossClient, method, installments, financeConfig);
+      const amt = roundMoney(amounts.amount);
       if (amt < 0.01) continue;
       items.push({
         type: 'parcela',
         label: `Parcela ${inst.installment_number}/${totalN} — ${labelBase}`,
         amount: amt,
+        amount_gross: roundMoney(amounts.amount_gross ?? grossClient),
         due_date: inst.due_date,
         lead_id: leadId || undefined,
         status: 'esperado',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aggregateOperationalSummary } from '../../lib/server/financeTxAggregate.js';
+import { aggregateOperationalSummary, aggregateRevenueBreakdown } from '../../lib/server/financeTxAggregate.js';
 import { computeClosingTotals, buildClosingRows } from '../lib/monthlyClosing.js';
 
 function settledInPeriod(docs, fromYmd, toYmd) {
@@ -74,5 +74,33 @@ describe('paridade Relatórios financeiro × Fechamento mensal', () => {
       settledInPeriod(txs.map((t) => ({ ...t, $createdAt: t.createdAt })), from, to)
     );
     expect(closing.received).toBe(op.received);
+  });
+
+  it('faturamento (gross) difere de recebimentos (net) quando há MDR', () => {
+    const mdrTxs = [
+      {
+        id: 'tx-mdr',
+        type: 'plan',
+        gross: 200,
+        fee: 6,
+        net: 194,
+        status: 'settled',
+        settledAt: '2026-04-10T12:00:00.000Z',
+        createdAt: '2026-04-10T12:00:00.000Z',
+        method: 'cartao_credito',
+      },
+    ];
+    const inPeriod = settledInPeriod(
+      mdrTxs.map((t) => ({ ...t, $createdAt: t.createdAt })),
+      from,
+      to
+    );
+    const breakdown = aggregateRevenueBreakdown(inPeriod);
+    const op = aggregateOperationalSummary(inPeriod);
+    expect(breakdown.grossIn).toBe(200);
+    expect(breakdown.fees).toBe(6);
+    expect(breakdown.netIn).toBe(194);
+    expect(op.received).toBe(194);
+    expect(breakdown.grossIn).not.toBe(breakdown.netIn);
   });
 });
