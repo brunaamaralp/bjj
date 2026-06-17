@@ -4,6 +4,9 @@ import {
   parseLegacyVariantSize,
   variantDisplayLabel,
   legacyStockItemsAsParents,
+  normalizeProductsCatalogFromApi,
+  parentRowsFromFlatVariants,
+  stubParentsForOrphanVariants,
   filterParentCatalog,
   findDuplicateVariantIndexes,
   findDuplicateVariantIds,
@@ -134,5 +137,55 @@ describe('productCatalog', () => {
     ];
     expect(filterParentCatalog(parents, { statusFilter: 'sem_estoque' })).toHaveLength(1);
     expect(filterParentCatalog(parents, { statusFilter: 'ativo' })).toHaveLength(1);
+  });
+
+  it('parentRowsFromFlatVariants monta pais quando products[] vem vazio', () => {
+    const parents = parentRowsFromFlatVariants([
+      {
+        id: 'v1',
+        product_id: 'parent-1',
+        nome: 'Kimono',
+        categoria: 'Vestuário',
+        size: 'M',
+        current_quantity: 2,
+        minimum_level: 0,
+        lifecycle: 'ativo',
+        is_active: true,
+        is_for_sale: true,
+      },
+    ]);
+    expect(parents).toHaveLength(1);
+    expect(parents[0].id).toBe('parent-1');
+    expect(parents[0].variants).toHaveLength(1);
+  });
+
+  it('normalizeProductsCatalogFromApi usa variantes planas em parent_variant', () => {
+    const out = normalizeProductsCatalogFromApi({
+      catalog_mode: 'parent_variant',
+      products: [],
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'p1',
+          nome: 'Kimono',
+          categoria: 'Vestuário',
+          size: 'M',
+          current_quantity: 1,
+          lifecycle: 'ativo',
+          is_active: true,
+          is_for_sale: true,
+        },
+      ],
+    });
+    expect(out.parentProducts).toHaveLength(1);
+    expect(out.parentProducts[0].nome).toBe('Kimono');
+  });
+
+  it('stubParentsForOrphanVariants ignora pais já conhecidos', () => {
+    const stubs = stubParentsForOrphanVariants(
+      [{ id: 'v1', product_id: 'p1', nome: 'Kimono', categoria: 'Vestuário' }],
+      new Set(['p1'])
+    );
+    expect(stubs).toHaveLength(0);
   });
 });

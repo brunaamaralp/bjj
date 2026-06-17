@@ -142,6 +142,7 @@ function ProductActionsMenu({
 
 export default function Products() {
   const modules = useLeadStore((s) => s.modules);
+  const academyId = useLeadStore((s) => s.academyId);
   const products = useProductsStore((s) => s.products);
   const catalogMode = useProductsStore((s) => s.catalogMode);
   const showDualStockColumns = catalogMode === 'parent_variant';
@@ -187,9 +188,9 @@ export default function Products() {
   }, [loadProducts]);
 
   useEffect(() => {
-    if (!canAccess) return;
+    if (!canAccess || !academyId) return;
     void refresh();
-  }, [canAccess, refresh]);
+  }, [canAccess, academyId, refresh]);
 
   useEffect(() => {
     if (!canAccess) return;

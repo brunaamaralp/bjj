@@ -133,6 +133,70 @@ export function mapVariantDoc(doc, parent) {
   return row;
 }
 
+/** Pais sintéticos para variantes cujo product_id não existe mais na coleção products. */
+export function stubParentsForOrphanVariants(variants, knownParentIds = new Set()) {
+  const known = knownParentIds instanceof Map ? new Set(knownParentIds.keys()) : knownParentIds;
+  const stubById = new Map();
+  for (const v of variants || []) {
+    const pid = String(v.product_id || '').trim();
+    if (!pid || known.has(pid) || stubById.has(pid)) continue;
+    stubById.set(pid, {
+      id: pid,
+      nome: String(v.nome || '').trim() || 'Produto',
+      categoria: String(v.categoria || 'Sem categoria').trim() || 'Sem categoria',
+      sale_price: v.sale_price ?? null,
+      cost_price: v.cost_price ?? null,
+      type: normalizeProductType(v.type || 'sale'),
+      is_for_sale: v.is_for_sale !== false,
+      is_active: v.is_active !== false,
+      image_url: String(v.image_url || '').trim(),
+      supplier: String(v.supplier || '').trim(),
+    });
+  }
+  return Array.from(stubById.values());
+}
+
+/** Monta linhas pai a partir de variantes planas (fallback quando products[] vem vazio). */
+export function parentRowsFromFlatVariants(variants) {
+  const stubs = stubParentsForOrphanVariants(variants, new Set());
+  return buildParentCatalogRows(stubs, variants);
+}
+
+/** Normaliza GET /api/products para a página Produtos e o store. */
+export function normalizeProductsCatalogFromApi(data) {
+  const catalogMode = data?.catalog_mode || 'legacy';
+  const flatVariants = Array.isArray(data?.variants) ? data.variants : [];
+  let parentProducts = Array.isArray(data?.products) ? data.products : [];
+  const needsMigration = Boolean(data?.needs_migration);
+
+  if (catalogMode === 'parent_variant') {
+    const hasNestedVariants = parentProducts.some((p) => (p?.variants || []).length > 0);
+    if (!hasNestedVariants && flatVariants.length) {
+      const legacyLike =
+        parentProducts.length > 0 && !parentProducts.some((p) => (p?.variants || []).length > 0);
+      parentProducts = legacyLike
+        ? legacyStockItemsAsParents(parentProducts)
+        : parentRowsFromFlatVariants(flatVariants);
+    }
+    return { catalogMode, parentProducts, variants: flatVariants, needsMigration };
+  }
+
+  const legacyFlat =
+    parentProducts.length && !parentProducts[0]?.variants
+      ? parentProducts
+      : flatVariants.length && !flatVariants[0]?.variants
+        ? flatVariants
+        : [];
+  parentProducts = legacyFlat.length ? legacyStockItemsAsParents(legacyFlat) : [];
+
+  return {
+    catalogMode,
+    parentProducts,
+    variants: flatVariants.length ? flatVariants : legacyFlat,
+    needsMigration,
+  };
+}
+
 /** Agrupa variantes sob o produto pai para listagem. */
 export function buildParentCatalogRows(parents, variants) {
   const byParent = new Map();

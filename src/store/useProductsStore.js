@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite';
 import { pickProductApiBody } from '../lib/stockProducts';
-import { legacyStockItemsAsParents } from '../lib/productCatalog';
+import { normalizeProductsCatalogFromApi } from '../lib/productCatalog';
 import { useLeadStore } from './useLeadStore';
 import { useInventoryStore } from './useInventoryStore';
 import { dispatchRefreshSalesCatalog } from '../lib/salesCatalogRefresh.js';
@@ -29,31 +29,6 @@ async function productsFetch(path, options = {}) {
   return data;
 }
 
-function normalizeCatalogResponse(data) {
-  const catalogMode = data.catalog_mode || 'legacy';
-  const variants = data.variants || data.products || [];
-  let parentProducts = data.products || [];
-
-  if (catalogMode === 'legacy') {
-    const legacyFlat =
-      parentProducts.length && !parentProducts[0]?.variants
-        ? parentProducts
-        : variants.length && !variants[0]?.variants
-          ? variants
-          : [];
-    if (legacyFlat.length) {
-      parentProducts = legacyStockItemsAsParents(legacyFlat);
-    }
-  }
-
-  return {
-    catalogMode,
-    parentProducts,
-    variants,
-    needsMigration: Boolean(data.needs_migration),
-  };
-}
-
 export const useProductsStore = create((set, get) => ({
   products: [],
   variants: [],
@@ -66,7 +41,7 @@ export const useProductsStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       let data = await productsFetch('/api/products');
-      let normalized = normalizeCatalogResponse(data);
+      let normalized = normalizeProductsCatalogFromApi(data);
 
       if (normalized.needsMigration) {
         try {
@@ -74,7 +49,7 @@ export const useProductsStore = create((set, get) => ({
             method: 'POST',
             body: JSON.stringify({ action: 'migrate' }),
           });
-          normalized = normalizeCatalogResponse(data);
+          normalized = normalizeProductsCatalogFromApi(data);
         } catch (migrateErr) {
           console.warn('[products] migrate:', migrateErr?.message || migrateErr);
         }

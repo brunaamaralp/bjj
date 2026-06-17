@@ -14,7 +14,7 @@ describe('appendUnmigratedLegacyCatalog', () => {
         migrated: false,
       },
     ];
-    const { products, variants } = appendUnmigratedLegacyCatalog([], [], legacyDocs, []);
+    const { products, variants } = appendUnmigratedLegacyCatalog([], [], legacyDocs);
     expect(products).toHaveLength(1);
     expect(products[0].nome).toBe('Kimono');
     expect(products[0]._legacy).toBe(true);
@@ -22,12 +22,28 @@ describe('appendUnmigratedLegacyCatalog', () => {
     expect(variants[0].id).toBe('legacy-1');
   });
 
-  it('ignora legado já vinculado a variante migrada', () => {
+  it('inclui legado marcado como migrado quando ainda não tem variante vinculada', () => {
+    const legacyDocs = [
+      {
+        $id: 'legacy-1',
+        nome: 'Kimono',
+        categoria: 'Vestuário',
+        current_quantity: 1,
+        is_active: true,
+        is_for_sale: true,
+        migrated: true,
+      },
+    ];
+    const { products } = appendUnmigratedLegacyCatalog([], [], legacyDocs);
+    expect(products).toHaveLength(1);
+    expect(products[0].nome).toBe('Kimono');
+  });
+
+  it('não duplica quando caller já filtra legado vinculado', () => {
     const legacyDocs = [
       { $id: 'legacy-1', nome: 'Kimono', current_quantity: 1, migrated: false },
     ];
-    const variantDocs = [{ legacy_stock_item_id: 'legacy-1' }];
-    const { products, variants } = appendUnmigratedLegacyCatalog([], [], legacyDocs, variantDocs);
+    const { products, variants } = appendUnmigratedLegacyCatalog([], [], []);
     expect(products).toHaveLength(0);
     expect(variants).toHaveLength(0);
   });
