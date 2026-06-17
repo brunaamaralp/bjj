@@ -67,6 +67,7 @@ import FieldError from '../components/shared/FieldError.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
+import ProfileInlineField from '../components/profile/ProfileInlineField.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
 import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import {
@@ -81,6 +82,8 @@ import '../styles/followup-shared.css';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
+import { useCanEditProfile } from '../lib/profilePermissions.js';
+import { saveLeadProfileField } from '../lib/profileLeadFieldSave.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { FOLLOWUP_OUTCOMES } from '../lib/followupOutcomes.js';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
@@ -184,6 +187,7 @@ const TIMELINE_EVENT_LABELS = {
     conversation_highlight: 'Conversa WhatsApp',
     lead_updated: 'Cadastro atualizado',
     student_updated: 'Cadastro atualizado',
+    profile_field_updated: 'Cadastro atualizado',
 };
 
 const ENGLISH_STATUS_TOKEN_LABELS = {
@@ -324,6 +328,12 @@ const LeadProfile = () => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
         return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
     }, [academyList, academyId, userId]);
+
+    const academyDocForRole = useMemo(
+        () => (academyList || []).find((a) => a.id === academyId) || null,
+        [academyList, academyId]
+    );
+    const canEditProfile = useCanEditProfile(academyDocForRole);
     const stages = useMemo(() => {
         const patchTrial = (rows) =>
             (rows || []).map((s) =>
@@ -1227,6 +1237,23 @@ const LeadProfile = () => {
         await executeSaveLead(payload);
     };
 
+    const saveLeadFieldInline = useCallback(
+        async (fieldKey, draftValue) => {
+            await saveLeadProfileField({
+                fieldKey,
+                draftValue,
+                lead,
+                leadId: id,
+                updateLead,
+                academyId,
+                actorUserId: userId || 'user',
+                permissionContext: permCtx,
+            });
+            await refreshTimeline();
+        },
+        [lead, id, updateLead, academyId, userId, permCtx, refreshTimeline]
+    );
+
     const handleUpdateStatus = async (newStatus) => {
         if (updatingStatus) return;
         setUpdatingStatus(true);
@@ -1762,6 +1789,32 @@ const LeadProfile = () => {
         String(pipelineStageBadge.label || '').trim().toLowerCase() !==
             String(heroOperationalStatusLabel || '').trim().toLowerCase();
 
+    const renderLeadInlineField = ({
+        fieldKey,
+        label,
+        displayValue,
+        editValue,
+        empty = false,
+        inputType = 'text',
+        inputMode,
+        renderEditor,
+    }) => (
+        <ProfileInlineField
+            key={fieldKey}
+            label={label}
+            displayValue={displayValue}
+            empty={empty}
+            canEdit={canEditProfile}
+            editable={!editing && canEditProfile}
+            fieldId={`lead-inline-${fieldKey}`}
+            editValue={editValue}
+            inputType={inputType}
+            inputMode={inputMode}
+            onSave={(draft) => saveLeadFieldInline(fieldKey, draft)}
+            renderEditor={renderEditor}
+        />
+    );
+
     const leftColumn = (
         <div
             className="lead-panel-left-col"
@@ -1811,11 +1864,12 @@ const LeadProfile = () => {
                     <span className="lead-profile-breadcrumb__fallback">{contactLabel}</span>
                 )}
                 <div className="flex gap-2 lead-profile-header-actions">
-                    {!editing ? (
+                    {!editing && canEditProfile ? (
                         <button type="button" className="btn-edit-header" onClick={startEdit}>
-                            <Pencil size={14} /> Editar
+                            <Pencil size={14} /> Editar tudo
                         </button>
-                    ) : (
+                    ) : null}
+                    {editing ? (
                         <>
                             <button
                                 type="button"
@@ -1863,8 +1917,46 @@ const LeadProfile = () => {
                                 {leadInitials}
                             </div>
                             <div className="profile-id-info lead-profile-hero__info">
-                                <h1 className="profile-name lead-profile-hero__name">{lead.name}</h1>
-                                {lead.phone ? (
+                                {!editing && canEditProfile ? (
+                                    <ProfileInlineField
+                                        layout="hero-name"
+                                        label="Nome"
+                                        displayValue={lead.name || 'Sem nome'}
+                                        empty={!String(lead.name || '').trim()}
+                                        canEdit={canEditProfile}
+                                        editValue={lead.name || ''}
+                                        fieldId="lead-inline-hero-name"
+                                        onSave={(draft) => saveLeadFieldInline('name', draft)}
+                                    />
+                                ) : (
+                                    <h1 className="profile-name lead-profile-hero__name">{lead.name}</h1>
+                                )}
+                                {!editing && canEditProfile ? (
+                                    <ProfileInlineField
+                                        layout="hero-phone"
+                                        label="Telefone"
+                                        displayValue={lead.phone || '—'}
+                                        empty={!String(lead.phone || '').trim()}
+                                        canEdit={canEditProfile}
+                                        editValue={maskPhone(String(lead.phone || ''))}
+                                        fieldId="lead-inline-hero-phone"
+                                        onSave={(draft) => saveLeadFieldInline('phone', draft)}
+                                        renderEditor={({ draft, setDraft, inputRef, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                                            <input
+                                                ref={inputRef}
+                                                id={fid}
+                                                type="tel"
+                                                inputMode="tel"
+                                                className="profile-inline-field__input"
+                                                value={draft ?? ''}
+                                                disabled={saving}
+                                                onChange={(e) => setDraft(maskPhone(e.target.value))}
+                                                onKeyDown={onKeyDown}
+                                                onBlur={onBlur}
+                                            />
+                                        )}
+                                    />
+                                ) : lead.phone ? (
                                     <div className="profile-phone lead-profile-hero__phone">
                                         <Phone size={14} aria-hidden />
                                         <span>{lead.phone}</span>
@@ -2399,46 +2491,170 @@ const LeadProfile = () => {
                     </div>
 
                     {/* Dados Adicionais (Preservados do original, mas agora em lista) */}
-                    {!editing && hasPersonalDetails ? (
+                    {!editing && (hasPersonalDetails || canEditProfile) ? (
                         <div className="profile-section extra-info">
                             <ReportSectionHeading title="Dados pessoais" className="lead-profile-section-heading" />
                             <div className="flex-col gap-2">
-                                {lead.birthDate ? (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Nascimento:</span>
-                                        <span className="info-mini-value">{formatLeadBirthDateDisplay(lead.birthDate)}</span>
-                                    </div>
-                                ) : null}
-                                {lead.sexo ? (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Sexo:</span>
-                                        <span className="info-mini-value">{sexoDisplayLabel(lead.sexo)}</span>
-                                    </div>
-                                ) : null}
-                                {String(lead.turma || lead.className || '').trim() ? (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Turma:</span>
-                                        <span className="info-mini-value">{String(lead.turma || lead.className).trim()}</span>
-                                    </div>
-                                ) : null}
-                                {lead.isFirstExperience ? (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Primeira experiência:</span>
-                                        <span className="info-mini-value">{lead.isFirstExperience}</span>
-                                    </div>
-                                ) : null}
-                                {lead.plan ? (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">{terms.plan}:</span>
-                                        <span className="info-mini-value">{lead.plan}</span>
-                                    </div>
-                                ) : null}
-                                {lead.enrollmentDate ? (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Data de matrícula:</span>
-                                        <span className="info-mini-value">{formatLeadBirthDateDisplay(lead.enrollmentDate)}</span>
-                                    </div>
-                                ) : null}
+                                {(lead.birthDate || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'birthDate',
+                                          label: 'Nascimento',
+                                          displayValue: formatLeadBirthDateDisplay(lead.birthDate),
+                                          editValue: String(lead.birthDate || '').slice(0, 10),
+                                          empty: !lead.birthDate,
+                                          inputType: 'date',
+                                          renderEditor: ({ draft, setDraft, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                                              <DateInputField
+                                                  id={fid}
+                                                  type="date"
+                                                  className="form-input-sm"
+                                                  value={draft ?? ''}
+                                                  onChange={(e) => setDraft(e.target.value)}
+                                                  onKeyDown={onKeyDown}
+                                                  onBlur={onBlur}
+                                                  disabled={saving}
+                                              />
+                                          ),
+                                      })
+                                    : lead.birthDate ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Nascimento:</span>
+                                              <span className="info-mini-value">{formatLeadBirthDateDisplay(lead.birthDate)}</span>
+                                          </div>
+                                      ) : null}
+                                {(lead.sexo || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'sexo',
+                                          label: 'Sexo',
+                                          displayValue: sexoDisplayLabel(lead.sexo),
+                                          editValue: lead.sexo || '',
+                                          empty: !lead.sexo,
+                                          renderEditor: ({ draft, setDraft, commitEdit, disabled: saving }) => (
+                                              <SexoSelect
+                                                  id="lead-inline-sexo"
+                                                  className="form-input-sm"
+                                                  value={draft}
+                                                  onChange={(v) => {
+                                                      setDraft(v);
+                                                      void commitEdit(v);
+                                                  }}
+                                                  disabled={saving}
+                                              />
+                                          ),
+                                      })
+                                    : lead.sexo ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Sexo:</span>
+                                              <span className="info-mini-value">{sexoDisplayLabel(lead.sexo)}</span>
+                                          </div>
+                                      ) : null}
+                                {(String(lead.turma || lead.className || '').trim() || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'turma',
+                                          label: 'Turma',
+                                          displayValue: String(lead.turma || lead.className || '').trim(),
+                                          editValue: resolveTurmaFormState(lead.turma || lead.className, academyTurmas),
+                                          empty: !String(lead.turma || lead.className || '').trim(),
+                                          renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                                              <div
+                                                  className="profile-inline-field__turma-wrap"
+                                                  onBlur={(e) => {
+                                                      if (!e.currentTarget.contains(e.relatedTarget)) {
+                                                          void commitEdit();
+                                                      }
+                                                  }}
+                                              >
+                                                  <TurmaSelect
+                                                      id="lead-inline-turma"
+                                                      otherId="lead-inline-turma-other"
+                                                      turmas={academyTurmas}
+                                                      selectValue={draft?.turmaSelect ?? ''}
+                                                      otherText={draft?.turmaOther ?? ''}
+                                                      onSelectChange={(v) => setDraft((p) => ({ ...p, turmaSelect: v }))}
+                                                      onOtherChange={(v) => setDraft((p) => ({ ...p, turmaOther: v }))}
+                                                      className="form-input-sm"
+                                                      disabled={saving}
+                                                  />
+                                              </div>
+                                          ),
+                                      })
+                                    : String(lead.turma || lead.className || '').trim() ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Turma:</span>
+                                              <span className="info-mini-value">{String(lead.turma || lead.className).trim()}</span>
+                                          </div>
+                                      ) : null}
+                                {(lead.isFirstExperience || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'isFirstExperience',
+                                          label: 'Primeira experiência',
+                                          displayValue: lead.isFirstExperience || '',
+                                          editValue: lead.isFirstExperience || 'Sim',
+                                          empty: !lead.isFirstExperience,
+                                          renderEditor: ({ draft, setDraft, inputRef, commitEdit, disabled: saving }) => (
+                                              <select
+                                                  ref={inputRef}
+                                                  className="form-input-sm"
+                                                  value={draft ?? 'Sim'}
+                                                  disabled={saving}
+                                                  onChange={(e) => {
+                                                      const v = e.target.value;
+                                                      setDraft(v);
+                                                      void commitEdit(v);
+                                                  }}
+                                              >
+                                                  <option value="Sim">Sim</option>
+                                                  <option value="Não">Não</option>
+                                              </select>
+                                          ),
+                                      })
+                                    : lead.isFirstExperience ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Primeira experiência:</span>
+                                              <span className="info-mini-value">{lead.isFirstExperience}</span>
+                                          </div>
+                                      ) : null}
+                                {(lead.plan || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'plan',
+                                          label: terms.plan,
+                                          displayValue: lead.plan || '',
+                                          editValue: lead.plan || '',
+                                          empty: !lead.plan,
+                                      })
+                                    : lead.plan ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">{terms.plan}:</span>
+                                              <span className="info-mini-value">{lead.plan}</span>
+                                          </div>
+                                      ) : null}
+                                {(lead.enrollmentDate || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'enrollmentDate',
+                                          label: 'Data de matrícula',
+                                          displayValue: formatLeadBirthDateDisplay(lead.enrollmentDate),
+                                          editValue: String(lead.enrollmentDate || '').slice(0, 10),
+                                          empty: !lead.enrollmentDate,
+                                          inputType: 'date',
+                                          renderEditor: ({ draft, setDraft, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                                              <DateInputField
+                                                  id={fid}
+                                                  type="date"
+                                                  className="form-input-sm"
+                                                  value={draft ?? ''}
+                                                  onChange={(e) => setDraft(e.target.value)}
+                                                  onKeyDown={onKeyDown}
+                                                  onBlur={onBlur}
+                                                  disabled={saving}
+                                              />
+                                          ),
+                                      })
+                                    : lead.enrollmentDate ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Data de matrícula:</span>
+                                              <span className="info-mini-value">{formatLeadBirthDateDisplay(lead.enrollmentDate)}</span>
+                                          </div>
+                                      ) : null}
                             </div>
                         </div>
                     ) : null}
@@ -2447,18 +2663,35 @@ const LeadProfile = () => {
                         <div className="profile-section extra-info">
                             <ReportSectionHeading title="Outros detalhes" className="lead-profile-section-heading" />
                             <div className="flex-col gap-2">
-                                {lead.parentName && (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Responsável:</span>
-                                        <span className="info-mini-value">{lead.parentName}</span>
-                                    </div>
-                                )}
-                                {lead.age && (
-                                    <div className="info-mini-row">
-                                        <span className="info-mini-label">Idade:</span>
-                                        <span className="info-mini-value">{lead.age} anos</span>
-                                    </div>
-                                )}
+                                {(lead.parentName || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'parentName',
+                                          label: 'Responsável',
+                                          displayValue: lead.parentName || '',
+                                          editValue: lead.parentName || '',
+                                          empty: !lead.parentName,
+                                      })
+                                    : lead.parentName ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Responsável:</span>
+                                              <span className="info-mini-value">{lead.parentName}</span>
+                                          </div>
+                                      ) : null}
+                                {(lead.age || canEditProfile) && !editing
+                                    ? renderLeadInlineField({
+                                          fieldKey: 'age',
+                                          label: 'Idade',
+                                          displayValue: lead.age ? `${lead.age} anos` : '',
+                                          editValue: lead.age || '',
+                                          empty: !lead.age,
+                                          inputType: 'text',
+                                      })
+                                    : lead.age ? (
+                                          <div className="info-mini-row">
+                                              <span className="info-mini-label">Idade:</span>
+                                              <span className="info-mini-value">{lead.age} anos</span>
+                                          </div>
+                                      ) : null}
                                 {customQuestions.map((q) => {
                                     const ans = (lead.customAnswers || {})[q?.id] ?? (lead.customAnswers || {})[q?.label];
                                     if (!hasLeadDisplayValue(ans)) return null;

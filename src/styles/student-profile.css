@@ -194,6 +194,23 @@
   color: var(--border-mid);
 }
 
+.student-profile-hd__contact-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.student-profile-hd__contact-fields .profile-inline-field {
+  border-bottom: none;
+  padding: 2px 0;
+}
+
+.student-profile-hd__contact-fields .profile-inline-field--row .profile-inline-field__label {
+  width: auto;
+  min-width: 52px;
+}
+
 .student-profile-hd__contact {
   font-size: var(--font-base);
   color: var(--text-secondary);

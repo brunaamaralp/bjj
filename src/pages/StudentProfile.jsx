@@ -33,6 +33,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
 import ProfileComunicacaoSection from '../components/profile/ProfileComunicacaoSection.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
+import ProfileInlineField from '../components/profile/ProfileInlineField.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
 import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import FieldError from '../components/shared/FieldError.jsx';
@@ -86,6 +87,8 @@ import {
     focusFirstStudentPaymentError,
 } from '../lib/mensalidadesPaymentForm.js';
 import { useUserRole } from '../lib/useUserRole.js';
+import { useCanEditProfile } from '../lib/profilePermissions.js';
+import { saveStudentProfileField } from '../lib/profileStudentFieldSave.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
@@ -151,6 +154,7 @@ const TIMELINE_EVENT_LABELS = {
     whatsapp: 'WhatsApp',
     collection_attempt: 'Cobrança',
     collection_escalated: 'Cobrança escalada',
+    profile_field_updated: 'Cadastro atualizado',
     task_created: 'Tarefa criada',
     task_done: 'Tarefa concluída',
     student_enrolled: 'Matrícula',
@@ -426,6 +430,7 @@ export default function StudentProfile() {
         [academyList, academyId]
     );
     const navRole = useUserRole(academyDocForRole);
+    const canEditProfile = useCanEditProfile(academyDocForRole);
     const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
 
@@ -1061,6 +1066,37 @@ export default function StudentProfile() {
         }
     }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig]);
 
+    const saveStudentFieldInline = useCallback(
+        async (fieldKey, draftValue) => {
+            await saveStudentProfileField({
+                fieldKey,
+                draftValue,
+                student,
+                academyId,
+                studentId: leadId,
+                updateStudent,
+                financeConfig,
+                academyTurmas,
+                emergencySameAsRegistered,
+                setEmergencySameAsRegistered,
+                setDataForm,
+                actorUserId: userId || 'user',
+                permissionContext: permCtx,
+            });
+        },
+        [
+            student,
+            academyId,
+            leadId,
+            updateStudent,
+            financeConfig,
+            academyTurmas,
+            emergencySameAsRegistered,
+            userId,
+            permCtx,
+        ]
+    );
+
     const addNote = async () => {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
@@ -1571,20 +1607,240 @@ export default function StudentProfile() {
         return raw != null && String(raw).trim() ? String(raw).trim() : '';
     };
 
+    const studentFieldEditValue = (field) => {
+        const key = field.key;
+        if (key === 'turma') {
+            return resolveTurmaFormState(student.turma || student.className, academyTurmas);
+        }
+        if (key === 'phone') return maskPhone(String(student.phone || ''));
+        if (key === 'cpf' || key === 'cpfResponsavel') {
+            const raw = student[key];
+            const s = String(raw ?? '').replace(/\D/g, '');
+            return s ? maskCPF(s) : '';
+        }
+        if (key === 'dueDay') {
+            return student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '';
+        }
+        if (key === 'birthDate' || key === 'enrollmentDate') {
+            return String(student[key] || '').slice(0, 10);
+        }
+        return student[key] ?? '';
+    };
 
-    const renderStudentDataViewRow = (field) => {
+    const renderStudentInlineField = (field, { disabled = false } = {}) => {
         const raw = field.key === 'turma' ? student.turma || student.className : student[field.key];
         const shown = displayStudentFieldValue(field.key, raw);
         const empty = !shown;
+        const editValue = studentFieldEditValue(field);
+        const fieldDisabled = disabled || !canEditProfile || editingData;
+
+        const common = {
+            key: field.key,
+            label: field.label,
+            displayValue: shown,
+            empty,
+            canEdit: canEditProfile && !disabled,
+            editable: !fieldDisabled,
+            fieldId: `student-inline-${field.key}`,
+            onSave: (draft) => saveStudentFieldInline(field.key, draft),
+        };
+
+        if (field.type === 'sexo') {
+            return (
+                <ProfileInlineField
+                    {...common}
+                    editValue={editValue}
+                    renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                        <SexoSelect
+                            id={`student-inline-${field.key}`}
+                            className="student-profile-data-input"
+                            value={draft}
+                            onChange={(v) => {
+                                setDraft(v);
+                                void commitEdit(v);
+                            }}
+                            disabled={saving}
+                        />
+                    )}
+                />
+            );
+        }
+
+        if (field.type === 'turma') {
+            const turmaState = typeof editValue === 'object' ? editValue : resolveTurmaFormState('', academyTurmas);
+            return (
+                <ProfileInlineField
+                    {...common}
+                    editValue={turmaState}
+                    renderEditor={({ draft, setDraft, onBlur, commitEdit, disabled: saving }) => (
+                        <div
+                            className="profile-inline-field__turma-wrap"
+                            onBlur={(e) => {
+                                if (!e.currentTarget.contains(e.relatedTarget)) {
+                                    void commitEdit();
+                                }
+                            }}
+                        >
+                            <TurmaSelect
+                                id={`student-inline-${field.key}`}
+                                otherId={`student-inline-${field.key}-other`}
+                                turmas={academyTurmas}
+                                selectValue={draft?.turmaSelect ?? ''}
+                                otherText={draft?.turmaOther ?? ''}
+                                onSelectChange={(v) => setDraft((p) => ({ ...p, turmaSelect: v }))}
+                                onOtherChange={(v) => setDraft((p) => ({ ...p, turmaOther: v }))}
+                                className="student-profile-data-input"
+                                disabled={saving}
+                            />
+                        </div>
+                    )}
+                    onSave={(draft) => saveStudentFieldInline(field.key, draft)}
+                />
+            );
+        }
+
+        if (field.type === 'plan') {
+            return (
+                <ProfileInlineField
+                    {...common}
+                    editValue={editValue}
+                    renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                        <PlanSelect
+                            id={`student-inline-${field.key}`}
+                            financeConfig={financeConfig}
+                            value={draft}
+                            onChange={(v) => {
+                                setDraft(v);
+                                void commitEdit(v);
+                            }}
+                            className="student-profile-data-input"
+                            disabled={saving}
+                        />
+                    )}
+                />
+            );
+        }
+
+        if (field.type === 'select' && Array.isArray(field.options)) {
+            return (
+                <ProfileInlineField
+                    {...common}
+                    editValue={editValue}
+                    renderEditor={({ draft, setDraft, inputRef, onKeyDown, commitEdit, disabled: saving }) => (
+                        <select
+                            ref={inputRef}
+                            className="student-profile-data-input student-profile-data-input--select"
+                            value={draft ?? ''}
+                            disabled={saving || field.disabled}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                setDraft(v);
+                                void commitEdit(v);
+                            }}
+                            onKeyDown={onKeyDown}
+                        >
+                            <option value="">Selecione…</option>
+                            {field.options.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                    {o.label}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                />
+            );
+        }
+
+        if (field.key === 'preferredPaymentAccount') {
+            return (
+                <ProfileInlineField
+                    {...common}
+                    displayValue={shown || String(student.preferredPaymentAccount || '').trim()}
+                    empty={!String(student.preferredPaymentAccount || '').trim()}
+                    editValue={student.preferredPaymentAccount || ''}
+                    renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                        <BankAccountSelect
+                            id={`student-inline-${field.key}`}
+                            academyId={academyId}
+                            financeConfig={financeConfig}
+                            value={draft}
+                            onChange={(v) => {
+                                setDraft(v);
+                                void commitEdit(v);
+                            }}
+                            allowEmpty
+                            emptyLabel="Nenhuma (opcional)"
+                            disabled={saving}
+                            className="student-profile-data-input"
+                        />
+                    )}
+                />
+            );
+        }
+
+        if (field.type === 'date') {
+            return (
+                <ProfileInlineField
+                    {...common}
+                    editValue={editValue}
+                    inputType="date"
+                    renderEditor={({ draft, setDraft, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                        <DateInputField
+                            id={fid}
+                            type="date"
+                            className="student-profile-data-input form-input"
+                            value={draft ?? ''}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onKeyDown={onKeyDown}
+                            onBlur={onBlur}
+                            disabled={saving || field.disabled}
+                        />
+                    )}
+                />
+            );
+        }
+
+        const inputType =
+            field.type === 'tel' ? 'tel' : field.type === 'email' ? 'email' : field.type === 'number' ? 'number' : 'text';
+        const inputMode = field.type === 'tel' ? 'tel' : field.type === 'number' ? 'numeric' : undefined;
+
         return (
-            <div key={field.key} className="profile-info-row">
-                <span className="profile-info-row__label">{field.label}</span>
-                <span className={`profile-info-row__value${empty ? ' profile-info-row__value--empty' : ''}`}>
-                    {empty ? '—' : shown}
-                </span>
-            </div>
+            <ProfileInlineField
+                {...common}
+                editValue={editValue}
+                inputType={inputType}
+                inputMode={inputMode}
+                placeholder={field.placeholder}
+                renderEditor={
+                    field.key === 'phone' || field.key === 'emergencyPhone' || field.key === 'cpf' || field.key === 'cpfResponsavel'
+                        ? ({ draft, setDraft, inputRef, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                              <input
+                                  ref={inputRef}
+                                  id={fid}
+                                  type={inputType}
+                                  inputMode={inputMode}
+                                  className="profile-inline-field__input"
+                                  value={draft ?? ''}
+                                  disabled={saving}
+                                  onChange={(e) => {
+                                      const v = e.target.value;
+                                      if (field.key === 'phone' || field.key === 'emergencyPhone') {
+                                          setDraft(maskPhone(v));
+                                      } else {
+                                          setDraft(maskCPF(v));
+                                      }
+                                  }}
+                                  onKeyDown={onKeyDown}
+                                  onBlur={onBlur}
+                              />
+                          )
+                        : undefined
+                }
+            />
         );
     };
+
+    const renderStudentDataViewRow = (field) => renderStudentInlineField(field);
 
     const renderStudentDataEditRow = (field) => (
         <div key={field.key} className="student-profile-data-edit-row">
@@ -1965,7 +2221,20 @@ export default function StudentProfile() {
                         )}
                     </div>
                     <div className="student-profile-hd__body">
-                    <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
+                    {!editingData && canEditProfile ? (
+                        <ProfileInlineField
+                            layout="hero-name"
+                            label="Nome"
+                            displayValue={student.name || 'Sem nome'}
+                            empty={!String(student.name || '').trim()}
+                            canEdit={canEditProfile}
+                            editValue={student.name || ''}
+                            fieldId="student-inline-hero-name"
+                            onSave={(draft) => saveStudentFieldInline('name', draft)}
+                        />
+                    ) : (
+                        <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
+                    )}
                     <div className="student-profile-hd__badges">
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, paymentStatus)}
@@ -1994,12 +2263,52 @@ export default function StudentProfile() {
                     </div>
 
                     {/* Contato */}
-                    <div className="student-profile-hd__contact">
-                        {formatPhone(student.phone) || '—'}
-                        {String(student.email || '').trim() ? (
-                            <span> · {String(student.email).trim()}</span>
-                        ) : null}
-                    </div>
+                    {!editingData && canEditProfile ? (
+                        <div className="student-profile-hd__contact-fields">
+                            <ProfileInlineField
+                                layout="hero-phone"
+                                label="Telefone"
+                                displayValue={formatPhone(student.phone) || '—'}
+                                empty={!formatPhone(student.phone)}
+                                canEdit={canEditProfile}
+                                editValue={maskPhone(String(student.phone || ''))}
+                                fieldId="student-inline-hero-phone"
+                                onSave={(draft) => saveStudentFieldInline('phone', draft)}
+                                renderEditor={({ draft, setDraft, inputRef, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                                    <input
+                                        ref={inputRef}
+                                        id={fid}
+                                        type="tel"
+                                        inputMode="tel"
+                                        className="profile-inline-field__input"
+                                        value={draft ?? ''}
+                                        disabled={saving}
+                                        onChange={(e) => setDraft(maskPhone(e.target.value))}
+                                        onKeyDown={onKeyDown}
+                                        onBlur={onBlur}
+                                    />
+                                )}
+                            />
+                            <ProfileInlineField
+                                layout="row"
+                                label="E-mail"
+                                displayValue={String(student.email || '').trim() || '—'}
+                                empty={!String(student.email || '').trim()}
+                                canEdit={canEditProfile}
+                                editValue={String(student.email || '').trim()}
+                                fieldId="student-inline-hero-email"
+                                inputType="email"
+                                onSave={(draft) => saveStudentFieldInline('email', draft)}
+                            />
+                        </div>
+                    ) : (
+                        <div className="student-profile-hd__contact">
+                            {formatPhone(student.phone) || '—'}
+                            {String(student.email || '').trim() ? (
+                                <span> · {String(student.email).trim()}</span>
+                            ) : null}
+                        </div>
+                    )}
 
                     {/* Turma */}
                     {String(student.turma || student.className || '').trim() ? (
@@ -2138,9 +2447,9 @@ export default function StudentProfile() {
                 <div className="profile-section-block">
                     <div className="profile-section-heading-row">
                         <h3 className="profile-section-heading">Dados do {terms.student.toLowerCase()}</h3>
-                        {!editingData ? (
+                        {!editingData && canEditProfile ? (
                             <button type="button" className="profile-edit-btn" onClick={() => setEditingData(true)}>
-                                Editar
+                                Editar tudo
                             </button>
                         ) : null}
                     </div>
@@ -2199,7 +2508,13 @@ export default function StudentProfile() {
                             )}
                         </>
                     ) : (
-                        EMERGENCY_FIELDS.map(renderStudentDataViewRow)
+                        <>
+                            {EMERGENCY_FIELDS.map((field) =>
+                                renderStudentInlineField(field, {
+                                    disabled: emergencySameAsRegistered,
+                                })
+                            )}
+                        </>
                     )}
                 </div>
 
@@ -2224,21 +2539,13 @@ export default function StudentProfile() {
                     ) : (
                         <>
                             {PAYMENT_HABIT_FIELDS.map(renderStudentDataViewRow)}
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    gap: 12,
-                                    padding: '10px 0',
-                                    borderBottom: '0.5px solid var(--border-light)',
-                                }}
-                            >
-                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Conta habitual</span>
-                                <span style={{ fontSize: 13, color: 'var(--text)', textAlign: 'right' }}>
-                                    {student.preferredPaymentAccount || '—'}
-                                </span>
-                            </div>
+                            {canConfigureBankAccounts
+                                ? renderStudentInlineField({
+                                      key: 'preferredPaymentAccount',
+                                      label: 'Conta habitual',
+                                      type: 'text',
+                                  })
+                                : null}
                         </>
                     )}
                 </div>
