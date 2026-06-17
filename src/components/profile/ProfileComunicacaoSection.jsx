@@ -6,6 +6,7 @@ import ProfileWhatsAppOfflineEmptyActions from './ProfileWhatsAppOfflineEmptyAct
  */
 export default function ProfileComunicacaoSection({
   waConnected,
+  waOfflineUi = false,
   waStatusChecked,
   phoneDigits,
   onOpenConversation,
@@ -15,7 +16,7 @@ export default function ProfileComunicacaoSection({
   return (
     <div className="profile-comunicacao-section">
       <p className="profile-comunicacao-section__heading">Comunicação</p>
-      {waConnected ? (
+      {!waOfflineUi ? (
         <>
           <p className="profile-comunicacao-section__hint">
             Mensagens pelo WhatsApp integrado na aba <strong>Conversa</strong>.

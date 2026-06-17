@@ -85,10 +85,18 @@ function normalizeApiError(raw, fallback) {
   return friendlyError({ message: s }, 'action');
 }
 
+const WA_TRANSIENT_STATUSES = new Set(['connecting', 'syncing', 'unknown']);
+
 function resolveWaStatus(academyZapsterStatus, apiStatus, instanceId) {
   const docSt = String(academyZapsterStatus || '').trim().toLowerCase();
   const apiSt = String(apiStatus || '').trim().toLowerCase();
   const hasInstance = Boolean(String(instanceId || '').trim());
+
+  // API live da Zapster prevalece quando indica sessão ativa (doc pode estar atrasado após flap de webhook).
+  if (apiSt === 'connected' || apiSt === 'online') return 'connected';
+
+  if (WA_TRANSIENT_STATUSES.has(apiSt)) return apiSt;
+
   if (docSt) return docSt;
   if (!hasInstance) return 'disconnected';
   return apiSt || 'disconnected';
@@ -395,9 +403,6 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       let qrcode = data?.qrcode ?? null;
       let waPhoneFromApi = normalizeWaPhoneDigits(data?.wa_phone || '');
       const zapsterStatusFromApi = String(data?.zapster_status || '').trim();
-      if (zapsterStatusFromApi) {
-        setAcademyWaStatus(zapsterStatusFromApi);
-      }
 
       if (incomingId && status.toLowerCase() === 'unknown') {
         const { blocked: probeBlocked, res: probeResp } = await fetchWithBillingGuard(
@@ -438,6 +443,10 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
 
       const finalStatus = status;
       const finalQrcode = qrcode;
+      const resolvedWaStatus = resolveWaStatus(zapsterStatusFromApi, finalStatus, incomingId);
+      if (resolvedWaStatus) {
+        setAcademyWaStatus(resolvedWaStatus);
+      }
       setWaInfo((prev) => {
         if (incomingId) {
           const next = {
@@ -506,7 +515,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
           : { instance_id: null, status: 'disconnected', qrcode: null, phone: null };
       writeWaConnectionCache(
         academyIdRef.current,
-        zapsterStatusFromApi || finalStatus,
+        resolvedWaStatus,
         cachedWaInfo
       );
     } catch (e) {
@@ -1151,9 +1160,12 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       if (cancelled) return;
       const payload = ev && typeof ev === 'object' ? ev.payload : null;
       if (!payload || typeof payload !== 'object') return;
-      const st = String(payload.zapster_status || '').trim();
+      const st = String(payload.zapster_status || '').trim().toLowerCase();
       if (!st) return;
-      setAcademyWaStatus(st);
+      // Reconexão: reflete na UI na hora. Desconexão: confirma via API (evita banner falso em flap transitório).
+      if (st === 'connected' || st === 'online') {
+        setAcademyWaStatus('connected');
+      }
       void fetchWaInfo({ silent: true, quiet: true });
     };
 

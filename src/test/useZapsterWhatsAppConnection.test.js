@@ -196,4 +196,54 @@ describe('useZapsterWhatsAppConnection', () => {
     // restart exibe QR → polling dispara uma consulta imediata; timers adiados são cancelados no unmount.
     expect(waMocks.instancesGetCalls).toBe(callsAfterMount + 1);
   });
+
+  it('waStatus: API connected prevalece sobre zapster_status desatualizado no doc', async () => {
+    const { fetchWithBillingGuard } = await import('../lib/billingBlockedFetch');
+    const defaultImpl = fetchWithBillingGuard.getMockImplementation();
+    fetchWithBillingGuard.mockImplementation(async (url, init = {}) => {
+      const u = String(url);
+      const method = String(init?.method || 'GET').toUpperCase();
+      if (u.includes('/api/zapster/instances') && method === 'GET' && !u.includes('action=')) {
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            text: async () =>
+              JSON.stringify({
+                instance_id: 'inst-live',
+                status: 'connected',
+                zapster_status: 'disconnected',
+                qrcode: null,
+                wa_phone: '5511999999999',
+              }),
+          },
+        };
+      }
+      if (u.includes('action=qrcode')) {
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            status: 406,
+            headers: { get: () => '' },
+            text: async () => '',
+          },
+        };
+      }
+      if (typeof defaultImpl === 'function') return defaultImpl(url, init);
+      return { blocked: false, res: { ok: true, text: async () => '{}' } };
+    });
+
+    const { useZapsterWhatsAppConnection } = await import('../hooks/useZapsterWhatsAppConnection.js');
+    const { result } = renderHook(() => useZapsterWhatsAppConnection('acad-stale-doc'));
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150));
+    });
+
+    expect(result.current.waStatus).toBe('connected');
+    expect(result.current.waConnected).toBe(true);
+
+    fetchWithBillingGuard.mockImplementation(defaultImpl);
+  });
 });

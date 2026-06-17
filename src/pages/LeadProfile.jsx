@@ -68,7 +68,7 @@ import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
-import { isWhatsAppIntegrationConnected } from '../lib/whatsappIntegrationState.js';
+import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import {
     leadHistoryFilterFromUrlParam,
     leadHistoryFilterToUrlParam,
@@ -288,6 +288,7 @@ const LeadProfile = () => {
         watchAcademyStatus: true,
     });
     const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+    const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -1699,7 +1700,7 @@ const LeadProfile = () => {
 
     const panelTabBtn = (tabId, label) => {
         const isOfflineConversation =
-            tabId === 'conversation' && waStatusChecked && !waConnected;
+            tabId === 'conversation' && waOfflineUi;
         return (
         <button
             key={tabId}
@@ -1717,10 +1718,10 @@ const LeadProfile = () => {
     };
 
     const conversationTabLabel = useMemo(() => {
-        if (waStatusChecked && !waConnected) return 'Conversa (offline)';
+        if (waOfflineUi) return 'Conversa (offline)';
         if (conversationUnreadCount > 0) return `Conversa (${conversationUnreadCount})`;
         return 'Conversa';
-    }, [waStatusChecked, waConnected, conversationUnreadCount]);
+    }, [waOfflineUi, conversationUnreadCount]);
 
     const mobilePanelQuickActions = useMemo(() => {
         if (!lead) return [];
@@ -1851,7 +1852,7 @@ const LeadProfile = () => {
                 />
             ) : null}
 
-            {waStatusChecked && !waConnected ? (
+            {waOfflineUi ? (
                 <ProfileWhatsAppOfflineBanner className="lead-profile-wa-offline-banner" />
             ) : null}
 

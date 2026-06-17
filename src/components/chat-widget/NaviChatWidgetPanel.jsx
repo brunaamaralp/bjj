@@ -8,7 +8,7 @@ import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConn
 import { useChatWidgetStore } from '../../store/useChatWidgetStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
-import { isWhatsAppIntegrationConnected } from '../../lib/whatsappIntegrationState.js';
+import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../../lib/whatsappIntegrationState.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 import InboxComposer from '../inbox/InboxComposer';
 import ProfileConversationEmpty from '../inbox/ProfileConversationEmpty.jsx';
@@ -81,9 +81,10 @@ export default function NaviChatWidgetPanel({
     watchAcademyStatus: true,
   });
   const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+  const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
   const hasMessages = messages.length > 0;
   const showWaStatusLoading = !waStatusChecked;
-  const showOfflineEmpty = waStatusChecked && !waConnected && !loading && !hasMessages;
+  const showOfflineEmpty = waOfflineUi && !loading && !hasMessages;
   const showComposer = waStatusChecked && !showOfflineEmpty;
   const composerPlaceholder = waConnected
     ? 'Digite uma mensagem…'
@@ -314,7 +315,7 @@ export default function NaviChatWidgetPanel({
           />
         ) : (
           <>
-            {!waConnected ? <ProfileWhatsAppOfflinePanelBanner /> : null}
+            {waOfflineUi ? <ProfileWhatsAppOfflinePanelBanner /> : null}
 
             <NaviChatThread
               messages={messages}
@@ -326,8 +327,9 @@ export default function NaviChatWidgetPanel({
               phoneDigits={phoneDigits}
               inboxHref={inboxHref}
               waConnected={waConnected}
+              waOfflineUi={waOfflineUi}
               hideInboxLink={embedded}
-              suppressEmpty={!waConnected && !hasMessages}
+              suppressEmpty={waOfflineUi && !hasMessages}
               onLoadMore={loadMore}
               onRetry={refresh}
               retryFailedMessage={retryFailedMessage}

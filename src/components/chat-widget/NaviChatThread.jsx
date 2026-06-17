@@ -107,6 +107,7 @@ export default function NaviChatThread({
   phoneDigits = '',
   inboxHref = '/inbox',
   waConnected = true,
+  waOfflineUi = false,
   hideInboxLink = false,
   suppressEmpty = false,
   onLoadMore,
@@ -166,7 +167,7 @@ export default function NaviChatThread({
           title="Nenhuma conversa ainda"
           description={`Quando ${displayName} enviar uma mensagem, ela aparecerá aqui.`}
           action={
-            !waConnected && !hideInboxLink ? (
+            waOfflineUi && !hideInboxLink ? (
               <Link to={inboxHref} className="btn btn-outline" style={{ marginTop: 8 }}>
                 Abrir no Inbox
               </Link>

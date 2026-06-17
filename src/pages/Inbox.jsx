@@ -18,6 +18,7 @@ import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
+import { isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import { X } from 'lucide-react';
 import InboxListSection from '../components/inbox/InboxListSection.jsx';
 import InboxGlobalBanners from '../components/inbox/InboxGlobalBanners.jsx';
@@ -1161,7 +1162,7 @@ export default function Inbox() {
     () => !waStatusChecked || String(waStatus || '').trim() === 'connected',
     [waStatus, waStatusChecked]
   );
-  const showWaDisconnectBanner = waStatusChecked && String(waStatus || '').trim() !== 'connected';
+  const showWaDisconnectBanner = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
   const inboxExtraFilterActive = !INBOX_PRIMARY_FILTERS.has(String(listFilter || ''));
   const visibleConversationCount = flatVisibleConversations.length;

@@ -5,7 +5,7 @@ import { useInboxDeferredBoot } from '../../hooks/useInboxDeferredBoot';
 import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConnection';
 import { useLeadStore } from '../../store/useLeadStore';
 import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
-import { isWhatsAppIntegrationConnected } from '../../lib/whatsappIntegrationState.js';
+import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../../lib/whatsappIntegrationState.js';
 import InboxComposer from './InboxComposer';
 import NaviChatThread from '../chat-widget/NaviChatThread';
 import ProfileConversationEmpty from './ProfileConversationEmpty.jsx';
@@ -67,6 +67,7 @@ export default function ProfileConversationTab({
     watchAcademyStatus: true,
   });
   const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+  const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
   const [composerState, setComposerState] = useState({
     key: phoneDigits,
@@ -158,7 +159,7 @@ export default function ProfileConversationTab({
     );
   }
 
-  if (!waConnected && !hasMessages) {
+  if (waOfflineUi && !hasMessages) {
     return (
       <ProfileConversationEmpty
         icon={WifiOff}
@@ -171,7 +172,7 @@ export default function ProfileConversationTab({
 
   return (
     <div className="profile-conversation-tab">
-      {!waConnected ? <ProfileWhatsAppOfflinePanelBanner /> : null}
+      {waOfflineUi ? <ProfileWhatsAppOfflinePanelBanner /> : null}
 
       <NaviChatThread
         messages={messages}
@@ -183,6 +184,7 @@ export default function ProfileConversationTab({
         phoneDigits={phoneDigits}
         inboxHref={inboxHref}
         waConnected={waConnected}
+        waOfflineUi={waOfflineUi}
         onLoadMore={loadMore}
         onRetry={refresh}
         retryFailedMessage={retryFailedMessage}

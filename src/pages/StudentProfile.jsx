@@ -34,7 +34,7 @@ import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppO
 import ProfileComunicacaoSection from '../components/profile/ProfileComunicacaoSection.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
-import { isWhatsAppIntegrationConnected } from '../lib/whatsappIntegrationState.js';
+import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useCanManageStudentPayments } from '../lib/canManageStudentPayments.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
@@ -370,6 +370,7 @@ export default function StudentProfile() {
         watchAcademyStatus: true,
     });
     const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
+    const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
     // Alinhado ao menu /inbox: aba sempre visível; estados vazios ficam no painel de chat.
     const showConversationTab = true;
     const [note, setNote] = useState('');
@@ -1246,7 +1247,7 @@ export default function StudentProfile() {
         if (showConversationTab) {
             actions.push({
                 key: 'conversation',
-                label: waStatusChecked && !waConnected ? 'Conversa (offline)' : 'Conversa',
+                label: waOfflineUi ? 'Conversa (offline)' : 'Conversa',
                 icon: MessageCircle,
                 onClick: () => setProfileTab('conversation'),
             });
@@ -1999,7 +2000,7 @@ export default function StudentProfile() {
                 </button>
             </div>
 
-            {waStatusChecked && !waConnected ? (
+            {waOfflineUi ? (
                 <ProfileWhatsAppOfflineBanner className="student-profile-wa-offline-banner" />
             ) : null}
 
@@ -2229,6 +2230,7 @@ export default function StudentProfile() {
 
                 <ProfileComunicacaoSection
                     waConnected={waConnected}
+                    waOfflineUi={waOfflineUi}
                     waStatusChecked={waStatusChecked}
                     phoneDigits={String(student.phone || '').replace(/\D/g, '')}
                     onOpenConversation={() => setProfileTab('conversation')}
@@ -2425,7 +2427,7 @@ export default function StudentProfile() {
     );
 
     const tabBtn = (id, label) => {
-        const isOfflineConversation = id === 'conversation' && waStatusChecked && !waConnected;
+        const isOfflineConversation = id === 'conversation' && waOfflineUi;
         return (
         <button
             key={id}
@@ -2547,7 +2549,7 @@ export default function StudentProfile() {
                 {showConversationTab
                     ? tabBtn(
                           'conversation',
-                          waStatusChecked && !waConnected ? 'Conversa (offline)' : 'Conversa'
+                          waOfflineUi ? 'Conversa (offline)' : 'Conversa'
                       )
                     : null}
             </div>
