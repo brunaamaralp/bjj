@@ -25,6 +25,7 @@ import {
   digestPaymentMethodSettings,
   normalizePaymentMethodSettings,
 } from '../lib/paymentMethodSettings.js';
+import { digestCaptureMethods, readCaptureMethods } from '../lib/captureMethods.js';
 import {
   defaultWhatsappRemindersConfig,
   digestWhatsappReminders,
@@ -69,6 +70,7 @@ export function digestBankAccounts(accounts, financeConfig = null) {
   return JSON.stringify({
     accounts: accounts || [],
     paymentMethods: digestPaymentMethodSettings(financeConfig),
+    captureMethods: digestCaptureMethods(financeConfig),
   });
 }
 
@@ -369,6 +371,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     mergedCfg = {
       ...mergedCfg,
       paymentMethodSettings: normalizePaymentMethodSettings(mergedCfg),
+      captureMethods: readCaptureMethods(mergedCfg),
       defaultAccountByMethod: normalizeDefaultAccountByMethodMap(
         readDefaultAccountByMethod(mergedCfg),
         mergedCfg

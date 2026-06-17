@@ -303,7 +303,7 @@ export default function FollowupPlaybookSection({
               </h3>
               <p className="text-small text-muted" style={{ marginTop: 6 }}>
                 Define o que a recepção deve sugerir para cada lead depois da aula experimental — na tela{' '}
-                <strong>Hoje</strong>, em <strong>Retornos pendentes</strong>. Cada etapa vira a próxima ação
+                <strong>Hoje</strong>, em <strong>Follow-ups pendentes</strong>. Cada etapa vira a próxima ação
                 sugerida na lista.
               </p>
               <p className="text-small text-muted followup-playbook-reception-note">

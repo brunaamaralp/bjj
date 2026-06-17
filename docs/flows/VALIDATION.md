@@ -1,4 +1,4 @@
-# Validação dos fluxos — 2026-06-16
+# Validação dos fluxos — 2026-06-17
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
@@ -11,6 +11,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | Testes Financeiro 2A | `npm test -- bankRecon … mensalidades paymentMethods` — **271 passed, 1 skipped** |
 | Testes Financeiro 2B | `npm test -- financeSettingsSections financeAccountFormRules … financeTxCategorySelect` — **99 passed** |
 | **Financeiro — auditoria salvamento** | `npm test -- mensalidadesPaymentForm financeConfigValidation appwriteErrors financeSettingsSections financeAccountFormRules bankReconciliation` — **151 passed** (2026-06-16) |
+| **Formas de recebimento + meios de captura (Fase 2)** | `npm test -- captureMethods resolveAcquirerFees paymentSettlement paymentMethodSettings` — **38 passed** (2026-06-17) |
 | Testes Fase 3 | `npm test -- lojaSalesTabs nlAction onboardingChecklist` — **46 passed** |
 | Testes Fase 4 | `npm test -- productCatalog lojaInventoryTabs automacoesHub automacoesSetupWizard automationUx` — **40 passed** |
 | Testes Conta/assinatura | `npm test -- billingGateClient trialCopy` + `lib/billing/planOrder.test.js` — ver seção Conta |
@@ -21,7 +22,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [hoje-dashboard](crm/hoje-dashboard.md) | 11 | 9 | 2 corrigidos | 11 |
+| [hoje-dashboard](crm/hoje-dashboard.md) | 17 | 15 | 2 notas | 17 |
 | [funil-lead-matricula](crm/funil-lead-matricula.md) | 11 | 10 | 1 nota | 11 |
 | [aluno-perfil-presenca](crm/aluno-perfil-presenca.md) | 12 | 10 | 2 corrigidos | 12 |
 | [tarefas-operacao](crm/tarefas-operacao.md) | 12 | 12 | 0 | 12 |
@@ -33,19 +34,24 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 
 | # | Item | Resultado | Evidência |
 |---|---|---|---|
-| 1 | Página `/` carrega | ✅ Código | `Dashboard.jsx`, rota em `App.jsx` |
-| 2 | Hero + KPIs | ✅ Código | `heroStats`, `buildHeroDateLine` |
-| 3 | Lista retornos + temperatura | ✅ Código | `followUps`, `FollowupTemperatureBadge` |
-| 4 | ~~Compareceu/Faltou em retornos~~ | ❌ **Doc incorreta** | Retornos usam **Concluir retorno** → `FollowupOutcomeDialog`. Compareceu/Faltou ficam na **Agenda da semana** |
-| 5 | ~~Mesmo para Faltou~~ | ❌ **Doc incorreta** | Ver item 4 |
-| 6 | WhatsApp follow-up | ✅ Código | `handleFollowUpWhatsApp`, `sendWhatsappTemplateOutbound` |
-| 7 | Navegação lead + voltar Hoje | ✅ Código | `LEAD_PROFILE_FROM_DASHBOARD`, `handleProfileBack` em `LeadProfile.jsx` |
-| 8 | Agenda da semana | ✅ Código | `DashboardAgendaWeekPanel`, `FOLLOWUP_AGENDA_MAX_DAYS` |
-| 9 | Tarefas do dia | ⚠️ **Parcial** | KPI **Tarefas** navega para `/tarefas?status=pendentes&period=today` — não conclui inline no Hoje |
-| 10 | Aniversários | ✅ Código | `DashboardBirthdayBanner`, `DashboardBirthdayModal` |
-| 11 | Troca de academia | ✅ Código | Store `academyId`; ⚠️ validar em staging |
+| 1 | Página `/` + hub Experimentais/Catraca | ✅ Código | `Dashboard.jsx`, `HubTabBar`, `recepcaoHubTabs.js` |
+| 2 | Hero + 4 KPIs | ✅ Código | `heroStats`: today, enrollments, followup, tasks |
+| 3 | KPI matrículas → funil | ✅ Código | `handleKpiClick('enrollments')` → `/reports?tab=funil` |
+| 4 | KPI follow-ups → lista | ✅ Código | `scrollToFollowUps`, `#follow-ups` |
+| 5 | Lista follow-ups + temperatura | ✅ Código | `followUps`, `FollowupTemperatureBadge`, copy `followupSectionTitle()` |
+| 6 | Concluir follow-up (não na agenda) | ✅ Código | `FollowupOutcomeDialog` na lista; compareceu/faltou só em `DashboardAgendaWeekPanel` |
+| 7 | WhatsApp follow-up | ✅ Código | `handleFollowUpWhatsApp` |
+| 8 | Navegação lead + voltar Recepção | ✅ Código | `LEAD_PROFILE_FROM_DASHBOARD` |
+| 9 | Agenda da semana | ✅ Código | `DashboardAgendaWeekPanel`, `FOLLOWUP_AGENDA_MAX_DAYS` |
+| 10 | Saúde dos follow-ups | ✅ Código | `FollowupHealthPanel`, `showFollowupHealthPanel` |
+| 11 | Tarefas do dia | ⚠️ **Parcial** | KPI navega para `/tarefas?…` — não conclui inline |
+| 12 | Aniversários | ✅ Código | `DashboardBirthdayBanner`, `DashboardBirthdayModal` |
+| 13 | Aba Catraca + redirects | ✅ Código | `RecepcaoCatracaTab`, `Recepcao.jsx`, `Attendance.jsx` |
+| 14 | Aliases `?retornos=1`, `#follow-ups` | ✅ Código | `useEffect` em `Dashboard.jsx` |
+| 15 | Troca de academia | ✅ Código | Store `academyId`; ⚠️ validar em staging |
+| — | Contagem KPI vs badge follow-up | ⚠️ **Nota** | KPI usa `followUpsNeedingContact`; badge/lista usa `followUps.length` — podem divergir |
 
-**Correções aplicadas:** mapa de telas e checklist itens 4–5 e 9.
+**Correções aplicadas (2026-06-17):** fluxo reescrito — hub duas abas, 4 KPIs, terminologia follow-up, diagrama (compareceu/faltou na agenda), contagens documentadas, link para `recepcao-controlid.md`.
 
 ---
 
@@ -101,7 +107,7 @@ Harness inbox: módulos em [HARNESS.md](../../HARNESS.md). Teste `inboxConversat
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [a-receber-mensalidades](financeiro/a-receber-mensalidades.md) | 15 | 15 | 3 (2026-06-16) | 15 |
+| [a-receber-mensalidades](financeiro/a-receber-mensalidades.md) | 18 | 18 | 4 (2026-06-17) | 18 |
 | [lancamentos-caixa](financeiro/lancamentos-caixa.md) | 13 | 13 | 1 (2026-06-16) | 13 |
 | [conciliacao-bancaria](financeiro/conciliacao-bancaria.md) | 13 | 13 | 1 (2026-06-16) | 13 |
 | [fechamento-mensal](financeiro/fechamento-mensal.md) | 13 | 13 | 0 | 13 |
@@ -126,6 +132,9 @@ URL `?tab=` fora de `buildFinanceiroAllowedLeafTabs` → redirect em `Caixa.jsx`
 | 2 | Sub-abas section | ✅ Código | `financeiroReceivablesSections.js` — visao, mensalidades, cobranca, outros |
 | 3 | `section=cobranca` ≠ mensalidades | ✅ Código | Régua de cobrança separada |
 | 4–8 | Filtros, modal pagamento, taxas, parcelas | ✅ Código | `MensalidadesPanel`, specs parcelamento/taxas |
+| 8b | Cartão com 2+ meios ativos — **Recebido via** obrigatório | ✅ Código + teste | `CaptureMethodSelect`, `validateCaptureMethodForSubmit`, `studentPaymentsHandler` |
+| 8c | Cartão com 1 meio — `capture_method_id` auto | ✅ Código | `resolveCaptureFieldsForPayment`, `buildPayload` |
+| 8d | Formas inativas ocultas no modal | ✅ Código + teste | `orderedActiveStorageDialectMethodsForModal`, `paymentMethodSettings` |
 | 9 | Sem conta bancária — banner + rodapé | ✅ Código | `FinanceBankAccountsSetupBanner`, `PaymentModalFooterHint`, botão desabilitado + `aria-describedby` |
 | 10 | Validação por campo no modal | ✅ Código + teste | `validateMensalidadesPaymentForm`, `FieldError`, `PaymentFormErrorBanner` |
 | 11 | Erro API (duplicata) no banner | ✅ Código + teste | `studentPaymentFriendlyError` em `appwriteErrors.test.js` |
@@ -134,7 +143,7 @@ URL `?tab=` fora de `buildFinanceiroAllowedLeafTabs` → redirect em `Caixa.jsx`
 | 14 | Nova venda plano (LeadCloseSaleModal) | ✅ Código | `NovaVendaPlanPanel` reutiliza mesma validação + `StudentPaymentModal` |
 | 15 | Visão geral: banner conta | ✅ Código | `VisaoGeralTab` → `FinanceBankAccountsSetupBanner` |
 
-Harness: `mensalidadesPaymentForm`, `appwriteErrors` — ver [auditoria salvamento](#financeiro--auditoria-de-salvamento-2026-06-16).
+Harness: `mensalidadesPaymentForm`, `captureMethods`, `appwriteErrors` — ver [auditoria salvamento](#financeiro--auditoria-de-salvamento-2026-06-16).
 
 ---
 
@@ -192,7 +201,7 @@ Harness: `monthlyClosing`, `financeClosingData`.
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [config-inicial-financeiro](financeiro/config-inicial-financeiro.md) | 14 owner + 5 admin | 19 | 3 (2026-06-16) | 19 |
+| [config-inicial-financeiro](financeiro/config-inicial-financeiro.md) | 16 owner + 5 admin | 21 | 5 (2026-06-17) | 21 |
 | [plano-contas-categorias](financeiro/plano-contas-categorias.md) | 12 | 12 | 0 | 12 |
 
 **Permissões Empresa → Financeiro** (`financeSettingsSections.js`):
@@ -200,7 +209,7 @@ Harness: `monthlyClosing`, `financeClosingData`.
 | Seção | owner | admin |
 |---|---|---|
 | Planos, Régua, Contratos, Plano de contas, Razão | ✅ | oculta / redirect |
-| Recebimento, Taxas, WhatsApp, Exceções | ✅ | ✅ |
+| Recebimento, **Formas de recebimento**, Taxas, WhatsApp, Exceções | ✅ | ✅ |
 
 `canAccessEmpresaFinanceSettings`: owner e admin; member bloqueado em `AcademySettings.jsx`.
 
@@ -218,6 +227,9 @@ Harness: `monthlyClosing`, `financeClosingData`.
 | 6 | Deep link planos → redirect admin | ✅ Código | `activeSection` fallback em `FinanceiroConfigTab` |
 | 7 | Planos CRUD + ConfirmDialog remover | ✅ Código | `FinanceSettingsPlansSection`, `useFinanceConfigState` |
 | 8 | Recebimento modal + defaults por método | ✅ Código | `FinanceSettingsBanksSection`, `#contas` |
+| 8b | **Formas de recebimento** — ativar forma, conta, automações, preview | ✅ Código | `FinanceSettingsPaymentMethodsSection`, `FinancePaymentMethodPreview` |
+| 8c | **Meios de captura** (crédito/débito) — CRUD, matriz taxas/prazos | ✅ Código + teste | `FinanceSettingsCaptureMethodPanel`, `captureMethods.test.js` |
+| 8d | `captureMethods` no dirty/save | ✅ Código | `digestCaptureMethods` em `useFinanceConfigState` |
 | 9 | Taxas percentuais | ✅ Código | `FinanceSettingsFeesSection`, `feesConfigured` |
 | 10 | Sticky save salvar/descartar | ✅ Código | `FinanceSettingsStickySave`, `hasDirty`, `persistAll` |
 | 10b | Sticky save: validação antes de persistir | ✅ Código + teste | `validateFinanceConfigBeforeSave`, `saveValidationHint` |
@@ -226,7 +238,7 @@ Harness: `monthlyClosing`, `financeClosingData`.
 | 12 | Onboarding setup_finance | ✅ Código | `onboardingChecklist.js` → `/empresa?tab=financeiro` |
 | 13 | Progress summaries | ✅ Código | `financeSettingsProgress` — owner 4 / admin 2 |
 
-Harness: `financeSettingsSections`, `financeConfigValidation` — ver [auditoria salvamento](#financeiro--auditoria-de-salvamento-2026-06-16).
+Harness: `financeSettingsSections`, `financeConfigValidation`, `captureMethods`, `resolveAcquirerFees` — ver [auditoria salvamento](#financeiro--auditoria-de-salvamento-2026-06-16).
 
 ---
 

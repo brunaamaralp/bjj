@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import ModalShell from '../components/shared/ModalShell.jsx';
 import SearchableGroupedSelect from '../components/shared/SearchableGroupedSelect.jsx';
 import {
   FINANCE_CATEGORIES,
@@ -113,5 +114,31 @@ describe('financeTxCategorySelect', () => {
     const values = [...groups.values()].flat().map((c) => c.value || c.label);
     expect(values).not.toContain('acct:4.1.1');
     expect(values).toContain('acct:4.1.2');
+  });
+
+  it('abre a lista ao clicar no campo mesmo já focado', async () => {
+    const user = userEvent.setup();
+    render(<TxCategoryHarness />);
+
+    const input = screen.getByLabelText('Categoria');
+    await user.click(input);
+    expect(screen.queryByRole('option', { name: 'Vendas de produtos' })).toBeInTheDocument();
+
+    await user.click(input);
+    expect(screen.getByRole('option', { name: 'Vendas de produtos' })).toBeInTheDocument();
+  });
+
+  it('seleciona categoria dentro de ModalShell', async () => {
+    const user = userEvent.setup();
+    render(
+      <ModalShell open title="Novo lançamento" onClose={() => {}}>
+        <TxCategoryHarness />
+      </ModalShell>
+    );
+
+    const input = screen.getByLabelText('Categoria');
+    await user.click(input);
+    await user.click(screen.getByRole('option', { name: 'Aluguéis recebidos' }));
+    expect(screen.getByTestId('selected-category')).toHaveTextContent('Aluguéis recebidos');
   });
 });

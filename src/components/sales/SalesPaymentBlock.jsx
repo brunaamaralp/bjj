@@ -9,6 +9,12 @@ import {
   salePaymentFormOptionsForFinance,
   trocoFormOptionsForFinance,
 } from '../../lib/salePayments';
+import {
+  whenCaptureMethodChanges,
+  whenPaymentMethodChangesWithCapture,
+  validateCaptureMethodForSubmit,
+} from '../../lib/captureMethodPaymentForm.js';
+import CaptureMethodSelect from '../finance/CaptureMethodSelect.jsx';
 
 function rebalanceFirstRow(rows, totalCents) {
   if (rows.length < 2) return rows;
@@ -44,7 +50,10 @@ export default function SalesPaymentBlock({
     setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   }, []);
 
-  const validation = useMemo(() => paymentsUiValid(payments, total), [payments, total]);
+  const validation = useMemo(
+    () => paymentsUiValid(payments, total, { financeConfig: financeConfig || undefined }),
+    [payments, total, financeConfig]
+  );
   const netCents = useMemo(() => netPaidCentsFromRows(payments), [payments]);
   const diffCents = total - netCents;
 
@@ -118,10 +127,17 @@ export default function SalesPaymentBlock({
 
           const formaKey = `forma-${idx}`;
           const valorKey = `valor-${idx}`;
+          const captureKey = `capture-${idx}`;
           const formaMissing = !String(row.forma || '').trim();
           const valorMissing = total > 0 && valorCents <= 0;
+          const captureError = validateCaptureMethodForSubmit(
+            financeConfig,
+            row.forma,
+            row.capture_method_id
+          );
           const showFormaError = inlineValidate && touched[formaKey] && formaMissing;
           const showValorError = inlineValidate && touched[valorKey] && valorMissing;
+          const showCaptureError = inlineValidate && touched[captureKey] && captureError;
 
           return (
             <div key={row.id} className="sales-payment-row card">
@@ -139,9 +155,12 @@ export default function SalesPaymentBlock({
                     onBlur={() => inlineValidate && markTouched(formaKey)}
                     onChange={(e) => {
                     const forma = e.target.value;
-                    const patch = { forma };
+                    const patch = { forma, ...whenPaymentMethodChangesWithCapture(financeConfig, forma) };
                     if (forma === 'dinheiro') {
                       patch.recebidoCents = valorCents;
+                    } else {
+                      patch.capture_method_id = patch.capture_method_id || '';
+                      patch.capture_method_name = patch.capture_method_name || '';
                     }
                     updateRow(idx, patch);
                   }}
@@ -186,6 +205,21 @@ export default function SalesPaymentBlock({
                   <Trash2 size={16} />
                 </button>
               </div>
+
+              <CaptureMethodSelect
+                financeConfig={financeConfig}
+                method={row.forma}
+                value={row.capture_method_id}
+                id={`sale-capture-${idx}`}
+                className="form-input"
+                variant="compact"
+                disabled={disabled}
+                error={showCaptureError ? captureError : ''}
+                onBlur={() => inlineValidate && markTouched(captureKey)}
+                onChange={(captureId) =>
+                  updateRow(idx, whenCaptureMethodChanges(financeConfig, captureId, row.forma))
+                }
+              />
 
               {isCash ? (
                 <div className="sales-payment-row__cash">

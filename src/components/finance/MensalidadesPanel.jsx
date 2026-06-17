@@ -12,7 +12,6 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
 import { findPlanByName, planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
-import { showPaymentSettlementToasts } from '../../lib/financeTxSettlementDisplay.js';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from './PaymentExceptionsView.jsx';
@@ -63,6 +62,12 @@ import {
   pickInitialBankAccountForPayment,
   accountWhenPaymentMethodChanges,
 } from '../../lib/paymentMethodBankDefaults.js';
+import {
+  resolveCaptureFieldsForPayment,
+  whenCaptureMethodChanges,
+  whenPaymentMethodChangesWithCapture,
+} from '../../lib/captureMethodPaymentForm.js';
+import CaptureMethodSelect from './CaptureMethodSelect.jsx';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
@@ -640,6 +645,7 @@ export default function MensalidadesPanel({
     setSelectedStudent(student);
     const amountNum = Number(preset.amount);
     const method = preset.method || student.preferredPaymentMethod || 'pix';
+    const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
     const planName = preset.plan_name || student.plan || '';
     const plan = findPlanByName(financeConfig, planName);
     const bundleStart = String(preset.bundle_start_month || refMonth).trim() || refMonth;
@@ -657,7 +663,8 @@ export default function MensalidadesPanel({
             ? planPriceToPayAmountString(plan)
             : '',
       method,
-      account: pickInitialBankAccountForPayment(
+      ...captureDefaults,
+      account: captureDefaults.account || pickInitialBankAccountForPayment(
         financeConfig,
         student.preferredPaymentAccount || '',
         method
@@ -802,6 +809,7 @@ export default function MensalidadesPanel({
         method: payForm.method,
         account: paymentAccount,
         installments,
+        ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
         status: 'paid',
         paid_at: paidAtIso,
         due_date: null,
@@ -820,7 +828,7 @@ export default function MensalidadesPanel({
         paymentPayload.reference_month = currentMonth;
       }
 
-      const doc = await createPayment(paymentPayload);
+      const doc = await createPayment(paymentPayload, { financeConfig, toast });
       if (isBundle) {
         await recarregarMes();
       } else {
@@ -855,13 +863,6 @@ export default function MensalidadesPanel({
       toast.show({
         type: studentPrefsWarning ? 'warning' : 'success',
         message: successMsg,
-      });
-      showPaymentSettlementToasts(toast, {
-        financeConfig,
-        method: payForm.method,
-        requestedStatus: 'paid',
-        actualStatus: doc?.status,
-        paidAt: paidAtIso,
       });
       if (doc?.warning) {
         toast.show({
@@ -1716,7 +1717,7 @@ export default function MensalidadesPanel({
                                   method: o.value,
                                   installments:
                                     o.value === MENSALIDADES_CREDIT_METHOD ? f.installments || 1 : 1,
-                                  account: accountWhenPaymentMethodChanges(financeConfig, o.value) || f.account,
+                                  ...whenPaymentMethodChangesWithCapture(financeConfig, o.value),
                                   ...(isCashPaymentMethod(o.value) && !f.cash_received
                                     ? { cash_received: f.amount || '' }
                                     : !isCashPaymentMethod(o.value)
@@ -1758,6 +1759,21 @@ export default function MensalidadesPanel({
                       </select>
                     </div>
                   ) : null}
+                  <CaptureMethodSelect
+                    financeConfig={financeConfig}
+                    method={payForm.method}
+                    value={payForm.capture_method_id}
+                    id={MENSALIDADES_PAY_FIELD_IDS.capture_method_id}
+                    className="form-input mensal-modal-in"
+                    disabled={savingPayment}
+                    error={payFormErrors.capture_method_id}
+                    onChange={(captureId) =>
+                      setPayForm((f) => ({
+                        ...f,
+                        ...whenCaptureMethodChanges(financeConfig, captureId, f.method),
+                      }))
+                    }
+                  />
                   {isCashPaymentMethod(payForm.method) ? (
                     <>
                       <CashTrocoFields

@@ -4904,3 +4904,170 @@
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-subtle, var(--color-border));
 }
+
+.finance-payment-methods__preview {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2, rgba(148, 163, 184, 0.08));
+  border: 1px solid var(--border-subtle, var(--color-border));
+}
+
+.finance-payment-methods__preview-title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.finance-payment-methods__preview-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.finance-payment-methods__preview-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--border-subtle, var(--color-border));
+}
+
+.finance-payment-methods__preview-step--success {
+  border-left-color: var(--color-success, #16a34a);
+}
+
+.finance-payment-methods__preview-step--warning {
+  border-left-color: var(--color-warning, #d97706);
+}
+
+.finance-payment-methods__preview-step--info {
+  border-left-color: var(--color-info, #2563eb);
+}
+
+.finance-payment-methods__preview-step--muted {
+  border-left-color: var(--border-subtle, var(--color-border));
+}
+
+.finance-payment-methods__preview-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.finance-payment-methods__preview-detail {
+  line-height: 1.4;
+}
+
+.finance-capture-methods {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 0.5px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.finance-capture-methods__empty {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-muted, rgba(0, 0, 0, 0.03));
+}
+
+.finance-capture-methods__item-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.finance-capture-methods__badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.finance-capture-methods__badge--muted {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.05));
+  color: var(--text-muted);
+}
+
+.finance-capture-methods__name-warning {
+  margin: 0.35rem 0 0;
+  color: var(--danger);
+}
+
+.capture-method-select__hint {
+  margin: 0.35rem 0 0;
+}
+
+.finance-capture-methods__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.finance-capture-methods__item {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.finance-capture-methods__item-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.finance-capture-methods__name {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+.finance-capture-methods__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.finance-capture-methods__default-fees {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.capture-method-fee-matrix__row1 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.capture-method-fee-matrix__grid {
+  margin-top: 0.5rem;
+}
+
+.capture-method-fee-matrix__installment {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.capture-method-fee-matrix__installment-label {
+  font-weight: 600;
+}

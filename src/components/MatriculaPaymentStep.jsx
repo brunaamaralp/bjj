@@ -5,7 +5,11 @@ import PlanSelect from './shared/PlanSelect.jsx';
 import { PAYMENT_CATEGORY } from '../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../lib/paymentCategories.js';
 import { orderedActiveStorageDialectMethodsForModal } from '../lib/paymentMethodSettings.js';
-import { accountWhenPaymentMethodChanges } from '../lib/paymentMethodBankDefaults.js';
+import {
+  whenCaptureMethodChanges,
+  whenPaymentMethodChangesWithCapture,
+} from '../lib/captureMethodPaymentForm.js';
+import CaptureMethodSelect from './finance/CaptureMethodSelect.jsx';
 import { findPlanByName, planPriceToPayAmountString } from '../lib/academyPlans.js';
 import CashTrocoFields from './finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';
@@ -190,7 +194,7 @@ export default function MatriculaPaymentStep({
             setPayForm((p) => ({
               ...p,
               method,
-              account: accountWhenPaymentMethodChanges(financeConfig, method) || p.account,
+              ...whenPaymentMethodChangesWithCapture(financeConfig, method),
               ...(isCashPaymentMethod(method) && !p.cash_received
                 ? { cash_received: p.amount || '' }
                 : !isCashPaymentMethod(method)
@@ -206,6 +210,20 @@ export default function MatriculaPaymentStep({
           ))}
         </select>
       </div>
+
+      <CaptureMethodSelect
+        financeConfig={financeConfig}
+        method={payForm.method}
+        value={payForm.capture_method_id}
+        id="matricula-pay-capture-method"
+        disabled={disabled}
+        onChange={(captureId) =>
+          setPayForm((p) => ({
+            ...p,
+            ...whenCaptureMethodChanges(financeConfig, captureId, p.method),
+          }))
+        }
+      />
 
       {showPaidDate && isCashPaymentMethod(payForm.method) ? (
         <CashTrocoFields

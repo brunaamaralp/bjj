@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { forecastTxDueYmd } from '../lib/financeForecastCore.js';
 import {
   buildPaymentSettlementHints,
+  buildPaymentMethodRegistrationPreview,
   expectedSettlementYmd,
   txSettlementSubtitle,
+  toastAdapterFromAddToast,
 } from '../lib/financeTxSettlementDisplay.js';
 
 describe('forecastTxDueYmd', () => {
@@ -73,5 +75,68 @@ describe('financeTxSettlementDisplay', () => {
       requestedStatus: 'paid',
     });
     expect(hints.some((h) => /permanece pendente na grade/i.test(h))).toBe(true);
+  });
+
+  it('toastAdapterFromAddToast encaminha mensagens info', () => {
+    const calls = [];
+    const adapter = toastAdapterFromAddToast((t) => calls.push(t));
+    adapter.info('Teste liquidação');
+    expect(calls[0]).toMatchObject({ type: 'info', message: 'Teste liquidação', duration: 8000 });
+  });
+});
+
+describe('buildPaymentMethodRegistrationPreview', () => {
+  const cfg = {
+    paymentMethodSettings: {
+      pix: { active: true, autoSettle: true, autoMarkReceived: true, creditDays: 0 },
+      cartao_credito: {
+        active: true,
+        autoSettle: false,
+        autoMarkReceived: true,
+        creditDays: 30,
+      },
+      transferencia: {
+        active: true,
+        autoSettle: true,
+        autoMarkReceived: false,
+        creditDays: 0,
+      },
+    },
+  };
+
+  it('PIX: recebida + caixa liquidado', () => {
+    const { steps } = buildPaymentMethodRegistrationPreview(cfg, 'pix', {
+      paidAt: '2026-06-01T12:00:00.000Z',
+    });
+    expect(steps.find((s) => s.id === 'grade')?.label).toMatch(/recebida/i);
+    expect(steps.find((s) => s.id === 'caixa')?.label).toMatch(/liquidado/i);
+  });
+
+  it('cartão crédito: caixa pendente + crédito bancário', () => {
+    const { steps } = buildPaymentMethodRegistrationPreview(cfg, 'cartao_credito', {
+      paidAt: '2026-06-01T12:00:00.000Z',
+    });
+    expect(steps.find((s) => s.id === 'caixa')?.label).toMatch(/pendente/i);
+    expect(steps.find((s) => s.id === 'bank')?.detail).toMatch(/01\/07\/2026/);
+  });
+
+  it('transferência sem autoMarkReceived: grade pendente', () => {
+    const { steps } = buildPaymentMethodRegistrationPreview(cfg, 'transferencia', {
+      paidAt: '2026-06-01T12:00:00.000Z',
+    });
+    expect(steps.find((s) => s.id === 'grade')?.label).toMatch(/pendente/i);
+  });
+
+  it('forma inativa: aviso único', () => {
+    const { steps } = buildPaymentMethodRegistrationPreview(
+      {
+        paymentMethodSettings: {
+          pix: { active: false, autoSettle: true, autoMarkReceived: true, creditDays: 0 },
+        },
+      },
+      'pix'
+    );
+    expect(steps).toHaveLength(1);
+    expect(steps[0].id).toBe('inactive');
   });
 });

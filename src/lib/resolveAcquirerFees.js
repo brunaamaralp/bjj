@@ -13,6 +13,12 @@ import {
   formatBankAccountLabel,
 } from './bankAccounts.js';
 import { resolveInitialBankAccountForPayment } from './paymentMethodBankDefaults.js';
+import {
+  captureMethodFeesToAcquirerFees,
+  computeAcquirerFeeFromCaptureRow,
+  findCaptureMethodById,
+  resolveCaptureInstallmentFee,
+} from './captureMethods.js';
 
 /** @param {object|null|undefined} financeConfig */
 export function findBankAccountByLabel(financeConfig, label) {
@@ -44,11 +50,33 @@ export function resolveAcquirerFeesForMethod(financeConfig, method) {
 }
 
 /**
- * Conta explícita ou conta padrão do método, depois fallback global.
+ * Taxas do meio de captura; fallback conta do meio → global.
  * @param {object|null|undefined} financeConfig
- * @param {{ bankAccount?: string, method?: string }} [opts]
+ * @param {string} [captureMethodId]
  */
-export function resolveAcquirerFeesForPayment(financeConfig, { bankAccount = '', method = '' } = {}) {
+export function resolveAcquirerFeesForCaptureMethod(financeConfig, captureMethodId = '') {
+  const cap = findCaptureMethodById(financeConfig, captureMethodId);
+  if (!cap || cap.useDefaultFees !== false) {
+    const label = cap?.bankAccountLabel || '';
+    if (label) return resolveAcquirerFeesForAccount(financeConfig, label);
+    return resolveAcquirerFeesForMethod(financeConfig, cap?.paymentMethod || '');
+  }
+  return captureMethodFeesToAcquirerFees(cap, cap.fees);
+}
+
+/**
+ * Conta explícita ou conta padrão do método, depois fallback global.
+ * Precedência: capture_method_id → conta → global.
+ * @param {object|null|undefined} financeConfig
+ * @param {{ bankAccount?: string, method?: string, captureMethodId?: string }} [opts]
+ */
+export function resolveAcquirerFeesForPayment(
+  financeConfig,
+  { bankAccount = '', method = '', captureMethodId = '' } = {}
+) {
+  const capId = String(captureMethodId || '').trim();
+  if (capId) return resolveAcquirerFeesForCaptureMethod(financeConfig, capId);
+
   const accountLabel = String(bankAccount || '').trim();
   if (accountLabel) return resolveAcquirerFeesForAccount(financeConfig, accountLabel);
   const methodKey = String(method || '').trim();
@@ -59,12 +87,29 @@ export function resolveAcquirerFeesForPayment(financeConfig, { bankAccount = '',
 export function computeAcquirerFeeForPayment({
   financeConfig,
   bankAccount = '',
+  captureMethodId = '',
   gross,
   planBase,
   method,
   installments = 1,
 }) {
-  const acquirerFees = resolveAcquirerFeesForPayment(financeConfig, { bankAccount, method });
+  const capId = String(captureMethodId || '').trim();
+  const cap = capId ? findCaptureMethodById(financeConfig, capId) : null;
+  if (cap && cap.useDefaultFees === false) {
+    const row = resolveCaptureInstallmentFee(cap, installments);
+    return computeAcquirerFeeFromCaptureRow({
+      gross,
+      planBase,
+      policy: financeConfig?.acquirerFeePolicy,
+      row,
+    });
+  }
+
+  const acquirerFees = resolveAcquirerFeesForPayment(financeConfig, {
+    bankAccount,
+    method,
+    captureMethodId: capId,
+  });
   return computeAcquirerFee({
     gross,
     planBase,
@@ -78,20 +123,22 @@ export function computeAcquirerFeeForPayment({
 export function mirrorAmountsForPaymentWithAccount({
   financeConfig,
   bankAccount = '',
+  captureMethodId = '',
   gross,
   planBase,
   policy,
   method,
   installments = 1,
 }) {
-  const acquirerFees = resolveAcquirerFeesForPayment(financeConfig, { bankAccount, method });
-  return mirrorAmountsForPayment({
+  return computeAcquirerFeeForPayment({
+    financeConfig,
+    bankAccount,
+    captureMethodId,
     gross,
     planBase,
-    policy: policy ?? financeConfig?.acquirerFeePolicy,
     method,
     installments,
-    acquirerFees,
+    policy,
   });
 }
 
@@ -102,9 +149,14 @@ export function forecastInflowAmounts(
   installments,
   financeConfig,
   planBase,
-  bankAccount = ''
+  bankAccount = '',
+  captureMethodId = ''
 ) {
-  const acquirerFees = resolveAcquirerFeesForPayment(financeConfig, { bankAccount, method });
+  const acquirerFees = resolveAcquirerFeesForPayment(financeConfig, {
+    bankAccount,
+    method,
+    captureMethodId,
+  });
   return forecastInflowAmountsFromFees(
     gross,
     method,

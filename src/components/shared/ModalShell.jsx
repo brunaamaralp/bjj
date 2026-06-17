@@ -53,9 +53,11 @@ export default function ModalShell({
 
   const labelledBy = ariaLabelledBy || 'navi-modal-shell-title';
 
-  const handleOverlayClick = () => {
+  const handleOverlayClick = (event) => {
     if (!closeOnOverlay) return;
     if (Date.now() < suppressOverlayCloseUntil.current) return;
+    const target = event?.target;
+    if (target instanceof Element && target.closest('.searchable-grouped-select__panel--portal')) return;
     onClose?.();
   };
 

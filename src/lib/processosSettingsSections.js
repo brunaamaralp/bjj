@@ -27,7 +27,7 @@ export const PROCESSOS_SETTINGS_ITEMS = [
     label: 'Após a experimental',
     shortLabel: 'Playbook',
     panelTitle: 'Acompanhamento após a experimental',
-    hint: 'Próximas ações sugeridas em Retornos pendentes — compareceu ou faltou na aula experimental.',
+    hint: 'Próximas ações sugeridas em Follow-ups pendentes — compareceu ou faltou na aula experimental.',
   },
 ];
 

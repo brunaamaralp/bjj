@@ -10,6 +10,7 @@ import {
   OUTCOMES_WITH_SNOOZE,
   DEFAULT_SNOOZE_DAYS,
 } from '../../lib/followupOutcomes.js';
+import { followupCompleteActionLabel } from '../../lib/dashboardReceptionCopy.js';
 
 const OUTCOME_OPTIONS = [
   FOLLOWUP_OUTCOMES.INTERESTED,
@@ -44,7 +45,7 @@ function FollowupOutcomeDialogForm({ leadName, onClose, onConfirm, saving }) {
     <ModalShell
       open
       onClose={onClose}
-      title="Concluir retorno"
+      title={followupCompleteActionLabel()}
       footer={
         <>
           <button type="button" className="btn-outline" disabled={saving} onClick={onClose}>
@@ -58,10 +59,10 @@ function FollowupOutcomeDialogForm({ leadName, onClose, onConfirm, saving }) {
     >
       <div className="followup-outcome-dialog">
         <p className="text-small text-muted followup-outcome-dialog__lead">
-          {leadName ? `Como foi o retorno com ${leadName}?` : 'Registre o resultado do retorno.'}
+          {leadName ? `Como foi o follow-up com ${leadName}?` : 'Registre o resultado do follow-up.'}
         </p>
         <fieldset className="followup-outcome-dialog__options">
-          <legend className="sr-only">Resultado do retorno</legend>
+          <legend className="sr-only">Resultado do follow-up</legend>
           {OUTCOME_OPTIONS.map((id) => (
             <label key={id} className="followup-outcome-dialog__option">
               <input

@@ -54,7 +54,7 @@ describe('buildDaySummaryLine', () => {
       pendingTasks: [],
       trialShort: 'Aula experimental',
     });
-    expect(line).toContain('retomar 2 retornos');
+    expect(line).toContain('retomar 2 follow-ups');
   });
 
   it('narra experimental já realizada hoje (compareceu)', () => {
@@ -110,8 +110,8 @@ describe('buildDaySummaryLine', () => {
       pendingTasks: [],
       trialShort: 'Aula experimental',
     });
-    expect(line).toContain('retomar 1 retorno');
-    expect(line).not.toContain('2 retornos');
+    expect(line).toContain('retomar 1 follow-up');
+    expect(line).not.toContain('2 follow-ups');
   });
 
   it('mostra agenda em dia quando retornos já responderam', () => {
@@ -122,7 +122,7 @@ describe('buildDaySummaryLine', () => {
       pendingTasks: [],
       trialShort: 'Aula experimental',
     });
-    expect(line).toContain('Agenda e retornos em dia');
+    expect(line).toContain('Agenda e follow-ups em dia');
     expect(line).not.toContain('retomar');
   });
 

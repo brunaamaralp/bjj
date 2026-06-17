@@ -313,8 +313,8 @@ export default function SalesNewSaleTab({
     () =>
       deferredSale
         ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
-        : paymentsUiValid(payments, totalFinalCents),
-    [payments, totalFinalCents, deferredSale]
+        : paymentsUiValid(payments, totalFinalCents, { financeConfig }),
+    [payments, totalFinalCents, deferredSale, financeConfig]
   );
 
   const shiftBlocksSale =
@@ -870,7 +870,11 @@ export default function SalesNewSaleTab({
         return;
       }
     } else if (!paymentValid.ok) {
-      setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+      if (paymentValid.reason === 'capture_method' && paymentValid.message) {
+        setLocalError(paymentValid.message);
+      } else {
+        setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+      }
       focusCheckoutPanel();
       return;
     }

@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-16 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -16,16 +16,17 @@
 - [2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md](../../superpowers/specs/2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md)
 - [2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md](../../superpowers/specs/2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md)
 - [2026-06-15-financeiro-nav-non-owner-PRODUCT.md](../../superpowers/specs/2026-06-15-financeiro-nav-non-owner-PRODUCT.md)
+- [2026-06-17-formas-recebimento-meios-captura-PRODUCT.md](../../superpowers/specs/2026-06-17-formas-recebimento-meios-captura-PRODUCT.md) — formas ativas + «Recebido via»
 
-**Harness relacionado:** `npm test -- mensalidadesPaymentForm appwriteErrors`
+**Harness relacionado:** `npm test -- mensalidadesPaymentForm captureMethods paymentMethodSettings appwriteErrors`
 
-**Arquivos-chave:** `src/pages/Caixa.jsx`, `src/components/finance/ReceivablesTab.jsx`, `src/components/finance/MensalidadesPanel.jsx`, `src/lib/mensalidadesPaymentForm.js`, `src/components/shared/PaymentFormErrorBanner.jsx`, `src/components/finance/FinanceBankAccountsSetupBanner.jsx`
+**Arquivos-chave:** `src/pages/Caixa.jsx`, `src/components/finance/ReceivablesTab.jsx`, `src/components/finance/MensalidadesPanel.jsx`, `src/lib/mensalidadesPaymentForm.js`, `src/components/finance/CaptureMethodSelect.jsx`, `src/lib/captureMethodPaymentForm.js`, `src/components/shared/PaymentFormErrorBanner.jsx`, `src/components/finance/FinanceBankAccountsSetupBanner.jsx`
 
 ---
 
 ## Resumo
 
-O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito) e acompanha KPIs do mês de referência.
+O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal.
 
 ---
 
@@ -45,6 +46,10 @@ flowchart TD
   payModal --> method{Método}
   method --> pix[PIX / débito / dinheiro]
   method --> credito[cartão crédito + parcelas]
+  credito --> capture{N meios ativos?}
+  capture -->|> 1| recebidoVia[Recebido via obrigatório]
+  capture -->|1| autoMeio[Meio único automático]
+  capture -->|0| legado[Taxa conta/global]
   payModal --> confirm[Confirmar]
   confirm --> grid[Grid atualiza status]
 ```
@@ -62,9 +67,10 @@ flowchart TD
 | 5 | Mensalidades | Busca / turma | Refinar lista | Alunos correspondentes |
 | 6 | Mensalidades | Célula / ação pagar | Abrir modal de pagamento | `openPaymentModal` com aluno e mês |
 | 7 | Modal | Tipo mensalidade / pacote | Escolher categoria | Valor e regras do plano |
-| 8 | Modal | Método de pagamento | PIX, dinheiro, débito, crédito, transferência | Taxa aplicada quando configurada |
-| 9 | Modal | Parcelas (só crédito) | Selecionar 1–12x | `expectedAmountWithCardFee` no total |
-| 10 | Modal | Conta bancária | Selecionar conta | Obrigatório; `FieldError` se inválida |
+| 8 | Modal | Método de pagamento | PIX, dinheiro, débito, crédito, transferência | Só formas **ativas** em `formas-recebimento` |
+| 8b | Modal | **Recebido via** (cartão) | Selecionar meio de captura | Visível só se 2+ meios ativos; `FieldError` se vazio |
+| 9 | Modal | Parcelas (só crédito) | Selecionar 1–12x | Taxa/prazo do meio ou conta/global |
+| 10 | Modal | Conta bancária | Selecionar conta | Preenchida pelo meio ou forma; obrigatória |
 | 11 | Modal | Confirmar | Salvar pagamento | Toast sucesso; duplicata/erro API em `PaymentFormErrorBanner` |
 | 12 | Modal (sem conta) | Rodapé | Tentar confirmar | Botão desabilitado + `PaymentModalFooterHint` com link para Recebimento |
 | 13 | Mensalidades | Exportar CSV | Download planilha | Arquivo gerado (`exportMensalidadesGridCsv`) |
@@ -78,6 +84,8 @@ flowchart TD
 - [ ] Módulo `finance` habilitado na academia
 - [ ] Pelo menos um plano em `/empresa?tab=financeiro&section=planos` (owner)
 - [ ] Conta para recebimento em `section=recebimento`
+- [ ] Formas desejadas ativas em `section=formas-recebimento`
+- [ ] Opcional: meios de captura para cartão (2+ meios → testar «Recebido via»)
 - [ ] Alunos ativos com plano e dia de vencimento
 - [ ] Taxas de cartão configuradas (se testar parcelas/crédito)
 
@@ -98,7 +106,10 @@ flowchart TD
 5. [ ] Busca por nome parcial encontra aluno
 6. [ ] Abrir modal de pagamento — valor do plano pré-preenchido
 7. [ ] PIX — total sem parcelas; confirmar → toast sucesso
-8. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa coerente com config
+8. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa do meio/conta
+8b. [ ] Cartão com 2 meios — **Recebido via** obrigatório; sem seleção → `FieldError`
+8c. [ ] Cartão com 1 meio — salva sem dropdown; `capture_method_id` no payload
+8d. [ ] Forma desativada (ex. transferência) — não aparece no grid de métodos
 9. [ ] Sem conta bancária — banner no painel + hint no rodapé do modal; botão Confirmar desabilitado; link `EMPRESA_FINANCE_ACCOUNTS_PATH` (owner/admin)
 10. [ ] Valor zero ou data inválida — `FieldError` no campo (não só toast)
 11. [ ] Dinheiro com valor recebido menor que o total — `FieldError` em valor recebido
@@ -114,15 +125,16 @@ flowchart TD
 |---|---|---|
 | Falha ao carregar pagamentos | `ErrorBanner` + retry | `MensalidadesPanel` |
 | Conta bancária ausente / inválida | Banner no painel + `FieldError` no campo conta + rodapé do modal | `validateMensalidadesPaymentForm`, `FinanceBankAccountsSetupBanner` |
-| Valor, data, troco inválidos | `FieldError` no campo; foco no primeiro erro | `validateMensalidadesPaymentForm`, `focusFirstMensalidadesPaymentError` |
+| Valor, data, troco, meio inválido | `FieldError` no campo; foco no primeiro erro | `validateMensalidadesPaymentForm`, `validateCaptureMethodForSubmit` |
+| Forma desativada no servidor | Erro API no banner | `assertPaymentMethodActive` |
 | Duplicata ou erro API ao salvar | `PaymentFormErrorBanner` persistente | `studentPaymentFriendlyError` |
 | Data futura inválida | Validação no formulário | `isPaymentDateInFuture` |
 
 ### Critérios de fluxo saudável vs regressão
 
-**Saudável:** Taxa de cartão refletida no total; parcelas só em crédito; export CSV bate com filtros visíveis.
+**Saudável:** Taxa de cartão refletida no total; parcelas só em crédito; meio correto quando N>1; export CSV bate com filtros visíveis.
 
-**Regressão:** Pagamento salvo sem conta quando obrigatória; subcobrança em parcelas; dados de outra academia na grade.
+**Regressão:** Pagamento salvo sem conta quando obrigatória; cartão sem meio quando N>1; subcobrança em parcelas; dados de outra academia na grade.
 
 ---
 
@@ -145,7 +157,7 @@ flowchart TD
 | 1 | A receber | "Tudo que a academia tem a receber num lugar — mensalidades, cobrança e outros." | Visão financeira |
 | 2 | Mensalidades | "Vejo quem está em dia, quem atrasou e filtro por turma." | Controle de inadimplência |
 | 3 | Modal PIX | "Registro o PIX em segundos — valor do plano já vem preenchido." | Agilidade na recepção |
-| 4 | Cartão 3x | "No crédito parcelado, o Nave já aplica a taxa configurada." | Sem subcobrança |
+| 4 | Cartão 3x | "No crédito parcelado, escolho a maquininha e o Nave aplica a taxa certa." | Sem subcobrança |
 | 5 | Visão geral | "Os KPIs do mês fecham o quadro para o dono da academia." | Gestão |
 
 ### O que não mostrar
@@ -159,6 +171,7 @@ flowchart TD
 ## Variações e atalhos
 
 - **Sidebar:** Financeiro → A receber → mensalidades (`naviMenu.js`)
+- **Config formas/meios:** [config-inicial-financeiro.md](config-inicial-financeiro.md) → `section=formas-recebimento`
 - **Perfil do aluno:** registrar pagamento em [`crm/aluno-perfil-presenca.md`](../crm/aluno-perfil-presenca.md)
 - **Deep link:** `?student=` / NL prefill (`NL_PAYMENT_PREFILL_EVENT`)
 - **Exceções:** view dedicada em `PaymentExceptionsView` dentro do painel
@@ -172,3 +185,4 @@ flowchart TD
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2A |
 | 2026-06-16 | — | Auditoria salvamento: `FieldError`, banners, rodapé modal, matriz em VALIDATION.md |
+| 2026-06-17 | — | Fase 2: «Recebido via», formas ativas, `capture_method_id` |

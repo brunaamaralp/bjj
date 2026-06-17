@@ -5,6 +5,9 @@ import {
   applyAutoMarkReceivedToPaymentStatus,
   resolveFinancialTxSettlement,
 } from './paymentSettlement.js';
+import { readPaymentMethodSettings } from './paymentMethodSettings.js';
+import { canonicalPaymentMethodKey } from './paymentMethods.js';
+import { countActiveCaptureMethods } from './captureMethods.js';
 import { todayYmdLocal } from './financeForecastCore.js';
 
 export function expectedSettlementYmd(tx) {
@@ -77,12 +80,113 @@ export function buildPaymentSettlementHints({
   return hints;
 }
 
+/**
+ * Preview na configuração de formas: simula registro de pagamento "pago" hoje.
+ * @returns {{ steps: Array<{ id: string, tone: string, label: string, detail: string }> }}
+ */
+export function buildPaymentMethodRegistrationPreview(financeConfig, method, opts = {}) {
+  const key = canonicalPaymentMethodKey(method) || String(method || '').trim();
+  const settings = readPaymentMethodSettings(financeConfig)[key];
+  const paidAt = opts.paidAt || `${todayYmdLocal()}T12:00:00.000Z`;
+
+  if (!settings || settings.active === false) {
+    return {
+      steps: [
+        {
+          id: 'inactive',
+          tone: 'warning',
+          label: 'Forma inativa',
+          detail: 'Não aparece em mensalidades, vendas nem perfil do aluno.',
+        },
+      ],
+    };
+  }
+
+  const gradeStatus = applyAutoMarkReceivedToPaymentStatus('paid', method, financeConfig);
+  const settlement = resolveFinancialTxSettlement({ financeConfig, method, paidAt });
+  const forecastBr = formatYmdBr(settlement.forecast_date);
+
+  const steps = [
+    {
+      id: 'grade',
+      tone: gradeStatus === 'paid' ? 'success' : 'warning',
+      label: gradeStatus === 'paid' ? 'Mensalidade: recebida' : 'Mensalidade: pendente',
+      detail:
+        gradeStatus === 'paid'
+          ? 'O aluno aparece como pago na grade do mês.'
+          : 'O pagamento permanece pendente na grade até conferência manual.',
+    },
+    {
+      id: 'caixa',
+      tone: settlement.status === 'settled' ? 'success' : 'warning',
+      label: settlement.status === 'settled' ? 'Caixa: liquidado' : 'Caixa: pendente',
+      detail:
+        settlement.status === 'settled'
+          ? 'O lançamento entra liquidado na data em que você registra.'
+          : `O lançamento fica pendente até ${forecastBr} (ou liquidação manual).`,
+    },
+  ];
+
+  if (settlement.creditDays > 0) {
+    steps.push({
+      id: 'bank',
+      tone: 'info',
+      label: 'Crédito bancário',
+      detail: `Previsão de entrada na conta em ${forecastBr} (${settlement.creditDays} dia(s) corridos).`,
+    });
+  } else if (settlement.status === 'settled') {
+    steps.push({
+      id: 'forecast',
+      tone: 'muted',
+      label: 'Previsão de caixa',
+      detail: 'Conta na previsão na data do registro.',
+    });
+  }
+
+  if (['cartao_credito', 'cartao_debito'].includes(key) && countActiveCaptureMethods(financeConfig, key) > 0) {
+    steps.push({
+      id: 'capture-methods',
+      tone: 'muted',
+      label: 'Meios de captura',
+      detail:
+        countActiveCaptureMethods(financeConfig, key) > 1
+          ? 'Na hora do pagamento, escolha o meio (maquininha/link). Taxas e prazos podem variar por meio e parcela.'
+          : 'Taxas e prazo de crédito podem vir do meio de captura cadastrado, se tiver matriz própria.',
+    });
+  }
+
+  return { steps };
+}
+
+/** Adapta `useUiStore().addToast` para `showPaymentSettlementToasts`. */
+export function toastAdapterFromAddToast(addToast) {
+  if (typeof addToast !== 'function') return null;
+  return {
+    info: (message, opts = {}) => addToast({ type: 'info', message, duration: 8000, ...opts }),
+    show: (t) => addToast({ duration: 8000, ...t }),
+  };
+}
+
 export function showPaymentSettlementToasts(toast, opts) {
   for (const message of buildPaymentSettlementHints(opts)) {
     if (typeof toast?.info === 'function') {
       toast.info(message, { duration: 8000 });
     } else if (typeof toast?.show === 'function') {
       toast.show({ type: 'info', message, duration: 8000 });
+    } else if (typeof toast === 'function') {
+      toast({ type: 'info', message, duration: 8000 });
     }
   }
+}
+
+/** Após `createPayment` — usa dados do payload + documento retornado. */
+export function notifyPaymentSettlementAfterCreate(doc, data, { financeConfig, toast } = {}) {
+  if (!financeConfig || !toast) return;
+  showPaymentSettlementToasts(toast, {
+    financeConfig,
+    method: data?.method,
+    requestedStatus: data?.status || 'paid',
+    actualStatus: doc?.status,
+    paidAt: data?.paid_at || new Date().toISOString(),
+  });
 }

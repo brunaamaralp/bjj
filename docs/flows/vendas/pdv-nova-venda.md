@@ -58,7 +58,7 @@ flowchart TD
 | 4 | Nova venda | Ajustar qty/preço | Editar linha | Total recalcula |
 | 5 | Nova venda | Vincular aluno (opcional) | Busca typeahead | `searchStudentsForSale` |
 | 6 | Nova venda | Cliente avulso | Nome + telefone | Sem `aluno_id` |
-| 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `serializePagamentosForApi` |
+| 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock`; **Recebido via** em cartão (2+ meios) |
 | 8 | Checkout | Venda a prazo | Toggle + data vencimento | `deferred: true` |
 | 9 | Checkout | **Concluir venda** | Submit | `createSale`; toast; comprovante |
 | 10 | Toolbar | **Modo PDV** | `?pdv=1` | UI fullscreen; hotkeys F2–F4 |
@@ -97,6 +97,7 @@ flowchart TD
 5. [ ] Variante obrigatória sem seleção → validação antes do submit
 6. [ ] Venda a prazo sem data → mensagem de erro no checkout
 7. [ ] Split de pagamento com total divergente → bloqueio (`paymentsUiValid`)
+7b. [ ] Cartão com 2 meios de captura — **Recebido via** na linha de pagamento
 8. [ ] **Modo PDV** (`?pdv=1`) oculta tabs do hub; preferência em `localStorage` `sales:pdvMode:v1`
 9. [ ] Atalho sidebar **Nova venda** abre modal; dirty → `ConfirmDialog` ao fechar
 10. [ ] Histórico: filtros período, status, canal, busca
@@ -167,3 +168,4 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 3 |
+| 2026-06-17 | — | Checkout: «Recebido via» em cartão (`SalesPaymentBlock`) |

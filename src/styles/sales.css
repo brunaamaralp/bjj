@@ -616,6 +616,17 @@
   border-top: 0.5px solid var(--border-light);
 }
 
+.sales-payment-row__capture-field {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--border-light);
+}
+
+.sales-payment-row__capture-field .form-input,
+.sales-payment-row__capture-field select {
+  width: 100%;
+}
+
 .sales-checkout__row,
 .sales-checkout__discount {
   display: grid;

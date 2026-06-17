@@ -133,19 +133,19 @@ export function buildDaySummaryLine(ctx) {
     );
     if (followCount > 0) {
       parts.push(
-        `Vale retomar ${followCount} retorno${followCount === 1 ? '' : 's'} pendente${followCount === 1 ? '' : 's'}.`
+        `Vale retomar ${followCount} follow-up${followCount === 1 ? '' : 's'} pendente${followCount === 1 ? '' : 's'}.`
       );
     }
   } else if (followCount > 0) {
     parts.push(
-      `Nenhuma ${trial} hoje. Vale retomar ${followCount} retorno${followCount === 1 ? '' : 's'} pendente${followCount === 1 ? '' : 's'}.`
+      `Nenhuma ${trial} hoje. Vale retomar ${followCount} follow-up${followCount === 1 ? '' : 's'} pendente${followCount === 1 ? '' : 's'}.`
     );
   } else if (taskCount > 0) {
     parts.push(
       `${taskCount} tarefa${taskCount === 1 ? '' : 's'} para hoje. Comece pela que vence mais cedo.`
     );
   } else {
-    parts.push('Agenda e retornos em dia. Bom momento para revisar a semana.');
+    parts.push('Agenda e follow-ups em dia. Bom momento para revisar a semana.');
   }
 
   if (weekly > 0 && (pendingCount > 0 || agendaCount > 0)) {
@@ -220,7 +220,7 @@ export function getDayPriority(ctx) {
   const followCount = (ctx.followUps || []).length;
   const message =
     followCount > 0
-      ? 'Priorize quem está há mais tempo aguardando retorno.'
+      ? 'Priorize quem está há mais tempo aguardando follow-up.'
       : 'Revise a agenda da semana e prepare os próximos contatos.';
   return {
     type: 'fallback',

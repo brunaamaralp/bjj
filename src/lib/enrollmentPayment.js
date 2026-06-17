@@ -1,6 +1,11 @@
 import { createPayment, PAYMENT_CATEGORY } from './studentPayments.js';
 import { validateBankAccountForPayment } from './bankAccounts.js';
 import { pickInitialBankAccountForPayment } from './paymentMethodBankDefaults.js';
+import {
+  resolveCaptureFieldsForPayment,
+  validateCaptureMethodForSubmit,
+  whenPaymentMethodChangesWithCapture,
+} from './captureMethodPaymentForm.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 import { findPlanByName, planPriceToPayAmountString } from './academyPlans.js';
 import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from './studentPaymentTroco.js';
@@ -18,6 +23,7 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
   const plan = findPlanByName(financeConfig, planName);
   const preferredAccount = lead?.preferredPaymentAccount || lead?.preferred_payment_account || '';
   const method = lead?.preferredPaymentMethod || lead?.preferred_payment_method || 'pix';
+  const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
   return {
     payment_type: PAYMENT_CATEGORY.PLAN,
     reference_month: refMonth,
@@ -25,9 +31,12 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
     bundle_months: 12,
     amount: plan ? planPriceToPayAmountString(plan) : '',
     method,
-    account: financeConfig
-      ? pickInitialBankAccountForPayment(financeConfig, preferredAccount, method)
-      : preferredAccount,
+    ...captureDefaults,
+    account:
+      captureDefaults.account ||
+      (financeConfig
+        ? pickInitialBankAccountForPayment(financeConfig, preferredAccount, method)
+        : preferredAccount),
     status: 'paid',
     paid_at: new Date().toISOString().slice(0, 10),
     due_date: '',
@@ -51,6 +60,7 @@ export async function registerEnrollmentPayment({
   payForm,
   financeConfig = null,
   registeredByName = 'Usuário',
+  toast = null,
 }) {
   const aid = String(academyId || '').trim();
   const sid = String(studentId || '').trim();
@@ -75,6 +85,12 @@ export async function registerEnrollmentPayment({
   if (!accountCheck.ok) {
     throw new Error(accountCheck.message || 'Selecione a conta bancária.');
   }
+  const captureErr = validateCaptureMethodForSubmit(
+    financeConfig,
+    payForm.method,
+    payForm.capture_method_id
+  );
+  if (captureErr) throw new Error(captureErr);
   const paymentAccount = accountCheck.account || payForm.account || '';
 
   const paidAtIso =
@@ -102,6 +118,7 @@ export async function registerEnrollmentPayment({
     registered_by_name: registeredByName,
     note: String(payForm.note || '').trim(),
     ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
+    ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
   };
 
   if (paymentType === PAYMENT_CATEGORY.BUNDLE) {
@@ -112,5 +129,5 @@ export async function registerEnrollmentPayment({
     data.reference_month = payForm.reference_month;
   }
 
-  return createPayment(data);
+  return createPayment(data, { financeConfig, toast });
 }

@@ -5,6 +5,7 @@ import {
   storageDialectPaymentMethodOptions,
 } from './paymentMethods.js';
 import { listBankAccountLabels } from './bankAccounts.js';
+import { hasConfiguredCaptureForMethod } from './captureMethods.js';
 
 /** @typedef {{ active?: boolean, defaultBankAccountLabel?: string, autoSettle?: boolean, autoMarkReceived?: boolean, feesAcknowledged?: boolean, creditDays?: number }} PaymentMethodSettingRow */
 
@@ -162,9 +163,14 @@ export function isPaymentMethodConfigured(financeConfig, method) {
   if (!labels.length) return false;
 
   const mapped = String(settings.defaultBankAccountLabel || '').trim();
-  if (mapped && labels.includes(mapped)) return true;
+  const hasAccount = (mapped && labels.includes(mapped)) || labels.length === 1;
+  if (!hasAccount) return false;
 
-  return labels.length === 1;
+  if (key === 'cartao_credito' || key === 'cartao_debito') {
+    return hasConfiguredCaptureForMethod(financeConfig, key);
+  }
+
+  return true;
 }
 
 /** @returns {{ configured: number, active: number }} */

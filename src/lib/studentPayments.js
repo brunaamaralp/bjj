@@ -33,6 +33,7 @@ import {
   resolveBundleMonthAction,
   listCancellableCoveredMonths,
 } from './bundleCoverage.js';
+import { notifyPaymentSettlementAfterCreate } from './financeTxSettlementDisplay.js';
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
@@ -647,13 +648,15 @@ export async function upsertStudentPayment({ data, existingId = null, skipMirror
   });
 }
 
-export async function createPayment(data) {
+export async function createPayment(data, opts = {}) {
   if (!data.lead_id || !data.academy_id) {
     throw new Error('lead_id e academy_id são obrigatórios');
   }
 
   if (import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
-    return apiCreateStudentPayment(data);
+    const doc = await apiCreateStudentPayment(data);
+    notifyPaymentSettlementAfterCreate(doc, data, opts);
+    return doc;
   }
 
   if (!PAYMENTS_COL) {
@@ -664,6 +667,7 @@ export async function createPayment(data) {
 
   if (category === PAYMENT_CATEGORY.BUNDLE && data.bundle_months) {
     const result = await createBundlePayment(data);
+    notifyPaymentSettlementAfterCreate(result.anchor, data, opts);
     return result.anchor;
   }
 
@@ -675,12 +679,14 @@ export async function createPayment(data) {
       payment_category: category,
       reference_month: data.reference_month ?? null,
     };
-    return persistPaymentDocument({
+    const doc = await persistPaymentDocument({
       data: feePayload,
       existingId: null,
       permissions,
       skipMirror: false,
     });
+    notifyPaymentSettlementAfterCreate(doc, data, opts);
+    return doc;
   }
 
   if (!data.reference_month) {
@@ -693,12 +699,14 @@ export async function createPayment(data) {
     category
   );
 
-  return persistPaymentDocument({
+  const doc = await persistPaymentDocument({
     data: { ...data, payment_category: category },
     existingId: existing?.$id,
     permissions,
     skipMirror: false,
   });
+  notifyPaymentSettlementAfterCreate(doc, data, opts);
+  return doc;
 }
 
 export async function updatePayment(paymentId, data) {

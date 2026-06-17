@@ -133,4 +133,50 @@ describe('resolveAcquirerFees', () => {
     const amounts = forecastInflowAmounts(100, 'pix', 1, financeConfig);
     expect(amounts.amount).toBe(99.01);
   });
+
+  it('resolveAcquirerFeesForPayment prioriza meio de captura', () => {
+    const cfg = {
+      ...financeConfig,
+      captureMethods: [
+        {
+          id: 'cap1',
+          name: 'Stone',
+          paymentMethod: 'cartao_debito',
+          active: true,
+          useDefaultFees: false,
+          fees: { '1': { percent: 3, fixed: 0, creditDays: 0 } },
+        },
+      ],
+    };
+    const fees = resolveAcquirerFeesForPayment(cfg, {
+      captureMethodId: 'cap1',
+      method: 'cartao_debito',
+      bankAccount: 'Sicoob · 12345',
+    });
+    expect(acquirerFeePercent(fees, 'cartao_debito')).toBe(3);
+  });
+
+  it('computeAcquirerFeeForPayment usa fixed por parcela do meio', () => {
+    const cfg = {
+      acquirerFeePolicy: 'absorb',
+      captureMethods: [
+        {
+          id: 'cap1',
+          name: 'Stone',
+          paymentMethod: 'cartao_credito',
+          active: true,
+          useDefaultFees: false,
+          fees: { '1': { percent: 0, fixed: 2.5, creditDays: 0 } },
+        },
+      ],
+    };
+    const { fee } = computeAcquirerFeeForPayment({
+      financeConfig: cfg,
+      captureMethodId: 'cap1',
+      gross: 100,
+      method: 'cartao_credito',
+      installments: 1,
+    });
+    expect(fee).toBe(2.5);
+  });
 });

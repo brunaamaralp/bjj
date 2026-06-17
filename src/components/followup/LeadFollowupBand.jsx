@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import FollowupTemperatureBadge from './FollowupTemperatureBadge.jsx';
 import FollowupCopilotButtons from './FollowupCopilotButtons.jsx';
+import { followupCompleteActionLabel } from '../../lib/dashboardReceptionCopy.js';
 export default function LeadFollowupBand({
   followupState,
   lead,
@@ -27,7 +28,7 @@ export default function LeadFollowupBand({
         <FollowupTemperatureBadge temperature={followupState.temperature} size="sm" />
         <div className="lead-followup-band__text">
           <p className="lead-followup-band__lead">
-            <strong>Retorno pós-aula</strong>
+            <strong>Follow-up pós-aula</strong>
             <span className="lead-followup-band__meta"> · {daysLabel}</span>
           </p>
           {followupState.nextActionLabel ? (
@@ -60,7 +61,7 @@ export default function LeadFollowupBand({
           disabled={completing}
           onClick={onComplete}
         >
-          {completing ? 'Salvando…' : 'Concluir retorno'}
+          {completing ? 'Salvando…' : followupCompleteActionLabel()}
         </button>
         <Link to="/?retornos=1" className="lead-followup-band__link">
           Ver na agenda

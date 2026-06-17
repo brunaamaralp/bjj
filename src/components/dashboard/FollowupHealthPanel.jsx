@@ -25,22 +25,22 @@ export default function FollowupHealthPanel({
     .join(' ');
 
   return (
-    <section className={rootClass} aria-label="Saúde dos retornos">
+    <section className={rootClass} aria-label="Saúde dos follow-ups">
       <div className="followup-health-panel__head">
         <ReportSectionHeading
           className="reception-report-heading followup-health-panel__heading"
           title={
             <>
               <Activity size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-              Saúde dos retornos
+              Saúde dos follow-ups
             </>
           }
         />
         <button
           type="button"
           className="followup-health-panel__help"
-          title="Em dia: já retornou ou ainda no prazo · Esfriando: 1+ dia sem contato · Crítico: 3+ dias sem retorno"
-          aria-label="Legenda das temperaturas de retorno"
+          title="Em dia: já entrou em contato ou ainda no prazo · Esfriando: 1+ dia sem contato · Crítico: 3+ dias sem follow-up"
+          aria-label="Legenda das temperaturas de follow-up"
         >
           <HelpCircle size={16} strokeWidth={2} aria-hidden />
         </button>
@@ -64,7 +64,7 @@ export default function FollowupHealthPanel({
       {hasD1Metric ? (
         <div className="followup-health-panel__d1-block">
           <div className="followup-health-panel__d1-head">
-            <span className="followup-health-panel__d1-label">Retorno no dia seguinte esta semana</span>
+            <span className="followup-health-panel__d1-label">Follow-up no dia seguinte esta semana</span>
             <strong className="followup-health-panel__d1-value">{d1RatePercent}%</strong>
           </div>
           <div
@@ -73,7 +73,7 @@ export default function FollowupHealthPanel({
             aria-valuenow={d1Pct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Retorno no dia seguinte: ${d1RatePercent}%`}
+            aria-label={`Follow-up no dia seguinte: ${d1RatePercent}%`}
           >
             <span className="followup-health-panel__d1-fill" style={{ width: `${d1Pct}%` }} />
           </div>

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import FollowupTemperatureBadge from '../followup/FollowupTemperatureBadge.jsx';
 import FollowupCopilotButtons from '../followup/FollowupCopilotButtons.jsx';
 import { temperatureLabel } from '../../lib/followupTemperature.js';
+import { followupCompleteActionLabel } from '../../lib/dashboardReceptionCopy.js';
 
 export default function InboxFollowupBanner({
   followupState,
@@ -30,7 +31,7 @@ export default function InboxFollowupBanner({
       <div className="inbox-followup-banner__main">
         <FollowupTemperatureBadge temperature={followupState.temperature} size="sm" />
         <span className="inbox-followup-banner__text">
-          Retorno pós-aula · {temperatureLabel(followupState.temperature)} · {daysLabel}
+          Follow-up pós-aula · {temperatureLabel(followupState.temperature)} · {daysLabel}
           {followupState.nextActionLabel ? (
             <>
               {' '}
@@ -65,7 +66,7 @@ export default function InboxFollowupBanner({
           disabled={completing}
           onClick={() => onCompleteFollowup?.()}
         >
-          {completing ? 'Salvando…' : 'Concluir retorno'}
+          {completing ? 'Salvando…' : followupCompleteActionLabel()}
         </button>
         {leadId ? (
           <Link to={`/lead/${leadId}`} className="inbox-followup-banner__link">
@@ -73,7 +74,7 @@ export default function InboxFollowupBanner({
           </Link>
         ) : null}
         <Link to="/?retornos=1" className="inbox-followup-banner__link">
-          Retornos
+          Follow-ups
         </Link>
       </div>
     </div>

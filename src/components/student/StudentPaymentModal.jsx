@@ -19,6 +19,11 @@ import {
   pickInitialBankAccountForPayment,
   accountWhenPaymentMethodChanges,
 } from '../../lib/paymentMethodBankDefaults.js';
+import {
+  whenCaptureMethodChanges,
+  whenPaymentMethodChangesWithCapture,
+} from '../../lib/captureMethodPaymentForm.js';
+import CaptureMethodSelect from '../finance/CaptureMethodSelect.jsx';
 import { orderedActiveStorageDialectMethodsForModal } from '../../lib/paymentMethodSettings.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } from '../../lib/moneyBr';
 import CashTrocoFields from '../finance/CashTrocoFields.jsx';
@@ -52,6 +57,8 @@ export function paymentFormFromDoc(payment, student, financeConfig = null) {
     status: payment.status || base.status,
     paid_at: paidSlice,
     due_date: dueSlice,
+    capture_method_id: payment.capture_method_id || base.capture_method_id,
+    capture_method_name: payment.capture_method_name || base.capture_method_name,
     plan_name: payment.plan_name || base.plan_name,
     note: payment.note || '',
   };
@@ -79,6 +86,8 @@ export function buildDefaultPayForm(student, financeConfig = null) {
     due_date: '',
     plan_name: student?.plan || '',
     note: '',
+    capture_method_id: '',
+    capture_method_name: '',
     cash_received: '',
     formaTroco: 'pix',
     trocoAccount: '',
@@ -530,7 +539,7 @@ export default function StudentPaymentModal({
                     setPayForm((p) => ({
                       ...p,
                       method,
-                      account: accountWhenPaymentMethodChanges(financeConfig, method) || p.account,
+                      ...whenPaymentMethodChangesWithCapture(financeConfig, method),
                       ...(isCashPaymentMethod(method) && !p.cash_received
                         ? { cash_received: p.amount || '' }
                         : !isCashPaymentMethod(method)
@@ -546,6 +555,22 @@ export default function StudentPaymentModal({
                   ))}
                 </select>
               </div>
+
+              <CaptureMethodSelect
+                financeConfig={financeConfig}
+                method={payForm.method}
+                value={payForm.capture_method_id}
+                id={STUDENT_PAY_FIELD_IDS.capture_method}
+                style={{ ...inputStyle, width: '100%' }}
+                disabled={saving}
+                error={payFieldErrors?.capture_method_id}
+                onChange={(captureId) =>
+                  setPayForm((p) => ({
+                    ...p,
+                    ...whenCaptureMethodChanges(financeConfig, captureId, p.method),
+                  }))
+                }
+              />
 
               {showPaidDate && isCashPaymentMethod(payForm.method) ? (
                 <>

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Circle, Search } from 'lucide-react';
 import { listBankAccountLabels } from '../../../lib/bankAccounts.js';
+import { countActiveCaptureMethods } from '../../../lib/captureMethods.js';
 import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js';
 import {
   isPaymentMethodConfigured,
@@ -9,6 +10,8 @@ import {
 } from '../../../lib/paymentMethodSettings.js';
 import { FINANCE_SETTINGS_SECTIONS } from '../../../lib/financeSettingsSections.js';
 import StatusBanner from '../../shared/StatusBanner.jsx';
+import FinancePaymentMethodPreview from './FinancePaymentMethodPreview.jsx';
+import FinanceSettingsCaptureMethodPanel from './FinanceSettingsCaptureMethodPanel.jsx';
 
 function StatusMark({ ok, label }) {
   return (
@@ -51,6 +54,10 @@ export default function FinanceSettingsPaymentMethodsSection({ financeConfig, se
   const activeRow = settings[selected] || readPaymentMethodSettings(null)[selected];
   const selectedMeta = PAYMENT_METHODS.find((m) => m.value === selected);
   const showCreditDays = ['cartao_credito', 'cartao_debito', 'transferencia'].includes(selected);
+  const showCaptureMethods = ['cartao_credito', 'cartao_debito'].includes(selected);
+  const captureMethodCount = showCaptureMethods
+    ? countActiveCaptureMethods(financeConfig, selected)
+    : 0;
 
   return (
     <div className="finance-settings-section-body finance-payment-methods">
@@ -229,10 +236,27 @@ export default function FinanceSettingsPaymentMethodsSection({ financeConfig, se
                 />
                 <p className="text-small text-muted">
                   Usado na previsão de caixa e na liquidação automática diária. Dias corridos.
+                  {showCaptureMethods && captureMethodCount > 0 ? (
+                    <>
+                      {' '}
+                      Com meios de captura e matriz própria, o prazo por parcela do meio tem
+                      prioridade sobre este valor.
+                    </>
+                  ) : null}
                 </p>
               </div>
             ) : null}
           </fieldset>
+
+          {showCaptureMethods && setFinanceConfig ? (
+            <FinanceSettingsCaptureMethodPanel
+              financeConfig={financeConfig}
+              setFinanceConfig={setFinanceConfig}
+              paymentMethod={selected}
+            />
+          ) : null}
+
+          <FinancePaymentMethodPreview financeConfig={financeConfig} method={selected} />
 
           <p className="text-small text-muted finance-payment-methods__taxas-hint">
             Repasse ao aluno e taxas da maquininha:{' '}

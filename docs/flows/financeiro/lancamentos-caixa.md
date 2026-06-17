@@ -56,7 +56,7 @@ flowchart TD
 | 3 | Modal | Preencher tipo, valor, categoria, aluno | Campos obrigatórios | Validação inline (`FieldError`) |
 | 4 | Modal | Receber agora / pendente | Toggle regime | Cria liquidado ou pendente |
 | 5 | Lista | Filtros status/direção/banco/busca | Chips e campos | URL atualiza (`?status`, `?dir`, `?q`) |
-| 6 | Lista | Clicar linha | Abrir drawer | `FinanceTxDetailDrawer` |
+| 6 | Lista | Clicar linha | Abrir drawer | `FinanceTxDetailDrawer` — «Liquida em…» / crédito previsto (meio de captura) |
 | 7 | `?tx=<id>` | Drawer | Deep link | Drawer abre após load |
 | 8 | Drawer / menu linha | Liquidar | `patchFinanceTx action settle` | Status → liquidado; toast |
 | 9 | Drawer | Estornar | `reverseFinanceTx` | Confirmação; movimento revertido |

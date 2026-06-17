@@ -9,6 +9,7 @@ import { createPayment, PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
 import { trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
 import { prefetchFinanceConfig } from '../../lib/prefetchFinanceConfig.js';
 import { studentPaymentFriendlyError } from '../../lib/errorMessages.js';
+import { toastAdapterFromAddToast } from '../../lib/financeTxSettlementDisplay.js';
 import {
   validateMensalidadesPaymentForm,
   focusFirstStudentPaymentError,
@@ -182,7 +183,10 @@ export default function NovaVendaPlanPanel({
 
     setSaving(true);
     try {
-      const doc = await createPayment(data);
+      const doc = await createPayment(data, {
+        financeConfig,
+        toast: toastAdapterFromAddToast(addToast),
+      });
       addToast({ type: 'success', message: 'Mensalidade registrada.' });
       if (doc?.warning) {
         addToast({

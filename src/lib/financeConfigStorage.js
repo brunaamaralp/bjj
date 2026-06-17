@@ -17,6 +17,7 @@ import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js'
 import { normalizeFinanceVendors } from './financeVendors.js';
 import { normalizeAcquirerFees, normalizeAcquirerFeePolicy } from './acquirerFees.js';
 import { normalizePaymentMethodSettings } from './paymentMethodSettings.js';
+import { readCaptureMethods } from './captureMethods.js';
 
 /** Limite legado do atributo financeConfig (string) no Appwrite. */
 export const FINANCE_CONFIG_LEGACY_MAX_CHARS = 2500;
@@ -186,7 +187,11 @@ export function compactPlanForStorage(plan) {
 export function compactFinanceConfigForStorage(mergedCfg) {
   const base = mergedCfg && typeof mergedCfg === 'object' ? { ...mergedCfg } : {};
   const plans = (base.plans || []).map(compactPlanForStorage).filter(Boolean);
-  return { ...base, plans };
+  const captureMethods = readCaptureMethods(base);
+  const out = { ...base, plans };
+  if (captureMethods.length) out.captureMethods = captureMethods;
+  else delete out.captureMethods;
+  return out;
 }
 
 /** Indica se o projeto tem atributo `settings` na coleção (evita update com campo desconhecido). */
@@ -242,6 +247,10 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   merged = {
     ...merged,
     paymentMethodSettings: normalizePaymentMethodSettings(merged),
+  };
+  merged = {
+    ...merged,
+    captureMethods: readCaptureMethods(merged),
   };
 
   return merged;

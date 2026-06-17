@@ -50,6 +50,16 @@
   margin-top: 0;
   /* Acima de navi-modal-overlay (--z-modal: 9999) */
   z-index: calc(var(--z-modal, 9999) + 1);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  isolation: isolate;
+  -webkit-overflow-scrolling: touch;
+}
+
+.searchable-grouped-select__panel--portal.navi-menu__panel {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .searchable-grouped-select__panel--empty {

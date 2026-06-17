@@ -7,13 +7,23 @@ import BankAccountSelect from './BankAccountSelect.jsx';
 import { buildBankReconPaymentHintPath } from '../../lib/bankReconPaymentHintLink.js';
 import { registerBankReconPayment } from '../../lib/bankReconciliationApi.js';
 import { resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
-import { accountWhenPaymentMethodChanges } from '../../lib/paymentMethodBankDefaults.js';
+import {
+  resolveCaptureFieldsForPayment,
+  whenCaptureMethodChanges,
+  whenPaymentMethodChangesWithCapture,
+} from '../../lib/captureMethodPaymentForm.js';
+import CaptureMethodSelect from './CaptureMethodSelect.jsx';
 import {
   normalizeMensalidadesPaymentMethod,
   validateMensalidadesPaymentForm,
 } from '../../lib/mensalidadesPaymentForm.js';
 import { PAYMENT_CATEGORY } from '../../lib/studentPayments.js';
 import { orderedActiveStorageDialectMethodsForModal } from '../../lib/paymentMethodSettings.js';
+import { useUiStore } from '../../store/useUiStore.js';
+import {
+  notifyPaymentSettlementAfterCreate,
+  toastAdapterFromAddToast,
+} from '../../lib/financeTxSettlementDisplay.js';
 
 function fmtMonth(ym) {
   const p = String(ym || '').slice(0, 7);
@@ -39,10 +49,13 @@ export default function BankReconRegisterPaymentModal({
     account: '',
     paid_at: '',
     amount: '',
+    capture_method_id: '',
+    capture_method_name: '',
   });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const addToast = useUiStore((s) => s.addToast);
 
   const methodOptions = useMemo(
     () => orderedActiveStorageDialectMethodsForModal(financeConfig),
@@ -54,9 +67,11 @@ export default function BankReconRegisterPaymentModal({
     const paidAt = String(bankItem?.date || '').slice(0, 10);
     const amount = Number(hint.expected_amount ?? bankItem?.amount);
     const method = 'pix';
+    const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
     setForm({
       method,
-      account: accountWhenPaymentMethodChanges(financeConfig, method) || resolveBankAccountForPayment('', financeConfig),
+      ...captureDefaults,
+      account: captureDefaults.account || resolveBankAccountForPayment('', financeConfig),
       paid_at: paidAt,
       amount: Number.isFinite(amount) && amount > 0 ? String(amount).replace('.', ',') : '',
     });
@@ -82,6 +97,7 @@ export default function BankReconRegisterPaymentModal({
       amount: form.amount,
       status: 'paid',
       installments: 1,
+      capture_method_id: form.capture_method_id,
     }),
     [form]
   );
@@ -115,7 +131,17 @@ export default function BankReconRegisterPaymentModal({
         paid_at: String(form.paid_at).slice(0, 10),
         method: normalizeMensalidadesPaymentMethod(form.method),
         bank_account_id: paymentAccount,
+        ...resolveCaptureFieldsForPayment(financeConfig, form.method, form.capture_method_id),
       });
+      notifyPaymentSettlementAfterCreate(
+        { status: result?.payment?.status },
+        {
+          method: normalizeMensalidadesPaymentMethod(form.method),
+          status: 'paid',
+          paid_at: String(form.paid_at).slice(0, 10),
+        },
+        { financeConfig, toast: toastAdapterFromAddToast(addToast) }
+      );
       onSuccess?.(result);
       onClose?.();
     } catch (e) {
@@ -200,7 +226,7 @@ export default function BankReconRegisterPaymentModal({
                 setForm((f) => ({
                   ...f,
                   method,
-                  account: accountWhenPaymentMethodChanges(financeConfig, method) || f.account,
+                  ...whenPaymentMethodChangesWithCapture(financeConfig, method),
                 }));
               }}
             >
@@ -211,6 +237,21 @@ export default function BankReconRegisterPaymentModal({
               ))}
             </select>
           </div>
+
+          <CaptureMethodSelect
+            financeConfig={financeConfig}
+            method={form.method}
+            value={form.capture_method_id}
+            id="bank-recon-reg-capture-method"
+            disabled={isBusy}
+            error={errors.capture_method_id}
+            onChange={(captureId) =>
+              setForm((f) => ({
+                ...f,
+                ...whenCaptureMethodChanges(financeConfig, captureId, f.method),
+              }))
+            }
+          />
 
           <div className="form-group">
             <label htmlFor="bank-recon-reg-account">Conta bancária</label>

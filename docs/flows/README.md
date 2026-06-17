@@ -24,7 +24,7 @@ Cada fluxo tem duas seções de público:
 
 Relatório de validação estática (código + testes): [VALIDATION.md](VALIDATION.md).
 
-**Auditoria salvamento (Financeiro, 2026-06-16):** matriz de 10 cenários + harness `mensalidadesPaymentForm financeConfigValidation` — ver seção dedicada em VALIDATION.md. Staging manual ainda pendente.
+**Auditoria salvamento (Financeiro, 2026-06-16):** matriz de 10 cenários + harness `mensalidadesPaymentForm financeConfigValidation` — ver seção dedicada em VALIDATION.md. **Formas/meios de captura (2026-06-17):** harness `captureMethods resolveAcquirerFees paymentSettlement paymentMethodSettings`.
 
 Status `revisado` = conferido contra código; execução manual em staging ainda recomendada antes de gravar vídeo.
 

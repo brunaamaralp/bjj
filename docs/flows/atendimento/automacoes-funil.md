@@ -4,24 +4,179 @@
 |---|---|
 | **id** | `atendimento.automacoes.funil` |
 | **módulo** | Atendimento |
-| **personas** | owner, admin (editar gatilhos/templates); member (visualizar processos) |
-| **rotas** | `/automacoes?tab=modelos|gatilhos&section=`, `/automacoes?wizard=1` (alias `configuracoes` → `gatilhos`; `processos` → `/tarefas?tab=processos`) |
-| **pré-requisitos** | WhatsApp conectado para envios automáticos; modelos revisados |
-| **status** | revisado (código) |
+| **personas** | owner, admin (editar gatilhos/templates/audiência); member (visualizar) |
+| **rotas** | `/automacoes?section=resumo\|captacao\|pos-matricula\|rotinas` (canônico v3); aliases `?tab=modelos\|gatilhos` → redirect |
+| **pré-requisitos** | WhatsApp conectado; modelos revisados; **auditoria de campos** (ver abaixo) antes de expor filtros |
+| **status** | revisado (spec v3 — alinhado ao código) |
 | **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md) · [2026-06-17-automacoes-ux-clareza-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ux-clareza-PRODUCT.md) · [2026-06-17-automacoes-ia-restructure-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ia-restructure-PRODUCT.md) (aprovada P4) · [IMPLEMENTATION P4.1](../../superpowers/specs/2026-06-17-automacoes-ia-restructure-IMPLEMENTATION.md)
+**Specs relacionadas:**
 
-**Harness relacionado:** `npm test -- automacoesHub automacoesSetupWizard automationUx`
+- [2026-06-17-comunicacao-automatica-evolucao-PRODUCT.md](../../superpowers/specs/2026-06-17-comunicacao-automatica-evolucao-PRODUCT.md) — roadmap mestre
+- [2026-06-17-automacoes-hub-unificado-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-hub-unificado-PRODUCT.md) — hub unificado (Ondas 1–2)
+- [2026-06-16-automacoes-ux-onboarding-PRODUCT.md](../../superpowers/specs/2026-06-16-automacoes-ux-onboarding-PRODUCT.md)
+- [2026-06-17-automacoes-ux-clareza-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ux-clareza-PRODUCT.md)
+- [2026-06-17-automacoes-ia-restructure-PRODUCT.md](../../superpowers/specs/2026-06-17-automacoes-ia-restructure-PRODUCT.md)
 
-**Arquivos-chave:** `src/pages/Automacoes.jsx`, `src/pages/AutomacoesConfigTab.jsx`, `src/lib/automacoesHub.js`, `src/lib/automacoesSettingsSections.js`, `src/lib/automacoesSetupWizard.js`, `src/components/academy/AutomacoesSection.jsx`
+**Harness:** `npm test -- automacoesHub automacoesSettingsSections automacoesSetupWizard automationUx attendanceRetentionCore`
+
+**Arquivos-chave:** `src/pages/Automacoes.jsx`, `AutomacoesConfigTab.jsx`, `AutomacoesSection.jsx`, `lib/automationCore.js`, `lib/attendanceRetentionCore.js`, `api/leads.js`, `lib/server/runAttendanceRetentionCron.js`
 
 ---
 
 ## Resumo
 
-Em **Mensagens do funil** (`/automacoes`), a equipe personaliza **modelos de mensagem** WhatsApp e **liga/desliga gatilhos** do funil (confirmação de aula, falta, matrícula, aniversário, etc.). Um wizard inicial guia modelos → WhatsApp → gatilhos. Processos da equipe (templates de tarefa, playbook) ficam em `/tarefas?tab=processos`.
+Em **Mensagens automáticas** (`/automacoes`), a equipe personaliza textos WhatsApp e liga/desliga gatilhos (confirmação de aula, falta, matrícula, aniversário, retenção por frequência, etc.).
+
+**Novidade v3:** gatilhos que atingem **alunos em massa** (cron) possuem **filtro de audiência** configurável. Sem filtro → todos os elegíveis (retrocompatível). A v3 define: campo nulo = incluído; writes separados de `active` vs `audience`; log estruturado; preview de audiência antes de salvar.
+
+Gatilhos de **evento no funil** (confirmação, falta no lead X) disparam para o lead do evento — **sem** filtro de audiência na UI (N/A).
+
+Wizard: modelos → WhatsApp → gatilhos. Processos da equipe: `/tarefas?tab=processos`.
+
+---
+
+## Pré-requisito obrigatório: auditoria de campos
+
+**Antes de expor filtros na UI**, executar auditoria na coleção de alunos (`students` / leads matriculados) e documentar em `docs/flows/VALIDATION.md`:
+
+| Campo canônico (código) | Atributo Appwrite | Uso no filtro |
+|---|---|---|
+| Tipo / categoria | `type` | Adulto · Criança · Juniores |
+| Plano | `plan` (nome, não ID) | Multi-select vs `financeConfig.plans[].name` |
+| Turma | `turma` (nome, não ID) | Multi-select vs `academy.settings.turmas[]` |
+| Ingresso | `enrollmentDate` | Tenure novato/veterano (&lt;60 / ≥60 dias) |
+
+> **Nota de código:** não existem `category`, `plan_id`, `class_id` nem `enrolled_at` no schema atual de alunos. Turmas não são coleção `CLASSES_COL` — ficam em `academies.settings` JSON.
+
+**Regra UI:** expor filtro só se taxa de preenchimento ≥ 80% na academia (amostra ou query). Abaixo disso: ocultar com comentário no código até backfill.
+
+**Baseline esperada (schema CRM):** `type`, `plan`, `turma`, `enrollmentDate` existem em `scripts/verify-and-fix-schema-crm.mjs`; taxa real é por academia.
+
+---
+
+## Modelo de audiência
+
+### Onde se aplica
+
+| Classe de gatilho | Audiência configurável |
+|---|---|
+| Evento funil (`schedule_confirm`, `missed`, …) | **Não** — lead do evento |
+| Cron aluno (`birthday`, `absent_student`, `newcomer_at_risk`) | **Sim** |
+| Financeiro WhatsApp (Onda 2 hub) | **Sim** (+ `billingMode` plano) |
+
+### Conceito
+
+Filtros opcionais, cumulativos (**AND**). Vazio = todos os elegíveis do gatilho.
+
+### Atributos de filtro (v3 — nomes alinhados ao código)
+
+| Filtro UI | Valores | Campo aluno | Exibir se |
+|---|---|---|---|
+| **Tipo** | Adulto · Criança · Juniores | `type` | ≥ 80% preenchido |
+| **Plano** | Planos de `financeConfig.plans` | `plan` (match por **nome**) | ≥ 80% |
+| **Turma** | Turmas de `academy.settings.turmas` | `turma` (match por **nome**) | ≥ 80% |
+| **Tempo de casa** | Novato &lt; 60d · Veterano ≥ 60d | `enrollmentDateYmd()` | campo ingresso existe |
+
+### Campo nulo = incluído
+
+Dado ausente no aluno **nunca exclui** — evita silêncio por cadastro incompleto. Log com `field_null_included` quando aplicável.
+
+### Persistência em `automations_config`
+
+Estender chaves existentes em `parseAutomationsConfig` — **não** substituir por árvore `triggers.*`:
+
+```js
+// academies.automations_config (JSON string)
+{
+  "birthday": {
+    "active": true,
+    "templateKey": "birthday",
+    "delayMinutes": 0,
+    "audience": {
+      "types": [],
+      "planNames": [],
+      "turmas": [],
+      "tenure": null
+    }
+  },
+  "absent_student": {
+    "active": true,
+    "templateKey": "recovery",
+    "thresholdDays": 10,
+    "audience": { "types": [], "planNames": [], "turmas": [], "tenure": null }
+  },
+  "newcomer_at_risk": {
+    "active": true,
+    "templateKey": "recovery",
+    "thresholdDays": 7,
+    "audience": { "types": [], "planNames": [], "turmas": [], "tenure": null }
+  }
+}
+```
+
+> `newcomer_at_risk`: cron já limita `enrolled_at` &lt; 60d — **não** fixar `tenure: 'novato'` na audiência (redundante).
+
+### Writes separados (toggle vs audiência)
+
+`automations_config` é **string JSON** no Appwrite — **sem** dot-notation. Padrão obrigatório:
+
+1. `parseAutomationsConfig(raw)`
+2. Merge só a chave alterada (`active` ou `audience`)
+3. `serializeAutomationsConfig` + `updateDocument`
+
+Nunca sobrescrever o objeto inteiro sem ler o estado atual.
+
+### Função de avaliação
+
+`passesAudienceFilter(student, audience, { triggerKey, academyId })` em `lib/automationAudience.js` (novo), usada por crons antes do envio.
+
+### Log `automation_logs` (nova coleção)
+
+```js
+{
+  academy_id, trigger, student_id,
+  passed: false,
+  reasons: ['plan_mismatch:Premium'],
+  sent: false,
+  evaluated_at
+}
+```
+
+**Volume:** logar `passed: false` (exclusão) e `sent: true`; **não** logar `passed: true` sem envio.
+
+Provisionar coleção + índices `academy_id`, `evaluated_at` antes do deploy.
+
+### Anti-spam retenção
+
+Usar campo existente `retention_automation_anchor` (não criar `absence_notified_at`). Zerar anchor em novo check-in. Par `(studentId, triggerKey)` um envio por ciclo de ausência — já implementado em `runAttendanceRetentionCron.js`.
+
+---
+
+## Gatilhos — inventário
+
+### Funil (evento)
+
+| Chave | Quando dispara | Audiência |
+|---|---|---|
+| `schedule_confirm` | Confirma agendamento experimental | N/A |
+| `presence_confirmed` | Presença na aula | N/A |
+| `missed` | Falta na aula | N/A |
+| `waiting_decision` | Etapa Aguardando decisão | N/A |
+| `followup_d1_attended` | Cron D+1 pós-experimental | N/A |
+| `converted` | Matrícula realizada | N/A |
+| `schedule_reminder` | Antes da aula | N/A |
+
+### Rotinas (cron — audiência v3)
+
+| Chave | Quando dispara | Threshold | Cron |
+|---|---|---|---|
+| `birthday` | Aniversário ~9h BRT | — | `api/leads.js` (cron aniversário) |
+| `absent_student` | Sem check-in X dias | 5–30, default 10 | `runAttendanceRetentionCron` |
+| `newcomer_at_risk` | Novato sem check-in 7d | fixo 7 | `runAttendanceRetentionCron` |
+
+> Não criar nova Vercel Function. Retenção já roda em cron existente; medir timeout antes de ampliar loops.
 
 ---
 
@@ -29,144 +184,91 @@ Em **Mensagens do funil** (`/automacoes`), a equipe personaliza **modelos de men
 
 ```mermaid
 flowchart TD
-  open["/automacoes"] --> wizard{Wizard ativo?}
-  wizard -->|Sim| guide[AutomacoesSetupWizard]
-  guide --> modelos[tab=modelos]
-  guide --> agente[/agente-ia]
-  guide --> gatilhos[tab=gatilhos]
-  open --> tabs{tab}
-  tabs --> modelos
-  tabs --> gatilhos
+  open["/automacoes"] --> section{section}
+  section --> gatilhos[Gatilhos / cards]
   gatilhos --> toggle[Ligar gatilho]
-  toggle --> cron[Cron / evento funil]
-  cron --> zap[Envio Zapster]
+  toggle --> kind{Tipo gatilho?}
+  kind -->|Evento funil| evento[Lead do evento]
+  kind -->|Cron aluno| audience{passesAudienceFilter?}
+  audience -->|Sim| cron[Cron]
+  audience -->|Não| skiplog[Log exclusão]
+  evento --> zap[Zapster]
+  cron --> zap
+  zap --> sentlog[Log sent:true]
 ```
 
 ---
 
-## Mapa de telas
+## Mapa de telas (v3)
 
-| # | Rota | Componente | Ação do usuário | Resultado esperado |
-|---|---|---|---|---|
-| 1 | `/automacoes` | `Automacoes` | Abrir hub | Sidebar `AcademyTabSettingsLayout` (Modelos + Gatilhos por grupo); título «Mensagens do funil» |
-| 2 | `?tab=modelos&section=captacao|rotinas` | `AutomacoesModelosTab` | Editar textos WhatsApp do grupo | `whatsappTemplates` |
-| 3 | Modelos | Personalizar vs padrão | Diff com `DEFAULT_WHATSAPP_TEMPLATES` | `areTemplatesCustomized` |
-| 4 | `?tab=gatilhos&section=captacao|pos-matricula|rotinas` | `AutomacoesConfigTab` | Ligar/desligar gatilho do grupo | `automationsConfig` persistido |
-| 5 | Gatilhos | Readiness | WhatsApp desconectado | Aviso `computeAutomationReadiness` |
-| 6 | Gatilhos | Sair com dirty | Trocar para Modelos na sidebar | `ConfirmDialog` guard |
-| 7 | `?wizard=1` | Setup wizard | Primeira visita | Passos modelos → WA → gatilhos |
-| 8 | Wizard | Ir WhatsApp | Navigate | `/agente-ia` |
-| 9 | Legado `?tab=processos` | Redirect | `/tarefas?tab=processos` | Toast único (session) |
+| # | Rota | Ação | Resultado |
+|---|---|---|---|
+| 1 | `/automacoes?section=gatilhos` | Abrir hub | Cards com modo + audiência (cron) |
+| 2 | Card cron | Expandir «Para quem» | Multi-select tipo, plano, turma, tenure |
+| 3 | Card | Alterar filtro | Preview «X alunos» (query ativos) |
+| 4 | Card | Audiência 0 | Aviso antes de salvar; permitir «Salvar mesmo assim» |
+| 5 | Card | Salvar audiência | Merge JSON só `audience` |
+| 6 | Card | Toggle | Merge JSON só `active` |
+| 7 | Legado `?tab=gatilhos` | Redirect | `?section=captacao` ou slug equivalente |
 
-### Gatilhos principais (`AUTOMATION_LABELS`)
+---
 
-| Chave | Quando dispara |
-|---|---|
-| `schedule_confirm` | Confirma agendamento experimental |
-| `presence_confirmed` / `missed` | Presença ou falta na aula |
-| `waiting_decision` | Etapa funil «Aguardando decisão» |
-| `followup_d1_attended` | Cron dia seguinte à experimental |
-| `converted` | Matrícula realizada |
-| `schedule_reminder` | Antes da aula |
-| `birthday` | Aniversário do aluno (~9h BRT) |
+## Permissões
+
+| Papel | Ver | Editar gatilhos/modelos/audiência |
+|---|---|---|
+| owner | Sim | Sim |
+| admin | Sim | Sim |
+| member | Sim | Não (audiência read-only) |
 
 ---
 
 ## A — Auditoria operacional
 
-### Pré-condições de dados
+### Checklist
 
-- [ ] Academia com funil e leads ativos
-- [ ] Para envio real: WhatsApp conectado em `/agente-ia`
-- [ ] Owner/admin para editar modelos e gatilhos (`canEditWhatsappTemplates`)
+**Dados**
+- [ ] Auditoria de campos documentada (`type`, `plan`, `turma`, `enrollmentDate`)
+- [ ] Filtros &lt; 80% ocultos na UI
 
-### Permissões por papel
+**Persistência**
+- [ ] Toggle não apaga `audience`; audiência não apaga `active`
+- [ ] Docs sem `audience` → todos os elegíveis
 
-| Papel | Ver Automações | Editar gatilhos/modelos |
-|---|---|---|
-| **owner** | Sim | Sim |
-| **admin** | Sim | Sim (membership team admin) |
-| **member** | Sim | Não (somente leitura em config) |
+**Lógica**
+- [ ] Campo nulo → incluído
+- [ ] `passesAudienceFilter` antes de todo cron com audiência
+- [ ] `retention_automation_anchor` anti-duplicata retenção
 
-### Checklist passo a passo
+**Log**
+- [ ] Exclusão e envio logados; `passed:true` sem envio não logado
 
-1. [ ] `/automacoes?tab=modelos` carrega modelos (section default `captacao`)
-2. [ ] Sidebar navega entre grupos (`?section=`) sem perder estado do wizard
-3. [ ] `?tab=gatilhos` — toggle gatilho persiste após reload
-4. [ ] `?tab=configuracoes` redireciona para `?tab=gatilhos`
-5. [ ] `?tab=processos` redireciona para `/tarefas?tab=processos`
-6. [ ] WhatsApp offline → indicador readiness na aba Gatilhos
-7. [ ] Wizard primeira visita redireciona para aba do passo atual
-8. [ ] Dispensar wizard → `automacoesWizardDismissStorageKey`
-9. [ ] Ack modelos (`navi_automacoes_modelos_ack_{academyId}`) ou template customizado conclui passo do wizard
-10. [ ] Sair da aba config com alterações → confirmação
-11. [ ] `?tab=agente` legacy → redirect `/agente-ia`
-12. [ ] Gatilho `converted` dispara após matrícula (ver [funil-lead-matricula.md](../crm/funil-lead-matricula.md))
-13. [ ] Cron `automations-frequent` processa fila (backend — não duplicar doc API)
-14. [ ] Multi-tenant: config isolada por `academyId`
-15. [ ] Aba Processos com wizard pendente → faixa compacta (não card full)
-16. [ ] Configurações com WhatsApp offline → `StatusBanner` warning + readiness visível com wizard ativo
-17. [ ] P3: compact passo WhatsApp → `/agente-ia` (não Modelos)
-16. [ ] P3: Processos com compact → sem tab intro duplicado
-17. [ ] P3: scope banner dispensável; reabre ao “Ver guia”
-18. [ ] P3: member sem wizard; Modelos agrupados Captação/Rotinas
+**UX**
+- [ ] Preview estimado ao mudar filtro
+- [ ] Label dinâmica com **nomes** (plano/turma removido → «Plano removido»)
+- [ ] Member read-only
 
-### Estados de erro conhecidos
+**Retrocompat**
+- [ ] Nenhum aluno que recebia antes deixa de receber após deploy sem filtros
 
-| Situação | Feedback esperado | Referência |
-|---|---|---|
-| Falha ao salvar | Toast + `lastSaveFailed` | `AutomacoesConfigTab` |
-| Sem permissão editar | Controles desabilitados | `canEditWhatsappTemplates` |
+### Saudável vs regressão
 
-### Critérios de fluxo saudável vs regressão
+**Saudável:** filtro vazio = todos; nulo = incluído; writes independentes; preview antes de salvar.
 
-**Saudável:** Gatilhos default off até ativar; preview de template; wizard não bloqueia power users.
-
-**Regressão:** Envio com gatilho off; template vazio; perda de dirty ao trocar aba sem aviso.
+**Regressão:** excluir por nulo; toggle apaga audiência; label com ID cru; cron timeout; envio fora da audiência.
 
 ---
 
-## B — Roteiro de demonstração em vídeo
+## B — Demo (inalterado em espírito)
 
-**Duração alvo:** 5–6 min
-
-### Dados de demonstração sugeridos
-
-| Entidade | Valor fictício |
-|---|---|
-| Gatilho | Lembrete de aula |
-| Modelo | Texto personalizado com nome `{nome}` |
-
-### Cenas
-
-| Cena | Tela | Narração sugerida | Gancho de valor |
-|---|---|---|---|
-| 1 | Automações | "Aqui separo processo interno de mensagem automática." | Clareza |
-| 2 | Modelos | "Ajusto o texto — o sistema só troca os dados do lead." | Personalização |
-| 3 | Config | "Ligo só o que quero — começo pelo lembrete de aula." | Controle fino |
-| 4 | Funil | "Quando confirmo a experimental, a mensagem sai sozinha." | Menos trabalho manual |
-| 5 | Agente IA | "Sem WhatsApp conectado, nada dispara — por isso o wizard manda lá primeiro." | Dependência clara |
-
-### O que não mostrar
-
-- Cron secrets ou endpoint `/api/cron/`
-- Spam de mensagens em número real
+Modelos → ativar um gatilho com audiência estreita → mostrar preview «N alunos» → evento no funil dispara só para o lead.
 
 ---
 
-## Variações e atalhos
+## Histórico
 
-- **Processos vs WhatsApp:** aba Processos **não envia** WhatsApp; banner `AutomacoesTabIntroBanner` + wizard compacto se WA pendente
-- **Financeiro:** lembretes de mensalidade em `FINANCE_WHATSAPP_REMINDERS_PATH` — não confundir com gatilhos do funil
-- **Menu:** accordion Automações em `naviMenu.js` — Agente IA como filho se `canConfigureAgenteIa`
-- **Relacionado:** [agente-ia-whatsapp.md](agente-ia-whatsapp.md), [conversas-inbox.md](../crm/conversas-inbox.md)
-
----
-
-## Histórico de revisão
-
-| Data | Autor | Mudança |
+| Data | Versão | Mudança |
 |---|---|---|
-| 2026-06-16 | — | UX onboarding P0/P1: scope banner, wizard contextual, ack modelos, readiness |
-| 2026-06-17 | — | P3 clareza: bug compact WA, menos banners, scope dismiss, grupos modelos |
-| 2026-06-16 | — | P2 polish: barra de progresso, passos pill, compact sem gradiente |
+| 2026-06-16 | v1 | Onboarding P0/P1 |
+| 2026-06-17 | v2 | IA restructure P4; grupos modelos/gatilhos |
+| 2026-06-17 | **v3** | Audiência por gatilho cron; log; preview; writes separados; alinhamento campos reais (`type`, `plan`, `turma`, `enrollmentDate`); chaves `absent_student` / `newcomer_at_risk` / `missed` |

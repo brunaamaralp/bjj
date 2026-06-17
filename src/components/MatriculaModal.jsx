@@ -19,6 +19,7 @@ import StudentStatusBadge from './student/StudentStatusBadge.jsx';
 import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
 import { DateInputField } from './DateInput';
 import { friendlyError } from '../lib/errorMessages.js';
+import { useToast } from '../hooks/useToast.js';
 import { useLeadStore } from '../store/useLeadStore.js';
 import { refreshFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 import { validateStudentPaymentTroco } from '../lib/studentPaymentTroco.js';
@@ -58,6 +59,7 @@ export default function MatriculaModal({
   const [paymentError, setPaymentError] = useState('');
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [enrolledStudent, setEnrolledStudent] = useState(false);
+  const toast = useToast();
 
   const hasQuestions = Array.isArray(enrollmentQuestions) && enrollmentQuestions.length > 0;
   const isMobile = useMatchMobile();
@@ -223,6 +225,7 @@ export default function MatriculaModal({
         },
         financeConfig: resolvedFinanceConfig,
         registeredByName,
+        toast,
       });
       onPaymentRegistered?.(doc);
       goToSuccess(resolvedLeadId);

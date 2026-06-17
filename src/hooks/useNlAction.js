@@ -22,6 +22,7 @@ import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js'
 import { sanitizeStudentUpdatesForNl } from '../../lib/studentNlUpdates.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { isPaymentMethodActive } from '../lib/paymentMethodSettings.js';
+import { toastAdapterFromAddToast } from '../lib/financeTxSettlementDisplay.js';
 import { applySettleAccountingSideEffects } from '../lib/financeTxSettle.js';
 import { addLeadEvent } from '../lib/leadEvents';
 import { LEAD_STATUS } from '../lib/leadStatus.js';
@@ -275,6 +276,9 @@ export function useNlAction() {
           registered_by_name: sessionUserName,
           note: d.note != null && String(d.note).trim() ? String(d.note).trim() : 'Registrado via assistente',
           team_id: permissionContext.teamId
+        }, {
+          financeConfig,
+          toast: toastAdapterFromAddToast(addToast),
         });
         if (typeof window !== 'undefined') {
           const refYm = String(doc?.reference_month || ym || '').trim();
@@ -853,6 +857,7 @@ export function useNlAction() {
       waTemplates,
       academyName,
       addToast,
+      financeConfig,
     ]
   );
 

@@ -15,16 +15,17 @@
 
 - [2026-06-15-financeiro-nav-non-owner-PRODUCT.md](../../superpowers/specs/2026-06-15-financeiro-nav-non-owner-PRODUCT.md)
 - [2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md](../../superpowers/specs/2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md)
+- [2026-06-17-formas-recebimento-meios-captura-PRODUCT.md](../../superpowers/specs/2026-06-17-formas-recebimento-meios-captura-PRODUCT.md) — formas ativas + meios de captura (Fase 2)
 
-**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation`
+**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation captureMethods resolveAcquirerFees`
 
-**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/hooks/useFinanceConfigState.js`
+**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/hooks/useFinanceConfigState.js`, `src/components/finance/settings/FinanceSettingsPaymentMethodsSection.jsx`, `src/components/finance/settings/FinanceSettingsCaptureMethodPanel.jsx`, `src/lib/captureMethods.js`, `src/lib/paymentMethodSettings.js`
 
 ---
 
 ## Resumo
 
-O titular (ou admin, em escopo limitado) configura o financeiro em **Minha academia → Financeiro**: planos de mensalidade, contas para recebimento, taxas de cartão, régua de cobrança, lembretes WhatsApp e opcionalmente contratos. Alterações ficam pendentes até **Salvar** na barra fixa inferior.
+O titular (ou admin, em escopo limitado) configura o financeiro em **Minha academia → Financeiro**: planos de mensalidade, contas para recebimento, **formas de recebimento** (PIX, cartão, etc.), **meios de captura** por maquininha/link, taxas de cartão, régua de cobrança, lembretes WhatsApp e opcionalmente contratos. Alterações ficam pendentes até **Salvar** na barra fixa inferior.
 
 O passo de onboarding `setup_finance` aponta para esta tela e considera concluído quando existe ao menos um plano nomeado.
 
@@ -40,11 +41,13 @@ flowchart TD
   role -->|owner| ownerNav[Sidebar: todas as seções]
   ownerNav --> planos[section=planos]
   ownerNav --> receb[section=recebimento]
+  ownerNav --> formas[section=formas-recebimento]
   ownerNav --> taxas[section=taxas]
   ownerNav --> regua[section=regua]
   ownerNav --> wa[section=lembretes-whatsapp]
   planos --> dirty[Alterações pendentes]
   receb --> dirty
+  formas --> dirty
   taxas --> dirty
   regua --> dirty
   wa --> dirty
@@ -61,7 +64,8 @@ flowchart TD
 | 1 | `/empresa?tab=financeiro` | `AcademySettings` + `FinanceiroConfigTab` | Abrir **Minha academia → Financeiro** | Layout sidebar + painel da seção ativa |
 | 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço, repasse de taxas, contratos opcionais |
 | 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; taxas opcionais por conta |
-| 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações | `paymentMethodSettings` |
+| 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações; preview | `paymentMethodSettings` |
+| 3c | `&section=formas-recebimento` (crédito/débito) | `FinanceSettingsCaptureMethodPanel` | CRUD meios de captura; matriz taxa/prazo por parcela | `captureMethods[]` |
 | 4 | `&section=taxas` | `FinanceSettingsFeesSection` | Definir % PIX, débito, crédito, parcelas | `cardFees` atualizado |
 | 5 | `&section=regua` (owner) | `FinanceSettingsCollectionSection` | Etapas e rótulo de atraso | `collectionRules` + `overdueLabel` |
 | 6 | `&section=lembretes-whatsapp` | `FinanceSettingsWhatsappRemindersSection` | Ativar lembretes antes/depois vencimento | `whatsappReminders` |
@@ -99,7 +103,7 @@ flowchart TD
 | Papel | Aba Financeiro (Empresa) | Seções visíveis | Default `?section=` |
 |---|---|---|---|
 | **owner** | Sim | Todas | `planos` |
-| **admin** | Sim | Recebimento, taxas, WhatsApp, exceções | `recebimento` |
+| **admin** | Sim | Recebimento, formas de recebimento, taxas, WhatsApp, exceções | `recebimento` |
 | **member** | Aba desabilitada no `HubTabBar` | — | — |
 
 Deep link `?section=planos` para admin → redirect para primeira seção permitida (`FinanceiroConfigTab` + `useAcademyTabSection`).
@@ -111,7 +115,9 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 3. [ ] Salvar → toast sucesso; plano persiste após reload
 3b. [ ] Plano com nome vazio + Salvar → hint na barra fixa; link **Ir para Planos de mensalidade**; persistência bloqueada
 4. [ ] **Contas bancárias** (`#contas`): adicionar banco/PIX, saldo inicial
-4b. [ ] **Formas de recebimento**: ativar/desativar forma; conta padrão; toggles de automação; coluna OK
+4b. [ ] **Formas de recebimento**: ativar/desativar forma; conta padrão; toggles de automação; preview «Se você registrar hoje»; coluna OK
+4c. [ ] **Meios de captura** (cartão crédito/débito): adicionar meio (nome, canal, conta); matriz 1x–12x ou «usar taxas da conta»
+4d. [ ] Meio com taxas próprias — coluna OK da forma exige meio configurado ou `useDefaultFees`
 4b. [ ] Conta só com agência (sem banco/PIX/conta) → `FieldError` ao aplicar no modal; não some silenciosamente no save global
 5. [ ] **Taxas**: percentuais > 0 marcam progresso (`feesConfigured`)
 6. [ ] **Régua**: customizar etapa ou rótulo de atraso → `collectionRulesConfigured`
@@ -126,7 +132,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 
 1. [ ] Aba Financeiro acessível (não bloqueada)
 2. [ ] Sidebar **sem** planos, régua, contratos, plano de contas, razão
-3. [ ] Default abre em **Recebimento**
+3. [ ] Default abre em **Recebimento**; **Formas de recebimento** editável
 4. [ ] Editar taxas e salvar funciona
 5. [ ] URL `?section=planos` redireciona para seção permitida
 
@@ -158,6 +164,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 | Plano | Mensalidade Adulto — R$ 199 |
 | Conta | Banco Inter · PIX `demo@academia.com.br` |
 | Taxas | PIX 0%, débito 1,5%, crédito 2,5% |
+| Meio captura | Stone presencial — crédito 3x com 30 dias crédito |
 
 ### Cenas
 
@@ -166,6 +173,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 | 1 | Empresa → Financeiro | "Antes de cobrar, configuro o financeiro em um só lugar." | Setup centralizado |
 | 2 | Planos | "Crio o plano com preço — o vencimento fica no cadastro do aluno." | Clareza operacional |
 | 3 | Recebimento | "Cadastro onde o dinheiro cai — PIX e banco nos comprovantes." | Rastreabilidade |
+| 3b | Formas + meios | "Ativo PIX e cartão; cadastro cada maquininha com taxa e prazo de crédito." | Conciliação e previsão corretas |
 | 4 | Taxas | "Se repasso taxa de cartão, defino aqui uma vez." | Menos erro no caixa |
 | 5 | Régua / WhatsApp | "Automatizo lembretes antes e depois do vencimento." | Cobrança proativa |
 | 6 | Salvar | "Tudo fica pendente até eu confirmar — nada salva por engano." | Segurança |
@@ -193,3 +201,4 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2B |
 | 2026-06-16 | — | Validação pré-save, link para seção com erro, conta incompleta no modal Recebimento |
+| 2026-06-17 | — | Fase 2: meios de captura (`captureMethods`), preview na forma, matriz taxas/prazos |

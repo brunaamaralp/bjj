@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=conciliacao` |
 | **pré-requisitos** | Módulo `finance`; contas bancárias; lançamentos liquidados; extrato bancário (OFX/CSV/XLSX/PDF) |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-16 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -105,8 +105,9 @@ flowchart TD
 9. [ ] Valor/direção divergente — mensagem `amount_mismatch` / `direction_mismatch`
 10. [ ] Ignorar linha órfã — some da fila de ação
 10b. [ ] Linha órfã crédito com mensalidade pendente compatível — bloco “Possível mensalidade não registrada” + link para mensalidades com prefill
-10c. [ ] Após registrar pagamento via deep link — banner “volte ao extrato” retorna à conciliação (`?tab=conciliacao&statement=`)
-10d. [ ] Lista órfãos Nave — busca por aluno/valor; filtro Entradas/Saídas; clique abre detalhes do lançamento
+10c. [ ] Registrar pagamento inline (`BankReconRegisterPaymentModal`) — **Recebido via** se cartão com 2+ meios
+10d. [ ] Após registrar pagamento via deep link — banner “volte ao extrato” retorna à conciliação (`?tab=conciliacao&statement=`)
+10e. [ ] Lista órfãos Nave — busca por aluno/valor; filtro Entradas/Saídas; clique abre detalhes do lançamento
 11. [ ] Completar conciliação — status extrato → reconciliado
 12. [ ] Trocar academia — só extratos da academia atual
 
@@ -171,3 +172,4 @@ flowchart TD
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2A |
 | 2026-06-16 | — | Hint `importDisabledReason` no rodapé do modal de import |
+| 2026-06-17 | — | Modal registrar pagamento: «Recebido via» (meios de captura) |

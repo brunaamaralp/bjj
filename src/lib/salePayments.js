@@ -2,6 +2,7 @@ import { paymentLabel } from './salesSettings.js';
 import { formatBRL } from './moneyBr.js';
 import { canonicalPaymentMethodKeyFromInput, PAYMENT_METHODS } from './paymentMethods.js';
 import { listActivePaymentMethods } from './paymentMethodSettings.js';
+import { validateCaptureMethodForSubmit } from './captureMethodPaymentForm.js';
 
 export const MAX_SALE_PAYMENTS = 3;
 
@@ -51,6 +52,7 @@ export function parsePagamentosJson(raw) {
         valor: roundMoney(p?.valor),
         troco: roundMoney(p?.troco || 0),
         forma_troco: p?.forma_troco ? normalizePaymentForma(p.forma_troco) : '',
+        capture_method_id: p?.capture_method_id ? String(p.capture_method_id) : '',
       }))
       .filter((p) => p.forma && Number.isFinite(p.valor) && p.valor >= 0);
   } catch {
@@ -134,6 +136,8 @@ export function serializePagamentosForApi(rows) {
         out.forma_troco = normalizePaymentForma(r.formaTroco || 'pix');
       }
     }
+    const captureId = String(r.capture_method_id || '').trim();
+    if (captureId) out.capture_method_id = captureId;
     return out;
   });
 }
@@ -225,13 +229,24 @@ export function paymentsUiValid(rows, totalCents, opts = {}) {
   if (!rows?.length) return { ok: false, reason: 'empty' };
   if (rows.length > MAX_SALE_PAYMENTS) return { ok: false, reason: 'max' };
 
-  for (const r of rows) {
-    if (!normalizePaymentForma(r.forma)) return { ok: false, reason: 'forma' };
-    if (Math.round(Number(r.valorCents) || 0) <= 0) return { ok: false, reason: 'valor' };
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i];
+    if (!normalizePaymentForma(r.forma)) return { ok: false, reason: 'forma', index: i };
+    if (Math.round(Number(r.valorCents) || 0) <= 0) return { ok: false, reason: 'valor', index: i };
     if (normalizePaymentForma(r.forma) === 'dinheiro') {
       const recebido = Math.round(Number(r.recebidoCents ?? r.valorCents) || 0);
       const valor = Math.round(Number(r.valorCents) || 0);
-      if (recebido < valor) return { ok: false, reason: 'troco_negativo' };
+      if (recebido < valor) return { ok: false, reason: 'troco_negativo', index: i };
+    }
+    if (opts.financeConfig) {
+      const captureMsg = validateCaptureMethodForSubmit(
+        opts.financeConfig,
+        r.forma,
+        r.capture_method_id
+      );
+      if (captureMsg) {
+        return { ok: false, reason: 'capture_method', index: i, message: captureMsg };
+      }
     }
   }
 

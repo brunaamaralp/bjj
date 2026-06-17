@@ -60,10 +60,11 @@ flowchart TD
 | 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, aba **Conversa** / **Histórico** | Dados persistidos; WhatsApp integrado na aba Conversa |
 | 6b | `/lead/:id` | Aba Conversa | WA desconectado | Banner + empty “WhatsApp não conectado” + **Configurar WhatsApp** + **Abrir WhatsApp Web** (manual) → `/agente-ia` |
 | 6c | `/lead/:id` | Aba Conversa | WA offline com histórico | Banner com link **Reconectar** → `/agente-ia`; thread read-only |
-| 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, data, perguntas customizadas |
-| 8 | Modal matrícula | `executeMatricula` | Confirmar | `performEnrollment` cria aluno; lead marcado matriculado |
-| 9 | `/pipeline` | Filtros (período, estágio) | Refinar visualização | Lista/kanban filtrados; contadores atualizados |
-| 10 | `/lead/:id` | Resumo IA (se ativo) | Gerar/atualizar resumo | Cache de histórico exibido no perfil |
+| 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, data, pagamento opcional (`MatriculaPaymentStep`) |
+| 8 | Modal matrícula | Pagamento opcional | Forma + **Recebido via** (cartão) | `registerEnrollmentPayment` com `capture_method_id` |
+| 9 | Modal matrícula | `executeMatricula` | Confirmar | `performEnrollment` cria aluno; lead marcado matriculado |
+| 10 | `/pipeline` | Filtros (período, estágio) | Refinar visualização | Lista/kanban filtrados; contadores atualizados |
+| 11 | `/lead/:id` | Resumo IA (se ativo) | Gerar/atualizar resumo | Cache de histórico exibido no perfil |
 
 ---
 

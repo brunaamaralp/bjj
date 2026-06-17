@@ -13,6 +13,7 @@ import {
   parseCashReceivedAmount,
   defaultTrocoAccount,
 } from './studentPaymentTroco.js';
+import { validateCaptureMethodForSubmit } from './captureMethodPaymentForm.js';
 
 // Backwards-compatible re-export:
 // `MensalidadesPanel.jsx` (and older code) expects this symbol from this module.
@@ -48,6 +49,7 @@ export const MENSALIDADES_PAY_FIELD_IDS = {
   cash_received: 'mensal-pay-cash-received',
   trocoAccount: 'mensal-pay-troco-account',
   account: 'mensal-pay-account',
+  capture_method_id: 'mensal-pay-capture-method',
 };
 
 const MENSALIDADES_ERROR_FOCUS_ORDER = [
@@ -58,6 +60,7 @@ const MENSALIDADES_ERROR_FOCUS_ORDER = [
   'cash_received',
   'trocoAccount',
   'account',
+  'capture_method_id',
 ];
 
 export function resolveMensalidadesPaymentAmount(payForm, student, financeConfig, existingPayment) {
@@ -144,6 +147,13 @@ export function validateMensalidadesPaymentForm({
     errors.account = accountCheck.message;
   }
 
+  const captureErr = validateCaptureMethodForSubmit(
+    financeConfig,
+    payForm?.method,
+    payForm?.capture_method_id
+  );
+  if (captureErr) errors.capture_method_id = captureErr;
+
   return {
     errors,
     amountNum,
@@ -172,6 +182,7 @@ export const STUDENT_PAY_FIELD_IDS = {
   cash_received: 'student-pay-cash-received',
   trocoAccount: 'student-pay-troco-account',
   account: 'student-pay-account',
+  capture_method: 'student-pay-capture-method',
 };
 
 const STUDENT_PAY_ERROR_FOCUS_ORDER = [
@@ -182,6 +193,7 @@ const STUDENT_PAY_ERROR_FOCUS_ORDER = [
   'cash_received',
   'trocoAccount',
   'account',
+  'capture_method_id',
 ];
 
 export function focusFirstStudentPaymentError(errors) {

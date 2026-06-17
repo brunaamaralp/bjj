@@ -1,7 +1,7 @@
 # Formas de recebimento e meios de captura — PRODUCT Spec
 
 **Data:** 2026-06-17  
-**Status:** Proposta — aguardando aprovação  
+**Status:** Fases 1–3 implementadas (2026-06-17); Fases 4–5 pendentes  
 **TECH:** [2026-06-17-formas-recebimento-meios-captura-TECH.md](./2026-06-17-formas-recebimento-meios-captura-TECH.md)  
 **Relacionado:**
 

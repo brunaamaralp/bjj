@@ -2,7 +2,7 @@
 
 **Data:** 2026-06-17  
 **PRODUCT:** [2026-06-17-formas-recebimento-meios-captura-PRODUCT.md](./2026-06-17-formas-recebimento-meios-captura-PRODUCT.md)  
-**Status:** Proposta — aguardando aprovação  
+**Status:** Fases 1–3 implementadas (2026-06-17); Fases 4–5 pendentes  
 
 **Dependências já no código:**
 
@@ -28,7 +28,7 @@
 | Previsão parcelas | `src/lib/installmentSchedule.js` | Cronograma aluno; sem `creditDays` |
 | Persistência | `src/lib/financeConfigStorage.js` | JSON em `academies.financeConfig` (~2500 chars legado) |
 
-**Gap:** não há `captureMethods`, `paymentMethodSettings`, nem resolução meio → taxa/prazo.
+**Gap (2026-06-17):** Fase 2 implementada — `captureMethods`, `paymentMethodSettings`, resolução meio → taxa/prazo. Fases 4–5 (boleto/cheque, PagBank) pendentes.
 
 ---
 
@@ -661,12 +661,14 @@ Default após deploy: `true` para academias novas; migradas no `mergeFinanceConf
 
 ## 15. Checklist de conclusão
 
-- [ ] Seção Formas na sidebar + deep link `?section=formas-recebimento`  
-- [ ] `paymentMethodSettings` persiste e migra legado  
-- [ ] `captureMethods` com taxas e resolução meio → conta → global  
-- [ ] Modais só mostram formas ativas  
-- [ ] “Recebido via” quando N meios > 1  
-- [ ] `creditDays` na previsão (Fase 3)  
-- [ ] Cron liquidação sem novo `/api/*.js`  
-- [ ] Testes verdes no harness §11  
-- [ ] Fluxos `docs/flows/financeiro/*` atualizados por fase  
+- [x] Seção Formas na sidebar + deep link `?section=formas-recebimento`  
+- [x] `paymentMethodSettings` persiste e migra legado  
+- [x] `captureMethods` com taxas e resolução meio → conta → global  
+- [x] Modais só mostram formas ativas  
+- [x] “Recebido via” quando N meios > 1  
+- [x] `creditDays` na previsão (Fase 3)  
+- [x] Cron liquidação sem novo `/api/*.js`  
+- [x] Testes verdes no harness §11  
+- [x] Fluxos `docs/flows/financeiro/*` atualizados por fase  
+- [ ] Boleto/cheque + wizard (Fase 4)  
+- [ ] PagBank integrado (Fase 5)  

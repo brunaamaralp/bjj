@@ -148,13 +148,20 @@ export default function SearchableGroupedSelect({
     setActiveIndex(-1);
   };
 
-  const handleBlur = () => {
+  const keepPanelFocus = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleBlur = (event) => {
+    const related = event.relatedTarget;
     window.setTimeout(() => {
+      if (panelRef.current?.contains(related)) return;
       if (panelRef.current?.contains(document.activeElement)) return;
       setOpen(false);
       setQuery(selectedLabel);
       setActiveIndex(-1);
-    }, 180);
+    }, 0);
   };
 
   const handleKeyDown = (e) => {
@@ -198,6 +205,9 @@ export default function SearchableGroupedSelect({
           className="searchable-grouped-select__panel searchable-grouped-select__panel--portal navi-menu__panel"
           role="listbox"
           style={panelStyle || undefined}
+          onMouseDown={keepPanelFocus}
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
         >
           {[...filteredGroups.entries()].map(([group, items]) => (
             <div key={group} className="searchable-grouped-select__group">
@@ -233,6 +243,9 @@ export default function SearchableGroupedSelect({
           ref={panelRef}
           className="searchable-grouped-select__panel searchable-grouped-select__panel--portal searchable-grouped-select__panel--empty navi-menu__panel"
           style={panelStyle || undefined}
+          onMouseDown={keepPanelFocus}
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
         >
           {emptyMessage}
         </div>
@@ -267,6 +280,11 @@ export default function SearchableGroupedSelect({
             setActiveIndex(0);
           }}
           onFocus={() => {
+            setOpen(true);
+            updatePanelPosition();
+          }}
+          onClick={() => {
+            if (disabled) return;
             setOpen(true);
             updatePanelPosition();
           }}
