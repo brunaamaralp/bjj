@@ -6,26 +6,35 @@ import {
   DropdownMenuPanel,
   DropdownMenuItem,
   DropdownMenuDivider,
+  DropdownMenuLabel,
 } from '../shared/menu';
+import { ATTENDANCE_ABSENCE_SNOOZE_OPTIONS } from '../../../lib/attendanceRetentionCore.js';
 
 function WhatsAppActionButton({ row, waLoading, waSent, rowBusy, onWhatsApp }) {
+  const hasPhone = Boolean(String(row?.phone || '').trim());
+
   return (
-    <button
-      type="button"
-      className={`btn-wa wa-btn wa-btn--icon-only${waLoading ? ' wa-btn--loading' : ''}${waSent ? ' wa-btn--sent' : ''}`}
-      disabled={waSent || rowBusy || !row.phone}
-      title={row.phone ? 'Enviar WhatsApp de reativação' : 'Sem telefone'}
-      aria-label="WhatsApp de reativação"
-      onClick={() => void onWhatsApp(row)}
-    >
-      {waLoading ? (
-        <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
-      ) : waSent ? (
-        <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
-      ) : (
-        <MessageCircle size={14} color="#fff" aria-hidden />
-      )}
-    </button>
+    <>
+      <button
+        type="button"
+        className={`btn-wa wa-btn wa-btn--icon-only${waLoading ? ' wa-btn--loading' : ''}${waSent ? ' wa-btn--sent' : ''}`}
+        disabled={waSent || rowBusy || !hasPhone}
+        title={hasPhone ? 'Enviar WhatsApp de reativação' : 'Sem telefone'}
+        aria-label="WhatsApp de reativação"
+        onClick={() => void onWhatsApp(row)}
+      >
+        {waLoading ? (
+          <Loader2 className="wa-icon wa-icon--spin" size={14} color="#fff" aria-hidden />
+        ) : waSent ? (
+          <Check className="wa-icon" size={14} color="#fff" strokeWidth={2.5} aria-hidden />
+        ) : (
+          <MessageCircle size={14} color="#fff" aria-hidden />
+        )}
+      </button>
+      {!hasPhone && !waSent ? (
+        <span className="attendance-at-risk-no-phone">Sem telefone</span>
+      ) : null}
+    </>
   );
 }
 
@@ -43,6 +52,7 @@ export default function AttendanceAtRiskRowActions({
   onAbsence,
   onMarkContact,
   onDeactivate,
+  onQuickSnooze,
 }) {
   const navigate = useNavigate();
   const sid = String(row.studentId || '');
@@ -130,6 +140,17 @@ export default function AttendanceAtRiskRowActions({
               <DropdownMenuItem disabled={rowBusy} onClick={() => void onMarkContact(row)}>
                 Marcar em contato
               </DropdownMenuItem>
+              <DropdownMenuDivider />
+              <DropdownMenuLabel>Ocultar da fila</DropdownMenuLabel>
+              {ATTENDANCE_ABSENCE_SNOOZE_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  disabled={rowBusy}
+                  onClick={() => void onQuickSnooze(row, opt.value)}
+                >
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuDivider />
               <DropdownMenuItem danger disabled={rowBusy} onClick={() => onDeactivate(row)}>
                 Encerrar matrícula

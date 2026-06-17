@@ -122,6 +122,35 @@
   justify-content: center;
 }
 
+.attendance-at-risk-no-phone {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.attendance-at-risk-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.attendance-at-risk-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 140px;
+}
+
+.attendance-at-risk-filter select {
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .attendance-at-risk-actions__btn {
   display: inline-flex;
   align-items: center;
@@ -149,5 +178,119 @@
 @keyframes attendance-at-risk-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* R-11 — micro-copy KPIs */
+.attendance-at-risk-kpis-hint {
+  margin: -8px 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* R-13 — badge de risco (design system) */
+.attendance-risk-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.attendance-risk-badge--active {
+  background: var(--color-accent-surface, #e1f5ee);
+  color: var(--color-accent-dark, #085041);
+}
+
+.attendance-risk-badge--at_risk {
+  background: var(--warn-bg, #fef3c7);
+  color: var(--warn-text, #b45309);
+}
+
+.attendance-risk-badge--absent {
+  background: var(--danger-bg, #fee2e2);
+  color: var(--danger, #b91c1c);
+}
+
+.attendance-risk-badge--newcomer_at_risk {
+  background: var(--color-primary-surface, #ede9fb);
+  color: var(--color-primary-dark, #4a2fa3);
+}
+
+/* R-14 — modal de ausência */
+.attendance-absence-modal__lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.attendance-absence-reasons {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.attendance-absence-reasons__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attendance-absence-reasons__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.attendance-absence-reasons__option--disabled {
+  cursor: default;
+}
+
+.attendance-absence-snooze {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.attendance-absence-snooze__label,
+.attendance-absence-notes__label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.attendance-absence-snooze select,
+.attendance-absence-notes textarea {
+  width: 100%;
+}
+
+.attendance-absence-notes {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.attendance-absence-notes textarea {
+  resize: vertical;
+}
+
+.attendance-absence-modal__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* R-17 — alvos de toque no mobile */
+@media (max-width: 767px) {
+  .attendance-at-risk-actions--mobile .attendance-at-risk-actions__btn,
+  .attendance-at-risk-actions--mobile .wa-btn {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

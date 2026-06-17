@@ -64,6 +64,7 @@ export default function AutomacoesModelosTab({
   const addToast = useUiStore((s) => s.addToast);
   const {
     leads,
+    activeStudents,
     sampleLeadId,
     setSampleLeadId,
     sampleManual,
@@ -583,6 +584,7 @@ export default function AutomacoesModelosTab({
       <AutomationPreviewLeadPicker
         className="mt-3 animate-in"
         leads={leads}
+        students={activeStudents}
         sampleLeadId={sampleLeadId}
         onSampleLeadIdChange={setSampleLeadId}
         sampleManual={sampleManual}

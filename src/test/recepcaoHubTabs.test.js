@@ -3,7 +3,12 @@ import {
   resolveRecepcaoHubTab,
   buildRecepcaoHubTabItems,
   buildRecepcaoLegacyRedirectPath,
+  buildRecepcaoRetencaoPath,
   isRecepcaoCatracaHistoricoSection,
+  isRecepcaoCatracaRetencaoSection,
+  resolveRecepcaoCatracaSection,
+  RECEPCAO_CATRACA_SECTION_LIVE,
+  RECEPCAO_CATRACA_SECTION_RETENCAO,
   RECEPCAO_TAB_CATRACA,
   RECEPCAO_TAB_EXPERIMENTAIS,
 } from '../lib/recepcaoHubTabs.js';
@@ -32,10 +37,28 @@ describe('recepcaoHubTabs', () => {
     expect(buildRecepcaoLegacyRedirectPath({ historico: true })).toBe(
       '/?tab=catraca&section=historico'
     );
+    expect(buildRecepcaoLegacyRedirectPath({ retencao: true })).toBe(
+      '/?tab=catraca&section=retencao'
+    );
+  });
+
+  it('buildRecepcaoRetencaoPath', () => {
+    expect(buildRecepcaoRetencaoPath()).toBe('/?tab=catraca&section=retencao');
+  });
+
+  it('resolveRecepcaoCatracaSection', () => {
+    expect(resolveRecepcaoCatracaSection('')).toBe(RECEPCAO_CATRACA_SECTION_LIVE);
+    expect(resolveRecepcaoCatracaSection('historico')).toBe('historico');
+    expect(resolveRecepcaoCatracaSection('retencao')).toBe(RECEPCAO_CATRACA_SECTION_RETENCAO);
   });
 
   it('isRecepcaoCatracaHistoricoSection', () => {
     expect(isRecepcaoCatracaHistoricoSection('historico')).toBe(true);
     expect(isRecepcaoCatracaHistoricoSection('ao-vivo')).toBe(false);
+  });
+
+  it('isRecepcaoCatracaRetencaoSection', () => {
+    expect(isRecepcaoCatracaRetencaoSection('retencao')).toBe(true);
+    expect(isRecepcaoCatracaRetencaoSection('historico')).toBe(false);
   });
 });

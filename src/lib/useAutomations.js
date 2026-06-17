@@ -52,13 +52,19 @@ export const AUTOMATION_LABELS = {
     label: 'Aluno sumido',
     description: 'Reativação automática quando o aluno fica muitos dias sem check-in na catraca.',
     triggerWhere: 'Cron diário → varredura de frequência',
+    retentionCycleHint: true,
   },
   newcomer_at_risk: {
     label: 'Novato em risco',
     description: 'Mensagem para alunos matriculados há pouco tempo que pararam de treinar.',
     triggerWhere: 'Cron diário → varredura de frequência',
+    retentionCycleHint: true,
   },
 };
+
+/** Texto de ajuda compartilhado pelos gatilhos de retenção por frequência. */
+export const AUTOMATION_RETENTION_CYCLE_HINT =
+  'Envia no máximo 1 WhatsApp por ciclo de ausência (varredura diária ~9h, horário de Brasília).';
 
 export const AUTOMATION_GROUP_HINTS = {
   captacao: 'Mensagens ligadas ao funil de leads e aulas experimentais.',

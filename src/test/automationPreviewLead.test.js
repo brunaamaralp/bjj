@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   automationPreviewLeadStorageKey,
   AUTOMATION_PREVIEW_FALLBACK_LEAD,
+  AUTOMATION_PREVIEW_FALLBACK_STUDENT,
 } from '../hooks/useAutomationPreviewLead.js';
 
 describe('automationPreviewLead storage', () => {
@@ -30,5 +31,10 @@ describe('automationPreviewLead storage', () => {
   it('fallback lead tem campos esperados', () => {
     expect(AUTOMATION_PREVIEW_FALLBACK_LEAD.name).toBeTruthy();
     expect(AUTOMATION_PREVIEW_FALLBACK_LEAD.scheduledDate).toBeTruthy();
+  });
+
+  it('fallback student para retenção', () => {
+    expect(AUTOMATION_PREVIEW_FALLBACK_STUDENT.name).toBe('Aluno Exemplo');
+    expect(AUTOMATION_PREVIEW_FALLBACK_STUDENT.phone).toBeTruthy();
   });
 });

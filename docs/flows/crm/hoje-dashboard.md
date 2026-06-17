@@ -5,7 +5,8 @@
 | **id** | `crm.recepcao.mesa` |
 | **módulo** | CRM |
 | **personas** | recepcionista, owner, instrutor |
-| **rotas** | `/` (`?tab=experimentais` default, `?tab=catraca`, `?tab=catraca&section=historico`) |
+| **rotas** | `/` (default = aba Experimentais), `/?tab=catraca`, `/?tab=catraca&section=historico`, `/?tab=catraca&section=retencao` |
+| **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico`; `?retornos=1` ou `?tab=retornos` → Experimentais + scroll para follow-ups; `#follow-ups` → scroll na aba Experimentais |
 | **pré-requisitos** | Usuário autenticado; academia selecionada; módulo CRM ativo |
 | **status** | revisado (código); staging pendente |
 | **última revisão** | 2026-06-17 |
@@ -14,10 +15,12 @@
 **Specs relacionadas:**
 
 - [2026-06-17-recepcao-navegacao-PRODUCT.md](../../superpowers/specs/2026-06-17-recepcao-navegacao-PRODUCT.md) — hub Recepção e navegação
-- [2026-06-10-dashboard-retornos-row-design.md](../../superpowers/specs/2026-06-10-dashboard-retornos-row-design.md) — aniversários e retornos
+- [2026-06-10-dashboard-retornos-row-design.md](../../superpowers/specs/2026-06-10-dashboard-retornos-row-design.md) — lista e saúde de follow-ups (spec histórica; UI usa «follow-up»)
 - [2026-06-10-followup-experimental-design.md](../../superpowers/specs/2026-06-10-followup-experimental-design.md) — follow-up e outcomes
 
-**Harness relacionado:** — (sem harness dedicado; lógica em `src/lib/dashboardDayBriefing.js`, `src/lib/followupState.js`, `src/lib/recepcaoHubTabs.js`)
+**Fluxo relacionado:** [recepcao-controlid.md](recepcao-controlid.md) — detalhe da aba **Catraca** (Control iD, histórico, retenção)
+
+**Harness relacionado:** `src/test/recepcaoHubTabs.test.js`, `src/test/dashboardDayBriefing.test.js`; lógica em `src/lib/dashboardDayBriefing.js`, `src/lib/followupState.js`, `src/lib/recepcaoHubTabs.js`, `src/lib/dashboardReceptionCopy.js`
 
 **Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`
 
@@ -25,7 +28,14 @@
 
 ## Resumo
 
-A página **Recepção** (`/`) é a mesa do dia com duas abas: **Experimentais** (agenda, retornos, aniversários, KPIs enxutos) e **Catraca** (feed ao vivo Control iD + histórico). Rotas legadas `/recepcao`, `/presenca` e `?retornos=1` redirecionam para os destinos canônicos.
+A página **Recepção** (`/`) é a mesa do dia com duas abas via `HubTabBar`:
+
+1. **Experimentais** (default, sem `?tab`) — hero com 4 KPIs, **alerta de retenção** (quando há alunos em risco), agenda da semana, lista **Follow-ups pendentes**, painel **Saúde dos follow-ups** (quando há dados), aniversários.
+2. **Catraca** (`?tab=catraca`) — sub-abas Ao vivo, Histórico (`?section=historico`) e **Retenção** (`?section=retencao`). Ver [recepcao-controlid.md](recepcao-controlid.md).
+
+Rotas legadas redirecionam para os destinos canônicos acima.
+
+**Terminologia na UI:** follow-up (não «retorno»). URLs legadas `?retornos=1` permanecem por compatibilidade.
 
 ---
 
@@ -34,22 +44,29 @@ A página **Recepção** (`/`) é a mesa do dia com duas abas: **Experimentais**
 ```mermaid
 flowchart TD
   login[Login + academia selecionada] --> recepcao["/ — Recepção"]
-  recepcao --> tabExp["?tab=experimentais (default)"]
-  recepcao --> tabCat["?tab=catraca"]
-  tabExp --> kpi[KPIs: experimentais, matrículas, follow-ups e tarefas]
+  recepcao --> hub[HubTabBar Experimentais / Catraca]
+  hub --> tabExp["Aba Experimentais (default)"]
+  hub --> tabCat["?tab=catraca"]
+  tabExp --> hero[Hero: data + resumo + prioridade do dia]
+  tabExp --> kpi[4 KPIs clicáveis]
+  kpi --> kpiToday[Aulas hoje → agenda da semana]
+  kpi --> kpiEnroll[Matrículas no mês → /reports?tab=funil]
+  kpi --> kpiFu[Follow-ups pendentes → lista #follow-ups]
+  kpi --> kpiTasks[Tarefas → /tarefas?status=pendentes&period=today]
   tabExp --> agenda[Agenda da semana]
-  tabExp --> followup[Retornos pendentes]
+  agenda --> attended[Compareceu na experimental]
+  agenda --> missed[Faltou na experimental]
+  tabExp --> followup[Lista Follow-ups pendentes]
+  followup --> outcome[Concluir follow-up → FollowupOutcomeDialog]
+  followup --> whatsapp[WhatsApp template]
+  followup --> profile[Perfil do lead]
+  tabExp --> health[Saúde dos follow-ups]
   tabExp --> birthday[Banner aniversários]
-  tabCat --> live[Feed ao vivo]
-  tabCat --> hist["?section=historico"]
-  followup --> attended[Marcar compareceu]
-  followup --> missed[Marcar faltou]
-  followup --> whatsapp[Enviar WhatsApp]
-  followup --> profile[Abrir perfil do lead]
-  attended --> outcome[FollowupOutcomeDialog]
-  missed --> outcome
   birthday --> birthdayModal[Modal parabenizar]
   birthdayModal --> whatsappBirthday[Template WhatsApp]
+  tabCat --> live[Feed ao vivo / empty state]
+  tabCat --> hist["?section=historico"]
+  tabCat --> gate[Liberar catraca no header]
 ```
 
 ---
@@ -58,18 +75,32 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/` | `Dashboard.jsx` | Abrir app (item **Recepção** na sidebar) | Abas **Experimentais** (default) e **Catraca** |
-| 2 | `/` | `DashboardHeroKpi` | Clicar KPI | Aulas hoje → agenda; Matrículas no mês → `/reports?tab=funil`; Follow-ups pendentes → lista de follow-ups; Tarefas → `/tarefas?status=pendentes&period=today` |
-| 3 | `/` | Lista **Retornos pendentes** | **Concluir retorno** (ícone ✓) | `FollowupOutcomeDialog` abre; após confirmar, lead atualiza/some da lista |
-| 4 | `/` | `DashboardAgendaWeekPanel` | **Compareceu** / **Faltou** na aula do dia | Registro direto (`markLeadAttended` / `markLeadMissed`); toast de sucesso |
-| 5 | `/` | `FollowupCopilotButtons` | Escolher ação sugerida (WhatsApp, remarcar, etc.) | Ação correspondente (template, estágio, perfil) |
-| 6 | `/` | Card de lead (retornos ou agenda) | Clicar nome | Navega para `/lead/:id`; voltar retorna à Recepção (`LEAD_PROFILE_FROM_DASHBOARD`) |
-| 7 | `/` | `DashboardAgendaWeekPanel` | Navegar semanas / ver colunas por dia | Agenda por dia com experimentais agendadas |
-| 8 | `/` | KPI **Tarefas** | Clicar no indicador | Abre `/tarefas?status=pendentes&period=today` (conclusão na página Tarefas) |
-| 9 | `/` | `DashboardBirthdayBanner` | Clicar **Parabenizar** | `DashboardBirthdayModal` com alunos aniversariantes |
-| 10 | `/` | Modal aniversário | Enviar template WhatsApp | Mensagem outbound; toast de sucesso ou erro amigável |
-| 11 | `/` | Botão **Novo lead** (header/empty) | Criar lead rápido | `NewLeadModal` global abre |
-| 12 | `/?tab=catraca` | `RecepcaoCatracaTab` | **Liberar catraca** (header) / Ao vivo / Histórico | Feed Control iD; `?section=historico` para presenças passadas |
+| 1 | `/` | `Dashboard.jsx` + `HubTabBar` | Abrir **Recepção** (sidebar / bottom nav) | Abas **Experimentais** (default) e **Catraca**; badge na aba Experimentais quando há follow-ups abertos |
+| 2 | `/` | Hero | Ler resumo / prioridade | Linha de data, `buildDaySummaryLine`, banner «Ver agora» quando há aula iminente ou follow-ups prioritários |
+| 3 | `/` | `DashboardHeroKpi` | Clicar **Aulas experimentais hoje** | Rola para `DashboardAgendaWeekPanel` (mobile: expande semana se necessário) |
+| 4 | `/` | `DashboardHeroKpi` | Clicar **Matrículas no mês** | Navega para `/reports?tab=funil` |
+| 5 | `/` | `DashboardHeroKpi` | Clicar **Follow-ups pendentes** | Rola para lista `#follow-ups` (mobile: expande painel colapsável) |
+| 6 | `/` | `DashboardHeroKpi` | Clicar **Tarefas** | Navega para `/tarefas?status=pendentes&period=today` |
+| 7 | `/` | Lista **Follow-ups pendentes** | **Concluir follow-up** (ícone ✓) | `FollowupOutcomeDialog` abre; após confirmar, lead atualiza/some da lista |
+| 8 | `/` | `FollowupCopilotButtons` | Ação sugerida (WhatsApp, remarcar, etc.) | Template, estágio ou perfil conforme playbook |
+| 9 | `/` | `DashboardAgendaWeekPanel` | **Compareceu** / **Faltou** na aula do dia | `markLeadAttended` / `markLeadMissed`; toast; **sem** `FollowupOutcomeDialog` |
+| 10 | `/` | Card de lead (follow-ups ou agenda) | Clicar nome | `/lead/:id` com `LEAD_PROFILE_FROM_DASHBOARD`; voltar retorna à Recepção |
+| 11 | `/` | `FollowupHealthPanel` | Ver temperaturas / D+1 | Pills em dia · esfriando · crítico; barra «Follow-up no dia seguinte»; links para leads em atenção |
+| 12 | `/` | `DashboardBirthdayBanner` | **Parabenizar** | `DashboardBirthdayModal` + template WhatsApp |
+| 13 | `/` | Header | **Novo lead** | `NewLeadModal` global |
+| 14 | `/` (zero state) | Welcome card | **Adicionar primeiro lead** | Modal de novo lead ou link para funil |
+| 15 | `/?tab=catraca` | `RecepcaoCatracaTab` | Ao vivo / Histórico / Liberar catraca | Ver [recepcao-controlid.md](recepcao-controlid.md) |
+| 16 | Aliases | `Recepcao.jsx`, `Attendance.jsx` | `/recepcao`, `/presenca`, `?retornos=1` | Redirect canônico sem perder intenção (catraca, histórico ou scroll follow-ups) |
+
+### Contagens (evitar confusão na auditoria)
+
+| Indicador | O que conta |
+|---|---|
+| KPI **Follow-ups pendentes** | Leads na lista com **contato ainda pendente** no ciclo (`followUpsNeedingContact` — sem WhatsApp/resposta no ciclo) |
+| Badge da lista / aba Experimentais | Total de follow-ups **abertos** na janela da agenda (`followUps.length`, até `FOLLOWUP_AGENDA_MAX_DAYS` dias) |
+| Chip mobile (≤767px) | Mesmo total da lista (`followUps.length`) |
+
+O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que já receberam contato no ciclo.
 
 ---
 
@@ -78,25 +109,36 @@ flowchart TD
 ### Pré-condições de dados
 
 - [ ] Pelo menos uma academia no contexto do usuário
-- [ ] Para follow-ups: leads em estágio de retorno/experimental com datas de agenda configuradas
+- [ ] Para follow-ups: leads com status compareceu/faltou na experimental e data da aula dentro da janela (`FOLLOWUP_AGENDA_MAX_DAYS`)
+- [ ] Para KPI matrículas: alunos/leads com data de ingresso no mês (API `fetchStudentMetricsForRange` com fallback local)
 - [ ] Para aniversários: alunos ativos com data de nascimento preenchida
 - [ ] Para WhatsApp: integração Zapster conectada (templates em Minha academia)
-- [ ] Para catraca: integração Control iD configurada em `/integracoes`
+- [ ] Para catraca: integração Control iD ou coleção de presença manual — ver [recepcao-controlid.md](recepcao-controlid.md)
 
-### Checklist passo a passo
+### Checklist passo a passo — aba Experimentais
 
-1. [ ] Acessar `/` logado — página carrega sem `ErrorBanner` persistente
-2. [ ] Hero exibe linha de data e KPIs (aulas hoje, matrículas no mês, follow-ups pendentes e tarefas)
-3. [ ] Lista **Retornos pendentes** mostra leads que precisam de contato (badge de temperatura quando aplicável)
-4. [ ] Clicar **Concluir retorno** (✓) em um retorno — `FollowupOutcomeDialog` abre; após confirmar, lead some da lista ou atualiza estado
-5. [ ] Na **Agenda da semana**, marcar **Compareceu** ou **Faltou** — toast de sucesso; lead atualiza estágio (sem dialog de outcome)
-5b. [ ] **Mobile (≤767px):** painel inicia em **Hoje** (só coluna do dia); **Ver semana** expande grade seg–sáb; cabeçalho recolhe de volta para Hoje
-6. [ ] Enviar WhatsApp no retorno (botão WA) — toast de sucesso ou erro amigável
-7. [ ] Clicar no nome do lead — navega para `/lead/:id`; voltar retorna à Recepção
-8. [ ] Painel de agenda da semana lista eventos (até `FOLLOWUP_AGENDA_MAX_DAYS` dias)
-9. [ ] KPI **Tarefas** com pendências — clique leva a `/tarefas?status=pendentes&period=today`
-10. [ ] Se houver aniversariantes: banner visível; modal lista nomes corretos
-11. [ ] Trocar de academia no menu do usuário — KPIs e listas refletem só dados da nova academia
+1. [ ] Acessar `/` logado — sem `ErrorBanner` persistente; título **Recepção**; subtítulo «Recepção e follow-ups do dia»
+2. [ ] Hero exibe **4 KPIs**: aulas hoje, matrículas no mês, follow-ups pendentes, tarefas
+3. [ ] KPI **Matrículas no mês** — clique abre `/reports?tab=funil`
+4. [ ] KPI **Follow-ups pendentes** — clique rola até a lista; KPI ≤ badge da lista quando há contatos já feitos no ciclo
+5. [ ] Lista **Follow-ups pendentes** — grupos por temperatura; badge no título = total aberto
+6. [ ] **Concluir follow-up** (✓) abre `FollowupOutcomeDialog`; após confirmar, lead some ou atualiza
+7. [ ] **Agenda da semana** — Compareceu/Faltou registra presença **sem** dialog de outcome
+8. [ ] **Mobile (≤767px):** agenda inicia em **Hoje**; **Ver semana** expande; chip de follow-ups quando `followUps.length > 0`; painel follow-ups colapsável
+9. [ ] WhatsApp no follow-up — toast sucesso ou `friendlyError`
+10. [ ] Nome do lead → `/lead/:id` → voltar à Recepção
+11. [ ] **Saúde dos follow-ups** visível quando há métricas (temperatura ou D+1)
+12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
+13. [ ] Aniversariantes: banner + modal + template
+14. [ ] Trocar academia — KPIs e listas refletem só a nova academia
+15. [ ] Com presença configurada e alunos em risco — banner **«X alunos em risco»** com link para `/?tab=catraca&section=retencao`
+
+### Checklist passo a passo — aba Catraca
+
+16. [ ] `/?tab=catraca` — empty state com link para Integrações se sem Control iD nem presença manual
+17. [ ] Com integração: sub-abas **Ao vivo**, **Histórico** (`?section=historico`) e **Retenção** (`?section=retencao`)
+18. [ ] **Liberar catraca** no header (só nesta aba, com Control iD ativo)
+19. [ ] `/recepcao` e `/presenca` redirecionam para destinos canônicos
 
 ### Estados de erro conhecidos
 
@@ -104,7 +146,8 @@ flowchart TD
 |---|---|---|
 | Falha ao carregar leads/tarefas | `ErrorBanner` com retry | [docs/ux-feedback.md](../ux-feedback.md) |
 | WhatsApp desconectado | Erro amigável no envio de template | `friendlyError` |
-| Control iD indisponível | Mensagem na ação de catraca | `controlidApi.js` |
+| Control iD indisponível | Status offline / empty state na aba Catraca | `controlidApi.js`, `RecepcaoCatracaTab` |
+| API indisponível em dev (`vite` sem `vercel dev`) | Tarefas: mensagem `api_proxy_unavailable` | `vite.config.js`, `useTaskStore` |
 
 ### Permissões e multi-tenant
 
@@ -113,9 +156,9 @@ flowchart TD
 
 ### Critérios de fluxo saudável vs regressão
 
-**Saudável:** KPIs coerentes com filtros do dia; follow-ups não reaparecem após outcome registrado; toasts em ações destrutivas/transitórias.
+**Saudável:** 4 KPIs coerentes; follow-ups não reaparecem após outcome; compareceu/faltou só na agenda; toasts em ações transitórias; aliases legados redirecionam.
 
-**Regressão:** Lista vazia com leads elegíveis; KPI zerado com dados existentes; envio WhatsApp sem feedback; vazamento de leads de outra academia após switch.
+**Regressão:** Lista vazia com leads elegíveis; KPI matrículas zerado com ingressos no mês; KPI follow-up desalinhado com lista vazia; envio WhatsApp sem feedback; vazamento entre academias; aba Catraca sem redirect de `/recepcao`.
 
 ---
 
@@ -135,13 +178,14 @@ flowchart TD
 
 | Cena | Tela | Narração sugerida | Gancho de valor |
 |---|---|---|---|
-| 1 | Login → Hoje | "O dia da recepção começa aqui: em um olhar você vê o que precisa de atenção hoje." | Centralização da operação |
-| 2 | Hero KPIs | "Quantos follow-ups, quantas aulas na agenda, quantas matrículas no mês — sem abrir cinco telas." | Visibilidade imediata |
-| 3 | Retornos | "Depois da experimental, os retornos aparecem aqui. Concluo o contato num dialog — ou mando WhatsApp com um clique." | Velocidade no pós-aula |
+| 1 | Login → Recepção | "O dia da recepção começa aqui: em um olhar você vê o que precisa de atenção hoje." | Centralização da operação |
+| 2 | Hero KPIs | "Experimentais hoje, matrículas do mês, follow-ups e tarefas — sem abrir cinco telas." | Visibilidade imediata |
+| 3 | Follow-ups | "Depois da experimental, os follow-ups aparecem aqui. Concluo num dialog ou mando WhatsApp com um clique." | Velocidade no pós-aula |
 | 3b | Agenda semana | "Na agenda, registro compareceu ou faltou na hora da aula." | Registro na recepção |
-| 4 | Agenda semana | "A semana inteira de experimentais num painel — nada passa batido." | Planejamento |
-| 5 | Aniversário | "O Nave avisa quem faz aniversário e já sugere mensagem personalizada." | Relacionamento |
-| 6 | Novo lead | "Precisa cadastrar alguém que chegou na porta? Novo lead sem sair da home." | Captura rápida |
+| 4 | Saúde follow-ups | "Vejo quem está esfriando antes de perder o lead." | Gestão proativa |
+| 5 | Aniversário | "O Nave avisa quem faz aniversário e sugere mensagem." | Relacionamento |
+| 6 | Novo lead | "Cadastro rápido sem sair da recepção." | Captura na porta |
+| 7 | Aba Catraca | "Na mesma tela, a catraca ao vivo quando a academia usa Control iD." | Operação unificada |
 
 ### O que não mostrar
 
@@ -154,10 +198,11 @@ flowchart TD
 
 ## Variações e atalhos
 
-- **Mobile:** bottom nav com **Hoje** como primeira aba; layout responsivo em `dashboard.css`
-- **NL command bar:** contexto de página registrado via `useNlPageContext` — comandos em linguagem natural podem acionar ações do dashboard
-- **Novo lead:** atalho global na sidebar (`dispatchOpenNewLeadModal`) e FAB no mobile
-- **Recepção ao vivo:** fluxo relacionado em `/recepcao` (catraca/presença em tempo real), não substitui o Hoje
+- **Mobile:** bottom nav — primeiro slot **Recepção** (`/`); layout em `dashboard.css`
+- **NL command bar:** `useNlPageContext` registra contexto da página
+- **Novo lead:** header, empty state e FAB mobile (`dispatchOpenNewLeadModal`)
+- **Catraca:** rota canônica `/?tab=catraca`; setup em `/integracoes?tab=catraca` — [recepcao-controlid.md](recepcao-controlid.md)
+- **Proativo (hub):** `proactiveHub.js` linka follow-ups com `/?retornos=1` (alias legado)
 
 ---
 
@@ -166,4 +211,6 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação inicial |
-| 2026-06-15 | — | Validação código: retornos vs agenda; KPI tarefas |
+| 2026-06-15 | — | Validação código: follow-ups vs agenda; KPI tarefas |
+| 2026-06-17 | — | Hub Recepção (abas Experimentais/Catraca); redirects legados |
+| 2026-06-17 | — | KPIs restaurados (matrículas, follow-ups, tarefas); terminologia «follow-up»; diagrama e contagens documentadas |

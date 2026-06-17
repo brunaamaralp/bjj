@@ -116,6 +116,22 @@
   }
 }
 
+.student-freq-risk-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.student-freq-risk-summary__meta {
+  color: var(--text-secondary);
+}
+
 /* —— Student Profile Header —— */
 .student-profile-hd {
   display: flex;

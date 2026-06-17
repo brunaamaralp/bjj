@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ATTENDANCE_RISK_STATUS,
+  ATTENDANCE_RETENTION_EVENT_TYPES,
   aggregateLastCheckinByStudent,
   buildStudentRetentionMetrics,
   classifyAttendanceRisk,
@@ -8,6 +9,8 @@ import {
   isAtRiskTableStatus,
   isRetentionEligibleStudent,
   summarizeAttendanceRetention,
+  retentionSnoozeUntilYmd,
+  DEFAULT_ATTENDANCE_ABSENCE_SNOOZE_DAYS,
 } from '../../../lib/attendanceRetentionCore.js';
 
 const TODAY = new Date('2026-06-17T15:00:00');
@@ -156,6 +159,23 @@ describe('attendanceRetentionCore', () => {
       expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.ABSENT)).toBe(true);
       expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.NEWCOMER_AT_RISK)).toBe(true);
       expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.ACTIVE)).toBe(false);
+    });
+  });
+
+  describe('retentionSnoozeUntilYmd', () => {
+    it('usa 14 dias por padrão', () => {
+      expect(retentionSnoozeUntilYmd(undefined, TODAY)).toBe('2026-07-01');
+    });
+
+    it('respeita duração informada', () => {
+      expect(retentionSnoozeUntilYmd(7, TODAY)).toBe('2026-06-24');
+      expect(retentionSnoozeUntilYmd(30, TODAY)).toBe('2026-07-17');
+    });
+  });
+
+  describe('ATTENDANCE_RETENTION_EVENT_TYPES', () => {
+    it('inclui snooze rápido sem motivo', () => {
+      expect(ATTENDANCE_RETENTION_EVENT_TYPES.SNOOZE).toBe('attendance_snooze');
     });
   });
 });

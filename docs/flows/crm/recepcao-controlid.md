@@ -5,7 +5,8 @@
 | **id** | `crm.recepcao.controlid` |
 | **módulo** | CRM / Operação |
 | **personas** | recepcionista, owner, admin |
-| **rotas** | `/recepcao`, `/recepcao?tab=historico`, `/integracoes?tab=catraca` (setup) |
+| **rotas** | `/?tab=catraca` (ao vivo), `/?tab=catraca&section=historico`, `/?tab=catraca&section=retencao`, `/integracoes?tab=catraca` (setup) |
+| **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico` |
 | **pré-requisitos** | Academia com alunos; hardware Control iD na rede local; servidor/ponte na recepção (quando aplicável) |
 | **status** | revisado (código) |
 | **última revisão** | 2026-06-17 |
@@ -23,7 +24,7 @@
 
 ## Resumo
 
-A **Recepção** é a tela operacional para o dia a dia na porta da academia: feed **ao vivo** de entradas pela catraca Control iD, **liberação manual** da porta e **histórico** filtrável. A configuração do equipamento fica em **Integrações → Catraca**; o modo recepção em `/recepcao` é o caminho canônico para presença (preferir em relação a `/students?view=presenca` no hub embutido).
+A aba **Catraca** da **Recepção** (`/?tab=catraca`) é a tela operacional na porta: feed **ao vivo** Control iD, **liberação manual** e **histórico** filtrável. Configuração em **Integrações → Catraca**. Fluxo pai: [hoje-dashboard.md](hoje-dashboard.md).
 
 ---
 
@@ -34,12 +35,12 @@ flowchart TD
   setup[Integrações → Catraca] --> test[Testar conexão IP/credenciais]
   test --> save[Salvar config enabled]
   save --> sync[Sincronizar alunos na catraca]
-  sync --> recepcao["/recepcao — Ao vivo"]
+  sync --> recepcao["/?tab=catraca — Ao vivo"]
   recepcao --> poll[Poll monitor a cada N seg]
   poll --> event[Evento de acesso]
   event --> attendance[Grava presença + timeline lead]
   recepcao --> manual[Liberar catraca manual]
-  recepcao --> hist["?tab=historico"]
+  recepcao --> hist["?section=historico"]
   hist --> filters[Filtro hoje/semana/mês]
 ```
 
@@ -52,24 +53,25 @@ flowchart TD
 | 1 | `/integracoes?tab=catraca` | `Integracoes` + `ControlIdCatracaSection` | Ativar integração | Sidebar Integrações; checkbox «Integração ativa» |
 | 2 | Catraca | Testar conexão | IP, porta, usuário, senha | Lista de portais; toast sucesso |
 | 3 | Catraca | Salvar | `saveControlIdConfig` | Config persistida por academia |
-| 4 | `/recepcao` | `Recepcao` | Abrir recepção | Aba default **Ao vivo** |
+| 4 | `/?tab=catraca` | `RecepcaoCatracaTab` | Abrir aba Catraca na Recepção | Sub-abas **Ao vivo** (default) e **Histórico** |
 | 5 | Ao vivo | `RecepcaoLivePanel` | Ver status dispositivo | Online / offline / não configurado |
-| 6 | Ao vivo | **Liberar catraca** | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed com resumo do motivo |
+| 6 | Ao vivo | **Liberar catraca** (header em `Dashboard.jsx` ou painel) | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed |
 | 7 | Ao vivo | Feed entradas hoje | Poll automático | Novos registros com hora e link ao perfil |
-| 8 | `?tab=historico` | `ControlIdAttendancePanel` | Trocar período | Hoje, 7 dias, 30 dias, etc. |
-| 8b | Catraca (final) | `AttendanceAtRiskSection` | Ver alunos sumidos / em risco | KPIs + tabela; WhatsApp, ausência, em contato, desligar |
+| 8 | `?section=historico` | `ControlIdAttendancePanel` | Trocar período | Hoje, 7 dias, 30 dias, etc. |
+| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Ver retenção por frequência / alunos em risco | KPIs + tabela; filtros turma/faixa; `?tab=catraca&section=retencao` |
 | 8c | Catraca (sem Control iD) | `AttendanceAtRiskSection` | Presença só manual (`VITE_APPWRITE_ATTENDANCE_COL_ID`) | Banner info + fila de retenção; feed ao vivo indisponível |
 | 9 | Histórico | Atualizar / sync | `syncAllControlId` | Toast com contagem sincronizada |
 | 10 | Histórico | Liberar catraca | Mesmo endpoint de release | Liberação remota |
-| 11 | `/` Hoje | Atalho catraca (se configurado) | Liberar catraca + motivo | `ControlIdReleaseDialog` + release |
+| 11 | `/` Recepção | Botão **Liberar catraca** no header | Só visível na aba `?tab=catraca` com integração ativa | `ConfirmDialog` + `releaseControlIdGate` |
 | 12 | `/student/:id` | Foto Control iD | Sincronizar rosto | `StudentControlIdPhoto` quando integração ativa |
 
-### Abas da recepção
+### Abas da catraca (`RecepcaoCatracaTab`)
 
-| Tab | Conteúdo |
-|---|---|
-| `ao-vivo` (default) | Status, liberar porta, feed do dia |
-| `historico` | Lista agrupada por data, filtros, sync em massa |
+| Sub-aba | Query | Conteúdo |
+|---|---|---|
+| Ao vivo (default) | `/?tab=catraca` | Status, liberar porta, feed do dia |
+| Histórico | `/?tab=catraca&section=historico` | Lista agrupada por data, filtros, sync em massa |
+| Retenção | `/?tab=catraca&section=retencao` | Fila de retenção por frequência; filtros `ret_turma` / `ret_belt` na URL |
 
 ---
 
@@ -106,7 +108,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 ### Checklist passo a passo — operação diária
 
-1. [ ] Abrir `/recepcao` (voltar para Alunos via link no topo)
+1. [ ] Abrir `/?tab=catraca` na Recepção (ou `/recepcao`, que redireciona)
 2. [ ] Status **Online** com IP visível quando polling OK
 3. [ ] Entrada na catraca aparece no feed em até um ciclo de poll (~intervalo configurado no painel)
 4. [ ] **Liberar catraca** habilitado só com integração configurada; exige motivo (3–500 caracteres)
@@ -119,7 +121,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 | Situação | Feedback esperado | Referência |
 |---|---|---|
 | Catraca não configurada | Botão liberar desabilitado; link para Integrações | `RecepcaoLivePanel` → `/integracoes?tab=catraca` |
-| Presença manual sem Control iD | Banner info no topo; **Alunos sumidos** visível se `ATTENDANCE_COL` configurado | `RecepcaoCatracaTab` |
+| Presença manual sem Control iD | Banner info no topo; **Retenção por frequência** visível se `ATTENDANCE_COL` configurado | `RecepcaoCatracaTab` |
 | Poll falha | Status **Offline** | `deviceOnline = false` |
 | Sync parcial | Toast warning com `failed` | `syncAllControlId` |
 | Release falha | Toast erro `friendlyError` | `useToast` |
@@ -152,7 +154,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 | Cena | Tela | Narração sugerida | Gancho de valor |
 |---|---|---|---|
 | 1 | Integrações → Catraca | "Conectamos o Control iD uma vez; IP e portal salvos por academia." | Setup único |
-| 2 | `/recepcao` Ao vivo | "Na recepção, o feed mostra quem entrou hoje em tempo real." | Operação visual |
+| 2 | `/?tab=catraca` Ao vivo | "Na recepção, a aba Catraca mostra quem entrou hoje em tempo real." | Operação visual |
 | 3 | Liberar catraca | "Visitante ou entrega? Um toque libera a porta." | Flexibilidade |
 | 4 | Perfil aluno | "Cada entrada alimenta o histórico de presença do aluno." | CRM integrado |
 | 5 | Histórico | "Filtro por semana para conferência de frequência." | Gestão |
@@ -167,9 +169,9 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 ## Variações e atalhos
 
-- **Hoje:** botão «Liberar catraca» no dashboard quando integração habilitada (carregamento adiado do status)
-- **Alunos:** `ControlIdAttendancePanel` em `view=presenca` com link «Modo recepção» → `/recepcao`
-- **Legado:** `/presenca` redireciona; preferir `/recepcao`
+- **Recepção:** botão «Liberar catraca» no header **somente** na aba `?tab=catraca` (`controlIdCfg.enabled && isCatracaTab`)
+- **Alunos:** `ControlIdAttendancePanel` em `view=presenca` com link «Modo recepção» → `/?tab=catraca`
+- **Legado:** `/recepcao` → `/?tab=catraca`; `/presenca` → histórico canônico
 - **Dev:** `VITE_CONTROLID_API_BASE` aponta para ponte local
 - **API:** rotas via `api/leads?route=controlid_*` e `GET /api/control-id/status`
 
@@ -179,7 +181,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 | Data | Autor | Mudança |
 |---|---|---|
-| 2026-06-17 | — | Spec PRODUCT/TECH marcados implementados; VALIDATION F1–F4 |
+| 2026-06-17 | — | Rotas canônicas `/?tab=catraca`; alinhado ao hub Recepção em [hoje-dashboard.md](hoje-dashboard.md) |
 | 2026-06-17 | — | P2: seções na config, badge bloqueado, última sync no histórico |
 | 2026-06-17 | — | P0/P1: sync ignora inadimplentes, feed de entradas ignoradas, release para recepcionista |
 | 2026-06-17 | — | F4 catraca: bloqueio de inadimplentes |

@@ -6,6 +6,7 @@ import {
   ATTENDANCE_ABSENCE_SNOOZE_OPTIONS,
   DEFAULT_ATTENDANCE_ABSENCE_SNOOZE_DAYS,
 } from '../../../lib/attendanceRetentionCore.js';
+import './attendance-at-risk.css';
 
 /**
  * @param {{
@@ -62,9 +63,9 @@ export default function AttendanceAbsenceReasonModal({
       closeOnEsc={!busy}
       showCloseButton={!busy}
       maxWidth={420}
-      className="navi-modal-overlay--form"
+      className="navi-modal-overlay--form attendance-absence-modal"
       footer={
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', width: '100%' }}>
+        <div className="attendance-absence-modal__footer">
           <button type="button" className="btn-outline" onClick={onCancel} disabled={busy}>
             Cancelar
           </button>
@@ -74,7 +75,7 @@ export default function AttendanceAbsenceReasonModal({
         </div>
       }
     >
-      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+      <p className="attendance-absence-modal__lead">
         {studentName ? (
           <>
             Motivo da ausência de <strong>{studentName}</strong>
@@ -83,19 +84,13 @@ export default function AttendanceAbsenceReasonModal({
           'Selecione o motivo da ausência'
         )}
       </p>
-      <fieldset className="attendance-absence-reasons" disabled={busy} style={{ border: 'none', padding: 0, margin: 0 }}>
+      <fieldset className="attendance-absence-reasons" disabled={busy}>
         <legend className="sr-only">Motivo</legend>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="attendance-absence-reasons__list">
           {ATTENDANCE_ABSENCE_REASONS.map((opt) => (
             <label
               key={opt.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 14,
-                cursor: busy ? 'default' : 'pointer',
-              }}
+              className={`attendance-absence-reasons__option${busy ? ' attendance-absence-reasons__option--disabled' : ''}`}
             >
               <input
                 type="radio"
@@ -110,14 +105,13 @@ export default function AttendanceAbsenceReasonModal({
         </div>
       </fieldset>
       {error ? <FieldError message={error} /> : null}
-      <label className="attendance-absence-snooze" style={{ display: 'block', marginTop: 14, fontSize: 13 }}>
-        <span style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Ocultar da fila por</span>
+      <label className="attendance-absence-snooze">
+        <span className="attendance-absence-snooze__label">Ocultar da fila por</span>
         <select
           className="student-profile-data-input"
           value={snoozeDays}
           disabled={busy}
           onChange={(e) => setSnoozeDays(Number(e.target.value))}
-          style={{ width: '100%' }}
         >
           {ATTENDANCE_ABSENCE_SNOOZE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -126,8 +120,8 @@ export default function AttendanceAbsenceReasonModal({
           ))}
         </select>
       </label>
-      <label style={{ display: 'block', marginTop: 14, fontSize: 13 }}>
-        <span style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Observação (opcional)</span>
+      <label className="attendance-absence-notes">
+        <span className="attendance-absence-notes__label">Observação (opcional)</span>
         <textarea
           className="student-profile-data-input"
           rows={3}
@@ -135,7 +129,6 @@ export default function AttendanceAbsenceReasonModal({
           disabled={busy}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Detalhes adicionais"
-          style={{ width: '100%', resize: 'vertical' }}
         />
       </label>
     </ModalShell>

@@ -47,7 +47,6 @@ import { useStudentStore, selectStudentById } from '../store/useStudentStore';
 import '../styles/student-profile.css';
 import '../styles/profile-shared.css';
 import { useToast } from '../hooks/useToast';
-import { showPaymentSettlementToasts } from '../lib/financeTxSettlementDisplay.js';
 import { friendlyError, studentPaymentFriendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
 import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
@@ -61,6 +60,7 @@ import PlanSelect from '../components/shared/PlanSelect.jsx';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import { formatCollectionResultLabel } from '../lib/collectionRules.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
+import StatusBanner from '../components/shared/StatusBanner.jsx';
 import DeactivateStudentModal from '../components/DeactivateStudentModal.jsx';
 import CreateContractModal from '../components/contracts/CreateContractModal.jsx';
 import { isActiveStudent, isInactiveStudent } from '../lib/studentStatus.js';
@@ -68,6 +68,7 @@ import { storageDialectMethodLabelsMap } from '../lib/paymentMethods.js';
 import { storageDialectPaymentMethodOptionsForFinance } from '../lib/paymentMethodSettings.js';
 import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.js';
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
+import { postAttendanceRetentionAction } from '../lib/attendanceRetentionApi.js';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
@@ -402,6 +403,7 @@ export default function StudentProfile() {
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [deleteBusy, setDeleteBusy] = useState(false);
     const [checkingIn, setCheckingIn] = useState(false);
+    const [clearRetentionContactBusy, setClearRetentionContactBusy] = useState(false);
     const [sessionUserName, setSessionUserName] = useState('Usuário');
     const [checkins, setCheckins] = useState([]);
     const [attendanceRisk, setAttendanceRisk] = useState(null);
@@ -1445,7 +1447,7 @@ export default function StudentProfile() {
         try {
             const doc = isEdit
                 ? await updatePayment(editingPaymentId, data)
-                : await createPayment(data);
+                : await createPayment(data, { financeConfig, toast });
             await loadPayments();
             void fetchStudentById(student.id);
             const localYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -1462,15 +1464,6 @@ export default function StudentProfile() {
                 type: 'success',
                 message: isEdit ? 'Pagamento atualizado.' : 'Pagamento registrado.',
             });
-            if (!isEdit) {
-                showPaymentSettlementToasts(toast, {
-                    financeConfig,
-                    method: payForm.method,
-                    requestedStatus: payForm.status || 'paid',
-                    actualStatus: doc?.status,
-                    paidAt: paidAtIso || new Date().toISOString(),
-                });
-            }
         } catch (e) {
             const msg = studentPaymentFriendlyError(e, 'save');
             if (/já existe um lançamento/i.test(msg)) {
@@ -1601,6 +1594,24 @@ export default function StudentProfile() {
         .join('');
     const showAttendanceRiskBadge =
         attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
+    const showRetentionInContactBanner = student?.retention_in_contact === true;
+
+    const handleClearRetentionContact = useCallback(async () => {
+        if (!id || clearRetentionContactBusy) return;
+        setClearRetentionContactBusy(true);
+        try {
+            await postAttendanceRetentionAction({ student_id: id, action: 'clear_contact' });
+            mergeStudent(id, { retention_in_contact: false });
+            const bundle = await fetchStudentProfileBundle(id);
+            if (bundle?.attendanceRisk) setAttendanceRisk(bundle.attendanceRisk);
+            if (bundle?.student) mergeStudent(id, bundle.student);
+            toast({ type: 'success', message: 'Aluno voltou à fila de retenção, se ainda estiver elegível.' });
+        } catch (e) {
+            toast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setClearRetentionContactBusy(false);
+        }
+    }, [id, clearRetentionContactBusy, mergeStudent, toast]);
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
@@ -2778,26 +2789,31 @@ export default function StudentProfile() {
                             </div>
                         ) : (
                             <>
-                                {showAttendanceRiskBadge ? (
-                                    <div
-                                        className="student-freq-risk-summary"
-                                        style={{
-                                            display: 'flex',
-                                            flexWrap: 'wrap',
-                                            alignItems: 'center',
-                                            gap: 8,
-                                            padding: '8px 10px',
-                                            background: 'var(--surface)',
-                                            border: '0.5px solid var(--border-light)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: 13,
+                                {isActiveStudent(student) && isFreezeActive(student) ? (
+                                    <StatusBanner variant="info">
+                                        Trancado — frequência não avaliada enquanto o plano estiver congelado.
+                                    </StatusBanner>
+                                ) : null}
+                                {!isActiveStudent(student) ? (
+                                    <StatusBanner variant="info">
+                                        Matrícula encerrada — histórico de frequência abaixo.
+                                    </StatusBanner>
+                                ) : null}
+                                {showRetentionInContactBanner ? (
+                                    <StatusBanner
+                                        variant="info"
+                                        action={{
+                                            label: clearRetentionContactBusy ? 'Salvando…' : 'Voltar para a fila',
+                                            onClick: () => void handleClearRetentionContact(),
                                         }}
                                     >
-                                        <AttendanceRiskBadge
-                                            status={attendanceRisk.status}
-                                            label={attendanceRisk.statusLabel}
-                                        />
-                                        <span style={{ color: 'var(--text-secondary)' }}>
+                                        Marcado como em contato — fora da fila de retenção até novo check-in ou até
+                                        você remover aqui.
+                                    </StatusBanner>
+                                ) : null}
+                                {showAttendanceRiskBadge ? (
+                                    <div className="student-freq-risk-summary">
+                                        <span className="student-freq-risk-summary__meta">
                                             {attendanceRisk.lastCheckinAt
                                                 ? `Último treino: ${formatCheckinAt(attendanceRisk.lastCheckinAt)}`
                                                 : 'Nenhum check-in registrado'}

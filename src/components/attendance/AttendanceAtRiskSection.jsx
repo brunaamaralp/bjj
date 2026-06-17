@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -24,6 +24,20 @@ import AttendanceAtRiskRowActions from './AttendanceAtRiskRowActions.jsx';
 import DeactivateStudentModal from '../DeactivateStudentModal.jsx';
 import './attendance-at-risk.css';
 
+const URL_RET_TURMA = 'ret_turma';
+const URL_RET_BELT = 'ret_belt';
+
+function patchRetentionFilters(prev, { turma, belt }) {
+  const next = new URLSearchParams(prev);
+  const t = String(turma ?? '').trim();
+  const b = String(belt ?? '').trim();
+  if (t) next.set(URL_RET_TURMA, t);
+  else next.delete(URL_RET_TURMA);
+  if (b) next.set(URL_RET_BELT, b);
+  else next.delete(URL_RET_BELT);
+  return next;
+}
+
 function formatLastCheckin(iso) {
   if (!iso) return '—';
   try {
@@ -46,6 +60,10 @@ function KpiPill({ label, value, tone }) {
  * Tabela operacional de alunos em risco por frequência (Recepção → Catraca).
  */
 export default function AttendanceAtRiskSection({ className = '' }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const turma = String(searchParams.get(URL_RET_TURMA) || '').trim();
+  const belt = String(searchParams.get(URL_RET_BELT) || '').trim();
+
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const userId = useLeadStore((s) => s.userId);
@@ -76,7 +94,11 @@ export default function AttendanceAtRiskSection({ className = '' }) {
     setLoading(true);
     setError('');
     try {
-      const body = await fetchAttendanceRetention({ academyId });
+      const body = await fetchAttendanceRetention({
+        academyId,
+        turma: turma || undefined,
+        belt: belt || undefined,
+      });
       setData(body);
     } catch (e) {
       setError(friendlyError(e, 'load'));
@@ -84,7 +106,21 @@ export default function AttendanceAtRiskSection({ className = '' }) {
     } finally {
       setLoading(false);
     }
-  }, [academyId]);
+  }, [academyId, turma, belt]);
+
+  const setTurmaFilter = useCallback(
+    (value) => {
+      setSearchParams((prev) => patchRetentionFilters(prev, { turma: value, belt }), { replace: true });
+    },
+    [belt, setSearchParams]
+  );
+
+  const setBeltFilter = useCallback(
+    (value) => {
+      setSearchParams((prev) => patchRetentionFilters(prev, { turma, belt: value }), { replace: true });
+    },
+    [turma, setSearchParams]
+  );
 
   useEffect(() => {
     void load();
@@ -99,6 +135,9 @@ export default function AttendanceAtRiskSection({ className = '' }) {
 
   const rows = data?.at_risk || [];
   const summary = data?.summary;
+  const filterOptions = data?.filters || {};
+  const turmaOptions = filterOptions.turmas || [];
+  const beltOptions = filterOptions.belts || [];
 
   const handleWhatsApp = async (row) => {
     const studentId = String(row?.studentId || '').trim();
@@ -140,7 +179,35 @@ export default function AttendanceAtRiskSection({ className = '' }) {
     setActionBusyId(studentId);
     try {
       await postAttendanceRetentionAction({ student_id: studentId, action: 'mark_contact' });
-      addToast({ type: 'success', message: `${row.name} marcado como em contato.` });
+      addToast({
+        type: 'success',
+        message: `${row.name} marcado como em contato. Sai da fila até novo check-in ou até limpar no perfil.`,
+      });
+      await load();
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setActionBusyId('');
+    }
+  };
+
+  const handleQuickSnooze = async (row, snoozeDays) => {
+    const studentId = String(row?.studentId || '').trim();
+    if (!studentId || actionBusyId) return;
+    setActionBusyId(studentId);
+    setMenuOpenId('');
+    try {
+      const result = await postAttendanceRetentionAction({
+        student_id: studentId,
+        action: 'snooze',
+        snooze_days: snoozeDays,
+      });
+      addToast({
+        type: 'success',
+        message: result?.snoozed_until
+          ? `Oculto da fila até ${result.snoozed_until}.`
+          : 'Aluno oculto da fila.',
+      });
       await load();
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'save') });
@@ -246,6 +313,7 @@ export default function AttendanceAtRiskSection({ className = '' }) {
               onAbsence={setAbsenceRow}
               onMarkContact={handleMarkContact}
               onDeactivate={setDeactivateRow}
+              onQuickSnooze={handleQuickSnooze}
             />
           );
         },
@@ -253,7 +321,10 @@ export default function AttendanceAtRiskSection({ className = '' }) {
     ];
 
   return (
-    <section className={`attendance-at-risk card reception-section${className ? ` ${className}` : ''}`}>
+    <section
+      id="retencao"
+      className={`attendance-at-risk card reception-section${className ? ` ${className}` : ''}`}
+    >
       <div className="reception-section-head attendance-at-risk__head">
         <div>
           <h2 className="reception-section-heading">
@@ -277,11 +348,47 @@ export default function AttendanceAtRiskSection({ className = '' }) {
       </div>
 
       {summary ? (
-        <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
-          <KpiPill label="Ativos" value={summary.active ?? 0} tone="active" />
-          <KpiPill label="Em risco" value={summary.at_risk ?? 0} tone="at-risk" />
-          <KpiPill label="Sumidos" value={summary.absent ?? 0} tone="absent" />
-          <KpiPill label="Novatos" value={summary.newcomer_at_risk ?? 0} tone="newcomer" />
+        <>
+          <p className="attendance-at-risk-kpis-hint">Fila de ação de hoje</p>
+          <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
+            <KpiPill label="Ativos" value={summary.active ?? 0} tone="active" />
+            <KpiPill label="Em risco" value={summary.at_risk ?? 0} tone="at-risk" />
+            <KpiPill label="Sumidos" value={summary.absent ?? 0} tone="absent" />
+            <KpiPill label="Novatos" value={summary.newcomer_at_risk ?? 0} tone="newcomer" />
+          </div>
+        </>
+      ) : null}
+
+      {data ? (
+        <div className="attendance-at-risk-filters">
+          <label className="attendance-at-risk-filter">
+            <span>Turma</span>
+            <select value={turma} onChange={(e) => setTurmaFilter(e.target.value)}>
+              <option value="">Todas</option>
+              {turma && !turmaOptions.includes(turma) ? (
+                <option value={turma}>{turma}</option>
+              ) : null}
+              {turmaOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="attendance-at-risk-filter">
+            <span>Faixa</span>
+            <select value={belt} onChange={(e) => setBeltFilter(e.target.value)}>
+              <option value="">Todas</option>
+              {belt && !beltOptions.includes(belt) ? (
+                <option value={belt}>{belt}</option>
+              ) : null}
+              {beltOptions.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       ) : null}
 

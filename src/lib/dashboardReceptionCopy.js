@@ -21,11 +21,33 @@ export function missedStatusLabel() {
 }
 
 export function followupsAllDoneTitle() {
-  return 'Retornos em dia. A recepção mandou bem.';
+  return 'Follow-ups em dia. A recepção mandou bem.';
+}
+
+export function followupSectionTitle() {
+  return 'Follow-ups pendentes';
 }
 
 export function followupKpiLabel() {
-  return 'Follow-ups pendentes';
+  return followupSectionTitle();
+}
+
+/** Chip mobile e aria-label de badge na aba Experimentais. */
+export function followupPendingCountLabel(count) {
+  const n = Number(count) || 0;
+  return `${n} follow-up${n === 1 ? '' : 's'} pendente${n === 1 ? '' : 's'}`;
+}
+
+export function followupEmptyHint() {
+  return 'Quando alguém comparecer ou faltar, os follow-ups aparecem aqui.';
+}
+
+export function followupCompleteActionLabel() {
+  return 'Concluir follow-up';
+}
+
+export function receptionDaySubtitle() {
+  return 'Recepção e follow-ups do dia';
 }
 
 export function toastAttendedSuccess(isFirstOfDay) {
@@ -44,7 +66,7 @@ export function followupMicroToastMessage() {
 export function followupStreakMessage(streak) {
   const n = Number(streak) || 0;
   if (n < 2) return '';
-  return `${n}º dia seguido com retornos em dia.`;
+  return `${n}º dia seguido com follow-ups em dia.`;
 }
 
 export function weeklyEnrollmentsLine(count) {

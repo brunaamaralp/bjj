@@ -8,6 +8,7 @@ import '../../lib/whatsappTemplates.css';
  */
 export default function AutomationPreviewLeadPicker({
   leads = [],
+  students = [],
   sampleLeadId,
   onSampleLeadIdChange,
   sampleManual,
@@ -22,9 +23,13 @@ export default function AutomationPreviewLeadPicker({
         value: l.id,
         label: String(l.name || l.phone || l.id || '—').trim() || '—',
       })),
+      ...students.map((s) => ({
+        value: `student:${s.id}`,
+        label: `${String(s.name || 'Aluno').trim() || 'Aluno'} (aluno)`,
+      })),
       { value: '_manual', label: 'Manual' },
     ],
-    [leads]
+    [leads, students]
   );
 
   const showManual = sampleLeadId === '_manual' || leads.length === 0;
@@ -45,7 +50,8 @@ export default function AutomationPreviewLeadPicker({
       </div>
       {scopeHint ? (
         <p className="automacoes-preview-lead-hint text-xs text-light" style={{ margin: '8px 0 0' }}>
-          Aplica-se a todas as prévias dos gatilhos abaixo.
+          Aplica-se a todas as prévias dos gatilhos abaixo. Alunos matriculados aparecem para gatilhos de
+          retenção.
         </p>
       ) : null}
       {showManual ? (

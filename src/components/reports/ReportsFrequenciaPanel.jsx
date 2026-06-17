@@ -13,6 +13,7 @@ import {
   ATTENDANCE_RISK_LABELS,
   ATTENDANCE_RISK_STATUS,
 } from '../../../lib/attendanceRetentionCore.js';
+import { buildRecepcaoRetencaoPath } from '../../lib/recepcaoHubTabs.js';
 import './reports.css';
 
 const URL_TURMA = 'freq_turma';
@@ -39,12 +40,32 @@ function KpiCard({ label, value, hint }) {
   );
 }
 
-function HeatmapGrid({ heatmap }) {
+function buildHeatmapSummary(heatmap) {
   const weeks = heatmap?.weeks || [];
   const labels = heatmap?.dowLabels || [];
   const total = weeks.reduce((acc, w) => acc + (Number(w.total) || 0), 0);
-
   if (!weeks.length || total === 0) {
+    return { total: 0, weekCount: 0, peakDow: null };
+  }
+  const dowSums = labels.map((_, i) =>
+    weeks.reduce((acc, w) => acc + (Number(w.days?.[i]) || 0), 0)
+  );
+  const peakValue = Math.max(...dowSums, 0);
+  const peakIdx = dowSums.indexOf(peakValue);
+  return {
+    total,
+    weekCount: weeks.length,
+    peakDow: labels[peakIdx] || null,
+  };
+}
+
+function HeatmapGrid({ heatmap }) {
+  const weeks = heatmap?.weeks || [];
+  const labels = heatmap?.dowLabels || [];
+  const summary = buildHeatmapSummary(heatmap);
+  const summaryId = 'reports-freq-heat-summary';
+
+  if (!weeks.length || summary.total === 0) {
     return (
       <EmptyState
         variant="compact"
@@ -65,30 +86,52 @@ function HeatmapGrid({ heatmap }) {
     return 'reports-freq-heat__cell--1';
   };
 
+  const summaryText = summary.peakDow
+    ? `Total ${summary.weekCount} semanas: ${summary.total} check-ins; pico ${summary.peakDow}.`
+    : `Total ${summary.weekCount} semanas: ${summary.total} check-ins.`;
+
   return (
-    <div className="reports-freq-heat" role="img" aria-label="Heatmap de check-ins por semana">
-      <div className="reports-freq-heat__head">
-        <span />
-        {labels.map((l) => (
-          <span key={l} className="reports-freq-heat__dow">
-            {l}
-          </span>
-        ))}
-      </div>
-      {weeks.map((w) => (
-        <div key={w.weekStart} className="reports-freq-heat__row">
-          <span className="reports-freq-heat__week">{w.weekLabel}</span>
-          {(w.days || []).map((n, i) => (
-            <span
-              key={`${w.weekStart}-${i}`}
-              className={`reports-freq-heat__cell ${intensity(n)}`}
-              title={`${labels[i]}: ${n} check-in(s)`}
-            >
-              {n > 0 ? n : ''}
+    <div className="reports-freq-heat-wrap">
+      <div
+        className="reports-freq-heat"
+        role="img"
+        aria-label="Heatmap de check-ins por semana"
+        aria-describedby={summaryId}
+      >
+        <div className="reports-freq-heat__head">
+          <span />
+          {labels.map((l) => (
+            <span key={l} className="reports-freq-heat__dow">
+              {l}
             </span>
           ))}
         </div>
-      ))}
+        {weeks.map((w) => (
+          <div key={w.weekStart} className="reports-freq-heat__row">
+            <span className="reports-freq-heat__week">{w.weekLabel}</span>
+            {(w.days || []).map((n, i) => (
+              <span
+                key={`${w.weekStart}-${i}`}
+                className={`reports-freq-heat__cell ${intensity(n)}`}
+                title={`${labels[i]}: ${n} check-in(s)`}
+              >
+                {n > 0 ? n : ''}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="reports-freq-heat-legend" aria-hidden="true">
+        <span className="reports-freq-heat-legend__label">Baixa</span>
+        <span className="reports-freq-heat__cell reports-freq-heat__cell--1" />
+        <span className="reports-freq-heat__cell reports-freq-heat__cell--2" />
+        <span className="reports-freq-heat__cell reports-freq-heat__cell--3" />
+        <span className="reports-freq-heat__cell reports-freq-heat__cell--4" />
+        <span className="reports-freq-heat-legend__label">Alta</span>
+      </div>
+      <p id={summaryId} className="reports-freq-heat-summary">
+        {summaryText}
+      </p>
     </div>
   );
 }
@@ -220,7 +263,7 @@ export default function ReportsFrequenciaPanel({
         </label>
         <button type="button" className="reports-freq-refresh" onClick={() => void load()} disabled={loading}>
           {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-          Atualizar
+          Atualizar frequência
         </button>
       </div>
 
@@ -235,6 +278,7 @@ export default function ReportsFrequenciaPanel({
       {data ? (
         <>
           <ReportsPanelSection title="Retenção por frequência">
+            <p className="reports-freq-kpis-hint">Panorama do período selecionado</p>
             <div className="reports-freq-kpis">
               <KpiCard label="Ativos" value={summary.active ?? 0} />
               <KpiCard label="Em risco" value={summary.at_risk ?? 0} />
@@ -260,6 +304,11 @@ export default function ReportsFrequenciaPanel({
                   label={ATTENDANCE_RISK_LABELS[st]}
                 />
               ))}
+            </div>
+            <div className="reports-freq-reception-cta">
+              <Link to={buildRecepcaoRetencaoPath()} className="btn-outline reports-freq-reception-cta__link">
+                Abrir fila na recepção
+              </Link>
             </div>
           </ReportsPanelSection>
 

@@ -5,9 +5,11 @@ import {
     AUTOMATION_DELAY_OPTIONS,
     AUTOMATION_GROUPS,
     AUTOMATION_GROUP_HINTS,
+    AUTOMATION_RETENTION_CYCLE_HINT,
     AUTOMATION_THRESHOLD_OPTIONS,
     templateOptionsForAutomation,
 } from '../../lib/useAutomations.js';
+import { buildRecepcaoRetencaoPath } from '../../lib/recepcaoHubTabs.js';
 import { GATILHOS_SECTION_TO_GROUP_KEY } from '../../lib/automacoesSettingsSections.js';
 import { WHATSAPP_TEMPLATE_LABELS } from '../../../lib/whatsappTemplateDefaults.js';
 import {
@@ -93,6 +95,14 @@ function AutomationRow({
                     {delayHint ? (
                         <p className="text-xs" style={{ marginTop: 6, color: 'var(--text-secondary)', marginBottom: 0 }}>
                             {delayHint}
+                        </p>
+                    ) : null}
+                    {isRetentionCron ? (
+                        <p
+                            className="automacoes-trigger-card__retention-hint text-xs"
+                            style={{ marginTop: 6, color: 'var(--text-secondary)', marginBottom: 0 }}
+                        >
+                            {AUTOMATION_RETENTION_CYCLE_HINT}
                         </p>
                     ) : null}
                 </div>
@@ -245,6 +255,13 @@ function AutomationRow({
                     Modelo vazio — edite em Modelos de Mensagem.
                 </p>
             ) : null}
+            {isRetentionCron && cfg.active ? (
+                <p className="automacoes-trigger-card__retention-link" style={{ marginTop: 10, marginBottom: 0 }}>
+                    <Link to={buildRecepcaoRetencaoPath()} className="edit-link">
+                        Ver fila na recepção
+                    </Link>
+                </p>
+            ) : null}
         </article>
     );
 }
@@ -301,6 +318,7 @@ const AutomacoesSection = ({
                     const meta = automationLabels[key];
                     if (!meta) return null;
                     const cfg = automationsConfig?.[key] || {};
+                    const isRetentionKey = key === 'absent_student' || key === 'newcomer_at_risk';
                     return (
                         <AutomationRow
                             key={key}
@@ -311,7 +329,11 @@ const AutomacoesSection = ({
                             templateOptions={templateOptions}
                             templatesMap={templatesMap}
                             academyName={academyName}
-                            previewLeadData={previewLead?.sampleData}
+                            previewLeadData={
+                                isRetentionKey
+                                    ? previewLead?.retentionSampleData
+                                    : previewLead?.sampleData
+                            }
                             canEdit={canEdit}
                             savingAutomations={savingAutomations}
                             onToggle={() => {
@@ -424,6 +446,7 @@ const AutomacoesSection = ({
                 <AutomationPreviewLeadPicker
                     className="mb-3"
                     leads={previewLead.leads}
+                    students={previewLead.activeStudents}
                     sampleLeadId={previewLead.sampleLeadId}
                     onSampleLeadIdChange={previewLead.setSampleLeadId}
                     sampleManual={previewLead.sampleManual}

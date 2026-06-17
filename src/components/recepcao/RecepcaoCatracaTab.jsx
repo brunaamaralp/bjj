@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { DoorOpen, History } from 'lucide-react';
+import { AlertTriangle, DoorOpen, History } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import RecepcaoLivePanel from '../attendance/RecepcaoLivePanel.jsx';
@@ -7,6 +7,11 @@ import AttendanceAtRiskSection from '../attendance/AttendanceAtRiskSection.jsx';
 import { useAcademyControlId } from '../../hooks/useAcademyControlId.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { isAttendanceConfigured } from '../../lib/attendance.js';
+import {
+  RECEPCAO_CATRACA_SECTION_HISTORICO,
+  RECEPCAO_CATRACA_SECTION_LIVE,
+  RECEPCAO_CATRACA_SECTION_RETENCAO,
+} from '../../lib/recepcaoHubTabs.js';
 
 const ControlIdAttendancePanel = lazy(
   () => import('../attendance/ControlIdAttendancePanel.jsx')
@@ -14,17 +19,23 @@ const ControlIdAttendancePanel = lazy(
 
 /**
  * Aba Catraca em / — feed ao vivo, histórico e retenção por frequência.
- * @param {{ showHistorico?: boolean, onShowLive?: () => void, onShowHistorico?: () => void }} props
+ * @param {{
+ *   catracaSection?: string;
+ *   onCatracaSectionChange?: (section: string) => void;
+ * }} props
  */
 export default function RecepcaoCatracaTab({
-  showHistorico = false,
-  onShowLive,
-  onShowHistorico,
+  catracaSection = RECEPCAO_CATRACA_SECTION_LIVE,
+  onCatracaSectionChange,
 }) {
   const academyId = useLeadStore((s) => s.academyId);
   const controlId = useAcademyControlId(academyId, { fetch: true });
   const integrationReady = controlId.configured && controlId.enabled;
   const attendanceReady = isAttendanceConfigured();
+
+  const showLive = catracaSection === RECEPCAO_CATRACA_SECTION_LIVE;
+  const showHistorico = catracaSection === RECEPCAO_CATRACA_SECTION_HISTORICO;
+  const showRetencao = catracaSection === RECEPCAO_CATRACA_SECTION_RETENCAO;
 
   if (controlId.loading) {
     return (
@@ -61,9 +72,9 @@ export default function RecepcaoCatracaTab({
             <button
               type="button"
               role="tab"
-              aria-selected={!showHistorico}
-              className={`mensal-page-tab${!showHistorico ? ' mensal-page-tab--active' : ''}`}
-              onClick={onShowLive}
+              aria-selected={showLive}
+              className={`mensal-page-tab${showLive ? ' mensal-page-tab--active' : ''}`}
+              onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_LIVE)}
             >
               <DoorOpen size={14} aria-hidden />
               Ao vivo
@@ -73,16 +84,27 @@ export default function RecepcaoCatracaTab({
               role="tab"
               aria-selected={showHistorico}
               className={`mensal-page-tab${showHistorico ? ' mensal-page-tab--active' : ''}`}
-              onClick={onShowHistorico}
+              onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_HISTORICO)}
             >
               <History size={14} aria-hidden />
               Histórico
             </button>
+            {attendanceReady ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={showRetencao}
+                className={`mensal-page-tab${showRetencao ? ' mensal-page-tab--active' : ''}`}
+                onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_RETENCAO)}
+              >
+                <AlertTriangle size={14} aria-hidden />
+                Retenção
+              </button>
+            ) : null}
           </div>
 
-          {!showHistorico ? (
-            <RecepcaoLivePanel />
-          ) : (
+          {showLive ? <RecepcaoLivePanel /> : null}
+          {showHistorico ? (
             <Suspense
               fallback={
                 <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Carregando histórico…</p>
@@ -90,20 +112,22 @@ export default function RecepcaoCatracaTab({
             >
               <ControlIdAttendancePanel showReceptionLink={false} />
             </Suspense>
-          )}
+          ) : null}
+          {showRetencao && attendanceReady ? <AttendanceAtRiskSection /> : null}
         </>
       ) : (
-        <StatusBanner
-          variant="info"
-          className="reception-section"
-          action={{ href: '/integracoes?tab=catraca', label: 'Configurar catraca' }}
-        >
-          Catraca Control iD não configurada. O feed ao vivo e a liberação remota ficam indisponíveis;
-          check-ins manuais no perfil do aluno continuam contando para a retenção abaixo.
-        </StatusBanner>
+        <>
+          <StatusBanner
+            variant="info"
+            className="reception-section"
+            action={{ href: '/integracoes?tab=catraca', label: 'Configurar catraca' }}
+          >
+            Catraca Control iD não configurada. O feed ao vivo e a liberação remota ficam indisponíveis;
+            check-ins manuais no perfil do aluno continuam contando para a retenção abaixo.
+          </StatusBanner>
+          {attendanceReady ? <AttendanceAtRiskSection /> : null}
+        </>
       )}
-
-      {attendanceReady ? <AttendanceAtRiskSection /> : null}
     </div>
   );
 }

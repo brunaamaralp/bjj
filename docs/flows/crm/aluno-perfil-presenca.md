@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -60,7 +60,7 @@ flowchart TD
 | 5 | `/recepcao` | `Recepcao.jsx` | Abrir recepção (link interno ou menu) | Painel ao vivo + histórico Control iD |
 | 6 | `/students?tab=contratos` | `ContractsPageContent` | Tab Contratos (módulo finance) | Lista de contratos da academia |
 | 7 | `/student/:id` | `StudentProfile.jsx` | Ver dados e timeline | Perfil completo com status e badges |
-| 8 | `/student/:id` | Seção financeira | Registrar pagamento / produto | `StudentPaymentModal` |
+| 8 | `/student/:id` | Seção financeira | Registrar pagamento / produto | `StudentPaymentModal` (+ **Recebido via** em cartão) |
 | 9 | `/student/:id` | Presença | Check-in manual | Evento de presença na timeline |
 | 10 | `/student/:id` | Plano | Trancar / retomar plano | `PlanFreezeModal`; histórico de trancamentos |
 | 11 | `/student/:id` | Menu ações | Desativar ou reativar aluno | Status atualizado; confirmação via `ConfirmDialog` |
@@ -88,10 +88,13 @@ flowchart TD
 7. [ ] **`/recepcao`** exibe painel ao vivo e histórico Control iD (ou empty state se não configurado)
 7b. [ ] *Nota:* `/students?view=presenca` e `/presenca` **não** ativam modo presença no hub embutido (`Students embedded`) — usar `/recepcao`
 8. [ ] Com finance: tab **Contratos** visível; sem finance: tab oculta
-9. [ ] Registrar pagamento no perfil — modal valida valor e método
+9. [ ] Registrar pagamento no perfil — modal valida valor, método e meio de captura (cartão, 2+ meios)
 10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"
 12. [ ] Trocar academia — lista mostra só alunos da academia atual
+13. [ ] Aba **Frequência** — aluno trancado exibe banner «frequência não avaliada»
+14. [ ] Aba **Frequência** — aluno inativo exibe banner com histórico abaixo
+15. [ ] Aluno **em contato** (retenção) — banner com «Voltar para a fila» na aba Frequência
 
 ### Estados de erro conhecidos
 

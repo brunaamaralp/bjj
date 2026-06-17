@@ -42,6 +42,11 @@ import {
     missedButtonLabel,
     followupsAllDoneTitle,
     followupKpiLabel,
+    followupSectionTitle,
+    followupPendingCountLabel,
+    followupEmptyHint,
+    followupCompleteActionLabel,
+    receptionDaySubtitle,
     toastAttendedSuccess,
     toastMissedSuccess,
     followupMicroToastMessage,
@@ -90,12 +95,14 @@ import { useDashboardFollowupLeads } from '../hooks/useDashboardFollowupLeads.js
 import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEnrollmentMetrics.js';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
+import RecepcaoRetentionHint from '../components/dashboard/RecepcaoRetentionHint.jsx';
 import {
     buildRecepcaoHubTabItems,
-    isRecepcaoCatracaHistoricoSection,
+    RECEPCAO_CATRACA_SECTION_LIVE,
     RECEPCAO_TAB_CATRACA,
     RECEPCAO_TAB_EXPERIMENTAIS,
     resolveRecepcaoHubTab,
+    resolveRecepcaoCatracaSection,
 } from '../lib/recepcaoHubTabs.js';
 const DEFAULT_STAGE_SLA_DAYS = 3;
 const HERO_KPI_ICON_PROPS = { size: 18, strokeWidth: 2.25 };
@@ -143,8 +150,8 @@ const Dashboard = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const hubTab = resolveRecepcaoHubTab(searchParams.get('tab'));
     const isCatracaTab = hubTab === RECEPCAO_TAB_CATRACA;
-    const catracaShowHistorico =
-        isCatracaTab && isRecepcaoCatracaHistoricoSection(searchParams.get('section'));
+    const catracaSection =
+        isCatracaTab ? resolveRecepcaoCatracaSection(searchParams.get('section')) : RECEPCAO_CATRACA_SECTION_LIVE;
     const {
         loading,
         fetchLeads,
@@ -173,7 +180,7 @@ const Dashboard = () => {
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
-    const receptionSubtitle = 'Recepção e retornos do dia';
+    const receptionSubtitle = receptionDaySubtitle();
     const tasks = useTaskStore((s) => s.tasks);
     const fetchTasks = useTaskStore((s) => s.fetchTasks);
     const updateTask = useTaskStore((s) => s.updateTask);
@@ -585,11 +592,12 @@ const Dashboard = () => {
         setSearchParams(next, { replace: true });
     };
 
-    const setCatracaHistorico = (historico) => {
+    const setCatracaSection = (section) => {
         const next = new URLSearchParams(searchParams);
         next.set('tab', RECEPCAO_TAB_CATRACA);
-        if (historico) next.set('section', 'historico');
-        else next.delete('section');
+        const sec = resolveRecepcaoCatracaSection(section);
+        if (sec === RECEPCAO_CATRACA_SECTION_LIVE) next.delete('section');
+        else next.set('section', sec);
         setSearchParams(next, { replace: true });
     };
 
@@ -1098,8 +1106,8 @@ const Dashboard = () => {
                             flashingFollowupIds[leadId] ||
                             leavingFollowupIds[leadId]
                         )}
-                        aria-label="Concluir retorno"
-                        title={savingFollowupDone[leadId] ? 'Salvando…' : 'Concluir retorno'}
+                        aria-label={followupCompleteActionLabel()}
+                        title={savingFollowupDone[leadId] ? 'Salvando…' : followupCompleteActionLabel()}
                         onClick={(e) => openFollowupOutcome(lead, e)}
                     >
                         {savingFollowupDone[leadId] ? (
@@ -1166,9 +1174,8 @@ const Dashboard = () => {
 
             {hubTab === RECEPCAO_TAB_CATRACA ? (
                 <RecepcaoCatracaTab
-                    showHistorico={catracaShowHistorico}
-                    onShowLive={() => setCatracaHistorico(false)}
-                    onShowHistorico={() => setCatracaHistorico(true)}
+                    catracaSection={catracaSection}
+                    onCatracaSectionChange={setCatracaSection}
                 />
             ) : null}
 
@@ -1254,6 +1261,8 @@ const Dashboard = () => {
                 </div>
             </section>
 
+            <RecepcaoRetentionHint academyId={academyId} />
+
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>
                     <div className="dashboard-zero-welcome__icon" aria-hidden>
@@ -1304,7 +1313,7 @@ const Dashboard = () => {
                     onClick={scrollToFollowUps}
                 >
                     <List size={14} strokeWidth={2} aria-hidden />
-                    {`${followUps.length} retorno${followUps.length === 1 ? '' : 's'} pendente${followUps.length === 1 ? '' : 's'}`}
+                    {followupPendingCountLabel(followUps.length)}
                 </button>
             ) : null}
 
@@ -1331,7 +1340,7 @@ const Dashboard = () => {
                                     className="reception-report-heading"
                                     title={
                                         <>
-                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Retornos pendentes
+                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> {followupSectionTitle()}
                                         </>
                                     }
                                 />
@@ -1353,7 +1362,7 @@ const Dashboard = () => {
                                     className="reception-report-heading"
                                     title={
                                         <>
-                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> Retornos pendentes
+                                            <List size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden /> {followupSectionTitle()}
                                         </>
                                     }
                                 />
@@ -1401,9 +1410,7 @@ const Dashboard = () => {
                                     {vertical === 'physio' ? 'avaliação há' : 'aula há'} {FOLLOWUP_AGENDA_MAX_DAYS}+ dias).
                                 </p>
                             ) : (
-                                <p className="fu-list-empty__hint">
-                                    Quando alguém comparecer ou faltar, os retornos aparecem aqui.
-                                </p>
+                                <p className="fu-list-empty__hint">{followupEmptyHint()}</p>
                             )}
                         </div>
                     )}
@@ -1413,7 +1420,7 @@ const Dashboard = () => {
                         <button
                             type="button"
                             className="fu-kanban-link"
-                            title={`Retornos com ${FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a ${
+                            title={`Follow-ups com ${FOLLOWUP_AGENDA_MAX_DAYS}+ dias desde a ${
                                 vertical === 'physio' ? 'avaliação' : 'aula'
                             }`}
                             onClick={() => navigate('/pipeline?followup=kanban')}

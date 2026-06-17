@@ -1,7 +1,13 @@
 /** Abas do hub Recepção (rota canônica `/`). */
 
+import { followupPendingCountLabel } from './dashboardReceptionCopy.js';
+
 export const RECEPCAO_TAB_EXPERIMENTAIS = 'experimentais';
 export const RECEPCAO_TAB_CATRACA = 'catraca';
+
+export const RECEPCAO_CATRACA_SECTION_LIVE = 'live';
+export const RECEPCAO_CATRACA_SECTION_HISTORICO = 'historico';
+export const RECEPCAO_CATRACA_SECTION_RETENCAO = 'retencao';
 
 export const RECEPCAO_HUB_TABS = [
   { id: RECEPCAO_TAB_EXPERIMENTAIS, label: 'Experimentais' },
@@ -22,8 +28,21 @@ export function resolveRecepcaoHubTab(tab) {
 }
 
 /** @param {string | null | undefined} section */
+export function resolveRecepcaoCatracaSection(section) {
+  const s = String(section || '').trim().toLowerCase();
+  if (s === RECEPCAO_CATRACA_SECTION_HISTORICO) return RECEPCAO_CATRACA_SECTION_HISTORICO;
+  if (s === RECEPCAO_CATRACA_SECTION_RETENCAO) return RECEPCAO_CATRACA_SECTION_RETENCAO;
+  return RECEPCAO_CATRACA_SECTION_LIVE;
+}
+
+/** @param {string | null | undefined} section */
 export function isRecepcaoCatracaHistoricoSection(section) {
-  return String(section || '').trim().toLowerCase() === 'historico';
+  return resolveRecepcaoCatracaSection(section) === RECEPCAO_CATRACA_SECTION_HISTORICO;
+}
+
+/** @param {string | null | undefined} section */
+export function isRecepcaoCatracaRetencaoSection(section) {
+  return resolveRecepcaoCatracaSection(section) === RECEPCAO_CATRACA_SECTION_RETENCAO;
 }
 
 /**
@@ -40,16 +59,26 @@ export function buildRecepcaoHubTabItems({ followUpCount = 0 } = {}) {
       badgeCount,
       badgeAriaLabel:
         badgeCount && tab.id === RECEPCAO_TAB_EXPERIMENTAIS
-          ? `${badgeCount} retorno(s) pendente(s)`
+          ? followupPendingCountLabel(badgeCount)
           : undefined,
     };
   });
 }
 
 /** Destino canônico para redirects de `/recepcao`. */
-export function buildRecepcaoLegacyRedirectPath({ historico = false } = {}) {
+export function buildRecepcaoLegacyRedirectPath({ historico = false, retencao = false, section } = {}) {
   const params = new URLSearchParams();
   params.set('tab', RECEPCAO_TAB_CATRACA);
-  if (historico) params.set('section', 'historico');
+  const sec =
+    section ||
+    (historico ? RECEPCAO_CATRACA_SECTION_HISTORICO : retencao ? RECEPCAO_CATRACA_SECTION_RETENCAO : null);
+  if (sec && sec !== RECEPCAO_CATRACA_SECTION_LIVE) {
+    params.set('section', sec);
+  }
   return `/?${params.toString()}`;
+}
+
+/** Link canônico para a fila operacional de retenção. */
+export function buildRecepcaoRetencaoPath() {
+  return buildRecepcaoLegacyRedirectPath({ retencao: true });
 }

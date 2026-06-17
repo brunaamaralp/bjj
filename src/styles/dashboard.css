@@ -7,6 +7,47 @@
           --color-bg-secondary: color-mix(in srgb, var(--color-primary-surface) 55%, var(--color-content-bg));
         }
 
+.recepcao-retention-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: inherit;
+  border: 0.5px solid color-mix(in srgb, var(--warn-text, #b45309) 25%, var(--border-light));
+  background: var(--warn-bg, #fef3c7);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.recepcao-retention-hint:hover {
+  border-color: color-mix(in srgb, var(--warn-text, #b45309) 45%, var(--border-light));
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.08);
+}
+
+.recepcao-retention-hint__icon {
+  flex-shrink: 0;
+  color: var(--warn-text, #b45309);
+}
+
+.recepcao-retention-hint__text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--warn-text, #b45309);
+}
+
+.recepcao-retention-hint__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
         /* —— Hero do dia —— */
         .dashboard-day-hero {
           display: flex;
