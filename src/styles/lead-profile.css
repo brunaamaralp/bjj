@@ -102,10 +102,10 @@
                 .left-col-content {
                     flex: 1;
                     overflow-y: auto;
-                    padding: 20px;
+                    padding: 20px 18px;
                     display: flex;
                     flex-direction: column;
-                    gap: 24px;
+                    gap: 20px;
                 }
 
                 .left-col-footer {
@@ -192,8 +192,9 @@
                 .info-mini-row {
                     display: flex;
                     justify-content: space-between;
+                    align-items: center;
                     font-size: 13px;
-                    padding: 4px 0;
+                    padding: 8px 0;
                 }
 
                 .info-mini-label { color: var(--text-muted); }
@@ -1100,6 +1101,7 @@
 
 .lead-profile-hero__name {
   font-size: 1.25rem;
+  font-weight: 700;
   line-height: 1.25;
   text-wrap: balance;
 }
@@ -1233,11 +1235,12 @@
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
+  min-height: 36px;
 }
 
 .lead-profile-panel-tab--active {
   background: var(--color-surface);
-  color: var(--color-text);
+  color: var(--color-text-primary, var(--text));
   font-weight: 800;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }

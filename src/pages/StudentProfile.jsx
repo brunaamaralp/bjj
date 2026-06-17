@@ -1588,28 +1588,9 @@ export default function StudentProfile() {
         const shown = displayStudentFieldValue(field.key, raw);
         const empty = !shown;
         return (
-            <div
-                key={field.key}
-                style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '10px 0',
-                    borderBottom: '0.5px solid var(--border-light)',
-                }}
-            >
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, flexShrink: 0 }}>{field.label}</span>
-                <span
-                    style={{
-                        fontSize: 13,
-                        color: empty ? 'var(--text-secondary)' : 'var(--text)',
-                        fontStyle: 'normal',
-                        textAlign: 'right',
-                        maxWidth: '58%',
-                        wordBreak: 'break-word',
-                    }}
-                >
+            <div key={field.key} className="profile-info-row">
+                <span className="profile-info-row__label">{field.label}</span>
+                <span className={`profile-info-row__value${empty ? ' profile-info-row__value--empty' : ''}`}>
                     {empty ? '—' : shown}
                 </span>
             </div>
@@ -1617,19 +1598,8 @@ export default function StudentProfile() {
     };
 
     const renderStudentDataEditRow = (field) => (
-        <div key={field.key} style={{ marginBottom: 12 }}>
-            <label
-                htmlFor={`student-data-${field.key}`}
-                style={{
-                    display: 'block',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: 'var(--text-secondary)',
-                    marginBottom: 6,
-                }}
-            >
-                {field.label}
-            </label>
+        <div key={field.key} className="student-profile-data-edit-row">
+            <label htmlFor={`student-data-${field.key}`}>{field.label}</label>
             {field.type === 'sexo' ? (
                 <SexoSelect
                     id={`student-data-${field.key}`}
@@ -1983,30 +1953,11 @@ export default function StudentProfile() {
                 transition: 'width 0.25s ease, flex 0.25s ease, max-width 0.25s ease',
             }}
         >
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    padding: '12px 14px',
-                    borderBottom: '1px solid var(--border-light)',
-                    flexShrink: 0,
-                }}
-            >
+            <div className="profile-chrome-header">
                 <button
                     type="button"
+                    className="profile-chrome-back"
                     onClick={() => navigate('/students')}
-                    style={{
-                        border: 'none',
-                        background: 'none',
-                        cursor: 'pointer',
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'inherit',
-                        padding: 4,
-                    }}
                 >
                     ← {studentsPlural}
                 </button>
@@ -2016,7 +1967,7 @@ export default function StudentProfile() {
                 <ProfileWhatsAppOfflineBanner className="student-profile-wa-offline-banner" />
             ) : null}
 
-            <div className="student-panel-left__scroll" style={{ padding: '16px 14px' }}>
+            <div className="student-panel-left__scroll">
                 <div className="student-profile-hd">
                     {/* Avatar com iniciais */}
                     <div className="student-profile-hd__avatar">
@@ -2032,7 +1983,7 @@ export default function StudentProfile() {
                     </div>
                     <div className="student-profile-hd__body">
                     <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    <div className="student-profile-hd__badges">
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, paymentStatus)}
                         />
@@ -2098,43 +2049,34 @@ export default function StudentProfile() {
                 </div>{/* fecha student-profile-hd */}
 
                 <div
-                    style={{
-                        borderRadius: 10,
-                        padding: '12px 14px',
-                        marginBottom: 8,
-                        textAlign: 'left',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                        background:
-                            paymentStatus === null && loadingPayments
-                                ? BG_SECONDARY
-                                : paymentStatus?.status === 'paid'
-                                  ? '#EAF3DE'
-                                  : paymentStatus?.status === 'pending'
-                                    ? '#FCEBEB'
-                                    : 'var(--surface-hover)',
-                    }}
+                    className={`profile-payment-status${
+                        paymentStatus === null && loadingPayments
+                            ? ' profile-payment-status--loading'
+                            : paymentStatus?.status === 'paid'
+                              ? ' profile-payment-status--paid'
+                              : paymentStatus?.status === 'pending'
+                                ? ' profile-payment-status--pending'
+                                : ' profile-payment-status--neutral'
+                    }`}
                 >
-                    <div style={{ minWidth: 0 }}>
+                    <div className="profile-payment-status__body">
                         {paymentStatus === null && loadingPayments ? (
                             <>
-                                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Carregando...</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Status do mês</div>
+                                <div className="profile-payment-status__title">Carregando...</div>
+                                <div className="profile-payment-status__subtitle">Status do mês</div>
                             </>
                         ) : paymentStatus?.status === 'paid' ? (
                             <>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Pagamento em dia</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
+                                <div className="profile-payment-status__title">Pagamento em dia</div>
+                                <div className="profile-payment-status__subtitle">
                                     {currentMonthExtended} · pago em{' '}
                                     {formatDateBR(String(paymentStatus.payment?.paid_at || '').slice(0, 10)) || '—'}
                                 </div>
                             </>
                         ) : paymentStatus?.status === 'pending' ? (
                             <>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Pagamento pendente</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
+                                <div className="profile-payment-status__title">Pagamento pendente</div>
+                                <div className="profile-payment-status__subtitle">
                                     {currentMonthExtended} ·{' '}
                                     {paymentStatus.payment?.due_date
                                         ? `vence ${formatDateBR(String(paymentStatus.payment.due_date).slice(0, 10))}`
@@ -2143,55 +2085,28 @@ export default function StudentProfile() {
                             </>
                         ) : (
                             <>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Sem registro este mês</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>
+                                <div className="profile-payment-status__title">Sem registro este mês</div>
+                                <div className="profile-payment-status__subtitle">
                                     Registre o pagamento na aba Pagamentos
                                 </div>
                             </>
                         )}
                     </div>
                     {paymentStatus === null && loadingPayments ? (
-                        <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
-                            …
-                        </span>
+                        <span className="badge-secondary profile-payment-status__badge">…</span>
                     ) : paymentStatus?.status === 'paid' ? (
-                        <span className="badge-success" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
-                            Em dia
-                        </span>
+                        <span className="badge-success profile-payment-status__badge">Em dia</span>
                     ) : paymentStatus?.status === 'pending' ? (
-                        <span className="badge-danger" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
-                            Pendente
-                        </span>
+                        <span className="badge-danger profile-payment-status__badge">Pendente</span>
                     ) : (
-                        <span className="badge-secondary" style={{ fontSize: 10, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
-                            Não registrado
-                        </span>
+                        <span className="badge-secondary profile-payment-status__badge">Não registrado</span>
                     )}
                 </div>
 
                 {collectionAttempts.length > 0 ? (
-                    <div
-                        style={{
-                            marginBottom: 16,
-                            padding: '12px 14px',
-                            borderRadius: 10,
-                            border: '0.5px solid var(--border-light)',
-                            background: 'var(--surface-hover)',
-                        }}
-                    >
-                        <p
-                            style={{
-                                margin: '0 0 8px',
-                                fontSize: 11,
-                                fontWeight: 800,
-                                color: 'var(--text-muted)',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.08em',
-                            }}
-                        >
-                            Tentativas de cobrança
-                        </p>
-                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className="profile-collection-card">
+                        <p className="profile-collection-card__title">Tentativas de cobrança</p>
+                        <ul className="profile-collection-card__list">
                             {collectionAttempts.map((ev) => {
                                 const when = new Date(ev.at || Date.now()).toLocaleDateString('pt-BR');
                                 const isEscalation = ev.type === 'collection_escalated';
@@ -2199,12 +2114,12 @@ export default function StudentProfile() {
                                     ? formatCollectionResultLabel(ev.payload.result)
                                     : null;
                                 return (
-                                    <li key={ev.$id || `${ev.at}-${ev.type}`} style={{ fontSize: 12, lineHeight: 1.45 }}>
+                                    <li key={ev.$id || `${ev.at}-${ev.type}`} className="profile-collection-card__item">
                                         <strong>{when}</strong>
                                         {isEscalation ? (
-                                            <span style={{ color: 'var(--text-secondary)' }}> · {ev.text || 'Escalada'}</span>
+                                            <span className="profile-collection-card__meta"> · {ev.text || 'Escalada'}</span>
                                         ) : (
-                                            <span style={{ color: 'var(--text-secondary)' }}>
+                                            <span className="profile-collection-card__meta">
                                                 {' '}
                                                 · {ev.payload?.stage || 'Cobrança'}
                                                 {resultLabel ? ` · ${resultLabel}` : ''}
@@ -2220,22 +2135,9 @@ export default function StudentProfile() {
 
                 <button
                     type="button"
+                    className="profile-checkin-btn"
                     disabled={checkingIn || !leadId || !academyId || !attendanceReady}
                     onClick={() => void handleCheckin()}
-                    style={{
-                        width: '100%',
-                        marginBottom: 22,
-                        padding: '12px 14px',
-                        borderRadius: 10,
-                        background: 'var(--petroleo)',
-                        border: 'none',
-                        color: '#fff',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: checkingIn || !leadId || !academyId || !attendanceReady ? 'not-allowed' : 'pointer',
-                        fontFamily: 'inherit',
-                        opacity: checkingIn || !leadId || !academyId || !attendanceReady ? 0.65 : 1,
-                    }}
                 >
                     {checkingIn ? 'Registrando...' : `+ Registrar ${terms.attendance.toLowerCase()}`}
                 </button>
@@ -2250,19 +2152,11 @@ export default function StudentProfile() {
 
                 {renderOperationalActionsSection()}
 
-                <div style={{ marginBottom: 8 }}>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 10,
-                            marginBottom: 12,
-                        }}
-                    >
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Dados do {terms.student.toLowerCase()}</h3>
+                <div className="profile-section-block">
+                    <div className="profile-section-heading-row">
+                        <h3 className="profile-section-heading">Dados do {terms.student.toLowerCase()}</h3>
                         {!editingData ? (
-                            <button type="button" className="btn-outline" style={{ minHeight: 44, fontSize: 12, padding: '6px 12px' }} onClick={() => setEditingData(true)}>
+                            <button type="button" className="profile-edit-btn" onClick={() => setEditingData(true)}>
                                 Editar
                             </button>
                         ) : null}
@@ -2289,20 +2183,11 @@ export default function StudentProfile() {
                     />
                 )}
 
-                <div style={{ marginBottom: 22 }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Contato de emergência</h3>
+                <div className="profile-section-block">
+                    <h3 className="profile-section-heading">Contato de emergência</h3>
                     {editingData ? (
                         <>
-                            <label
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: 10,
-                                    marginBottom: 12,
-                                    fontSize: 13,
-                                    cursor: savingData ? 'not-allowed' : 'pointer',
-                                }}
-                            >
+                            <label className="student-profile-emergency-check">
                                 <input
                                     type="checkbox"
                                     checked={emergencySameAsRegistered}
@@ -2320,7 +2205,6 @@ export default function StudentProfile() {
                                             });
                                         }
                                     }}
-                                    style={{ marginTop: 2 }}
                                 />
                                 <span>Mesmo contato do cadastro (nome e telefone do {terms.student.toLowerCase()})</span>
                             </label>
@@ -2336,8 +2220,8 @@ export default function StudentProfile() {
                     )}
                 </div>
 
-                <div style={{ marginBottom: 22 }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Pagamento habitual</h3>
+                <div className="profile-section-block">
+                    <h3 className="profile-section-heading">Pagamento habitual</h3>
                     {editingData ? (
                         <>
                             {PAYMENT_HABIT_FIELDS.map(renderStudentDataEditRow)}
@@ -2378,13 +2262,12 @@ export default function StudentProfile() {
                 </div>
 
                 {editingData ? (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
+                    <div className="student-profile-edit-actions">
                         <button
                             type="button"
                             className="btn-outline"
                             disabled={savingData}
                             onClick={() => cancelDataEdit()}
-                            style={{ minHeight: 44, fontSize: 13 }}
                         >
                             Cancelar
                         </button>
@@ -2393,7 +2276,6 @@ export default function StudentProfile() {
                             className="btn-primary"
                             disabled={savingData}
                             onClick={() => void handleSaveData()}
-                            style={{ minHeight: 44, fontSize: 13 }}
                         >
                             {savingData ? 'Salvando...' : 'Salvar'}
                         </button>
@@ -2403,34 +2285,11 @@ export default function StudentProfile() {
                 {renderDangerZoneSection()}
             </div>
 
-            <div
-                style={{
-                    padding: '12px 14px',
-                    borderTop: '1px solid var(--border-light)',
-                    flexShrink: 0,
-                    display: 'flex',
-                    justifyContent: timelineOpen ? 'stretch' : 'flex-end',
-                }}
-            >
+            <div className={`profile-panel-footer${timelineOpen ? ' profile-panel-footer--expanded' : ''}`}>
                 <button
                     type="button"
+                    className="profile-panel-toggle-btn"
                     onClick={() => setTimelineOpen((o) => !o)}
-                    style={{
-                        width: timelineOpen ? '100%' : 'auto',
-                        padding: '12px 14px',
-                        borderRadius: 10,
-                        border: 'none',
-                        background: 'var(--accent-light)',
-                        color: 'var(--cosmos)',
-                        fontWeight: 700,
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                    }}
                 >
                     {timelineOpen ? <>← Voltar ao perfil</> : <>Abrir detalhes →</>}
                 </button>
@@ -2445,20 +2304,7 @@ export default function StudentProfile() {
             key={id}
             type="button"
             onClick={() => setProfileTab(id)}
-            className={isOfflineConversation ? 'student-profile-panel-tab--offline' : undefined}
-            style={{
-                flex: 1,
-                padding: '10px 8px',
-                borderRadius: 8,
-                border: 'none',
-                background: activeTab === id ? 'var(--surface)' : 'transparent',
-                color: activeTab === id ? 'var(--text)' : 'var(--text-secondary)',
-                fontWeight: activeTab === id ? 800 : 600,
-                fontSize: 12,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                boxShadow: activeTab === id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-            }}
+            className={`profile-panel-tab${activeTab === id ? ' profile-panel-tab--active' : ''}${isOfflineConversation ? ' student-profile-panel-tab--offline' : ''}`}
         >
             {label}
         </button>
@@ -2542,18 +2388,7 @@ export default function StudentProfile() {
                 <ProfileMobileQuickActions actions={mobilePanelQuickActions} />
             ) : null}
 
-            <div
-                style={{
-                    padding: '12px 14px',
-                    flexShrink: 0,
-                    display: 'flex',
-                    gap: 6,
-                    background: 'var(--surface)',
-                    borderBottom: '1px solid var(--border-light)',
-                    overflowX: 'auto',
-                    WebkitOverflowScrolling: 'touch',
-                }}
-            >
+            <div className="profile-panel-tabs">
                 {tabBtn('frequency', 'Frequência')}
                 {canViewFinance ? tabBtn('payments', 'Pagamentos') : null}
                 {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}

@@ -45,6 +45,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding: 16px 18px;
 }
 
 .student-panel-right-col {
@@ -121,14 +122,15 @@
   gap: 14px;
   align-items: flex-start;
   margin-bottom: 20px;
+  padding-bottom: 4px;
 }
 
 .student-profile-hd__avatar {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: var(--v100);
-  border: 0.5px solid var(--border-violet);
+  background: var(--color-primary-surface, var(--v100));
+  border: 0.5px solid var(--color-card-border, var(--border-violet));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -137,9 +139,9 @@
 }
 
 .student-profile-hd__initials {
-  font-size: var(--font-4xl);
+  font-size: 18px;
   font-weight: 700;
-  color: var(--v700);
+  color: var(--color-primary-dark, var(--v700));
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -149,16 +151,24 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .student-profile-hd__name {
   margin: 0;
-  font-size: var(--font-2xl);
-  font-weight: 800;
-  color: var(--text);
-  line-height: 1.2;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary, var(--text));
+  line-height: 1.25;
   letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.student-profile-hd__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .student-profile-hd__meta {
@@ -190,15 +200,67 @@
 }
 
 .student-profile-hd__turma {
-  display: inline-block;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 8px;
-  background: var(--v50);
-  color: var(--v700);
-  border: 0.5px solid var(--border-violet);
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--color-primary-surface, var(--v50));
+  color: var(--color-primary-dark, var(--v700));
+  border: 0.5px solid var(--color-card-border, var(--border-violet));
   align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-profile-data-edit-row {
+  margin-bottom: 12px;
+}
+
+.student-profile-data-edit-row label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, var(--text-secondary));
+  margin-bottom: 6px;
+}
+
+.student-profile-data-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 0.5px solid var(--color-border-secondary, var(--border-light));
+  background: var(--color-surface, var(--surface));
+  color: var(--color-text-primary, var(--text));
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.student-profile-emergency-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--color-text-primary, var(--text));
+  line-height: 1.45;
+}
+
+.student-profile-emergency-check input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.student-profile-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
 }
 
 .student-profile-hd__exit {
