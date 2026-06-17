@@ -172,8 +172,13 @@ describe('bankReconciliationHandler create-tx', () => {
 });
 
 describe('bankReconciliationHandler confirm-match learn_payer', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.getDocument.mockReset();
+    mocks.updateDocument.mockReset();
+    const { databases } = await import('../../../lib/server/academyAccess.js');
+    databases.listDocuments.mockReset();
+    databases.listDocuments.mockResolvedValue({ documents: [] });
     process.env.VITE_APPWRITE_STUDENTS_COLLECTION_ID = 'students';
     mocks.ensureAuth.mockResolvedValue({ $id: 'user-1', name: 'Owner' });
     mocks.ensureAcademyAccess.mockResolvedValue({ academyId: 'acad-1', doc: academyDoc });
@@ -201,13 +206,6 @@ describe('bankReconciliationHandler confirm-match learn_payer', () => {
         settledAt: '2026-06-10',
         bank_account: 'Sicoob',
         reconciled: false,
-      })
-      .mockResolvedValueOnce({
-        $id: 'lead-1',
-        academyId: 'acad-1',
-        name: 'Pedro Santos',
-        responsavel: 'Ana Santos',
-        payer_aliases_json: '[]',
       });
 
     const { databases } = await import('../../../lib/server/academyAccess.js');
@@ -242,5 +240,53 @@ describe('bankReconciliationHandler confirm-match learn_payer', () => {
       extracted_normalized: 'JOSE SANTOS',
       already_known: false,
     });
+  });
+
+  it('confirm-match não envia suggested_tx_id null ao Appwrite', async () => {
+    mocks.getDocument
+      .mockResolvedValueOnce({
+        $id: 'item-1',
+        statement_id: 'st-1',
+        direction: 'credit',
+        amount: 200,
+        description: 'PIX RECEBIDO',
+        status: 'unmatched',
+        suggested_tx_id: 'tx-1',
+      })
+      .mockResolvedValueOnce({ $id: 'st-1', academy_id: 'acad-1', bank_account: 'Sicoob' })
+      .mockResolvedValueOnce({
+        $id: 'tx-1',
+        academyId: 'acad-1',
+        gross: 200,
+        net: 200,
+        type: 'plan',
+        status: 'settled',
+        bank_account: 'Sicoob',
+        reconciled: false,
+      });
+
+    mocks.updateDocument.mockImplementation((_db, col, _id, patch) => {
+      if (col === 'bank_statement_items' && patch?.suggested_tx_id === null) {
+        return Promise.reject(
+          new Error('Invalid document structure: Attribute "suggested_tx_id" has invalid type')
+        );
+      }
+      return Promise.resolve({});
+    });
+
+    const res = mockRes();
+    await bankReconciliationHandler(
+      {
+        method: 'POST',
+        query: { route: 'confirm-match' },
+        body: { item_id: 'item-1', transaction_id: 'tx-1' },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    const itemUpdate = mocks.updateDocument.mock.calls.find((c) => c[1] === 'bank_statement_items');
+    expect(itemUpdate?.[3]?.suggested_tx_id).not.toBeNull();
+    expect(itemUpdate?.[3]?.suggested_tx_id).toBe('');
   });
 });
