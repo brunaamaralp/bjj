@@ -28,6 +28,7 @@
     "provision:lead-triage-attrs": "node scripts/ensure-lead-triage-attrs.js",
     "provision:student-overdue-attrs": "node scripts/ensure-student-overdue-attrs.mjs",
     "recover:bank-accounts": "node --env-file=.env scripts/recover-bank-accounts.mjs",
+    "audit:sale-finance-mirror": "node --env-file=.env scripts/audit-sale-financial-mirror.mjs",
     "unify:bank-labels": "node --env-file=.env scripts/unify-bank-account-labels.mjs",
     "restore:bank-definitions": "node --env-file=.env scripts/restore-bank-account-definitions.mjs",
     "backfill:chart-accounts": "node --env-file=.env scripts/backfill-chart-accounts.mjs",
