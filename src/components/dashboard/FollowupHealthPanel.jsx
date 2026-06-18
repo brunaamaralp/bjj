@@ -91,25 +91,33 @@ export default function FollowupHealthPanel({
         <>
           <p className="followup-health-panel__list-label text-small">Atenção no funil</p>
           <ul className="followup-health-panel__list">
-            {listLeads.map((lead) => (
-              <li key={lead.id}>
-                <button
-                  type="button"
-                  className="followup-health-panel__link"
-                  onClick={() => navigate(`/lead/${lead.id}`)}
-                >
-                  <span className="followup-health-panel__name" title={leadCardTooltip(lead) || undefined}>
-                    {leadCardPrimaryName(lead)}
-                  </span>
-                  {leadCardGuardianSubtitle(lead) ? (
-                    <span className="followup-health-panel__guardian">
-                      {leadCardGuardianSubtitle(lead)}
+            {listLeads.map((lead) => {
+              const guardian = leadCardGuardianSubtitle(lead);
+              return (
+                <li key={lead.id}>
+                  <button
+                    type="button"
+                    className="followup-health-panel__link"
+                    onClick={() => navigate(`/lead/${lead.id}`)}
+                  >
+                    <span className="followup-health-panel__main">
+                      <span
+                        className="followup-health-panel__name"
+                        title={leadCardTooltip(lead) || undefined}
+                      >
+                        {leadCardPrimaryName(lead)}
+                      </span>
+                      {guardian ? (
+                        <span className="followup-health-panel__guardian">{guardian}</span>
+                      ) : null}
                     </span>
-                  ) : null}
-                  <FollowupTemperatureBadge temperature={lead.temperature} size="sm" />
-                </button>
-              </li>
-            ))}
+                    <span className="followup-health-panel__badge-wrap">
+                      <FollowupTemperatureBadge temperature={lead.temperature} size="sm" />
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </>
       ) : null}

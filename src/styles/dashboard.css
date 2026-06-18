@@ -1175,38 +1175,55 @@
           list-style: none;
           margin: 6px 0 0;
           padding: 0;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+          background: var(--color-content-bg);
         }
         .followup-health-panel__link {
           display: flex;
-          flex-wrap: wrap;
           align-items: center;
           justify-content: space-between;
-          gap: 8px;
+          gap: 10px;
           width: 100%;
-          padding: 7px 0;
+          padding: 10px 12px;
           border: none;
-          border-top: 1px solid var(--color-border);
-          background: none;
+          border-bottom: 1px solid var(--color-border);
+          background: transparent;
           cursor: pointer;
           font-family: inherit;
           font-size: var(--font-md);
-          font-weight: 600;
           color: var(--color-text-heading);
           text-align: left;
+          box-sizing: border-box;
+        }
+        .followup-health-panel__list > li:last-child .followup-health-panel__link {
+          border-bottom: none;
         }
         .followup-health-panel__link:hover .followup-health-panel__name {
           color: var(--color-primary);
           text-decoration: underline;
         }
-        .followup-health-panel__name {
+        .followup-health-panel__main {
           flex: 1;
           min-width: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+        }
+        .followup-health-panel__name {
+          width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
           font-size: var(--font-md);
           font-weight: 600;
           line-height: 1.35;
+        }
+        .followup-health-panel__badge-wrap {
+          flex-shrink: 0;
+          align-self: center;
         }
         .followup-copilot {
           margin-top: 6px;
@@ -1291,9 +1308,8 @@
           font-weight: 500;
         }
         .followup-health-panel__guardian {
-          flex: 1 1 100%;
-          margin-top: -2px;
-          font-weight: 500;
+          width: 100%;
+          margin: 0;
         }
         .fu-sub {
           display: flex;
@@ -1889,6 +1905,9 @@
           .agenda-bottom-row > .agenda-followups-section .fu-list-card {
             max-height: min(60vh, 520px);
             overflow-y: auto;
+          }
+          .followup-health-panel:has(.followup-health-panel__list) {
+            margin-bottom: 56px;
           }
           .agenda-followups-section--collapsed .agenda-followups-section__body {
             display: none;

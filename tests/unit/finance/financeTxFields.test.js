@@ -75,20 +75,20 @@ describe('financeTxFields', () => {
       });
     });
 
-    it("type='expense_operational', gross=50 → { gross:50, fee:0, net:-50, direction:'out' }", () => {
+    it("type='expense_operational', gross=50 → { gross:50, fee:0, net:50, direction:'out' } (positivo no storage)", () => {
       expect(normalizeTxAmounts({ type: 'expense_operational', gross: 50 })).toEqual({
         gross: 50,
         fee: 0,
-        net: -50,
+        net: 50,
         direction: 'out',
       });
     });
 
-    it("type='refund', gross=30 → { gross:30, fee:0, net:-30, direction:'in' }", () => {
+    it("type='refund', gross=30 → { gross:30, fee:0, net:30, direction:'in' } (positivo no storage)", () => {
       expect(normalizeTxAmounts({ type: 'refund', gross: 30 })).toEqual({
         gross: 30,
         fee: 0,
-        net: -30,
+        net: 30,
         direction: 'in',
       });
     });
@@ -168,12 +168,12 @@ describe('financeTxFields', () => {
   });
 
   describe('BLOCO 5 — mapFinanceTxDoc', () => {
-    it("doc com type='expense_operational', gross=100, net=-100 → mapped.direction='out', mapped.net=-100", () => {
+    it("doc com type='expense_operational', gross=100, net=100 → mapped.direction='out', mapped.net=-100", () => {
       const mapped = mapFinanceTxDoc({
         $id: 'tx1',
         type: 'expense_operational',
         gross: 100,
-        net: -100,
+        net: 100,
         status: 'settled',
       });
       expect(mapped.direction).toBe('out');
@@ -339,7 +339,7 @@ describe('financeTxFields', () => {
       expect(payload.recurrence_end).toBe('2025-12');
     });
 
-    it("input com recurrence_end='' → payload recebe recurrence_end=''", () => {
+    it("input com recurrence_end='' → payload omite recurrence_end", () => {
       const payload = {};
       applyRecurrenceFields(payload, {
         repeat_enabled: true,
@@ -348,7 +348,7 @@ describe('financeTxFields', () => {
         recurrence_end: '',
       });
 
-      expect(payload.recurrence_end).toBe('');
+      expect(payload.recurrence_end).toBeUndefined();
     });
 
     it('input sem nenhum campo de recorrência → payload não é modificado', () => {
@@ -373,7 +373,7 @@ describe('financeTxFields', () => {
       };
     }
 
-    it('input mínimo (pending) → payload com campos obrigatórios, settledAt vazio e net=190', () => {
+    it('input mínimo (pending) → payload com campos obrigatórios, sem settledAt e net=190', () => {
       const payload = buildFinanceTxPayload(baseInput());
 
       expect(payload.academyId).toBe('acad-1');
@@ -389,7 +389,7 @@ describe('financeTxFields', () => {
       expect(payload.created_by).toBe('system');
       expect(payload.updated_by).toBe('system');
       expect(payload.updated_at).toBe(nowIso);
-      expect(payload.settledAt).toBe('');
+      expect(payload.settledAt).toBeUndefined();
     });
 
     it("status='settled' sem settledAt explícito → settledAt=nowIso e competence_month='2025-06'", () => {
@@ -408,7 +408,7 @@ describe('financeTxFields', () => {
         })
       );
 
-      expect(payload.settledAt).toBe('');
+      expect(payload.settledAt).toBeUndefined();
       expect(payload.due_date).toBe('2026-08-15');
       expect(payload.competence_month).toBe('2026-08');
     });
@@ -425,7 +425,7 @@ describe('financeTxFields', () => {
       expect(payload.competence_month).toBe('2025-03');
     });
 
-    it("type='expense_operational', gross=50 → net=-50", () => {
+    it("type='expense_operational', gross=50 → net=50 no payload (negativo só no map)", () => {
       const payload = buildFinanceTxPayload(
         baseInput({
           type: 'expense_operational',
@@ -434,8 +434,9 @@ describe('financeTxFields', () => {
         })
       );
 
-      expect(payload.net).toBe(-50);
-      expect(normalizeTxAmounts({ type: 'expense_operational', gross: 50 }).net).toBe(-50);
+      expect(payload.net).toBe(50);
+      expect(normalizeTxAmounts({ type: 'expense_operational', gross: 50 }).net).toBe(50);
+      expect(mapFinanceTxDoc({ type: 'expense_operational', gross: 50, net: 50 }).net).toBe(-50);
     });
 
     it('gross inválido (0) → lança erro (normalizeTxAmounts propaga)', () => {
@@ -544,9 +545,30 @@ describe('financeTxFields', () => {
       expect(doc.recurrence_type).toBe('monthly');
       expect(doc.lead_id).toBe('lead-1');
       expect(doc.competence_month).toBe('2025-06');
+      expect(doc.settledAt).toBeUndefined();
       expect(doc.created_by).toBeUndefined();
       expect(doc.updated_at).toBeUndefined();
       expect(doc.updated_by).toBeUndefined();
+    });
+
+    it('financeTxDocumentWithOptionals grava saída com net positivo (direction out)', () => {
+      const doc = financeTxDocumentWithOptionals({
+        academyId: 'acad-1',
+        type: 'expense_operational',
+        direction: 'out',
+        gross: 80,
+        fee: 0,
+        net: 80,
+        status: 'pending',
+        method: 'pix',
+        planName: 'Aluguel',
+        due_date: '2026-06-20',
+      });
+
+      expect(doc.direction).toBe('out');
+      expect(doc.gross).toBe(80);
+      expect(doc.net).toBe(80);
+      expect(doc.due_date).toBe('2026-06-20');
     });
   });
 });

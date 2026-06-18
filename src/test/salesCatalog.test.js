@@ -160,6 +160,52 @@ describe('salesCatalog', () => {
     expect(parents[0].variants).toHaveLength(1);
   });
 
+  it('normalizeSalesCatalogFromApi unifica pais com o mesmo nome', () => {
+    const parents = normalizeSalesCatalogFromApi({
+      catalog_mode: 'parent_variant',
+      products: [
+        {
+          id: 'p1',
+          nome: 'Kimono',
+          is_for_sale: true,
+          is_active: true,
+          variants: [
+            {
+              id: 'v1',
+              product_id: 'p1',
+              nome: 'Kimono',
+              size: 'P',
+              current_quantity: 1,
+              is_for_sale: true,
+              is_active: true,
+            },
+          ],
+        },
+        {
+          id: 'p2',
+          nome: 'Kimono',
+          is_for_sale: true,
+          is_active: true,
+          variants: [
+            {
+              id: 'v2',
+              product_id: 'p2',
+              nome: 'Kimono',
+              size: 'M',
+              current_quantity: 2,
+              is_for_sale: true,
+              is_active: true,
+            },
+          ],
+        },
+      ],
+      variants: [],
+    });
+    expect(parents).toHaveLength(1);
+    expect(parents[0].id).toBe('p1');
+    expect(parents[0].variants.map((v) => v.id).sort()).toEqual(['v1', 'v2']);
+  });
+
   it('normalizeSalesCatalogFromApi falls back to flat variants when nested lists are empty', () => {
     const parents = normalizeSalesCatalogFromApi({
       catalog_mode: 'parent_variant',

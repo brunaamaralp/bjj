@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, RefreshCw, CheckSquare } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckSquare } from 'lucide-react';
 import { fetchCollectionQueue } from '../../lib/collectionQueueApi.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import {
@@ -30,13 +30,12 @@ function fmtMonthShort(ym) {
   }
 }
 
-export default function CobrancaPanel({ academyId, onSectionChange }) {
+export default function CobrancaPanel({ academyId, onSectionChange, refreshToken = 0 }) {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
-  const [refreshToken, setRefreshToken] = useState(0);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 200);
   const [stageFilter, setStageFilter] = useState('all');
@@ -60,15 +59,17 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
     }
   }, [academyId]);
 
-  useEffect(() => {
-    void load();
-  }, [load, refreshToken]);
+  const [paymentBump, setPaymentBump] = useState(0);
 
   useEffect(() => {
-    const bump = () => setRefreshToken((t) => t + 1);
+    const bump = () => setPaymentBump((t) => t + 1);
     window.addEventListener('navi-student-payment-updated', bump);
     return () => window.removeEventListener('navi-student-payment-updated', bump);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshToken, paymentBump]);
 
   const summary = data?.summary || { students: 0, totalOpen: 0, byStage: {} };
   const collectionRules = data?.collectionRules || [];
@@ -112,7 +113,7 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
   }
 
   if (error) {
-    return <ErrorBanner message={error} onRetry={() => setRefreshToken((t) => t + 1)} />;
+    return <ErrorBanner message={error} onRetry={() => void load()} />;
   }
 
   const reguaConfigPath = `/empresa?tab=financeiro&section=${FINANCE_SETTINGS_SECTIONS.REGUA}`;
@@ -126,36 +127,15 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
           placeholder="Buscar aluno…"
           aria-label="Buscar aluno na fila de cobrança"
         />
-        <button
-          type="button"
-          className="btn-outline btn-sm"
-          onClick={() => setRefreshToken((t) => t + 1)}
-          disabled={loading}
-          aria-busy={loading}
-        >
-          <RefreshCw size={14} className={loading ? 'navi-async-btn__spin' : ''} aria-hidden />
-          Atualizar
-        </button>
         <Link to="/tarefas?status=vencidas" className="btn-outline btn-sm cobranca-panel__tasks-link">
           <CheckSquare size={14} aria-hidden />
           Tarefas vencidas
         </Link>
       </div>
 
-      <section className="mensal-collection-dashboard card cobranca-panel__kpis">
-        <div className="mensal-collection-dashboard__grid">
-          <div>
-            <div className="mensal-collection-dashboard__value mensal-collection-dashboard__value--alert">
-              {summary.students}
-            </div>
-            <div className="mensal-collection-dashboard__label">Inadimplentes</div>
-          </div>
-          <div>
-            <div className="mensal-collection-dashboard__value finance-data">
-              {formatBRL(summary.totalOpen)}
-            </div>
-            <div className="mensal-collection-dashboard__label">Valor em aberto</div>
-          </div>
+      <section className="cobranca-panel__filters card" aria-label="Filtrar por etapa da régua">
+        <p className="cobranca-panel__filters-label">Filtrar por etapa da régua</p>
+        <div className="cobranca-panel__stage-chips">
           <button
             type="button"
             className={[
@@ -167,32 +147,31 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
             aria-pressed={stageFilter === 'all'}
             onClick={() => setStageFilter('all')}
           >
-            <div className="mensal-collection-dashboard__value">{summary.students}</div>
-            <div className="mensal-collection-dashboard__label">Todos</div>
+            Todos
+            <span className="cobranca-stage-chip__count">{summary.students}</span>
           </button>
-          {collectionRules.map((rule) => (
-            <button
-              key={rule.day}
-              type="button"
-              className={[
-                'cobranca-stage-chip',
-                stageFilter === String(rule.day) ? 'cobranca-stage-chip--active' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-pressed={stageFilter === String(rule.day)}
-              onClick={() =>
-                setStageFilter((prev) => (prev === String(rule.day) ? 'all' : String(rule.day)))
-              }
-            >
-              <div className="mensal-collection-dashboard__value">
-                {summary.byStage?.[String(rule.day)] || 0}
-              </div>
-              <div className="mensal-collection-dashboard__label">
+          {collectionRules.map((rule) => {
+            const count = summary.byStage?.[String(rule.day)] || 0;
+            return (
+              <button
+                key={rule.day}
+                type="button"
+                className={[
+                  'cobranca-stage-chip',
+                  stageFilter === String(rule.day) ? 'cobranca-stage-chip--active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-pressed={stageFilter === String(rule.day)}
+                onClick={() =>
+                  setStageFilter((prev) => (prev === String(rule.day) ? 'all' : String(rule.day)))
+                }
+              >
                 D+{rule.day} · {rule.label}
-              </div>
-            </button>
-          ))}
+                <span className="cobranca-stage-chip__count">{count}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -289,7 +268,7 @@ export default function CobrancaPanel({ academyId, onSectionChange }) {
                           currentMonth={currentMonth}
                           busy={busyId === row.studentId}
                           onBusyChange={setBusyId}
-                          onSnoozed={() => setRefreshToken((t) => t + 1)}
+                          onSnoozed={() => setPaymentBump((t) => t + 1)}
                           compact
                         />
                       </td>

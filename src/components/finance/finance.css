@@ -4652,6 +4652,417 @@
   padding: 0 4px;
 }
 
+/* === Mensalidades list table — desktop + mobile (restaurado pós-migração index.css) === */
+.mensalidades-page .mensal-table-wrap--desktop {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mensalidades-page .mensal-table-wrap--desktop .mensal-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-hover, var(--azul-gelo));
+}
+
+.mensal-row--zebra td {
+  background: rgba(0, 0, 0, 0.018);
+}
+
+.mensal-row--paid td {
+  opacity: 0.8;
+}
+
+.mensal-row--pending {
+  box-shadow: inset 3px 0 0 var(--finance-color-negative, #e24b4a);
+}
+
+.mensal-row--none {
+  box-shadow: inset 3px 0 0 var(--border-light);
+}
+
+.mensal-cell-empty {
+  color: var(--text-muted, #c4c4d0) !important;
+  font-style: italic;
+  font-weight: 400 !important;
+}
+
+.mensal-cell-valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mensal-cell-valor--filled {
+  font-weight: 700 !important;
+}
+
+.mensal-th-num,
+.mensal-cell-valor {
+  text-align: right;
+}
+
+.mensal-th-action {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.mensal-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.mensal-status-badge--paid {
+  background: #eaf3de;
+  color: #3b6d11;
+}
+
+.mensal-status-badge--covered {
+  background: var(--v50, var(--azul-gelo));
+  color: var(--v700, var(--petroleo));
+  border: 1px solid var(--v200);
+}
+
+.mensal-status-badge--awaiting {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.mensal-status-badge--partial {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.mensal-status-badge--pending {
+  background: #fcebeb;
+  color: #a32d2d;
+}
+
+.mensal-status-badge--soon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.mensal-status-badge--frozen {
+  background: #e8eef5;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.mensal-status-badge--none {
+  background: transparent;
+  border: 1px dashed var(--border-light);
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: var(--font-2xs);
+  padding: 3px 8px;
+}
+
+.mensal-cell-action {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.mensal-action-paid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mensal-action-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #eaf3de;
+  color: var(--status-success-text, #3b6d11);
+}
+
+.mensal-group-row td {
+  padding: 8px 12px !important;
+  background: var(--surface-hover);
+  border-top: 1px solid var(--border-light);
+}
+
+.mensal-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mensal-group-toggle__count {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.mensalidades-page .mensal-th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border-radius: 6px;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mensalidades-page .mensal-th-sort--active {
+  color: var(--color-primary);
+  background: var(--surface-hover);
+}
+
+.mensal-cell-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mensal-cell-name__title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(240px, 28vw);
+  font-weight: 600;
+}
+
+.mensal-cell-name__plan {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.mensal-cell-name__btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.mensal-cell-name__btn:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.mensal-cell-pref {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-sm);
+}
+
+.mensal-cell-pref__sub {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.mensal-cell-faint {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.mensal-mobile-list {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mensal-mobile-card {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.mensal-mobile-card--paid {
+  opacity: 0.9;
+}
+
+.mensal-mobile-card--pending {
+  border-left: 3px solid var(--finance-color-negative, #e24b4a);
+}
+
+.mensal-mobile-card--none {
+  border-left: 3px solid var(--border-light);
+}
+
+.mensal-mobile-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mensal-mobile-card__head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mensal-mobile-card__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: var(--font-md);
+}
+
+.mensal-mobile-card__meta {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.mensal-mobile-card__platform {
+  margin-top: 4px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.mensal-mobile-card__actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mensal-mobile-pay {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mensal-mobile-card__name.mensal-cell-name__btn {
+  display: block;
+  width: 100%;
+  font-size: var(--font-lg);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.mensal-mobile-estornar {
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.mensal-mobile-group-label {
+  margin: 12px 0 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.mensal-mobile-group-label:first-child {
+  margin-top: 0;
+}
+
+.mensal-mobile-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 0.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mensal-mobile-card--grid,
+.mensal-mobile-card--exception {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.mensal-mobile-grid__history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: none;
+  border-top: 0.5px solid var(--border-light);
+  background: var(--surface-hover, var(--azul-gelo));
+  font-family: inherit;
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.mensal-mobile-grid__history-panel {
+  padding: 8px 14px 12px;
+  background: var(--surface-hover, var(--azul-gelo));
+  border-top: 0.5px solid var(--border-light);
+}
+
+.mensal-mobile-grid__history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.mensal-mobile-grid__history-chip {
+  font-size: var(--font-2xs);
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 0.5px solid var(--border-light);
+}
+
+@media (max-width: 768px) {
+  .mensal-table-wrap--desktop {
+    display: none !important;
+  }
+
+  .mensal-mobile-list {
+    display: flex;
+  }
+}
+
 .cobranca-panel {
   display: flex;
   flex-direction: column;
@@ -4672,26 +5083,74 @@
   margin-left: auto;
 }
 
-.cobranca-panel__kpis {
+.cobranca-panel__filters {
   margin-bottom: 0;
+  padding: 12px 16px;
+}
+
+.cobranca-panel__filters-label {
+  margin: 0 0 10px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.cobranca-panel__stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cobranca-stage-chip {
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--border-light);
+  border-radius: 20px;
+  background: var(--surface);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  font-family: inherit;
+  line-height: 1.3;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .cobranca-stage-chip:hover {
   background: var(--surface-hover);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--border-light));
 }
 
 .cobranca-stage-chip--active {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.cobranca-stage-chip--active:hover {
+  background: var(--v700, var(--color-primary));
+  border-color: var(--v700, var(--color-primary));
+}
+
+.cobranca-stage-chip__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0 5px;
+  border-radius: 10px;
+  font-size: var(--font-2xs);
+  font-weight: 700;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.cobranca-stage-chip--active .cobranca-stage-chip__count {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .cobranca-panel__table-wrap {

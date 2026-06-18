@@ -259,6 +259,7 @@ export function normalizeProductsCatalogFromApi(data) {
         ? flatVariants
         : [];
   parentProducts = legacyFlat.length ? legacyStockItemsAsParents(legacyFlat) : [];
+  parentProducts = mergeCatalogParentRowsByName(parentProducts);
 
   return {
     catalogMode,

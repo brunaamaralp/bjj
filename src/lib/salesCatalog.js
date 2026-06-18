@@ -1,5 +1,5 @@
 import { mapStockProductDoc } from './stockProducts.js';
-import { legacyStockItemsAsParents } from './productCatalog.js';
+import { legacyStockItemsAsParents, mergeCatalogParentRowsByName } from './productCatalog.js';
 import {
   aggregatePoolTotals,
   hasDualPoolFields,
@@ -317,7 +317,13 @@ export function normalizeSalesCatalogFromApi(data) {
     const fromNested = parentsFromNestedCatalogProducts(rawProducts);
     const fromFlat = flatVariants.length ? catalogParentsFromVariants(flatVariants) : [];
     const merged = mergeSalesParents(fromNested, fromFlat);
-    if (merged.length > 0) return merged;
+    if (merged.length > 0) {
+      return mergeCatalogParentRowsByName(merged)
+        .map(enrichSalesParentRow)
+        .sort((a, b) =>
+          String(a.display_label || a.nome).localeCompare(String(b.display_label || b.nome), 'pt-BR')
+        );
+    }
 
     const legacyLike = rawProducts.length && !rawProducts.some((p) => (p?.variants || []).length > 0);
     if (legacyLike) {

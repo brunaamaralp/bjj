@@ -281,7 +281,11 @@ export default function ReceivablesTab({
           onReferenceMonthChange={onReferenceMonthChange}
         />
       ) : resolvedSection === RECEIVABLES_SECTIONS.COBRANCA ? (
-        <CobrancaPanel academyId={academyId} onSectionChange={handleSectionChange} />
+        <CobrancaPanel
+          academyId={academyId}
+          onSectionChange={handleSectionChange}
+          refreshToken={refreshToken}
+        />
       ) : items.length === 0 ? (
         <EmptyState
           variant="compact"

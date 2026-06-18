@@ -43,14 +43,15 @@ describe('CobrancaPanel', () => {
     fetchCollectionQueue.mockResolvedValue(sampleData);
   });
 
-  it('renderiza KPIs e fila', async () => {
+  it('renderiza filtros de etapa e fila', async () => {
     render(
       <MemoryRouter>
         <CobrancaPanel academyId="ac-1" onSectionChange={vi.fn()} />
       </MemoryRouter>
     );
     expect(await screen.findByText('Maria Silva')).toBeTruthy();
-    expect(screen.getByText('Inadimplentes')).toBeTruthy();
+    expect(screen.getByText('Filtrar por etapa da régua')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Todos/i })).toBeTruthy();
     const tbody = screen.getByRole('table').tBodies[0];
     expect(within(tbody).getByText(/D\+10/)).toBeTruthy();
   });
