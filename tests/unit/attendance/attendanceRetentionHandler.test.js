@@ -74,4 +74,31 @@ describe('attendanceRetentionHandler', () => {
     expect(res.body.at_risk).toHaveLength(1);
     expect(res.body.at_risk[0].name).toBe('Ana');
   });
+
+  it('faz fallback quando select inclui atributo inexistente', async () => {
+    mocks.listDocuments
+      .mockRejectedValueOnce(new Error('Attribute not found in schema: class_name'))
+      .mockResolvedValueOnce({
+        documents: [
+          {
+            $id: 'stu-1',
+            name: 'Ana',
+            enrollmentDate: '2026-01-01',
+            student_status: 'active',
+            academyId: 'ac-1',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        documents: [{ student_id: 'stu-1', checked_in_at: '2026-06-01T10:00:00.000Z' }],
+      });
+
+    const handler = (await import('../../../lib/server/attendanceRetentionHandler.js')).default;
+    const res = mockRes();
+    await handler({ method: 'GET', query: {} }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(mocks.listDocuments).toHaveBeenCalledTimes(3);
+  });
 });
