@@ -15,7 +15,12 @@ export default function InboxTriageCard({
   onLinkStudent,
   onDismiss,
 }) {
-  const linkLabel = `Vincular ${String(studentLabel || 'aluno').trim().toLowerCase()}`;
+  const linkLabel = compact
+    ? 'Vincular'
+    : `Vincular ${String(studentLabel || 'aluno').trim().toLowerCase()}`;
+  const dismissLabel = compact ? 'Descartar' : 'Não é lead';
+  const linkTitle = compact ? `Vincular ${String(studentLabel || 'aluno').trim().toLowerCase()}` : undefined;
+  const dismissTitle = compact ? 'Marcar que não é lead' : undefined;
 
   return (
     <div
@@ -53,7 +58,13 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'link_student' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
+<<<<<<< Updated upstream
           onClick={() => onLinkStudent?.()}
+=======
+          title={linkTitle}
+          onPointerDown={stopCardBubble}
+          onClick={(e) => runAction(e, onLinkStudent)}
+>>>>>>> Stashed changes
         >
           <GraduationCap size={14} aria-hidden />
           {linkLabel}
@@ -62,10 +73,16 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted${suggestedAction === 'dismiss' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
+<<<<<<< Updated upstream
           onClick={() => onDismiss?.()}
+=======
+          title={dismissTitle}
+          onPointerDown={stopCardBubble}
+          onClick={(e) => runAction(e, onDismiss)}
+>>>>>>> Stashed changes
         >
           <Trash2 size={14} aria-hidden />
-          Não é lead
+          {dismissLabel}
         </button>
       </div>
     </div>
