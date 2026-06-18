@@ -568,7 +568,20 @@ describe('financeTxFields', () => {
       expect(doc.direction).toBe('out');
       expect(doc.gross).toBe(80);
       expect(doc.net).toBe(80);
+      expect(doc.type).toBe('exp_operational');
       expect(doc.due_date).toBe('2026-06-20');
+    });
+
+    it('encodeFinanceTxTypeForStorage e decodeFinanceTxTypeFromStorage são inversos', async () => {
+      const { encodeFinanceTxTypeForStorage, decodeFinanceTxTypeFromStorage } = await import(
+        '../../../lib/server/financeTxFields.js'
+      );
+      expect(encodeFinanceTxTypeForStorage('expense_operational')).toBe('exp_operational');
+      expect(decodeFinanceTxTypeFromStorage('exp_operational')).toBe('expense_operational');
+      expect(encodeFinanceTxTypeForStorage('plan')).toBe('plan');
+      expect(
+        mapFinanceTxDoc({ type: 'bal_sheet_out', gross: 10, net: 10, direction: 'out' }).type
+      ).toBe('balance_sheet_out');
     });
   });
 });
