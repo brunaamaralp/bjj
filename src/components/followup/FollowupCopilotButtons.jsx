@@ -43,7 +43,7 @@ export default function FollowupCopilotButtons({
 
   const lid = String(leadId || '').trim();
   const aid = String(academyId || '').trim();
-  if (!lid || !aid || aiEnabled === false) return null;
+  const enabled = Boolean(lid && aid && aiEnabled !== false);
 
   const recordSummaryAudit = async (text, tplKey) => {
     try {
@@ -81,7 +81,7 @@ export default function FollowupCopilotButtons({
   };
 
   useEffect(() => {
-    if (!prefetchSummary || !lid || !aid) return undefined;
+    if (!enabled || !prefetchSummary) return undefined;
     let cancelled = false;
     void fetchLeadSummaryPeek({ academyId: aid, leadId: lid })
       .then((data) => {
@@ -104,9 +104,10 @@ export default function FollowupCopilotButtons({
     return () => {
       cancelled = true;
     };
-  }, [prefetchSummary, lid, aid]);
+  }, [enabled, prefetchSummary, lid, aid]);
 
   const loadSummary = async ({ forceRefresh = false } = {}) => {
+    if (!enabled) return;
     if (!forceRefresh && summaryText && peekReady && !summaryMeta.stale) {
       setSummaryOpen(true);
       return;
@@ -131,6 +132,8 @@ export default function FollowupCopilotButtons({
   };
 
   const generatedLabel = formatSummaryGeneratedAt(summaryMeta.generatedAt);
+
+  if (!enabled) return null;
 
   return (
     <div className="followup-copilot">

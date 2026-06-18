@@ -5,7 +5,6 @@ import FollowupCopilotButtons from './FollowupCopilotButtons.jsx';
 import { followupCompleteActionLabel } from '../../lib/dashboardReceptionCopy.js';
 export default function LeadFollowupBand({
   followupState,
-  lead,
   leadId,
   academyId,
   onWhatsApp,

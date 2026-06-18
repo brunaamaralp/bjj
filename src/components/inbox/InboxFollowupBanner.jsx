@@ -10,7 +10,6 @@ export default function InboxFollowupBanner({
   followupState,
   leadId,
   academyId,
-  leadPhone,
   aiEnabled = true,
   onSendTemplate,
   onCompleteFollowup,
