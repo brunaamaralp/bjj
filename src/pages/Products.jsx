@@ -537,7 +537,6 @@ export default function Products() {
       }
       let blockReason = null;
       if (check.has_sales) blockReason = 'sales';
-      else if (check.has_stock_moves && !check.can_delete) blockReason = 'stock_moves';
       setDeleteBlockReason(blockReason);
       setDeleteDialogOpen(true);
     } catch (err) {
