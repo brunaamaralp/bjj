@@ -63,9 +63,10 @@ export function patchFinanceTxUrlParam(searchParams, key, value, { omitWhen = ['
   return next;
 }
 
-export function getTxModalTitle({ editingRecurrenceOnly, editingTxId }) {
+export function getTxModalTitle({ editingRecurrenceOnly, editingTxId, direction }) {
   if (editingRecurrenceOnly) return 'Editar recorrência';
   if (editingTxId) return 'Editar lançamento';
+  if (String(direction || '').toLowerCase() === 'out') return 'Nova saída';
   return 'Novo lançamento';
 }
 
@@ -75,4 +76,11 @@ export function getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTx
   if (editingTxId) return 'Salvar alterações';
   if (receiveNow) return 'Registrar e liquidar';
   return 'Registrar lançamento';
+}
+
+/** Texto introdutório do modal (novo lançamento). */
+export function getTxModalIntro(direction) {
+  const isOut = String(direction || '').toLowerCase() === 'out';
+  const liquidarLabel = isOut ? 'Pago agora' : 'Recebido agora';
+  return `Registre ${isOut ? 'uma saída' : 'uma entrada'} no caixa do período. Se não marcar «${liquidarLabel}», o lançamento fica pendente até você liquidar.`;
 }

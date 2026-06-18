@@ -743,12 +743,83 @@
 }
 .finance-tx-modal__intro,
 .finance-tx-modal__hint {
-  margin: 0;
+  margin: 0 0 12px;
   color: var(--text-secondary, var(--color-text-secondary));
   font-size: var(--font-sm);
   line-height: 1.5;
 }
 .finance-tx-modal__checkbox { cursor: pointer; }
+.finance-tx-modal__field-hint {
+  margin: 6px 0 0;
+  color: var(--text-secondary, var(--color-text-secondary));
+  font-size: var(--font-xs, 0.75rem);
+}
+.finance-tx-direction-toggle__label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: var(--font-sm);
+}
+.finance-tx-direction-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  border: 1px solid var(--border-light, var(--color-border));
+}
+.finance-tx-direction-toggle__btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: var(--surface, var(--color-surface));
+  cursor: pointer;
+  font-size: var(--font-sm);
+  transition: background 0.15s, color 0.15s;
+}
+.finance-tx-direction-toggle__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.finance-tx-direction-toggle__btn--in.finance-tx-direction-toggle__btn--active {
+  background: color-mix(in srgb, var(--finance-color-positive) 14%, var(--surface));
+  color: var(--finance-color-positive);
+  font-weight: 600;
+}
+.finance-tx-direction-toggle__btn--out.finance-tx-direction-toggle__btn--active {
+  background: color-mix(in srgb, var(--finance-color-negative) 14%, var(--surface));
+  color: var(--finance-color-negative);
+  font-weight: 600;
+}
+.finance-tx-form-section {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-light, var(--color-border));
+  padding-top: 4px;
+}
+.finance-tx-form-section__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary, var(--color-text));
+  text-align: left;
+}
+.finance-tx-form-section__chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+  color: var(--text-secondary, var(--color-text-secondary));
+}
+.finance-tx-form-section__chevron--open {
+  transform: rotate(180deg);
+}
+.finance-tx-form-section__body {
+  padding-bottom: 4px;
+}
 .finance-tx-student-group { position: relative; }
 .finance-tx-student-group__hint { color: var(--text-secondary); margin-top: 6px; }
 .finance-tx-student-dropdown {

@@ -48,7 +48,6 @@ import {
 import {
   FINANCE_CATEGORIES,
   defaultCategoryForTxType,
-  defaultCategoryForDirection,
   getCategoryOptionsByNature,
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
@@ -76,6 +75,8 @@ import FinanceBankAccountsSetupBanner from './FinanceBankAccountsSetupBanner.jsx
 import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
 import FinanceTxAnticipationDialog from './FinanceTxAnticipationDialog.jsx';
 import FinanceTxStudentField from './FinanceTxStudentField.jsx';
+import FinanceTxDirectionToggle from './FinanceTxDirectionToggle.jsx';
+import FinanceTxFormSection from './FinanceTxFormSection.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
@@ -121,7 +122,15 @@ import {
   patchFinanceTxUrlParam,
   getTxModalTitle,
   getTxModalSaveLabel,
+  getTxModalIntro,
 } from '../../lib/financeTxTabState.js';
+import {
+  buildInitialTxForm,
+  applyDirectionChangeToTxForm,
+  shouldSyncCompetenceFromDueDate,
+  shouldShowFinanceTxStudentField,
+  competenceMonthFromDueDate,
+} from '../../lib/financeTxModalForm.js';
 
 const BANK_FILTER_UNALLOCATED = '__unallocated__';
 
@@ -161,16 +170,19 @@ function getTxTypeLabelDesktop(tx) {
   return labelForFinanceTxType(t);
 }
 
-const TX_FORM_ERROR_FOCUS_ORDER = ['category', 'planName', 'gross', 'bankAccount', 'recurrence'];
+const TX_FORM_ERROR_FOCUS_ORDER = ['category', 'planName', 'due_date', 'gross', 'bankAccount', 'recurrence'];
 
 const TX_FORM_FIELD_IDS = {
   category: 'finance-tx-category',
   planName: 'finance-tx-plan',
   description: 'finance-tx-description',
+  due_date: 'finance-tx-due',
   gross: 'finance-tx-gross',
   bankAccount: 'finance-tx-bank-account',
   recurrence: 'finance-tx-recurrence-toggle',
 };
+
+const FINANCE_TX_FORM_ID = 'finance-tx-form';
 
 function focusFirstTxFormError(errors) {
   for (const key of TX_FORM_ERROR_FOCUS_ORDER) {
@@ -288,6 +300,8 @@ export default function TransacoesTab({
   const [recurrenceCancelLoadingId, setRecurrenceCancelLoadingId] = useState('');
   const [menuOpenId, setMenuOpenId] = useState('');
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [txPaymentSectionOpen, setTxPaymentSectionOpen] = useState(true);
+  const [txOptionalSectionOpen, setTxOptionalSectionOpen] = useState(false);
   const [editingRecurrenceOnly, setEditingRecurrenceOnly] = useState(false);
   const [editingTxId, setEditingTxId] = useState('');
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
@@ -360,42 +374,40 @@ export default function TransacoesTab({
     return 6 + optionalVisible;
   }, [visibleCols]);
 
-  const initialTxForm = () => ({
-    direction: 'in',
-    type: FINANCE_CATEGORIES.MENSALIDADE.type,
-    planName: '',
-    method: 'pix',
-    gross: '',
-    fee: '',
-    installments: 1,
-    note: '',
-    lead_id: '',
-    competence_month: currentCompetenceMonth(),
-    category: FINANCE_CATEGORIES.MENSALIDADE.label,
-    bankAccount: '',
-    due_date: todayYmdLocal(),
-    ...defaultRecurrenceForm(),
-  });
+  const initialTxForm = useCallback(
+    (direction = 'in') =>
+      buildInitialTxForm(direction, {
+        bankAccount: resolveBankAccountForPayment('', financeConfig),
+      }),
+    [financeConfig]
+  );
 
-  const openNewTxModal = useCallback(() => {
-    setEditingTxId('');
-    setEditPreservedSaleId('');
-    setReceiveNow(false);
-    setTxForm({
-      ...initialTxForm(),
-      bankAccount: resolveBankAccountForPayment('', financeConfig),
-    });
-    setStudentDisplayName('');
-    setTxFormErrors({});
-    setShowTxModal(true);
-    txFormSnapshotRef.current = JSON.stringify({ form: initialTxForm(), student: '' });
-  }, [financeConfig]);
+  const openNewTxModal = useCallback(
+    (opts = {}) => {
+      const direction = opts.direction === 'out' ? 'out' : 'in';
+      const form = initialTxForm(direction);
+      setEditingTxId('');
+      setEditPreservedSaleId('');
+      setReceiveNow(false);
+      setTxForm(form);
+      setStudentDisplayName('');
+      setTxFormErrors({});
+      setTxPaymentSectionOpen(true);
+      setTxOptionalSectionOpen(false);
+      setRecurrenceOpen(false);
+      setShowTxModal(true);
+      txFormSnapshotRef.current = JSON.stringify({ form, student: '' });
+    },
+    [initialTxForm]
+  );
 
   useEffect(() => {
     if (searchParams.get('new') !== '1') return;
-    openNewTxModal();
+    const direction = searchParams.get('dir') === 'out' ? 'out' : 'in';
+    openNewTxModal({ direction });
     const next = new URLSearchParams(searchParams);
     next.delete('new');
+    next.delete('dir');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, openNewTxModal]);
 
@@ -604,7 +616,9 @@ export default function TransacoesTab({
     setRecurrenceOpen(false);
     setEditPreservedSaleId('');
     setReceiveNow(false);
-    setTxForm(initialTxForm());
+    setTxForm(initialTxForm('in'));
+    setTxPaymentSectionOpen(true);
+    setTxOptionalSectionOpen(false);
     setTxFormErrors({});
     setStudentDisplayName('');
     txFormSnapshotRef.current = '';
@@ -648,6 +662,39 @@ export default function TransacoesTab({
       clearTxFieldError('planName');
     },
     [chartAccounts, clearTxFieldError]
+  );
+
+  const handleTxDirectionChange = useCallback(
+    (dir) => {
+      setTxForm((prev) =>
+        applyDirectionChangeToTxForm(prev, dir, { chartAccounts, receiveNow, editingTxId })
+      );
+      if (dir === 'out') {
+        setStudentDisplayName('');
+      }
+      clearTxFieldError('category');
+      clearTxFieldError('planName');
+    },
+    [chartAccounts, receiveNow, editingTxId, clearTxFieldError]
+  );
+
+  const competenceSynced = useMemo(
+    () =>
+      shouldSyncCompetenceFromDueDate({
+        direction: txForm.direction,
+        receiveNow,
+        editingTxId,
+      }),
+    [txForm.direction, receiveNow, editingTxId]
+  );
+
+  const showStudentField = useMemo(
+    () =>
+      shouldShowFinanceTxStudentField(
+        txForm.direction,
+        resolveFinanceCategory(txForm.category, chartAccounts)?.type
+      ),
+    [txForm.direction, txForm.category, chartAccounts]
   );
 
   const loadTransactions = useCallback(
@@ -805,6 +852,8 @@ export default function TransacoesTab({
     setStudentDisplayName(leadName === 'Aluno não encontrado' ? '' : leadName);
     setTxFormErrors({});
     setShowTxModal(true);
+    setTxPaymentSectionOpen(true);
+    setTxOptionalSectionOpen(Boolean(tx.lead_id || tx.note || tx.competence_month));
     txFormSnapshotRef.current = JSON.stringify({
       form: {
         direction: dir,
@@ -831,6 +880,7 @@ export default function TransacoesTab({
     openEditModal(tx);
     setEditingRecurrenceOnly(true);
     setRecurrenceOpen(true);
+    setTxOptionalSectionOpen(true);
     setTxForm((f) => ({
       ...f,
       repeat_enabled: true,
@@ -1374,10 +1424,19 @@ export default function TransacoesTab({
               <button
                 type="button"
                 className="btn-primary navi-btn--toolbar finance-tx-toolbar__cta"
-                onClick={openNewTxModal}
+                onClick={() => openNewTxModal()}
               >
                 + Novo lançamento
               </button>
+              {canManageAdvanced ? (
+                <button
+                  type="button"
+                  className="btn-outline navi-btn--toolbar finance-tx-toolbar__cta"
+                  onClick={() => openNewTxModal({ direction: 'out' })}
+                >
+                  + Nova saída
+                </button>
+              ) : null}
             </div>
           </div>
         </FinanceFiltersBar>
@@ -1795,7 +1854,7 @@ export default function TransacoesTab({
 
       <ModalShell
         open={showTxModal}
-        title={getTxModalTitle({ editingRecurrenceOnly, editingTxId })}
+        title={getTxModalTitle({ editingRecurrenceOnly, editingTxId, direction: txForm.direction })}
         onClose={requestCloseTxModal}
         closeOnEsc
         maxWidth={520}
@@ -1810,10 +1869,10 @@ export default function TransacoesTab({
               Cancelar
             </button>
             <button
-              type="button"
+              type="submit"
+              form={FINANCE_TX_FORM_ID}
               className="btn-primary"
               disabled={savingTx}
-              onClick={() => void saveManualTx()}
             >
               {getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow })}
             </button>
@@ -1822,8 +1881,7 @@ export default function TransacoesTab({
       >
         {!editingTxId && !editingRecurrenceOnly ? (
           <p id="finance-tx-modal-desc" className="finance-tx-modal__intro">
-            Registre entrada ou saída no caixa do período. Pendente entra na lista até você liquidar; marque
-            «Recebido agora» para registrar já liquidado.
+            {getTxModalIntro(txForm.direction)}
           </p>
         ) : null}
         {editingTxId && !editingRecurrenceOnly ? (
@@ -1832,43 +1890,22 @@ export default function TransacoesTab({
             alterados automaticamente.
           </p>
         ) : null}
-        <div className="flex-col gap-3">
+        <form
+          id={FINANCE_TX_FORM_ID}
+          className="flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveManualTx();
+          }}
+        >
               {!editingRecurrenceOnly ? (
               <>
-              <div className="form-group">
-                <label htmlFor="finance-tx-direction">Tipo</label>
-                <select
-                  id="finance-tx-direction"
-                  className="form-input"
-                  value={txForm.direction}
-                  onChange={(e) => {
-                    const dir = e.target.value === 'out' ? 'out' : 'in';
-                    const cat = defaultCategoryForDirection(dir);
-                    setTxForm((prev) => {
-                      const prevCat = resolveFinanceCategory(prev.category, chartAccounts, {
-                        direction: prev.direction === 'out' ? 'out' : 'in',
-                      });
-                      const isPlan = cat.type === 'plan';
-                      const wasPlan = prevCat?.type === 'plan';
-                      return {
-                        ...prev,
-                        direction: dir,
-                        category: cat.label,
-                        type: cat.type,
-                        fee: dir === 'out' ? '' : prev.fee,
-                        installments: dir === 'out' ? 1 : prev.installments,
-                        planName: wasPlan !== isPlan ? '' : prev.planName,
-                      };
-                    });
-                    clearTxFieldError('category');
-                    clearTxFieldError('planName');
-                  }}
-                  disabled={Boolean(editingTxId)}
-                >
-                  <option value="in">Entrada</option>
-                  {canManageAdvanced ? <option value="out">Saída</option> : null}
-                </select>
-              </div>
+              <FinanceTxDirectionToggle
+                value={txForm.direction}
+                onChange={handleTxDirectionChange}
+                disabled={Boolean(editingTxId)}
+                showOut={canManageAdvanced}
+              />
               <div className="form-group">
                 <label htmlFor="finance-tx-category">Categoria</label>
                 <SearchableGroupedSelect
@@ -1890,34 +1927,6 @@ export default function TransacoesTab({
                 />
                 <FieldError id="finance-tx-category-error">{txFormErrors.category}</FieldError>
               </div>
-              {!editingTxId ? (
-                <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
-                  <input
-                    type="checkbox"
-                    checked={receiveNow}
-                    onChange={(e) => setReceiveNow(e.target.checked)}
-                  />
-                  {txForm.direction === 'out' ? 'Pago agora (já liquidado)' : 'Recebido agora (já liquidado no caixa)'}
-                </label>
-              ) : null}
-              {txForm.direction === 'out' && (!receiveNow || editingTxId) && !editingRecurrenceOnly ? (
-                <div className="form-group">
-                  <label htmlFor="finance-tx-due">Vencimento</label>
-                  <input
-                    id="finance-tx-due"
-                    type="date"
-                    className="form-input"
-                    value={String(txForm.due_date || '').slice(0, 10)}
-                    aria-invalid={txFormErrors.due_date ? 'true' : undefined}
-                    aria-describedby={txFormErrors.due_date ? 'finance-tx-due-error' : undefined}
-                    onChange={(e) => {
-                      setTxForm((prev) => ({ ...prev, due_date: e.target.value }));
-                      clearTxFieldError('due_date');
-                    }}
-                  />
-                  <FieldError id="finance-tx-due-error">{txFormErrors.due_date}</FieldError>
-                </div>
-              ) : null}
               {resolveFinanceCategory(txForm.category, chartAccounts)?.type === 'plan' ? (
                 <div className="form-group">
                   <label htmlFor="finance-tx-plan">Plano</label>
@@ -1997,105 +2006,298 @@ export default function TransacoesTab({
                 />
                 <FieldError id="finance-tx-gross-error">{txFormErrors.gross}</FieldError>
               </div>
-              {txForm.direction !== 'out' ? (
-                <div className="form-group">
-                  <label>Taxa (%)</label>
+              {!editingTxId ? (
+                <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
                   <input
-                    className="form-input"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="0"
-                    value={txForm.fee}
-                    onChange={(e) => setTxForm({ ...txForm, fee: e.target.value })}
-                  />
-                </div>
-              ) : null}
-              {bankAccountLabels.length > 0 ? (
-                <>
-                  <BankAccountSelect
-                    academyId={academyId}
-                    financeConfig={financeConfig}
-                    id="finance-tx-bank-account"
-                    label="Conta bancária"
-                    required
-                    value={txForm.bankAccount || ''}
-                    onChange={(v) => {
-                      setTxForm((f) => ({ ...f, bankAccount: v }));
-                      clearTxFieldError('bankAccount');
+                    type="checkbox"
+                    checked={receiveNow}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setReceiveNow(checked);
+                      if (
+                        !checked &&
+                        txForm.direction === 'out' &&
+                        !editingTxId
+                      ) {
+                        setTxForm((prev) => {
+                          const cm = competenceMonthFromDueDate(prev.due_date);
+                          return cm ? { ...prev, competence_month: cm } : prev;
+                        });
+                      }
                     }}
                   />
-                  <FieldError id="finance-tx-bank-account-error">{txFormErrors.bankAccount}</FieldError>
-                </>
+                  {txForm.direction === 'out' ? 'Pago agora (já liquidado)' : 'Recebido agora (já liquidado no caixa)'}
+                </label>
               ) : null}
-              <div className="form-group">
-                <label>Método</label>
-                <select
-                  className="form-input"
-                  value={txForm.method}
-                  onChange={(e) => {
-                    const m = e.target.value;
-                    setTxForm({
-                      ...txForm,
-                      method: m,
-                      installments: isStorageCreditMethod(m) ? (txForm.installments || 1) : 1,
-                      bankAccount: accountWhenPaymentMethodChanges(financeConfig, m) || txForm.bankAccount,
-                    });
-                  }}
-                >
-                  {activePaymentMethodOptions.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {isStorageCreditMethod(txForm.method) && (
+              {txForm.direction === 'out' && (!receiveNow || editingTxId) ? (
                 <div className="form-group">
-                  <label>Parcelas</label>
-                  <select
+                  <label htmlFor="finance-tx-due">Vencimento</label>
+                  <input
+                    id="finance-tx-due"
+                    type="date"
                     className="form-input"
-                    value={String(txForm.installments || 1)}
-                    onChange={(e) => setTxForm({ ...txForm, installments: Number(e.target.value) || 1 })}
+                    value={String(txForm.due_date || '').slice(0, 10)}
+                    aria-invalid={txFormErrors.due_date ? 'true' : undefined}
+                    aria-describedby={txFormErrors.due_date ? 'finance-tx-due-error' : undefined}
+                    onChange={(e) => {
+                      const due = e.target.value;
+                      setTxForm((prev) => {
+                        const next = { ...prev, due_date: due };
+                        if (
+                          shouldSyncCompetenceFromDueDate({
+                            direction: prev.direction,
+                            receiveNow,
+                            editingTxId,
+                          })
+                        ) {
+                          const cm = competenceMonthFromDueDate(due);
+                          if (cm) next.competence_month = cm;
+                        }
+                        return next;
+                      });
+                      clearTxFieldError('due_date');
+                    }}
+                  />
+                  <FieldError id="finance-tx-due-error">{txFormErrors.due_date}</FieldError>
+                </div>
+              ) : null}
+              <FinanceTxFormSection
+                id="finance-tx-payment"
+                title="Pagamento"
+                open={txPaymentSectionOpen}
+                onToggle={() => setTxPaymentSectionOpen((o) => !o)}
+              >
+                {txForm.direction !== 'out' ? (
+                  <div className="form-group">
+                    <label htmlFor="finance-tx-fee">Taxa (%)</label>
+                    <input
+                      id="finance-tx-fee"
+                      className="form-input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0"
+                      value={txForm.fee}
+                      onChange={(e) => setTxForm({ ...txForm, fee: e.target.value })}
+                    />
+                  </div>
+                ) : null}
+                {bankAccountLabels.length > 0 ? (
+                  <>
+                    <BankAccountSelect
+                      academyId={academyId}
+                      financeConfig={financeConfig}
+                      id="finance-tx-bank-account"
+                      label="Conta bancária"
+                      required
+                      value={txForm.bankAccount || ''}
+                      onChange={(v) => {
+                        setTxForm((f) => ({ ...f, bankAccount: v }));
+                        clearTxFieldError('bankAccount');
+                      }}
+                    />
+                    <FieldError id="finance-tx-bank-account-error">{txFormErrors.bankAccount}</FieldError>
+                  </>
+                ) : null}
+                <div className="form-group">
+                  <label htmlFor="finance-tx-method">Método</label>
+                  <select
+                    id="finance-tx-method"
+                    className="form-input"
+                    value={txForm.method}
+                    onChange={(e) => {
+                      const m = e.target.value;
+                      setTxForm({
+                        ...txForm,
+                        method: m,
+                        installments: isStorageCreditMethod(m) ? (txForm.installments || 1) : 1,
+                        bankAccount: accountWhenPaymentMethodChanges(financeConfig, m) || txForm.bankAccount,
+                      });
+                    }}
                   >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={String(n)}>{n}x</option>
+                    {activePaymentMethodOptions.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
                     ))}
                   </select>
                 </div>
-              )}
-              <FinanceTxStudentField
-                academyId={academyId}
-                value={studentDisplayName}
-                leadId={txForm.lead_id}
-                disabled={Boolean(editingTxId) && !editingRecurrenceOnly}
-                onChange={({ lead_id, name }) => {
-                  setTxForm((f) => ({ ...f, lead_id: lead_id || '' }));
-                  setStudentDisplayName(name || '');
-                }}
-              />
-              <div className="form-group">
-                <label>Mês de competência</label>
-                <DateInputField
-                  type="month"
-                  className="form-input"
-                  value={txForm.competence_month || currentCompetenceMonth()}
-                  onChange={(e) => setTxForm({ ...txForm, competence_month: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Observação</label>
-                <textarea
-                  className="form-input"
-                  rows={3}
-                  value={txForm.note}
-                  onChange={(e) => setTxForm({ ...txForm, note: e.target.value })}
-                  placeholder="Opcional"
-                />
-              </div>
+                {isStorageCreditMethod(txForm.method) ? (
+                  <div className="form-group">
+                    <label htmlFor="finance-tx-installments">Parcelas</label>
+                    <select
+                      id="finance-tx-installments"
+                      className="form-input"
+                      value={String(txForm.installments || 1)}
+                      onChange={(e) => setTxForm({ ...txForm, installments: Number(e.target.value) || 1 })}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={String(n)}>{n}x</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+              </FinanceTxFormSection>
+              <FinanceTxFormSection
+                id="finance-tx-optional"
+                title="Detalhes opcionais"
+                open={txOptionalSectionOpen}
+                onToggle={() => setTxOptionalSectionOpen((o) => !o)}
+              >
+                {showStudentField ? (
+                  <FinanceTxStudentField
+                    academyId={academyId}
+                    value={studentDisplayName}
+                    leadId={txForm.lead_id}
+                    disabled={Boolean(editingTxId) && !editingRecurrenceOnly}
+                    onChange={({ lead_id, name }) => {
+                      setTxForm((f) => ({ ...f, lead_id: lead_id || '' }));
+                      setStudentDisplayName(name || '');
+                    }}
+                  />
+                ) : null}
+                <div className="form-group">
+                  <label htmlFor="finance-tx-competence-month">Mês de competência</label>
+                  <DateInputField
+                    id="finance-tx-competence-month"
+                    type="month"
+                    className="form-input"
+                    disabled={competenceSynced}
+                    aria-describedby={competenceSynced ? 'finance-tx-competence-hint' : undefined}
+                    value={txForm.competence_month || currentCompetenceMonth()}
+                    onChange={(e) => setTxForm({ ...txForm, competence_month: e.target.value })}
+                  />
+                  {competenceSynced ? (
+                    <p id="finance-tx-competence-hint" className="finance-tx-modal__field-hint">
+                      Competência acompanha o mês do vencimento.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="form-group">
+                  <label htmlFor="finance-tx-note">Observação</label>
+                  <textarea
+                    id="finance-tx-note"
+                    className="form-input"
+                    rows={3}
+                    value={txForm.note}
+                    onChange={(e) => setTxForm({ ...txForm, note: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                {!editingTxId ? (
+                  <div className="finance-tx-recurrence-group">
+                    <button
+                      id="finance-tx-recurrence-toggle"
+                      type="button"
+                      className="btn-ghost finance-tx-recurrence-toggle"
+                      aria-expanded={recurrenceOpen}
+                      aria-controls="finance-tx-recurrence-panel"
+                      onClick={() => setRecurrenceOpen((o) => !o)}
+                    >
+                      <span>Repetir lançamento</span>
+                      <ChevronDown
+                        size={18}
+                        aria-hidden
+                        className={`finance-tx-recurrence-toggle__icon${recurrenceOpen ? ' finance-tx-recurrence-toggle__icon--open' : ''}`}
+                      />
+                    </button>
+                    <FieldError id="finance-tx-recurrence-error">{txFormErrors.recurrence}</FieldError>
+                    {recurrenceOpen ? (
+                      <div id="finance-tx-recurrence-panel" className="flex-col gap-3 finance-tx-recurrence-body">
+                        <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(txForm.repeat_enabled)}
+                            onChange={(e) => {
+                              setTxForm((f) => ({
+                                ...f,
+                                repeat_enabled: e.target.checked,
+                                recurrence_type: f.recurrence_type || RECURRENCE_TYPES.MONTHLY,
+                                recurrence_day: f.recurrence_day || 1,
+                              }));
+                              if (e.target.checked) clearTxFieldError('recurrence');
+                            }}
+                          />
+                          Repetir automaticamente
+                        </label>
+                        {txForm.repeat_enabled ? (
+                          <>
+                            <div className="form-group">
+                              <label>Frequência</label>
+                              <select
+                                className="form-input"
+                                value={txForm.recurrence_type || RECURRENCE_TYPES.MONTHLY}
+                                onChange={(e) => {
+                                  const recurrence_type = e.target.value;
+                                  setTxForm((f) => ({
+                                    ...f,
+                                    recurrence_type,
+                                    recurrence_day: normalizeRecurrenceDay(recurrence_type, f.recurrence_day),
+                                  }));
+                                }}
+                              >
+                                <option value={RECURRENCE_TYPES.MONTHLY}>Mensal</option>
+                                <option value={RECURRENCE_TYPES.WEEKLY}>Semanal</option>
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>
+                                {txForm.recurrence_type === RECURRENCE_TYPES.WEEKLY ? 'Dia da semana' : 'Dia do mês (1–28)'}
+                              </label>
+                              {txForm.recurrence_type === RECURRENCE_TYPES.WEEKLY ? (
+                                <select
+                                  className="form-input"
+                                  value={String(txForm.recurrence_day ?? 1)}
+                                  onChange={(e) =>
+                                    setTxForm((f) => ({ ...f, recurrence_day: Number(e.target.value) }))
+                                  }
+                                >
+                                  {WEEKDAY_OPTIONS.map((w) => (
+                                    <option key={w.value} value={w.value}>
+                                      {w.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  min={1}
+                                  max={28}
+                                  value={txForm.recurrence_day ?? 1}
+                                  onChange={(e) =>
+                                    setTxForm((f) => ({
+                                      ...f,
+                                      recurrence_day: normalizeRecurrenceDay(RECURRENCE_TYPES.MONTHLY, e.target.value),
+                                    }))
+                                  }
+                                />
+                              )}
+                            </div>
+                            <div className="form-group">
+                              <label>Até (opcional)</label>
+                              <select
+                                className="form-input"
+                                value={txForm.recurrence_end || ''}
+                                onChange={(e) => setTxForm((f) => ({ ...f, recurrence_end: e.target.value }))}
+                              >
+                                {recurrenceEndOptions.map((o) => (
+                                  <option key={o.value || 'none'} value={o.value}>
+                                    {o.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </FinanceTxFormSection>
               </>
               ) : null}
-              {!editingTxId || editingRecurrenceOnly ? (
+              {editingRecurrenceOnly ? (
                 <div className={`form-group finance-tx-recurrence-group${editingRecurrenceOnly ? ' finance-tx-recurrence-group--editing-only' : ''}`}>
                   <button
                     id="finance-tx-recurrence-toggle"
@@ -2205,7 +2407,7 @@ export default function TransacoesTab({
                   ) : null}
                 </div>
               ) : null}
-        </div>
+        </form>
       </ModalShell>
 
       <ModalShell

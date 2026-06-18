@@ -9,6 +9,7 @@ import {
   patchFinanceTxUrlParam,
   getTxModalTitle,
   getTxModalSaveLabel,
+  getTxModalIntro,
   TX_COLUMNS_STORAGE_PREFIX,
 } from '../lib/financeTxTabState.js';
 
@@ -93,6 +94,9 @@ describe('financeTxTabState', () => {
       expect(getTxModalTitle({ editingRecurrenceOnly: false, editingTxId: '' })).toBe(
         'Novo lançamento'
       );
+      expect(
+        getTxModalTitle({ editingRecurrenceOnly: false, editingTxId: '', direction: 'out' })
+      ).toBe('Nova saída');
     });
 
     it('getTxModalSaveLabel', () => {
@@ -124,6 +128,13 @@ describe('financeTxTabState', () => {
           receiveNow: false,
         })
       ).toBe('Registrar lançamento');
+    });
+
+    it('getTxModalIntro', () => {
+      expect(getTxModalIntro('in')).toContain('entrada');
+      expect(getTxModalIntro('in')).toContain('Recebido agora');
+      expect(getTxModalIntro('out')).toContain('saída');
+      expect(getTxModalIntro('out')).toContain('Pago agora');
     });
   });
 });
