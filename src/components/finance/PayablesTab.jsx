@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Repeat,
+  Trash2,
   TrendingDown,
 } from 'lucide-react';
 import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
@@ -106,6 +107,7 @@ const defaultForm = () => ({
 export default function PayablesTab({
   academyId,
   financeConfig,
+  canManageAdvanced = false,
   activeSection,
   defaultSection,
   onSectionChange,
@@ -147,6 +149,9 @@ export default function PayablesTab({
   const [showValueConfirm, setShowValueConfirm] = useState(false);
   const [cancelTemplateId, setCancelTemplateId] = useState('');
   const [cancelTemplateSaving, setCancelTemplateSaving] = useState(false);
+  const [cancelPayableItem, setCancelPayableItem] = useState(null);
+  const [cancelPayableSaving, setCancelPayableSaving] = useState(false);
+  const [cancelPayableStopRecurrence, setCancelPayableStopRecurrence] = useState(false);
 
   const range = useMemo(() => {
     const today = todayYmdLocal();
@@ -483,9 +488,37 @@ export default function PayablesTab({
       setCancelTemplateId('');
       setRefreshToken((t) => t + 1);
     } catch (err) {
-      toast.error(err?.message || 'Não foi possível cancelar a recorrência.');
+      toast.error(financeTxFriendlyError(err, 'action') || 'Não foi possível cancelar a recorrência.');
     } finally {
       setCancelTemplateSaving(false);
+    }
+  }
+
+  function openCancelPayable(item) {
+    setCancelPayableStopRecurrence(false);
+    setCancelPayableItem(item);
+  }
+
+  async function confirmCancelPayable() {
+    const txId = String(cancelPayableItem?.tx_id || '').trim();
+    if (!txId) return;
+    setCancelPayableSaving(true);
+    try {
+      await patchFinanceTx({ academyId, id: txId, payload: { action: 'cancel' } });
+      const templateId = String(cancelPayableItem?.template_id || '').trim();
+      if (cancelPayableStopRecurrence && templateId) {
+        await patchFinanceTx({ academyId, id: templateId, payload: { action: 'cancel_recurrence' } });
+        toast.success('Conta excluída e recorrência cancelada.');
+      } else {
+        toast.success('Conta excluída da fila.');
+      }
+      setCancelPayableItem(null);
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+      setRefreshToken((t) => t + 1);
+    } catch (err) {
+      toast.error(financeTxFriendlyError(err, 'action') || 'Não foi possível excluir a conta.');
+    } finally {
+      setCancelPayableSaving(false);
     }
   }
 
@@ -707,15 +740,28 @@ export default function PayablesTab({
                             >
                               <ExternalLink size={14} aria-hidden />
                             </Link>
+                            {canManageAdvanced ? (
+                              <button
+                                type="button"
+                                className="btn-ghost btn-sm text-muted"
+                                onClick={() => openCancelPayable(item)}
+                                aria-label={`Excluir ${item.vendor_label}`}
+                                title="Excluir conta"
+                              >
+                                <Trash2 size={14} aria-hidden />
+                              </button>
+                            ) : null}
                           </>
                         ) : item.source === PAYABLE_SOURCE.TEMPLATE ? (
-                          <button
-                            type="button"
-                            className="btn-ghost btn-sm text-muted"
-                            onClick={() => setCancelTemplateId(item.template_id)}
-                          >
-                            Cancelar
-                          </button>
+                          canManageAdvanced ? (
+                            <button
+                              type="button"
+                              className="btn-ghost btn-sm text-muted"
+                              onClick={() => setCancelTemplateId(item.template_id)}
+                            >
+                              Cancelar
+                            </button>
+                          ) : null
                         ) : null}
                       </div>
                     </td>
@@ -948,6 +994,64 @@ export default function PayablesTab({
           </form>
         </ModalShell>
       ) : null}
+
+      {cancelPayableItem?.template_id ? (
+        <ModalShell
+          open={Boolean(cancelPayableItem)}
+          title="Excluir conta a pagar?"
+          onClose={() => {
+            if (!cancelPayableSaving) setCancelPayableItem(null);
+          }}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setCancelPayableItem(null)}
+                disabled={cancelPayableSaving}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={cancelPayableSaving}
+                onClick={() => void confirmCancelPayable()}
+              >
+                {cancelPayableSaving ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </>
+          }
+        >
+          <p className="text-small text-muted">
+            Remover <strong>{cancelPayableItem.vendor_label}</strong> da fila?
+          </p>
+          <label className="form-check mt-3">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={cancelPayableStopRecurrence}
+              onChange={(e) => setCancelPayableStopRecurrence(e.target.checked)}
+            />
+            <span className="form-check-label text-small">
+              Também cancelar a recorrência (não gerar novas parcelas)
+            </span>
+          </label>
+        </ModalShell>
+      ) : (
+        <ConfirmDialog
+          open={Boolean(cancelPayableItem)}
+          title="Excluir conta a pagar?"
+          description={`Remover "${cancelPayableItem?.vendor_label || 'esta conta'}" da fila?`}
+          confirmLabel="Excluir"
+          confirmVariant="danger"
+          loading={cancelPayableSaving}
+          onConfirm={() => void confirmCancelPayable()}
+          onClose={() => {
+            if (!cancelPayableSaving) setCancelPayableItem(null);
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(cancelTemplateId)}

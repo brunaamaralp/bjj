@@ -613,6 +613,7 @@ function CaixaPage() {
             <PayablesTab
               academyId={academyId}
               financeConfig={financeConfig}
+              canManageAdvanced={isOwner || isAdmin}
               activeSection={payablesSection}
               defaultSection={defaultPayablesSection}
               onSectionChange={setPayablesSection}
