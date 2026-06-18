@@ -5,10 +5,21 @@
 import { defaultCategoryForTxType, resolveFinanceCategory } from './financeCategories.js';
 import { formatPaymentMethod } from './paymentMethodLabels.js';
 
+const OUTFLOW_TX_TYPES = new Set([
+  'expense',
+  'expense_operational',
+  'expense_financial',
+  'card_fee',
+  'stock_purchase',
+  'loan_repayment',
+  'balance_sheet_out',
+]);
+
 export function txDirection(tx) {
-  if (String(tx?.direction || '').toLowerCase() === 'out') return 'out';
+  const dir = String(tx?.direction || '').toLowerCase();
+  if (dir === 'out' || dir === 'in') return dir;
   const type = String(tx?.type || '').toLowerCase();
-  if (type === 'expense' || type === 'stock_purchase') return 'out';
+  if (OUTFLOW_TX_TYPES.has(type)) return 'out';
   if (type === 'refund') return 'in';
   return 'in';
 }

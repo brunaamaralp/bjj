@@ -135,6 +135,8 @@ async function provisionFinancialTx(databases) {
   await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_end', 7, false);
   await ensureString(databases, FINANCIAL_TX_COL, 'recurrence_origin_id', 64, false);
   await ensureBool(databases, FINANCIAL_TX_COL, 'is_recurrence_template', false);
+  await ensureString(databases, FINANCIAL_TX_COL, 'due_date', 10, false);
+  await ensureDatetime(databases, FINANCIAL_TX_COL, 'expected_settlement_at', false);
 }
 
 async function provisionBankCollections(databases) {
