@@ -20,7 +20,10 @@ import AutomacoesReadinessBanner from './AutomacoesReadinessBanner.jsx';
 import AutomacoesTabIntroBanner from './AutomacoesTabIntroBanner.jsx';
 import AutomacoesZapsterOfflineBanner from './AutomacoesZapsterOfflineBanner.jsx';
 import AutomationPreviewLeadPicker from './AutomationPreviewLeadPicker.jsx';
+import AutomationAudienceSection from './AutomationAudienceSection.jsx';
+import { CRON_TRIGGERS_WITH_AUDIENCE } from '../../lib/automationAudience.js';
 import StatusBanner from '../shared/StatusBanner.jsx';
+import SettingRow from '../shared/SettingRow.jsx';
 
 function AutomationRow({
     automationKey,
@@ -37,6 +40,11 @@ function AutomationRow({
     onTemplateChange,
     onDelayChange,
     onThresholdChange,
+    showAudience,
+    academy,
+    activeStudents,
+    studentsLoading = false,
+    onSaveAudience,
 }) {
     const isBirthdayCron = automationKey === 'birthday';
     const isRetentionCron = automationKey === 'absent_student' || automationKey === 'newcomer_at_risk';
@@ -52,7 +60,13 @@ function AutomationRow({
         : !noTemplatesAvailable &&
           Boolean(cfg.templateKey) &&
           rowTemplateOptions.some((o) => o.id === cfg.templateKey);
-    const switchDisabled = !canEdit || savingAutomations || noTemplatesAvailable || !hasValidTemplate;
+    const [audienceDirty, setAudienceDirty] = useState(false);
+    const switchDisabled =
+        !canEdit ||
+        savingAutomations ||
+        noTemplatesAvailable ||
+        !hasValidTemplate ||
+        (showAudience && audienceDirty);
     const [previewOpen, setPreviewOpen] = useState(false);
 
     const scheduleDate =
@@ -81,61 +95,58 @@ function AutomationRow({
             className={`automacoes-trigger-card${cfg.active ? ' automacoes-trigger-card--on' : ''}`}
             aria-labelledby={`automation-${automationKey}-title`}
         >
-            <div className="automacoes-trigger-card__head">
-                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                    <strong id={`automation-${automationKey}-title`} className="automacoes-trigger-card__title">
-                        {meta.label}
-                    </strong>
-                    {meta.triggerWhere ? (
-                        <span className="automacoes-trigger-card__where">{meta.triggerWhere}</span>
-                    ) : null}
-                    <p className="text-xs text-light" style={{ marginTop: 6, lineHeight: 1.45, marginBottom: 0 }}>
-                        {meta.description}
+            <SettingRow
+                flush
+                className="automacoes-trigger-card__head"
+                labelId={`automation-${automationKey}-title`}
+                label={meta.label}
+                hint={meta.triggerWhere || undefined}
+                control={
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={cfg.active === true}
+                        aria-labelledby={`automation-${automationKey}-title`}
+                        aria-disabled={switchDisabled}
+                        disabled={switchDisabled}
+                        title={
+                            !canEdit
+                                ? 'Somente titular ou administrador pode alterar'
+                                : savingAutomations
+                                  ? 'Salvando…'
+                                  : audienceDirty
+                                    ? 'Salve a audiência antes de ativar'
+                                  : switchDisabled
+                                    ? noTemplatesAvailable
+                                        ? 'Revise os modelos em Modelos de Mensagem'
+                                        : 'Selecione um modelo antes de ativar'
+                                    : undefined
+                        }
+                        className={`ai-switch${cfg.active ? ' ai-switch--on' : ''}${savingAutomations ? ' ai-switch--loading' : ''}`}
+                        onClick={() => {
+                            if (switchDisabled) return;
+                            onToggle();
+                        }}
+                    >
+                        <span className="ai-switch-thumb" />
+                    </button>
+                }
+            >
+                <p className="navi-setting-row__detail text-light">{meta.description}</p>
+                {delayHint ? (
+                    <p className="navi-setting-row__detail">{delayHint}</p>
+                ) : null}
+                {isRetentionCron ? (
+                    <p className="navi-setting-row__detail automacoes-trigger-card__retention-hint">
+                        {AUTOMATION_RETENTION_CYCLE_HINT}
                     </p>
-                    {delayHint ? (
-                        <p className="text-xs" style={{ marginTop: 6, color: 'var(--text-secondary)', marginBottom: 0 }}>
-                            {delayHint}
-                        </p>
-                    ) : null}
-                    {isRetentionCron ? (
-                        <p
-                            className="automacoes-trigger-card__retention-hint text-xs"
-                            style={{ marginTop: 6, color: 'var(--text-secondary)', marginBottom: 0 }}
-                        >
-                            {AUTOMATION_RETENTION_CYCLE_HINT}
-                        </p>
-                    ) : null}
-                </div>
-                <button
-                    type="button"
-                    role="switch"
-                    aria-checked={cfg.active === true}
-                    aria-labelledby={`automation-${automationKey}-title`}
-                    aria-disabled={switchDisabled}
-                    disabled={switchDisabled}
-                    title={
-                        !canEdit
-                            ? 'Somente titular ou administrador pode alterar'
-                            : savingAutomations
-                              ? 'Salvando…'
-                              : switchDisabled
-                                ? noTemplatesAvailable
-                                    ? 'Revise os modelos em Modelos de Mensagem'
-                                    : 'Selecione um modelo antes de ativar'
-                                : undefined
-                    }
-                    className={`ai-switch${cfg.active ? ' ai-switch--on' : ''}${savingAutomations ? ' ai-switch--loading' : ''}`}
-                    onClick={() => {
-                        if (switchDisabled) return;
-                        onToggle();
-                    }}
-                >
-                    <span className="ai-switch-thumb" />
-                </button>
-            </div>
+                ) : null}
+            </SettingRow>
             {switchDisabled && canEdit ? (
                 <p className="text-xs" style={{ marginTop: 8, color: 'var(--warning)', marginBottom: 0 }}>
-                    {noTemplatesAvailable ? (
+                    {audienceDirty ? (
+                        'Salve ou descarte a audiência antes de ativar o gatilho.'
+                    ) : noTemplatesAvailable ? (
                         <>
                             Nenhum texto de modelo disponível.{' '}
                             <Link to="/automacoes?tab=modelos" className="edit-link">
@@ -262,6 +273,19 @@ function AutomationRow({
                     </Link>
                 </p>
             ) : null}
+            {showAudience ? (
+                <AutomationAudienceSection
+                    triggerKey={automationKey}
+                    audience={cfg.audience}
+                    academy={academy}
+                    activeStudents={activeStudents}
+                    studentsLoading={studentsLoading}
+                    canEdit={canEdit}
+                    saving={savingAutomations}
+                    onSaveAudience={onSaveAudience}
+                    onDirtyChange={setAudienceDirty}
+                />
+            ) : null}
         </article>
     );
 }
@@ -290,6 +314,11 @@ const AutomacoesSection = ({
     onRetrySave,
     previewLead,
     showTabIntro = false,
+    academy = {},
+    activeStudents = [],
+    studentsLoading = false,
+    onToggleTriggerActive,
+    onSaveTriggerAudience,
 }) => {
     const applyConfigChange = (buildNext, { persist = false, successMessage } = {}) => {
         setAutomationsConfig((prev) => {
@@ -339,6 +368,10 @@ const AutomacoesSection = ({
                             onToggle={() => {
                                 const nextActive = !(automationsConfig?.[key]?.active === true);
                                 const label = meta?.label || key;
+                                if (onToggleTriggerActive) {
+                                    void onToggleTriggerActive(key, nextActive, label);
+                                    return;
+                                }
                                 applyConfigChange(
                                     (prev) => {
                                         const patch = {
@@ -383,6 +416,11 @@ const AutomacoesSection = ({
                                     { persist: true }
                                 )
                             }
+                            showAudience={CRON_TRIGGERS_WITH_AUDIENCE.includes(key)}
+                            academy={academy}
+                            activeStudents={activeStudents}
+                            studentsLoading={studentsLoading}
+                            onSaveAudience={onSaveTriggerAudience}
                         />
                     );
                 })}

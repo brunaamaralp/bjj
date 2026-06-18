@@ -4,6 +4,7 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useUiStore } from '../store/useUiStore';
 import { normalizeWaPhoneDigits } from '../../lib/zapsterInstancePhone.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import { resolveWhatsAppIntegrationStatus } from '../lib/resolveWhatsAppIntegrationStatus.js';
 
 function waPhoneForStatus(status, phoneRaw, prevPhone) {
   const st = String(status || '').trim().toLowerCase();
@@ -98,30 +99,6 @@ function normalizeApiError(raw, fallback) {
   return friendlyError({ message: s }, 'action');
 }
 
-const WA_TRANSIENT_STATUSES = new Set([
-  'connecting',
-  'syncing',
-  'unknown',
-  'open',
-  'qrcode',
-  'scanning',
-]);
-
-function resolveWaStatus(academyZapsterStatus, apiStatus, instanceId) {
-  const docSt = String(academyZapsterStatus || '').trim().toLowerCase();
-  const apiSt = String(apiStatus || '').trim().toLowerCase();
-  const hasInstance = Boolean(String(instanceId || '').trim());
-
-  // API live da Zapster prevalece quando indica sessão ativa (doc pode estar atrasado após flap de webhook).
-  if (apiSt === 'connected' || apiSt === 'online') return 'connected';
-
-  if (WA_TRANSIENT_STATUSES.has(apiSt)) return apiSt;
-
-  if (docSt) return docSt;
-  if (!hasInstance) return 'disconnected';
-  return apiSt || 'disconnected';
-}
-
 /** Texto agregado de campos de erro para matching (case-insensitive nos testes). */
 function collectWaApiErrorText(data, raw) {
   const parts = [];
@@ -181,65 +158,6 @@ async function clearStaleZapsterLinkInAppwrite(jwt, academyId) {
   }
 }
 
-/**
- * Quando GET /instances reporta "connected", o GET do PNG do QR funciona como prova de vida:
- * — 200 + imagem: ainda é possível exibir QR (sessão WA não está estável como conectada no painel).
- * — 406: QR indisponível (típico com sessão ativa) → confiar no status "connected".
- * — Outros erros: tratar como possível dessincronia e permitir fluxo de reconexão.
- * @returns {Promise<boolean>} true se o status reportado como connected deve ser forçado para disconnected
- */
-async function shouldOverrideConnectedStatusAfterQrProbe(academyId, jwt, instanceId) {
-  const id = String(instanceId || '').trim();
-  const aid = String(academyId || '').trim();
-  if (!id || !aid) return false;
-
-  const { blocked, res } = await fetchWithBillingGuard(
-    `/api/zapster/instances?action=qrcode&id=${encodeURIComponent(id)}&ts=${Date.now()}`,
-    { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid } }
-  );
-  if (blocked || !res) return false;
-
-  if (res.ok) {
-    const ct =
-      typeof res.headers?.get === 'function' ? String(res.headers.get('content-type') || '') : '';
-    // Backend retorna 200 + JSON { codigo: 'INSTANCE_CONNECTED' } quando a instância já está conectada.
-    // Isso significa QR indisponível (instância conectada) — não forçar override do status.
-    if (ct.includes('application/json')) {
-      let jsonPayload = null;
-      try {
-        jsonPayload = await res.json();
-      } catch {
-        void 0;
-      }
-      if (jsonPayload?.codigo === 'INSTANCE_CONNECTED' || jsonPayload?.status === 'connected') {
-        return false; // Confirma que está conectado — não precisa override.
-      }
-      return false; // JSON inesperado — sem QR, não sobrescrever.
-    }
-    // PNG recebido: há QR disponível, o que contradiz o status "connected".
-    if (ct.includes('image/png') || ct.includes('image/')) {
-      try { await res.arrayBuffer(); } catch { void 0; }
-      return true;
-    }
-    try { await res.arrayBuffer(); } catch { void 0; }
-    return false;
-  }
-
-  // Zapster 406 legado (caso o backend não tenha sido atualizado ainda).
-  if (res.status === 406) {
-    try { await res.arrayBuffer(); } catch { void 0; }
-    return false;
-  }
-
-  try {
-    await res.text();
-  } catch {
-    void 0;
-  }
-  return true;
-}
-
-
 function inboxDebugEnabled() {
   const envEnabled =
     import.meta.env.DEV ||
@@ -272,6 +190,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const isFetchingWaInfoRef = useRef(false);
   const waInfoRef = useRef({ instance_id: null, status: 'disconnected', qrcode: null, phone: null });
   const academyWaStatusRef = useRef('');
+  const waStatusCheckedRef = useRef(false);
   const hookMountedRef = useRef(true);
   const deferredTimersRef = useRef([]);
   const fetchWaPendingRef = useRef(null);
@@ -310,6 +229,10 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   useEffect(() => {
     academyWaStatusRef.current = academyWaStatus;
   }, [academyWaStatus]);
+
+  useEffect(() => {
+    waStatusCheckedRef.current = waStatusChecked;
+  }, [waStatusChecked]);
 
   /** Instância órfã (Zapster sem o id): limpa UI sem toast nem connectionError. */
   const resetWaToNoInstanceSilently = useCallback(() => {
@@ -487,17 +410,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         instanceLiveOnZapster = status.toLowerCase() !== 'unknown';
       }
 
-      if (incomingId && status === 'connected' && !waPhoneFromApi) {
-        const stale = await shouldOverrideConnectedStatusAfterQrProbe(academyIdRef.current, jwt, incomingId);
-        if (stale) {
-          status = 'disconnected';
-          qrcode = null;
-        }
-      }
-
       const finalStatus = status;
       const finalQrcode = qrcode;
-      const resolvedWaStatus = resolveWaStatus(zapsterStatusFromApi, finalStatus, incomingId);
+      const resolvedWaStatus = resolveWhatsAppIntegrationStatus(zapsterStatusFromApi, finalStatus, incomingId);
       if (resolvedWaStatus) {
         setAcademyWaStatus(resolvedWaStatus);
       }
@@ -588,7 +503,9 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       }
       if (!silent) {
         setConnectionError(friendlyError({ message: msg }, 'action'));
-        if (hookMountedRef.current) setWaStatusChecked(true);
+        if (hookMountedRef.current && waStatusCheckedRef.current) {
+          setWaStatusChecked(true);
+        }
       }
     } finally {
       isFetchingWaInfoRef.current = false;
@@ -622,7 +539,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
 
   const readResolvedWaStatus = useCallback(
     () =>
-      resolveWaStatus(
+      resolveWhatsAppIntegrationStatus(
         academyWaStatusRef.current,
         waInfoRef.current?.status,
         waInfoRef.current?.instance_id
@@ -1370,7 +1287,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   }, []);
 
   const waStatus = useMemo(
-    () => resolveWaStatus(academyWaStatus, waInfo?.status, waInfo?.instance_id),
+    () => resolveWhatsAppIntegrationStatus(academyWaStatus, waInfo?.status, waInfo?.instance_id),
     [academyWaStatus, waInfo?.status, waInfo?.instance_id]
   );
 

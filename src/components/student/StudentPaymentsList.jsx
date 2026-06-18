@@ -2,11 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   groupStudentPaymentsForProfile,
-  formatReferenceMonthShort,
   formatReferenceMonthLong,
-  bundlePlanShortLabel,
   compareReferenceMonths,
 } from '../../lib/bundleCoverage.js';
+import { isBundleChildPayment } from '../../lib/paymentCategories.js';
+import { paymentStatusLabelPt } from '../../lib/paymentStatus.js';
 import { centsToNumber, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 
 function fmtMoney(n) {
@@ -17,23 +17,13 @@ function fmtMoney(n) {
   }
 }
 
-function statusLabel(st) {
-  const s = String(st || '').toLowerCase();
-  if (s === 'paid') return 'Pago';
-  if (s === 'covered') return 'Coberto';
-  if (s === 'pending') return 'Pendente';
-  if (s === 'cancelled') return 'Cancelado';
-  return s;
-}
-
 function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
   const [expanded, setExpanded] = useState(false);
   const [cancelFrom, setCancelFrom] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
-  const { anchor, children, months, startYm, endYm } = group;
-  const planLabel = bundlePlanShortLabel(months);
+  const { anchor, children, startYm, endYm } = group;
   const total = Number(anchor.amount ?? anchor.paid_amount ?? 0);
-  const paidLabel = formatReferenceMonthShort(anchor.reference_month);
+  const monthTitle = formatReferenceMonthLong(anchor.reference_month);
   const futureCovered = useMemo(() => {
     const nowYm = new Date().toISOString().slice(0, 7);
     return children.filter(
@@ -66,10 +56,10 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
           <Calendar size={20} color="var(--petroleo)" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              Plano {planLabel.charAt(0).toUpperCase() + planLabel.slice(1)} — pago em {paidLabel}
+              Mensalidade — {monthTitle}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Cobre: {formatReferenceMonthShort(startYm)} → {formatReferenceMonthShort(endYm)}
+              Cobre {formatReferenceMonthLong(startYm)} a {formatReferenceMonthLong(endYm)}
             </div>
           </div>
         </div>
@@ -112,7 +102,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
               >
                 <span>{formatReferenceMonthLong(p.reference_month)}</span>
                 <span style={{ color: 'var(--v700, var(--petroleo))', fontWeight: 600 }}>
-                  ✓ {statusLabel(p.status)}
+                  ✓ {paymentStatusLabelPt(p.status)}
                 </span>
               </div>
             ))}
@@ -207,8 +197,8 @@ function SinglePaymentRow({ payment, METHOD_PAYMENT_LABELS }) {
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
           {st === 'paid' || st === 'covered'
-            ? `${METHOD_PAYMENT_LABELS[payment.method] || payment.method} · ${statusLabel(st)}`
-            : statusLabel(st)}
+            ? `${METHOD_PAYMENT_LABELS[payment.method] || payment.method} · ${paymentStatusLabelPt(st)}`
+            : paymentStatusLabelPt(st)}
         </div>
       </div>
       <div style={{ fontSize: 14, fontWeight: 700, color: amountColor, flexShrink: 0 }}>
@@ -230,22 +220,26 @@ export default function StudentPaymentsList({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {groups.map((g) =>
-        g.type === 'bundle' ? (
-          <BundleGroupCard
-            key={g.anchor.$id}
-            group={g}
-            onCancelCoverage={onCancelCoverage}
-            cancelling={cancellingCoverage}
-          />
-        ) : (
+      {groups.map((g) => {
+        if (g.type === 'bundle') {
+          return (
+            <BundleGroupCard
+              key={g.anchor.$id}
+              group={g}
+              onCancelCoverage={onCancelCoverage}
+              cancelling={cancellingCoverage}
+            />
+          );
+        }
+        if (isBundleChildPayment(g.payment)) return null;
+        return (
           <SinglePaymentRow
             key={g.payment.$id}
             payment={g.payment}
             METHOD_PAYMENT_LABELS={METHOD_PAYMENT_LABELS}
           />
-        )
-      )}
+        );
+      })}
     </div>
   );
 }

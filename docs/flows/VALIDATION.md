@@ -61,10 +61,14 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 |---|---|---|---|
 | 1–2 | Novo lead + pipeline | ✅ Código | `NewLeadModal`, `Pipeline.jsx` |
 | 3 | Kanban ↔ lista | ⚠️ **Desktop only** | Mobile (`≤1023px`) usa lista agrupada; kanban só desktop |
+| 3b | Triagem WhatsApp no funil | ✅ Código | Desktop kanban: `InboxTriageCard`; mobile: link **Triar no Inbox** — `leadStageRules.js`, `patchLeadInStore` |
+| 3c | Mover para etapa custom | ✅ Código | `buildPipelineMovePayload` + `leadBelongsInPipelineColumn` |
 | 4–11 | Demais itens | ✅ Código | `performEnrollment`, export, perfil — testes `enrollmentFlow` passam |
 | 7b | WA offline no perfil | ✅ Código | Fases 1–3 + paridade aluno: `ProfileComunicacaoSection`, `ProfileMobileQuickActions` |
 
-**Nota adicionada** no fluxo sobre viewport mobile.
+**Nota adicionada** no fluxo sobre viewport mobile e triagem (desktop kanban / mobile Inbox).
+
+**Correções aplicadas (2026-06-17):** spec [funil-correcao-definitiva](../superpowers/specs/2026-06-17-funil-correcao-definitiva-PRODUCT.md) — triagem, movimentação custom, store otimista.
 
 ---
 
@@ -316,7 +320,7 @@ Harness: `onboardingChecklist` (`onboardingStepPath`).
 |---|---|---|---|---|
 | [produtos-catalogo](vendas/produtos-catalogo.md) | 12 | 12 | 0 | 12 |
 | [estoque-movimentacoes](vendas/estoque-movimentacoes.md) | 12 | 12 | 0 | 12 |
-| [agente-ia-whatsapp](atendimento/agente-ia-whatsapp.md) | 12 | 12 | 0 | 12 |
+| [agente-ia-whatsapp](atendimento/agente-ia-whatsapp.md) | 19 | 19 | 0 | 19 |
 | [automacoes-funil](atendimento/automacoes-funil.md) | 12 | 12 | 0 | 12 |
 
 ---
@@ -362,10 +366,17 @@ Harness: `lojaInventoryTabs`.
 | 2 | Admin bloqueado | ✅ Código | `role === 'admin'` → mensagem permissão |
 | 3 | Setup 3 passos | ✅ Código | `setupProgress` em `AgenteIASection` |
 | 4 | Zapster QR/status | ✅ Código | `useZapsterWhatsAppConnection` |
-| 5 | Editar prompt | ✅ Código | `canEditAgentPrompt` |
-| 6 | Ativar IA | ✅ Código | `iaAtiva`, webhooks |
-| 7 | Legacy `?tab=agente` | ✅ Código | `Automacoes.jsx` navigate |
-| 8–12 | Billing guard, inbox, multi-tenant | ✅ Código | `fetchWithBillingGuard`, `academyId` |
+| 5 | Recursos de IA (setting-row) | ✅ Código | `agent-ia-setting-row`, `handleToggleAiModule` |
+| 6 | Editar prompt | ✅ Código | `canEditAgentPrompt` |
+| 7 | Ativar via botão (sem toggle header) | ✅ Código | `renderServiceControl`, `handleToggleIa(true)` |
+| 8 | Pausar via botão outline | ✅ Código | `renderServiceControl`, `handleToggleIa(false)` |
+| 9 | Guards ativar (IA off / WA off) | ✅ Código | `renderServiceControl` disabled + hints |
+| 10 | Legacy `?tab=agente` | ✅ Código | `Automacoes.jsx` navigate |
+| 11–19 | Billing, inbox, confirmações, header chip, IA off | ✅ Código | `AgentServiceControl`, `ConfirmDialog`, `handleToggleAiModule` |
+
+Harness: `npm test -- agentIaServiceControl AgentServiceControl`.
+
+**Spec UX:** [2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md](../superpowers/specs/2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md) — P0–P2 concluídos 2026-06-17.
 
 ---
 
@@ -383,6 +394,30 @@ Harness: `lojaInventoryTabs`.
 | 8–12 | Readiness WA, wizard dismiss, multi-tenant | ✅ Código | `computeAutomationReadiness` |
 
 Harness: `automacoesHub`, `automacoesSetupWizard`, `automationUx`.
+
+### Auditoria de campos — audiência v3 (GBLP, 2026-06-17)
+
+Script: `npm run audit:audience-fields-gblp` → `scripts/audit-audience-fields-gblp.mjs`
+
+Academia GBLP (`699f21b70006985daa90`) · 76 alunos ativos (`student_status != inactive`)
+
+| campo | preenchidos | % | decisão UI |
+|---|---|---|---|
+| `type` | 76/76 | 100% | ✅ exibir filtro |
+| `plan` | 69/76 | 90,8% | ✅ exibir filtro |
+| `turma` | 70/76 | 92,1% | ✅ exibir filtro |
+| `enrollmentDate` | 76/76 | 100% | ✅ exibir filtro tenure |
+
+**Valores distintos:**
+
+- `type`: Adulto (42), Criança (30), Juniores (4)
+- `plan`: Anual adulto (25), Recorrente Adulto (7), Recorrente Infantil (7), Mensal Infantil (5), Mensal (5), Anual infantil (4), Recorrente (3), Recorrente Promocional (3), Anual (3), Mensal Adulto (3), Recorrente Família (2), Mensal (Promocional) (1), Diária (1)
+- `turma`: Adultos (37), Kids (27), Juniores (6)
+- `enrollmentDate`: 100% preenchido; `converted_at` também 76/76 (fallback tenure não necessário nesta academia)
+
+**Inconsistências:** nenhuma variação de capitalização/accent no mesmo valor normalizado. Observação de qualidade (não bloqueante): nomes de plano misturam grafias (`Anual adulto` vs `Anual infantil` vs `Anual`); turma usa `Kids` enquanto `type` usa `Criança` — normalização futura opcional, não corrigido nesta auditoria.
+
+**Harness audiência:** `npm test -- automationAudience` — **41 passed**. Implementação v4: UI audiência + cron retenção + `automation_logs` (`npm run provision:automation-logs`).
 
 ---
 

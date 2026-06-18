@@ -64,6 +64,12 @@ import ReportSectionHeading from '../components/reports/shared/ReportSectionHead
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import FieldError from '../components/shared/FieldError.jsx';
+import StatusBanner from '../components/shared/StatusBanner.jsx';
+import {
+    leadCardGuardianSubtitle,
+    leadProfileNameFieldLabel,
+    leadProfileNeedsGuardianHint,
+} from '../lib/leadDisplayName.js';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
@@ -1944,10 +1950,16 @@ const LeadProfile = () => {
                                 {leadInitials}
                             </div>
                             <div className="profile-id-info lead-profile-hero__info">
+                                {leadProfileNeedsGuardianHint(lead) ? (
+                                    <StatusBanner variant="info" className="lead-profile-guardian-hint">
+                                        Informe o responsável em <strong>Outros detalhes</strong> (quem fala no
+                                        WhatsApp). O nome acima é do aluno que vai à aula.
+                                    </StatusBanner>
+                                ) : null}
                                 {!editing && canEditProfile ? (
                                     <ProfileInlineField
                                         layout="hero-name"
-                                        label="Nome"
+                                        label={leadProfileNameFieldLabel(lead)}
                                         displayValue={lead.name || 'Sem nome'}
                                         empty={!String(lead.name || '').trim()}
                                         canEdit={canEditProfile}
@@ -1958,6 +1970,9 @@ const LeadProfile = () => {
                                 ) : (
                                     <h1 className="profile-name lead-profile-hero__name">{lead.name}</h1>
                                 )}
+                                {!editing && leadCardGuardianSubtitle(lead) ? (
+                                    <p className="lead-profile-hero__guardian">{leadCardGuardianSubtitle(lead)}</p>
+                                ) : null}
                                 {!editing && canEditProfile ? (
                                     <ProfileInlineField
                                         layout="hero-phone"
@@ -2042,7 +2057,7 @@ const LeadProfile = () => {
                                 <div className="flex-col gap-2 w-full lead-profile-edit-fields">
                                     <div className="flex-col gap-1">
                                         <label className="info-mini-label info-mini-label--start" htmlFor="lead-profile-edit-name">
-                                            Nome
+                                            {leadProfileNameFieldLabel(form)}
                                         </label>
                                         <input
                                             id="lead-profile-edit-name"

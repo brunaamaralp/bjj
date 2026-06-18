@@ -62,6 +62,7 @@ export function useAutomationPreviewLead() {
   const academyId = useLeadStore((s) => s.academyId);
   const leads = useLeadStore((s) => s.leads);
   const students = useStudentStore((s) => s.students);
+  const studentsLoading = useStudentStore((s) => s.loading);
   const fetchStudents = useStudentStore((s) => s.fetchStudents);
 
   const activeStudents = useMemo(
@@ -139,6 +140,7 @@ export function useAutomationPreviewLead() {
   return {
     leads,
     activeStudents,
+    studentsLoading,
     retentionSampleData,
     sampleLeadId,
     setSampleLeadId,

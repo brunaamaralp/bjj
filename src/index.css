@@ -1,5 +1,6 @@
 ﻿@import './styles/tokens/core.css';
 @import './styles/buttons.css';
+@import './styles/setting-row.css';
 @import './styles/tokens/content.css';
 @import './styles/tokens/menu.css';
 
@@ -1571,7 +1572,7 @@ a.btn-ghost:focus-visible {
 }
 
 .main-content.pipeline-active {
-  padding: var(--page-gutter);
+  padding: 0 var(--page-gutter) var(--page-gutter);
   background: var(--color-surface-canvas);
 }
 

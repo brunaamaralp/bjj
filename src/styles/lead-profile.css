@@ -1106,6 +1106,18 @@
   text-wrap: balance;
 }
 
+.lead-profile-hero__guardian {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.lead-profile-guardian-hint {
+  margin-bottom: 8px;
+  width: 100%;
+}
+
 .lead-profile-timeline-error {
   margin-bottom: 16px;
 }

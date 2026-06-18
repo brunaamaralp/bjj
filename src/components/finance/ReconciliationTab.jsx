@@ -361,7 +361,9 @@ export default function ReconciliationTab({ academyId }) {
       maybePromptLearnPayer(result.learn_payer);
     } catch (e) {
       console.error(e);
-      setError(reconFriendlyError(e));
+      const msg = reconFriendlyError(e);
+      setError(msg);
+      toast.show({ type: 'error', message: msg });
     } finally {
       setBusy(false);
     }
@@ -636,7 +638,19 @@ export default function ReconciliationTab({ academyId }) {
                 onClick={() =>
                   run(() => confirmAllBankMatches(academyId, st.id), {
                     successMessage: (r) => {
-                      const n = r?.confirmed ?? grouped.suggested.length;
+                      const n = Number(r?.confirmed ?? 0);
+                      const skipped = Array.isArray(r?.skipped) ? r.skipped.length : 0;
+                      if (n === 0 && skipped > 0) {
+                        toast.show({
+                          type: 'error',
+                          message:
+                            'Nenhuma sugestão pôde ser confirmada. Verifique valor, conta bancária ou status dos lançamentos.',
+                        });
+                        return null;
+                      }
+                      if (skipped > 0) {
+                        return `${n} sugestão(ões) confirmada(s). ${skipped} ignorada(s) por divergência.`;
+                      }
                       return `${n} sugestão(ões) confirmada(s).`;
                     },
                   })

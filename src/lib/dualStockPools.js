@@ -192,6 +192,63 @@ export function buildVariantPoolFields({
   };
 }
 
+/**
+ * Patch Appwrite para definir saldo disponível (venda + aluguel no armário).
+ * Preserva rental_out. Sincroniza pools quando ativos.
+ * @param {object} item documento variante/estoque
+ * @param {string} [parentType] tipo do produto pai
+ * @param {number} nextAvailable saldo disponível alvo
+ */
+export function buildAvailableQuantityPatch(item, parentType, nextAvailable) {
+  const target = Math.max(0, finiteNonNeg(nextAvailable));
+
+  if (!hasDualPoolFields(item)) {
+    return { current_quantity: target };
+  }
+
+  const type = normalizeProductType(parentType || item?.type);
+  const out = rentalOut(item);
+  let sale = saleQuantity(item);
+  let rental = rentalAvailable(item);
+  const currentAvail = sale + rental;
+  const delta = target - currentAvail;
+
+  if (delta === 0) {
+    return {
+      ...syncCurrentQuantityFromPools({ sale_quantity: sale, rental_available: rental }),
+      rental_out: out,
+    };
+  }
+
+  if (delta < 0) {
+    let toRemove = -delta;
+    if (type === PRODUCT_TYPES.RENTAL) {
+      rental = Math.max(0, rental - toRemove);
+    } else if (type === PRODUCT_TYPES.SALE || type === PRODUCT_TYPES.SUPPLY) {
+      sale = Math.max(0, sale - toRemove);
+    } else {
+      const fromSale = Math.min(sale, toRemove);
+      sale -= fromSale;
+      toRemove -= fromSale;
+      rental = Math.max(0, rental - toRemove);
+    }
+  } else {
+    const toAdd = delta;
+    if (type === PRODUCT_TYPES.RENTAL) {
+      rental += toAdd;
+    } else if (type === PRODUCT_TYPES.SALE || type === PRODUCT_TYPES.SUPPLY) {
+      sale += toAdd;
+    } else {
+      sale += toAdd;
+    }
+  }
+
+  return {
+    ...syncCurrentQuantityFromPools({ sale_quantity: sale, rental_available: rental }),
+    rental_out: out,
+  };
+}
+
 /** Texto resumido para listagens: "2 venda · 5 aluguel · 1 emprestado" */
 export function formatStockPoolsSummary(item, parentType) {
   const type = normalizeProductType(parentType || item?.type);

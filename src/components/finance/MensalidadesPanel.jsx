@@ -1765,6 +1765,7 @@ export default function MensalidadesPanel({
                     value={payForm.capture_method_id}
                     id={MENSALIDADES_PAY_FIELD_IDS.capture_method_id}
                     className="form-input mensal-modal-in"
+                    labelClassName="mensal-modal-field-label"
                     disabled={savingPayment}
                     error={payFormErrors.capture_method_id}
                     onChange={(captureId) =>

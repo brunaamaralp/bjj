@@ -244,9 +244,13 @@ flowchart TD
 - [ ] Exclusão e envio logados; `passed:true` sem envio não logado
 
 **UX**
-- [ ] Preview estimado ao mudar filtro
-- [ ] Label dinâmica com **nomes** (plano/turma removido → «Plano removido»)
-- [ ] Member read-only
+- [x] Preview estimado ao mudar filtro (atualiza em tempo real, sem depender de blur)
+- [x] Label dinâmica com **nomes** (plano/turma removido → «(removido)»)
+- [x] Member read-only
+- [x] Banner «audiência não salva» + toggle bloqueado até salvar/descartar
+- [x] Badge colapsado só com contagem («N alunos»), sem duplicar label
+- [x] Confirmar ao fechar painel com alterações não salvas
+- [x] IDs de checkbox únicos por gatilho (`triggerKey` prefix)
 
 **Retrocompat**
 - [ ] Nenhum aluno que recebia antes deixa de receber após deploy sem filtros

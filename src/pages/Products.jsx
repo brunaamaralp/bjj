@@ -169,7 +169,7 @@ export default function Products() {
   const [modalInitialStep, setModalInitialStep] = useState(1);
   const [sort, setSort] = useState({ key: 'nome', dir: 'asc' });
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleteHasSales, setDeleteHasSales] = useState(false);
+  const [deleteBlockReason, setDeleteBlockReason] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -535,7 +535,9 @@ export default function Products() {
         setDeleteTarget(null);
         return;
       }
-      setDeleteHasSales(check.has_sales || check.has_stock_moves);
+      let blockReason = null;
+      if (check.has_sales) blockReason = 'sales';
+      setDeleteBlockReason(blockReason);
       setDeleteDialogOpen(true);
     } catch (err) {
       setDeleteBusy(false);
@@ -548,7 +550,7 @@ export default function Products() {
     if (deleteBusy) return;
     setDeleteDialogOpen(false);
     setDeleteTarget(null);
-    setDeleteHasSales(false);
+    setDeleteBlockReason(null);
   };
 
   const confirmDelete = async () => {
@@ -574,7 +576,11 @@ export default function Products() {
         if (!result?.ok) {
           const err = result?.error || useProductsStore.getState().error || '';
           if (result?.has_sales || /vendas registradas/i.test(err)) {
-            setDeleteHasSales(true);
+            setDeleteBlockReason('sales');
+            return;
+          }
+          if (/movimenta/i.test(err)) {
+            setDeleteBlockReason('stock_moves');
             return;
           }
           addToast({ type: 'error', message: err || 'Erro ao excluir produto' });
@@ -587,8 +593,10 @@ export default function Products() {
       }
     } catch (err) {
       const msg = String(err?.message || err);
-      if (/vendas registradas|movimenta/i.test(msg)) {
-        setDeleteHasSales(true);
+      if (/vendas registradas/i.test(msg)) {
+        setDeleteBlockReason('sales');
+      } else if (/movimenta/i.test(msg)) {
+        setDeleteBlockReason('stock_moves');
       } else {
         addToast({ type: 'error', message: msg || 'Erro ao excluir produto' });
       }
@@ -958,7 +966,7 @@ export default function Products() {
       <ProductDeleteDialog
         open={deleteDialogOpen}
         product={deleteTarget}
-        hasSales={deleteHasSales}
+        blockReason={deleteBlockReason}
         loading={deleteBusy || loading}
         onClose={closeDeleteDialog}
         onConfirmDelete={() => void confirmDelete()}

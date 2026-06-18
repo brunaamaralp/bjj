@@ -768,6 +768,22 @@ export const useLeadStore = create(
 )
 );
 
+/** Atualização otimista de um lead — mantém `leads` e `leadsById` sincronizados. */
+export function patchLeadInStore(leadId, patch) {
+  const lid = String(leadId || '').trim();
+  if (!lid) return;
+  useLeadStore.setState((state) => {
+    const nextLeads = state.leads.map((l) => (l.id === lid ? { ...l, ...patch } : l));
+    return withLeadsIndex(nextLeads);
+  });
+}
+
+/** Reverte lista de leads após falha de mutação otimista. */
+export function revertLeadsInStore(previousLeads) {
+  const list = Array.isArray(previousLeads) ? previousLeads : [];
+  useLeadStore.setState(withLeadsIndex(list));
+}
+
 if (typeof window !== 'undefined') {
   window.useLeadStore = useLeadStore;
 }

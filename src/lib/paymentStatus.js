@@ -21,7 +21,27 @@ export const GRID_STATUS_LABELS = {
   soon: 'A vencer',
   none: 'Não registrado',
   frozen: 'Trancado',
+  cancelled: 'Cancelado',
 };
+
+/** Rótulo em português para exibição na UI (nunca mostrar chaves internas como "covered"). */
+export function paymentStatusLabelPt(status) {
+  const s = String(status || '').trim().toLowerCase();
+  if (!s) return '—';
+  return GRID_STATUS_LABELS[s] || s;
+}
+
+/** Badge de status para timeline / extrato do perfil do aluno. */
+export function paymentTimelineBadge(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'paid') return { label: 'Pago', tone: 'success' };
+  if (s === 'covered') return { label: 'Coberto', tone: 'covered' };
+  if (s === 'pending' || s === 'awaiting') return { label: paymentStatusLabelPt(s), tone: 'danger' };
+  if (s === 'partial') return { label: 'Parcial', tone: 'warning' };
+  if (s === 'cancelled') return { label: 'Cancelado', tone: 'muted' };
+  if (s === 'frozen') return { label: 'Trancado', tone: 'frozen' };
+  return { label: paymentStatusLabelPt(s), tone: 'muted' };
+}
 
 export const GRID_STATUS_COLORS = {
   paid: { bg: '#EAF3DE', color: '#3B6D11' },

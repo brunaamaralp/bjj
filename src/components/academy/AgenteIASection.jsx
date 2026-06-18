@@ -12,7 +12,7 @@ import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConn
 import { canEditAgentPrompt, canViewAgentSettings } from '../../lib/canEditAgentPrompt.js';
 import { mapAgentSettingsErrorMessage } from '../../lib/agentTestErrorMessage.js';
 import { friendlyError } from '../../lib/errorMessages.js';
-import { Smartphone, Bot, AlertTriangle, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
+import { Smartphone, Bot, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
@@ -22,6 +22,18 @@ import AgentIASidePanel from './AgentIASidePanel.jsx';
 import AgentIAPromptEditor from './AgentIAPromptEditor.jsx';
 import AgentIATestChat from './AgentIATestChat.jsx';
 import AgentIAAdvancedOptions from './AgentIAAdvancedOptions.jsx';
+import AgentServiceControl from './AgentServiceControl.jsx';
+import AgentIaStatusBadge from './AgentIaStatusBadge.jsx';
+import AgentIaHeaderStatusChip from './AgentIaHeaderStatusChip.jsx';
+import SettingRow from '../shared/SettingRow.jsx';
+import {
+  shouldShowAgentConfigBanner,
+  getAgentStatusBadgeVariant,
+  getAgentHeaderStatusChip,
+  buildActivateConfirmDescription,
+  AGENT_PAUSE_CONFIRM_DESCRIPTION,
+  AGENT_IA_MODULE_DISABLED_WHILE_ACTIVE_TOAST,
+} from '../../lib/agentIaServiceControl.js';
 import { isPromptConfigured, formatInstructionsSavedAt, AGENT_SYSTEM_RULES } from './agentIaUtils.js';
 import { useToast } from '../../hooks/useToast';
 import { formatWaPhoneDisplay } from '../../../lib/zapsterInstancePhone.js';
@@ -235,6 +247,8 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [promptUpdatedAt, setPromptUpdatedAt] = useState('');
     const [showRestoreModal, setShowRestoreModal] = useState(false);
     const [showReconfigureConfirm, setShowReconfigureConfirm] = useState(false);
+    const [showActivateServiceConfirm, setShowActivateServiceConfirm] = useState(false);
+    const [showPauseServiceConfirm, setShowPauseServiceConfirm] = useState(false);
 
     useEffect(() => {
         setShowWizard(false);
@@ -517,6 +531,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (!canEditPrompt || savingAiModule) return false;
         const target = typeof nextEnabled === 'boolean' ? nextEnabled : !aiModuleEnabled;
         if (target === aiModuleEnabled) return true;
+        const wasAgentActive = iaAtiva;
         setSavingAiModule(true);
         try {
             const jwt = await createSessionJwt();
@@ -540,10 +555,17 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 } else if (data.ia_ativa === true) {
                     setIaAtiva(true);
                 }
-                addToast({
-                    type: 'success',
-                    message: enabled ? 'Recursos de IA ativados' : 'Recursos de IA desativados',
-                });
+                if (!enabled && wasAgentActive) {
+                    addToast({
+                        type: 'info',
+                        message: AGENT_IA_MODULE_DISABLED_WHILE_ACTIVE_TOAST,
+                    });
+                } else {
+                    addToast({
+                        type: 'success',
+                        message: enabled ? 'Recursos de IA ativados' : 'Recursos de IA desativados',
+                    });
+                }
                 return true;
             }
             addToast({ type: 'error', message: data?.erro || 'Não foi possível salvar' });
@@ -772,6 +794,32 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
             </>
         ) : null;
 
+    const pageHeaderStatusChip = useMemo(
+        () => getAgentHeaderStatusChip({ promptConfigurado, iaAtiva }),
+        [promptConfigurado, iaAtiva]
+    );
+
+    const activateServiceConfirmDescription = useMemo(
+        () =>
+            buildActivateConfirmDescription({
+                waPhoneDisplay: formatWaPhoneDisplay(zap.waInfo?.phone),
+                aiThreadsUsed,
+                aiThreadsLimit,
+                aiOverageEnabled,
+            }),
+        [zap.waInfo?.phone, aiThreadsUsed, aiThreadsLimit, aiOverageEnabled]
+    );
+
+    const confirmActivateService = () => {
+        setShowActivateServiceConfirm(false);
+        void handleToggleIa(true);
+    };
+
+    const confirmPauseService = () => {
+        setShowPauseServiceConfirm(false);
+        void handleToggleIa(false);
+    };
+
     const handleCopyConfigLink = useCallback(async () => {
         const url = typeof window !== 'undefined' ? `${window.location.origin}/agente-ia` : '/agente-ia';
         try {
@@ -852,30 +900,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         );
     };
 
-    const renderActivateCta = () => {
-        if (!promptConfigurado || iaAtiva || !canEditPrompt) return null;
-        if (showWizard || showEditor || showTestChat) return null;
-        return (
-            <div className="agent-ia-activate-cta">
-                <p className="agent-ia-activate-cta__hint">
-                    Último passo: ative para o assistente responder automaticamente no WhatsApp.
-                </p>
-                <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => void handleToggleIa(true)}
-                    disabled={togglingIa || !zap.waConnected}
-                >
-                    {togglingIa ? 'Ativando…' : 'Ativar atendimento automático'}
-                </button>
-                {!zap.waConnected ? (
-                    <p className="text-small" style={{ margin: 0, color: 'var(--text-secondary)' }}>
-                        Conecte o WhatsApp no card acima antes de ativar.
-                    </p>
-                ) : null}
-            </div>
-        );
-    };
+    const servicePanelOpen = showWizard || showEditor || showTestChat;
 
     const openReconfigureWizard = () => {
         setShowReconfigureConfirm(false);
@@ -1147,6 +1172,14 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     subtitle={pageSubtitle}
                     meta={pageMeta}
                     prefix={pageHeaderPrefix}
+                    actions={
+                        pageHeaderStatusChip ? (
+                            <AgentIaHeaderStatusChip
+                                label={pageHeaderStatusChip.label}
+                                variant={pageHeaderStatusChip.variant}
+                            />
+                        ) : null
+                    }
                 />
             ) : null}
             <section className="empresa-section animate-in" style={{ animationDelay: '0.05s', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1441,39 +1474,31 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                         Disponível após conectar o WhatsApp — conclua o passo 1 acima primeiro.
                     </p>
                 ) : null}
-                <p className="agent-ia-config-banner" role="note">
-                    Ambiente de configuração — nada aqui vai para alunos até ativar e conectar WhatsApp.
-                </p>
+                {shouldShowAgentConfigBanner(iaAtiva) ? (
+                    <p className="agent-ia-config-banner" role="note">
+                        Ambiente de configuração — nada aqui vai para alunos até ativar e conectar WhatsApp.
+                    </p>
+                ) : null}
                 {canEditPrompt ? (
-                    <div
+                    <SettingRow
                         className="agent-ia-master-toggle"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            marginBottom: 14,
-                            flexWrap: 'wrap',
-                            padding: '10px 12px',
-                            borderRadius: 10,
-                            border: '1px solid var(--border-light, #e8e8ef)',
-                            background: 'var(--surface-subtle, #fafafa)',
-                        }}
-                    >
-                        <span className="text-small" style={{ flex: 1, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                            Recursos de IA (barra ⌘K, copilot, imports assistidos, sandbox)
-                        </span>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={aiModuleEnabled}
-                            onClick={() => void handleToggleAiModule(!aiModuleEnabled)}
-                            disabled={savingAiModule}
-                            className={`ai-switch${aiModuleEnabled ? ' ai-switch--on' : ''}${savingAiModule ? ' ai-switch--loading' : ''}`}
-                            title={aiModuleEnabled ? 'Desativar recursos de IA' : 'Ativar recursos de IA'}
-                        >
-                            <span className="ai-switch-thumb" aria-hidden />
-                        </button>
-                    </div>
+                        label="Recursos de IA"
+                        hint="Barra ⌘K, copilot, imports assistidos, sandbox"
+                        control={
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={aiModuleEnabled}
+                                aria-label={aiModuleEnabled ? 'Desativar recursos de IA' : 'Ativar recursos de IA'}
+                                onClick={() => void handleToggleAiModule(!aiModuleEnabled)}
+                                disabled={savingAiModule}
+                                className={`ai-switch${aiModuleEnabled ? ' ai-switch--on' : ''}${savingAiModule ? ' ai-switch--loading' : ''}`}
+                                title={aiModuleEnabled ? 'Desativar recursos de IA' : 'Ativar recursos de IA'}
+                            >
+                                <span className="ai-switch-thumb" aria-hidden />
+                            </button>
+                        }
+                    />
                 ) : null}
                 {!aiModuleEnabled ? (
                     <p className="agent-ia-readonly-banner" role="note">
@@ -1490,47 +1515,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
                         Agente de Atendimento
                     </span>
-
-                    {canEditPrompt ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                            {!promptConfigurado ? (
-                                <p id="agent-ia-toggle-hint" className="agent-ia-toggle-hint" role="note">
-                                    Preencha as instruções (guiadas ou editando o texto) antes de ativar o atendimento automático.
-                                </p>
-                            ) : !aiModuleEnabled ? (
-                                <p id="agent-ia-toggle-hint" className="agent-ia-toggle-hint" role="note">
-                                    Ative os recursos de IA acima para ligar o atendimento automático.
-                                </p>
-                            ) : null}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                    {iaAtiva ? 'Atendimento automático ativo' : 'Atendimento automático pausado'}
-                                </span>
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={iaAtiva}
-                                    aria-describedby={
-                                        !promptConfigurado || !aiModuleEnabled ? 'agent-ia-toggle-hint' : undefined
-                                    }
-                                    onClick={() => void handleToggleIa(!iaAtiva)}
-                                    disabled={togglingIa || !promptConfigurado || !aiModuleEnabled}
-                                    className={`ai-switch${iaAtiva ? ' ai-switch--on' : ''}${togglingIa ? ' ai-switch--loading' : ''}`}
-                                    title={
-                                        !promptConfigurado
-                                            ? 'Configure o assistente primeiro'
-                                            : !aiModuleEnabled
-                                              ? 'Ative os recursos de IA primeiro'
-                                              : iaAtiva
-                                                ? 'Pausar atendimento automático'
-                                                : 'Ativar atendimento automático'
-                                    }
-                                >
-                                    <span className="ai-switch-thumb" />
-                                </button>
-                            </div>
-                        </div>
-                    ) : null}
                 </div>
 
                 {loadingPrompt ? (
@@ -1541,9 +1525,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
 
                         {!agentSidePanelOpen && !promptConfigurado && (
                             <div>
-                                <span className="text-small" style={{ display: 'inline-block', background: 'var(--border-light)', color: 'var(--text-secondary)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                                    Não configurado
-                                </span>
+                                <AgentIaStatusBadge variant="unconfigured" />
                                 <p className="text-small" style={{ color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
                                     Configure o assistente para começar a atender contatos automaticamente — pelo passo a passo ou
                                     escrevendo as instruções você mesmo.
@@ -1580,9 +1562,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                                     <div>
-                                        <span className="text-small" style={{ display: 'inline-block', background: 'rgba(37, 211, 102, 0.12)', color: '#15803d', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                                            ● Pronto — ative para começar a atender
-                                        </span>
+                                        <AgentIaStatusBadge variant="ready" />
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
                                             {promptUpdatedAt
                                                 ? `Atualizado em ${formatInstructionsSavedAt(promptUpdatedAt)}`
@@ -1627,7 +1607,17 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                     </div>
                                 </div>
 
-                                {renderActivateCta()}
+                                <AgentServiceControl
+                                    promptConfigurado={promptConfigurado}
+                                    canEditPrompt={canEditPrompt}
+                                    iaAtiva={iaAtiva}
+                                    aiModuleEnabled={aiModuleEnabled}
+                                    waConnected={zap.waConnected}
+                                    togglingIa={togglingIa}
+                                    panelOpen={servicePanelOpen}
+                                    onRequestActivate={() => setShowActivateServiceConfirm(true)}
+                                    onRequestPause={() => setShowPauseServiceConfirm(true)}
+                                />
                                 <AgentIAAdvancedOptions
                                     canEditPrompt={canEditPrompt}
                                     contactLabel={contactLabel}
@@ -1657,34 +1647,19 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
 
                         {!agentSidePanelOpen && promptConfigurado && iaAtiva && (
                             <div>
-                                {(!zap.waConnected) && (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            gap: 10,
-                                            padding: 12,
-                                            borderRadius: 8,
-                                            background: 'rgba(245, 158, 11, 0.12)',
-                                            border: '1px solid rgba(245, 158, 11, 0.35)',
-                                            color: 'var(--text)',
-                                            marginBottom: 16
-                                        }}
-                                    >
-                                        <AlertTriangle size={20} style={{ flexShrink: 0, color: '#b45309' }} aria-hidden />
-                                        <span className="text-small" style={{ lineHeight: 1.45 }}>
-                                            WhatsApp desconectado — o assistente não consegue responder. Conecte o WhatsApp no card acima.
-                                        </span>
-                                    </div>
-                                )}
-
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                                     <div>
-                                        <span className="text-small" style={{ display: 'inline-block', background: 'var(--color-primary-surface)', color: 'var(--color-primary-dark)', padding: '4px 10px', borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>
-                                            ● Ativo
-                                        </span>
+                                        <AgentIaStatusBadge
+                                            variant={getAgentStatusBadgeVariant({
+                                                promptConfigurado,
+                                                iaAtiva,
+                                                waConnected: zap.waConnected,
+                                            })}
+                                        />
                                         <p className="text-small" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                                            Respondendo automaticamente no WhatsApp
+                                            {!zap.waConnected
+                                                ? 'O assistente não consegue responder até reconectar o WhatsApp no card acima.'
+                                                : 'Respondendo automaticamente no WhatsApp'}
                                         </p>
                                     </div>
 
@@ -1723,6 +1698,18 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                                     </div>
                                 </div>
 
+                                <AgentServiceControl
+                                    promptConfigurado={promptConfigurado}
+                                    canEditPrompt={canEditPrompt}
+                                    iaAtiva={iaAtiva}
+                                    aiModuleEnabled={aiModuleEnabled}
+                                    waConnected={zap.waConnected}
+                                    togglingIa={togglingIa}
+                                    panelOpen={servicePanelOpen}
+                                    onRequestActivate={() => setShowActivateServiceConfirm(true)}
+                                    onRequestPause={() => setShowPauseServiceConfirm(true)}
+                                />
+
                                 {aiThreadsLimit > 0 && aiThreadsUsed >= aiThreadsLimit && !aiOverageEnabled && (
                                     <p className="agent-warning" style={{ marginTop: 14, marginBottom: 0 }}>
                                         Limite de conversas com assistente atingido neste ciclo ({aiThreadsUsed}/{aiThreadsLimit}). O atendimento automático pode ficar
@@ -1759,6 +1746,28 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     </>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={showActivateServiceConfirm}
+                title="Ativar atendimento automático?"
+                description={activateServiceConfirmDescription}
+                confirmLabel="Ativar"
+                confirmVariant="primary"
+                loading={togglingIa}
+                onConfirm={confirmActivateService}
+                onClose={() => (togglingIa ? undefined : setShowActivateServiceConfirm(false))}
+            />
+
+            <ConfirmDialog
+                open={showPauseServiceConfirm}
+                title="Pausar atendimento automático?"
+                description={AGENT_PAUSE_CONFIRM_DESCRIPTION}
+                confirmLabel="Pausar"
+                confirmVariant="danger"
+                loading={togglingIa}
+                onConfirm={confirmPauseService}
+                onClose={() => (togglingIa ? undefined : setShowPauseServiceConfirm(false))}
+            />
 
             <ConfirmDialog
                 open={showReconfigureConfirm}

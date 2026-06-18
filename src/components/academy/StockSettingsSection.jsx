@@ -11,6 +11,7 @@ import {
   readStockCheckSchedule,
 } from '../../lib/stockSettings';
 import Hint from '../shared/Hint.jsx';
+import SettingRow from '../shared/SettingRow.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
 const WEEKDAYS = [
@@ -129,23 +130,28 @@ export default function StockSettingsSection({ academyId, modules, onClose }) {
         ) : (
           <>
             <div className="stock-settings__block">
-              <div className="stock-settings__block-head">
-                <h3 className="stock-settings__block-title">Lembrete de conferência</h3>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={schedule.enabled}
-                  aria-label={
-                    schedule.enabled
-                      ? 'Desativar lembrete semanal de conferência'
-                      : 'Ativar lembrete semanal de conferência'
-                  }
-                  className={`ai-switch${schedule.enabled ? ' ai-switch--on' : ''}`}
-                  onClick={() => setSchedule((s) => ({ ...s, enabled: !s.enabled }))}
-                >
-                  <span className="ai-switch-thumb" />
-                </button>
-              </div>
+              <SettingRow
+                flush
+                className="stock-settings__toggle-row"
+                label="Lembrete de conferência"
+                hint="Tarefa semanal automática no módulo Tarefas"
+                control={
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={schedule.enabled}
+                    aria-label={
+                      schedule.enabled
+                        ? 'Desativar lembrete semanal de conferência'
+                        : 'Ativar lembrete semanal de conferência'
+                    }
+                    className={`ai-switch${schedule.enabled ? ' ai-switch--on' : ''}`}
+                    onClick={() => setSchedule((s) => ({ ...s, enabled: !s.enabled }))}
+                  >
+                    <span className="ai-switch-thumb" />
+                  </button>
+                }
+              />
 
               {schedule.enabled ? (
                 <>

@@ -6,6 +6,11 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+    leadCardGuardianSubtitle,
+    leadCardPrimaryName,
+    leadCardTooltip,
+} from '../lib/leadDisplayName.js';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../../lib/whatsappTemplateDefaults.js';
 import { useWhatsappTemplates } from '../lib/useWhatsappTemplates.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
@@ -1005,13 +1010,16 @@ const Dashboard = () => {
                     <button
                         type="button"
                         className="fu-name"
-                        title={lead.name}
+                        title={leadCardTooltip(lead) || lead.name}
                         onClick={() =>
                             navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
                         }
                     >
-                        {lead.name}
+                        {leadCardPrimaryName(lead)}
                     </button>
+                    {leadCardGuardianSubtitle(lead) ? (
+                        <span className="fu-guardian">{leadCardGuardianSubtitle(lead)}</span>
+                    ) : null}
                     <div className="fu-sub">
                         <FollowupTemperatureBadge temperature={lead.temperature} />
                         <span className="fu-meta-sep" aria-hidden>
@@ -1493,7 +1501,14 @@ const Dashboard = () => {
                                         }}
                                         style={{ cursor: 'pointer' }}
                                     >
-                                        <strong className="agenda-followup-name">{lead.name}</strong>
+                                        <strong className="agenda-followup-name" title={leadCardTooltip(lead) || undefined}>
+                                            {leadCardPrimaryName(lead)}
+                                        </strong>
+                                        {leadCardGuardianSubtitle(lead) ? (
+                                            <span className="agenda-followup-guardian">
+                                                {leadCardGuardianSubtitle(lead)}
+                                            </span>
+                                        ) : null}
                                         <span className="status-pill">{lead.scheduledDate || 'Sem data'}</span>
                                     </div>
                                     <div className="flex gap-2 agenda-followup-actions border-t">

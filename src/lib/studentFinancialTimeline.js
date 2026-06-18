@@ -13,6 +13,7 @@ import {
 } from './bundleCoverage.js';
 import { openAmountForStudent } from './collectionOverdue.js';
 import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
+import { paymentTimelineBadge } from './paymentStatus.js';
 
 export const TIMELINE_FILTER_TYPES = {
   ALL: 'all',
@@ -43,14 +44,7 @@ function paymentSortDate(payment) {
 }
 
 function paymentStatusBadge(st) {
-  const s = String(st || '').toLowerCase();
-  if (s === 'paid') return { label: 'Pago', tone: 'success' };
-  if (s === 'covered') return { label: 'Coberto', tone: 'covered' };
-  if (s === 'pending') return { label: 'Pendente', tone: 'danger' };
-  if (s === 'partial') return { label: 'Parcial', tone: 'warning' };
-  if (s === 'cancelled') return { label: 'Cancelado', tone: 'muted' };
-  if (s === 'frozen') return { label: 'Trancado', tone: 'frozen' };
-  return { label: s || '—', tone: 'muted' };
+  return paymentTimelineBadge(st);
 }
 
 /**
@@ -87,19 +81,20 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
   for (const g of groups) {
     if (g.type === 'bundle') {
       const { anchor, children, months, startYm, endYm } = g;
+      const coverageEnd = endYm || coverageEndMonth(startYm, months);
       items.push({
         id: `bundle:${anchor.$id}`,
         kind: 'bundle',
         sortDate: paymentSortDate(anchor),
-        title: `Plano ${bundlePlanShortLabel(months)} — ${formatReferenceMonthShort(startYm)} a ${formatReferenceMonthShort(endYm)}`,
-        subtitle: anchor.note || `Pagamento em ${formatReferenceMonthShort(anchor.reference_month)}`,
+        title: `Mensalidade — ${formatReferenceMonthLong(anchor.reference_month)}`,
+        subtitle: `Cobre ${formatReferenceMonthLong(startYm)} a ${formatReferenceMonthLong(coverageEnd)}`,
         amount: Number(anchor.amount ?? anchor.paid_amount ?? 0),
-        badge: paymentStatusBadge('paid'),
+        badge: paymentStatusBadge(anchor.status || 'paid'),
         anchor,
         children,
         months,
         startYm,
-        endYm,
+        endYm: coverageEnd,
       });
       continue;
     }

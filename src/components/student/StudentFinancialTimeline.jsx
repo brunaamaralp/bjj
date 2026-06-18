@@ -40,6 +40,7 @@ import {
   canDownloadPaymentReceipt,
 } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
+import { paymentStatusLabelPt, paymentTimelineBadge } from '../../lib/paymentStatus.js';
 
 function fmtMoney(n) {
   try {
@@ -373,13 +374,15 @@ function UnifiedExtratoRow({ row }) {
   const Icon = row.type === 'product_sale' ? ShoppingBag : Calendar;
   const iconColor = row.type === 'product_sale' ? '#3B6D11' : 'var(--petroleo)';
   const badge =
-    row.status === 'paid'
-      ? { label: 'Pago', tone: 'success' }
-      : row.status === 'cancelled'
-        ? { label: 'Cancelado', tone: 'muted' }
-        : row.status === 'pending'
-          ? { label: 'Pendente', tone: 'danger' }
-          : { label: row.status, tone: 'muted' };
+    row.type === 'product_sale'
+      ? row.status === 'paid'
+        ? { label: 'Pago', tone: 'success' }
+        : row.status === 'cancelled'
+          ? { label: 'Cancelado', tone: 'muted' }
+          : row.status === 'pending'
+            ? { label: 'Pendente', tone: 'danger' }
+            : paymentTimelineBadge(row.status)
+      : paymentTimelineBadge(row.status);
   return (
     <TimelineRow icon={Icon} iconColor={iconColor} item={{ title: row.description, sortDate: row.date, amount: row.amount, badge, subtitle: [row.method, row.operador_nome].filter(Boolean).join(' · ') }} />
   );
@@ -527,7 +530,7 @@ export default function StudentFinancialTimeline({
       descricao: r.description,
       valor: r.amount,
       metodo: r.method,
-      status: r.status,
+      status: paymentStatusLabelPt(r.status),
       operador: r.operador_nome || '',
       referencia: r.reference_id || '',
     }));

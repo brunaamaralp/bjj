@@ -1,13 +1,8 @@
-const WA_CONNECTED_STATUSES = new Set(['connected', 'online']);
-/** Pareamento / reconexão — não exibir “não conectado” como estado final. */
-const WA_TRANSIENT_STATUSES = new Set([
-  'connecting',
-  'syncing',
-  'unknown',
-  'open',
-  'qrcode',
-  'scanning',
-]);
+import {
+  WA_CONNECTED_STATUSES,
+  WA_PAUSED_STATUSES,
+  WA_TRANSIENT_STATUSES,
+} from './resolveWhatsAppIntegrationStatus.js';
 
 /** Estado de conexão Zapster para UI de conversa integrada. */
 export function isWhatsAppIntegrationConnected(waStatus, waStatusChecked) {
@@ -15,9 +10,15 @@ export function isWhatsAppIntegrationConnected(waStatus, waStatusChecked) {
   return WA_CONNECTED_STATUSES.has(String(waStatus || '').trim().toLowerCase());
 }
 
+/** Instância pausada (power-off) — distinto de desconectado. */
+export function isWhatsAppIntegrationPaused(waStatus, waStatusChecked) {
+  if (!waStatusChecked) return false;
+  return WA_PAUSED_STATUSES.has(String(waStatus || '').trim().toLowerCase());
+}
+
 /**
  * Exibe aviso de desconexão só quando o status foi verificado e não está conectado
- * nem em estado transitório (reconexão / verificação em andamento).
+ * nem em estado transitório (reconexão / verificação / pausa em andamento).
  */
 export function isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked) {
   if (!waStatusChecked) return false;

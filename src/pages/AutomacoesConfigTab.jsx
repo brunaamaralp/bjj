@@ -5,6 +5,7 @@ import { databases, teams, DB_ID, ACADEMIES_COL } from '../lib/appwrite';
 import { getAcademyDocument, invalidateAcademyDocumentCache } from '../lib/getAcademyDocument.js';
 import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import { AUTOMATION_LABELS, parseAutomationsConfig, serializeAutomationsConfig } from '../lib/useAutomations.js';
+import { updateTriggerActive, updateTriggerAudience } from '../lib/automationAudience.js';
 import { useTerms } from '../lib/terminology.js';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
 import { computeAutomationReadiness } from '../lib/automationUx.js';
@@ -72,6 +73,8 @@ export default function AutomacoesConfigTab({
   const [academy, setAcademy] = useState({
     automationsConfigRaw: '',
     whatsappTemplates: '',
+    financeConfig: '',
+    settings: '',
   });
   const [automationsConfig, setAutomationsConfig] = useState(() => parseAutomationsConfig(null));
   const [savingAutomations, setSavingAutomations] = useState(false);
@@ -93,6 +96,8 @@ export default function AutomacoesConfigTab({
         setAcademy({
           automationsConfigRaw: doc.automations_config || '',
           whatsappTemplates: doc.whatsappTemplates || '',
+          financeConfig: doc.financeConfig || '',
+          settings: doc.settings || '',
         });
         const cfg = parseAutomationsConfig(doc.automations_config || '');
         if (doc.birthday_cron_enabled === true && cfg.birthday?.active !== true) {
@@ -179,6 +184,70 @@ export default function AutomacoesConfigTab({
     [academyId, canEdit, addToast]
   );
 
+  const handleToggleTriggerActive = useCallback(
+    async (triggerKey, nextActive, label) => {
+      if (!academyId || !canEdit) return;
+      const prevConfig = automationsConfig;
+      setAutomationsConfig((prev) => ({
+        ...prev,
+        [triggerKey]: {
+          ...(prev?.[triggerKey] || {}),
+          active: nextActive,
+          ...(triggerKey === 'birthday' ? { templateKey: 'birthday' } : {}),
+        },
+      }));
+      setSavingAutomations(true);
+      setLastSaveFailed(false);
+      try {
+        const next = await updateTriggerActive(academyId, triggerKey, nextActive);
+        const raw = serializeAutomationsConfig(next);
+        setAutomationsConfig(next);
+        setAcademy((a) => ({ ...a, automationsConfigRaw: raw }));
+        setAcademyDataVersion((v) => v + 1);
+        invalidateAcademyDocumentCache(academyId);
+        addToast({
+          type: 'success',
+          message: nextActive ? `${label} ativado` : `${label} desativado`,
+        });
+      } catch (e) {
+        console.error('toggle automation:', e);
+        setAutomationsConfig(prevConfig);
+        setLastSaveFailed(true);
+        addToast({ type: 'error', message: 'Não foi possível salvar. Tente novamente.' });
+      } finally {
+        setSavingAutomations(false);
+      }
+    },
+    [academyId, canEdit, automationsConfig, addToast]
+  );
+
+  const handleSaveTriggerAudience = useCallback(
+    async (triggerKey, audience) => {
+      if (!academyId || !canEdit) return;
+      const prevConfig = automationsConfig;
+      setSavingAutomations(true);
+      setLastSaveFailed(false);
+      try {
+        const next = await updateTriggerAudience(academyId, triggerKey, audience);
+        const raw = serializeAutomationsConfig(next);
+        setAutomationsConfig(next);
+        setAcademy((a) => ({ ...a, automationsConfigRaw: raw }));
+        setAcademyDataVersion((v) => v + 1);
+        invalidateAcademyDocumentCache(academyId);
+        addToast({ type: 'success', message: 'Audiência salva.' });
+      } catch (e) {
+        console.error('save audience:', e);
+        setAutomationsConfig(prevConfig);
+        setLastSaveFailed(true);
+        addToast({ type: 'error', message: 'Não foi possível salvar a audiência.' });
+        throw e;
+      } finally {
+        setSavingAutomations(false);
+      }
+    },
+    [academyId, canEdit, automationsConfig, addToast]
+  );
+
   const isDirty = useMemo(
     () =>
       serializeAutomationsConfig(automationsConfig) !==
@@ -217,6 +286,11 @@ export default function AutomacoesConfigTab({
       onRetrySave={() => void persistAutomations(automationsConfig)}
       previewLead={previewLead}
       showTabIntro={showTabIntro}
+      academy={academy}
+      activeStudents={previewLead?.activeStudents || []}
+      studentsLoading={previewLead?.studentsLoading}
+      onToggleTriggerActive={handleToggleTriggerActive}
+      onSaveTriggerAudience={handleSaveTriggerAudience}
     />
   );
 }

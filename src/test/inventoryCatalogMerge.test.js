@@ -77,4 +77,38 @@ describe('inventoryCatalogMerge', () => {
     expect(parents).toHaveLength(1);
     expect(parents[0].id).toBe('p1');
   });
+
+  it('não duplica catálogo + legado vinculado por legacy_stock_item_id', () => {
+    const parents = mergeCatalogWithInventoryItems(
+      [
+        {
+          id: 'p1',
+          nome: 'Kimono',
+          variants: [{ id: 'v-new', size: 'M', legacy_stock_item_id: 'legacy-1' }],
+        },
+      ],
+      [
+        { id: 'v-new', current_quantity: 2, product_id: 'p1' },
+        { id: 'legacy-1', nome: 'Kimono · M', current_quantity: 2 },
+      ]
+    );
+    expect(parents).toHaveLength(1);
+    expect(parents[0].variants.map((v) => v.id)).toEqual(['v-new']);
+  });
+
+  it('unifica pai real e stub órfão com o mesmo nome', () => {
+    const parents = mergeCatalogWithInventoryItems(
+      [
+        { id: 'p-real', nome: 'Kimono', variants: [{ id: 'v1', size: 'P' }] },
+        { id: 'deleted-parent', nome: 'Kimono', variants: [{ id: 'v2', size: 'M' }] },
+      ],
+      [
+        { id: 'v1', current_quantity: 1, product_id: 'p-real' },
+        { id: 'v2', current_quantity: 2, product_id: 'deleted-parent' },
+      ]
+    );
+    expect(parents).toHaveLength(1);
+    expect(parents[0].id).toBe('p-real');
+    expect(parents[0].variants.map((v) => v.id).sort()).toEqual(['v1', 'v2']);
+  });
 });

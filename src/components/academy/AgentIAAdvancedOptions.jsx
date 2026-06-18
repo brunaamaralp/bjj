@@ -1,4 +1,5 @@
 import React from 'react';
+import SettingRow from '../shared/SettingRow.jsx';
 import { V1_AI_ACTIONS, AI_ACTION_META } from '../../../lib/agentActionConfig.js';
 
 const textareaScrollLockProps = {
@@ -42,22 +43,29 @@ export default function AgentIAAdvancedOptions({
             A IA pode executar tarefas no sistema após entender a mensagem. A equipe sempre recebe notificação e uma tarefa de
             conferência — mesmo quando a ação é bem-sucedida.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-            <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-              {aiActionsEnabled ? 'Execução automática ativa' : 'Execução automática desligada'}
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={aiActionsEnabled}
-              onClick={() => onAiActionsEnabledChange(!aiActionsEnabled)}
-              disabled={loadingPrompt || savingAiActions}
-              className={`ai-switch${aiActionsEnabled ? ' ai-switch--on' : ''}${savingAiActions ? ' ai-switch--loading' : ''}`}
-              title={aiActionsEnabled ? 'Desligar todas as ações' : 'Permitir ações automáticas'}
-            >
-              <span className="ai-switch-thumb" />
-            </button>
-          </div>
+          <SettingRow
+            className="agent-ia-advanced-setting-row"
+            label="Execução automática"
+            hint={
+              aiActionsEnabled
+                ? 'Ações liberadas após entender a mensagem'
+                : 'Nenhuma ação automática no sistema'
+            }
+            control={
+              <button
+                type="button"
+                role="switch"
+                aria-checked={aiActionsEnabled}
+                aria-label={aiActionsEnabled ? 'Desligar execução automática' : 'Ligar execução automática'}
+                onClick={() => onAiActionsEnabledChange(!aiActionsEnabled)}
+                disabled={loadingPrompt || savingAiActions}
+                className={`ai-switch${aiActionsEnabled ? ' ai-switch--on' : ''}${savingAiActions ? ' ai-switch--loading' : ''}`}
+                title={aiActionsEnabled ? 'Desligar todas as ações' : 'Permitir ações automáticas'}
+              >
+                <span className="ai-switch-thumb" />
+              </button>
+            }
+          />
           <div className={`agent-ia-action-list${aiActionsEnabled ? '' : ' agent-ia-action-list--disabled'}`}>
             {V1_AI_ACTIONS.map((actionKey) => {
               const meta = AI_ACTION_META[actionKey] || { label: actionKey, description: '' };

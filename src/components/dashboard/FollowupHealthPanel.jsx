@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, ArrowRight, HelpCircle } from 'lucide-react';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import FollowupTemperatureBadge from '../followup/FollowupTemperatureBadge.jsx';
+import {
+  leadCardGuardianSubtitle,
+  leadCardPrimaryName,
+  leadCardTooltip,
+} from '../../lib/leadDisplayName.js';
 
 export default function FollowupHealthPanel({
   summary,
@@ -93,7 +98,14 @@ export default function FollowupHealthPanel({
                   className="followup-health-panel__link"
                   onClick={() => navigate(`/lead/${lead.id}`)}
                 >
-                  <span className="followup-health-panel__name">{lead.name}</span>
+                  <span className="followup-health-panel__name" title={leadCardTooltip(lead) || undefined}>
+                    {leadCardPrimaryName(lead)}
+                  </span>
+                  {leadCardGuardianSubtitle(lead) ? (
+                    <span className="followup-health-panel__guardian">
+                      {leadCardGuardianSubtitle(lead)}
+                    </span>
+                  ) : null}
                   <FollowupTemperatureBadge temperature={lead.temperature} size="sm" />
                 </button>
               </li>
