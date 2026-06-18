@@ -3,6 +3,7 @@ import {
   buildTasksDueHubLabel,
   buildProactiveHubItems,
   countTasksDueHub,
+  filterTasksDueHub,
 } from '../lib/proactiveHub.js';
 
 describe('buildTasksDueHubLabel', () => {
@@ -44,6 +45,26 @@ describe('countTasksDueHub', () => {
   });
 });
 
+describe('filterTasksDueHub', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('retorna vencidas antes de hoje', () => {
+    const tasks = [
+      { id: 'today', status: 'pending', due_date: '2026-06-15' },
+      { id: 'late', status: 'pending', due_date: '2026-06-10' },
+      { id: 'done', status: 'done', due_date: '2026-06-10' },
+    ];
+    expect(filterTasksDueHub(tasks).map((t) => t.id)).toEqual(['late', 'today']);
+  });
+});
+
 describe('buildProactiveHubItems', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -71,6 +92,6 @@ describe('buildProactiveHubItems', () => {
       modules: {},
     });
     expect(items[0].label).toBe('1 tarefa vence hoje');
-    expect(items[0].href).toBe('/tarefas?period=today');
+    expect(items[0].href).toBe('/tarefas?status=pendentes&period=today');
   });
 });

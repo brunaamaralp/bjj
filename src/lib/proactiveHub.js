@@ -42,10 +42,28 @@ export function buildTasksDueHubLabel(overdueCount, dueTodayCount) {
     : `${total} tarefas pendentes — vencidas ou vencem hoje`;
 }
 
-function tasksDueHubHref(overdueCount, dueTodayCount) {
+export function tasksDueHubHref(overdueCount, dueTodayCount) {
   if (overdueCount > 0 && dueTodayCount === 0) return '/tarefas?status=vencidas';
-  if (dueTodayCount > 0 && overdueCount === 0) return '/tarefas?period=today';
+  if (dueTodayCount > 0 && overdueCount === 0) return '/tarefas?status=pendentes&period=today';
   return '/tarefas?status=vencidas';
+}
+
+/** Lista pendentes vencidas + vencimento hoje (vencidas primeiro). */
+export function filterTasksDueHub(tasks = []) {
+  const overdue = [];
+  const dueToday = [];
+  for (const t of tasks || []) {
+    if (!isPendingTask(t)) continue;
+    const due = String(t?.due_date || '').trim();
+    if (!due) continue;
+    if (isTaskOverdue(due)) overdue.push(t);
+    else if (isTaskDueToday(due)) dueToday.push(t);
+  }
+  const byDue = (a, b) =>
+    String(a?.due_date || '').localeCompare(String(b?.due_date || ''));
+  overdue.sort(byDue);
+  dueToday.sort(byDue);
+  return [...overdue, ...dueToday];
 }
 
 /** Follow-ups pendentes na agenda (mesma lógica do Dashboard). */
