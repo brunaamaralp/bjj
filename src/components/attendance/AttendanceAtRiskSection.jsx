@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { RefreshCw, Users } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLeadStore } from '../../store/useLeadStore.js';
@@ -18,6 +18,7 @@ import { useStudentStore } from '../../store/useStudentStore.js';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ReportDataTable from '../reports/shared/ReportDataTable.jsx';
+import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import AttendanceRiskBadge from './AttendanceRiskBadge.jsx';
 import AttendanceAbsenceReasonModal from './AttendanceAbsenceReasonModal.jsx';
 import AttendanceAtRiskRowActions from './AttendanceAtRiskRowActions.jsx';
@@ -47,11 +48,32 @@ function formatLastCheckin(iso) {
   }
 }
 
-function KpiPill({ label, value, tone }) {
+function KpiPill({ label, value, tone, featured = false }) {
   return (
-    <div className={`attendance-at-risk-kpi attendance-at-risk-kpi--${tone}`}>
+    <div
+      className={`attendance-at-risk-kpi attendance-at-risk-kpi--${tone}${featured ? ' attendance-at-risk-kpi--featured' : ''}`}
+    >
       <span className="attendance-at-risk-kpi__value">{value}</span>
       <span className="attendance-at-risk-kpi__label">{label}</span>
+    </div>
+  );
+}
+
+function daysTone(days) {
+  const n = Number(days);
+  if (!Number.isFinite(n) || n < 8) return 'ok';
+  if (n <= 14) return 'warn';
+  return 'danger';
+}
+
+function StudentCell({ row }) {
+  const meta = [row.turma, row.belt].filter(Boolean).join(' · ');
+  return (
+    <div className="attendance-at-risk-student">
+      <Link to={`/student/${row.studentId}`} className="attendance-at-risk-name-link">
+        {row.name || '—'}
+      </Link>
+      {meta ? <span className="attendance-at-risk-student__meta">{meta}</span> : null}
     </div>
   );
 }
@@ -138,6 +160,8 @@ export default function AttendanceAtRiskSection({ className = '' }) {
   const filterOptions = data?.filters || {};
   const turmaOptions = filterOptions.turmas || [];
   const beltOptions = filterOptions.belts || [];
+  const queueCount = rows.length;
+  const activeCount = summary?.active ?? 0;
 
   const handleWhatsApp = async (row) => {
     const studentId = String(row?.studentId || '').trim();
@@ -273,22 +297,28 @@ export default function AttendanceAtRiskSection({ className = '' }) {
       {
         key: 'name',
         label: 'Aluno',
-        render: (row) => (
-          <Link to={`/student/${row.studentId}`} className="attendance-at-risk-name-link">
-            {row.name || '—'}
-          </Link>
-        ),
+        render: (row) => <StudentCell row={row} />,
       },
       {
         key: 'daysWithoutCheckin',
         label: 'Dias sem treino',
         align: 'center',
-        render: (row) => <strong>{row.daysWithoutCheckin ?? '—'}</strong>,
+        render: (row) => {
+          const days = row.daysWithoutCheckin ?? '—';
+          const tone = daysTone(row.daysWithoutCheckin);
+          return (
+            <span className={`attendance-at-risk-days attendance-at-risk-days--${tone}`}>
+              {days}
+            </span>
+          );
+        },
       },
       {
         key: 'lastCheckinAt',
         label: 'Último check-in',
-        render: (row) => formatLastCheckin(row.lastCheckinAt),
+        render: (row) => (
+          <span className="attendance-at-risk-last-checkin">{formatLastCheckin(row.lastCheckinAt)}</span>
+        ),
       },
       {
         key: 'status',
@@ -297,8 +327,9 @@ export default function AttendanceAtRiskSection({ className = '' }) {
       },
       {
         key: 'actions',
-        label: 'Ações',
+        label: '',
         align: 'right',
+        width: '120px',
         render: (row) => {
           const sid = String(row.studentId || '');
           return (
@@ -325,42 +356,47 @@ export default function AttendanceAtRiskSection({ className = '' }) {
       id="retencao"
       className={`attendance-at-risk card reception-section${className ? ` ${className}` : ''}`}
     >
-      <div className="reception-section-head attendance-at-risk__head">
-        <div>
-          <h2 className="reception-section-heading">
-            <AlertTriangle size={16} aria-hidden />
+      <ReportSectionHeading
+        className="attendance-at-risk__heading"
+        title={
+          <>
+            <Users size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
             Retenção por frequência
-          </h2>
-          <p className="reception-section-lead">
-            Alunos em risco por ausência de check-in — priorize contato de reativação.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn-outline attendance-at-risk__refresh"
-          disabled={loading}
-          onClick={() => void load()}
-          aria-label="Atualizar lista"
-        >
-          <RefreshCw size={14} className={loading ? 'attendance-at-risk-spin' : ''} aria-hidden />
-          Atualizar
-        </button>
-      </div>
+          </>
+        }
+        subtitle={
+          queueCount > 0
+            ? `${queueCount} ${queueCount === 1 ? 'aluno precisa' : 'alunos precisam'} de contato de reativação`
+            : 'Alunos em risco por ausência de check-in na catraca'
+        }
+        action={
+          <button
+            type="button"
+            className="btn-outline attendance-at-risk__refresh"
+            disabled={loading}
+            onClick={() => void load()}
+            aria-label="Atualizar lista"
+          >
+            <RefreshCw size={14} className={loading ? 'attendance-at-risk-spin' : ''} aria-hidden />
+            Atualizar
+          </button>
+        }
+      />
 
       {summary ? (
-        <>
-          <p className="attendance-at-risk-kpis-hint">Fila de ação de hoje</p>
-          <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
-            <KpiPill label="Ativos" value={summary.active ?? 0} tone="active" />
-            <KpiPill label="Em risco" value={summary.at_risk ?? 0} tone="at-risk" />
-            <KpiPill label="Sumidos" value={summary.absent ?? 0} tone="absent" />
-            <KpiPill label="Novatos" value={summary.newcomer_at_risk ?? 0} tone="newcomer" />
-          </div>
-        </>
+        <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
+          {queueCount > 0 ? (
+            <KpiPill label="Na fila" value={queueCount} tone="queue" featured />
+          ) : null}
+          <KpiPill label="Em risco" value={summary.at_risk ?? 0} tone="at-risk" />
+          <KpiPill label="Sumidos" value={summary.absent ?? 0} tone="absent" />
+          <KpiPill label="Novatos" value={summary.newcomer_at_risk ?? 0} tone="newcomer" />
+          <KpiPill label="Ativos" value={activeCount} tone="active" />
+        </div>
       ) : null}
 
       {data ? (
-        <div className="attendance-at-risk-filters">
+        <div className="attendance-at-risk-toolbar">
           <label className="attendance-at-risk-filter">
             <span>Turma</span>
             <select value={turma} onChange={(e) => setTurmaFilter(e.target.value)}>
@@ -389,6 +425,11 @@ export default function AttendanceAtRiskSection({ className = '' }) {
               ))}
             </select>
           </label>
+          {(turma || belt) && queueCount > 0 ? (
+            <p className="attendance-at-risk-toolbar__hint">
+              Mostrando {queueCount} {queueCount === 1 ? 'aluno' : 'alunos'} com os filtros atuais
+            </p>
+          ) : null}
         </div>
       ) : null}
 

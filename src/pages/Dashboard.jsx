@@ -100,7 +100,6 @@ import { useDashboardFollowupLeads } from '../hooks/useDashboardFollowupLeads.js
 import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEnrollmentMetrics.js';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
-import RecepcaoRetentionHint from '../components/dashboard/RecepcaoRetentionHint.jsx';
 import {
     buildRecepcaoHubTabItems,
     RECEPCAO_CATRACA_SECTION_LIVE,
@@ -1268,8 +1267,6 @@ const Dashboard = () => {
                     </div>
                 </div>
             </section>
-
-            <RecepcaoRetentionHint academyId={academyId} />
 
             {isZeroState ? (
                 <section className="dashboard-zero-welcome card animate-in" style={{ animationDelay: '0.1s', marginTop: 16 }}>

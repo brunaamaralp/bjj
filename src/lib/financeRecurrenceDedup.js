@@ -28,3 +28,13 @@ export function hasPendingInstanceForPeriod(pending = [], templateId, competence
     return String(tx.status || '').toLowerCase() === 'pending';
   });
 }
+
+/** Qualquer instância pendente do template — evita fila com vencimento atual + projeção do próximo mês. */
+export function hasAnyPendingInstanceForTemplate(pending = [], templateId) {
+  const tid = String(templateId || '').trim();
+  if (!tid) return false;
+  return pending.some((tx) => {
+    if (String(tx.recurrence_origin_id || '').trim() !== tid) return false;
+    return String(tx.status || '').toLowerCase() === 'pending';
+  });
+}

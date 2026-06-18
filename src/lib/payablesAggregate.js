@@ -6,6 +6,7 @@ import { projectRecurrenceOccurrences, todayYmdLocal, addDaysYmd } from './finan
 import {
   dueDateForRecurrenceMonth,
   competenceMonthFromYmd,
+  hasAnyPendingInstanceForTemplate,
   hasPendingInstanceForPeriod,
 } from './financeRecurrenceDedup.js';
 
@@ -131,6 +132,8 @@ export function buildTemplatePayableItems(templates = [], { today = todayYmdLoca
     if (type === 'none' || !type) continue;
 
     const templateId = String(tx.id || tx.$id || '').trim();
+    if (hasAnyPendingInstanceForTemplate(pending, templateId)) continue;
+
     const nextDue = nextDueForTemplate(tx, todayYmd);
     const nextCm = competenceMonthFromYmd(nextDue);
     if (nextCm && hasPendingInstanceForPeriod(pending, templateId, nextCm)) continue;

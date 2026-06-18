@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { AlertTriangle, DoorOpen, History } from 'lucide-react';
+import { DoorOpen, History, Users } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import RecepcaoLivePanel from '../attendance/RecepcaoLivePanel.jsx';
@@ -97,7 +97,7 @@ export default function RecepcaoCatracaTab({
                 className={`mensal-page-tab${showRetencao ? ' mensal-page-tab--active' : ''}`}
                 onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_RETENCAO)}
               >
-                <AlertTriangle size={14} aria-hidden />
+                <Users size={14} aria-hidden />
                 Retenção
               </button>
             ) : null}

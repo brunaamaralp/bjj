@@ -196,6 +196,38 @@ describe('payablesAggregate', () => {
     expect(summary.totalOpen).toBe(1350);
   });
 
+  it('hides template row when any pending instance exists for same template', () => {
+    const templates = buildTemplatePayableItems(
+      [
+        {
+          id: 'tpl-contador',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 5,
+          gross: 400,
+          planName: 'Contador',
+          category: 'Outras despesas',
+        },
+      ],
+      {
+        today: '2026-06-18',
+        pending: [
+          {
+            id: 'inst-jun',
+            status: 'pending',
+            direction: 'out',
+            gross: 400,
+            recurrence_origin_id: 'tpl-contador',
+            competence_month: '2026-06',
+            due_date: '2026-06-05',
+          },
+        ],
+      }
+    );
+    expect(templates).toHaveLength(0);
+  });
+
   it('selectPayablesItems picks section-specific rows from catalog', () => {
     const catalog = buildPayablesCatalog({
       pendingTransactions: [

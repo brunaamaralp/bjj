@@ -1,13 +1,53 @@
 .attendance-at-risk {
-  margin-top: 20px;
+  margin-top: 0;
+  padding: clamp(16px, 2.5vw, 22px);
+  --attendance-gap-sm: 12px;
+  --attendance-gap-md: 20px;
+  --color-surface-alt: color-mix(in srgb, var(--color-primary-surface, #ede9fb) 35%, var(--color-card-bg, #fff));
+  --color-surface-hover: var(--surface-hover, color-mix(in srgb, var(--color-primary-surface, #ede9fb) 45%, var(--color-card-bg, #fff)));
+  --color-border: var(--color-card-border, #e8e5f5);
+  --color-text-primary: var(--color-text-heading, var(--text, #18162a));
+  --color-text-secondary: var(--text-secondary, #9896a8);
+  --color-text-tertiary: color-mix(in srgb, var(--text-secondary, #9896a8) 85%, var(--color-text-primary, #18162a));
 }
 
-.attendance-at-risk__head {
+.attendance-at-risk__heading {
+  margin-bottom: 16px;
+}
+
+.attendance-at-risk__heading.report-section-heading {
+  padding-bottom: var(--attendance-gap-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.attendance-at-risk__heading .report-section-heading__row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: var(--attendance-gap-sm);
+}
+
+.attendance-at-risk__heading .report-section-heading__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.attendance-at-risk__heading .report-section-heading__subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.attendance-at-risk__heading .report-section-heading__action {
+  flex-shrink: 0;
 }
 
 .attendance-at-risk__refresh {
@@ -18,23 +58,31 @@
 }
 
 .attendance-at-risk-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
 }
 
-@media (max-width: 640px) {
-  .attendance-at-risk-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .attendance-at-risk-kpi {
-  border-radius: var(--radius-sm, 8px);
+  flex: 1 1 88px;
+  min-width: 88px;
+  border-radius: var(--radius-sm, 10px);
   padding: 10px 12px;
   text-align: center;
   border: 0.5px solid var(--border-light, #e8e5f5);
+}
+
+.attendance-at-risk-kpi--featured {
+  flex: 1.4 1 120px;
+  min-width: 120px;
+  box-shadow: 0 1px 0 rgba(24, 22, 42, 0.04);
+}
+
+.attendance-at-risk-kpi--queue {
+  background: color-mix(in srgb, var(--color-primary) 10%, #fff);
+  color: var(--color-primary-dark, #4a2fa3);
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--border-light, #e8e5f5));
 }
 
 .attendance-at-risk-kpi--active {
@@ -59,9 +107,14 @@
 
 .attendance-at-risk-kpi__value {
   display: block;
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.2;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.attendance-at-risk-kpi--featured .attendance-at-risk-kpi__value {
+  font-size: 26px;
 }
 
 .attendance-at-risk-kpi__label {
@@ -69,7 +122,47 @@
   margin-top: 4px;
   font-size: 11px;
   font-weight: 600;
-  opacity: 0.9;
+  letter-spacing: 0.02em;
+  opacity: 0.92;
+}
+
+.attendance-at-risk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 10px);
+  background: color-mix(in srgb, var(--color-primary-surface, #ede9fb) 35%, var(--color-card-bg, #fff));
+  border: 0.5px solid var(--border-light, #e8e5f5);
+}
+
+.attendance-at-risk-toolbar__hint {
+  margin: 0;
+  flex: 1 1 180px;
+  font-size: 12px;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.attendance-at-risk-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  min-width: 148px;
+}
+
+.attendance-at-risk-filter select {
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .attendance-at-risk-loading {
@@ -80,13 +173,115 @@
 }
 
 .attendance-at-risk-table-wrap {
-  margin-top: 4px;
+  margin-top: 0;
+  border-radius: var(--radius-sm, 10px);
+  border: 0.5px solid var(--border-light, #e8e5f5);
+  overflow: auto;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.attendance-at-risk-table-wrap .report-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.attendance-at-risk-table-wrap .report-data-table thead th {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  text-align: left;
+  background: var(--color-surface-alt);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.attendance-at-risk-table-wrap .report-data-table tbody td {
+  padding: 0 12px;
+  height: 44px;
+  vertical-align: middle;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+  color: var(--color-text-primary);
+}
+
+.attendance-at-risk-table-wrap .report-data-table--striped tbody tr:nth-child(even) {
+  background: var(--color-surface-hover);
+}
+
+.attendance-at-risk-table-wrap .report-data-table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.attendance-at-risk-table-wrap .report-data-table__align-right {
+  text-align: right;
+}
+
+.attendance-at-risk-table-wrap .report-data-table__align-center {
+  text-align: center;
+}
+
+.attendance-at-risk-table-wrap .report-data-table__empty {
+  padding: var(--attendance-gap-md) var(--attendance-gap-sm);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.attendance-at-risk-table-wrap .report-data-table__empty-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--attendance-gap-sm);
+  color: var(--color-text-tertiary);
+}
+
+.attendance-at-risk-table-wrap .report-data-table__skeleton-row td {
+  padding: 0 12px;
+  height: 44px;
+}
+
+.attendance-at-risk-table-wrap .report-data-table__skeleton-cell {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-hover) 25%,
+    var(--color-surface-alt) 50%,
+    var(--color-surface-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: attendance-at-risk-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes attendance-at-risk-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.attendance-at-risk-table-wrap .report-data-table th:last-child,
+.attendance-at-risk-table-wrap .report-data-table td:last-child {
+  width: 120px;
+  white-space: nowrap;
+}
+
+.attendance-at-risk-student {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .attendance-at-risk-name-link {
   font-weight: 600;
   color: var(--text);
   text-decoration: none;
+  line-height: 1.3;
 }
 
 .attendance-at-risk-name-link:hover {
@@ -94,75 +289,67 @@
   text-decoration: underline;
 }
 
+.attendance-at-risk-student__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.attendance-at-risk-days {
+  display: inline-flex;
+  min-width: 2ch;
+  justify-content: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.attendance-at-risk-days--warn {
+  color: var(--warn-text, #b45309);
+}
+
+.attendance-at-risk-days--danger {
+  color: var(--danger, #b91c1c);
+}
+
+.attendance-at-risk-last-checkin {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.attendance-at-risk-row--at_risk {
+  box-shadow: inset 3px 0 0 var(--warn-text, #b45309);
+}
+
+.attendance-at-risk-row--absent {
+  box-shadow: inset 3px 0 0 var(--danger, #b91c1c);
+}
+
+.attendance-at-risk-row--newcomer_at_risk {
+  box-shadow: inset 3px 0 0 var(--color-primary, #6c47d8);
+}
+
 .attendance-at-risk-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
   align-items: center;
 }
 
-.attendance-at-risk-actions--mobile {
-  display: none;
-}
-
-@media (max-width: 767px) {
-  .attendance-at-risk-actions--desktop {
-    display: none;
-  }
-
-  .attendance-at-risk-actions--mobile {
-    display: flex;
-  }
-}
-
 .attendance-at-risk-actions__btn--icon {
-  padding: 4px 8px;
-  min-width: 30px;
+  padding: 0;
+  min-width: 36px;
+  min-height: 36px;
   justify-content: center;
 }
 
 .attendance-at-risk-no-phone {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   color: var(--text-muted);
   white-space: nowrap;
-}
-
-.attendance-at-risk-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.attendance-at-risk-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  min-width: 140px;
-}
-
-.attendance-at-risk-filter select {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.attendance-at-risk-actions__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  min-height: 30px;
-}
-
-.attendance-at-risk-actions__btn--danger {
-  color: var(--danger, #b91c1c);
-  border-color: color-mix(in srgb, var(--danger, #b91c1c) 35%, transparent);
+  max-width: 52px;
+  line-height: 1.2;
 }
 
 .attendance-at-risk-truncated {
@@ -181,20 +368,13 @@
   }
 }
 
-/* R-11 — micro-copy KPIs */
-.attendance-at-risk-kpis-hint {
-  margin: -8px 0 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* R-13 — badge de risco (design system) */
+/* Badge de risco */
 .attendance-risk-badge {
   display: inline-block;
   font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -219,7 +399,7 @@
   color: var(--color-primary-dark, #4a2fa3);
 }
 
-/* R-14 — modal de ausência */
+/* Modal de ausência */
 .attendance-absence-modal__lead {
   margin: 0 0 12px;
   font-size: 13px;
@@ -286,11 +466,22 @@
   width: 100%;
 }
 
-/* R-17 — alvos de toque no mobile */
 @media (max-width: 767px) {
-  .attendance-at-risk-actions--mobile .attendance-at-risk-actions__btn,
-  .attendance-at-risk-actions--mobile .wa-btn {
+  .attendance-at-risk-kpi__value {
+    font-size: 18px;
+  }
+
+  .attendance-at-risk-kpi--featured .attendance-at-risk-kpi__value {
+    font-size: 22px;
+  }
+
+  .attendance-at-risk-actions .wa-btn,
+  .attendance-at-risk-actions__btn--icon {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  .attendance-at-risk-no-phone {
+    display: none;
   }
 }
