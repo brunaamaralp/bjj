@@ -111,6 +111,7 @@ const DIRECT_NAV_PATHS = new Set([
   '/presenca',
   '/recepcao',
   '/reports',
+  '/agente-ia',
 ]);
 
 export function isDirectNavPath(pathname) {
@@ -129,7 +130,7 @@ function isFinanceiroHubPath(pathname) {
  */
 export function getAccordionIdForLocation({ pathname }) {
   const p = String(pathname || '');
-  if (p === '/automacoes' || p === '/agente-ia') return NAV_ACCORDION_IDS.AUTOMACOES;
+  if (p === '/automacoes') return NAV_ACCORDION_IDS.AUTOMACOES;
   if (p === '/equipe' || p === '/integracoes') return null;
   if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque')
     return NAV_ACCORDION_IDS.LOJA;
@@ -202,6 +203,16 @@ export function buildAutomacoesAccordion() {
     defaultTo: '/automacoes?tab=modelos',
     children: [],
     linkOnly: true,
+  };
+}
+
+/** Link direto na seção Atendimento — conexão WhatsApp e assistente IA. */
+export function buildAgenteIaNavItem() {
+  return {
+    id: 'agente',
+    to: '/agente-ia',
+    label: 'Agente IA',
+    iconKey: 'agente',
   };
 }
 
@@ -372,7 +383,8 @@ export function buildSidebarNavModel({
       { to: '/students', label: navStudentsLabel, iconKey: 'students' },
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
     ],
-    atendimento: [{ to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
+    atendimento: [{ id: 'conversas', to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
+    agenteIa: canConfigureAgenteIa ? buildAgenteIaNavItem() : null,
     analise: [buildRelatoriosNavItem()],
     financeDirect: [],
     accordions,
@@ -387,7 +399,6 @@ export function flattenNavItemsForMobile(model) {
 
   if (model.newLead) push({ ...model.newLead, section: null });
   for (const item of model.primary) push({ ...item, section: null });
-  for (const item of model.atendimento) push({ ...item, section: 'Atendimento' });
 
   const auto = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.AUTOMACOES);
   if (auto) {
@@ -407,6 +418,12 @@ export function flattenNavItemsForMobile(model) {
       }
     }
   }
+
+  if (model.agenteIa) {
+    push({ ...model.agenteIa, section: 'Atendimento' });
+  }
+
+  for (const item of model.atendimento) push({ ...item, section: 'Atendimento' });
 
   const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
   if (financeiro) {

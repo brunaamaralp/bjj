@@ -467,6 +467,29 @@ export default function NaviSidebarNav({
       </SidebarSection>
 
       <SidebarSection title="Atendimento" collapsed={collapsed} showDivider>
+        {!modulesReady ? (
+          <NavModulesSkeleton collapsed={collapsed} />
+        ) : automacoesAccordion ? (
+          <SideNavAccordion
+            accordion={automacoesAccordion}
+            icon={getNavMenuIcon('automacoes')}
+            collapsed={collapsed}
+            expanded={expandedAccordionId === automacoesAccordion.id}
+            onExpandExclusive={expandExclusive}
+            onToggle={toggleAccordion}
+            sideLinkClass={sideLinkClass}
+            location={location}
+          />
+        ) : null}
+        {modulesReady && navModel.agenteIa ? (
+          <SideNavLink
+            to={navModel.agenteIa.to}
+            label={navModel.agenteIa.label}
+            Icon={getNavMenuIcon(navModel.agenteIa.iconKey)}
+            collapsed={collapsed}
+            className={sideLinkClass}
+          />
+        ) : null}
         <Link
           to="/inbox"
           className={`navi-sidebar-link${conversasActive ? ' active navi-sidebar-link--active' : ''}`}
@@ -486,20 +509,6 @@ export default function NaviSidebarNav({
           </span>
           <span className="navi-sidebar-link__label">Conversas</span>
         </Link>
-        {!modulesReady ? (
-          <NavModulesSkeleton collapsed={collapsed} />
-        ) : automacoesAccordion ? (
-          <SideNavAccordion
-            accordion={automacoesAccordion}
-            icon={getNavMenuIcon('automacoes')}
-            collapsed={collapsed}
-            expanded={expandedAccordionId === automacoesAccordion.id}
-            onExpandExclusive={expandExclusive}
-            onToggle={toggleAccordion}
-            sideLinkClass={sideLinkClass}
-            location={location}
-          />
-        ) : null}
       </SidebarSection>
 
       {!modulesReady ? (

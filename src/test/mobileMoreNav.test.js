@@ -35,9 +35,27 @@ describe('mobileMoreNav', () => {
     const owner = buildMobileMoreItems({
       modules: { finance: false, sales: true, inventory: false },
       isOwner: true,
+      canConfigureAgenteIa: true,
     });
     expect(owner.some((i) => i.id === 'loja')).toBe(true);
+    expect(owner.some((i) => i.id === 'agente')).toBe(true);
     expect(owner.some((i) => i.id === 'integracoes')).toBe(true);
+
+    const admin = buildMobileMoreItems({
+      modules: { finance: false, sales: false, inventory: false },
+      isOwner: false,
+      canConfigureAgenteIa: false,
+    });
+    expect(admin.some((i) => i.id === 'agente')).toBe(false);
+  });
+
+  it('isMobileMoreItemActive highlights agente and automacoes separately', () => {
+    expect(
+      isMobileMoreItemActive({ id: 'agente', to: '/agente-ia' }, { pathname: '/agente-ia', search: '' })
+    ).toBe(true);
+    expect(
+      isMobileMoreItemActive({ id: 'automacoes', to: '/automacoes?tab=modelos' }, { pathname: '/agente-ia', search: '' })
+    ).toBe(false);
   });
 
   it('isMobileMoreItemActive highlights pipeline on lead profile', () => {

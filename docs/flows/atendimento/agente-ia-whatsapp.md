@@ -60,7 +60,7 @@ flowchart TD
 | 10 | PageHeader | Chip status | **Assistente ativo** / **Pausado** quando prompt configurado |
 | 10 | Avançado | FAQ / ações | `AgentIAAdvancedOptions` | `V1_AI_ACTIONS`; toggle execução em setting-row |
 | 11 | Link | Voltar conversas | `/conversas` | Inbox operacional |
-| 12 | Menu | Agente no accordion Automações | Só se `canConfigureAgenteIa` | `naviMenu.js` |
+| 12 | Menu | **Agente IA** na seção Atendimento | Só se `canConfigureAgenteIa` (owner/member) | `naviMenu.js` → `buildAgenteIaNavItem` |
 
 **UX (P0):** Não existe toggle de `iaAtiva` no header ao lado do título. Ativar e pausar usam apenas os botões do rodapé do card (spec UX 2026-06-17).
 

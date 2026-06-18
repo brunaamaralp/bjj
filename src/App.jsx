@@ -291,9 +291,10 @@ const App = () => {
       buildMobileMoreItems({
         modules: academyReady ? modules : { sales: false, inventory: false, finance: false },
         isOwner: navRole === 'owner',
+        canConfigureAgenteIa,
         pipelineLabel: labels.pipeline || 'Funil',
       }),
-    [academyReady, modules, navRole, labels.pipeline]
+    [academyReady, modules, navRole, canConfigureAgenteIa, labels.pipeline]
   );
 
   const closeMobileMore = () => setMobileMoreOpen(false);

@@ -90,14 +90,14 @@ flowchart TD
 |---|---|---|---|
 | **owner** | Sim | Sim | Sim |
 | **member** | Sim | Se role team admin/owner | Conforme `canEditWhatsappTemplates` |
-| **admin** | **Não** no accordion (`canConfigureAgenteIa` = owner \| member) | — | Pode editar se team admin |
+| **admin** | **Não** na seção Atendimento (`canConfigureAgenteIa` = owner \| member) | — | Pode editar se team admin |
 
 `canConfigureAgenteIa` em `App.jsx`: `navRole === 'owner' || navRole === 'member'`.
 
 ### Checklist — Agente IA
 
 1. [ ] Owner/member: `/agente-ia` acessível
-2. [ ] Admin: item Agente ausente no menu Automações
+2. [ ] Admin: item **Agente IA** ausente na sidebar (seção Atendimento)
 3. [ ] Status WhatsApp exibido (`formatWaAgentStatus`)
 4. [ ] Passo 1 incompleto → subtítulo «Passo 1 de 3»
 5. [ ] Salvar prompt com validação `validatePromptFields`

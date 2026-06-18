@@ -40,12 +40,13 @@ export function isBottomNavMaisActive(pathname) {
 export function buildMobileMoreItems({
   modules,
   isOwner,
+  canConfigureAgenteIa = true,
   pipelineLabel = 'Funil',
   navStudentsLabel = 'Alunos',
 }) {
   const model = buildSidebarNavModel({
     modules: modules || {},
-    canConfigureAgenteIa: true,
+    canConfigureAgenteIa,
     pipelineLabel,
     navStudentsLabel,
     newLeadLabel: null,
@@ -100,6 +101,15 @@ export function buildMobileMoreItems({
     });
   }
 
+  if (model.agenteIa) {
+    add({
+      id: model.agenteIa.id,
+      label: model.agenteIa.label,
+      to: model.agenteIa.to,
+      iconKey: model.agenteIa.iconKey || 'agente',
+    });
+  }
+
   add({ id: 'empresa', label: 'Minha academia', to: '/empresa', iconKey: 'empresa' });
 
   if (isOwner) {
@@ -142,9 +152,8 @@ export function isMobileMoreItemActive(item, location) {
     );
   }
   if (id === 'reports') return loc.pathname === '/reports';
-  if (id === 'automacoes') {
-    return loc.pathname === '/automacoes' || loc.pathname === '/agente-ia';
-  }
+  if (id === 'automacoes') return loc.pathname === '/automacoes';
+  if (id === 'agente') return loc.pathname === '/agente-ia';
   if (id === 'empresa') return loc.pathname === '/empresa';
   if (id === 'equipe') return loc.pathname === '/equipe';
   if (id === 'integracoes') return loc.pathname === '/integracoes';
