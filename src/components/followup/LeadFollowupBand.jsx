@@ -42,9 +42,7 @@ export default function LeadFollowupBand({
         <FollowupCopilotButtons
           academyId={academyId}
           leadId={leadId}
-          leadPhone={lead?.phone}
           templateKey={templateKey}
-          nextAction={followupState.nextActionLabel}
           compact
         />
         <button

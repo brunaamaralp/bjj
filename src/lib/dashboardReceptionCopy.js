@@ -59,6 +59,14 @@ export function toastMissedSuccess() {
   return 'Não compareceu registrado.';
 }
 
+export function undoPresenceLabel() {
+  return 'Desfazer';
+}
+
+export function toastPresenceUndoSuccess() {
+  return 'Registro desfeito — experimental voltou para agendada.';
+}
+
 export function followupMicroToastMessage() {
   return 'Retorno registrado!';
 }

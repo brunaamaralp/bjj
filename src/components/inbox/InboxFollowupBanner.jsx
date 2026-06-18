@@ -45,9 +45,7 @@ export default function InboxFollowupBanner({
           <FollowupCopilotButtons
             academyId={academyId}
             leadId={leadId}
-            leadPhone={leadPhone}
             templateKey={followupState.nextStep?.template_key}
-            nextAction={followupState.nextActionLabel}
             compact
           />
         ) : null}

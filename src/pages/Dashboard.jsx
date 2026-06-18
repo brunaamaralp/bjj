@@ -3,6 +3,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { shouldSkipLeadsListFetch, shouldSkipStudentsListFetch } from '../lib/bootstrapRoutePrefetch.js';
 import { useTaskStore } from '../store/useTaskStore';
+import {
+    countTasksDueHub,
+    filterTasksDueHub,
+    tasksDueHubHref,
+} from '../lib/proactiveHub.js';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -41,7 +46,6 @@ import {
     getTimeOfDayPeriod,
     countWeeklyEnrollments,
 } from '../lib/dashboardDayBriefing.js';
-import { filterPendingTasksForDate } from '../lib/dashboardManagerMetrics.js';
 import {
     attendedButtonLabel,
     missedButtonLabel,
@@ -54,6 +58,8 @@ import {
     receptionDaySubtitle,
     toastAttendedSuccess,
     toastMissedSuccess,
+    undoPresenceLabel,
+    toastPresenceUndoSuccess,
     followupMicroToastMessage,
     followupStreakMessage,
 } from '../lib/dashboardReceptionCopy.js';
@@ -86,6 +92,7 @@ import '../styles/dashboard.css';
 import '../styles/followup-shared.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
+import { buildLeadPresenceUndoPatch } from '../lib/leadPresenceActions.js';
 import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
@@ -143,10 +150,14 @@ function buildFollowupKpiFootnote(count, urgentCount) {
     return { footnote: 'Follow-ups na lista', footnoteTone: 'neutral' };
 }
 
-function buildTasksKpiFootnote(count) {
-    return count > 0
-        ? { footnote: 'Pendentes hoje', footnoteTone: 'neutral' }
-        : { footnote: 'Nenhuma pendente', footnoteTone: 'neutral' };
+function buildTasksKpiFootnote(overdueCount, dueTodayCount) {
+    const overdue = Number(overdueCount) || 0;
+    const dueToday = Number(dueTodayCount) || 0;
+    const total = overdue + dueToday;
+    if (total <= 0) return { footnote: 'Nenhuma pendente', footnoteTone: 'neutral' };
+    if (overdue > 0 && dueToday === 0) return { footnote: 'Vencidas', footnoteTone: 'neutral' };
+    if (dueToday > 0 && overdue === 0) return { footnote: 'Vencem hoje', footnoteTone: 'neutral' };
+    return { footnote: 'Vencidas ou hoje', footnoteTone: 'neutral' };
 }
 
 const Dashboard = () => {
@@ -186,7 +197,7 @@ const Dashboard = () => {
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
     const receptionSubtitle = receptionDaySubtitle();
     const tasks = useTaskStore((s) => s.tasks);
-    const fetchTasks = useTaskStore((s) => s.fetchTasks);
+    const fetchDashboardKpiTasks = useTaskStore((s) => s.fetchDashboardKpiTasks);
     const updateTask = useTaskStore((s) => s.updateTask);
     const patchTaskLocal = useTaskStore((s) => s.patchTaskLocal);
     const isUpdatingTask = useTaskStore((s) => s.isUpdating);
@@ -333,8 +344,8 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (!academyId) return;
-        void fetchTasks(academyId, { silent: true, filters: { status: 'pending' } });
-    }, [academyId, fetchTasks]);
+        void fetchDashboardKpiTasks(academyId, { silent: true });
+    }, [academyId, fetchDashboardKpiTasks]);
 
     useEffect(() => {
         if (!academyId) return;
@@ -393,7 +404,7 @@ const Dashboard = () => {
             await Promise.all([
                 fetchLeads(),
                 fetchStudents({ reset: true }),
-                fetchTasks(academyId, { silent: true, filters: { status: 'pending' } }),
+                fetchDashboardKpiTasks(academyId, { silent: true }),
                 refreshFollowupEvents({ force: true }),
             ]);
         } finally {
@@ -448,7 +459,8 @@ const Dashboard = () => {
 
     const isZeroState = !loading && leadsCount === 0 && (tasks || []).length === 0;
 
-    const pendingTasksToday = useMemo(() => filterPendingTasksForDate(tasks), [tasks]);
+    const pendingTasksDueHub = useMemo(() => filterTasksDueHub(tasks), [tasks]);
+    const tasksDueHubCounts = useMemo(() => countTasksDueHub(tasks), [tasks]);
 
     const visibleWeekAgendaCount = scheduledInVisibleWeekCount(dashboardWeekOffset);
 
@@ -559,7 +571,7 @@ const Dashboard = () => {
             return;
         }
         if (cardKey === 'tasks') {
-            navigate('/tarefas?status=pendentes&period=today');
+            navigate(tasksDueHubHref(tasksDueHubCounts.overdue, tasksDueHubCounts.dueToday));
             return;
         }
         if (cardKey === 'enrollments') {
@@ -643,7 +655,7 @@ const Dashboard = () => {
             todayScheduled,
             todayOnAgenda,
             followUps,
-            pendingTasksToday,
+            pendingTasksDueHub,
             terms.trial,
             weeklyEnrollmentsCount,
             dayPriority.type,
@@ -677,7 +689,10 @@ const Dashboard = () => {
             followUpsAwaitingContact.length,
             followupUrgent
         );
-        const tasksFootnote = buildTasksKpiFootnote(pendingTasksToday.length);
+        const tasksFootnote = buildTasksKpiFootnote(
+            tasksDueHubCounts.overdue,
+            tasksDueHubCounts.dueToday
+        );
 
         return [
             {
@@ -712,8 +727,8 @@ const Dashboard = () => {
             {
                 key: 'tasks',
                 label: 'Tarefas',
-                count: pendingTasksToday.length,
-                tone: pendingTasksToday.length > 0 ? 'attention' : 'muted',
+                count: tasksDueHubCounts.total,
+                tone: tasksDueHubCounts.total > 0 ? 'attention' : 'muted',
                 icon: <CheckSquare {...HERO_KPI_ICON_PROPS} aria-hidden />,
                 ...tasksFootnote,
             },
@@ -732,7 +747,7 @@ const Dashboard = () => {
         listModalType === 'today'
             ? todayScheduled
             : listModalType === 'tasks'
-              ? pendingTasksToday
+              ? pendingTasksDueHub
               : [];
 
     const modalTitle =
@@ -826,6 +841,54 @@ const Dashboard = () => {
         })();
     };
 
+    const showPresenceToast = (message, leadId) => {
+        addToast({
+            type: 'success',
+            message,
+            duration: 8000,
+            action: {
+                label: undoPresenceLabel(),
+                onClick: () => {
+                    const lead = useLeadStore.getState().leads.find((l) => String(l.id) === String(leadId));
+                    if (lead) void undoLeadPresence(lead);
+                },
+            },
+        });
+    };
+
+    const undoLeadPresence = async (lead) => {
+        const patch = buildLeadPresenceUndoPatch(lead);
+        const leadId = String(lead?.id || '').trim();
+        if (!patch || !leadId) return;
+        const k = `${leadId}:undo`;
+        setSavingPresence((p) => ({ ...p, [k]: true }));
+        try {
+            const st = useLeadStore.getState();
+            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
+            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+            const fromStatus = String(lead.status || '').trim();
+            await addLeadEvent({
+                academyId: st.academyId,
+                leadId,
+                type: 'presence_undo',
+                from: fromStatus,
+                to: patch.status,
+                createdBy: st.userId || 'user',
+                permissionContext: permCtx,
+            });
+            await st.updateLead(leadId, patch);
+            addToast({ type: 'success', message: toastPresenceUndoSuccess() });
+        } catch {
+            addToast({ type: 'error', message: 'Erro ao desfazer registro de presença.' });
+        } finally {
+            setSavingPresence((p) => {
+                const n = { ...p };
+                delete n[k];
+                return n;
+            });
+        }
+    };
+
     const markLeadAttended = async (lead) => {
         const k = `${lead.id}:attended`;
         const attendedTodayBefore = todayScheduled.filter(
@@ -849,9 +912,10 @@ const Dashboard = () => {
             await st.updateLead(lead.id, {
                 status: LEAD_STATUS.COMPLETED,
                 pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
-                attendedAt: new Date().toISOString()
+                attendedAt: new Date().toISOString(),
+                missedAt: null,
             });
-            addToast({ type: 'success', message: toastAttendedSuccess(isFirstOfDay) });
+            showPresenceToast(toastAttendedSuccess(isFirstOfDay), lead.id);
         } catch {
             addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
         } finally {
@@ -884,7 +948,7 @@ const Dashboard = () => {
                 pipelineStage: LEAD_STATUS.MISSED,
                 missedAt: new Date().toISOString()
             });
-            addToast({ type: 'success', message: toastMissedSuccess() });
+            showPresenceToast(toastMissedSuccess(), lead.id);
         } catch {
             addToast({ type: 'error', message: 'Erro ao registrar não compareceu.' });
         } finally {
@@ -1060,7 +1124,6 @@ const Dashboard = () => {
                         templateKey={lead?.nextStep?.template_key}
                         nextAction={lead.nextActionLabel}
                         compact
-                        menuMode
                     />
                     <div className="fu-btns">
                     <button
@@ -1104,10 +1167,11 @@ const Dashboard = () => {
                                 <MessageCircle className="wa-icon" size={14} color="#fff" aria-hidden />
                             </>
                         )}
+                        <span className="fu-action-btn__label">WhatsApp</span>
                     </button>
                     <button
                         type="button"
-                        className="mk-btn mk-btn--icon"
+                        className="mk-btn mk-btn--icon fu-action-btn fu-action-btn--complete"
                         disabled={Boolean(
                             savingFollowupDone[leadId] ||
                             flashingFollowupIds[leadId] ||
@@ -1122,6 +1186,7 @@ const Dashboard = () => {
                         ) : (
                             <Check className="mk-btn__icon" size={14} strokeWidth={2.5} aria-hidden />
                         )}
+                        <span className="fu-action-btn__label">Concluir</span>
                     </button>
                     </div>
                 </div>
@@ -1300,6 +1365,7 @@ const Dashboard = () => {
                     isRefreshing={isRefreshing}
                     onCompareceu={markLeadAttended}
                     onNaoCompareceu={markLeadMissed}
+                    onDesfazerPresenca={undoLeadPresence}
                     savingPresence={savingPresence}
                     isDashboardMobile={isDashboardMobile}
                     vertical={vertical}

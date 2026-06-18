@@ -14,6 +14,7 @@ function DashboardAgendaWeekPanel({
   isRefreshing,
   onCompareceu,
   onNaoCompareceu,
+  onDesfazerPresenca,
   savingPresence,
   isDashboardMobile,
   vertical,
@@ -156,6 +157,7 @@ function DashboardAgendaWeekPanel({
           leads={agendaWeekLeads}
           onCompareceu={onCompareceu}
           onNaoCompareceu={onNaoCompareceu}
+          onDesfazerPresenca={onDesfazerPresenca}
           onOpenLead={(lead) =>
             navigate(`/lead/${lead.id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } })
           }
@@ -170,7 +172,7 @@ function DashboardAgendaWeekPanel({
       </div>
       {badgeCount > 0 ? (
         <p className="reception-calendar-hint">
-          Toque no card para abrir o contato · use Veio / Não veio para registrar presença
+          Toque no card para abrir o contato · Veio / Não veio registram presença · troque ou desfaça se marcou errado
         </p>
       ) : null}
       {isDashboardMobile && !showWeekView ? (

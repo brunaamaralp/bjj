@@ -825,6 +825,18 @@
           width: 100%;
           min-width: 0;
         }
+        .fu-row__actions-bar .followup-copilot-btn {
+          width: auto;
+        }
+        .fu-action-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .fu-action-btn__label {
+          display: none;
+        }
         .fu-row__actions-bar .followup-copilot {
           grid-column: 1;
           grid-row: 1 / span 2;
@@ -1533,18 +1545,50 @@
         }
         @media (max-width: 720px) {
           .fu-row__actions-bar {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
           }
           .fu-row__actions-bar .followup-copilot {
-            grid-column: 1;
-            grid-row: 1;
+            grid-column: unset;
+            grid-row: unset;
+            width: 100%;
+          }
+          .fu-row__actions-bar .followup-copilot-btn {
+            width: 100%;
+            min-height: 40px;
+            justify-content: center;
+          }
+          .fu-row__actions-bar .followup-copilot__panel {
+            width: 100%;
           }
           .fu-row__actions-bar .fu-btns {
-            grid-column: 1;
-            grid-row: 2;
+            grid-column: unset;
+            grid-row: unset;
             width: 100%;
-            justify-content: flex-end;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 0;
+            background: transparent;
+            border: none;
+          }
+          .fu-row__actions-bar .fu-action-btn {
+            width: 100%;
+            min-height: 44px;
+            padding: 10px 12px;
+          }
+          .fu-row__actions-bar .fu-action-btn__label {
+            display: inline;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .fu-row__actions-bar .wa-btn .wa-icon,
+          .fu-row__actions-bar .mk-btn__icon {
+            flex-shrink: 0;
+          }
+          .fu-row__actions-bar .fu-action-btn--complete {
+            color: var(--color-accent-dark);
           }
         }
         .reception-section-tools {

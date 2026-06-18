@@ -377,7 +377,7 @@
 }
 
 @media (max-width: 720px) {
-  .fu-row__actions-bar .followup-copilot__actions {
+  .fu-row__actions-bar .followup-copilot-btn {
     width: 100%;
   }
 }

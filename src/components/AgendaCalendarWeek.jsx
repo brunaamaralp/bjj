@@ -6,7 +6,9 @@ import {
     attendedStatusLabel,
     missedButtonLabel,
     missedStatusLabel,
+    undoPresenceLabel,
 } from '../lib/dashboardReceptionCopy.js';
+import { canUndoLeadPresence } from '../lib/leadPresenceActions.js';
 import EmptyState from './shared/EmptyState.jsx';
 import '../styles/agenda-calendar-week.css';
 
@@ -103,6 +105,7 @@ function timeSortMinutes(lead) {
  * @param {object[]} props.leads — `agendaLeads` do Dashboard (já filtrados)
  * @param {(lead: object) => void} props.onCompareceu
  * @param {(lead: object) => void} props.onNaoCompareceu
+ * @param {(lead: object) => void} [props.onDesfazerPresenca]
  * @param {(lead: object) => void} props.onOpenLead
  * @param {number} [props.weekOffset] — semana controlada pelo pai (com `onWeekOffsetChange`)
  * @param {(n: number) => void} [props.onWeekOffsetChange]
@@ -118,6 +121,7 @@ export default function AgendaCalendarWeek({
     onOpenLead,
     onCompareceu,
     onNaoCompareceu,
+    onDesfazerPresenca,
     savingPresence = {},
     weekOffset: weekOffsetProp,
     onWeekOffsetChange,
@@ -287,10 +291,21 @@ export default function AgendaCalendarWeek({
                                             const tooltip = buildSlotTooltip(lead, modality);
                                             const busyAttended = Boolean(savingPresence[`${lead.id}:attended`]);
                                             const busyMissed = Boolean(savingPresence[`${lead.id}:missed`]);
-                                            const showPresence =
+                                            const busyUndo = Boolean(savingPresence[`${lead.id}:undo`]);
+                                            const canUndo =
+                                                (attendedSelected || missedSelected) &&
+                                                canUndoLeadPresence(lead) &&
+                                                typeof onDesfazerPresenca === 'function';
+                                            const showBothPresence =
                                                 !attendedSelected &&
                                                 !missedSelected &&
                                                 (typeof onCompareceu === 'function' || typeof onNaoCompareceu === 'function');
+                                            const showSwitchToAttended =
+                                                missedSelected && typeof onCompareceu === 'function';
+                                            const showSwitchToMissed =
+                                                attendedSelected && typeof onNaoCompareceu === 'function';
+                                            const showPresenceBtns =
+                                                showBothPresence || showSwitchToAttended || showSwitchToMissed;
                                             const dotClass =
                                                 slotStatus === 'attended'
                                                     ? 'aula-dot aula-dot--attended'
@@ -323,26 +338,42 @@ export default function AgendaCalendarWeek({
                                                     <div className="aula-name">{lead.name}</div>
                                                     {modality ? <div className="aula-tipo">{modality}</div> : null}
                                                     {attendedSelected || missedSelected ? (
-                                                        <p
-                                                            className={`aula-card__status${
-                                                                attendedSelected
-                                                                    ? ' aula-card__status--attended'
-                                                                    : ' aula-card__status--missed'
-                                                            }`}
-                                                        >
-                                                            {attendedSelected
-                                                                ? attendedStatusLabel(vertical)
-                                                                : missedStatusLabel()}
-                                                        </p>
+                                                        <div className="aula-card__status-row">
+                                                            <p
+                                                                className={`aula-card__status${
+                                                                    attendedSelected
+                                                                        ? ' aula-card__status--attended'
+                                                                        : ' aula-card__status--missed'
+                                                                }`}
+                                                            >
+                                                                {attendedSelected
+                                                                    ? attendedStatusLabel(vertical)
+                                                                    : missedStatusLabel()}
+                                                            </p>
+                                                            {canUndo ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="aula-card__undo"
+                                                                    disabled={busyUndo || busyAttended || busyMissed}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onDesfazerPresenca(lead);
+                                                                    }}
+                                                                >
+                                                                    {busyUndo ? '…' : undoPresenceLabel()}
+                                                                </button>
+                                                            ) : null}
+                                                        </div>
                                                     ) : null}
-                                                    {showPresence ? (
+                                                    {showPresenceBtns ? (
                                                         <div className="aula-btns">
-                                                            {typeof onCompareceu === 'function' ? (
+                                                            {(showBothPresence || showSwitchToAttended) &&
+                                                            typeof onCompareceu === 'function' ? (
                                                                 <button
                                                                     type="button"
                                                                     className="btn-veio"
                                                                     title={attendedStatusLabel(vertical)}
-                                                                    disabled={busyAttended || busyMissed}
+                                                                    disabled={busyAttended || busyMissed || busyUndo}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         onCompareceu(lead);
@@ -351,11 +382,12 @@ export default function AgendaCalendarWeek({
                                                                     {busyAttended ? '…' : attendedButtonShort(vertical)}
                                                                 </button>
                                                             ) : null}
-                                                            {typeof onNaoCompareceu === 'function' ? (
+                                                            {(showBothPresence || showSwitchToMissed) &&
+                                                            typeof onNaoCompareceu === 'function' ? (
                                                                 <button
                                                                     type="button"
                                                                     className="btn-faltou"
-                                                                    disabled={busyAttended || busyMissed}
+                                                                    disabled={busyAttended || busyMissed || busyUndo}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         onNaoCompareceu(lead);
