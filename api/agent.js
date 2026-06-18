@@ -40,6 +40,10 @@ const adminClient =
     : null;
 const adminDatabases = adminClient ? new Databases(adminClient) : null;
 
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req, res) {
   try {
     const query = req?.query || {};

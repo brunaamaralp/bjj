@@ -68,6 +68,10 @@ const ERROR_MAP = {
   prompt_nao_configurado: 'Configure o assistente na configuração guiada antes de testar.',
   limite_diario: 'Limite diário de testes atingido. Tente novamente amanhã.',
   upstream_error: 'Erro no assistente. Tente novamente ou fale com o suporte.',
+  claude_timeout: 'A IA demorou para responder. Tente novamente em instantes.',
+  empty_summary: 'Não foi possível gerar o resumo com os dados disponíveis.',
+  anthropic_invalid_json: 'Resposta inválida da IA. Tente novamente.',
+  generateFn_required: 'Não foi possível gerar o resumo. Tente novamente.',
   ANTHROPIC_API_KEY: 'Serviço de IA temporariamente indisponível. Fale com o suporte.',
   'ANTHROPIC_API_KEY não configurado': 'Serviço de IA temporariamente indisponível. Fale com o suporte.',
 
