@@ -22,11 +22,23 @@ export default function InboxTriageCard({
   const linkTitle = compact ? `Vincular ${String(studentLabel || 'aluno').trim().toLowerCase()}` : undefined;
   const dismissTitle = compact ? 'Marcar que não é lead' : undefined;
 
+  const stopCardBubble = (e) => {
+    e.stopPropagation();
+  };
+
+  const runAction = (e, action) => {
+    e.stopPropagation();
+    action?.();
+  };
+
   return (
     <div
       className={`inbox-triage-callout${compact ? ' inbox-triage-callout--compact' : ''}`}
       role="region"
       aria-label="Triagem WhatsApp"
+      data-no-dnd="true"
+      onClick={stopCardBubble}
+      onPointerDown={stopCardBubble}
     >
       <div className="inbox-triage-callout__head">
         <div className="inbox-triage-callout__title-row">
@@ -49,7 +61,8 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-primary btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'confirm' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
-          onClick={() => onConfirm?.()}
+          onPointerDown={stopCardBubble}
+          onClick={(e) => runAction(e, onConfirm)}
         >
           <UserCheck size={14} aria-hidden />
           Confirmar
@@ -58,13 +71,9 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn${suggestedAction === 'link_student' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
-<<<<<<< Updated upstream
-          onClick={() => onLinkStudent?.()}
-=======
           title={linkTitle}
           onPointerDown={stopCardBubble}
           onClick={(e) => runAction(e, onLinkStudent)}
->>>>>>> Stashed changes
         >
           <GraduationCap size={14} aria-hidden />
           {linkLabel}
@@ -73,13 +82,9 @@ export default function InboxTriageCard({
           type="button"
           className={`btn btn-outline btn-sm inbox-btn--ctx inbox-triage-callout__btn inbox-triage-callout__btn--muted${suggestedAction === 'dismiss' ? ' inbox-triage-callout__btn--suggested' : ''}`}
           disabled={busy}
-<<<<<<< Updated upstream
-          onClick={() => onDismiss?.()}
-=======
           title={dismissTitle}
           onPointerDown={stopCardBubble}
           onClick={(e) => runAction(e, onDismiss)}
->>>>>>> Stashed changes
         >
           <Trash2 size={14} aria-hidden />
           {dismissLabel}
