@@ -41,8 +41,37 @@ export function buildTasksFetchKey(academyId, filters = {}) {
   const assignedTo = String(filters.assigned_to || '').trim();
   const leadId = String(filters.lead_id || '').trim();
   const overdue = filters.overdue === '1' ? '1' : '';
+  const dueToday = filters.due_today === '1' ? '1' : '';
   const status = String(filters.status || '').trim();
-  return `${academy}|${leadId}|${assignedTo}|${uiStatus}|${status}|${overdue}`;
+  return `${academy}|${leadId}|${assignedTo}|${uiStatus}|${status}|${overdue}|${dueToday}`;
+}
+
+/** Filtros para tarefas que vencem hoje (KPI Recepção / hub). */
+export function dashboardKpiTaskFilters() {
+  return {
+    uiStatus: 'due_today',
+    status: 'pending',
+    due_today: '1',
+    assigned_to: null,
+    lead_id: null,
+    overdue: null,
+  };
+}
+
+/** Filtros para tarefas vencidas (KPI Recepção / hub). */
+export function dashboardKpiOverdueTaskFilters() {
+  return {
+    uiStatus: 'overdue',
+    overdue: '1',
+    assigned_to: null,
+    lead_id: null,
+    status: null,
+    due_today: null,
+  };
+}
+
+export function dashboardKpiTasksFetchKey(academyId) {
+  return `${String(academyId || '').trim()}|kpi_due_hub`;
 }
 
 /** Filtros para fetch de tarefas no perfil do lead. */
@@ -77,10 +106,14 @@ function buildQueryString(academyId, filters, opts = {}) {
     const assignedTo = String(filters.assigned_to || '').trim();
     const leadId = String(filters.lead_id || '').trim();
     const overdue = filters.overdue === '1';
+    const dueToday = filters.due_today === '1';
     const status = String(filters.status || '').trim();
 
     if (overdue) qs.set('overdue', '1');
-    else if (status) qs.set('status', status);
+    else if (dueToday) {
+      qs.set('due_today', '1');
+      if (status) qs.set('status', status);
+    } else if (status) qs.set('status', status);
     if (assignedTo) qs.set('assigned_to', assignedTo);
     if (leadId) qs.set('lead_id', leadId);
   }
@@ -252,6 +285,57 @@ export const useTaskStore = create((set, get) => ({
     }
   },
 
+  fetchDashboardKpiTasks: async (academyId, opts = {}) => {
+    const academy = String(academyId || '').trim();
+    if (!academy) return;
+
+    const targetKey = dashboardKpiTasksFetchKey(academy);
+    const scopeMismatch = resolveFetchScopeMismatch(get().tasksFetchKey, academy, {}, {
+      ...opts,
+      scopeMismatch: get().tasksFetchKey != null && get().tasksFetchKey !== targetKey,
+    });
+
+    if (shouldBlockFetchWhileLoading({ loading: get().loading, silent: opts.silent, scopeMismatch })) {
+      return;
+    }
+
+    const generation = get().fetchGeneration + 1;
+    set((state) => ({
+      fetchGeneration: generation,
+      ...(opts.silent !== true ? { loading: true, error: null } : { error: null }),
+    }));
+
+    try {
+      const hubLimit = 100;
+      const [overdueData, todayData] = await Promise.all([
+        requestTasksPage(academy, dashboardKpiOverdueTaskFilters(), { limit: hubLimit }),
+        requestTasksPage(academy, dashboardKpiTaskFilters(), { limit: hubLimit }),
+      ]);
+
+      if (get().fetchGeneration !== generation) return;
+
+      const merged = mergeHubNotificationTasks([overdueData.tasks, todayData.tasks]);
+      set({
+        tasks: merged,
+        tasksCursor: null,
+        tasksHasMore: false,
+        loading: false,
+        loadingMore: false,
+        error: null,
+        tasksLastFetchedAt: Date.now(),
+        tasksFetchKey: targetKey,
+      });
+    } catch (e) {
+      if (get().fetchGeneration !== generation) return;
+      console.error('[useTaskStore] fetchDashboardKpiTasks error:', e);
+      set({
+        loading: false,
+        loadingMore: false,
+        ...(opts.silent ? {} : { error: friendlyError(e, 'load') }),
+      });
+    }
+  },
+
   fetchNotificationTasks: async (academyId) => {
     const academy = String(academyId || '').trim();
     if (!academy) return;
@@ -261,14 +345,14 @@ export const useTaskStore = create((set, get) => ({
 
     try {
       const hubLimit = 100;
-      const [overdueData, pendingData] = await Promise.all([
-        requestTasksPage(academy, { overdue: '1' }, { limit: hubLimit }),
-        requestTasksPage(academy, { status: 'pending' }, { limit: hubLimit }),
+      const [overdueData, todayData] = await Promise.all([
+        requestTasksPage(academy, dashboardKpiOverdueTaskFilters(), { limit: hubLimit }),
+        requestTasksPage(academy, dashboardKpiTaskFilters(), { limit: hubLimit }),
       ]);
 
       if (get().notificationFetchGeneration !== generation) return;
 
-      const merged = mergeHubNotificationTasks([overdueData.tasks, pendingData.tasks]);
+      const merged = mergeHubNotificationTasks([overdueData.tasks, todayData.tasks]);
       set({
         notificationTasks: merged,
         notificationTasksLoading: false,

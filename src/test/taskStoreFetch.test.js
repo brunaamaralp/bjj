@@ -189,6 +189,26 @@ describe('notificationTasks slice', () => {
 
     vi.useRealTimers();
   });
+
+  it('fetchDashboardKpiTasks popula tasks com vencidas e hoje', async () => {
+    fetch
+      .mockResolvedValueOnce(
+        jsonResponse([{ id: 'overdue-1', status: 'pending', due_date: '2026-06-10' }])
+      )
+      .mockResolvedValueOnce(
+        jsonResponse([{ id: 'today-1', status: 'pending', due_date: '2026-06-15' }])
+      );
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00'));
+
+    await useTaskStore.getState().fetchDashboardKpiTasks('acad-a');
+
+    const ids = useTaskStore.getState().tasks.map((t) => t.id).sort();
+    expect(ids).toEqual(['overdue-1', 'today-1']);
+
+    vi.useRealTimers();
+  });
 });
 
 describe('patchTaskLocal', () => {

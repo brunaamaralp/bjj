@@ -117,6 +117,7 @@ export default async function handler(req, res) {
     const assignedTo = String(req.query.assigned_to || '').trim();
     const leadId = String(req.query.lead_id || '').trim();
     const overdue = String(req.query.overdue || '').trim() === '1';
+    const dueToday = String(req.query.due_today || '').trim() === '1';
     const cursor = String(req.query.cursor || '').trim();
     const limitRaw = Number(req.query.limit);
     const pageLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.trunc(limitRaw), 100) : 50;
@@ -128,6 +129,7 @@ export default async function handler(req, res) {
         assignedTo,
         leadId,
         overdue,
+        dueToday,
         cursor,
         pageLimit,
       });

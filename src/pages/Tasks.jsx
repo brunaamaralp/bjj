@@ -564,14 +564,18 @@ export default function Tasks() {
 
   const filterLeadId = filters.lead_id;
   const filterAssigned = filters.assigned_to;
-  const apiTaskFilters = useMemo(
-    () =>
-      serverTaskFilters(
-        { status: filters.status, assigned_to: filterAssigned, lead_id: filterLeadId },
-        userId
-      ),
-    [filters.status, filterAssigned, filterLeadId, userId]
-  );
+  const apiTaskFilters = useMemo(() => {
+    const base = serverTaskFilters(
+      { status: filters.status, assigned_to: filterAssigned, lead_id: filterLeadId },
+      userId
+    );
+    if (!periodTodayOn || base.overdue === '1') return base;
+    return {
+      ...base,
+      due_today: '1',
+      ...(filters.status === 'all' ? { status: null } : {}),
+    };
+  }, [filters.status, filterAssigned, filterLeadId, userId, periodTodayOn]);
   const tasksFetchKey = useMemo(
     () => buildTasksFetchKey(academyId, apiTaskFilters),
     [academyId, apiTaskFilters]

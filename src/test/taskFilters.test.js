@@ -5,6 +5,7 @@ import {
   uiFilterToApiParams,
   serverTaskFilters,
   buildTasksFetchKey,
+  dashboardKpiTaskFilters,
 } from '../store/useTaskStore.js';
 
 describe('uiFilterToApiParams', () => {
@@ -47,7 +48,14 @@ describe('buildTasksFetchKey', () => {
     const keyB = buildTasksFetchKey('acad', serverTaskFilters({ status: 'pendentes' }, 'u1'));
     expect(keyA).not.toBe(keyB);
     expect(keyA).toContain('vencidas');
-    expect(keyA.endsWith('|1')).toBe(true);
+    expect(keyA.endsWith('|1|')).toBe(true);
+  });
+
+  it('due_today gera chave distinta de pendentes genérico', () => {
+    const pendingKey = buildTasksFetchKey('acad', serverTaskFilters({ status: 'pendentes' }, 'u1'));
+    const todayKey = buildTasksFetchKey('acad', dashboardKpiTaskFilters());
+    expect(pendingKey).not.toBe(todayKey);
+    expect(todayKey.endsWith('|1')).toBe(true);
   });
 });
 
@@ -91,6 +99,27 @@ describe('buildTasksListQueries', () => {
     });
     expect(queries).toContainEqual(Query.equal('status', ['pending']));
     expect(queries.some((q) => String(q).includes('lessThan'))).toBe(false);
+  });
+
+  it('due_today aplica due_date = hoje e status pending', () => {
+    const queries = buildTasksListQueries({
+      academyId: 'acad-a',
+      dueToday: true,
+      status: 'pending',
+      todayYmd: TODAY,
+    });
+    expect(queries).toContainEqual(Query.equal('due_date', [TODAY]));
+    expect(queries).toContainEqual(Query.equal('status', ['pending']));
+  });
+
+  it('due_today sem status retorna todas as tarefas do dia', () => {
+    const queries = buildTasksListQueries({
+      academyId: 'acad-a',
+      dueToday: true,
+      todayYmd: TODAY,
+    });
+    expect(queries).toContainEqual(Query.equal('due_date', [TODAY]));
+    expect(queries.some((q) => String(q).includes('status'))).toBe(false);
   });
 
   it('minhas aplica assigned_to', () => {
