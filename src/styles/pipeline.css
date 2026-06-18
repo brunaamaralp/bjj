@@ -22,7 +22,8 @@
 .main-content.pipeline-active {
   overflow: auto;
   overflow-x: hidden;
-  padding: var(--page-gutter);
+  /* Sem padding-top: evita faixa rolável acima do header sticky (cards do kanban vazavam). */
+  padding: 0 var(--page-gutter) var(--page-gutter);
   background: var(--color-surface-canvas);
 }
 
@@ -160,13 +161,26 @@
 .pipeline-header {
   position: sticky;
   top: 0;
-  z-index: var(--z-sticky, 20);
+  z-index: var(--z-sticky, 1300);
   flex-shrink: 0;
-  padding: 0 0 1rem;
+  padding: var(--page-gutter) 0 1rem;
   margin: 0 0 0.5rem;
   background: var(--color-surface-canvas);
   border-bottom: 1px solid var(--pipeline-border);
   overflow: visible;
+  isolation: isolate;
+}
+
+/* Cobre a faixa acima do título quando cards (virtualizer/transform) pintam fora da coluna. */
+.pipeline-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--page-gutter);
+  background: var(--color-surface-canvas);
+  pointer-events: none;
 }
 
 .pipeline-container .navi-page-header {
@@ -349,6 +363,8 @@
   display: flex;
   flex-direction: column;
   overflow: visible;
+  position: relative;
+  z-index: 0;
 }
 
 .pipeline-container .kanban-wrapper {
@@ -782,6 +798,7 @@
 
 .pipeline-container .pipeline-col-leads-virtual {
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .col-header .pipeline-col-heading {
@@ -1131,6 +1148,21 @@
 
 .pipeline-link-student-search {
   margin-bottom: 0.75rem;
+}
+
+.navi-modal-shell .pipeline-link-student-search .form-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--color-white);
+  border: 1px solid var(--pipeline-border, var(--border));
+  border-radius: 8px;
+  color: var(--pipeline-text, var(--ink));
+}
+
+.navi-modal-shell .pipeline-link-student-search .form-input:focus {
+  border-color: var(--color-text-heading);
+  box-shadow: 0 0 0 3px rgba(108, 71, 216, 0.28);
+  outline: none;
 }
 
 .pipeline-link-student-list {

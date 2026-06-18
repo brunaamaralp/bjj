@@ -20,6 +20,23 @@ describe('InboxTriageCard', () => {
     expect(onParentClick).not.toHaveBeenCalled();
   });
 
+  it('Confirmar não propaga pointerdown para o card pai (drag kanban)', () => {
+    const onConfirm = vi.fn();
+    const onParentPointerDown = vi.fn();
+
+    render(
+      <div role="button" tabIndex={0} onPointerDown={onParentPointerDown}>
+        <InboxTriageCard compact onConfirm={onConfirm} />
+      </div>
+    );
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: /Confirmar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar/i }));
+
+    expect(onParentPointerDown).not.toHaveBeenCalled();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
   it('Vincular aluno não propaga clique para o card pai', () => {
     const onLinkStudent = vi.fn();
     const onParentClick = vi.fn();

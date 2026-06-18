@@ -158,6 +158,29 @@ const dropAnimation = {
     easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
 };
 
+/** Impede que pointer events em botões/callouts acionem drag do sortable. */
+function withNoDragTargets(listeners) {
+    if (!listeners) return {};
+    const shouldBlockDrag = (event) =>
+        Boolean(
+            event.target?.closest?.(
+                '[data-no-dnd], button, a, input, textarea, select, label, [role="button"], .inbox-triage-callout'
+            )
+        );
+    return Object.fromEntries(
+        Object.entries(listeners).map(([name, handler]) => {
+            if (typeof handler !== 'function') return [name, handler];
+            return [
+                name,
+                (event) => {
+                    if (shouldBlockDrag(event)) return;
+                    handler(event);
+                },
+            ];
+        })
+    );
+}
+
 /**
  * Card puramente visual para ser usado tanto no grid quanto no Overlay.
  */
@@ -253,8 +276,15 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
                 ...props.style
             }}
             onMouseEnter={() => { if (!isEnrolledCard) void preloadLeadProfile(); }}
-            onClick={() => {
+            onClick={(e) => {
                 if (isOverlay) return;
+                if (
+                    e.target.closest?.(
+                        '[data-no-dnd], .inbox-triage-callout, button, a, input, textarea, select, label, [role="button"]'
+                    )
+                ) {
+                    return;
+                }
                 if (onOpenLeadProfile) {
                     onOpenLeadProfile(lead, isEnrolledCard);
                     return;
@@ -350,7 +380,12 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
                 </div>
             ) : null}
             {pendingTriage ? (
-                <div className="pipeline-lead-triage-wrap" data-no-dnd="true">
+                <div
+                    className="pipeline-lead-triage-wrap"
+                    data-no-dnd="true"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <InboxTriageCard
                         compact
                         busy={triageBusy}
@@ -620,12 +655,17 @@ const SortableLeadCard = React.memo(function SortableLeadCard({ lead, ...props }
     const isEnrolledCard = Boolean(lead?._isStudent || isStudentRecord(lead));
     const {
         attributes,
-        listeners,
+        listeners: sortableListeners,
         setNodeRef,
         transform,
         transition,
         isDragging,
     } = useSortable({ id: lead.id, data: { lead }, disabled: isEnrolledCard });
+
+    const listeners = useMemo(
+        () => (isEnrolledCard ? {} : withNoDragTargets(sortableListeners)),
+        [isEnrolledCard, sortableListeners]
+    );
 
     const style = {
         transform: CSS.Translate.toString(transform),
@@ -1266,6 +1306,7 @@ const Pipeline = () => {
     const [linkStudentLead, setLinkStudentLead] = useState(null);
     const [linkStudentSaving, setLinkStudentSaving] = useState(false);
     const [triageBusyLeadId, setTriageBusyLeadId] = useState(null);
+    const triageActionLockRef = useRef(false);
     const studentsLoading = useStudentStore((s) => s.loading);
     const [filterDateFrom, setFilterDateFrom] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateFrom);
     const [filterDateTo, setFilterDateTo] = useState(() => pipelineSessionInitialFilters(initialSaved).filterDateTo);
@@ -1383,12 +1424,6 @@ const Pipeline = () => {
             activationConstraint: {
                 distance: 8,
             },
-            // Não ativar se clicar em elementos marcadores com data-no-dnd
-            onActivation: ({ event }) => {
-                if (event.target.closest('[data-no-dnd]')) {
-                    return false;
-                }
-            }
         })
     );
 
@@ -1516,7 +1551,8 @@ const Pipeline = () => {
 
     const handleConfirmTriage = useCallback(async (lead) => {
         const leadId = String(lead?.id || '').trim();
-        if (!leadId || triageBusyLeadId) return;
+        if (!leadId || triageActionLockRef.current) return;
+        triageActionLockRef.current = true;
         setTriageBusyLeadId(leadId);
         try {
             await updateLead(leadId, buildTriageConfirmClientPatch(lead));
@@ -1524,9 +1560,10 @@ const Pipeline = () => {
         } catch (err) {
             toast.error(err, 'update');
         } finally {
+            triageActionLockRef.current = false;
             setTriageBusyLeadId(null);
         }
-    }, [toast, triageBusyLeadId, updateLead]);
+    }, [toast, updateLead]);
 
     const handleDismissTriage = useCallback((eOrLead, maybeLead) => {
         const lead = maybeLead ?? eOrLead;

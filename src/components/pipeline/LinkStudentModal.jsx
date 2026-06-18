@@ -36,12 +36,13 @@ export default function LinkStudentModal({
       </p>
       <div className="pipeline-link-student-search">
         <input
-          className="input"
+          className="form-input"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nome ou telefone"
           disabled={saving}
           autoFocus
+          aria-label="Buscar aluno por nome ou telefone"
         />
       </div>
       {studentsLoading ? (
