@@ -264,11 +264,17 @@ export default function NewLeadForm({
     <>
       <form id={formId} onSubmit={submitNewLead} className={`new-lead-form flex-col gap-4${isModal ? ' new-lead-form--modal' : ''}`}>
         <div className={sectionClass}>
-          <label htmlFor={`${formId}-name`}>Nome</label>
+          <label htmlFor={`${formId}-name`}>
+            {leadType === 'Criança' || leadType === 'Juniores' ? 'Nome do aluno' : 'Nome'}
+          </label>
           <input
             id={`${formId}-name`}
             {...register('name', { required: true })}
-            placeholder="Ex: João Silva"
+            placeholder={
+              leadType === 'Criança' || leadType === 'Juniores'
+                ? 'Ex: nome de quem vai treinar'
+                : 'Ex: João Silva'
+            }
             className="form-input"
             autoFocus={autoFocus}
           />

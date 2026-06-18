@@ -43,6 +43,8 @@
 
 .navi-confirm-desc {
   margin: 0;
+  white-space: pre-line;
+  text-align: left;
 }
 
 .navi-confirm-actions {

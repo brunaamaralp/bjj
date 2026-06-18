@@ -27,6 +27,12 @@ import {
     normalizePipelineStageId,
     resolveLeadPipelineStageId,
 } from '../lib/leadStageRules.js';
+import {
+    leadCardGuardianSubtitle,
+    leadCardPrimaryName,
+    leadCardTooltip,
+    leadMatchesKanbanSearch,
+} from '../lib/leadDisplayName.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { preloadLeadProfile } from '../lib/preloadRoutes.js';
 import { dispatchOpenNewLeadModal } from '../lib/newLeadModal.js';
@@ -315,9 +321,12 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
                         showLabel={false}
                     />
                 ) : null}
-                <span className="lead-card-name" title={String(lead.name || '').trim() || undefined}>
-                    {lead.name}
+                <span className="lead-card-name" title={leadCardTooltip(lead) || undefined}>
+                    {leadCardPrimaryName(lead)}
                 </span>
+                {leadCardGuardianSubtitle(lead) ? (
+                    <span className="lead-card-guardian">{leadCardGuardianSubtitle(lead)}</span>
+                ) : null}
             </div>
             <div className="lead-meta mt-2 flex items-center gap-2 flex-wrap">
                 <Phone size={12} /> {lead.phone}
@@ -1028,8 +1037,13 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                         >
                                             <div className="pipeline-mobile-lead-main">
                                                 <div className="pipeline-mobile-lead-name">
-                                                    {lead.name}
+                                                    {leadCardPrimaryName(lead)}
                                                 </div>
+                                                {leadCardGuardianSubtitle(lead) ? (
+                                                    <div className="pipeline-mobile-lead-guardian">
+                                                        {leadCardGuardianSubtitle(lead)}
+                                                    </div>
+                                                ) : null}
                                                 <div className="pipeline-mobile-lead-phone">
                                                     {lead.phone || '—'}
                                                 </div>
@@ -2148,16 +2162,10 @@ const Pipeline = () => {
     );
 
     const applyBoardSearchFilter = useCallback((list) => {
-        const q = String(kanbanSearch || '').trim().toLowerCase();
+        const q = String(kanbanSearch || '').trim();
         const qPhone = normalizeKanbanPhone(kanbanSearch);
         if (!q && !qPhone) return list;
-        return list.filter((l) => {
-            const name = String(l?.name || '').toLowerCase();
-            const phoneNorm = normalizeKanbanPhone(l?.phone);
-            if (qPhone && phoneNorm.includes(qPhone)) return true;
-            if (q && name.includes(q)) return true;
-            return false;
-        });
+        return list.filter((l) => leadMatchesKanbanSearch(l, kanbanSearch));
     }, [kanbanSearch]);
 
     /** Primeira carga: evita colunas vazias/flash do funil padrão até etapas e leads estarem prontos. */

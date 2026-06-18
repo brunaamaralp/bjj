@@ -8,6 +8,8 @@ import {
   mapDbStatusFromGridForm,
   normalizeProfilePaymentStatus,
   validatePaymentStatusPopoverForm,
+  paymentStatusLabelPt,
+  paymentTimelineBadge,
 } from '../lib/paymentStatus.js';
 
 describe('paymentStatus', () => {
@@ -24,6 +26,11 @@ describe('paymentStatus', () => {
     const payment = { status: 'partial', paid_amount: 100, expected_amount: 200 };
     const r = resolveGridDisplayStatus(student, payment, '2026-05');
     expect(r.key).toBe('partial');
+  });
+
+  it('paymentStatusLabelPt traduz covered para Coberto', () => {
+    expect(paymentStatusLabelPt('covered')).toBe('Coberto');
+    expect(paymentTimelineBadge('covered').label).toBe('Coberto');
   });
 
   it('normalizeProfilePaymentStatus trata covered e frozen como paid', () => {

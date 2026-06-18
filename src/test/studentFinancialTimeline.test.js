@@ -52,6 +52,59 @@ describe('studentFinancialTimeline', () => {
     expect(kinds).toContain('bundle');
     expect(kinds).toContain('product');
     expect(items.filter((i) => i.kind === 'bundle')).toHaveLength(1);
+    expect(items.filter((i) => i.kind === 'plan' && i.payment?.$id === 'c1')).toHaveLength(0);
+  });
+
+  it('não lista filhos bundle covered como itens avulsos', () => {
+    const payments = [
+      {
+        $id: 'a1',
+        payment_category: 'bundle',
+        bundle_origin_id: 'a1',
+        bundle_months: 12,
+        reference_month: '2026-03',
+        status: 'paid',
+        amount: 3468,
+        paid_at: '2026-03-05T12:00:00.000Z',
+      },
+      {
+        $id: 'c1',
+        payment_category: 'bundle',
+        bundle_origin_id: 'a1',
+        reference_month: '2026-04',
+        status: 'covered',
+        amount: 289,
+      },
+      {
+        $id: 'c2',
+        payment_category: 'bundle',
+        bundle_origin_id: 'a1',
+        reference_month: '2026-05',
+        status: 'covered',
+        amount: 289,
+      },
+    ];
+    const items = buildFinancialTimelineItems(payments, []);
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe('bundle');
+    expect(items[0].subtitle).toBe('Cobre março de 2026 a fevereiro de 2027');
+    expect(items[0].title).toBe('Mensalidade — março de 2026');
+  });
+
+  it('mantém covered legado sem bundle_origin_id na lista', () => {
+    const payments = [
+      {
+        $id: 'legacy',
+        payment_category: 'plan',
+        reference_month: '2025-06',
+        status: 'covered',
+        amount: 0,
+      },
+    ];
+    const items = buildFinancialTimelineItems(payments, []);
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe('plan');
+    expect(items[0].badge.label).toBe('Coberto');
   });
 
   it('filterTimelineItems filtra por tipo', () => {

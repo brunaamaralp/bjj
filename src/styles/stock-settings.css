@@ -59,6 +59,10 @@
   gap: var(--space-3);
 }
 
+.stock-settings__toggle-row {
+  margin-bottom: var(--space-3);
+}
+
 .stock-settings__block-head {
   display: flex;
   align-items: center;

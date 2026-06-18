@@ -8,7 +8,7 @@
 | **rotas** | `/pipeline`, `/lead/:id`, modal **Novo lead** (global) |
 | **pré-requisitos** | Usuário autenticado; estágios do funil configurados em Minha academia |
 | **status** | revisado |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-17 |
 
 **Specs relacionadas:**
 
@@ -16,6 +16,7 @@
 - [2026-06-10-followup-experimental-design.md](../superpowers/specs/2026-06-10-followup-experimental-design.md) — ações pós-experimental
 - [2026-06-12-lead-history-summary-cache-design.md](../superpowers/specs/2026-06-12-lead-history-summary-cache-design.md) — resumo IA no perfil
 - [2026-06-11-conversa-cadastro-lead-ia-design.md](../superpowers/specs/2026-06-11-conversa-cadastro-lead-ia-design.md) — cadastro via conversa
+- [2026-06-17-lead-child-display-names.md](../superpowers/plans/2026-06-17-lead-child-display-names.md) — exibição aluno vs responsável no funil e perfil
 
 **Harness relacionado:** `npm test -- enrollmentFlow performEnrollment`
 
@@ -54,13 +55,13 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | (global) | `NewLeadModal` | Sidebar **Novo lead** ou FAB mobile | Modal com nome, telefone, origem, estágio inicial |
-| 2 | `/pipeline` | `Pipeline.jsx` | Salvar novo lead | Lead aparece na coluna do estágio escolhido |
+| 2 | `/pipeline` | `Pipeline.jsx` | Salvar novo lead | Lead aparece na coluna do estágio escolhido; perfil **Criança/Juniores**: card mostra **nome do aluno** + subtítulo `resp. {responsável}`; busca inclui responsável |
 | 3 | `/pipeline` | Kanban / lista | Arrastar card ou menu de estágio | Estágio atualizado; automações disparam se configuradas |
 | 3b | `/pipeline` (kanban desktop) | `InboxTriageCard` no card | Confirmar / Vincular aluno / Não é lead | Triagem concluída **sem** abrir perfil; mover para etapa ≠ Novo confirma triagem implicitamente |
 | 3c | `/pipeline` (lista mobile) | Link **Triar no Inbox** | Abrir conversa | Triagem no Inbox — **sem** callout no card mobile |
 | 4 | `/pipeline` | Card do lead | Clicar no card (fora da área de triagem) | Navega para `/lead/:id` |
 | 5 | `/pipeline` | Menu ⋮ no card | WhatsApp, nota, matricular, excluir | Ação contextual sem sair do funil |
-| 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, aba **Conversa** / **Histórico** | Dados persistidos; WhatsApp integrado na aba Conversa |
+| 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, aba **Conversa** / **Histórico** | Dados persistidos; criança: label **Nome do aluno**, responsável em Outros detalhes; hint se responsável vazio |
 | 6b | `/lead/:id` | Aba Conversa | WA desconectado | Banner + empty “WhatsApp não conectado” + **Configurar WhatsApp** + **Abrir WhatsApp Web** (manual) → `/agente-ia` |
 | 6c | `/lead/:id` | Aba Conversa | WA offline com histórico | Banner com link **Reconectar** → `/agente-ia`; thread read-only |
 | 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, data, pagamento opcional (`MatriculaPaymentStep`) |

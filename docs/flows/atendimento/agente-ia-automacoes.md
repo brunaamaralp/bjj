@@ -8,8 +8,10 @@
 | **rotas** | `/agente-ia`, `/automacoes?tab=modelos|gatilhos`, `/tarefas?tab=processos`, `/automacoes?wizard=1` |
 | **pré-requisitos** | Integração Zapster; billing conforme plano |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-17 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
+
+**Specs relacionadas:** [2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md](../../superpowers/specs/2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md)
 
 **Harness relacionado:** `npm test -- automacoesHub automacoesSetupWizard`
 
@@ -60,8 +62,10 @@ flowchart TD
 | 2 | Passo 1 | Escanear QR / status WA | `useZapsterWhatsAppConnection` |
 | 3 | Passo 2 | Editar prompt, FAQ, tom | `AgentIAPromptEditor`; save API agent |
 | 4 | Passo 2 | Chat de teste | `AgentIATestChat` |
-| 5 | Passo 3 | Ativar atendimento | Registro webhooks; agente ativo |
-| 6 | Avançado | Opções e ações V1 | `AgentIAAdvancedOptions`, `V1_AI_ACTIONS` |
+| 5 | Passo 3 | Botão **Ativar atendimento automático** | `renderServiceControl` → webhooks; agente ativo |
+| 6 | Passo 3 (ativo) | Botão **Pausar atendimento automático** | `handleToggleIa(false)` |
+| 7 | Card 2 | Toggle **Recursos de IA** (setting-row) | `aiModuleEnabled` |
+| 8 | Avançado | Opções e ações V1 | `AgentIAAdvancedOptions`, `V1_AI_ACTIONS` |
 
 ## Mapa de telas — Automações
 
@@ -97,8 +101,9 @@ flowchart TD
 3. [ ] Status WhatsApp exibido (`formatWaAgentStatus`)
 4. [ ] Passo 1 incompleto → subtítulo «Passo 1 de 3»
 5. [ ] Salvar prompt com validação `validatePromptFields`
-6. [ ] Ativar agente → toast sucesso webhooks
-7. [ ] Member sem permissão team → somente visualização prompt
+6. [ ] Ativar agente via botão **Ativar atendimento automático** (sem toggle no header) → toast sucesso webhooks
+7. [ ] Pausar via botão outline **Pausar atendimento automático**
+8. [ ] Member sem permissão team → somente visualização prompt
 
 ### Checklist — Automações
 
@@ -110,7 +115,7 @@ flowchart TD
 6. [ ] Gatilhos: readiness UX (`computeAutomationReadiness`) sem WA conectado
 7. [ ] Sair de gatilhos com dirty → `ConfirmDialog`
 8. [ ] Processos em Tarefas: copy deixa claro que não envia WhatsApp
-10. [ ] `?wizard=1` reabre guia (`handleReopenGuide`)
+9. [ ] `?wizard=1` reabre guia (`handleReopenGuide`)
 
 ### Critérios saudável vs regressão
 
@@ -156,4 +161,5 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-17 | — | Mapa Agente IA: botão ativar/pausar; checklist alinhado à spec UX P0 |
 | 2026-06-15 | — | Criação Fase 4 |

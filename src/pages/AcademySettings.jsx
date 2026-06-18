@@ -603,37 +603,6 @@ const AcademySettings = () => {
         .field-error {
           margin-top: 6px; font-size: 0.75rem; color: var(--danger); font-weight: 600;
         }
-        /* Toggle switch para Agente IA */
-        .ai-switch {
-          position: relative;
-          width: 48px;
-          height: 28px;
-          border-radius: 999px;
-          border: none;
-          background: var(--border, #d1d5db);
-          cursor: pointer;
-          padding: 0;
-          flex-shrink: 0;
-          transition: background 0.2s ease;
-        }
-        .ai-switch--on { background: var(--accent); }
-        .ai-switch:disabled { opacity: 0.45; cursor: not-allowed; }
-        .ai-switch--loading { opacity: 0.7; }
-        .ai-switch-thumb {
-          position: absolute;
-          top: 3px;
-          left: 3px;
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          background: #fff;
-          transition: transform 0.2s ease;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-          display: block;
-        }
-        .ai-switch--on .ai-switch-thumb {
-          transform: translateX(20px);
-        }
         @keyframes empresaSk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
         .empresa-skeleton-block {
           border-radius: 10px;

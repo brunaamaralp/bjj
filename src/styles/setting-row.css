@@ -1,0 +1,82 @@
+/* Linha de configuração binária — toggle à direita */
+.navi-setting-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 8px);
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  background: var(--surface-subtle, #fafafa);
+}
+
+.navi-setting-row--flush {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.navi-setting-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.navi-setting-row__label {
+  font-size: var(--font-base, 0.9375rem);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.navi-setting-row__hint {
+  font-size: var(--font-sm, 0.8125rem);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.navi-setting-row__detail {
+  margin: 6px 0 0;
+  font-size: var(--font-sm, 0.8125rem);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.navi-setting-row__control {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* Badges de status — Agente IA */
+.agent-ia-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--font-sm, 0.8125rem);
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 10px;
+}
+
+.agent-ia-status-badge--unconfigured {
+  background: var(--border-light, #e8e8ef);
+  color: var(--text-secondary);
+}
+
+.agent-ia-status-badge--ready {
+  background: var(--color-accent-surface, #e1f5ee);
+  color: var(--color-accent-dark, #085041);
+}
+
+.agent-ia-status-badge--active {
+  background: var(--color-primary-surface, #ede9fb);
+  color: var(--color-primary-dark, #4a2fa3);
+}
+
+.agent-ia-status-badge--active-wa-offline {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 0.5px solid rgba(245, 158, 11, 0.35);
+}
