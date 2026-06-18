@@ -25,6 +25,43 @@ describe('payablesAggregate', () => {
     expect(items[0].amount).toBe(100);
   });
 
+  it('includes expense_operational pending even without direction field', () => {
+    const items = buildPendingPayableItems([
+      {
+        id: 'op-1',
+        status: 'pending',
+        type: 'expense_operational',
+        gross: 250,
+        planName: 'CPFL',
+        category: 'Luz / energia',
+        due_date: '2026-07-10',
+      },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0].vendor_label).toBe('CPFL');
+    expect(items[0].due_date).toBe('2026-07-10');
+  });
+
+  it('includes recurring templates for expense_operational without direction', () => {
+    const templates = buildTemplatePayableItems(
+      [
+        {
+          id: 'tpl-op',
+          is_recurrence_template: true,
+          type: 'expense_operational',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 300,
+          planName: 'Vivo',
+          category: 'Telefone e internet',
+        },
+      ],
+      { today: '2026-06-17' }
+    );
+    expect(templates).toHaveLength(1);
+    expect(templates[0].vendor_label).toBe('Vivo');
+  });
+
   it('uses due_date when present', () => {
     expect(txPayableDueYmd({ due_date: '2026-06-10', competence_month: '2026-05' })).toBe('2026-06-10');
     expect(txPayableDueYmd({ competence_month: '2026-05' })).toBe('2026-05-28');

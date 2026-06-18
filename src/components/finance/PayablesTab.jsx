@@ -34,6 +34,7 @@ import { validateBankAccountForPayment, hasConfiguredBankAccounts } from '../../
 import { EMPRESA_FINANCE_ACCOUNTS_PATH, EMPRESA_FINANCE_VENDORS_PATH } from '../../lib/financeiroHubTabs.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
 import { useToast } from '../../hooks/useToast.js';
+import { financeTxFriendlyError } from '../../lib/errorMessages.js';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -403,7 +404,7 @@ export default function PayablesTab({
       window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
       setRefreshToken((t) => t + 1);
     } catch (err) {
-      toast.error(err?.message || 'Não foi possível salvar a conta.');
+      toast.error(financeTxFriendlyError(err, 'save') || 'Não foi possível salvar a conta.');
     } finally {
       setSavingForm(false);
     }

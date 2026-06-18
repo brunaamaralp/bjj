@@ -400,6 +400,19 @@ describe('financeTxFields', () => {
       expect(resolveCompetenceMonth({}, payload.settledAt)).toBe('2025-06');
     });
 
+    it("status='pending' com due_date → competence_month do vencimento", () => {
+      const payload = buildFinanceTxPayload(
+        baseInput({
+          status: 'pending',
+          due_date: '2026-08-15',
+        })
+      );
+
+      expect(payload.settledAt).toBe('');
+      expect(payload.due_date).toBe('2026-08-15');
+      expect(payload.competence_month).toBe('2026-08');
+    });
+
     it("status='settled' com settledAt='2025-03-15T00:00:00Z' → settledAt e competence_month='2025-03'", () => {
       const payload = buildFinanceTxPayload(
         baseInput({

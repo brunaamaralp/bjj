@@ -335,6 +335,8 @@ const FINANCIAL_TX_ATTRS = [
   { key: 'recurrence_day', type: 'integer' },
   { key: 'recurrence_end', type: 'string', size: 7 },
   { key: 'is_recurrence_template', type: 'boolean' },
+  { key: 'due_date', type: 'string', size: 10 },
+  { key: 'expected_settlement_at', type: 'datetime' },
   { key: 'reconciled', type: 'boolean' },
   { key: 'reconciled_at', type: 'datetime' },
   { key: 'reconciled_by', type: 'string', size: 64 },
