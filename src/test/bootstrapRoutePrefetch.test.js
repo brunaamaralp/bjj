@@ -10,9 +10,9 @@ describe('resolveRouteBootstrapNeeds', () => {
     expect(resolveRouteBootstrapNeeds('/')).toEqual({ leads: true, students: true });
   });
 
-  it('financeiro não precisa de leads nem alunos no bootstrap', () => {
-    expect(resolveRouteBootstrapNeeds('/financeiro')).toEqual({ leads: false, students: false });
-    expect(resolveRouteBootstrapNeeds('/caixa')).toEqual({ leads: false, students: false });
+  it('financeiro precisa de alunos no bootstrap', () => {
+    expect(resolveRouteBootstrapNeeds('/financeiro')).toEqual({ leads: false, students: true });
+    expect(resolveRouteBootstrapNeeds('/caixa')).toEqual({ leads: false, students: true });
   });
 
   it('funil precisa de ambos', () => {

@@ -20,6 +20,8 @@ const STUDENT_ROUTE_PATTERNS = [
   /^\/pipeline/,
   /^\/funil/,
   /^\/alunos/,
+  /^\/financeiro/,
+  /^\/caixa/,
   /^\/lead\//,
   /^\/perfil\//,
   /^\/mensalidades/,
