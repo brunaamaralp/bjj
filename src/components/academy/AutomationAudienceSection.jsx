@@ -7,7 +7,7 @@ import {
   sanitizeAudience,
 } from '../../lib/automationAudience.js';
 import { parseFinanceConfigRaw } from '../../lib/financeConfigStorage.js';
-import { readAcademyTurmas } from '../../lib/academyTurmas.js';
+import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
@@ -158,13 +158,19 @@ export default function AutomationAudienceSection({
       .sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [academy?.financeConfig]);
 
-  const turmaOptions = useMemo(() => readAcademyTurmas(academy?.settings), [academy?.settings]);
+  const academyId = String(academy?.$id || academy?.id || '').trim();
+  const { turmas: turmaOptions } = useAcademyTurmas(academyId);
 
   const savedSanitized = useMemo(() => sanitizeAudience(savedAudience), [savedAudience]);
 
   const labelText = useMemo(
-    () => buildAudienceLabel(savedSanitized, academy),
-    [savedSanitized, academy]
+    () =>
+      buildAudienceLabel(
+        savedSanitized,
+        academy,
+        turmaOptions.map((name) => ({ name, is_active: true }))
+      ),
+    [savedSanitized, academy, turmaOptions]
   );
 
   const hasActiveFilters = audienceFilterCount(savedSanitized) > 0;

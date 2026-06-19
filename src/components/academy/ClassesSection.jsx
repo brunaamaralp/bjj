@@ -1,13 +1,13 @@
 import '../../styles/schedules.css';
-import React, { useCallback, useEffect, useState } from 'react';
-import { GraduationCap, Pencil, Plus, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { GraduationCap, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import AsyncButton from '../shared/AsyncButton.jsx';
 import { useUiStore } from '../../store/useUiStore';
 import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
 import { friendlyError } from '../../lib/errorMessages';
-import { emptyClassForm, validateClassForm } from '../../lib/classes.js';
+import { emptyClassForm, formatCapacityLabel, validateClassForm } from '../../lib/classes.js';
 
 function ClassFormFields({ form, setForm, errors }) {
   return (
@@ -70,6 +70,18 @@ function ClassFormFields({ form, setForm, errors }) {
           maxLength={500}
         />
       </label>
+
+      <div className="form-field schedules-form-grid__full schedules-toggle-row">
+        <span className="form-label">Ativa</span>
+        <label className="schedules-toggle">
+          <input
+            type="checkbox"
+            checked={form.is_active !== false}
+            onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
+          />
+          <span>{form.is_active !== false ? 'Disponível para novos horários' : 'Inativa'}</span>
+        </label>
+      </div>
     </div>
   );
 }
@@ -81,6 +93,7 @@ export default function ClassesSection({ academyId }) {
   const fetchClasses = useClassesStore((s) => s.fetchClasses);
   const createClass = useClassesStore((s) => s.createClass);
   const updateClass = useClassesStore((s) => s.updateClass);
+  const toggleClassActive = useClassesStore((s) => s.toggleClassActive);
   const deleteClass = useClassesStore((s) => s.deleteClass);
   const isMutating = useClassesStore((s) => s.isMutating);
 
@@ -91,8 +104,15 @@ export default function ClassesSection({ academyId }) {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const editorRef = useRef(null);
 
   const configured = isClassesConfigured();
+
+  useEffect(() => {
+    if (editorOpen && editorRef.current) {
+      editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [editorOpen]);
 
   const load = useCallback(async () => {
     if (!academyId || !configured) return;
@@ -174,6 +194,18 @@ export default function ClassesSection({ academyId }) {
     }
   };
 
+  const handleToggle = async (item) => {
+    try {
+      await toggleClassActive(item.id, item.is_active);
+      addToast({
+        type: 'success',
+        message: item.is_active ? 'Turma desativada.' : 'Turma reativada.',
+      });
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -183,7 +215,10 @@ export default function ClassesSection({ academyId }) {
       setDeleteTarget(null);
       if (editingId === deleteTarget.id) closeEditor();
     } catch (e) {
-      addToast({ type: 'error', message: friendlyError(e, 'delete') });
+      addToast({
+        type: 'error',
+        message: e?.code === 'class_has_schedules' ? e.message : friendlyError(e, 'delete'),
+      });
     } finally {
       setDeleting(false);
     }
@@ -231,13 +266,14 @@ export default function ClassesSection({ academyId }) {
                 <p className="schedules-list__meta text-small text-muted">
                   {item.modality}
                   {item.instructor ? ` · ${item.instructor}` : ''}
-                  {item.max_capacity ? ` · até ${item.max_capacity} alunos` : ''}
+                  {` · ${formatCapacityLabel(item.max_capacity)}`}
                 </p>
               </div>
               <div className="schedules-list__actions">
                 <button
                   type="button"
                   className="btn-icon"
+                  title="Editar turma"
                   aria-label="Editar turma"
                   onClick={() => openEdit(item)}
                   disabled={isMutating(item.id)}
@@ -246,7 +282,18 @@ export default function ClassesSection({ academyId }) {
                 </button>
                 <button
                   type="button"
+                  className="btn-icon"
+                  title={item.is_active ? 'Desativar turma' : 'Reativar turma'}
+                  aria-label={item.is_active ? 'Desativar turma' : 'Reativar turma'}
+                  onClick={() => void handleToggle(item)}
+                  disabled={isMutating(item.id)}
+                >
+                  <Power size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
                   className="btn-icon btn-icon--danger"
+                  title="Excluir turma"
                   aria-label="Excluir turma"
                   onClick={() => setDeleteTarget(item)}
                   disabled={isMutating(item.id)}
@@ -260,7 +307,7 @@ export default function ClassesSection({ academyId }) {
       )}
 
       {editorOpen ? (
-        <div className="schedules-editor card">
+        <div className="schedules-editor card" ref={editorRef}>
           <h3 className="schedules-editor__title">{editingId ? 'Editar turma' : 'Nova turma'}</h3>
           <ClassFormFields form={form} setForm={setForm} errors={formErrors} />
           <div className="schedules-editor__actions">
@@ -279,7 +326,7 @@ export default function ClassesSection({ academyId }) {
         title="Excluir turma?"
         description={
           deleteTarget
-            ? `A turma "${deleteTarget.name}" será removida. Horários vinculados podem ficar órfãos.`
+            ? `A turma "${deleteTarget.name}" será removida. Não é possível excluir se houver horários vinculados.`
             : undefined
         }
         confirmLabel="Excluir"

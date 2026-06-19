@@ -19,6 +19,8 @@ import { runStudentPaymentReconcileCron } from '../../lib/server/runStudentPayme
 import { runFinanceSettleScheduledCron } from '../../lib/server/runFinanceSettleScheduledCron.js';
 import { runTasksDue } from '../../lib/server/runTasksDueCron.js';
 import { runAttendanceRetentionCron } from '../../lib/server/runAttendanceRetentionCron.js';
+import { runClassSlotsCron } from '../../lib/server/runClassSlotsCron.js';
+import { runBookingNoShowCron } from '../../lib/server/runBookingNoShowCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -240,6 +242,18 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runAttendanceRetentionCron(databases, DB_ID);
     return res.status(200).json({ mode: 'attendance-retention', ...out });
+  }
+  if (action === 'generate-class-slots') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const out = await runClassSlotsCron(databases, DB_ID);
+    return res.status(200).json({ mode: 'generate-class-slots', ...out });
+  }
+  if (action === 'mark-booking-no-shows') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const out = await runBookingNoShowCron(databases, DB_ID);
+    return res.status(200).json({ mode: 'mark-booking-no-shows', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

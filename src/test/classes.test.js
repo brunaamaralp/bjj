@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildClassPayload,
+  formatCapacityLabel,
   mapClassDoc,
   mergeScheduleWithClass,
   validateClassForm,
@@ -71,5 +72,10 @@ describe('classes lib', () => {
       level: 'Todos',
       max_capacity: 15,
     });
+  });
+
+  it('formatCapacityLabel handles unlimited and numeric values', () => {
+    expect(formatCapacityLabel(null)).toBe('Ilimitado');
+    expect(formatCapacityLabel(20)).toBe('até 20 alunos');
   });
 });

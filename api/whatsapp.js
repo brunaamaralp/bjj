@@ -5,7 +5,7 @@
  */
 import { Account, Client, Databases, ID, Permission, Query, Role, Teams } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
-import { AGENT_HISTORY_WINDOW } from '../lib/constants.js';
+import { CONVERSATION_MESSAGES_STORE_MAX } from '../lib/constants.js';
 import { pickSenderProfileImageUrl } from '../lib/server/zapsterSenderMeta.js';
 import { fetchZapsterRecipientProfilePicture } from '../lib/server/zapsterRecipientProfile.js';
 import {
@@ -556,7 +556,7 @@ async function appendOutboundToConversation(
       : {})
   };
   messages.push(row);
-  const sliced = messages.slice(-AGENT_HISTORY_WINDOW);
+  const sliced = messages.slice(-CONVERSATION_MESSAGES_STORE_MAX);
   await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
     ...conversationMessagesStoragePayload(sliced),
     updated_at: nowIso,
@@ -640,7 +640,7 @@ function mergeMessages(existing, additions) {
   }
 
   out.sort((a, b) => toTsMs(a?.timestamp) - toTsMs(b?.timestamp));
-  return out.slice(-AGENT_HISTORY_WINDOW);
+  return out.slice(-CONVERSATION_MESSAGES_STORE_MAX);
 }
 
 function pickText(v) {
@@ -1555,7 +1555,7 @@ export default async function handler(req, res) {
         status: 'canceled',
         canceled_at: nowIso
       };
-      const sliced = updated.slice(-AGENT_HISTORY_WINDOW);
+      const sliced = updated.slice(-CONVERSATION_MESSAGES_STORE_MAX);
       await databases.updateDocument(DB_ID, CONVERSATIONS_COL, doc.$id, {
         ...conversationMessagesStoragePayload(sliced),
         updated_at: nowIso,

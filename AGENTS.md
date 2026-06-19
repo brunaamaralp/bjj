@@ -63,6 +63,40 @@ Subpastas em `/api/` não contam como função separada se o arquivo pai já exi
 
 Deploy falha silenciosamente ou functions são truncadas sem aviso.
 
+## Mensagens WhatsApp — armazenamento e gatilhos de migração
+
+**Estado atual (não migrar por padrão):** histórico em `conversations.messages` (JSON string, **máx. 65.535 bytes** no schema Appwrite) + cache `messages_recent` (32.768 bytes). Sem coleção `conversation_messages` em produção. Mapa completo: [docs/data-model.md](docs/data-model.md) § Conversas.
+
+**Mitigações já no código:** cap de **300** mensagens (`CONVERSATION_MESSAGES_STORE_MAX`), truncamento byte-aware em `conversationMessagesStoragePayload` (`lib/server/conversationMessages.js`), alinhamento do cap em `api/whatsapp.js`. Isso adia a migração estrutural; **não elimina** o teto de 65 KB por documento.
+
+### Sintoma que parece bug (diagnóstico)
+
+Falha intermitente de **write** na conversa (webhook, envio manual, agente) **sem** erro óbvio no Zapster/WhatsApp — mensagem chegou ao cliente mas não persiste, ou `updateDocument` falha / payload minimal cai no fallback.
+
+**Causa provável:** JSON de `messages` excede **65.535 bytes** (ou uma única mensagem gigante não cabe mesmo após truncar as mais antigas). Não é race condition nem Appwrite “genérico” — é limite de atributo.
+
+**Logs a buscar:** `messages_store_truncated`, `messages_store_oversized_single` (JSON em `console.warn` com `academy_id`, `phone_number`, `messages_removed`).
+
+**Onde investigar:** `lib/server/conversationMessages.js`, `lib/server/conversationsStore.js` (`updateConversationWithMerge`), `lib/server/zapsterWebhook.js`, `api/whatsapp.js`.
+
+### Gatilhos para priorizar migração → coleção `conversation_messages`
+
+Abrir issue / spec quando **qualquer** condição abaixo for verdadeira (ou tendência clara em produção):
+
+1. **65 KB** — logs `messages_store_oversized_single` ou writes falhando em threads verbosas (IA longa, mídia com URL grande no JSON, muitas msgs > ~250–300).
+2. **Cap 300** — truncamento frequente de histórico (`messages_store_truncated` com `messages_removed` alto) em academias ativas.
+3. **Contention** — merge perdido / duplicata por read-modify-write concorrente no blob (webhook + agente + reconcile).
+4. **Produto** — busca, analytics ou retenção de histórico além do tail recente.
+5. **Escala** — muitas academias com inbox ativo e custo/latência de parse do JSON no GET thread.
+
+**Adiar migração** enquanto poucas academias, mitigações acima suficientes, e sem (1)–(3) em logs.
+
+### Se migrar (restrições Hobby)
+
+- **Não** criar `api/conversation-messages.js` (12/12 functions). Escrita/leitura em `api/conversations.js` e `api/whatsapp.js`; backfill via `scripts/*.mjs` ou `api/cron/reset-usage.js?action=…` + rewrite.
+- Estratégia: dual-write → backfill → dual-read → cutover por flag; paginação `full:N` **não** reutilizável — reescrever cursor (Appwrite `cursorAfter`).
+- Consolidar `agentRespond.js` (merge duplicado, cap 20 legado) com `conversationsStore.js` **no mesmo esforço**.
+
 ## Design system
 
 Padrões de UI, tokens e componentes compartilhados: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md).

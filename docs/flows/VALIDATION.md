@@ -529,6 +529,28 @@ Harness: `teamPermissions.test.js`, `teamMembershipLabel.test.js`.
 
 ---
 
+## empresa-horarios-turmas
+
+| # | Item | Resultado | Evidência |
+|---|---|---|---|
+| 1 | Rota `/empresa?tab=horarios` | ✅ Código | `AcademySettings.jsx`, `TABS_ALL` |
+| 2 | Owner-only aba Horários | ✅ Código | `getTabDisabledState` |
+| 3 | CRUD turmas | ✅ Código | `ClassesSection`, `classesStore.js` |
+| 4 | Guard delete turma c/ horários | ✅ Código | `deleteClass` → `class_has_schedules` |
+| 5 | CRUD horários + `class_id` | ✅ Código | `SchedulesSection`, `schedulesStore.js` |
+| 6 | Bloqueio sem turmas ativas | ✅ Código | `SchedulesSection` empty/disabled |
+| 7 | Redirect Empresa → Alunos | ✅ Código | `ClassesTurmasRedirectSection.jsx` |
+| 8 | Labels canônicos | ✅ Código | `resolveAcademyTurmaLabels`, `useAcademyTurmas.js` |
+| 9 | Matrícula pública | ✅ Código | `publicEnrollmentHandler.js`, `buildPublicEnrollmentFormConfig` |
+| 10 | Automações audiência turma | ✅ Código | `AutomationAudienceSection` + hook |
+| 11 | Recepção grade | ✅ Código | `RecepcaoSchedulesGrid.jsx` |
+| 12 | Provision schema | ✅ Código | `provision-booking-schema.mjs` |
+| 13 | Migração legado | ✅ Código | `migrate-academy-turmas-to-classes.mjs` |
+
+Harness: `classes.test.js`, `classesStore.test.js`, `schedules.test.js`, `schedulesStore.test.js`, `academyTurmas.test.js`.
+
+---
+
 ## Financeiro — auditoria de salvamento (2026-06-16)
 
 Correções das sprints 1–3 + P0/P1 (validação por campo, banners de conta, sticky save, componentes compartilhados de feedback).

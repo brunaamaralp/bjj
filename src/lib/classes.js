@@ -84,6 +84,13 @@ export function emptyClassForm() {
   };
 }
 
+/** @param {number | string | null | undefined} value */
+export function formatCapacityLabel(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return 'Ilimitado';
+  return `até ${n} alunos`;
+}
+
 /**
  * Herda campos da turma no payload do horário quando aplicável.
  * @param {object} data

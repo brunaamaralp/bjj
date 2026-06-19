@@ -10,7 +10,7 @@ export const RECEPCAO_CATRACA_SECTION_HISTORICO = 'historico';
 export const RECEPCAO_CATRACA_SECTION_RETENCAO = 'retencao';
 
 export const RECEPCAO_HUB_TABS = [
-  { id: RECEPCAO_TAB_EXPERIMENTAIS, label: 'Experimentais' },
+  { id: RECEPCAO_TAB_EXPERIMENTAIS, label: 'Agenda' },
   { id: RECEPCAO_TAB_CATRACA, label: 'Catraca' },
 ];
 

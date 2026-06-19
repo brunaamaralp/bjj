@@ -11,7 +11,6 @@ export default function GraduationSelect({
   disabled = false,
   emptyLabel = '— opcional —',
   ariaLabel = 'Graduação',
-  style,
 }) {
   const selectOptions = options.map((label) => ({ value: label, label }));
 

@@ -1,7 +1,40 @@
+/* ——— Botões de ícone (ação em linha) ——— */
+.btn-icon {
+  background: transparent;
+  color: var(--color-text-secondary, #9896a8);
+  border: none;
+  min-height: unset;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--v100, #ede9fb);
+  color: var(--color-text-primary, #18162a);
+}
+
+.btn-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-icon--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent);
+  color: var(--color-error, #ef4444);
+}
+
+/* ——— Seções ——— */
 .schedules-section {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.schedules-section--embedded {
+  padding-top: 8px;
 }
 
 .schedules-section__head {
@@ -24,7 +57,10 @@
 .schedules-group__title {
   margin: 0 0 12px;
   font-size: 0.95rem;
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary, #9896a8);
 }
 
 .schedules-list {
@@ -51,6 +87,11 @@
   padding-top: 0;
 }
 
+.schedules-list__main {
+  flex: 1;
+  min-width: 0;
+}
+
 .schedules-list__name-row {
   display: flex;
   flex-wrap: wrap;
@@ -60,15 +101,24 @@
 
 .schedules-list__name {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .schedules-list__meta {
   margin: 4px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedules-list__actions {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .schedules-form-grid {

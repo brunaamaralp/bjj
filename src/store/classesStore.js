@@ -127,6 +127,13 @@ export const useClassesStore = create((set, get) => ({
     }
   },
 
+  toggleClassActive: async (id, currentValue) => {
+    const classId = String(id || '').trim();
+    if (!classId) throw new Error('id_missing');
+    const next = currentValue !== true;
+    return get().updateClass(classId, { is_active: next });
+  },
+
   deleteClass: async (id) => {
     if (!isClassesConfigured()) throw new Error('classes_not_configured');
     const classId = String(id || '').trim();

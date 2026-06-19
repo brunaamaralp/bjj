@@ -14,8 +14,9 @@
 **Specs relacionadas:**
 
 - [docs/contracts-autentique.md](../contracts-autentique.md) — assinatura digital de contratos
+- [config/empresa-horarios-turmas.md](../config/empresa-horarios-turmas.md) — catálogo de turmas (`classes`) usado no select Turma
 
-**Harness relacionado:** `npm test -- studentStatus deactivateStudent`
+**Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
 
 **Arquivos-chave:** `src/pages/Alunos.jsx`, `src/pages/Students.jsx`, `src/pages/StudentProfile.jsx`, `src/components/attendance/ControlIdAttendancePanel.jsx`
 
@@ -73,6 +74,7 @@ flowchart TD
 ### Pré-condições de dados
 
 - [ ] Pelo menos um aluno matriculado ativo
+- [ ] Opções de **Turma** no perfil/cadastro vêm de `useAcademyTurmas` (collection `classes` ativas; ver [empresa-horarios-turmas](../config/empresa-horarios-turmas.md))
 - [ ] Para contratos: módulo `finance` + Autentique em `/integracoes`
 - [ ] Para presença Control iD: dispositivo configurado
 - [ ] Para pagamentos no perfil: permissão `canManageStudentPayments`
@@ -85,7 +87,7 @@ flowchart TD
 4. [ ] Clicar aluno → `/student/:id` com nome e plano corretos
 4b. [ ] **Cadastrar aluno** (modal na lista): com graduações ativas, campo **Faixa/Evolução** opcional; valor persiste no perfil
 4c. [ ] Com graduações ativas e aluno com faixa preenchida: subtexto do card na lista exibe graduação (entre turma e telefone)
-5. [ ] Editar telefone ou plano → salvar → toast de sucesso; dados persistem após reload
+5. [ ] Editar telefone, **turma** ou plano → salvar → toast de sucesso; dados persistem após reload
 5b. [ ] Com **Graduações** salvas em Empresa → Alunos → Graduações: campo **Faixa/Evolução** visível no perfil (select inline após turma)
 5c. [ ] Sem graduações configuradas: campo **Faixa/Evolução** ausente no perfil (exceto aluno com valor legado — somente leitura + banner)
 6. [ ] Check-in manual no perfil (se presença configurada) → evento na timeline

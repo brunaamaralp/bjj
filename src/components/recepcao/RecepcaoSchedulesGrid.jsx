@@ -2,13 +2,14 @@ import '../../styles/schedules.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import ReportSectionHeading from '../reports/ReportSectionHeading.jsx';
+import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
 import {
   buildWeeklyScheduleGrid,
   collectScheduleModalities,
   filterSchedulesByModality,
 } from '../../lib/schedules.js';
+import { formatCapacityLabel } from '../../lib/classes.js';
 
 export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const schedules = useSchedulesStore((s) => s.schedules);
@@ -133,6 +134,11 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
                                 {item.instructor ? (
                                   <span className="schedules-week-card__instructor text-small text-muted">
                                     {item.instructor}
+                                  </span>
+                                ) : null}
+                                {item.max_capacity ? (
+                                  <span className="schedules-week-card__capacity text-small text-muted">
+                                    {formatCapacityLabel(item.max_capacity)}
                                   </span>
                                 ) : null}
                               </li>

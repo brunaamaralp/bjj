@@ -7,17 +7,75 @@ export const TURMA_OUTRO_VALUE = '__outro__';
 export const SEM_TURMA_GROUP_LABEL = 'Sem turma';
 
 /**
+ * Chave estável para deduplicar turmas legadas na collection `classes`.
+ * @param {string} label
+ */
+export function legacyTurmaKeyFromLabel(label) {
+  return String(label || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64);
+}
+
+/**
+ * @param {string} label
+ */
+export function inferModalityFromTurmaLabel(label) {
+  const low = String(label || '').toLowerCase();
+  if (low.includes('kid') || low.includes('crian')) return 'kids';
+  if (low.includes('junior')) return 'juniores';
+  if (low.includes('fit') || low.includes('func')) return 'fitness';
+  if (low.includes('comp')) return 'competicao';
+  return 'bjj';
+}
+
+/**
+ * Turmas explicitamente salvas em settings.turmas (não aplica fallback padrão).
+ * @param {unknown} settingsRaw
+ * @returns {string[]}
+ */
+export function readExplicitAcademyTurmas(settingsRaw) {
+  const settings = parseAcademySettings(settingsRaw);
+  if (!Array.isArray(settings?.turmas)) return [];
+  return settings.turmas
+    .map((t) => String(t || '').trim())
+    .filter(Boolean);
+}
+
+/**
  * @param {unknown} settingsRaw
  * @returns {string[]}
  */
 export function readAcademyTurmas(settingsRaw) {
-  const settings = parseAcademySettings(settingsRaw);
-  const raw = settings?.turmas;
-  if (!Array.isArray(raw)) return [...DEFAULT_ACADEMY_TURMAS];
-  const list = raw
-    .map((t) => String(t || '').trim())
+  const explicit = readExplicitAcademyTurmas(settingsRaw);
+  if (explicit.length > 0) return explicit;
+  return [...DEFAULT_ACADEMY_TURMAS];
+}
+
+/**
+ * Nomes de turma a partir de docs da collection `classes`.
+ * @param {object[]} classes
+ */
+export function classDocsToTurmaLabels(classes) {
+  const names = (classes || [])
+    .filter((c) => c?.is_active !== false)
+    .map((c) => String(c?.name || '').trim())
     .filter(Boolean);
-  return list.length > 0 ? list : [...DEFAULT_ACADEMY_TURMAS];
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+/**
+ * Fonte canônica: `classes` ativas → settings.turmas → padrão do sistema.
+ * @param {{ settingsRaw?: unknown, classes?: object[] }} [opts]
+ */
+export function resolveAcademyTurmaLabels({ settingsRaw, classes } = {}) {
+  const fromClasses = classDocsToTurmaLabels(classes);
+  if (fromClasses.length > 0) return fromClasses;
+  return readAcademyTurmas(settingsRaw);
 }
 
 /**

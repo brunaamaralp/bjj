@@ -51,7 +51,7 @@ Configuração e listas ficam em strings JSON dentro de documentos:
 
 | Documento | Campo | Conteúdo |
 |-----------|-------|----------|
-| `academies` | `settings`, `financeConfig` | Control iD, estoque, Zapster, taxas, contas bancárias |
+| `academies` | `settings`, `financeConfig` | Control iD, estoque, Zapster, taxas, contas bancárias; **`settings.turmas[]` legado** (ver §4.6) |
 | `academies` | `onboardingChecklist` | Checklist de onboarding |
 | `students` | `payer_aliases_json` | Pagadores conhecidos (conciliação) |
 | `students` | `custom_answers_json` | Respostas de formulário / matrícula |
@@ -67,7 +67,7 @@ Configuração e listas ficam em strings JSON dentro de documentos:
 erDiagram
   ACADEMIES ||--o{ LEADS : "academyId"
   ACADEMIES ||--o{ STUDENTS : "academyId"
-  ACADEMIES ||--o{ CLASSES : "academyId"
+  ACADEMIES ||--o{ CLASSES : "academy_id"
   ACADEMIES ||--o{ SCHEDULES : "academy_id"
   ACADEMIES ||--o{ TASKS : "academy_id"
   ACADEMIES ||--o{ TASK_TEMPLATES : "academy_id"
@@ -150,8 +150,8 @@ Variáveis de ambiente principais. IDs completos: `src/lib/appwrite.js` (fronten
 | `note_notifications` | `VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID` | Notificações internas de @menção |
 | `tasks` | `VITE_APPWRITE_TASKS_COLLECTION_ID` | Tarefas operacionais |
 | `task_templates` | `VITE_APPWRITE_TASK_TEMPLATES_COLLECTION_ID` | Playbooks / processos |
-| `classes` | `VITE_APPWRITE_CLASSES_COLLECTION_ID` | Turmas (nome, dias, horário, coach) |
-| `schedules` | `VITE_APPWRITE_SCHEDULES_COLLECTION_ID` | Grade de horários (modalidade, instrutor) |
+| `classes` | `VITE_APPWRITE_CLASSES_COLLECTION_ID` | Catálogo de **turmas** (nome, modalidade, capacidade, status) |
+| `schedules` | `VITE_APPWRITE_SCHEDULES_COLLECTION_ID` | **Grade semanal** — slots (dia, horário) ligados a `class_id` |
 | `attendance` | `VITE_APPWRITE_ATTENDANCE_COL_ID` | Check-ins / presença |
 | `academy_events` | `VITE_APPWRITE_ACADEMY_EVENTS_COLLECTION_ID` | Audit log de equipe (convites, papéis) |
 
@@ -303,15 +303,43 @@ financial_tx.saleId ──► sales.$id  (espelho automático — salesMirror.js
 
 ### 4.6 Turmas, horários e presença
 
-| De | Campo | Para |
-|----|-------|------|
-| `classes` | `academyId` | `academies.$id` |
-| `schedules` | `academy_id` | `academies.$id` |
-| `schedules` | `class_id` | `classes.$id` |
-| `tasks` | `classId` | `classes.$id` |
-| `attendance` | `academy_id` | `academies.$id` |
-| `attendance` | `student_id` | `students.$id` |
-| `students` | `device_id`, `controlid_user_id` | Control iD (catraca) |
+**Modelo em duas camadas:**
+
+| Coleção | Papel | Campos principais |
+|---------|-------|-------------------|
+| `classes` | Catálogo da turma (nome exibido em selects, automações, matrícula) | `academy_id`, `name`, `modality`, `instructor`, `level`, `description`, `is_active`, `max_capacity`, `legacy_turma_key`, `color`, `sort_order` |
+| `schedules` | Slot na grade semanal | `academy_id`, `class_id`, `name`, `modality`, `instructor`, `days_of_week[]`, `time_start`, `time_end`, `level`, `is_active`, `max_capacity` |
+
+**Relacionamentos:**
+
+| De | Campo | Para | Notas |
+|----|-------|------|-------|
+| `classes` | `academy_id` | `academies.$id` | Índices: `academy_id`, `academy_id+is_active`, `academy_id+name`, `academy_id+legacy_turma_key` |
+| `schedules` | `academy_id` | `academies.$id` | |
+| `schedules` | `class_id` | `classes.$id` | Horário pertence a uma turma; exclusão de turma bloqueada se houver horários |
+| `tasks` | `classId` | `classes.$id` | Tarefas operacionais por turma |
+| `attendance` | `academy_id` | `academies.$id` | |
+| `attendance` | `student_id` | `students.$id` | |
+| `students` | `turma` | — | **String** (nome da turma), não FK; match por label com `classes.name` |
+| `students` | `device_id`, `controlid_user_id` | Control iD (catraca) | |
+
+**Fonte canônica de labels de turma (UI):** `resolveAcademyTurmaLabels()` em `src/lib/academyTurmas.js`:
+
+1. Nomes de `classes` com `is_active !== false`
+2. Fallback: `academies.settings.turmas[]` (legado JSON)
+3. Fallback final: `DEFAULT_ACADEMY_TURMAS` (`Kids`, `Juniores`, `Adultos`)
+
+Hook frontend: `useAcademyTurmas(academyId)`. Servidor (matrícula pública, automações): `lib/server/academyClasses.js` + `resolveAcademyTurmaLabels`.
+
+**Legado `settings.turmas`:** antes das turmas viviam só em JSON em `academies.settings`. Migração idempotente para `classes`:
+
+```bash
+DRY_RUN=1 npm run migrate:academy-turmas-to-classes
+npm run migrate:academy-turmas-to-classes
+MIGRATE_ACADEMY_ID=<id> npm run migrate:academy-turmas-to-classes
+```
+
+Cada label legado vira um doc com `legacy_turma_key` (slug normalizado). Após migração, editar turmas em **Minha academia → Horários** (`ClassesSection`), não mais em lista livre em settings.
 
 Config Control iD vive em `academies.settings` (JSON), não em coleção separada.
 
@@ -450,6 +478,13 @@ flowchart TB
 # Verificar / corrigir schema CRM + financeiro no Appwrite live
 npm run verify-and-fix-schema-crm
 
+# Provisionar schema do módulo de agendamento (classes, schedules, …)
+npm run provision:booking-schema
+
+# Migrar settings.turmas legado → collection classes
+DRY_RUN=1 npm run migrate:academy-turmas-to-classes
+npm run migrate:academy-turmas-to-classes
+
 # Auditoria multi-tenant (atributos academy + permissões)
 npm run audit:multi-tenant
 
@@ -478,8 +513,9 @@ Atualize **`docs/data-model.md` no mesmo PR** quando:
 | Contas a pagar | [spec contas a pagar TECH](superpowers/specs/2026-06-16-contas-a-pagar-TECH.md) |
 | PagBank | [spec PagBank TECH](superpowers/specs/2026-06-16-pagbank-conciliacao-integracao-TECH.md) |
 | Catraca Control iD | [spec catraca TECH](superpowers/specs/2026-06-17-catraca-gaps-prioridade-alta-TECH.md) |
+| Turmas e horários (Empresa) | [flows/config/empresa-horarios-turmas.md](flows/config/empresa-horarios-turmas.md) |
 | Jornadas de usuário | [flows/README.md](flows/README.md) |
 
 ---
 
-*Última revisão estrutural: 2026-06-19 — gerado a partir dos manifestos em `scripts/` e handlers em `lib/server/`.*
+*Última revisão estrutural: 2026-06-19 — turmas/horários (`classes` + `schedules`), migração `settings.turmas`, `resolveAcademyTurmaLabels`.*

@@ -483,15 +483,6 @@ export default function NaviSidebarNav({
             location={location}
           />
         ) : null}
-        {modulesReady && navModel.conectarWhatsApp ? (
-          <SideNavLink
-            to={navModel.conectarWhatsApp.to}
-            label={navModel.conectarWhatsApp.label}
-            Icon={getNavMenuIcon(navModel.conectarWhatsApp.iconKey)}
-            collapsed={collapsed}
-            className={sideLinkClass}
-          />
-        ) : null}
         {modulesReady && navModel.agenteIa ? (
           <SideNavLink
             to={navModel.agenteIa.to}

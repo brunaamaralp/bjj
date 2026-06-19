@@ -1,7 +1,7 @@
 import { parseStudentExitReasons } from './studentExitConfig.js';
 import { parseStudentFreezeReasons } from './studentFreezeConfig.js';
 import { readPublicEnrollment } from './publicEnrollmentSettings.js';
-import { readAcademyTurmas } from './academyTurmas.js';
+import { resolveAcademyTurmaLabels } from './academyTurmas.js';
 import { parseBeltGradesFromSettings } from './beltGradesConfig.js';
 
 /** Slugs em ?tab=alunos&section= */
@@ -46,14 +46,16 @@ export const STUDENT_SETTINGS_ITEMS = [
 
 export const STUDENT_DEFAULT_SECTION = STUDENT_SETTINGS_SECTIONS.CAMPOS;
 
-export function buildStudentSettingsSummaries({ academy, turmasCount = null }) {
+export function buildStudentSettingsSummaries({ academy, turmasCount = null, classes = [] }) {
   const reasons = parseStudentExitReasons(academy?.studentExitReasons);
   const freezeReasons = parseStudentFreezeReasons(academy?.studentFreezeReasons);
   const enrollment = readPublicEnrollment(academy?.settings);
   const belts = parseBeltGradesFromSettings(academy?.settings);
 
   const turmas =
-    turmasCount != null ? turmasCount : readAcademyTurmas(academy?.settings).length;
+    turmasCount != null
+      ? turmasCount
+      : resolveAcademyTurmaLabels({ settingsRaw: academy?.settings, classes }).length;
 
   return {
     [STUDENT_SETTINGS_SECTIONS.CAMPOS]: {

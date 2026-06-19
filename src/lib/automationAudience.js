@@ -1,6 +1,6 @@
 import { enrollmentDateYmd, enrollmentIngressYmd, formatLocalYmd } from './studentEnrollmentDate.js';
 import { parseFinanceConfigRaw } from './financeConfigStorage.js';
-import { readAcademyTurmas } from './academyTurmas.js';
+import { resolveAcademyTurmaLabels } from './academyTurmas.js';
 import { parseAutomationsConfig, serializeAutomationsConfig } from './useAutomations.js';
 import { databases, DB_ID, ACADEMIES_COL } from './appwrite.js';
 import { getAcademyDocument, invalidateAcademyDocumentCache } from './getAcademyDocument.js';
@@ -83,8 +83,9 @@ export function groupPlans(planNames) {
 /**
  * @param {import('./automationAudience.js').AutomationAudience | null | undefined} audience
  * @param {object} [academy]
+ * @param {object[]} [classes]
  */
-export function buildAudienceLabel(audience, academy = {}) {
+export function buildAudienceLabel(audience, academy = {}, classes = []) {
   const cfg = sanitizeAudience(audience);
   const parts = [];
 
@@ -99,7 +100,9 @@ export function buildAudienceLabel(audience, academy = {}) {
     parts.push(labels.join(', '));
   }
 
-  const knownTurmas = new Set(readAcademyTurmas(academy?.settings));
+  const knownTurmas = new Set(
+    resolveAcademyTurmaLabels({ settingsRaw: academy?.settings, classes })
+  );
   if (cfg.turmas.length > 0) {
     const labels = cfg.turmas.map((name) =>
       knownTurmas.has(name) ? name : `${name} (removido)`

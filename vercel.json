@@ -61,6 +61,8 @@
     { "source": "/api/cron/stock-inventory", "destination": "/api/cron/reset-usage.js?action=stock-inventory" },
     { "source": "/api/cron/plan-freeze", "destination": "/api/cron/reset-usage.js?action=plan-freeze" },
     { "source": "/api/cron/attendance-retention", "destination": "/api/cron/reset-usage.js?action=attendance-retention" },
+    { "source": "/api/cron/generate-class-slots", "destination": "/api/cron/reset-usage.js?action=generate-class-slots" },
+    { "source": "/api/cron/mark-booking-no-shows", "destination": "/api/cron/reset-usage.js?action=mark-booking-no-shows" },
     { "source": "/api/students/freeze", "destination": "/api/leads.js?route=students&action=freeze" },
     { "source": "/api/students/deactivate", "destination": "/api/leads.js?route=students&action=deactivate" },
     { "source": "/api/students/collection-snooze", "destination": "/api/leads.js?route=students&action=collection-snooze" },
@@ -80,6 +82,11 @@
     { "source": "/api/students/retention-action", "destination": "/api/leads.js?route=students&action=retention-action" },
     { "source": "/api/students/list", "destination": "/api/leads.js?route=students&action=list" },
     { "source": "/api/students/:id/profile", "destination": "/api/leads.js?route=students&action=profile&student_id=$1" },
+    { "source": "/api/bookings/slots", "destination": "/api/leads.js?route=bookings&action=list-slots" },
+    { "source": "/api/bookings/list", "destination": "/api/leads.js?route=bookings&action=list-bookings" },
+    { "source": "/api/bookings/create", "destination": "/api/leads.js?route=bookings&action=create" },
+    { "source": "/api/bookings/cancel", "destination": "/api/leads.js?route=bookings&action=cancel" },
+    { "source": "/api/bookings/checkin", "destination": "/api/leads.js?route=bookings&action=checkin" },
     { "source": "/api/academy/whatsapp-templates", "destination": "/api/agent.js?route=whatsapp-templates" },
 
     { "source": "/((?!api/|assets/|sw\\.js|workbox-|manifest\\.webmanifest|favicon-|apple-touch-icon|navi-icon|pwa-).*)", "destination": "/index.html" }
@@ -152,6 +159,14 @@
     {
       "path": "/api/cron/attendance-retention",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/generate-class-slots",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/mark-booking-no-shows",
+      "schedule": "0 3 * * *"
     }
   ]
 }

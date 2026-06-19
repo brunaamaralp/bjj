@@ -24,7 +24,7 @@ import {
   isStudentSettingsSection,
 } from '../../lib/studentSettingsSections.js';
 import { useAcademyTabSection } from '../../lib/academyTabSection.js';
-import AcademyTurmasSection from './AcademyTurmasSection.jsx';
+import ClassesTurmasRedirectSection from './ClassesTurmasRedirectSection.jsx';
 import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
 import BeltGradesSection from './BeltGradesSection.jsx';
 import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
@@ -278,7 +278,7 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
   if (section === STUDENT_SETTINGS_SECTIONS.CAMPOS) {
     sectionBody = (
       <>
-        <AcademyTurmasSection academyId={academyId} academyDataVersion={academyDataVersion} embedded />
+        <ClassesTurmasRedirectSection academyId={academyId} />
         <div className="card" style={{ padding: 16, marginTop: 16 }}>
           <EditableStringList
             title="Motivos de desligamento"

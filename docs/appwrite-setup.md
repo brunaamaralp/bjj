@@ -49,15 +49,25 @@ Coleções (Collections)
   - Índices sugeridos: equality em idempotency_key
 - SALE_ITEMS_COL (Itens de Venda)
   - Atributos: venda_id (string), item_estoque_id (string), product_variant_id (string, opcional — mesmo id da variante), quantidade (number), preco_unitario (number), **cmv** (float, opcional — custo da mercadoria vendida no momento da venda)
-- CLASSES_COL (Turmas)
-  - Atributos: academyId (string), name (string), days (array<integer 0‑6>), time (string HH:mm), coach (string), capacity (integer)
-  - Índices sugeridos: equality em academyId; ordenação por name (opcional)
+- CLASSES_COL (Turmas — catálogo)
+  - Provisionar: `npm run provision:booking-schema` (ou `node scripts/create-classes-collection.mjs`)
+  - Atributos: `academy_id` (string), `name` (string), `modality` (string), `instructor`, `level`, `description`, `is_active` (boolean, default true), `max_capacity` (integer, opcional), `legacy_turma_key` (string, slug da migração), `color`, `sort_order` (integer)
+  - Índices: `idx_academy_id`, `idx_modality`, `idx_is_active`, `idx_classes_academy_active`, `idx_classes_academy_name`, `idx_classes_legacy_turma`
+  - **Fonte canônica** de nomes de turma na UI (selects, automações, matrícula pública). Ver [data-model.md §4.6](data-model.md#46-turmas-horários-e-presença)
+  - Migração legado `settings.turmas[]` → `classes`: `npm run migrate:academy-turmas-to-classes` (`DRY_RUN=1` para prévia; `MIGRATE_ACADEMY_ID=` para uma academia)
+- SCHEDULES_COL (Horários — grade semanal)
+  - Provisionar: `npm run provision:booking-schema` (ou `node scripts/create-schedules-collection.mjs`)
+  - Atributos: `academy_id`, `class_id` (FK lógica → `classes.$id`), `name`, `modality`, `instructor`, `days_of_week` (array string, ex. `"1"`–`"6"` seg–sáb), `time_start`, `time_end` (HH:mm), `level`, `is_active`, `max_capacity` (opcional; herda da turma se vazio)
+  - Índices: `idx_academy_id`, `idx_class_id`, `idx_modality`, `idx_is_active`, `idx_schedules_academy_class`, `idx_schedules_academy_active`
+  - UI: **Minha academia → Horários** (`/empresa?tab=horarios`) — `ClassesSection` + `SchedulesSection`
 - TASKS_COL (Tarefas por Turma)
   - Atributos: academyId (string), title (string), dueDate (string YYYY‑MM‑DD), dueTime (string HH:mm), classId (string), studentId (string), studentName (string), status (string: "open" | "done"), notes (string)
   - Índices sugeridos: equality em academyId; range em dueDate (>=, <=)
 
 Schema CRM (manifesto único)
 - `npm run verify-and-fix-schema-crm` — LEADS, STUDENTS, TASKS, LEAD_EVENTS, extrato bancário, ACCOUNTS, JOURNAL, etc.
+- **Agendamento (turmas + horários):** `npm run provision:booking-schema` — `classes`, `schedules`, `class_slots`, `bookings`, patch `attendance`
+- **Migração turmas legado:** `npm run migrate:academy-turmas-to-classes` — `settings.turmas[]` → docs em `classes` (idempotente)
 - Coleções com timestamps **datetime** no Appwrite (não `string`): ex. LEADS (`pipeline_stage_changed_at`, `attended_at`, …), TASKS (`updated_at`), LEAD_EVENTS (`at`), JOURNAL (`date`), BANK_STATEMENTS (`import_date`, `completed_at`).
 - Spec pagadores conhecidos: `docs/superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md`
 
@@ -95,6 +105,7 @@ Variáveis de Ambiente no Frontend (.env)
 - VITE_APPWRITE_SALES_CANCEL_FN_ID (SALES_CANCEL_FN_ID)
 - VITE_APPWRITE_INVENTORY_SEED_KIMONOS_FN_ID (INVENTORY_SEED_KIMONOS_FN_ID) [opcional]
 - VITE_APPWRITE_CLASSES_COLLECTION_ID (CLASSES_COL)
+- VITE_APPWRITE_SCHEDULES_COLLECTION_ID (SCHEDULES_COL)
 - VITE_APPWRITE_TASKS_COLLECTION_ID (TASKS_COL)
 
 Permissões (Recomendado)

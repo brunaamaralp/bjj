@@ -8,7 +8,7 @@
 | **rotas** | `/automacoes?section=resumo\|captacao\|pos-matricula\|rotinas` (canônico v3); aliases `?tab=modelos\|gatilhos` → redirect |
 | **pré-requisitos** | WhatsApp conectado; modelos revisados; **auditoria de campos** (ver abaixo) antes de expor filtros |
 | **status** | revisado (spec v3 — alinhado ao código) |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-06-19 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -45,10 +45,10 @@ Wizard: modelos → WhatsApp → gatilhos. Processos da equipe: `/tarefas?tab=pr
 |---|---|---|
 | Tipo / categoria | `type` | Adulto · Criança · Juniores |
 | Plano | `plan` (nome, não ID) | Multi-select vs `financeConfig.plans[].name` |
-| Turma | `turma` (nome, não ID) | Multi-select vs `academy.settings.turmas[]` |
+| Turma | `turma` (nome, não ID) | Multi-select vs labels de turma (`classes` ativas → fallback `settings.turmas[]`) |
 | Ingresso | `enrollmentDate` | Tenure novato/veterano (&lt;60 / ≥60 dias) |
 
-> **Nota de código:** não existem `category`, `plan_id`, `class_id` nem `enrolled_at` no schema atual de alunos. Turmas não são coleção `CLASSES_COL` — ficam em `academies.settings` JSON.
+> **Nota de código:** não existem `category`, `plan_id`, `class_id` nem `enrolled_at` no schema atual de alunos. Labels de turma vêm de `resolveAcademyTurmaLabels()` (`src/lib/academyTurmas.js`): collection **`classes`** (canônico) com fallback em `academies.settings.turmas[]`. UI: `useAcademyTurmas(academyId)`.
 
 **Regra UI:** expor filtro só se taxa de preenchimento ≥ 80% na academia (amostra ou query). Abaixo disso: ocultar com comentário no código até backfill.
 
@@ -76,7 +76,7 @@ Filtros opcionais, cumulativos (**AND**). Vazio = todos os elegíveis do gatilho
 |---|---|---|---|
 | **Tipo** | Adulto · Criança · Juniores | `type` | ≥ 80% preenchido |
 | **Plano** | Planos de `financeConfig.plans` | `plan` (match por **nome**) | ≥ 80% |
-| **Turma** | Turmas de `academy.settings.turmas` | `turma` (match por **nome**) | ≥ 80% |
+| **Turma** | Turmas de `classes` (via `useAcademyTurmas`) | `turma` (match por **nome**) | ≥ 80% |
 | **Tempo de casa** | Novato &lt; 60d · Veterano ≥ 60d | `enrollmentDateYmd()` | campo ingresso existe |
 
 ### Campo nulo = incluído

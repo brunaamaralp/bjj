@@ -1,5 +1,5 @@
 import '../../styles/schedules.css';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -8,6 +8,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
 import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
 import { friendlyError } from '../../lib/errorMessages';
+import { formatCapacityLabel } from '../../lib/classes.js';
 import {
   SCHEDULE_LEVEL_SUGGESTIONS,
   SCHEDULE_WEEKDAYS,
@@ -57,6 +58,7 @@ function ScheduleFormFields({ form, setForm, errors, modalitySuggestions, classO
           {classOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+              {c.is_active === false ? ' (inativa)' : ''}
             </option>
           ))}
         </select>
@@ -177,7 +179,7 @@ function ScheduleFormFields({ form, setForm, errors, modalitySuggestions, classO
         />
       </label>
 
-      <label className="form-field schedules-form-grid__full schedules-toggle-row">
+      <div className="form-field schedules-form-grid__full schedules-toggle-row">
         <span className="form-label">Ativo</span>
         <label className="schedules-toggle">
           <input
@@ -187,7 +189,7 @@ function ScheduleFormFields({ form, setForm, errors, modalitySuggestions, classO
           />
           <span>{form.is_active !== false ? 'Visível na recepção' : 'Oculto na recepção'}</span>
         </label>
-      </label>
+      </div>
     </div>
   );
 }
@@ -215,8 +217,15 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const editorRef = useRef(null);
 
   const configured = isSchedulesConfigured();
+
+  useEffect(() => {
+    if (editorOpen && editorRef.current) {
+      editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [editorOpen]);
 
   const load = useCallback(async () => {
     if (!academyId || !configured) return;
@@ -235,8 +244,29 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
 
   const modalitySuggestions = useMemo(() => collectScheduleModalities(schedules), [schedules]);
   const groups = useMemo(() => groupSchedulesByModality(schedules), [schedules]);
+  const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes]);
+  const activeClasses = useMemo(
+    () => classes.filter((c) => c.is_active !== false),
+    [classes]
+  );
+  const hasActiveClasses = activeClasses.length > 0;
+  const classOptionsForForm = useMemo(() => {
+    if (!editingId || !form.class_id) return activeClasses;
+    const selected = classes.find((c) => c.id === form.class_id);
+    if (selected && !activeClasses.some((c) => c.id === selected.id)) {
+      return [...activeClasses, selected];
+    }
+    return activeClasses;
+  }, [classes, activeClasses, editingId, form.class_id]);
 
   const openCreate = () => {
+    if (classesConfigured && !hasActiveClasses) {
+      addToast({
+        type: 'error',
+        message: 'Ative ou cadastre uma turma antes de criar horários.',
+      });
+      return;
+    }
     setEditingId(null);
     setForm(emptyScheduleForm());
     setFormErrors({});
@@ -333,13 +363,17 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
 
   if (classesConfigured && !classesLoading && !classes.length) {
     return (
-      <EmptyState
-        icon={Clock}
-        title="Cadastre uma turma primeiro"
-        description="Horários recorrentes precisam estar vinculados a uma turma na seção acima."
-      />
+      <section className={`schedules-section${embeddedInLayout ? ' schedules-section--embedded' : ''}`}>
+        <EmptyState
+          icon={Clock}
+          title="Cadastre uma turma primeiro"
+          description="Horários recorrentes precisam estar vinculados a uma turma na seção acima."
+        />
+      </section>
     );
   }
+
+  const createDisabled = classesConfigured && !classesLoading && !hasActiveClasses;
 
   return (
     <section className={`schedules-section${embeddedInLayout ? ' schedules-section--embedded' : ''}`}>
@@ -350,11 +384,23 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
             Horários recorrentes vinculados às turmas. Exibidos na recepção.
           </p>
         </div>
-        <button type="button" className="btn-primary" onClick={openCreate}>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={openCreate}
+          disabled={createDisabled}
+          title={createDisabled ? 'Cadastre ou reative uma turma antes de criar horários' : undefined}
+        >
           <Plus size={16} strokeWidth={2} aria-hidden />
           Novo horário
         </button>
       </div>
+
+      {createDisabled ? (
+        <p className="text-small text-muted" role="status">
+          Nenhuma turma ativa. Reative uma turma existente ou crie uma nova acima.
+        </p>
+      ) : null}
 
       {loading && !schedules.length ? (
         <p className="text-small text-muted" role="status">
@@ -375,7 +421,10 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
         <div key={group.modality} className="schedules-group card">
           <h3 className="schedules-group__title">{group.modality}</h3>
           <ul className="schedules-list">
-            {group.items.map((schedule) => (
+            {group.items.map((schedule) => {
+              const linkedClass = classById.get(schedule.class_id);
+              const classLabel = linkedClass?.name || (schedule.class_id ? 'Turma removida' : '');
+              return (
               <li key={schedule.id} className="schedules-list__item">
                 <div className="schedules-list__main">
                   <div className="schedules-list__name-row">
@@ -387,16 +436,19 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
                     </span>
                   </div>
                   <p className="schedules-list__meta text-small text-muted">
+                    {classLabel ? `${classLabel} · ` : ''}
                     {formatScheduleDays(schedule.days_of_week)} · {schedule.time_start}–
                     {schedule.time_end}
                     {schedule.instructor ? ` · ${schedule.instructor}` : ''}
                     {schedule.level ? ` · ${schedule.level}` : ''}
+                    {` · ${formatCapacityLabel(schedule.max_capacity ?? linkedClass?.max_capacity)}`}
                   </p>
                 </div>
                 <div className="schedules-list__actions">
                   <button
                     type="button"
                     className="btn-icon"
+                    title="Editar horário"
                     aria-label="Editar horário"
                     onClick={() => openEdit(schedule)}
                     disabled={isMutating(schedule.id)}
@@ -406,7 +458,8 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
                   <button
                     type="button"
                     className="btn-icon"
-                    aria-label={schedule.is_active ? 'Desativar horário' : 'Ativar horário'}
+                    title={schedule.is_active ? 'Desativar horário' : 'Reativar horário'}
+                    aria-label={schedule.is_active ? 'Desativar horário' : 'Reativar horário'}
                     onClick={() => void handleToggle(schedule)}
                     disabled={isMutating(schedule.id)}
                   >
@@ -415,6 +468,7 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
                   <button
                     type="button"
                     className="btn-icon btn-icon--danger"
+                    title="Excluir horário"
                     aria-label="Excluir horário"
                     onClick={() => setDeleteTarget(schedule)}
                     disabled={isMutating(schedule.id)}
@@ -423,13 +477,14 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       ))}
 
       {editorOpen ? (
-        <div className="schedules-editor card">
+        <div className="schedules-editor card" ref={editorRef}>
           <h3 className="schedules-editor__title">
             {editingId ? 'Editar horário' : 'Novo horário'}
           </h3>
@@ -438,7 +493,7 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
             setForm={setForm}
             errors={formErrors}
             modalitySuggestions={modalitySuggestions}
-            classOptions={classes.filter((c) => c.is_active !== false)}
+            classOptions={classOptionsForForm}
           />
           <div className="schedules-editor__actions">
             <button type="button" className="btn-outline" onClick={closeEditor} disabled={saving}>

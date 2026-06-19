@@ -14,6 +14,9 @@ dist-ssr
 *.local
 .env
 .vercel/
+.next/
+lint-out.json
+test-ci-out.txt
 # Scripts locais (migrações); exceção: migração versionada para alinhar status ↔ pipeline_stage
 scripts/*
 !scripts/fix-lead-stage-sync.js

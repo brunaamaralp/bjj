@@ -108,6 +108,7 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
+import RecepcaoTodaySlotsSection from '../components/recepcao/RecepcaoTodaySlotsSection.jsx';
 import { useUserRole } from '../lib/useUserRole.js';
 import {
     buildRecepcaoHubTabItems,
@@ -1386,6 +1387,8 @@ const Dashboard = () => {
                     expandWeekSignal={mobileWeekExpandSignal}
                 />
             ) : null}
+
+            <RecepcaoTodaySlotsSection academyId={academyId} />
 
             <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
 

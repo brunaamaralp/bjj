@@ -93,6 +93,7 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 | Fluxo | Arquivo | Status |
 |---|---|---|
 | Onboarding da academia | [config/onboarding-academia.md](config/onboarding-academia.md) | revisado (código) |
+| Turmas e horários | [config/empresa-horarios-turmas.md](config/empresa-horarios-turmas.md) | revisado (código) |
 | Conta e assinatura do Nave | [config/conta-assinatura.md](config/conta-assinatura.md) | revisado (código) |
 | Equipe — colaboradores | [config/equipe-colaboradores.md](config/equipe-colaboradores.md) | revisado (código) |
 

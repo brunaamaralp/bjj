@@ -1,12 +1,12 @@
 import { parseAcademySettings } from './stockSettings.js';
 import { normalizeCustomLeadQuestions } from './customLeadQuestions.js';
-import { readAcademyTurmas } from './academyTurmas.js';
+import { resolveAcademyTurmaLabels } from './academyTurmas.js';
 import {
   graduationsActive,
   normalizeBeltValue,
   parseBeltGradesFromSettings,
 } from './beltGradesConfig.js';
-import { TERMS } from './terminology.js';
+import { TERMS } from './terminologyData.js';
 export const PUBLIC_ENROLLMENT_ORIGIN = 'Cadastro online';
 
 export function normalizeEnrollmentPhone(v) {
@@ -120,8 +120,9 @@ export function buildPublicEnrollmentUrl(token, baseUrl) {
 /**
  * Dados públicos seguros para o formulário.
  * @param {{ name?: string, settings?: unknown, customLeadQuestions?: unknown }} academyDoc
+ * @param {{ classes?: object[] }} [opts]
  */
-export function buildPublicEnrollmentFormConfig(academyDoc) {
+export function buildPublicEnrollmentFormConfig(academyDoc, opts = {}) {
   const enrollment = readPublicEnrollment(academyDoc?.settings);
   const plans = readAcademyPlanNames(academyDoc);
   const { questions } = normalizeCustomLeadQuestions(academyDoc?.customLeadQuestions);
@@ -138,7 +139,10 @@ export function buildPublicEnrollmentFormConfig(academyDoc) {
   return {
     enabled: enrollment.enabled === true && Boolean(enrollment.salt),
     academyName: String(academyDoc?.name || academyDoc?.academyName || 'Academia').trim() || 'Academia',
-    turmas: readAcademyTurmas(academyDoc?.settings),
+    turmas: resolveAcademyTurmaLabels({
+      settingsRaw: academyDoc?.settings,
+      classes: opts.classes,
+    }),
     plans,
     requirePlan: plans.length > 0,
     customQuestions: publicQuestions,

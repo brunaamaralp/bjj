@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   readAcademyTurmas,
+  readExplicitAcademyTurmas,
+  resolveAcademyTurmaLabels,
+  classDocsToTurmaLabels,
+  legacyTurmaKeyFromLabel,
+  inferModalityFromTurmaLabel,
   turmaValueFromForm,
   resolveTurmaFormState,
   studentTurmaGroupKey,
@@ -14,6 +19,27 @@ describe('academyTurmas', () => {
   it('readAcademyTurmas usa padrão se vazio', () => {
     expect(readAcademyTurmas(null)).toEqual(['Kids', 'Juniores', 'Adultos']);
     expect(readAcademyTurmas({ turmas: ['Competição'] })).toEqual(['Competição']);
+  });
+
+  it('readExplicitAcademyTurmas não aplica fallback', () => {
+    expect(readExplicitAcademyTurmas(null)).toEqual([]);
+    expect(readExplicitAcademyTurmas({ turmas: ['Noite'] })).toEqual(['Noite']);
+  });
+
+  it('resolveAcademyTurmaLabels prioriza classes ativas', () => {
+    const labels = resolveAcademyTurmaLabels({
+      settingsRaw: { turmas: ['Legado'] },
+      classes: [
+        { name: 'Adulto Noite', is_active: true },
+        { name: 'Inativa', is_active: false },
+      ],
+    });
+    expect(labels).toEqual(['Adulto Noite']);
+  });
+
+  it('legacyTurmaKeyFromLabel normaliza acentos e espaços', () => {
+    expect(legacyTurmaKeyFromLabel('Adultos Manhã')).toBe('adultos_manha');
+    expect(inferModalityFromTurmaLabel('Kids 18h')).toBe('kids');
   });
 
   it('turmaValueFromForm trata Outro', () => {
