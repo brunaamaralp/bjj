@@ -497,6 +497,7 @@ const AcademySettings = () => {
             {activeTab === 'horarios' && academyId && (
                 <div className="empresa-section">
                     <ClassesSection academyId={academyId} />
+                    <hr className="schedules-divider" />
                     <SchedulesSection academyId={academyId} embeddedInLayout />
                 </div>
             )}

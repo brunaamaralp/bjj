@@ -1,11 +1,14 @@
 /* ——— Botões de ícone (ação em linha) ——— */
 .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: var(--color-text-secondary, #9896a8);
   border: none;
   min-height: unset;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border-radius: 6px;
   flex-shrink: 0;
@@ -43,6 +46,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.schedules-divider {
+  border: none;
+  border-top: 1px dashed var(--border-light, #e8e5f5);
+  margin: 32px 0;
+  width: 100%;
 }
 
 .schedules-section__title {
