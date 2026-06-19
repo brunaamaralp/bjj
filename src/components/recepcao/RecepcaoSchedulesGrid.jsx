@@ -11,12 +11,15 @@ import {
 } from '../../lib/schedules.js';
 import { formatCapacityLabel } from '../../lib/classes.js';
 
+const JS_DAY_TO_ID = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
+
 export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const schedules = useSchedulesStore((s) => s.schedules);
   const loading = useSchedulesStore((s) => s.loading);
   const fetchSchedules = useSchedulesStore((s) => s.fetchSchedules);
   const [modalityFilter, setModalityFilter] = useState('');
 
+  const todayId = JS_DAY_TO_ID[new Date().getDay()];
   const configured = isSchedulesConfigured();
 
   useEffect(() => {
@@ -31,19 +34,7 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const modalities = useMemo(() => collectScheduleModalities(schedules), [schedules]);
   const grid = useMemo(() => buildWeeklyScheduleGrid(filtered), [filtered]);
 
-const JS_DAY_TO_ID = {
-  0: 'sun',
-  1: 'mon',
-  2: 'tue',
-  3: 'wed',
-  4: 'thu',
-  5: 'fri',
-  6: 'sat',
-};
-
   if (!configured) return null;
-
-  const todayId = JS_DAY_TO_ID[new Date().getDay()];
 
   return (
     <section className="reception-section schedules-grid-section animate-in" aria-labelledby="schedules-grid-title">
@@ -120,9 +111,14 @@ const JS_DAY_TO_ID = {
                 </th>
                 {grid.columns.map((col) => {
                   const isToday = col.id === todayId;
+                  const isSun = col.id === 'sun';
+                  const cls = [
+                    isToday ? 'schedules-week-grid__col--today' : '',
+                    isSun   ? 'schedules-week-grid__col--sun'   : '',
+                  ].filter(Boolean).join(' ');
                   return (
-                    <th key={col.id} scope="col" className={isToday ? 'schedules-week-grid__col--today' : ''}>
-                      {col.label} {isToday && <span className="schedules-week-grid__today-badge">Hoje</span>}
+                    <th key={col.id} scope="col" className={cls || undefined}>
+                      {col.label}{isToday && <span className="schedules-week-grid__today-badge" aria-hidden />}
                     </th>
                   );
                 })}
@@ -136,9 +132,14 @@ const JS_DAY_TO_ID = {
                   </th>
                   {grid.columns.map((col) => {
                     const isToday = col.id === todayId;
+                    const isSun = col.id === 'sun';
+                    const cls = [
+                      isToday ? 'schedules-week-grid__col--today' : '',
+                      isSun   ? 'schedules-week-grid__col--sun'   : '',
+                    ].filter(Boolean).join(' ');
                     const items = row.cells[col.id] || [];
                     return (
-                      <td key={col.id} className={isToday ? 'schedules-week-grid__col--today' : ''}>
+                      <td key={col.id} className={cls || undefined}>
                         {items.length ? (
                           <ul className="schedules-week-grid__cell-list">
                             {items.map((item) => (

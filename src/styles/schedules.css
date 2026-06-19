@@ -247,31 +247,31 @@
   text-align: center;
 }
 
+/* Coluna de hoje — destaque suave */
 .schedules-week-grid__col--today {
-  background: color-mix(in srgb, var(--color-primary, #6366f1) 8%, transparent) !important;
-  border-left: 2px solid var(--color-primary) !important;
-  border-right: 2px solid var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary, #6366f1) 5%, transparent);
 }
 
 .schedules-week-grid thead th.schedules-week-grid__col--today {
-  border-top: 2px solid var(--color-primary) !important;
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
 }
 
-.schedules-week-grid tbody tr:last-child td.schedules-week-grid__col--today {
-  border-bottom: 2px solid var(--color-primary) !important;
-}
-
+/* Badge "hoje" minimalista — só um ponto colorido */
 .schedules-week-grid__today-badge {
   display: inline-block;
-  margin-left: 6px;
-  padding: 2px 6px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  margin-left: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--color-primary);
-  color: #fff;
-  border-radius: 4px;
   vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Ocultar coluna Domingo */
+.schedules-week-grid__col--sun {
+  display: none;
 }
 
 .schedules-week-grid__time-col {
