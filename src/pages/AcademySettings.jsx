@@ -23,8 +23,7 @@ const StudentsSection = lazyWithRetry(() => import('../components/academy/Studen
 const EstudioSection = lazyWithRetry(() => import('../components/academy/EstudioSection'));
 const FunilSection = lazyWithRetry(() => import('../components/academy/FunilSection'));
 const FinanceiroConfigTab = lazyWithRetry(() => import('../components/finance/FinanceiroConfigTab.jsx'));
-const SchedulesSection = lazyWithRetry(() => import('../components/academy/SchedulesSection.jsx'));
-const ClassesSection = lazyWithRetry(() => import('../components/academy/ClassesSection.jsx'));
+const HorariosSection = lazyWithRetry(() => import('../components/academy/HorariosSection.jsx'));
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { isBillingLive } from '../lib/billingEnabled';
@@ -495,12 +494,8 @@ const AcademySettings = () => {
             )}
 
             {activeTab === 'horarios' && academyId && (
-                <div className="empresa-section">
-                    <ClassesSection academyId={academyId} />
-                    <hr className="schedules-divider" />
-                    <SchedulesSection academyId={academyId} embeddedInLayout />
-                </div>
-            )}
+        <HorariosSection academyId={academyId} />
+      )}
 
             {activeTab === 'financeiro' && academyId && (
                 <div className="empresa-section">

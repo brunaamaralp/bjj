@@ -205,7 +205,7 @@ function TimelineRow({
   );
 }
 
-function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
+function BundleTimelineRow({ item, onCancelCoverage, cancelling, canManagePayments, onEditPayment, onDeletePayment }) {
   const [expanded, setExpanded] = useState(false);
   const [cancelFrom, setCancelFrom] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
@@ -215,6 +215,13 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
       String(c.status || '').toLowerCase() === 'covered' &&
       compareReferenceMonths(c.reference_month, nowYm) >= 0
   );
+  const receiptPdf =
+    item.payment && canDownloadPaymentReceipt(item.payment)
+      ? {
+          enabled: true,
+          onDownload: () => downloadPaymentReceiptPdf(item.payment.$id),
+        }
+      : null;
 
   return (
     <TimelineRow
@@ -223,6 +230,11 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling }) {
       item={item}
       expanded={expanded}
       onToggle={() => setExpanded((v) => !v)}
+      payment={item.payment}
+      canManagePayments={canManagePayments}
+      onEditPayment={onEditPayment}
+      onDeletePayment={onDeletePayment}
+      receiptPdf={receiptPdf}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
         {[item.anchor, ...(item.children || [])]
@@ -628,6 +640,9 @@ export default function StudentFinancialTimeline({
                   item={item}
                   onCancelCoverage={onCancelCoverage}
                   cancelling={cancellingCoverage}
+                  canManagePayments={canManagePayments}
+                  onEditPayment={onEditPayment}
+                  onDeletePayment={onDeletePayment}
                 />
               );
             }

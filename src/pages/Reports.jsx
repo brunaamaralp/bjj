@@ -149,7 +149,7 @@ export default function Reports() {
 
     const activeTab = resolveHubTab(searchParams.get('tab'), allowedReportTabIds, defaultReportTab);
     const { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab } =
-        getReportsTabFlags(activeTab);
+      getReportsTabFlags(activeTab);
 
     const funnel = useFunnelReport({
         enabled: needsFunnelReport,

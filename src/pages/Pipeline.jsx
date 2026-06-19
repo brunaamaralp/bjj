@@ -284,18 +284,29 @@ const LeadCard = React.memo(({ lead, slaAlert, followupTemperature, automationCo
             onMouseEnter={() => { if (!isEnrolledCard) void preloadLeadProfile(); }}
             onClick={(e) => {
                 if (isOverlay) return;
-                if (
-                    e.target.closest?.(
-                        '[data-no-dnd], .inbox-triage-callout, button, a, input, textarea, select, label, [role="button"]'
-                    )
-                ) {
-                    return;
+                // Check if the click is on an interactive element that should block navigation
+                const interactiveElement = e.target.closest?.(
+                    '[data-no-dnd], .inbox-triage-callout, button, a, input, textarea, select, label, [role="button"]'
+                );
+                if (interactiveElement) {
+                    // If it's the lead card itself (which might have role="button" for non-enrolled cards), still allow navigation
+                    if (interactiveElement.classList?.contains('lead-card')) {
+                        // Proceed with navigation
+                    } else {
+                        return;
+                    }
                 }
-                if (onOpenLeadProfile) {
-                    onOpenLeadProfile(lead, isEnrolledCard);
-                    return;
+                try {
+                    if (onOpenLeadProfile) {
+                        onOpenLeadProfile(lead, isEnrolledCard);
+                        return;
+                    }
+                    navigate(isEnrolledCard ? `/student/${lead.id}` : `/lead/${lead.id}`);
+                } catch (error) {
+                    console.error('Error navigating from lead card:', error);
+                    // Fallback navigation
+                    navigate(isEnrolledCard ? `/student/${lead.id}` : `/lead/${lead.id}`);
                 }
-                navigate(isEnrolledCard ? `/student/${lead.id}` : `/lead/${lead.id}`);
             }}
             {...props}
         >
@@ -1018,20 +1029,22 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                             className="pipeline-mobile-lead-row"
                                             onMouseEnter={() => { void preloadLeadProfile(); }}
                                             onClick={() => {
+                                                const isEnrolled = Boolean(lead?._isStudent || isStudentRecord(lead));
                                                 if (onOpenLeadProfile) {
-                                                    onOpenLeadProfile(lead, false);
+                                                    onOpenLeadProfile(lead, isEnrolled);
                                                     return;
                                                 }
-                                                navigate(`/lead/${lead.id}`);
+                                                navigate(isEnrolled ? `/student/${lead.id}` : `/lead/${lead.id}`);
                                             }}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' || e.key === ' ') {
                                                     e.preventDefault();
+                                                    const isEnrolled = Boolean(lead?._isStudent || isStudentRecord(lead));
                                                     if (onOpenLeadProfile) {
-                                                        onOpenLeadProfile(lead, false);
+                                                        onOpenLeadProfile(lead, isEnrolled);
                                                         return;
                                                     }
-                                                    navigate(`/lead/${lead.id}`);
+                                                    navigate(isEnrolled ? `/student/${lead.id}` : `/lead/${lead.id}`);
                                                 }
                                             }}
                                         >
@@ -1079,11 +1092,12 @@ const MobileLeadList = React.memo(function MobileLeadList({
                                                     className="pipeline-mobile-profile-link"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        const isEnrolled = Boolean(lead?._isStudent || isStudentRecord(lead));
                                                         if (onOpenLeadProfile) {
-                                                            onOpenLeadProfile(lead, false);
+                                                            onOpenLeadProfile(lead, isEnrolled);
                                                             return;
                                                         }
-                                                        navigate(`/lead/${lead.id}`);
+                                                        navigate(isEnrolled ? `/student/${lead.id}` : `/lead/${lead.id}`);
                                                     }}
                                                 >
                                                     Ver perfil →
@@ -1367,14 +1381,26 @@ const Pipeline = () => {
 
     const openLeadProfile = useCallback(
         (lead, isEnrolledCard = false) => {
-            const leadId = String(lead?.id || '').trim();
-            if (!leadId) return;
-            writePipelineSessionState(buildPipelineSessionSnapshot());
-            if (isEnrolledCard) {
-                navigate(`/student/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
-                return;
+            try {
+                const leadId = String(lead?.id || '').trim();
+                if (!leadId) return;
+                writePipelineSessionState(buildPipelineSessionSnapshot());
+                if (isEnrolledCard) {
+                    navigate(`/student/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
+                    return;
+                }
+                navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
+            } catch (error) {
+                console.error('Error opening lead profile:', error);
+                // Fallback navigation in case of error
+                const leadId = String(lead?.id || '').trim();
+                if (!leadId) return;
+                if (isEnrolledCard || Boolean(lead?._isStudent || isStudentRecord(lead))) {
+                    navigate(`/student/${leadId}`);
+                } else {
+                    navigate(`/lead/${leadId}`);
+                }
             }
-            navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_PIPELINE } });
         },
         [buildPipelineSessionSnapshot, navigate]
     );

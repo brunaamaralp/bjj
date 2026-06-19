@@ -86,7 +86,7 @@ function ClassFormFields({ form, setForm, errors }) {
   );
 }
 
-export default function ClassesSection({ academyId }) {
+export default function ClassesSection({ academyId, embeddedInLayout = false }) {
   const addToast = useUiStore((s) => s.addToast);
   const classes = useClassesStore((s) => s.classes);
   const loading = useClassesStore((s) => s.loading);
@@ -225,19 +225,29 @@ export default function ClassesSection({ academyId }) {
   };
 
   return (
-    <section className="schedules-section schedules-section--embedded">
-      <div className="schedules-section__head">
-        <div>
-          <h2 className="schedules-section__title">Turmas</h2>
-          <p className="text-small text-muted">
-            Catálogo de turmas. Horários recorrentes são vinculados abaixo.
-          </p>
+    <section className={`schedules-section${embeddedInLayout ? ' schedules-section--embedded' : ''}`}>
+      {!embeddedInLayout && (
+        <div className="schedules-section__head">
+          <div>
+            <h2 className="schedules-section__title">Turmas</h2>
+            <p className="text-small text-muted">
+              Catálogo de turmas. Horários recorrentes são vinculados abaixo.
+            </p>
+          </div>
+          <button type="button" className="btn-primary" onClick={openCreate}>
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            Nova turma
+          </button>
         </div>
-        <button type="button" className="btn-primary" onClick={openCreate}>
-          <Plus size={16} strokeWidth={2} aria-hidden />
-          Nova turma
-        </button>
-      </div>
+      )}
+      {embeddedInLayout && (
+        <div className="schedules-section__head" style={{ marginTop: 0 }}>
+          <button type="button" className="btn-primary" onClick={openCreate}>
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            Nova turma
+          </button>
+        </div>
+      )}
 
       {loading && !classes.length ? (
         <p className="text-small text-muted" role="status">

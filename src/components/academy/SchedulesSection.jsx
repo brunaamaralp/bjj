@@ -377,24 +377,40 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
 
   return (
     <section className={`schedules-section${embeddedInLayout ? ' schedules-section--embedded' : ''}`}>
-      <div className="schedules-section__head">
-        <div>
-          <h2 className="schedules-section__title">Horários</h2>
-          <p className="text-small text-muted">
-            Horários recorrentes vinculados às turmas. Exibidos na recepção.
-          </p>
+      {!embeddedInLayout && (
+        <div className="schedules-section__head">
+          <div>
+            <h2 className="schedules-section__title">Horários</h2>
+            <p className="text-small text-muted">
+              Horários recorrentes vinculados às turmas. Exibidos na recepção.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={openCreate}
+            disabled={createDisabled}
+            title={createDisabled ? 'Cadastre ou reative uma turma antes de criar horários' : undefined}
+          >
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            Novo horário
+          </button>
         </div>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={openCreate}
-          disabled={createDisabled}
-          title={createDisabled ? 'Cadastre ou reative uma turma antes de criar horários' : undefined}
-        >
-          <Plus size={16} strokeWidth={2} aria-hidden />
-          Novo horário
-        </button>
-      </div>
+      )}
+      {embeddedInLayout && (
+        <div className="schedules-section__head" style={{ marginTop: 0 }}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={openCreate}
+            disabled={createDisabled}
+            title={createDisabled ? 'Cadastre ou reative uma turma antes de criar horários' : undefined}
+          >
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            Novo horário
+          </button>
+        </div>
+      )}
 
       {createDisabled ? (
         <p className="text-small text-muted" role="status">

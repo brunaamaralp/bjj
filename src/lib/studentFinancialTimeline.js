@@ -91,6 +91,7 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
         amount: Number(anchor.amount ?? anchor.paid_amount ?? 0),
         badge: paymentStatusBadge(anchor.status || 'paid'),
         anchor,
+        payment: anchor,
         children,
         months,
         startYm,
