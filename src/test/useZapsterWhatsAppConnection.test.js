@@ -438,4 +438,79 @@ describe('useZapsterWhatsAppConnection', () => {
     fetchWithBillingGuard.mockImplementation(defaultImpl);
     invalidateWaConnectionCache(academyId);
   });
+
+  it('fetchWaInfo: sem vínculo local tenta recover e carrega instância conectada', async () => {
+    const { fetchWithBillingGuard } = await import('../lib/billingBlockedFetch');
+    const { invalidateWaConnectionCache, useZapsterWhatsAppConnection } = await import(
+      '../hooks/useZapsterWhatsAppConnection.js'
+    );
+    const academyId = 'acad-auto-recover';
+    invalidateWaConnectionCache(academyId);
+
+    const defaultImpl = fetchWithBillingGuard.getMockImplementation();
+    let listCalls = 0;
+    fetchWithBillingGuard.mockImplementation(async (url, init = {}) => {
+      const u = String(url);
+      const method = String(init?.method || 'GET').toUpperCase();
+      if (u.includes('/api/zapster/instances') && method === 'GET' && u.includes('action=recover')) {
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            text: async () =>
+              JSON.stringify({ sucesso: true, recovered: true, instance_id: 'inst-recovered' }),
+          },
+        };
+      }
+      if (u.includes('/api/zapster/instances') && method === 'GET' && !u.includes('action=')) {
+        listCalls += 1;
+        if (listCalls === 1) {
+          return {
+            blocked: false,
+            res: {
+              ok: true,
+              text: async () =>
+                JSON.stringify({
+                  sucesso: true,
+                  instance_id: null,
+                  status: 'disconnected',
+                  zapster_status: 'disconnected',
+                  qrcode: null,
+                }),
+            },
+          };
+        }
+        return {
+          blocked: false,
+          res: {
+            ok: true,
+            text: async () =>
+              JSON.stringify({
+                sucesso: true,
+                instance_id: 'inst-recovered',
+                status: 'connected',
+                zapster_status: 'connected',
+                qrcode: null,
+                wa_phone: '5511999999999',
+              }),
+          },
+        };
+      }
+      if (typeof defaultImpl === 'function') return defaultImpl(url, init);
+      return { blocked: false, res: { ok: true, text: async () => '{}' } };
+    });
+
+    const { result } = renderHook(() => useZapsterWhatsAppConnection(academyId));
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 200));
+    });
+
+    expect(listCalls).toBeGreaterThanOrEqual(2);
+    expect(result.current.waInfo.instance_id).toBe('inst-recovered');
+    expect(result.current.waConnected).toBe(true);
+
+    fetchWithBillingGuard.mockImplementation(defaultImpl);
+    invalidateWaConnectionCache(academyId);
+  });
 });

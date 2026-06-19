@@ -180,6 +180,7 @@ function inboxDebugEnabled() {
  *   statusPollWhileMounted?: boolean,
  *   watchAcademyStatus?: boolean,
  *   deferInitialFetch?: boolean,
+ *   autoRecoverOnEmpty?: boolean,
  * }} [options]
  */
 export function useZapsterWhatsAppConnection(academyId, options = {}) {
@@ -194,6 +195,8 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
   const hookMountedRef = useRef(true);
   const deferredTimersRef = useRef([]);
   const fetchWaPendingRef = useRef(null);
+  /** Evita loop: uma tentativa de recover por academia por montagem do hook. */
+  const autoRecoverAttemptedRef = useRef(new Set());
 
   useEffect(() => {
     onRegisterWebhooksResultRef.current = options?.onRegisterWebhooksResult;
@@ -336,7 +339,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     }
   }, [resetWaToNoInstanceSilently]);
 
-  const fetchWaInfo = useCallback(async ({ silent = false, quiet = false } = {}) => {
+  const fetchWaInfo = useCallback(async ({ silent = false, quiet = false, skipAutoRecover = false } = {}) => {
     const debugOn = inboxDebugEnabled();
     const aid = String(academyIdRef.current || '').trim();
     if (debugOn) {
@@ -347,7 +350,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     }
     if (!aid) return;
     if (isFetchingWaInfoRef.current) {
-      fetchWaPendingRef.current = { silent, quiet };
+      fetchWaPendingRef.current = { silent, quiet, skipAutoRecover };
       return;
     }
     isFetchingWaInfoRef.current = true;
@@ -361,7 +364,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       });
       if (blocked) return;
       const raw = await resp.text();
-      const data = safeParseJson(raw) || {};
+      let data = safeParseJson(raw) || {};
       if (!resp.ok) {
         if (isZapsterTokenMissingPayload(data)) setWaTokenMissing(true);
         if (isInstanceNotFoundResponse(resp, data, raw)) {
@@ -371,7 +374,48 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         }
         throw new Error(normalizeApiError(raw, String(data.erro || '').trim() || 'Falha ao consultar WhatsApp'));
       }
-      const incomingId = data?.instance_id ?? null;
+      let incomingId = data?.instance_id ?? null;
+
+      if (
+        !incomingId &&
+        !skipAutoRecover &&
+        options?.autoRecoverOnEmpty !== false &&
+        !autoRecoverAttemptedRef.current.has(aid)
+      ) {
+        autoRecoverAttemptedRef.current.add(aid);
+        try {
+          const { blocked: recoverBlocked, res: recoverResp } = await fetchWithBillingGuard(
+            '/api/zapster/instances?action=recover',
+            { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid } }
+          );
+          if (!recoverBlocked && recoverResp?.ok) {
+            const recoverRaw = await recoverResp.text();
+            const recoverData = safeParseJson(recoverRaw) || {};
+            if (recoverData.recovered || recoverData.already_linked) {
+              const linkedId = String(recoverData.instance_id || '').trim();
+              if (linkedId) {
+                setWaPersistFailed(false);
+                invalidateWaConnectionCache(aid);
+                const { blocked: refetchBlocked, res: refetchResp } = await fetchWithBillingGuard(
+                  '/api/zapster/instances',
+                  { headers: { Authorization: `Bearer ${jwt}`, 'x-academy-id': aid } }
+                );
+                if (!refetchBlocked && refetchResp?.ok) {
+                  const refetchRaw = await refetchResp.text();
+                  const refetchData = safeParseJson(refetchRaw) || {};
+                  if (refetchData?.instance_id) {
+                    incomingId = refetchData.instance_id;
+                    data = refetchData;
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          void 0;
+        }
+      }
+
       let status = String(data?.status || '').trim() || 'unknown';
       let qrcode = data?.qrcode ?? null;
       let waPhoneFromApi = normalizeWaPhoneDigits(data?.wa_phone || '');
@@ -516,7 +560,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         void fetchWaInfo(pending);
       }
     }
-  }, [resetWaToNoInstanceSilently, registerWebhooks]);
+  }, [options?.autoRecoverOnEmpty, resetWaToNoInstanceSilently, registerWebhooks]);
 
   const syncConnectedUiState = useCallback((phoneRaw) => {
     const instanceId = String(waInfoRef.current?.instance_id || '').trim();

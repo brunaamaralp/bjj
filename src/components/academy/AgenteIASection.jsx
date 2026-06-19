@@ -37,6 +37,7 @@ import {
 import { isPromptConfigured, formatInstructionsSavedAt, AGENT_SYSTEM_RULES } from './agentIaUtils.js';
 import { useToast } from '../../hooks/useToast';
 import { formatWaPhoneDisplay } from '../../../lib/zapsterInstancePhone.js';
+import { WA_CONNECTED_STATUSES, WA_PAUSED_STATUSES } from '../../lib/resolveWhatsAppIntegrationStatus.js';
 import { V1_AI_ACTIONS } from '../../../lib/agentActionConfig.js';
 import './agent-ia.css';
 
@@ -94,6 +95,15 @@ function getAgentPageSubtitle(setupProgress) {
     if (currentStep === 2) return 'Passo 2 de 3: configure o assistente.';
     if (currentStep === 3) return 'Passo 3 de 3: ative o atendimento automático.';
     return 'Defina respostas automáticas no WhatsApp.';
+}
+
+/** Passo 1 concluído quando há instância pareada (conectada ou pausada). */
+function isAgentWaSetupStepDone({ waConnected, waStatus, instanceId }) {
+    if (waConnected) return true;
+    const id = String(instanceId || '').trim();
+    if (!id) return false;
+    const st = String(waStatus || '').trim().toLowerCase();
+    return WA_CONNECTED_STATUSES.has(st) || WA_PAUSED_STATUSES.has(st);
 }
 
 const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true }) => {
@@ -747,7 +757,11 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const card2Active = promptConfigurado && iaAtiva;
 
     const setupProgress = useMemo(() => {
-        const waDone = card1Connected;
+        const waDone = isAgentWaSetupStepDone({
+            waConnected: zap.waConnected,
+            waStatus: zap.waStatus,
+            instanceId: zap.waInfo?.instance_id,
+        });
         const configDone = promptConfigurado;
         const activeDone = iaAtiva;
         let currentStep = 1;
@@ -759,7 +773,7 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
             statusLine = 'Conectado, mas atendimento pausado';
         }
         return { waDone, configDone, activeDone, currentStep, statusLine };
-    }, [card1Connected, promptConfigurado, iaAtiva]);
+    }, [zap.waConnected, zap.waStatus, zap.waInfo?.instance_id, promptConfigurado, iaAtiva]);
 
     const focusWa = setupProgress.currentStep === 1;
     const focusAssistant = setupProgress.currentStep === 2 || setupProgress.currentStep === 3;
