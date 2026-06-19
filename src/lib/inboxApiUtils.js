@@ -10,7 +10,11 @@ export function clearInboxJwtCache() {
  */
 export async function getInboxJwt(opts = {}) {
   if (opts?.forceRefresh) clearSessionJwtCache();
-  return createSessionJwt();
+  try {
+    return await createSessionJwt();
+  } catch {
+    return '';
+  }
 }
 
 export function safeParseInboxJson(raw) {

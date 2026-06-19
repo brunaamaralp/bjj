@@ -694,7 +694,7 @@ export default function PayablesTab({
                     <td>
                       <span className="finance-table__primary">
                         {item.recurrence?.active ? (
-                          <Repeat size={14} title="Recorrente" aria-hidden className="mr-1" />
+                          <Repeat size={14} title="Recorrente" aria-hidden className="icon-inline" />
                         ) : null}
                         {item.vendor_label}
                       </span>
@@ -709,7 +709,7 @@ export default function PayablesTab({
                     <td>
                       <span className={`finance-badge ${statusBadgeClass(item.status)}`}>
                         {item.status === 'overdue' ? (
-                          <AlertCircle size={12} aria-hidden />
+                          <AlertCircle size={12} aria-hidden className="icon-inline" />
                         ) : null}
                         {statusLabel(item.status)}
                       </span>

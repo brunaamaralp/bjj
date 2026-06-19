@@ -197,8 +197,15 @@
 }
 
 .finance-badge-atrasado {
-  background: var(--danger-bg);
-  color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Inline icon spacing */
+.icon-inline {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: var(--finance-space-1);
 }
 
 .finance-badge-cancelado {

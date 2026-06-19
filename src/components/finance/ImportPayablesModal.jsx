@@ -31,12 +31,13 @@ async function importPayablesRows(academyId, rows, onProgress) {
   let ok = 0;
   let fail = 0;
   const failedRows = [];
+  const toImport = rows.filter((r) => !r.duplicate);
 
   async function worker() {
-    while (cursor < rows.length) {
+    while (cursor < toImport.length) {
       const index = cursor;
       cursor += 1;
-      const row = rows[index];
+      const row = toImport[index];
       try {
         await createFinanceTx({ academyId, payload: payableImportRowToPayload(row) });
         ok += 1;
@@ -44,11 +45,11 @@ async function importPayablesRows(academyId, rows, onProgress) {
         fail += 1;
         failedRows.push(row.rowIndex);
       }
-      onProgress?.({ done: ok + fail, total: rows.length, ok, fail, failedRows: [...failedRows] });
+      onProgress?.({ done: ok + fail, total: toImport.length, ok, fail, failedRows: [...failedRows] });
     }
   }
 
-  const workers = Math.min(PAYABLES_IMPORT_CONCURRENCY, rows.length);
+  const workers = Math.min(PAYABLES_IMPORT_CONCURRENCY, toImport.length);
   await Promise.all(Array.from({ length: workers }, () => worker()));
   return { ok, fail, failedRows };
 }

@@ -252,16 +252,29 @@ export function buildFinancialSummary({
   }
 
   const st = paymentStatus?.status || 'none';
+  // Default labels
   let situationLabel = 'Sem registro no mês atual';
   let situationTone = 'muted';
-  if (st === 'paid') {
+  // Detect any payment (plan, bundle, fee, etc.) that covers the current month
+  const currentYm = new Date().toISOString().slice(0, 7);
+  const currentMonthPayment = (payments || []).find((p) => {
+    const cat = normalizePaymentCategory(p);
+    const month = String(p.reference_month || '').slice(0, 7);
+    return month === currentYm && ['paid', 'covered', 'pending', 'partial'].includes(String(p.status || '').toLowerCase());
+  });
+  if (st === 'paid' || currentMonthPayment) {
+    // Find the most recent paid/covered payment
     const lastPaid = (payments || [])
       .filter((p) => ['paid', 'covered'].includes(String(p.status || '').toLowerCase()))
       .sort((a, b) => String(b.reference_month || '').localeCompare(String(a.reference_month || '')))[0];
-    situationLabel = lastPaid?.reference_month
-      ? `Em dia (último: ${formatReferenceMonthShort(lastPaid.reference_month)})`
-      : 'Em dia';
-    situationTone = 'success';
+    if (lastPaid?.reference_month) {
+      situationLabel = `Em dia (último: ${formatReferenceMonthShort(lastPaid.reference_month)})`;
+      situationTone = 'success';
+    } else if (currentMonthPayment) {
+      // Current month payment exists but may not be marked paid yet
+      situationLabel = `Registro no mês atual (status: ${String(currentMonthPayment.status).toLowerCase()})`;
+      situationTone = String(currentMonthPayment.status).toLowerCase() === 'paid' ? 'success' : 'warning';
+    }
   } else if (st === 'pending' || st === 'partial') {
     situationLabel = 'Pendência no mês atual';
     situationTone = 'danger';
