@@ -1519,6 +1519,11 @@ export default function Tasks() {
               />
             ) : (
               <>
+                {tasksByLead.length > 0 ? (
+                  <div className="tasks-by-student-grid" role="list">
+                    {tasksByLead.map((group) => renderStudentTasksGroupCard(group))}
+                  </div>
+                ) : null}
                 {unlinkedTasksGroup ? (
                   <section
                     className="tasks-by-student-section tasks-by-student-section--unlinked"
@@ -1532,11 +1537,6 @@ export default function Tasks() {
                     </p>
                     {renderStudentTasksGroupCard(unlinkedTasksGroup, { unlinked: true })}
                   </section>
-                ) : null}
-                {tasksByLead.length > 0 ? (
-                  <div className="tasks-by-student-grid" role="list">
-                    {tasksByLead.map((group) => renderStudentTasksGroupCard(group))}
-                  </div>
                 ) : null}
               </>
             )}
