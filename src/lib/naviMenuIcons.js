@@ -28,6 +28,7 @@ import {
   CircleDollarSign,
   Building2,
   Plug,
+  Smartphone,
 } from 'lucide-react';
 
 /** Lucide icons keyed by `iconKey` from naviMenu — sidebar, drawer e sheet "Mais". */
@@ -67,6 +68,7 @@ export const NAV_MENU_ICONS = {
   empresa: Building2,
   equipe: Users,
   integracoes: Plug,
+  whatsapp: Smartphone,
 };
 
 const FALLBACK_ICON = LayoutGrid;

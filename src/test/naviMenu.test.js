@@ -14,6 +14,7 @@ import {
   buildLojaAccordion,
   buildAutomacoesAccordion,
   buildAgenteIaNavItem,
+  buildConectarWhatsAppNavItem,
   buildFinanceiroAccordion,
 } from '../lib/naviMenu.js';
 
@@ -39,6 +40,33 @@ describe('naviMenu', () => {
       to: '/agente-ia',
       iconKey: 'agente',
     });
+  });
+
+  it('buildConectarWhatsAppNavItem — link para aba WhatsApp em Integrações', () => {
+    expect(buildConectarWhatsAppNavItem()).toMatchObject({
+      id: 'conectar-whatsapp',
+      label: 'Conectar WhatsApp',
+      to: '/integracoes?tab=whatsapp',
+      iconKey: 'whatsapp',
+    });
+  });
+
+  it('buildSidebarNavModel — Conectar WhatsApp só para owner com WA pendente', () => {
+    const pending = buildSidebarNavModel({
+      modules: { finance: false, inventory: false, sales: false },
+      canConfigureAgenteIa: true,
+      isOwner: true,
+      waSetupDone: false,
+    });
+    expect(pending.conectarWhatsApp?.to).toBe('/integracoes?tab=whatsapp');
+
+    const done = buildSidebarNavModel({
+      modules: { finance: false, inventory: false, sales: false },
+      canConfigureAgenteIa: true,
+      isOwner: true,
+      waSetupDone: true,
+    });
+    expect(done.conectarWhatsApp).toBeNull();
   });
 
   it('buildSidebarNavModel keeps Processos da equipe inside /tarefas hub only', () => {

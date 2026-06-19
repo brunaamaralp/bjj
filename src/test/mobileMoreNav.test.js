@@ -32,10 +32,19 @@ describe('mobileMoreNav', () => {
     expect(member.some((i) => i.id === 'mensalidades')).toBe(false);
     expect(member.some((i) => i.id === 'equipe')).toBe(false);
 
+    const ownerPendingWa = buildMobileMoreItems({
+      modules: { finance: false, sales: true, inventory: false },
+      isOwner: true,
+      canConfigureAgenteIa: true,
+      waSetupDone: false,
+    });
+    expect(ownerPendingWa.some((i) => i.id === 'conectar-whatsapp')).toBe(true);
+
     const owner = buildMobileMoreItems({
       modules: { finance: false, sales: true, inventory: false },
       isOwner: true,
       canConfigureAgenteIa: true,
+      waSetupDone: true,
     });
     expect(owner.some((i) => i.id === 'loja')).toBe(true);
     expect(owner.some((i) => i.id === 'agente')).toBe(true);

@@ -26,7 +26,7 @@ describe('ProfileWhatsAppOfflineEmptyActions', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: 'Configurar WhatsApp' })).toHaveAttribute('href', '/agente-ia');
+    expect(screen.getByRole('link', { name: 'Configurar WhatsApp' })).toHaveAttribute('href', '/integracoes?tab=whatsapp');
     expect(screen.getByRole('button', { name: 'Abrir WhatsApp Web' })).toBeInTheDocument();
     expect(screen.getByText(/Envio manual — não registra no histórico do app/i)).toBeInTheDocument();
   });
@@ -63,6 +63,6 @@ describe('ProfileWhatsAppOfflinePanelBanner', () => {
     );
 
     expect(screen.getByText(/WhatsApp desconectado — não é possível enviar mensagens/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Reconectar' })).toHaveAttribute('href', '/agente-ia');
+    expect(screen.getByRole('link', { name: 'Reconectar' })).toHaveAttribute('href', '/integracoes?tab=whatsapp');
   });
 });

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { INTEGRACOES_WHATSAPP_PATH } from '../../lib/integracoesRoutes.js';
 import { buildWhatsAppChatUrl, openExternalUrl } from '../../lib/inboxMediaUtils.js';
 
 /**
@@ -10,7 +11,7 @@ export default function ProfileWhatsAppOfflineEmptyActions({ phoneDigits, compac
 
   return (
     <div className={`profile-wa-offline-empty-actions${compact ? ' profile-wa-offline-empty-actions--compact' : ''}`}>
-      <Link to="/agente-ia" className="btn btn-primary">
+      <Link to={INTEGRACOES_WHATSAPP_PATH} className="btn btn-primary">
         Configurar WhatsApp
       </Link>
       {whatsAppChatUrl ? (

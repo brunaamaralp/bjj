@@ -43,6 +43,7 @@ export function buildMobileMoreItems({
   canConfigureAgenteIa = true,
   pipelineLabel = 'Funil',
   navStudentsLabel = 'Alunos',
+  waSetupDone = true,
 }) {
   const model = buildSidebarNavModel({
     modules: modules || {},
@@ -51,6 +52,7 @@ export function buildMobileMoreItems({
     navStudentsLabel,
     newLeadLabel: null,
     isOwner,
+    waSetupDone,
   });
 
   const items = [];
@@ -98,6 +100,15 @@ export function buildMobileMoreItems({
       label: automacoes.label,
       to: automacoes.defaultTo,
       iconKey: automacoes.iconKey || 'automacoes',
+    });
+  }
+
+  if (model.conectarWhatsApp) {
+    add({
+      id: model.conectarWhatsApp.id,
+      label: model.conectarWhatsApp.label,
+      to: model.conectarWhatsApp.to,
+      iconKey: model.conectarWhatsApp.iconKey || 'whatsapp',
     });
   }
 
@@ -154,6 +165,7 @@ export function isMobileMoreItemActive(item, location) {
   if (id === 'reports') return loc.pathname === '/reports';
   if (id === 'automacoes') return loc.pathname === '/automacoes';
   if (id === 'agente') return loc.pathname === '/agente-ia';
+  if (id === 'conectar-whatsapp') return matchNavTarget('/integracoes?tab=whatsapp', loc);
   if (id === 'empresa') return loc.pathname === '/empresa';
   if (id === 'equipe') return loc.pathname === '/equipe';
   if (id === 'integracoes') return loc.pathname === '/integracoes';

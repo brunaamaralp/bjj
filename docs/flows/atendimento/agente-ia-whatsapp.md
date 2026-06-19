@@ -5,13 +5,13 @@
 | **id** | `atendimento.agente.ia-whatsapp` |
 | **módulo** | Atendimento |
 | **personas** | owner, recepcionista (member com permissão de equipe); **admin sem acesso à página** |
-| **rotas** | `/agente-ia` |
+| **rotas** | `/integracoes?tab=whatsapp` (conexão), `/agente-ia` (config + ativação), `/agente-ia?setup=1` (handoff) |
 | **pré-requisitos** | Integração Zapster; papel com `canViewAgentSettings` |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-06-18 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** [2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md](../../superpowers/specs/2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md) (UX painel config — P0)
+**Specs relacionadas:** [2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md](../../superpowers/specs/2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md) (UX painel config — P0) · [2026-06-18-whatsapp-integracoes-agente-handoff-PRODUCT.md](../../superpowers/specs/2026-06-18-whatsapp-integracoes-agente-handoff-PRODUCT.md) (Integrações ↔ Agente IA)
 
 **Harness relacionado:** `npm test -- zapsterInstancePhone automationUx` (adjacente)
 
@@ -21,7 +21,7 @@
 
 ## Resumo
 
-O **owner** ou **member** autorizado configura o assistente de IA em três passos: **conectar WhatsApp** (QR Zapster), **definir prompt/instruções** e **ativar** o atendimento automático com o botão **Ativar atendimento automático** (não há toggle no header do card). Antes disso, pode ligar **Recursos de IA** (toggle em linha de configuração) para copilot e comandos sem ativar respostas no WhatsApp. A página também oferece chat de teste e opções avançadas (FAQ, ações V1).
+O **owner** conecta o WhatsApp em **Integrações** (QR Zapster). Em **Agente IA**, owner ou member autorizado configura o assistente em **dois passos**: **definir prompt/instruções** e **ativar** o atendimento automático. Antes disso, pode ligar **Recursos de IA** (toggle em linha de configuração) para copilot e comandos sem ativar respostas no WhatsApp. Handoff pós-conexão: banner em Integrações + link **Configurar assistente** → `/agente-ia?setup=1` (prefixo «Voltar para Integrações»).
 
 ---
 
@@ -29,14 +29,14 @@ O **owner** ou **member** autorizado configura o assistente de IA em três passo
 
 ```mermaid
 flowchart TD
-  open["/agente-ia"] --> perm{canViewAgentSettings?}
+  integracoes["/integracoes?tab=whatsapp"] --> qr[QR / status Zapster]
+  qr --> handoff[Banner + Configurar assistente]
+  handoff --> agente["/agente-ia?setup=1"]
+  agente --> perm{canViewAgentSettings?}
   perm -->|Não| denied[Mensagem sem permissão]
-  perm -->|Sim| steps[Setup 3 passos]
-  steps --> s1[1 Conectar WhatsApp]
-  s1 --> qr[QR / status Zapster]
-  qr --> s2[2 Configurar assistente]
+  perm -->|Sim| s2[1 Configurar assistente]
   s2 --> prompt[AgentIAPromptEditor]
-  prompt --> s3[3 Botão Ativar atendimento]
+  prompt --> s3[2 Ativar atendimento]
   s3 --> active[iaAtiva + webhooks]
   active --> pause[Botão Pausar atendimento]
   active --> inbox[Conversas recebem respostas]
@@ -48,19 +48,16 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/agente-ia` | `AIAgentSettings` → `AgenteIASection` | Abrir **Agente de Atendimento** | Header + painel setup |
-| 2 | Passo 1 | Cartão WhatsApp | Escanear QR / reconectar | `card1Connected` |
-| 3 | Passo 1 | Status | Ver desconectado/conectando/online | `formatWaAgentStatus` |
-| 4 | Card 2 | Setting-row **Recursos de IA** | Toggle módulo IA (`.ai-switch`) | `aiModuleEnabled`; copilot/⌘K; **não** liga atendimento WA sozinho |
-| 5 | Passo 2 | Editor de prompt | Instruções + regras | `isPromptConfigured` |
-| 6 | Passo 2 | Salvar prompt | Persistir academia | Só se `canEditAgentPrompt` |
-| 7 | Passo 2 | Chat de teste | `AgentIATestChat` | Simular resposta |
-| 8 | Passo 3 | **Ativar atendimento automático** | Botão → `ConfirmDialog` (número WA, uso do ciclo) → `handleToggleIa(true)` |
-| 9 | Passo 3 (ativo) | **Pausar atendimento automático** | Botão → `ConfirmDialog` → `handleToggleIa(false)` |
-| 10 | PageHeader | Chip status | **Assistente ativo** / **Pausado** quando prompt configurado |
-| 10 | Avançado | FAQ / ações | `AgentIAAdvancedOptions` | `V1_AI_ACTIONS`; toggle execução em setting-row |
-| 11 | Link | Voltar conversas | `/conversas` | Inbox operacional |
-| 12 | Menu | **Agente IA** na seção Atendimento | Só se `canConfigureAgenteIa` (owner/member) | `naviMenu.js` → `buildAgenteIaNavItem` |
+| 1 | `/integracoes?tab=whatsapp` | `IntegracoesWhatsAppSection` → `WhatsAppConnectionPanel` | Escanear QR / reconectar | Instância Zapster pareada |
+| 2 | Integrações | `WhatsAppSetupStepper` (3 passos) | Ver progresso global | Passo 1 na aba atual; 2–3 linkam Agente IA |
+| 3 | Integrações | Handoff pós-conexão | **Configurar assistente** | `/agente-ia?setup=1&from=integracoes` |
+| 4 | `/agente-ia` | `AgenteIASection` | Abrir **Agente de Atendimento** | Header + setup 2 passos (após WA) |
+| 5 | Agente IA | Status WA resumido | Link **Gerenciar em Integrações** | `/integracoes?tab=whatsapp` |
+| 6 | Passo config | Editor de prompt | Instruções + regras | `isPromptConfigured` |
+| 7 | Passo ativar | **Ativar atendimento automático** | Botão → `ConfirmDialog` → `handleToggleIa(true)` |
+| 8 | PageHeader | Prefix contextual | «Voltar para Integrações» ou conversas | `from=integracoes` / `state.fromIntegracoes` |
+| 9 | Sidebar (owner) | **Conectar WhatsApp** | Enquanto WA pendente | `INTEGRACOES_WHATSAPP_PATH` |
+| 10 | Menu | **Agente IA** na seção Atendimento | Só se `canConfigureAgenteIa` | `naviMenu.js` → `buildAgenteIaNavItem` |
 
 **UX (P0):** Não existe toggle de `iaAtiva` no header ao lado do título. Ativar e pausar usam apenas os botões do rodapé do card (spec UX 2026-06-17).
 
@@ -87,7 +84,9 @@ Onboarding: member sem `canConfigureAgenteIa` recebe toast ao clicar passos IA/W
 
 ### Checklist passo a passo
 
-1. [ ] Owner: `/agente-ia` carrega wizard 3 passos
+1. [ ] Owner: `/integracoes?tab=whatsapp` — QR, stepper 3 passos, banner handoff
+2. [ ] Owner: sidebar **Conectar WhatsApp** enquanto instância pendente
+3. [ ] Owner/member: `/agente-ia` — setup 2 passos após WA conectado
 2. [ ] Admin: mensagem «Você não tem permissão…»
 3. [ ] Passo 1: QR exibido quando desconectado
 4. [ ] Após conectar: passo 1 marcado done
@@ -155,7 +154,7 @@ Onboarding: member sem `canConfigureAgenteIa` recebe toast ao clicar passos IA/W
 
 ## Variações e atalhos
 
-- **Onboarding:** `setup_ai` e `connect_whatsapp` → `/agente-ia`
+- **Onboarding:** `connect_whatsapp` → `/integracoes?tab=whatsapp`; `setup_ai` → `/agente-ia?setup=1` (bloqueado até WA conectado)
 - **Automações:** gatilhos WhatsApp exigem número conectado — ver [automacoes-funil.md](automacoes-funil.md)
 - **Lembretes financeiros:** separados em `/empresa?tab=financeiro&section=lembretes-whatsapp`
 
@@ -165,6 +164,7 @@ Onboarding: member sem `canConfigureAgenteIa` recebe toast ao clicar passos IA/W
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-18 | — | WA em Integrações; handoff; sidebar Conectar WhatsApp; onboarding guard |
 | 2026-06-17 | — | P2: ConfirmDialog ativar/pausar, chip no PageHeader, toast IA off |
 | 2026-06-17 | — | P1 UX: badges canônicos, banners consolidados, SettingRow shared, testes |
 | 2026-06-17 | — | P0 UX config: botão ativar/pausar (sem toggle header); setting-row Recursos de IA; mapa e checklist |

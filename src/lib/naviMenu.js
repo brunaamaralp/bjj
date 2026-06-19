@@ -9,6 +9,7 @@ import {
   buildPayablesSearchParams,
   PAYABLES_SECTIONS,
 } from './financeiroPayablesSections.js';
+import { INTEGRACOES_WHATSAPP_PATH } from './integracoesRoutes.js';
 
 /** Labels e estrutura compartilhada entre sidebar desktop e drawer mobile. */
 
@@ -216,6 +217,15 @@ export function buildAgenteIaNavItem() {
   };
 }
 
+export function buildConectarWhatsAppNavItem() {
+  return {
+    id: 'conectar-whatsapp',
+    to: INTEGRACOES_WHATSAPP_PATH,
+    label: 'Conectar WhatsApp',
+    iconKey: 'whatsapp',
+  };
+}
+
 export const NOVA_VENDA_MENU_ACTION = 'openNovaVendaModal';
 export const NEW_LEAD_MENU_ACTION = 'openNewLeadModal';
 export const NOVO_LANCAMENTO_MENU_ACTION = 'openNovoLancamento';
@@ -355,6 +365,7 @@ export function buildSidebarNavModel({
   newLeadLabel,
   navRole,
   isOwner = true,
+  waSetupDone = true,
 }) {
   const accordions = [];
   const automacoes = buildAutomacoesAccordion();
@@ -384,6 +395,7 @@ export function buildSidebarNavModel({
       { to: '/tarefas', label: 'Tarefas', iconKey: 'tarefas' },
     ],
     atendimento: [{ id: 'conversas', to: '/inbox', label: 'Conversas', iconKey: 'conversas' }],
+    conectarWhatsApp: isOwner && !waSetupDone ? buildConectarWhatsAppNavItem() : null,
     agenteIa: canConfigureAgenteIa ? buildAgenteIaNavItem() : null,
     analise: [buildRelatoriosNavItem()],
     financeDirect: [],
@@ -417,6 +429,10 @@ export function flattenNavItemsForMobile(model) {
         });
       }
     }
+  }
+
+  if (model.conectarWhatsApp) {
+    push({ ...model.conectarWhatsApp, section: 'Atendimento' });
   }
 
   if (model.agenteIa) {
@@ -470,6 +486,7 @@ export function buildMobileDrawerSections(opts) {
     newLeadLabel: null,
     navRole: opts.navRole,
     isOwner: opts.isOwner !== false,
+    waSetupDone: opts.waSetupDone !== false,
   });
   const flat = flattenNavItemsForMobile(model);
   const sections = [];

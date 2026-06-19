@@ -3,7 +3,7 @@ export const AUTOMACOES_COPY = {
   hub: {
     title: 'Mensagens do funil',
     subtitle:
-      'Textos e gatilhos que enviam WhatsApp automaticamente quando o número está conectado no Agente IA.',
+      'Textos e gatilhos que enviam WhatsApp automaticamente quando o número está conectado em Integrações.',
   },
   tab: {
     modelos: {
@@ -31,8 +31,8 @@ export const AUTOMACOES_COPY = {
     },
     whatsapp: {
       title: 'Conecte o WhatsApp',
-      description: 'Os gatilhos do funil usam o número conectado no Agente IA.',
-      ctaLabel: 'Abrir Agente IA',
+      description: 'Os gatilhos do funil usam o número conectado em Integrações.',
+      ctaLabel: 'Abrir Integrações',
       ctaHint: 'Você sairá desta página.',
     },
     gatilhos: {

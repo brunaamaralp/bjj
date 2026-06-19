@@ -8,6 +8,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useTaskStore, NOTIFICATION_TASKS_REFRESH_MS } from '../../store/useTaskStore';
 import { buildProactiveHubItems, proactiveHubTotalCount } from '../../lib/proactiveHub.js';
+import { INTEGRACOES_WHATSAPP_PATH } from '../../lib/integracoesRoutes.js';
 import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
 
 const PROACTIVE_ICONS = {
@@ -71,7 +72,7 @@ export default function NotificationBell({ academyId, userId }) {
       return;
     }
     if (n.is_system && n.type === 'whatsapp_disconnected') {
-      navigate('/agente-ia');
+      navigate(INTEGRACOES_WHATSAPP_PATH);
       return;
     }
     navigate(`/inbox?phone=${normalizePhone(n.phone_number || '')}&conversation=${n.conversation_id}`);

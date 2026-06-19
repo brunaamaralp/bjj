@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { INTEGRACOES_WHATSAPP_PATH } from '../../lib/integracoesRoutes.js';
 import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 
 /**
@@ -60,8 +61,8 @@ export default function AutomacoesReadinessBanner({
               )}
               <span>{step.label}</span>
               {step.id === 'zapster' && !step.ok && !suppressZapsterLink ? (
-                <Link to="/agente-ia" className="edit-link" style={{ marginLeft: 6, fontSize: '0.85rem' }}>
-                  Abrir Agente IA
+                <Link to={INTEGRACOES_WHATSAPP_PATH} className="edit-link" style={{ marginLeft: 6, fontSize: '0.85rem' }}>
+                  Abrir Integrações
                 </Link>
               ) : null}
               {step.id === 'templates' && !step.ok && showModelsLink ? (

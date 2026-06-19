@@ -13,6 +13,6 @@ describe('ProfileWhatsAppOfflineBanner', () => {
     );
 
     expect(screen.getByRole('alert')).toHaveTextContent(/WhatsApp desconectado/i);
-    expect(screen.getByRole('link', { name: 'Conectar WhatsApp' })).toHaveAttribute('href', '/agente-ia');
+    expect(screen.getByRole('link', { name: 'Conectar WhatsApp' })).toHaveAttribute('href', '/integracoes?tab=whatsapp');
   });
 });

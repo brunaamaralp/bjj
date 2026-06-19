@@ -364,17 +364,17 @@ Harness: `lojaInventoryTabs`.
 |---|---|---|---|
 | 1 | `/agente-ia` owner/member | ✅ Código | `canViewAgentSettings` |
 | 2 | Admin bloqueado | ✅ Código | `role === 'admin'` → mensagem permissão |
-| 3 | Setup 3 passos | ✅ Código | `setupProgress` em `AgenteIASection` |
-| 4 | Zapster QR/status | ✅ Código | `useZapsterWhatsAppConnection` |
+| 3 | Setup 2 passos (Agente) + 3 passos (Integrações) | ✅ Código | `AgenteIASection`, `WhatsAppSetupStepper` |
+| 4 | Zapster QR/status em Integrações | ✅ Código | `WhatsAppConnectionPanel`, `useZapsterWhatsAppConnection` |
 | 5 | Recursos de IA (setting-row) | ✅ Código | `agent-ia-setting-row`, `handleToggleAiModule` |
 | 6 | Editar prompt | ✅ Código | `canEditAgentPrompt` |
 | 7 | Ativar via botão (sem toggle header) | ✅ Código | `renderServiceControl`, `handleToggleIa(true)` |
 | 8 | Pausar via botão outline | ✅ Código | `renderServiceControl`, `handleToggleIa(false)` |
 | 9 | Guards ativar (IA off / WA off) | ✅ Código | `renderServiceControl` disabled + hints |
 | 10 | Legacy `?tab=agente` | ✅ Código | `Automacoes.jsx` navigate |
-| 11–19 | Billing, inbox, confirmações, header chip, IA off | ✅ Código | `AgentServiceControl`, `ConfirmDialog`, `handleToggleAiModule` |
+| 11–19 | Billing, inbox, confirmações, header chip, IA off, handoff Integrações, sidebar Conectar WA | ✅ Código | `WhatsAppConnectionPanel`, `buildConectarWhatsAppNavItem`, `OnboardingBanner` |
 
-Harness: `npm test -- agentIaServiceControl AgentServiceControl`.
+Harness: `npm test -- waSetupProgress agentIaRoutes naviMenu onboardingChecklist`.
 
 **Spec UX:** [2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md](../superpowers/specs/2026-06-17-agente-ia-config-ux-evolucao-PRODUCT.md) — P0–P2 concluídos 2026-06-17.
 

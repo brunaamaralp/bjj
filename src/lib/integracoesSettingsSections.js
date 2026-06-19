@@ -1,5 +1,6 @@
 /** Abas em /integracoes?tab= */
 export const INTEGRACOES_SETTINGS_SECTIONS = {
+  WHATSAPP: 'whatsapp',
   CATRACA: 'catraca',
   AUTENTIQUE: 'autentique',
 };
@@ -12,6 +13,12 @@ export function isIntegracoesSettingsSection(raw) {
 }
 
 export const INTEGRACOES_SETTINGS_ITEMS = [
+  {
+    id: INTEGRACOES_SETTINGS_SECTIONS.WHATSAPP,
+    label: 'WhatsApp',
+    panelTitle: 'WhatsApp — mensagens e conversas',
+    hint: 'Conecte o número da academia para inbox, automações, follow-ups e agente de IA.',
+  },
   {
     id: INTEGRACOES_SETTINGS_SECTIONS.CATRACA,
     label: 'Catraca',
@@ -26,7 +33,7 @@ export const INTEGRACOES_SETTINGS_ITEMS = [
   },
 ];
 
-export const INTEGRACOES_DEFAULT_SECTION = INTEGRACOES_SETTINGS_SECTIONS.CATRACA;
+export const INTEGRACOES_DEFAULT_SECTION = INTEGRACOES_SETTINGS_SECTIONS.WHATSAPP;
 
 export function resolveIntegracoesNavState(rawTab) {
   const section = isIntegracoesSettingsSection(rawTab) || INTEGRACOES_DEFAULT_SECTION;

@@ -8,19 +8,20 @@ import {
 
 describe('integracoesSettingsSections', () => {
   it('valida abas conhecidas', () => {
+    expect(isIntegracoesSettingsSection('whatsapp')).toBe('whatsapp');
     expect(isIntegracoesSettingsSection('catraca')).toBe('catraca');
     expect(isIntegracoesSettingsSection('autentique')).toBe('autentique');
     expect(isIntegracoesSettingsSection('invalid')).toBeNull();
   });
 
-  it('default catraca', () => {
-    expect(INTEGRACOES_DEFAULT_SECTION).toBe(INTEGRACOES_SETTINGS_SECTIONS.CATRACA);
+  it('default whatsapp', () => {
+    expect(INTEGRACOES_DEFAULT_SECTION).toBe(INTEGRACOES_SETTINGS_SECTIONS.WHATSAPP);
   });
 
   it('resolveIntegracoesNavState com fallback', () => {
     const state = resolveIntegracoesNavState('');
-    expect(state.section).toBe('catraca');
-    expect(state.meta.panelTitle).toContain('Control iD');
+    expect(state.section).toBe('whatsapp');
+    expect(state.meta.panelTitle).toContain('WhatsApp');
   });
 
   it('resolveIntegracoesNavState autentique', () => {

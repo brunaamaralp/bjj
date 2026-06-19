@@ -232,7 +232,7 @@ describe('NaviChatWidgetPanel embedded', () => {
 
     expect(screen.getByText('WhatsApp não conectado')).toBeInTheDocument();
     expect(screen.queryByText('Nenhuma conversa ainda')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Configurar WhatsApp' })).toHaveAttribute('href', '/agente-ia');
+    expect(screen.getByRole('link', { name: 'Configurar WhatsApp' })).toHaveAttribute('href', '/integracoes?tab=whatsapp');
     expect(screen.getByRole('button', { name: 'Abrir WhatsApp Web' })).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/Digite uma mensagem/i)).not.toBeInTheDocument();
   });
@@ -260,7 +260,7 @@ describe('NaviChatWidgetPanel embedded', () => {
     );
 
     expect(screen.getByText(/WhatsApp desconectado — não é possível enviar mensagens/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Reconectar' })).toHaveAttribute('href', '/agente-ia');
+    expect(screen.getByRole('link', { name: 'Reconectar' })).toHaveAttribute('href', '/integracoes?tab=whatsapp');
     expect(screen.queryByText('WhatsApp não conectado')).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText('Conecte o WhatsApp para enviar mensagens')).toBeDisabled();
   });

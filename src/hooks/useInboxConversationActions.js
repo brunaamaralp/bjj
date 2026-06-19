@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { INTEGRACOES_WHATSAPP_PATH } from '../lib/integracoesRoutes.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { getInboxJwt, normalizeInboxApiError, safeParseInboxJson } from '../lib/inboxApiUtils.js';
@@ -538,7 +539,7 @@ export function useInboxConversationActions({
   ]);
 
   const openPromptSettings = useCallback(() => {
-    navigate('/agente-ia');
+    navigate(INTEGRACOES_WHATSAPP_PATH);
   }, [navigate]);
 
   const restoreLeadTriage = useCallback(async () => {

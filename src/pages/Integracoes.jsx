@@ -10,6 +10,7 @@ import {
 } from '../lib/integracoesSettingsSections.js';
 import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import ContractsAutentiqueSection from '../components/academy/ContractsAutentiqueSection.jsx';
+import IntegracoesWhatsAppSection from '../components/academy/IntegracoesWhatsAppSection.jsx';
 import AcademyTabSettingsLayout from '../components/academy/settings/AcademyTabSettingsLayout.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import '../components/finance/finance.css';
@@ -37,6 +38,8 @@ export default function Integracoes() {
     sectionBody = (
       <p className="text-small text-muted">Selecione uma academia para configurar integrações.</p>
     );
+  } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.WHATSAPP) {
+    sectionBody = <IntegracoesWhatsAppSection embeddedInLayout academyId={academyId} />;
   } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.CATRACA) {
     sectionBody = <ControlIdCatracaSection embeddedInLayout academyId={academyId} />;
   } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.AUTENTIQUE) {
@@ -47,7 +50,7 @@ export default function Integracoes() {
     <div className="container navi-hub-page integracoes-hub-page">
       <PageHeader
         title="Integrações"
-        subtitle="Conecte catraca Control iD e assinatura digital Autentique."
+        subtitle="WhatsApp, catraca Control iD e assinatura digital Autentique."
       />
 
       <section className="integracoes-settings-section animate-in mt-3">

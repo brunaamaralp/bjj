@@ -12,7 +12,10 @@ import {
   trialDaysRemaining,
   buildEffectiveCoreSteps,
   ONBOARDING_STEP_TITLES,
+  isOnboardingStepDone,
 } from '../lib/onboardingChecklist.js';
+import { INTEGRACOES_WHATSAPP_PATH } from '../lib/integracoesRoutes.js';
+import { AGENTE_IA_SETUP_PATH } from '../lib/agentIaRoutes.js';
 import { useTerms } from '../lib/terminology.js';
 import { useProductsStore } from '../store/useProductsStore';
 import { useInventoryStore } from '../store/useInventoryStore';
@@ -137,16 +140,39 @@ export default function OnboardingBanner() {
     setDismissed(true);
   };
 
-  const stepBlocked = (stepId) =>
-    (stepId === 'setup_ai' || stepId === 'connect_whatsapp') && !canConfigureAgenteIa;
+  const stepBlocked = (stepId) => {
+    if ((stepId === 'setup_ai' || stepId === 'connect_whatsapp') && !canConfigureAgenteIa) {
+      return true;
+    }
+    if (stepId === 'setup_ai' && !isOnboardingStepDone(list, 'connect_whatsapp')) {
+      return true;
+    }
+    return false;
+  };
 
   const handleStepNav = (stepId) => {
     if (stepBlocked(stepId)) {
+      if (
+        stepId === 'setup_ai' &&
+        canConfigureAgenteIa &&
+        !isOnboardingStepDone(list, 'connect_whatsapp')
+      ) {
+        addToast({
+          type: 'info',
+          message: 'Conecte o WhatsApp em Integrações primeiro.',
+        });
+        navigate(INTEGRACOES_WHATSAPP_PATH);
+        return;
+      }
       addToast({
         type: 'info',
         message: `Peça ao dono da ${terms.workspaceNoun} para configurar a IA e o WhatsApp.`,
         duration: 6000,
       });
+      return;
+    }
+    if (stepId === 'setup_ai') {
+      navigate(AGENTE_IA_SETUP_PATH);
       return;
     }
     const path = onboardingStepPath(stepId);
@@ -332,6 +358,7 @@ export default function OnboardingBanner() {
                     type="button"
                     onClick={() => handleStepNav(s.id)}
                     disabled={stepBlocked(s.id)}
+                    aria-disabled={stepBlocked(s.id) ? true : undefined}
                     className="text-small"
                     title={s.description || undefined}
                     style={{

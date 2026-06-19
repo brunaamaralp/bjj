@@ -19,6 +19,7 @@ import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
 import { isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
+import { INTEGRACOES_WHATSAPP_PATH } from '../lib/integracoesRoutes.js';
 import { X } from 'lucide-react';
 import InboxListSection from '../components/inbox/InboxListSection.jsx';
 import InboxGlobalBanners from '../components/inbox/InboxGlobalBanners.jsx';
@@ -1480,7 +1481,7 @@ export default function Inbox() {
     <div className={inboxPageClassName}>
       <InboxGlobalBanners
         showWaDisconnectBanner={showWaDisconnectBanner}
-        onReconnectWhatsApp={() => navigate('/agente-ia')}
+        onReconnectWhatsApp={() => navigate(INTEGRACOES_WHATSAPP_PATH)}
         error={error}
         listCapped={listCapped}
       />

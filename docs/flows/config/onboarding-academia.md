@@ -5,10 +5,10 @@
 | **id** | `config.onboarding.academia` |
 | **módulo** | Config |
 | **personas** | owner, admin (IA/WhatsApp bloqueados para alguns members); recepcionista vê banner com restrições |
-| **rotas** | Banner global; destinos por passo (`/new-lead`, `/agente-ia`, `/empresa?tab=financeiro`, etc.) |
+| **rotas** | Banner global; destinos por passo (`/new-lead`, `/integracoes?tab=whatsapp`, `/agente-ia?setup=1`, etc.) |
 | **pré-requisitos** | Academia criada; usuário logado com `academyId` selecionado |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-18 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:** — (comportamento em `onboardingChecklist.js` + `OnboardingBanner.jsx`)
@@ -53,8 +53,8 @@ flowchart TD
 | 3 | Banner | **Ver todos os passos** | Expandir lista | Chips clicáveis por passo |
 | 4 | Banner | **Dispensar** (X) | Ocultar checklist | `localStorage` por `academyId` |
 | 5 | Passo `first_lead` | `/new-lead` | Criar lead | Passo marcado done (persist) |
-| 6 | Passo `connect_whatsapp` | `/agente-ia` | Conectar WhatsApp | Integração Zapster |
-| 7 | Passo `setup_ai` | `/agente-ia` | Configurar assistente | Prompts e comportamento |
+| 6 | Passo `connect_whatsapp` | `/integracoes?tab=whatsapp` | Conectar WhatsApp | Integração Zapster |
+| 7 | Passo `setup_ai` | `/agente-ia?setup=1` | Configurar assistente | Bloqueado até `connect_whatsapp` done |
 | 8 | Passo `setup_finance` | `/empresa?tab=financeiro` | Cadastrar planos | Auto-done se `plans.length > 0` |
 | 9 | Passo `first_product` | `/loja?tab=produtos` | Cadastrar produto | Auto-done se há produtos |
 | 10 | Passo `first_stock_entry` | `/loja?tab=estoque` | Entrada de estoque | Auto-done se `current_quantity > 0` |
@@ -66,8 +66,8 @@ flowchart TD
 | ID | Título | Quando entra | Destino canônico |
 |---|---|---|---|
 | `first_lead` | Criar primeiro lead | Sempre | `/new-lead` |
-| `connect_whatsapp` | Conectar WhatsApp | Sempre | `/agente-ia` |
-| `setup_ai` | Configurar IA | Sempre | `/agente-ia` |
+| `connect_whatsapp` | Conectar WhatsApp | Sempre | `/integracoes?tab=whatsapp` |
+| `setup_ai` | Configurar IA | Sempre | `/agente-ia?setup=1` |
 | `setup_finance` | Configurar financeiro | `modules.finance` | `/empresa?tab=financeiro` |
 | `first_product` | Cadastrar produto | `sales` ou `inventory` | `/loja?tab=produtos` |
 | `first_stock_entry` | Estoque inicial | `inventory` | `/loja?tab=estoque` |
@@ -92,7 +92,7 @@ flowchart TD
 | **admin** | Sim | Clicáveis |
 | **member** | Sim | Bloqueados — toast pede ao dono |
 
-`stepBlocked`: `setup_ai` e `connect_whatsapp` quando `!canConfigureAgenteIa` (member sem permissão).
+`stepBlocked`: `setup_ai` e `connect_whatsapp` quando `!canConfigureAgenteIa`; adicionalmente `setup_ai` quando `connect_whatsapp` ainda pendente (chip muted + toast «Conecte o WhatsApp em Integrações primeiro.»).
 
 ### Checklist passo a passo
 
@@ -104,16 +104,18 @@ flowchart TD
 6. [ ] `first_stock_entry` auto-completa quando algum item tem `current_quantity > 0`
 7. [ ] Módulo finance off → passo `setup_finance` ausente do core
 8. [ ] Só sales (sem inventory) → `first_product` sim; `first_stock_entry` não
-9. [ ] Member: clicar IA/WhatsApp → toast informativo, sem navegar
-10. [ ] `company_tax` só com billing live e `companyTaxOk === false`
-11. [ ] Trial ativo → linha «Trial: N dias» no banner expandido
-12. [ ] Trocar academia → progresso e dismiss key isolados por `academyId`
+9. [ ] Member: clicar IA/WhatsApp sem permissão → toast informativo, sem navegar
+10. [ ] Owner: clicar `setup_ai` sem WA → toast + redirect Integrações
+11. [ ] `company_tax` só com billing live e `companyTaxOk === false`
+12. [ ] Trial ativo → linha «Trial: N dias» no banner expandido
+13. [ ] Trocar academia → progresso e dismiss key isolados por `academyId`
 
 ### Estados de erro conhecidos
 
 | Situação | Feedback esperado | Referência |
 |---|---|---|
 | Member em passo IA | Toast «Peça ao dono…» | `OnboardingBanner.handleStepNav` |
+| `setup_ai` sem WA | Toast + `/integracoes?tab=whatsapp` | Guard `connect_whatsapp` |
 | PWA | Toast com instrução de instalar | `install_pwa` path `null` |
 
 ### Critérios de fluxo saudável vs regressão

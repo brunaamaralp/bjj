@@ -6,6 +6,9 @@
  * install_pwa é secundário (não entra na contagem principal).
  */
 
+import { INTEGRACOES_WHATSAPP_PATH } from './integracoesRoutes.js';
+import { AGENTE_IA_SETUP_PATH } from './agentIaRoutes.js';
+
 export const ONBOARDING_STEP_TITLES = {
   first_lead: 'Criar seu primeiro lead',
   connect_whatsapp: 'Conectar o WhatsApp',
@@ -227,6 +230,13 @@ export function isEffectiveOnboardingComplete(list, billingAccess, billingLive, 
   return core.length > 0 && core.every((s) => s.done);
 }
 
+export function isOnboardingStepDone(list, stepId) {
+  const arr = Array.isArray(list) ? list : [];
+  const id = String(stepId || '').trim();
+  if (!id) return false;
+  return Boolean(arr.find((x) => x.id === id)?.done);
+}
+
 /** Rota sugerida por id do passo (null = só mensagem / sem navegação). */
 export function onboardingStepPath(stepId) {
   const id = String(stepId || '').trim();
@@ -234,9 +244,9 @@ export function onboardingStepPath(stepId) {
     case 'first_lead':
       return '/new-lead';
     case 'setup_ai':
-      return '/agente-ia';
+      return AGENTE_IA_SETUP_PATH;
     case 'connect_whatsapp':
-      return '/agente-ia';
+      return INTEGRACOES_WHATSAPP_PATH;
     case 'setup_automations':
       return '/automacoes?wizard=1';
     case 'setup_finance':

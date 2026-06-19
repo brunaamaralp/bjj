@@ -10,6 +10,7 @@ import {
   INBOX_LIST_SECTION_MORE_STEP,
   INBOX_LIST_VIRTUALIZE_THRESHOLD,
 } from '../../lib/inboxUiConstants.js';
+import { INTEGRACOES_WHATSAPP_PATH } from '../../lib/integracoesRoutes.js';
 
 function normalizeGroupItems(raw) {
   if (Array.isArray(raw)) return raw;
@@ -253,10 +254,10 @@ export default function ConversationList(props) {
             variant="default"
             tone="dashed"
             title="Conecte seu WhatsApp para receber e enviar mensagens diretamente pelo Nave."
-            description="Configure a conexão na página do Agente IA."
+            description="Configure a conexão em Integrações."
             primaryAction={{
               label: 'Configurar WhatsApp',
-              href: '/agente-ia',
+              href: INTEGRACOES_WHATSAPP_PATH,
             }}
             role="status"
           />

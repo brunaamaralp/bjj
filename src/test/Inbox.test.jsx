@@ -173,7 +173,7 @@ describe('Inbox — banner WhatsApp', () => {
     expect(document.querySelector('.inbox-global-error')).toBeInTheDocument();
     const link = screen.getByRole('button', { name: /Reconectar/i });
     link.click();
-    expect(inboxMocks.navigate).toHaveBeenCalledWith('/agente-ia');
+    expect(inboxMocks.navigate).toHaveBeenCalledWith('/integracoes?tab=whatsapp');
 
     inboxMocks.setWaStatus('connected');
     rerender(

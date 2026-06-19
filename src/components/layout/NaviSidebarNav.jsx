@@ -388,6 +388,7 @@ export default function NaviSidebarNav({
   canConfigureAgenteIa,
   navRole = 'member',
   inboxUnread,
+  waSetupDone = true,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -403,8 +404,9 @@ export default function NaviSidebarNav({
         newLeadLabel,
         navRole,
         isOwner: navRole === 'owner',
+        waSetupDone,
       }),
-    [modules, canConfigureAgenteIa, labels.pipeline, navStudentsLabel, newLeadLabel, navRole]
+    [modules, canConfigureAgenteIa, labels.pipeline, navStudentsLabel, newLeadLabel, navRole, waSetupDone]
   );
 
   const routeAccordion = useMemo(
@@ -479,6 +481,15 @@ export default function NaviSidebarNav({
             onToggle={toggleAccordion}
             sideLinkClass={sideLinkClass}
             location={location}
+          />
+        ) : null}
+        {modulesReady && navModel.conectarWhatsApp ? (
+          <SideNavLink
+            to={navModel.conectarWhatsApp.to}
+            label={navModel.conectarWhatsApp.label}
+            Icon={getNavMenuIcon(navModel.conectarWhatsApp.iconKey)}
+            collapsed={collapsed}
+            className={sideLinkClass}
           />
         ) : null}
         {modulesReady && navModel.agenteIa ? (

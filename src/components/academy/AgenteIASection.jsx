@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
-import { flushSync } from 'react-dom';
-import { Link } from 'react-router-dom';
-import { ChevronLeft, Copy } from 'lucide-react';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { ChevronLeft, Copy, Check, Bot } from 'lucide-react';
 import { createSessionJwt, teams } from '../../lib/appwrite';
 import { parseFaqItems } from '../../../lib/whatsappTemplateDefaults.js';
 import { validatePromptFields } from '../../../lib/aiPromptLimits.js';
@@ -12,7 +11,6 @@ import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConn
 import { canEditAgentPrompt, canViewAgentSettings } from '../../lib/canEditAgentPrompt.js';
 import { mapAgentSettingsErrorMessage } from '../../lib/agentTestErrorMessage.js';
 import { friendlyError } from '../../lib/errorMessages.js';
-import { Smartphone, Bot, QrCode, Power, RefreshCw, Unplug, HelpCircle, Check } from 'lucide-react';
 import { useTerms, contactLabelSingular } from '../../lib/terminology.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
@@ -37,37 +35,14 @@ import {
 import { isPromptConfigured, formatInstructionsSavedAt, AGENT_SYSTEM_RULES } from './agentIaUtils.js';
 import { useToast } from '../../hooks/useToast';
 import { formatWaPhoneDisplay } from '../../../lib/zapsterInstancePhone.js';
-import { WA_CONNECTED_STATUSES, WA_PAUSED_STATUSES } from '../../lib/resolveWhatsAppIntegrationStatus.js';
+import { formatWaAgentStatus } from '../../lib/waAgentStatusDisplay.js';
+import { INTEGRACOES_WHATSAPP_PATH } from '../../lib/integracoesRoutes.js';
+import { readAgentIaSetupIntent, readAgentIaFromIntegracoes } from '../../lib/agentIaRoutes.js';
+import { isWaSetupStepDone } from '../../lib/waSetupProgress.js';
 import { V1_AI_ACTIONS } from '../../../lib/agentActionConfig.js';
 import './agent-ia.css';
 
 const AgenteChatSetup = lazy(() => import('../inbox/AgenteChatSetup'));
-
-/** Rótulo curto para o status da conexão WhatsApp na UI do Agente (não conectado). */
-function formatWaAgentStatus(status) {
-    const k = String(status || '').trim().toLowerCase();
-    if (!k) return 'Aguardando conexão';
-    if (k === 'connected' || k === 'online') return 'Conectado';
-    if (k === 'offline') return 'Conexão pausada';
-    if (k === 'open' || k === 'scanning' || k === 'qrcode') return 'Aguardando leitura do QR';
-    if (k === 'connecting' || k === 'syncing') return 'Reconectando…';
-    if (k === 'disconnected') return 'Desvinculado do WhatsApp';
-    if (k === 'unknown') return 'Em verificação';
-    if (k === 'error' || k === 'failed') return 'Erro na conexão';
-    const words = k.replace(/_/g, ' ').split(/\s+/).filter(Boolean);
-    if (words.length === 0) return 'Aguardando conexão';
-    return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-/** Ícone + cores para a faixa de status (conexão não ativa). */
-function waAgentStatusVisual(status) {
-    const k = String(status || '').trim().toLowerCase();
-    if (k === 'offline') return { Icon: Power, accent: '#c2410c', bg: 'rgba(194, 65, 12, 0.08)' };
-    if (k === 'open' || k === 'scanning' || k === 'qrcode') return { Icon: QrCode, accent: '#25D366', bg: 'rgba(37, 211, 102, 0.08)' };
-    if (k === 'connecting' || k === 'syncing') return { Icon: RefreshCw, accent: 'var(--color-primary)', bg: 'rgba(108, 71, 216, 0.08)' };
-    if (k === 'disconnected') return { Icon: Unplug, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
-    return { Icon: HelpCircle, accent: 'var(--text-secondary)', bg: 'var(--surface)' };
-}
 
 function agentDebugEnabled() {
     if (typeof window === 'undefined') return false;
@@ -80,40 +55,30 @@ function agentDebugEnabled() {
     return false;
 }
 
-function formatWaLastChecked(iso) {
-    const s = String(iso || '').trim();
-    if (!s) return '';
-    const d = new Date(s);
-    if (!Number.isFinite(d.getTime())) return '';
-    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
-
 function getAgentPageSubtitle(setupProgress) {
     const { currentStep, waDone, configDone, activeDone } = setupProgress;
     if (waDone && configDone && activeDone) return 'Assistente ativo no WhatsApp.';
-    if (currentStep === 1) return 'Passo 1 de 3: conecte o WhatsApp.';
-    if (currentStep === 2) return 'Passo 2 de 3: configure o assistente.';
-    if (currentStep === 3) return 'Passo 3 de 3: ative o atendimento automático.';
+    if (!waDone) return 'Conecte o WhatsApp em Integrações para configurar o assistente.';
+    if (currentStep === 1) return 'Passo 1 de 2: configure o assistente.';
+    if (currentStep === 2) return 'Passo 2 de 2: ative o atendimento automático.';
     return 'Defina respostas automáticas no WhatsApp.';
-}
-
-/** Passo 1 concluído quando há instância pareada (conectada ou pausada). */
-function isAgentWaSetupStepDone({ waConnected, waStatus, instanceId }) {
-    if (waConnected) return true;
-    const id = String(instanceId || '').trim();
-    if (!id) return false;
-    const st = String(waStatus || '').trim().toLowerCase();
-    return WA_CONNECTED_STATUSES.has(st) || WA_PAUSED_STATUSES.has(st);
 }
 
 const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true }) => {
     const terms = useTerms();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const setupIntentHandledRef = useRef(false);
     const labels = useLeadStore((s) => s.labels);
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const addToast = useUiStore((s) => s.addToast);
     const toast = useToast();
     const academyIdRef = useRef(academyId);
     useEffect(() => { academyIdRef.current = academyId; }, [academyId]);
+
+    useEffect(() => {
+        setupIntentHandledRef.current = false;
+    }, [academyId]);
 
     const canViewAgent = canViewAgentSettings(role);
     const userId = useLeadStore((s) => s.userId);
@@ -144,71 +109,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         }
     });
 
-    const shouldLoadWaQr =
-        zap.waQrShown &&
-        !zap.waConnected &&
-        !!zap.waInfo?.instance_id &&
-        !zap.waTokenMissing &&
-        !zap.waQrError;
-
-    useEffect(() => {
-        if (!shouldLoadWaQr) {
-            if (waQrBlobUrlRef.current) {
-                URL.revokeObjectURL(waQrBlobUrlRef.current);
-                waQrBlobUrlRef.current = null;
-            }
-            setWaQrBlobUrl(null);
-            return;
-        }
-        let cancelled = false;
-        const instanceId = String(zap.waInfo.instance_id);
-        (async () => {
-            const prev = waQrBlobUrlRef.current;
-            if (prev) {
-                URL.revokeObjectURL(prev);
-                waQrBlobUrlRef.current = null;
-            }
-            setWaQrBlobUrl(null);
-            const url = await zap.fetchQrCode(instanceId);
-            if (cancelled) {
-                if (url) URL.revokeObjectURL(url);
-                return;
-            }
-            if (!url) {
-                zap.onQrImageError();
-                return;
-            }
-            waQrBlobUrlRef.current = url;
-            setWaQrBlobUrl(url);
-        })();
-        return () => {
-            cancelled = true;
-        };
-    // zap inteiro é instável; métodos e instance_id já cobrem o fetch de QR.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- QR keyed on instance_id/tick + stable zap methods
-    }, [
-        shouldLoadWaQr,
-        zap.waInfo?.instance_id,
-        zap.waQrTick,
-        zap.fetchQrCode,
-        zap.onQrImageError,
-    ]);
-
-    useEffect(() => {
-        if (!academyId) return;
-        if (!zap.waConnected) return;
-        const done = useLeadStore.getState().onboardingChecklist?.find((x) => x.id === 'connect_whatsapp')?.done;
-        if (done) return;
-        void useLeadStore.getState().completeOnboardingStepIds(['connect_whatsapp']);
-    }, [zap.waConnected, academyId]);
-
-    useEffect(() => {
-        if (waLoadingPrevRef.current && !zap.waLoading && academyId) {
-            setWaLastCheckedAt(new Date().toISOString());
-        }
-        waLoadingPrevRef.current = zap.waLoading;
-    }, [zap.waLoading, academyId]);
-
     const [promptIntro, setPromptIntro] = useState('');
     const [promptBody, setPromptBody] = useState('');
     const [promptSuffix, setPromptSuffix] = useState('');
@@ -237,11 +137,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [promptPreviewText, setPromptPreviewText] = useState('');
     const [loadingPromptPreview, setLoadingPromptPreview] = useState(false);
     const [wizardAgenteInitial, setWizardAgenteInitial] = useState(null);
-    const [waConfirm, setWaConfirm] = useState(null);
-    const [waQrBlobUrl, setWaQrBlobUrl] = useState(null);
-    const waQrBlobUrlRef = useRef(null);
-    const [waLastCheckedAt, setWaLastCheckedAt] = useState('');
-    const waLoadingPrevRef = useRef(false);
 
     // Fluxo do card Assistente IA (sequencial)
     const [showWizard, setShowWizard] = useState(false);
@@ -277,25 +172,8 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     const [testMessagesResetDate, setTestMessagesResetDate] = useState('');
 
     useEffect(() => {
-        if (!waConfirm) return undefined;
-        const onKey = (e) => {
-            if (e.key === 'Escape') setWaConfirm(null);
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [waConfirm]);
-
-    const handleWaConfirmAction = () => {
-        if (!waConfirm) return;
-        const { variant } = waConfirm;
-        // Fecha o modal antes de qualquer await (ex.: 402 em DELETE dispara redirect com atraso).
-        flushSync(() => {
-            setWaConfirm(null);
-        });
-        if (variant === 'disconnect') void zap.disconnectWaInstance();
-        if (variant === 'powerOff') void zap.powerOffInstance();
-        if (variant === 'restart') void zap.restartInstance();
-    };
+        setAcademyName(String(academyDoc?.name || '').trim());
+    }, [academyDoc?.name]);
 
     const instructionsSavedLabel = useMemo(
         () => formatInstructionsSavedAt(wizardAgenteInitial?.savedAt),
@@ -400,11 +278,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         if (done) return;
         void useLeadStore.getState().completeOnboardingStepIds(['setup_ai']);
     }, [canEditPrompt, promptConfigurado, academyId]);
-
-    useEffect(() => {
-        // Mantém o nome da academia sincronizado se o props vier atualizado.
-        setAcademyName(String(academyDoc?.name || '').trim());
-    }, [academyDoc?.name]);
 
     async function savePromptSettings(overrides, { successMessage } = {}) {
         if (!canEditPrompt) return false;
@@ -750,24 +623,20 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         setShowWizard(false);
     };
 
-    const waStatusVisual = useMemo(() => waAgentStatusVisual(zap.waStatus), [zap.waStatus]);
-    const WaStatusIcon = waStatusVisual.Icon;
-
-    const card1Connected = zap.waConnected;
     const card2Active = promptConfigurado && iaAtiva;
+    const waPhoneDisplay = formatWaPhoneDisplay(zap.waInfo?.phone);
 
     const setupProgress = useMemo(() => {
-        const waDone = isAgentWaSetupStepDone({
+        const waDone = isWaSetupStepDone({
             waConnected: zap.waConnected,
             waStatus: zap.waStatus,
             instanceId: zap.waInfo?.instance_id,
         });
         const configDone = promptConfigurado;
         const activeDone = iaAtiva;
-        let currentStep = 1;
-        if (waDone && !configDone) currentStep = 2;
-        else if (waDone && configDone && !activeDone) currentStep = 3;
-        else if (waDone && configDone && activeDone) currentStep = 0;
+        let currentStep = 0;
+        if (waDone && !configDone) currentStep = 1;
+        else if (waDone && configDone && !activeDone) currentStep = 2;
         let statusLine = '';
         if (waDone && configDone && !activeDone) {
             statusLine = 'Conectado, mas atendimento pausado';
@@ -775,23 +644,46 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         return { waDone, configDone, activeDone, currentStep, statusLine };
     }, [zap.waConnected, zap.waStatus, zap.waInfo?.instance_id, promptConfigurado, iaAtiva]);
 
-    const focusWa = setupProgress.currentStep === 1;
-    const focusAssistant = setupProgress.currentStep === 2 || setupProgress.currentStep === 3;
+    useEffect(() => {
+        if (setupIntentHandledRef.current) return;
+        if (!readAgentIaSetupIntent(searchParams)) return;
+        if (loadingPrompt) return;
 
-    const card1Class = [
-        'agent-ia-card',
-        card1Connected ? 'agent-ia-card--wa-connected' : '',
-        focusWa ? 'agent-ia-card--focus' : '',
-        focusAssistant && card1Connected ? 'agent-ia-card--compact' : '',
-    ]
-        .filter(Boolean)
-        .join(' ');
+        setupIntentHandledRef.current = true;
+        setSearchParams({}, { replace: true });
+
+        if (!setupProgress.waDone) return;
+
+        if (promptConfigurado) {
+            addToast({
+                type: 'info',
+                message: 'Assistente já configurado — você pode ativar ou ajustar abaixo.',
+            });
+            return;
+        }
+        if (!canEditPrompt) return;
+
+        setShowEditor(false);
+        setShowTestChat(false);
+        setShowWizard(true);
+    }, [
+        searchParams,
+        setSearchParams,
+        loadingPrompt,
+        setupProgress.waDone,
+        promptConfigurado,
+        canEditPrompt,
+        addToast,
+    ]);
+
+    const focusAssistant =
+        setupProgress.waDone && (setupProgress.currentStep === 1 || setupProgress.currentStep === 2);
 
     const card2Class = [
         'agent-ia-card',
         card2Active ? 'agent-ia-card--assistant-active' : '',
         focusAssistant ? 'agent-ia-card--focus' : '',
-        focusWa ? 'agent-ia-card--deferred' : '',
+        !setupProgress.waDone ? 'agent-ia-card--deferred' : '',
     ]
         .filter(Boolean)
         .join(' ');
@@ -834,8 +726,11 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         void handleToggleIa(false);
     };
 
-    const handleCopyConfigLink = useCallback(async () => {
-        const url = typeof window !== 'undefined' ? `${window.location.origin}/agente-ia` : '/agente-ia';
+    const handleCopyIntegracoesLink = useCallback(async () => {
+        const url =
+            typeof window !== 'undefined'
+                ? `${window.location.origin}${INTEGRACOES_WHATSAPP_PATH}`
+                : INTEGRACOES_WHATSAPP_PATH;
         try {
             await navigator.clipboard.writeText(url);
             toast.success('Link copiado. Envie ao dono da academia.');
@@ -844,76 +739,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         }
     }, [toast]);
 
-    const renderWaRefreshButton = (extraStyle = {}) => (
-        <button
-            type="button"
-            className="btn btn-outline"
-            style={{ padding: '8px 14px', ...extraStyle }}
-            onClick={() => void zap.fetchWaInfo()}
-            disabled={zap.waLoading || zap.waTokenMissing}
-        >
-            Atualizar status
-        </button>
-    );
-
-    const renderWaBanners = () => (
-        <>
-            {zap.waTokenMissing ? (
-                <StatusBanner
-                    variant="error"
-                    message="Integração não finalizada — fale com o suporte para concluir a conexão com o WhatsApp."
-                />
-            ) : null}
-            {zap.waPersistFailed && isOwner ? (
-                <StatusBanner
-                    variant="warning"
-                    message="A conexão foi criada, mas não foi possível salvar no sistema."
-                    action={{
-                        label: 'Corrigir automaticamente',
-                        onClick: () => void zap.recoverZapsterInstance(),
-                    }}
-                />
-            ) : null}
-            {zap.connectionError && !zap.waTokenMissing ? (
-                <StatusBanner
-                    variant="error"
-                    message={zap.connectionError}
-                    onRetry={() => void zap.fetchWaInfo()}
-                    retryLabel="Tentar novamente"
-                />
-            ) : null}
-        </>
-    );
-
-    const renderWaConnectedSummary = () => {
-        const waPhoneDisplay = formatWaPhoneDisplay(zap.waInfo?.phone);
-        return (
-        <div className="agent-ia-connected-summary">
-            <div className="agent-ia-connected-summary__row">
-                <span className="agent-ia-connected-summary__status">
-                    <Check size={16} strokeWidth={2.5} aria-hidden />
-                    WhatsApp conectado
-                </span>
-                {renderWaRefreshButton()}
-            </div>
-            {waPhoneDisplay ? (
-                <p className="agent-ia-connected-summary__meta">
-                    Número conectado: <strong>{waPhoneDisplay}</strong>
-                </p>
-            ) : null}
-            {waLastCheckedAt ? (
-                <p className="agent-ia-connected-summary__meta">
-                    Status verificado em {formatWaLastChecked(waLastCheckedAt)}.
-                    {zap.waLoading ? ' Atualizando…' : null}
-                </p>
-            ) : null}
-            <Link to="/inbox" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '8px 14px' }}>
-                Ver conversas
-            </Link>
-        </div>
-        );
-    };
-
     const servicePanelOpen = showWizard || showEditor || showTestChat;
 
     const openReconfigureWizard = () => {
@@ -921,106 +746,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
         setShowWizard(true);
         setShowEditor(false);
         setShowTestChat(false);
-    };
-
-    const renderOwnerMaintenance = () => {
-        if (!isOwner) return null;
-        return (
-            <details className="agent-ia-maintenance">
-                <summary className="agent-ia-maintenance__summary">Precisa de ajuda com a conexão? →</summary>
-                <div className="agent-ia-maintenance__body">
-                    <div className="agent-ia-maintenance__group">
-                        <p className="agent-ia-maintenance__group-title">Corrigir problemas</p>
-                        <div className="agent-ia-maintenance__actions">
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                style={{ padding: '6px 10px' }}
-                                onClick={() => void zap.recoverZapsterInstance()}
-                                disabled={zap.waLoading || zap.waTokenMissing}
-                            >
-                                Corrigir conexão automaticamente
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ padding: '6px 10px' }}
-                                onClick={() => void zap.reconcileWhatsAppHistory()}
-                                disabled={zap.waLoading || zap.waSyncing || zap.waTokenMissing}
-                            >
-                                {zap.waSyncing ? 'Buscando…' : 'Buscar mensagens recentes'}
-                            </button>
-                        </div>
-                    </div>
-                    {!!zap.waInfo?.instance_id && (
-                        <div className="agent-ia-maintenance__group">
-                            <p className="agent-ia-maintenance__group-title">Ações avançadas</p>
-                            <div className="agent-ia-maintenance__actions">
-                                {zap.waInfo?.status === 'offline' && (
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline"
-                                        style={{ padding: '6px 10px' }}
-                                        onClick={() => void zap.powerOnInstance()}
-                                        disabled={zap.waLoading || zap.waTokenMissing}
-                                    >
-                                        Conectar WhatsApp
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    className="btn btn-outline"
-                                    style={{ padding: '6px 10px' }}
-                                    onClick={() =>
-                                        setWaConfirm({
-                                            variant: 'powerOff',
-                                            title: 'Pausar conexão?',
-                                            description: 'O WhatsApp pode ficar offline até você retomar a conexão.',
-                                            confirmLabel: 'Pausar conexão',
-                                        })
-                                    }
-                                    disabled={zap.waLoading || zap.waTokenMissing}
-                                >
-                                    Pausar conexão
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-outline"
-                                    style={{ padding: '6px 10px' }}
-                                    onClick={() =>
-                                        setWaConfirm({
-                                            variant: 'restart',
-                                            title: 'Reiniciar a conexão?',
-                                            description: 'Pode levar alguns instantes. Use se o atendimento travou.',
-                                            confirmLabel: 'Reiniciar conexão',
-                                        })
-                                    }
-                                    disabled={zap.waLoading || zap.waTokenMissing}
-                                >
-                                    Reiniciar conexão
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-danger"
-                                    style={{ padding: '6px 10px' }}
-                                    onClick={() =>
-                                        setWaConfirm({
-                                            variant: 'disconnect',
-                                            title: 'Remover conexão WhatsApp?',
-                                            description: 'O assistente para de responder até você conectar novamente.',
-                                            confirmLabel: 'Remover conexão',
-                                        })
-                                    }
-                                    disabled={zap.waLoading || zap.waTokenMissing}
-                                >
-                                    Remover conexão WhatsApp
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </details>
-        );
     };
 
     const closeAgentSidePanel = useCallback(() => {
@@ -1149,14 +874,22 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
     };
 
     const pageHeaderPrefix = showPageHeader ? (
-        <Link
-            to="/inbox"
-            className="edit-link"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, textDecoration: 'none' }}
-        >
-            <ChevronLeft size={18} strokeWidth={2} aria-hidden />
-            Voltar para conversas
-        </Link>
+        (() => {
+            const fromIntegracoes =
+                readAgentIaFromIntegracoes(searchParams) || Boolean(location.state?.fromIntegracoes);
+            const backTo = fromIntegracoes ? INTEGRACOES_WHATSAPP_PATH : '/inbox';
+            const backLabel = fromIntegracoes ? 'Voltar para Integrações' : 'Voltar para conversas';
+            return (
+                <Link
+                    to={backTo}
+                    className="edit-link"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, textDecoration: 'none' }}
+                >
+                    <ChevronLeft size={18} strokeWidth={2} aria-hidden />
+                    {backLabel}
+                </Link>
+            );
+        })()
     ) : null;
 
     if (!canViewAgent) {
@@ -1205,287 +938,116 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                     retryLabel="Tentar novamente"
                 />
             ) : null}
-            <div className="agent-ia-setup-panel" role="region" aria-label="Progresso da configuração">
-                <div className="agent-ia-setup-steps">
-                    {[
-                        { n: 1, label: 'Conectar WhatsApp', done: setupProgress.waDone },
-                        { n: 2, label: 'Configurar assistente', done: setupProgress.configDone },
-                        { n: 3, label: 'Ativar', done: setupProgress.activeDone },
-                    ].map((step) => (
-                        <div
-                            key={step.n}
-                            className={[
-                                'agent-ia-setup-step',
-                                step.done ? 'agent-ia-setup-step--done' : '',
-                                setupProgress.currentStep === step.n ? 'agent-ia-setup-step--current' : '',
-                            ]
-                                .filter(Boolean)
-                                .join(' ')}
-                        >
-                            <span className="agent-ia-setup-step__icon" aria-hidden>
-                                {step.done ? <Check size={14} strokeWidth={2.5} /> : step.n}
-                            </span>
-                            <span className="agent-ia-setup-step__label">{step.label}</span>
-                        </div>
-                    ))}
-                </div>
-                {setupProgress.statusLine ? (
-                    <p className="agent-ia-setup-panel__status">{setupProgress.statusLine}</p>
-                ) : null}
-            </div>
-
-            {/* Card 1 — WhatsApp */}
-            <div className={card1Class}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: card1Connected ? 12 : 16, flexWrap: 'wrap' }}>
-                    <Smartphone size={22} strokeWidth={1.75} color={card1Connected ? '#25D366' : 'var(--text-secondary)'} aria-hidden />
-                    <span className="navi-section-heading" style={{ fontSize: '1.05rem', margin: 0, flex: 1 }}>
-                        Conexão WhatsApp
+            {!setupProgress.waDone ? (
+                <StatusBanner variant="warning">
+                    <span>
+                        {isOwner
+                            ? 'Conecte o WhatsApp em Integrações para configurar o assistente de atendimento.'
+                            : 'Peça ao dono da academia para conectar o WhatsApp em Integrações.'}
+                        {isOwner ? (
+                            <>
+                                {' '}
+                                <Link to={INTEGRACOES_WHATSAPP_PATH} className="edit-link">
+                                    Abrir Integrações
+                                </Link>
+                            </>
+                        ) : null}
                     </span>
-                    {card1Connected && (
-                        <span className="text-small" style={{ color: '#25D366', fontWeight: 700 }}>
-                            ● Conectado
-                        </span>
-                    )}
+                </StatusBanner>
+            ) : (
+                <div
+                    className="agent-ia-wa-link-banner"
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        border: '1px solid var(--border)',
+                        background: zap.waConnected ? 'rgba(37, 211, 102, 0.06)' : 'var(--surface)',
+                    }}
+                >
+                    <span className="text-small" style={{ flex: 1, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                        WhatsApp: <strong style={{ color: 'var(--text)' }}>{formatWaAgentStatus(zap.waStatus)}</strong>
+                        {waPhoneDisplay ? (
+                            <>
+                                {' '}
+                                · <strong style={{ color: 'var(--text)' }}>{waPhoneDisplay}</strong>
+                            </>
+                        ) : null}
+                    </span>
+                    <Link to={INTEGRACOES_WHATSAPP_PATH} className="btn btn-outline btn-sm">
+                        Gerenciar em Integrações
+                    </Link>
                 </div>
+            )}
 
-                <div className="agent-ia-section-banners">{renderWaBanners()}</div>
+            {!setupProgress.waDone && !isOwner ? (
+                <div
+                    className="agent-ia-member-wa-hint"
+                    role="note"
+                    style={{
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        fontSize: '0.85rem',
+                        lineHeight: 1.5,
+                        color: 'var(--text-secondary)',
+                    }}
+                >
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        onClick={() => void handleCopyIntegracoesLink()}
+                    >
+                        <Copy size={14} aria-hidden />
+                        Copiar link de Integrações
+                    </button>
+                </div>
+            ) : null}
 
-                {card1Connected ? (
-                    renderWaConnectedSummary()
-                ) : (
-                    <>
-                        {!isOwner && (
+            {setupProgress.waDone ? (
+                <div className="agent-ia-setup-panel" role="region" aria-label="Progresso da configuração">
+                    <div className="agent-ia-setup-steps">
+                        {[
+                            { n: 1, label: 'Configurar assistente', done: setupProgress.configDone },
+                            { n: 2, label: 'Ativar', done: setupProgress.activeDone },
+                        ].map((step) => (
                             <div
-                                className="agent-ia-member-wa-hint"
-                                role="note"
-                                style={{
-                                    margin: '0 0 16px',
-                                    padding: '10px 12px',
-                                    borderRadius: 8,
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '0.85rem',
-                                    lineHeight: 1.5,
-                                    color: 'var(--text-secondary)',
-                                }}
+                                key={step.n}
+                                className={[
+                                    'agent-ia-setup-step',
+                                    step.done ? 'agent-ia-setup-step--done' : '',
+                                    setupProgress.currentStep === step.n ? 'agent-ia-setup-step--current' : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
                             >
-                                <p style={{ margin: '0 0 10px' }}>Peça ao dono da academia para conectar o WhatsApp.</p>
-                                <button
-                                    type="button"
-                                    className="btn btn-outline btn-sm"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                                    onClick={() => void handleCopyConfigLink()}
-                                >
-                                    <Copy size={14} aria-hidden />
-                                    Copiar link desta página
-                                </button>
+                                <span className="agent-ia-setup-step__icon" aria-hidden>
+                                    {step.done ? <Check size={14} strokeWidth={2.5} /> : step.n}
+                                </span>
+                                <span className="agent-ia-setup-step__label">{step.label}</span>
                             </div>
-                        )}
-
-                        {!zap.waInfo?.instance_id && (
-                            <div style={{ textAlign: 'center', padding: '8px 0 16px', maxWidth: 420, margin: '0 auto' }}>
-                                <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)' }}>Primeiro passo</p>
-                                <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 }}>
-                                    {isOwner
-                                        ? `Conecte o WhatsApp desta ${terms.workspaceNoun}. Na sequência você poderá exibir o código QR para escanear no celular.`
-                                        : 'Somente o dono da academia pode iniciar a conexão nesta página.'}
-                                </p>
-                                {isOwner && (
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary"
-                                        onClick={() => void zap.createWaInstance()}
-                                        disabled={zap.waLoading || zap.waTokenMissing || zap.isCreating}
-                                    >
-                                        {zap.waLoading || zap.isCreating ? 'Aguarde…' : 'Conectar WhatsApp'}
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {!!zap.waInfo?.instance_id && !zap.waTokenMissing && (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'stretch',
-                                    gap: 16,
-                                    width: '100%',
-                                    maxWidth: 440,
-                                    margin: '0 auto',
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        flexWrap: 'wrap',
-                                        gap: 12,
-                                        padding: '12px 14px',
-                                        borderRadius: 10,
-                                        border: '1px solid var(--border)',
-                                        background: waStatusVisual.bg,
-                                        borderLeft: `4px solid ${waStatusVisual.accent}`,
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                        <WaStatusIcon size={20} color={waStatusVisual.accent} strokeWidth={2} aria-hidden />
-                                        <span className="text-small" style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                            Status da conexão
-                                        </span>
-                                    </div>
-                                    <span className="text-small" style={{ fontWeight: 700, color: 'var(--text)' }}>
-                                        {formatWaAgentStatus(zap.waStatus)}
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'center' }}>{renderWaRefreshButton()}</div>
-
-                                {!zap.waQrShown && (
-                                    <div
-                                        style={{
-                                            textAlign: 'center',
-                                            padding: '18px 16px',
-                                            borderRadius: 12,
-                                            border: '1px solid var(--border)',
-                                            background: 'var(--surface)',
-                                        }}
-                                    >
-                                        <p style={{ margin: '0 0 8px', fontWeight: 600, fontSize: '0.98rem', color: 'var(--text)' }}>
-                                            Conectar pelo celular (QR Code)
-                                        </p>
-                                        <p className="text-small" style={{ color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.55 }}>
-                                            {isOwner ? (
-                                                <>
-                                                    {String(zap.waStatus || '').trim().toLowerCase() === 'offline' ? (
-                                                        <>
-                                                            A conexão está <strong>pausada</strong>. Toque em <strong>Exibir código QR</strong> — o sistema
-                                                            religa a instância e prepara o pareamento (pode levar até ~15 s). Se não aparecer, use{' '}
-                                                            <strong>Reiniciar conexão</strong> em &quot;Precisa de ajuda?&quot; abaixo.
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            No celular, abra o <strong>WhatsApp</strong> → menu (três pontos ou configurações) →{' '}
-                                                            <strong>Aparelhos conectados</strong> → <strong>Conectar um aparelho</strong>. Depois toque em{' '}
-                                                            <strong>Exibir código QR</strong> aqui e aponte a câmera para a tela.
-                                                        </>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <>Somente o dono da academia pode abrir o código QR nesta página. Use o botão acima para ver se a conexão já foi feita.</>
-                                            )}
-                                        </p>
-                                        {isOwner ? (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-primary"
-                                                    onClick={() => void zap.revealWaQrCode()}
-                                                    disabled={zap.waLoading || zap.waTokenMissing}
-                                                >
-                                                    {zap.waLoading ? 'Preparando QR…' : 'Exibir código QR'}
-                                                </button>
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                )}
-
-                                {zap.waQrShown && (
-                                    <>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-                                            {waQrBlobUrl ? (
-                                                <img
-                                                    src={waQrBlobUrl}
-                                                    alt="QR Code WhatsApp"
-                                                    onLoad={() => zap.onQrImageLoad()}
-                                                    onError={() => zap.onQrImageError()}
-                                                    style={{
-                                                        width: 240,
-                                                        height: 240,
-                                                        objectFit: 'contain',
-                                                        border: '1px solid var(--border)',
-                                                        borderRadius: 12,
-                                                        background: '#fff',
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div
-                                                    className="text-small"
-                                                    style={{
-                                                        color: 'var(--text-secondary)',
-                                                        textAlign: 'center',
-                                                        padding: '12px 14px',
-                                                        borderRadius: 10,
-                                                        border: '1px dashed var(--border)',
-                                                        lineHeight: 1.5,
-                                                        minHeight: 120,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        maxWidth: 360,
-                                                    }}
-                                                >
-                                                    {zap.waConnected
-                                                        ? 'WhatsApp já conectado. Não há QR disponível no momento.'
-                                                        : zap.waQrError
-                                                            ? 'Não foi possível carregar o QR (a instância pode estar pausada). Use "Gerar novo QR" ou "Reiniciar conexão" em Precisa de ajuda?'
-                                                            : zap.waLoading
-                                                              ? 'Preparando instância e QR… aguarde alguns segundos.'
-                                                              : 'Carregando imagem do QR…'}
-                                                </div>
-                                            )}
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                                                {isOwner && zap.waQrLoadFailedOnce && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-outline"
-                                                        style={{ padding: '8px 14px' }}
-                                                        onClick={() => zap.refreshWaQrCode()}
-                                                        disabled={zap.waLoading || zap.waTokenMissing}
-                                                    >
-                                                        Gerar novo QR
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div
-                                            style={{
-                                                padding: '14px 16px',
-                                                borderRadius: 10,
-                                                borderLeft: '4px solid #25D366',
-                                                background: 'var(--surface)',
-                                                textAlign: 'left',
-                                            }}
-                                        >
-                                            <p className="text-small" style={{ margin: '0 0 10px', fontWeight: 600, color: 'var(--text)' }}>
-                                                No celular
-                                            </p>
-                                            <ol className="text-small" style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                                                <li>Abra o WhatsApp</li>
-                                                <li>Aparelhos conectados → Conectar um aparelho</li>
-                                                <li>Escaneie o código na tela</li>
-                                            </ol>
-                                            <p className="text-small" style={{ margin: '12px 0 0', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                                Depois de escanear no celular, o status atualiza sozinho em alguns segundos. Se não mudar, use{' '}
-                                                <strong>Atualizar status</strong>.
-                                            </p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                    </>
-                )}
-            </div>
-
-            {renderOwnerMaintenance()}
+                        ))}
+                    </div>
+                    {setupProgress.statusLine ? (
+                        <p className="agent-ia-setup-panel__status">{setupProgress.statusLine}</p>
+                    ) : null}
+                </div>
+            ) : null}
 
             {/* Card 2 — Assistente */}
             <div className={card2Class}>
-                {focusWa ? (
+                {!setupProgress.waDone ? (
                     <p className="agent-ia-deferred-hint" role="note">
-                        Disponível após conectar o WhatsApp — conclua o passo 1 acima primeiro.
+                        Disponível após conectar o WhatsApp —{' '}
+                        <Link to={INTEGRACOES_WHATSAPP_PATH} className="edit-link">
+                            abra Integrações
+                        </Link>{' '}
+                        para conectar o número.
                     </p>
                 ) : null}
                 {shouldShowAgentConfigBanner(iaAtiva) ? (
@@ -1791,16 +1353,6 @@ const AgenteIASection = ({ academyId, role, academyDoc, showPageHeader = true })
                 confirmVariant="primary"
                 onConfirm={openReconfigureWizard}
                 onClose={() => setShowReconfigureConfirm(false)}
-            />
-
-            <ConfirmDialog
-                open={Boolean(waConfirm)}
-                title={waConfirm?.title || ''}
-                description={waConfirm?.description}
-                confirmLabel={waConfirm?.confirmLabel || 'Confirmar'}
-                loading={zap.waLoading}
-                onConfirm={handleWaConfirmAction}
-                onClose={() => (zap.waLoading ? undefined : setWaConfirm(null))}
             />
 
             <AgentIASidePanel

@@ -82,6 +82,8 @@ import NotificationBell from './components/layout/NotificationBell.jsx';
 import { useTerms } from './lib/terminology.js';
 import { buildMobileDrawerSections, getNewLeadLabel, isStudentProfilePath } from './lib/naviMenu.js';
 import { buildMobileMoreItems, isBottomNavMaisActive } from './lib/mobileMoreNav.js';
+import { useZapsterWhatsAppConnection } from './hooks/useZapsterWhatsAppConnection.js';
+import { isWaSetupStepDone } from './lib/waSetupProgress.js';
 import NaviMobileMoreSheet from './components/layout/NaviMobileMoreSheet.jsx';
 import NaviMobileDrawer from './components/layout/NaviMobileDrawer.jsx';
 import { NAV_PUSH_EVENT } from './lib/navPush.js';
@@ -218,6 +220,18 @@ const App = () => {
 
   const navRole = useUserRole(academyDocForRole);
   const canConfigureAgenteIa = navRole === 'owner' || navRole === 'member';
+  const isOwnerNav = navRole === 'owner';
+  const ownerWaZap = useZapsterWhatsAppConnection(isOwnerNav && academyReady ? academyIdStore : null, {
+    watchAcademyStatus: isOwnerNav && academyReady,
+  });
+  const waSetupDone = useMemo(() => {
+    if (!isOwnerNav) return true;
+    return isWaSetupStepDone({
+      waConnected: ownerWaZap.waConnected,
+      waStatus: ownerWaZap.waStatus,
+      instanceId: ownerWaZap.waInfo?.instance_id,
+    });
+  }, [isOwnerNav, ownerWaZap.waConnected, ownerWaZap.waStatus, ownerWaZap.waInfo?.instance_id]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
@@ -293,8 +307,9 @@ const App = () => {
         isOwner: navRole === 'owner',
         canConfigureAgenteIa,
         pipelineLabel: labels.pipeline || 'Funil',
+        waSetupDone,
       }),
-    [academyReady, modules, navRole, canConfigureAgenteIa, labels.pipeline]
+    [academyReady, modules, navRole, canConfigureAgenteIa, labels.pipeline, waSetupDone]
   );
 
   const closeMobileMore = () => setMobileMoreOpen(false);
@@ -310,6 +325,7 @@ const App = () => {
         newLeadLabel,
         navRole,
         isOwner: navRole === 'owner',
+        waSetupDone,
       }),
     [
       academyReady,
@@ -319,6 +335,7 @@ const App = () => {
       navStudentsLabel,
       newLeadLabel,
       navRole,
+      waSetupDone,
     ]
   );
 
@@ -1111,6 +1128,7 @@ const App = () => {
             navRole={navRole}
             canConfigureAgenteIa={canConfigureAgenteIa}
             inboxUnread={inboxUnread}
+            waSetupDone={waSetupDone}
           />
         </aside>
 
