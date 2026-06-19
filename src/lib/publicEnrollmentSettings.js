@@ -1,6 +1,12 @@
 import { parseAcademySettings } from './stockSettings.js';
 import { normalizeCustomLeadQuestions } from './customLeadQuestions.js';
 import { readAcademyTurmas } from './academyTurmas.js';
+import {
+  graduationsActive,
+  normalizeBeltValue,
+  parseBeltGradesFromSettings,
+} from './beltGradesConfig.js';
+import { TERMS } from './terminology.js';
 export const PUBLIC_ENROLLMENT_ORIGIN = 'Cadastro online';
 
 export function normalizeEnrollmentPhone(v) {
@@ -24,7 +30,11 @@ export function readAcademyPlanNames(academyDoc) {
   }
 }
 
-/** @typedef {{ enabled?: boolean, salt?: string }} PublicEnrollmentConfig */
+/** @typedef {{ enabled?: boolean, salt?: string, askBelt?: boolean }} PublicEnrollmentConfig */
+
+export function graduationLabelForVertical(vertical) {
+  return String(vertical || '').trim() === 'physio' ? TERMS.physio.belt : TERMS.fitness.belt;
+}
 
 /**
  * @param {unknown} settingsRaw
@@ -33,10 +43,11 @@ export function readAcademyPlanNames(academyDoc) {
 export function readPublicEnrollment(settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
   const raw = settings?.publicEnrollment;
-  if (!raw || typeof raw !== 'object') return { enabled: false, salt: '' };
+  if (!raw || typeof raw !== 'object') return { enabled: false, salt: '', askBelt: false };
   return {
     enabled: raw.enabled === true,
     salt: String(raw.salt || '').trim(),
+    askBelt: raw.askBelt === true,
   };
 }
 
@@ -50,10 +61,28 @@ export function mergePublicEnrollmentIntoSettings(settingsRaw, patch) {
   return {
     ...base,
     publicEnrollment: {
-      enabled: patch.enabled === true,
-      salt: String(patch.salt ?? prev.salt ?? '').trim(),
+      enabled: patch.enabled !== undefined ? patch.enabled === true : prev.enabled,
+      salt: patch.salt !== undefined ? String(patch.salt ?? '').trim() : prev.salt,
+      askBelt: patch.askBelt !== undefined ? patch.askBelt === true : prev.askBelt,
     },
   };
+}
+
+/**
+ * Sanitiza belt no POST público — ignora se graduações/askBelt inativos.
+ * @param {object} form
+ * @param {unknown} settingsRaw
+ */
+export function resolvePublicEnrollmentBelt(form, settingsRaw) {
+  const enrollment = readPublicEnrollment(settingsRaw);
+  if (!graduationsActive(settingsRaw) || !enrollment.askBelt) return '';
+  const raw = String(form?.belt ?? '').trim();
+  if (!raw) return '';
+  try {
+    return normalizeBeltValue(raw, settingsRaw, '');
+  } catch {
+    return '';
+  }
 }
 
 export function generateEnrollmentSalt() {
@@ -103,6 +132,9 @@ export function buildPublicEnrollmentFormConfig(academyDoc) {
     ...(q.type === 'select' && Array.isArray(q.options) ? { options: q.options } : {}),
   }));
 
+  const vertical = String(academyDoc?.vertical || '').trim() === 'physio' ? 'physio' : 'fitness';
+  const gradActive = graduationsActive(academyDoc?.settings);
+
   return {
     enabled: enrollment.enabled === true && Boolean(enrollment.salt),
     academyName: String(academyDoc?.name || academyDoc?.academyName || 'Academia').trim() || 'Academia',
@@ -110,5 +142,10 @@ export function buildPublicEnrollmentFormConfig(academyDoc) {
     plans,
     requirePlan: plans.length > 0,
     customQuestions: publicQuestions,
+    vertical,
+    graduationLabel: graduationLabelForVertical(vertical),
+    graduationsActive: gradActive,
+    askBelt: enrollment.askBelt === true && gradActive,
+    beltOptions: gradActive ? parseBeltGradesFromSettings(academyDoc?.settings) : [],
   };
 }

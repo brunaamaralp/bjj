@@ -19,6 +19,7 @@ import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
 import { buildRecepcaoRetencaoPath } from '../../lib/recepcaoHubTabs.js';
+import { useTerms } from '../../lib/terminology.js';
 import './reports.css';
 
 const URL_TURMA = 'freq_turma';
@@ -144,6 +145,7 @@ export default function ReportsFrequenciaPanel({
   rangeTo,
   periodLabel = '',
 }) {
+  const terms = useTerms();
   const [searchParams, setSearchParams] = useSearchParams();
   const turma = String(searchParams.get(URL_TURMA) || '').trim();
   const belt = String(searchParams.get(URL_BELT) || '').trim();
@@ -210,7 +212,7 @@ export default function ReportsFrequenciaPanel({
           ),
       },
       { key: 'turma', label: 'Turma', render: (r) => r.turma || '—' },
-      { key: 'belt', label: 'Faixa', render: (r) => r.belt || '—' },
+      { key: 'belt', label: terms.belt, render: (r) => r.belt || '—' },
       {
         key: 'checkins',
         label: 'Check-ins',
@@ -218,7 +220,7 @@ export default function ReportsFrequenciaPanel({
         render: (r) => r.checkins,
       },
     ],
-    []
+    [terms.belt]
   );
 
   const turmaOptions = filters.turmas || [];
@@ -246,7 +248,7 @@ export default function ReportsFrequenciaPanel({
           </select>
         </label>
         <label className="reports-freq-filter">
-          <span className="reports-freq-filter__label">Faixa</span>
+          <span className="reports-freq-filter__label">{terms.belt}</span>
           <select
             className="form-input navi-control--toolbar reports-freq-filter__select"
             value={belt}

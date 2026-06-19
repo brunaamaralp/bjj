@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-06-19 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -83,7 +83,11 @@ flowchart TD
 2. [ ] Busca por nome parcial retorna resultados corretos
 3. [ ] Filtro "Ativos" / "Inativos" / inadimplência funciona conforme badges
 4. [ ] Clicar aluno → `/student/:id` com nome e plano corretos
+4b. [ ] **Cadastrar aluno** (modal na lista): com graduações ativas, campo **Faixa/Evolução** opcional; valor persiste no perfil
+4c. [ ] Com graduações ativas e aluno com faixa preenchida: subtexto do card na lista exibe graduação (entre turma e telefone)
 5. [ ] Editar telefone ou plano → salvar → toast de sucesso; dados persistem após reload
+5b. [ ] Com **Graduações** salvas em Empresa → Alunos → Graduações: campo **Faixa/Evolução** visível no perfil (select inline após turma)
+5c. [ ] Sem graduações configuradas: campo **Faixa/Evolução** ausente no perfil (exceto aluno com valor legado — somente leitura + banner)
 6. [ ] Check-in manual no perfil (se presença configurada) → evento na timeline
 7. [ ] **`/recepcao`** exibe painel ao vivo e histórico Control iD (ou empty state se não configurado)
 7b. [ ] *Nota:* `/students?view=presenca` e `/presenca` **não** ativam modo presença no hub embutido (`Students embedded`) — usar `/recepcao`
@@ -164,4 +168,4 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação inicial |
-| 2026-06-15 | — | Validação: presença via `/recepcao`; limitação `?view=presenca` |
+| 2026-06-19 | — | Graduação opt-in: cadastro rápido, perfil, subtexto na lista |

@@ -13,6 +13,7 @@ import { databases, DB_ID, STUDENTS_COL } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
+import GraduationSelect from '../components/students/GraduationSelect.jsx';
 import { useTerms } from '../lib/terminology.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -126,6 +127,8 @@ const Students = ({ embedded = false }) => {
         setEmailError,
         handleCreateStudent,
         maskPhone,
+        showGraduationField,
+        beltOptions,
     } = createForm;
 
     const openProfile = useCallback(
@@ -253,6 +256,7 @@ const Students = ({ embedded = false }) => {
             studentSingular={studentSingular}
             financeConfig={financeConfig}
             onOpenProfile={openProfile}
+            showGraduation={showGraduationField}
             style={shouldVirtualizeStudents ? undefined : { animationDelay: `${0.03 * animIndex}s` }}
         />
     );
@@ -761,6 +765,21 @@ const Students = ({ embedded = false }) => {
                                     style={{ width: '100%', marginTop: 6 }}
                                 />
                             </label>
+                            {showGraduationField ? (
+                                <label>
+                                    {terms.belt}
+                                    <GraduationSelect
+                                        id="new-student-belt"
+                                        value={newStudent.belt}
+                                        options={beltOptions}
+                                        ariaLabel={terms.belt}
+                                        disabled={creatingStudent}
+                                        className="form-input"
+                                        onChange={(v) => setNewStudent((prev) => ({ ...prev, belt: v }))}
+                                        style={{ width: '100%', marginTop: 6 }}
+                                    />
+                                </label>
+                            ) : null}
                             <label>
                                 Origem
                                 <select

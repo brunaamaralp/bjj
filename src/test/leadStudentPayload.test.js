@@ -29,6 +29,15 @@ describe('leadStudentPayload', () => {
     expect(payload.student_status).toBe('active');
   });
 
+  it('buildStudentPayloadFromDoc maps belt from lead on conversion', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      belt: ' Azul ',
+      academyId: 'ac1',
+    });
+    expect(payload.belt).toBe('Azul');
+  });
+
   it('does not persist age or is_first_experience on students payload', () => {
     const payload = buildStudentPayloadFromDoc({
       name: 'Ana',

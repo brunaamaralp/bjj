@@ -29,6 +29,7 @@ import {
   Building2,
   Plug,
   Smartphone,
+  Clock,
 } from 'lucide-react';
 
 /** Lucide icons keyed by `iconKey` from naviMenu — sidebar, drawer e sheet "Mais". */
@@ -69,6 +70,8 @@ export const NAV_MENU_ICONS = {
   equipe: Users,
   integracoes: Plug,
   whatsapp: Smartphone,
+  clock: Clock,
+  horarios: Clock,
 };
 
 const FALLBACK_ICON = LayoutGrid;

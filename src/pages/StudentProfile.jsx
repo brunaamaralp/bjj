@@ -97,6 +97,14 @@ import { saveStudentProfileField } from '../lib/profileStudentFieldSave.js';
 import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
+import GraduationSelect from '../components/students/GraduationSelect.jsx';
+import {
+    graduationsActive,
+    isGraduationReadOnly,
+    normalizeBeltValue,
+    resolveBeltOptions,
+    shouldShowStudentGraduation,
+} from '../lib/beltGradesConfig.js';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
@@ -342,11 +350,6 @@ export default function StudentProfile() {
         }
     }, [academyList, academyId, terms.trial, terms.pipelineEnrolledColumnLabel]);
 
-    const studentDataFields = useMemo(
-        () => STUDENT_DATA_FIELDS.map((f) => (f.key === 'plan' ? { ...f, label: terms.plan } : f)),
-        [terms.plan]
-    );
-
     const [deactivateOpen, setDeactivateOpen] = useState(false);
     const [deactivateBusy, setDeactivateBusy] = useState(false);
     const [rescissionContractOpen, setRescissionContractOpen] = useState(false);
@@ -375,6 +378,7 @@ export default function StudentProfile() {
         preferredPaymentMethod: '',
         preferredPaymentAccount: '',
         dueDay: '',
+        belt: '',
     });
     const [savingData, setSavingData] = useState(false);
     const [payerAliases, setPayerAliases] = useState([]);
@@ -447,6 +451,36 @@ export default function StudentProfile() {
     const canEditProfile = useCanEditProfile(academyDocForRole);
     const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
+
+    const academySettingsRaw = useMemo(
+        () => academySettingsDoc?.settings ?? academyDocForRole?.settings ?? null,
+        [academySettingsDoc?.settings, academyDocForRole?.settings]
+    );
+
+    const graduationReadOnly = useMemo(
+        () => isGraduationReadOnly(academySettingsRaw, student?.belt),
+        [academySettingsRaw, student?.belt]
+    );
+
+    const beltSelectOptions = useMemo(
+        () => resolveBeltOptions(academySettingsRaw, student?.belt),
+        [academySettingsRaw, student?.belt]
+    );
+
+    const studentDataFields = useMemo(() => {
+        const base = STUDENT_DATA_FIELDS.map((f) =>
+            f.key === 'plan' ? { ...f, label: terms.plan } : f
+        );
+        if (!shouldShowStudentGraduation(academySettingsRaw, student?.belt)) return base;
+        const turmaIdx = base.findIndex((f) => f.key === 'turma');
+        const gradField = { key: 'belt', label: terms.belt, type: 'graduation' };
+        if (turmaIdx >= 0) {
+            const out = [...base];
+            out.splice(turmaIdx + 1, 0, gradField);
+            return out;
+        }
+        return [...base, gradField];
+    }, [terms.plan, terms.belt, academySettingsRaw, student?.belt]);
 
     useEffect(() => {
         if (!id) return undefined;
@@ -542,6 +576,7 @@ export default function StudentProfile() {
             preferredPaymentMethod: student.preferredPaymentMethod || '',
             preferredPaymentAccount: student.preferredPaymentAccount || '',
             dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
+            belt: student.belt || '',
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -991,6 +1026,7 @@ export default function StudentProfile() {
             preferredPaymentMethod: student.preferredPaymentMethod || '',
             preferredPaymentAccount: student.preferredPaymentAccount || '',
             dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
+            belt: student.belt || '',
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -1054,6 +1090,19 @@ export default function StudentProfile() {
                 return;
             }
 
+            let belt = '';
+            if (shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)) {
+                try {
+                    belt = normalizeBeltValue(dataForm.belt, academySettingsRaw, student.belt, {
+                        invalidMessage: `Selecione uma ${terms.belt.toLowerCase()} válida.`,
+                    });
+                } catch (e) {
+                    toast.show({ type: 'error', message: e?.message || 'Graduação inválida.' });
+                    setSavingData(false);
+                    return;
+                }
+            }
+
             await updateStudent(leadId, {
                 name,
                 type: student.type || 'Adulto',
@@ -1073,6 +1122,9 @@ export default function StudentProfile() {
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
                 email: String(dataForm.email || '').trim(),
                 payerAliases,
+                ...(shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)
+                    ? { belt }
+                    : {}),
             });
             setEditingData(false);
             toast.success('Dados salvos com sucesso.');
@@ -1081,7 +1133,7 @@ export default function StudentProfile() {
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig]);
+    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt]);
 
     const saveStudentFieldInline = useCallback(
         async (fieldKey, draftValue) => {
@@ -1099,6 +1151,8 @@ export default function StudentProfile() {
                 setDataForm,
                 actorUserId: userId || 'user',
                 permissionContext: permCtx,
+                academySettingsRaw,
+                graduationLabel: terms.belt,
             });
         },
         [
@@ -1111,6 +1165,8 @@ export default function StudentProfile() {
             emergencySameAsRegistered,
             userId,
             permCtx,
+            academySettingsRaw,
+            terms.belt,
         ]
     );
 
@@ -1736,6 +1792,32 @@ export default function StudentProfile() {
             );
         }
 
+        if (field.type === 'graduation') {
+            const readOnly = graduationReadOnly || field.readOnly;
+            return (
+                <ProfileInlineField
+                    {...common}
+                    canEdit={canEditProfile && !disabled && !readOnly}
+                    editable={!fieldDisabled && !readOnly}
+                    editValue={editValue}
+                    renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                        <GraduationSelect
+                            id={`student-inline-${field.key}`}
+                            className="student-profile-data-input student-profile-data-input--select"
+                            value={draft}
+                            options={beltSelectOptions}
+                            ariaLabel={terms.belt}
+                            disabled={saving || readOnly}
+                            onChange={(v) => {
+                                setDraft(v);
+                                void commitEdit(v);
+                            }}
+                        />
+                    )}
+                />
+            );
+        }
+
         if (field.type === 'plan') {
             return (
                 <ProfileInlineField
@@ -1901,6 +1983,16 @@ export default function StudentProfile() {
                     onOtherChange={(v) => setDataForm((p) => ({ ...p, turmaOther: v }))}
                     className="student-profile-data-input"
                     disabled={savingData}
+                />
+            ) : field.type === 'graduation' ? (
+                <GraduationSelect
+                    id={`student-data-${field.key}`}
+                    className="student-profile-data-input student-profile-data-input--select"
+                    value={dataForm.belt}
+                    options={beltSelectOptions}
+                    ariaLabel={terms.belt}
+                    disabled={savingData || graduationReadOnly}
+                    onChange={(v) => setDataForm((p) => ({ ...p, belt: v }))}
                 />
             ) : field.type === 'plan' ? (
                 <PlanSelect
@@ -2496,6 +2588,12 @@ export default function StudentProfile() {
                             </button>
                         ) : null}
                     </div>
+                    {graduationReadOnly ? (
+                        <StatusBanner variant="info" className="student-profile-graduation-legacy-banner">
+                            Reative graduações em <strong>Empresa → Alunos → Graduações</strong> para editar a{' '}
+                            {terms.belt.toLowerCase()} do aluno.
+                        </StatusBanner>
+                    ) : null}
                     {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
                 </div>
 

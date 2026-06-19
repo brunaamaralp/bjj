@@ -97,7 +97,7 @@ flowchart TD
 7c. [ ] Com WA offline e histórico — banner no painel com **Reconectar**; composer desabilitado
 8. [ ] Iniciar matrícula — modal exige plano/data quando aplicável
 9. [ ] Confirmar matrícula — lead some do funil aberto; aluno criado em `/students`
-10. [ ] Abrir perfil do aluno `/student/:id` — vínculo com lead preservado
+10. [ ] Abrir perfil do aluno `/student/:id` — vínculo com lead preservado; `belt` do lead (se existir via import/NL) copiado na conversão
 11. [ ] Exportar planilha (menu pipeline) — arquivo gerado sem dados de outra academia
 
 ### Estados de erro conhecidos
@@ -159,7 +159,7 @@ flowchart TD
 
 - **Entrada alternativa:** lead criado a partir do **Inbox** ao associar conversa (`docs/flows/crm/conversas-inbox.md`)
 - **Matrícula pelo funil:** menu rápido no card sem abrir perfil
-- **Filtro por mês de matrícula:** visão de convertidos no período
+- **Matrícula online:** link público em Empresa → Alunos → **Cadastro online** (`PublicEnrollmentSection`); toggle **Pedir graduação no formulário online** (default off) só aparece com graduações salvas; formulário em `/inscricao/:token` envia `belt` quando toggle ativo
 - **Automações:** ao mudar estágio, processos em `/automacoes?tab=processos` podem enviar mensagens
 - **Mobile (≤1023px):** vista lista agrupada por estágio; kanban só no desktop
 - **Rota legada:** `/new-lead` redireciona ou abre modal — preferir atalho global
@@ -170,4 +170,4 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
-| 2026-06-15 | — | Criação inicial |
+| 2026-06-19 | — | Matrícula online: toggle askBelt + campo graduação no formulário público |

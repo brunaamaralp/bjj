@@ -107,6 +107,8 @@ import { useDashboardFollowupLeads } from '../hooks/useDashboardFollowupLeads.js
 import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEnrollmentMetrics.js';
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
+import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
+import { useUserRole } from '../lib/useUserRole.js';
 import {
     buildRecepcaoHubTabItems,
     RECEPCAO_CATRACA_SECTION_LIVE,
@@ -193,6 +195,12 @@ const Dashboard = () => {
         }))
     );
     const terms = useTerms();
+    const academyForRole = useMemo(() => {
+        const fromList = (academyList || []).find((a) => a.id === academyId);
+        return fromList || { ownerId: '', teamId: '' };
+    }, [academyList, academyId]);
+    const navRole = useUserRole(academyForRole);
+    const isOwner = navRole === 'owner';
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
     const receptionSubtitle = receptionDaySubtitle();
@@ -1378,6 +1386,8 @@ const Dashboard = () => {
                     expandWeekSignal={mobileWeekExpandSignal}
                 />
             ) : null}
+
+            <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
 
             {isDashboardMobile && !loading && followUps.length > 0 ? (
                 <button

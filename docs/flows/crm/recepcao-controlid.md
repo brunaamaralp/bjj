@@ -58,7 +58,7 @@ flowchart TD
 | 6 | Ao vivo | **Liberar catraca** (header em `Dashboard.jsx` ou painel) | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed |
 | 7 | Ao vivo | Feed entradas hoje | Poll automático | Novos registros com hora e link ao perfil |
 | 8 | `?section=historico` | `ControlIdAttendancePanel` | Trocar período | Hoje, 7 dias, 30 dias, etc. |
-| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Ver retenção por frequência / alunos em risco | KPIs + tabela; filtros turma/faixa; `?tab=catraca&section=retencao` |
+| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Ver retenção por frequência / alunos em risco | KPIs + tabela; filtros turma/**Faixa/Evolução** (`terms.belt`); `?tab=catraca&section=retencao` |
 | 8c | Catraca (sem Control iD) | `AttendanceAtRiskSection` | Presença só manual (`VITE_APPWRITE_ATTENDANCE_COL_ID`) | Banner info + fila de retenção; feed ao vivo indisponível |
 | 9 | Histórico | Atualizar / sync | `syncAllControlId` | Toast com contagem sincronizada |
 | 10 | Histórico | Liberar catraca | Mesmo endpoint de release | Liberação remota |

@@ -75,7 +75,8 @@ export default function BeltGradesSection({ academyId, academy, setAcademy, acad
   return (
     <div className="finance-settings-section-body">
       <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
-        Opções de {terms.belt.toLowerCase()} exibidas no cadastro. Se vazio, o sistema usa a lista padrão.
+        Níveis de evolução do aluno (faixa, módulo, fase…). Salve a lista para exibir no cadastro. Deixe
+        vazio para ocultar.
       </p>
       <div className="card" style={{ padding: 16 }}>
         <ol className="students-settings-list">
@@ -86,7 +87,7 @@ export default function BeltGradesSection({ academyId, academy, setAcademy, acad
                 {item}
                 {!grades.length ? (
                   <span className="text-small text-muted" style={{ marginLeft: 8 }}>
-                    (padrão)
+                    (exemplo — salve para ativar)
                   </span>
                 ) : null}
               </span>

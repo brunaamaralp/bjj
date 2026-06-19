@@ -8,6 +8,7 @@ import {
   mergePublicEnrollmentIntoSettings,
   buildPublicEnrollmentUrl,
 } from '../../lib/publicEnrollmentSettings';
+import { graduationsActive } from '../../lib/beltGradesConfig.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
 async function postEnrollmentConfig(academyId, body) {
@@ -38,14 +39,18 @@ async function postEnrollmentConfig(academyId, body) {
 export default function PublicEnrollmentSection({ academyId, academy, setAcademy, canEdit, embedded = false }) {
   const addToast = useUiStore((s) => s.addToast);
   const cfg = readPublicEnrollment(academy?.settings);
+  const graduationsConfigured = graduationsActive(academy?.settings);
   const [enabled, setEnabled] = useState(cfg.enabled);
+  const [askBelt, setAskBelt] = useState(cfg.askBelt);
   const [shareToken, setShareToken] = useState('');
   const [busy, setBusy] = useState(false);
+  const [askBeltBusy, setAskBeltBusy] = useState(false);
   const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
   useEffect(() => {
     setEnabled(cfg.enabled);
-  }, [cfg.enabled, academyId]);
+    setAskBelt(cfg.askBelt);
+  }, [cfg.enabled, cfg.askBelt, academyId]);
 
   const shareUrl = shareToken ? buildPublicEnrollmentUrl(shareToken) : '';
 
@@ -62,6 +67,7 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
         const merged = mergePublicEnrollmentIntoSettings(doc.settings, {
           enabled: data.enabled === true,
           salt: readPublicEnrollment(doc.settings).salt,
+          askBelt: readPublicEnrollment(doc.settings).askBelt,
         });
         setAcademy((a) => ({ ...a, settings: JSON.stringify(merged) }));
         setEnabled(data.enabled === true);
@@ -109,6 +115,36 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
     void syncFromServer(true, false);
   };
 
+  const handleAskBeltToggle = async () => {
+    if (!academyId || !canEdit || askBeltBusy) return;
+    const next = !askBelt;
+    setAskBeltBusy(true);
+    try {
+      const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
+      const prev = readPublicEnrollment(doc.settings);
+      const merged = mergePublicEnrollmentIntoSettings(doc.settings, {
+        enabled: prev.enabled,
+        salt: prev.salt,
+        askBelt: next,
+      });
+      await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
+        settings: JSON.stringify(merged),
+      });
+      setAcademy((a) => ({ ...a, settings: JSON.stringify(merged) }));
+      setAskBelt(next);
+      addToast({
+        type: 'success',
+        message: next
+          ? 'Graduação incluída no formulário de matrícula online.'
+          : 'Graduação removida do formulário de matrícula online.',
+      });
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setAskBeltBusy(false);
+    }
+  };
+
   return (
     <div className="card" style={{ marginTop: embedded ? 0 : 24, padding: embedded ? 16 : undefined }}>
       {!embedded ? (
@@ -151,6 +187,21 @@ export default function PublicEnrollmentSection({ academyId, academy, setAcademy
             />
             <span>Permitir matrícula pelo link público</span>
           </label>
+
+          {graduationsConfigured ? (
+            <label
+              className="flex items-center gap-2"
+              style={{ fontSize: 14, marginBottom: 12, cursor: 'pointer' }}
+            >
+              <input
+                type="checkbox"
+                checked={askBelt}
+                disabled={askBeltBusy || !enabled}
+                onChange={() => void handleAskBeltToggle()}
+              />
+              <span>Pedir graduação no formulário online</span>
+            </label>
+          ) : null}
 
           <div className="flex gap-2 flex-wrap" style={{ marginBottom: 12 }}>
             <button type="button" className="btn-outline" disabled={busy || !enabled} onClick={handleLoadLink}>

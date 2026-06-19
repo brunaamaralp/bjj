@@ -6,6 +6,7 @@ import { Baby, Users, Dumbbell, CheckCircle2, AlertTriangle } from 'lucide-react
 import NaviBrandLockup from '../components/NaviBrandLockup.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
+import GraduationSelect from '../components/students/GraduationSelect.jsx';
 import CustomLeadQuestionFields from '../components/CustomLeadQuestionFields.jsx';
 import { maskPhone } from '../lib/masks.js';
 import { turmaValueFromForm } from '../lib/academyTurmas.js';
@@ -33,6 +34,7 @@ export default function PublicStudentEnrollment() {
   const [sexo, setSexo] = useState('');
   const [turmaSelect, setTurmaSelect] = useState('');
   const [turmaOther, setTurmaOther] = useState('');
+  const [belt, setBelt] = useState('');
   const [customAnswers, setCustomAnswers] = useState({});
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
@@ -111,6 +113,7 @@ export default function PublicStudentEnrollment() {
           notes: data.notes || '',
           isFirstExperience: data.isFirstExperience,
           customAnswers,
+          ...(config.askBelt ? { belt } : {}),
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -283,6 +286,19 @@ export default function PublicStudentEnrollment() {
                       onOtherChange={setTurmaOther}
                       id="public-enrollment-turma"
                       otherId="public-enrollment-turma-other"
+                    />
+                  </div>
+                ) : null}
+                {config.askBelt && (config.beltOptions?.length ?? 0) > 0 ? (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>{config.graduationLabel || 'Graduação'}</label>
+                    <GraduationSelect
+                      id="public-enrollment-belt"
+                      value={belt}
+                      options={config.beltOptions}
+                      ariaLabel={config.graduationLabel || 'Graduação'}
+                      disabled={submitting}
+                      onChange={setBelt}
                     />
                   </div>
                 ) : null}

@@ -18,6 +18,7 @@ import {
   buildLeadCreateDocumentPayload,
   extractInitialNoteEvents,
 } from '../lib/leadCreatePayload.js';
+import { mergePendingAutomations, parsePendingAutomations } from '../../lib/automationCore.js';
 
 export { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 
@@ -540,6 +541,18 @@ export const useLeadStore = create(
       }
 
       const normalizedUpdates = { ...updates };
+
+      if (normalizedUpdates.pendingAutomations !== undefined) {
+        try {
+          const freshDoc = await databases.getDocument(DB_ID, LEADS_COL, lid);
+          const remotePending = parsePendingAutomations(freshDoc.pending_automations);
+          const merged = mergePendingAutomations(normalizedUpdates.pendingAutomations, remotePending);
+          normalizedUpdates.pendingAutomations = merged;
+          normalizedUpdates.hasPendingAutomations = merged.some((p) => !p.sent);
+        } catch (e) {
+          console.warn('[updateLead] pending_automations merge skipped:', e?.message || e);
+        }
+      }
 
       const filtered = {};
       for (const [k, v] of Object.entries(normalizedUpdates)) {

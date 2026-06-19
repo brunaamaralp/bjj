@@ -131,7 +131,31 @@ describe('runAutomations — timing da fila pending_automations', () => {
     expect(updateDocument).toHaveBeenCalledTimes(1);
     const saved = JSON.parse(updateDocument.mock.calls[0][3].pending_automations);
     expect(saved[0].sent).toBe(true);
+    expect(saved[0].sentAt).toBe(NOW.toISOString());
     expect(updateDocument.mock.calls[0][3].has_pending_automations).toBe(false);
+  });
+
+  it('não reenvia quando sentAt recente indica envio prévio (write fail)', async () => {
+    const sendAt = '2026-06-15T16:55:00.000Z';
+    const sentAt = '2026-06-15T16:50:00.000Z';
+    const { databases, updateDocument } = mockDatabases({
+      documents: [
+        leadDoc({
+          pending_automations: JSON.stringify([
+            { key: 'schedule_reminder', sendAt, sent: false, sentAt },
+          ]),
+        }),
+      ],
+    });
+
+    const out = await runAutomations(databases);
+
+    expect(out.sent).toBe(0);
+    expect(sendAutomationTemplateCron).not.toHaveBeenCalled();
+    expect(updateDocument).toHaveBeenCalledTimes(1);
+    const saved = JSON.parse(updateDocument.mock.calls[0][3].pending_automations);
+    expect(saved[0].sent).toBe(true);
+    expect(saved[0].sentAt).toBe(sentAt);
   });
 
   it('não processa lead com sendAt > now', async () => {

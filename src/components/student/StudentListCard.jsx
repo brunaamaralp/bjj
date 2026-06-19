@@ -17,6 +17,7 @@ function StudentListCard({
   studentSingular,
   financeConfig,
   onOpenProfile,
+  showGraduation = false,
   style,
 }) {
   const digits = String(student.phone || '').replace(/\D/g, '');
@@ -81,6 +82,7 @@ function StudentListCard({
           <p className="student-card-desktop-meta text-small" style={{ margin: '4px 0 0' }}>
             {[
               String(student.turma || student.className || '').trim(),
+              showGraduation && String(student.belt || '').trim() ? String(student.belt).trim() : '',
               maskPhone(student.phone) || String(student.phone || '').trim(),
             ]
               .filter((p) => p && String(p).trim())

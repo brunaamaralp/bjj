@@ -7,6 +7,7 @@ import {
   normalizeEnrollmentPhone,
   generateEnrollmentSalt,
   buildPublicEnrollmentPath,
+  resolvePublicEnrollmentBelt,
 } from '../lib/publicEnrollmentSettings.js';
 import {
   createPublicEnrollmentToken,
@@ -19,6 +20,57 @@ describe('publicEnrollment', () => {
     const cfg = readPublicEnrollment(JSON.stringify(merged));
     expect(cfg.enabled).toBe(true);
     expect(cfg.salt).toBe('abc123');
+    expect(cfg.askBelt).toBe(false);
+  });
+
+  it('merge preserves askBelt when patch omits it', () => {
+    const base = mergePublicEnrollmentIntoSettings('{}', { enabled: true, salt: 'x', askBelt: true });
+    const merged = mergePublicEnrollmentIntoSettings(JSON.stringify(base), { enabled: false });
+    const cfg = readPublicEnrollment(JSON.stringify(merged));
+    expect(cfg.enabled).toBe(false);
+    expect(cfg.askBelt).toBe(true);
+  });
+
+  it('buildPublicEnrollmentFormConfig exposes graduation fields when configured', () => {
+    const settings = {
+      beltGrades: ['Branca', 'Azul'],
+      publicEnrollment: { enabled: true, salt: 'x', askBelt: true },
+    };
+    const form = buildPublicEnrollmentFormConfig({
+      name: 'Academia BJJ',
+      vertical: 'fitness',
+      settings: JSON.stringify(settings),
+    });
+    expect(form.graduationsActive).toBe(true);
+    expect(form.askBelt).toBe(true);
+    expect(form.beltOptions).toEqual(['Branca', 'Azul']);
+    expect(form.graduationLabel).toBe('Faixa');
+  });
+
+  it('askBelt false in form config when graduations inactive', () => {
+    const form = buildPublicEnrollmentFormConfig({
+      settings: JSON.stringify({ publicEnrollment: { enabled: true, salt: 'x', askBelt: true } }),
+    });
+    expect(form.graduationsActive).toBe(false);
+    expect(form.askBelt).toBe(false);
+    expect(form.beltOptions).toEqual([]);
+  });
+
+  it('resolvePublicEnrollmentBelt ignores belt when askBelt off', () => {
+    const settings = JSON.stringify({
+      beltGrades: ['Branca'],
+      publicEnrollment: { askBelt: false },
+    });
+    expect(resolvePublicEnrollmentBelt({ belt: 'Branca' }, settings)).toBe('');
+  });
+
+  it('resolvePublicEnrollmentBelt normalizes valid belt', () => {
+    const settings = JSON.stringify({
+      beltGrades: ['Branca', 'Azul'],
+      publicEnrollment: { askBelt: true },
+    });
+    expect(resolvePublicEnrollmentBelt({ belt: 'Azul' }, settings)).toBe('Azul');
+    expect(resolvePublicEnrollmentBelt({ belt: 'Roxa' }, settings)).toBe('');
   });
 
   it('buildPublicEnrollmentFormConfig strips sensitive fields', () => {

@@ -23,6 +23,8 @@ const StudentsSection = lazyWithRetry(() => import('../components/academy/Studen
 const EstudioSection = lazyWithRetry(() => import('../components/academy/EstudioSection'));
 const FunilSection = lazyWithRetry(() => import('../components/academy/FunilSection'));
 const FinanceiroConfigTab = lazyWithRetry(() => import('../components/finance/FinanceiroConfigTab.jsx'));
+const SchedulesSection = lazyWithRetry(() => import('../components/academy/SchedulesSection.jsx'));
+const ClassesSection = lazyWithRetry(() => import('../components/academy/ClassesSection.jsx'));
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { isBillingLive } from '../lib/billingEnabled';
@@ -35,6 +37,7 @@ const TABS_ALL = [
     { id: 'estudio', label: 'Estúdio' },
     { id: 'funil', label: 'Funil' },
     { id: 'alunos', label: 'Alunos' },
+    { id: 'horarios', label: 'Horários' },
     { id: 'financeiro', label: 'Financeiro' },
 ];
 
@@ -44,12 +47,16 @@ const TAB_SKELETON_HEIGHT = {
     estudio: 420,
     funil: 480,
     alunos: 400,
+    horarios: 420,
     financeiro: 520,
 };
 
 function getTabDisabledState(tabId, { role }) {
     if (tabId === 'financeiro' && !canAccessEmpresaFinanceSettings(role)) {
         return { disabled: true, title: 'Disponível para titulares e administradores' };
+    }
+    if (tabId === 'horarios' && role !== 'owner') {
+        return { disabled: true, title: 'Disponível apenas para o titular da academia' };
     }
     return { disabled: false, title: undefined };
 }
@@ -485,6 +492,13 @@ const AcademySettings = () => {
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
                 />
+            )}
+
+            {activeTab === 'horarios' && academyId && (
+                <div className="empresa-section">
+                    <ClassesSection academyId={academyId} />
+                    <SchedulesSection academyId={academyId} embeddedInLayout />
+                </div>
             )}
 
             {activeTab === 'financeiro' && academyId && (

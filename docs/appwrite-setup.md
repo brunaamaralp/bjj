@@ -2,6 +2,7 @@ Appwrite — Tabelas/Coleções e Variáveis Necessárias
 
 Objetivo
 - Padronizar as coleções, atributos, índices e variáveis usados pelo BJJ Manager no Appwrite (Banco de Dados e Funções).
+- Mapa de relacionamentos entre coleções: [data-model.md](data-model.md).
 
 Banco de Dados
 - Database (DB_ID): 1 banco para todo o app.

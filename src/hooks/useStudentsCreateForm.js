@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { LEAD_ORIGIN } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
@@ -8,6 +8,11 @@ import { performEnrollment } from '../lib/performEnrollment.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
+import {
+  graduationsActive,
+  normalizeBeltValue,
+  resolveBeltOptions,
+} from '../lib/beltGradesConfig.js';
 
 function normalizePhone(v) {
   return String(v || '').replace(/\D/g, '');
@@ -21,6 +26,7 @@ const INITIAL_STUDENT = {
   turmaOther: '',
   origin: LEAD_ORIGIN[0] || 'Cadastro manual',
   plan: '',
+  belt: '',
 };
 
 /**
@@ -35,6 +41,21 @@ export function useStudentsCreateForm({
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const addStudent = useStudentStore((s) => s.addStudent);
+
+  const academySettingsRaw = useMemo(() => {
+    const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
+    return acadDoc.settings ?? null;
+  }, [academyList, academyId]);
+
+  const showGraduationField = useMemo(
+    () => graduationsActive(academySettingsRaw),
+    [academySettingsRaw]
+  );
+
+  const beltOptions = useMemo(
+    () => resolveBeltOptions(academySettingsRaw, ''),
+    [academySettingsRaw]
+  );
 
   const [showCreateStudent, setShowCreateStudent] = useState(false);
   const [creatingStudent, setCreatingStudent] = useState(false);
@@ -79,6 +100,18 @@ export function useStudentsCreateForm({
     setCreatingStudent(true);
     try {
       const turma = turmaValueFromForm(newStudent.turmaSelect, newStudent.turmaOther);
+      let belt = '';
+      if (showGraduationField) {
+        try {
+          belt = normalizeBeltValue(newStudent.belt, academySettingsRaw, '', {
+            invalidMessage: `Selecione uma ${String(terms.belt || 'graduação').toLowerCase()} válida.`,
+          });
+        } catch (e) {
+          addToast({ type: 'error', message: e?.message || 'Graduação inválida.' });
+          setCreatingStudent(false);
+          return;
+        }
+      }
       const created = await addStudent({
         name,
         phone: cleanPhone,
@@ -90,6 +123,7 @@ export function useStudentsCreateForm({
         dueDay: new Date().getDate(),
         enrollmentDate: formatLocalYmd(new Date()),
         studentStatus: STUDENT_STATUS.ACTIVE,
+        ...(belt ? { belt } : {}),
       });
       const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
       await performEnrollment({
@@ -129,5 +163,7 @@ export function useStudentsCreateForm({
     resetNewStudentForm,
     handleCreateStudent,
     maskPhone,
+    showGraduationField,
+    beltOptions,
   };
 }

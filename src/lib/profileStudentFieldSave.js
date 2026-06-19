@@ -1,5 +1,6 @@
 import { maskCPF, maskPhone } from './masks.js';
 import { turmaValueFromForm } from './academyTurmas.js';
+import { normalizeBeltValue } from './beltGradesConfig.js';
 import { validatePreferredPaymentAccount } from './bankAccounts.js';
 import { findDuplicateStudentCpf } from './validations.js';
 import {
@@ -45,6 +46,8 @@ export async function saveStudentProfileField({
   setDataForm,
   actorUserId,
   permissionContext,
+  academySettingsRaw,
+  graduationLabel = 'Graduação',
 }) {
   const key = String(fieldKey || '').trim();
   if (!student || !studentId) throw new Error('Aluno não encontrado.');
@@ -165,6 +168,15 @@ export async function saveStudentProfileField({
       auditFrom = displayForAudit(key, prev(key), student);
       auditTo = turma;
       auditLabel = 'Turma';
+      break;
+    }
+    case 'belt': {
+      const invalidMessage = `Selecione uma ${String(graduationLabel || 'graduação').toLowerCase()} válida.`;
+      const belt = normalizeBeltValue(draftValue, academySettingsRaw, student.belt, { invalidMessage });
+      patch = { belt };
+      auditFrom = displayForAudit(key, prev(key), student);
+      auditTo = belt;
+      auditLabel = graduationLabel;
       break;
     }
     case 'dueDay': {

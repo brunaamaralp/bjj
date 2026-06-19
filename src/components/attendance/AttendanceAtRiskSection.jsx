@@ -23,6 +23,7 @@ import AttendanceRiskBadge from './AttendanceRiskBadge.jsx';
 import AttendanceAbsenceReasonModal from './AttendanceAbsenceReasonModal.jsx';
 import AttendanceAtRiskRowActions from './AttendanceAtRiskRowActions.jsx';
 import DeactivateStudentModal from '../DeactivateStudentModal.jsx';
+import { useTerms } from '../../lib/terminology.js';
 import './attendance-at-risk.css';
 
 const URL_RET_TURMA = 'ret_turma';
@@ -82,6 +83,7 @@ function StudentCell({ row }) {
  * Tabela operacional de alunos em risco por frequência (Recepção → Catraca).
  */
 export default function AttendanceAtRiskSection({ className = '' }) {
+  const terms = useTerms();
   const [searchParams, setSearchParams] = useSearchParams();
   const turma = String(searchParams.get(URL_RET_TURMA) || '').trim();
   const belt = String(searchParams.get(URL_RET_BELT) || '').trim();
@@ -412,7 +414,7 @@ export default function AttendanceAtRiskSection({ className = '' }) {
             </select>
           </label>
           <label className="attendance-at-risk-filter">
-            <span>Faixa</span>
+            <span>{terms.belt}</span>
             <select value={belt} onChange={(e) => setBeltFilter(e.target.value)}>
               <option value="">Todas</option>
               {belt && !beltOptions.includes(belt) ? (
