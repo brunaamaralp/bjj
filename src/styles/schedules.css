@@ -247,6 +247,33 @@
   text-align: center;
 }
 
+.schedules-week-grid__col--today {
+  background: color-mix(in srgb, var(--color-primary, #6366f1) 8%, transparent) !important;
+  border-left: 2px solid var(--color-primary) !important;
+  border-right: 2px solid var(--color-primary) !important;
+}
+
+.schedules-week-grid thead th.schedules-week-grid__col--today {
+  border-top: 2px solid var(--color-primary) !important;
+}
+
+.schedules-week-grid tbody tr:last-child td.schedules-week-grid__col--today {
+  border-bottom: 2px solid var(--color-primary) !important;
+}
+
+.schedules-week-grid__today-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
 .schedules-week-grid__time-col {
   width: 72px;
   white-space: nowrap;

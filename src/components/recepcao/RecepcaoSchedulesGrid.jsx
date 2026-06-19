@@ -31,7 +31,19 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const modalities = useMemo(() => collectScheduleModalities(schedules), [schedules]);
   const grid = useMemo(() => buildWeeklyScheduleGrid(filtered), [filtered]);
 
+const JS_DAY_TO_ID = {
+  0: 'sun',
+  1: 'mon',
+  2: 'tue',
+  3: 'wed',
+  4: 'thu',
+  5: 'fri',
+  6: 'sat',
+};
+
   if (!configured) return null;
+
+  const todayId = JS_DAY_TO_ID[new Date().getDay()];
 
   return (
     <section className="reception-section schedules-grid-section animate-in" aria-labelledby="schedules-grid-title">
@@ -106,11 +118,14 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
                 <th scope="col" className="schedules-week-grid__time-col">
                   Horário
                 </th>
-                {grid.columns.map((col) => (
-                  <th key={col.id} scope="col">
-                    {col.label}
-                  </th>
-                ))}
+                {grid.columns.map((col) => {
+                  const isToday = col.id === todayId;
+                  return (
+                    <th key={col.id} scope="col" className={isToday ? 'schedules-week-grid__col--today' : ''}>
+                      {col.label} {isToday && <span className="schedules-week-grid__today-badge">Hoje</span>}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -120,9 +135,10 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
                     {row.timeStart}
                   </th>
                   {grid.columns.map((col) => {
+                    const isToday = col.id === todayId;
                     const items = row.cells[col.id] || [];
                     return (
-                      <td key={col.id}>
+                      <td key={col.id} className={isToday ? 'schedules-week-grid__col--today' : ''}>
                         {items.length ? (
                           <ul className="schedules-week-grid__cell-list">
                             {items.map((item) => (
