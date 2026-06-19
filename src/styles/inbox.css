@@ -298,6 +298,7 @@
   width: 100%;
   min-height: 34px;
   padding: 7px 10px;
+  padding-left: 32px;
   border: none;
   border-radius: 8px;
   background: var(--color-background-secondary, var(--surface-hover));
