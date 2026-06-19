@@ -1,6 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Loader2, RefreshCw } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  CalendarDays,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  UserCheck,
+  UserX,
+} from 'lucide-react';
 import { fetchAttendanceFrequency } from '../../lib/attendanceFrequencyApi.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
@@ -8,11 +17,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
-import AttendanceRiskBadge from '../attendance/AttendanceRiskBadge.jsx';
-import {
-  ATTENDANCE_RISK_LABELS,
-  ATTENDANCE_RISK_STATUS,
-} from '../../../lib/attendanceRetentionCore.js';
+import ReportKpiCard from './shared/ReportKpiCard.jsx';
 import { buildRecepcaoRetencaoPath } from '../../lib/recepcaoHubTabs.js';
 import './reports.css';
 
@@ -28,16 +33,6 @@ function patchFreqFilters(prev, { turma, belt }) {
   if (b) next.set(URL_BELT, b);
   else next.delete(URL_BELT);
   return next;
-}
-
-function KpiCard({ label, value, hint }) {
-  return (
-    <div className="reports-freq-kpi">
-      <div className="reports-freq-kpi__value">{value}</div>
-      <div className="reports-freq-kpi__label">{label}</div>
-      {hint ? <div className="reports-freq-kpi__hint">{hint}</div> : null}
-    </div>
-  );
 }
 
 function buildHeatmapSummary(heatmap) {
@@ -92,46 +87,50 @@ function HeatmapGrid({ heatmap }) {
 
   return (
     <div className="reports-freq-heat-wrap">
-      <div
-        className="reports-freq-heat"
-        role="img"
-        aria-label="Heatmap de check-ins por semana"
-        aria-describedby={summaryId}
-      >
-        <div className="reports-freq-heat__head">
-          <span />
-          {labels.map((l) => (
-            <span key={l} className="reports-freq-heat__dow">
-              {l}
-            </span>
-          ))}
-        </div>
-        {weeks.map((w) => (
-          <div key={w.weekStart} className="reports-freq-heat__row">
-            <span className="reports-freq-heat__week">{w.weekLabel}</span>
-            {(w.days || []).map((n, i) => (
-              <span
-                key={`${w.weekStart}-${i}`}
-                className={`reports-freq-heat__cell ${intensity(n)}`}
-                title={`${labels[i]}: ${n} check-in(s)`}
-              >
-                {n > 0 ? n : ''}
+      <div className="reports-freq-heat-scroll">
+        <div
+          className="reports-freq-heat"
+          role="img"
+          aria-label="Heatmap de check-ins por semana"
+          aria-describedby={summaryId}
+        >
+          <div className="reports-freq-heat__head">
+            <span className="reports-freq-heat__corner" aria-hidden />
+            {labels.map((l) => (
+              <span key={l} className="reports-freq-heat__dow">
+                {l}
               </span>
             ))}
           </div>
-        ))}
+          {weeks.map((w) => (
+            <div key={w.weekStart} className="reports-freq-heat__row">
+              <span className="reports-freq-heat__week">{w.weekLabel}</span>
+              {(w.days || []).map((n, i) => (
+                <span
+                  key={`${w.weekStart}-${i}`}
+                  className={`reports-freq-heat__cell ${intensity(n)}`}
+                  title={`${labels[i]}: ${n} check-in(s)`}
+                >
+                  {n > 0 ? n : ''}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="reports-freq-heat-legend" aria-hidden="true">
-        <span className="reports-freq-heat-legend__label">Baixa</span>
-        <span className="reports-freq-heat__cell reports-freq-heat__cell--1" />
-        <span className="reports-freq-heat__cell reports-freq-heat__cell--2" />
-        <span className="reports-freq-heat__cell reports-freq-heat__cell--3" />
-        <span className="reports-freq-heat__cell reports-freq-heat__cell--4" />
-        <span className="reports-freq-heat-legend__label">Alta</span>
+      <div className="reports-freq-heat-footer">
+        <div className="reports-freq-heat-legend" aria-hidden="true">
+          <span className="reports-freq-heat-legend__label">Baixa</span>
+          <span className="reports-freq-heat__cell reports-freq-heat__cell--1" />
+          <span className="reports-freq-heat__cell reports-freq-heat__cell--2" />
+          <span className="reports-freq-heat__cell reports-freq-heat__cell--3" />
+          <span className="reports-freq-heat__cell reports-freq-heat__cell--4" />
+          <span className="reports-freq-heat-legend__label">Alta</span>
+        </div>
+        <p id={summaryId} className="reports-freq-heat-summary">
+          {summaryText}
+        </p>
       </div>
-      <p id={summaryId} className="reports-freq-heat-summary">
-        {summaryText}
-      </p>
     </div>
   );
 }
@@ -222,20 +221,19 @@ export default function ReportsFrequenciaPanel({
     []
   );
 
-  const deltaLabel =
-    month.deltaPct == null
-      ? '—'
-      : `${month.deltaPct > 0 ? '+' : ''}${month.deltaPct}% vs mês anterior`;
-
   const turmaOptions = filters.turmas || [];
   const beltOptions = filters.belts || [];
 
   return (
     <ReportsPanelShell title="Frequência" subtitle={periodLabel ? `Período: ${periodLabel}` : undefined}>
-      <div className="reports-freq-toolbar">
+      <div className="reports-freq-toolbar navi-toolbar">
         <label className="reports-freq-filter">
-          <span>Turma</span>
-          <select value={turma} onChange={(e) => setTurmaFilter(e.target.value)}>
+          <span className="reports-freq-filter__label">Turma</span>
+          <select
+            className="form-input navi-control--toolbar reports-freq-filter__select"
+            value={turma}
+            onChange={(e) => setTurmaFilter(e.target.value)}
+          >
             <option value="">Todas</option>
             {turma && !turmaOptions.includes(turma) ? (
               <option value={turma}>{turma}</option>
@@ -248,8 +246,12 @@ export default function ReportsFrequenciaPanel({
           </select>
         </label>
         <label className="reports-freq-filter">
-          <span>Faixa</span>
-          <select value={belt} onChange={(e) => setBeltFilter(e.target.value)}>
+          <span className="reports-freq-filter__label">Faixa</span>
+          <select
+            className="form-input navi-control--toolbar reports-freq-filter__select"
+            value={belt}
+            onChange={(e) => setBeltFilter(e.target.value)}
+          >
             <option value="">Todas</option>
             {belt && !beltOptions.includes(belt) ? (
               <option value={belt}>{belt}</option>
@@ -261,7 +263,12 @@ export default function ReportsFrequenciaPanel({
             ))}
           </select>
         </label>
-        <button type="button" className="reports-freq-refresh" onClick={() => void load()} disabled={loading}>
+        <button
+          type="button"
+          className="btn-outline navi-btn--toolbar reports-freq-refresh"
+          onClick={() => void load()}
+          disabled={loading}
+        >
           {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
           Atualizar frequência
         </button>
@@ -277,33 +284,48 @@ export default function ReportsFrequenciaPanel({
 
       {data ? (
         <>
-          <ReportsPanelSection title="Retenção por frequência">
-            <p className="reports-freq-kpis-hint">Panorama do período selecionado</p>
-            <div className="reports-freq-kpis">
-              <KpiCard label="Ativos" value={summary.active ?? 0} />
-              <KpiCard label="Em risco" value={summary.at_risk ?? 0} />
-              <KpiCard label="Sumidos" value={summary.absent ?? 0} />
-              <KpiCard label="Novatos em risco" value={summary.newcomer_at_risk ?? 0} />
-              <KpiCard
+          <ReportsPanelSection
+            title="Retenção por frequência"
+            subtitle="Panorama do período selecionado"
+          >
+            <div className="reports-freq-kpi-grid">
+              <ReportKpiCard
+                label="Ativos"
+                value={summary.active ?? 0}
+                highlight="success"
+                icon={<UserCheck size={20} strokeWidth={2.25} />}
+              />
+              <ReportKpiCard
+                label="Em risco"
+                value={summary.at_risk ?? 0}
+                highlight="warning"
+                icon={<AlertTriangle size={20} strokeWidth={2.25} />}
+              />
+              <ReportKpiCard
+                label="Sumidos"
+                value={summary.absent ?? 0}
+                highlight="danger"
+                icon={<UserX size={20} strokeWidth={2.25} />}
+              />
+              <ReportKpiCard
+                label="Novatos em risco"
+                value={summary.newcomer_at_risk ?? 0}
+                highlight="attention"
+                icon={<Sparkles size={20} strokeWidth={2.25} />}
+              />
+              <ReportKpiCard
                 label="Check-ins no período"
                 value={data.periodCheckins ?? 0}
-                hint={periodLabel || undefined}
+                sublabel={periodLabel || undefined}
+                icon={<Activity size={20} strokeWidth={2.25} />}
               />
-              <KpiCard label="Este mês" value={month.thisMonth ?? 0} hint={deltaLabel} />
-            </div>
-            <div className="reports-freq-status-legend">
-              {[
-                ATTENDANCE_RISK_STATUS.ACTIVE,
-                ATTENDANCE_RISK_STATUS.AT_RISK,
-                ATTENDANCE_RISK_STATUS.ABSENT,
-                ATTENDANCE_RISK_STATUS.NEWCOMER_AT_RISK,
-              ].map((st) => (
-                <AttendanceRiskBadge
-                  key={st}
-                  status={st}
-                  label={ATTENDANCE_RISK_LABELS[st]}
-                />
-              ))}
+              <ReportKpiCard
+                label="Este mês"
+                value={month.thisMonth ?? 0}
+                trend={typeof month.deltaPct === 'number' ? month.deltaPct : null}
+                trendLabel="vs mês anterior"
+                icon={<CalendarDays size={20} strokeWidth={2.25} />}
+              />
             </div>
             <div className="reports-freq-reception-cta">
               <Link to={buildRecepcaoRetencaoPath()} className="btn-outline reports-freq-reception-cta__link">
@@ -312,7 +334,10 @@ export default function ReportsFrequenciaPanel({
             </div>
           </ReportsPanelSection>
 
-          <ReportsPanelSection title="Heatmap — últimas 12 semanas">
+          <ReportsPanelSection
+            title="Heatmap — últimas 12 semanas"
+            subtitle="Intensidade de check-ins por dia da semana"
+          >
             <HeatmapGrid heatmap={data.heatmap} />
           </ReportsPanelSection>
 
