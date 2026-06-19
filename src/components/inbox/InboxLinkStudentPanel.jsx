@@ -40,7 +40,7 @@ export default function InboxLinkStudentPanel({
       <div className="inbox-context-search-row inbox-link-student-panel__search">
         <input
           ref={searchRef}
-          className="input"
+          className="form-input"
           value={leadSearch}
           onChange={(e) => setLeadSearch(e.target.value)}
           placeholder="Buscar por nome ou telefone"
