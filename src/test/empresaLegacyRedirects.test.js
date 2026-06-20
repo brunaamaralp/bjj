@@ -9,4 +9,8 @@ describe('empresaLegacyRedirects', () => {
   it('redireciona automacoes para gatilhos', () => {
     expect(resolveEmpresaLegacyTabRedirect('automacoes')).toBe('/automacoes?tab=gatilhos');
   });
+
+  it('redireciona catraca para integrações em Configurações', () => {
+    expect(resolveEmpresaLegacyTabRedirect('catraca')).toBe('/configuracoes?tab=integracoes');
+  });
 });

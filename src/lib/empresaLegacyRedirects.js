@@ -2,12 +2,12 @@
 export const EMPRESA_LEGACY_TAB_REDIRECTS = {
   estoque: '/loja?tab=estoque',
   equipe: '/equipe',
-  catraca: '/integracoes?tab=catraca',
+  catraca: '/configuracoes?tab=integracoes',
   avancado: '/conta?tab=dados',
   automacoes: '/automacoes?tab=gatilhos',
   tarefas: '/tarefas?tab=processos',
   vendas: '/loja?tab=vendas&config=1',
-  contratos: '/empresa?tab=financeiro&section=contratos',
+  contratos: '/configuracoes?tab=financeiro&section=contratos',
 };
 
 export function resolveEmpresaLegacyTabRedirect(tab) {

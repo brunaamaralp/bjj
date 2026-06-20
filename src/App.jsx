@@ -1255,7 +1255,8 @@ const App = () => {
                   <Route path="/tarefas" element={<Tasks />} />
                   <Route path="/conta" element={<UserAccount user={user} onLogout={handleLogout} />} />
                   <Route path="/planos" element={<PlanosRedirect />} />
-                  <Route path="/empresa" element={<AcademySettings />} />
+                  <Route path="/configuracoes" element={<AcademySettings />} />
+                  <Route path="/empresa" element={<Navigate to="/configuracoes" replace />} />
                   <Route path="/equipe" element={<Equipe />} />
                   <Route path="/integracoes" element={<Integracoes />} />
                   <Route path="/presenca" element={<Attendance />} />
