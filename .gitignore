@@ -58,3 +58,4 @@ scripts/*
 tmp/
 
 .vercel
+.worktrees/
