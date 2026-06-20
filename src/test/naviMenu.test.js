@@ -46,7 +46,7 @@ describe('naviMenu', () => {
     expect(buildConectarWhatsAppNavItem()).toMatchObject({
       id: 'conectar-whatsapp',
       label: 'Conectar WhatsApp',
-      to: '/integracoes?tab=whatsapp',
+      to: '/configuracoes?tab=integracoes&section=whatsapp',
       iconKey: 'whatsapp',
     });
   });
@@ -58,7 +58,7 @@ describe('naviMenu', () => {
       isOwner: true,
       waSetupDone: false,
     });
-    expect(pending.conectarWhatsApp?.to).toBe('/integracoes?tab=whatsapp');
+    expect(pending.conectarWhatsApp?.to).toBe('/configuracoes?tab=integracoes&section=whatsapp');
 
     const done = buildSidebarNavModel({
       modules: { finance: false, inventory: false, sales: false },

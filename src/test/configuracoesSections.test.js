@@ -27,4 +27,9 @@ describe('configuracoesSections', () => {
     expect(isConfiguracoesSection('crm')).toBe('crm');
     expect(isConfiguracoesSection('estudio')).toBeNull();
   });
+
+  it('mapeia tabs legadas para a nova arquitetura', () => {
+    expect(resolveConfiguracoesNavState('estudio').section).toBe('academia');
+    expect(resolveConfiguracoesNavState('horarios').section).toBe('alunos-aulas');
+  });
 });

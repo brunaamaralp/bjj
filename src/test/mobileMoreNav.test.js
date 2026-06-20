@@ -48,7 +48,11 @@ describe('mobileMoreNav', () => {
     });
     expect(owner.some((i) => i.id === 'loja')).toBe(true);
     expect(owner.some((i) => i.id === 'agente')).toBe(true);
-    expect(owner.some((i) => i.id === 'integracoes')).toBe(true);
+    expect(owner.some((i) => i.id === 'integracoes')).toBe(false);
+    expect(owner.find((i) => i.id === 'configuracoes')).toMatchObject({
+      label: 'Configurações',
+      to: '/configuracoes',
+    });
 
     const admin = buildMobileMoreItems({
       modules: { finance: false, sales: false, inventory: false },
@@ -65,6 +69,15 @@ describe('mobileMoreNav', () => {
     expect(
       isMobileMoreItemActive({ id: 'automacoes', to: '/automacoes?tab=modelos' }, { pathname: '/agente-ia', search: '' })
     ).toBe(false);
+  });
+
+  it('isMobileMoreItemActive highlights configurações no novo hub', () => {
+    expect(
+      isMobileMoreItemActive(
+        { id: 'configuracoes', to: '/configuracoes' },
+        { pathname: '/configuracoes', search: '?tab=crm' }
+      )
+    ).toBe(true);
   });
 
   it('isMobileMoreItemActive highlights pipeline on lead profile', () => {

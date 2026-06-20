@@ -126,12 +126,22 @@ function EditableStringList({
   );
 }
 
-const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 0 }) => {
-  const { section, goSection } = useAcademyTabSection(
-    'alunos',
+const StudentsSection = ({
+  academy,
+  setAcademy,
+  academyId,
+  academyDataVersion = 0,
+  tabId = 'alunos',
+  embeddedInLayout = false,
+  forcedSection = null,
+}) => {
+  const academyNav = useAcademyTabSection(
+    tabId,
     STUDENT_DEFAULT_SECTION,
     isStudentSettingsSection
   );
+  const section = forcedSection || academyNav.section;
+  const goSection = academyNav.goSection;
   const addToast = useUiStore((s) => s.addToast);
   const role = useUserRole(academy);
   const canEdit = role === 'owner' || role === 'admin';
@@ -349,22 +359,10 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     );
   }
 
-  return (
-    <section className="empresa-section animate-in students-settings">
-      <AcademyTabSettingsLayout
-        navLabel="Seções de alunos"
-        items={STUDENT_SETTINGS_ITEMS}
-        activeId={section}
-        onSelect={goSection}
-        title={meta?.label}
-        subtitle={meta?.hint}
-      >
-        {sectionBody}
-      </AcademyTabSettingsLayout>
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
+  const styles = (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
         .students-settings-list {
           list-style: none;
           padding: 0;
@@ -391,8 +389,32 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
           margin-top: 8px;
         }
       `,
-        }}
-      />
+      }}
+    />
+  );
+
+  if (embeddedInLayout) {
+    return (
+      <>
+        {sectionBody}
+        {styles}
+      </>
+    );
+  }
+
+  return (
+    <section className="empresa-section animate-in students-settings">
+      <AcademyTabSettingsLayout
+        navLabel="Seções de alunos"
+        items={STUDENT_SETTINGS_ITEMS}
+        activeId={section}
+        onSelect={goSection}
+        title={meta?.label}
+        subtitle={meta?.hint}
+      >
+        {sectionBody}
+      </AcademyTabSettingsLayout>
+      {styles}
     </section>
   );
 };

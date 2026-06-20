@@ -3,6 +3,11 @@ import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
 import { canAccessEmpresaFinanceSettings } from '../lib/financeSettingsSections.js';
+import {
+  CONFIGURACOES_DEFAULT_SECTION,
+  CONFIGURACOES_ITEMS,
+  resolveConfiguracoesNavState,
+} from '../lib/configuracoesSections.js';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
@@ -23,7 +28,12 @@ const StudentsSection = lazyWithRetry(() => import('../components/academy/Studen
 const EstudioSection = lazyWithRetry(() => import('../components/academy/EstudioSection'));
 const FunilSection = lazyWithRetry(() => import('../components/academy/FunilSection'));
 const FinanceiroConfigTab = lazyWithRetry(() => import('../components/finance/FinanceiroConfigTab.jsx'));
-const HorariosSection = lazyWithRetry(() => import('../components/academy/HorariosSection.jsx'));
+const AlunosAulasSettingsSection = lazyWithRetry(() =>
+  import('../components/settings/AlunosAulasSettingsSection.jsx')
+);
+const IntegracoesSettingsSection = lazyWithRetry(() =>
+  import('../components/settings/IntegracoesSettingsSection.jsx')
+);
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
 import { isBillingLive } from '../lib/billingEnabled';
@@ -32,30 +42,17 @@ import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms } from '../lib/terminology.js';
 
-const TABS_ALL = [
-    { id: 'estudio', label: 'Estúdio' },
-    { id: 'funil', label: 'Funil' },
-    { id: 'alunos', label: 'Alunos' },
-    { id: 'horarios', label: 'Horários' },
-    { id: 'financeiro', label: 'Financeiro' },
-];
-
-const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
-
 const TAB_SKELETON_HEIGHT = {
-    estudio: 420,
-    funil: 480,
-    alunos: 400,
-    horarios: 420,
+    academia: 420,
+    crm: 480,
+    'alunos-aulas': 460,
+    integracoes: 420,
     financeiro: 520,
 };
 
 function getTabDisabledState(tabId, { role }) {
     if (tabId === 'financeiro' && !canAccessEmpresaFinanceSettings(role)) {
         return { disabled: true, title: 'Disponível para titulares e administradores' };
-    }
-    if (tabId === 'horarios' && role !== 'owner') {
-        return { disabled: true, title: 'Disponível apenas para o titular da academia' };
     }
     return { disabled: false, title: undefined };
 }
@@ -126,7 +123,8 @@ const AcademySettings = () => {
     const role = useUserRole(academyForRole);
 
     const rawTab = searchParams.get('tab') || '';
-    const activeTab = VALID_TAB_IDS.has(rawTab) ? rawTab : 'estudio';
+    const navState = resolveConfiguracoesNavState(rawTab);
+    const activeTab = navState.section;
 
     const tabDisabledState = useMemo(
         () => getTabDisabledState(activeTab, { role, modules: academy.modules }),
@@ -147,27 +145,36 @@ const AcademySettings = () => {
 
     // Redirect invalid/disabled tabs and handle ?focus=tax (only after academy fetch)
     useEffect(() => {
-        if (!VALID_TAB_IDS.has(rawTab)) {
-            setSearchParams({ tab: 'estudio' }, { replace: true });
+        const resolvedTab = navState.section;
+        if (String(rawTab || '').trim().toLowerCase() !== resolvedTab) {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('tab', resolvedTab);
+                return next;
+            }, { replace: true });
             return;
         }
         if (academyLoadState === 'loading' || academyLoadState === 'idle') {
             return;
         }
         if (academyLoadState === 'ok') {
-            const { disabled } = getTabDisabledState(rawTab, { role, modules: academy.modules });
+            const { disabled } = getTabDisabledState(activeTab, { role, modules: academy.modules });
             if (disabled) {
-                setSearchParams({ tab: 'estudio' }, { replace: true });
+                setSearchParams({ tab: CONFIGURACOES_DEFAULT_SECTION }, { replace: true });
                 return;
             }
         }
-        if (autoEditTax && activeTab !== 'estudio') {
-            setSearchParams((prev) => { prev.set('tab', 'estudio'); return prev; }, { replace: true });
+        if (autoEditTax && activeTab !== 'academia') {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('tab', 'academia');
+                return next;
+            }, { replace: true });
         }
-    }, [rawTab, autoEditTax, activeTab, academyLoadState, role, academy.modules, setSearchParams]);
+    }, [rawTab, navState.section, autoEditTax, activeTab, academyLoadState, role, academy.modules, setSearchParams]);
 
     useEffect(() => {
-        if (autoEditTax && activeTab === 'estudio') {
+        if (autoEditTax && activeTab === 'academia') {
             const t = window.setTimeout(() => {
                 taxInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 120);
@@ -402,8 +409,8 @@ const AcademySettings = () => {
     return (
         <div className="container navi-hub-page academy-settings-page">
             <PageHeader
-                title={terms.myWorkspace}
-                subtitle="Dados da academia, funil, alunos e financeiro."
+                title="Configurações"
+                subtitle="Estrutura, integrações e regras-base da academia."
                 prefix={
                     <Link
                         to="/"
@@ -430,7 +437,7 @@ const AcademySettings = () => {
             )}
 
             <HubTabBar
-                tabs={TABS_ALL.map((tab) => {
+                tabs={CONFIGURACOES_ITEMS.map((tab) => {
                     const { disabled, title } = getTabDisabledState(tab.id, {
                         role,
                         modules: academy.modules,
@@ -444,7 +451,7 @@ const AcademySettings = () => {
                 })}
                 activeId={activeTab}
                 onChange={setActiveTab}
-                ariaLabel={`Seções da ${terms.workspaceNoun}`}
+                ariaLabel="Seções de configurações"
                 variant="secondary"
                 size="sm"
                 fullWidth
@@ -455,7 +462,7 @@ const AcademySettings = () => {
 
             {!contentLoading && !tabDisabledState.disabled ? (
                 <Suspense fallback={<EmpresaTabSkeleton tabId={activeTab} />}>
-            {activeTab === 'estudio' && (
+            {activeTab === 'academia' && (
                 <>
                     <EstudioSection
                         academyId={academyId}
@@ -470,32 +477,33 @@ const AcademySettings = () => {
                         taxInputRef={taxInputRef}
                         autoEditTax={autoEditTax}
                         academyDataVersion={academyDataVersion}
+                        tabId="academia"
                     />
                 </>
             )}
 
-            {activeTab === 'funil' && (
+            {activeTab === 'crm' && (
                 <FunilSection
                     academy={academy}
                     setAcademy={setAcademy}
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
                     onSave={handleSave}
+                    tabId="crm"
                 />
             )}
 
-            {activeTab === 'alunos' && (
-                <StudentsSection
+            {activeTab === 'alunos-aulas' && (
+                <AlunosAulasSettingsSection
                     academy={academy}
                     setAcademy={setAcademy}
                     academyId={academyId}
                     academyDataVersion={academyDataVersion}
+                    role={role}
                 />
             )}
 
-            {activeTab === 'horarios' && academyId && (
-        <HorariosSection academyId={academyId} />
-      )}
+            {activeTab === 'integracoes' && <IntegracoesSettingsSection />}
 
             {activeTab === 'financeiro' && academyId && (
                 <div className="empresa-section">

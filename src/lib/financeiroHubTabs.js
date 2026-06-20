@@ -13,17 +13,17 @@ export const FINANCEIRO_SECTIONS = {
   CONFIG: 'configuracao',
 };
 
-/** Destino das configurações financeiras (Minha academia). */
+/** Destino das configurações financeiras (Configurações). */
 export const EMPRESA_FINANCE_TAB = 'financeiro';
-export const EMPRESA_FINANCE_CONFIG_PATH = `/empresa?tab=${EMPRESA_FINANCE_TAB}`;
+export const EMPRESA_FINANCE_CONFIG_PATH = `/configuracoes?tab=${EMPRESA_FINANCE_TAB}`;
 
-/** Contas de recebimento (Minha academia → Financeiro → Recebimento). */
+/** Contas de recebimento (Configurações → Financeiro → Recebimento). */
 export const EMPRESA_FINANCE_ACCOUNTS_PATH = `${EMPRESA_FINANCE_CONFIG_PATH}&section=recebimento#contas`;
 
-/** Fornecedores (Minha academia → Financeiro → Fornecedores). */
+/** Fornecedores (Configurações → Financeiro → Fornecedores). */
 export const EMPRESA_FINANCE_VENDORS_PATH = `${EMPRESA_FINANCE_CONFIG_PATH}&section=fornecedores`;
 
-/** Razão contábil (Minha academia → Financeiro → Avançado). */
+/** Razão contábil (Configurações → Financeiro → Avançado). */
 export function buildEmpresaFinanceRazaoPath({ from, txId } = {}) {
   const params = new URLSearchParams();
   params.set('tab', EMPRESA_FINANCE_TAB);
@@ -32,7 +32,7 @@ export function buildEmpresaFinanceRazaoPath({ from, txId } = {}) {
   const txIdVal = String(txId || '').trim();
   if (fromVal) params.set('from', fromVal);
   if (txIdVal) params.set('txId', txIdVal);
-  return `/empresa?${params.toString()}`;
+  return `/configuracoes?${params.toString()}`;
 }
 
 export const EMPRESA_FINANCE_RAZAO_PATH = buildEmpresaFinanceRazaoPath();

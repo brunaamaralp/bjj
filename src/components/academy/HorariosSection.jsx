@@ -10,12 +10,19 @@ import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
 import ClassesSection from './ClassesSection.jsx';
 import SchedulesSection from './SchedulesSection.jsx';
 
-export default function HorariosSection({ academyId }) {
-  const { section, goSection } = useAcademyTabSection(
-    'horarios',
+export default function HorariosSection({
+  academyId,
+  tabId = 'horarios',
+  embeddedInLayout = false,
+  forcedSection = null,
+}) {
+  const academyNav = useAcademyTabSection(
+    tabId,
     HORARIOS_DEFAULT_SECTION,
     isHorariosSettingsSection
   );
+  const section = forcedSection || academyNav.section;
+  const goSection = academyNav.goSection;
 
   const meta = HORARIOS_SETTINGS_ITEMS.find((item) => item.id === section);
 
@@ -33,6 +40,10 @@ export default function HorariosSection({ academyId }) {
         <SchedulesSection academyId={academyId} embeddedInLayout />
       </div>
     );
+  }
+
+  if (embeddedInLayout) {
+    return sectionBody;
   }
 
   return (

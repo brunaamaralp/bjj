@@ -23,7 +23,7 @@
 
 Em **Minha conta**, o usuário gerencia **perfil** (senha), **assinatura comercial do Nave** (Starter / Studio / Pro via Asaas) e opções **avançadas** da conta. A assinatura é **por academia** (`storeId = academyId`) e só o **titular** pode consultar status, pagar, mudar ou cancelar plano na API.
 
-Não confundir com **planos de mensalidade de alunos** (`financeConfig.plans` em Minha academia → Financeiro).
+Não confundir com **planos de mensalidade de alunos** (`financeConfig.plans` em Configurações → Financeiro).
 
 ---
 
@@ -84,7 +84,7 @@ flowchart TD
 
 - [ ] Usuário autenticado
 - [ ] Para assinatura: usuário é **owner** da academia (`assertAcademyOwnedByOwner`)
-- [ ] `companyTaxOk` ou CPF/CNPJ em `/empresa` (alerta em `SubscriptionStatusCard`)
+- [ ] `companyTaxOk` ou CPF/CNPJ em `/configuracoes?tab=academia` (alerta em `SubscriptionStatusCard`)
 - [ ] Billing live: `VITE_BILLING_ENABLED=true` no build
 
 ### Permissões por papel
@@ -167,7 +167,7 @@ Mutations de CRM podem ser bloqueadas pelo gate quando `accessLevel` ≠ `full` 
 | 2 | Assinatura | "Três planos — o limite é conversas da IA no WhatsApp." | Pricing transparente |
 | 3 | Status | "No trial, vejo quantos dias restam e quantas conversas usei." | Controle de uso |
 | 4 | Checkout | "PIX, boleto ou cartão — pago no Asaas e o plano ativa sozinho." | Sem fricção |
-| 5 | Empresa | "Antes de assinar, cadastro CPF/CNPJ da academia." | Compliance |
+| 5 | Configurações | "Antes de assinar, cadastro CPF/CNPJ da academia." | Compliance |
 
 ### O que não mostrar
 
@@ -180,8 +180,8 @@ Mutations de CRM podem ser bloqueadas pelo gate quando `accessLevel` ≠ `full` 
 ## Variações e atalhos
 
 - **Planos Nave:** `starter` R$ 297, `studio` R$ 597, `pro` R$ 997 — `planConfig.js`
-- **Planos alunos:** `/empresa?tab=financeiro&section=planos` — outro domínio
-- **Onboarding:** link «Ver planos» → `?tab=assinatura`; passo `company_tax` → `/empresa?focus=tax`
+- **Planos alunos:** `/configuracoes?tab=financeiro&section=planos` — outro domínio
+- **Onboarding:** link «Ver planos» → `?tab=assinatura`; passo `company_tax` → `/configuracoes?tab=academia&focus=tax`
 - **API:** tudo em `/api/billing` (único arquivo — limite Vercel Hobby)
 - **Gate:** mutações bloqueadas com `accessLevel: limited|none` quando billing live
 

@@ -16,11 +16,11 @@ import '../finance/finance.css';
 
 const SECTION_META = Object.fromEntries(FUNIL_SETTINGS_ITEMS.map((item) => [item.id, item]));
 
-const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0, onSave }) => {
+const FunilSection = ({ academy, setAcademy, academyId, academyDataVersion = 0, onSave, tabId = 'funil' }) => {
   const role = useUserRole(academy);
   const canEdit = role === 'owner';
   const { section, goSection } = useAcademyTabSection(
-    'funil',
+    tabId,
     FUNIL_DEFAULT_SECTION,
     isFunilSettingsSection
   );

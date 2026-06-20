@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Building2, ChevronDown, LogOut, Plug, User, Users } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, User, Users } from 'lucide-react';
 import { matchNavTarget } from '../../lib/naviMenu.js';
 import { useDismissibleMenu } from '../../hooks/useDismissibleMenu';
 import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
@@ -112,17 +112,13 @@ export default function NaviUserMenu({
 
             <DropdownMenuDivider />
 
-            <button type="button" role="menuitem" className={menuItemClass('/empresa')} onClick={() => go('/empresa')}>
+            <button type="button" role="menuitem" className={menuItemClass('/configuracoes')} onClick={() => go('/configuracoes')}>
               <Building2 size={16} strokeWidth={1.75} aria-hidden />
-              Minha academia
+              Configurações
             </button>
             <button type="button" role="menuitem" className={menuItemClass('/equipe')} onClick={() => go('/equipe')}>
               <Users size={16} strokeWidth={1.75} aria-hidden />
               Equipe
-            </button>
-            <button type="button" role="menuitem" className={menuItemClass('/integracoes')} onClick={() => go('/integracoes')}>
-              <Plug size={16} strokeWidth={1.75} aria-hidden />
-              Integrações
             </button>
             <button type="button" role="menuitem" className={menuItemClass('/conta')} onClick={() => go('/conta')}>
               <User size={16} strokeWidth={1.75} aria-hidden />

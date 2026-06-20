@@ -70,6 +70,7 @@ const EstudioSection = ({
   autoEditTax = false,
   academyId,
   academyDataVersion = 0,
+  tabId = 'estudio',
 }) => {
   const terms = useTerms();
   const addToast = useUiStore((s) => s.addToast);
@@ -89,7 +90,7 @@ const EstudioSection = ({
   }, [academy.settings, academyDataVersion]);
 
   const { section, goSection } = useAcademyTabSection(
-    'estudio',
+    tabId,
     ESTUDIO_DEFAULT_SECTION,
     isEstudioSettingsSection
   );

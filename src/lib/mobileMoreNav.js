@@ -121,11 +121,10 @@ export function buildMobileMoreItems({
     });
   }
 
-  add({ id: 'empresa', label: 'Minha academia', to: '/empresa', iconKey: 'empresa' });
+  add({ id: 'configuracoes', label: 'Configurações', to: '/configuracoes', iconKey: 'empresa' });
 
   if (isOwner) {
     add({ id: 'equipe', label: 'Equipe', to: '/equipe', iconKey: 'equipe' });
-    add({ id: 'integracoes', label: 'Integrações', to: '/integracoes', iconKey: 'integracoes' });
   }
 
   return items;
@@ -166,9 +165,8 @@ export function isMobileMoreItemActive(item, location) {
   if (id === 'automacoes') return loc.pathname === '/automacoes';
   if (id === 'agente') return loc.pathname === '/agente-ia';
   if (id === 'conectar-whatsapp') return matchNavTarget('/integracoes?tab=whatsapp', loc);
-  if (id === 'empresa') return loc.pathname === '/empresa';
+  if (id === 'configuracoes') return loc.pathname === '/configuracoes' || loc.pathname === '/empresa';
   if (id === 'equipe') return loc.pathname === '/equipe';
-  if (id === 'integracoes') return loc.pathname === '/integracoes';
 
   return matchNavTarget(item.to, loc);
 }

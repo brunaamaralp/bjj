@@ -24,10 +24,14 @@ export default function AcademyTabSettingsLayout({
           <button
             key={item.id}
             type="button"
-            className={`finance-settings-sidenav__item${activeId === item.id ? ' finance-settings-sidenav__item--active' : ''}`}
-            onClick={() => onSelect(item.id)}
+            className={`finance-settings-sidenav__item${activeId === item.id ? ' finance-settings-sidenav__item--active' : ''}${item.disabled ? ' finance-settings-sidenav__item--disabled' : ''}`}
+            onClick={() => {
+              if (item.disabled) return;
+              onSelect(item.id);
+            }}
             aria-current={activeId === item.id ? 'page' : undefined}
-            title={item.label}
+            title={item.disabled ? item.disabledTitle || item.label : item.label}
+            disabled={item.disabled}
           >
             <span className="finance-settings-sidenav__label finance-settings-sidenav__label--long">
               {item.label}

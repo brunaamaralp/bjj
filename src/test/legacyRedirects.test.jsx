@@ -43,18 +43,18 @@ describe('legacy route redirects', () => {
     });
   });
 
-  it('/finance → /empresa?tab=financeiro', async () => {
+  it('/finance → /configuracoes?tab=financeiro', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/finance']}>
         <Routes>
           <Route path="/finance" element={<FinanceRedirect />} />
-          <Route path="/empresa" element={<LocationProbe />} />
+          <Route path="/configuracoes" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     );
     await waitFor(() => {
       const el = container.querySelector('[data-testid="location"]');
-      expect(el?.getAttribute('data-pathname')).toBe('/empresa');
+      expect(el?.getAttribute('data-pathname')).toBe('/configuracoes');
       expect(el?.getAttribute('data-search')).toBe('?tab=financeiro');
     });
   });
@@ -75,28 +75,28 @@ describe('legacy route redirects', () => {
     });
   });
 
-  it('/contratos?tab=modelos → /empresa?tab=financeiro&section=contratos', async () => {
+  it('/contratos?tab=modelos → /configuracoes?tab=financeiro&section=contratos', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/contratos?tab=modelos']}>
         <Routes>
           <Route path="/contratos" element={<ContratosRedirect />} />
-          <Route path="/empresa" element={<LocationProbe />} />
+          <Route path="/configuracoes" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     );
     await waitFor(() => {
       const el = container.querySelector('[data-testid="location"]');
-      expect(el?.getAttribute('data-pathname')).toBe('/empresa');
+      expect(el?.getAttribute('data-pathname')).toBe('/configuracoes');
       expect(el?.getAttribute('data-search')).toBe('?tab=financeiro&section=contratos');
     });
   });
 
-  it('/contratos/modelos → /empresa?tab=financeiro&section=contratos', async () => {
+  it('/contratos/modelos → /configuracoes?tab=financeiro&section=contratos', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/contratos/modelos']}>
         <Routes>
           <Route path="/contratos/modelos" element={<ContratosModelosRedirect />} />
-          <Route path="/empresa" element={<LocationProbe />} />
+          <Route path="/configuracoes" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     );

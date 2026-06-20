@@ -8,6 +8,13 @@ export const CONFIGURACOES_SECTIONS = {
 
 const VALID = new Set(Object.values(CONFIGURACOES_SECTIONS));
 
+const LEGACY_SECTION_MAP = {
+  estudio: CONFIGURACOES_SECTIONS.ACADEMIA,
+  funil: CONFIGURACOES_SECTIONS.CRM,
+  alunos: CONFIGURACOES_SECTIONS.ALUNOS_AULAS,
+  horarios: CONFIGURACOES_SECTIONS.ALUNOS_AULAS,
+};
+
 export const CONFIGURACOES_ITEMS = [
   {
     id: CONFIGURACOES_SECTIONS.ACADEMIA,
@@ -44,7 +51,8 @@ export function isConfiguracoesSection(raw) {
 }
 
 export function resolveConfiguracoesNavState(rawTab) {
-  const section = isConfiguracoesSection(rawTab) || CONFIGURACOES_DEFAULT_SECTION;
+  const legacy = String(rawTab || '').trim().toLowerCase();
+  const section = isConfiguracoesSection(rawTab) || LEGACY_SECTION_MAP[legacy] || CONFIGURACOES_DEFAULT_SECTION;
   const meta = CONFIGURACOES_ITEMS.find((item) => item.id === section) || CONFIGURACOES_ITEMS[0];
   return { section, meta };
 }
