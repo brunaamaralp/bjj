@@ -5,7 +5,7 @@
 | **id** | `config.onboarding.academia` |
 | **módulo** | Config |
 | **personas** | owner, admin (IA/WhatsApp bloqueados para alguns members); recepcionista vê banner com restrições |
-| **rotas** | Banner global; destinos por passo (`/new-lead`, `/integracoes?tab=whatsapp`, `/agente-ia?setup=1`, etc.) |
+| **rotas** | Banner global; destinos por passo (`/new-lead`, `/configuracoes?tab=integracoes&section=whatsapp`, `/agente-ia?setup=1`, etc.) |
 | **pré-requisitos** | Academia criada; usuário logado com `academyId` selecionado |
 | **status** | revisado (código) |
 | **última revisão** | 2026-06-18 |
@@ -53,12 +53,12 @@ flowchart TD
 | 3 | Banner | **Ver todos os passos** | Expandir lista | Chips clicáveis por passo |
 | 4 | Banner | **Dispensar** (X) | Ocultar checklist | `localStorage` por `academyId` |
 | 5 | Passo `first_lead` | `/new-lead` | Criar lead | Passo marcado done (persist) |
-| 6 | Passo `connect_whatsapp` | `/integracoes?tab=whatsapp` | Conectar WhatsApp | Integração Zapster |
+| 6 | Passo `connect_whatsapp` | `/configuracoes?tab=integracoes&section=whatsapp` | Conectar WhatsApp | Integração Zapster |
 | 7 | Passo `setup_ai` | `/agente-ia?setup=1` | Configurar assistente | Bloqueado até `connect_whatsapp` done |
-| 8 | Passo `setup_finance` | `/empresa?tab=financeiro` | Cadastrar planos | Auto-done se `plans.length > 0` |
+| 8 | Passo `setup_finance` | `/configuracoes?tab=financeiro` | Cadastrar planos | Auto-done se `plans.length > 0` |
 | 9 | Passo `first_product` | `/loja?tab=produtos` | Cadastrar produto | Auto-done se há produtos |
 | 10 | Passo `first_stock_entry` | `/loja?tab=estoque` | Entrada de estoque | Auto-done se `current_quantity > 0` |
-| 11 | Passo `company_tax` | `/empresa?focus=tax` | CPF/CNPJ | Quando billing live exige |
+| 11 | Passo `company_tax` | `/configuracoes?tab=academia&focus=tax` | CPF/CNPJ | Quando billing live exige |
 | 12 | Secundário `install_pwa` | Toast instrução | Marcar feito manual | `completeOnboardingStepIds` |
 
 ### Passos no núcleo (`buildEffectiveCoreSteps`)
@@ -66,12 +66,12 @@ flowchart TD
 | ID | Título | Quando entra | Destino canônico |
 |---|---|---|---|
 | `first_lead` | Criar primeiro lead | Sempre | `/new-lead` |
-| `connect_whatsapp` | Conectar WhatsApp | Sempre | `/integracoes?tab=whatsapp` |
+| `connect_whatsapp` | Conectar WhatsApp | Sempre | `/configuracoes?tab=integracoes&section=whatsapp` |
 | `setup_ai` | Configurar IA | Sempre | `/agente-ia?setup=1` |
-| `setup_finance` | Configurar financeiro | `modules.finance` | `/empresa?tab=financeiro` |
+| `setup_finance` | Configurar financeiro | `modules.finance` | `/configuracoes?tab=financeiro` |
 | `first_product` | Cadastrar produto | `sales` ou `inventory` | `/loja?tab=produtos` |
 | `first_stock_entry` | Estoque inicial | `inventory` | `/loja?tab=estoque` |
-| `company_tax` | CPF/CNPJ | Billing live + fiscal pendente | `/empresa?focus=tax` |
+| `company_tax` | CPF/CNPJ | Billing live + fiscal pendente | `/configuracoes?tab=academia&focus=tax` |
 
 **Fora do núcleo do banner:** `setup_automations` (checklist persistido, não contado no progresso principal); `install_pwa` (secundário, chip separado).
 
@@ -115,7 +115,7 @@ flowchart TD
 | Situação | Feedback esperado | Referência |
 |---|---|---|
 | Member em passo IA | Toast «Peça ao dono…» | `OnboardingBanner.handleStepNav` |
-| `setup_ai` sem WA | Toast + `/integracoes?tab=whatsapp` | Guard `connect_whatsapp` |
+| `setup_ai` sem WA | Toast + `/configuracoes?tab=integracoes&section=whatsapp` | Guard `connect_whatsapp` |
 | PWA | Toast com instrução de instalar | `install_pwa` path `null` |
 
 ### Critérios de fluxo saudável vs regressão
