@@ -10,11 +10,23 @@ import {
 import { getBirthMonthDay } from '../lib/birthDate.js';
 import { apiFindStudentsByPhone } from '../lib/studentsApi.js';
 import { useStudentsListScrollLoadMore } from './useStudentsListScrollLoadMore.js';
+import { STUDENT_STATUS } from '../lib/studentStatus.js';
 
 const STALE_MS = 2 * 60 * 1000;
 
 function normalizePhone(v) {
   return String(v || '').replace(/\D/g, '');
+}
+
+function didLastFetchUseSubsetFilters(fetchOpts) {
+  return Boolean(
+    fetchOpts?.search ||
+      fetchOpts?.plan ||
+      fetchOpts?.turma ||
+      fetchOpts?.turmaEmpty ||
+      fetchOpts?.origin ||
+      fetchOpts?.studentStatus === STUDENT_STATUS.INACTIVE
+  );
 }
 
 /**
@@ -42,6 +54,7 @@ export function useStudentsListData({
     studentsHasMore,
     studentsTotal,
     lastFetchedAt,
+    lastFetchOpts,
   } = useStudentStore(
     useShallow((s) => ({
       studentIds: s.studentIds,
@@ -54,6 +67,7 @@ export function useStudentsListData({
       studentsHasMore: s.studentsHasMore,
       studentsTotal: s.studentsTotal,
       lastFetchedAt: s.lastFetchedAt,
+      lastFetchOpts: s.lastFetchOpts,
     }))
   );
 
@@ -72,9 +86,10 @@ export function useStudentsListData({
     if (useStudentStore.getState().loading) return;
     const stale = !lastFetchedAt || Date.now() - lastFetchedAt > STALE_MS;
     const hasStudents = useStudentStore.getState().studentIds.length > 0;
-    if (!stale && !hasServerFilters && hasStudents) return;
+    const cachedSubsetFromPreviousFetch = didLastFetchUseSubsetFilters(lastFetchOpts);
+    if (!stale && !hasServerFilters && hasStudents && !cachedSubsetFromPreviousFetch) return;
     void fetchStudents({ reset: true, ...serverFetchOpts });
-  }, [academyId, serverFetchOpts, fetchStudents, lastFetchedAt, hasServerFilters]);
+  }, [academyId, serverFetchOpts, fetchStudents, lastFetchedAt, hasServerFilters, lastFetchOpts]);
 
   useEffect(() => {
     const phoneQ = normalizePhone(filterState.debouncedSearch);
