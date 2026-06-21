@@ -921,6 +921,12 @@ a.btn-ghost:focus-visible {
   background: var(--navi-brand-img-bg-light);
 }
 
+.navi-sidebar-brand a {
+  display: contents;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .navi-sidebar-brand--collapsed {
   justify-content: center;
   width: 100%;

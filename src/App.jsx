@@ -1085,7 +1085,9 @@ const App = () => {
             {!sidebarCollapsed ? (
               <>
                 <div className="navi-sidebar-brand">
-                  <NaviBrandLockup height={120} variant="dark" className="navi-brand-lockup--sidebar" />
+                  <Link to="/" aria-label="Ir para Recepção">
+                    <NaviBrandLockup height={120} variant="dark" className="navi-brand-lockup--sidebar" />
+                  </Link>
                 </div>
                 <button
                   type="button"
@@ -1101,7 +1103,9 @@ const App = () => {
             ) : (
               <>
                 <div className="navi-sidebar-brand navi-sidebar-brand--collapsed">
-                  <NaviLogo size={56} variant="app" />
+                  <Link to="/" aria-label="Ir para Recepção">
+                    <NaviLogo size={56} variant="app" />
+                  </Link>
                 </div>
                 <button
                   type="button"
