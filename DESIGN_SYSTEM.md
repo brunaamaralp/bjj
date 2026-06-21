@@ -4,7 +4,7 @@ Entry point único para padrões de UI, tokens e governança de CSS do app.
 
 ## Objetivo
 
-Garantir consistência visual entre módulos, reduzir regressões e facilitar evolução incremental do front-end.
+Garantir consistênciaa visual entre módulos, reduzir regressões e facilitar evolução incremental do front-end.
 
 ## Arquitetura
 

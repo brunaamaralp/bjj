@@ -26,7 +26,33 @@ const nlMocks = vi.hoisted(() => ({
   },
   inventoryState: { error: null, sucesso: true, quantity_before: 5, quantity_after: 3 },
   ensureAuth: vi.fn(),
-  ensureAcademyAccess: vi.fn()
+  ensureAcademyAccess: vi.fn(),
+  isAcademyOwnerOrAdminUser: vi.fn(async () => true),
+  enrichNlActionContext: vi.fn(async () => ({
+    pendingForNl: [],
+    recentPaymentsNorm: [],
+    pipelineStages: [{ id: 'Novo', label: 'Novo' }],
+  })),
+  answerAcademyQuery: vi.fn(async (_db, { queryType, referenceMonth }) => ({
+    resposta: 'ok',
+    rows: [],
+    count: 0,
+    query_type: queryType,
+    reference_month: referenceMonth || '2026-06',
+  })),
+  inferAcademyQueryType: vi.fn((text) => {
+    const t = String(text || '').toLowerCase();
+    if (t.includes('não pagou') || t.includes('nao pagou')) return 'unpaid_tuition';
+    if (t.includes('faltou')) return 'missed_experimental';
+    if (t.includes('compareceu')) return 'attended_experimental';
+    if (t.includes('check-in') || t.includes('checkin') || t.includes('veio hoje')) return 'checkins_today';
+    return '';
+  }),
+  listAcademyStudentsMapped: vi.fn(async () => [
+    { id: 's1', name: 'Aluno 1', status: 'Matriculado', contact_type: 'student', plan: 'Mensal' },
+    { id: 's2', name: 'Aluno 2', status: 'Ativo', contact_type: 'student', plan: 'Trimestral' },
+    { id: 's3', name: 'Inativo', status: 'Inativo', contact_type: 'student', student_status: 'inactive', plan: 'Mensal' },
+  ]),
 }));
 
 vi.mock('../store/useLeadStore.js', () => ({
@@ -138,15 +164,21 @@ vi.mock('../hooks/useSalesCatalog.js', () => ({
 
 vi.mock('../../lib/server/academyAccess.js', () => ({
   ensureAuth: nlMocks.ensureAuth,
-  ensureAcademyAccess: nlMocks.ensureAcademyAccess
+  ensureAcademyAccess: nlMocks.ensureAcademyAccess,
+  isAcademyOwnerOrAdminUser: (...args) => nlMocks.isAcademyOwnerOrAdminUser(...args),
 }));
 
 vi.mock('../../lib/server/nlActionContextFetch.js', () => ({
-  enrichNlActionContext: vi.fn(async () => ({
-    pendingForNl: [],
-    recentPaymentsNorm: [],
-    pipelineStages: [{ id: 'Novo', label: 'Novo' }],
-  })),
+  enrichNlActionContext: (...args) => nlMocks.enrichNlActionContext(...args),
+}));
+
+vi.mock('../../lib/server/nlAcademyQuery.js', () => ({
+  answerAcademyQuery: (...args) => nlMocks.answerAcademyQuery(...args),
+  inferAcademyQueryType: (...args) => nlMocks.inferAcademyQueryType(...args),
+}));
+
+vi.mock('../../lib/server/listAcademyStudents.js', () => ({
+  listAcademyStudentsMapped: (...args) => nlMocks.listAcademyStudentsMapped(...args),
 }));
 
 import { useNlAction } from '../hooks/useNlAction.js';
@@ -257,7 +289,7 @@ describe('Assistente de linguagem natural', () => {
       });
       expect(nlMocks.createPayment).toHaveBeenCalledWith(
         expect.objectContaining({ lead_id: 's1' }),
-        expect.any(Object)
+        expect.objectContaining({ financeConfig: nlMocks.useLeadState.financeConfig })
       );
     });
 
@@ -271,7 +303,7 @@ describe('Assistente de linguagem natural', () => {
       });
       expect(nlMocks.createPayment).toHaveBeenCalledWith(
         expect.objectContaining({ reference_month: '2026-05' }),
-        expect.any(Object)
+        expect.objectContaining({ financeConfig: nlMocks.useLeadState.financeConfig })
       );
     });
 
@@ -285,7 +317,7 @@ describe('Assistente de linguagem natural', () => {
       });
       expect(nlMocks.createPayment).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'paid' }),
-        expect.any(Object)
+        expect.objectContaining({ financeConfig: nlMocks.useLeadState.financeConfig })
       );
     });
 
@@ -476,6 +508,100 @@ describe('Assistente de linguagem natural', () => {
       }, res);
       expect(res.statusCode).toBe(200);
       expect(res.jsonData.action).toBeNull();
+    });
+
+    it('responde unpaid_tuition sem chamar Anthropic quando a query eh estruturada', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const { default: handler } = await import('../../lib/server/nlActionHandler.js');
+      const res = makeMockRes();
+      await handler({ method: 'POST', body: { text: 'Quem nao pagou este mes?', students: [], leads: [] } }, res);
+      expect(res.statusCode).toBe(200);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(nlMocks.answerAcademyQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ academyId: 'acad-1', queryType: 'unpaid_tuition' })
+      );
+      expect(res.jsonData.action).toBe('academy_query');
+      expect(res.jsonData.data.query_type).toBe('unpaid_tuition');
+    });
+
+    it('responde active_students_count sem chamar Anthropic', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const { default: handler } = await import('../../lib/server/nlActionHandler.js');
+      const res = makeMockRes();
+      await handler({ method: 'POST', body: { text: 'Quantos alunos ativos temos hoje?', students: [], leads: [] } }, res);
+      expect(res.statusCode).toBe(200);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(nlMocks.listAcademyStudentsMapped).toHaveBeenCalledWith('acad-1');
+      expect(res.jsonData.action).toBe('academy_query');
+      expect(res.jsonData.data.query_type).toBe('active_students_count');
+      expect(res.jsonData.data.count).toBe(2);
+    });
+
+    it('nao inclui estoque no prompt para query financeira aberta', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            content: [{ text: JSON.stringify({ action: null, error: 'x' }) }],
+            usage: { input_tokens: 10, output_tokens: 5 },
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { default: handler } = await import('../../lib/server/nlActionHandler.js');
+      const res = makeMockRes();
+      await handler({
+        method: 'POST',
+        body: {
+          text: 'Resuma a situacao financeira deste mes',
+          context: 'financeiro',
+          students: [{ id: 's1', name: 'Aluno 1', plan: 'Mensal' }],
+          leads: [{ id: 'l1', name: 'Lead 1', status: 'Novo', pipelineStage: 'Novo' }],
+          stockProducts: [{ id: 'p1', display_label: 'Kimono A1', sale_price: 150, current_quantity: 3 }],
+        },
+      }, res);
+      expect(res.statusCode).toBe(200);
+      const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(payload.system).not.toMatch(/Produtos do estoque/i);
+    });
+
+    it('nao inclui alunos no prompt para query de estoque aberta', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  action: 'inventory_query',
+                  confidence: 'high',
+                  data: { query_type: 'stock_level' },
+                  summary: 'ok',
+                  missing: [],
+                  warnings: [],
+                }),
+              },
+            ],
+            usage: { input_tokens: 10, output_tokens: 5 },
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { default: handler } = await import('../../lib/server/nlActionHandler.js');
+      const res = makeMockRes();
+      await handler({
+        method: 'POST',
+        body: {
+          text: 'Como esta o saldo do estoque de kimonos?',
+          students: [{ id: 's1', name: 'Aluno 1', plan: 'Mensal' }],
+          leads: [{ id: 'l1', name: 'Lead 1', status: 'Novo', pipelineStage: 'Novo' }],
+          stockProducts: [{ id: 'p1', display_label: 'Kimono A1', sale_price: 150, current_quantity: 3 }],
+        },
+      }, res);
+      expect(res.statusCode).toBe(200);
+      const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(payload.system).not.toMatch(/Alunos cadastrados/i);
     });
   });
 

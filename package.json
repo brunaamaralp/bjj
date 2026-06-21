@@ -21,6 +21,7 @@
     "audit:students-attrs:sample": "node --env-file=.env scripts/audit-students-collection-attrs.mjs --sample",
     "audit:audience-fields-gblp": "node --env-file=.env scripts/audit-audience-fields-gblp.mjs",
     "provision:automation-logs": "node --env-file=.env scripts/provision-automation-logs.js",
+    "provision:ai-usage-logs": "node --env-file=.env scripts/provision-ai-usage-logs-schema.mjs",
     "migrate:perms": "node scripts/migrate-permissions.mjs",
     "migrate:ai-plans": "node scripts/migrate-ai-plans-appwrite.mjs",
     "migrate:lead-stage-sync": "node scripts/fix-lead-stage-sync.js",
