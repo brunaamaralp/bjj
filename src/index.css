@@ -900,7 +900,7 @@ a.btn-ghost:focus-visible {
 .navi-sidebar-brand .navi-brand-lockup--sidebar {
   display: block;
   width: auto !important;
-  height: 112px !important;
+  height: 120px !important;
   max-width: none !important;
   object-fit: contain;
   object-position: left center;
