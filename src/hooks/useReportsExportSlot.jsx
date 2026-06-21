@@ -30,14 +30,21 @@ export function useRegisterReportsExport(config) {
   const handlerRef = useRef(config?.onExport);
   handlerRef.current = config?.onExport;
 
+  // Extrair as funções estáveis do contexto para evitar que `ctx` (objeto
+  // inteiro) entre nos deps: cada ctx.register() troca `slot` → novo `ctx`
+  // → effect re-dispara → loop infinito. register/unregister são useCallback
+  // com deps [], então nunca mudam de referência.
+  const register = ctx?.register;
+  const unregister = ctx?.unregister;
+
   useEffect(() => {
-    if (!ctx || !config) return undefined;
-    ctx.register({
+    if (!register || !config) return undefined;
+    register({
       disabled: Boolean(config.disabled),
       loading: Boolean(config.loading),
       title: config.title || 'Exportar CSV',
       onExport: () => handlerRef.current?.(),
     });
-    return () => ctx.unregister();
-  }, [ctx, config?.disabled, config?.loading, config?.title]);
+    return () => unregister?.();
+  }, [register, unregister, config?.disabled, config?.loading, config?.title]);
 }
