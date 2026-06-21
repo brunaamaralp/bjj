@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeadStore } from '../store/useLeadStore';
 import { resolveHubTab } from '../lib/hubTabs';
@@ -109,6 +109,7 @@ export default function Reports() {
     const [profileFilter, setProfileFilter] = useState('all');
     const [operatorFilter, setOperatorFilter] = useState('');
     const [salesTeam, setSalesTeam] = useState([]);
+    const salesTeamCacheRef = useRef({ academyId: null, data: [] });
     const [exportOpen, setExportOpen] = useState(false);
     const [drillKey, setDrillKey] = useState(null);
     const [heatmapTableView, setHeatmapTableView] = useState(false);
@@ -237,10 +238,18 @@ export default function Reports() {
             setSalesTeam([]);
             return undefined;
         }
+        // Cache: re-usar dados já carregados ao alternar entre abas da mesma academia.
+        if (salesTeamCacheRef.current.academyId === academyId) {
+            setSalesTeam(salesTeamCacheRef.current.data);
+            return undefined;
+        }
         let alive = true;
         fetchTeamMemberships(academyId)
             .then((members) => {
-                if (alive) setSalesTeam(normalizeReportsOperatorTeam(members));
+                if (!alive) return;
+                const normalized = normalizeReportsOperatorTeam(members);
+                salesTeamCacheRef.current = { academyId, data: normalized };
+                setSalesTeam(normalized);
             })
             .catch(() => {
                 if (alive) setSalesTeam([]);

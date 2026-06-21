@@ -60,6 +60,13 @@ export function useStudentMetricsReport({ enabled, academyId, preset, range, onD
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const onDateErrorRef = useRef(onDateError);
+  onDateErrorRef.current = onDateError;
+
+  const lastFetchKeyRef = useRef(null);
+  const fetchReportRef = useRef(null);
+  const jwtCacheRef = useRef({ token: null, expiresAt: 0 });
+
   const fetchReport = useCallback(
     async (forceRefresh = false) => {
       if (!academyId || !enabled) return false;
@@ -68,12 +75,12 @@ export function useStudentMetricsReport({ enabled, academyId, preset, range, onD
         const fa = parseYMD(range.from);
         const ta = parseYMD(range.to);
         if (fa && ta && fa.getTime() > ta.getTime()) {
-          onDateError?.('A data inicial deve ser anterior à data final.');
+          onDateErrorRef.current?.('A data inicial deve ser anterior à data final.');
           setError(null);
           return false;
         }
       }
-      onDateError?.(null);
+      onDateErrorRef.current?.(null);
 
       reportAbortRef.current?.abort();
       const controller = new AbortController();
@@ -82,14 +89,24 @@ export function useStudentMetricsReport({ enabled, academyId, preset, range, onD
       setError(null);
 
       const { fromDay, toDEndLocal, prevFromDLocal, prevToDLocal } = computePrevRange(preset, range);
+      const fetchKey = `${academyId}|${range.from}|${range.to}|${preset}`;
 
       try {
-        const jwt = await account.createJWT();
+        let token;
+        const now = Date.now();
+        if (jwtCacheRef.current.token && now < jwtCacheRef.current.expiresAt) {
+          token = jwtCacheRef.current.token;
+        } else {
+          const jwt = await account.createJWT();
+          token = jwt.jwt;
+          jwtCacheRef.current = { token, expiresAt: now + 50_000 };
+        }
+
         const res = await fetch('/api/reports', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt.jwt}`,
+            Authorization: `Bearer ${token}`,
             'x-academy-id': String(academyId || ''),
           },
           body: JSON.stringify({
@@ -111,7 +128,10 @@ export function useStudentMetricsReport({ enabled, academyId, preset, range, onD
         }
         if (!res.ok) throw new Error('Falha na resposta do servidor');
         const data = await res.json();
-        if (!controller.signal.aborted) setReportData(data);
+        if (!controller.signal.aborted) {
+          setReportData(data);
+          lastFetchKeyRef.current = fetchKey;
+        }
         return true;
       } catch (e) {
         if (e?.name === 'AbortError') return false;
@@ -123,13 +143,19 @@ export function useStudentMetricsReport({ enabled, academyId, preset, range, onD
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [academyId, enabled, preset, range.from, range.to, onDateError]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [academyId, enabled, preset, range.from, range.to]
   );
+
+  fetchReportRef.current = fetchReport;
 
   useEffect(() => {
     if (!enabled) return;
-    void fetchReport(false);
-  }, [range, academyId, preset, enabled, fetchReport]);
+    const fetchKey = `${academyId}|${range.from}|${range.to}|${preset}`;
+    if (lastFetchKeyRef.current === fetchKey) return;
+    void fetchReportRef.current(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range.from, range.to, academyId, preset, enabled]);
 
   return {
     reportData,

@@ -18,6 +18,25 @@ export function useFunnelReport({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Refs que mantêm o valor mais recente sem entrar nos deps do useCallback,
+  // evitando que a mudança de profileFilter invalide fetchReport e cause double fetch.
+  const profileFilterRef = useRef(profileFilter);
+  profileFilterRef.current = profileFilter;
+
+  const onDateErrorRef = useRef(onDateError);
+  onDateErrorRef.current = onDateError;
+
+  // Rastreia a chave do último fetch bem-sucedido para evitar re-fetch ao voltar
+  // para a aba sem que o período tenha mudado.
+  const lastFetchKeyRef = useRef(null);
+
+  // Ref estável para a função fetchReport — permite que os effects usem a versão
+  // mais recente sem precisar listá-la nos seus deps arrays.
+  const fetchReportRef = useRef(null);
+
+  // Cache de JWT por instância do hook (JWT do Appwrite válido por ~55 s).
+  const jwtCacheRef = useRef({ token: null, expiresAt: 0 });
+
   const fetchReport = useCallback(
     async (forceRefresh = false) => {
       if (!academyId || !enabled) return false;
@@ -26,12 +45,12 @@ export function useFunnelReport({
         const fa = parseYMD(range.from);
         const ta = parseYMD(range.to);
         if (fa && ta && fa.getTime() > ta.getTime()) {
-          onDateError?.('A data inicial deve ser anterior à data final.');
+          onDateErrorRef.current?.('A data inicial deve ser anterior à data final.');
           setError(null);
           return false;
         }
       }
-      onDateError?.(null);
+      onDateErrorRef.current?.(null);
 
       reportAbortRef.current?.abort();
       const controller = new AbortController();
@@ -86,13 +105,24 @@ export function useFunnelReport({
         return d;
       })();
 
+      const fetchKey = `${academyId}|${range.from}|${range.to}|${preset}|${chartMode}`;
+
       try {
-        const jwt = await account.createJWT();
+        let token;
+        const now = Date.now();
+        if (jwtCacheRef.current.token && now < jwtCacheRef.current.expiresAt) {
+          token = jwtCacheRef.current.token;
+        } else {
+          const jwt = await account.createJWT();
+          token = jwt.jwt;
+          jwtCacheRef.current = { token, expiresAt: now + 50_000 };
+        }
+
         const res = await fetch('/api/reports', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt.jwt}`,
+            Authorization: `Bearer ${token}`,
             'x-academy-id': String(academyId || ''),
           },
           body: JSON.stringify({
@@ -101,7 +131,7 @@ export function useFunnelReport({
             to: toDEndLocal.toISOString(),
             prevFrom: prevFromDLocal.toISOString(),
             prevTo: prevToDLocal.toISOString(),
-            filters: { origin: 'all', type: profileFilter },
+            filters: { origin: 'all', type: profileFilterRef.current },
             chartMode,
             refresh: forceRefresh === true,
           }),
@@ -113,7 +143,10 @@ export function useFunnelReport({
         }
         if (!res.ok) throw new Error('Falha na resposta do servidor');
         const data = await res.json();
-        if (!controller.signal.aborted) setReportData(data);
+        if (!controller.signal.aborted) {
+          setReportData(data);
+          lastFetchKeyRef.current = fetchKey;
+        }
         return true;
       } catch (e) {
         if (e?.name === 'AbortError') return false;
@@ -125,23 +158,38 @@ export function useFunnelReport({
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [academyId, enabled, preset, range.from, range.to, profileFilter, chartMode, onDateError]
+    // profileFilter e onDateError são lidos via ref — não precisam entrar nos deps.
+    // Isso evita que a mudança de profileFilter invalide fetchReport e dispare o Effect 1.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [academyId, enabled, preset, range.from, range.to, chartMode]
   );
 
+  // Manter ref em sincronia com a versão mais recente do callback.
+  fetchReportRef.current = fetchReport;
+
+  // Effect 1: dispara fetch quando período/preset/academyId/chartMode mudam.
+  // NÃO inclui fetchReport nos deps para que mudanças de profileFilter (que invalidam
+  // fetchReport via useCallback) não causem fetch duplicado.
   useEffect(() => {
     if (!enabled) return;
-    void fetchReport(false);
-  }, [range, chartMode, academyId, preset, enabled, fetchReport]);
+    const fetchKey = `${academyId}|${range.from}|${range.to}|${preset}|${chartMode}`;
+    // Guard: se voltando à aba sem mudar período, não re-busca dados já carregados.
+    if (lastFetchKeyRef.current === fetchKey) return;
+    void fetchReportRef.current(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range.from, range.to, chartMode, academyId, preset, enabled]);
 
+  // Effect 2: profileFilter com debounce — único trigger de fetch para mudança de filtro.
   useEffect(() => {
     if (!enabled) return;
     if (filterDebounceSkip.current) {
       filterDebounceSkip.current = false;
       return;
     }
-    const t = window.setTimeout(() => void fetchReport(false), 300);
+    const t = window.setTimeout(() => void fetchReportRef.current(false), 300);
     return () => window.clearTimeout(t);
-  }, [profileFilter, enabled, fetchReport]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileFilter, enabled]);
 
   return {
     reportData,
