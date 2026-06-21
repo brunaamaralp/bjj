@@ -37,7 +37,7 @@ describe('leadProfileTaskFilters', () => {
     const allKey = buildTasksFetchKey('acad-a', serverTaskFilters({ status: 'all' }));
     expect(leadKey).not.toBe(allKey);
     expect(leadKey).toContain('lead-1');
-    expect(allKey).toBe('acad-a|||all||');
+    expect(allKey).toBe('acad-a|||all|||');
   });
 });
 

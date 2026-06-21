@@ -20,6 +20,7 @@ import { createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
 import { freezeStudentApi } from '../lib/studentsApi.js';
 import { normalizeScheduleTime, isValidYmd } from '../../lib/nlScheduleParse.js';
 import { sanitizeStudentUpdatesForNl } from '../../lib/studentNlUpdates.js';
+import { sanitizePaymentUpdatesForNl } from '../../lib/paymentNlUpdates.js';
 import { normalizeLeadProfileType } from '../../lib/leadTypeNormalize.js';
 import { isPaymentMethodActive } from '../lib/paymentMethodSettings.js';
 import { toastAdapterFromAddToast } from '../lib/financeTxSettlementDisplay.js';

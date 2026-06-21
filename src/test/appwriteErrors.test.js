@@ -62,4 +62,10 @@ describe('appwriteErrors', () => {
     expect(msg).toContain('financeira');
     expect(msg).not.toContain('Unknown attribute');
   });
+
+  it('friendlyError traduz autentique_not_configured_for_academy com CTA para Integrações', () => {
+    const msg = friendlyError('autentique_not_configured_for_academy', 'send');
+    expect(msg).toContain('Integrações');
+    expect(msg).toContain('Autentique');
+  });
 });

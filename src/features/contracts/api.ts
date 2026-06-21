@@ -48,9 +48,10 @@ export async function fetchContractById(
   if (opts.sync) qs.set('sync', '1');
   const suffix = qs.toString() ? `&${qs.toString()}` : '';
   const res = await contractsFetch(`/api/contracts?id=${encodeURIComponent(id)}${suffix}`);
-  const data = (await res.json()) as ContractDetailResponse;
+  const data = (await res.json()) as ContractDetailResponse & { detail?: string };
   if (!res.ok || !data.ok || !data.contract) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    const parts = [data.error, data.detail].filter(Boolean);
+    throw new Error(parts.join('\n') || `Erro HTTP ${res.status}`);
   }
   return data.contract;
 }
@@ -86,9 +87,10 @@ export async function cancelContractRequest(id: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'cancel' }),
   });
-  const data = (await res.json()) as { ok: boolean; error?: string };
+  const data = (await res.json()) as { ok: boolean; error?: string; detail?: string };
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    const parts = [data.error, data.detail].filter(Boolean);
+    throw new Error(parts.join('\n') || `Erro HTTP ${res.status}`);
   }
 }
 

@@ -15,4 +15,10 @@ describe('humanizeAutentiqueError', () => {
     expect(msg).toMatch(/Signatário 2/i);
     expect(isAutentiqueClientError('validation')).toBe(true);
   });
+
+  it('traduz falta de token próprio da academia', () => {
+    const msg = humanizeAutentiqueError('autentique_not_configured_for_academy');
+    expect(msg).toContain('Conecte a conta Autentique da academia');
+    expect(isAutentiqueClientError('autentique_not_configured_for_academy')).toBe(true);
+  });
 });

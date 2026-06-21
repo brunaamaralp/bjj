@@ -228,7 +228,8 @@ export default function ContractsAutentiqueSection({ embeddedInLayout = false, a
 
               {!configured && statusPhase !== 'error' ? (
                 <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
-                  Sem configuração, contratos usarão a conta padrão da plataforma.
+                  Sem configurar a conta Autentique da academia, o Nave permite preparar modelos e prévias, mas não
+                  envia contratos para assinatura.
                 </p>
               ) : null}
 

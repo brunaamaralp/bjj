@@ -29,6 +29,7 @@ describe('ProfileComunicacaoSection', () => {
       <MemoryRouter>
         <ProfileComunicacaoSection
           waConnected={false}
+          waOfflineUi
           waStatusChecked
           phoneDigits="5511999999999"
         />

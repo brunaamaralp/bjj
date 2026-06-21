@@ -78,6 +78,8 @@ const ERROR_MAP = {
   // Contratos / permissões
   owner_required: 'Apenas o titular da academia pode fazer esta alteração.',
   autentique_not_configured: 'Integração com assinatura digital não configurada. Fale com o suporte.',
+  autentique_not_configured_for_academy:
+    'Conecte a conta Autentique da academia em Integrações para usar contratos digitais.',
 
   // Zapster / WhatsApp
   zapster_timeout: 'WhatsApp demorou para responder. Tente novamente em instantes.',
@@ -176,6 +178,12 @@ export function friendlyError(err, context = 'action') {
     const friendly = name
       ? `Este telefone já está cadastrado — ${name}`
       : ERROR_MAP.phone_duplicate;
+    logTechnicalError(errObj, friendly, raw);
+    return friendly;
+  }
+
+  if (raw && ERROR_MAP[raw]) {
+    const friendly = ERROR_MAP[raw];
     logTechnicalError(errObj, friendly, raw);
     return friendly;
   }

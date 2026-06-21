@@ -6,9 +6,9 @@ Referência oficial: [Webhooks – Autentique](https://docs.autentique.com.br/ap
 
 | Variável | Descrição |
 |----------|-----------|
-| `AUTENTIQUE_TOKEN` ou `AUTENTIQUE_API_TOKEN` | Bearer da API Autentique |
+| `AUTENTIQUE_TOKEN` ou `AUTENTIQUE_API_TOKEN` | Credencial global legada para utilitários internos. **Não** é fallback de runtime no fluxo multi-tenant de contratos |
 | `AUTENTIQUE_WEBHOOK_SECRET` | Segredo para validar HMAC do webhook (`x-autentique-signature`) |
-| `AUTENTIQUE_ACCOUNT_EMAIL` | E-mail da conta Autentique (titular do token). Necessário para **auto-assinatura da contratada** no envio |
+| `AUTENTIQUE_ACCOUNT_EMAIL` | Valor legado/global. No fluxo multi-tenant, a referência principal para auto-assinatura é o e-mail salvo na integração Autentique da própria academia |
 | `CHROMIUM_LOCAL` | `1` para forçar PDF via Chromium em dev local (opcional; em produção `VERCEL=1` já ativa) |
 | `APPWRITE_CONTRACTS_COLLECTION_ID` | Coleção `contracts` |
 | `APPWRITE_CONTRACT_SIGNERS_COLLECTION_ID` | Coleção `contract_signers` |
@@ -88,6 +88,13 @@ node --env-file=.env scripts/verify-and-fix-schema-integrations.mjs
 - **Sync manual:** `GET /api/contracts?id={id}&sync=1` — consulta Autentique e atualiza status/signatários
 - **Cancelar:** `PATCH /api/contracts?id={id}` com `{ "action": "cancel" }` — remove na Autentique quando possível
 
+## Credencial da academia
+
+- O runtime de contratos usa apenas o token salvo na configuração da própria academia em **Integrações → Autentique**.
+- `AUTENTIQUE_TOKEN` e `AUTENTIQUE_API_TOKEN` não são fallback para **envio**, **sync** ou **cancelamento** no fluxo multi-tenant.
+- Sem token próprio, a academia ainda pode editar modelos e gerar prévia PDF, mas não consegue enviar contratos para assinatura nem usar ações autenticadas do Autentique.
+- Erro esperado sem configuração: orientar a conectar a conta Autentique da academia em **Integrações**.
+
 ## Variáveis do modelo
 
 Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores vêm do cadastro no envio.
@@ -101,7 +108,7 @@ Use `{{nome_variavel}}` no HTML (ex.: `{{nome_aluno}}`, `{{plano}}`). Valores v�
    - **Mensagem customizada** (`message` na API): texto informando que a academia enviou o contrato/termo para assinatura
 4. O texto *“fulano enviou via Autentique”* e **Criador do documento** continuam vinculados à **conta Autentique** (titular do token). Para aparecer só a marca da academia, use organização/modelo corporativo no painel Autentique.
 5. Assinatura na interface Autentique (campos nas posições configuradas).
-6. **Auto-assinatura da academia (opcional):** no passo Enviar, marque *Assinar pela academia agora* quando o e-mail da **Contratada** for igual a `AUTENTIQUE_ACCOUNT_EMAIL`. O Nave chama `signDocument` após criar o documento; só o aluno recebe link pendente.
+6. **Auto-assinatura da academia (opcional):** no passo Enviar, marque *Assinar pela academia agora* quando o e-mail da **Contratada** for igual ao e-mail salvo na integração Autentique da própria academia. O Nave chama `signDocument` após criar o documento; só o aluno recebe link pendente.
 7. Webhook ou botão **Sincronizar Autentique** no drawer atualiza o Nave.
 
 ## Teste em sandbox

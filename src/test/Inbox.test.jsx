@@ -40,6 +40,7 @@ vi.mock('../hooks/useZapsterWhatsAppConnection.js', () => ({
 
 vi.mock('../lib/appwrite', () => ({
   account: { createJWT: vi.fn().mockResolvedValue({ jwt: 't' }) },
+  syncClientSessionJwt: vi.fn().mockResolvedValue('t'),
   realtime: { subscribe: inboxMocks.subscribe },
   teams: { listMemberships: vi.fn().mockResolvedValue({ memberships: [] }) },
   DB_ID: 'test-db',

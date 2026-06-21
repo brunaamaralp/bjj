@@ -25,7 +25,16 @@ export async function syncContractFromAutentique(
   if (!autentiqueId) return { ok: false, error: 'autentique_id_missing' };
 
   const academyDoc = (await fetchAcademyDoc(academyId)) as Record<string, unknown> | null;
-  const remote = await getDocument(autentiqueId, academyDoc);
+  let remote = null;
+  try {
+    remote = await getDocument(autentiqueId, academyDoc);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (String(message).trim().toLowerCase() === 'autentique_not_configured_for_academy') {
+      return { ok: false, error: 'autentique_not_configured_for_academy' };
+    }
+    throw err;
+  }
   if (!remote) return { ok: false, error: 'autentique_document_not_found' };
 
   const signatures = remote.signatures || [];

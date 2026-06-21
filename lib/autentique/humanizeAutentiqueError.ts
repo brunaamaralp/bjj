@@ -26,6 +26,9 @@ export function humanizeAutentiqueError(
   if (lower === 'autentique_not_configured') {
     return 'Integração com Autentique não configurada no servidor.';
   }
+  if (lower === 'autentique_not_configured_for_academy') {
+    return 'Conecte a conta Autentique da academia em Integracoes para enviar, sincronizar ou cancelar contratos.';
+  }
   if (lower === 'signers_required') {
     return 'Adicione pelo menos um signatário.';
   }
@@ -49,6 +52,7 @@ export function isAutentiqueClientError(message: string): boolean {
     lower === 'validation' ||
     lower === 'signers_required' ||
     lower === 'autentique_not_configured' ||
+    lower === 'autentique_not_configured_for_academy' ||
     lower === 'name_required' ||
     lower === 'signer_must_have_email_name_or_phone' ||
     lower === 'signer_phone_required_for_whatsapp_sms' ||

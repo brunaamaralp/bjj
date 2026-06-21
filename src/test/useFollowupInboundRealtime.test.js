@@ -6,12 +6,14 @@ const emitMock = vi.fn();
 
 vi.mock('../lib/appwrite.js', () => ({
   realtime: { subscribe: (...args) => subscribeMock(...args) },
+  syncClientSessionJwt: vi.fn().mockResolvedValue('jwt'),
   DB_ID: 'db-test',
   CONVERSATIONS_COL: 'conversations',
 }));
 
 vi.mock('../lib/leadTimelineEvents.js', () => ({
   emitFollowupInboundChanged: (...args) => emitMock(...args),
+  emitFollowupInboundRefresh: vi.fn(),
 }));
 
 import { useFollowupInboundRealtime } from '../hooks/useFollowupInboundRealtime.js';

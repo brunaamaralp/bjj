@@ -48,13 +48,7 @@ function getApiToken(academyDoc?: Record<string, unknown> | null): string {
     const legacyToken = String(academyDoc.autentique_token || '').trim();
     if (legacyToken) return legacyToken;
   }
-
-  const fromEnv = String(
-    process.env.AUTENTIQUE_TOKEN || process.env.AUTENTIQUE_API_TOKEN || ''
-  ).trim();
-  if (fromEnv) return fromEnv;
-
-  throw new Error('autentique_not_configured');
+  throw new Error('autentique_not_configured_for_academy');
 }
 
 function toUploadBlob(file: Buffer | Blob): Blob {

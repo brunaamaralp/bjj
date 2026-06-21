@@ -54,7 +54,7 @@ export default function ContractDetailsDrawer({
     } catch (e) {
       addToast({
         type: 'error',
-        message: e instanceof Error ? e.message : 'Falha ao sincronizar com a Autentique',
+        message: friendlyError(e, 'action'),
       });
     } finally {
       setSyncing(false);
@@ -116,7 +116,7 @@ export default function ContractDetailsDrawer({
     } catch (e) {
       addToast({
         type: 'error',
-        message: e instanceof Error ? e.message : 'Falha ao cancelar',
+        message: friendlyError(e, 'action'),
       });
     }
   };

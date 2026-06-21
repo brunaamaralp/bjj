@@ -60,6 +60,25 @@ export function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+const AUTENTIQUE_NOT_CONFIGURED_FOR_ACADEMY = 'autentique_not_configured_for_academy';
+
+function isAcademyAutentiqueNotConfigured(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return String(message).trim().toLowerCase() === AUTENTIQUE_NOT_CONFIGURED_FOR_ACADEMY;
+}
+
+function academyAutentiqueNotConfiguredBody(): {
+  ok: false;
+  error: string;
+  code: string;
+} {
+  return {
+    ok: false,
+    error: humanizeAutentiqueError(AUTENTIQUE_NOT_CONFIGURED_FOR_ACADEMY),
+    code: AUTENTIQUE_NOT_CONFIGURED_FOR_ACADEMY,
+  };
+}
+
 function contractBelongsToAcademy(
   contract: { academyId: string | null },
   academyId: string
@@ -275,6 +294,14 @@ export async function handlePostContract(
       return jsonResponse({ ok: false, error: err.message }, err.statusCode);
     }
 
+    if (isAcademyAutentiqueNotConfigured(err)) {
+      logContractStructured('contract_create_blocked', {
+        academy_id: auth.academyId,
+        status: AUTENTIQUE_NOT_CONFIGURED_FOR_ACADEMY,
+      });
+      return jsonResponse(academyAutentiqueNotConfiguredBody(), 400);
+    }
+
     const message = err instanceof Error ? err.message : String(err);
     const autentiquePayload =
       err && typeof err === 'object' && 'autentique' in err
@@ -356,6 +383,9 @@ export async function handlePatchContract(
 
     return jsonResponse({ ok: true, contract: updated });
   } catch (err) {
+    if (isAcademyAutentiqueNotConfigured(err)) {
+      return jsonResponse(academyAutentiqueNotConfiguredBody(), 400);
+    }
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
   }
@@ -435,6 +465,9 @@ export async function handleGetContractById(
     if (shouldSync) {
       const syncResult = await syncContractFromAutentique(contractId, auth.academyId);
       if (!syncResult.ok) {
+        if (syncResult.error === AUTENTIQUE_NOT_CONFIGURED_FOR_ACADEMY) {
+          return jsonResponse(academyAutentiqueNotConfiguredBody(), 400);
+        }
         return jsonResponse({ ok: false, error: syncResult.error }, syncResult.error === 'forbidden' ? 403 : 404);
       }
     }
@@ -449,6 +482,9 @@ export async function handleGetContractById(
 
     return jsonResponse({ ok: true, contract, synced: shouldSync });
   } catch (err) {
+    if (isAcademyAutentiqueNotConfigured(err)) {
+      return jsonResponse(academyAutentiqueNotConfiguredBody(), 400);
+    }
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ ok: false, error: message }, 500);
   }

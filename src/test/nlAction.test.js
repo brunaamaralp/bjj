@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 const nlMocks = vi.hoisted(() => ({
   createSessionJwt: vi.fn(),
@@ -249,29 +249,44 @@ describe('Assistente de linguagem natural', () => {
   describe('execute — register_payment', () => {
     it('chama createPayment com lead_id correto', async () => {
       const { result } = renderHook(() => useNlAction());
-      await result.current.execute({
-        action: 'register_payment',
-        data: { student_id: 's1', reference_month: '2026-04', amount: 150, method: 'pix' }
+      await act(async () => {
+        await result.current.execute({
+          action: 'register_payment',
+          data: { student_id: 's1', reference_month: '2026-04', amount: 150, method: 'pix' }
+        });
       });
-      expect(nlMocks.createPayment).toHaveBeenCalledWith(expect.objectContaining({ lead_id: 's1' }));
+      expect(nlMocks.createPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ lead_id: 's1' }),
+        expect.any(Object)
+      );
     });
 
     it('chama createPayment com reference_month correto', async () => {
       const { result } = renderHook(() => useNlAction());
-      await result.current.execute({
-        action: 'register_payment',
-        data: { student_id: 's1', reference_month: '2026-05', amount: 150, method: 'pix' }
+      await act(async () => {
+        await result.current.execute({
+          action: 'register_payment',
+          data: { student_id: 's1', reference_month: '2026-05', amount: 150, method: 'pix' }
+        });
       });
-      expect(nlMocks.createPayment).toHaveBeenCalledWith(expect.objectContaining({ reference_month: '2026-05' }));
+      expect(nlMocks.createPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ reference_month: '2026-05' }),
+        expect.any(Object)
+      );
     });
 
     it('chama createPayment com status paid', async () => {
       const { result } = renderHook(() => useNlAction());
-      await result.current.execute({
-        action: 'register_payment',
-        data: { student_id: 's1', reference_month: '2026-05', amount: 150, method: 'pix' }
+      await act(async () => {
+        await result.current.execute({
+          action: 'register_payment',
+          data: { student_id: 's1', reference_month: '2026-05', amount: 150, method: 'pix' }
+        });
       });
-      expect(nlMocks.createPayment).toHaveBeenCalledWith(expect.objectContaining({ status: 'paid' }));
+      expect(nlMocks.createPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'paid' }),
+        expect.any(Object)
+      );
     });
 
     it('register_sale chama createSale com itens e pagamentos', async () => {
@@ -514,9 +529,11 @@ describe('Assistente de linguagem natural', () => {
 
     it('update_payment chama updatePayment', async () => {
       const { result } = renderHook(() => useNlAction());
-      await result.current.execute({
-        action: 'update_payment',
-        data: { payment_id: 'p1', updates: { note: 'obs' } },
+      await act(async () => {
+        await result.current.execute({
+          action: 'update_payment',
+          data: { payment_id: 'p1', updates: { note: 'obs' } },
+        });
       });
       expect(nlMocks.updatePayment).toHaveBeenCalledWith('p1', expect.objectContaining({ note: 'obs' }));
     });

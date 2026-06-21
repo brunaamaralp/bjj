@@ -24,6 +24,9 @@ vi.mock('../../lib/server/financeTxFields.js', () => ({
 
 describe('financeTxQuery truncated', () => {
   beforeEach(() => {
+    vi.resetModules();
+    process.env.VITE_APPWRITE_DATABASE_ID = 'db';
+    process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = 'financial-tx';
     listDocuments.mockReset();
   });
 
