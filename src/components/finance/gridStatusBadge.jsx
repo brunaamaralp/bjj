@@ -28,15 +28,19 @@ export function GridStatusBadgeContent({ statusKey, label }) {
 
 export function GridStatusBadgeButton({ display, payment, onClick, onCoveredExpand }) {
   const isCovered = display.key === 'covered';
+  const isExempt = display.key === 'exempt';
   return (
     <button
       type="button"
       className={`grid-status-badge grid-status-badge--${display.key}`}
+      disabled={isExempt}
       title={
         isCovered && payment?.note
           ? String(payment.note)
           : isCovered
             ? 'Coberto por plano com cobertura'
+            : isExempt
+              ? 'Plano isento'
             : undefined
       }
       onClick={(e) => {
@@ -44,6 +48,7 @@ export function GridStatusBadgeButton({ display, payment, onClick, onCoveredExpa
           onCoveredExpand?.();
           return;
         }
+        if (isExempt) return;
         onClick(e);
       }}
     >

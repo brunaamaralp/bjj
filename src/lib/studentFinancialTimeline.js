@@ -14,6 +14,7 @@ import {
 import { openAmountForStudent } from './collectionOverdue.js';
 import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
 import { paymentTimelineBadge } from './paymentStatus.js';
+import { isExemptPlan, resolveStudentPlan } from './planBilling.js';
 
 export const TIMELINE_FILTER_TYPES = {
   ALL: 'all',
@@ -203,11 +204,13 @@ export function buildFinancialSummary({
   paymentStatus,
 }) {
   const planName = String(student?.plan || '').trim();
-  const plans = financeConfig?.plans || [];
-  const match = plans.find((p) => String(p?.name || '').trim() === planName);
+  const match = resolveStudentPlan(student, financeConfig);
   const planPrice = Number(match?.price);
+  const planIsExempt = isExemptPlan(match);
   const planLabel = planName
-    ? `${planName}${Number.isFinite(planPrice) && planPrice > 0 ? ` · ${planPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}`
+    ? planIsExempt
+      ? `${planName} · Isento`
+      : `${planName}${Number.isFinite(planPrice) && planPrice > 0 ? ` · ${planPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}`
     : '—';
 
   const dueDay = student?.dueDay ?? student?.due_day;
@@ -249,6 +252,17 @@ export function buildFinancialSummary({
       historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
       isBundle: false,
       isFrozen: true,
+    };
+  }
+
+  if (planIsExempt) {
+    return {
+      planLabel: planLabel !== '—' ? planLabel : 'Plano isento',
+      dueLabel: 'Sem vencimento de mensalidade',
+      situationLabel: 'Plano isento, sem cobrança mensal',
+      situationTone: 'muted',
+      historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
+      isBundle: false,
     };
   }
 

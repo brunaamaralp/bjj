@@ -256,6 +256,7 @@ export default function MonthlyPaymentGrid({
   };
 
   const saveNoteInline = async (row) => {
+    if (row.display.key === 'exempt' && !row.payment) return;
     const note = noteDraft.trim();
     setNotePopoverId(null);
     const payment = row.payment;
@@ -336,6 +337,7 @@ export default function MonthlyPaymentGrid({
   const renderDesktopMainRow = (row) => {
     const { student, payment, expected, display, note } = row;
     const isExpanded = expandedId === student.id;
+    const isExempt = display.key === 'exempt';
 
     return (
       <tr
@@ -364,10 +366,10 @@ export default function MonthlyPaymentGrid({
         </td>
         <td className="text-small">{student.plan || payment?.plan_name || '—'}</td>
         {visibleCols.expected ? (
-          <td className="monthly-grid-amount">{expected > 0 ? fmtMoney(expected) : '—'}</td>
+          <td className="monthly-grid-amount">{isExempt ? 'Isento' : expected > 0 ? fmtMoney(expected) : '—'}</td>
         ) : null}
         {visibleCols.due ? (
-          <td className="text-small">{formatDueDayLabel(student)}</td>
+          <td className="text-small">{isExempt ? '—' : formatDueDayLabel(student)}</td>
         ) : null}
         {visibleCols.account ? (
           <td className="text-small">
@@ -384,13 +386,16 @@ export default function MonthlyPaymentGrid({
             payment={payment}
             onCoveredExpand={() => toggleExpand(row)}
             onClick={(e) => {
+              if (display.key === 'exempt') return;
               const rect = e.currentTarget.getBoundingClientRect();
               openPopoverForRow(row, rect);
             }}
           />
         </td>
         <td className="text-small monthly-grid-note-cell">
-          {notePopoverId === student.id ? (
+          {isExempt ? (
+            <span className="mensal-cell-faint">—</span>
+          ) : notePopoverId === student.id ? (
             <input
               className="form-input monthly-grid-note-input"
               value={noteDraft}
@@ -481,11 +486,12 @@ export default function MonthlyPaymentGrid({
             fmtMoney={fmtMoney}
             onToggleExpand={() => toggleExpand(row)}
             onStatusClick={(e) => {
-              if (row.display.key === 'covered') return;
+              if (row.display.key === 'covered' || row.display.key === 'exempt') return;
               const rect = e?.currentTarget?.getBoundingClientRect?.();
               openPopoverForRow(row, rect);
             }}
             onNoteOpen={() => {
+              if (row.display.key === 'exempt') return;
               setNotePopoverId(row.student.id);
               setNoteDraft(row.note);
             }}

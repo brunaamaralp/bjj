@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-06-19 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -26,7 +26,7 @@
 
 ## Resumo
 
-O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal.
+O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento.
 
 ---
 
@@ -118,6 +118,8 @@ flowchart TD
 14. [ ] Sub-aba **Cobrança** — fila de régua (não é lista de mensalidades)
 15. [ ] Member acessando `?tab=conciliacao` — redirect para aba permitida
 16. [ ] Trocar academia — lista só alunos da academia atual
+17. [ ] Plano marcado como isento em `section=planos` faz o aluno aparecer como **Isento**, com valor `Isento`, vencimento `—` e sem CTA de cobrança
+18. [ ] Aluno isento não entra em régua, inadimplência nem nos KPIs financeiros de mensalidades
 
 ### Estados de erro conhecidos
 
@@ -186,3 +188,4 @@ flowchart TD
 | 2026-06-15 | — | Criação Fase 2A |
 | 2026-06-16 | — | Auditoria salvamento: `FieldError`, banners, rodapé modal, matriz em VALIDATION.md |
 | 2026-06-17 | — | Fase 2: «Recebido via», formas ativas, `capture_method_id` |
+| 2026-06-19 | — | Planos isentos/bolsista: status `Isento`, sem cobrança e fora dos KPIs |

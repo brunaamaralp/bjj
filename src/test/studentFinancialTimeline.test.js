@@ -162,4 +162,18 @@ describe('studentFinancialTimeline', () => {
     const typeCounts = filterTypeCounts(items);
     expect(typeCounts.plan).toBeGreaterThanOrEqual(1);
   });
+
+  it('buildFinancialSummary destaca plano isento como sem cobranca mensal', () => {
+    const summary = buildFinancialSummary({
+      student: { plan: 'Bolsista', dueDay: 10 },
+      financeConfig: { plans: [{ name: 'Bolsista', price: 0, isExempt: true }] },
+      payments: [],
+      sales: [],
+      paymentStatus: { status: 'exempt' },
+    });
+
+    expect(summary.planLabel).toMatch(/bolsista/i);
+    expect(summary.planLabel).toMatch(/isento/i);
+    expect(summary.situationLabel).toMatch(/isento|sem cobran/i);
+  });
 });

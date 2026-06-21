@@ -10,6 +10,7 @@ import {
 import { getPaymentRowStatus, openAmountForStudent } from './collectionOverdue.js';
 import { isActiveStudent } from './studentStatus.js';
 import { buildClosingRows } from './monthlyClosing.js';
+import { isStudentOnExemptPlan } from './planBilling.js';
 
 export function currentMonthYm() {
   const d = new Date();
@@ -127,7 +128,9 @@ export function trimForecastForOverview(forecastBody, limit = OVERVIEW_FORECAST_
  * KPIs de mensalidades do mês (mesma base da página de mensalidades).
  */
 export function computeMensalidadesMonthKpis(students, payments, financeConfig, referenceMonth) {
-  const active = (students || []).filter((s) => isActiveStudent(s) && String(s.plan || '').trim());
+  const active = (students || []).filter(
+    (s) => isActiveStudent(s) && String(s.plan || '').trim() && !isStudentOnExemptPlan(s, financeConfig)
+  );
   const payByLead = {};
   for (const p of payments || []) {
     const lid = String(p.lead_id || '').trim();
@@ -146,7 +149,7 @@ export function computeMensalidadesMonthKpis(students, payments, financeConfig, 
     if (Number.isFinite(exp) && exp > 0) expectedTotal += exp;
     receivedTotal += receivedAmountForPayment(p) || 0;
 
-    const row = getPaymentRowStatus(s, p, referenceMonth);
+    const row = getPaymentRowStatus(s, p, referenceMonth, new Date(), financeConfig);
     if (row.status === 'pending' && row.daysOverdue >= 1) {
       overdueCount += 1;
       overdueOpen += openAmountForStudent(s, p, financeConfig) || 0;

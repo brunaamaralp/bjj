@@ -4,6 +4,7 @@
  */
 import { parseCurrencyBRL } from './masks.js';
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
+import { isStudentOnExemptPlan } from './planBilling.js';
 import {
   canonicalPaymentMethodKey,
   isPlanFeeEligiblePaymentMethod,
@@ -22,6 +23,7 @@ export const GRID_STATUS_LABELS = {
   none: 'Não registrado',
   frozen: 'Trancado',
   cancelled: 'Cancelado',
+  exempt: 'Isento',
 };
 
 /** Rótulo em português para exibição na UI (nunca mostrar chaves internas como "covered"). */
@@ -36,6 +38,7 @@ export function paymentTimelineBadge(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'paid') return { label: 'Pago', tone: 'success' };
   if (s === 'covered') return { label: 'Coberto', tone: 'covered' };
+  if (s === 'exempt') return { label: 'Isento', tone: 'muted' };
   if (s === 'pending' || s === 'awaiting') return { label: paymentStatusLabelPt(s), tone: 'danger' };
   if (s === 'partial') return { label: 'Parcial', tone: 'warning' };
   if (s === 'cancelled') return { label: 'Cancelado', tone: 'muted' };
@@ -51,6 +54,7 @@ export const GRID_STATUS_COLORS = {
   pending: { bg: '#FCEBEB', color: '#A32D2D' },
   soon: { bg: '#f0f0f8', color: 'var(--text-secondary)' },
   none: { bg: '#f0f0f8', color: 'var(--text-secondary)' },
+  exempt: { bg: '#f0f0f8', color: 'var(--text-secondary)' },
   frozen: { bg: '#e8eef5', color: '#475569' },
 };
 
@@ -62,6 +66,7 @@ export const HISTORY_BADGE = {
   pending: '—',
   soon: '·',
   none: '—',
+  exempt: 'I',
 };
 
 function cardFeePercent(financeConfig, method, installments) {
@@ -105,6 +110,7 @@ export function expectedAmountWithCardFee(student, financeConfig, method, instal
 }
 
 export function expectedAmountForStudent(student, financeConfig, payment) {
+  if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
   const st = String(payment?.status || '').toLowerCase();
   if (st === 'covered' || st === 'frozen') return 0;
   const fromPayment = Number(payment?.expected_amount);
@@ -128,7 +134,15 @@ export function receivedAmountForPayment(payment) {
  * Status exibido na grade (prioriza registro no banco sobre calendário).
  * @returns {{ key: string, label: string, dbStatus: string|null, row: ReturnType<typeof getPaymentRowStatus> }}
  */
-export function resolveGridDisplayStatus(student, payment, currentMonth, today = new Date()) {
+export function resolveGridDisplayStatus(student, payment, currentMonth, today = new Date(), financeConfig = null) {
+  if (isStudentOnExemptPlan(student, financeConfig, payment)) {
+    return {
+      key: 'exempt',
+      label: GRID_STATUS_LABELS.exempt,
+      dbStatus: null,
+      row: { status: 'exempt', dueDate: null, paidAt: null, daysOverdue: 0 },
+    };
+  }
   const row = getPaymentRowStatus(student, payment, currentMonth, today);
   const db = String(payment?.status || '').toLowerCase();
 

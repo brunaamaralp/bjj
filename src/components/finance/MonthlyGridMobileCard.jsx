@@ -21,7 +21,7 @@ export default function MonthlyGridMobileCard({
   onNoteCancel,
 }) {
   const { student, payment, expected, display, note } = row;
-  const canQuickPay = display.key !== 'covered';
+  const canQuickPay = display.key !== 'covered' && display.key !== 'exempt';
 
   return (
     <article
@@ -32,9 +32,9 @@ export default function MonthlyGridMobileCard({
           <div className="mensal-mobile-card__name">{student.name || '—'}</div>
           <div className="mensal-mobile-card__meta">
             {student.plan || payment?.plan_name || '—'}
-            {expected > 0 ? ` · ${fmtMoney(expected)}` : ''}
+            {display.key === 'exempt' ? ' · Isento' : expected > 0 ? ` · ${fmtMoney(expected)}` : ''}
             {' · '}
-            {formatDueDayLabel(student)}
+            {display.key === 'exempt' ? '—' : formatDueDayLabel(student)}
           </div>
           {(student.preferredPaymentAccount || payment?.account) ? (
             <div className="mensal-mobile-card__platform text-small text-muted">

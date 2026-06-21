@@ -56,6 +56,40 @@ describe('paymentStatus', () => {
     expect(expectedAmountForStudent(student, financeConfig, null)).toBe(200);
   });
 
+  it('expectedAmountForStudent retorna 0 para plano isento', () => {
+    const exemptStudent = { id: 's1', plan: 'Bolsista', dueDay: 10 };
+    const exemptConfig = {
+      plans: [
+        { name: 'Mensal', price: 200, isExempt: false },
+        { name: 'Bolsista', price: 0, isExempt: true },
+      ],
+    };
+    expect(expectedAmountForStudent(exemptStudent, exemptConfig, null)).toBe(0);
+  });
+
+  it('resolveGridDisplayStatus retorna exempt para plano isento sem pagamento', () => {
+    const exemptStudent = { id: 's1', plan: 'Bolsista', dueDay: 10 };
+    const exemptConfig = {
+      plans: [
+        { name: 'Mensal', price: 200, isExempt: false },
+        { name: 'Bolsista', price: 0, isExempt: true },
+      ],
+    };
+    const result = resolveGridDisplayStatus(
+      exemptStudent,
+      null,
+      '2026-06',
+      new Date('2026-06-20T12:00:00'),
+      exemptConfig
+    );
+    expect(result.key).toBe('exempt');
+    expect(result.label).toBe('Isento');
+  });
+
+  it('paymentStatusLabelPt traduz exempt para Isento', () => {
+    expect(paymentStatusLabelPt('exempt')).toBe('Isento');
+  });
+
   it('receivedAmountForPayment partial uses paid_amount', () => {
     expect(receivedAmountForPayment({ status: 'partial', paid_amount: 79.9, amount: 79.9 })).toBe(79.9);
   });

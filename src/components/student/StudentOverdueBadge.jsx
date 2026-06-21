@@ -1,5 +1,6 @@
 import React from 'react';
 import { readStudentOverdueFlag, resolveStudentOverdueBadgeLabel } from '../../lib/studentOverdueDisplay.js';
+import { isStudentOnExemptPlan } from '../../lib/planBilling.js';
 
 const OVERDUE_BADGE_STYLE = {
   background: 'rgba(240, 64, 64, 0.12)',
@@ -16,6 +17,7 @@ const OVERDUE_BADGE_STYLE = {
  * Badge de inadimplência (persistido em students.overdue).
  */
 export default function StudentOverdueBadge({ student, financeConfig, className = '' }) {
+  if (isStudentOnExemptPlan(student, financeConfig)) return null;
   if (!readStudentOverdueFlag(student)) return null;
   const label = resolveStudentOverdueBadgeLabel(student, financeConfig);
 

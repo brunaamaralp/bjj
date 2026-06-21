@@ -101,6 +101,7 @@ flowchart TD
 13. [ ] Aba **Frequência** — aluno trancado exibe banner «frequência não avaliada»
 14. [ ] Aba **Frequência** — aluno inativo exibe banner com histórico abaixo
 15. [ ] Aluno **em contato** (retenção) — banner com «Voltar para a fila» na aba Frequência
+16. [ ] Se o plano do aluno estiver marcado como isento em Financeiro → Planos, o perfil mostra badge **Plano isento** e o card financeiro mostra **Isento**, sem cobrança mensal
 
 ### Estados de erro conhecidos
 
@@ -171,3 +172,4 @@ flowchart TD
 |---|---|---|
 | 2026-06-15 | — | Criação inicial |
 | 2026-06-19 | — | Graduação opt-in: cadastro rápido, perfil, subtexto na lista |
+| 2026-06-19 | — | Plano isento/bolsista refletido no perfil e no card financeiro |

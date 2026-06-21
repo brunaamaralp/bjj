@@ -454,6 +454,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
           price: 0,
           description: '',
           applyCardFee: true,
+          isExempt: false,
         },
       ],
     }));

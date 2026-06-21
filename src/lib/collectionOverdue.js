@@ -1,4 +1,5 @@
 /** Cálculo de inadimplência / dias de atraso (mensalidades). */
+import { isStudentOnExemptPlan, resolveStudentPlan } from './planBilling.js';
 
 function startOfLocalDay(d) {
   const x = new Date(d);
@@ -32,9 +33,13 @@ export function dueDateInMonth(currentMonth, dayOfMonth) {
 /**
  * @returns {{ status: 'paid'|'pending'|'soon'|'none', dueDate: Date|null, paidAt: Date|null, daysOverdue: number }}
  */
-export function getPaymentRowStatus(student, payment, currentMonth, today = new Date()) {
+export function getPaymentRowStatus(student, payment, currentMonth, today = new Date(), financeConfig = null) {
   const today0 = startOfLocalDay(today);
   const dbStatus = String(payment?.status || '').toLowerCase();
+
+  if (isStudentOnExemptPlan(student, financeConfig, payment)) {
+    return { status: 'exempt', dueDate: null, paidAt: null, daysOverdue: 0 };
+  }
 
   if (payment && (dbStatus === 'paid' || dbStatus === 'covered' || dbStatus === 'frozen')) {
     const paidAt = payment.paid_at ? parseYmdLocal(String(payment.paid_at).slice(0, 10)) : null;
@@ -105,9 +110,9 @@ export function getPaymentRowStatus(student, payment, currentMonth, today = new 
  * Bucket operacional para cards da recepção (mensalidades).
  * @returns {'due_today'|'due_week'|'overdue'|null}
  */
-export function getReceptionDueBucket(student, payment, currentMonth, today = new Date()) {
-  const row = getPaymentRowStatus(student, payment, currentMonth, today);
-  if (row.status === 'paid' || row.status === 'frozen' || row.status === 'covered') return null;
+export function getReceptionDueBucket(student, payment, currentMonth, today = new Date(), financeConfig = null) {
+  const row = getPaymentRowStatus(student, payment, currentMonth, today, financeConfig);
+  if (row.status === 'paid' || row.status === 'frozen' || row.status === 'covered' || row.status === 'exempt') return null;
 
   const today0 = startOfLocalDay(today);
   if (!row.dueDate) {
@@ -122,19 +127,18 @@ export function getReceptionDueBucket(student, payment, currentMonth, today = ne
   return null;
 }
 
-export function isOverdueForCollection(student, payment, currentMonth, minDays = 1, today = new Date()) {
+export function isOverdueForCollection(student, payment, currentMonth, minDays = 1, today = new Date(), financeConfig = null) {
   if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') return false;
-  const row = getPaymentRowStatus(student, payment, currentMonth, today);
-  if (row.status === 'frozen') return false;
+  const row = getPaymentRowStatus(student, payment, currentMonth, today, financeConfig);
+  if (row.status === 'frozen' || row.status === 'exempt') return false;
   return row.status === 'pending' && row.daysOverdue >= minDays;
 }
 
 export function openAmountForStudent(student, payment, financeConfig) {
+  if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
   const payAmt = Number(payment?.amount);
   if (Number.isFinite(payAmt) && payAmt > 0) return payAmt;
-  const planName = String(student?.plan || payment?.plan_name || '').trim();
-  const plans = financeConfig?.plans || [];
-  const match = (plans || []).find((p) => String(p?.name || '').trim() === planName);
+  const match = resolveStudentPlan(student, financeConfig, payment);
   const price = Number(match?.price);
   if (Number.isFinite(price) && price > 0) return price;
   return 0;

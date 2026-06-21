@@ -59,4 +59,15 @@ describe('collectionOverdue', () => {
     expect(row.status).toBe('paid');
     expect(isOverdueForCollection(student, payment, month, 1, today)).toBe(false);
   });
+
+  it('marca plano isento como exempt e fora da cobranca', () => {
+    const today = new Date('2026-05-10T12:00:00');
+    const financeConfig = {
+      plans: [{ name: 'Bolsista', price: 0, isExempt: true }],
+    };
+    const exemptStudent = { plan: 'Bolsista', dueDay: 5 };
+    const row = getPaymentRowStatus(exemptStudent, null, month, today, financeConfig);
+    expect(row.status).toBe('exempt');
+    expect(isOverdueForCollection(exemptStudent, null, month, 1, today, financeConfig)).toBe(false);
+  });
 });

@@ -13,7 +13,7 @@ function formatPlanPrice(value) {
 
 function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollmentTemplates, rescissionTemplates }) {
   const name = String(pl.name || '').trim() || 'Plano sem nome';
-  const priceLabel = formatPlanPrice(pl.price);
+  const priceLabel = pl.isExempt === true ? 'Isento' : formatPlanPrice(pl.price);
   const enrollmentValue = planTemplateSelectValue(pl.contractTemplateId, enrollmentTemplates);
   const rescissionValue = planTemplateSelectValue(pl.rescissionTemplateId, rescissionTemplates);
 
@@ -56,6 +56,19 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
               onChange={(e) => onUpdate(idx, { description: e.target.value })}
             />
             <p className="text-small text-muted">Opcional — nota interna; não aparece no modal de pagamento.</p>
+          </div>
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={pl.isExempt === true}
+                onChange={(e) => onUpdate(idx, { isExempt: e.target.checked })}
+              />
+              <span>Este plano não gera cobrança mensal</span>
+            </label>
+            <p className="text-small text-muted">
+              Alunos deste plano aparecem como isentos em Mensalidades e ficam fora da cobrança.
+            </p>
           </div>
           <div className="form-group">
             <label>Repasse taxas de pagamento ao aluno</label>

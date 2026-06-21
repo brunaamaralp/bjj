@@ -100,6 +100,7 @@ import PaymentReceiptDateBanner from './PaymentReceiptDateBanner.jsx';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
+import { isStudentOnExemptPlan } from '../../lib/planBilling.js';
 
 const METHOD_LABELS = storageDialectMethodLabelsMap();
 
@@ -145,7 +146,10 @@ function dueDateInMonth(currentMonth, dayOfMonth) {
 }
 
 /** @returns {{ status: 'paid'|'pending'|'soon'|'none', dueDate: Date|null, paidAt: Date|null }} */
-function getRowStatus(student, payment, currentMonth) {
+function getRowStatus(student, payment, currentMonth, financeConfig) {
+  if (isStudentOnExemptPlan(student, financeConfig, payment)) {
+    return { status: 'exempt', dueDate: null, paidAt: null };
+  }
   const today0 = startOfLocalDay(new Date());
 
   if (payment && payment.status === 'paid') {
@@ -236,17 +240,15 @@ export default function MensalidadesPanel({
 
   useEffect(() => {
     const q = searchParams.get('search');
-    if (q) setSearch(q);
+    setSearch(q || '');
     const filtroParam = searchParams.get('filtro') || searchParams.get('filter');
-    if (filtroParam) {
-      const map = {
-        pending: 'pending',
-        overdue: 'overdue',
-        paid: 'paid',
-        soon: 'soon',
-      };
-      if (map[filtroParam]) setFilter(map[filtroParam]);
-    }
+    const map = {
+      pending: 'pending',
+      overdue: 'overdue',
+      paid: 'paid',
+      soon: 'soon',
+    };
+    setFilter(map[filtroParam] || 'all');
   }, [searchParams]);
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -445,16 +447,16 @@ export default function MensalidadesPanel({
   const getStatus = useCallback(
     (student) => {
       const p = paymentMap[student.id];
-      return resolveGridDisplayStatus(student, p, currentMonth).key;
+      return resolveGridDisplayStatus(student, p, currentMonth, new Date(), financeConfig).key;
     },
-    [paymentMap, currentMonth]
+    [paymentMap, currentMonth, financeConfig]
   );
 
   const studentOverdueMeta = useMemo(() => {
     const map = {};
     for (const s of students) {
       const p = paymentMap[s.id];
-      const row = getPaymentRowStatus(s, p, currentMonth);
+      const row = getPaymentRowStatus(s, p, currentMonth, new Date(), financeConfig);
       if (row.status !== 'pending' || row.daysOverdue < 1) continue;
       const stage = resolveCollectionStage(row.daysOverdue, collectionRules);
       map[s.id] = {
@@ -492,14 +494,14 @@ export default function MensalidadesPanel({
           return Number(meta.stage?.day) === day;
         }
         if (filter === 'due_today' || filter === 'due_week' || filter === 'overdue') {
-          const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth);
+          const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth, new Date(), financeConfig);
           if (filter === 'overdue') return bucket === 'overdue';
           return bucket === filter;
         }
         return filter === 'all' || getStatus(s) === filter;
       })
       .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, debouncedSearch, getStatus, studentOverdueMeta, paymentMap, currentMonth]);
+  }, [students, filter, debouncedSearch, getStatus, studentOverdueMeta, paymentMap, currentMonth, financeConfig]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -528,13 +530,13 @@ export default function MensalidadesPanel({
         paid += 1;
         continue;
       }
-      const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth);
+      const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth, new Date(), financeConfig);
       if (bucket === 'due_today') dueToday += 1;
       else if (bucket === 'due_week') dueWeek += 1;
       else if (bucket === 'overdue') overdue += 1;
     }
     return { dueToday, dueWeek, overdue, paid };
-  }, [students, paymentMap, currentMonth, getStatus]);
+  }, [students, paymentMap, currentMonth, getStatus, financeConfig]);
 
   const toggleReceptionFilter = useCallback(
     (next) => {
@@ -552,6 +554,7 @@ export default function MensalidadesPanel({
       all: students.length,
       paid: 0,
       covered: 0,
+      exempt: 0,
       awaiting: 0,
       partial: 0,
       pending: 0,
@@ -1400,7 +1403,7 @@ export default function MensalidadesPanel({
         terms={terms}
         paymentMap={paymentMap}
         currentMonth={currentMonth}
-        getRowStatus={getRowStatus}
+        getRowStatus={(student, payment, month) => getRowStatus(student, payment, month, financeConfig)}
         startOfLocalDay={startOfLocalDay}
         formatDdMm={formatDdMm}
         parseYmdLocal={parseYmdLocal}

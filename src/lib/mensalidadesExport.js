@@ -17,7 +17,7 @@ export function buildMensalidadesGridRows(students, paymentMap, financeConfig, c
   return (students || []).map((student) => {
     const payment = paymentMap[student.id];
     const expected = expectedAmountForStudent(student, financeConfig, payment);
-    const display = resolveGridDisplayStatus(student, payment, currentMonth);
+    const display = resolveGridDisplayStatus(student, payment, currentMonth, new Date(), financeConfig);
     return {
       student,
       payment,

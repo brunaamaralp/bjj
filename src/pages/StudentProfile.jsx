@@ -122,6 +122,7 @@ import {
     paidAtMonthDivergesFromCoverage,
     paidAtCoverageDivergenceConfirmDescription,
 } from '../lib/paymentReceiptDate.js';
+import { isStudentOnExemptPlan } from '../lib/planBilling.js';
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -293,6 +294,10 @@ export default function StudentProfile() {
     const academyId = useLeadStore((s) => s.academyId);
     const modules = useLeadStore((s) => s.modules);
     const financeConfig = useLeadStore((s) => s.financeConfig);
+    const studentPlanIsExempt = useMemo(
+        () => isStudentOnExemptPlan(student, financeConfig),
+        [student, financeConfig]
+    );
     const paymentHabitFields = useMemo(
         () => [
             {
@@ -314,6 +319,7 @@ export default function StudentProfile() {
     const toast = useToast();
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(uiLabels), [uiLabels]);
+    const effectivePaymentStatus = studentPlanIsExempt ? { status: 'exempt', payment: null } : paymentStatus;
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -2366,7 +2372,7 @@ export default function StudentProfile() {
                     )}
                     <div className="student-profile-hd__badges">
                         <StudentStatusBadge
-                            status={resolveStudentListStatus(student, paymentStatus)}
+                            status={resolveStudentListStatus(student, effectivePaymentStatus)}
                         />
                         {showAttendanceRiskBadge ? (
                             <AttendanceRiskBadge
@@ -2391,6 +2397,9 @@ export default function StudentProfile() {
                     <div className="student-profile-hd__meta">
                         {String(student.plan || '').trim() ? (
                             <span className="student-profile-hd__plan">{student.plan}</span>
+                        ) : null}
+                        {studentPlanIsExempt ? (
+                            <span className="badge-secondary">Plano isento</span>
                         ) : null}
                         {student.dueDay ? (
                             <span className="student-profile-hd__due">Vence dia {student.dueDay}</span>
@@ -2477,36 +2486,43 @@ export default function StudentProfile() {
 
                 <div
                     className={`profile-payment-status${
-                        paymentStatus === null && loadingPayments
+                        effectivePaymentStatus === null && loadingPayments
                             ? ' profile-payment-status--loading'
-                            : paymentStatus?.status === 'paid'
+                            : effectivePaymentStatus?.status === 'paid'
                               ? ' profile-payment-status--paid'
-                              : paymentStatus?.status === 'pending'
+                              : effectivePaymentStatus?.status === 'pending'
                                 ? ' profile-payment-status--pending'
                                 : ' profile-payment-status--neutral'
                     }`}
                 >
                     <div className="profile-payment-status__body">
-                        {paymentStatus === null && loadingPayments ? (
+                        {effectivePaymentStatus === null && loadingPayments ? (
                             <>
                                 <div className="profile-payment-status__title">Carregando...</div>
                                 <div className="profile-payment-status__subtitle">Status do mês</div>
                             </>
-                        ) : paymentStatus?.status === 'paid' ? (
+                        ) : effectivePaymentStatus?.status === 'exempt' ? (
+                            <>
+                                <div className="profile-payment-status__title">Plano isento</div>
+                                <div className="profile-payment-status__subtitle">
+                                    {currentMonthExtended} · sem cobrança de mensalidade
+                                </div>
+                            </>
+                        ) : effectivePaymentStatus?.status === 'paid' ? (
                             <>
                                 <div className="profile-payment-status__title">Pagamento em dia</div>
                                 <div className="profile-payment-status__subtitle">
                                     {currentMonthExtended} · pago em{' '}
-                                    {formatDateBR(String(paymentStatus.payment?.paid_at || '').slice(0, 10)) || '—'}
+                                    {formatDateBR(String(effectivePaymentStatus.payment?.paid_at || '').slice(0, 10)) || '—'}
                                 </div>
                             </>
-                        ) : paymentStatus?.status === 'pending' ? (
+                        ) : effectivePaymentStatus?.status === 'pending' ? (
                             <>
                                 <div className="profile-payment-status__title">Pagamento pendente</div>
                                 <div className="profile-payment-status__subtitle">
                                     {currentMonthExtended} ·{' '}
-                                    {paymentStatus.payment?.due_date
-                                        ? `vence ${formatDateBR(String(paymentStatus.payment.due_date).slice(0, 10))}`
+                                    {effectivePaymentStatus.payment?.due_date
+                                        ? `vence ${formatDateBR(String(effectivePaymentStatus.payment.due_date).slice(0, 10))}`
                                         : 'vencimento não definido'}
                                 </div>
                             </>
@@ -2519,11 +2535,13 @@ export default function StudentProfile() {
                             </>
                         )}
                     </div>
-                    {paymentStatus === null && loadingPayments ? (
+                    {effectivePaymentStatus === null && loadingPayments ? (
                         <span className="badge-secondary profile-payment-status__badge">…</span>
-                    ) : paymentStatus?.status === 'paid' ? (
+                    ) : effectivePaymentStatus?.status === 'exempt' ? (
+                        <span className="badge-secondary profile-payment-status__badge">Isento</span>
+                    ) : effectivePaymentStatus?.status === 'paid' ? (
                         <span className="badge-success profile-payment-status__badge">Em dia</span>
-                    ) : paymentStatus?.status === 'pending' ? (
+                    ) : effectivePaymentStatus?.status === 'pending' ? (
                         <span className="badge-danger profile-payment-status__badge">Pendente</span>
                     ) : (
                         <span className="badge-secondary profile-payment-status__badge">Não registrado</span>
@@ -3002,7 +3020,7 @@ export default function StudentProfile() {
                         financeConfig={financeConfig}
                         payments={payments}
                         sales={sales}
-                        paymentStatus={paymentStatus}
+                        paymentStatus={effectivePaymentStatus}
                         loading={loadingPayments}
                         error={paymentsError}
                         onRetry={() => void loadPayments()}

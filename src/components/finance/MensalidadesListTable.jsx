@@ -18,7 +18,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react';
-import { getPaymentRowStatus } from '../../lib/collectionOverdue.js';
+import { dueDateInMonth, getPaymentRowStatus, studentDueDay } from '../../lib/collectionOverdue.js';
 import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -44,6 +44,7 @@ function StatusBadge({ variant, children }) {
     pending: 'finance-badge-atrasado',
     soon: 'finance-badge-pendente',
     none: 'finance-badge-recorrente',
+    exempt: 'finance-badge-recorrente',
     frozen: 'finance-badge-cancelado',
     cancelled: 'finance-badge-cancelado',
   };
@@ -116,6 +117,17 @@ export default function MensalidadesListTable({
     }
   };
 
+  const resolveDueDateForDisplay = (student, payment, rowMeta, calendar) => {
+    const paymentDueDate = payment?.due_date
+      ? parseYmdLocal(String(payment.due_date).slice(0, 10))
+      : null;
+    if (paymentDueDate && !Number.isNaN(paymentDueDate.getTime())) return paymentDueDate;
+    if (rowMeta?.dueDate && !Number.isNaN(rowMeta.dueDate.getTime())) return rowMeta.dueDate;
+    if (calendar?.dueDate && !Number.isNaN(calendar.dueDate.getTime())) return calendar.dueDate;
+    const defaultDueDate = dueDateInMonth(currentMonth, studentDueDay(student));
+    return defaultDueDate && !Number.isNaN(defaultDueDate.getTime()) ? defaultDueDate : null;
+  };
+
   const studentsByGroup = useMemo(() => {
     const map = new Map();
     for (const s of displayedStudents) {
@@ -182,17 +194,17 @@ export default function MensalidadesListTable({
     const statusKey = rowMeta?.status || 'none';
     const calendar = getPaymentRowStatus(student, payment, currentMonth);
     const dbStatus = String(payment?.status || '').toLowerCase();
+    const isExempt = statusKey === 'exempt';
     const today0 = startOfLocalDay(new Date());
-    const venc = calendar.dueDate;
     let vencCell = '—';
     let vencIsEmpty = true;
     let vencClassName = '';
-    if (statusKey === 'paid' && payment?.paid_at) {
-      const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
-      vencCell = paidAt ? `Pago em ${formatDdMm(paidAt)}` : 'Pago';
+    const venc = isExempt ? null : resolveDueDateForDisplay(student, payment, rowMeta, calendar);
+    if (venc && !Number.isNaN(venc.getTime())) {
       vencIsEmpty = false;
-    } else if (venc && !Number.isNaN(venc.getTime())) {
-      vencIsEmpty = false;
+      if (statusKey === 'paid') {
+        vencCell = formatDdMm(venc);
+      } else {
       const diff = Math.ceil((today0 - startOfLocalDay(venc)) / 86400000);
       if (diff > 0) {
         vencCell = `${formatDdMm(venc)} · ${diff} dias em atraso`;
@@ -204,18 +216,22 @@ export default function MensalidadesListTable({
       } else {
         vencCell = formatDdMm(venc);
       }
+      }
     }
 
     const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
-    const hasValor = amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
-    const valorCell = hasValor ? fmtMoney(amountNum) : '—';
+    const hasValor = !isExempt && amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
+    const valorCell = isExempt ? 'Isento' : hasValor ? fmtMoney(amountNum) : '—';
 
     const prefM = student.preferredPaymentMethod;
     const prefA = student.preferredPaymentAccount;
 
     let badgeVariant = 'none';
     let badgeLabel = 'Não registrado';
-    if (studentFrozen || dbStatus === 'frozen') {
+    if (isExempt) {
+      badgeVariant = 'exempt';
+      badgeLabel = 'Isento';
+    } else if (studentFrozen || dbStatus === 'frozen') {
       badgeVariant = 'frozen';
       badgeLabel = 'Trancado';
     } else if (payment?.status === 'awaiting') {
@@ -243,7 +259,7 @@ export default function MensalidadesListTable({
 
     const isPaid = statusKey === 'paid' && payment?.status === 'paid';
     const isActiveAttention = dbStatus === 'awaiting' || dbStatus === 'partial';
-    const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
+    const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' || isExempt ? 'none' : 'default';
 
     const paidTooltip =
       isPaid && payment
@@ -264,7 +280,7 @@ export default function MensalidadesListTable({
       .join(' ');
 
     const displayName = String(student.name || '').trim() || '—';
-    const canRegister = !studentFrozen && !isPaid;
+    const canRegister = !studentFrozen && !isPaid && !isExempt;
 
     return (
       <tr key={student.id} className={rowClass} title={isPaid ? paidTooltip : undefined}>
@@ -294,7 +310,7 @@ export default function MensalidadesListTable({
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </td>
         <td className="mensal-cell-action">
-          {studentFrozen ? (
+          {studentFrozen || isExempt ? (
             <span className="mensal-cell-faint mensal-cell-faint--small">
               —
             </span>
@@ -350,12 +366,16 @@ export default function MensalidadesListTable({
     const statusKey = rowMeta?.status || 'none';
     const calendar = getPaymentRowStatus(student, payment, currentMonth);
     const isPaid = statusKey === 'paid' && payment?.status === 'paid';
+    const isExempt = statusKey === 'exempt';
     const prefM = student.preferredPaymentMethod;
     const prefA = student.preferredPaymentAccount;
 
     let badgeVariant = 'none';
     let badgeLabel = 'Não registrado';
-    if (studentFrozen || dbStatus === 'frozen') {
+    if (isExempt) {
+      badgeVariant = 'exempt';
+      badgeLabel = 'Isento';
+    } else if (studentFrozen || dbStatus === 'frozen') {
       badgeVariant = 'frozen';
       badgeLabel = 'Trancado';
     } else if (payment?.status === 'awaiting') {
@@ -381,9 +401,9 @@ export default function MensalidadesListTable({
       badgeLabel = 'A vencer';
     }
 
-    const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' ? 'none' : 'default';
+    const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' || isExempt ? 'none' : 'default';
     const displayName = String(student.name || '').trim() || '—';
-    const canRegister = !studentFrozen && !isPaid;
+    const canRegister = !studentFrozen && !isPaid && !isExempt;
     const paidTooltip =
       isPaid && payment
         ? `Pago · ${METHOD_LABELS[payment.method] || payment.method} · ${fmtMoney(payment.amount)}${
@@ -393,11 +413,9 @@ export default function MensalidadesListTable({
           }`
         : undefined;
     let vencLabel = '—';
-    if (statusKey === 'paid' && payment?.paid_at) {
-      const paidAt = parseYmdLocal(String(payment.paid_at).slice(0, 10));
-      vencLabel = paidAt ? `Pago em ${formatDdMm(paidAt)}` : 'Pago';
-    } else if (calendar.dueDate && !Number.isNaN(calendar.dueDate.getTime())) {
-      vencLabel = formatDdMm(calendar.dueDate);
+    const dueDate = isExempt ? null : resolveDueDateForDisplay(student, payment, rowMeta, calendar);
+    if (dueDate && !Number.isNaN(dueDate.getTime())) {
+      vencLabel = formatDdMm(dueDate);
     }
 
     return (
@@ -425,7 +443,7 @@ export default function MensalidadesListTable({
           </div>
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </div>
-        {!studentFrozen ? (
+        {!studentFrozen && !isExempt ? (
           <div className="mensal-mobile-card__actions">
             {isPaid && payment ? (
               <button

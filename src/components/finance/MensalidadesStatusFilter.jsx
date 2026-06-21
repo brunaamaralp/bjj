@@ -21,6 +21,7 @@ export default function MensalidadesStatusFilter({
     () => [
       { id: 'all', label: 'Todos', count: filterCounts.all },
       { id: 'paid', label: 'Pagos', count: filterCounts.paid },
+      { id: 'exempt', label: 'Isentos', count: filterCounts.exempt },
       { id: 'awaiting', label: 'Aguardando', count: filterCounts.awaiting },
       { id: 'partial', label: 'Parcial', count: filterCounts.partial },
       { id: 'pending', label: 'Em atraso', count: filterCounts.pending },

@@ -229,4 +229,26 @@ describe('buildCollectionQueue', () => {
     });
     expect(out.rows[0].stage?.day).toBeGreaterThanOrEqual(15);
   });
+
+  it('ignora aluno em plano isento na fila de cobranca', () => {
+    const out = buildCollectionQueue({
+      students: [
+        {
+          id: 's1',
+          name: 'Ana Bolsa',
+          plan: 'Bolsista',
+          dueDay: 5,
+          student_status: 'active',
+          converted_at: '2026-04-01',
+        },
+      ],
+      payments: [],
+      financeConfig: {
+        plans: [{ name: 'Bolsista', price: 0, isExempt: true }],
+      },
+      today,
+    });
+    expect(out.summary.students).toBe(0);
+    expect(out.rows).toHaveLength(0);
+  });
 });

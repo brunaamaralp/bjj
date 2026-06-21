@@ -174,6 +174,7 @@ export function compactPlanForStorage(plan) {
     price: Number(plan.price) || 0,
     applyCardFee: plan.applyCardFee !== false,
   };
+  if (plan.isExempt === true) out.isExempt = true;
   const description = String(plan.description ?? '').trim();
   if (description) out.description = description;
   const enrollId = String(plan.contractTemplateId ?? '').trim();
