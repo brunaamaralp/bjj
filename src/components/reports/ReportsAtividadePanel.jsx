@@ -132,12 +132,12 @@ export default function ReportsAtividadePanel({
 
   const teamOptions = useMemo(() => {
     const opts = [{ value: '', label: 'Toda a equipe' }];
-    for (const m of operatorTeam) {
-      const id = String(m.userId || m.user_id || '').trim();
+    for (const m of Array.isArray(operatorTeam) ? operatorTeam : []) {
+      const id = String(m.id || m.userId || m.user_id || '').trim();
       if (!id) continue;
       opts.push({
         value: id,
-        label: String(m.userName || m.userEmail || m.name || 'Membro').trim() || 'Membro',
+        label: String(m.nome || m.userName || m.userEmail || m.name || 'Membro').trim() || 'Membro',
       });
     }
     return opts;

@@ -18,9 +18,13 @@ import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import './reports.css';
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function aggregateBuyersFromSales(vendas, totalRevenue) {
   const byKey = new Map();
-  for (const v of vendas || []) {
+  for (const v of asArray(vendas)) {
     const nome = String(v.cliente_nome || '').trim() || 'Cliente avulso';
     const key = nome.toLowerCase();
     const prev = byKey.get(key) || {
@@ -87,10 +91,11 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales, operat
   }, [loadData]);
 
   const selectedOperator = useMemo(() => {
-    if (!operatorFilter || !operatorPayload?.operators?.length) return null;
+    const operators = asArray(operatorPayload?.operators);
+    if (!operatorFilter || operators.length === 0) return null;
     return (
-      operatorPayload.operators.find((o) => String(o.usuario_id) === operatorFilter) ||
-      operatorPayload.operators[0] ||
+      operators.find((o) => String(o.usuario_id) === operatorFilter) ||
+      operators[0] ||
       null
     );
   }, [operatorFilter, operatorPayload]);
@@ -115,7 +120,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales, operat
   const byChannel = useMemo(() => {
     if (operatorFilter) return [];
     const total = Number(data?.concludedTotal) || 0;
-    return (data?.byChannel || []).map((r) => {
+    return asArray(data?.byChannel).map((r) => {
       const amt = Number(r.total) || 0;
       return {
         canal: r.canal,
@@ -129,7 +134,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales, operat
   const topProducts = useMemo(() => {
     const total = Number(totals.concludedTotal) || 0;
     if (selectedOperator) {
-      return (selectedOperator.top_itens || [])
+      return asArray(selectedOperator.top_itens)
         .map((p, i) => ({
           id: `op-${i}-${p.label}`,
           nome: p.label || 'Item',
@@ -139,7 +144,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales, operat
         }))
         .sort((a, b) => b.qty - a.qty);
     }
-    return (data?.byProduct || [])
+    return asArray(data?.byProduct)
       .map((p) => ({
         id: p.product_id,
         nome: p.nome || 'Produto',
@@ -157,7 +162,7 @@ export default function ReportsLojaPanel({ academyId, from, to, hasSales, operat
     if (selectedOperator) {
       return aggregateBuyersFromSales(selectedOperator.vendas, total);
     }
-    return (data?.byBuyer || [])
+    return asArray(data?.byBuyer)
       .map((b) => ({
         id: b.aluno_id || `walkin:${b.nome}`,
         aluno_id: b.aluno_id || null,

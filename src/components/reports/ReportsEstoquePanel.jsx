@@ -207,6 +207,17 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory,
     downloadCsv(rows, `relatorio-estoque-${from}_${to}.csv`);
   };
 
+  useRegisterReportsExport(
+    hasInventory && hubSection === 'estoque' && !loading && !error && data && filtered.length > 0
+      ? {
+          disabled: false,
+          loading,
+          title: 'Exportar CSV de estoque',
+          onExport: exportCsv,
+        }
+      : null
+  );
+
   if (!hasInventory) {
     return (
       <ReportsPanelShell>
@@ -227,17 +238,6 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory,
       </ReportsPanelShell>
     );
   }
-
-  useRegisterReportsExport(
-    hasInventory && hubSection === 'estoque' && !loading && !error && data && filtered.length > 0
-      ? {
-          disabled: false,
-          loading,
-          title: 'Exportar CSV de estoque',
-          onExport: exportCsv,
-        }
-      : null
-  );
 
   return (
     <ReportsPanelShell>

@@ -27,6 +27,7 @@ import { useReportsLeadExport } from '../hooks/useReportsLeadExport.js';
 import { ReportsExportSlotProvider, useReportsExportSlot } from '../hooks/useReportsExportSlot.jsx';
 import { fetchTeamMemberships } from '../lib/teamApi.js';
 import { isAttendanceConfigured } from '../lib/attendance.js';
+import { normalizeReportsOperatorTeam } from '../lib/reportsOperatorTeam.js';
 import '../components/reports/reports.css';
 
 function ReportsPeriodToolbarBridge({
@@ -239,7 +240,7 @@ export default function Reports() {
         let alive = true;
         fetchTeamMemberships(academyId)
             .then((members) => {
-                if (alive) setSalesTeam(members || []);
+                if (alive) setSalesTeam(normalizeReportsOperatorTeam(members));
             })
             .catch(() => {
                 if (alive) setSalesTeam([]);
