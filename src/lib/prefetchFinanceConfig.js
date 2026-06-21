@@ -15,6 +15,10 @@ function defaultFinanceConfig() {
   };
 }
 
+function hasNamedPlans(financeConfig) {
+  return (financeConfig?.plans || []).some((plan) => String(plan?.name || '').trim());
+}
+
 /**
  * Carrega financeConfig mesclado (financeConfig + settings + onboarding).
  * @returns {Promise<object|null>}
@@ -27,8 +31,9 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
   const force = opts.force === true;
   const cachedForAcademy = st.financeConfigAcademyId === id && st.financeConfig;
   const cachedHasBanks = cachedForAcademy && hasConfiguredBankAccounts(st.financeConfig);
+  const cachedHasPlans = cachedForAcademy && hasNamedPlans(st.financeConfig);
 
-  if (!force && cachedForAcademy && cachedHasBanks) {
+  if (!force && cachedForAcademy && cachedHasPlans) {
     return st.financeConfig;
   }
 

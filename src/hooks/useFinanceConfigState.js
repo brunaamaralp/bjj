@@ -82,6 +82,10 @@ export function digestPlans(plans) {
   return JSON.stringify(plans || []);
 }
 
+function hasNamedPlans(financeConfig) {
+  return (financeConfig?.plans || []).some((plan) => String(plan?.name || '').trim());
+}
+
 export function digestVendors(vendors) {
   return JSON.stringify(normalizeFinanceVendors(vendors));
 }
@@ -211,7 +215,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     if (
       st.financeConfig != null &&
       st.financeConfigAcademyId === academyId &&
-      hasConfiguredBankAccounts(st.financeConfig)
+      hasNamedPlans(st.financeConfig)
     ) {
       const coll = readCollectionSettingsFromFinanceConfig(st.financeConfig);
       applyLoadedState(st.financeConfig, coll);
