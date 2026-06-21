@@ -634,7 +634,7 @@ const Welcome = () => {
       <footer className="navi-lp-footer">
         <div className="navi-lp-footer-inner">
           <div className="navi-lp-footer-brand">
-            <NaviBrandLockup height={44} variant="dark" className="navi-brand-lockup--lp-footer" />
+            <NaviBrandLockup height={64} variant="dark" className="navi-brand-lockup--lp-footer" />
           </div>
           <p className="navi-lp-footer-copy">
             <span>© 2026 Nave</span>
@@ -1333,9 +1333,9 @@ const LP_STYLES = `
         display: flex; align-items: center;
       }
       .navi-lp-footer-brand .navi-brand-lockup--lp-footer {
-        height: 44px !important;
+        height: 64px !important;
         width: auto !important;
-        max-width: min(200px, 52vw);
+        max-width: min(280px, 72vw);
         object-fit: contain;
         object-position: left center;
       }
