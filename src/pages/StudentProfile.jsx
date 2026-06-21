@@ -319,7 +319,6 @@ export default function StudentProfile() {
     const toast = useToast();
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(uiLabels), [uiLabels]);
-    const effectivePaymentStatus = studentPlanIsExempt ? { status: 'exempt', payment: null } : paymentStatus;
 
     const permCtx = useMemo(() => {
         const acad = (academyList || []).find((a) => a.id === academyId) || {};
@@ -432,6 +431,7 @@ export default function StudentProfile() {
     const [payFormError, setPayFormError] = useState('');
     const [payFormErrors, setPayFormErrors] = useState({});
     const [paymentStatus, setPaymentStatus] = useState(null);
+    const effectivePaymentStatus = studentPlanIsExempt ? { status: 'exempt', payment: null } : paymentStatus;
     const [payForm, setPayForm] = useState(() => buildDefaultPayForm(null));
     const [savingPayment, setSavingPayment] = useState(false);
     const [deletePaymentTarget, setDeletePaymentTarget] = useState(null);
