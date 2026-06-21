@@ -108,6 +108,14 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
+import AcademyModeChip, {
+    ACADEMY_MODE_CRESCIMENTO,
+    ACADEMY_MODE_CONSOLIDACAO,
+} from '../components/dashboard/AcademyModeChip.jsx';
+import ConsolidacaoAtRiskBlock from '../components/dashboard/ConsolidacaoAtRiskBlock.jsx';
+import ConsolidacaoFinanceiroBlock from '../components/dashboard/ConsolidacaoFinanceiroBlock.jsx';
+import ConsolidacaoRelacionamentoBlock from '../components/dashboard/ConsolidacaoRelacionamentoBlock.jsx';
+import { useConsolidacaoRelacionamento } from '../hooks/useConsolidacaoRelacionamento.js';
 
 import { useUserRole } from '../lib/useUserRole.js';
 import {
@@ -220,6 +228,15 @@ const Dashboard = () => {
     const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
     const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [academyMode, setAcademyModeRaw] = useState(
+        () => localStorage.getItem('nav_academy_mode') === ACADEMY_MODE_CONSOLIDACAO
+            ? ACADEMY_MODE_CONSOLIDACAO
+            : ACADEMY_MODE_CRESCIMENTO
+    );
+    const setAcademyMode = (mode) => {
+        setAcademyModeRaw(mode);
+        try { localStorage.setItem('nav_academy_mode', mode); } catch { /* quota */ }
+    };
     const [academyWa, setAcademyWa] = useState({
         name: '',
         zapster_instance_id: '',
@@ -467,6 +484,8 @@ const Dashboard = () => {
     }, [students]);
 
     const isZeroState = !loading && leadsCount === 0 && (tasks || []).length === 0;
+
+    const { oneYearAnniversaries } = useConsolidacaoRelacionamento(students);
 
     const pendingTasksDueHub = useMemo(() => filterTasksDueHub(tasks), [tasks]);
     const tasksDueHubCounts = useMemo(() => countTasksDueHub(tasks), [tasks]);
@@ -1264,6 +1283,19 @@ const Dashboard = () => {
 
             {hubTab === RECEPCAO_TAB_EXPERIMENTAIS ? (
             <>
+            <AcademyModeChip mode={academyMode} onChange={setAcademyMode} />
+
+            {academyMode === ACADEMY_MODE_CONSOLIDACAO ? (
+                <div className="consolidacao-blocks-grid">
+                    <ConsolidacaoAtRiskBlock academyId={academyId} />
+                    <ConsolidacaoFinanceiroBlock students={students} />
+                    <ConsolidacaoRelacionamentoBlock
+                        todayBirthdays={todayBirthdays}
+                        oneYearAnniversaries={oneYearAnniversaries}
+                    />
+                </div>
+            ) : null}
+
             <section
                 className={`dashboard-day-hero dashboard-day-hero--${heroPeriod} animate-in`}
                 style={{ animationDelay: '0.04s' }}
