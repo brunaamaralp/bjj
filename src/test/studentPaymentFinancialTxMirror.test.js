@@ -1,0 +1,360 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const serverMocks = vi.hoisted(() => ({
+  createDocument: vi.fn(),
+  updateDocument: vi.fn(),
+  listDocuments: vi.fn(),
+  applyAccountingSideEffectsAutoServer: vi.fn(),
+  resolveFinancialTxSettlement: vi.fn(),
+  mirrorAmountsForPaymentWithAccount: vi.fn(),
+}));
+
+vi.mock('node-appwrite', () => ({
+  Query: {
+    equal: (key, value) => ({ op: 'equal', key, value }),
+    limit: (value) => ({ op: 'limit', value }),
+  },
+  ID: { unique: () => 'tx-new' },
+  Permission: {
+    read: () => 'read',
+    update: () => 'update',
+  },
+  Role: {
+    users: () => 'users',
+  },
+}));
+
+vi.mock('../../lib/server/academyAccess.js', () => ({
+  DB_ID: 'db-test',
+  databases: {
+    createDocument: serverMocks.createDocument,
+    updateDocument: serverMocks.updateDocument,
+    listDocuments: serverMocks.listDocuments,
+  },
+}));
+
+vi.mock('../../lib/server/financeTxFields.js', () => ({
+  financeTxDocumentWithOptionals: (payload) => payload,
+  stripUnknownFinanceTxAttrs: (payload) => payload,
+}));
+
+vi.mock('../../lib/server/financeJournalServer.js', () => ({
+  applyAccountingSideEffectsAutoServer: serverMocks.applyAccountingSideEffectsAutoServer,
+}));
+
+vi.mock('../../src/lib/financeCategories.js', () => ({
+  FINANCE_CATEGORIES: {
+    MENSALIDADE: { type: 'plan', label: 'Mensalidades' },
+    OUTRAS_DESPESAS: { type: 'expense', label: 'Outras despesas' },
+  },
+}));
+
+vi.mock('../../src/lib/paymentStatus.js', () => ({
+  mirrorGrossForPayment: (status, paidAmount, expectedAmount) => {
+    if (String(status).toLowerCase() === 'partial') return Number(paidAmount) || 0;
+    return Number(paidAmount) || Number(expectedAmount) || 0;
+  },
+  shouldMirrorPaymentToCaixa: (status) => ['paid', 'partial'].includes(String(status).toLowerCase()),
+  expectedAmountForStudent: (_studentDoc, _financeConfig, payment) => Number(payment?.expected_amount) || 0,
+}));
+
+vi.mock('../../src/lib/financeReconTxLabel.js', () => ({
+  buildMirrorPlanName: ({ studentName, planName, refMonth }) =>
+    [studentName, planName, refMonth].filter(Boolean).join(' | ') || 'Pagamento',
+}));
+
+vi.mock('../../src/lib/resolveAcquirerFees.js', () => ({
+  mirrorAmountsForPaymentWithAccount: serverMocks.mirrorAmountsForPaymentWithAccount,
+}));
+
+vi.mock('../../src/lib/paymentSettlement.js', () => ({
+  resolveFinancialTxSettlement: serverMocks.resolveFinancialTxSettlement,
+}));
+
+async function loadMirrorModule() {
+  vi.resetModules();
+  process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = 'financial-tx-col';
+  process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'student-payments-col';
+  return import('../../lib/server/studentPaymentFinancialTxMirror.js');
+}
+
+function buildPaymentDoc(overrides = {}) {
+  return {
+    $id: 'pay-1',
+    lead_id: 'lead-1',
+    academy_id: 'acad-1',
+    status: 'paid',
+    expected_amount: 120,
+    paid_amount: 120,
+    amount: 120,
+    method: 'pix',
+    installments: 1,
+    reference_month: '2026-07',
+    plan_name: 'Adulto',
+    paid_at: '2026-07-05T12:00:00.000Z',
+    registered_by: 'user-1',
+    ...overrides,
+  };
+}
+
+describe('studentPaymentFinancialTxMirror', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverMocks.createDocument.mockResolvedValue({ $id: 'tx-created' });
+    serverMocks.updateDocument.mockResolvedValue({ $id: 'tx-created' });
+    serverMocks.listDocuments.mockResolvedValue({ documents: [] });
+    serverMocks.mirrorAmountsForPaymentWithAccount.mockReturnValue({ fee: 4.5, net: 115.5 });
+    serverMocks.resolveFinancialTxSettlement.mockImplementation(({ dueDate, paidAt }) => ({
+      status: 'pending',
+      settledAt: null,
+      expected_settlement_at: dueDate ? `${String(dueDate).slice(0, 10)}T23:59:59.999Z` : paidAt || null,
+    }));
+  });
+
+  it('encaminha due_date para resolver expected_settlement_at do espelho', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        method: 'boleto',
+        due_date: '2026-07-10',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.resolveFinancialTxSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dueDate: '2026-07-10',
+      })
+    );
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-new',
+      expect.objectContaining({
+        expected_settlement_at: '2026-07-10T23:59:59.999Z',
+      }),
+      ['read', 'update']
+    );
+  });
+
+  it('usa a conta do meio de captura como bank_account quando nao ha conta explicita', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-2',
+        lead_id: 'lead-2',
+        status: 'paid',
+        expected_amount: 150,
+        paid_amount: 150,
+        amount: 150,
+        method: 'cartao_credito',
+        installments: 3,
+        reference_month: '2026-08',
+        plan_name: 'Kids',
+        paid_at: '2026-08-15T10:00:00.000Z',
+        capture_method_id: 'cap-1',
+        registered_by: 'user-2',
+      }),
+      payload: {},
+      financeConfig: {
+        bankAccounts: [{ bankName: 'PagBank', account: '1234' }],
+        captureMethods: [
+          {
+            id: 'cap-1',
+            name: 'Link PagBank',
+            paymentMethod: 'cartao_credito',
+            bankAccountLabel: 'PagBank · 1234',
+            active: true,
+            useDefaultFees: true,
+          },
+        ],
+      },
+      studentDoc: { name: 'Maria', plan: 'Kids' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-new',
+      expect.objectContaining({
+        bank_account: 'PagBank · 1234',
+        capture_method_id: 'cap-1',
+      }),
+      ['read', 'update']
+    );
+    expect(serverMocks.mirrorAmountsForPaymentWithAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bankAccount: 'PagBank · 1234',
+        captureMethodId: 'cap-1',
+      })
+    );
+  });
+
+  it('pending cancela o main financial_tx encontrado por origin sem depender de financial_tx_id', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+    serverMocks.listDocuments.mockImplementation(async (_db, _col, queries) => {
+      const originType = queries.find((q) => q.key === 'origin_type')?.value;
+      if (originType === 'student_payment') {
+        return { documents: [{ $id: 'tx-main-existing', origin_type: 'student_payment', origin_id: 'pay-pending' }] };
+      }
+      return { documents: [] };
+    });
+
+    const result = await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-pending',
+        status: 'pending',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(result).toEqual({ mirrorId: null });
+    expect(serverMocks.updateDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-main-existing',
+      { status: 'cancelled' }
+    );
+    expect(serverMocks.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('cancelled cancela o main financial_tx encontrado por origin de forma deterministica', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+    serverMocks.listDocuments.mockImplementation(async (_db, _col, queries) => {
+      const originType = queries.find((q) => q.key === 'origin_type')?.value;
+      if (originType === 'student_payment') {
+        return {
+          documents: [
+            { $id: 'tx-z', origin_type: 'student_payment', origin_id: 'pay-cancelled', status: 'cancelled' },
+            { $id: 'tx-a', origin_type: 'student_payment', origin_id: 'pay-cancelled', status: 'settled' },
+          ],
+        };
+      }
+      return { documents: [] };
+    });
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-cancelled',
+        status: 'cancelled',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.updateDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-a',
+      { status: 'cancelled' }
+    );
+    expect(serverMocks.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('partial cria espelho quando ainda nao existe main financial_tx', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-partial',
+        status: 'partial',
+        paid_amount: 55,
+        amount: 120,
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-new',
+      expect.objectContaining({
+        origin_type: 'student_payment',
+        origin_id: 'pay-partial',
+        gross: 55,
+      }),
+      ['read', 'update']
+    );
+  });
+
+  it('paid faz retry sem duplicar ao atualizar o main financial_tx encontrado por origin', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+    serverMocks.listDocuments.mockImplementation(async (_db, _col, queries) => {
+      const originType = queries.find((q) => q.key === 'origin_type')?.value;
+      if (originType === 'student_payment') {
+        return { documents: [{ $id: 'tx-retry', origin_type: 'student_payment', origin_id: 'pay-retry' }] };
+      }
+      return { documents: [] };
+    });
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-retry',
+        status: 'paid',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).not.toHaveBeenCalled();
+    expect(serverMocks.updateDocument).toHaveBeenNthCalledWith(
+      1,
+      'db-test',
+      'financial-tx-col',
+      'tx-retry',
+      expect.objectContaining({
+        origin_type: 'student_payment',
+        origin_id: 'pay-retry',
+        gross: 120,
+      })
+    );
+    expect(serverMocks.updateDocument).toHaveBeenNthCalledWith(
+      2,
+      'db-test',
+      'student-payments-col',
+      'pay-retry',
+      { financial_tx_id: 'tx-created' }
+    );
+  });
+
+  it('paid cria main financial_tx quando lookup por origin nao encontra existente', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-paid-create',
+        status: 'paid',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-new',
+      expect.objectContaining({
+        origin_type: 'student_payment',
+        origin_id: 'pay-paid-create',
+        gross: 120,
+      }),
+      ['read', 'update']
+    );
+  });
+});
