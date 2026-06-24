@@ -607,7 +607,7 @@
   display: grid;
   grid-template-columns: minmax(120px, 1.1fr) minmax(100px, 1fr) auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
 }
 
 .sales-payment-row__cash {
@@ -625,6 +625,25 @@
 .sales-payment-row__capture-field .form-input,
 .sales-payment-row__capture-field select {
   width: 100%;
+}
+
+.sales-payment-row__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--border-light);
+}
+
+.sales-payment-row__detail-field {
+  min-width: 0;
+}
+
+.sales-payment-row__details .sales-payment-row__capture-field {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .sales-checkout__row,
@@ -1692,6 +1711,17 @@
   align-items: center;
   gap: 6px;
   min-height: 36px;
+}
+
+@media (max-width: 640px) {
+  .sales-payment-row__main,
+  .sales-payment-row__details {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-payment-row__remove {
+    justify-self: end;
+  }
 }
 
 .sales-pdv-toolbar {

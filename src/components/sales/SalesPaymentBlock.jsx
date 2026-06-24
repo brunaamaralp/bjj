@@ -11,6 +11,7 @@ import {
   trocoFormOptionsForFinance,
 } from '../../lib/salePayments';
 import {
+  needsCaptureMethodSelect,
   whenCaptureMethodChanges,
   whenPaymentMethodChangesWithCapture,
   validateCaptureMethodForSubmit,
@@ -155,6 +156,9 @@ export default function SalesPaymentBlock({
               ? Math.min(12, Math.max(1, Number(capture?.maxInstallments) || 12))
               : 1;
           const insuficiente = isCash && recebidoCents < valorCents;
+          const showInstallments = row.forma === 'cartao_credito';
+          const showCardDetails =
+            showInstallments || needsCaptureMethodSelect(financeConfig, row.forma);
 
           const formaKey = `forma-${idx}`;
           const valorKey = `valor-${idx}`;
@@ -234,33 +238,6 @@ export default function SalesPaymentBlock({
                     <p className="sales-field-error" role="alert">Campo obrigatório</p>
                   ) : null}
                 </div>
-                {row.forma === 'cartao_credito' ? (
-                  <div className="sales-payment-row__field">
-                    {inlineValidate && idx === 0 ? (
-                      <span className="text-xs sales-payment-row__field-label">Parcelas</span>
-                    ) : null}
-                    <select
-                      className="form-input"
-                      disabled={disabled}
-                      value={String(installments)}
-                      aria-label="Parcelas"
-                      onChange={(e) =>
-                        updateRow(idx, {
-                          installments: Math.min(
-                            maxInstallments,
-                            Math.max(1, Number(e.target.value) || 1)
-                          ),
-                        })
-                      }
-                    >
-                      {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={String(n)}>
-                          {n}x
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
                 <button
                   type="button"
                   className="btn-ghost sales-payment-row__remove"
@@ -272,33 +249,66 @@ export default function SalesPaymentBlock({
                 </button>
               </div>
 
-              <CaptureMethodSelect
-                financeConfig={financeConfig}
-                method={row.forma}
-                value={row.capture_method_id}
-                id={`sale-capture-${idx}`}
-                className="form-input"
-                variant="compact"
-                disabled={disabled}
-                error={showCaptureError ? captureError : ''}
-                onBlur={() => inlineValidate && markTouched(captureKey)}
-                onChange={(captureId) =>
-                  updateRow(idx, {
-                    ...whenCaptureMethodChanges(financeConfig, captureId, row.forma),
-                    installments:
-                      row.forma === 'cartao_credito'
-                        ? Math.min(
-                            Math.max(
-                              1,
-                              Number(findCaptureMethodById(financeConfig, captureId)?.maxInstallments) ||
-                                12
+              {showCardDetails ? (
+                <div className="sales-payment-row__details">
+                  <CaptureMethodSelect
+                    financeConfig={financeConfig}
+                    method={row.forma}
+                    value={row.capture_method_id}
+                    id={`sale-capture-${idx}`}
+                    className="form-input"
+                    variant="compact"
+                    disabled={disabled}
+                    error={showCaptureError ? captureError : ''}
+                    onBlur={() => inlineValidate && markTouched(captureKey)}
+                    onChange={(captureId) =>
+                      updateRow(idx, {
+                        ...whenCaptureMethodChanges(financeConfig, captureId, row.forma),
+                        installments:
+                          row.forma === 'cartao_credito'
+                            ? Math.min(
+                                Math.max(
+                                  1,
+                                  Number(findCaptureMethodById(financeConfig, captureId)?.maxInstallments) ||
+                                    12
+                                ),
+                                installments
+                              )
+                            : 1,
+                      })
+                    }
+                  />
+
+                  {showInstallments ? (
+                    <div className="sales-payment-row__detail-field">
+                      <label className="text-xs sales-payment-row__field-label" htmlFor={`sale-installments-${idx}`}>
+                        Parcelas
+                      </label>
+                      <select
+                        id={`sale-installments-${idx}`}
+                        className="form-input"
+                        disabled={disabled}
+                        value={String(installments)}
+                        aria-label="Parcelas"
+                        onChange={(e) =>
+                          updateRow(idx, {
+                            installments: Math.min(
+                              maxInstallments,
+                              Math.max(1, Number(e.target.value) || 1)
                             ),
-                            installments
-                          )
-                        : 1,
-                  })
-                }
-              />
+                          })
+                        }
+                      >
+                        {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={String(n)}>
+                            {n}x
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {isCash ? (
                 <div className="sales-payment-row__cash">

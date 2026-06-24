@@ -4,7 +4,30 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import SalesPaymentBlock from '../components/sales/SalesPaymentBlock.jsx';
 import { createEmptyPaymentRow } from '../lib/salePayments.js';
 
-function Harness({ initialPayments }) {
+const financeConfigWithCaptureChoices = {
+  captureMethods: [
+    {
+      id: 'cap_stone',
+      name: 'Stone',
+      paymentMethod: 'cartao_credito',
+      active: true,
+      maxInstallments: 12,
+      useDefaultFees: true,
+      fees: {},
+    },
+    {
+      id: 'cap_getnet',
+      name: 'Getnet',
+      paymentMethod: 'cartao_credito',
+      active: true,
+      maxInstallments: 6,
+      useDefaultFees: true,
+      fees: {},
+    },
+  ],
+};
+
+function Harness({ initialPayments, financeConfig = null }) {
   const [payments, setPayments] = useState(initialPayments);
   return (
     <SalesPaymentBlock
@@ -12,7 +35,7 @@ function Harness({ initialPayments }) {
       payments={payments}
       onChange={setPayments}
       disabled={false}
-      financeConfig={null}
+      financeConfig={financeConfig}
     />
   );
 }
@@ -53,5 +76,30 @@ describe('SalesPaymentBlock', () => {
     fireEvent.change(screen.getByLabelText('Forma de pagamento'), { target: { value: 'pix' } });
 
     expect(screen.queryByLabelText('Parcelas')).not.toBeInTheDocument();
+  });
+
+  it('agrupa recebido via e parcelas em uma segunda linha no credito', () => {
+    render(
+      <Harness
+        financeConfig={financeConfigWithCaptureChoices}
+        initialPayments={[
+          {
+            ...createEmptyPaymentRow(30000),
+            forma: 'cartao_credito',
+            capture_method_id: 'cap_stone',
+            capture_method_name: 'Stone',
+            installments: 2,
+          },
+        ]}
+      />
+    );
+
+    const parcelas = screen.getByLabelText('Parcelas');
+    const recebidoVia = screen.getByLabelText(/Recebido via/i);
+    const detailsRow = parcelas.closest('.sales-payment-row__details');
+
+    expect(detailsRow).not.toBeNull();
+    expect(recebidoVia.closest('.sales-payment-row__details')).toBe(detailsRow);
+    expect(screen.getByLabelText('Forma de pagamento').closest('.sales-payment-row__main')).not.toContainElement(parcelas);
   });
 });
