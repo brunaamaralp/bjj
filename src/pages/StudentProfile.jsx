@@ -1599,6 +1599,23 @@ export default function StudentProfile() {
         setEditingData(true);
     }, []);
 
+    const handleClearRetentionContact = useCallback(async () => {
+        if (!id || clearRetentionContactBusy) return;
+        setClearRetentionContactBusy(true);
+        try {
+            await postAttendanceRetentionAction({ student_id: id, action: 'clear_contact' });
+            mergeStudent(id, { retention_in_contact: false });
+            const bundle = await fetchStudentProfileBundle(id);
+            if (bundle?.attendanceRisk) setAttendanceRisk(bundle.attendanceRisk);
+            if (bundle?.student) mergeStudent(id, bundle.student);
+            toast({ type: 'success', message: 'Aluno voltou à fila de retenção, se ainda estiver elegível.' });
+        } catch (e) {
+            toast({ type: 'error', message: friendlyError(e, 'save') });
+        } finally {
+            setClearRetentionContactBusy(false);
+        }
+    }, [id, clearRetentionContactBusy, mergeStudent, toast]);
+
     const inputStyle = {
         padding: '9px 12px',
         borderRadius: 8,
@@ -1657,23 +1674,6 @@ export default function StudentProfile() {
     const showAttendanceRiskBadge =
         attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
     const showRetentionInContactBanner = student?.retention_in_contact === true;
-
-    const handleClearRetentionContact = useCallback(async () => {
-        if (!id || clearRetentionContactBusy) return;
-        setClearRetentionContactBusy(true);
-        try {
-            await postAttendanceRetentionAction({ student_id: id, action: 'clear_contact' });
-            mergeStudent(id, { retention_in_contact: false });
-            const bundle = await fetchStudentProfileBundle(id);
-            if (bundle?.attendanceRisk) setAttendanceRisk(bundle.attendanceRisk);
-            if (bundle?.student) mergeStudent(id, bundle.student);
-            toast({ type: 'success', message: 'Aluno voltou à fila de retenção, se ainda estiver elegível.' });
-        } catch (e) {
-            toast({ type: 'error', message: friendlyError(e, 'save') });
-        } finally {
-            setClearRetentionContactBusy(false);
-        }
-    }, [id, clearRetentionContactBusy, mergeStudent, toast]);
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
