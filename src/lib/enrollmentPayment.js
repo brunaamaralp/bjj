@@ -7,8 +7,15 @@ import {
   whenPaymentMethodChangesWithCapture,
 } from './captureMethodPaymentForm.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
-import { findPlanByName, planPriceToPayAmountString } from './academyPlans.js';
+import { findPlanByName } from './academyPlans.js';
 import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from './studentPaymentTroco.js';
+import { calcFinalPrice, getStudentDiscountAmount } from './planBilling.js';
+
+function amountMaskFromNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return n.toFixed(2).replace('.', ',');
+}
 
 /** Mês de referência (YYYY-MM) a partir da data de matrícula. */
 export function referenceMonthFromEnrollmentDate(enrollmentDateYmd) {
@@ -17,10 +24,18 @@ export function referenceMonthFromEnrollmentDate(enrollmentDateYmd) {
   return new Date().toISOString().slice(0, 7);
 }
 
+export function enrollmentPlanPricing(financeConfig, planName, lead = null) {
+  const plan = findPlanByName(financeConfig, planName);
+  const planPrice = Number(plan?.price ?? 0) || 0;
+  const discountAmount = getStudentDiscountAmount(lead);
+  const finalPrice = calcFinalPrice(planPrice, discountAmount);
+  return { plan, planPrice, discountAmount, finalPrice };
+}
+
 /** Formulário inicial de pagamento pós-matrícula. */
 export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd, planName) {
   const refMonth = referenceMonthFromEnrollmentDate(enrollmentDateYmd);
-  const plan = findPlanByName(financeConfig, planName);
+  const { finalPrice } = enrollmentPlanPricing(financeConfig, planName, lead);
   const preferredAccount = lead?.preferredPaymentAccount || lead?.preferred_payment_account || '';
   const method = lead?.preferredPaymentMethod || lead?.preferred_payment_method || 'pix';
   const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
@@ -29,7 +44,7 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
     reference_month: refMonth,
     bundle_start_month: refMonth,
     bundle_months: 12,
-    amount: plan ? planPriceToPayAmountString(plan) : '',
+    amount: amountMaskFromNumber(finalPrice),
     method,
     ...captureDefaults,
     account:

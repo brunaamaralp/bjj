@@ -237,6 +237,7 @@ academies.zapsterInstanceId ──► instância WhatsApp
 | `leads` | `academyId` | `academies.$id` | Índice principal do funil |
 | `students` | `academyId` | `academies.$id` | Matriculados |
 | `students` | `$id` | `leads.$id` | Opcional: mesmo ID na conversão |
+| `students` | `discount_amount` | — | Desconto individual recorrente em reais aplicado ao preço do plano |
 | `lead_events` | `lead_id` | `leads.$id` ou `students.$id` | Timeline |
 | `lead_events` | `academy_id` | `academies.$id` | Filtro tenant |
 | `tasks` | `lead_id` | pessoa | Tarefa ligada ao lead/aluno |

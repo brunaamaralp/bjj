@@ -119,6 +119,7 @@ export async function performEnrollment({
   customQuestions = [],
   customAnswers = {},
   plan = '',
+  discountAmount = 0,
   enrollmentDate = '',
   academySettingsRaw = null,
   waAutomation = null,
@@ -135,6 +136,9 @@ export async function performEnrollment({
   }
 
   const planName = String(plan || lead?.plan || '').trim();
+  const discountValue = Number(discountAmount);
+  const normalizedDiscount =
+    Number.isFinite(discountValue) && discountValue > 0 ? Math.round(discountValue * 100) / 100 : 0;
   const enrollmentDateYmd = String(enrollmentDate || '').trim().slice(0, 10);
   let student;
 
@@ -190,6 +194,7 @@ export async function performEnrollment({
         overrides: {
           academyId,
           plan: planName || lead.plan,
+          discountAmount: normalizedDiscount,
           convertedAt: new Date().toISOString(),
           studentStatus: 'active',
           ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),

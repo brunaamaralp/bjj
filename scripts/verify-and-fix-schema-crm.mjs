@@ -448,6 +448,7 @@ const STUDENTS_ATTRS = [
   { key: 'payer_aliases_json', type: 'string', size: 4096 },
   { key: 'birth_date', type: 'string', size: 16 },
   { key: 'plan', type: 'string', size: 128 },
+  { key: 'discount_amount', type: 'float' },
   { key: 'plan_billing', type: 'string', size: 16 },
   { key: 'due_day', type: 'integer' },
   { key: 'student_status', type: 'string', size: 32 },

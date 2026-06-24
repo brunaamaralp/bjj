@@ -11,6 +11,8 @@ import {
   paymentStatusLabelPt,
   paymentTimelineBadge,
 } from '../lib/paymentStatus.js';
+import { openAmountForStudent } from '../lib/collectionOverdue.js';
+import { calcFinalPrice, getStudentDiscountAmount } from '../lib/planBilling.js';
 
 describe('paymentStatus', () => {
   const student = { plan: 'Mensal', dueDay: 15 };
@@ -54,6 +56,32 @@ describe('paymentStatus', () => {
 
   it('expectedAmountForStudent from plan', () => {
     expect(expectedAmountForStudent(student, financeConfig, null)).toBe(200);
+  });
+
+  it('calcFinalPrice applies discount and clamps at zero', () => {
+    expect(calcFinalPrice(200, 30)).toBe(170);
+    expect(calcFinalPrice(200, 250)).toBe(0);
+  });
+
+  it('getStudentDiscountAmount reads snake and camel case safely', () => {
+    expect(getStudentDiscountAmount({ discount_amount: 30 })).toBe(30);
+    expect(getStudentDiscountAmount({ discountAmount: 15 })).toBe(15);
+    expect(getStudentDiscountAmount({ discount_amount: null })).toBe(0);
+  });
+
+  it('openAmountForStudent uses plan price minus discount', () => {
+    const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
+    expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(170);
+  });
+
+  it('expectedAmountForStudent keeps explicit expected_amount precedence over discount', () => {
+    const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
+    expect(
+      expectedAmountForStudent(discountedStudent, financeConfig, {
+        status: 'pending',
+        expected_amount: 140,
+      })
+    ).toBe(140);
   });
 
   it('expectedAmountForStudent retorna 0 para plano isento', () => {

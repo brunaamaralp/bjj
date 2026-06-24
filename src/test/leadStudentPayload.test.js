@@ -5,6 +5,7 @@ import {
   mergeLeadQualificationIntoCustomAnswers,
   STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY,
 } from '../lib/leadStudentPayload.js';
+import { mapAppwriteDocToStudent } from '../lib/mapAppwriteStudentDoc.js';
 
 describe('leadStudentPayload', () => {
   it('isLegacyStudentLeadDoc detects matriculado or contact_type student', () => {
@@ -38,6 +39,27 @@ describe('leadStudentPayload', () => {
     expect(payload.belt).toBe('Azul');
   });
 
+  it('buildStudentPayloadFromDoc persists discount_amount when provided', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      academyId: 'ac1',
+      plan: 'Mensal',
+      discount_amount: 30,
+    });
+    expect(payload.discount_amount).toBe(30);
+  });
+
+  it('buildStudentPayloadFromDoc allows explicit zero discount override', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      academyId: 'ac1',
+      plan: 'Mensal',
+      discount_amount: 25,
+      discountAmount: 0,
+    });
+    expect(payload.discount_amount).toBe(0);
+  });
+
   it('does not persist age or is_first_experience on students payload', () => {
     const payload = buildStudentPayloadFromDoc({
       name: 'Ana',
@@ -62,5 +84,16 @@ describe('leadStudentPayload', () => {
     const raw = JSON.stringify({ [STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY]: 'Não' });
     const merged = mergeLeadQualificationIntoCustomAnswers(raw, { isFirstExperience: 'Sim' });
     expect(JSON.parse(merged)[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY]).toBe('Não');
+  });
+
+  it('mapAppwriteDocToStudent maps discount_amount to discountAmount', () => {
+    const student = mapAppwriteDocToStudent({
+      $id: 's1',
+      name: 'Ana',
+      phone: '11999',
+      plan: 'Mensal',
+      discount_amount: 25,
+    });
+    expect(student.discountAmount).toBe(25);
   });
 });

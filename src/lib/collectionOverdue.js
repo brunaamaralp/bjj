@@ -1,5 +1,5 @@
 /** Cálculo de inadimplência / dias de atraso (mensalidades). */
-import { isStudentOnExemptPlan, resolveStudentPlan } from './planBilling.js';
+import { isStudentOnExemptPlan, resolveStudentPlan, resolveStudentPlanFinalPrice } from './planBilling.js';
 
 function startOfLocalDay(d) {
   const x = new Date(d);
@@ -138,6 +138,8 @@ export function openAmountForStudent(student, payment, financeConfig) {
   if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
   const payAmt = Number(payment?.amount);
   if (Number.isFinite(payAmt) && payAmt > 0) return payAmt;
+  const finalPrice = resolveStudentPlanFinalPrice(student, financeConfig, payment);
+  if (Number.isFinite(finalPrice) && finalPrice > 0) return finalPrice;
   const match = resolveStudentPlan(student, financeConfig, payment);
   const price = Number(match?.price);
   if (Number.isFinite(price) && price > 0) return price;

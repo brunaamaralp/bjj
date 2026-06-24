@@ -11,6 +11,12 @@ export function normalizePaymentForma(raw) {
   return FORMA_ALIASES[k] || k;
 }
 
+export function normalizePaymentInstallments(forma, installments) {
+  const method = normalizePaymentForma(forma);
+  if (method !== 'cartao_credito') return 1;
+  return Math.min(12, Math.max(1, Math.trunc(Number(installments) || 1)));
+}
+
 export function roundMoney(n) {
   return Math.round(Number(n) * 100) / 100;
 }
@@ -38,12 +44,18 @@ export function normalizePagamentosInput(list) {
       const forma = normalizePaymentForma(p?.forma);
       const valor = roundMoney(p?.valor);
       if (!forma || !Number.isFinite(valor) || valor < 0) return null;
-      const out = { forma, valor };
+      const out = {
+        forma,
+        valor,
+        installments: normalizePaymentInstallments(forma, p?.installments),
+      };
       const troco = roundMoney(p?.troco || 0);
       if (troco > 0) {
         out.troco = troco;
         out.forma_troco = normalizePaymentForma(p?.forma_troco || 'pix');
       }
+      const captureId = String(p?.capture_method_id || '').trim();
+      if (captureId) out.capture_method_id = captureId;
       return out;
     })
     .filter(Boolean)

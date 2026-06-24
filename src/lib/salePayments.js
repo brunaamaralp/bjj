@@ -30,11 +30,26 @@ export function normalizePaymentForma(raw) {
   return canonicalPaymentMethodKeyFromInput(raw);
 }
 
+export function normalizePaymentInstallments(forma, installments) {
+  const method = normalizePaymentForma(forma);
+  if (method !== 'cartao_credito') return 1;
+  return Math.min(12, Math.max(1, Math.trunc(Number(installments) || 1)));
+}
+
 export function paymentFormLabel(forma) {
   const k = normalizePaymentForma(forma);
   const hit = SALE_PAYMENT_FORM_OPTIONS.find((o) => o.value === k);
   if (hit) return hit.label;
   return paymentLabel(forma);
+}
+
+function paymentFormLabelWithInstallments(pagamento) {
+  const base = paymentFormLabel(pagamento?.forma);
+  const installments = normalizePaymentInstallments(pagamento?.forma, pagamento?.installments);
+  if (normalizePaymentForma(pagamento?.forma) === 'cartao_credito' && installments > 1) {
+    return `${base} ${installments}x`;
+  }
+  return base;
 }
 
 export function roundMoney(n) {
@@ -53,6 +68,7 @@ export function parsePagamentosJson(raw) {
         troco: roundMoney(p?.troco || 0),
         forma_troco: p?.forma_troco ? normalizePaymentForma(p.forma_troco) : '',
         capture_method_id: p?.capture_method_id ? String(p.capture_method_id) : '',
+        installments: normalizePaymentInstallments(p?.forma, p?.installments),
       }))
       .filter((p) => p.forma && Number.isFinite(p.valor) && p.valor >= 0);
   } catch {
@@ -121,6 +137,7 @@ export function createEmptyPaymentRow(totalCents = 0) {
     valorCents: cents,
     recebidoCents: cents,
     formaTroco: 'pix',
+    installments: 1,
   };
 }
 
@@ -138,6 +155,7 @@ export function serializePagamentosForApi(rows) {
     }
     const captureId = String(r.capture_method_id || '').trim();
     if (captureId) out.capture_method_id = captureId;
+    out.installments = normalizePaymentInstallments(forma, r.installments);
     return out;
   });
 }
@@ -149,12 +167,18 @@ export function normalizePagamentosInput(list) {
       const forma = normalizePaymentForma(p?.forma);
       const valor = roundMoney(p?.valor);
       if (!forma || !Number.isFinite(valor) || valor < 0) return null;
-      const out = { forma, valor };
+      const out = {
+        forma,
+        valor,
+        installments: normalizePaymentInstallments(forma, p?.installments),
+      };
       const troco = roundMoney(p?.troco || 0);
       if (troco > 0) {
         out.troco = troco;
         out.forma_troco = normalizePaymentForma(p?.forma_troco || 'pix');
       }
+      const captureId = String(p?.capture_method_id || '').trim();
+      if (captureId) out.capture_method_id = captureId;
       return out;
     })
     .filter(Boolean)
@@ -196,12 +220,12 @@ export function formatSalePaymentHistoryLabel(sale) {
     const trocoLbl = paymentFormLabel(trocoLine.forma_troco || 'pix');
     const others = list
       .filter((p) => p !== trocoLine)
-      .map((p) => paymentFormLabel(p.forma));
-    const cashLbl = paymentFormLabel('dinheiro');
+      .map((p) => paymentFormLabelWithInstallments(p));
+    const cashLbl = paymentFormLabelWithInstallments({ forma: 'dinheiro' });
     if (others.length) return `${others.join(' · ')} · ${cashLbl} + troco ${trocoLbl}`;
     return `${cashLbl} + troco ${trocoLbl}`;
   }
-  return list.map((p) => paymentFormLabel(p.forma)).join(' · ');
+  return list.map((p) => paymentFormLabelWithInstallments(p)).join(' · ');
 }
 
 export function buildReceiptPaymentsText(pagamentos, totalVenda) {
@@ -210,7 +234,7 @@ export function buildReceiptPaymentsText(pagamentos, totalVenda) {
 
   const lines = ['Pagamentos:'];
   for (const p of list) {
-    lines.push(`  ${paymentFormLabel(p.forma)}   ${formatBRL(p.valor)}`);
+    lines.push(`  ${paymentFormLabelWithInstallments(p)}   ${formatBRL(p.valor)}`);
     if (p.forma === 'dinheiro' && Number(p.troco) > 0) {
       const recebido = roundMoney(Number(p.valor) + Number(p.troco));
       lines.push(`    Valor recebido:   ${formatBRL(recebido)}`);

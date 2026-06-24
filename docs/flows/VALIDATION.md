@@ -1,6 +1,8 @@
-# Validação dos fluxos — 2026-06-17
+# Validação dos fluxos — 2026-06-23
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
+
+- 2026-06-23: fluxo de matrícula e financeiro alinhado para desconto individual recorrente em `students.discount_amount`; cálculo líquido propagado para primeira cobrança, mensalidades, inadimplência e card financeiro do perfil.
 
 ## Método
 

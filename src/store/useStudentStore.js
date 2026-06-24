@@ -150,6 +150,10 @@ function updatesToStudentPatch(updates) {
     copyIf('source_origin', String(u.sourceOrigin ?? u.origin ?? '').trim().slice(0, 128));
   }
   if (u.plan !== undefined) copyIf('plan', u.plan);
+  if (u.discountAmount !== undefined) {
+    const n = Number(u.discountAmount);
+    copyIf('discount_amount', Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0);
+  }
   if (u.dueDay !== undefined && STUDENT_DUE_DAY_ENABLED) {
     const n = Number(u.dueDay);
     if (Number.isFinite(n) && n >= 1 && n <= 31) {

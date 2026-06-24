@@ -6,6 +6,7 @@ import {
   rowTrocoCents,
   netPaidCentsFromRows,
   paymentsUiValid,
+  normalizePaymentInstallments,
   salePaymentFormOptionsForFinance,
   trocoFormOptionsForFinance,
 } from '../../lib/salePayments';
@@ -14,6 +15,7 @@ import {
   whenPaymentMethodChangesWithCapture,
   validateCaptureMethodForSubmit,
 } from '../../lib/captureMethodPaymentForm.js';
+import { findCaptureMethodById } from '../../lib/captureMethods.js';
 import CaptureMethodSelect from '../finance/CaptureMethodSelect.jsx';
 
 function rebalanceFirstRow(rows, totalCents) {
@@ -58,7 +60,27 @@ export default function SalesPaymentBlock({
   const diffCents = total - netCents;
 
   const updateRow = (idx, patch) => {
-    let next = payments.map((r, i) => (i === idx ? { ...r, ...patch } : { ...r }));
+    let next = payments.map((r, i) => {
+      if (i !== idx) return { ...r };
+      const merged = { ...r, ...patch };
+      const capture = merged.capture_method_id
+        ? findCaptureMethodById(financeConfig, merged.capture_method_id)
+        : null;
+      const maxInstallments =
+        normalizePaymentInstallments(merged.forma, merged.installments) > 1
+          ? Math.min(12, Math.max(1, Number(capture?.maxInstallments) || 12))
+          : 12;
+      return {
+        ...merged,
+        installments:
+          normalizePaymentInstallments(merged.forma, merged.installments) > 1
+            ? Math.min(
+                maxInstallments,
+                normalizePaymentInstallments(merged.forma, merged.installments)
+              )
+            : normalizePaymentInstallments(merged.forma, merged.installments),
+      };
+    });
     if (idx > 0 && next.length >= 2) {
       next = rebalanceFirstRow(next, total);
     }
@@ -82,6 +104,7 @@ export default function SalesPaymentBlock({
         valorCents: 0,
         recebidoCents: 0,
         formaTroco: 'pix',
+        installments: 1,
       },
     ]);
   };
@@ -123,6 +146,14 @@ export default function SalesPaymentBlock({
           const trocoCents = rowTrocoCents(row);
           const recebidoCents = Math.max(0, Math.round(Number(row.recebidoCents ?? row.valorCents) || 0));
           const valorCents = Math.max(0, Math.round(Number(row.valorCents) || 0));
+          const installments = normalizePaymentInstallments(row.forma, row.installments);
+          const capture = row.capture_method_id
+            ? findCaptureMethodById(financeConfig, row.capture_method_id)
+            : null;
+          const maxInstallments =
+            row.forma === 'cartao_credito'
+              ? Math.min(12, Math.max(1, Number(capture?.maxInstallments) || 12))
+              : 1;
           const insuficiente = isCash && recebidoCents < valorCents;
 
           const formaKey = `forma-${idx}`;
@@ -152,6 +183,7 @@ export default function SalesPaymentBlock({
                     className={`form-input${showFormaError ? ' sales-input--invalid' : ''}`}
                     disabled={disabled}
                     value={row.forma}
+                    aria-label="Forma de pagamento"
                     onBlur={() => inlineValidate && markTouched(formaKey)}
                     onChange={(e) => {
                     const forma = e.target.value;
@@ -162,6 +194,13 @@ export default function SalesPaymentBlock({
                       patch.capture_method_id = patch.capture_method_id || '';
                       patch.capture_method_name = patch.capture_method_name || '';
                     }
+                    patch.installments =
+                      forma === 'cartao_credito'
+                        ? normalizePaymentInstallments(
+                            forma,
+                            row.installments
+                          )
+                        : 1;
                     updateRow(idx, patch);
                   }}
                 >
@@ -195,6 +234,33 @@ export default function SalesPaymentBlock({
                     <p className="sales-field-error" role="alert">Campo obrigatório</p>
                   ) : null}
                 </div>
+                {row.forma === 'cartao_credito' ? (
+                  <div className="sales-payment-row__field">
+                    {inlineValidate && idx === 0 ? (
+                      <span className="text-xs sales-payment-row__field-label">Parcelas</span>
+                    ) : null}
+                    <select
+                      className="form-input"
+                      disabled={disabled}
+                      value={String(installments)}
+                      aria-label="Parcelas"
+                      onChange={(e) =>
+                        updateRow(idx, {
+                          installments: Math.min(
+                            maxInstallments,
+                            Math.max(1, Number(e.target.value) || 1)
+                          ),
+                        })
+                      }
+                    >
+                      {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={String(n)}>
+                          {n}x
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className="btn-ghost sales-payment-row__remove"
@@ -217,7 +283,20 @@ export default function SalesPaymentBlock({
                 error={showCaptureError ? captureError : ''}
                 onBlur={() => inlineValidate && markTouched(captureKey)}
                 onChange={(captureId) =>
-                  updateRow(idx, whenCaptureMethodChanges(financeConfig, captureId, row.forma))
+                  updateRow(idx, {
+                    ...whenCaptureMethodChanges(financeConfig, captureId, row.forma),
+                    installments:
+                      row.forma === 'cartao_credito'
+                        ? Math.min(
+                            Math.max(
+                              1,
+                              Number(findCaptureMethodById(financeConfig, captureId)?.maxInstallments) ||
+                                12
+                            ),
+                            installments
+                          )
+                        : 1,
+                  })
                 }
               />
 

@@ -13,6 +13,7 @@ const arMocks = vi.hoisted(() => ({
   sendZapsterText: vi.fn(),
   updateMerge: vi.fn(),
   runAgentActions: vi.fn(),
+  logTokenUsage: vi.fn(),
 }));
 
 vi.mock('../../lib/server/zapsterSend.js', () => ({
@@ -53,6 +54,7 @@ vi.mock('../../lib/server/structuredLog.js', () => ({
 
 vi.mock('../../lib/server/agentRespondMetrics.js', () => ({
   recordAgentRespondLatency: vi.fn(),
+  logTokenUsage: (...args) => arMocks.logTokenUsage(...args),
 }));
 
 vi.mock('node-appwrite', () => {

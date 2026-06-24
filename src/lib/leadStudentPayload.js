@@ -46,6 +46,12 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
   const dueRaw = Number(d.due_day ?? d.dueDay ?? 0);
   const dueDay =
     Number.isFinite(dueRaw) && dueRaw >= 1 && dueRaw <= 31 ? Math.trunc(dueRaw) : null;
+  const hasExplicitDiscountAmount = Object.prototype.hasOwnProperty.call(d, 'discountAmount');
+  const hasExplicitDiscountSnake = Object.prototype.hasOwnProperty.call(d, 'discount_amount');
+  const discountSource = hasExplicitDiscountAmount ? d.discountAmount : d.discount_amount;
+  const discountRaw = Number(discountSource ?? 0);
+  const discountAmount =
+    Number.isFinite(discountRaw) && discountRaw >= 0 ? Math.round(discountRaw * 100) / 100 : 0;
 
   const payload = {
     name: String(d.name || '').trim(),
@@ -88,6 +94,9 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
 
   if (turma) payload.turma = turma;
   if (dueDay != null) payload.due_day = dueDay;
+  if (hasExplicitDiscountAmount || hasExplicitDiscountSnake || discountAmount > 0) {
+    payload.discount_amount = discountAmount;
+  }
 
   const deviceId = Number(d.device_id);
   if (Number.isFinite(deviceId) && deviceId > 0) payload.device_id = Math.trunc(deviceId);

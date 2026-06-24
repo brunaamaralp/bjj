@@ -33,6 +33,9 @@ function ageYearsFromBirthDate(ymd) {
 export function mapAppwriteDocToStudent(doc) {
   const dueDayRaw = Number(doc.due_day ?? doc.dueDay ?? 0);
   const dueDay = Number.isFinite(dueDayRaw) && dueDayRaw >= 1 && dueDayRaw <= 31 ? Math.trunc(dueDayRaw) : null;
+  const discountRaw = Number(doc.discount_amount ?? doc.discountAmount ?? 0);
+  const discountAmount =
+    Number.isFinite(discountRaw) && discountRaw >= 0 ? Math.round(discountRaw * 100) / 100 : 0;
   const turmaRaw = String(doc.turma ?? doc.class_name ?? doc.className ?? '').trim();
   const birthDate = doc.birth_date || doc.birthDate || '';
   const customAnswers = parseCustomAnswersJson(doc.custom_answers_json);
@@ -65,6 +68,7 @@ export function mapAppwriteDocToStudent(doc) {
     createdAt: doc.$createdAt,
     convertedAt: doc.converted_at || doc.convertedAt || null,
     plan: doc.plan || '',
+    discountAmount,
     dueDay,
     enrollmentDate: doc.enrollmentDate || doc.enrollment_date || '',
     emergencyContact: doc.emergencyContact || '',

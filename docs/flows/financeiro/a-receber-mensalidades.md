@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-19 |
+| **última revisão** | 2026-06-23 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -26,7 +26,7 @@
 
 ## Resumo
 
-O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento.
+O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento. Quando o aluno possui `students.discount_amount`, o valor esperado da cobrança passa a ser `plan.price - discount_amount`.
 
 ---
 
@@ -104,7 +104,7 @@ flowchart TD
 3. [ ] Sub-aba **Mensalidades** lista alunos do mês de referência
 4. [ ] Filtro de status reduz a lista (ex.: só em atraso)
 5. [ ] Busca por nome parcial encontra aluno
-6. [ ] Abrir modal de pagamento — valor do plano pré-preenchido
+6. [ ] Abrir modal de pagamento — valor esperado pré-preenchido usa o plano líquido (`plano - desconto`) quando o aluno tiver desconto individual
 7. [ ] PIX — total sem parcelas; confirmar → toast sucesso
 8. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa do meio/conta
 8b. [ ] Cartão com 2 meios — **Recebido via** obrigatório; sem seleção → `FieldError`
@@ -185,6 +185,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-23 | — | Mensalidades e projeções passam a usar `students.discount_amount` no valor esperado |
 | 2026-06-15 | — | Criação Fase 2A |
 | 2026-06-16 | — | Auditoria salvamento: `FieldError`, banners, rodapé modal, matriz em VALIDATION.md |
 | 2026-06-17 | — | Fase 2: «Recebido via», formas ativas, `capture_method_id` |

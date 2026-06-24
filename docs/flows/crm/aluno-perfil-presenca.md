@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-06-19 |
+| **última revisão** | 2026-06-23 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -60,7 +60,7 @@ flowchart TD
 | 4 | `/students` | Toolbar | Importar / exportar planilha | Planilha processada; toasts de progresso |
 | 5 | `/recepcao` | `Recepcao.jsx` | Abrir recepção (link interno ou menu) | Painel ao vivo + histórico Control iD |
 | 6 | `/students?tab=contratos` | `ContractsPageContent` | Tab Contratos (módulo finance) | Lista de contratos da academia |
-| 7 | `/student/:id` | `StudentProfile.jsx` | Ver dados e timeline | Perfil completo com status e badges |
+| 7 | `/student/:id` | `StudentProfile.jsx` | Ver dados e timeline | Perfil completo com status, badges e resumo do plano com desconto individual quando existir |
 | 8 | `/student/:id` | Seção financeira | Registrar pagamento / produto | `StudentPaymentModal` (+ **Recebido via** em cartão) |
 | 9 | `/student/:id` | Presença | Check-in manual | Evento de presença na timeline |
 | 10 | `/student/:id` | Plano | Trancar / retomar plano | `PlanFreezeModal`; histórico de trancamentos |
@@ -102,6 +102,7 @@ flowchart TD
 14. [ ] Aba **Frequência** — aluno inativo exibe banner com histórico abaixo
 15. [ ] Aluno **em contato** (retenção) — banner com «Voltar para a fila» na aba Frequência
 16. [ ] Se o plano do aluno estiver marcado como isento em Financeiro → Planos, o perfil mostra badge **Plano isento** e o card financeiro mostra **Isento**, sem cobrança mensal
+17. [ ] Se `discount_amount > 0`, o card financeiro mostra plano original, desconto aplicado e valor final cobrado
 
 ### Estados de erro conhecidos
 
@@ -170,6 +171,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-23 | — | Card financeiro passa a exibir desconto individual da matrícula quando houver |
 | 2026-06-15 | — | Criação inicial |
 | 2026-06-19 | — | Graduação opt-in: cadastro rápido, perfil, subtexto na lista |
 | 2026-06-19 | — | Plano isento/bolsista refletido no perfil e no card financeiro |

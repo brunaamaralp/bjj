@@ -431,6 +431,12 @@ function FinancialSummaryCard({ summary }) {
       <div style={{ marginTop: 6, color: situationColor }}>
         <strong>Situação:</strong> {summary.situationLabel}
       </div>
+      {summary.discountLabel ? (
+        <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 12 }}>
+          <strong>{summary.discountLabel}</strong>
+          {summary.finalLabel ? ` · ${summary.finalLabel}` : ''}
+        </div>
+      ) : null}
       <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 12 }}>
         <strong>Histórico:</strong> {summary.historyLabel}
       </div>

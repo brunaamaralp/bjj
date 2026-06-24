@@ -8,7 +8,7 @@
 | **rotas** | `/pipeline`, `/lead/:id`, modal **Novo lead** (global) |
 | **pré-requisitos** | Usuário autenticado; estágios do funil configurados em Minha academia |
 | **status** | revisado |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-06-23 |
 
 **Specs relacionadas:**
 
@@ -64,7 +64,7 @@ flowchart TD
 | 6 | `/lead/:id` | `LeadProfile.jsx` | Editar dados, aba **Conversa** / **Histórico** | Dados persistidos; criança: label **Nome do aluno**, responsável em Outros detalhes; hint se responsável vazio |
 | 6b | `/lead/:id` | Aba Conversa | WA desconectado | Banner + empty “WhatsApp não conectado” + **Configurar WhatsApp** + **Abrir WhatsApp Web** (manual) → `/agente-ia` |
 | 6c | `/lead/:id` | Aba Conversa | WA offline com histórico | Banner com link **Reconectar** → `/agente-ia`; thread read-only |
-| 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, data, pagamento opcional (`MatriculaPaymentStep`) |
+| 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, **desconto individual (R$)**, data e pagamento opcional (`MatriculaPaymentStep`) |
 | 8 | Modal matrícula | Pagamento opcional | Forma + **Recebido via** (cartão) | `registerEnrollmentPayment` com `capture_method_id` |
 | 9 | Modal matrícula | `executeMatricula` | Confirmar | `performEnrollment` cria aluno; lead marcado matriculado |
 | 10 | `/pipeline` | Filtros (período, estágio) | Refinar visualização | Lista/kanban filtrados; contadores atualizados |
@@ -95,7 +95,8 @@ flowchart TD
 7. [ ] Enviar mensagem ou template WhatsApp — pela aba **Conversa** (integrado); com WA offline, usar **Abrir WhatsApp Web** no empty (envio manual) ou reconectar em `/agente-ia`
 7b. [ ] Com WA desconectado — banner na coluna esquerda + empty na aba Conversa com CTAs **Configurar WhatsApp** e **Abrir WhatsApp Web**; tab “Conversa (offline)” com indicador âmbar
 7c. [ ] Com WA offline e histórico — banner no painel com **Reconectar**; composer desabilitado
-8. [ ] Iniciar matrícula — modal exige plano/data quando aplicável
+8. [ ] Iniciar matrícula — modal exige plano/data quando aplicável e permite informar desconto individual por aluno
+8b. [ ] Informar desconto válido — preview mostra valor do plano, desconto e valor cobrado final em tempo real
 9. [ ] Confirmar matrícula — lead some do funil aberto; aluno criado em `/students`
 10. [ ] Abrir perfil do aluno `/student/:id` — vínculo com lead preservado; `belt` do lead (se existir via import/NL) copiado na conversão
 11. [ ] Exportar planilha (menu pipeline) — arquivo gerado sem dados de outra academia
@@ -106,6 +107,7 @@ flowchart TD
 |---|---|---|
 | Telefone duplicado | Validação no modal / toast | `NewLeadModal` |
 | Matrícula sem plano obrigatório | Erro no modal de matrícula | `performEnrollment` |
+| Desconto maior ou igual ao plano | Validação inline no modal de matrícula | `MatriculaModal` |
 | WhatsApp desconectado no perfil | Banner warning + empty na aba Conversa (Configurar + wa.me) + tab “Conversa (offline)” + Reconectar com histórico | Spec [2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md](../superpowers/specs/2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md) |
 
 ### Permissões e multi-tenant
@@ -170,4 +172,5 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-23 | — | Matrícula passa a aceitar desconto individual recorrente com preview do valor final |
 | 2026-06-19 | — | Matrícula online: toggle askBelt + campo graduação no formulário público |

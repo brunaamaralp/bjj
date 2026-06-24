@@ -14,7 +14,12 @@ import {
 import { openAmountForStudent } from './collectionOverdue.js';
 import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
 import { paymentTimelineBadge } from './paymentStatus.js';
-import { isExemptPlan, resolveStudentPlan } from './planBilling.js';
+import {
+  calcFinalPrice,
+  getStudentDiscountAmount,
+  isExemptPlan,
+  resolveStudentPlan,
+} from './planBilling.js';
 
 export const TIMELINE_FILTER_TYPES = {
   ALL: 'all',
@@ -206,12 +211,27 @@ export function buildFinancialSummary({
   const planName = String(student?.plan || '').trim();
   const match = resolveStudentPlan(student, financeConfig);
   const planPrice = Number(match?.price);
+  const discountAmount = getStudentDiscountAmount(student);
+  const finalPlanPrice = calcFinalPrice(planPrice, discountAmount);
   const planIsExempt = isExemptPlan(match);
   const planLabel = planName
     ? planIsExempt
       ? `${planName} · Isento`
       : `${planName}${Number.isFinite(planPrice) && planPrice > 0 ? ` · ${planPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}`
     : '—';
+  const discountSummary =
+    !planIsExempt && Number.isFinite(planPrice) && planPrice > 0 && discountAmount > 0
+      ? {
+          discountLabel: `Desconto: ${discountAmount.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })}`,
+          finalLabel: `Valor final: ${finalPlanPrice.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })}`,
+        }
+      : {};
 
   const dueDay = student?.dueDay ?? student?.due_day;
   const dueLabel = dueDay ? `dia ${dueDay}` : '—';
@@ -239,6 +259,7 @@ export function buildFinancialSummary({
       situationTone: 'success',
       historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
       isBundle: true,
+      ...discountSummary,
     };
   }
 
@@ -252,6 +273,7 @@ export function buildFinancialSummary({
       historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
       isBundle: false,
       isFrozen: true,
+      ...discountSummary,
     };
   }
 
@@ -304,6 +326,7 @@ export function buildFinancialSummary({
     situationTone,
     historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
     isBundle: false,
+    ...discountSummary,
   };
 }
 

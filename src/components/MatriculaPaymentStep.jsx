@@ -10,10 +10,10 @@ import {
   whenPaymentMethodChangesWithCapture,
 } from '../lib/captureMethodPaymentForm.js';
 import CaptureMethodSelect from './finance/CaptureMethodSelect.jsx';
-import { findPlanByName, planPriceToPayAmountString } from '../lib/academyPlans.js';
 import CashTrocoFields from './finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';
-import { centsToNumber, parseMaskToCents } from '../lib/moneyBr.js';
+import { centsToNumber, formatBRL, parseMaskToCents } from '../lib/moneyBr.js';
+import { enrollmentPlanPricing } from '../lib/enrollmentPayment.js';
 
 /**
  * Pagamento opcional pós-matrícula (mensalidade ou pacote).
@@ -25,6 +25,8 @@ export default function MatriculaPaymentStep({
   academyId,
   enrollmentPlan,
   onPlanChange,
+  discountAmount = '',
+  onDiscountChange,
   disabled = false,
   paymentError = '',
 }) {
@@ -33,6 +35,26 @@ export default function MatriculaPaymentStep({
   const isPlan = payForm.payment_type === PAYMENT_CATEGORY.PLAN;
   const isBundle = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
   const showPaidDate = payForm.status === 'paid' || isBundle;
+  const selectedPlanName = String(enrollmentPlan || payForm.plan_name || '').trim();
+  const discountValue = centsToNumber(parseMaskToCents(discountAmount)) || 0;
+  const pricing = React.useMemo(
+    () => enrollmentPlanPricing(financeConfig, selectedPlanName, { discount_amount: discountValue }),
+    [financeConfig, selectedPlanName, discountValue]
+  );
+
+  React.useEffect(() => {
+    const nextAmount =
+      pricing.finalPrice > 0 ? pricing.finalPrice.toFixed(2).replace('.', ',') : '';
+    setPayForm((current) => {
+      if (!current) return current;
+      if (current.amount === nextAmount && current.plan_name === selectedPlanName) return current;
+      return {
+        ...current,
+        plan_name: selectedPlanName,
+        amount: nextAmount,
+      };
+    });
+  }, [pricing.finalPrice, selectedPlanName, setPayForm, payForm.payment_type]);
 
   const handleTypeChange = (value) => {
     setPayForm((p) => ({
@@ -44,11 +66,11 @@ export default function MatriculaPaymentStep({
 
   const handlePlanSelect = (name) => {
     onPlanChange?.(name);
-    const plan = findPlanByName(financeConfig, name);
+    const nextPricing = enrollmentPlanPricing(financeConfig, name, { discount_amount: discountValue });
     setPayForm((p) => ({
       ...p,
       plan_name: name,
-      amount: plan ? planPriceToPayAmountString(plan) : p.amount,
+      amount: nextPricing.finalPrice > 0 ? nextPricing.finalPrice.toFixed(2).replace('.', ',') : '',
     }));
   };
 
@@ -64,11 +86,30 @@ export default function MatriculaPaymentStep({
         <label className="form-label">Plano</label>
         <PlanSelect
           financeConfig={financeConfig}
-          value={enrollmentPlan || payForm.plan_name || ''}
+          value={selectedPlanName}
           onChange={handlePlanSelect}
           disabled={disabled}
           emptyLabel="Selecione o plano…"
         />
+      </div>
+
+      <div className="form-group">
+        <label className="form-label" htmlFor="matricula-discount-amount">Desconto (R$)</label>
+        <input
+          id="matricula-discount-amount"
+          className="form-input"
+          inputMode="decimal"
+          placeholder="0,00"
+          value={discountAmount}
+          disabled={disabled || pricing.planPrice <= 0}
+          onChange={(e) => onDiscountChange?.(e.target.value)}
+        />
+      </div>
+
+      <div className="text-small text-muted" style={{ marginTop: -6, marginBottom: 12 }}>
+        <div>Valor do plano: {formatBRL(pricing.planPrice)}</div>
+        <div>Desconto: {formatBRL(discountValue)}</div>
+        <div>Valor cobrado: {formatBRL(pricing.finalPrice)}</div>
       </div>
 
       <fieldset className="matricula-payment-step__types" disabled={disabled}>
@@ -135,8 +176,9 @@ export default function MatriculaPaymentStep({
       ) : null}
 
       <div className="form-group">
-        <label className="form-label">Valor (R$)</label>
+        <label className="form-label" htmlFor="matricula-payment-amount">Valor (R$)</label>
         <input
+          id="matricula-payment-amount"
           className="form-input"
           inputMode="decimal"
           placeholder="0,00"

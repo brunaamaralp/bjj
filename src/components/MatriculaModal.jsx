@@ -6,6 +6,7 @@ import { useTerms } from '../lib/terminology.js';
 import { enrollmentIngressYmd, formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 import {
   buildPayFormForEnrollment,
+  enrollmentPlanPricing,
   registerEnrollmentPayment,
   referenceMonthFromEnrollmentDate,
 } from '../lib/enrollmentPayment.js';
@@ -55,6 +56,7 @@ export default function MatriculaModal({
   const [enrollMode, setEnrollMode] = useState('simple');
   const [enrollmentPlan, setEnrollmentPlan] = useState('');
   const [enrollmentDate, setEnrollmentDate] = useState('');
+  const [discountAmount, setDiscountAmount] = useState('');
   const [payForm, setPayForm] = useState(null);
   const [paymentError, setPaymentError] = useState('');
   const [paymentSaving, setPaymentSaving] = useState(false);
@@ -65,6 +67,14 @@ export default function MatriculaModal({
   const isMobile = useMatchMobile();
   const keyboardOffset = useVisualViewportKeyboardOffset(isOpen && isMobile);
   const showPaymentStep = paymentEnabled && Boolean(resolvedFinanceConfig);
+  const discountAmountNumber = centsToNumber(parseMaskToCents(discountAmount)) || 0;
+  const selectedPlanPricing = useMemo(
+    () =>
+      enrollmentPlanPricing(resolvedFinanceConfig, enrollmentPlan, {
+        discount_amount: discountAmountNumber,
+      }),
+    [resolvedFinanceConfig, enrollmentPlan, discountAmountNumber]
+  );
 
   useEffect(() => {
     if (!isOpen || !academyId || !paymentEnabled) return;
@@ -83,6 +93,7 @@ export default function MatriculaModal({
       setEnrollMode('simple');
       setEnrollmentPlan('');
       setEnrollmentDate('');
+      setDiscountAmount('');
       setPayForm(null);
       setPaymentError('');
       setPaymentSaving(false);
@@ -91,11 +102,28 @@ export default function MatriculaModal({
     }
     const defaultDate = enrollmentIngressYmd(lead) || formatLocalYmd(new Date());
     const defaultPlan = String(lead?.plan || '').trim();
+    const defaultDiscount = Number(lead?.discountAmount ?? lead?.discount_amount ?? 0);
     setEnrollmentDate(defaultDate);
     setEnrollmentPlan(defaultPlan);
+    setDiscountAmount(
+      Number.isFinite(defaultDiscount) && defaultDiscount > 0
+        ? defaultDiscount.toFixed(2).replace('.', ',')
+        : ''
+    );
     setStep(initialStep === 'payment' && showPaymentStep ? 'payment' : 'choose');
     if (initialStep === 'payment' && showPaymentStep) {
-      setPayForm(buildPayFormForEnrollment(lead, resolvedFinanceConfig, defaultDate, defaultPlan));
+      setPayForm(
+        buildPayFormForEnrollment(
+          {
+            ...lead,
+            discount_amount:
+              Number.isFinite(defaultDiscount) && defaultDiscount > 0 ? defaultDiscount : 0,
+          },
+          resolvedFinanceConfig,
+          defaultDate,
+          defaultPlan
+        )
+      );
     }
   }, [isOpen, lead, resolvedFinanceConfig, initialStep, showPaymentStep]);
 
@@ -133,6 +161,35 @@ export default function MatriculaModal({
     </div>
   );
 
+  const discountError =
+    selectedPlanPricing.planPrice > 0 && discountAmountNumber >= selectedPlanPricing.planPrice
+      ? 'O desconto não pode ser maior ou igual ao valor do plano.'
+      : '';
+
+  const discountField = (
+    <div className="form-group">
+      <label className="form-label">Desconto (R$)</label>
+      <input
+        className="form-input"
+        inputMode="decimal"
+        placeholder="0,00"
+        value={discountAmount}
+        disabled={modalBusy || selectedPlanPricing.planPrice <= 0}
+        onChange={(e) => setDiscountAmount(e.target.value)}
+      />
+      <div className="text-small text-muted" style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+        <div>Valor do plano: {selectedPlanPricing.planPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+        <div>Desconto: {discountAmountNumber.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+        <div>Valor cobrado: {selectedPlanPricing.finalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+      </div>
+      {discountError ? (
+        <p className="text-small" role="alert" style={{ margin: '6px 0 0', color: 'var(--danger)' }}>
+          {discountError}
+        </p>
+      ) : null}
+    </div>
+  );
+
   const enrollmentDateField = (
     <div className="form-group">
       <DateInputField
@@ -149,7 +206,7 @@ export default function MatriculaModal({
     </div>
   );
 
-  const canEnrollNow = Boolean(String(enrollmentPlan || '').trim()) && !modalBusy;
+  const canEnrollNow = Boolean(String(enrollmentPlan || '').trim()) && !modalBusy && !discountError;
 
   const goToSuccess = (id) => {
     const resolvedId = String(id || resolvedLeadId || '').trim();
@@ -172,6 +229,7 @@ export default function MatriculaModal({
     setEnrollMode(mode);
     await onEnroll({
       plan: planName,
+      discountAmount: discountAmountNumber,
       enrollmentDate,
       answers,
       mode,
@@ -182,6 +240,7 @@ export default function MatriculaModal({
 
   const validatePaymentForm = () => {
     if (!payForm) return 'Preencha os dados do pagamento.';
+    if (discountError) return discountError;
     const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
       return 'Informe um valor maior que zero.';
@@ -257,7 +316,14 @@ export default function MatriculaModal({
     }
     try {
       setEnrollMode(mode);
-      setPayForm(buildPayFormForEnrollment(lead, resolvedFinanceConfig, enrollmentDate, enrollmentPlan));
+      setPayForm(
+        buildPayFormForEnrollment(
+          { ...lead, discount_amount: discountAmountNumber },
+          resolvedFinanceConfig,
+          enrollmentDate,
+          enrollmentPlan
+        )
+      );
       setStep('payment');
     } catch (e) {
       setPaymentError(friendlyError(e, 'action'));
@@ -461,6 +527,7 @@ export default function MatriculaModal({
             {terms.matriculaModalSubtitle}
           </p>
           {planField}
+          {discountField}
           {enrollmentDateField}
         </>
       ) : null}
@@ -471,6 +538,7 @@ export default function MatriculaModal({
             Registre as informações abaixo. O plano escolhido será salvo no cadastro do aluno.
           </p>
           {planField}
+          {discountField}
           {enrollmentDateField}
           <CustomLeadQuestionFields
             questions={enrollmentQuestions}
@@ -499,6 +567,8 @@ export default function MatriculaModal({
             academyId={academyId}
             enrollmentPlan={enrollmentPlan}
             onPlanChange={setEnrollmentPlan}
+            discountAmount={discountAmount}
+            onDiscountChange={setDiscountAmount}
             disabled={modalBusy}
             paymentError={paymentError}
           />

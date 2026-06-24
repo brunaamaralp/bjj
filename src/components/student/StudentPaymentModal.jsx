@@ -11,7 +11,6 @@ import { PAYMENT_CATEGORY, normalizePaymentCategory } from '../../lib/studentPay
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep, { STUDENT_PRODUCT_SALE_FORM_ID } from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
-import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { hasConfiguredBankAccounts, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import { STUDENT_PAY_FIELD_IDS } from '../../lib/mensalidadesPaymentForm.js';
@@ -31,6 +30,7 @@ import { isCashPaymentMethod } from '../../lib/studentPaymentTroco.js';
 import { useSalesStore } from '../../store/useSalesStore';
 import PaymentReceiptDateBanner from '../finance/PaymentReceiptDateBanner.jsx';
 import { suggestPaidAtYmd } from '../../lib/paymentReceiptDate.js';
+import { resolveStudentPlanFinalPrice } from '../../lib/planBilling.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -68,6 +68,7 @@ export function buildDefaultPayForm(student, financeConfig = null) {
   const ym = new Date().toISOString().slice(0, 7);
   const preferredAccount = student?.preferredPaymentAccount || '';
   const method = student?.preferredPaymentMethod || 'pix';
+  const defaultPlanAmount = resolveStudentPlanFinalPrice(student, financeConfig);
   return {
     payment_type: PAYMENT_CATEGORY.PLAN,
     reference_month: ym,
@@ -76,6 +77,8 @@ export function buildDefaultPayForm(student, financeConfig = null) {
     amount:
       student?.plan_price != null && student.plan_price !== ''
         ? formatBRLFromCents(numberToCents(student.plan_price) ?? 0)
+        : defaultPlanAmount > 0
+          ? formatBRLFromCents(numberToCents(defaultPlanAmount) ?? 0)
         : '',
     method,
     account: financeConfig
@@ -618,7 +621,11 @@ export default function StudentPaymentModal({
                     onChange={(v) => setPayForm((p) => ({ ...p, plan_name: v }))}
                     onPlanPick={(pl) => {
                       if (!pl) return;
-                      const amt = planPriceToPayAmountString(pl);
+                      const amtNum = resolveStudentPlanFinalPrice(
+                        { ...student, plan: pl.name },
+                        financeConfig
+                      );
+                      const amt = amtNum > 0 ? formatBRLFromCents(numberToCents(amtNum) ?? 0) : '';
                       if (amt) setPayForm((p) => ({ ...p, plan_name: pl.name, amount: amt }));
                     }}
                     className="form-input"

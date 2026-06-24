@@ -651,6 +651,7 @@ export default function MensalidadesPanel({
     const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
     const planName = preset.plan_name || student.plan || '';
     const plan = findPlanByName(financeConfig, planName);
+    const planAmount = openAmountForStudent(student, { plan_name: planName }, financeConfig);
     const bundleStart = String(preset.bundle_start_month || refMonth).trim() || refMonth;
     const coverageYm = isBundle ? bundleStart : refMonth;
     paidAtTouchedRef.current = false;
@@ -662,8 +663,8 @@ export default function MensalidadesPanel({
       amount:
         Number.isFinite(amountNum) && amountNum > 0
           ? maskCurrency(String(Math.round(amountNum * 100)))
-          : isBundle && plan
-            ? planPriceToPayAmountString(plan)
+          : isBundle && planAmount > 0
+            ? maskCurrency(String(Math.round(planAmount * 100)))
             : '',
       method,
       ...captureDefaults,
@@ -1553,16 +1554,21 @@ export default function MensalidadesPanel({
                         aria-pressed={payForm.payment_type === PAYMENT_CATEGORY.BUNDLE}
                         className={`mensal-modal-type-btn${payForm.payment_type === PAYMENT_CATEGORY.BUNDLE ? ' mensal-modal-type-btn--active' : ''}`}
                         onClick={() => {
-                          const plan = findPlanByName(
-                            financeConfig,
-                            payForm.plan_name || selectedStudent.plan
+                          const planAmount = openAmountForStudent(
+                            selectedStudent,
+                            { plan_name: payForm.plan_name || selectedStudent.plan },
+                            financeConfig
                           );
                           const bundleStart = payForm.bundle_start_month || currentMonth;
                           setPayForm((f) => ({
                             ...f,
                             payment_type: PAYMENT_CATEGORY.BUNDLE,
                             bundle_start_month: bundleStart,
-                            amount: f.amount || (plan ? planPriceToPayAmountString(plan) : ''),
+                            amount:
+                              f.amount ||
+                              (planAmount > 0
+                                ? maskCurrency(String(Math.round(planAmount * 100)))
+                                : ''),
                             ...(paidAtTouchedRef.current
                               ? {}
                               : { paid_at: suggestPaidAtYmd({ coverageMonth: bundleStart }) }),
