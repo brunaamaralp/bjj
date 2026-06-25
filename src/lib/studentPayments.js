@@ -653,10 +653,8 @@ export async function createPayment(data, opts = {}) {
     throw new Error('lead_id e academy_id são obrigatórios');
   }
 
-  if (import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
-    const doc = await apiCreateStudentPayment(data);
-    notifyPaymentSettlementAfterCreate(doc, data, opts);
-    return doc;
+  if (!opts.forceLocal && import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
+    return apiCreateStudentPayment(data, opts);
   }
 
   if (!PAYMENTS_COL) {
@@ -709,9 +707,9 @@ export async function createPayment(data, opts = {}) {
   return doc;
 }
 
-export async function updatePayment(paymentId, data) {
-  if (import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
-    return apiUpdateStudentPayment(paymentId, data);
+export async function updatePayment(paymentId, data, opts = {}) {
+  if (!opts.forceLocal && import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false') {
+    return apiUpdateStudentPayment(paymentId, data, opts);
   }
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');

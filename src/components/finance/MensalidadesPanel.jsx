@@ -647,6 +647,7 @@ export default function MensalidadesPanel({
     const isBundle = paymentType === PAYMENT_CATEGORY.BUNDLE;
     setSelectedStudent(student);
     const amountNum = Number(preset.amount);
+    const hasPresetAmount = Object.prototype.hasOwnProperty.call(preset || {}, 'amount');
     const method = preset.method || student.preferredPaymentMethod || 'pix';
     const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
     const planName = preset.plan_name || student.plan || '';
@@ -661,7 +662,7 @@ export default function MensalidadesPanel({
       bundle_start_month: bundleStart,
       bundle_months: Number(preset.bundle_months) || 12,
       amount:
-        Number.isFinite(amountNum) && amountNum > 0
+        hasPresetAmount && preset.amount != null && Number.isFinite(amountNum) && amountNum >= 0
           ? maskCurrency(String(Math.round(amountNum * 100)))
           : isBundle && planAmount > 0
             ? maskCurrency(String(Math.round(planAmount * 100)))
@@ -720,7 +721,7 @@ export default function MensalidadesPanel({
     }
     openPaymentModal(student, {
       reference_month: payMonth || currentMonth,
-      ...(Number.isFinite(payAmount) && payAmount > 0 ? { amount: payAmount } : {}),
+      ...(Number.isFinite(payAmount) && payAmount >= 0 ? { amount: payAmount } : {}),
     });
   }, [searchParams, students, openPaymentModal, currentMonth, onReferenceMonthChange]);
 

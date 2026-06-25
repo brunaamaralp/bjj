@@ -106,8 +106,8 @@ export function validateMensalidadesPaymentForm({
     financeConfig,
     existingPayment
   );
-  if (!Number.isFinite(amountNum) || amountNum <= 0) {
-    errors.amount = 'Informe um valor maior que zero.';
+  if (!Number.isFinite(amountNum) || amountNum < 0) {
+    errors.amount = 'Informe um valor igual ou maior que zero.';
   }
 
   const paidAtMs = new Date(String(payForm?.paid_at || '').trim()).getTime();

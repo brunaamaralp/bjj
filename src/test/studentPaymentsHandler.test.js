@@ -102,7 +102,7 @@ describe('studentPaymentsHandler', () => {
     handlerMocks.isAcademyOwnerOrAdminUser.mockResolvedValue(true);
   });
 
-  it('preserva o amount original ao registrar pagamento sobre um lançamento existente do mês', async () => {
+  it('preserva o amount explícito novo ao registrar pagamento sobre um lançamento existente do mês', async () => {
     const prev = {
       $id: 'pay-1',
       lead_id: 'lead-1',
@@ -149,7 +149,8 @@ describe('studentPaymentsHandler', () => {
       expect.any(String),
       'pay-1',
       expect.objectContaining({
-        amount: 180,
+        amount: 220,
+        expected_amount: 220,
         paid_amount: 220,
       })
     );
@@ -203,6 +204,60 @@ describe('studentPaymentsHandler', () => {
         amount: 180,
         paid_amount: 90,
       })
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('preserva amount e expected_amount explícitos iguais a zero no create', async () => {
+    handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    handlerMocks.createDocument.mockImplementation(async (_db, _col, id, payload) => ({
+      ...payload,
+      $id: id,
+    }));
+    handlerMocks.getDocument.mockResolvedValue({
+      $id: 'pay-3',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 0,
+      expected_amount: 0,
+      paid_amount: 0,
+      status: 'paid',
+      payment_category: 'plan',
+      financial_tx_id: '',
+    });
+
+    const { handleCreateStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handleCreateStudentPayment(
+      {
+        body: {
+          lead_id: 'lead-1',
+          amount: 0,
+          expected_amount: 0,
+          paid_amount: 0,
+          method: 'pix',
+          status: 'paid',
+          reference_month: '2026-07',
+          payment_category: 'plan',
+        },
+      },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      { financeConfig: '{}' }
+    );
+
+    expect(handlerMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      expect.any(String),
+      'id-new',
+      expect.objectContaining({
+        amount: 0,
+        expected_amount: 0,
+        paid_amount: 0,
+      }),
+      ['read', 'update']
     );
     expect(res.statusCode).toBe(200);
   });

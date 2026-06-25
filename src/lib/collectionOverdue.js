@@ -136,8 +136,9 @@ export function isOverdueForCollection(student, payment, currentMonth, minDays =
 
 export function openAmountForStudent(student, payment, financeConfig) {
   if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
+  const hasExplicitAmount = Object.prototype.hasOwnProperty.call(payment || {}, 'amount');
   const payAmt = Number(payment?.amount);
-  if (Number.isFinite(payAmt) && payAmt > 0) return payAmt;
+  if (hasExplicitAmount && payment?.amount != null && Number.isFinite(payAmt) && payAmt >= 0) return payAmt;
   const finalPrice = resolveStudentPlanFinalPrice(student, financeConfig, payment);
   if (Number.isFinite(finalPrice) && finalPrice > 0) return finalPrice;
   const match = resolveStudentPlan(student, financeConfig, payment);

@@ -39,7 +39,10 @@ export function paymentFormFromDoc(payment, student, financeConfig = null) {
   const base = buildDefaultPayForm(student, financeConfig);
   if (!payment) return base;
   const cat = normalizePaymentCategory(payment);
-  const cents = numberToCents(payment.amount ?? payment.paid_amount);
+  const explicitAmount = Object.prototype.hasOwnProperty.call(payment || {}, 'amount')
+    ? payment.amount
+    : payment.paid_amount;
+  const cents = numberToCents(explicitAmount);
   const paidSlice = payment.paid_at ? String(payment.paid_at).slice(0, 10) : base.paid_at;
   const dueSlice = payment.due_date ? String(payment.due_date).slice(0, 10) : '';
   const rawAccount = payment.account || base.account;

@@ -74,6 +74,11 @@ describe('paymentStatus', () => {
     expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(170);
   });
 
+  it('openAmountForStudent respects explicit payment.amount zero', () => {
+    const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
+    expect(openAmountForStudent(discountedStudent, { amount: 0 }, financeConfig)).toBe(0);
+  });
+
   it('expectedAmountForStudent keeps explicit expected_amount precedence over discount', () => {
     const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
     expect(

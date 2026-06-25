@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite.js';
 import { authedFetch } from './authInterceptor.js';
+import { notifyPaymentSettlementAfterCreate } from './financeTxSettlementDisplay.js';
 import { useUiStore } from '../store/useUiStore.js';
 
 export class StudentPaymentsApiError extends Error {
@@ -43,6 +44,16 @@ function notifyMirrorWarning(mirrorWarning) {
   });
 }
 
+function shouldFallbackStudentPaymentApi(error) {
+  const status = Number(error?.status);
+  if (!Number.isFinite(status)) return true;
+  return status === 404 || status >= 500;
+}
+
+async function loadLocalStudentPaymentsModule() {
+  return import('./studentPayments.js');
+}
+
 export async function apiListStudentPayments({ referenceMonth, page = 1, limit = 100, cursor, academyId }) {
   const qs = new URLSearchParams({
     reference_month: String(referenceMonth || ''),
@@ -69,32 +80,45 @@ function dispatchPaymentUpdated(payload) {
   window.dispatchEvent(new CustomEvent('navi-financial-tx-settled'));
 }
 
-export async function apiCreateStudentPayment(payload) {
-  const data = await paymentsFetch(
-    '/api/student-payments',
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    },
-    payload?.academy_id
-  );
-  dispatchPaymentUpdated(payload);
-  if (data.mirror_warning) notifyMirrorWarning(data.mirror_warning);
-  return data.payment;
+export async function apiCreateStudentPayment(payload, opts = {}) {
+  try {
+    const data = await paymentsFetch(
+      '/api/student-payments',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      payload?.academy_id
+    );
+    dispatchPaymentUpdated(payload);
+    if (data.mirror_warning) notifyMirrorWarning(data.mirror_warning);
+    notifyPaymentSettlementAfterCreate(data.payment, payload, opts);
+    return data.payment;
+  } catch (error) {
+    if (!shouldFallbackStudentPaymentApi(error)) throw error;
+    const { createPayment } = await loadLocalStudentPaymentsModule();
+    return createPayment(payload, { ...opts, forceLocal: true });
+  }
 }
 
-export async function apiUpdateStudentPayment(paymentId, patch) {
-  const data = await paymentsFetch(
-    `/api/student-payments?id=${encodeURIComponent(paymentId)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    },
-    patch?.academy_id
-  );
-  dispatchPaymentUpdated(patch);
-  if (data.mirror_warning) notifyMirrorWarning(data.mirror_warning);
-  return data.payment;
+export async function apiUpdateStudentPayment(paymentId, patch, opts = {}) {
+  try {
+    const data = await paymentsFetch(
+      `/api/student-payments?id=${encodeURIComponent(paymentId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      },
+      patch?.academy_id
+    );
+    dispatchPaymentUpdated(patch);
+    if (data.mirror_warning) notifyMirrorWarning(data.mirror_warning);
+    return data.payment;
+  } catch (error) {
+    if (!shouldFallbackStudentPaymentApi(error)) throw error;
+    const { updatePayment } = await loadLocalStudentPaymentsModule();
+    return updatePayment(paymentId, patch, { ...opts, forceLocal: true });
+  }
 }
 
 export async function apiDeleteStudentPayment(paymentId, academyId) {

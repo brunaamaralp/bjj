@@ -4,13 +4,15 @@ import { User, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLef
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
-    createPayment,
     getPaymentStatus,
-    updatePayment,
     deletePayment,
     cancelBundleCoverageFromMonth,
     PAYMENT_CATEGORY,
 } from '../lib/studentPayments.js';
+import {
+    apiCreateStudentPayment,
+    apiUpdateStudentPayment,
+} from '../lib/studentPaymentsApi.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
 import StudentContractsSection from '../components/student/StudentContractsSection.jsx';
 import StudentContractHeaderChip from '../components/student/StudentContractHeaderChip.jsx';
@@ -1508,8 +1510,8 @@ export default function StudentProfile() {
         setSavingPayment(true);
         try {
             const doc = isEdit
-                ? await updatePayment(editingPaymentId, data)
-                : await createPayment(data, { financeConfig, toast });
+                ? await apiUpdateStudentPayment(editingPaymentId, data, { financeConfig, toast })
+                : await apiCreateStudentPayment(data, { financeConfig, toast });
             await loadPayments();
             void fetchStudentById(student.id);
             const localYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;

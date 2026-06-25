@@ -71,10 +71,34 @@ vi.mock('../../src/lib/paymentSettlement.js', () => ({
   resolveFinancialTxSettlement: serverMocks.resolveFinancialTxSettlement,
 }));
 
-async function loadMirrorModule() {
+async function loadMirrorModule(options = {}) {
+  const {
+    appwriteFinancialTxCollectionId,
+    legacyFinancialTxCollectionId,
+  } = options;
+  const viteFinancialTxCollectionId = Object.prototype.hasOwnProperty.call(
+    options,
+    'viteFinancialTxCollectionId'
+  )
+    ? options.viteFinancialTxCollectionId
+    : 'financial-tx-col';
+  const paymentsCollectionId = Object.prototype.hasOwnProperty.call(options, 'paymentsCollectionId')
+    ? options.paymentsCollectionId
+    : 'student-payments-col';
+
   vi.resetModules();
-  process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = 'financial-tx-col';
-  process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'student-payments-col';
+  if (appwriteFinancialTxCollectionId === undefined) delete process.env.APPWRITE_FINANCIAL_TX_COLLECTION_ID;
+  else process.env.APPWRITE_FINANCIAL_TX_COLLECTION_ID = appwriteFinancialTxCollectionId;
+
+  if (viteFinancialTxCollectionId === undefined) delete process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID;
+  else process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = viteFinancialTxCollectionId;
+
+  if (legacyFinancialTxCollectionId === undefined) delete process.env.FINANCIAL_TX_COL;
+  else process.env.FINANCIAL_TX_COL = legacyFinancialTxCollectionId;
+
+  if (paymentsCollectionId === undefined) delete process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID;
+  else process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = paymentsCollectionId;
+
   return import('../../lib/server/studentPaymentFinancialTxMirror.js');
 }
 
@@ -137,6 +161,98 @@ describe('studentPaymentFinancialTxMirror', () => {
         expected_settlement_at: '2026-07-10T23:59:59.999Z',
       }),
       ['read', 'update']
+    );
+  });
+
+  it('prioriza APPWRITE_FINANCIAL_TX_COLLECTION_ID sobre VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID e FINANCIAL_TX_COL', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule({
+      appwriteFinancialTxCollectionId: 'financial-tx-appwrite',
+      viteFinancialTxCollectionId: 'financial-tx-vite',
+      legacyFinancialTxCollectionId: 'financial-tx-legacy',
+    });
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-appwrite-precedence',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-appwrite',
+      'tx-new',
+      expect.objectContaining({
+        origin_id: 'pay-appwrite-precedence',
+        origin_type: 'student_payment',
+      }),
+      ['read', 'update']
+    );
+  });
+
+  it('usa FINANCIAL_TX_COL como fallback quando APPWRITE e VITE nao existem', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule({
+      appwriteFinancialTxCollectionId: undefined,
+      viteFinancialTxCollectionId: undefined,
+      legacyFinancialTxCollectionId: 'financial-tx-legacy',
+    });
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-legacy-fallback',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-legacy',
+      'tx-new',
+      expect.objectContaining({
+        origin_id: 'pay-legacy-fallback',
+        origin_type: 'student_payment',
+      }),
+      ['read', 'update']
+    );
+  });
+
+  it('avisa de forma estruturada e retorna sem quebrar quando nenhuma env de financial_tx existe', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule({
+      appwriteFinancialTxCollectionId: undefined,
+      viteFinancialTxCollectionId: undefined,
+      legacyFinancialTxCollectionId: undefined,
+    });
+
+    const result = await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        $id: 'pay-missing-env',
+        financial_tx_id: '',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(result).toEqual({ mirrorId: null });
+    expect(serverMocks.createDocument).not.toHaveBeenCalled();
+    expect(serverMocks.updateDocument).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[studentPaymentFinancialTxMirror] missing financial_tx collection env',
+      {
+        paymentId: 'pay-missing-env',
+        tried: [
+          'APPWRITE_FINANCIAL_TX_COLLECTION_ID',
+          'VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID',
+          'FINANCIAL_TX_COL',
+        ],
+      }
     );
   });
 
