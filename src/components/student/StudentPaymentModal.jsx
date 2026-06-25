@@ -627,6 +627,7 @@ export default function StudentPaymentModal({
                   <label className="form-label">Plano</label>
                   <PlanSelect
                     id="student-pay-plan"
+                    academyId={academyId}
                     financeConfig={effectiveFinanceConfig}
                     value={payForm.plan_name}
                     onChange={(v) => setPayForm((p) => ({ ...p, plan_name: v }))}

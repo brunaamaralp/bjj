@@ -6,5 +6,9 @@ export function pickFinanceConfigForPayments(...candidates) {
   for (const cfg of list) {
     if (hasConfiguredBankAccounts(cfg)) return cfg;
   }
+  for (const cfg of list) {
+    const hasPlans = (cfg.plans || []).some((plan) => String(plan?.name || '').trim());
+    if (hasPlans) return cfg;
+  }
   return list[0] || null;
 }

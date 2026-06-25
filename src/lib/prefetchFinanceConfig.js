@@ -27,7 +27,7 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
 
   try {
     const doc = await getAcademyDocument(id, {
-      force: opts.force === true || Boolean(cachedForAcademy),
+      force: opts.force !== false,
     });
     const cfg = mergeFinanceConfigFromAcademyDoc(doc) || defaultFinanceConfig();
     const coll = readCollectionSettingsFromAcademy(doc);

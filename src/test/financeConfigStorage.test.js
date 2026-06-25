@@ -6,6 +6,7 @@ import {
   compactPlanForStorage,
   FinanceConfigTooLargeError,
   FINANCE_CONFIG_LEGACY_MAX_CHARS,
+  unionFinanceConfigForPersist,
 } from '../lib/financeConfigStorage.js';
 
 describe('financeConfigStorage', () => {
@@ -192,6 +193,50 @@ describe('financeConfigStorage', () => {
     };
     const cfg = mergeFinanceConfigFromAcademyDoc(doc);
     expect(cfg.plans).toEqual([expect.objectContaining({ name: 'Mensal', price: 150 })]);
+  });
+
+  it('mergeFinanceConfigFromAcademyDoc unions plans from inline financeConfig and settings overflow', () => {
+    const doc = {
+      financeConfig: JSON.stringify({
+        plans: [{ name: 'Plano antigo', price: 120 }],
+        bankAccounts: [],
+      }),
+      settings: JSON.stringify({
+        financePlansOffloaded: true,
+        financePlans: [{ name: 'Plano novo', price: 200 }],
+      }),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.plans.map((p) => p.name).sort()).toEqual(['Plano antigo', 'Plano novo']);
+  });
+
+  it('unionFinanceConfigForPersist keeps legacy plans and banks from server when client payload is partial', () => {
+    const server = {
+      plans: [{ name: 'Antigo', price: 100 }],
+      bankAccounts: [{ bankName: 'Sicoob', account: '1' }],
+    };
+    const client = {
+      plans: [{ name: 'Novo', price: 200 }],
+      bankAccounts: [],
+    };
+    const merged = unionFinanceConfigForPersist(server, client);
+    expect(merged.plans.map((p) => p.name).sort()).toEqual(['Antigo', 'Novo']);
+    expect(merged.bankAccounts).toEqual([expect.objectContaining({ bankName: 'Sicoob', account: '1' })]);
+  });
+
+  it('mergeFinanceConfigFromAcademyDoc unions banks from inline financeConfig and settings overflow', () => {
+    const doc = {
+      financeConfig: JSON.stringify({
+        plans: [],
+        bankAccounts: [{ bankName: 'BB', account: '111' }],
+      }),
+      settings: JSON.stringify({
+        financeBankAccountsOffloaded: true,
+        financeBankAccounts: [{ bankName: 'Nubank', account: '222' }],
+      }),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.bankAccounts.map((b) => b.bankName).sort()).toEqual(['BB', 'Nubank']);
   });
 
   it('mergeFinanceConfigFromAcademyDoc reads offloaded bank accounts from settings', () => {

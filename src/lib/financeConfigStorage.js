@@ -37,6 +37,7 @@ const SETTINGS_WHATSAPP_KEY = 'financeWhatsappReminders';
 const SETTINGS_WHATSAPP_OFFLOAD_FLAG = 'financeWhatsappRemindersOffloaded';
 /** Chaves legadas/alternativas em academy.settings. */
 const SETTINGS_BANK_ACCOUNTS_ALIASES = ['financeBankAccounts', 'bankAccounts'];
+const SETTINGS_PLANS_ALIASES = ['financePlans', 'plans'];
 
 const SAVE_BUFFER_CHARS = 48;
 
@@ -83,10 +84,16 @@ export function extractBankAccountsFromSettings(settingsRaw) {
   return filterBankAccountsWithBank(lists);
 }
 
-/** Lê planos de mensalidade de academy.settings (overflow). */
+/** Lê planos de mensalidade de academy.settings (overflow ou legado). */
 export function extractPlansFromSettings(settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
-  return coercePlanList(settings[SETTINGS_PLANS_KEY]);
+  const lists = [];
+  for (const key of SETTINGS_PLANS_ALIASES) {
+    if (Object.prototype.hasOwnProperty.call(settings, key)) {
+      lists.push(...coercePlanList(settings[key]));
+    }
+  }
+  return lists;
 }
 
 function extractCollectionFromSettings(settingsRaw) {
@@ -168,18 +175,42 @@ function mergeBankAccountsFromAcademyDoc(academyDoc) {
   );
 }
 
-function mergePlansLists(fromCfg = [], settingsRaw) {
-  const settings = parseAcademySettings(settingsRaw);
-  const fromSettings = extractPlansFromSettings(settingsRaw);
-  const fromCfgList = coercePlanList(fromCfg);
+function planNameKey(plan) {
+  return String(plan?.name || '').trim().toLowerCase();
+}
 
-  if (settings[SETTINGS_PLANS_OFFLOAD_FLAG]) {
-    if (fromSettings.length > 0) return fromSettings;
-    if (fromCfgList.length > 0) return fromCfgList;
-    return fromSettings;
+/** Une listas de planos; entradas posteriores sobrescrevem o mesmo nome. */
+function mergePlanLists(...lists) {
+  const byName = new Map();
+  for (const list of lists) {
+    for (const plan of coercePlanList(list)) {
+      const key = planNameKey(plan);
+      if (key) byName.set(key, plan);
+    }
   }
-  if (fromCfgList.length > 0) return fromCfgList;
-  return fromSettings;
+  return [...byName.values()];
+}
+
+function mergePlansFromAcademyDoc(academyDoc) {
+  const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
+  const fromCfgList = coercePlanList(cfg.plans);
+  const fromSettings = extractPlansFromSettings(academyDoc?.settings);
+  return mergePlanLists(fromCfgList, fromSettings);
+}
+
+/**
+ * Une config do servidor com alterações do cliente sem apagar planos/contas legados
+ * que ainda estejam em outra fonte (financeConfig inline vs settings overflow).
+ */
+export function unionFinanceConfigForPersist(serverMerged, clientCfg) {
+  const server = serverMerged && typeof serverMerged === 'object' ? serverMerged : {};
+  const client = clientCfg && typeof clientCfg === 'object' ? clientCfg : {};
+  return {
+    ...server,
+    ...client,
+    plans: mergePlanLists(server.plans, client.plans),
+    bankAccounts: mergeBankAccountLists(server.bankAccounts, client.bankAccounts),
+  };
 }
 
 /** Remove campos vazios dos planos para reduzir o JSON salvo. */
@@ -227,7 +258,7 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
   const mergedBanks = mergeBankAccountsFromAcademyDoc(academyDoc);
 
-  const plans = mergePlansLists(cfg.plans, academyDoc?.settings);
+  const plans = mergePlansFromAcademyDoc(academyDoc);
   const settings = parseAcademySettings(academyDoc?.settings);
   const collectionFromSettings = extractCollectionFromSettings(academyDoc?.settings);
   const whatsappFromSettings = extractWhatsappFromSettings(academyDoc?.settings);
@@ -480,7 +511,9 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
   if (!aid) throw new Error('Academia não selecionada.');
 
   const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
-  const built = buildAcademyFinanceConfigUpdate(doc, mergedCfg, {
+  const serverMerged = mergeFinanceConfigFromAcademyDoc(doc);
+  const safeCfg = unionFinanceConfigForPersist(serverMerged, mergedCfg);
+  const built = buildAcademyFinanceConfigUpdate(doc, safeCfg, {
     hasSettingsAttribute: academyDocSupportsSettings(doc),
   });
   const payload = { financeConfig: built.financeConfig };

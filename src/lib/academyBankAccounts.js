@@ -5,7 +5,7 @@ import {
   mergeCollectionIntoFinanceConfig,
   readCollectionSettingsFromAcademy,
 } from './collectionRules.js';
-import { persistAcademyFinanceConfig } from './financeConfigStorage.js';
+import { persistAcademyFinanceConfig, mergeFinanceConfigFromAcademyDoc, unionFinanceConfigForPersist } from './financeConfigStorage.js';
 
 function defaultFinanceConfig() {
   return {
@@ -37,13 +37,17 @@ export async function appendBankAccountToAcademy(academyId, fields, currentConfi
   };
   if (!entry.bankName) throw new Error('Informe o nome do banco.');
 
-  const base = currentConfig && typeof currentConfig === 'object' ? currentConfig : defaultFinanceConfig();
+  const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
+  const serverMerged = mergeFinanceConfigFromAcademyDoc(doc);
+  const base = unionFinanceConfigForPersist(
+    serverMerged,
+    currentConfig && typeof currentConfig === 'object' ? currentConfig : defaultFinanceConfig()
+  );
   const next = {
     ...base,
     bankAccounts: [...(Array.isArray(base.bankAccounts) ? base.bankAccounts : []), entry],
   };
 
-  const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
   const merged = mergeCollectionIntoFinanceConfig(next, readCollectionSettingsFromAcademy(doc));
   const saved = await persistAcademyFinanceConfig(aid, merged, { databases, DB_ID, ACADEMIES_COL });
 
