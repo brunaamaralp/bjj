@@ -170,6 +170,30 @@ describe('financeConfigStorage', () => {
     expect(cfg.plans[0].name).toBe('Plano longo 0');
   });
 
+  it('mergeFinanceConfigFromAcademyDoc reads offloaded plans from settings', () => {
+    const doc = {
+      financeConfig: JSON.stringify({ plans: [], bankAccounts: [] }),
+      settings: JSON.stringify({
+        financePlansOffloaded: true,
+        financePlans: [{ name: 'Mensal', price: 150 }],
+      }),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.plans).toEqual([expect.objectContaining({ name: 'Mensal', price: 150 })]);
+  });
+
+  it('mergeFinanceConfigFromAcademyDoc falls back to financeConfig plans when offload flag is set but settings list is empty', () => {
+    const doc = {
+      financeConfig: JSON.stringify({ plans: [{ name: 'Mensal', price: 150 }], bankAccounts: [] }),
+      settings: JSON.stringify({
+        financePlansOffloaded: true,
+        financePlans: [],
+      }),
+    };
+    const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+    expect(cfg.plans).toEqual([expect.objectContaining({ name: 'Mensal', price: 150 })]);
+  });
+
   it('throws when lean financeConfig still exceeds limit', () => {
     const merged = { plans: [], bankAccounts: [], extraPayload: 'y'.repeat(3000) };
     expect(() => buildAcademyFinanceConfigUpdate({}, merged)).toThrow(FinanceConfigTooLargeError);

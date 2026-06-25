@@ -83,7 +83,7 @@ describe('useFinanceConfigState', () => {
       ]);
     });
 
-    expect(financeHookMocks.getAcademyDocument).toHaveBeenCalledWith('acad-1');
+    expect(financeHookMocks.getAcademyDocument).toHaveBeenCalledWith('acad-1', { force: true });
   });
 
   it('nao apaga contas e planos quando ensure-setup retorna financeConfig parcial sem atualizacao', async () => {
@@ -106,14 +106,42 @@ describe('useFinanceConfigState', () => {
     const { result } = renderHook(() => useFinanceConfigState('acad-1', { isOwner: true }));
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false);
+      expect(result.current.financeConfig.plans).toEqual([
+        expect.objectContaining({ name: 'Mensal', price: 150 }),
+      ]);
     });
 
-    expect(result.current.financeConfig.plans).toEqual([
-      expect.objectContaining({ name: 'Mensal', price: 150 }),
-    ]);
     expect(result.current.financeConfig.bankAccounts).toEqual([
       expect.objectContaining({ bankName: 'Sicoob', account: '1' }),
     ]);
+    expect(financeHookMocks.getAcademyDocument).toHaveBeenCalled();
+  });
+
+  it('substitui cache stale pelos planos mesclados de settings no refetch', async () => {
+    financeHookMocks.leadState.financeConfig = {
+      bankAccounts: [{ bankName: 'Sicoob', account: '1' }],
+      plans: [{ name: 'Plano antigo', price: 99 }],
+      cardFees: {},
+    };
+    financeHookMocks.getAcademyDocument.mockResolvedValue({
+      financeConfig: JSON.stringify({ bankAccounts: [], plans: [], cardFees: {} }),
+      settings: JSON.stringify({
+        financePlansOffloaded: true,
+        financePlans: [{ name: 'Mensal', price: 150 }],
+        financeBankAccountsOffloaded: true,
+        financeBankAccounts: [{ bankName: 'Sicoob', account: '1' }],
+      }),
+    });
+
+    const { useFinanceConfigState } = await import('../hooks/useFinanceConfigState.js');
+    const { result } = renderHook(() => useFinanceConfigState('acad-1', { isOwner: true }));
+
+    await waitFor(() => {
+      expect(result.current.financeConfig.plans).toEqual([
+        expect.objectContaining({ name: 'Mensal', price: 150 }),
+      ]);
+    });
+
+    expect(result.current.financeConfig.plans[0].name).not.toBe('Plano antigo');
   });
 });

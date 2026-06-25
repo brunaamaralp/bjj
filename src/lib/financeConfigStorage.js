@@ -156,10 +156,13 @@ function mergeBankAccountLists(primary = [], secondary = []) {
 function mergePlansLists(fromCfg = [], settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
   const fromSettings = extractPlansFromSettings(settingsRaw);
-  if (settings[SETTINGS_PLANS_OFFLOAD_FLAG] && fromSettings.length > 0) {
+  const fromCfgList = coercePlanList(fromCfg);
+
+  if (settings[SETTINGS_PLANS_OFFLOAD_FLAG]) {
+    if (fromSettings.length > 0) return fromSettings;
+    if (fromCfgList.length > 0) return fromCfgList;
     return fromSettings;
   }
-  const fromCfgList = coercePlanList(fromCfg);
   if (fromCfgList.length > 0) return fromCfgList;
   return fromSettings;
 }

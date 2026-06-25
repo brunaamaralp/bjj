@@ -33,13 +33,13 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
   const cachedHasBanks = cachedForAcademy && hasConfiguredBankAccounts(st.financeConfig);
   const cachedHasPlans = cachedForAcademy && hasNamedPlans(st.financeConfig);
 
-  if (!force && cachedForAcademy && cachedHasPlans) {
+  if (!force && cachedForAcademy && cachedHasPlans && cachedHasBanks) {
     return st.financeConfig;
   }
 
   try {
     const doc = await getAcademyDocument(id, {
-      force: force || (cachedForAcademy && !cachedHasBanks),
+      force: force || (cachedForAcademy && (!cachedHasBanks || !cachedHasPlans)),
     });
     const cfg = mergeFinanceConfigFromAcademyDoc(doc) || defaultFinanceConfig();
     const coll = readCollectionSettingsFromAcademy(doc);

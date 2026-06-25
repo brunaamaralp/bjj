@@ -19,7 +19,7 @@ import {
   readCollectionSettingsFromAcademy,
   mergeCollectionIntoFinanceConfig,
 } from '../lib/collectionRules.js';
-import { filterBankAccountsWithBank, hasConfiguredBankAccounts } from '../lib/bankAccounts.js';
+import { filterBankAccountsWithBank } from '../lib/bankAccounts.js';
 import { normalizeDefaultAccountByMethodMap, readDefaultAccountByMethod } from '../lib/paymentMethodBankDefaults.js';
 import {
   digestPaymentMethodSettings,
@@ -80,15 +80,6 @@ export function digestCardFees(cardFees) {
 
 export function digestPlans(plans) {
   return JSON.stringify(plans || []);
-}
-
-function hasNamedPlans(financeConfig) {
-  return (financeConfig?.plans || []).some((plan) => String(plan?.name || '').trim());
-}
-
-/** Cache só dispensa fetch quando planos e contas já estão materializados (overflow em settings exige merge). */
-function cacheLooksComplete(financeConfig) {
-  return hasNamedPlans(financeConfig) && hasConfiguredBankAccounts(financeConfig);
 }
 
 export function digestVendors(vendors) {
@@ -173,10 +164,11 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
   const reloadFromServer = useCallback(async (opts = {}) => {
     const showLoading = opts.showLoading !== false;
+    const forceFetch = opts.forceFetch !== false;
     if (!academyId) return;
     if (showLoading) setLoading(true);
     try {
-      const doc = await getAcademyDocument(academyId);
+      const doc = await getAcademyDocument(academyId, { force: forceFetch });
       let cfg = mergeFinanceConfigFromAcademyDoc(doc);
       if (!cfg || Object.keys(cfg).length === 0) {
         cfg = defaultFinanceConfig();
@@ -225,7 +217,6 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       const coll = readCollectionSettingsFromFinanceConfig(st.financeConfig);
       applyLoadedState(st.financeConfig, coll);
       setLoading(false);
-      if (cacheLooksComplete(st.financeConfig)) return;
       void reloadFromServer({ showLoading: false });
       return;
     }
