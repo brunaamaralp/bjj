@@ -17,13 +17,14 @@ export function adjustmentReferenciaSign(referencia_id) {
   return 0;
 }
 
-export const ADJUSTMENT_SUBTYPES = ['avaria', 'furto', 'doacao', 'erro_conta'];
+export const ADJUSTMENT_SUBTYPES = ['avaria', 'furto', 'doacao', 'erro_conta', 'correcao_entrada'];
 
 export const ADJUSTMENT_SUBTYPE_LABELS = {
   avaria: 'Produto danificado (avaria)',
   furto: 'Produto desaparecido (furto)',
   doacao: 'Doado ou descartado',
   erro_conta: 'Erro de contagem anterior',
+  correcao_entrada: 'Correção de entrada de estoque',
 };
 
 export const ADJUSTMENT_SUBTYPE_SHORT = {
@@ -31,6 +32,7 @@ export const ADJUSTMENT_SUBTYPE_SHORT = {
   furto: 'Furto',
   doacao: 'Doação/descarte',
   erro_conta: 'Erro de contagem',
+  correcao_entrada: 'Correção de entrada',
 };
 
 /** Ícones lucide-react por subtipo (nome do componente). */

@@ -47,6 +47,19 @@ describe('leadStudentPayload', () => {
       discount_amount: 30,
     });
     expect(payload.discount_amount).toBe(30);
+    expect(payload.discount_type).toBe('fixed');
+  });
+
+  it('buildStudentPayloadFromDoc persists percent discount_type', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      academyId: 'ac1',
+      plan: 'Mensal',
+      discount_type: 'percent',
+      discount_amount: 15,
+    });
+    expect(payload.discount_type).toBe('percent');
+    expect(payload.discount_amount).toBe(15);
   });
 
   it('buildStudentPayloadFromDoc allows explicit zero discount override', () => {
@@ -95,5 +108,6 @@ describe('leadStudentPayload', () => {
       discount_amount: 25,
     });
     expect(student.discountAmount).toBe(25);
+    expect(student.discountType).toBe('fixed');
   });
 });

@@ -58,9 +58,19 @@ describe('paymentStatus', () => {
     expect(expectedAmountForStudent(student, financeConfig, null)).toBe(200);
   });
 
-  it('calcFinalPrice applies discount and clamps at zero', () => {
+  it('calcFinalPrice applies fixed discount and clamps at zero', () => {
+    expect(calcFinalPrice(200, { discount_type: 'fixed', discount_amount: 30 })).toBe(170);
+    expect(calcFinalPrice(200, { discount_type: 'fixed', discount_amount: 250 })).toBe(0);
     expect(calcFinalPrice(200, 30)).toBe(170);
-    expect(calcFinalPrice(200, 250)).toBe(0);
+  });
+
+  it('calcFinalPrice applies percent discount', () => {
+    expect(calcFinalPrice(200, { discount_type: 'percent', discount_amount: 10 })).toBe(180);
+    expect(calcFinalPrice(200, { discount_type: 'percent', discount_amount: 100 })).toBe(0);
+  });
+
+  it('calcFinalPrice treats legacy discount_amount without type as fixed', () => {
+    expect(calcFinalPrice(200, { discount_amount: 25 })).toBe(175);
   });
 
   it('getStudentDiscountAmount reads snake and camel case safely', () => {
@@ -69,9 +79,14 @@ describe('paymentStatus', () => {
     expect(getStudentDiscountAmount({ discount_amount: null })).toBe(0);
   });
 
-  it('openAmountForStudent uses plan price minus discount', () => {
-    const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
+  it('openAmountForStudent uses plan price minus fixed discount', () => {
+    const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30, discount_type: 'fixed' };
     expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(170);
+  });
+
+  it('openAmountForStudent uses plan price minus percent discount', () => {
+    const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 10, discount_type: 'percent' };
+    expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(180);
   });
 
   it('openAmountForStudent respects explicit payment.amount zero', () => {

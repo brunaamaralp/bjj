@@ -16,8 +16,10 @@ import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
 import { paymentTimelineBadge } from './paymentStatus.js';
 import {
   calcFinalPrice,
+  formatDiscountSummaryLabel,
   getStudentDiscountAmount,
   isExemptPlan,
+  normalizeDiscountType,
   resolveStudentPlan,
 } from './planBilling.js';
 
@@ -212,7 +214,8 @@ export function buildFinancialSummary({
   const match = resolveStudentPlan(student, financeConfig);
   const planPrice = Number(match?.price);
   const discountAmount = getStudentDiscountAmount(student);
-  const finalPlanPrice = calcFinalPrice(planPrice, discountAmount);
+  const discountType = normalizeDiscountType(student);
+  const finalPlanPrice = calcFinalPrice(planPrice, student);
   const planIsExempt = isExemptPlan(match);
   const planLabel = planName
     ? planIsExempt
@@ -222,10 +225,7 @@ export function buildFinancialSummary({
   const discountSummary =
     !planIsExempt && Number.isFinite(planPrice) && planPrice > 0 && discountAmount > 0
       ? {
-          discountLabel: `Desconto: ${discountAmount.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          })}`,
+          discountLabel: formatDiscountSummaryLabel(discountType, discountAmount),
           finalLabel: `Valor final: ${finalPlanPrice.toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',

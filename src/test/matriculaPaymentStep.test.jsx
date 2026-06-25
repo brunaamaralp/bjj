@@ -25,6 +25,7 @@ function StepHarness() {
   });
   const [plan, setPlan] = useState('Mensal');
   const [discountAmount, setDiscountAmount] = useState('30,00');
+  const [discountType, setDiscountType] = useState('fixed');
 
   return (
     <MatriculaPaymentStep
@@ -37,7 +38,9 @@ function StepHarness() {
       academyId="ac1"
       enrollmentPlan={plan}
       onPlanChange={setPlan}
+      discountType={discountType}
       discountAmount={discountAmount}
+      onDiscountTypeChange={setDiscountType}
       onDiscountChange={setDiscountAmount}
     />
   );

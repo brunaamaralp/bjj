@@ -186,8 +186,19 @@ export default async function (req, res) {
               status: "settled",
               note: `Compra de estoque: ${itemName(updated)} — ${quantidade} ${unit}`,
               settledAt: new Date().toISOString(),
+              origin_type: "stock_entry",
+              origin_id: String(move.$id || "").slice(0, 64),
             });
             financial_tx_id = fin.$id;
+            if (financial_tx_id) {
+              try {
+                await databases.updateDocument(DB_ID, STOCK_MOVES_COL, move.$id, {
+                  financial_tx_id,
+                });
+              } catch (patchErr) {
+                console.warn("stock_move financial_tx_id skip", patchErr?.message || patchErr);
+              }
+            }
           }
         }
       } catch (e) {

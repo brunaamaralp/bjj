@@ -556,10 +556,10 @@ export async function getStudentPayments(leadId, academyId, limit = 120) {
   const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
     Query.equal('lead_id', leadId),
     Query.equal('academy_id', academyId),
-    Query.orderDesc('reference_month'),
+    Query.orderDesc('$createdAt'),
     Query.limit(limit),
   ]);
-  return res.documents;
+  return res.documents || [];
 }
 
 /**

@@ -59,6 +59,16 @@ import { NL_PAYMENT_PREFILL_EVENT } from '../lib/nlCorrect.js';
 import { formatBRLFromCents } from '../lib/moneyBr';
 import { DateInputField } from '../components/DateInput';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
+import EnrollmentDiscountFields from '../components/shared/EnrollmentDiscountFields.jsx';
+import { findPlanByName } from '../lib/academyPlans.js';
+import {
+    DISCOUNT_TYPES,
+    formatDiscountAmountForInput,
+    formatDiscountSummaryLabel,
+    normalizeDiscountType,
+    parseDiscountAmountInput,
+    validateEnrollmentDiscount,
+} from '../lib/planBilling.js';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
 import { formatCollectionResultLabel } from '../lib/collectionRules.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
@@ -387,6 +397,8 @@ export default function StudentProfile() {
         preferredPaymentAccount: '',
         dueDay: '',
         belt: '',
+        discountType: DISCOUNT_TYPES.NONE,
+        discountAmountInput: '',
     });
     const [savingData, setSavingData] = useState(false);
     const [payerAliases, setPayerAliases] = useState([]);
@@ -586,6 +598,11 @@ export default function StudentProfile() {
             preferredPaymentAccount: student.preferredPaymentAccount || '',
             dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
             belt: student.belt || '',
+            discountType: normalizeDiscountType(student),
+            discountAmountInput: formatDiscountAmountForInput(
+                student.discountAmount,
+                normalizeDiscountType(student)
+            ),
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -1041,6 +1058,11 @@ export default function StudentProfile() {
             preferredPaymentAccount: student.preferredPaymentAccount || '',
             dueDay: student.dueDay != null && student.dueDay !== '' ? String(student.dueDay) : '',
             belt: student.belt || '',
+            discountType: normalizeDiscountType(student),
+            discountAmountInput: formatDiscountAmountForInput(
+                student.discountAmount,
+                normalizeDiscountType(student)
+            ),
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -1104,6 +1126,25 @@ export default function StudentProfile() {
                 return;
             }
 
+            if (isActiveStudent(student) && canViewFinance) {
+                const planMatch = findPlanByName(financeConfig, dataForm.plan);
+                const planPrice = Number(planMatch?.price ?? 0);
+                const discountNum = parseDiscountAmountInput(
+                    dataForm.discountAmountInput,
+                    dataForm.discountType
+                );
+                const discountErr = validateEnrollmentDiscount(
+                    planPrice,
+                    dataForm.discountType,
+                    discountNum
+                );
+                if (discountErr) {
+                    toast.show({ type: 'error', message: discountErr });
+                    setSavingData(false);
+                    return;
+                }
+            }
+
             let belt = '';
             if (shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)) {
                 try {
@@ -1136,6 +1177,15 @@ export default function StudentProfile() {
                 phone: String(dataForm.phone || '').replace(/\D/g, ''),
                 email: String(dataForm.email || '').trim(),
                 payerAliases,
+                ...(isActiveStudent(student) && canViewFinance
+                    ? {
+                          discountType: dataForm.discountType,
+                          discountAmount: parseDiscountAmountInput(
+                              dataForm.discountAmountInput,
+                              dataForm.discountType
+                          ),
+                      }
+                    : {}),
                 ...(shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)
                     ? { belt }
                     : {}),
@@ -1147,7 +1197,7 @@ export default function StudentProfile() {
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt]);
+    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance]);
 
     const saveStudentFieldInline = useCallback(
         async (fieldKey, draftValue) => {
@@ -1682,6 +1732,44 @@ export default function StudentProfile() {
     const showAttendanceRiskBadge =
         attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
     const showRetentionInContactBanner = student?.retention_in_contact === true;
+
+    const editPlanPrice = Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
+    const studentDiscountLabel =
+        student?.discountAmount > 0
+            ? formatDiscountSummaryLabel(student.discountType, student.discountAmount)
+            : '';
+
+    const renderStudentDiscountSection = () => {
+        if (!isActiveStudent(student) || !canViewFinance) return null;
+        if (editingData) {
+            return (
+                <EnrollmentDiscountFields
+                    planPrice={editPlanPrice}
+                    discountType={dataForm.discountType}
+                    discountAmount={dataForm.discountAmountInput}
+                    onTypeChange={(nextType) => {
+                        setDataForm((p) => ({
+                            ...p,
+                            discountType: nextType,
+                            discountAmountInput: nextType === DISCOUNT_TYPES.NONE ? '' : p.discountAmountInput,
+                        }));
+                    }}
+                    onAmountChange={(value) =>
+                        setDataForm((p) => ({ ...p, discountAmountInput: value }))
+                    }
+                    disabled={savingData}
+                    idPrefix="student-profile-discount"
+                />
+            );
+        }
+        if (!studentDiscountLabel) return null;
+        return (
+            <div className="student-profile-data-view-row">
+                <span className="student-profile-data-label">Desconto na mensalidade</span>
+                <span className="student-profile-data-value">{studentDiscountLabel}</span>
+            </div>
+        );
+    };
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
@@ -2621,6 +2709,7 @@ export default function StudentProfile() {
                         </StatusBanner>
                     ) : null}
                     {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
+                    {renderStudentDiscountSection()}
                 </div>
 
                 <StudentPayerAliasesSection

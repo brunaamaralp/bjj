@@ -778,3 +778,120 @@
     flex-direction: column;
   }
 }
+
+.inventory-moves-panel__tabs {
+  margin-bottom: 12px;
+}
+
+.inventory-moves-history__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.inventory-moves-history__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inventory-moves-history__search {
+  min-width: 200px;
+}
+
+.inventory-moves-history__table-wrap {
+  overflow-x: auto;
+}
+
+.inventory-moves-history__item-label {
+  font-weight: 500;
+}
+
+.inventory-moves-history__row--highlight {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.inventory-moves-history__row--inconsistent {
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 12%, transparent);
+}
+
+.inventory-moves-history__inconsistency {
+  margin-top: 0;
+}
+
+.inventory-moves-history__more {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.inventory-move-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.inventory-move-badge--muted {
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+}
+
+.inventory-move-badge--cash {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  font-weight: 500;
+}
+
+.inventory-move-badge--cash:hover {
+  text-decoration: underline;
+}
+
+.inventory-move-badge--warn {
+  color: var(--color-warning, #b45309);
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 15%, transparent);
+}
+
+.stock-entry-correction-modes__grid {
+  display: grid;
+  gap: 8px;
+}
+
+.stock-entry-correction-mode {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.stock-entry-correction-mode--active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.stock-entry-correction-mode input {
+  margin-right: 8px;
+}
+
+.stock-entry-correction-mode__label {
+  font-weight: 600;
+  font-size: var(--font-sm);
+}
+
+.stock-entry-correction-mode__desc {
+  display: block;
+  margin-top: 4px;
+  margin-left: 22px;
+}
+
+.inventory-moves-history__actions-col {
+  width: 1%;
+  white-space: nowrap;
+}

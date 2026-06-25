@@ -42,7 +42,7 @@ Coleções (Collections)
   - Atributos: product_id, size, color, sku, current_quantity, minimum_level, unit, academy_id, legacy_stock_item_id, is_active, last_updated, notes, **average_cost** (float, default 0), **last_purchase_cost** (float, default 0)
   - Provisionar custo médio + CMV: `npm run provision:inventory-cost`
 - STOCK_MOVES_COL (Movimentações de Estoque)
-  - Atributos: item_estoque_id (string), tipo (string: "entrada" | "saida_venda" | "reversao_venda" etc.), quantidade (number), referencia_id (string), motivo (string), usuario_id (string), purchase_price (float, opcional em entrada), academy_id (string), $createdAt (padrão)
+  - Atributos: item_estoque_id (string), tipo (string: "entrada" | "saida_venda" | "reversao_venda" etc.), quantidade (number), referencia_id (string), motivo (string), usuario_id (string), purchase_price (float, opcional em entrada), payment_method (string, opcional), financial_tx_id (string, opcional — vínculo Caixa), quantity_before (integer, opcional — snapshot WAC), average_cost_before (float, opcional), corrected_by_move_id (string, opcional — ajuste de correção), academy_id (string), $createdAt (padrão)
 - ACADEMIES_COL — atributo `settings` (string JSON, até 8k): `stockCheckSchedule` (enabled, dayOfWeek, taskTitle), `stockPurchaseExpenseCategory`
 - SALES_COL (Vendas)
   - Atributos: aluno_id (string|null), total (number), forma_pagamento (string), status (string: "rascunho" | "concluida" | "cancelada"), idempotency_key (string|null), cancelada_em (string ISO), cancel_motivo (string|null)

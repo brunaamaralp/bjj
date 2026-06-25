@@ -8,14 +8,14 @@
 | **rotas** | `/loja?tab=estoque`, `/loja?tab=estoque&subtab=saldo|movimentos`, `?item=` |
 | **pré-requisitos** | Módulo `inventory` ativo; produtos cadastrados |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-06-25 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** —
+**Specs relacionadas:** [2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md](../superpowers/specs/2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md)
 
-**Harness relacionado:** `npm test -- lojaInventoryTabs`
+**Harness relacionado:** `npm test -- lojaInventoryTabs inventoryMoveFinanceLink inventoryMovesList stockEntryCorrection stockEntryPhase3`
 
-**Arquivos-chave:** `src/pages/Inventory.jsx`, `src/components/inventory/InventoryBalanceView.jsx`, `src/components/inventory/InventoryMovesForm.jsx`, `src/store/useInventoryStore.js`
+**Arquivos-chave:** `src/pages/Inventory.jsx`, `src/components/inventory/InventoryBalanceView.jsx`, `src/components/inventory/InventoryMovesPanel.jsx`, `src/components/inventory/InventoryMovesHistory.jsx`, `src/components/inventory/InventoryEntryModal.jsx`, `src/store/useInventoryStore.js`
 
 ---
 
@@ -54,7 +54,9 @@ flowchart TD
 | 5 | Inventário | **Ajustar** | `InventoryAdjustModal` | `adjustStock` |
 | 6 | Inventário | **Conferir** | `InventoryCheckModal` | `checkItem` |
 | 7 | Inventário | **Configurar item** | Mínimo, unidade, notas | `updateItem` |
-| 8 | `&subtab=movimentos` | `InventoryMovesForm` | Nova movimentação manual | Entrada/saída com motivo |
+| 8 | `&subtab=movimentos` | `InventoryMovesPanel` | Histórico + nova movimentação | Abas Histórico / Nova movimentação |
+| 8b | Histórico | `InventoryMovesHistory` | Ver movimentos + link Caixa | Badge «No Caixa» → `/financeiro?tab=movimentacoes&tx=` |
+| 8c | Histórico | **Corrigir** (admin) | `StockEntryCorrectionWizard` | Estorno Caixa + ajuste de quantidade |
 | 9 | Toolbar | **Configurações** | `StockSettingsSection` | Regras de estoque da academia |
 | 10 | Toolbar | **Importar em lote** | Link → `produtos&import=1` | Import centralizado em Produtos |
 | 11 | `?item=<id>` | Highlight | Destacar linha no inventário | Scroll/foco no item |
@@ -84,14 +86,17 @@ Sem `inventory`, a aba **Estoque** não aparece no hub Loja (`Inventory` retorna
 2. [ ] `subtab` default = `saldo` (`resolveInventorySubtab`)
 3. [ ] Trocar para **Movimentações** → `lojaEstoqueTabParams('movimentos')`
 4. [ ] Entrada aumenta `current_quantity`
-5. [ ] Com financeiro: entrada gera `financial_tx_id` no toast
-6. [ ] Ajuste positivo/negativo com mensagem `formatAdjustToast`
-7. [ ] Conferência registra sem alterar saldo (conforme regra `checkItem`)
-8. [ ] Venda no PDV decrementa estoque (integração cross-fluxo)
-9. [ ] `first_stock_entry` onboarding auto-done quando qty > 0
-10. [ ] Legacy `/estoque` → `/loja?tab=estoque`
-11. [ ] `?item=` destaca item correto
-12. [ ] Multi-tenant: só itens da academia atual
+5. [ ] Com financeiro: entrada grava `financial_tx_id` + badge «No Caixa» no histórico
+6. [ ] Hint no modal de entrada orienta correção posterior
+7. [ ] Histórico destaca divergência estoque × Caixa (banner âmbar)
+8. [ ] Corrigir quantidade com snapshot WAC restaura custo médio quando saldo volta ao anterior
+9. [ ] Ajuste positivo/negativo com mensagem `formatAdjustToast`
+10. [ ] Conferência registra sem alterar saldo (conforme regra `checkItem`)
+11. [ ] Venda no PDV decrementa estoque (integração cross-fluxo)
+12. [ ] `first_stock_entry` onboarding auto-done quando qty > 0
+13. [ ] Legacy `/estoque` → `/loja?tab=estoque`
+14. [ ] `?item=` destaca item correto
+15. [ ] Multi-tenant: só itens da academia atual
 
 ### Estados de erro conhecidos
 
@@ -146,4 +151,5 @@ Sem `inventory`, a aba **Estoque** não aparece no hub Loja (`Inventory` retorna
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-25 | — | Fase 3: WAC snapshot, backfill, hints, banner inconsistência |
 | 2026-06-15 | — | Criação Fase 4 |

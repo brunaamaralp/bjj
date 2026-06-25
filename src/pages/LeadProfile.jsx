@@ -1424,7 +1424,13 @@ const LeadProfile = () => {
         setLostModalOpen(true);
     };
 
-    const runEnrollment = async (customAnswers = {}, plan = '', enrollmentDate = '', discountAmount = 0) => {
+    const runEnrollment = async (
+        customAnswers = {},
+        plan = '',
+        enrollmentDate = '',
+        discountAmount = 0,
+        discountType = 'none'
+    ) => {
         let extraToast = '';
         try {
         await performEnrollment({
@@ -1437,6 +1443,7 @@ const LeadProfile = () => {
             customAnswers,
             plan,
             discountAmount,
+            discountType,
             enrollmentDate,
             academySettingsRaw,
             waAutomation: {
@@ -3003,10 +3010,10 @@ const LeadProfile = () => {
                     }
                     void refreshTimeline();
                 }}
-                onEnroll={async ({ plan, enrollmentDate, discountAmount, answers }) => {
+                onEnroll={async ({ plan, enrollmentDate, discountAmount, discountType, answers }) => {
                     setMatriculaSubmitting(true);
                     try {
-                        await runEnrollment(answers, plan, enrollmentDate, discountAmount);
+                        await runEnrollment(answers, plan, enrollmentDate, discountAmount, discountType);
                     } catch (e) {
                         toast.error(e, 'action');
                         throw e;

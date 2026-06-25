@@ -2075,7 +2075,8 @@ const Pipeline = () => {
         customAnswers = {},
         plan = '',
         enrollmentDate = '',
-        discountAmount = 0
+        discountAmount = 0,
+        discountType = 'none'
     ) => {
         try {
             let extraToast = '';
@@ -2089,6 +2090,7 @@ const Pipeline = () => {
                 customAnswers,
                 plan,
                 discountAmount,
+                discountType,
                 enrollmentDate,
                 academySettingsRaw,
                 waAutomation: { waOutbound, academyRaw: academyAutomationsRaw },
@@ -3355,11 +3357,18 @@ const Pipeline = () => {
                         toast.show({ type: 'success', message: 'Pagamento registrado.' });
                     }
                 }}
-                onEnroll={async ({ plan, enrollmentDate, discountAmount, answers }) => {
+                onEnroll={async ({ plan, enrollmentDate, discountAmount, discountType, answers }) => {
                     if (!dragTargetLead) return;
                     setMatriculaSubmitting(true);
                     try {
-                        await executeMatricula(dragTargetLead, answers, plan, enrollmentDate, discountAmount);
+                        await executeMatricula(
+                            dragTargetLead,
+                            answers,
+                            plan,
+                            enrollmentDate,
+                            discountAmount,
+                            discountType
+                        );
                     } finally {
                         setMatriculaSubmitting(false);
                     }

@@ -2,6 +2,7 @@ import React from 'react';
 import { DateInput, DateInputField } from './DateInput';
 import BankAccountSelect from './finance/BankAccountSelect.jsx';
 import PlanSelect from './shared/PlanSelect.jsx';
+import EnrollmentDiscountFields from './shared/EnrollmentDiscountFields.jsx';
 import { PAYMENT_CATEGORY } from '../lib/studentPayments.js';
 import { BUNDLE_DURATION_OPTIONS } from '../lib/paymentCategories.js';
 import { orderedActiveStorageDialectMethodsForModal } from '../lib/paymentMethodSettings.js';
@@ -13,6 +14,7 @@ import CaptureMethodSelect from './finance/CaptureMethodSelect.jsx';
 import CashTrocoFields from './finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';
 import { centsToNumber, formatBRL, parseMaskToCents } from '../lib/moneyBr.js';
+import { DISCOUNT_TYPES, parseDiscountAmountInput } from '../lib/planBilling.js';
 import { enrollmentPlanPricing } from '../lib/enrollmentPayment.js';
 
 /**
@@ -25,7 +27,9 @@ export default function MatriculaPaymentStep({
   academyId,
   enrollmentPlan,
   onPlanChange,
+  discountType = DISCOUNT_TYPES.NONE,
   discountAmount = '',
+  onDiscountTypeChange,
   onDiscountChange,
   disabled = false,
   paymentError = '',
@@ -36,10 +40,14 @@ export default function MatriculaPaymentStep({
   const isBundle = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
   const showPaidDate = payForm.status === 'paid' || isBundle;
   const selectedPlanName = String(enrollmentPlan || payForm.plan_name || '').trim();
-  const discountValue = centsToNumber(parseMaskToCents(discountAmount)) || 0;
+  const discountValue = parseDiscountAmountInput(discountAmount, discountType);
   const pricing = React.useMemo(
-    () => enrollmentPlanPricing(financeConfig, selectedPlanName, { discount_amount: discountValue }),
-    [financeConfig, selectedPlanName, discountValue]
+    () =>
+      enrollmentPlanPricing(financeConfig, selectedPlanName, {
+        discount_amount: discountValue,
+        discount_type: discountType,
+      }),
+    [financeConfig, selectedPlanName, discountValue, discountType]
   );
 
   React.useEffect(() => {
@@ -66,7 +74,10 @@ export default function MatriculaPaymentStep({
 
   const handlePlanSelect = (name) => {
     onPlanChange?.(name);
-    const nextPricing = enrollmentPlanPricing(financeConfig, name, { discount_amount: discountValue });
+    const nextPricing = enrollmentPlanPricing(financeConfig, name, {
+      discount_amount: discountValue,
+      discount_type: discountType,
+    });
     setPayForm((p) => ({
       ...p,
       plan_name: name,
@@ -93,24 +104,18 @@ export default function MatriculaPaymentStep({
         />
       </div>
 
-      <div className="form-group">
-        <label className="form-label" htmlFor="matricula-discount-amount">Desconto (R$)</label>
-        <input
-          id="matricula-discount-amount"
-          className="form-input"
-          inputMode="decimal"
-          placeholder="0,00"
-          value={discountAmount}
-          disabled={disabled || pricing.planPrice <= 0}
-          onChange={(e) => onDiscountChange?.(e.target.value)}
-        />
-      </div>
-
-      <div className="text-small text-muted" style={{ marginTop: -6, marginBottom: 12 }}>
-        <div>Valor do plano: {formatBRL(pricing.planPrice)}</div>
-        <div>Desconto: {formatBRL(discountValue)}</div>
-        <div>Valor cobrado: {formatBRL(pricing.finalPrice)}</div>
-      </div>
+      <EnrollmentDiscountFields
+        planPrice={pricing.planPrice}
+        discountType={discountType}
+        discountAmount={discountAmount}
+        onTypeChange={(nextType) => {
+          onDiscountTypeChange?.(nextType);
+          if (nextType === DISCOUNT_TYPES.NONE) onDiscountChange?.('');
+        }}
+        onAmountChange={onDiscountChange}
+        disabled={disabled}
+        idPrefix="matricula-payment-discount"
+      />
 
       <fieldset className="matricula-payment-step__types" disabled={disabled}>
         <legend className="form-label">Tipo de pagamento</legend>
@@ -186,6 +191,9 @@ export default function MatriculaPaymentStep({
           disabled={disabled}
           onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
         />
+        <p className="text-small text-muted" style={{ marginTop: 6, marginBottom: 0 }}>
+          Valor cobrado: {formatBRL(pricing.finalPrice)}
+        </p>
       </div>
 
       {!isBundle ? (

@@ -4,6 +4,7 @@ import { parsePayerAliasesJson } from './studentPayerAliases.js';
 import {
   STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY,
 } from './leadStudentPayload.js';
+import { normalizeDiscountType } from './planBilling.js';
 
 function parseCustomAnswersJson(raw) {
   if (!raw || typeof raw !== 'string') return {};
@@ -36,6 +37,7 @@ export function mapAppwriteDocToStudent(doc) {
   const discountRaw = Number(doc.discount_amount ?? doc.discountAmount ?? 0);
   const discountAmount =
     Number.isFinite(discountRaw) && discountRaw >= 0 ? Math.round(discountRaw * 100) / 100 : 0;
+  const discountType = normalizeDiscountType(doc);
   const turmaRaw = String(doc.turma ?? doc.class_name ?? doc.className ?? '').trim();
   const birthDate = doc.birth_date || doc.birthDate || '';
   const customAnswers = parseCustomAnswersJson(doc.custom_answers_json);
@@ -69,6 +71,7 @@ export function mapAppwriteDocToStudent(doc) {
     convertedAt: doc.converted_at || doc.convertedAt || null,
     plan: doc.plan || '',
     discountAmount,
+    discountType,
     dueDay,
     enrollmentDate: doc.enrollmentDate || doc.enrollment_date || '',
     emergencyContact: doc.emergencyContact || '',

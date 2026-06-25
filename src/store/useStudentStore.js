@@ -14,6 +14,8 @@ import {
   findActiveStudentByPhone,
   studentPhoneDuplicateError,
 } from '../lib/studentPhoneDuplicate.js';
+import { recalcPendingPaymentsOnDiscountChange } from '../lib/recalcPendingPaymentsOnDiscount.js';
+import { useLeadStore } from './useLeadStore.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
 
@@ -153,6 +155,9 @@ function updatesToStudentPatch(updates) {
   if (u.discountAmount !== undefined) {
     const n = Number(u.discountAmount);
     copyIf('discount_amount', Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0);
+  }
+  if (u.discountType !== undefined) {
+    copyIf('discount_type', String(u.discountType || 'none').trim().slice(0, 16));
   }
   if (u.dueDay !== undefined && STUDENT_DUE_DAY_ENABLED) {
     const n = Number(u.dueDay);
@@ -522,6 +527,24 @@ export const useStudentStore = create((set, get) => ({
     const merged = { ...current, ...updates };
 
     set((state) => mergeStudentInState(state, id, merged));
+
+    const discountTouched =
+      filtered.discountAmount !== undefined || filtered.discountType !== undefined;
+    if (discountTouched) {
+      try {
+        const academyId = String(getAcademyContext().academyId || '').trim();
+        const financeConfig = useLeadStore.getState().financeConfig;
+        await recalcPendingPaymentsOnDiscountChange({
+          studentId: id,
+          academyId,
+          student: merged,
+          financeConfig,
+          previousStudent: current,
+        });
+      } catch (err) {
+        console.warn('[updateStudent] recalc pending payments:', err?.message || err);
+      }
+    }
   },
 
   deleteStudent: async (id) => {

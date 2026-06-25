@@ -25,11 +25,15 @@ async function inventoryFetch(path, options = {}) {
   return data;
 }
 
-export const useInventoryStore = create((set) => ({
+export const useInventoryStore = create((set, get) => ({
   items: [],
   lastResult: null,
   loading: false,
   error: null,
+  moves: [],
+  movesCursor: '',
+  movesLoading: false,
+  movesError: null,
 
   loadItems: async () => {
     set({ loading: true, error: null });
@@ -100,6 +104,62 @@ export const useInventoryStore = create((set) => ({
     } catch (e) {
       set({ error: friendlyError(e, 'action'), loading: false });
       return null;
+    }
+  },
+
+  listMoves: async ({ item_estoque_id, cursor, append } = {}) => {
+    set({ movesLoading: true, movesError: null });
+    try {
+      const params = new URLSearchParams({ list_moves: '1', limit: '50' });
+      const itemId = String(item_estoque_id || '').trim();
+      if (itemId) params.set('item_estoque_id', itemId);
+      if (cursor) params.set('cursor', String(cursor));
+      const data = await inventoryFetch(`/api/inventory?${params.toString()}`);
+      const batch = data.moves || [];
+      set((state) => ({
+        moves: append ? [...(state.moves || []), ...batch] : batch,
+        movesCursor: data.cursor || '',
+        movesLoading: false,
+      }));
+      return batch;
+    } catch (e) {
+      set({
+        movesError: friendlyError(e, 'load'),
+        movesLoading: false,
+        moves: append ? get().moves : [],
+      });
+      return [];
+    }
+  },
+
+  correctEntry: async (payload) => {
+    set({ movesLoading: true, movesError: null });
+    try {
+      const jwt = await createSessionJwt();
+      if (!jwt) throw new Error('session_required');
+      const academyId = useLeadStore.getState().academyId;
+      if (!academyId) throw new Error('academy_required');
+      const res = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          'Content-Type': 'application/json',
+          'x-academy-id': academyId,
+        },
+        body: JSON.stringify({ action: 'correct_entry', ...payload }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data.erro || data.error || `error_${res.status}`);
+        err.partial = Boolean(data.partial);
+        throw err;
+      }
+      set({ movesLoading: false });
+      return data;
+    } catch (e) {
+      const msg = String(e?.message || '');
+      set({ movesError: msg, movesLoading: false });
+      throw e;
     }
   },
 }));

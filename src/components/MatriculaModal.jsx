@@ -13,8 +13,16 @@ import {
 import { validateBankAccountForPayment } from '../lib/bankAccounts.js';
 import { PAYMENT_CATEGORY } from '../lib/studentPayments.js';
 import { centsToNumber, parseMaskToCents } from '../lib/moneyBr.js';
+import {
+  DISCOUNT_TYPES,
+  formatDiscountAmountForInput,
+  normalizeDiscountType,
+  parseDiscountAmountInput,
+  validateEnrollmentDiscount,
+} from '../lib/planBilling.js';
 import CustomLeadQuestionFields from './CustomLeadQuestionFields.jsx';
 import PlanSelect from './shared/PlanSelect.jsx';
+import EnrollmentDiscountFields from './shared/EnrollmentDiscountFields.jsx';
 import ModalShell from './shared/ModalShell.jsx';
 import StudentStatusBadge from './student/StudentStatusBadge.jsx';
 import MatriculaPaymentStep from './MatriculaPaymentStep.jsx';
@@ -56,6 +64,7 @@ export default function MatriculaModal({
   const [enrollMode, setEnrollMode] = useState('simple');
   const [enrollmentPlan, setEnrollmentPlan] = useState('');
   const [enrollmentDate, setEnrollmentDate] = useState('');
+  const [discountType, setDiscountType] = useState(DISCOUNT_TYPES.NONE);
   const [discountAmount, setDiscountAmount] = useState('');
   const [payForm, setPayForm] = useState(null);
   const [paymentError, setPaymentError] = useState('');
@@ -67,13 +76,14 @@ export default function MatriculaModal({
   const isMobile = useMatchMobile();
   const keyboardOffset = useVisualViewportKeyboardOffset(isOpen && isMobile);
   const showPaymentStep = paymentEnabled && Boolean(resolvedFinanceConfig);
-  const discountAmountNumber = centsToNumber(parseMaskToCents(discountAmount)) || 0;
+  const discountAmountNumber = parseDiscountAmountInput(discountAmount, discountType);
   const selectedPlanPricing = useMemo(
     () =>
       enrollmentPlanPricing(resolvedFinanceConfig, enrollmentPlan, {
         discount_amount: discountAmountNumber,
+        discount_type: discountType,
       }),
-    [resolvedFinanceConfig, enrollmentPlan, discountAmountNumber]
+    [resolvedFinanceConfig, enrollmentPlan, discountAmountNumber, discountType]
   );
 
   useEffect(() => {
@@ -93,6 +103,7 @@ export default function MatriculaModal({
       setEnrollMode('simple');
       setEnrollmentPlan('');
       setEnrollmentDate('');
+      setDiscountType(DISCOUNT_TYPES.NONE);
       setDiscountAmount('');
       setPayForm(null);
       setPaymentError('');
@@ -103,11 +114,13 @@ export default function MatriculaModal({
     const defaultDate = enrollmentIngressYmd(lead) || formatLocalYmd(new Date());
     const defaultPlan = String(lead?.plan || '').trim();
     const defaultDiscount = Number(lead?.discountAmount ?? lead?.discount_amount ?? 0);
+    const defaultDiscountType = normalizeDiscountType(lead?.discountType ?? lead?.discount_type, defaultDiscount);
     setEnrollmentDate(defaultDate);
     setEnrollmentPlan(defaultPlan);
+    setDiscountType(defaultDiscountType);
     setDiscountAmount(
       Number.isFinite(defaultDiscount) && defaultDiscount > 0
-        ? defaultDiscount.toFixed(2).replace('.', ',')
+        ? formatDiscountAmountForInput(defaultDiscount, defaultDiscountType)
         : ''
     );
     setStep(initialStep === 'payment' && showPaymentStep ? 'payment' : 'choose');
@@ -118,6 +131,7 @@ export default function MatriculaModal({
             ...lead,
             discount_amount:
               Number.isFinite(defaultDiscount) && defaultDiscount > 0 ? defaultDiscount : 0,
+            discount_type: defaultDiscountType,
           },
           resolvedFinanceConfig,
           defaultDate,
@@ -161,33 +175,25 @@ export default function MatriculaModal({
     </div>
   );
 
-  const discountError =
-    selectedPlanPricing.planPrice > 0 && discountAmountNumber >= selectedPlanPricing.planPrice
-      ? 'O desconto não pode ser maior ou igual ao valor do plano.'
-      : '';
+  const discountError = validateEnrollmentDiscount(
+    selectedPlanPricing.planPrice,
+    discountType,
+    discountAmountNumber
+  );
 
   const discountField = (
-    <div className="form-group">
-      <label className="form-label">Desconto (R$)</label>
-      <input
-        className="form-input"
-        inputMode="decimal"
-        placeholder="0,00"
-        value={discountAmount}
-        disabled={modalBusy || selectedPlanPricing.planPrice <= 0}
-        onChange={(e) => setDiscountAmount(e.target.value)}
-      />
-      <div className="text-small text-muted" style={{ marginTop: 6, display: 'grid', gap: 4 }}>
-        <div>Valor do plano: {selectedPlanPricing.planPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
-        <div>Desconto: {discountAmountNumber.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
-        <div>Valor cobrado: {selectedPlanPricing.finalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
-      </div>
-      {discountError ? (
-        <p className="text-small" role="alert" style={{ margin: '6px 0 0', color: 'var(--danger)' }}>
-          {discountError}
-        </p>
-      ) : null}
-    </div>
+    <EnrollmentDiscountFields
+      planPrice={selectedPlanPricing.planPrice}
+      discountType={discountType}
+      discountAmount={discountAmount}
+      onTypeChange={(nextType) => {
+        setDiscountType(nextType);
+        if (nextType === DISCOUNT_TYPES.NONE) setDiscountAmount('');
+      }}
+      onAmountChange={setDiscountAmount}
+      disabled={modalBusy}
+      idPrefix="matricula-discount"
+    />
   );
 
   const enrollmentDateField = (
@@ -229,6 +235,7 @@ export default function MatriculaModal({
     setEnrollMode(mode);
     await onEnroll({
       plan: planName,
+      discountType,
       discountAmount: discountAmountNumber,
       enrollmentDate,
       answers,
@@ -318,7 +325,11 @@ export default function MatriculaModal({
       setEnrollMode(mode);
       setPayForm(
         buildPayFormForEnrollment(
-          { ...lead, discount_amount: discountAmountNumber },
+          {
+            ...lead,
+            discount_amount: discountAmountNumber,
+            discount_type: discountType,
+          },
           resolvedFinanceConfig,
           enrollmentDate,
           enrollmentPlan
@@ -567,7 +578,9 @@ export default function MatriculaModal({
             academyId={academyId}
             enrollmentPlan={enrollmentPlan}
             onPlanChange={setEnrollmentPlan}
+            discountType={discountType}
             discountAmount={discountAmount}
+            onDiscountTypeChange={setDiscountType}
             onDiscountChange={setDiscountAmount}
             disabled={modalBusy}
             paymentError={paymentError}

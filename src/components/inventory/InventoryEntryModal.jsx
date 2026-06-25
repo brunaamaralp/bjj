@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import FieldError from '../shared/FieldError.jsx';
+import Hint from '../shared/Hint.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 
 function InventoryEntryModalForm({ item, loading, modulesFinance, onClose, onSubmit }) {
@@ -77,7 +78,13 @@ function InventoryEntryModalForm({ item, loading, modulesFinance, onClose, onSub
         </div>
         {modulesFinance ? (
           <div className="card mt-2" style={{ padding: 12, border: '1px dashed var(--border-light)' }}>
-            <p className="text-xs text-muted mb-2">Opcional: registrar compra no Caixa</p>
+            <p className="text-xs text-muted mb-2" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              Opcional: registrar compra no Caixa
+              <Hint
+                text="O valor gera uma despesa liquidada no Caixa. Se errar depois, use Corrigir entrada no histórico de movimentações."
+                position="top"
+              />
+            </p>
             <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
               <div className="form-group" style={{ flex: '1 1 140px', margin: 0 }}>
                 <label>Valor total pago (R$)</label>

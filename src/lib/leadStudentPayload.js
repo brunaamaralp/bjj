@@ -6,6 +6,7 @@
  */
 
 import { formatLocalYmd } from './studentEnrollmentDate.js';
+import { DISCOUNT_TYPES, normalizeDiscountType } from './planBilling.js';
 
 /** Chave em custom_answers_json para histórico de qualificação do funil. */
 export const STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY = 'primeira_experiencia';
@@ -48,10 +49,18 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     Number.isFinite(dueRaw) && dueRaw >= 1 && dueRaw <= 31 ? Math.trunc(dueRaw) : null;
   const hasExplicitDiscountAmount = Object.prototype.hasOwnProperty.call(d, 'discountAmount');
   const hasExplicitDiscountSnake = Object.prototype.hasOwnProperty.call(d, 'discount_amount');
+  const hasExplicitDiscountType = Object.prototype.hasOwnProperty.call(d, 'discountType');
+  const hasExplicitDiscountTypeSnake = Object.prototype.hasOwnProperty.call(d, 'discount_type');
   const discountSource = hasExplicitDiscountAmount ? d.discountAmount : d.discount_amount;
   const discountRaw = Number(discountSource ?? 0);
   const discountAmount =
     Number.isFinite(discountRaw) && discountRaw >= 0 ? Math.round(discountRaw * 100) / 100 : 0;
+  const discountTypeRaw = hasExplicitDiscountType
+    ? d.discountType
+    : hasExplicitDiscountTypeSnake
+      ? d.discount_type
+      : undefined;
+  const discountType = normalizeDiscountType(discountTypeRaw, discountAmount);
 
   const payload = {
     name: String(d.name || '').trim(),
@@ -94,8 +103,16 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
 
   if (turma) payload.turma = turma;
   if (dueDay != null) payload.due_day = dueDay;
-  if (hasExplicitDiscountAmount || hasExplicitDiscountSnake || discountAmount > 0) {
+  if (
+    hasExplicitDiscountAmount ||
+    hasExplicitDiscountSnake ||
+    hasExplicitDiscountType ||
+    hasExplicitDiscountTypeSnake ||
+    discountAmount > 0
+  ) {
     payload.discount_amount = discountAmount;
+    payload.discount_type =
+      discountType === DISCOUNT_TYPES.NONE && discountAmount <= 0 ? DISCOUNT_TYPES.NONE : discountType;
   }
 
   const deviceId = Number(d.device_id);

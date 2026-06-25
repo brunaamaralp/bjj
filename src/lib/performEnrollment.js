@@ -22,6 +22,7 @@ import {
   studentPhoneDuplicateError,
 } from './studentPhoneDuplicate.js';
 import { useStudentStore } from '../store/useStudentStore.js';
+import { DISCOUNT_TYPES, normalizeDiscountType } from './planBilling.js';
 
 /**
  * Efeitos pós-matrícula compartilhados (funil e cadastro direto na lista).
@@ -119,6 +120,7 @@ export async function performEnrollment({
   customQuestions = [],
   customAnswers = {},
   plan = '',
+  discountType = 'none',
   discountAmount = 0,
   enrollmentDate = '',
   academySettingsRaw = null,
@@ -137,8 +139,11 @@ export async function performEnrollment({
 
   const planName = String(plan || lead?.plan || '').trim();
   const discountValue = Number(discountAmount);
-  const normalizedDiscount =
+  const normalizedDiscountAmount =
     Number.isFinite(discountValue) && discountValue > 0 ? Math.round(discountValue * 100) / 100 : 0;
+  const normalizedDiscountType = normalizeDiscountType(discountType, normalizedDiscountAmount);
+  const normalizedDiscount =
+    normalizedDiscountType === DISCOUNT_TYPES.NONE ? 0 : normalizedDiscountAmount;
   const enrollmentDateYmd = String(enrollmentDate || '').trim().slice(0, 10);
   let student;
 
@@ -195,6 +200,7 @@ export async function performEnrollment({
           academyId,
           plan: planName || lead.plan,
           discountAmount: normalizedDiscount,
+          discountType: normalizedDiscountType,
           convertedAt: new Date().toISOString(),
           studentStatus: 'active',
           ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),

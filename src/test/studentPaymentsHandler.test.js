@@ -92,6 +92,10 @@ function mockRes() {
 describe('studentPaymentsHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    handlerMocks.listDocuments.mockReset();
+    handlerMocks.updateDocument.mockReset();
+    handlerMocks.getDocument.mockReset();
+    handlerMocks.createDocument.mockReset();
     handlerMocks.assertOrRepairStudentInAcademy.mockResolvedValue({
       $id: 'lead-1',
       plan: 'Plano legado',
@@ -260,5 +264,114 @@ describe('studentPaymentsHandler', () => {
       ['read', 'update']
     );
     expect(res.statusCode).toBe(200);
+  });
+
+  it('cria taxa avulsa sem upsert por reference_month', async () => {
+    handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    handlerMocks.createDocument.mockImplementation(async (_db, _col, id, payload) => ({
+      ...payload,
+      $id: id,
+    }));
+    handlerMocks.getDocument.mockResolvedValue({
+      $id: 'fee-1',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 50,
+      status: 'paid',
+      payment_category: 'fee',
+      reference_month: null,
+    });
+
+    const { handleCreateStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handleCreateStudentPayment(
+      {
+        body: {
+          lead_id: 'lead-1',
+          amount: 50,
+          paid_amount: 50,
+          method: 'pix',
+          status: 'paid',
+          paid_at: '2026-06-15T12:00:00.000Z',
+          payment_category: 'fee',
+          note: 'Taxa competição',
+        },
+      },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      { financeConfig: '{}' }
+    );
+
+    expect(handlerMocks.createDocument).toHaveBeenCalled();
+    expect(handlerMocks.updateDocument).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('desvincula mês covered de pacote ao registrar mensalidade avulsa', async () => {
+    const prev = {
+      $id: 'child-1',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 0,
+      status: 'covered',
+      method: 'pix',
+      account: '',
+      plan_name: 'Anual',
+      reference_month: '2026-08',
+      payment_category: 'bundle',
+      bundle_origin_id: 'anchor-1',
+    };
+    handlerMocks.listDocuments.mockImplementation(async (_db, _col, queries) => {
+      const q = JSON.stringify(queries || []);
+      if (q.includes('2026-08')) return { documents: [prev] };
+      return { documents: [] };
+    });
+    handlerMocks.updateDocument.mockImplementation(async (_db, _col, id, payload) => ({
+      ...prev,
+      ...payload,
+      $id: id,
+    }));
+    handlerMocks.getDocument.mockResolvedValue({
+      ...prev,
+      payment_category: 'plan',
+      status: 'paid',
+      amount: 200,
+      bundle_origin_id: null,
+    });
+
+    const { handleCreateStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handleCreateStudentPayment(
+      {
+        body: {
+          lead_id: 'lead-1',
+          amount: 200,
+          paid_amount: 200,
+          method: 'pix',
+          status: 'paid',
+          reference_month: '2026-08',
+          payment_category: 'plan',
+        },
+      },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      { financeConfig: '{}' }
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(handlerMocks.updateDocument).toHaveBeenCalledWith(
+      'db-test',
+      expect.any(String),
+      'child-1',
+      expect.objectContaining({
+        payment_category: 'plan',
+        bundle_origin_id: null,
+      })
+    );
+    expect(handlerMocks.createDocument).not.toHaveBeenCalled();
   });
 });

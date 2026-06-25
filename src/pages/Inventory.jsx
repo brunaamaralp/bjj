@@ -11,7 +11,7 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useUiStore } from '../store/useUiStore';
 import { refreshStockStores } from '../lib/syncStockStores';
 import InventoryBalanceView from '../components/inventory/InventoryBalanceView';
-import InventoryMovesForm from '../components/inventory/InventoryMovesForm';
+import InventoryMovesPanel from '../components/inventory/InventoryMovesPanel';
 import InventoryConfigureModal from '../components/inventory/InventoryConfigureModal';
 import InventoryEntryModal from '../components/inventory/InventoryEntryModal';
 import InventoryCheckModal from '../components/inventory/InventoryCheckModal';
@@ -19,11 +19,20 @@ import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
 import { mergeCatalogWithInventoryItems } from '../lib/inventoryCatalogMerge.js';
 import { lojaEstoqueTabParams, resolveInventorySubtab } from '../lib/lojaInventoryTabs.js';
+import { useUserRole } from '../lib/useUserRole.js';
 const Inventory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
+  const highlightMoveId = searchParams.get('move') || '';
   const modules = useLeadStore((s) => s.modules);
   const academyId = useLeadStore((s) => s.academyId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const academyDoc = useMemo(
+    () => (academyList || []).find((a) => a.id === academyId) || null,
+    [academyList, academyId]
+  );
+  const navRole = useUserRole(academyDoc);
+  const canCorrectEntry = navRole === 'owner' || navRole === 'admin';
   const [stockConfigOpen, setStockConfigOpen] = useState(false);
   const stockConfigRef = useRef(null);
   const items = useInventoryStore((s) => s.items);
@@ -41,6 +50,7 @@ const Inventory = () => {
   const [entryItem, setEntryItem] = useState(null);
   const [checkTarget, setCheckTarget] = useState(null);
   const [adjustItem, setAdjustItem] = useState(null);
+  const [movesPanelTab, setMovesPanelTab] = useState('historico');
 
   const openAdjustItem = useCallback((item) => {
     requestAnimationFrame(() => setAdjustItem(item));
@@ -82,6 +92,10 @@ const Inventory = () => {
     void refresh();
   }, [academyId, refresh]);
 
+  useEffect(() => {
+    if (highlightMoveId) setMovesPanelTab('historico');
+  }, [highlightMoveId]);
+
   const handleRegisterEntry = (item) => {
     setEntryItem(item);
   };
@@ -113,6 +127,7 @@ const Inventory = () => {
     });
     setEntryItem(null);
     await refreshStockStores();
+    await useInventoryStore.getState().listMoves({});
   };
 
   const confirmCheck = async () => {
@@ -129,6 +144,7 @@ const Inventory = () => {
 
   const onMoveSuccess = async () => {
     await refreshStockStores();
+    await useInventoryStore.getState().listMoves({});
   };
 
   const saveConfigure = async (form) => {
@@ -227,16 +243,23 @@ const Inventory = () => {
           onAdjustItem={openAdjustItem}
         />
       ) : (
-        <InventoryMovesForm
-          key={`${movePreset.itemId}-${movePreset.tipo}`}
-          initialItemId={movePreset.itemId}
-          initialTipo={movePreset.tipo}
+        <InventoryMovesPanel
+          panelTab={movesPanelTab}
+          onPanelTabChange={setMovesPanelTab}
+          highlightMoveId={highlightMoveId}
           modulesFinance={modules?.finance === true}
-          inventoryMove={inventoryMove}
-          loading={loading}
-          lastResult={lastResult}
-          error={error}
-          onSuccess={onMoveSuccess}
+          canCorrectEntry={canCorrectEntry}
+          moveFormProps={{
+            key: `${movePreset.itemId}-${movePreset.tipo}`,
+            initialItemId: movePreset.itemId,
+            initialTipo: movePreset.tipo,
+            modulesFinance: modules?.finance === true,
+            inventoryMove,
+            loading,
+            lastResult,
+            error,
+            onSuccess: onMoveSuccess,
+          }}
         />
       )}
       </div>

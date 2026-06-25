@@ -22,6 +22,7 @@ import {
 import { defaultCategoryForTxType, resolveFinanceCategory } from '../../lib/financeCategories.js';
 import { isRecurrenceTx, recurrenceTooltip } from '../../lib/financeRecurrence.js';
 import { formatTxLeadCell, resolveTxLeadId, resolveTxLeadName } from '../../lib/financeTxLeadNames.js';
+import { FINANCE_ORIGIN_STOCK_ENTRY } from '../../lib/financeOriginTypes.js';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import FinanceTxJournalMirrorSection from './FinanceTxJournalMirrorSection.jsx';
 import { canRegisterAnticipation } from '../../lib/financeAnticipation.js';
@@ -222,6 +223,18 @@ export default function FinanceTxDetailDrawer({
           <DetailField label="Competência">{tx.competence_month || '—'}</DetailField>
           {tx.saleId ? (
             <DetailField label="Venda">{formatSaleIdShort(tx.saleId)}</DetailField>
+          ) : null}
+          {String(tx.origin_type || '').toLowerCase() === FINANCE_ORIGIN_STOCK_ENTRY &&
+          String(tx.origin_id || '').trim() ? (
+            <DetailField label="Entrada de estoque">
+              <Link
+                to={`/loja?tab=estoque&subtab=movimentos&move=${encodeURIComponent(String(tx.origin_id).trim())}`}
+                className="task-drawer-link finance-tx-drawer-mirror__link"
+                onClick={onClose}
+              >
+                Ver movimentação no estoque
+              </Link>
+            </DetailField>
           ) : null}
           {rec ? (
             <DetailField label="Recorrência">

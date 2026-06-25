@@ -9,7 +9,7 @@ import {
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 import { findPlanByName } from './academyPlans.js';
 import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from './studentPaymentTroco.js';
-import { calcFinalPrice, getStudentDiscountAmount } from './planBilling.js';
+import { calcFinalPrice, getStudentDiscountAmount, normalizeDiscountType } from './planBilling.js';
 
 function amountMaskFromNumber(value) {
   const n = Number(value);
@@ -28,8 +28,9 @@ export function enrollmentPlanPricing(financeConfig, planName, lead = null) {
   const plan = findPlanByName(financeConfig, planName);
   const planPrice = Number(plan?.price ?? 0) || 0;
   const discountAmount = getStudentDiscountAmount(lead);
-  const finalPrice = calcFinalPrice(planPrice, discountAmount);
-  return { plan, planPrice, discountAmount, finalPrice };
+  const discountType = normalizeDiscountType(lead);
+  const finalPrice = calcFinalPrice(planPrice, lead);
+  return { plan, planPrice, discountAmount, discountType, finalPrice };
 }
 
 /** Formulário inicial de pagamento pós-matrícula. */

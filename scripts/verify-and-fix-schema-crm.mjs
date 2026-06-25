@@ -449,6 +449,7 @@ const STUDENTS_ATTRS = [
   { key: 'birth_date', type: 'string', size: 16 },
   { key: 'plan', type: 'string', size: 128 },
   { key: 'discount_amount', type: 'float' },
+  { key: 'discount_type', type: 'string', size: 16 },
   { key: 'plan_billing', type: 'string', size: 16 },
   { key: 'due_day', type: 'integer' },
   { key: 'student_status', type: 'string', size: 32 },
