@@ -42,8 +42,8 @@ describe('validateMensalidadesPaymentForm', () => {
   };
   const student = { plan: 'Mensal', plan_price: 200 };
 
-  it('rejeita valor zero', () => {
-    const { errors } = validateMensalidadesPaymentForm({
+  it('aceita valor zero quando informado explicitamente', () => {
+    const { errors, amountNum } = validateMensalidadesPaymentForm({
       payForm: {
         payment_type: PAYMENT_CATEGORY.PLAN,
         amount: '0,00',
@@ -54,7 +54,8 @@ describe('validateMensalidadesPaymentForm', () => {
       financeConfig,
       student,
     });
-    expect(errors.amount).toBeTruthy();
+    expect(errors.amount).toBeUndefined();
+    expect(amountNum).toBe(0);
   });
 
   it('rejeita bundle sem mês de cobertura', () => {
@@ -137,8 +138,8 @@ describe('validateMensalidadesPaymentForm', () => {
     expect(amountNum).toBe(90);
   });
 
-  it('mensalidade continua alinhando ao valor minimo do plano', () => {
-    const { amountNum } = validateMensalidadesPaymentForm({
+  it('preserva valor manual menor que o plano na mensalidade', () => {
+    const { errors, amountNum } = validateMensalidadesPaymentForm({
       payForm: {
         payment_type: PAYMENT_CATEGORY.PLAN,
         amount: '50,00',
@@ -152,7 +153,8 @@ describe('validateMensalidadesPaymentForm', () => {
       },
       student,
     });
-    expect(amountNum).toBe(200);
+    expect(errors.amount).toBeUndefined();
+    expect(amountNum).toBe(50);
   });
 
   it('não exige data de pagamento quando status é pendente', () => {

@@ -1,5 +1,4 @@
 import { parseCurrencyBRL } from './masks.js';
-import { expectedAmountWithCardFee } from './paymentStatus.js';
 import {
   isStorageCreditMethod,
   normalizeToStorageDialect,
@@ -63,21 +62,9 @@ const MENSALIDADES_ERROR_FOCUS_ORDER = [
   'capture_method_id',
 ];
 
-export function resolveMensalidadesPaymentAmount(payForm, student, financeConfig, existingPayment) {
-  const amountNum = parseCurrencyBRL(payForm?.amount);
-  const category = normalizePaymentCategory(payForm?.payment_type ?? payForm?.payment_category);
-  if (category !== PAYMENT_CATEGORY.PLAN) return amountNum;
-
-  const installments = normalizeMensalidadesInstallments(payForm?.method, payForm?.installments);
-  const withFee = expectedAmountWithCardFee(
-    student,
-    financeConfig,
-    payForm?.method,
-    installments,
-    existingPayment
-  );
-  if (Number.isFinite(withFee) && withFee > amountNum) return withFee;
-  return amountNum;
+/** Valor informado no formulário — sem ajuste automático pelo preço do plano. */
+export function resolveMensalidadesPaymentAmount(payForm) {
+  return parseCurrencyBRL(payForm?.amount);
 }
 
 /**
