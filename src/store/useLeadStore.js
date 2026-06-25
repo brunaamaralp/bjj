@@ -211,10 +211,11 @@ export const useLeadStore = create(
   setDataReady: (ready) => set({ dataReady: Boolean(ready) }),
   setLeadsReady: (ready) => set({ leadsReady: Boolean(ready) }),
 
-  setFinanceConfig: (config) =>
+  setFinanceConfig: (config, academyIdOverride) =>
     set({
       financeConfig: config,
-      financeConfigAcademyId: config == null ? null : get().academyId,
+      financeConfigAcademyId:
+        config == null ? null : String(academyIdOverride ?? get().academyId ?? '').trim() || null,
     }),
 
   setAcademyId: (id) => {

@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { friendlyError } from '../../lib/errorMessages';
-import { listBankAccountLabels, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { listBankAccountLabels, resolveBankAccountForPayment, hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
 import { refreshFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { appendBankAccountToAcademy } from '../../lib/academyBankAccounts.js';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
@@ -33,10 +33,12 @@ export default function BankAccountSelect({
   );
   const resolvedFinanceConfig = storeFinanceConfig || financeConfig;
   const [saving, setSaving] = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [draft, setDraft] = useState({ bankName: '', account: '' });
   const [showInline, setShowInline] = useState(false);
 
   const options = useMemo(() => listBankAccountLabels(resolvedFinanceConfig), [resolvedFinanceConfig]);
+  const hasBanks = hasConfiguredBankAccounts(resolvedFinanceConfig);
 
   const selectOptions = useMemo(() => {
     const current = String(value || '').trim();
@@ -53,9 +55,23 @@ export default function BankAccountSelect({
   const inputClassName = className === 'form-input' ? '' : className;
 
   useEffect(() => {
-    if (!academyId || options.length || saving) return;
-    void refreshFinanceConfigForAcademy(academyId);
-  }, [academyId, options.length, saving]);
+    if (!academyId || saving || hasBanks) return;
+    let cancelled = false;
+    setLoadingAccounts(true);
+    void refreshFinanceConfigForAcademy(academyId)
+      .then((cfg) => {
+        if (cancelled || !cfg) return;
+        if (useLeadStore.getState().academyId === academyId) {
+          setFinanceConfig(cfg, academyId);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAccounts(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId, saving, hasBanks, setFinanceConfig]);
 
   useEffect(() => {
     if (allowEmpty || saving || !options.length) return;
@@ -74,7 +90,7 @@ export default function BankAccountSelect({
         draft,
         resolvedFinanceConfig
       );
-      setFinanceConfig(config);
+      setFinanceConfig(config, academyId);
       onChange(newLabel);
       setDraft({ bankName: '', account: '' });
       setShowInline(false);
@@ -98,14 +114,16 @@ export default function BankAccountSelect({
         id={id}
         style={style}
         inputClassName={inputClassName}
-        disabled={disabled || saving || (!allowEmpty && options.length === 0)}
+        disabled={disabled || saving || loadingAccounts || (!allowEmpty && options.length === 0 && !loadingAccounts)}
         value={value || ''}
         options={selectOptions}
-        placeholder={emptyLabel}
+        placeholder={loadingAccounts ? 'Carregando contas…' : emptyLabel}
         emptyMessage={
-          options.length === 0 && !allowEmpty
-            ? 'Nenhuma conta cadastrada.'
-            : emptyMessage
+          loadingAccounts
+            ? 'Carregando contas…'
+            : options.length === 0 && !allowEmpty
+              ? 'Nenhuma conta cadastrada.'
+              : emptyMessage
         }
         onChange={onChange}
       />

@@ -195,7 +195,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       const coll = readCollectionSettingsFromAcademy(doc);
       const mergedCfg = mergeCollectionIntoFinanceConfig(cfg, coll);
       applyLoadedState(mergedCfg, coll);
-      useLeadStore.getState().setFinanceConfig(mergedCfg);
+      useLeadStore.getState().setFinanceConfig(mergedCfg, academyId);
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', message: friendlyError(e, 'action') });
@@ -388,7 +388,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         ACADEMIES_COL,
       });
       setFinanceConfig(savedCfg);
-      useLeadStore.getState().setFinanceConfig(savedCfg);
+      useLeadStore.getState().setFinanceConfig(savedCfg, academyId);
       const coll = readCollectionSettingsFromFinanceConfig(savedCfg);
       const labels = readExceptionStatusLabels(savedCfg);
       setSavedDigests({

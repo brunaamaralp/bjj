@@ -5,7 +5,6 @@ import {
   readCollectionSettingsFromAcademy,
 } from './collectionRules.js';
 import { mergeFinanceConfigFromAcademyDoc } from './financeConfigStorage.js';
-import { hasConfiguredBankAccounts } from './bankAccounts.js';
 
 function defaultFinanceConfig() {
   return {
@@ -13,10 +12,6 @@ function defaultFinanceConfig() {
     bankAccounts: [],
     cardFees: { pix: { percent: 0, fixed: 0 }, debito: { percent: 0, fixed: 0 }, credito_avista: { percent: 0, fixed: 0 }, credito_parcelado: {} },
   };
-}
-
-function hasNamedPlans(financeConfig) {
-  return (financeConfig?.plans || []).some((plan) => String(plan?.name || '').trim());
 }
 
 /**
@@ -28,24 +23,17 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
   if (!id) return null;
 
   const st = useLeadStore.getState();
-  const force = opts.force === true;
   const cachedForAcademy = st.financeConfigAcademyId === id && st.financeConfig;
-  const cachedHasBanks = cachedForAcademy && hasConfiguredBankAccounts(st.financeConfig);
-  const cachedHasPlans = cachedForAcademy && hasNamedPlans(st.financeConfig);
-
-  if (!force && cachedForAcademy && cachedHasPlans && cachedHasBanks) {
-    return st.financeConfig;
-  }
 
   try {
     const doc = await getAcademyDocument(id, {
-      force: force || (cachedForAcademy && (!cachedHasBanks || !cachedHasPlans)),
+      force: opts.force === true || Boolean(cachedForAcademy),
     });
     const cfg = mergeFinanceConfigFromAcademyDoc(doc) || defaultFinanceConfig();
     const coll = readCollectionSettingsFromAcademy(doc);
     const merged = mergeCollectionIntoFinanceConfig(cfg, coll);
-    if (useLeadStore.getState().academyId === id && opts.updateStore !== false) {
-      useLeadStore.getState().setFinanceConfig(merged);
+    if (opts.updateStore !== false && useLeadStore.getState().academyId === id) {
+      useLeadStore.getState().setFinanceConfig(merged, id);
     }
     return merged;
   } catch {
@@ -56,7 +44,7 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
 /**
  * Carrega financeConfig da academia em background (cache no useLeadStore).
  * @param {string} academyId
- * @param {{ force?: boolean }} [opts] — force=true ignora cache; também refetch se contas estiverem vazias (overflow em settings/onboarding).
+ * @param {{ force?: boolean }} [opts] — force=true ignora cache do documento da academia.
  */
 export async function prefetchFinanceConfig(academyId, opts = {}) {
   await loadMergedFinanceConfigForAcademy(academyId, opts);

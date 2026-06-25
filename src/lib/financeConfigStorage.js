@@ -153,6 +153,33 @@ function mergeBankAccountLists(primary = [], secondary = []) {
   return out;
 }
 
+function mergeBankAccountsFromAcademyDoc(academyDoc) {
+  const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
+  const fromCfg = filterBankAccountsWithBank(cfg.bankAccounts);
+  const fromSettings = extractBankAccountsFromSettings(academyDoc?.settings);
+  const fromRoot = extractBankAccountsFromRootAttribute(academyDoc);
+  const fromOnboarding = filterBankAccountsWithBank(
+    extractFinanceBankAccountsFromOnboardingRaw(academyDoc?.onboardingChecklist)
+  );
+  const settings = parseAcademySettings(academyDoc?.settings);
+
+  if (settings[SETTINGS_BANK_OFFLOAD_FLAG]) {
+    const overflow = mergeBankAccountLists(
+      mergeBankAccountLists(fromSettings, fromOnboarding),
+      fromRoot
+    );
+    if (overflow.length > 0) return overflow;
+    if (fromCfg.length > 0) return fromCfg;
+    return overflow;
+  }
+
+  const mergedBanks = mergeBankAccountLists(
+    mergeBankAccountLists(mergeBankAccountLists(fromCfg, fromSettings), fromOnboarding),
+    fromRoot
+  );
+  return mergedBanks.length > 0 ? mergedBanks : fromCfg;
+}
+
 function mergePlansLists(fromCfg = [], settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
   const fromSettings = extractPlansFromSettings(settingsRaw);
@@ -210,17 +237,7 @@ export function academyDocSupportsSettings(academyDoc, { hasSettingsAttribute } 
  */
 export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
-  const fromCfg = filterBankAccountsWithBank(cfg.bankAccounts);
-  const fromSettings = extractBankAccountsFromSettings(academyDoc?.settings);
-  const fromRoot = extractBankAccountsFromRootAttribute(academyDoc);
-  const fromOnboarding = filterBankAccountsWithBank(
-    extractFinanceBankAccountsFromOnboardingRaw(academyDoc?.onboardingChecklist)
-  );
-
-  const mergedBanks = mergeBankAccountLists(
-    mergeBankAccountLists(mergeBankAccountLists(fromCfg, fromSettings), fromOnboarding),
-    fromRoot
-  );
+  const mergedBanks = mergeBankAccountsFromAcademyDoc(academyDoc);
 
   const plans = mergePlansLists(cfg.plans, academyDoc?.settings);
   const settings = parseAcademySettings(academyDoc?.settings);
@@ -230,7 +247,7 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   let merged = {
     ...cfg,
     plans,
-    bankAccounts: mergedBanks.length > 0 ? mergedBanks : fromCfg,
+    bankAccounts: mergedBanks,
   };
 
   if (settings[SETTINGS_COLLECTION_OFFLOAD_FLAG] && collectionFromSettings) {

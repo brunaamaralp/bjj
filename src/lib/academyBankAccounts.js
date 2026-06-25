@@ -48,7 +48,7 @@ export async function appendBankAccountToAcademy(academyId, fields, currentConfi
   const saved = await persistAcademyFinanceConfig(aid, merged, { databases, DB_ID, ACADEMIES_COL });
 
   if (useLeadStore.getState().academyId === aid) {
-    useLeadStore.getState().setFinanceConfig(saved);
+    useLeadStore.getState().setFinanceConfig(saved, aid);
   }
 
   return { config: saved, label: formatBankAccountLabel(entry) };

@@ -72,6 +72,7 @@ import { deactivateStudent, reactivateStudent } from '../lib/deactivateStudent.j
 import { fetchStudentProfileBundle } from '../lib/studentsApi.js';
 import { postAttendanceRetentionAction } from '../lib/attendanceRetentionApi.js';
 import { getAcademyDocument } from '../lib/getAcademyDocument.js';
+import { loadMergedFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 import { useCanViewStudentFinance } from '../lib/canViewStudentFinance.js';
 import StudentStatusBadge from '../components/student/StudentStatusBadge.jsx';
 import StudentOverdueBadge from '../components/student/StudentOverdueBadge.jsx';
@@ -895,6 +896,11 @@ export default function StudentProfile() {
                 setAcademySettingsDoc(null);
             });
     }, [academyId]);
+
+    useEffect(() => {
+        if (!academyId || !canViewFinance) return;
+        void loadMergedFinanceConfigForAcademy(academyId);
+    }, [academyId, canViewFinance]);
 
     const mapLeadEventDocToUi = useCallback((d) => {
         const at = d.at;
