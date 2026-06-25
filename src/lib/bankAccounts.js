@@ -27,11 +27,11 @@ export function normalizeBankAccountEntry(raw) {
   const openingRaw = Number(acc.openingBalance);
   const openingBalance = Number.isFinite(openingRaw) ? Math.round(openingRaw * 100) / 100 : 0;
   const base = {
-    bankName: String(acc.bankName || '').trim(),
-    branch: String(acc.branch || '').trim(),
-    account: String(acc.account || '').trim(),
-    accountName: String(acc.accountName || '').trim(),
-    pixKey: String(acc.pixKey || '').trim(),
+    bankName: String(acc.bankName || acc.name || acc.bank || acc.banco || acc.label || '').trim(),
+    branch: String(acc.branch || acc.agency || acc.agencia || '').trim(),
+    account: String(acc.account || acc.conta || acc.accountNumber || '').trim(),
+    accountName: String(acc.accountName || acc.holderName || '').trim(),
+    pixKey: String(acc.pixKey || acc.pix || acc.chavePix || '').trim(),
     openingBalance: openingBalance >= 0 ? openingBalance : 0,
     openingBalanceDate: parseOpeningBalanceDate(acc.openingBalanceDate),
   };

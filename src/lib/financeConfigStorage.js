@@ -161,23 +161,11 @@ function mergeBankAccountsFromAcademyDoc(academyDoc) {
   const fromOnboarding = filterBankAccountsWithBank(
     extractFinanceBankAccountsFromOnboardingRaw(academyDoc?.onboardingChecklist)
   );
-  const settings = parseAcademySettings(academyDoc?.settings);
 
-  if (settings[SETTINGS_BANK_OFFLOAD_FLAG]) {
-    const overflow = mergeBankAccountLists(
-      mergeBankAccountLists(fromSettings, fromOnboarding),
-      fromRoot
-    );
-    if (overflow.length > 0) return overflow;
-    if (fromCfg.length > 0) return fromCfg;
-    return overflow;
-  }
-
-  const mergedBanks = mergeBankAccountLists(
+  return mergeBankAccountLists(
     mergeBankAccountLists(mergeBankAccountLists(fromCfg, fromSettings), fromOnboarding),
     fromRoot
   );
-  return mergedBanks.length > 0 ? mergedBanks : fromCfg;
 }
 
 function mergePlansLists(fromCfg = [], settingsRaw) {

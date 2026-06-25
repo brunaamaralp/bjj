@@ -78,4 +78,12 @@ describe('bankAccounts — conta inicial no pagamento', () => {
     expect(usesDefaultAcquirerFees(n)).toBe(true);
     expect(n.acquirerFees).toBeUndefined();
   });
+
+  it('normalizeBankAccountEntry aceita campos legados de importação', () => {
+    const n = normalizeBankAccountEntry({ name: 'Sicoob', conta: '12345-6', chavePix: 'a@b.com' });
+    expect(n.bankName).toBe('Sicoob');
+    expect(n.account).toBe('12345-6');
+    expect(n.pixKey).toBe('a@b.com');
+    expect(isUsableBankAccount(n)).toBe(true);
+  });
 });

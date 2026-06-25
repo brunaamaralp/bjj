@@ -3,8 +3,13 @@ import { Plus } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { friendlyError } from '../../lib/errorMessages';
-import { listBankAccountLabels, resolveBankAccountForPayment, hasConfiguredBankAccounts } from '../../lib/bankAccounts.js';
-import { refreshFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
+import {
+  listBankAccountLabels,
+  resolveBankAccountForPayment,
+  hasConfiguredBankAccounts,
+} from '../../lib/bankAccounts.js';
+import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
+import { pickFinanceConfigForPayments } from '../../lib/financeConfigForPayments.js';
 import { appendBankAccountToAcademy } from '../../lib/academyBankAccounts.js';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
 
@@ -28,16 +33,25 @@ export default function BankAccountSelect({
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
-  const storeFinanceConfig = useLeadStore((s) =>
-    s.financeConfigAcademyId === academyId ? s.financeConfig : null
-  );
-  const resolvedFinanceConfig = storeFinanceConfig || financeConfig;
+  const storeFinanceConfig = useLeadStore((s) => s.financeConfig);
+  const storeFinanceAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
+  const storeMatch =
+    storeFinanceAcademyId === academyId && storeFinanceConfig ? storeFinanceConfig : null;
+  const [fetchedConfig, setFetchedConfig] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [draft, setDraft] = useState({ bankName: '', account: '' });
   const [showInline, setShowInline] = useState(false);
 
-  const options = useMemo(() => listBankAccountLabels(resolvedFinanceConfig), [resolvedFinanceConfig]);
+  const resolvedFinanceConfig = useMemo(
+    () => pickFinanceConfigForPayments(fetchedConfig, storeMatch, financeConfig),
+    [fetchedConfig, storeMatch, financeConfig]
+  );
+
+  const options = useMemo(
+    () => listBankAccountLabels(resolvedFinanceConfig),
+    [resolvedFinanceConfig]
+  );
   const hasBanks = hasConfiguredBankAccounts(resolvedFinanceConfig);
 
   const selectOptions = useMemo(() => {
@@ -58,11 +72,20 @@ export default function BankAccountSelect({
     if (!academyId || saving || hasBanks) return;
     let cancelled = false;
     setLoadingAccounts(true);
-    void refreshFinanceConfigForAcademy(academyId)
+    void loadMergedFinanceConfigForAcademy(academyId, { force: true })
       .then((cfg) => {
         if (cancelled || !cfg) return;
+        setFetchedConfig(cfg);
         if (useLeadStore.getState().academyId === academyId) {
           setFinanceConfig(cfg, academyId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          addToast({
+            type: 'error',
+            message: 'Não foi possível carregar as contas bancárias. Tente novamente.',
+          });
         }
       })
       .finally(() => {
@@ -71,7 +94,7 @@ export default function BankAccountSelect({
     return () => {
       cancelled = true;
     };
-  }, [academyId, saving, hasBanks, setFinanceConfig]);
+  }, [academyId, saving, hasBanks, setFinanceConfig, addToast]);
 
   useEffect(() => {
     if (allowEmpty || saving || !options.length) return;
@@ -90,6 +113,7 @@ export default function BankAccountSelect({
         draft,
         resolvedFinanceConfig
       );
+      setFetchedConfig(config);
       setFinanceConfig(config, academyId);
       onChange(newLabel);
       setDraft({ bankName: '', account: '' });

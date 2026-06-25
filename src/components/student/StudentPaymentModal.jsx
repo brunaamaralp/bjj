@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DateInput } from '../DateInput';
 import ModalShell from '../shared/ModalShell.jsx';
@@ -12,6 +12,8 @@ import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import StudentProductSaleStep, { STUDENT_PRODUCT_SALE_FORM_ID } from './StudentProductSaleStep.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { hasConfiguredBankAccounts, resolveBankAccountForPayment } from '../../lib/bankAccounts.js';
+import { pickFinanceConfigForPayments } from '../../lib/financeConfigForPayments.js';
+import { useLeadStore } from '../../store/useLeadStore';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import { STUDENT_PAY_FIELD_IDS } from '../../lib/mensalidadesPaymentForm.js';
 import {
@@ -181,6 +183,12 @@ export default function StudentPaymentModal({
     [handleClose, navigate]
   );
 
+  const storeFinanceConfig = useLeadStore((s) => s.financeConfig);
+  const effectiveFinanceConfig = useMemo(
+    () => pickFinanceConfigForPayments(storeFinanceConfig, financeConfig),
+    [storeFinanceConfig, financeConfig]
+  );
+
   if (!open || !student) return null;
 
   const isProduct = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
@@ -192,7 +200,7 @@ export default function StudentPaymentModal({
   const showPlanFields = isPlan || isBundle;
   const amountNum = centsToNumber(parseMaskToCents(payForm.amount));
   const payFieldErrors = fieldErrors && typeof fieldErrors === 'object' ? fieldErrors : {};
-  const hasBankAccounts = hasConfiguredBankAccounts(financeConfig);
+  const hasBankAccounts = hasConfiguredBankAccounts(effectiveFinanceConfig);
   const saveBlockedByBank =
     requireBankAccountForSave && !hasBankAccounts && (isPlan || isBundle);
 
@@ -545,7 +553,7 @@ export default function StudentPaymentModal({
                     setPayForm((p) => ({
                       ...p,
                       method,
-                      ...whenPaymentMethodChangesWithCapture(financeConfig, method),
+                      ...whenPaymentMethodChangesWithCapture(effectiveFinanceConfig, method),
                       ...(isCashPaymentMethod(method) && !p.cash_received
                         ? { cash_received: p.amount || '' }
                         : !isCashPaymentMethod(method)
@@ -554,7 +562,7 @@ export default function StudentPaymentModal({
                     }));
                   }}
                 >
-                  {orderedActiveStorageDialectMethodsForModal(financeConfig).map((o) => (
+                  {orderedActiveStorageDialectMethodsForModal(effectiveFinanceConfig).map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
@@ -563,7 +571,7 @@ export default function StudentPaymentModal({
               </div>
 
               <CaptureMethodSelect
-                financeConfig={financeConfig}
+                financeConfig={effectiveFinanceConfig}
                 method={payForm.method}
                 value={payForm.capture_method_id}
                 id={STUDENT_PAY_FIELD_IDS.capture_method}
@@ -573,7 +581,7 @@ export default function StudentPaymentModal({
                 onChange={(captureId) =>
                   setPayForm((p) => ({
                     ...p,
-                    ...whenCaptureMethodChanges(financeConfig, captureId, p.method),
+                    ...whenCaptureMethodChanges(effectiveFinanceConfig, captureId, p.method),
                   }))
                 }
               />
@@ -585,7 +593,7 @@ export default function StudentPaymentModal({
                     setPayForm={setPayForm}
                     amountNum={amountNum}
                     academyId={academyId}
-                    financeConfig={financeConfig}
+                    financeConfig={effectiveFinanceConfig}
                     disabled={saving}
                     inputClassName="form-input"
                     labelClassName="form-label"
@@ -604,7 +612,7 @@ export default function StudentPaymentModal({
               <BankAccountSelect
                 id={STUDENT_PAY_FIELD_IDS.account}
                 academyId={academyId}
-                financeConfig={financeConfig}
+                financeConfig={effectiveFinanceConfig}
                 value={payForm.account}
                 onChange={(v) => setPayForm((p) => ({ ...p, account: v }))}
                 label="Conta"
@@ -619,14 +627,14 @@ export default function StudentPaymentModal({
                   <label className="form-label">Plano</label>
                   <PlanSelect
                     id="student-pay-plan"
-                    financeConfig={financeConfig}
+                    financeConfig={effectiveFinanceConfig}
                     value={payForm.plan_name}
                     onChange={(v) => setPayForm((p) => ({ ...p, plan_name: v }))}
                     onPlanPick={(pl) => {
                       if (!pl) return;
                       const amtNum = resolveStudentPlanFinalPrice(
                         { ...student, plan: pl.name },
-                        financeConfig
+                        effectiveFinanceConfig
                       );
                       const amt = amtNum > 0 ? formatBRLFromCents(numberToCents(amtNum) ?? 0) : '';
                       if (amt) setPayForm((p) => ({ ...p, plan_name: pl.name, amount: amt }));

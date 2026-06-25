@@ -36,7 +36,8 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
       useLeadStore.getState().setFinanceConfig(merged, id);
     }
     return merged;
-  } catch {
+  } catch (err) {
+    console.warn('[loadMergedFinanceConfigForAcademy] Falha ao carregar financeConfig:', err?.message || err);
     return cachedForAcademy ? st.financeConfig : null;
   }
 }
