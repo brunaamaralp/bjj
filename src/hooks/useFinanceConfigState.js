@@ -86,6 +86,11 @@ function hasNamedPlans(financeConfig) {
   return (financeConfig?.plans || []).some((plan) => String(plan?.name || '').trim());
 }
 
+/** Cache só dispensa fetch quando planos e contas já estão materializados (overflow em settings exige merge). */
+function cacheLooksComplete(financeConfig) {
+  return hasNamedPlans(financeConfig) && hasConfiguredBankAccounts(financeConfig);
+}
+
 export function digestVendors(vendors) {
   return JSON.stringify(normalizeFinanceVendors(vendors));
 }
@@ -166,9 +171,10 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     });
   }, []);
 
-  const reloadFromServer = useCallback(async () => {
+  const reloadFromServer = useCallback(async (opts = {}) => {
+    const showLoading = opts.showLoading !== false;
     if (!academyId) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const doc = await getAcademyDocument(academyId);
       let cfg = mergeFinanceConfigFromAcademyDoc(doc);
@@ -202,7 +208,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       console.error(e);
       addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [academyId, applyLoadedState, addToast]);
 
@@ -212,14 +218,15 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       return;
     }
     const st = useLeadStore.getState();
-    if (
-      st.financeConfig != null &&
-      st.financeConfigAcademyId === academyId &&
-      hasNamedPlans(st.financeConfig)
-    ) {
+    const cachedForAcademy =
+      st.financeConfig != null && st.financeConfigAcademyId === academyId;
+
+    if (cachedForAcademy) {
       const coll = readCollectionSettingsFromFinanceConfig(st.financeConfig);
       applyLoadedState(st.financeConfig, coll);
       setLoading(false);
+      if (cacheLooksComplete(st.financeConfig)) return;
+      void reloadFromServer({ showLoading: false });
       return;
     }
     void reloadFromServer();
@@ -227,24 +234,10 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
   const applyEnsureSetupResult = useCallback(
     (result) => {
-      const cfg = result?.financeConfig;
-      if (cfg && typeof cfg === 'object') {
-        const merged = mergeCollectionIntoFinanceConfig(cfg, {
-          collectionRules,
-          overdueLabel,
-        });
-        const withExceptions = mergeExceptionLabelsIntoFinanceConfig(merged, exceptionLabels);
-        setFinanceConfig(withExceptions);
-        useLeadStore.getState().setFinanceConfig(withExceptions);
-        if (result.summary?.financeConfigUpdated) {
-          setSavedDigests((prev) => ({
-            ...prev,
-            plans: digestPlans(withExceptions.plans),
-          }));
-        }
-      }
+      if (!result?.summary?.financeConfigUpdated) return;
+      void reloadFromServer({ showLoading: false });
     },
-    [collectionRules, overdueLabel, exceptionLabels]
+    [reloadFromServer]
   );
 
   const applyEnsureSetupResultRef = useRef(applyEnsureSetupResult);

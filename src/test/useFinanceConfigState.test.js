@@ -17,6 +17,7 @@ const financeHookMocks = vi.hoisted(() => {
     leadState,
     addToast: vi.fn(),
     getAcademyDocument: vi.fn(),
+    mutateEnsureContractSetup: vi.fn(),
   };
 });
 
@@ -35,8 +36,11 @@ vi.mock('../lib/getAcademyDocument.js', () => ({
 }));
 
 vi.mock('../features/contracts/queries.js', () => ({
-  useContractTemplates: () => ({ data: { templates: [], configured: false }, isSuccess: true }),
-  useEnsureAcademyContractSetup: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useContractTemplates: () => ({ data: { templates: [{ id: 't1' }], configured: true }, isSuccess: true }),
+  useEnsureAcademyContractSetup: () => ({
+    mutateAsync: financeHookMocks.mutateEnsureContractSetup,
+    isPending: false,
+  }),
 }));
 
 describe('useFinanceConfigState', () => {
@@ -60,6 +64,13 @@ describe('useFinanceConfigState', () => {
         financePlans: [{ name: 'Mensal', price: 150 }],
       }),
     });
+    financeHookMocks.mutateEnsureContractSetup.mockResolvedValue({
+      summary: { financeConfigUpdated: false, templatesCreated: [], plansLinked: 0 },
+      financeConfig: { plans: [] },
+    });
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('contractSetupEnsured:acad-1');
+    }
   });
 
   it('recarrega do servidor quando o cache local tem contas mas os planos ainda estao vazios', async () => {
@@ -67,12 +78,42 @@ describe('useFinanceConfigState', () => {
     const { result } = renderHook(() => useFinanceConfigState('acad-1', { isOwner: true }));
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false);
+      expect(result.current.financeConfig.plans).toEqual([
+        expect.objectContaining({ name: 'Mensal', price: 150 }),
+      ]);
     });
 
     expect(financeHookMocks.getAcademyDocument).toHaveBeenCalledWith('acad-1');
+  });
+
+  it('nao apaga contas e planos quando ensure-setup retorna financeConfig parcial sem atualizacao', async () => {
+    financeHookMocks.leadState.financeConfig = {
+      bankAccounts: [{ bankName: 'Sicoob', account: '1' }],
+      plans: [{ name: 'Mensal', price: 150 }],
+      cardFees: {},
+    };
+    financeHookMocks.getAcademyDocument.mockResolvedValue({
+      financeConfig: JSON.stringify({ bankAccounts: [], plans: [], cardFees: {} }),
+      settings: JSON.stringify({
+        financePlansOffloaded: true,
+        financePlans: [{ name: 'Mensal', price: 150 }],
+        financeBankAccountsOffloaded: true,
+        financeBankAccounts: [{ bankName: 'Sicoob', account: '1' }],
+      }),
+    });
+
+    const { useFinanceConfigState } = await import('../hooks/useFinanceConfigState.js');
+    const { result } = renderHook(() => useFinanceConfigState('acad-1', { isOwner: true }));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
     expect(result.current.financeConfig.plans).toEqual([
       expect.objectContaining({ name: 'Mensal', price: 150 }),
+    ]);
+    expect(result.current.financeConfig.bankAccounts).toEqual([
+      expect.objectContaining({ bankName: 'Sicoob', account: '1' }),
     ]);
   });
 });
