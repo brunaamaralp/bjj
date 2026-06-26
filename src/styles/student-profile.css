@@ -331,3 +331,27 @@
   margin: 0;
   line-height: 1.45;
 }
+
+.student-profile-discount-block {
+  margin: 2px 0 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-secondary, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.student-profile-discount-block .form-label {
+  font-weight: 600;
+  color: var(--text-primary, inherit);
+}
+
+.student-profile-discount-block .form-input {
+  width: 100%;
+  max-width: 100%;
+}
+
+.student-profile-discount-block--readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

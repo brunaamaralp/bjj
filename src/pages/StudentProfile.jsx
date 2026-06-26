@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature } from 'lucide-react';
+import { User, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature, Loader2, Check, X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
@@ -60,7 +60,7 @@ import { formatBRLFromCents } from '../lib/moneyBr';
 import { DateInputField } from '../components/DateInput';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
 import EnrollmentDiscountFields from '../components/shared/EnrollmentDiscountFields.jsx';
-import { findPlanByName, resolveStudentPlanDisplayName } from '../lib/academyPlans.js';
+import { findPlanByName } from '../lib/academyPlans.js';
 import {
     DISCOUNT_TYPES,
     formatDiscountAmountForInput,
@@ -145,6 +145,39 @@ function formatDateBR(ymd) {
     } catch {
         return '';
     }
+}
+
+function formatBrlPlanValue(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Nome + preço do plano para exibição no perfil (total quando parcelado). */
+function formatStudentPlanDisplayLabel(financeConfig, planName) {
+    const name = String(planName || '').trim();
+    if (!name) return '';
+    const match = findPlanByName(financeConfig, name);
+    if (!match) return name;
+
+    const label = String(match.name || name).trim();
+    const price = Number(match.price ?? 0);
+    if (!Number.isFinite(price) || price <= 0) return label;
+
+    const installments = Math.trunc(
+        Number(match.installments ?? match.installment_count ?? match.billing_months ?? 0) || 0
+    );
+    const totalFromField = Number(
+        match.total_price ?? match.totalPrice ?? match.annual_price ?? match.annualPrice ?? 0
+    );
+
+    const priceLabel = formatBrlPlanValue(price);
+    if (installments > 1) {
+        const total = totalFromField > 0 ? totalFromField : price * installments;
+        const totalLabel = formatBrlPlanValue(total);
+        return `${label} · ${totalLabel} (${installments}x de ${priceLabel})`;
+    }
+    return `${label} · ${priceLabel}`;
 }
 
 /** @param {string|undefined} raw */
@@ -410,6 +443,10 @@ export default function StudentProfile() {
         discountAmountInput: '',
     });
     const [savingData, setSavingData] = useState(false);
+    const [saveStatus, setSaveStatus] = useState(null);
+    const saveStatusTimerRef = useRef(null);
+    const discountSaveTimerRef = useRef(null);
+    const pendingDiscountTypeRef = useRef(null);
     const [payerAliases, setPayerAliases] = useState([]);
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
@@ -1231,25 +1268,107 @@ export default function StudentProfile() {
         }
     }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance]);
 
+    const clearSaveStatusTimer = useCallback(() => {
+        if (saveStatusTimerRef.current) {
+            clearTimeout(saveStatusTimerRef.current);
+            saveStatusTimerRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => () => {
+        clearSaveStatusTimer();
+        if (discountSaveTimerRef.current) {
+            clearTimeout(discountSaveTimerRef.current);
+            discountSaveTimerRef.current = null;
+        }
+    }, [clearSaveStatusTimer]);
+
+    const persistStudentDiscount = useCallback(
+        async (nextType, nextAmountInput) => {
+            const planName = String(student?.plan || '').trim();
+            const planPrice = Number(findPlanByName(financeConfig, planName)?.price ?? 0);
+            const discountNum = parseDiscountAmountInput(nextAmountInput, nextType);
+            const discountErr = validateEnrollmentDiscount(planPrice, nextType, discountNum);
+            if (discountErr) throw new Error(discountErr);
+
+            clearSaveStatusTimer();
+            setSaveStatus('saving');
+            try {
+                await updateStudent(leadId, {
+                    discountType: nextType,
+                    discountAmount: discountNum,
+                });
+                setDataForm((p) => ({
+                    ...p,
+                    discountType: nextType,
+                    discountAmountInput: nextAmountInput,
+                }));
+                setSaveStatus('saved');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 2000);
+            } catch (e) {
+                setSaveStatus('error');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 3000);
+                throw e;
+            }
+        },
+        [student?.plan, financeConfig, leadId, updateStudent, clearSaveStatusTimer]
+    );
+
+    const queueStudentDiscountSave = useCallback(
+        (nextType, nextAmountInput) => {
+            if (discountSaveTimerRef.current) {
+                clearTimeout(discountSaveTimerRef.current);
+                discountSaveTimerRef.current = null;
+            }
+            discountSaveTimerRef.current = setTimeout(() => {
+                discountSaveTimerRef.current = null;
+                void persistStudentDiscount(nextType, nextAmountInput).catch((e) => toast.error(e, 'save'));
+            }, 350);
+        },
+        [persistStudentDiscount, toast]
+    );
+
     const saveStudentFieldInline = useCallback(
         async (fieldKey, draftValue) => {
-            await saveStudentProfileField({
-                fieldKey,
-                draftValue,
-                student,
-                academyId,
-                studentId: leadId,
-                updateStudent,
-                financeConfig,
-                academyTurmas,
-                emergencySameAsRegistered,
-                setEmergencySameAsRegistered,
-                setDataForm,
-                actorUserId: userId || 'user',
-                permissionContext: permCtx,
-                academySettingsRaw,
-                graduationLabel: terms.belt,
-            });
+            clearSaveStatusTimer();
+            setSaveStatus('saving');
+            try {
+                await saveStudentProfileField({
+                    fieldKey,
+                    draftValue,
+                    student,
+                    academyId,
+                    studentId: leadId,
+                    updateStudent,
+                    financeConfig,
+                    academyTurmas,
+                    emergencySameAsRegistered,
+                    setEmergencySameAsRegistered,
+                    setDataForm,
+                    actorUserId: userId || 'user',
+                    permissionContext: permCtx,
+                    academySettingsRaw,
+                    graduationLabel: terms.belt,
+                });
+                setSaveStatus('saved');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 2000);
+            } catch (e) {
+                setSaveStatus('error');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 3000);
+                throw e;
+            }
         },
         [
             student,
@@ -1263,6 +1382,7 @@ export default function StudentProfile() {
             permCtx,
             academySettingsRaw,
             terms.belt,
+            clearSaveStatusTimer,
         ]
     );
 
@@ -1765,46 +1885,85 @@ export default function StudentProfile() {
         attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
     const showRetentionInContactBanner = student?.retention_in_contact === true;
 
-    const editPlanPrice = Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
-    const studentPlanDisplayName = resolveStudentPlanDisplayName(financeConfig, student.plan);
+    const studentPlanDisplayName = formatStudentPlanDisplayLabel(financeConfig, student.plan);
     const studentDiscountLabel =
         student?.discountAmount > 0
             ? formatDiscountSummaryLabel(student.discountType, student.discountAmount)
             : '';
 
     const renderStudentDiscountSection = () => {
-        if (!isActiveStudent(student) || !canViewFinance) return null;
-        if (editingData) {
+        if (!isActiveStudent(student) || !canViewFinance || studentPlanIsExempt) return null;
+
+        const planName = editingData ? dataForm.plan : student.plan;
+        const planPrice = Number(findPlanByName(financeConfig, planName)?.price ?? 0);
+        const discountTypeValue = editingData ? dataForm.discountType : normalizeDiscountType(student);
+        const discountAmountValue = editingData
+            ? dataForm.discountAmountInput
+            : formatDiscountAmountForInput(student.discountAmount, normalizeDiscountType(student));
+
+        if (!canEditProfile) {
+            if (!studentDiscountLabel) return null;
             return (
-                <EnrollmentDiscountFields
-                    planPrice={editPlanPrice}
-                    planName={dataForm.plan}
-                    financeConfig={financeConfig}
-                    discountType={dataForm.discountType}
-                    discountAmount={dataForm.discountAmountInput}
-                    onTypeChange={(nextType) => {
-                        setDataForm((p) => ({
-                            ...p,
-                            discountType: nextType,
-                            discountAmountInput: nextType === DISCOUNT_TYPES.NONE ? '' : p.discountAmountInput,
-                        }));
-                    }}
-                    onAmountChange={(value) =>
-                        setDataForm((p) => ({ ...p, discountAmountInput: value }))
-                    }
-                    disabled={savingData}
-                    idPrefix="student-profile-discount"
-                />
+                <div className="student-profile-discount-block student-profile-discount-block--readonly">
+                    <span className="student-profile-data-label">Condição promocional</span>
+                    <span className="student-profile-data-value">{studentDiscountLabel}</span>
+                </div>
             );
         }
-        if (!studentDiscountLabel) return null;
+
+        const applyDiscountChange = (nextType, nextAmountInput) => {
+            if (editingData) {
+                setDataForm((p) => ({
+                    ...p,
+                    discountType: nextType,
+                    discountAmountInput: nextAmountInput,
+                }));
+                return;
+            }
+            queueStudentDiscountSave(nextType, nextAmountInput);
+        };
+
         return (
-            <div className="student-profile-data-view-row">
-                <span className="student-profile-data-label">Desconto na mensalidade</span>
-                <span className="student-profile-data-value">{studentDiscountLabel}</span>
+            <div className="student-profile-discount-block">
+                <EnrollmentDiscountFields
+                    planPrice={planPrice}
+                    planName={planName}
+                    financeConfig={financeConfig}
+                    discountType={discountTypeValue}
+                    discountAmount={discountAmountValue}
+                    onTypeChange={(nextType) => {
+                        pendingDiscountTypeRef.current = nextType;
+                        const nextAmount =
+                            nextType === DISCOUNT_TYPES.NONE
+                                ? ''
+                                : discountAmountValue;
+                        applyDiscountChange(nextType, nextAmount);
+                    }}
+                    onAmountChange={(value) => {
+                        const nextType = pendingDiscountTypeRef.current ?? discountTypeValue;
+                        pendingDiscountTypeRef.current = null;
+                        applyDiscountChange(nextType, value);
+                    }}
+                    disabled={savingData || saveStatus === 'saving'}
+                    idPrefix="student-profile-discount"
+                />
             </div>
         );
     };
+
+    const renderStudentDataFieldList = () =>
+        studentDataFields.flatMap((field) => {
+            const row = editingData ? renderStudentDataEditRow(field) : renderStudentDataViewRow(field);
+            if (
+                field.key === 'plan' &&
+                isActiveStudent(student) &&
+                canViewFinance &&
+                !studentPlanIsExempt
+            ) {
+                return [row, <React.Fragment key="student-discount-after-plan">{renderStudentDiscountSection()}</React.Fragment>];
+            }
+            return [row];
+        });
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
@@ -1831,7 +1990,7 @@ export default function StudentProfile() {
         }
         if (key === 'sexo') return sexoDisplayLabel(raw);
         if (key === 'plan') {
-            return resolveStudentPlanDisplayName(financeConfig, raw);
+            return formatStudentPlanDisplayLabel(financeConfig, raw);
         }
         if (key === 'turma') {
             const t = String(student?.turma || student?.className || raw || '').trim();
@@ -2503,20 +2662,70 @@ export default function StudentProfile() {
                         )}
                     </div>
                     <div className="student-profile-hd__body">
-                    {!editingData && canEditProfile ? (
-                        <ProfileInlineField
-                            layout="hero-name"
-                            label="Nome"
-                            displayValue={student.name || 'Sem nome'}
-                            empty={!String(student.name || '').trim()}
-                            canEdit={canEditProfile}
-                            editValue={student.name || ''}
-                            fieldId="student-inline-hero-name"
-                            onSave={(draft) => saveStudentFieldInline('name', draft)}
-                        />
-                    ) : (
-                        <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
-                    )}
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 10,
+                            flexWrap: 'wrap',
+                            width: '100%',
+                        }}
+                    >
+                        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                            {!editingData && canEditProfile ? (
+                                <ProfileInlineField
+                                    layout="hero-name"
+                                    label="Nome"
+                                    displayValue={student.name || 'Sem nome'}
+                                    empty={!String(student.name || '').trim()}
+                                    canEdit={canEditProfile}
+                                    editValue={student.name || ''}
+                                    fieldId="student-inline-hero-name"
+                                    onSave={(draft) => saveStudentFieldInline('name', draft)}
+                                />
+                            ) : (
+                                <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
+                            )}
+                        </div>
+                        {saveStatus ? (
+                            <span
+                                role="status"
+                                aria-live="polite"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    flexShrink: 0,
+                                    color:
+                                        saveStatus === 'saved'
+                                            ? 'var(--success, #16a34a)'
+                                            : saveStatus === 'error'
+                                              ? 'var(--danger, #dc2626)'
+                                              : 'var(--text-muted, #6b7280)',
+                                }}
+                            >
+                                {saveStatus === 'saving' ? (
+                                    <>
+                                        <Loader2 size={13} className="profile-inline-field__spinner" aria-hidden />
+                                        Salvando...
+                                    </>
+                                ) : saveStatus === 'saved' ? (
+                                    <>
+                                        <Check size={13} aria-hidden />
+                                        Salvo
+                                    </>
+                                ) : (
+                                    <>
+                                        <X size={13} aria-hidden />
+                                        Erro ao salvar
+                                    </>
+                                )}
+                            </span>
+                        ) : null}
+                    </div>
                     <div className="student-profile-hd__badges">
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, effectivePaymentStatus)}
@@ -2761,8 +2970,7 @@ export default function StudentProfile() {
                             {terms.belt.toLowerCase()} do aluno.
                         </StatusBanner>
                     ) : null}
-                    {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
-                    {renderStudentDiscountSection()}
+                    {renderStudentDataFieldList()}
                 </div>
 
                 <StudentPayerAliasesSection
@@ -2883,15 +3091,17 @@ export default function StudentProfile() {
                 {renderDangerZoneSection()}
             </div>
 
-            <div className={`profile-panel-footer${timelineOpen ? ' profile-panel-footer--expanded' : ''}`}>
-                <button
-                    type="button"
-                    className="profile-panel-toggle-btn"
-                    onClick={() => setTimelineOpen((o) => !o)}
-                >
-                    {timelineOpen ? <>← Voltar ao perfil</> : <>Abrir detalhes →</>}
-                </button>
-            </div>
+            {!timelineOpen ? (
+                <div className="profile-panel-footer">
+                    <button
+                        type="button"
+                        className="profile-panel-toggle-btn"
+                        onClick={() => setTimelineOpen(true)}
+                    >
+                        Abrir detalhes →
+                    </button>
+                </div>
+            ) : null}
         </div>
     );
 

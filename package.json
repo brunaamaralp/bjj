@@ -75,6 +75,7 @@
     "cron:generate-slots": "node --env-file=.env scripts/_run-generate-slots.mjs",
     "backfill:class-slots": "node --env-file=.env --env-file=.env.local scripts/backfill-class-slots.mjs",
     "migrate:academy-turmas-to-classes": "node --env-file=.env scripts/migrate-academy-turmas-to-classes.mjs",
+    "merge:academy-turmas": "node --env-file=.env.local scripts/merge-academy-turmas.mjs",
     "cleanup:contract-templates-dup": "node --env-file=.env scripts/cleanup-duplicate-contract-templates.mjs",
     "cleanup:product-parents-dup": "node --env-file=.env scripts/cleanup-duplicate-product-parents.mjs",
     "cleanup:product-parents-dup:apply": "node --env-file=.env scripts/cleanup-duplicate-product-parents.mjs --apply",
