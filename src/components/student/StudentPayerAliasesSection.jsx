@@ -1,135 +1,143 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, UserPlus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
 import {
   appendPayerAlias,
   PAYER_ALIAS_MAX,
   titleCasePayerName,
 } from '../../lib/studentPayerAliases.js';
 
-const SOURCE_LABELS = {
-  manual: 'Manual',
-  learned: 'Aprendido',
-  from_responsavel: 'Responsável',
-};
+function sourceHint(source) {
+  if (source === 'learned') return 'Aprendido na conciliação bancária';
+  if (source === 'from_responsavel') return 'Adicionado a partir do responsável';
+  return null;
+}
 
 export default function StudentPayerAliasesSection({
   aliases = [],
   responsavel = '',
   onChange,
+  onPersist,
+  deferred = false,
   disabled = false,
-  max = PAYER_ALIAS_MAX,
+  saving = false,
 }) {
+  const toast = useToast();
   const [draft, setDraft] = useState('');
 
-  const addAlias = (display, source = 'manual') => {
+  const applyAliases = async (next) => {
+    onChange?.(next);
+    if (!deferred && onPersist) {
+      try {
+        await onPersist(next);
+      } catch {
+        /* toast handled by caller */
+      }
+    }
+  };
+
+  const addAlias = async (display, source = 'manual') => {
     const result = appendPayerAlias(aliases, { display, source });
-    if (result.error === 'limit_reached') return;
-    if (result.added || result.updated) onChange?.(result.aliases);
-    setDraft('');
+    if (result.error === 'limit_reached') {
+      toast.show({ type: 'warning', message: `Limite de ${PAYER_ALIAS_MAX} pagadores atingido.` });
+      return;
+    }
+    if (result.added || result.updated) {
+      await applyAliases(result.aliases);
+      setDraft('');
+    }
   };
 
-  const removeAlias = (normalized) => {
-    onChange?.(aliases.filter((a) => a.normalized !== normalized));
+  const removeAlias = async (normalized) => {
+    const next = aliases.filter((a) => a.normalized !== normalized);
+    await applyAliases(next);
   };
 
-  const useResponsavel = () => {
+  const useResponsavel = async () => {
     const name = String(responsavel || '').trim();
     if (!name) return;
-    addAlias(name, 'from_responsavel');
+    await addAlias(name, 'from_responsavel');
   };
 
-  return (
-    <div style={{ marginBottom: 22 }}>
-      <h3 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
-        Quem costuma pagar
-      </h3>
-      <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
-        Nomes que aparecem no extrato bancário (PIX, TED etc.) e ajudam a conciliar mensalidades. O
-        responsável cadastral pode ser outra pessoa.
-      </p>
+  const canEdit = !disabled && !saving;
+  const atLimit = aliases.length >= PAYER_ALIAS_MAX;
 
-      {aliases.length > 0 ? (
-        <ul className="student-payer-aliases-list" style={{ listStyle: 'none', margin: '0 0 12px', padding: 0 }}>
-          {aliases.map((alias) => (
-            <li
-              key={alias.normalized}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10,
-                padding: '8px 0',
-                borderBottom: '0.5px solid var(--border-light)',
+  return (
+    <div className="profile-inline-field profile-inline-field--row student-payer-field">
+      <span className="profile-inline-field__label">Quem paga (extrato)</span>
+      <div className="profile-inline-field__body">
+        {aliases.length > 0 ? (
+          <div className="student-payer-chips" role="list" aria-label="Pagadores cadastrados">
+            {aliases.map((alias) => {
+              const hint = sourceHint(alias.source);
+              return (
+                <span
+                  key={alias.normalized}
+                  className="student-payer-chip"
+                  role="listitem"
+                  title={hint || undefined}
+                >
+                  <span className="student-payer-chip__label">{alias.display}</span>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="student-payer-chip__remove"
+                      aria-label={`Remover ${alias.display}`}
+                      onClick={() => void removeAlias(alias.normalized)}
+                    >
+                      <X size={12} aria-hidden />
+                    </button>
+                  ) : null}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="student-payer-field__empty text-small text-muted">Nenhum pagador cadastrado</p>
+        )}
+
+        {canEdit ? (
+          <div className="student-payer-field__add">
+            <input
+              type="text"
+              className="student-payer-field__input"
+              placeholder="Nome como aparece no PIX"
+              value={draft}
+              maxLength={128}
+              disabled={atLimit}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const v = titleCasePayerName(draft);
+                  if (v) void addAlias(v, 'manual');
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn-outline btn-sm student-payer-field__add-btn"
+              disabled={!String(draft || '').trim() || atLimit}
+              onClick={() => {
+                const v = titleCasePayerName(draft);
+                if (v) void addAlias(v, 'manual');
               }}
             >
-              <div>
-                <span style={{ fontSize: 13, color: 'var(--text)' }}>{alias.display}</span>
-                <span className="text-xs text-muted" style={{ marginLeft: 8 }}>
-                  {SOURCE_LABELS[alias.source] || alias.source}
-                </span>
-              </div>
-              {!disabled ? (
-                <button
-                  type="button"
-                  className="btn-icon btn-icon--ghost"
-                  aria-label={`Remover ${alias.display}`}
-                  onClick={() => removeAlias(alias.normalized)}
-                >
-                  <Trash2 size={15} />
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-small text-muted" style={{ margin: '0 0 12px' }}>
-          Nenhum pagador cadastrado ainda.
-        </p>
-      )}
-
-      {!disabled ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <input
-            type="text"
-            className="student-profile-data-input"
-            placeholder="Nome como aparece no extrato"
-            value={draft}
-            maxLength={128}
-            disabled={aliases.length >= max}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                const v = titleCasePayerName(draft);
-                if (v) addAlias(v, 'manual');
-              }
-            }}
-            style={{ flex: '1 1 180px', minHeight: 40 }}
-          />
-          <button
-            type="button"
-            className="btn-outline btn-sm"
-            disabled={!String(draft || '').trim() || aliases.length >= max}
-            onClick={() => {
-              const v = titleCasePayerName(draft);
-              if (v) addAlias(v, 'manual');
-            }}
-          >
-            <Plus size={14} /> Adicionar
-          </button>
-          {responsavel ? (
-            <button type="button" className="btn-outline btn-sm" onClick={useResponsavel}>
-              <UserPlus size={14} /> Usar responsável
+              <Plus size={14} aria-hidden />
+              Adicionar
             </button>
-          ) : null}
-        </div>
-      ) : null}
+            {responsavel ? (
+              <button type="button" className="btn-outline btn-sm" onClick={() => void useResponsavel()}>
+                Usar responsável
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-      {!disabled && aliases.length >= max ? (
-        <p className="text-xs text-muted" style={{ marginTop: 8 }}>
-          Limite de {max} pagadores atingido.
+        <p className="student-payer-field__hint text-xs text-muted">
+          Nomes que aparecem no PIX ou TED ao pagar a mensalidade. O responsável pode ser outra pessoa.
         </p>
-      ) : null}
+      </div>
     </div>
   );
 }

@@ -56,7 +56,7 @@ import {
 } from '../lib/pipelineStagesStorage.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
-import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
+import { computeFollowupState, isFollowUpLead, buildActiveStudentIdSet, filterFollowupLeadCandidates } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
@@ -2234,17 +2234,17 @@ const Pipeline = () => {
         applyBoardSearchFilter,
     ]);
 
+    const enrolledStudentIds = useMemo(() => buildActiveStudentIdSet(students), [students]);
+
     const leadsForBoardPreCooling = useMemo(() => {
         let list = leadsForBoardCore;
 
         if (followupKanbanFilter) {
-            list = list.filter(
-                (l) => l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED
-            );
+            list = filterFollowupLeadCandidates(list, { enrolledStudentIds });
         }
 
         return list;
-    }, [leadsForBoardCore, followupKanbanFilter]);
+    }, [leadsForBoardCore, followupKanbanFilter, enrolledStudentIds]);
 
     const {
         followupDoneByLead,
@@ -2268,7 +2268,7 @@ const Pipeline = () => {
         };
         const map = {};
         for (const lead of leadsForBoardPreCooling) {
-            if (!isFollowUpLead(lead)) continue;
+            if (!isFollowUpLead(lead, { enrolledStudentIds })) continue;
             const state = computeFollowupState(lead, ctx);
             if (state.doneForCurrentClass || state.isSnoozed) continue;
             if (state.temperature !== 'on_track') map[lead.id] = state.temperature;
@@ -2282,6 +2282,7 @@ const Pipeline = () => {
         followupSnoozeUntilByLead,
         inboundAfterByLead,
         inboundAfterByPhone,
+        enrolledStudentIds,
     ]);
 
     const leadsForBoard = leadsForBoardPreCooling;

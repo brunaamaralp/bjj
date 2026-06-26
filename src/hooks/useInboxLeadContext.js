@@ -1,12 +1,14 @@
 import { useCallback, useMemo } from 'react';
 import { useToast } from './useToast';
 import { useFollowupOutcome } from './useFollowupOutcome.js';
+import { useStudentStore } from '../store/useStudentStore.js';
 import { isLeadPendingTriage, LEAD_TRIAGE_STATUS } from '../lib/leadTriage.js';
 import { buildTriageConfirmClientPatch } from '../../lib/agentClassificationFields.js';
 import {
   computeFollowupState,
   describePlaybookStep,
   isFollowUpLead,
+  buildActiveStudentIdSet,
 } from '../lib/followupState.js';
 
 /**
@@ -34,6 +36,8 @@ export function useInboxLeadContext({
   setDismissTriageLead,
 }) {
   const toast = useToast();
+  const students = useStudentStore((s) => s.students);
+  const enrolledStudentIds = useMemo(() => buildActiveStudentIdSet(students), [students]);
 
   const leadCandidates = useMemo(() => {
     const q = String(leadSearch || '').trim().toLowerCase();
@@ -65,7 +69,7 @@ export function useInboxLeadContext({
     !activeContactLead;
 
   const activeFollowupState = useMemo(() => {
-    if (!activeContactLead || !isFollowUpLead(activeContactLead)) return null;
+    if (!activeContactLead || !isFollowUpLead(activeContactLead, { enrolledStudentIds })) return null;
     const state = computeFollowupState(activeContactLead, {
       playbook: followupPlaybook,
       followupDoneByLead,
@@ -81,6 +85,7 @@ export function useInboxLeadContext({
     };
   }, [
     activeContactLead,
+    enrolledStudentIds,
     followupPlaybook,
     followupDoneByLead,
     followupContactByLead,

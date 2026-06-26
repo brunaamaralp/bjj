@@ -121,8 +121,14 @@ import {
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
+import ControlIdSyncBadge from '../components/student/ControlIdSyncBadge.jsx';
 import StudentPortalInvitePanel from '../components/student/StudentPortalInvitePanel.jsx';
 import StudentPayerAliasesSection from '../components/student/StudentPayerAliasesSection.jsx';
+import {
+    aliasExists,
+    appendPayerAlias,
+    normalizePayerName,
+} from '../lib/studentPayerAliases.js';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
 import {
@@ -270,7 +276,7 @@ const STUDENT_DATA_FIELDS = [
         placeholder: 'nome@email.com',
     },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-    { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
+    { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável', minorOnly: true },
     {
         key: 'emailResponsavel',
         label: 'E-mail do responsável',
@@ -278,7 +284,7 @@ const STUDENT_DATA_FIELDS = [
         placeholder: 'responsavel@email.com',
         minorOnly: true,
     },
-    { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00' },
+    { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00', minorOnly: true },
 ];
 
 const EMERGENCY_FIELDS = [
@@ -448,6 +454,7 @@ export default function StudentProfile() {
     const discountSaveTimerRef = useRef(null);
     const pendingDiscountTypeRef = useRef(null);
     const [payerAliases, setPayerAliases] = useState([]);
+    const [responsavelPayerPrompt, setResponsavelPayerPrompt] = useState(null);
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
     const [paidAtDivergenceConfirm, setPaidAtDivergenceConfirm] = useState(null);
@@ -456,7 +463,7 @@ export default function StudentProfile() {
     const [timelineOpen, setTimelineOpen] = useState(readInitialTimelineOpen);
     const [activeTab, setActiveTab] = useState('frequency');
     const profileBundleRef = useRef(null);
-    const controlIdCfg = useAcademyControlId(academyId, { fetch: activeTab === 'frequency' });
+    const controlIdCfg = useAcademyControlId(academyId, { fetch: true });
     const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
         statusPollWhileMounted: true,
         watchAcademyStatus: true,
@@ -518,6 +525,62 @@ export default function StudentProfile() {
     const canEditProfile = useCanEditProfile(academyDocForRole);
     const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
+
+    const isStudentMinor = useMemo(() => {
+        const profileType = editingData ? dataForm.type : (student?.type || 'Adulto');
+        return profileType === 'Criança' || profileType === 'Juniores';
+    }, [student?.type, editingData, dataForm.type]);
+
+    const showPayerAliasesSection = useMemo(() => {
+        if (modules?.finance !== true) return false;
+        if (payerAliases.length > 0) return true;
+        return isStudentMinor;
+    }, [modules?.finance, payerAliases.length, isStudentMinor]);
+
+    const persistPayerAliases = useCallback(
+        async (nextAliases) => {
+            setPayerAliases(nextAliases);
+            try {
+                await updateStudent(leadId, { payerAliases: nextAliases });
+            } catch (e) {
+                setPayerAliases(Array.isArray(student?.payerAliases) ? student.payerAliases : []);
+                toast.error(e, 'save');
+                throw e;
+            }
+        },
+        [leadId, updateStudent, student?.payerAliases, toast]
+    );
+
+    const maybePromptPayerFromResponsavel = useCallback(
+        (nameRaw) => {
+            if (!isStudentMinor || !canEditProfile) return;
+            const name = String(nameRaw || '').trim();
+            if (!name) return;
+            const current = Array.isArray(student?.payerAliases) ? student.payerAliases : payerAliases;
+            if (aliasExists(current, normalizePayerName(name))) return;
+            setResponsavelPayerPrompt(name);
+        },
+        [isStudentMinor, canEditProfile, student?.payerAliases, payerAliases]
+    );
+
+    const confirmResponsavelAsPayer = useCallback(async () => {
+        const name = String(responsavelPayerPrompt || '').trim();
+        setResponsavelPayerPrompt(null);
+        if (!name) return;
+        const result = appendPayerAlias(payerAliases, { display: name, source: 'from_responsavel' });
+        if (result.error === 'limit_reached') {
+            toast.show({ type: 'warning', message: 'Limite de pagadores atingido.' });
+            return;
+        }
+        if (result.added || result.updated) {
+            if (editingData) {
+                setPayerAliases(result.aliases);
+            } else {
+                await persistPayerAliases(result.aliases);
+            }
+            toast.success('Pagador adicionado.');
+        }
+    }, [responsavelPayerPrompt, payerAliases, editingData, persistPayerAliases, toast]);
 
     const academySettingsRaw = useMemo(
         () => academySettingsDoc?.settings ?? academyDocForRole?.settings ?? null,
@@ -1261,12 +1324,13 @@ export default function StudentProfile() {
             });
             setEditingData(false);
             toast.success('Dados salvos com sucesso.');
+            maybePromptPayerFromResponsavel(dataForm.responsavel);
         } catch (e) {
             toast.error(e, 'save');
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance]);
+    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance, maybePromptPayerFromResponsavel]);
 
     const clearSaveStatusTimer = useCallback(() => {
         if (saveStatusTimerRef.current) {
@@ -1951,18 +2015,37 @@ export default function StudentProfile() {
         );
     };
 
+    const renderPayerAliasesSection = () => (
+        <StudentPayerAliasesSection
+            key="student-payer-aliases"
+            aliases={payerAliases}
+            responsavel={editingData ? dataForm.responsavel : student.responsavel}
+            onChange={setPayerAliases}
+            onPersist={persistPayerAliases}
+            deferred={editingData}
+            disabled={!canEditProfile}
+            saving={savingData}
+        />
+    );
+
     const renderStudentDataFieldList = () =>
         studentDataFields.flatMap((field) => {
             const row = editingData ? renderStudentDataEditRow(field) : renderStudentDataViewRow(field);
+            const extra = [];
             if (
                 field.key === 'plan' &&
                 isActiveStudent(student) &&
                 canViewFinance &&
                 !studentPlanIsExempt
             ) {
-                return [row, <React.Fragment key="student-discount-after-plan">{renderStudentDiscountSection()}</React.Fragment>];
+                extra.push(
+                    <React.Fragment key="student-discount-after-plan">{renderStudentDiscountSection()}</React.Fragment>
+                );
             }
-            return [row];
+            if (field.key === (isStudentMinor ? 'cpfResponsavel' : 'cpf') && showPayerAliasesSection) {
+                extra.push(renderPayerAliasesSection());
+            }
+            return [row, ...extra];
         });
 
     const displayStudentFieldValue = (key, raw) => {
@@ -2026,6 +2109,13 @@ export default function StudentProfile() {
         const editValue = studentFieldEditValue(field);
         const fieldDisabled = disabled || !canEditProfile || editingData;
         const inlineFieldKey = `${leadId}-${field.key}`;
+        const onSaveHandler =
+            field.key === 'responsavel'
+                ? async (draft) => {
+                      await saveStudentFieldInline(field.key, draft);
+                      maybePromptPayerFromResponsavel(draft);
+                  }
+                : (draft) => saveStudentFieldInline(field.key, draft);
 
         const common = {
             key: field.key,
@@ -2035,7 +2125,7 @@ export default function StudentProfile() {
             canEdit: canEditProfile && !disabled,
             editable: !fieldDisabled,
             fieldId: `student-inline-${field.key}`,
-            onSave: (draft) => saveStudentFieldInline(field.key, draft),
+            onSave: onSaveHandler,
         };
 
         if (field.type === 'sexo') {
@@ -2661,18 +2751,17 @@ export default function StudentProfile() {
 
             <div className="student-panel-left__scroll">
                 <div className="student-profile-hd">
-                    {/* Avatar com iniciais */}
-                    <div className="student-profile-hd__avatar">
-                        {studentPhotoUrl ? (
-                            <img
-                                src={studentPhotoUrl}
-                                alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <span className="student-profile-hd__initials">{studentInitials}</span>
-                        )}
-                    </div>
+                    <StudentControlIdPhoto
+                        academyId={academyId}
+                        leadId={id}
+                        photoUrl={studentPhotoUrl}
+                        initials={studentInitials}
+                        controlidSynced={student.controlid_synced}
+                        enabled={controlIdCfg.enabled}
+                        onPhotoSaved={(url) => {
+                            void updateStudent(id, { photo_url: url });
+                        }}
+                    />
                     <div className="student-profile-hd__body">
                     <div
                         style={{
@@ -2758,6 +2847,14 @@ export default function StudentProfile() {
                                     setProfileTab('contracts');
                                     setTimelineOpen(true);
                                 }}
+                            />
+                        ) : null}
+                        {controlIdCfg.enabled && student?.id ? (
+                            <ControlIdSyncBadge
+                                academyId={academyId}
+                                student={student}
+                                blockOverdueAccess={controlIdCfg.block_overdue_access}
+                                inline
                             />
                         ) : null}
                     </div>
@@ -2984,25 +3081,6 @@ export default function StudentProfile() {
                     ) : null}
                     {renderStudentDataFieldList()}
                 </div>
-
-                <StudentPayerAliasesSection
-                    aliases={payerAliases}
-                    responsavel={editingData ? dataForm.responsavel : student.responsavel}
-                    disabled={!editingData || savingData}
-                    onChange={setPayerAliases}
-                />
-
-                {controlIdCfg.enabled && (
-                    <StudentControlIdPhoto
-                        academyId={academyId}
-                        leadId={id}
-                        photoUrl={student.photo_url}
-                        controlidSynced={student.controlid_synced}
-                        onPhotoSaved={(url) => {
-                            void updateStudent(id, { photo_url: url });
-                        }}
-                    />
-                )}
 
                 <div className="profile-section-block">
                     <h3 className="profile-section-heading">Contato de emergência</h3>
@@ -3801,6 +3879,19 @@ export default function StudentProfile() {
                     void saveStudentPayment();
                 }}
                 onClose={() => !savingPayment && setPaidAtDivergenceConfirm(null)}
+            />
+            <ConfirmDialog
+                open={Boolean(responsavelPayerPrompt)}
+                title="Adicionar pagador?"
+                description={
+                    responsavelPayerPrompt
+                        ? `Adicionar "${responsavelPayerPrompt}" como nome que aparece no PIX ao pagar a mensalidade?`
+                        : ''
+                }
+                confirmLabel="Adicionar pagador"
+                confirmVariant="primary"
+                onConfirm={() => void confirmResponsavelAsPayer()}
+                onClose={() => setResponsavelPayerPrompt(null)}
             />
         </div>
     );

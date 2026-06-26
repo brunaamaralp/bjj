@@ -98,7 +98,7 @@ import '../styles/followup-shared.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
 import { buildLeadPresenceUndoPatch } from '../lib/leadPresenceActions.js';
-import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
+import { FOLLOWUP_AGENDA_MAX_DAYS, buildActiveStudentIdSet, filterFollowupLeadCandidates } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
@@ -239,13 +239,8 @@ const Dashboard = () => {
     const [savingPresence, setSavingPresence] = useState({});
     const [listModalType, setListModalType] = useState('');
     const followupLeadCandidates = useMemo(
-        () =>
-            (leads || []).filter(
-                (l) =>
-                    String(l?.origin || '').trim() !== 'Planilha' &&
-                    (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
-            ),
-        [leads]
+        () => filterFollowupLeadCandidates(leads, { enrolledStudentIds: buildActiveStudentIdSet(students) }),
+        [leads, students]
     );
     const {
         followupDoneByLead: followupDoneAtByLead,

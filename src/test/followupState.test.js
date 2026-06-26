@@ -7,6 +7,9 @@ import {
   sortFollowupsByTemperature,
   groupFollowUpsByTemperature,
   getFollowupDaysAgo,
+  isFollowUpLead,
+  filterFollowupLeadCandidates,
+  buildActiveStudentIdSet,
 } from '../lib/followupState.js';
 import { computeFallbackTemperature } from '../lib/followupTemperature.js';
 
@@ -122,5 +125,29 @@ describe('validateFollowupPlaybook', () => {
       missed: [],
     });
     expect(errors.some((e) => /prazo diferente/i.test(e))).toBe(true);
+  });
+});
+
+describe('isFollowUpLead enrollment exclusion', () => {
+  it('exclui lead já matriculado na coleção students', () => {
+    const lead = { id: 'l1', status: LEAD_STATUS.COMPLETED, scheduledDate: '2026-06-08' };
+    const enrolledStudentIds = buildActiveStudentIdSet([
+      { id: 'l1', status: 'Matriculado', studentStatus: 'active' },
+    ]);
+    expect(isFollowUpLead(lead, { enrolledStudentIds })).toBe(false);
+    expect(filterFollowupLeadCandidates([lead], { enrolledStudentIds })).toEqual([]);
+  });
+
+  it('mantém lead em follow-up quando não há aluno com o mesmo id', () => {
+    const lead = { id: 'l2', status: LEAD_STATUS.COMPLETED, scheduledDate: '2026-06-08' };
+    const enrolledStudentIds = buildActiveStudentIdSet([
+      { id: 'other', status: 'Matriculado', studentStatus: 'active' },
+    ]);
+    expect(isFollowUpLead(lead, { enrolledStudentIds })).toBe(true);
+  });
+
+  it('exclui lead com status Matriculado ou contact_type student', () => {
+    expect(isFollowUpLead({ id: 'l3', status: LEAD_STATUS.CONVERTED })).toBe(false);
+    expect(isFollowUpLead({ id: 'l4', status: LEAD_STATUS.COMPLETED, contact_type: 'student' })).toBe(false);
   });
 });
