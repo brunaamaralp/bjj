@@ -90,11 +90,10 @@ export function inboxMediaCaption(content) {
   return c;
 }
 
+import { buildWaMeUrl } from './whatsappLinks.js';
+
 export function buildWhatsAppChatUrl(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return '';
-  const n = digits.startsWith('55') ? digits : `55${digits}`;
-  return `https://wa.me/${n}`;
+  return buildWaMeUrl(phone);
 }
 
 export function openExternalUrl(url) {

@@ -82,10 +82,6 @@ vi.mock('../lib/ensureAllStudentsLoaded.js', () => ({
   ensureAllStudentsLoaded: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('../lib/paymentStatus', () => ({
-  resolveGridDisplayStatus: () => ({ key: 'none' }),
-}));
-
 vi.mock('../components/finance/MonthlyPaymentGrid.jsx', () => ({
   default: () => <div data-testid="mensal-grid-view" />,
 }));

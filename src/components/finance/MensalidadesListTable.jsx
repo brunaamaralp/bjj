@@ -18,11 +18,16 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { dueDateInMonth, getPaymentRowStatus, studentDueDay } from '../../lib/collectionOverdue.js';
+import {
+  formatMensalidadesListValor,
+  resolveMensalidadesListValor,
+} from '../../lib/paymentStatus.js';
 import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import { effectiveStudentPlan } from '../../lib/financeStudentRoster.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import MensalidadesWhatsappLink from './MensalidadesWhatsappLink.jsx';
 
 function StatusBadge({ variant, children }) {
   const icons = {
@@ -80,6 +85,8 @@ export default function MensalidadesListTable({
   canReverse = true,
   linkStudentProfile = false,
   navRole = 'member',
+  financeConfig = null,
+  studentOverdueMeta = {},
 }) {
   const reverseBlocked = !canReverse;
   const reverseBlockedTitle = 'Apenas gestores podem estornar pagamentos.';
@@ -219,9 +226,12 @@ export default function MensalidadesListTable({
       }
     }
 
-    const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
-    const hasValor = !isExempt && amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
-    const valorCell = isExempt ? 'Isento' : hasValor ? fmtMoney(amountNum) : '—';
+    const valorResolved = resolveMensalidadesListValor(student, payment, statusKey, financeConfig);
+    const valorCell = formatMensalidadesListValor(valorResolved, fmtMoney);
+    const hasValor =
+      valorResolved.kind === 'money' ||
+      valorResolved.kind === 'partial' ||
+      valorResolved.kind === 'label';
 
     const prefM = student.preferredPaymentMethod;
     const prefA = student.preferredPaymentAccount;
@@ -281,6 +291,8 @@ export default function MensalidadesListTable({
 
     const displayName = String(student.name || '').trim() || '—';
     const canRegister = !studentFrozen && !isPaid && !isExempt;
+    const overdueMeta = studentOverdueMeta?.[student.id];
+    const showWhatsapp = Boolean(overdueMeta);
 
     return (
       <tr key={student.id} className={rowClass} title={isPaid ? paidTooltip : undefined}>
@@ -333,7 +345,14 @@ export default function MensalidadesListTable({
               </button>
             </div>
           ) : isActiveAttention ? (
-            <div className="mensal-action-attention">
+            <div className="mensal-action-attention mensal-cell-action__group">
+              {showWhatsapp ? (
+                <MensalidadesWhatsappLink
+                  phone={student.phone}
+                  studentName={displayName}
+                  stage={overdueMeta?.stage}
+                />
+              ) : null}
               <button
                 type="button"
                 className="mensal-btn-pay mensal-btn-pay--compact"
@@ -343,7 +362,14 @@ export default function MensalidadesListTable({
               </button>
             </div>
           ) : (
-            <div className="mensal-action-pay-wrap">
+            <div className="mensal-action-pay-wrap mensal-cell-action__group">
+              {showWhatsapp ? (
+                <MensalidadesWhatsappLink
+                  phone={student.phone}
+                  studentName={displayName}
+                  stage={overdueMeta?.stage}
+                />
+              ) : null}
               <button
                 type="button"
                 className="mensal-btn-pay mensal-btn-pay--compact"
@@ -404,6 +430,8 @@ export default function MensalidadesListTable({
     const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' || isExempt ? 'none' : 'default';
     const displayName = String(student.name || '').trim() || '—';
     const canRegister = !studentFrozen && !isPaid && !isExempt;
+    const overdueMeta = studentOverdueMeta?.[student.id];
+    const showWhatsapp = Boolean(overdueMeta);
     const paidTooltip =
       isPaid && payment
         ? `Pago · ${METHOD_LABELS[payment.method] || payment.method} · ${fmtMoney(payment.amount)}${
@@ -417,6 +445,10 @@ export default function MensalidadesListTable({
     if (dueDate && !Number.isNaN(dueDate.getTime())) {
       vencLabel = formatDdMm(dueDate);
     }
+    const mobileValor = formatMensalidadesListValor(
+      resolveMensalidadesListValor(student, payment, statusKey, financeConfig),
+      fmtMoney
+    );
 
     return (
       <article key={student.id} className={`mensal-mobile-card mensal-mobile-card--${rowTone}`}>
@@ -429,6 +461,7 @@ export default function MensalidadesListTable({
             })}
             <div className="mensal-mobile-card__meta">
               {effectiveStudentPlan(student, payment) || '—'} · {vencLabel}
+              {mobileValor !== '—' ? ` · ${mobileValor}` : ''}
             </div>
             <div className="mensal-mobile-card__platform">
               {prefM ? (
@@ -444,7 +477,14 @@ export default function MensalidadesListTable({
           <StatusBadge variant={badgeVariant}>{badgeLabel}</StatusBadge>
         </div>
         {!studentFrozen && !isExempt ? (
-          <div className="mensal-mobile-card__actions">
+          <div className="mensal-mobile-card__actions mensal-cell-action__group">
+            {showWhatsapp ? (
+              <MensalidadesWhatsappLink
+                phone={student.phone}
+                studentName={displayName}
+                stage={overdueMeta?.stage}
+              />
+            ) : null}
             {isPaid && payment ? (
               <button
                 type="button"
