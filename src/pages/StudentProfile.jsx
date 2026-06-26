@@ -533,9 +533,8 @@ export default function StudentProfile() {
 
     const showPayerAliasesSection = useMemo(() => {
         if (modules?.finance !== true) return false;
-        if (payerAliases.length > 0) return true;
         return isStudentMinor;
-    }, [modules?.finance, payerAliases.length, isStudentMinor]);
+    }, [modules?.finance, isStudentMinor]);
 
     const persistPayerAliases = useCallback(
         async (nextAliases) => {

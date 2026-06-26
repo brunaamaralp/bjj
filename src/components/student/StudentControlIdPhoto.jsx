@@ -143,8 +143,8 @@ export default function StudentControlIdPhoto({
       type="button"
       className="student-profile-hd__avatar student-profile-hd__avatar--interactive"
       onClick={() => setModalOpen(true)}
-      aria-label={trimmedPhoto ? 'Alterar foto para catraca' : 'Enviar foto para catraca'}
-      title="Foto para catraca"
+      aria-label={trimmedPhoto ? 'Alterar foto do perfil' : 'Enviar foto do perfil'}
+      title="Foto do perfil"
     >
       {avatarContent}
       <span className="student-profile-hd__avatar-overlay" aria-hidden>
@@ -162,7 +162,7 @@ export default function StudentControlIdPhoto({
       {interactive ? (
         <ModalShell
           open={modalOpen}
-          title="Foto para catraca"
+          title="Foto do perfil"
           onClose={() => {
             if (!uploading) setModalOpen(false);
           }}
