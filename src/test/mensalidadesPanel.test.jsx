@@ -78,6 +78,10 @@ vi.mock('../lib/prefetchFinanceConfig.js', () => ({
   loadMergedFinanceConfigForAcademy: panelMocks.loadMergedFinanceConfigForAcademy,
 }));
 
+vi.mock('../lib/ensureAllStudentsLoaded.js', () => ({
+  ensureAllStudentsLoaded: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('../lib/paymentStatus', () => ({
   resolveGridDisplayStatus: () => ({ key: 'none' }),
 }));

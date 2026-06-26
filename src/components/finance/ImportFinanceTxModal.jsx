@@ -14,7 +14,7 @@ import { createSessionJwt } from '../../lib/appwrite';
 import { createFinanceTx, listFinanceTx } from '../../lib/financeTxApi.js';
 import { FINANCE_TX_LIST_MAX_PAGE_SIZE } from '../../lib/financeListLimits.js';
 import { apiListStudentPayments } from '../../lib/studentPaymentsApi.js';
-import { useStudentStore } from '../../store/useStudentStore.js';
+import { ensureAllStudentsLoaded } from '../../lib/ensureAllStudentsLoaded.js';
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import {
@@ -33,19 +33,6 @@ import {
   financeTxDedupKey,
 } from '../../lib/financeTxImport.js';
 const STEPS = ['Upload', 'Processando', 'Preview', 'Importando'];
-
-async function ensureAllStudentsLoaded() {
-  const store = useStudentStore.getState();
-  if (!store.students.length) {
-    await store.fetchStudents();
-  }
-  let guard = 0;
-  while (useStudentStore.getState().studentsHasMore && guard < 40) {
-    await useStudentStore.getState().fetchMoreStudents();
-    guard += 1;
-  }
-  return useStudentStore.getState().students;
-}
 
 function studentNameByIdFromStudents(students) {
   const map = {};

@@ -6,12 +6,13 @@ import {
   resolveGridDisplayStatus,
 } from './paymentStatus.js';
 import { studentDueDay } from './collectionOverdue.js';
+import {
+  matchesMensalidadesStatusFilter,
+  matchesMensalidadesStudentFilters,
+  studentTurma,
+} from './mensalidadesFilters.js';
 
-export function studentTurma(student) {
-  return String(
-    student?.turma || student?.className || student?.class_name || student?.classId || ''
-  ).trim();
-}
+export { studentTurma };
 
 export function buildMensalidadesGridRows(students, paymentMap, financeConfig, currentMonth) {
   return (students || []).map((student) => {
@@ -31,14 +32,37 @@ export function buildMensalidadesGridRows(students, paymentMap, financeConfig, c
 
 export function filterSortMensalidadesRows(
   rows,
-  { search = '', filter = 'all', turmaFilter = 'all', sortBy = 'name' } = {}
+  {
+    search = '',
+    filter = 'all',
+    turmaFilter = 'all',
+    planFilter = 'all',
+    sortBy = 'name',
+    currentMonth = '',
+    financeConfig = null,
+    studentOverdueMeta = {},
+  } = {}
 ) {
-  const q = String(search || '').trim().toLowerCase();
   const filtered = rows.filter((row) => {
-    if (filter !== 'all' && row.display.key !== filter) return false;
-    if (turmaFilter !== 'all' && studentTurma(row.student) !== turmaFilter) return false;
-    if (q && !String(row.student.name || '').toLowerCase().includes(q)) return false;
-    return true;
+    if (
+      !matchesMensalidadesStatusFilter({
+        filter,
+        statusKey: row.display?.key,
+        student: row.student,
+        payment: row.payment,
+        currentMonth,
+        financeConfig,
+        studentOverdueMeta,
+      })
+    ) {
+      return false;
+    }
+    return matchesMensalidadesStudentFilters({
+      student: row.student,
+      search,
+      turmaFilter,
+      planFilter,
+    });
   });
 
   const copy = [...filtered];

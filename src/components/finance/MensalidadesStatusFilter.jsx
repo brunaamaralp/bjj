@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import { buildReguaStageTooltip } from '../../lib/collectionRules.js';
+import { GRID_STATUS_LABELS } from '../../lib/paymentStatus.js';
 
 export default function MensalidadesStatusFilter({
   filter,
@@ -20,13 +21,15 @@ export default function MensalidadesStatusFilter({
   const primaryOptions = useMemo(
     () => [
       { id: 'all', label: 'Todos', count: filterCounts.all },
-      { id: 'paid', label: 'Pagos', count: filterCounts.paid },
-      { id: 'exempt', label: 'Isentos', count: filterCounts.exempt },
-      { id: 'awaiting', label: 'Aguardando', count: filterCounts.awaiting },
-      { id: 'partial', label: 'Parcial', count: filterCounts.partial },
-      { id: 'pending', label: 'Em atraso', count: filterCounts.pending },
-      { id: 'soon', label: 'A vencer', count: filterCounts.soon },
-      { id: 'none', label: 'Não registrado', count: filterCounts.none },
+      { id: 'paid', label: GRID_STATUS_LABELS.paid, count: filterCounts.paid },
+      { id: 'covered', label: GRID_STATUS_LABELS.covered, count: filterCounts.covered },
+      { id: 'exempt', label: GRID_STATUS_LABELS.exempt, count: filterCounts.exempt },
+      { id: 'frozen', label: GRID_STATUS_LABELS.frozen, count: filterCounts.frozen },
+      { id: 'awaiting', label: GRID_STATUS_LABELS.awaiting, count: filterCounts.awaiting },
+      { id: 'partial', label: GRID_STATUS_LABELS.partial, count: filterCounts.partial },
+      { id: 'pending', label: GRID_STATUS_LABELS.pending, count: filterCounts.pending },
+      { id: 'soon', label: GRID_STATUS_LABELS.soon, count: filterCounts.soon },
+      { id: 'none', label: GRID_STATUS_LABELS.none, count: filterCounts.none },
     ],
     [filterCounts]
   );

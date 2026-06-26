@@ -10,23 +10,12 @@ import {
 import { getBirthMonthDay } from '../lib/birthDate.js';
 import { apiFindStudentsByPhone } from '../lib/studentsApi.js';
 import { useStudentsListScrollLoadMore } from './useStudentsListScrollLoadMore.js';
-import { STUDENT_STATUS } from '../lib/studentStatus.js';
+import { didLastFetchUseSubsetFilters } from '../lib/ensureAllStudentsLoaded.js';
 
 const STALE_MS = 2 * 60 * 1000;
 
 function normalizePhone(v) {
   return String(v || '').replace(/\D/g, '');
-}
-
-function didLastFetchUseSubsetFilters(fetchOpts) {
-  return Boolean(
-    fetchOpts?.search ||
-      fetchOpts?.plan ||
-      fetchOpts?.turma ||
-      fetchOpts?.turmaEmpty ||
-      fetchOpts?.origin ||
-      fetchOpts?.studentStatus === STUDENT_STATUS.INACTIVE
-  );
 }
 
 /**

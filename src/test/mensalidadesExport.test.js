@@ -23,6 +23,23 @@ describe('mensalidadesExport', () => {
     expect(filtered[0].student.name).toBe('Bruno');
   });
 
+  it('filters rows by paid_in_month including covered', () => {
+    const paymentMapExtended = {
+      ...paymentMap,
+      2: { status: 'covered', amount: 300, reference_month: '2026-06' },
+    };
+    const rows = buildMensalidadesGridRows(students, paymentMapExtended, financeConfig, '2026-06');
+    const filtered = filterSortMensalidadesRows(rows, { filter: 'paid_in_month' });
+    expect(filtered.map((r) => r.student.name).sort()).toEqual(['Ana', 'Bruno']);
+  });
+
+  it('filters rows by plan', () => {
+    const rows = buildMensalidadesGridRows(students, paymentMap, financeConfig, '2026-06');
+    const filtered = filterSortMensalidadesRows(rows, { planFilter: 'Trimestral' });
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].student.name).toBe('Bruno');
+  });
+
   it('exports status label in CSV row', () => {
     const rows = buildMensalidadesGridRows(students, paymentMap, financeConfig, '2026-06');
     const csv = mensalidadesGridToCsvRows(rows);

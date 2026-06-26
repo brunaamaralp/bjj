@@ -84,7 +84,9 @@ export default function MonthlyPaymentGrid({
   search,
   filter,
   turmaFilter = 'all',
+  planFilter = 'all',
   sortBy = 'name',
+  studentOverdueMeta = {},
   terms,
   addToast,
   friendlyError,
@@ -129,8 +131,28 @@ export default function MonthlyPaymentGrid({
   );
 
   const sortedRows = useMemo(
-    () => filterSortMensalidadesRows(rows, { search, filter, turmaFilter, sortBy }),
-    [rows, filter, search, turmaFilter, sortBy]
+    () =>
+      filterSortMensalidadesRows(rows, {
+        search,
+        filter,
+        turmaFilter,
+        planFilter,
+        sortBy,
+        currentMonth,
+        financeConfig,
+        studentOverdueMeta,
+      }),
+    [
+      rows,
+      filter,
+      search,
+      turmaFilter,
+      planFilter,
+      sortBy,
+      currentMonth,
+      financeConfig,
+      studentOverdueMeta,
+    ]
   );
 
   const desktopTableRows = useMemo(() => {

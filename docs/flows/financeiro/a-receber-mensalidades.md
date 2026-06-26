@@ -8,7 +8,7 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-23 |
+| **última revisão** | 2026-06-25 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -40,7 +40,7 @@ flowchart TD
   sections --> mens[mensalidades]
   sections --> cobr[cobranca - régua]
   sections --> outros[outros - vendas/lançamentos]
-  mens --> filter[Filtros status / busca / turma]
+  mens --> filter[Filtros status / busca / turma / plano]
   filter --> row[Linha do aluno]
   row --> payModal[Modal registrar pagamento]
   payModal --> method{Método}
@@ -63,8 +63,8 @@ flowchart TD
 | 1 | `/financeiro?tab=a-receber` | `ReceivablesTab` | Abrir **A receber** | Hub com sub-abas: Visão geral, Mensalidades, Cobrança, Outros |
 | 2 | `&section=mensalidades` | `MensalidadesPanel` | Selecionar **Mensalidades** | Grade/lista do mês de referência |
 | 3 | Mensalidades | Seletor de mês | Trocar mês de referência | KPIs e linhas recalculam |
-| 4 | Mensalidades | `MensalidadesStatusFilter` | Filtrar (pago, pendente, atraso, exceções) | Lista filtrada |
-| 5 | Mensalidades | Busca / turma | Refinar lista | Alunos correspondentes |
+| 4 | Mensalidades | `MensalidadesStatusFilter` | Filtrar (pago, pendente, coberto, trancado, isento, atraso recepção, régua) | Lista ou resumo filtrados |
+| 5 | Mensalidades | Busca / turma / plano | Refinar lista ou resumo | Alunos correspondentes |
 | 6 | Mensalidades | Célula / ação pagar | Abrir modal de pagamento | `openPaymentModal` com aluno e mês |
 | 7 | Modal | Tipo mensalidade / pacote | Escolher categoria | Valor e regras do plano |
 | 8 | Modal | Método de pagamento | PIX, dinheiro, débito, crédito, transferência | Só formas **ativas** em `formas-recebimento` |
@@ -73,7 +73,7 @@ flowchart TD
 | 10 | Modal | Conta bancária | Selecionar conta | Preenchida pelo meio ou forma; obrigatória |
 | 11 | Modal | Confirmar | Salvar pagamento | Toast sucesso; duplicata/erro API em `PaymentFormErrorBanner` |
 | 12 | Modal (sem conta) | Rodapé | Tentar confirmar | Botão desabilitado + `PaymentModalFooterHint` com link para Recebimento |
-| 13 | Mensalidades | Exportar CSV | Download planilha | Arquivo gerado (`exportMensalidadesGridCsv`) |
+| 13 | Mensalidades | Exportar CSV | Download planilha (Lista ou Resumo) | Arquivo gerado (`exportMensalidadesGridCsv`) |
 
 ---
 
@@ -102,24 +102,28 @@ flowchart TD
 1. [ ] Abrir `/financeiro?tab=a-receber&section=mensalidades` — painel carrega sem `ErrorBanner` persistente
 2. [ ] Sub-aba **Visão geral** mostra resumo do mês e links para detalhes
 3. [ ] Sub-aba **Mensalidades** lista alunos do mês de referência
-4. [ ] Filtro de status reduz a lista (ex.: só em atraso)
-5. [ ] Busca por nome parcial encontra aluno
-6. [ ] Abrir modal de pagamento — valor esperado pré-preenchido usa o plano líquido (`plano - desconto`) quando o aluno tiver desconto individual
-7. [ ] PIX — total sem parcelas; confirmar → toast sucesso
-8. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa do meio/conta
-8b. [ ] Cartão com 2 meios — **Recebido via** obrigatório; sem seleção → `FieldError`
-8c. [ ] Cartão com 1 meio — salva sem dropdown; `capture_method_id` no payload
-8d. [ ] Forma desativada (ex. transferência) — não aparece no grid de métodos
-9. [ ] Sem conta bancária — banner no painel + hint no rodapé do modal; botão Confirmar desabilitado; link `EMPRESA_FINANCE_ACCOUNTS_PATH` (owner/admin)
-10. [ ] Valor zero ou data inválida — `FieldError` no campo (não só toast)
-11. [ ] Dinheiro com valor recebido menor que o total — `FieldError` em valor recebido
-12. [ ] Duplicata (mesmo valor+data) — mensagem no banner do modal (`studentPaymentFriendlyError`)
-13. [ ] Após pagamento, célula do mês reflete status pago/parcial
-14. [ ] Sub-aba **Cobrança** — fila de régua (não é lista de mensalidades)
-15. [ ] Member acessando `?tab=conciliacao` — redirect para aba permitida
-16. [ ] Trocar academia — lista só alunos da academia atual
-17. [ ] Plano marcado como isento em `section=planos` faz o aluno aparecer como **Isento**, com valor `Isento`, vencimento `—` e sem CTA de cobrança
-18. [ ] Aluno isento não entra em régua, inadimplência nem nos KPIs financeiros de mensalidades
+4. [ ] Filtro de status reduz a lista (ex.: só pendente ou só atraso na recepção)
+5. [ ] Chip **Pagos no mês** inclui pagos e cobertos; dropdown **Pago** só pagos efetivos
+6. [ ] Filtros de turma e plano funcionam na grade **Lista** e na aba **Resumo**
+7. [ ] Busca por nome parcial encontra aluno
+8. [ ] Abrir modal de pagamento — valor esperado pré-preenchido usa o plano líquido (`plano - desconto`) quando o aluno tiver desconto individual
+9. [ ] PIX — total sem parcelas; confirmar → toast sucesso
+10. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa do meio/conta
+10b. [ ] Cartão com 2 meios — **Recebido via** obrigatório; sem seleção → `FieldError`
+10c. [ ] Cartão com 1 meio — salva sem dropdown; `capture_method_id` no payload
+10d. [ ] Forma desativada (ex. transferência) — não aparece no grid de métodos
+11. [ ] Sem conta bancária — banner no painel + hint no rodapé do modal; botão Confirmar desabilitado; link `EMPRESA_FINANCE_ACCOUNTS_PATH` (owner/admin)
+12. [ ] Valor zero ou data inválida — `FieldError` no campo (não só toast)
+13. [ ] Dinheiro com valor recebido menor que o total — `FieldError` em valor recebido
+14. [ ] Duplicata (mesmo valor+data) — mensagem no banner do modal (`studentPaymentFriendlyError`)
+15. [ ] Após pagamento, célula do mês reflete status pago/parcial
+16. [ ] Sub-aba **Cobrança** — fila de régua (não é lista de mensalidades)
+17. [ ] Member acessando `?tab=conciliacao` — redirect para aba permitida
+18. [ ] Trocar academia — lista só alunos da academia atual
+19. [ ] Plano marcado como isento em `section=planos` faz o aluno aparecer como **Isento**, com valor `Isento`, vencimento `—` e sem CTA de cobrança
+20. [ ] Aluno isento não entra em régua, inadimplência nem nos KPIs financeiros de mensalidades
+21. [ ] Deep link `?filtro=` (ex. `overdue`, `paid_in_month`, `covered`) aplica filtro ao abrir Mensalidades
+22. [ ] Grade carrega todos os alunos ativos (não só primeira página do store)
 
 ### Estados de erro conhecidos
 
@@ -175,7 +179,7 @@ flowchart TD
 - **Sidebar:** Financeiro → A receber → mensalidades (`naviMenu.js`)
 - **Config formas/meios:** [config-inicial-financeiro.md](config-inicial-financeiro.md) → `section=formas-recebimento`
 - **Perfil do aluno:** registrar pagamento em [`crm/aluno-perfil-presenca.md`](../crm/aluno-perfil-presenca.md)
-- **Deep link:** `?student=` / NL prefill (`NL_PAYMENT_PREFILL_EVENT`)
+- **Deep link:** `?filtro=` (`paid`, `paid_in_month`, `pending`, `overdue`, `covered`, `frozen`, `regua_*`, etc.) · `?student=` / NL prefill (`NL_PAYMENT_PREFILL_EVENT`)
 - **Exceções:** view dedicada em `PaymentExceptionsView` dentro do painel
 - **Rotas legadas:** `/caixa`, `/mensalidades` → redirect para hub canônico
 
@@ -185,6 +189,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-25 | — | Filtros unificados (status/turma/plano em Lista e Resumo), `paid_in_month`, coberto/trancado, paginação completa de alunos, export em ambas as views |
 | 2026-06-23 | — | Mensalidades e projeções passam a usar `students.discount_amount` no valor esperado |
 | 2026-06-15 | — | Criação Fase 2A |
 | 2026-06-16 | — | Auditoria salvamento: `FieldError`, banners, rodapé modal, matriz em VALIDATION.md |

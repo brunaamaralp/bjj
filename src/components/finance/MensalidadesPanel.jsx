@@ -50,6 +50,7 @@ import { DateInput } from '../DateInput';
 import { useTerms } from '../../lib/terminology.js';
 import { isActiveStudent } from '../../lib/studentStatus.js';
 import { useStudentStore } from '../../store/useStudentStore';
+import { ensureAllStudentsLoaded } from '../../lib/ensureAllStudentsLoaded.js';
 import {
   resolveCollectionStage,
   readCollectionSettingsFromFinanceConfig,
@@ -84,6 +85,12 @@ import {
   filterSortMensalidadesRows,
   exportMensalidadesGridCsv,
 } from '../../lib/mensalidadesExport.js';
+import {
+  buildMensalidadesFilterCounts,
+  matchesMensalidadesStatusFilter,
+  matchesMensalidadesStudentFilters,
+  parseMensalidadesFiltroParam,
+} from '../../lib/mensalidadesFilters.js';
 import {
   buildExceptionStatusFilterOptions,
   listExceptionRows,
@@ -234,6 +241,7 @@ export default function MensalidadesPanel({
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(false);
+  const [studentsBootstrapDone, setStudentsBootstrapDone] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 200);
@@ -242,13 +250,7 @@ export default function MensalidadesPanel({
     const q = searchParams.get('search');
     setSearch(q || '');
     const filtroParam = searchParams.get('filtro') || searchParams.get('filter');
-    const map = {
-      pending: 'pending',
-      overdue: 'overdue',
-      paid: 'paid',
-      soon: 'soon',
-    };
-    setFilter(map[filtroParam] || 'all');
+    setFilter(parseMensalidadesFiltroParam(filtroParam));
   }, [searchParams]);
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -264,7 +266,8 @@ export default function MensalidadesPanel({
   const paidAtTouchedRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [viewMode, setViewMode] = useState('list');
-  const [gridTurmaFilter, setGridTurmaFilter] = useState('all');
+  const [turmaFilter, setTurmaFilter] = useState('all');
+  const [planFilter, setPlanFilter] = useState('all');
   const [gridSortBy, setGridSortBy] = useState('name');
   const [exStatusFilter, setExStatusFilter] = useState('all');
   const [exTurmaFilter, setExTurmaFilter] = useState('all');
@@ -300,6 +303,8 @@ export default function MensalidadesPanel({
     [allStudents]
   );
 
+  const gridLoading = loading || !studentsBootstrapDone;
+
   const recarregarMes = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
@@ -326,6 +331,25 @@ export default function MensalidadesPanel({
   useEffect(() => {
     if (!academyId) return;
     void loadMergedFinanceConfigForAcademy(academyId);
+  }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId) {
+      setStudentsBootstrapDone(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    setStudentsBootstrapDone(false);
+    (async () => {
+      try {
+        await ensureAllStudentsLoaded({ signal: controller.signal });
+      } catch (err) {
+        console.warn('[MensalidadesPanel] ensureAllStudentsLoaded:', err?.message || err);
+      } finally {
+        if (!controller.signal.aborted) setStudentsBootstrapDone(true);
+      }
+    })();
+    return () => controller.abort();
   }, [academyId]);
 
   useEffect(() => {
@@ -484,24 +508,39 @@ export default function MensalidadesPanel({
   }, [students, studentOverdueMeta]);
 
   const filteredStudents = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase();
-    return students
-      .filter((s) => {
-        if (String(filter || '').startsWith('regua_')) {
-          const day = Number(String(filter).replace('regua_', ''));
-          const meta = studentOverdueMeta[s.id];
-          if (!meta || !Number.isFinite(day)) return false;
-          return Number(meta.stage?.day) === day;
-        }
-        if (filter === 'due_today' || filter === 'due_week' || filter === 'overdue') {
-          const bucket = getReceptionDueBucket(s, paymentMap[s.id], currentMonth, new Date(), financeConfig);
-          if (filter === 'overdue') return bucket === 'overdue';
-          return bucket === filter;
-        }
-        return filter === 'all' || getStatus(s) === filter;
-      })
-      .filter((s) => !q || String(s.name || '').toLowerCase().includes(q));
-  }, [students, filter, debouncedSearch, getStatus, studentOverdueMeta, paymentMap, currentMonth, financeConfig]);
+    return students.filter((s) => {
+      if (
+        !matchesMensalidadesStatusFilter({
+          filter,
+          statusKey: getStatus(s),
+          student: s,
+          payment: paymentMap[s.id],
+          currentMonth,
+          financeConfig,
+          studentOverdueMeta,
+        })
+      ) {
+        return false;
+      }
+      return matchesMensalidadesStudentFilters({
+        student: s,
+        search: debouncedSearch,
+        turmaFilter,
+        planFilter,
+      });
+    });
+  }, [
+    students,
+    filter,
+    debouncedSearch,
+    turmaFilter,
+    planFilter,
+    getStatus,
+    studentOverdueMeta,
+    paymentMap,
+    currentMonth,
+    financeConfig,
+  ]);
 
   const displayedStudents = useMemo(() => {
     if (!dueSortOrder) return filteredStudents;
@@ -549,24 +588,10 @@ export default function MensalidadesPanel({
     [sectionMode, navigate]
   );
 
-  const filterCounts = useMemo(() => {
-    const c = {
-      all: students.length,
-      paid: 0,
-      covered: 0,
-      exempt: 0,
-      awaiting: 0,
-      partial: 0,
-      pending: 0,
-      soon: 0,
-      none: 0,
-    };
-    for (const s of students) {
-      const st = getStatus(s);
-      if (c[st] != null) c[st] += 1;
-    }
-    return c;
-  }, [students, getStatus]);
+  const filterCounts = useMemo(
+    () => buildMensalidadesFilterCounts(students, getStatus),
+    [students, getStatus]
+  );
 
   const reguaFilterChips = useMemo(() => {
     const rules = (collectionRules || []).filter((r) => r.day >= 1 && r.day <= 30);
@@ -923,11 +948,20 @@ export default function MensalidadesPanel({
     }
   };
 
-  const gridTurmas = useMemo(() => {
+  const turmas = useMemo(() => {
     const set = new Set();
     for (const s of students) {
       const t = studentTurma(s);
       if (t) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [students]);
+
+  const studentPlans = useMemo(() => {
+    const set = new Set();
+    for (const s of students) {
+      const p = String(s.plan || '').trim();
+      if (p) set.add(p);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [students]);
@@ -967,7 +1001,8 @@ export default function MensalidadesPanel({
     setFilter('all');
     setSearch('');
     setDueSortOrder(null);
-    setGridTurmaFilter('all');
+    setTurmaFilter('all');
+    setPlanFilter('all');
     setGridSortBy('name');
     setExStatusFilter('all');
     setExTurmaFilter('all');
@@ -984,8 +1019,12 @@ export default function MensalidadesPanel({
       const sorted = filterSortMensalidadesRows(rows, {
         search,
         filter,
-        turmaFilter: gridTurmaFilter,
+        turmaFilter,
+        planFilter,
         sortBy: gridSortBy,
+        currentMonth,
+        financeConfig,
+        studentOverdueMeta,
       });
       const count = exportMensalidadesGridCsv(sorted, currentMonth);
       if (count === 0) {
@@ -1007,8 +1046,10 @@ export default function MensalidadesPanel({
     currentMonth,
     search,
     filter,
-    gridTurmaFilter,
+    turmaFilter,
+    planFilter,
     gridSortBy,
+    studentOverdueMeta,
     toast,
   ]);
 
@@ -1019,8 +1060,11 @@ export default function MensalidadesPanel({
 
   const hasActiveFilters = useMemo(() => {
     if (search.trim().length > 0) return true;
-    if (viewMode === 'list' && filter !== 'all') return true;
-    if (viewMode === 'grid' && (gridTurmaFilter !== 'all' || gridSortBy !== 'name')) return true;
+    if ((viewMode === 'list' || viewMode === 'grid') && filter !== 'all') return true;
+    if ((viewMode === 'list' || viewMode === 'grid') && turmaFilter !== 'all') return true;
+    if ((viewMode === 'list' || viewMode === 'grid') && planFilter !== 'all') return true;
+    if (viewMode === 'list' && dueSortOrder) return true;
+    if (viewMode === 'grid' && gridSortBy !== 'name') return true;
     if (viewMode === 'exceptions') {
       return (
         exStatusFilter !== 'all' ||
@@ -1035,7 +1079,9 @@ export default function MensalidadesPanel({
     search,
     filter,
     viewMode,
-    gridTurmaFilter,
+    turmaFilter,
+    planFilter,
+    dueSortOrder,
     gridSortBy,
     exStatusFilter,
     exTurmaFilter,
@@ -1108,7 +1154,7 @@ export default function MensalidadesPanel({
             placeholder={`Buscar ${terms.student.toLowerCase()}...`}
             aria-label={`Buscar ${terms.student.toLowerCase()}`}
           />
-          {viewMode === 'list' ? (
+          {(viewMode === 'list' || viewMode === 'grid') ? (
             <MensalidadesStatusFilter
               filter={filter}
               onFilterChange={setFilter}
@@ -1117,46 +1163,62 @@ export default function MensalidadesPanel({
               collectionRules={collectionRules}
             />
           ) : null}
-          {viewMode === 'grid' && gridTurmas.length > 0 ? (
+          {(viewMode === 'list' || viewMode === 'grid') && turmas.length > 0 ? (
             <FinanceToolbarSelect
-              id="mensal-grid-turma"
+              id="mensal-turma"
               label="Turma"
               className="finance-filters-bar__field--turma"
-              value={gridTurmaFilter}
-              onChange={(e) => setGridTurmaFilter(e.target.value)}
+              value={turmaFilter}
+              onChange={(e) => setTurmaFilter(e.target.value)}
             >
               <option value="all">Todas as turmas</option>
-              {gridTurmas.map((t) => (
+              {turmas.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
               ))}
             </FinanceToolbarSelect>
           ) : null}
+          {(viewMode === 'list' || viewMode === 'grid') && studentPlans.length > 0 ? (
+            <FinanceToolbarSelect
+              id="mensal-plano"
+              label="Plano"
+              className="finance-filters-bar__field--plano"
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="all">Todos os planos</option>
+              {studentPlans.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </FinanceToolbarSelect>
+          ) : null}
           {viewMode === 'grid' ? (
-            <>
-              <FinanceToolbarSelect
-                id="mensal-grid-sort"
-                label="Ordenar por"
-                className="finance-filters-bar__field--sort"
-                value={gridSortBy}
-                onChange={(e) => setGridSortBy(e.target.value)}
-              >
-                <option value="name">Nome</option>
-                <option value="due">Vencimento</option>
-                <option value="status">Status</option>
-                <option value="amount">Valor esperado</option>
-              </FinanceToolbarSelect>
-              <button
-                type="button"
-                className="btn-outline btn-sm navi-btn--toolbar"
-                onClick={handleExportGrid}
-                disabled={exportingGrid || loading}
-              >
-                <Download size={14} aria-hidden />
-                {exportingGrid ? 'Exportando…' : 'Exportar CSV'}
-              </button>
-            </>
+            <FinanceToolbarSelect
+              id="mensal-grid-sort"
+              label="Ordenar por"
+              className="finance-filters-bar__field--sort"
+              value={gridSortBy}
+              onChange={(e) => setGridSortBy(e.target.value)}
+            >
+              <option value="name">Nome</option>
+              <option value="due">Vencimento</option>
+              <option value="status">Status</option>
+              <option value="amount">Valor esperado</option>
+            </FinanceToolbarSelect>
+          ) : null}
+          {viewMode === 'list' || viewMode === 'grid' ? (
+            <button
+              type="button"
+              className="btn-outline btn-sm navi-btn--toolbar"
+              onClick={handleExportGrid}
+              disabled={exportingGrid || gridLoading}
+            >
+              <Download size={14} aria-hidden />
+              {exportingGrid ? 'Exportando…' : 'Exportar CSV'}
+            </button>
           ) : null}
           {viewMode === 'exceptions' ? (
             <>
@@ -1248,12 +1310,14 @@ export default function MensalidadesPanel({
           sessionUserName={sessionUserName}
           search={search}
           filter={filter}
-          turmaFilter={gridTurmaFilter}
+          turmaFilter={turmaFilter}
+          planFilter={planFilter}
           sortBy={gridSortBy}
+          studentOverdueMeta={studentOverdueMeta}
           terms={terms}
           addToast={toast.addToast}
           friendlyError={friendlyError}
-          loading={loading}
+          loading={gridLoading}
         />
       ) : null}
 
@@ -1277,14 +1341,14 @@ export default function MensalidadesPanel({
           terms={terms}
           addToast={toast.addToast}
           friendlyError={friendlyError}
-          loading={loading}
+          loading={gridLoading}
         />
       ) : null}
 
       {viewMode === 'list' ? (
       <>
       <section className="mensal-priorities-block" aria-label="Prioridades do dia">
-        {loading ? (
+        {gridLoading ? (
           <div className="mensal-priorities-strip mensal-priorities-strip--skeleton" aria-hidden>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="mensal-priorities-strip__skeleton" />
@@ -1313,13 +1377,13 @@ export default function MensalidadesPanel({
                 key: 'overdue',
                 filterKey: 'overdue',
                 count: receptionSummary.overdue,
-                label: 'Em atraso',
+                label: 'Atraso · recepção',
                 icon: AlertCircle,
                 tone: 'danger',
               },
               {
-                key: 'paid',
-                filterKey: 'paid',
+                key: 'paid_in_month',
+                filterKey: 'paid_in_month',
                 count: receptionSummary.paid,
                 label: 'Pagos no mês',
                 icon: CheckCircle2,
@@ -1357,7 +1421,7 @@ export default function MensalidadesPanel({
             })}
           </div>
         )}
-        {sectionMode && !loading ? (
+        {sectionMode && !gridLoading ? (
           <p className="mensal-cobranca-link-wrap">
             <Link
               to={buildReceivablesPath({ section: RECEIVABLES_SECTIONS.COBRANCA })}
@@ -1397,7 +1461,7 @@ export default function MensalidadesPanel({
       ) : null}
 
       <MensalidadesListTable
-        loading={loading}
+        loading={gridLoading}
         displayedStudents={displayedStudents}
         hasStudentsWithPlan={hasStudentsWithPlan}
         hasActiveFilters={hasActiveFilters}
@@ -1421,7 +1485,7 @@ export default function MensalidadesPanel({
         navRole={navRole}
       />
 
-      {!loading ? (
+      {!gridLoading ? (
         <details className="mensal-collapsible-section">
           <summary className="mensal-collapsible-section__summary">
             <span>Resumo do mês · {formatMonthTitleCapitalized(currentMonth)}</span>
