@@ -106,6 +106,8 @@ export default function MatriculaPaymentStep({
 
       <EnrollmentDiscountFields
         planPrice={pricing.planPrice}
+        planName={selectedPlanName}
+        financeConfig={financeConfig}
         discountType={discountType}
         discountAmount={discountAmount}
         onTypeChange={(nextType) => {

@@ -24,8 +24,8 @@ function StepHarness() {
     trocoAccount: '',
   });
   const [plan, setPlan] = useState('Mensal');
-  const [discountAmount, setDiscountAmount] = useState('30,00');
-  const [discountType, setDiscountType] = useState('fixed');
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountType, setDiscountType] = useState('none');
 
   return (
     <MatriculaPaymentStep
@@ -47,18 +47,15 @@ function StepHarness() {
 }
 
 describe('MatriculaPaymentStep', () => {
-  it('recalculates amount after changing discount while bundle is selected', async () => {
+  it('recalculates amount after applying promotional discount on bundle', async () => {
     const user = userEvent.setup();
     render(<StepHarness />);
 
+    await user.selectOptions(screen.getByLabelText('Condição promocional'), 'family');
     await user.click(screen.getByLabelText('Plano com cobertura (anual / pacote)'));
 
-    const discountInput = screen.getByLabelText('Desconto (R$)');
-    await user.clear(discountInput);
-    await user.type(discountInput, '40,00');
-
     await waitFor(() => {
-      expect(screen.getByLabelText('Valor (R$)')).toHaveValue('110,00');
+      expect(screen.getByLabelText('Valor (R$)')).toHaveValue('139,50');
     });
   });
 });

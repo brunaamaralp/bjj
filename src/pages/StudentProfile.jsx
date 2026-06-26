@@ -1745,6 +1745,8 @@ export default function StudentProfile() {
             return (
                 <EnrollmentDiscountFields
                     planPrice={editPlanPrice}
+                    planName={dataForm.plan}
+                    financeConfig={financeConfig}
                     discountType={dataForm.discountType}
                     discountAmount={dataForm.discountAmountInput}
                     onTypeChange={(nextType) => {

@@ -123,6 +123,8 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
           onUpdate={state.updatePlan}
           onAdd={state.addPlan}
           onRemoveRequest={state.setPendingRemovePlan}
+          discountPresets={state.financeConfig.enrollmentDiscountPresets}
+          onDiscountPresetsChange={state.setEnrollmentDiscountPresets}
         />
       ) : null}
 

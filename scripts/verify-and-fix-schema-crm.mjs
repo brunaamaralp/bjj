@@ -394,6 +394,7 @@ const LEADS_ATTRS = [
   { key: 'source', type: 'string', size: 128 },
   { key: 'contact_type', type: 'string', size: 32 },
   { key: 'type', type: 'string', size: 32 },
+  { key: 'plan', type: 'string', size: 128 },
   { key: 'assigned_to', type: 'string', size: 64 },
   { key: 'assigned_name', type: 'string', size: 128 },
   // notes removido — notas do lead ficam em lead_events (type note)
@@ -730,6 +731,7 @@ async function main() {
       { key: 'idx_leads_status', attributes: ['status'] },
       { key: 'idx_leads_pipeline_stage', attributes: ['pipeline_stage'] },
       { key: 'idx_leads_assigned_to', attributes: ['assigned_to'] },
+      { key: 'idx_leads_plan', attributes: ['plan'] },
     ],
   });
 

@@ -184,6 +184,8 @@ export default function MatriculaModal({
   const discountField = (
     <EnrollmentDiscountFields
       planPrice={selectedPlanPricing.planPrice}
+      planName={enrollmentPlan}
+      financeConfig={resolvedFinanceConfig}
       discountType={discountType}
       discountAmount={discountAmount}
       onTypeChange={(nextType) => {

@@ -21,6 +21,7 @@ import { parseCollectionRules, parseOverdueLabel } from './collectionRules.js';
 import { normalizeWhatsappRemindersConfig } from './financeWhatsappReminders.js';
 import { normalizeFinanceVendors } from './financeVendors.js';
 import { normalizeAcquirerFees, normalizeAcquirerFeePolicy } from './acquirerFees.js';
+import { normalizeEnrollmentDiscountPresets } from './enrollmentDiscountPresets.js';
 import { normalizePaymentMethodSettings } from './paymentMethodSettings.js';
 import { readCaptureMethods } from './captureMethods.js';
 
@@ -323,6 +324,10 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
   merged = {
     ...merged,
     captureMethods: readCaptureMethods(merged),
+  };
+  merged = {
+    ...merged,
+    enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(merged.enrollmentDiscountPresets),
   };
 
   return merged;

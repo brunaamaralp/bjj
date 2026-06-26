@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { planTemplateSelectValue, templatesForPurpose } from '../../../lib/contractPlanTemplates.js';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../../lib/financeiroReceivablesSections.js';
 import EmptyState from '../../shared/EmptyState.jsx';
+import FinanceSettingsDiscountPresetsSection from './FinanceSettingsDiscountPresetsSection.jsx';
 
 function formatPlanPrice(value) {
   const n = Number(value);
@@ -139,6 +140,8 @@ export default function FinanceSettingsPlansSection({
   onUpdate,
   onAdd,
   onRemoveRequest,
+  discountPresets,
+  onDiscountPresetsChange,
 }) {
   const [expandedIdx, setExpandedIdx] = useState(null);
   const plans = financeConfig.plans || [];
@@ -211,6 +214,11 @@ export default function FinanceSettingsPlansSection({
       >
         Ver em Mensalidades →
       </Link>
+
+      <FinanceSettingsDiscountPresetsSection
+        presets={discountPresets}
+        onChange={onDiscountPresetsChange}
+      />
     </div>
   );
 }

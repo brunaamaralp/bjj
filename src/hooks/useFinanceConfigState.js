@@ -36,7 +36,9 @@ import {
   mergeFinanceConfigFromAcademyDoc,
   persistAcademyFinanceConfig,
 } from '../lib/financeConfigStorage.js';
+import { DEFAULT_ENROLLMENT_DISCOUNT_PRESETS } from '../lib/enrollmentDiscountPresets.js';
 import { normalizeFinanceVendors } from '../lib/financeVendors.js';
+import { normalizeEnrollmentDiscountPresets } from '../lib/enrollmentDiscountPresets.js';
 import { defaultAcquirerFees, normalizeAcquirerFees, normalizeAcquirerFeePolicy } from '../lib/acquirerFees.js';
 import {
   formatFinanceConfigSaveError,
@@ -62,6 +64,7 @@ export const defaultFinanceConfig = () => ({
   paymentMethodSettings: {},
   plans: [],
   vendors: [],
+  enrollmentDiscountPresets: [...DEFAULT_ENROLLMENT_DISCOUNT_PRESETS],
   whatsappReminders: defaultWhatsappRemindersConfig(),
 });
 
@@ -80,6 +83,10 @@ export function digestCardFees(cardFees) {
 
 export function digestPlans(plans) {
   return JSON.stringify(plans || []);
+}
+
+export function digestDiscountPresets(presets) {
+  return JSON.stringify(normalizeEnrollmentDiscountPresets(presets));
 }
 
 export function digestVendors(vendors) {
@@ -138,6 +145,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     whatsapp: digestWhatsappReminders(defaultWhatsappRemindersConfig()),
     vendors: digestVendors([]),
     paymentMethods: digestPaymentMethodSettings(defaultFinanceConfig()),
+    presets: digestDiscountPresets(defaultFinanceConfig().enrollmentDiscountPresets),
   });
 
   const applyLoadedState = useCallback((mergedCfg, coll) => {
@@ -159,6 +167,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       whatsapp: digestWhatsappReminders(cfg.whatsappReminders),
       vendors: digestVendors(cfg.vendors),
       paymentMethods: digestPaymentMethodSettings(cfg),
+      presets: digestDiscountPresets(cfg.enrollmentDiscountPresets),
     });
   }, []);
 
@@ -325,6 +334,8 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       exceptions: digestExceptionLabels(exceptionLabels) !== savedDigests.exceptions,
       whatsapp: digestWhatsappReminders(financeConfig.whatsappReminders) !== savedDigests.whatsapp,
       vendors: digestVendors(financeConfig.vendors) !== savedDigests.vendors,
+      presets:
+        digestDiscountPresets(financeConfig.enrollmentDiscountPresets) !== savedDigests.presets,
     }),
     [financeConfig, collectionRules, overdueLabel, exceptionLabels, savedDigests]
   );
@@ -365,6 +376,9 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         mergedCfg
       ),
       vendors: normalizeFinanceVendors(mergedCfg.vendors),
+      enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(
+        mergedCfg.enrollmentDiscountPresets
+      ),
     };
     return mergedCfg;
   }, [financeConfig, collectionRules, overdueLabel, exceptionLabels]);
@@ -400,6 +414,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
         whatsapp: digestWhatsappReminders(savedCfg.whatsappReminders),
       vendors: digestVendors(savedCfg.vendors),
       paymentMethods: digestPaymentMethodSettings(savedCfg),
+      presets: digestDiscountPresets(savedCfg.enrollmentDiscountPresets),
     });
       addToast({ type: 'success', message: 'Configurações financeiras salvas.' });
       return true;
@@ -454,6 +469,13 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       arr.splice(idx, 1);
       return { ...prev, plans: arr };
     });
+  }, []);
+
+  const setEnrollmentDiscountPresets = useCallback((presets) => {
+    setFinanceConfig((prev) => ({
+      ...prev,
+      enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(presets),
+    }));
   }, []);
 
   const updateBankAccount = useCallback((idx, patch) => {
@@ -543,6 +565,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     updatePlan,
     addPlan,
     removePlan,
+    setEnrollmentDiscountPresets,
     updateBankAccount,
     addBankAccount,
     removeBankAccount,
