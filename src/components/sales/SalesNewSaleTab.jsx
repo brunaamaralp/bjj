@@ -110,6 +110,7 @@ export default function SalesNewSaleTab({
   const [receipt, setReceipt] = useState(null);
 
   const [deferredSale, setDeferredSale] = useState(false);
+  const [partialSale, setPartialSale] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [manualPaymentOpen, setManualPaymentOpen] = useState(!pdvMode);
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
@@ -313,8 +314,10 @@ export default function SalesNewSaleTab({
     () =>
       deferredSale
         ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
-        : paymentsUiValid(payments, totalFinalCents, { financeConfig }),
-    [payments, totalFinalCents, deferredSale, financeConfig]
+        : partialSale
+          ? paymentsUiValid(payments, totalFinalCents, { partial: true, financeConfig })
+          : paymentsUiValid(payments, totalFinalCents, { financeConfig }),
+    [payments, totalFinalCents, deferredSale, partialSale, financeConfig]
   );
 
   const shiftBlocksSale =
@@ -330,8 +333,9 @@ export default function SalesNewSaleTab({
         descGeralCents,
         descGeralPct,
         deferredSale,
+        partialSale,
       }),
-    [cart, alunoId, clienteNome, clienteTelefone, descGeralCents, descGeralPct, deferredSale]
+    [cart, alunoId, clienteNome, clienteTelefone, descGeralCents, descGeralPct, deferredSale, partialSale]
   );
 
   useEffect(() => {
@@ -361,6 +365,7 @@ export default function SalesNewSaleTab({
             cartLength: cart.length,
             paymentValid: paymentValid.ok,
             deferredSale,
+            partialSale,
             busy: creating,
           }),
       footerError,
@@ -372,6 +377,7 @@ export default function SalesNewSaleTab({
     shiftBlocksSale,
     totalMasked,
     deferredSale,
+    partialSale,
     localError,
     error,
     onSubmitStateChange,
@@ -412,6 +418,7 @@ export default function SalesNewSaleTab({
       clienteTelefone,
       vendaColaborador,
       deferredSale,
+      partialSale,
       dueDate,
     }),
     [
@@ -428,6 +435,7 @@ export default function SalesNewSaleTab({
       clienteTelefone,
       vendaColaborador,
       deferredSale,
+      partialSale,
       dueDate,
     ]
   );
@@ -447,6 +455,7 @@ export default function SalesNewSaleTab({
     setClienteTelefone(snap.clienteTelefone || '');
     setVendaColaborador(Boolean(snap.vendaColaborador));
     setDeferredSale(Boolean(snap.deferredSale));
+    setPartialSale(Boolean(snap.partialSale));
     setDueDate(snap.dueDate || '');
     setLocalError('');
     setReceipt(null);
@@ -872,6 +881,8 @@ export default function SalesNewSaleTab({
     } else if (!paymentValid.ok) {
       if (paymentValid.reason === 'capture_method' && paymentValid.message) {
         setLocalError(paymentValid.message);
+      } else if (partialSale) {
+        setLocalError('Informe um valor recebido agora menor que o total da venda.');
       } else {
         setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
       }
@@ -916,7 +927,8 @@ export default function SalesNewSaleTab({
       aluno_id: alunoId || null,
       pagamentos,
       deferred: deferredSale,
-      due_date: deferredSale ? dueDate : null,
+      partial: partialSale,
+      due_date: deferredSale || partialSale ? dueDate || null : null,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
       venda_colaborador: vendaColaborador,
@@ -945,7 +957,11 @@ export default function SalesNewSaleTab({
 
     addToast({
       type: 'success',
-      message: deferredSale ? 'Venda a prazo registrada' : 'Venda concluída',
+      message: deferredSale
+        ? 'Venda a prazo registrada'
+        : partialSale
+          ? 'Venda parcial registrada'
+          : 'Venda concluída',
     });
 
     const clearAfterSale = () => {
@@ -954,6 +970,7 @@ export default function SalesNewSaleTab({
       setDescGeralCents(0);
       setDescGeralPct(0);
       setDeferredSale(false);
+      setPartialSale(false);
       setDueDate('');
       setMobilePanel('catalog');
       resetSaleSession();
@@ -979,13 +996,13 @@ export default function SalesNewSaleTab({
       vendaId,
       date: dateStr,
       time: timeStr,
-      status: deferredSale ? 'pendente' : 'concluida',
+      status: deferredSale ? 'pendente' : partialSale ? 'parcial' : 'concluida',
       clientName: clientDisplayName,
       clientPhone: clientPhone.trim(),
       forma: deferredSale ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
       pagamentos,
       trocoWarnings,
-      dueDate: deferredSale ? dueDate : null,
+      dueDate: deferredSale || partialSale ? dueDate : null,
       items: cart.map((it) => ({
         display_label: it.display_label,
         quantidade: Number(it.quantidade),
@@ -1263,14 +1280,16 @@ export default function SalesNewSaleTab({
 
               {!deferredSale ? (
                 <>
-                  <SalesQuickPayBar
-                    totalCents={totalFinalCents}
-                    disabled={creating || cart.length === 0}
-                    onApply={applyQuickPay}
-                    onFocusCashReceived={focusCashReceived}
-                    compact={!pdvMode}
-                    financeConfig={financeConfig}
-                  />
+                  {!partialSale ? (
+                    <SalesQuickPayBar
+                      totalCents={totalFinalCents}
+                      disabled={creating || cart.length === 0}
+                      onApply={applyQuickPay}
+                      onFocusCashReceived={focusCashReceived}
+                      compact={!pdvMode}
+                      financeConfig={financeConfig}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     className="btn-ghost sales-manual-pay-toggle"
@@ -1279,7 +1298,7 @@ export default function SalesNewSaleTab({
                   >
                     {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
                   </button>
-                  {manualPaymentOpen ? (
+                  {manualPaymentOpen || partialSale ? (
                     <SalesPaymentBlock
                       totalCents={totalFinalCents}
                       payments={payments}
@@ -1287,7 +1306,14 @@ export default function SalesNewSaleTab({
                       disabled={creating || cart.length === 0}
                       inlineValidate
                       financeConfig={financeConfig}
+                      allowPartial={partialSale}
                     />
+                  ) : null}
+                  {partialSale ? (
+                    <div className="form-group sales-checkout__field">
+                      <label>Data para o restante (opcional)</label>
+                      <DateInputField value={dueDate} onChange={setDueDate} />
+                    </div>
                   ) : null}
                 </>
               ) : (
@@ -1307,10 +1333,29 @@ export default function SalesNewSaleTab({
                   <label className="sales-collab-toggle__label">
                     <input
                       type="checkbox"
+                      checked={partialSale}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setPartialSale(on);
+                        if (on) {
+                          setDeferredSale(false);
+                          setManualPaymentOpen(true);
+                        }
+                      }}
+                    />
+                    <span className="sales-collab-toggle__text">Receber parte agora</span>
+                  </label>
+                  <label className="sales-collab-toggle__label">
+                    <input
+                      type="checkbox"
                       checked={deferredSale}
+                      disabled={partialSale}
                       onChange={(e) => {
                         setDeferredSale(e.target.checked);
-                        if (e.target.checked) setManualPaymentOpen(false);
+                        if (e.target.checked) {
+                          setPartialSale(false);
+                          setManualPaymentOpen(false);
+                        }
                       }}
                     />
                     <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>

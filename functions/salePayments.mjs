@@ -68,18 +68,37 @@ export function sumPagamentosNet(pagamentos) {
   );
 }
 
-export function validatePagamentosAgainstTotal(pagamentos, totalVenda) {
+/**
+ * @param {Array} pagamentos
+ * @param {number} totalVenda
+ * @param {{ partial?: boolean, deferred?: boolean }} [opts]
+ */
+export function validatePagamentosAgainstTotal(pagamentos, totalVenda, opts = {}) {
   const total = roundMoney(totalVenda);
   const net = sumPagamentosNet(pagamentos);
-  if (Math.abs(net - total) > 0.009) {
-    return { ok: false, net, total };
+  const partial = opts.partial === true;
+  const deferred = opts.deferred === true;
+
+  if (!deferred && net <= 0.009) {
+    return { ok: false, net, total, reason: 'zero_payment' };
   }
+
+  if (Math.abs(net - total) <= 0.009) {
+    // integral
+  } else if (partial && net > 0.009 && net < total - 0.009) {
+    // entrada parcial
+  } else if (deferred && net <= 0.009) {
+    // venda a prazo sem pagamento na hora
+  } else {
+    return { ok: false, net, total, reason: partial ? 'partial_out_of_range' : 'total_mismatch' };
+  }
+
   for (const p of pagamentos) {
     if (p.forma === 'dinheiro' && Number(p.troco) > Number(p.valor)) {
       return { ok: false, reason: 'troco_exceeds_valor' };
     }
   }
-  return { ok: true, net, total };
+  return { ok: true, net, total, partial: partial && net < total - 0.009 };
 }
 
 export function buildFormaPagamentoResumo(pagamentos) {

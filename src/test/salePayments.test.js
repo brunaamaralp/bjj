@@ -121,4 +121,15 @@ describe('salePayments', () => {
     expect(paymentsUiValid(rows, 20000).ok).toBe(false);
     expect(netPaidCentsFromRows(rows)).toBe(10000);
   });
+
+  it('UI aceita entrada parcial com partial: true', () => {
+    const rows = [
+      { id: '1', forma: 'pix', valorCents: 5000, recebidoCents: 5000, formaTroco: 'pix' },
+    ];
+    expect(paymentsUiValid(rows, 10000, { partial: true }).ok).toBe(true);
+  });
+
+  it('validatePagamentosAgainstTotal partial rejeita zero', () => {
+    expect(validatePagamentosAgainstTotal([], 100, { partial: true }).ok).toBe(false);
+  });
 });

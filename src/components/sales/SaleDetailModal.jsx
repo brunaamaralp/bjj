@@ -17,6 +17,10 @@ import {
 import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 
+function roundMoney(n) {
+  return Math.round(Number(n || 0) * 100) / 100;
+}
+
 function SaleDetailModalContent({
   sale,
   loading,
@@ -34,23 +38,27 @@ function SaleDetailModalContent({
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
   const [liquidateError, setLiquidateError] = useState('');
 
-  const totalCents = useMemo(
-    () => Math.max(0, Math.round((Number(sale?.total) || 0) * 100)),
-    [sale]
-  );
-
-  const openLiquidatePanel = useCallback(() => {
-    setLiquidateError('');
-    setPayments([createEmptyPaymentRow(totalCents)]);
-    setLiquidateOpen(true);
-  }, [totalCents]);
-
   const statusLower = String(sale.status).toLowerCase();
   const isConcluida = statusLower === 'concluida';
   const isCancelada = statusLower === 'cancelada';
   const isPendente = statusLower === 'pendente';
+  const isParcial = statusLower === 'parcial';
+  const paidAmount = roundMoney(Number(sale.paid_amount) || 0);
+  const saleTotal = roundMoney(Number(sale.total) || 0);
+  const balanceDue = isParcial ? roundMoney(saleTotal - paidAmount) : saleTotal;
 
-  const paymentValid = paymentsUiValid(payments, totalCents);
+  const liquidateTotalCents = useMemo(
+    () => Math.max(0, Math.round((isParcial ? balanceDue : saleTotal) * 100)),
+    [isParcial, balanceDue, saleTotal]
+  );
+
+  const openLiquidatePanel = useCallback(() => {
+    setLiquidateError('');
+    setPayments([createEmptyPaymentRow(liquidateTotalCents)]);
+    setLiquidateOpen(true);
+  }, [liquidateTotalCents]);
+
+  const paymentValid = paymentsUiValid(payments, liquidateTotalCents, { financeConfig });
 
   const studentId = String(sale.student_id || sale.aluno_id || '').trim();
   const leadId = String(sale.lead_id || '').trim();
@@ -63,7 +71,11 @@ function SaleDetailModalContent({
   const handleLiquidate = async () => {
     setLiquidateError('');
     if (!paymentValid.ok) {
-      setLiquidateError('Ajuste os valores de pagamento para fechar o total da venda.');
+      setLiquidateError(
+        isParcial
+          ? 'Ajuste os valores para quitar o saldo restante.'
+          : 'Ajuste os valores de pagamento para fechar o total da venda.'
+      );
       return;
     }
     const pagamentos = serializePagamentosForApi(payments);
@@ -120,7 +132,12 @@ function SaleDetailModalContent({
                 <strong>Status:</strong>{' '}
                 <StatusBadge status={sale.status} map={SALE_STATUS_BADGE_MAP} size="sm" />
               </div>
-              {isPendente && sale.due_date ? (
+              {isParcial ? (
+                <div className="sales-detail-span-2">
+                  <strong>Pago:</strong> {formatBRL(paidAmount)} · <strong>Saldo:</strong> {formatBRL(balanceDue)}
+                </div>
+              ) : null}
+              {(isPendente || isParcial) && sale.due_date ? (
                 <div><strong>Vencimento:</strong> {String(sale.due_date).slice(0, 10).split('-').reverse().join('/')}</div>
               ) : null}
               {isCancelada && (
@@ -166,20 +183,20 @@ function SaleDetailModalContent({
               </div>
             ) : null}
 
-            {isPendente && !liquidateOpen ? (
+            {(isPendente || isParcial) && !liquidateOpen ? (
               <button
                 type="button"
                 className="btn-primary mt-4 sales-modal__full-width"
                 onClick={openLiquidatePanel}
               >
-                Registrar pagamento
+                {isParcial ? 'Receber saldo' : 'Registrar pagamento'}
               </button>
             ) : null}
 
-            {isPendente && liquidateOpen ? (
+            {(isPendente || isParcial) && liquidateOpen ? (
               <div className="sales-liquidate-panel mt-4">
                 <h4 className="navi-section-heading sales-modal__section-title">
-                  Registrar pagamento
+                  {isParcial ? 'Receber saldo' : 'Registrar pagamento'}
                 </h4>
                 {liquidateError ? (
                   <p className="sales-liquidate-panel__error" role="alert">
@@ -187,7 +204,7 @@ function SaleDetailModalContent({
                   </p>
                 ) : null}
                 <SalesPaymentBlock
-                  totalCents={totalCents}
+                  totalCents={liquidateTotalCents}
                   payments={payments}
                   onChange={setPayments}
                   disabled={creating}

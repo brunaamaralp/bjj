@@ -36,6 +36,7 @@ export default function SalesPaymentBlock({
   disabled,
   inlineValidate = false,
   financeConfig = null,
+  allowPartial = false,
 }) {
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
   const [touched, setTouched] = useState({});
@@ -54,8 +55,12 @@ export default function SalesPaymentBlock({
   }, []);
 
   const validation = useMemo(
-    () => paymentsUiValid(payments, total, { financeConfig: financeConfig || undefined }),
-    [payments, total, financeConfig]
+    () =>
+      paymentsUiValid(payments, total, {
+        financeConfig: financeConfig || undefined,
+        partial: allowPartial || undefined,
+      }),
+    [payments, total, financeConfig, allowPartial]
   );
   const netCents = useMemo(() => netPaidCentsFromRows(payments), [payments]);
   const diffCents = total - netCents;
