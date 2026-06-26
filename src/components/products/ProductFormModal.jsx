@@ -486,6 +486,11 @@ export default function ProductFormModal({
     [editVariants]
   );
   const canSaveVariants = hasVariantsToSave(editVariants, pendingDeleteIds);
+  const editWizardParentDirty =
+    useEditWizard &&
+    initialSnapshotRef.current?.mode === 'editWizard' &&
+    JSON.stringify(parentForm) !== JSON.stringify(initialSnapshotRef.current.parentForm);
+  const canSaveEditStep2 = canSaveVariants || editWizardParentDirty;
 
   const autoExpandedVariantIds = useMemo(() => {
     if (step !== 2 || !useEditWizard) return null;
@@ -526,10 +531,7 @@ export default function ProductFormModal({
       <button
         type="button"
         className="btn-outline"
-        onClick={() => {
-          setPartialSaveNotice(false);
-          onClose();
-        }}
+        onClick={requestClose}
         disabled={loading}
       >
         Fechar
@@ -618,13 +620,37 @@ export default function ProductFormModal({
 
   const goStep2 = async () => {
     if (!parentForm.nome.trim() || !resolvedCategoria()) return;
-    setParentForm((f) => ({ ...f, categoria: resolvedCategoria() }));
+    const categoria = resolvedCategoria();
+    setParentForm((f) => ({ ...f, categoria }));
 
     if (useEditWizard) {
       const parentRes = await onSave(buildParentPayload(), { isEdit: true, isParent: true, phase: 'parent' });
       if (parentRes?.ok === false) return;
+      const syncedParent = { ...parentForm, categoria };
+      initialSnapshotRef.current = {
+        ...initialSnapshotRef.current,
+        parentForm: syncedParent,
+      };
     }
     setStep(2);
+  };
+
+  const saveParentOnly = async ({ closeOnSuccess = true } = {}) => {
+    if (!parentForm.nome.trim() || !resolvedCategoria()) return;
+    const categoria = resolvedCategoria();
+    setParentForm((f) => ({ ...f, categoria }));
+    const parentRes = await onSave(buildParentPayload(), {
+      isEdit: true,
+      isParent: true,
+      phase: 'parent',
+      closeOnSuccess,
+    });
+    if (parentRes?.ok === false) return;
+    const syncedParent = { ...parentForm, categoria };
+    initialSnapshotRef.current = {
+      ...initialSnapshotRef.current,
+      parentForm: syncedParent,
+    };
   };
 
   const toggleVariantCardExpanded = (variantId) => {
@@ -733,7 +759,27 @@ export default function ProductFormModal({
       }
 
       const variantPayload = buildVariantsSavePayload(editVariants);
-      if (!variantPayload.length && !pendingDeleteIds.length) return;
+      const hasVariantChanges = variantPayload.length > 0 || pendingDeleteIds.length > 0;
+      const parentDirty = editWizardParentDirty;
+
+      if (parentDirty) {
+        const parentRes = await onSave(buildParentPayload(), {
+          isEdit: true,
+          isParent: true,
+          phase: 'parent',
+          closeOnSuccess: !hasVariantChanges,
+        });
+        if (parentRes?.ok === false) return;
+        const categoria = resolvedCategoria();
+        const syncedParent = { ...parentForm, categoria };
+        setParentForm(syncedParent);
+        initialSnapshotRef.current = {
+          ...initialSnapshotRef.current,
+          parentForm: syncedParent,
+        };
+      }
+
+      if (!hasVariantChanges) return;
 
       const result = await onSave(
         {
@@ -861,7 +907,7 @@ export default function ProductFormModal({
       const itemId = resolveLegacyEditItemId(product);
       if (itemId) payload.item_id = itemId;
     }
-    onSave(payload, { isEdit });
+    await onSave(payload, { isEdit });
   };
 
   const wideModal = (useVariantWizard || useEditWizard) && step === 2;
@@ -1213,6 +1259,16 @@ export default function ProductFormModal({
                   <button type="button" className="btn-outline" onClick={requestClose} disabled={loading}>
                     Cancelar
                   </button>
+                  {useEditWizard ? (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => void saveParentOnly({ closeOnSuccess: true })}
+                      disabled={!parentForm.nome.trim() || !resolvedCategoria() || loading || !editWizardParentDirty}
+                    >
+                      {loading ? 'Salvando…' : 'Salvar'}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="btn-secondary"
@@ -1317,7 +1373,7 @@ export default function ProductFormModal({
                     : 'Salvar alterações',
                   submitDisabled: useVariantWizard
                     ? loading || variants.length === 0 || createWizardDuplicateIndexes.size > 0
-                    : loading || !canSaveVariants,
+                    : loading || !canSaveEditStep2,
                   submitTitle: useVariantWizard && createWizardDuplicateIndexes.size > 0
                     ? 'Corrija as variantes duplicadas antes de salvar.'
                     : undefined,
