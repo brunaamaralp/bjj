@@ -41,7 +41,7 @@ import {
 } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 import { paymentStatusLabelPt, paymentTimelineBadge } from '../../lib/paymentStatus.js';
-import { paymentCaixaMeta, saleCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.js';
+import { paymentCaixaMeta, saleCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
 
 function fmtMoney(n) {
   try {

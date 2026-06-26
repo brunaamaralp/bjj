@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
-import { paymentCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.js';
+import { paymentCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
 import {
   groupStudentPaymentsForProfile,
   formatReferenceMonthLong,
