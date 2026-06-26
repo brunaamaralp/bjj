@@ -457,6 +457,61 @@
   flex: 1;
 }
 
+/* Venda de produto no perfil do aluno — modal largo + catálogo/checkout com scroll próprio */
+.navi-modal-overlay--form .navi-modal-shell.student-payment-modal--product {
+  width: min(100%, 1120px);
+  max-width: min(1120px, 96vw);
+}
+
+.navi-modal-shell.student-payment-modal--product.sales-modal {
+  max-width: min(1120px, 96vw);
+}
+
+@media (min-width: 901px) {
+  .navi-modal-shell.student-payment-modal--product .navi-modal-shell__body {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .student-payment-modal--product .student-product-sale {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .student-payment-modal--product .student-product-sale__form {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .student-payment-modal--product .student-product-sale__layout.sales-layout {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .student-payment-modal--product .sales-layout__catalog,
+  .student-payment-modal--product .sales-layout__checkout {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .student-payment-modal--product .sales-layout__checkout {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100%;
+  }
+}
+
 .sales-checkout__error {
   margin: 0;
 }
@@ -607,7 +662,7 @@
   display: grid;
   grid-template-columns: minmax(120px, 1.1fr) minmax(100px, 1fr) auto;
   gap: 8px;
-  align-items: start;
+  align-items: end;
 }
 
 .sales-payment-row__cash {
@@ -1559,7 +1614,7 @@
 .sales-payment-row.card { padding: 12px; margin-bottom: 10px; }
 .sales-payment-row__field { flex: 1; min-width: 0; }
 .sales-payment-row__field-label { display: block; margin-bottom: 4px; }
-.sales-payment-row__remove { padding: 8px; flex-shrink: 0; }
+.sales-payment-row__remove { padding: 8px; flex-shrink: 0; align-self: end; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
 .sales-payment-block__sum--ok { color: var(--color-success, var(--success)); }
 .sales-payment-block__sum--warn { color: var(--color-warning, var(--warning)); }
 .sales-payment-block__sum--danger { color: var(--color-danger, var(--danger)); }

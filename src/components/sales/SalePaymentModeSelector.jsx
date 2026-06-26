@@ -1,8 +1,13 @@
 import React from 'react';
 
-const MODES = [
+const DEFAULT_MODES = [
   { id: 'integral', label: 'Pagamento integral' },
   { id: 'partial', label: 'Receber parte agora' },
+  { id: 'deferred', label: 'Vender a prazo' },
+];
+
+export const STUDENT_SALE_PAYMENT_MODES = [
+  { id: 'integral', label: 'Pagamento integral' },
   { id: 'deferred', label: 'Vender a prazo' },
 ];
 
@@ -12,12 +17,17 @@ export function derivePaymentMode({ partialSale, deferredSale }) {
   return 'integral';
 }
 
-export default function SalePaymentModeSelector({ value, onChange, disabled }) {
+export default function SalePaymentModeSelector({
+  value,
+  onChange,
+  disabled,
+  modes = DEFAULT_MODES,
+}) {
   return (
     <div className="sales-payment-mode" role="radiogroup" aria-label="Como receber">
       <span className="sales-payment-mode__label text-xs">Como receber</span>
       <div className="sales-payment-mode__options">
-        {MODES.map((mode) => (
+        {modes.map((mode) => (
           <button
             key={mode.id}
             type="button"

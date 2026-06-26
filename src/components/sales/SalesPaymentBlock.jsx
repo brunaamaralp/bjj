@@ -243,6 +243,7 @@ export default function SalesPaymentBlock({
                     <p className="sales-field-error" role="alert">Campo obrigatório</p>
                   ) : null}
                 </div>
+                <div className="sales-payment-row__remove-wrap">
                 <button
                   type="button"
                   className="btn-ghost sales-payment-row__remove"
@@ -252,6 +253,7 @@ export default function SalesPaymentBlock({
                 >
                   <Trash2 size={16} />
                 </button>
+                </div>
               </div>
 
               {showCardDetails ? (

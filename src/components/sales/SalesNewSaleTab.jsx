@@ -32,8 +32,6 @@ import SalePaymentModeSelector, { derivePaymentMode } from './SalePaymentModeSel
 import SalesCheckoutStickyBar from './SalesCheckoutStickyBar';
 import SalesPosHints from './SalesPosHints';
 import CashShiftBanner from './CashShiftBanner';
-import Hint from '../shared/Hint.jsx';
-import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import { DateInputField } from '../DateInput';
 import useSalesPosHotkeys from '../../hooks/useSalesPosHotkeys';
 import useMatchMobile from '../../hooks/useMatchMobile';
@@ -97,7 +95,6 @@ export default function SalesNewSaleTab({
   const [clienteNome, setClienteNome] = useState('');
   const [clienteTelefone, setClienteTelefone] = useState('');
 
-  const [vendaColaborador, setVendaColaborador] = useState(false);
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
 
   const [cart, setCart] = useState([]);
@@ -118,7 +115,6 @@ export default function SalesNewSaleTab({
   const [partialSale, setPartialSale] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [manualPaymentOpen, setManualPaymentOpen] = useState(!pdvMode);
-  const [collabConfirmOpen, setCollabConfirmOpen] = useState(false);
   const [suspendedOpen, setSuspendedOpen] = useState(false);
   const [suspendedList, setSuspendedList] = useState([]);
   const [openCashShift, setOpenCashShift] = useState(null);
@@ -249,43 +245,6 @@ export default function SalesNewSaleTab({
       cancelled = true;
     };
   }, [academyId]);
-
-  useEffect(() => {
-    if (!vendaColaborador) return;
-    setCart((prev) => {
-      const warnings = [];
-      const next = prev.map((line) => {
-        const { price, warning } = suggestUnitPrice(
-          { sale_price: line.sale_price, cost_price: line.cost_price },
-          { collaborator: true }
-        );
-        if (warning) warnings.push(`${line.display_label}: ${warning}`);
-        return { ...line, preco_unitario: price != null ? price : line.preco_unitario };
-      });
-      if (warnings.length) {
-        addToast({ type: 'warning', message: warnings[0] });
-      }
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendaColaborador]);
-
-  useEffect(() => {
-    if (vendaColaborador) return;
-    setCart((prev) =>
-      prev.map((line) => {
-        const { price } = suggestUnitPrice(
-          { sale_price: line.sale_price, cost_price: line.cost_price },
-          { collaborator: false }
-        );
-        if (line.sale_price != null) {
-          return { ...line, preco_unitario: line.sale_price };
-        }
-        if (price != null) return { ...line, preco_unitario: price };
-        return line;
-      })
-    );
-  }, [vendaColaborador]);
 
   const totalCart = useMemo(
     () => cart.reduce((acc, it) => acc + Number(it.quantidade) * Number(it.preco_unitario || 0), 0),
@@ -462,7 +421,6 @@ export default function SalesNewSaleTab({
       alunoSearchText,
       clienteNome,
       clienteTelefone,
-      vendaColaborador,
       deferredSale,
       partialSale,
       dueDate,
@@ -479,7 +437,6 @@ export default function SalesNewSaleTab({
       alunoSearchText,
       clienteNome,
       clienteTelefone,
-      vendaColaborador,
       deferredSale,
       partialSale,
       dueDate,
@@ -499,7 +456,6 @@ export default function SalesNewSaleTab({
     setAlunoSearchText(snap.alunoSearchText || '');
     setClienteNome(snap.clienteNome || '');
     setClienteTelefone(snap.clienteTelefone || '');
-    setVendaColaborador(Boolean(snap.vendaColaborador));
     setDeferredSale(Boolean(snap.deferredSale));
     setPartialSale(Boolean(snap.partialSale));
     setDueDate(snap.dueDate || '');
@@ -568,18 +524,6 @@ export default function SalesNewSaleTab({
     }
   }, []);
 
-  const handleVendaColaboradorChange = useCallback(
-    (e) => {
-      const on = e.target.checked;
-      if (on && cart.length > 0 && !vendaColaborador) {
-        setCollabConfirmOpen(true);
-        return;
-      }
-      setVendaColaborador(on);
-    },
-    [cart.length, vendaColaborador]
-  );
-
   useEffect(() => {
     setPayments((prev) => {
       if (prev.length === 1) {
@@ -612,7 +556,7 @@ export default function SalesNewSaleTab({
     (product, parent = null, lineKind = 'sale') => {
       const kind = normalizeLineKind(lineKind);
       const { price } = suggestUnitPrice(product, {
-        collaborator: vendaColaborador,
+        collaborator: false,
         lineKind: kind,
         parent,
       });
@@ -638,7 +582,7 @@ export default function SalesNewSaleTab({
         expected_quantity: avail,
       };
     },
-    [vendaColaborador]
+    []
   );
 
   const pickProduct = useCallback(
@@ -649,7 +593,7 @@ export default function SalesNewSaleTab({
         ? catalogLineAvailability(product, parent, kind)
         : catalogLineAvailability(product, { type: product.type || kind }, kind);
       const { price, warning } = suggestUnitPrice(product, {
-        collaborator: vendaColaborador,
+        collaborator: false,
         lineKind: kind,
         parent,
       });
@@ -701,7 +645,7 @@ export default function SalesNewSaleTab({
         setMobilePanel('cart');
       }
     },
-    [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast, buildCartLine, modalMode]
+    [cart, salesSettings.lockPriceEdit, addToast, buildCartLine, modalMode]
   );
 
   const handleCatalogPick = useCallback(
@@ -784,7 +728,7 @@ export default function SalesNewSaleTab({
           (parent ? catalogLineAvailability(variant, parent, lineKind) : variant.current_quantity);
 
         const { price, warning } = suggestUnitPrice(variant, {
-          collaborator: vendaColaborador,
+          collaborator: false,
           lineKind,
           parent,
         });
@@ -811,7 +755,7 @@ export default function SalesNewSaleTab({
         return next;
       });
     },
-    [vendaColaborador, addToast, products]
+    [addToast, products]
   );
 
   const updateCartQty = (idx, val) => {
@@ -1006,7 +950,7 @@ export default function SalesNewSaleTab({
       due_date: deferredSale || partialSale ? dueDate || null : null,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
-      venda_colaborador: vendaColaborador,
+      venda_colaborador: false,
       itens,
       idempotency_key: idempotencyKeyRef.current,
     });
@@ -1406,30 +1350,6 @@ export default function SalesNewSaleTab({
                 </div>
               )}
 
-              )}
-
-              <div className="sales-collab-toggle">
-                <label className="sales-collab-toggle__label">
-                  <input
-                    type="checkbox"
-                    className="sales-collab-toggle__input"
-                    checked={vendaColaborador}
-                    onChange={handleVendaColaboradorChange}
-                  />
-                  <span className="sales-collab-toggle__track" aria-hidden />
-                  <span className="sales-collab-toggle__text">Aplicar preço de custo (colaborador)</span>
-                  <Hint
-                    text="Vendas internas: substitui o preço de venda pelo custo cadastrado do produto."
-                    position="top"
-                  />
-                </label>
-                {vendaColaborador ? (
-                  <p className="sales-collab-toggle__hint">
-                    Os preços serão substituídos pelo preço de custo cadastrado.
-                  </p>
-                ) : null}
-              </div>
-
               {!modalMode ? <SalesPosHints pdvMode={pdvMode} /> : null}
 
               {(localError || error) ? (
@@ -1523,17 +1443,6 @@ export default function SalesNewSaleTab({
         </div>
       )}
 
-      <ConfirmDialog
-        open={collabConfirmOpen}
-        title="Aplicar preço de colaborador?"
-        description="Os preços unitários do carrinho serão recalculados com base no custo cadastrado de cada produto."
-        confirmLabel="Aplicar"
-        onConfirm={() => {
-          setVendaColaborador(true);
-          setCollabConfirmOpen(false);
-        }}
-        onClose={() => setCollabConfirmOpen(false)}
-      />
     </>
   );
 }
