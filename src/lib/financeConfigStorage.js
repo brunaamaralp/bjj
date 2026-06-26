@@ -172,6 +172,22 @@ function mergeBankAccountLists(primary = [], secondary = []) {
   return out;
 }
 
+/** Recupera contas a partir de rótulos históricos (lançamentos/pagamentos). */
+export function enrichFinanceConfigWithOrphanLabels(financeConfig, orphanLabels) {
+  const labels = Array.isArray(orphanLabels) ? orphanLabels : [];
+  const synthesized = labels
+    .map((label) => bankAccountFromDisplayLabel(label))
+    .filter(Boolean);
+  if (!synthesized.length) {
+    return financeConfig && typeof financeConfig === 'object' ? financeConfig : {};
+  }
+  const base = financeConfig && typeof financeConfig === 'object' ? financeConfig : {};
+  return {
+    ...base,
+    bankAccounts: mergeBankAccountLists(base.bankAccounts, synthesized),
+  };
+}
+
 function mergeBankAccountsFromAcademyDoc(academyDoc) {
   const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
   const fromCfg = filterBankAccountsWithBank(cfg.bankAccounts);
@@ -526,7 +542,8 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
   const aid = String(academyId || '').trim();
   if (!aid) throw new Error('Academia não selecionada.');
 
-  const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
+  const { getAcademyDocument } = await import('./getAcademyDocument.js');
+  const doc = await getAcademyDocument(aid, { force: true, allowClientFallback: false });
   const serverMerged = mergeFinanceConfigFromAcademyDoc(doc);
   const safeCfg = unionFinanceConfigForPersist(serverMerged, mergedCfg);
   const built = buildAcademyFinanceConfigUpdate(doc, safeCfg, {

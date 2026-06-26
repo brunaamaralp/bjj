@@ -168,7 +168,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     if (!academyId) return;
     if (showLoading) setLoading(true);
     try {
-      const doc = await getAcademyDocument(academyId, { force: forceFetch });
+      const doc = await getAcademyDocument(academyId, { force: forceFetch, allowClientFallback: false });
       let cfg = mergeFinanceConfigFromAcademyDoc(doc);
       if (!cfg || Object.keys(cfg).length === 0) {
         cfg = defaultFinanceConfig();

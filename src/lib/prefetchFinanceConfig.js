@@ -1,10 +1,15 @@
 import { useLeadStore } from '../store/useLeadStore';
-import { getAcademyDocument, invalidateAcademyDocumentCache } from './getAcademyDocument.js';
+import {
+  fetchMergedFinanceConfigFromApi,
+  getAcademyDocument,
+  invalidateAcademyDocumentCache,
+} from './getAcademyDocument.js';
 import {
   mergeCollectionIntoFinanceConfig,
   readCollectionSettingsFromAcademy,
 } from './collectionRules.js';
 import { mergeFinanceConfigFromAcademyDoc } from './financeConfigStorage.js';
+import { hasConfiguredBankAccounts } from './bankAccounts.js';
 
 function defaultFinanceConfig() {
   return {
@@ -14,8 +19,18 @@ function defaultFinanceConfig() {
   };
 }
 
+async function loadFinanceConfigFromDocument(academyId) {
+  const doc = await getAcademyDocument(academyId, {
+    force: true,
+    allowClientFallback: false,
+  });
+  const cfg = mergeFinanceConfigFromAcademyDoc(doc) || defaultFinanceConfig();
+  const coll = readCollectionSettingsFromAcademy(doc);
+  return mergeCollectionIntoFinanceConfig(cfg, coll);
+}
+
 /**
- * Carrega financeConfig mesclado (financeConfig + settings + onboarding).
+ * Carrega financeConfig mesclado (financeConfig + settings + onboarding + rótulos legados).
  * @returns {Promise<object|null>}
  */
 export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
@@ -26,12 +41,23 @@ export async function loadMergedFinanceConfigForAcademy(academyId, opts = {}) {
   const cachedForAcademy = st.financeConfigAcademyId === id && st.financeConfig;
 
   try {
-    const doc = await getAcademyDocument(id, {
-      force: opts.force !== false,
-    });
-    const cfg = mergeFinanceConfigFromAcademyDoc(doc) || defaultFinanceConfig();
-    const coll = readCollectionSettingsFromAcademy(doc);
-    const merged = mergeCollectionIntoFinanceConfig(cfg, coll);
+    let merged = null;
+    try {
+      merged = await fetchMergedFinanceConfigFromApi(id);
+    } catch (apiErr) {
+      console.warn('[loadMergedFinanceConfigForAcademy] finance-config API:', apiErr?.message || apiErr);
+      merged = await loadFinanceConfigFromDocument(id);
+    }
+
+    if (!merged) merged = defaultFinanceConfig();
+
+    if (!hasConfiguredBankAccounts(merged)) {
+      const docMerged = await loadFinanceConfigFromDocument(id).catch(() => null);
+      if (docMerged && hasConfiguredBankAccounts(docMerged)) {
+        merged = docMerged;
+      }
+    }
+
     if (opts.updateStore !== false && useLeadStore.getState().academyId === id) {
       useLeadStore.getState().setFinanceConfig(merged, id);
     }

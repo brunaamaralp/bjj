@@ -200,10 +200,18 @@ async function auditAcademy(databases, doc) {
   };
 }
 
-async function fixAcademy(databases, doc) {
-  const cfg = mergeFinanceConfigFromAcademyDoc(doc);
+async function fixAcademy(databases, doc, report) {
+  let cfg = mergeFinanceConfigFromAcademyDoc(doc);
   const coll = readCollectionSettingsFromAcademy(doc);
-  const mergedCfg = mergeCollectionIntoFinanceConfig(cfg, coll);
+  let mergedCfg = mergeCollectionIntoFinanceConfig(cfg, coll);
+
+  const orphanLabels = report?.orphanLabels || [];
+  if (orphanLabels.length) {
+    const { enrichFinanceConfigWithOrphanLabels } = await import(
+      pathToFileURL(path.resolve(__dirname, '../src/lib/financeConfigStorage.js')).href
+    );
+    mergedCfg = enrichFinanceConfigWithOrphanLabels(mergedCfg, orphanLabels);
+  }
 
   const freshDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, doc.$id);
   const built = buildAcademyFinanceConfigUpdate(freshDoc, mergedCfg, {
@@ -247,8 +255,8 @@ async function main() {
     reports.push(report);
     if (report.audit.needsRecovery) needsRecoveryCount += 1;
 
-    if (FIX && report.audit.needsRecovery) {
-      const after = await fixAcademy(databases, doc);
+    if (FIX && (report.audit.needsRecovery || report.orphanLabels.length > 0)) {
+      const after = await fixAcademy(databases, doc, report);
       report.fixed = true;
       report.mergedLabelsAfterFix = after;
       fixedCount += 1;

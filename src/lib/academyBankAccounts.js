@@ -1,6 +1,7 @@
 import { databases, DB_ID, ACADEMIES_COL } from './appwrite';
 import { useLeadStore } from '../store/useLeadStore';
 import { formatBankAccountLabel } from './bankAccounts.js';
+import { getAcademyDocument } from './getAcademyDocument.js';
 import {
   mergeCollectionIntoFinanceConfig,
   readCollectionSettingsFromAcademy,
@@ -37,7 +38,7 @@ export async function appendBankAccountToAcademy(academyId, fields, currentConfi
   };
   if (!entry.bankName) throw new Error('Informe o nome do banco.');
 
-  const doc = await databases.getDocument(DB_ID, ACADEMIES_COL, aid);
+  const doc = await getAcademyDocument(aid, { force: true, allowClientFallback: false });
   const serverMerged = mergeFinanceConfigFromAcademyDoc(doc);
   const base = unionFinanceConfigForPersist(
     serverMerged,

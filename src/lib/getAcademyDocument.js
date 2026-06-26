@@ -67,6 +67,7 @@ export async function getAcademyDocument(academyId, opts = {}) {
     try {
       return await fetchAcademyDocumentFromApi(id);
     } catch (err) {
+      if (opts.allowClientFallback === false) throw err;
       console.warn('[getAcademyDocument] API indisponível, tentando Appwrite direto:', err?.message);
       return fetchAcademyDocumentDirect(id);
     }
@@ -83,6 +84,30 @@ export async function getAcademyDocument(academyId, opts = {}) {
 
   cache.set(id, { ...(entry || {}), promise });
   return promise;
+}
+
+/** Carrega financeConfig mesclado via API (settings + recuperação de rótulos legados). */
+export async function fetchMergedFinanceConfigFromApi(academyId) {
+  const jwt = await createSessionJwt();
+  if (!jwt) throw new Error('session_required');
+
+  const id = String(academyId || '').trim();
+  if (!id) throw new Error('academy_id_required');
+
+  const params = new URLSearchParams({ route: 'finance-config' });
+  const res = await authedFetch(`/api/leads?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'x-academy-id': id,
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || data.erro || `error_${res.status}`);
+  }
+  const cfg = data.financeConfig;
+  if (!cfg || typeof cfg !== 'object') throw new Error('finance_config_missing');
+  return cfg;
 }
 
 export function parseAcademyModulesAndLabels(doc) {

@@ -4,6 +4,7 @@ import {
   mergeFinanceConfigFromAcademyDoc,
   auditBankAccountsFromAcademyDoc,
   compactPlanForStorage,
+  enrichFinanceConfigWithOrphanLabels,
   coerceBankAccountList,
   FinanceConfigTooLargeError,
   FINANCE_CONFIG_LEGACY_MAX_CHARS,
@@ -119,6 +120,20 @@ describe('financeConfigStorage', () => {
     expect(cfg.bankAccounts[0].bankName).toBe('Caixa');
   });
 
+  it('coerceBankAccountList aceita array de rótulos string', () => {
+    const list = coerceBankAccountList(['Nubank · 1', 'PIX chave@test.com']);
+    expect(list).toHaveLength(2);
+    expect(list[0].bankName).toBe('Nubank');
+  });
+
+  it('enrichFinanceConfigWithOrphanLabels sintetiza contas de rótulos históricos', () => {
+    const cfg = enrichFinanceConfigWithOrphanLabels(
+      { plans: [], bankAccounts: [] },
+      ['Sicoob · 123', 'Caixinha']
+    );
+    expect(cfg.bankAccounts.map((a) => a.bankName).sort()).toEqual(['Caixinha', 'Sicoob']);
+  });
+
   it('mergeFinanceConfigFromAcademyDoc recupera contas de rótulos em formas de pagamento', () => {
     const doc = {
       financeConfig: JSON.stringify({
@@ -132,12 +147,6 @@ describe('financeConfigStorage', () => {
     };
     const cfg = mergeFinanceConfigFromAcademyDoc(doc);
     expect(cfg.bankAccounts.map((a) => a.bankName).sort()).toEqual(['Caixinha', 'Sicoob']);
-  });
-
-  it('coerceBankAccountList aceita array de rótulos string', () => {
-    const list = coerceBankAccountList(['Nubank · 1', 'PIX chave@test.com']);
-    expect(list).toHaveLength(2);
-    expect(list[0].bankName).toBe('Nubank');
   });
 
   it('auditBankAccountsFromAcademyDoc flags overflow-only academies', () => {
