@@ -86,7 +86,7 @@ export function digestPlans(plans) {
 }
 
 export function digestDiscountPresets(presets) {
-  return JSON.stringify(normalizeEnrollmentDiscountPresets(presets));
+  return JSON.stringify(Array.isArray(presets) ? presets : []);
 }
 
 export function digestVendors(vendors) {
@@ -474,7 +474,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
   const setEnrollmentDiscountPresets = useCallback((presets) => {
     setFinanceConfig((prev) => ({
       ...prev,
-      enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(presets),
+      enrollmentDiscountPresets: Array.isArray(presets) ? presets : [],
     }));
   }, []);
 

@@ -19,7 +19,7 @@ export default function FinanceSettingsDiscountPresetsSection({ presets = [], on
       ...list,
       {
         id: `preset_${Date.now()}`,
-        label: '',
+        label: 'Nova condição',
         type: DISCOUNT_TYPES.PERCENT,
         amount: 10,
       },
