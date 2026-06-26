@@ -385,9 +385,10 @@ describe('buildFunnelStages', () => {
 });
 
 describe('ReportsFinancePanel', () => {
-  it('não embute ReportsTab para owner', () => {
+  it('embute ReportsTab para demonstrativos contábeis do owner', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/components/reports/ReportsFinancePanel.jsx'), 'utf8');
-    expect(src).not.toMatch(/ReportsTab/);
-    expect(src).not.toMatch(/useAccountingStore/);
+    expect(src).toMatch(/ReportsTab/);
+    expect(src).toMatch(/isOwner/);
+    expect(src).toMatch(/embedded/);
   });
 });

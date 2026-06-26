@@ -118,6 +118,7 @@ export default function ReportsTabPanels({
             from={range.from}
             to={range.to}
             hasFinance={hasFinance}
+            isOwner={isOwner}
             kpiGoals={kpiGoals}
           />
         </Suspense>

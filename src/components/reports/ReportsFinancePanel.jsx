@@ -38,6 +38,8 @@ import { fmt } from '../finance/financeFmt.js';
 
 import { formatPaymentMethod } from '../../lib/paymentMethodLabels.js';
 
+import ReportsTab from '../finance/ReportsTab.jsx';
+
 import './reports.css';
 
 
@@ -486,8 +488,14 @@ function OperationalFinanceReport({ academyId, from, to, periodQuery, kpiGoals =
 
 
 
-export default function ReportsFinancePanel({ academyId, from, to, hasFinance, kpiGoals = {} }) {
-
+export default function ReportsFinancePanel({
+  academyId,
+  from,
+  to,
+  hasFinance,
+  isOwner = false,
+  kpiGoals = {},
+}) {
   const navigate = useNavigate();
 
 
@@ -538,27 +546,33 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, k
 
 
 
+  const showAccountingStatements = isOwner && from && to;
+
   return (
-
     <ReportsPanelShell>
-
       <OperationalFinanceReport
-
         academyId={academyId}
-
         from={from}
-
         to={to}
-
         periodQuery={periodQuery}
-
         kpiGoals={kpiGoals}
-
       />
 
+      {showAccountingStatements ? (
+        <ReportsPanelSection
+          title="DRE e fluxo de caixa"
+          subtitle={`Demonstrativos pelo livro razão · ${from} — ${to}`}
+        >
+          <ReportsTab
+            academyId={academyId}
+            embedded
+            periodFrom={from}
+            periodTo={to}
+            onGoToLancamentos={() => navigate('/financeiro?tab=movimentacoes')}
+          />
+        </ReportsPanelSection>
+      ) : null}
     </ReportsPanelShell>
-
   );
-
 }
 
