@@ -69,7 +69,7 @@ export default function BankAccountSelect({
   const inputClassName = className === 'form-input' ? '' : className;
 
   useEffect(() => {
-    if (!academyId || saving || hasBanks) return;
+    if (!academyId || saving) return;
     let cancelled = false;
     setLoadingAccounts(true);
     void loadMergedFinanceConfigForAcademy(academyId, { force: true })
@@ -94,7 +94,7 @@ export default function BankAccountSelect({
     return () => {
       cancelled = true;
     };
-  }, [academyId, saving, hasBanks, setFinanceConfig, addToast]);
+  }, [academyId, saving, setFinanceConfig, addToast]);
 
   useEffect(() => {
     if (allowEmpty || saving || !options.length) return;

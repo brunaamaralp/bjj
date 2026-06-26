@@ -5,6 +5,7 @@ import {
   countOverdueStudents,
   countPendingTasksToday,
   currentMonthRange,
+  filterEnrollmentsInMonth,
   filterPendingTasksForDate,
   isTimestampInRange,
 } from '../lib/dashboardManagerMetrics.js';
@@ -101,6 +102,37 @@ describe('countEnrollmentsInMonth', () => {
   it('conta converted_at só quando ingresso ausente', () => {
     const students = [{ id: 'funil', convertedAt: '2026-06-10T12:00:00.000Z' }];
     expect(countEnrollmentsInMonth([], students, range)).toBe(1);
+  });
+});
+
+describe('filterEnrollmentsInMonth', () => {
+  const range = {
+    from: new Date(2026, 5, 1, 0, 0, 0, 0),
+    to: new Date(2026, 5, 30, 23, 59, 59, 999),
+    ym: '2026-06',
+  };
+
+  it('retorna matrículas do mês ordenadas por data decrescente', () => {
+    const students = [
+      { id: 's1', name: 'Ana', enrollmentDate: '2026-06-05' },
+      { id: 's2', name: 'Bruno', enrollmentDate: '2026-06-20' },
+    ];
+    const result = filterEnrollmentsInMonth([], students, range);
+    expect(result.map((s) => s.id)).toEqual(['s2', 's1']);
+  });
+
+  it('deduplica mesmo id entre students e leads', () => {
+    const students = [{ id: 'dup', name: 'Carla', enrollmentDate: '2026-06-10' }];
+    const leads = [
+      {
+        id: 'dup',
+        status: LEAD_STATUS.CONVERTED,
+        name: 'Carla lead',
+        convertedAt: '2026-06-10T12:00:00.000Z',
+      },
+    ];
+    expect(filterEnrollmentsInMonth(leads, students, range)).toHaveLength(1);
+    expect(filterEnrollmentsInMonth(leads, students, range)[0].name).toBe('Carla');
   });
 });
 

@@ -95,6 +95,9 @@ flowchart TD
 7b. [ ] *Nota:* `/students?view=presenca` e `/presenca` **não** ativam modo presença no hub embutido (`Students embedded`) — usar `/recepcao`
 8. [ ] Com finance: tab **Contratos** visível; sem finance: tab oculta
 9. [ ] Registrar pagamento no perfil — modal valida valor, método e meio de captura (cartão, 2+ meios)
+9b. [ ] Pagamento **pago/parcial** espelha em Financeiro → Lançamentos; badge **No Caixa** no perfil (link) ou **Caixa pendente** se falhar
+9c. [ ] Taxa/avulso **pago** classificado como **Outras receitas** no Caixa (não Mensalidade)
+9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
 10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"
 12. [ ] Trocar academia — lista mostra só alunos da academia atual
@@ -110,6 +113,7 @@ flowchart TD
 |---|---|---|
 | Falha ao carregar alunos | `ErrorBanner` + retry | `Students.jsx` |
 | Pagamento inválido | `FieldError` no modal | `StudentPaymentModal` |
+| Espelho Caixa falhou | Toast warning + badge **Caixa pendente**; conciliação → Verificar espelhos | `studentPaymentsApi`, `StudentPaymentsList` |
 | Control iD offline | Estado no painel de presença | `ControlIdAttendancePanel` |
 
 ### Permissões e multi-tenant
@@ -171,6 +175,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-06-25 | — | Espelho pagamento→Caixa: fee/other na reconciliação, OUTROS_RECEITA, cancel troco, badge No Caixa |
 | 2026-06-23 | — | Card financeiro passa a exibir desconto individual da matrícula quando houver |
 | 2026-06-15 | — | Criação inicial |
 | 2026-06-19 | — | Graduação opt-in: cadastro rápido, perfil, subtexto na lista |

@@ -1632,6 +1632,48 @@
           padding: 28px 12px;
           text-align: center;
         }
+        .reception-enrollments-modal__list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+        }
+        .reception-enrollments-modal__item {
+          border-bottom: 1px solid var(--border);
+        }
+        .reception-enrollments-modal__item:last-child {
+          border-bottom: none;
+        }
+        .reception-enrollments-modal__row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          width: 100%;
+          padding: 12px 0;
+          border: none;
+          background: transparent;
+          text-align: left;
+          cursor: pointer;
+        }
+        .reception-enrollments-modal__row:hover .reception-enrollments-modal__name {
+          color: var(--v700);
+          text-decoration: underline;
+        }
+        .reception-enrollments-modal__name {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--color-text);
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .reception-enrollments-modal__meta {
+          flex-shrink: 0;
+          font-size: 0.8rem;
+          color: var(--color-text-secondary);
+          white-space: nowrap;
+        }
         .reception-agenda-inner {
           width: 100%;
           max-width: 720px;

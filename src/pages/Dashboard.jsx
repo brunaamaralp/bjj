@@ -47,6 +47,11 @@ import {
     countWeeklyEnrollments,
 } from '../lib/dashboardDayBriefing.js';
 import {
+    currentMonthRange,
+    filterEnrollmentsInMonth,
+} from '../lib/dashboardManagerMetrics.js';
+import { enrollmentDateYmd } from '../lib/studentEnrollmentDate.js';
+import {
     attendedButtonLabel,
     missedButtonLabel,
     followupsAllDoneTitle,
@@ -108,15 +113,6 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
-import AcademyModeChip, {
-    ACADEMY_MODE_CRESCIMENTO,
-    ACADEMY_MODE_CONSOLIDACAO,
-} from '../components/dashboard/AcademyModeChip.jsx';
-import ConsolidacaoAtRiskBlock from '../components/dashboard/ConsolidacaoAtRiskBlock.jsx';
-import ConsolidacaoFinanceiroBlock from '../components/dashboard/ConsolidacaoFinanceiroBlock.jsx';
-import ConsolidacaoRelacionamentoBlock from '../components/dashboard/ConsolidacaoRelacionamentoBlock.jsx';
-import { useConsolidacaoRelacionamento } from '../hooks/useConsolidacaoRelacionamento.js';
-
 import { useUserRole } from '../lib/useUserRole.js';
 import {
     buildRecepcaoHubTabItems,
@@ -228,15 +224,6 @@ const Dashboard = () => {
     const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
     const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [academyMode, setAcademyModeRaw] = useState(
-        () => localStorage.getItem('nav_academy_mode') === ACADEMY_MODE_CONSOLIDACAO
-            ? ACADEMY_MODE_CONSOLIDACAO
-            : ACADEMY_MODE_CRESCIMENTO
-    );
-    const setAcademyMode = (mode) => {
-        setAcademyModeRaw(mode);
-        try { localStorage.setItem('nav_academy_mode', mode); } catch { /* quota */ }
-    };
     const [academyWa, setAcademyWa] = useState({
         name: '',
         zapster_instance_id: '',
@@ -485,8 +472,6 @@ const Dashboard = () => {
 
     const isZeroState = !loading && leadsCount === 0 && (tasks || []).length === 0;
 
-    const { oneYearAnniversaries } = useConsolidacaoRelacionamento(students);
-
     const pendingTasksDueHub = useMemo(() => filterTasksDueHub(tasks), [tasks]);
     const tasksDueHubCounts = useMemo(() => countTasksDueHub(tasks), [tasks]);
 
@@ -603,7 +588,7 @@ const Dashboard = () => {
             return;
         }
         if (cardKey === 'enrollments') {
-            navigate('/reports?tab=funil');
+            setListModalType('enrollments');
             return;
         }
         if (cardKey === 'today') {
@@ -655,6 +640,19 @@ const Dashboard = () => {
     const weeklyEnrollmentsCount = useMemo(() => countWeeklyEnrollments(students), [students]);
 
     const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
+
+    const monthRange = useMemo(() => currentMonthRange(), []);
+    const monthEnrollments = useMemo(
+        () => filterEnrollmentsInMonth(leads, students, monthRange),
+        [leads, students, monthRange]
+    );
+    const monthEnrollmentsTitle = useMemo(() => {
+        const label = new Date(`${monthRange.ym}-01T12:00:00`).toLocaleDateString('pt-BR', {
+            month: 'long',
+            year: 'numeric',
+        });
+        return `Matrículas em ${label}`;
+    }, [monthRange.ym]);
 
     const dayPriority = useMemo(
         () =>
@@ -778,14 +776,37 @@ const Dashboard = () => {
             ? todayScheduled
             : listModalType === 'tasks'
               ? pendingTasksDueHub
-              : [];
+              : listModalType === 'enrollments'
+                ? monthEnrollments
+                : [];
 
     const modalTitle =
         listModalType === 'today'
             ? `${trialSeriesPlural} hoje`
             : listModalType === 'tasks'
               ? 'Tarefas para hoje'
-              : '';
+              : listModalType === 'enrollments'
+                ? monthEnrollmentsTitle
+                : '';
+
+    const formatEnrollmentDisplayDate = (contact) => {
+        const ymd = enrollmentDateYmd(contact);
+        if (!ymd) return '—';
+        const d = new Date(`${ymd}T12:00:00`);
+        if (Number.isNaN(d.getTime())) return ymd;
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    const openEnrollmentProfile = (contact) => {
+        const id = String(contact?.id || contact?.$id || '').trim();
+        if (!id) return;
+        closeListModal();
+        if (contact?._isStudent || contact?.contact_type === 'student') {
+            navigate(`/student/${id}`);
+            return;
+        }
+        navigate(`/lead/${id}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
+    };
 
     const handleBirthdayWhatsApp = async (student, e) => {
         e?.stopPropagation?.();
@@ -1283,19 +1304,6 @@ const Dashboard = () => {
 
             {hubTab === RECEPCAO_TAB_EXPERIMENTAIS ? (
             <>
-            <AcademyModeChip mode={academyMode} onChange={setAcademyMode} />
-
-            {academyMode === ACADEMY_MODE_CONSOLIDACAO ? (
-                <div className="consolidacao-blocks-grid">
-                    <ConsolidacaoAtRiskBlock academyId={academyId} />
-                    <ConsolidacaoFinanceiroBlock students={students} />
-                    <ConsolidacaoRelacionamentoBlock
-                        todayBirthdays={todayBirthdays}
-                        oneYearAnniversaries={oneYearAnniversaries}
-                    />
-                </div>
-            ) : null}
-
             <section
                 className={`dashboard-day-hero dashboard-day-hero--${heroPeriod} animate-in`}
                 style={{ animationDelay: '0.04s' }}
@@ -1574,7 +1582,16 @@ const Dashboard = () => {
             >
                 {modalListItems.length === 0 ? (
                     <div className="reception-list-modal__empty">
-                        <EmptyState variant="compact" tone="dashed" title="Nenhum item nessa lista." role="status" />
+                        <EmptyState
+                            variant="compact"
+                            tone="dashed"
+                            title={
+                                listModalType === 'enrollments'
+                                    ? 'Nenhuma matrícula neste mês.'
+                                    : 'Nenhum item nessa lista.'
+                            }
+                            role="status"
+                        />
                     </div>
                 ) : listModalType === 'tasks' ? (
                     <div className="flex-col gap-2">
@@ -1598,6 +1615,33 @@ const Dashboard = () => {
                             />
                         ))}
                     </div>
+                ) : listModalType === 'enrollments' ? (
+                    <ul className="reception-enrollments-modal__list">
+                        {modalListItems.map((contact) => {
+                            const id = String(contact?.id || contact?.$id || '').trim();
+                            const plan = String(contact?.plan || '').trim();
+                            return (
+                                <li key={id} className="reception-enrollments-modal__item">
+                                    <button
+                                        type="button"
+                                        className="reception-enrollments-modal__row"
+                                        onClick={() => openEnrollmentProfile(contact)}
+                                    >
+                                        <span
+                                            className="reception-enrollments-modal__name"
+                                            title={leadCardTooltip(contact) || undefined}
+                                        >
+                                            {leadCardPrimaryName(contact)}
+                                        </span>
+                                        <span className="reception-enrollments-modal__meta">
+                                            {formatEnrollmentDisplayDate(contact)}
+                                            {plan ? ` · ${plan}` : ''}
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 ) : (
                     <div className="flex-col agenda-followups-list">
                         {modalListItems.map((lead, i) => {

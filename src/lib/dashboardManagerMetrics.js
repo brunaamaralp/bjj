@@ -1,6 +1,7 @@
 import { isActiveStudent } from './studentStatus.js';
 import {
   formatLocalYmd,
+  enrollmentDateYmd,
   isImportedSpreadsheetContact,
   matriculationYmdInRange,
   shouldCountEnrollmentContact,
@@ -74,6 +75,28 @@ export function countEnrollmentsInMonth(leads, students, range = currentMonthRan
   for (const l of leads || []) tryAdd(l);
 
   return ids.size;
+}
+
+/** Matrículas no mês (mesmas regras de `countEnrollmentsInMonth`), ordenadas por data decrescente. */
+export function filterEnrollmentsInMonth(leads, students, range = currentMonthRange()) {
+  const byId = new Map();
+
+  const tryAdd = (contact) => {
+    if (!shouldCountEnrollmentContact(contact)) return;
+    const id = String(contact?.id || contact?.$id || '').trim();
+    if (!id || byId.has(id)) return;
+    if (!matriculatedInRange(contact, range)) return;
+    byId.set(id, contact);
+  };
+
+  for (const s of students || []) tryAdd({ ...s, _isStudent: true });
+  for (const l of leads || []) tryAdd(l);
+
+  return [...byId.values()].sort((a, b) => {
+    const da = enrollmentDateYmd(a) || '';
+    const db = enrollmentDateYmd(b) || '';
+    return db.localeCompare(da);
+  });
 }
 
 export function conversionRatePercent(leadsInMonth, enrolledInMonth) {

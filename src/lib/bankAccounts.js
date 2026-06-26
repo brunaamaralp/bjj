@@ -23,6 +23,17 @@ export function hasCustomAcquirerFees(acc) {
 
 /** Normaliza entrada de conta (cadastro + saldo inicial + taxas opcionais). */
 export function normalizeBankAccountEntry(raw) {
+  if (typeof raw === 'string') {
+    return bankAccountFromDisplayLabel(raw) || {
+      bankName: '',
+      branch: '',
+      account: '',
+      accountName: '',
+      pixKey: '',
+      openingBalance: 0,
+      openingBalanceDate: '',
+    };
+  }
   const acc = raw && typeof raw === 'object' ? raw : {};
   const openingRaw = Number(acc.openingBalance);
   const openingBalance = Number.isFinite(openingRaw) ? Math.round(openingRaw * 100) / 100 : 0;
@@ -43,6 +54,61 @@ export function normalizeBankAccountEntry(raw) {
     useDefaultAcquirerFees: false,
     acquirerFees: normalizeAcquirerFees(acc.acquirerFees || defaultAcquirerFees()),
   };
+}
+
+/** Converte rótulo exibido (ex. «Sicoob · 123») em entrada de conta. */
+export function bankAccountFromDisplayLabel(label) {
+  const s = String(label || '').trim();
+  if (!s) return null;
+  if (/^pix\s/i.test(s)) {
+    const pix = s.replace(/^pix\s+/i, '').trim();
+    return normalizeBankAccountEntry(pix ? { pixKey: pix } : { bankName: s });
+  }
+  const sep = s.indexOf(' · ');
+  if (sep > 0) {
+    return normalizeBankAccountEntry({
+      bankName: s.slice(0, sep).trim(),
+      account: s.slice(sep + 3).trim(),
+    });
+  }
+  return normalizeBankAccountEntry({ bankName: s });
+}
+
+/**
+ * Recupera contas só referenciadas em formas de pagamento (legado sem bankAccounts[]).
+ * @param {object|null|undefined} financeConfig
+ */
+export function deriveBankAccountsFromPaymentLabels(financeConfig) {
+  const labels = new Set();
+  const legacy = financeConfig?.defaultAccountByMethod || financeConfig?.methodBankDefaults || {};
+  if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+    for (const value of Object.values(legacy)) {
+      const s = String(value || '').trim();
+      if (s) labels.add(s);
+    }
+  }
+  const pms = financeConfig?.paymentMethodSettings || {};
+  if (pms && typeof pms === 'object') {
+    for (const row of Object.values(pms)) {
+      const s = String(row?.defaultBankAccountLabel || '').trim();
+      if (s) labels.add(s);
+    }
+  }
+  for (const key of ['defaultAccount', 'defaultBankAccount']) {
+    const s = String(financeConfig?.[key] || '').trim();
+    if (s) labels.add(s);
+  }
+  const out = [];
+  const seen = new Set();
+  for (const label of labels) {
+    const acc = bankAccountFromDisplayLabel(label);
+    if (!acc || !isUsableBankAccount(acc)) continue;
+    const key = [acc.bankName, acc.account, acc.pixKey].join('\0').toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(acc);
+  }
+  return out;
 }
 
 /** Conta utilizável em pagamentos (banco, PIX ou número de conta). */

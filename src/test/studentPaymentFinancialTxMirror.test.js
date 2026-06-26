@@ -4,6 +4,7 @@ const serverMocks = vi.hoisted(() => ({
   createDocument: vi.fn(),
   updateDocument: vi.fn(),
   listDocuments: vi.fn(),
+  getDocument: vi.fn(),
   applyAccountingSideEffectsAutoServer: vi.fn(),
   resolveFinancialTxSettlement: vi.fn(),
   mirrorAmountsForPaymentWithAccount: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('../../lib/server/academyAccess.js', () => ({
     createDocument: serverMocks.createDocument,
     updateDocument: serverMocks.updateDocument,
     listDocuments: serverMocks.listDocuments,
+    getDocument: serverMocks.getDocument,
   },
 }));
 
@@ -45,6 +47,7 @@ vi.mock('../../lib/server/financeJournalServer.js', () => ({
 vi.mock('../../src/lib/financeCategories.js', () => ({
   FINANCE_CATEGORIES: {
     MENSALIDADE: { type: 'plan', label: 'Mensalidades' },
+    OUTROS_RECEITA: { type: 'other', label: 'Outras receitas' },
     OUTRAS_DESPESAS: { type: 'expense', label: 'Outras despesas' },
   },
 }));
@@ -127,6 +130,10 @@ describe('studentPaymentFinancialTxMirror', () => {
     serverMocks.createDocument.mockResolvedValue({ $id: 'tx-created' });
     serverMocks.updateDocument.mockResolvedValue({ $id: 'tx-created' });
     serverMocks.listDocuments.mockResolvedValue({ documents: [] });
+    serverMocks.getDocument.mockImplementation(async (_db, _col, id) => ({
+      $id: id,
+      status: 'settled',
+    }));
     serverMocks.mirrorAmountsForPaymentWithAccount.mockReturnValue({ fee: 4.5, net: 115.5 });
     serverMocks.resolveFinancialTxSettlement.mockImplementation(({ dueDate, paidAt }) => ({
       status: 'pending',
@@ -317,6 +324,9 @@ describe('studentPaymentFinancialTxMirror', () => {
       if (originType === 'student_payment') {
         return { documents: [{ $id: 'tx-main-existing', origin_type: 'student_payment', origin_id: 'pay-pending' }] };
       }
+      if (originType === 'student_payment_troco') {
+        return { documents: [] };
+      }
       return { documents: [] };
     });
 
@@ -353,8 +363,15 @@ describe('studentPaymentFinancialTxMirror', () => {
           ],
         };
       }
+      if (originType === 'student_payment_troco') {
+        return { documents: [] };
+      }
       return { documents: [] };
     });
+    serverMocks.getDocument.mockImplementation(async (_db, _col, id) => ({
+      $id: id,
+      status: id === 'tx-z' ? 'cancelled' : 'settled',
+    }));
 
     await mirrorStudentPaymentToFinancialTx({
       paymentDoc: buildPaymentDoc({
@@ -469,6 +486,32 @@ describe('studentPaymentFinancialTxMirror', () => {
         origin_type: 'student_payment',
         origin_id: 'pay-paid-create',
         gross: 120,
+      }),
+      ['read', 'update']
+    );
+  });
+
+  it('fee espelha como Outras receitas', async () => {
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        payment_category: 'fee',
+        reference_month: null,
+        note: 'Taxa competição',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-new',
+      expect.objectContaining({
+        type: 'other',
+        category: 'Outras receitas',
       }),
       ['read', 'update']
     );

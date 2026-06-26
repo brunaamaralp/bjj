@@ -41,7 +41,7 @@ export default function PlanSelect({
   );
 
   useEffect(() => {
-    if (!academyId || hasConfigured) return;
+    if (!academyId) return;
     let cancelled = false;
     setLoadingPlans(true);
     void loadMergedFinanceConfigForAcademy(academyId, { force: true })
@@ -58,7 +58,7 @@ export default function PlanSelect({
     return () => {
       cancelled = true;
     };
-  }, [academyId, hasConfigured, setFinanceConfig]);
+  }, [academyId, setFinanceConfig]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, ...style }}>

@@ -1,14 +1,8 @@
-import { hasConfiguredBankAccounts } from './bankAccounts.js';
+import { unionFinanceConfigForPersist } from './financeConfigStorage.js';
 
-/** Escolhe o financeConfig mais completo para lançamentos (store, fetch local ou prop). */
+/** Une todos os financeConfig candidatos (store, fetch, prop) sem perder planos/contas legados. */
 export function pickFinanceConfigForPayments(...candidates) {
   const list = candidates.filter((cfg) => cfg && typeof cfg === 'object');
-  for (const cfg of list) {
-    if (hasConfiguredBankAccounts(cfg)) return cfg;
-  }
-  for (const cfg of list) {
-    const hasPlans = (cfg.plans || []).some((plan) => String(plan?.name || '').trim());
-    if (hasPlans) return cfg;
-  }
-  return list[0] || null;
+  if (!list.length) return null;
+  return list.reduce((acc, cfg) => unionFinanceConfigForPersist(acc, cfg), list[0]);
 }

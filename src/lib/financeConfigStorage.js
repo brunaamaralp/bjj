@@ -4,7 +4,12 @@
  * Overflow: contas em settings/onboarding; planos e régua em settings (até 16k).
  */
 import { parseAcademySettings } from './stockSettings.js';
-import { filterBankAccountsWithBank } from './bankAccounts.js';
+import {
+  bankAccountFromDisplayLabel,
+  deriveBankAccountsFromPaymentLabels,
+  filterBankAccountsWithBank,
+  isUsableBankAccount,
+} from './bankAccounts.js';
 import {
   extractFinanceBankAccountsFromOnboardingRaw,
   ONBOARDING_CHECKLIST_MAX_CHARS,
@@ -43,7 +48,14 @@ const SAVE_BUFFER_CHARS = 48;
 
 /** Normaliza lista de contas vindas de settings (array ou JSON string). */
 export function coerceBankAccountList(raw) {
-  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => {
+        if (typeof item === 'string') return bankAccountFromDisplayLabel(item);
+        return item;
+      })
+      .filter((item) => item && isUsableBankAccount(item));
+  }
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
     if (!trimmed) return [];
@@ -168,10 +180,14 @@ function mergeBankAccountsFromAcademyDoc(academyDoc) {
   const fromOnboarding = filterBankAccountsWithBank(
     extractFinanceBankAccountsFromOnboardingRaw(academyDoc?.onboardingChecklist)
   );
+  const fromPaymentLabels = deriveBankAccountsFromPaymentLabels(cfg);
 
   return mergeBankAccountLists(
-    mergeBankAccountLists(mergeBankAccountLists(fromCfg, fromSettings), fromOnboarding),
-    fromRoot
+    mergeBankAccountLists(
+      mergeBankAccountLists(mergeBankAccountLists(fromCfg, fromSettings), fromOnboarding),
+      fromRoot
+    ),
+    fromPaymentLabels
   );
 }
 

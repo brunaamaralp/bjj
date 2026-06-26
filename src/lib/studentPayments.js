@@ -1,5 +1,5 @@
 /**
- * Mensalidade paga → entrada automática no Caixa; mensalidade pendente não gera lançamento pendente no Caixa.
+ * Mensalidade paga ou pendente → entrada/a receber no Caixa; coberto (pacote) não espelha.
  */
 import { Query, ID } from 'appwrite';
 import { databases, DB_ID, FINANCIAL_TX_COL } from './appwrite.js';
@@ -34,6 +34,7 @@ import {
   listCancellableCoveredMonths,
 } from './bundleCoverage.js';
 import { notifyPaymentSettlementAfterCreate } from './financeTxSettlementDisplay.js';
+import { resolveMirrorFinanceCategory } from './studentPaymentMirrorCategory.js';
 
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
@@ -144,6 +145,23 @@ async function writePaymentDocument(writeFn, payload) {
   return writeFn(current);
 }
 
+async function clearFinancialTxSyncPendingClient(paymentId) {
+  const id = String(paymentId || '').trim();
+  if (!id || !PAYMENTS_COL) return;
+  try {
+    await databases.updateDocument(DB_ID, PAYMENTS_COL, id, { financial_tx_sync_pending: false });
+  } catch {
+    try {
+      await writePaymentDocument(
+        (p) => databases.updateDocument(DB_ID, PAYMENTS_COL, id, p),
+        { financial_tx_sync_pending: false }
+      );
+    } catch {
+      void 0;
+    }
+  }
+}
+
 async function markFinancialTxSyncPending(paymentId) {
   const id = String(paymentId || '').trim();
   if (!id || !PAYMENTS_COL) return;
@@ -212,6 +230,7 @@ async function syncFinancialTxMirror({
   const competenceMonth = refMonth && /^\d{4}-\d{2}$/.test(refMonth) ? refMonth : '';
   const paymentId = String(paymentDoc?.$id || data.id || '').trim();
   const now = new Date().toISOString();
+  const financeCat = resolveMirrorFinanceCategory(data.payment_category);
 
   const mirrorPayload = {
     academyId: data.academy_id,
@@ -219,8 +238,8 @@ async function syncFinancialTxMirror({
     lead_id: data.lead_id,
     method: data.method || 'pix',
     installments,
-    type: FINANCE_CATEGORIES.MENSALIDADE.type,
-    category: FINANCE_CATEGORIES.MENSALIDADE.label,
+    type: financeCat.type,
+    category: financeCat.label,
     competence_month: competenceMonth,
     planName: buildMirrorPlanName({
       studentName: student?.name,
@@ -265,11 +284,12 @@ async function syncFinancialTxMirror({
       {
         ...mirrorPayload,
         id: mirrorId,
-        type: FINANCE_CATEGORIES.MENSALIDADE.type,
-        category: FINANCE_CATEGORIES.MENSALIDADE.label,
+        type: financeCat.type,
+        category: financeCat.label,
       },
       data.academy_id
     );
+    await clearFinancialTxSyncPendingClient(paymentId);
     return { mirrorId };
   } catch (err) {
     const msg = String(err?.message || '');
@@ -290,11 +310,12 @@ async function syncFinancialTxMirror({
           {
             ...lean,
             id: mirrorId,
-            type: FINANCE_CATEGORIES.MENSALIDADE.type,
-            category: FINANCE_CATEGORIES.MENSALIDADE.label,
+            type: financeCat.type,
+            category: financeCat.label,
           },
           data.academy_id
         );
+        await clearFinancialTxSyncPendingClient(paymentId);
         return { mirrorId };
       } catch (e2) {
         console.error('financial_tx mirror failed:', e2);
@@ -714,8 +735,15 @@ export async function updatePayment(paymentId, data, opts = {}) {
   if (!PAYMENTS_COL) {
     throw new Error('student_payments_collection_not_configured');
   }
-  const payload = buildPaymentPayload(data);
-  return databases.updateDocument(DB_ID, PAYMENTS_COL, paymentId, payload);
+  const permissions = buildPermissions(data);
+  return persistPaymentDocument({
+    data,
+    existingId: paymentId,
+    permissions,
+    skipMirror: false,
+    financeConfig: opts.financeConfig ?? null,
+    student: opts.student ?? null,
+  });
 }
 
 export async function deletePayment(paymentId, academyId) {

@@ -19,4 +19,22 @@ describe('studentPaymentReconcileCore', () => {
     });
     expect(needs).toBe(false);
   });
+
+  it('includes fee paid without tx id', async () => {
+    const needs = await paymentNeedsMirrorRepair({
+      status: 'paid',
+      payment_category: 'fee',
+      financial_tx_id: '',
+    });
+    expect(needs).toBe(true);
+  });
+
+  it('skips covered bundle child', async () => {
+    const needs = await paymentNeedsMirrorRepair({
+      status: 'covered',
+      payment_category: 'bundle',
+      financial_tx_id: '',
+    });
+    expect(needs).toBe(false);
+  });
 });

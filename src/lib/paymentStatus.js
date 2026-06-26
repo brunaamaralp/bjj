@@ -302,7 +302,8 @@ export function focusFirstPaymentStatusPopoverError(errors) {
 
 export function shouldMirrorPaymentToCaixa(status) {
   const s = String(status || '').toLowerCase();
-  return s === 'paid' || s === 'partial';
+  if (s === 'covered' || s === 'frozen' || s === 'cancelled') return false;
+  return s === 'paid' || s === 'partial' || s === 'pending' || s === 'awaiting';
 }
 
 export function mirrorGrossForPayment(status, paidAmount, expectedAmount) {
@@ -316,6 +317,12 @@ export function mirrorGrossForPayment(status, paidAmount, expectedAmount) {
     if (Number.isFinite(p) && p > 0) return p;
     const e = Number(expectedAmount);
     return Number.isFinite(e) && e > 0 ? e : 0;
+  }
+  if (s === 'pending' || s === 'awaiting') {
+    const e = Number(expectedAmount);
+    if (Number.isFinite(e) && e > 0) return e;
+    const p = Number(paidAmount);
+    return Number.isFinite(p) && p > 0 ? p : 0;
   }
   return 0;
 }
