@@ -2412,70 +2412,81 @@ export default function StudentProfile() {
         letterSpacing: '0.08em',
     };
 
-    const renderOperationalActionsSection = () => (
+    const renderFreezeEnrollmentActions = () => {
+        if (!isActiveStudent(student)) return null;
+        if (isFreezeActive(student)) {
+            return (
+                <button
+                    type="button"
+                    onClick={() => void handleEndFreezeEarly()}
+                    disabled={endFreezeBusy}
+                    style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                        borderRadius: 10,
+                        border: '1px solid #fbbf24',
+                        background: '#fffbeb',
+                        color: '#b45309',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit',
+                        opacity: endFreezeBusy ? 0.7 : 1,
+                    }}
+                >
+                    {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
+                </button>
+            );
+        }
+        if (canStartPlanFreeze(student, financeConfig)) {
+            return (
+                <button
+                    type="button"
+                    onClick={() => setFreezeModalOpen(true)}
+                    disabled={freezeBusy}
+                    style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                        borderRadius: 10,
+                        border: '1px solid #fbbf24',
+                        background: 'var(--surface)',
+                        color: '#b45309',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: freezeBusy ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit',
+                        opacity: freezeBusy ? 0.7 : 1,
+                    }}
+                >
+                    <PauseCircle size={16} /> Trancar matrícula
+                </button>
+            );
+        }
+        if (String(student.plan || '').trim()) {
+            return (
+                <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    Trancamento disponível para planos anuais (até 90 dias por ano do plano).
+                </p>
+            );
+        }
+        return null;
+    };
+
+    const renderOperationalActionsSection = () => {
+        if (!isInactiveStudent(student)) return null;
+        return (
         <div style={{ marginBottom: 22, width: '100%', textAlign: 'left' }}>
             <p style={sectionEyebrowStyle}>Matrícula</p>
-            {isActiveStudent(student) ? (
-                <>
-                    {isFreezeActive(student) ? (
-                        <button
-                            type="button"
-                            onClick={() => void handleEndFreezeEarly()}
-                            disabled={endFreezeBusy}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                padding: '10px 12px',
-                                marginBottom: 8,
-                                borderRadius: 10,
-                                border: '1px solid #fbbf24',
-                                background: '#fffbeb',
-                                color: '#b45309',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
-                                fontFamily: 'inherit',
-                                opacity: endFreezeBusy ? 0.7 : 1,
-                            }}
-                        >
-                            {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
-                        </button>
-                    ) : canStartPlanFreeze(student, financeConfig) ? (
-                        <button
-                            type="button"
-                            onClick={() => setFreezeModalOpen(true)}
-                            disabled={freezeBusy}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                padding: '10px 12px',
-                                marginBottom: 8,
-                                borderRadius: 10,
-                                border: '1px solid #fbbf24',
-                                background: 'var(--surface)',
-                                color: '#b45309',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: freezeBusy ? 'not-allowed' : 'pointer',
-                                fontFamily: 'inherit',
-                                opacity: freezeBusy ? 0.7 : 1,
-                            }}
-                        >
-                            <PauseCircle size={16} /> Trancar matrícula
-                        </button>
-                    ) : String(student.plan || '').trim() ? (
-                        <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                            Trancamento disponível para planos anuais (até 90 dias por ano do plano).
-                        </p>
-                    ) : null}
-                </>
-            ) : isInactiveStudent(student) ? (
                 <>
                     {modules?.finance === true ? (
                         <button
@@ -2533,9 +2544,9 @@ export default function StudentProfile() {
                         {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
                     </button>
                 </>
-            ) : null}
         </div>
-    );
+        );
+    };
 
     const renderDangerZoneSection = () => (
         <div
@@ -2551,6 +2562,7 @@ export default function StudentProfile() {
             <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
                 Ações de saída ou remoção definitiva — use com cuidado.
             </p>
+            {renderFreezeEnrollmentActions()}
             {isActiveStudent(student) ? (
                 <button
                     type="button"
