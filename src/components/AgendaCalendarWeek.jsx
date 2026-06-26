@@ -29,6 +29,7 @@ function buildSlotTooltip(lead, modalityLabel) {
 }
 
 const WEEKDAY_SHORT = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+const MAX_STACKED_CARDS_PER_DAY = 5;
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const ymdOf = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -279,7 +280,13 @@ export default function AgendaCalendarWeek({
                                         <span className="day-dow">{dow}</span>
                                         <span className={`day-num${isToday ? ' active' : ''}`}>{dayNum}</span>
                                     </div>
-                                    <div className="day-col-body">
+                                    <div
+                                        className={`day-col-body${
+                                            colLeads.length > MAX_STACKED_CARDS_PER_DAY
+                                                ? ' day-col-body--scrollable'
+                                                : ''
+                                        }`}
+                                    >
                                         {colLeads.length === 0 ? (
                                             <div className="day-empty">sem aulas</div>
                                         ) : null}

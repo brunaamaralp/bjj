@@ -110,6 +110,26 @@
           flex: 1;
           min-height: 0;
         }
+        .day-col-body--scrollable {
+          max-height: calc(var(--aula-card-stack-height, 96px) * 5 + 6px * 4);
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+          scrollbar-width: thin;
+          scrollbar-color: var(--color-border) transparent;
+          padding-right: 2px;
+        }
+        .day-col-body--scrollable::-webkit-scrollbar {
+          width: 4px;
+        }
+        .day-col-body--scrollable::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .day-col-body--scrollable::-webkit-scrollbar-thumb {
+          background: var(--color-border);
+          border-radius: 2px;
+        }
         .day-empty {
           text-align: center;
           color: #AFA9EC;

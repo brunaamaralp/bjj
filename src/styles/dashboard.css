@@ -707,6 +707,13 @@
         .reception-week-panel__title {
           color: var(--color-text-heading);
         }
+        .agenda-week-title-with-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          min-width: 0;
+        }
         .badge.reception-week-count-badge {
           display: inline-flex;
           align-items: center;
@@ -1719,13 +1726,12 @@
         .agenda-bottom-row {
           order: 1;
           display: grid;
-          grid-template-columns: minmax(320px, 1.45fr) minmax(220px, 0.55fr);
+          grid-template-columns: minmax(0, 1fr);
           gap: 20px;
           align-items: start;
           width: 100%;
         }
-        .agenda-bottom-row > .agenda-followups-section,
-        .agenda-bottom-row > .followup-health-panel {
+        .agenda-bottom-row > .agenda-followups-section {
           width: 100%;
           max-width: 100%;
           position: static;
