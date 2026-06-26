@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Check,
@@ -21,6 +20,7 @@ import {
 import { dueDateInMonth, getPaymentRowStatus, studentDueDay } from '../../lib/collectionOverdue.js';
 import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
 import EmptyState from '../shared/EmptyState.jsx';
+import { effectiveStudentPlan } from '../../lib/financeStudentRoster.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 
@@ -60,7 +60,7 @@ function StatusBadge({ variant, children }) {
 export default function MensalidadesListTable({
   loading,
   displayedStudents,
-  hasStudentsWithPlan,
+  totalStudents = 0,
   hasActiveFilters,
   onClearFilters,
   terms,
@@ -287,7 +287,7 @@ export default function MensalidadesListTable({
         <td>
           <div className="mensal-cell-name">
             {renderStudentName(student, { canRegister, displayName })}
-            <span className="mensal-cell-name__plan">{student.plan || '—'}</span>
+            <span className="mensal-cell-name__plan">{effectiveStudentPlan(student, payment) || '—'}</span>
           </div>
         </td>
         <td className={`${vencIsEmpty ? 'mensal-cell-empty' : ''} ${vencClassName}`.trim()}>
@@ -428,7 +428,7 @@ export default function MensalidadesListTable({
               mobile: true,
             })}
             <div className="mensal-mobile-card__meta">
-              {student.plan || '—'} · {vencLabel}
+              {effectiveStudentPlan(student, payment) || '—'} · {vencLabel}
             </div>
             <div className="mensal-mobile-card__platform">
               {prefM ? (
@@ -474,27 +474,7 @@ export default function MensalidadesListTable({
   }
 
   if (displayedStudents.length === 0) {
-    if (!hasStudentsWithPlan) {
-      const isOwner = navRole === 'owner';
-      return (
-        <EmptyState
-          variant="default"
-          tone="dashed"
-          icon={Users}
-          title={`Nenhum ${terms.student.toLowerCase()} com plano ativo neste mês`}
-          description={
-            isOwner
-              ? 'Configure os planos na empresa e associe um plano a cada aluno para acompanhar as mensalidades.'
-              : 'Nenhum plano cadastrado. Peça ao responsável pela academia para configurar os planos.'
-          }
-          primaryAction={
-            isOwner ? { label: 'Configurar planos', href: EMPRESA_FINANCE_CONFIG_PATH } : undefined
-          }
-          role="status"
-        />
-      );
-    }
-    if (hasActiveFilters) {
+    if (totalStudents > 0 && hasActiveFilters) {
       return (
         <EmptyState
           variant="compact"
@@ -511,7 +491,16 @@ export default function MensalidadesListTable({
         variant="compact"
         tone="dashed"
         icon={Users}
-        title={`Nenhum ${terms.student.toLowerCase()} encontrado`}
+        title={
+          totalStudents === 0
+            ? `Nenhum ${terms.student.toLowerCase()} ativo carregado`
+            : `Nenhum ${terms.student.toLowerCase()} encontrado`
+        }
+        description={
+          totalStudents === 0
+            ? 'Aguarde o carregamento ou verifique se há alunos matriculados na academia.'
+            : undefined
+        }
         role="status"
       />
     );

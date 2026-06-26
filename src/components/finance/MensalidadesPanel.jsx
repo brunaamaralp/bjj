@@ -108,6 +108,7 @@ import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
 import { isStudentOnExemptPlan } from '../../lib/planBilling.js';
+import { effectiveStudentPlan } from '../../lib/financeStudentRoster.js';
 
 const METHOD_LABELS = storageDialectMethodLabelsMap();
 
@@ -527,6 +528,7 @@ export default function MensalidadesPanel({
         search: debouncedSearch,
         turmaFilter,
         planFilter,
+        payment: paymentMap[s.id],
       });
     });
   }, [
@@ -960,11 +962,11 @@ export default function MensalidadesPanel({
   const studentPlans = useMemo(() => {
     const set = new Set();
     for (const s of students) {
-      const p = String(s.plan || '').trim();
+      const p = effectiveStudentPlan(s, paymentMap[s.id]);
       if (p) set.add(p);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [students]);
+  }, [students, paymentMap]);
 
   const exceptionStatusLabels = useMemo(
     () => readExceptionStatusLabels(financeConfig),
@@ -1052,11 +1054,6 @@ export default function MensalidadesPanel({
     studentOverdueMeta,
     toast,
   ]);
-
-  const hasStudentsWithPlan = useMemo(
-    () => students.some((s) => String(s.plan || '').trim()),
-    [students]
-  );
 
   const hasActiveFilters = useMemo(() => {
     if (search.trim().length > 0) return true;
@@ -1463,7 +1460,7 @@ export default function MensalidadesPanel({
       <MensalidadesListTable
         loading={gridLoading}
         displayedStudents={displayedStudents}
-        hasStudentsWithPlan={hasStudentsWithPlan}
+        totalStudents={students.length}
         hasActiveFilters={hasActiveFilters}
         onClearFilters={clearFilters}
         terms={terms}

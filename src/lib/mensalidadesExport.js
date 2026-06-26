@@ -62,6 +62,7 @@ export function filterSortMensalidadesRows(
       search,
       turmaFilter,
       planFilter,
+      payment: row.payment,
     });
   });
 

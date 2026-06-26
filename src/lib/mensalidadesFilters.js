@@ -1,4 +1,5 @@
 import { getReceptionDueBucket } from './collectionOverdue.js';
+import { effectiveStudentPlan } from './financeStudentRoster.js';
 
 export function studentTurma(student) {
   return String(
@@ -96,11 +97,12 @@ export function matchesMensalidadesStudentFilters({
   search = '',
   turmaFilter = 'all',
   planFilter = 'all',
+  payment = null,
 }) {
   const q = String(search || '').trim().toLowerCase();
   if (q && !String(student?.name || '').toLowerCase().includes(q)) return false;
   if (turmaFilter !== 'all' && studentTurma(student) !== turmaFilter) return false;
-  if (planFilter !== 'all' && String(student?.plan || '').trim() !== planFilter) return false;
+  if (planFilter !== 'all' && effectiveStudentPlan(student, payment) !== planFilter) return false;
   return true;
 }
 

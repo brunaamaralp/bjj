@@ -16,6 +16,7 @@ import {
   isMonthCoveredByPaidBundle,
 } from './bundleCoverage.js';
 import { isStudentOnExemptPlan } from './planBilling.js';
+import { effectiveStudentPlan } from './financeStudentRoster.js';
 
 export const COLLECTION_QUEUE_LOOKBACK_MONTHS = 12;
 
@@ -146,9 +147,11 @@ export function buildCollectionQueue({
   const payMap = buildPaymentsByLeadMonth(payments);
   const bundleCoveredByLead = buildPaidBundleCoveredMonthsByLead(payments);
 
-  const active = students.filter(
-    (s) => isActiveStudent(s) && String(s.plan || '').trim() && !isStudentOnExemptPlan(s, financeConfig)
-  );
+  const active = students.filter((s) => {
+    if (!isActiveStudent(s) || isStudentOnExemptPlan(s, financeConfig)) return false;
+    const payment = paymentFromMap(payMap, String(s.id || s.$id || '').trim(), currentMonth);
+    return Boolean(effectiveStudentPlan(s, payment));
+  });
   const rows = [];
 
   for (const student of active) {
