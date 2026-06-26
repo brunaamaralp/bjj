@@ -130,9 +130,37 @@ export function profileTypeFromTurma(turma) {
   return 'Adulto';
 }
 
+function normalizeTurmaCompareKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+/**
+ * Unifica rótulos legados de turma (ex.: "GBK Juniores" → "Juniores").
+ * @param {string|null|undefined} turma
+ * @param {string[]} [configuredTurmas]
+ */
+export function canonicalTurmaGroupLabel(turma, configuredTurmas = []) {
+  const raw = String(turma || '').trim();
+  if (!raw) return raw;
+
+  const key = normalizeTurmaCompareKey(raw);
+  if (key.includes('junior')) {
+    const configured = (configuredTurmas || []).find((x) =>
+      normalizeTurmaCompareKey(x).includes('junior')
+    );
+    return configured || 'Juniores';
+  }
+
+  return raw;
+}
+
 export function studentTurmaGroupKey(student, configuredTurmas = []) {
   const turma = String(student?.turma || student?.className || student?.class_name || '').trim();
-  if (turma) return turma;
+  if (turma) return canonicalTurmaGroupLabel(turma, configuredTurmas);
 
   const t = String(student?.type || '').trim();
   const low = t.toLowerCase();

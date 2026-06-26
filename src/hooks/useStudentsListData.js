@@ -29,6 +29,7 @@ export function useStudentsListData({
   serverSearchActive,
   studentPlural,
   listScrollRef,
+  financeConfig,
 }) {
   const addToast = useUiStore((s) => s.addToast);
 
@@ -115,8 +116,9 @@ export function useStudentsListData({
     () => ({
       serverSearchActive,
       serverApplied: buildServerAppliedFlags(serverFetchOpts),
+      financeConfig,
     }),
-    [serverSearchActive, serverFetchOpts]
+    [serverSearchActive, serverFetchOpts, financeConfig]
   );
 
   const filteredStudents = useMemo(

@@ -35,12 +35,13 @@ export function filterSortMensalidadesRows(
   {
     search = '',
     filter = 'all',
-    turmaFilter = 'all',
-    planFilter = 'all',
+    turmaFilter,
+    planFilter,
     sortBy = 'name',
     currentMonth = '',
     financeConfig = null,
     studentOverdueMeta = {},
+    configuredTurmas = [],
   } = {}
 ) {
   const filtered = rows.filter((row) => {
@@ -63,6 +64,7 @@ export function filterSortMensalidadesRows(
       turmaFilter,
       planFilter,
       payment: row.payment,
+      configuredTurmas,
     });
   });
 
@@ -98,10 +100,10 @@ function planOrAccount(row) {
   return plan || account || '';
 }
 
-export function mensalidadesGridToCsvRows(sortedRows) {
+export function mensalidadesGridToCsvRows(sortedRows, configuredTurmas = []) {
   return sortedRows.map((row) => ({
     aluno: row.student.name || '',
-    turma: studentTurma(row.student),
+    turma: studentTurma(row.student, configuredTurmas),
     status: row.display?.label || '',
     valor_esperado: formatAmountBr(row.expected),
     valor_recebido: formatAmountBr(row.received),
@@ -111,8 +113,8 @@ export function mensalidadesGridToCsvRows(sortedRows) {
   }));
 }
 
-export function exportMensalidadesGridCsv(sortedRows, currentMonth) {
-  const csvRows = mensalidadesGridToCsvRows(sortedRows);
+export function exportMensalidadesGridCsv(sortedRows, currentMonth, configuredTurmas = []) {
+  const csvRows = mensalidadesGridToCsvRows(sortedRows, configuredTurmas);
   const slug = String(currentMonth || 'mes').replace(/[^\d-]/g, '') || 'mes';
   if (!csvRows.length) {
     downloadCsv([{ mensagem: 'Nenhum aluno na grade com os filtros atuais' }], `mensalidades-${slug}-vazio.csv`);

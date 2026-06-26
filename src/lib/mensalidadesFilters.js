@@ -1,10 +1,16 @@
 import { getReceptionDueBucket } from './collectionOverdue.js';
-import { effectiveStudentPlan } from './financeStudentRoster.js';
+import { canonicalTurmaGroupLabel } from './academyTurmas.js';
+import {
+  canonicalStudentPlanFilterLabel,
+  effectiveStudentPlan,
+} from './financeStudentRoster.js';
 
-export function studentTurma(student) {
-  return String(
+export function studentTurma(student, configuredTurmas = []) {
+  const raw = String(
     student?.turma || student?.className || student?.class_name || student?.classId || ''
   ).trim();
+  if (!raw) return '';
+  return canonicalTurmaGroupLabel(raw, configuredTurmas);
 }
 
 export const MENSALIDADES_FILTER_ALL = 'all';
@@ -98,11 +104,17 @@ export function matchesMensalidadesStudentFilters({
   turmaFilter = 'all',
   planFilter = 'all',
   payment = null,
+  configuredTurmas = [],
 }) {
   const q = String(search || '').trim().toLowerCase();
   if (q && !String(student?.name || '').toLowerCase().includes(q)) return false;
-  if (turmaFilter !== 'all' && studentTurma(student) !== turmaFilter) return false;
-  if (planFilter !== 'all' && effectiveStudentPlan(student, payment) !== planFilter) return false;
+  if (turmaFilter !== 'all' && studentTurma(student, configuredTurmas) !== turmaFilter) {
+    return false;
+  }
+  if (planFilter !== 'all') {
+    const plan = canonicalStudentPlanFilterLabel(effectiveStudentPlan(student, payment));
+    if (plan !== planFilter) return false;
+  }
   return true;
 }
 

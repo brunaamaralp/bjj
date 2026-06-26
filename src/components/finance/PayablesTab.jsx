@@ -3,9 +3,6 @@ import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 import './finance.css';
 import { Link } from 'react-router-dom';
 import {
-  AlertCircle,
-  Calendar,
-  ExternalLink,
   FileSpreadsheet,
   Pencil,
   Plus,
@@ -86,7 +83,7 @@ function statusLabel(status) {
 
 function statusBadgeClass(status) {
   const s = String(status || '').toLowerCase();
-  if (s === 'overdue') return 'finance-badge-atraso';
+  if (s === 'overdue') return 'finance-badge-atrasado';
   if (s === 'due_soon') return 'finance-badge-aguardando';
   return 'finance-badge-pendente';
 }
@@ -685,12 +682,7 @@ export default function PayablesTab({
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
-                    <td>
-                      <span className="finance-table__date">
-                        <Calendar size={14} aria-hidden />
-                        {fmtDateBr(item.due_date)}
-                      </span>
-                    </td>
+                    <td className="finance-table__due-date">{fmtDateBr(item.due_date)}</td>
                     <td>
                       <span className="finance-table__primary">
                         {item.recurrence?.active ? (
@@ -707,48 +699,39 @@ export default function PayablesTab({
                     <td className="text-small">{item.category || '—'}</td>
                     <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
                     <td>
-                      <span className={`finance-badge ${statusBadgeClass(item.status)}`}>
-                        {item.status === 'overdue' ? (
-                          <AlertCircle size={12} aria-hidden className="icon-inline" />
-                        ) : null}
+                      <span className={statusBadgeClass(item.status)}>
                         {statusLabel(item.status)}
                       </span>
                     </td>
-                    <td className="text-right">
+                    <td className="finance-table__actions-cell">
                       <div className="finance-table__actions">
                         {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
                           <>
                             <button
                               type="button"
-                              className="btn-outline btn-sm"
+                              className="btn-outline btn-sm finance-table__action-pay"
                               onClick={() => openSettle(item)}
                             >
                               Pagar
                             </button>
                             <button
                               type="button"
-                              className="btn-ghost btn-sm"
+                              className="finance-tx-icon-btn"
                               onClick={() => openEdit(item)}
                               aria-label={`Editar ${item.vendor_label}`}
+                              title="Editar"
                             >
-                              <Pencil size={14} aria-hidden />
+                              <Pencil size={16} aria-hidden />
                             </button>
-                            <Link
-                              to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
-                              className="btn-ghost btn-sm"
-                              aria-label={`Ver lançamento ${item.vendor_label}`}
-                            >
-                              <ExternalLink size={14} aria-hidden />
-                            </Link>
                             {canManageAdvanced ? (
                               <button
                                 type="button"
-                                className="btn-ghost btn-sm text-muted"
+                                className="finance-tx-icon-btn finance-tx-icon-btn--danger"
                                 onClick={() => openCancelPayable(item)}
                                 aria-label={`Excluir ${item.vendor_label}`}
                                 title="Excluir conta"
                               >
-                                <Trash2 size={14} aria-hidden />
+                                <Trash2 size={16} aria-hidden />
                               </button>
                             ) : null}
                           </>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canonicalStudentPlanFilterLabel,
   effectiveStudentPlan,
   isMatriculatedPersonDoc,
   mapLeadDocToStudentShape,
@@ -10,6 +11,12 @@ describe('financeStudentRoster', () => {
   it('effectiveStudentPlan usa cadastro ou pagamento', () => {
     expect(effectiveStudentPlan({ plan: 'Mensal' }, null)).toBe('Mensal');
     expect(effectiveStudentPlan({ plan: '' }, { plan_name: 'Anual adulto' })).toBe('Anual adulto');
+  });
+
+  it('canonicalStudentPlanFilterLabel unifica Juniores legados', () => {
+    expect(canonicalStudentPlanFilterLabel('Juniores')).toBe('Juniores');
+    expect(canonicalStudentPlanFilterLabel('GBK Juniores')).toBe('Juniores');
+    expect(canonicalStudentPlanFilterLabel('Mensal Adulto')).toBe('Mensal Adulto');
   });
 
   it('isMatriculatedPersonDoc reconhece matriculado', () => {

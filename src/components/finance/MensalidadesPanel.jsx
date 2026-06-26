@@ -107,7 +107,7 @@ import PaymentReceiptDateBanner from './PaymentReceiptDateBanner.jsx';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
-import { effectiveStudentPlan } from '../../lib/financeStudentRoster.js';
+import { canonicalStudentPlanFilterLabel, effectiveStudentPlan } from '../../lib/financeStudentRoster.js';
 
 const METHOD_LABELS = storageDialectMethodLabelsMap();
 
@@ -553,6 +553,7 @@ export default function MensalidadesPanel({
         turmaFilter,
         planFilter,
         payment: paymentMap[s.id],
+        configuredTurmas,
       });
     });
   }, [
@@ -566,6 +567,7 @@ export default function MensalidadesPanel({
     paymentMap,
     currentMonth,
     financeConfig,
+    configuredTurmas,
   ]);
 
   const displayedStudents = useMemo(() => {
@@ -973,16 +975,16 @@ export default function MensalidadesPanel({
   const turmas = useMemo(() => {
     const set = new Set();
     for (const s of students) {
-      const t = studentTurma(s);
+      const t = studentTurma(s, configuredTurmas);
       if (t) set.add(t);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [students]);
+  }, [students, configuredTurmas]);
 
   const studentPlans = useMemo(() => {
     const set = new Set();
     for (const s of students) {
-      const p = effectiveStudentPlan(s, paymentMap[s.id]);
+      const p = canonicalStudentPlanFilterLabel(effectiveStudentPlan(s, paymentMap[s.id]));
       if (p) set.add(p);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -1055,8 +1057,9 @@ export default function MensalidadesPanel({
         currentMonth,
         financeConfig,
         studentOverdueMeta,
+        configuredTurmas,
       });
-      const count = exportMensalidadesGridCsv(sorted, currentMonth);
+      const count = exportMensalidadesGridCsv(sorted, currentMonth, configuredTurmas);
       if (count === 0) {
         toast.warning('Nenhum aluno na grade com os filtros atuais.');
       } else {
@@ -1080,6 +1083,7 @@ export default function MensalidadesPanel({
     planFilter,
     gridSortBy,
     studentOverdueMeta,
+    configuredTurmas,
     toast,
   ]);
 
@@ -1339,6 +1343,7 @@ export default function MensalidadesPanel({
           planFilter={planFilter}
           sortBy={gridSortBy}
           studentOverdueMeta={studentOverdueMeta}
+          configuredTurmas={configuredTurmas}
           terms={terms}
           addToast={toast.addToast}
           friendlyError={friendlyError}

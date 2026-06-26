@@ -20,6 +20,23 @@ export function effectiveStudentPlan(student, payment = null) {
   return String(student?.plan || payment?.plan_name || '').trim();
 }
 
+function normalizePlanCompareKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+/** Unifica planos legados equivalentes para filtros/agrupamento (ex.: GBLP). */
+export function canonicalStudentPlanFilterLabel(plan) {
+  const raw = String(plan || '').trim();
+  if (!raw) return raw;
+  const key = normalizePlanCompareKey(raw);
+  if (key === 'juniores' || key === 'gbk juniores') return 'Juniores';
+  return raw;
+}
+
 /**
  * Mapeia documento leads → shape de aluno para financeiro / mensalidades.
  * @param {object} doc

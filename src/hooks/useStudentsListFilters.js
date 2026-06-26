@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react';
 import useDebounce from './useDebounce';
+import { useShallow } from 'zustand/react/shallow';
+import { useStudentStore } from '../store/useStudentStore.js';
 import {
+  buildStudentPlanFilterOptions,
+  buildStudentsCobrancaCounts,
   buildStudentsServerFetchOpts,
   hasStudentsServerFilters,
+  STUDENT_COBRANCA_FILTER,
 } from '../lib/studentsListFilters.js';
 
 export const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
@@ -11,11 +16,16 @@ export const STUDENTS_FILTERS_EXPANDED_KEY = 'navi_students_filters_expanded';
  * Estado e derivados dos filtros da lista de alunos.
  */
 export function useStudentsListFilters({ financeConfig }) {
+  const students = useStudentStore(
+    useShallow((s) => s.studentIds.map((id) => s.studentsById[id]).filter(Boolean))
+  );
+
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [filtroOrigem, setFiltroOrigem] = useState('Todas');
   const [filtroTurma, setFiltroTurma] = useState('Todas');
   const [filtroPlano, setFiltroPlano] = useState('Todos');
+  const [filtroCobranca, setFiltroCobranca] = useState(STUDENT_COBRANCA_FILTER.TODOS);
   const [ordenacao, setOrdenacao] = useState('az');
   const [showInactive, setShowInactive] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(() => {
@@ -26,12 +36,15 @@ export function useStudentsListFilters({ financeConfig }) {
     }
   });
 
-  const planOptions = useMemo(() => {
-    const names = (financeConfig?.plans || [])
-      .map((p) => String(p?.name || '').trim())
-      .filter(Boolean);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'pt'));
-  }, [financeConfig?.plans]);
+  const planOptions = useMemo(
+    () => buildStudentPlanFilterOptions(financeConfig?.plans, students),
+    [financeConfig?.plans, students]
+  );
+
+  const cobrancaCounts = useMemo(
+    () => buildStudentsCobrancaCounts(students, financeConfig),
+    [students, financeConfig]
+  );
 
   const filterState = useMemo(
     () => ({
@@ -39,10 +52,11 @@ export function useStudentsListFilters({ financeConfig }) {
       filtroOrigem,
       filtroTurma,
       filtroPlano,
+      filtroCobranca,
       showInactive,
       ordenacao,
     }),
-    [debouncedSearch, filtroOrigem, filtroTurma, filtroPlano, showInactive, ordenacao]
+    [debouncedSearch, filtroOrigem, filtroTurma, filtroPlano, filtroCobranca, showInactive, ordenacao]
   );
 
   const serverFetchOpts = useMemo(
@@ -62,6 +76,7 @@ export function useStudentsListFilters({ financeConfig }) {
     setFiltroOrigem('Todas');
     setFiltroTurma('Todas');
     setFiltroPlano('Todos');
+    setFiltroCobranca(STUDENT_COBRANCA_FILTER.TODOS);
     setOrdenacao('az');
     setShowInactive(false);
   };
@@ -71,6 +86,7 @@ export function useStudentsListFilters({ financeConfig }) {
     filtroOrigem !== 'Todas' ||
     filtroTurma !== 'Todas' ||
     filtroPlano !== 'Todos' ||
+    filtroCobranca !== STUDENT_COBRANCA_FILTER.TODOS ||
     ordenacao !== 'az' ||
     showInactive;
 
@@ -79,9 +95,10 @@ export function useStudentsListFilters({ financeConfig }) {
     if (filtroOrigem !== 'Todas') n += 1;
     if (filtroTurma !== 'Todas') n += 1;
     if (filtroPlano !== 'Todos') n += 1;
+    if (filtroCobranca !== STUDENT_COBRANCA_FILTER.TODOS) n += 1;
     if (ordenacao !== 'az') n += 1;
     return n;
-  }, [filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
+  }, [filtroOrigem, filtroTurma, filtroPlano, filtroCobranca, ordenacao]);
 
   return {
     searchTerm,
@@ -93,6 +110,9 @@ export function useStudentsListFilters({ financeConfig }) {
     setFiltroTurma,
     filtroPlano,
     setFiltroPlano,
+    filtroCobranca,
+    setFiltroCobranca,
+    cobrancaCounts,
     ordenacao,
     setOrdenacao,
     showInactive,

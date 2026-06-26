@@ -9,6 +9,7 @@ import {
   turmaValueFromForm,
   resolveTurmaFormState,
   studentTurmaGroupKey,
+  canonicalTurmaGroupLabel,
   profileTypeFromTurma,
   sortTurmaGroupKeys,
   SEM_TURMA_GROUP_LABEL,
@@ -64,6 +65,13 @@ describe('academyTurmas', () => {
     expect(studentTurmaGroupKey({ turma: 'Kids 18h' }, ['Kids'])).toBe('Kids 18h');
     expect(studentTurmaGroupKey({ type: 'Adulto' }, ['Adultos'])).toBe('Adultos');
     expect(studentTurmaGroupKey({ type: 'X' }, [])).toBe(SEM_TURMA_GROUP_LABEL);
+  });
+
+  it('canonicalTurmaGroupLabel unifica variantes de Juniores', () => {
+    expect(canonicalTurmaGroupLabel('GBK Juniores')).toBe('Juniores');
+    expect(canonicalTurmaGroupLabel('Juniores')).toBe('Juniores');
+    expect(studentTurmaGroupKey({ turma: 'GBK Juniores' }, ['Juniores'])).toBe('Juniores');
+    expect(studentTurmaGroupKey({ turma: 'Juniores' }, ['Juniores'])).toBe('Juniores');
   });
 
   it('sortTurmaGroupKeys coloca Sem turma no final', () => {

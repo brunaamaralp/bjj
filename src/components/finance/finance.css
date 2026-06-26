@@ -197,8 +197,8 @@
 }
 
 .finance-badge-atrasado {
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 /* Inline icon spacing */
