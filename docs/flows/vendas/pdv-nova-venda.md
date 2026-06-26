@@ -14,6 +14,7 @@
 **Specs relacionadas:**
 
 - [2026-06-15-modal-venda-produto-PRODUCT.md](../../superpowers/specs/2026-06-15-modal-venda-produto-PRODUCT.md)
+- [2026-06-26-pdv-checkout-ux-PRODUCT.md](../../superpowers/specs/2026-06-26-pdv-checkout-ux-PRODUCT.md) — modo de recebimento, mobile sticky, hints (implementado)
 
 **Harness relacionado:** `npm test -- lojaSalesTabs nlAction`
 
@@ -58,8 +59,8 @@ flowchart TD
 | 4 | Nova venda | Ajustar qty/preço | Editar linha | Total recalcula |
 | 5 | Nova venda | Vincular aluno (opcional) | Busca typeahead | `searchStudentsForSale` |
 | 6 | Nova venda | Cliente avulso | Nome + telefone | Sem `aluno_id` |
-| 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock`; **Recebido via** em cartão (2+ meios) |
-| 8 | Checkout | Venda a prazo | Toggle + data vencimento | `deferred: true` |
+| 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock`; modo **integral / parte agora / a prazo** (spec 2026-06-26) |
+| 8 | Checkout | Venda a prazo | Seletor “Vender a prazo” + data vencimento | `deferred: true` |
 | 9 | Checkout | **Concluir venda** | Submit | `createSale`; toast; comprovante |
 | 10 | Toolbar | **Modo PDV** | `?pdv=1` | UI fullscreen; hotkeys F2–F4 |
 | 11 | PDV | Suspender carrinho | Pausar atendimento | `suspendCart` / retomar |
@@ -168,4 +169,5 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 3 |
+| 2026-06-26 | — | Link spec checkout UX (modo recebimento, mobile) |
 | 2026-06-17 | — | Checkout: «Recebido via» em cartão (`SalesPaymentBlock`) |

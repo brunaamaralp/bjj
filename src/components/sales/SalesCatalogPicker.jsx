@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
 import {
@@ -147,7 +147,9 @@ export default function SalesCatalogPicker({
   onPick,
   flashProductId,
   onNavigateAway,
+  autoFocusSearch = false,
 }) {
+  const searchInputRef = useRef(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const filterKey = `${search}|${category}|${products.length}`;
@@ -157,6 +159,12 @@ export default function SalesCatalogPicker({
     const resolved = typeof next === 'function' ? next(visibleLimit) : next;
     setLimitState({ key: filterKey, limit: resolved });
   };
+
+  useEffect(() => {
+    if (!autoFocusSearch) return;
+    const el = searchInputRef.current;
+    if (el && typeof el.focus === 'function') el.focus();
+  }, [autoFocusSearch]);
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -209,8 +217,9 @@ export default function SalesCatalogPicker({
           <div className="sales-catalog__search-wrap">
             <Search size={14} className="sales-catalog__search-icon" aria-hidden />
             <input
+              ref={searchInputRef}
               className="form-input"
-              placeholder="Filtrar por nome, categoria ou variação…"
+              placeholder="Buscar por nome, categoria ou SKU…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

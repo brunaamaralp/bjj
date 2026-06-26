@@ -612,7 +612,7 @@ export default function StudentProductSaleStep({
                     setLocalError('');
                   }}
                 />
-                <span className="sales-collab-toggle__text">Receber depois</span>
+                <span className="sales-collab-toggle__text">Vender a prazo</span>
               </label>
 
               {receiveLater ? (

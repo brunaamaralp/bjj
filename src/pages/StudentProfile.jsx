@@ -2714,18 +2714,20 @@ export default function StudentProfile() {
                         : stackedLayout
                           ? '100%'
                           : timelineOpen
-                            ? '360px'
+                            ? 'var(--student-profile-left-open, 420px)'
                             : 'auto',
                 flex:
                     stackedLayout && timelineOpen
                         ? '0 0 0'
-                        : stackedLayout && !timelineOpen
-                          ? '1 1 0%'
-                          : !stackedLayout && !timelineOpen
-                            ? '1 1 0%'
-                            : '0 0 auto',
-                maxWidth: !stackedLayout && !timelineOpen ? 560 : undefined,
-                flexShrink: !stackedLayout && timelineOpen ? 0 : 0,
+                        : stackedLayout
+                          ? timelineOpen
+                            ? '0 0 auto'
+                            : '1 1 0%'
+                          : timelineOpen
+                            ? '0 0 auto'
+                            : '1 1 0%',
+                maxWidth: !stackedLayout && !timelineOpen ? 'var(--student-profile-left-max-closed, 680px)' : undefined,
+                flexShrink: 0,
                 overflow: 'hidden',
                 flexDirection: 'column',
                 borderRight: stackedLayout ? 'none' : '1px solid var(--border)',
@@ -3217,9 +3219,10 @@ export default function StudentProfile() {
                 flexDirection: 'column',
                 overflow: 'hidden',
                 minWidth: 0,
-                flex: timelineOpen ? 1 : 0,
+                flex: timelineOpen ? (stackedLayout ? '1 1 auto' : '1 1 0%') : 0,
                 flexBasis: timelineOpen ? undefined : 0,
-                maxWidth: timelineOpen ? (stackedLayout ? '100%' : 560) : 0,
+                maxWidth: !timelineOpen ? 0 : stackedLayout ? '100%' : undefined,
+                minWidth: timelineOpen && !stackedLayout ? 0 : undefined,
                 opacity: timelineOpen ? 1 : 0,
                 pointerEvents: timelineOpen ? 'auto' : 'none',
                 width: stackedLayout && timelineOpen ? '100%' : undefined,
@@ -3228,57 +3231,18 @@ export default function StudentProfile() {
             }}
         >
             {stackedLayout && timelineOpen ? (
-                <div
-                    className="student-panel-mobile-chrome"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '10px 14px',
-                        paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
-                        flexShrink: 0,
-                        background: 'var(--surface)',
-                        borderBottom: '1px solid var(--border-light)',
-                    }}
-                >
+                <div className="student-panel-mobile-chrome">
                     <button
                         type="button"
+                        className="student-panel-mobile-chrome__back"
                         onClick={() => setTimelineOpen(false)}
                         aria-label="Voltar ao perfil do aluno"
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            border: 'none',
-                            background: 'none',
-                            cursor: 'pointer',
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: 'var(--accent)',
-                            fontFamily: 'inherit',
-                            padding: '4px 0',
-                            flexShrink: 0,
-                        }}
                     >
                         <ArrowLeft size={18} aria-hidden />
                         Perfil
                     </button>
-                    <span
-                        style={{
-                            flex: 1,
-                            minWidth: 0,
-                            fontSize: 15,
-                            fontWeight: 800,
-                            color: 'var(--text)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            textAlign: 'center',
-                        }}
-                    >
-                        {studentDisplayName}
-                    </span>
-                    <span style={{ width: 52, flexShrink: 0 }} aria-hidden />
+                    <span className="student-panel-mobile-chrome__name">{studentDisplayName}</span>
+                    <span className="student-panel-mobile-chrome__spacer" aria-hidden />
                 </div>
             ) : null}
 
