@@ -833,6 +833,12 @@
   line-height: 1.2;
 }
 
+.pipeline-kanban-sortable-item {
+  width: 100%;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
 .pipeline-container .card.lead-card {
   cursor: grab;
   display: flex;
