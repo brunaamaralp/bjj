@@ -223,9 +223,13 @@ export default function StudentPaymentModal({
       closeOnOverlay={!isProduct && !saving}
       closeOnEsc={!saving && !(isProduct && productVariantPickerOpen)}
       showCloseButton={!saving && !creatingSale}
-      maxWidth={isProduct ? 560 : 480}
+      maxWidth={isProduct ? 1120 : 480}
       className="navi-modal-overlay--form"
-      dialogClassName="student-payment-modal"
+      dialogClassName={
+        isProduct
+          ? 'student-payment-modal student-payment-modal--product sales-modal'
+          : 'student-payment-modal'
+      }
       ariaLabelledBy="student-payment-modal-title"
       footer={
         isProduct ? (
@@ -319,8 +323,8 @@ export default function StudentPaymentModal({
                   lineHeight: 1.45,
                 }}
               >
-                Para venda de produto com pagamento posterior, use &quot;Registrar venda&quot; e marque
-                &quot;Receber depois&quot;.
+                Para venda de produto com pagamento posterior, escolha o tipo &quot;Produto&quot; e selecione
+                &quot;Vender a prazo&quot;.
               </p>
             ) : null}
             <StudentProductSaleStep

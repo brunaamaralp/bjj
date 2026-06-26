@@ -26,7 +26,7 @@ export function legacyTurmaKeyFromLabel(label) {
  */
 export function inferModalityFromTurmaLabel(label) {
   const low = String(label || '').toLowerCase();
-  if (low.includes('kid') || low.includes('crian')) return 'kids';
+  if (low.includes('kid') || low.includes('crian') || low.includes('pequenos campe')) return 'kids';
   if (low.includes('junior')) return 'juniores';
   if (low.includes('fit') || low.includes('func')) return 'fitness';
   if (low.includes('comp')) return 'competicao';
@@ -125,19 +125,50 @@ export function turmaValueFromForm(selectValue, otherText) {
  */
 export function profileTypeFromTurma(turma) {
   const low = String(turma || '').toLowerCase();
-  if (low.includes('kid') || low.includes('crian')) return 'Criança';
+  if (low.includes('kid') || low.includes('crian') || low.includes('pequenos campe')) return 'Criança';
   if (low.includes('junior')) return 'Juniores';
   return 'Adulto';
 }
 
+function normalizeTurmaCompareKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+/**
+ * Unifica rótulos legados de turma (ex.: "GBK Juniores" → "Juniores").
+ * @param {string|null|undefined} turma
+ * @param {string[]} [configuredTurmas]
+ */
+export function canonicalTurmaGroupLabel(turma, configuredTurmas = []) {
+  const raw = String(turma || '').trim();
+  if (!raw) return raw;
+
+  const key = normalizeTurmaCompareKey(raw);
+  if (key.includes('junior')) {
+    const configured = (configuredTurmas || []).find((x) =>
+      normalizeTurmaCompareKey(x).includes('junior')
+    );
+    return configured || 'Juniores';
+  }
+
+  return raw;
+}
+
 export function studentTurmaGroupKey(student, configuredTurmas = []) {
   const turma = String(student?.turma || student?.className || student?.class_name || '').trim();
-  if (turma) return turma;
+  if (turma) return canonicalTurmaGroupLabel(turma, configuredTurmas);
 
   const t = String(student?.type || '').trim();
   const low = t.toLowerCase();
   if (low.includes('crian') || low === 'criança') {
-    const kids = configuredTurmas.find((x) => x.toLowerCase().includes('kid')) || 'Kids';
+    const kids =
+      configuredTurmas.find((x) => x.toLowerCase().includes('pequenos campe')) ||
+      configuredTurmas.find((x) => x.toLowerCase().includes('kid')) ||
+      'Kids';
     return kids;
   }
   if (low.includes('junior')) {

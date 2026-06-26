@@ -91,3 +91,30 @@
     max-width: none;
   }
 }
+
+/* Contas a pagar — ações em linha única */
+.payables-tab .finance-table__due-date {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.payables-tab .finance-table__actions-cell {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.payables-tab .finance-table__actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.payables-tab .finance-table__action-pay {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

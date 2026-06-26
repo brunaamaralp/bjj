@@ -5,6 +5,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import { uploadStudentPhoto, saveStudentPhotoUrl, isStudentPhotoUploadConfigured } from '../../lib/studentPhotoUpload';
 import { syncControlIdStudent } from '../../lib/controlidApi';
 import { createSessionJwt } from '../../lib/appwrite';
+import ModalShell from '../shared/ModalShell.jsx';
 
 function formatQualityFeedback(result) {
   const lines = [];
@@ -29,17 +30,26 @@ function formatQualityFeedback(result) {
   return lines;
 }
 
+/**
+ * Avatar do perfil do aluno — exibe foto/iniciais e abre modal de upload quando catraca ativa.
+ */
 export default function StudentControlIdPhoto({
   academyId,
   leadId,
   photoUrl,
+  initials = '',
   controlidSynced,
+  enabled = false,
   onPhotoSaved,
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const inputRef = useRef(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState([]);
+
+  const trimmedPhoto = String(photoUrl || '').trim();
+  const interactive = enabled && Boolean(academyId && leadId);
 
   const testImage = async (file) => {
     const buf = await file.arrayBuffer();
@@ -83,7 +93,7 @@ export default function StudentControlIdPhoto({
       const quality = await testImage(file);
       setFeedback(formatQualityFeedback(quality));
 
-      let url = photoUrl;
+      let url = trimmedPhoto;
       if (isStudentPhotoUploadConfigured()) {
         url = await uploadStudentPhoto(leadId, file);
       } else {
@@ -108,6 +118,7 @@ export default function StudentControlIdPhoto({
       } else {
         addToast({ type: 'success', message: 'Foto salva no perfil.' });
       }
+      setModalOpen(false);
     } catch (err) {
       addToast({ type: 'error', message: friendlyError(err, 'save') });
     } finally {
@@ -115,60 +126,97 @@ export default function StudentControlIdPhoto({
     }
   };
 
+  const avatarContent = trimmedPhoto ? (
+    <img
+      src={trimmedPhoto}
+      alt=""
+      className="student-profile-hd__avatar-img"
+      loading="lazy"
+      decoding="async"
+    />
+  ) : (
+    <span className="student-profile-hd__initials">{initials}</span>
+  );
+
+  const avatarNode = interactive ? (
+    <button
+      type="button"
+      className="student-profile-hd__avatar student-profile-hd__avatar--interactive"
+      onClick={() => setModalOpen(true)}
+      aria-label={trimmedPhoto ? 'Alterar foto do perfil' : 'Enviar foto do perfil'}
+      title="Foto do perfil"
+    >
+      {avatarContent}
+      <span className="student-profile-hd__avatar-overlay" aria-hidden>
+        <Camera size={18} />
+      </span>
+    </button>
+  ) : (
+    <div className="student-profile-hd__avatar">{avatarContent}</div>
+  );
+
   return (
-    <div className="card" style={{ padding: 16, marginTop: 12, border: '1px solid var(--border-light)' }}>
-      <h4 className="navi-section-heading" style={{ marginBottom: 8 }}>Foto para catraca</h4>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 96,
-            height: 96,
-            borderRadius: 12,
-            background: 'var(--surface-hover)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
+    <>
+      {avatarNode}
+
+      {interactive ? (
+        <ModalShell
+          open={modalOpen}
+          title="Foto do perfil"
+          onClose={() => {
+            if (!uploading) setModalOpen(false);
           }}
+          maxWidth={440}
         >
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            <Camera size={32} style={{ color: 'var(--text-muted)' }} aria-hidden />
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/jpg" hidden onChange={(ev) => void onFile(ev)} />
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-          >
-            {uploading ? 'Enviando…' : '📷 Enviar foto'}
-          </button>
-          <ul className="text-small text-muted" style={{ marginTop: 10, paddingLeft: 18, lineHeight: 1.5 }}>
-            <li>Rosto centralizado</li>
-            <li>Boa iluminação</li>
-            <li>Sem óculos escuros</li>
-          </ul>
-          {feedback.length > 0 && (
-            <ul style={{ marginTop: 10, fontSize: 13, listStyle: 'none', padding: 0 }}>
-              {feedback.map((line, i) => (
-                <li key={i} style={{ color: line.ok ? 'var(--success)' : 'var(--warning)' }}>
-                  {line.ok ? '✓' : '⚠'} {line.text}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+          <div className="student-profile-photo-modal">
+            <div className="student-profile-photo-modal__preview">
+              {trimmedPhoto ? (
+                <img src={trimmedPhoto} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <Camera size={36} style={{ color: 'var(--text-muted)' }} aria-hidden />
+              )}
+            </div>
+            <div className="student-profile-photo-modal__body">
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/jpg"
+                hidden
+                onChange={(ev) => void onFile(ev)}
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={uploading}
+                onClick={() => inputRef.current?.click()}
+              >
+                {uploading ? 'Enviando…' : trimmedPhoto ? 'Trocar foto' : 'Enviar foto'}
+              </button>
+              <ul className="text-small text-muted student-profile-photo-modal__tips">
+                <li>Rosto centralizado</li>
+                <li>Boa iluminação</li>
+                <li>Sem óculos escuros</li>
+              </ul>
+              {feedback.length > 0 ? (
+                <ul className="student-profile-photo-modal__feedback">
+                  {feedback.map((line, i) => (
+                    <li
+                      key={i}
+                      className={
+                        line.ok
+                          ? 'student-profile-photo-modal__feedback-ok'
+                          : 'student-profile-photo-modal__feedback-warn'
+                      }
+                    >
+                      {line.ok ? '✓' : '⚠'} {line.text}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        </ModalShell>
+      ) : null}
+    </>
   );
 }

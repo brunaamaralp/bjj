@@ -4,12 +4,13 @@ import { Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
+import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
 import {
   buildWeeklyScheduleGrid,
   collectScheduleModalities,
   filterSchedulesByModality,
 } from '../../lib/schedules.js';
-import { formatCapacityLabel } from '../../lib/classes.js';
+import { resolveClassDisplayColor } from '../../lib/classes.js';
 
 const JS_DAY_TO_ID = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
 
@@ -17,15 +18,40 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const schedules = useSchedulesStore((s) => s.schedules);
   const loading = useSchedulesStore((s) => s.loading);
   const fetchSchedules = useSchedulesStore((s) => s.fetchSchedules);
+  const classes = useClassesStore((s) => s.classes);
+  const fetchClasses = useClassesStore((s) => s.fetchClasses);
   const [modalityFilter, setModalityFilter] = useState('');
 
   const todayId = JS_DAY_TO_ID[new Date().getDay()];
   const configured = isSchedulesConfigured();
+  const classesConfigured = isClassesConfigured();
 
   useEffect(() => {
     if (!academyId || !configured) return;
     void fetchSchedules(academyId, { activeOnly: true, silent: true });
   }, [academyId, configured, fetchSchedules]);
+
+  useEffect(() => {
+    if (!academyId || !classesConfigured) return;
+    void fetchClasses(academyId, { activeOnly: true, silent: true });
+  }, [academyId, classesConfigured, fetchClasses]);
+
+  const classColorById = useMemo(() => {
+    const map = new Map();
+    for (const classDoc of classes || []) {
+      map.set(
+        classDoc.id,
+        resolveClassDisplayColor({ classId: classDoc.id, color: classDoc.color })
+      );
+    }
+    return map;
+  }, [classes]);
+
+  const resolveScheduleColor = (item) => {
+    const classId = String(item?.class_id || '').trim();
+    if (classId && classColorById.has(classId)) return classColorById.get(classId);
+    return resolveClassDisplayColor({ classId: classId || item?.id || item?.name });
+  };
 
   const filtered = useMemo(
     () => filterSchedulesByModality(schedules, modalityFilter),
@@ -142,8 +168,14 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
                       <td key={col.id} className={cls || undefined}>
                         {items.length ? (
                           <ul className="schedules-week-grid__cell-list">
-                            {items.map((item) => (
-                              <li key={item.id} className="schedules-week-card">
+                            {items.map((item) => {
+                              const classColor = resolveScheduleColor(item);
+                              return (
+                              <li
+                                key={item.id}
+                                className="schedules-week-card"
+                                style={{ '--schedule-class-color': classColor }}
+                              >
                                 <span className="schedules-week-card__name">{item.name}</span>
                                 <span className="schedules-week-card__time text-small text-muted">
                                   {item.time_start}–{item.time_end}
@@ -153,13 +185,9 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
                                     {item.instructor}
                                   </span>
                                 ) : null}
-                                {item.max_capacity ? (
-                                  <span className="schedules-week-card__capacity text-small text-muted">
-                                    {formatCapacityLabel(item.max_capacity)}
-                                  </span>
-                                ) : null}
                               </li>
-                            ))}
+                              );
+                            })}
                           </ul>
                         ) : null}
                       </td>

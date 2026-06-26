@@ -13,6 +13,7 @@ import {
 import CaptureMethodSelect from './finance/CaptureMethodSelect.jsx';
 import CashTrocoFields from './finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';
+import { isStorageCreditMethod } from '../lib/paymentMethods.js';
 import { centsToNumber, formatBRL, parseMaskToCents } from '../lib/moneyBr.js';
 import { DISCOUNT_TYPES, parseDiscountAmountInput } from '../lib/planBilling.js';
 import { enrollmentPlanPricing } from '../lib/enrollmentPayment.js';
@@ -82,6 +83,20 @@ export default function MatriculaPaymentStep({
       ...p,
       plan_name: name,
       amount: nextPricing.finalPrice > 0 ? nextPricing.finalPrice.toFixed(2).replace('.', ',') : '',
+    }));
+  };
+
+  const handleMethodChange = (method) => {
+    setPayForm((p) => ({
+      ...p,
+      method,
+      installments: isStorageCreditMethod(method) ? p.installments || 1 : 1,
+      ...whenPaymentMethodChangesWithCapture(financeConfig, method),
+      ...(isCashPaymentMethod(method) && !p.cash_received
+        ? { cash_received: p.amount || '' }
+        : !isCashPaymentMethod(method)
+          ? { cash_received: '', formaTroco: 'pix', trocoAccount: '' }
+          : {}),
     }));
   };
 
@@ -241,19 +256,7 @@ export default function MatriculaPaymentStep({
           className="form-input"
           value={payForm.method}
           disabled={disabled}
-          onChange={(e) => {
-            const method = e.target.value;
-            setPayForm((p) => ({
-              ...p,
-              method,
-              ...whenPaymentMethodChangesWithCapture(financeConfig, method),
-              ...(isCashPaymentMethod(method) && !p.cash_received
-                ? { cash_received: p.amount || '' }
-                : !isCashPaymentMethod(method)
-                  ? { cash_received: '', formaTroco: 'pix', trocoAccount: '' }
-                  : {}),
-            }));
-          }}
+          onChange={(e) => handleMethodChange(e.target.value)}
         >
           {orderedActiveStorageDialectMethodsForModal(financeConfig).map((m) => (
             <option key={m.value} value={m.value}>
@@ -262,6 +265,32 @@ export default function MatriculaPaymentStep({
           ))}
         </select>
       </div>
+
+      {isStorageCreditMethod(payForm.method) ? (
+        <div className="form-group">
+          <label className="form-label" htmlFor="matricula-payment-installments">
+            Parcelas
+          </label>
+          <select
+            id="matricula-payment-installments"
+            className="form-input"
+            value={String(payForm.installments || 1)}
+            disabled={disabled}
+            onChange={(e) =>
+              setPayForm((p) => ({
+                ...p,
+                installments: Number(e.target.value) || 1,
+              }))
+            }
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={String(n)}>
+                {n === 1 ? '1x (à vista)' : `${n}x`}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       <CaptureMethodSelect
         financeConfig={financeConfig}

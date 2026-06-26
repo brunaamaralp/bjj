@@ -19,6 +19,7 @@ import {
   formatSaleIdShort,
   SALE_STATUS_BADGE_MAP,
 } from '../../lib/salesHistory';
+import { salesSubtabLabel } from '../../lib/lojaSalesTabs';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import { formatBRL } from '../../lib/moneyBr';
 import { friendlyError } from '../../lib/errorMessages';
@@ -189,7 +190,13 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
 
   return (
   <>
-      <div className="card mt-4">
+      <div className="sales-history-intro mt-4">
+        <h2 className="navi-section-heading sales-history-intro__title">{salesSubtabLabel('history')}</h2>
+        <p className="text-small text-muted sales-history-intro__hint">
+          Consulte vendas do período, receba saldos pendentes e cancele quando necessário.
+        </p>
+      </div>
+      <div className="card mt-3">
         <div className="flex gap-2 sales-history-filters">
           <div className="form-group form-group--from">
             <label className="text-xs">De</label>

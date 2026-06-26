@@ -87,6 +87,7 @@ export default function MonthlyPaymentGrid({
   planFilter = 'all',
   sortBy = 'name',
   studentOverdueMeta = {},
+  configuredTurmas = [],
   terms,
   addToast,
   friendlyError,
@@ -141,6 +142,7 @@ export default function MonthlyPaymentGrid({
         currentMonth,
         financeConfig,
         studentOverdueMeta,
+        configuredTurmas,
       }),
     [
       rows,
@@ -152,6 +154,7 @@ export default function MonthlyPaymentGrid({
       currentMonth,
       financeConfig,
       studentOverdueMeta,
+      configuredTurmas,
     ]
   );
 

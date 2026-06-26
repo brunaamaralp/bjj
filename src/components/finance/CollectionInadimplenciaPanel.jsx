@@ -9,13 +9,7 @@ import { apiSnoozeCollectionRegua } from '../../lib/studentPaymentsApi.js';
 import { buildCollectionTaskTitle, buildCollectionTaskDescription } from '../../lib/collectionRules.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import { friendlyError } from '../../lib/errorMessages.js';
-
-function waMeUrl(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (digits.length < 10) return null;
-  const n = digits.startsWith('55') ? digits : `55${digits}`;
-  return `https://wa.me/${n}`;
-}
+import { buildWaMeUrl } from '../../lib/whatsappLinks.js';
 
 export default function CollectionInadimplenciaPanel({
   students,
@@ -115,7 +109,7 @@ export default function CollectionInadimplenciaPanel({
       </p>
       <ul className="mensal-inadimplencia-list">
         {rows.map((row) => {
-          const wa = waMeUrl(row.student.phone);
+          const wa = buildWaMeUrl(row.student.phone);
           const busy = busyId === row.student.id;
           return (
             <li key={row.student.id} className="mensal-inadimplencia-row">

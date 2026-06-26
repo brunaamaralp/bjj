@@ -77,4 +77,19 @@ describe('mensalidadesFilters', () => {
       })
     ).toBe(false);
   });
+
+  it('unifica GBK Juniores com Juniores em turma e plano', () => {
+    expect(
+      matchesMensalidadesStudentFilters({
+        student: { name: 'João', turma: 'GBK Juniores' },
+        turmaFilter: 'Juniores',
+      })
+    ).toBe(true);
+    expect(
+      matchesMensalidadesStudentFilters({
+        student: { name: 'Maria', plan: 'GBK Juniores' },
+        planFilter: 'Juniores',
+      })
+    ).toBe(true);
+  });
 });

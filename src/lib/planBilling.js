@@ -1,6 +1,8 @@
 import { findPlanByName } from './academyPlans.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 
+export { effectiveStudentPlan } from './financeStudentRoster.js';
+
 export const DISCOUNT_TYPES = Object.freeze({
   NONE: 'none',
   FIXED: 'fixed',

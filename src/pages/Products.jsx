@@ -433,7 +433,7 @@ export default function Products() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, searchParams]);
 
-  const handleSave = async (payload, { isEdit: editFlag, isParent, phase } = {}) => {
+  const handleSave = async (payload, { isEdit: editFlag, isParent, phase, closeOnSuccess } = {}) => {
     const isEdit = editFlag ?? modalMode === 'edit';
 
     if (phase === 'variants') {
@@ -474,6 +474,11 @@ export default function Products() {
       if (!saved) {
         addToast({ type: 'error', message: useProductsStore.getState().error || 'Erro ao salvar produto' });
         return { ok: false };
+      }
+      if (closeOnSuccess) {
+        addToast({ type: 'success', message: 'Produto atualizado' });
+        closeModal();
+        await refreshStockStores();
       }
       return { ok: true };
     }

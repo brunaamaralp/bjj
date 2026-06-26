@@ -1,0 +1,123 @@
+student_id,name,student_status,plan_current,plan_inferred,plan_final,source,confidence,in_catalog,payment_count
+69a1c388002bcf1f70f1,Otávio Carvalho de Castro Bernardes,,,,,none,none,false,0
+69a5b6070031c9af94f8,Murilo Gaudencio de Sousa Ribeiro,,,,,none,none,false,0
+69a601cd0022c4c34672,Thomaz Silva Barbosa,,,,,none,none,false,0
+69a602bc0023a991f8b9,Thiago Matos,,,,,none,none,false,0
+69a60789002d1519d920,Emanuelle Lamounier,,,,,none,none,false,0
+69a609b300380852c8ff,GUSTAVO,,,,,none,none,false,0
+69a60ce4000e604b33d4,Lucinara,,,,,none,none,false,0
+69a8094e0037e2631cd5,Ana Alice Ferreira Souza,,,,,none,none,false,0
+69a813b1003ad9537784,Claudemir,,,,,none,none,false,0
+69c5a3d40023c059cffd,Emily,,,,,none,none,false,0
+69d0fd53001ee4abee0d,Célio(Pai da Emily),,,,,none,none,false,0
+69da60fc0034dde55c50,Anderson,,,,,none,none,false,0
+69dd05e800396fa043a6,Lorena Araújo,,,,,none,none,false,0
+69de6d22002fb323b096,Mielly Campos,,,,,none,none,false,0
+69dea912002c70cf29a8,Yasmin,,,,,none,none,false,0
+69e0120e000e05eb3dea,José Bento,,,,,none,none,false,0
+69e212fc00170812b917,Noah Henrique,,,,,none,none,false,0
+69e6a81c0038130126b6,Felipe,,,,,none,none,false,0
+69e94e39002349c39d7c,Maria Eduarda,,,,,none,none,false,0
+69ea9063003d41e1dbe1,Isadora,,,,,none,none,false,0
+69ea9be0003cf63c05b7,Alice Teofilo Pontes,active,,,,none,none,false,0
+69ee1489000e14146741,Samuel Almeida,,,,,none,none,false,0
+69ef3f2c00061b379722,Gabriel Benjamim,,,,,none,none,false,0
+69ef8a590017c37f06f0,Helena Pezente,,,,,none,none,false,0
+69ef8c0d003e7968b08b,Thamara reis,,,,,none,none,false,0
+69efcd0c0038885d83dc,Samuel Gonçalves,,,,,none,none,false,0
+69f225d80026936a24be,Joshua,,,,,none,none,false,0
+69f607f20000891abd69,Riquelme,,,,,none,none,false,0
+69f939b60023791c7b39,Maria Júlia,,,,,none,none,false,0
+69f94123003e36fb1295,Laís Melo,,,,,none,none,false,0
+69fbbe8d0008f857e832,Elisa Danielle,active,,,,none,none,false,0
+69fd03460014fcfb2592,Julia,active,,,,none,none,false,0
+69fe4c950005c1e7fe7d,Ana Júlia,,,,,none,none,false,0
+6a01abbf0006134a7f42,Laura,,,,,none,none,false,0
+6a01f47400331b01860c,Felipe,,,,,none,none,false,0
+6a039b1b002d7cb0445a,André,,,,,none,none,false,0
+6a079e7a000e304a5704,Adriano,active,,,,none,none,false,0
+6a0a5eff0012957aa096,Valentina,active,,,,none,none,false,0
+6a0d8c890039bec0688a,Oliver Pereira Duarte,active,,,,none,none,false,0
+6a0f2e650025361e9cc3,Pedro Antonio,active,,,,none,none,false,0
+6a10c5d700396a9c7b5c,Helena,active,,,,none,none,false,0
+6a143239001ab0cb680e,Ian,active,,,,none,none,false,0
+6a1857f5000b939ad55f,Ana Elise,active,,,,none,none,false,0
+6a20bd80002c386d4d74,Sara,active,,,,none,none,false,0
+6a219be7001be566c299,Ana Beatriz,active,,,,none,none,false,0
+6a21ebb200398adb4515,Taynara,active,,,,none,none,false,0
+6a22babf0019f4fa5aae,Monique Estética,active,,,,none,none,false,0
+6a22e0a500050160108f,Nayara❤️,active,,,,none,none,false,0
+6a22e4d000339862539b,Sabrina Brum,active,,,,none,none,false,0
+6a22f79b000d83e89dce,wal,active,,,,none,none,false,0
+6a274f3700396eea24be,Ana Luiza,active,,,,none,none,false,0
+6a274f3a0005d5ff19cf,Ana Luiza,active,,,,none,none,false,0
+6a2752f9000e31abeac4,Geldin 🍻,active,,,,none,none,false,0
+6a275acd00222ead27b5,raissa ferreira,active,,,,none,none,false,0
+6a284bc9000cbb018b17,Mariana Souza,active,,,,none,none,false,0
+6a287658002732256e8f,Fabiola Nail Designer,active,,,,none,none,false,0
+6a2878cf0024ecfe72bb,Alice Reis,active,,,,none,none,false,0
+6a287aa0003c03b3f28e,Joh,active,,,,none,none,false,0
+6a2884f0001f4b2103a5,Nathalia Ferreira,active,,,,none,none,false,0
+6a28b0830007a61b5c6b,Ana caroline,active,,,,none,none,false,0
+6a29adf1002e0fc97e3e,Andreza Faria,active,,,,none,none,false,0
+6a29eca8001b4b40a48e,Rs Group,active,,,,none,none,false,0
+6a2aa6c2000023cf44d7,Bárbara Castro,active,,,,none,none,false,0
+6a2acfd300315a4553d0,Ricardo de Castro Ribeiro,active,,,,none,none,false,0
+6a2ad2510027262b08b0,Alessandro (Ian e Ísis),active,,,,none,none,false,0
+6a2b098d002a258a3a0a,Lucas,active,,,,none,none,false,0
+6a2b23f3001a717f75c0,Miguel Lucas,active,,,,none,none,false,0
+6a2b2592000282bd7cd6,Isis,active,,,,none,none,false,0
+6a2b25db002da7bb22e8,Silmara Calazans,active,,,,none,none,false,0
+6a2c221d001a12c6457b,Lucas,active,,,,none,none,false,0
+6a2fe3390014a6b44bc1,Ana Luiza Abreu,active,,,,none,none,false,0
+6a301f31000c5a86dc83,Flavia Arantes,active,,,,none,none,false,0
+6a302118000b51c9ae70,Marilia,active,,,,none,none,false,0
+6a30211a001a89a74beb,Marilia,active,,,,none,none,false,0
+6a305e1f00210f31f624,Letícia,active,,,,none,none,false,0
+6a30656b000ed28dbb3b,Vanessa Ferreira,active,,,,none,none,false,0
+6a306c86003dfa993caa,🥰,active,,,,none,none,false,0
+6a3121b3003a57042874,Antônio Henrique,active,,,,none,none,false,0
+6a3316650022594b93e3,Nanda,active,,,,none,none,false,0
+6a33de0700089b74e30c,Luis,active,,,,none,none,false,0
+6a33dfbf00285a326882,Graciele Costa,active,,,,none,none,false,0
+6a3412da0021cd2f94e1,Miguel,active,,,,none,none,false,0
+6a343bfd0021ea6c8f66,Amanda,active,,,,none,none,false,0
+6a351e7d002ab7ec73d2,Thainá Scarídi,active,,,,none,none,false,0
+6a3541cf0010a503c0ac,Tatiane,active,,,,none,none,false,0
+6a35a0360039e2b3b8ba,Davi,active,,,,none,none,false,0
+6a35aeb7000fd60f19e4,Daniel Oliveira,active,,,,none,none,false,0
+6a36807d0015f2dc0c57,Sandy💖,active,,,,none,none,false,0
+6a381d070038090ef6f8,Juliana,active,,,,none,none,false,0
+6a3827a0001ce154a2e3,Marlone Lucas,active,,,,none,none,false,0
+6a38596d001ab6562551,Tarcísio,active,,,,none,none,false,0
+6a3859cc000a1939ea66,Davi Melo,active,,,,none,none,false,0
+6a385c21003cc5bf7b9f,Lucca,active,,,,none,none,false,0
+6a3881e3003446ff48c8,David Araújo,active,,,,none,none,false,0
+6a394003003da7caebfb,Marco,active,,,,none,none,false,0
+6a394e970028a4414cba,Tulio,active,,,,none,none,false,0
+6a394ff600341bcc506d,Tarcisio,active,,,,none,none,false,0
+6a39506400316511cf17,Marco,active,,,,none,none,false,0
+6a395252002575c0938e,Davi Melo,active,,,,none,none,false,0
+6a3953530016ee0a07c1,Bernardo,active,,,,none,none,false,0
+6a3955cf00023c5381ab,Tulio,active,,,,none,none,false,0
+6a395b3d00366255779e,Bernado,active,,,,none,none,false,0
+6a399b6c0030a9aadb8b,Benicio,active,,,,none,none,false,0
+6a39b8430021651b7693,🥷,active,,,,none,none,false,0
+6a39caf4003d6bbe623f,Samantha❤️,active,,,,none,none,false,0
+6a39cdca0026a52f19db,Gustavo,active,,,,none,none,false,0
+6a39cdcb0006d8ded21b,Gustavo,active,,,,none,none,false,0
+6a39d2340020756990f7,Gustavo,active,,,,none,none,false,0
+6a3aad4e00354ec01297,Silas,active,,,,none,none,false,0
+6a3ab1b6000fdd15c0e7,Diego,active,,,,none,none,false,0
+6a3ab272000ce86111d8,Maria Bruna,active,,,,none,none,false,0
+6a3bfbd1000ece33458e,Carolina Dutra,active,,,,none,none,false,0
+6a3c06f8003b19b534ed,Ana Cristina,active,,,,none,none,false,0
+6a3c0759002a256dd6b4,Nickolas,active,,,,none,none,false,0
+6a3c15790028605ae276,Douglas,active,,,,none,none,false,0
+6a3c1b8b001c7d83c946,Rodrigo Bernardes,active,,,,none,none,false,0
+6a3c33b5002eebea05c9,João Paulo,active,,,,none,none,false,0
+6a3c61180007c4a08886,Gabriel,active,,,,none,none,false,0
+6a3d5be0000dccb8ac42,Rômulo Fernando,active,,,,none,none,false,0
+6a3d8782002a89af3c65,Bellasollp,active,,,,none,none,false,0
+6a3d96cb000631de1d70,Brayan Lucas,active,,,,none,none,false,0
+6a3d99260037f07077ec,Mel,active,,,,none,none,false,0

@@ -98,12 +98,11 @@ import '../styles/followup-shared.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
 import { buildLeadPresenceUndoPatch } from '../lib/leadPresenceActions.js';
-import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
+import { FOLLOWUP_AGENDA_MAX_DAYS, buildActiveStudentIdSet, filterFollowupLeadCandidates } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
-import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
 import DashboardAgendaWeekPanel from '../components/dashboard/DashboardAgendaWeekPanel.jsx';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
@@ -135,7 +134,7 @@ function heroKpiTone(stat) {
 
 function buildTodayKpiFootnote(count) {
     return count > 0
-        ? { footnote: 'Ver agenda da semana', footnoteTone: 'neutral' }
+        ? { footnote: 'Ver agenda de experimentais', footnoteTone: 'neutral' }
         : { footnote: 'Nenhuma agendada', footnoteTone: 'neutral' };
 }
 
@@ -239,13 +238,8 @@ const Dashboard = () => {
     const [savingPresence, setSavingPresence] = useState({});
     const [listModalType, setListModalType] = useState('');
     const followupLeadCandidates = useMemo(
-        () =>
-            (leads || []).filter(
-                (l) =>
-                    String(l?.origin || '').trim() !== 'Planilha' &&
-                    (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
-            ),
-        [leads]
+        () => filterFollowupLeadCandidates(leads, { enrolledStudentIds: buildActiveStudentIdSet(students) }),
+        [leads, students]
     );
     const {
         followupDoneByLead: followupDoneAtByLead,
@@ -456,8 +450,6 @@ const Dashboard = () => {
         followUpsKanbanOnlyCount,
         followupTemperatureCounts,
         followUpGroups,
-        followupHealthSummary,
-        showFollowupHealthPanel,
     } = useDashboardFollowupLeads(followupEventsCtx);
 
     const todayBirthdays = useMemo(() => {
@@ -1560,14 +1552,6 @@ const Dashboard = () => {
                 )}
                 </div>
             </section>
-
-            {!loading && !isZeroState && showFollowupHealthPanel ? (
-                <FollowupHealthPanel
-                    summary={followupHealthSummary}
-                    showLeadList={followUps.length === 0}
-                    className="agenda-bottom-row__health"
-                />
-            ) : null}
             </div>
             </div>
             </>

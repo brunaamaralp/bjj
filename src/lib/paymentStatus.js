@@ -131,6 +131,51 @@ export function receivedAmountForPayment(payment) {
 }
 
 /**
+ * Valor exibido na coluna Valor da lista de Mensalidades.
+ * @returns {{ kind: 'money'|'partial'|'label'|'empty', amount?: number, received?: number, expected?: number, label?: string }}
+ */
+export function resolveMensalidadesListValor(student, payment, statusKey, financeConfig = null) {
+  const key = String(statusKey || '').toLowerCase();
+  if (key === 'exempt') return { kind: 'label', label: 'Isento' };
+  if (key === 'covered' || String(payment?.status || '').toLowerCase() === 'covered') {
+    return { kind: 'label', label: 'Coberto' };
+  }
+  const frozen =
+    String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active' ||
+    String(payment?.status || '').toLowerCase() === 'frozen';
+  if (frozen || key === 'frozen') return { kind: 'label', label: 'Trancado' };
+
+  const expected = expectedAmountForStudent(student, financeConfig, payment);
+  const st = String(payment?.status || '').toLowerCase();
+  const received = receivedAmountForPayment(payment);
+
+  if (st === 'paid' || key === 'paid') {
+    return { kind: 'money', amount: received };
+  }
+  if (st === 'partial') {
+    return { kind: 'partial', received, expected: expected > 0 ? expected : received };
+  }
+  if (expected > 0) {
+    return { kind: 'money', amount: expected };
+  }
+  return { kind: 'empty' };
+}
+
+/** Formata o retorno de {@link resolveMensalidadesListValor} para exibição na UI. */
+export function formatMensalidadesListValor(valor, fmtMoney) {
+  if (!valor) return '—';
+  if (valor.kind === 'label') return valor.label || '—';
+  if (valor.kind === 'partial') {
+    const rec = Number(valor.received) || 0;
+    const exp = Number(valor.expected) || 0;
+    if (exp > rec) return `${fmtMoney(rec)} de ${fmtMoney(exp)}`;
+    return fmtMoney(rec);
+  }
+  if (valor.kind === 'money') return fmtMoney(Number(valor.amount) || 0);
+  return '—';
+}
+
+/**
  * Status exibido na grade (prioriza registro no banco sobre calendário).
  * @returns {{ key: string, label: string, dbStatus: string|null, row: ReturnType<typeof getPaymentRowStatus> }}
  */

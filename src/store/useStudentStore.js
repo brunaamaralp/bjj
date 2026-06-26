@@ -173,6 +173,7 @@ function updatesToStudentPatch(updates) {
   if (u.emergencyPhone !== undefined) copyIf('emergencyPhone', u.emergencyPhone);
   if (u.cpf !== undefined) patch.cpf = u.cpf || '';
   if (u.responsavel !== undefined) patch.responsavel = u.responsavel || '';
+  if (u.emailResponsavel !== undefined) patch.email_responsavel = u.emailResponsavel || '';
   if (u.cpfResponsavel !== undefined) patch.cpf_responsavel = u.cpfResponsavel || '';
   if (u.payerAliases !== undefined) {
     patch.payer_aliases_json = serializePayerAliases(u.payerAliases);

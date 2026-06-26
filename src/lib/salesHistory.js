@@ -183,6 +183,7 @@ export function saleStatusLabel(status) {
   if (st === 'cancelada') return 'Cancelada';
   if (st === 'concluida') return 'Concluída';
   if (st === 'pendente') return 'Pendente';
+  if (st === 'parcial') return 'Parcial';
   return status || '—';
 }
 
@@ -190,6 +191,7 @@ export const SALE_STATUS_BADGE_MAP = {
   concluida: { label: 'Concluída', tone: 'success' },
   cancelada: { label: 'Cancelada', tone: 'danger' },
   pendente: { label: 'Pendente', tone: 'warning' },
+  parcial: { label: 'Parcial', tone: 'warning' },
 };
 
 /** @deprecated Use StatusBadge + SALE_STATUS_BADGE_MAP */

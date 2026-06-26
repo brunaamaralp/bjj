@@ -86,7 +86,7 @@ import '../styles/lead-profile.css';
 import '../styles/profile-shared.css';
 import '../styles/followup-shared.css';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
-import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../lib/followupState.js';
+import { computeFollowupState, describePlaybookStep, isFollowUpLead, buildActiveStudentIdSet } from '../lib/followupState.js';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useCanEditProfile } from '../lib/profilePermissions.js';
 import { friendlyError } from '../lib/errorMessages.js';
@@ -256,6 +256,7 @@ const LeadProfile = () => {
     const loading = useLeadStore((s) => s.loading);
     const fetchLeadById = useLeadStore((s) => s.fetchLeadById);
     const studentsLoading = useStudentStore((s) => s.loading);
+    const students = useStudentStore((s) => s.students);
     const [profileResolving, setProfileResolving] = useState(false);
 
     useEffect(() => {
@@ -392,8 +393,9 @@ const LeadProfile = () => {
         inboundAfterByLead,
         inboundAfterByPhone,
     } = useFollowupEventsByLead(academyId);
+    const enrolledStudentIds = useMemo(() => buildActiveStudentIdSet(students), [students]);
     const followupState = useMemo(() => {
-        if (!lead || !isFollowUpLead(lead)) return null;
+        if (!lead || !isFollowUpLead(lead, { enrolledStudentIds })) return null;
         const state = computeFollowupState(lead, {
             playbook: followupPlaybook,
             followupDoneByLead,
@@ -409,6 +411,7 @@ const LeadProfile = () => {
         };
     }, [
         lead,
+        enrolledStudentIds,
         followupPlaybook,
         followupDoneByLead,
         followupContactByLead,

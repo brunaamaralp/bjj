@@ -214,6 +214,20 @@ Separado do financeiro da academia. Provisionar: `npm run provision:billing`.
 | `settings` | `APPWRITE_SETTINGS_COLLECTION_ID` | Settings globais (agente) |
 | `gateway_events` | *(spec futura)* | Idempotência PagBank — ver spec PagBank |
 
+### 3.8 Portal do aluno
+
+Provisionar: `npm run provision:portal` · spec [2026-06-25-portal-aluno-PRODUCT.md](superpowers/specs/2026-06-25-portal-aluno-PRODUCT.md)
+
+| Coleção | Env var | Papel |
+|---------|---------|-------|
+| `student_portal_access` | `APPWRITE_STUDENT_PORTAL_ACCESS_COL_ID` | Vínculo Appwrite User ↔ aluno ↔ academia |
+| `portal_invites` | `APPWRITE_PORTAL_INVITES_COL_ID` | Tokens de ativação (hash) e metadados do convite |
+| `academy_portal_guides` | `APPWRITE_ACADEMY_PORTAL_GUIDES_COL_ID` | Guias Markdown publicados para alunos |
+
+Campo adicional em `students`: `email_responsavel` (convite de responsável para menores).
+
+API hub: `/api/leads?route=portal-*` (`lib/server/portalRouter.js`).
+
 ---
 
 ## 4. Relacionamentos por domínio
@@ -244,8 +258,17 @@ academies.zapsterInstanceId ──► instância WhatsApp
 | `conversations` | `lead_id` | pessoa | Vínculo inbox ↔ perfil |
 | `conversations` | `phone_number` | — | Chave alternativa de thread |
 | `contracts` | `lead_id` | pessoa | Contrato de matrícula |
+| `student_portal_access` | `student_id` | `students.$id` | Acesso portal por aluno |
+| `student_portal_access` | `auth_user_id` | Appwrite Users `$id` | Conta de login |
+| `student_portal_access` | `academy_id` | `academies.$id` | Tenant |
+| `portal_invites` | `student_id` | `students.$id` | Convite pendente/usado |
+| `academy_portal_guides` | `academy_id` | `academies.$id` | Guias da academia |
 
 **Campos só em `leads` (não migrar para `students`):** `label_ids`, `age`, `is_first_experience`, flags WhatsApp do funil.
+
+**Portal — `student_portal_access`:** `relationship` (`self` \| `guardian`), `status` (`pending` \| `active` \| `revoked`), `must_change_password`, `invited_at`, `activated_at`, `revoked_at`, `revoked_reason`.
+
+**Portal — `students`:** `email_responsavel` para convite de responsável (Criança/Juniores).
 
 ### 4.3 Mensalidades → Caixa
 
@@ -515,8 +538,9 @@ Atualize **`docs/data-model.md` no mesmo PR** quando:
 | PagBank | [spec PagBank TECH](superpowers/specs/2026-06-16-pagbank-conciliacao-integracao-TECH.md) |
 | Catraca Control iD | [spec catraca TECH](superpowers/specs/2026-06-17-catraca-gaps-prioridade-alta-TECH.md) |
 | Turmas e horários (Empresa) | [flows/config/empresa-horarios-turmas.md](flows/config/empresa-horarios-turmas.md) |
+| Portal do aluno | [flows/portal/aluno-portal.md](flows/portal/aluno-portal.md) · [guias-orientacao.md](flows/portal/guias-orientacao.md) |
 | Jornadas de usuário | [flows/README.md](flows/README.md) |
 
 ---
 
-*Última revisão estrutural: 2026-06-19 — turmas/horários (`classes` + `schedules`), migração `settings.turmas`, `resolveAcademyTurmaLabels`.*
+*Última revisão estrutural: 2026-06-25 — portal do aluno (`student_portal_access`, `portal_invites`, `academy_portal_guides`, `students.email_responsavel`).*

@@ -1,17 +1,16 @@
 import { useMemo } from 'react';
-import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
+import { useLeadStore } from '../store/useLeadStore';
+import { useStudentStore } from '../store/useStudentStore.js';
 import {
   FOLLOWUP_AGENDA_MAX_DAYS,
+  buildActiveStudentIdSet,
   enrichFollowUpLeads,
+  filterFollowupLeadCandidates,
   sortFollowupsByTemperature,
   groupFollowUpsByTemperature,
   countFollowupsByTemperature,
 } from '../lib/followupState.js';
 import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
-
-function excludeImportedOrigin(l) {
-  return String(l?.origin || '').trim() !== 'Planilha';
-}
 
 /**
  * Retornos pendentes e saúde do follow-up — subscribe isolado em `leads[]`.
@@ -19,18 +18,17 @@ function excludeImportedOrigin(l) {
  */
 export function useDashboardFollowupLeads(followupEventsCtx) {
   const leads = useLeadStore((s) => s.leads);
+  const students = useStudentStore((s) => s.students);
+
+  const enrolledStudentIds = useMemo(() => buildActiveStudentIdSet(students), [students]);
 
   const followUpsAll = useMemo(
     () =>
       enrichFollowUpLeads(
-        leads.filter(
-          (l) =>
-            excludeImportedOrigin(l) &&
-            (l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED)
-        ),
+        filterFollowupLeadCandidates(leads, { enrolledStudentIds }),
         followupEventsCtx
       ),
-    [leads, followupEventsCtx]
+    [leads, followupEventsCtx, enrolledStudentIds]
   );
 
   const followUpsKanbanOnlyCount = followUpsAll.filter(

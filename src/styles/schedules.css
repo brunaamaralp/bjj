@@ -294,9 +294,12 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 6px 8px;
+  padding: 6px 8px 6px 10px;
   border-radius: 8px;
-  background: var(--v50);
+  border: 1px solid color-mix(in srgb, var(--schedule-class-color, var(--color-primary)) 22%, var(--border-light));
+  border-left-width: 3px;
+  border-left-color: var(--schedule-class-color, var(--color-primary));
+  background: color-mix(in srgb, var(--schedule-class-color, var(--color-primary)) 9%, var(--v50));
 }
 
 .schedules-week-card__name {

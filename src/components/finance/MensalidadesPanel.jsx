@@ -18,7 +18,7 @@ import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError, studentPaymentFriendlyError } from '../../lib/errorMessages';
-import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, CheckCircle2, Download } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarClock, Check, CheckCircle2, Download } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
@@ -107,7 +107,7 @@ import PaymentReceiptDateBanner from './PaymentReceiptDateBanner.jsx';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
-import { isStudentOnExemptPlan } from '../../lib/planBilling.js';
+import { canonicalStudentPlanFilterLabel, effectiveStudentPlan } from '../../lib/financeStudentRoster.js';
 
 const METHOD_LABELS = storageDialectMethodLabelsMap();
 
@@ -152,37 +152,6 @@ function dueDateInMonth(currentMonth, dayOfMonth) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** @returns {{ status: 'paid'|'pending'|'soon'|'none', dueDate: Date|null, paidAt: Date|null }} */
-function getRowStatus(student, payment, currentMonth, financeConfig) {
-  if (isStudentOnExemptPlan(student, financeConfig, payment)) {
-    return { status: 'exempt', dueDate: null, paidAt: null };
-  }
-  const today0 = startOfLocalDay(new Date());
-
-  if (payment && payment.status === 'paid') {
-    const paidAt = payment.paid_at ? parseYmdLocal(String(payment.paid_at).slice(0, 10)) : null;
-    return { status: 'paid', dueDate: null, paidAt };
-  }
-
-  if (payment && payment.status === 'pending') {
-    const dueRaw = payment.due_date ? parseYmdLocal(String(payment.due_date).slice(0, 10)) : null;
-    if (dueRaw && startOfLocalDay(dueRaw) < today0) {
-      return { status: 'pending', dueDate: dueRaw, paidAt: null };
-    }
-    return { status: 'soon', dueDate: dueRaw, paidAt: null };
-  }
-
-  const day = studentDueDay(student);
-  const defaultDue = dueDateInMonth(currentMonth, day);
-  if (defaultDue) {
-    const due0 = startOfLocalDay(defaultDue);
-    if (due0 < today0) return { status: 'pending', dueDate: defaultDue, paidAt: null };
-    const daysUntil = Math.ceil((due0 - today0) / 86400000);
-    if (daysUntil >= 0 && daysUntil <= 7) return { status: 'soon', dueDate: defaultDue, paidAt: null };
-  }
-  return { status: 'none', dueDate: defaultDue || null, paidAt: null };
-}
-
 function formatDdMm(d) {
   if (!d || Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -224,7 +193,7 @@ export default function MensalidadesPanel({
   const toast = useToast();
   const terms = useTerms();
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const reconStatementId = String(searchParams.get('recon_statement') || '').trim();
@@ -251,7 +220,50 @@ export default function MensalidadesPanel({
     setSearch(q || '');
     const filtroParam = searchParams.get('filtro') || searchParams.get('filter');
     setFilter(parseMensalidadesFiltroParam(filtroParam));
+    searchUrlSyncReadyRef.current = false;
   }, [searchParams]);
+
+  useEffect(() => {
+    if (debouncedSearch !== search) return;
+    if (!searchUrlSyncReadyRef.current) {
+      searchUrlSyncReadyRef.current = true;
+      return;
+    }
+    const q = String(debouncedSearch || '').trim();
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        const cur = String(p.get('search') || '').trim();
+        if (q === cur) return prev;
+        if (q) p.set('search', q);
+        else p.delete('search');
+        return p;
+      },
+      { replace: true }
+    );
+  }, [debouncedSearch, search, setSearchParams]);
+
+  const handleFilterChange = useCallback(
+    (next) => {
+      const normalized = parseMensalidadesFiltroParam(next);
+      setFilter(normalized);
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          if (!normalized || normalized === 'all') {
+            p.delete('filtro');
+            p.delete('filter');
+          } else {
+            p.set('filtro', normalized);
+            p.delete('filter');
+          }
+          return p;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -264,6 +276,7 @@ export default function MensalidadesPanel({
   const skipFuturePaidDateRef = useRef(false);
   const skipPaidAtDivergenceRef = useRef(false);
   const paidAtTouchedRef = useRef(false);
+  const searchUrlSyncReadyRef = useRef(false);
   const [sessionUserName, setSessionUserName] = useState('Usuário');
   const [viewMode, setViewMode] = useState('list');
   const [turmaFilter, setTurmaFilter] = useState('all');
@@ -476,6 +489,18 @@ export default function MensalidadesPanel({
     [paymentMap, currentMonth, financeConfig]
   );
 
+  const resolveRowMetaForTable = useCallback(
+    (student, payment, month) => {
+      const display = resolveGridDisplayStatus(student, payment, month, new Date(), financeConfig);
+      return {
+        status: display.key,
+        dueDate: display.row?.dueDate ?? null,
+        paidAt: display.row?.paidAt ?? null,
+      };
+    },
+    [financeConfig]
+  );
+
   const studentOverdueMeta = useMemo(() => {
     const map = {};
     for (const s of students) {
@@ -527,6 +552,8 @@ export default function MensalidadesPanel({
         search: debouncedSearch,
         turmaFilter,
         planFilter,
+        payment: paymentMap[s.id],
+        configuredTurmas,
       });
     });
   }, [
@@ -540,6 +567,7 @@ export default function MensalidadesPanel({
     paymentMap,
     currentMonth,
     financeConfig,
+    configuredTurmas,
   ]);
 
   const displayedStudents = useMemo(() => {
@@ -579,13 +607,9 @@ export default function MensalidadesPanel({
 
   const toggleReceptionFilter = useCallback(
     (next) => {
-      if (next === 'overdue' && sectionMode) {
-        navigate(buildReceivablesPath({ section: RECEIVABLES_SECTIONS.COBRANCA }));
-        return;
-      }
-      setFilter((cur) => (cur === next ? 'all' : next));
+      handleFilterChange(filter === next ? 'all' : next);
     },
-    [sectionMode, navigate]
+    [filter, handleFilterChange]
   );
 
   const filterCounts = useMemo(
@@ -951,20 +975,20 @@ export default function MensalidadesPanel({
   const turmas = useMemo(() => {
     const set = new Set();
     for (const s of students) {
-      const t = studentTurma(s);
+      const t = studentTurma(s, configuredTurmas);
       if (t) set.add(t);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [students]);
+  }, [students, configuredTurmas]);
 
   const studentPlans = useMemo(() => {
     const set = new Set();
     for (const s of students) {
-      const p = String(s.plan || '').trim();
+      const p = canonicalStudentPlanFilterLabel(effectiveStudentPlan(s, paymentMap[s.id]));
       if (p) set.add(p);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [students]);
+  }, [students, paymentMap]);
 
   const exceptionStatusLabels = useMemo(
     () => readExceptionStatusLabels(financeConfig),
@@ -998,8 +1022,16 @@ export default function MensalidadesPanel({
   );
 
   const clearFilters = useCallback(() => {
-    setFilter('all');
+    handleFilterChange('all');
     setSearch('');
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete('search');
+        return p;
+      },
+      { replace: true }
+    );
     setDueSortOrder(null);
     setTurmaFilter('all');
     setPlanFilter('all');
@@ -1009,7 +1041,7 @@ export default function MensalidadesPanel({
     setExPlatformFilter('all');
     setExOnlyWithDiff(false);
     setExSortBy('difference');
-  }, []);
+  }, [handleFilterChange, setSearchParams]);
 
   const handleExportGrid = useCallback(() => {
     if (exportingGrid) return;
@@ -1025,8 +1057,9 @@ export default function MensalidadesPanel({
         currentMonth,
         financeConfig,
         studentOverdueMeta,
+        configuredTurmas,
       });
-      const count = exportMensalidadesGridCsv(sorted, currentMonth);
+      const count = exportMensalidadesGridCsv(sorted, currentMonth, configuredTurmas);
       if (count === 0) {
         toast.warning('Nenhum aluno na grade com os filtros atuais.');
       } else {
@@ -1050,13 +1083,9 @@ export default function MensalidadesPanel({
     planFilter,
     gridSortBy,
     studentOverdueMeta,
+    configuredTurmas,
     toast,
   ]);
-
-  const hasStudentsWithPlan = useMemo(
-    () => students.some((s) => String(s.plan || '').trim()),
-    [students]
-  );
 
   const hasActiveFilters = useMemo(() => {
     if (search.trim().length > 0) return true;
@@ -1157,7 +1186,7 @@ export default function MensalidadesPanel({
           {(viewMode === 'list' || viewMode === 'grid') ? (
             <MensalidadesStatusFilter
               filter={filter}
-              onFilterChange={setFilter}
+              onFilterChange={handleFilterChange}
               filterCounts={filterCounts}
               reguaFilterChips={reguaFilterChips}
               collectionRules={collectionRules}
@@ -1314,6 +1343,7 @@ export default function MensalidadesPanel({
           planFilter={planFilter}
           sortBy={gridSortBy}
           studentOverdueMeta={studentOverdueMeta}
+          configuredTurmas={configuredTurmas}
           terms={terms}
           addToast={toast.addToast}
           friendlyError={friendlyError}
@@ -1460,16 +1490,58 @@ export default function MensalidadesPanel({
         </div>
       ) : null}
 
+      {gridLoading ? (
+        <div className="mensal-month-kpis mensal-month-kpis--skeleton" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="mensal-month-kpis__skeleton-card" />
+          ))}
+        </div>
+      ) : (
+        <section
+          className="mensal-summary-block mensal-month-kpis"
+          aria-label={`Resumo do mês · ${formatMonthTitleCapitalized(currentMonth)}`}
+        >
+          <h3 className="mensal-month-kpis__title">
+            Resumo do mês · {formatMonthTitleCapitalized(currentMonth)}
+          </h3>
+          <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                {fmtMoney(monthKpis.expectedTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Esperado</div>
+            </div>
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                {fmtMoney(monthKpis.receivedTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Recebido</div>
+              {monthKpis.activeWithPlan > 0 ? (
+                <div className="mensal-summary-card__hint">
+                  {receptionSummary.paid} de {monthKpis.activeWithPlan} alunos
+                </div>
+              ) : null}
+            </div>
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--pending">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                {fmtMoney(monthOpenTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Em aberto</div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <MensalidadesListTable
         loading={gridLoading}
         displayedStudents={displayedStudents}
-        hasStudentsWithPlan={hasStudentsWithPlan}
+        totalStudents={students.length}
         hasActiveFilters={hasActiveFilters}
         onClearFilters={clearFilters}
         terms={terms}
         paymentMap={paymentMap}
         currentMonth={currentMonth}
-        getRowStatus={(student, payment, month) => getRowStatus(student, payment, month, financeConfig)}
+        getRowStatus={resolveRowMetaForTable}
         startOfLocalDay={startOfLocalDay}
         formatDdMm={formatDdMm}
         parseYmdLocal={parseYmdLocal}
@@ -1483,38 +1555,9 @@ export default function MensalidadesPanel({
         canReverse={canReversePayment}
         linkStudentProfile={linkStudentProfile}
         navRole={navRole}
+        financeConfig={financeConfig}
+        studentOverdueMeta={studentOverdueMeta}
       />
-
-      {!gridLoading ? (
-        <details className="mensal-collapsible-section">
-          <summary className="mensal-collapsible-section__summary">
-            <span>Resumo do mês · {formatMonthTitleCapitalized(currentMonth)}</span>
-            <ChevronDown size={16} className="mensal-collapsible-section__chevron" aria-hidden />
-          </summary>
-          <section className="mensal-summary-block mensal-month-kpis" aria-label="Resumo do mês">
-            <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
-              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
-                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
-                  {fmtMoney(monthKpis.expectedTotal)}
-                </div>
-                <div className="mensal-summary-card__label">Esperado</div>
-              </div>
-              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
-                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
-                  {fmtMoney(monthKpis.receivedTotal)}
-                </div>
-                <div className="mensal-summary-card__label">Recebido</div>
-              </div>
-              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--pending">
-                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
-                  {fmtMoney(monthOpenTotal)}
-                </div>
-                <div className="mensal-summary-card__label">Em aberto</div>
-              </div>
-            </div>
-          </section>
-        </details>
-      ) : null}
 
       </>
       ) : null}

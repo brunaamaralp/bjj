@@ -197,8 +197,8 @@
 }
 
 .finance-badge-atrasado {
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 /* Inline icon spacing */
@@ -2627,6 +2627,34 @@
   background: var(--v700);
 }
 
+.mensal-cell-action__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.mensal-btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-light, #e8e8ef);
+  background: var(--surface, #fff);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mensal-btn-whatsapp:hover {
+  border-color: #25d366;
+  color: #128c7e;
+  background: #f0fdf4;
+}
+
 .mensalidades-page .mensal-btn-estornar {
   background: var(--surface, #fff);
   color: var(--text-secondary);
@@ -2845,6 +2873,43 @@
 
 .mensal-month-kpis {
   margin-bottom: 16px;
+}
+
+.mensal-month-kpis__title {
+  margin: 0 0 10px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mensal-summary-card__hint {
+  margin-top: 4px;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.mensal-month-kpis--skeleton {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mensal-month-kpis__skeleton-card {
+  height: 72px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--border-light, #ececf1) 25%, #f5f5f8 50%, var(--border-light, #ececf1) 75%);
+  background-size: 200% 100%;
+  animation: mensal-kpi-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes mensal-kpi-skeleton {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .mensal-collection-dashboard {

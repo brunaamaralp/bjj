@@ -5,6 +5,12 @@ import {
   defaultCategoryForTxType,
 } from '../../lib/financeCategories.js';
 import { competenceMonthFromIso } from '../../lib/financeCompetence.js';
+import {
+  resolveCashAccountCode,
+  resolveExpenseAccountCode,
+  resolveLedgerAccountCode,
+  resolveRevenueAccountCode,
+} from '../../lib/ledgerAccountResolve.js';
 
 export const ACCOUNT_MAP = {
   [FINANCE_CATEGORIES.MENSALIDADE.type]: {
@@ -124,26 +130,75 @@ function journalDateFromTx(tx) {
   return new Date().toISOString().slice(0, 10);
 }
 
+function accountMarksCash(account, code, accounts) {
+  if (account?.cash) return true;
+  const cash = cashCode(accounts);
+  return Boolean(cash && code === cash);
+}
+
 function pushPair(lines, accounts, debitCode, creditCode, amount, cashOnDebit = true) {
   const amt = Math.abs(Number(amount) || 0);
   if (amt < 0.01) return;
-  const debitId = accounts.find((a) => a.code === debitCode)?.id;
-  const creditId = accounts.find((a) => a.code === creditCode)?.id;
-  if (!debitId || !creditId) return;
+  const debitAcc = accounts.find((a) => a.code === debitCode);
+  const creditAcc = accounts.find((a) => a.code === creditCode);
+  if (!debitAcc?.id || !creditAcc?.id) return;
   lines.push({
-    accountId: debitId,
+    accountId: debitAcc.id,
     debit: amt,
     credit: 0,
-    cash: debitCode === '1.1.1' && cashOnDebit,
+    cash: accountMarksCash(debitAcc, debitCode, accounts) && cashOnDebit,
     counterCode: creditCode,
   });
   lines.push({
-    accountId: creditId,
+    accountId: creditAcc.id,
     debit: 0,
     credit: amt,
-    cash: creditCode === '1.1.1' && !cashOnDebit,
+    cash: accountMarksCash(creditAcc, creditCode, accounts) && !cashOnDebit,
     counterCode: debitCode,
   });
+}
+
+function cashCode(accounts) {
+  return resolveCashAccountCode(accounts);
+}
+
+function expenseCode(accounts, canonicalCode, categoryLabel) {
+  return resolveExpenseAccountCode(accounts, canonicalCode, categoryLabel);
+}
+
+function revenueCode(accounts, canonicalCode, categoryLabel) {
+  return resolveRevenueAccountCode(accounts, canonicalCode, categoryLabel);
+}
+
+function balanceCode(accounts, canonicalCode, categoryLabel) {
+  return resolveLedgerAccountCode(accounts, canonicalCode, { categoryLabel, side: 'balance' });
+}
+
+function incomeCreditCode(accounts, canonicalCode, categoryLabel, route) {
+  if (route === 'internal_transfer' || route === 'equity_injection' || route === 'loan_proceeds') {
+    return balanceCode(accounts, canonicalCode, categoryLabel);
+  }
+  return revenueCode(accounts, canonicalCode, categoryLabel);
+}
+
+function outflowDebitCode(accounts, canonicalCode, categoryLabel, route) {
+  if (route === 'internal_transfer') {
+    return balanceCode(accounts, canonicalCode, FINANCE_CATEGORIES.TRANSFERENCIA_ENVIADA.label);
+  }
+  if (route === FINANCE_CATEGORIES.EMPRESTIMO_PAGO.type || route === 'loan_repayment') {
+    return balanceCode(accounts, canonicalCode, FINANCE_CATEGORIES.EMPRESTIMO_PAGO.label);
+  }
+  if (route === 'stock_purchase') {
+    return expenseCode(accounts, canonicalCode, FINANCE_CATEGORIES.CUSTO_ESTOQUE.label);
+  }
+  if (route === 'expense_financial' || route === 'card_fee') {
+    return expenseCode(
+      accounts,
+      canonicalCode,
+      categoryLabel || FINANCE_CATEGORIES.TARIFAS_BANCARIAS.label
+    );
+  }
+  return expenseCode(accounts, canonicalCode, categoryLabel);
 }
 
 export function montarLancamento(tx, accounts, academyId) {
@@ -162,20 +217,31 @@ export function montarLancamento(tx, accounts, academyId) {
     resolveFinanceCategory(defaultCategoryForTxType(typeRaw), accounts, { direction: dir });
 
   const lines = [];
+  const categoryLabel = catResolved?.label || catRaw || '';
 
   if (catResolved?.isAccountCategory && catResolved.accountCode && gross >= 0.01) {
     const code = catResolved.accountCode;
     if (catResolved.isBalanceSheetCategory) {
-      if (dir === 'out') pushPair(lines, accounts, code, '1.1.1', gross, true);
-      else pushPair(lines, accounts, '1.1.1', code, gross, true);
+      if (dir === 'out') {
+        pushPair(lines, accounts, code, cashCode(accounts), gross, true);
+      } else {
+        pushPair(lines, accounts, cashCode(accounts), code, gross, true);
+      }
     } else if (catResolved.isRevenue) {
-      pushPair(lines, accounts, '1.1.1', code, revenueNet);
+      pushPair(lines, accounts, cashCode(accounts), code, revenueNet);
       if (fee > 0.009) {
         const feeMap = ACCOUNT_MAP.card_fee;
-        pushPair(lines, accounts, feeMap.debit, feeMap.credit, fee, true);
+        pushPair(
+          lines,
+          accounts,
+          expenseCode(accounts, feeMap.debit, FINANCE_CATEGORIES.TAXA_CARTAO.label),
+          cashCode(accounts),
+          fee,
+          true
+        );
       }
     } else {
-      pushPair(lines, accounts, code, '1.1.1', gross, true);
+      pushPair(lines, accounts, code, cashCode(accounts), gross, true);
     }
   } else {
     const route = resolveLedgerRouteKey(tx, accounts);
@@ -193,24 +259,53 @@ export function montarLancamento(tx, accounts, academyId) {
             };
     }
     if (route === 'balance_sheet_in' || route === 'balance_sheet_out') {
-      const creditCode = catResolved?.dreAccount || catResolved?.accountCode;
-      if (route === 'balance_sheet_in' && creditCode) {
-        map = { debit: '1.1.1', credit: creditCode };
-      } else if (route === 'balance_sheet_out' && creditCode) {
-        map = { debit: creditCode, credit: '1.1.1' };
+      const balanceAccount = catResolved?.dreAccount || catResolved?.accountCode;
+      if (route === 'balance_sheet_in' && balanceAccount) {
+        map = { debit: '1.1.1', credit: balanceAccount };
+      } else if (route === 'balance_sheet_out' && balanceAccount) {
+        map = { debit: balanceAccount, credit: '1.1.1' };
       }
     }
     if (!map || gross < 0.01) return null;
 
-    const debitCode = map.debit || catResolved?.dreAccount;
-    const creditCode = map.credit || catResolved?.dreAccount;
+    const debitCanonical = map.debit || catResolved?.dreAccount;
+    const creditCanonical = map.credit || catResolved?.dreAccount;
+    if (!debitCanonical || !creditCanonical) return null;
+
+    let debitCode;
+    let creditCode;
+
+    if (CASH_IN_ROUTES.has(route)) {
+      debitCode = cashCode(accounts);
+      creditCode = incomeCreditCode(accounts, creditCanonical, categoryLabel, route);
+    } else if (route === FINANCE_CATEGORIES.CANCELAMENTO.type) {
+      debitCode = balanceCode(accounts, debitCanonical, FINANCE_CATEGORIES.CANCELAMENTO.label);
+      creditCode = cashCode(accounts);
+    } else if (route === 'balance_sheet_in') {
+      debitCode = cashCode(accounts);
+      creditCode = balanceCode(accounts, creditCanonical, categoryLabel);
+    } else if (route === 'balance_sheet_out') {
+      debitCode = balanceCode(accounts, debitCanonical, categoryLabel);
+      creditCode = cashCode(accounts);
+    } else {
+      debitCode = outflowDebitCode(accounts, debitCanonical, categoryLabel, route);
+      creditCode = cashCode(accounts);
+    }
+
     if (!debitCode || !creditCode) return null;
 
     if (CASH_IN_ROUTES.has(route)) {
       pushPair(lines, accounts, debitCode, creditCode, revenueNet);
       if (fee > 0.009) {
         const feeMap = ACCOUNT_MAP.card_fee;
-        pushPair(lines, accounts, feeMap.debit, feeMap.credit, fee, true);
+        pushPair(
+          lines,
+          accounts,
+          expenseCode(accounts, feeMap.debit, FINANCE_CATEGORIES.TAXA_CARTAO.label),
+          cashCode(accounts),
+          fee,
+          true
+        );
       }
     } else if (route === FINANCE_CATEGORIES.CANCELAMENTO.type) {
       pushPair(lines, accounts, debitCode, creditCode, gross, false);

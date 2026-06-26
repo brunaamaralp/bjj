@@ -78,6 +78,7 @@ export function mapAppwriteDocToStudent(doc) {
     emergencyPhone: doc.emergencyPhone || '',
     cpf: doc.cpf || '',
     responsavel: doc.responsavel || '',
+    emailResponsavel: String(doc.email_responsavel || doc.emailResponsavel || '').trim(),
     cpfResponsavel: doc.cpf_responsavel || doc.cpfResponsavel || '',
     payerAliases: parsePayerAliasesJson(doc.payer_aliases_json),
     preferredPaymentMethod: doc.preferred_payment_method || '',

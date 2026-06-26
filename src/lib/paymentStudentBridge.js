@@ -1,6 +1,12 @@
 /**
- * Resolve pagamentos com lead_id órfão → aluno atual (telefone, conversa, financial_tx).
+ * Resolve pagamentos com lead_id órfão → aluno atual (telefone, conversa, financial_tx, plano do cadastro).
  */
+
+import { mapLegacyPlanName, readStudentType } from './backfillStudentPlans.js';
+
+function planNameKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
 
 function normalizePersonName(name) {
   return String(name || '')
@@ -284,6 +290,70 @@ function pickRepairMappings(candidateBucket, paymentsByLead, finByLead) {
 /**
  * @param {object} opts
  */
+/**
+ * Compara plan_name do pagamento com plan do cadastro do aluno (inclui aliases legados).
+ */
+export function paymentPlanMatchesStudentPlan(paymentPlanName, studentDoc, legacyPlanRules = []) {
+  const paymentPlan = String(paymentPlanName || '').trim();
+  const studentPlan = String(studentDoc?.plan || '').trim();
+  if (!paymentPlan || !studentPlan) return false;
+
+  if (planNameKey(paymentPlan) === planNameKey(studentPlan)) return true;
+
+  const studentType = readStudentType(studentDoc);
+  const mappedPayment = mapLegacyPlanName(paymentPlan, studentType, legacyPlanRules);
+  if (mappedPayment && planNameKey(mappedPayment) === planNameKey(studentPlan)) return true;
+
+  const mappedStudent = mapLegacyPlanName(studentPlan, studentType, legacyPlanRules);
+  if (mappedStudent && planNameKey(paymentPlan) === planNameKey(mappedStudent)) return true;
+
+  return false;
+}
+
+function uniquePaymentPlanNames(payments) {
+  const names = new Set(
+    (payments || [])
+      .map((p) => String(p?.plan_name || '').trim())
+      .filter(Boolean)
+  );
+  return names.size === 1 ? [...names][0] : '';
+}
+
+/**
+ * Pagamentos já ligados a aluno: alinhar plan_name ao campo plan do cadastro.
+ * @param {object[]} payments
+ * @param {object[]} students
+ * @param {{ onlyIfEmpty?: boolean }} [opts]
+ */
+export function buildPaymentPlanNameSyncPlan(payments, students, opts = {}) {
+  const onlyIfEmpty = opts.onlyIfEmpty !== false;
+  const studentById = new Map(
+    (students || []).map((s) => [String(s.$id || '').trim(), s]).filter(([id]) => id)
+  );
+  const studentIds = new Set(studentById.keys());
+  const rows = [];
+
+  for (const doc of payments || []) {
+    const sid = String(doc?.student_id || doc?.lead_id || '').trim();
+    if (!sid || !studentIds.has(sid)) continue;
+    const student = studentById.get(sid);
+    const targetPlan = String(student?.plan || '').trim();
+    if (!targetPlan) continue;
+    const current = String(doc?.plan_name || '').trim();
+    if (onlyIfEmpty && current) continue;
+    if (current === targetPlan) continue;
+    rows.push({
+      payment_id: String(doc.$id || '').trim(),
+      student_id: sid,
+      student_name: String(student?.name || '').trim(),
+      plan_name_before: current,
+      plan_name_after: targetPlan,
+    });
+  }
+
+  return rows;
+}
+
 export function buildOrphanLeadRepairPlan(opts) {
   const {
     students = [],
@@ -291,6 +361,7 @@ export function buildOrphanLeadRepairPlan(opts) {
     conversations = [],
     financialTx = [],
     manualRows = [],
+    legacyPlanRules = [],
   } = opts;
 
   const studentIds = new Set((students || []).map((s) => String(s.$id || '').trim()).filter(Boolean));
@@ -375,6 +446,55 @@ export function buildOrphanLeadRepairPlan(opts) {
         });
         break;
       }
+    }
+  }
+
+  for (const orphan_lead_id of orphanLeadIds) {
+    const pays = paymentsByLead.get(orphan_lead_id) || [];
+    const paymentPlan = uniquePaymentPlanNames(pays);
+    if (!paymentPlan) continue;
+
+    const planMatches = (students || []).filter((student) =>
+      paymentPlanMatchesStudentPlan(paymentPlan, student, legacyPlanRules)
+    );
+    if (!planMatches.length) continue;
+
+    const conv = convByLead.get(orphan_lead_id);
+    const convNames = [conv?.lead_name, conv?.contact_name, conv?.whatsapp_profile_name].filter(Boolean);
+
+    if (planMatches.length === 1 && convNames.length === 0) {
+      const fins = finByLead.get(orphan_lead_id) || [];
+      for (const doc of fins) {
+        const pn = String(doc?.planName || '').trim();
+        if (!pn) continue;
+        const sid = findStudentByName(planMatches, pn);
+        if (!sid) continue;
+        const student = studentById.get(sid);
+        if (!student) continue;
+        addRepairCandidate(candidates, orphan_lead_id, {
+          student_id: sid,
+          student_name: String(student.name || '').trim(),
+          source: 'student_plan_and_financial_tx',
+          confidence: ORPHAN_LEAD_CONFIDENCE.HIGH,
+          detail: `${paymentPlan} · ${pn.slice(0, 80)}`,
+        });
+        break;
+      }
+    }
+
+    for (const nm of convNames) {
+      const sid = findStudentByName(planMatches, nm);
+      if (!sid) continue;
+      const student = studentById.get(sid);
+      if (!student) continue;
+      addRepairCandidate(candidates, orphan_lead_id, {
+        student_id: sid,
+        student_name: String(student.name || '').trim(),
+        source: 'student_plan_and_name',
+        confidence: ORPHAN_LEAD_CONFIDENCE.HIGH,
+        detail: `${paymentPlan} · ${String(nm || '').trim()}`,
+      });
+      break;
     }
   }
 

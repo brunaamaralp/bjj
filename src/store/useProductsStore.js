@@ -116,11 +116,13 @@ export const useProductsStore = create((set, get) => ({
             category: payload.categoria,
             sale_price: payload.sale_price,
             cost_price: payload.cost_price,
+            rental_price: payload.rental_price,
             type: payload.type,
             is_for_sale: payload.is_for_sale,
             is_active: payload.is_active,
             image_url: payload.image_url,
             supplier: payload.supplier,
+            unit: payload.unit,
           }
         : { action: 'update', ...pickProductApiBody(payload, { isEdit: true }) };
 

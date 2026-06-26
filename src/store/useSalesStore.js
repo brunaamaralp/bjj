@@ -16,6 +16,7 @@ export const useSalesStore = create((set) => ({
     forma_pagamento,
     pagamentos,
     deferred = false,
+    partial = false,
     due_date = null,
     cliente_nome = null,
     cliente_telefone = null,
@@ -40,6 +41,8 @@ export const useSalesStore = create((set) => ({
         payload.pagamentos = [];
       } else if (Array.isArray(pagamentos) && pagamentos.length > 0) {
         payload.pagamentos = pagamentos;
+        if (partial === true) payload.partial = true;
+        if (due_date) payload.due_date = due_date;
       } else {
         payload.forma_pagamento = forma_pagamento;
       }

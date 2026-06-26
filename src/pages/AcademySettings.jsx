@@ -23,6 +23,7 @@ const StudentsSection = lazyWithRetry(() => import('../components/academy/Studen
 const EstudioSection = lazyWithRetry(() => import('../components/academy/EstudioSection'));
 const FunilSection = lazyWithRetry(() => import('../components/academy/FunilSection'));
 const FinanceiroConfigTab = lazyWithRetry(() => import('../components/finance/FinanceiroConfigTab.jsx'));
+const PortalGuidesSection = lazyWithRetry(() => import('../components/academy/PortalGuidesSection.jsx'));
 const HorariosSection = lazyWithRetry(() => import('../components/academy/HorariosSection.jsx'));
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
@@ -38,6 +39,7 @@ const TABS_ALL = [
     { id: 'alunos', label: 'Alunos' },
     { id: 'horarios', label: 'Horários' },
     { id: 'financeiro', label: 'Financeiro' },
+    { id: 'portal', label: 'Portal' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -48,6 +50,7 @@ const TAB_SKELETON_HEIGHT = {
     alunos: 400,
     horarios: 420,
     financeiro: 520,
+    portal: 480,
 };
 
 function getTabDisabledState(tabId, { role }) {
@@ -56,6 +59,9 @@ function getTabDisabledState(tabId, { role }) {
     }
     if (tabId === 'horarios' && role !== 'owner') {
         return { disabled: true, title: 'Disponível apenas para o titular da academia' };
+    }
+    if (tabId === 'portal' && role !== 'owner' && role !== 'admin') {
+        return { disabled: true, title: 'Disponível para titulares e administradores' };
     }
     return { disabled: false, title: undefined };
 }
@@ -501,6 +507,13 @@ const AcademySettings = () => {
                 <div className="empresa-section">
                     <FinanceiroConfigTab academyId={academyId} isOwner={role === 'owner'} />
                 </div>
+            )}
+
+            {activeTab === 'portal' && academyId && (
+                <PortalGuidesSection
+                    academyId={academyId}
+                    canEdit={role === 'owner' || role === 'admin'}
+                />
             )}
                 </Suspense>
             ) : null}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature } from 'lucide-react';
+import { User, MessageCircle, Send, Trash2, AlertTriangle, PauseCircle, ArrowLeft, FileSignature, Loader2, Check, X } from 'lucide-react';
 import { databases, DB_ID, ACADEMIES_COL, account } from '../lib/appwrite';
 import {
     getStudentPayments,
@@ -121,7 +121,14 @@ import {
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
+import ControlIdSyncBadge from '../components/student/ControlIdSyncBadge.jsx';
+import StudentPortalInvitePanel from '../components/student/StudentPortalInvitePanel.jsx';
 import StudentPayerAliasesSection from '../components/student/StudentPayerAliasesSection.jsx';
+import {
+    aliasExists,
+    appendPayerAlias,
+    normalizePayerName,
+} from '../lib/studentPayerAliases.js';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
 import {
@@ -144,6 +151,39 @@ function formatDateBR(ymd) {
     } catch {
         return '';
     }
+}
+
+function formatBrlPlanValue(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Nome + preço do plano para exibição no perfil (total quando parcelado). */
+function formatStudentPlanDisplayLabel(financeConfig, planName) {
+    const name = String(planName || '').trim();
+    if (!name) return '';
+    const match = findPlanByName(financeConfig, name);
+    if (!match) return name;
+
+    const label = String(match.name || name).trim();
+    const price = Number(match.price ?? 0);
+    if (!Number.isFinite(price) || price <= 0) return label;
+
+    const installments = Math.trunc(
+        Number(match.installments ?? match.installment_count ?? match.billing_months ?? 0) || 0
+    );
+    const totalFromField = Number(
+        match.total_price ?? match.totalPrice ?? match.annual_price ?? match.annualPrice ?? 0
+    );
+
+    const priceLabel = formatBrlPlanValue(price);
+    if (installments > 1) {
+        const total = totalFromField > 0 ? totalFromField : price * installments;
+        const totalLabel = formatBrlPlanValue(total);
+        return `${label} · ${totalLabel} (${installments}x de ${priceLabel})`;
+    }
+    return `${label} · ${priceLabel}`;
 }
 
 /** @param {string|undefined} raw */
@@ -236,8 +276,15 @@ const STUDENT_DATA_FIELDS = [
         placeholder: 'nome@email.com',
     },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-    { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
-    { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00' },
+    { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável', minorOnly: true },
+    {
+        key: 'emailResponsavel',
+        label: 'E-mail do responsável',
+        type: 'email',
+        placeholder: 'responsavel@email.com',
+        minorOnly: true,
+    },
+    { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00', minorOnly: true },
 ];
 
 const EMERGENCY_FIELDS = [
@@ -390,6 +437,7 @@ export default function StudentProfile() {
         email: '',
         cpf: '',
         responsavel: '',
+        emailResponsavel: '',
         cpfResponsavel: '',
         emergencyContact: '',
         emergencyPhone: '',
@@ -401,7 +449,12 @@ export default function StudentProfile() {
         discountAmountInput: '',
     });
     const [savingData, setSavingData] = useState(false);
+    const [saveStatus, setSaveStatus] = useState(null);
+    const saveStatusTimerRef = useRef(null);
+    const discountSaveTimerRef = useRef(null);
+    const pendingDiscountTypeRef = useRef(null);
     const [payerAliases, setPayerAliases] = useState([]);
+    const [responsavelPayerPrompt, setResponsavelPayerPrompt] = useState(null);
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
     const [paidAtDivergenceConfirm, setPaidAtDivergenceConfirm] = useState(null);
@@ -410,7 +463,7 @@ export default function StudentProfile() {
     const [timelineOpen, setTimelineOpen] = useState(readInitialTimelineOpen);
     const [activeTab, setActiveTab] = useState('frequency');
     const profileBundleRef = useRef(null);
-    const controlIdCfg = useAcademyControlId(academyId, { fetch: activeTab === 'frequency' });
+    const controlIdCfg = useAcademyControlId(academyId, { fetch: true });
     const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
         statusPollWhileMounted: true,
         watchAcademyStatus: true,
@@ -473,6 +526,61 @@ export default function StudentProfile() {
     const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
 
+    const isStudentMinor = useMemo(() => {
+        const profileType = editingData ? dataForm.type : (student?.type || 'Adulto');
+        return profileType === 'Criança' || profileType === 'Juniores';
+    }, [student?.type, editingData, dataForm.type]);
+
+    const showPayerAliasesSection = useMemo(() => {
+        if (modules?.finance !== true) return false;
+        return isStudentMinor;
+    }, [modules?.finance, isStudentMinor]);
+
+    const persistPayerAliases = useCallback(
+        async (nextAliases) => {
+            setPayerAliases(nextAliases);
+            try {
+                await updateStudent(leadId, { payerAliases: nextAliases });
+            } catch (e) {
+                setPayerAliases(Array.isArray(student?.payerAliases) ? student.payerAliases : []);
+                toast.error(e, 'save');
+                throw e;
+            }
+        },
+        [leadId, updateStudent, student?.payerAliases, toast]
+    );
+
+    const maybePromptPayerFromResponsavel = useCallback(
+        (nameRaw) => {
+            if (!isStudentMinor || !canEditProfile) return;
+            const name = String(nameRaw || '').trim();
+            if (!name) return;
+            const current = Array.isArray(student?.payerAliases) ? student.payerAliases : payerAliases;
+            if (aliasExists(current, normalizePayerName(name))) return;
+            setResponsavelPayerPrompt(name);
+        },
+        [isStudentMinor, canEditProfile, student?.payerAliases, payerAliases]
+    );
+
+    const confirmResponsavelAsPayer = useCallback(async () => {
+        const name = String(responsavelPayerPrompt || '').trim();
+        setResponsavelPayerPrompt(null);
+        if (!name) return;
+        const result = appendPayerAlias(payerAliases, { display: name, source: 'from_responsavel' });
+        if (result.error === 'limit_reached') {
+            toast.show({ type: 'warning', message: 'Limite de pagadores atingido.' });
+            return;
+        }
+        if (result.added || result.updated) {
+            if (editingData) {
+                setPayerAliases(result.aliases);
+            } else {
+                await persistPayerAliases(result.aliases);
+            }
+            toast.success('Pagador adicionado.');
+        }
+    }, [responsavelPayerPrompt, payerAliases, editingData, persistPayerAliases, toast]);
+
     const academySettingsRaw = useMemo(
         () => academySettingsDoc?.settings ?? academyDocForRole?.settings ?? null,
         [academySettingsDoc?.settings, academyDocForRole?.settings]
@@ -492,16 +600,19 @@ export default function StudentProfile() {
         const base = STUDENT_DATA_FIELDS.map((f) =>
             f.key === 'plan' ? { ...f, label: terms.plan } : f
         );
-        if (!shouldShowStudentGraduation(academySettingsRaw, student?.belt)) return base;
-        const turmaIdx = base.findIndex((f) => f.key === 'turma');
+        const profileType = editingData ? dataForm.type : (student?.type || 'Adulto');
+        const minor = profileType === 'Criança' || profileType === 'Juniores';
+        const filtered = base.filter((f) => !f.minorOnly || minor);
+        if (!shouldShowStudentGraduation(academySettingsRaw, student?.belt)) return filtered;
+        const turmaIdx = filtered.findIndex((f) => f.key === 'turma');
         const gradField = { key: 'belt', label: terms.belt, type: 'graduation' };
         if (turmaIdx >= 0) {
-            const out = [...base];
+            const out = [...filtered];
             out.splice(turmaIdx + 1, 0, gradField);
             return out;
         }
-        return [...base, gradField];
-    }, [terms.plan, terms.belt, academySettingsRaw, student?.belt]);
+        return [...filtered, gradField];
+    }, [terms.plan, terms.belt, academySettingsRaw, student?.belt, student?.type, editingData, dataForm.type]);
 
     useEffect(() => {
         if (!id) return undefined;
@@ -521,9 +632,11 @@ export default function StudentProfile() {
 
     useEffect(() => {
         if (!id || !academyId) return;
+        let cancelled = false;
         profileBundleRef.current = null;
         void fetchStudentProfileBundle(id)
             .then((bundle) => {
+                if (cancelled) return;
                 profileBundleRef.current = bundle;
                 if (bundle?.student) mergeStudent(id, bundle.student);
                 if (bundle?.paymentStatus && bundle.paymentStatus.key) {
@@ -540,6 +653,9 @@ export default function StudentProfile() {
                 }
             })
             .catch((e) => console.warn('[StudentProfile] profile bundle:', e?.message || e));
+        return () => {
+            cancelled = true;
+        };
     }, [id, academyId, mergeStudent]);
 
     useEffect(() => {
@@ -591,6 +707,7 @@ export default function StudentProfile() {
             email: String(student.email || '').trim(),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
+            emailResponsavel: student.emailResponsavel || '',
             cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
@@ -619,6 +736,12 @@ export default function StudentProfile() {
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
     }, [student?.id]);
+
+    useEffect(() => {
+        if (!student?.id || editingData) return;
+        const nextPlan = String(student.plan || '').trim();
+        setDataForm((prev) => (prev.plan === nextPlan ? prev : { ...prev, plan: nextPlan }));
+    }, [student?.id, student?.plan, editingData]);
 
     useEffect(() => {
         if (!emergencySameAsRegistered || !editingData) return;
@@ -1051,6 +1174,7 @@ export default function StudentProfile() {
             email: String(student.email || '').trim(),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
+            emailResponsavel: student.emailResponsavel || '',
             cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
@@ -1125,6 +1249,12 @@ export default function StudentProfile() {
                 setSavingData(false);
                 return;
             }
+            const emailRespTrim = String(dataForm.emailResponsavel || '').trim();
+            if (emailRespTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRespTrim)) {
+                toast.show({ type: 'error', message: 'E-mail do responsável inválido.' });
+                setSavingData(false);
+                return;
+            }
 
             if (isActiveStudent(student) && canViewFinance) {
                 const planMatch = findPlanByName(financeConfig, dataForm.plan);
@@ -1167,6 +1297,7 @@ export default function StudentProfile() {
                 enrollmentDate: dataForm.enrollmentDate,
                 birthDate: dataForm.birthDate,
                 responsavel: dataForm.responsavel,
+                emailResponsavel: emailRespTrim,
                 cpfResponsavel: String(dataForm.cpfResponsavel || '').replace(/\D/g, ''),
                 emergencyContact: dataForm.emergencyContact,
                 emergencyPhone: String(dataForm.emergencyPhone || '').replace(/\D/g, ''),
@@ -1192,32 +1323,115 @@ export default function StudentProfile() {
             });
             setEditingData(false);
             toast.success('Dados salvos com sucesso.');
+            maybePromptPayerFromResponsavel(dataForm.responsavel);
         } catch (e) {
             toast.error(e, 'save');
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance]);
+    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance, maybePromptPayerFromResponsavel]);
+
+    const clearSaveStatusTimer = useCallback(() => {
+        if (saveStatusTimerRef.current) {
+            clearTimeout(saveStatusTimerRef.current);
+            saveStatusTimerRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => () => {
+        clearSaveStatusTimer();
+        if (discountSaveTimerRef.current) {
+            clearTimeout(discountSaveTimerRef.current);
+            discountSaveTimerRef.current = null;
+        }
+    }, [clearSaveStatusTimer]);
+
+    const persistStudentDiscount = useCallback(
+        async (nextType, nextAmountInput) => {
+            const planName = String(student?.plan || '').trim();
+            const planPrice = Number(findPlanByName(financeConfig, planName)?.price ?? 0);
+            const discountNum = parseDiscountAmountInput(nextAmountInput, nextType);
+            const discountErr = validateEnrollmentDiscount(planPrice, nextType, discountNum);
+            if (discountErr) throw new Error(discountErr);
+
+            clearSaveStatusTimer();
+            setSaveStatus('saving');
+            try {
+                await updateStudent(leadId, {
+                    discountType: nextType,
+                    discountAmount: discountNum,
+                });
+                setDataForm((p) => ({
+                    ...p,
+                    discountType: nextType,
+                    discountAmountInput: nextAmountInput,
+                }));
+                setSaveStatus('saved');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 2000);
+            } catch (e) {
+                setSaveStatus('error');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 3000);
+                throw e;
+            }
+        },
+        [student?.plan, financeConfig, leadId, updateStudent, clearSaveStatusTimer]
+    );
+
+    const queueStudentDiscountSave = useCallback(
+        (nextType, nextAmountInput) => {
+            if (discountSaveTimerRef.current) {
+                clearTimeout(discountSaveTimerRef.current);
+                discountSaveTimerRef.current = null;
+            }
+            discountSaveTimerRef.current = setTimeout(() => {
+                discountSaveTimerRef.current = null;
+                void persistStudentDiscount(nextType, nextAmountInput).catch((e) => toast.error(e, 'save'));
+            }, 350);
+        },
+        [persistStudentDiscount, toast]
+    );
 
     const saveStudentFieldInline = useCallback(
         async (fieldKey, draftValue) => {
-            await saveStudentProfileField({
-                fieldKey,
-                draftValue,
-                student,
-                academyId,
-                studentId: leadId,
-                updateStudent,
-                financeConfig,
-                academyTurmas,
-                emergencySameAsRegistered,
-                setEmergencySameAsRegistered,
-                setDataForm,
-                actorUserId: userId || 'user',
-                permissionContext: permCtx,
-                academySettingsRaw,
-                graduationLabel: terms.belt,
-            });
+            clearSaveStatusTimer();
+            setSaveStatus('saving');
+            try {
+                await saveStudentProfileField({
+                    fieldKey,
+                    draftValue,
+                    student,
+                    academyId,
+                    studentId: leadId,
+                    updateStudent,
+                    financeConfig,
+                    academyTurmas,
+                    emergencySameAsRegistered,
+                    setEmergencySameAsRegistered,
+                    setDataForm,
+                    actorUserId: userId || 'user',
+                    permissionContext: permCtx,
+                    academySettingsRaw,
+                    graduationLabel: terms.belt,
+                });
+                setSaveStatus('saved');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 2000);
+            } catch (e) {
+                setSaveStatus('error');
+                saveStatusTimerRef.current = setTimeout(() => {
+                    setSaveStatus(null);
+                    saveStatusTimerRef.current = null;
+                }, 3000);
+                throw e;
+            }
         },
         [
             student,
@@ -1231,6 +1445,7 @@ export default function StudentProfile() {
             permCtx,
             academySettingsRaw,
             terms.belt,
+            clearSaveStatusTimer,
         ]
     );
 
@@ -1733,45 +1948,104 @@ export default function StudentProfile() {
         attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
     const showRetentionInContactBanner = student?.retention_in_contact === true;
 
-    const editPlanPrice = Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
+    const studentPlanDisplayName = formatStudentPlanDisplayLabel(financeConfig, student.plan);
     const studentDiscountLabel =
         student?.discountAmount > 0
             ? formatDiscountSummaryLabel(student.discountType, student.discountAmount)
             : '';
 
     const renderStudentDiscountSection = () => {
-        if (!isActiveStudent(student) || !canViewFinance) return null;
-        if (editingData) {
+        if (!isActiveStudent(student) || !canViewFinance || studentPlanIsExempt) return null;
+
+        const planName = editingData ? dataForm.plan : student.plan;
+        const planPrice = Number(findPlanByName(financeConfig, planName)?.price ?? 0);
+        const discountTypeValue = editingData ? dataForm.discountType : normalizeDiscountType(student);
+        const discountAmountValue = editingData
+            ? dataForm.discountAmountInput
+            : formatDiscountAmountForInput(student.discountAmount, normalizeDiscountType(student));
+
+        if (!canEditProfile) {
+            if (!studentDiscountLabel) return null;
             return (
-                <EnrollmentDiscountFields
-                    planPrice={editPlanPrice}
-                    planName={dataForm.plan}
-                    financeConfig={financeConfig}
-                    discountType={dataForm.discountType}
-                    discountAmount={dataForm.discountAmountInput}
-                    onTypeChange={(nextType) => {
-                        setDataForm((p) => ({
-                            ...p,
-                            discountType: nextType,
-                            discountAmountInput: nextType === DISCOUNT_TYPES.NONE ? '' : p.discountAmountInput,
-                        }));
-                    }}
-                    onAmountChange={(value) =>
-                        setDataForm((p) => ({ ...p, discountAmountInput: value }))
-                    }
-                    disabled={savingData}
-                    idPrefix="student-profile-discount"
-                />
+                <div className="student-profile-discount-block student-profile-discount-block--readonly">
+                    <span className="student-profile-data-label">Condição promocional</span>
+                    <span className="student-profile-data-value">{studentDiscountLabel}</span>
+                </div>
             );
         }
-        if (!studentDiscountLabel) return null;
+
+        const applyDiscountChange = (nextType, nextAmountInput) => {
+            if (editingData) {
+                setDataForm((p) => ({
+                    ...p,
+                    discountType: nextType,
+                    discountAmountInput: nextAmountInput,
+                }));
+                return;
+            }
+            queueStudentDiscountSave(nextType, nextAmountInput);
+        };
+
         return (
-            <div className="student-profile-data-view-row">
-                <span className="student-profile-data-label">Desconto na mensalidade</span>
-                <span className="student-profile-data-value">{studentDiscountLabel}</span>
+            <div className="student-profile-discount-block">
+                <EnrollmentDiscountFields
+                    planPrice={planPrice}
+                    planName={planName}
+                    financeConfig={financeConfig}
+                    discountType={discountTypeValue}
+                    discountAmount={discountAmountValue}
+                    onTypeChange={(nextType) => {
+                        pendingDiscountTypeRef.current = nextType;
+                        const nextAmount =
+                            nextType === DISCOUNT_TYPES.NONE
+                                ? ''
+                                : discountAmountValue;
+                        applyDiscountChange(nextType, nextAmount);
+                    }}
+                    onAmountChange={(value) => {
+                        const nextType = pendingDiscountTypeRef.current ?? discountTypeValue;
+                        pendingDiscountTypeRef.current = null;
+                        applyDiscountChange(nextType, value);
+                    }}
+                    disabled={savingData || saveStatus === 'saving'}
+                    idPrefix="student-profile-discount"
+                />
             </div>
         );
     };
+
+    const renderPayerAliasesSection = () => (
+        <StudentPayerAliasesSection
+            key="student-payer-aliases"
+            aliases={payerAliases}
+            responsavel={editingData ? dataForm.responsavel : student.responsavel}
+            onChange={setPayerAliases}
+            onPersist={persistPayerAliases}
+            deferred={editingData}
+            disabled={!canEditProfile}
+            saving={savingData}
+        />
+    );
+
+    const renderStudentDataFieldList = () =>
+        studentDataFields.flatMap((field) => {
+            const row = editingData ? renderStudentDataEditRow(field) : renderStudentDataViewRow(field);
+            const extra = [];
+            if (
+                field.key === 'plan' &&
+                isActiveStudent(student) &&
+                canViewFinance &&
+                !studentPlanIsExempt
+            ) {
+                extra.push(
+                    <React.Fragment key="student-discount-after-plan">{renderStudentDiscountSection()}</React.Fragment>
+                );
+            }
+            if (field.key === (isStudentMinor ? 'cpfResponsavel' : 'cpf') && showPayerAliasesSection) {
+                extra.push(renderPayerAliasesSection());
+            }
+            return [row, ...extra];
+        });
 
     const displayStudentFieldValue = (key, raw) => {
         if (key === 'enrollmentDate' || key === 'birthDate') {
@@ -1797,6 +2071,9 @@ export default function StudentProfile() {
             return Number.isFinite(n) && n >= 1 && n <= 31 ? `Dia ${Math.trunc(n)}` : '';
         }
         if (key === 'sexo') return sexoDisplayLabel(raw);
+        if (key === 'plan') {
+            return formatStudentPlanDisplayLabel(financeConfig, raw);
+        }
         if (key === 'turma') {
             const t = String(student?.turma || student?.className || raw || '').trim();
             return t;
@@ -1830,6 +2107,14 @@ export default function StudentProfile() {
         const empty = !shown;
         const editValue = studentFieldEditValue(field);
         const fieldDisabled = disabled || !canEditProfile || editingData;
+        const inlineFieldKey = `${leadId}-${field.key}`;
+        const onSaveHandler =
+            field.key === 'responsavel'
+                ? async (draft) => {
+                      await saveStudentFieldInline(field.key, draft);
+                      maybePromptPayerFromResponsavel(draft);
+                  }
+                : (draft) => saveStudentFieldInline(field.key, draft);
 
         const common = {
             key: field.key,
@@ -1839,12 +2124,13 @@ export default function StudentProfile() {
             canEdit: canEditProfile && !disabled,
             editable: !fieldDisabled,
             fieldId: `student-inline-${field.key}`,
-            onSave: (draft) => saveStudentFieldInline(field.key, draft),
+            onSave: onSaveHandler,
         };
 
         if (field.type === 'sexo') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
@@ -1867,6 +2153,7 @@ export default function StudentProfile() {
             const turmaState = typeof editValue === 'object' ? editValue : resolveTurmaFormState('', academyTurmas);
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={turmaState}
                     renderEditor={({ draft, setDraft, onBlur, commitEdit, disabled: saving }) => (
@@ -1900,6 +2187,7 @@ export default function StudentProfile() {
             const readOnly = graduationReadOnly || field.readOnly;
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     canEdit={canEditProfile && !disabled && !readOnly}
                     editable={!fieldDisabled && !readOnly}
@@ -1925,13 +2213,16 @@ export default function StudentProfile() {
         if (field.type === 'plan') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
                         <PlanSelect
                             id={`student-inline-${field.key}`}
+                            academyId={academyId}
                             financeConfig={financeConfig}
                             value={draft}
+                            allowEmpty
                             onChange={(v) => {
                                 setDraft(v);
                                 void commitEdit(v);
@@ -1947,6 +2238,7 @@ export default function StudentProfile() {
         if (field.type === 'select' && Array.isArray(field.options)) {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     renderEditor={({ draft, setDraft, inputRef, onKeyDown, commitEdit, disabled: saving }) => (
@@ -1977,6 +2269,7 @@ export default function StudentProfile() {
         if (field.key === 'preferredPaymentAccount') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     displayValue={shown || String(student.preferredPaymentAccount || '').trim()}
                     empty={!String(student.preferredPaymentAccount || '').trim()}
@@ -2004,6 +2297,7 @@ export default function StudentProfile() {
         if (field.type === 'date') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     inputType="date"
@@ -2029,6 +2323,7 @@ export default function StudentProfile() {
 
         return (
             <ProfileInlineField
+                key={`${leadId}-${field.key}`}
                 {...common}
                 editValue={editValue}
                 inputType={inputType}
@@ -2101,8 +2396,10 @@ export default function StudentProfile() {
             ) : field.type === 'plan' ? (
                 <PlanSelect
                     id={`student-data-${field.key}`}
+                    academyId={academyId}
                     financeConfig={financeConfig}
                     value={dataForm.plan}
+                    allowEmpty
                     onChange={(v) => setDataForm((p) => ({ ...p, plan: v }))}
                     className="student-profile-data-input"
                     disabled={savingData}
@@ -2204,70 +2501,81 @@ export default function StudentProfile() {
         letterSpacing: '0.08em',
     };
 
-    const renderOperationalActionsSection = () => (
+    const renderFreezeEnrollmentActions = () => {
+        if (!isActiveStudent(student)) return null;
+        if (isFreezeActive(student)) {
+            return (
+                <button
+                    type="button"
+                    onClick={() => void handleEndFreezeEarly()}
+                    disabled={endFreezeBusy}
+                    style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                        borderRadius: 10,
+                        border: '1px solid #fbbf24',
+                        background: '#fffbeb',
+                        color: '#b45309',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit',
+                        opacity: endFreezeBusy ? 0.7 : 1,
+                    }}
+                >
+                    {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
+                </button>
+            );
+        }
+        if (canStartPlanFreeze(student, financeConfig)) {
+            return (
+                <button
+                    type="button"
+                    onClick={() => setFreezeModalOpen(true)}
+                    disabled={freezeBusy}
+                    style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '10px 12px',
+                        marginBottom: 8,
+                        borderRadius: 10,
+                        border: '1px solid #fbbf24',
+                        background: 'var(--surface)',
+                        color: '#b45309',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: freezeBusy ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit',
+                        opacity: freezeBusy ? 0.7 : 1,
+                    }}
+                >
+                    <PauseCircle size={16} /> Trancar matrícula
+                </button>
+            );
+        }
+        if (String(student.plan || '').trim()) {
+            return (
+                <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    Trancamento disponível para planos anuais (até 90 dias por ano do plano).
+                </p>
+            );
+        }
+        return null;
+    };
+
+    const renderOperationalActionsSection = () => {
+        if (!isInactiveStudent(student)) return null;
+        return (
         <div style={{ marginBottom: 22, width: '100%', textAlign: 'left' }}>
             <p style={sectionEyebrowStyle}>Matrícula</p>
-            {isActiveStudent(student) ? (
-                <>
-                    {isFreezeActive(student) ? (
-                        <button
-                            type="button"
-                            onClick={() => void handleEndFreezeEarly()}
-                            disabled={endFreezeBusy}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                padding: '10px 12px',
-                                marginBottom: 8,
-                                borderRadius: 10,
-                                border: '1px solid #fbbf24',
-                                background: '#fffbeb',
-                                color: '#b45309',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: endFreezeBusy ? 'not-allowed' : 'pointer',
-                                fontFamily: 'inherit',
-                                opacity: endFreezeBusy ? 0.7 : 1,
-                            }}
-                        >
-                            {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
-                        </button>
-                    ) : canStartPlanFreeze(student, financeConfig) ? (
-                        <button
-                            type="button"
-                            onClick={() => setFreezeModalOpen(true)}
-                            disabled={freezeBusy}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                padding: '10px 12px',
-                                marginBottom: 8,
-                                borderRadius: 10,
-                                border: '1px solid #fbbf24',
-                                background: 'var(--surface)',
-                                color: '#b45309',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: freezeBusy ? 'not-allowed' : 'pointer',
-                                fontFamily: 'inherit',
-                                opacity: freezeBusy ? 0.7 : 1,
-                            }}
-                        >
-                            <PauseCircle size={16} /> Trancar matrícula
-                        </button>
-                    ) : String(student.plan || '').trim() ? (
-                        <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                            Trancamento disponível para planos anuais (até 90 dias por ano do plano).
-                        </p>
-                    ) : null}
-                </>
-            ) : isInactiveStudent(student) ? (
                 <>
                     {modules?.finance === true ? (
                         <button
@@ -2325,9 +2633,9 @@ export default function StudentProfile() {
                         {reactivateBusy ? 'Reativando…' : `Reativar ${terms.student.toLowerCase()}`}
                     </button>
                 </>
-            ) : null}
         </div>
-    );
+        );
+    };
 
     const renderDangerZoneSection = () => (
         <div
@@ -2343,6 +2651,7 @@ export default function StudentProfile() {
             <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
                 Ações de saída ou remoção definitiva — use com cuidado.
             </p>
+            {renderFreezeEnrollmentActions()}
             {isActiveStudent(student) ? (
                 <button
                     type="button"
@@ -2404,18 +2713,20 @@ export default function StudentProfile() {
                         : stackedLayout
                           ? '100%'
                           : timelineOpen
-                            ? '360px'
+                            ? 'var(--student-profile-left-open, 420px)'
                             : 'auto',
                 flex:
                     stackedLayout && timelineOpen
                         ? '0 0 0'
-                        : stackedLayout && !timelineOpen
-                          ? '1 1 0%'
-                          : !stackedLayout && !timelineOpen
-                            ? '1 1 0%'
-                            : '0 0 auto',
-                maxWidth: !stackedLayout && !timelineOpen ? 560 : undefined,
-                flexShrink: !stackedLayout && timelineOpen ? 0 : 0,
+                        : stackedLayout
+                          ? timelineOpen
+                            ? '0 0 auto'
+                            : '1 1 0%'
+                          : timelineOpen
+                            ? '0 0 auto'
+                            : '1 1 0%',
+                maxWidth: !stackedLayout && !timelineOpen ? 'var(--student-profile-left-max-closed, 680px)' : undefined,
+                flexShrink: 0,
                 overflow: 'hidden',
                 flexDirection: 'column',
                 borderRight: stackedLayout ? 'none' : '1px solid var(--border)',
@@ -2441,33 +2752,82 @@ export default function StudentProfile() {
 
             <div className="student-panel-left__scroll">
                 <div className="student-profile-hd">
-                    {/* Avatar com iniciais */}
-                    <div className="student-profile-hd__avatar">
-                        {studentPhotoUrl ? (
-                            <img
-                                src={studentPhotoUrl}
-                                alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <span className="student-profile-hd__initials">{studentInitials}</span>
-                        )}
-                    </div>
+                    <StudentControlIdPhoto
+                        academyId={academyId}
+                        leadId={id}
+                        photoUrl={studentPhotoUrl}
+                        initials={studentInitials}
+                        controlidSynced={student.controlid_synced}
+                        enabled={controlIdCfg.enabled}
+                        onPhotoSaved={(url) => {
+                            void updateStudent(id, { photo_url: url });
+                        }}
+                    />
                     <div className="student-profile-hd__body">
-                    {!editingData && canEditProfile ? (
-                        <ProfileInlineField
-                            layout="hero-name"
-                            label="Nome"
-                            displayValue={student.name || 'Sem nome'}
-                            empty={!String(student.name || '').trim()}
-                            canEdit={canEditProfile}
-                            editValue={student.name || ''}
-                            fieldId="student-inline-hero-name"
-                            onSave={(draft) => saveStudentFieldInline('name', draft)}
-                        />
-                    ) : (
-                        <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
-                    )}
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 10,
+                            flexWrap: 'wrap',
+                            width: '100%',
+                        }}
+                    >
+                        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                            {!editingData && canEditProfile ? (
+                                <ProfileInlineField
+                                    layout="hero-name"
+                                    label="Nome"
+                                    displayValue={student.name || 'Sem nome'}
+                                    empty={!String(student.name || '').trim()}
+                                    canEdit={canEditProfile}
+                                    editValue={student.name || ''}
+                                    fieldId="student-inline-hero-name"
+                                    onSave={(draft) => saveStudentFieldInline('name', draft)}
+                                />
+                            ) : (
+                                <h2 className="student-profile-hd__name">{studentDisplayName}</h2>
+                            )}
+                        </div>
+                        {saveStatus ? (
+                            <span
+                                role="status"
+                                aria-live="polite"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    flexShrink: 0,
+                                    color:
+                                        saveStatus === 'saved'
+                                            ? 'var(--success, #16a34a)'
+                                            : saveStatus === 'error'
+                                              ? 'var(--danger, #dc2626)'
+                                              : 'var(--text-muted, #6b7280)',
+                                }}
+                            >
+                                {saveStatus === 'saving' ? (
+                                    <>
+                                        <Loader2 size={13} className="profile-inline-field__spinner" aria-hidden />
+                                        Salvando...
+                                    </>
+                                ) : saveStatus === 'saved' ? (
+                                    <>
+                                        <Check size={13} aria-hidden />
+                                        Salvo
+                                    </>
+                                ) : (
+                                    <>
+                                        <X size={13} aria-hidden />
+                                        Erro ao salvar
+                                    </>
+                                )}
+                            </span>
+                        ) : null}
+                    </div>
                     <div className="student-profile-hd__badges">
                         <StudentStatusBadge
                             status={resolveStudentListStatus(student, effectivePaymentStatus)}
@@ -2490,11 +2850,19 @@ export default function StudentProfile() {
                                 }}
                             />
                         ) : null}
+                        {controlIdCfg.enabled && student?.id ? (
+                            <ControlIdSyncBadge
+                                academyId={academyId}
+                                student={student}
+                                blockOverdueAccess={controlIdCfg.block_overdue_access}
+                                inline
+                            />
+                        ) : null}
                     </div>
                     {/* Plano + vencimento */}
                     <div className="student-profile-hd__meta">
-                        {String(student.plan || '').trim() ? (
-                            <span className="student-profile-hd__plan">{student.plan}</span>
+                        {studentPlanDisplayName ? (
+                            <span className="student-profile-hd__plan">{studentPlanDisplayName}</span>
                         ) : null}
                         {studentPlanIsExempt ? (
                             <span className="badge-secondary">Plano isento</span>
@@ -2695,6 +3063,8 @@ export default function StudentProfile() {
 
                 {renderOperationalActionsSection()}
 
+                <StudentPortalInvitePanel student={student} academyId={academyId} canEdit={canEditProfile} />
+
                 <div className="profile-section-block">
                     <div className="profile-section-heading-row">
                         <h3 className="profile-section-heading">Dados do {terms.student.toLowerCase()}</h3>
@@ -2710,28 +3080,8 @@ export default function StudentProfile() {
                             {terms.belt.toLowerCase()} do aluno.
                         </StatusBanner>
                     ) : null}
-                    {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
-                    {renderStudentDiscountSection()}
+                    {renderStudentDataFieldList()}
                 </div>
-
-                <StudentPayerAliasesSection
-                    aliases={payerAliases}
-                    responsavel={editingData ? dataForm.responsavel : student.responsavel}
-                    disabled={!editingData || savingData}
-                    onChange={setPayerAliases}
-                />
-
-                {controlIdCfg.enabled && (
-                    <StudentControlIdPhoto
-                        academyId={academyId}
-                        leadId={id}
-                        photoUrl={student.photo_url}
-                        controlidSynced={student.controlid_synced}
-                        onPhotoSaved={(url) => {
-                            void updateStudent(id, { photo_url: url });
-                        }}
-                    />
-                )}
 
                 <div className="profile-section-block">
                     <h3 className="profile-section-heading">Contato de emergência</h3>
@@ -2832,15 +3182,17 @@ export default function StudentProfile() {
                 {renderDangerZoneSection()}
             </div>
 
-            <div className={`profile-panel-footer${timelineOpen ? ' profile-panel-footer--expanded' : ''}`}>
-                <button
-                    type="button"
-                    className="profile-panel-toggle-btn"
-                    onClick={() => setTimelineOpen((o) => !o)}
-                >
-                    {timelineOpen ? <>← Voltar ao perfil</> : <>Abrir detalhes →</>}
-                </button>
-            </div>
+            {!timelineOpen ? (
+                <div className="profile-panel-footer">
+                    <button
+                        type="button"
+                        className="profile-panel-toggle-btn"
+                        onClick={() => setTimelineOpen(true)}
+                    >
+                        Abrir detalhes →
+                    </button>
+                </div>
+            ) : null}
         </div>
     );
 
@@ -2866,9 +3218,10 @@ export default function StudentProfile() {
                 flexDirection: 'column',
                 overflow: 'hidden',
                 minWidth: 0,
-                flex: timelineOpen ? 1 : 0,
+                flex: timelineOpen ? (stackedLayout ? '1 1 auto' : '1 1 0%') : 0,
                 flexBasis: timelineOpen ? undefined : 0,
-                maxWidth: timelineOpen ? (stackedLayout ? '100%' : 560) : 0,
+                maxWidth: !timelineOpen ? 0 : stackedLayout ? '100%' : undefined,
+                minWidth: timelineOpen && !stackedLayout ? 0 : undefined,
                 opacity: timelineOpen ? 1 : 0,
                 pointerEvents: timelineOpen ? 'auto' : 'none',
                 width: stackedLayout && timelineOpen ? '100%' : undefined,
@@ -2877,57 +3230,18 @@ export default function StudentProfile() {
             }}
         >
             {stackedLayout && timelineOpen ? (
-                <div
-                    className="student-panel-mobile-chrome"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '10px 14px',
-                        paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
-                        flexShrink: 0,
-                        background: 'var(--surface)',
-                        borderBottom: '1px solid var(--border-light)',
-                    }}
-                >
+                <div className="student-panel-mobile-chrome">
                     <button
                         type="button"
+                        className="student-panel-mobile-chrome__back"
                         onClick={() => setTimelineOpen(false)}
                         aria-label="Voltar ao perfil do aluno"
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            border: 'none',
-                            background: 'none',
-                            cursor: 'pointer',
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: 'var(--accent)',
-                            fontFamily: 'inherit',
-                            padding: '4px 0',
-                            flexShrink: 0,
-                        }}
                     >
                         <ArrowLeft size={18} aria-hidden />
                         Perfil
                     </button>
-                    <span
-                        style={{
-                            flex: 1,
-                            minWidth: 0,
-                            fontSize: 15,
-                            fontWeight: 800,
-                            color: 'var(--text)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            textAlign: 'center',
-                        }}
-                    >
-                        {studentDisplayName}
-                    </span>
-                    <span style={{ width: 52, flexShrink: 0 }} aria-hidden />
+                    <span className="student-panel-mobile-chrome__name">{studentDisplayName}</span>
+                    <span className="student-panel-mobile-chrome__spacer" aria-hidden />
                 </div>
             ) : null}
 
@@ -3528,6 +3842,19 @@ export default function StudentProfile() {
                     void saveStudentPayment();
                 }}
                 onClose={() => !savingPayment && setPaidAtDivergenceConfirm(null)}
+            />
+            <ConfirmDialog
+                open={Boolean(responsavelPayerPrompt)}
+                title="Adicionar pagador?"
+                description={
+                    responsavelPayerPrompt
+                        ? `Adicionar "${responsavelPayerPrompt}" como nome que aparece no PIX ao pagar a mensalidade?`
+                        : ''
+                }
+                confirmLabel="Adicionar pagador"
+                confirmVariant="primary"
+                onConfirm={() => void confirmResponsavelAsPayer()}
+                onClose={() => setResponsavelPayerPrompt(null)}
             />
         </div>
     );

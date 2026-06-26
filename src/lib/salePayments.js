@@ -191,18 +191,76 @@ export function sumPagamentosNet(pagamentos) {
   );
 }
 
-export function validatePagamentosAgainstTotal(pagamentos, totalVenda) {
+/**
+ * @param {Array} pagamentos
+ * @param {number} totalVenda
+ * @param {{ partial?: boolean, deferred?: boolean }} [opts]
+ */
+export function validatePagamentosAgainstTotal(pagamentos, totalVenda, opts = {}) {
   const total = roundMoney(totalVenda);
   const net = sumPagamentosNet(pagamentos);
-  if (Math.abs(net - total) > 0.009) {
-    return { ok: false, net, total };
+  const partial = opts.partial === true;
+  const deferred = opts.deferred === true;
+
+  if (!deferred && net <= 0.009) {
+    return { ok: false, net, total, reason: 'zero_payment' };
   }
+
+  if (Math.abs(net - total) <= 0.009) {
+    // integral
+  } else if (partial && net > 0.009 && net < total - 0.009) {
+    // entrada parcial
+  } else if (deferred && net <= 0.009) {
+    // venda a prazo sem pagamento na hora
+  } else {
+    return { ok: false, net, total, reason: partial ? 'partial_out_of_range' : 'total_mismatch' };
+  }
+
   for (const p of pagamentos) {
     if (p.forma === 'dinheiro' && Number(p.troco) > Number(p.valor)) {
       return { ok: false, reason: 'troco_exceeds_valor' };
     }
   }
-  return { ok: true, net, total };
+  return { ok: true, net, total, partial: partial && net < total - 0.009 };
+}
+
+/** Valor já recebido na venda (campo paid_amount ou soma de pagamentos). */
+export function deriveSalePaidAmount(saleOrDoc) {
+  const raw = saleOrDoc?.paid_amount ?? saleOrDoc?.paidAmount;
+  if (raw != null && Number.isFinite(Number(raw))) {
+    return roundMoney(Number(raw));
+  }
+  const list = Array.isArray(saleOrDoc?.pagamentos) && saleOrDoc.pagamentos.length
+    ? normalizePagamentosInput(saleOrDoc.pagamentos)
+    : parsePagamentosJson(saleOrDoc?.pagamentos_json);
+  return roundMoney(sumPagamentosNet(list));
+}
+
+/** Contexto para liquidar venda pendente (a prazo) ou saldo de entrada parcial. */
+export function resolveSaleLiquidationContext(saleOrDoc) {
+  const statusLower = String(saleOrDoc?.status || '').trim().toLowerCase();
+  const saleTotal = roundMoney(Number(saleOrDoc?.total) || 0);
+  const paidSoFar = deriveSalePaidAmount(saleOrDoc);
+  const hasOpenBalance =
+    saleTotal > 0.009 && paidSoFar > 0.009 && paidSoFar < saleTotal - 0.009;
+  const isPartialSale =
+    statusLower === 'parcial' ||
+    (hasOpenBalance && statusLower !== 'concluida' && statusLower !== 'cancelada');
+  const isPendingDeferred = statusLower === 'pendente' && !hasOpenBalance;
+  const balanceDue = isPartialSale
+    ? roundMoney(Math.max(0, saleTotal - paidSoFar))
+    : isPendingDeferred
+      ? saleTotal
+      : 0;
+  return {
+    statusLower,
+    saleTotal,
+    paidSoFar,
+    isPartialSale,
+    isPendingDeferred,
+    balanceDue,
+    hasOpenBalance,
+  };
 }
 
 export function buildFormaPagamentoResumo(pagamentos) {
@@ -275,6 +333,12 @@ export function paymentsUiValid(rows, totalCents, opts = {}) {
   }
 
   const net = netPaidCentsFromRows(rows);
+  if (opts?.partial === true) {
+    if (net <= 0) return { ok: false, reason: 'zero', net, total };
+    if (net >= total) return { ok: false, reason: 'sum_partial_exceeds', net, total, diff: total - net };
+    return { ok: true, net, total, partial: true };
+  }
+  if (Math.abs(net - total) <= 1) return { ok: true, net, total };
   if (net !== total) return { ok: false, reason: 'sum', net, total, diff: total - net };
   return { ok: true, net, total };
 }

@@ -415,6 +415,7 @@ const SALES_ATTRS = [
   { key: 'academyId', type: 'string', size: 64 },
   { key: 'aluno_id', type: 'string', size: 64 },
   { key: 'total', type: 'float' },
+  { key: 'paid_amount', type: 'float' },
   { key: 'forma_pagamento', type: 'string', size: 64 },
   { key: 'status', type: 'string', size: 32 },
   { key: 'idempotency_key', type: 'string', size: 128 },

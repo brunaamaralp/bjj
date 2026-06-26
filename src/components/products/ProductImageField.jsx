@@ -38,7 +38,7 @@ export default function ProductImageField({ imageUrl, onImageUrlChange, disabled
     if (!isProductImageUploadConfigured()) {
       addToast({
         type: 'warning',
-        message: 'Upload não configurado — use um link ou defina VITE_APPWRITE_PRODUCT_IMAGES_BUCKET_ID.',
+        message: 'Upload indisponível no momento — use um link https://…',
       });
       return;
     }
@@ -80,7 +80,7 @@ export default function ProductImageField({ imageUrl, onImageUrlChange, disabled
   return (
     <div className="form-group mt-2">
       <label>Imagem</label>
-      <p className="text-xs text-muted product-form-field-hint">JPG, PNG ou WebP — máx. 5 MB</p>
+      <p className="text-xs text-muted product-form-field-hint">JPG, PNG ou WebP — máx. 4 MB</p>
       <div className="product-image-field">
         <div className="product-image-field__preview" aria-hidden={!previewUrl}>
           {previewUrl ? (

@@ -3,6 +3,8 @@ import {
   resolveGridDisplayStatus,
   expectedAmountForStudent,
   receivedAmountForPayment,
+  resolveMensalidadesListValor,
+  formatMensalidadesListValor,
   shouldMirrorPaymentToCaixa,
   mirrorGrossForPayment,
   mapDbStatusFromGridForm,
@@ -140,6 +142,26 @@ describe('paymentStatus', () => {
 
   it('receivedAmountForPayment partial uses paid_amount', () => {
     expect(receivedAmountForPayment({ status: 'partial', paid_amount: 79.9, amount: 79.9 })).toBe(79.9);
+  });
+
+  it('resolveMensalidadesListValor pending usa valor esperado do plano', () => {
+    const valor = resolveMensalidadesListValor(student, null, 'pending', financeConfig);
+    expect(valor.kind).toBe('money');
+    expect(valor.amount).toBe(200);
+  });
+
+  it('resolveMensalidadesListValor partial formata recebido e esperado', () => {
+    const payment = { status: 'partial', paid_amount: 80, expected_amount: 200 };
+    const valor = resolveMensalidadesListValor(student, payment, 'partial', financeConfig);
+    expect(valor.kind).toBe('partial');
+    expect(valor.received).toBe(80);
+    expect(valor.expected).toBe(200);
+    expect(formatMensalidadesListValor(valor, (n) => `R$ ${n}`)).toBe('R$ 80 de R$ 200');
+  });
+
+  it('resolveMensalidadesListValor covered retorna label Coberto', () => {
+    const valor = resolveMensalidadesListValor(student, { status: 'covered' }, 'covered', financeConfig);
+    expect(valor).toEqual({ kind: 'label', label: 'Coberto' });
   });
 
   it('caixa mirror rules', () => {

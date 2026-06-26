@@ -589,7 +589,7 @@ export async function cancelBundleCoverageFromMonth({
   return { cancelled, refundTxId };
 }
 
-export async function getStudentPayments(leadId, academyId, limit = 120) {
+export async function getStudentPayments(leadId, academyId, limit = 1000) {
   if (!PAYMENTS_COL || !leadId || !academyId) return [];
   const res = await databases.listDocuments(DB_ID, PAYMENTS_COL, [
     Query.equal('lead_id', leadId),

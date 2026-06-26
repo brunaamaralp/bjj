@@ -36,6 +36,7 @@ export default function SalesPaymentBlock({
   disabled,
   inlineValidate = false,
   financeConfig = null,
+  allowPartial = false,
 }) {
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
   const [touched, setTouched] = useState({});
@@ -54,8 +55,12 @@ export default function SalesPaymentBlock({
   }, []);
 
   const validation = useMemo(
-    () => paymentsUiValid(payments, total, { financeConfig: financeConfig || undefined }),
-    [payments, total, financeConfig]
+    () =>
+      paymentsUiValid(payments, total, {
+        financeConfig: financeConfig || undefined,
+        partial: allowPartial || undefined,
+      }),
+    [payments, total, financeConfig, allowPartial]
   );
   const netCents = useMemo(() => netPaidCentsFromRows(payments), [payments]);
   const diffCents = total - netCents;
@@ -238,6 +243,7 @@ export default function SalesPaymentBlock({
                     <p className="sales-field-error" role="alert">Campo obrigatório</p>
                   ) : null}
                 </div>
+                <div className="sales-payment-row__remove-wrap">
                 <button
                   type="button"
                   className="btn-ghost sales-payment-row__remove"
@@ -247,6 +253,7 @@ export default function SalesPaymentBlock({
                 >
                   <Trash2 size={16} />
                 </button>
+                </div>
               </div>
 
               {showCardDetails ? (

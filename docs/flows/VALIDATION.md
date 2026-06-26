@@ -600,6 +600,40 @@ Harness: `npm test -- mensalidadesPaymentForm financeConfigValidation monthlyClo
 
 ---
 
+## Portal do aluno (2026-06-25)
+
+| Camada | O que foi feito |
+|---|---|
+| Código | Rotas `/portal/*`, `portalRouter`, handlers, `portalBootstrap`, `StudentPortalInvitePanel`, `PortalGuidesSection` |
+| Testes | `npm test -- portal --pool=threads --maxWorkers=2` — **13 passed** (`portalAccess`, `portalInvite`, `portalGuides`, `portalBootstrap`) |
+| Staging | **Pendente** — critérios PRODUCT §16 (convite, 2 filhos, senha temp, revogação) |
+
+### Resumo por fluxo — Portal
+
+| Fluxo | Itens checklist | OK (código) | Staging pendente |
+|---|---|---|---|
+| [aluno-portal](portal/aluno-portal.md) | 18 | 18 | 18 |
+| [guias-orientacao](portal/guias-orientacao.md) | 13 | 13 | 13 |
+
+### Critérios de aceite PRODUCT §16 (código)
+
+| Critério | Resultado | Evidência |
+|---|---|---|
+| Convite adulto + ativação | ✅ Código | `portalInviteHandler`, `portalActivateHandler`, `PortalActivate` |
+| Convite menor via `email_responsavel` | ✅ Código | `resolveInviteEmail` |
+| Switcher 2 filhos | ✅ Código | `PortalStudentSwitcher`, `portal-context` |
+| Vínculo 2º filho sem 2º convite | ✅ Código | `portalSiblingLink`, `linkSiblingPortalAccess` |
+| Senha temp → troca obrigatória | ✅ Código | `must_change_password`, `PortalChangePassword` |
+| Revogação ao desativar | ✅ Código | `revokePortalAccessForStudent` em `studentsHandler` |
+| Portal-only sem CRM | ✅ Código | `probePortalOnlyUser`, `App.jsx` redirect |
+| Financeiro leitura + WhatsApp | ✅ Código | `PortalFinance`, `PortalWhatsAppCta` |
+| Contratos pendentes + Autentique | ✅ Código | `portalContractsHandler`, `PortalContracts` |
+| Owner publica guia; aluno lê | ✅ Código | `portalGuidesManageHandler`, `PortalGuides` |
+| Rascunho invisível no portal | ✅ Código | `portalGuidesHandler` filtra `published` |
+| Member não publica guia | ✅ Código | `AcademySettings` tab portal owner/admin only |
+
+---
+
 ## Próximo passo
 
 1. Executar a [matriz de salvamento](#matriz-de-cenários-salvamento) em **staging** com academia demo.

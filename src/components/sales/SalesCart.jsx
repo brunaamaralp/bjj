@@ -22,6 +22,7 @@ export default function SalesCart({
   inlineValidate = false,
   priceTouched = {},
   onPriceBlur,
+  showPriceErrorsLive = false,
 }) {
   const [removingIdx, setRemovingIdx] = useState(null);
 
@@ -51,6 +52,11 @@ export default function SalesCart({
               it.preco_unitario != null && it.preco_unitario !== ''
                 ? Math.round(Number(it.preco_unitario) * 100)
                 : null;
+            const priceInvalid =
+              inlineValidate &&
+              !lockPriceEdit &&
+              (!priceCents || priceCents <= 0) &&
+              (priceTouched[idx] || showPriceErrorsLive);
             const priceDisplay =
               priceCents != null && priceCents > 0 ? formatBRLFromCents(priceCents) : '';
             const isRemoving = removingIdx === idx;
@@ -152,11 +158,7 @@ export default function SalesCart({
                     </label>
                     <input
                       type="text"
-                      className={`form-input${
-                        inlineValidate && !lockPriceEdit && priceTouched[idx] && (!priceCents || priceCents <= 0)
-                          ? ' sales-input--invalid'
-                          : ''
-                      }`}
+                      className={`form-input${priceInvalid ? ' sales-input--invalid' : ''}`}
                       inputMode="numeric"
                       placeholder="R$ 0,00"
                       value={priceDisplay}
@@ -164,7 +166,7 @@ export default function SalesCart({
                       onBlur={() => onPriceBlur?.(idx)}
                       onChange={(e) => onPriceChange(idx, parseMaskToCents(e.target.value))}
                     />
-                    {inlineValidate && !lockPriceEdit && priceTouched[idx] && (!priceCents || priceCents <= 0) ? (
+                    {priceInvalid ? (
                       <p className="sales-field-error" role="alert">Campo obrigatório</p>
                     ) : null}
                   </div>

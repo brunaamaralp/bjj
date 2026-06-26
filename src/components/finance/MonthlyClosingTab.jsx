@@ -530,7 +530,7 @@ export default function MonthlyClosingTab({
       {cashClosing ? (
         <p className="text-small monthly-closing-dre-hint" role="status">
           Confira o DRE do mês em{' '}
-          <Link to="/reports?tab=financeiro">Relatórios →</Link>
+          <Link to="/reports?tab=financeiro">Relatórios → Financeiro</Link>
         </p>
       ) : null}
       {closingPartialWarning ? (

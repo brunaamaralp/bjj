@@ -2,6 +2,7 @@
  * Agregação unificada de contas a receber (mensalidades, lançamentos pendentes, vendas a prazo).
  */
 import { isActiveStudent } from './studentStatus.js';
+import { effectiveStudentPlan } from './financeStudentRoster.js';
 import {
   expectedAmountForStudent,
   receivedAmountForPayment,
@@ -59,7 +60,7 @@ export function buildMensalidadeReceivableItems({
   referenceMonth,
   today = new Date(),
 }) {
-  const active = students.filter((s) => isActiveStudent(s) && String(s.plan || '').trim());
+  const active = students.filter((s) => isActiveStudent(s));
   const payByLead = {};
   for (const p of payments) {
     const lid = String(p.lead_id || '').trim();
@@ -70,6 +71,7 @@ export function buildMensalidadeReceivableItems({
   const items = [];
   for (const s of active) {
     const p = payByLead[s.id];
+    if (!effectiveStudentPlan(s, p)) continue;
     const amount = openMensalidadeAmount(s, p, financeConfig);
     if (amount < 0.01) continue;
 

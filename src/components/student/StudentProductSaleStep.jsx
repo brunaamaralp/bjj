@@ -23,13 +23,19 @@ import SalesCatalogPicker from '../sales/SalesCatalogPicker';
 import SalesVariantPicker from '../sales/SalesVariantPicker';
 import SalesCart from '../sales/SalesCart';
 import SalesPaymentBlock from '../sales/SalesPaymentBlock';
+import SalesQuickPayBar from '../sales/SalesQuickPayBar';
+import SalesCheckoutStickyBar from '../sales/SalesCheckoutStickyBar';
+import SalePaymentModeSelector, { STUDENT_SALE_PAYMENT_MODES } from '../sales/SalePaymentModeSelector';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
+import useMatchMobile from '../../hooks/useMatchMobile';
 import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
   paymentsUiValid,
   rebalancePaymentsForTotal,
+  buildQuickPayment,
+  netPaidCentsFromRows,
 } from '../../lib/salePayments';
 import { friendlySaleError } from '../../lib/errorMessages.js';
 import { getSaleFooterHint, isStudentProductSaleDirty } from '../../lib/saleModalDirty.js';
@@ -75,8 +81,13 @@ export default function StudentProductSaleStep({
   const [variantPickerLineKind, setVariantPickerLineKind] = useState('sale');
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
+  const [manualPaymentOpen, setManualPaymentOpen] = useState(true);
+  const [priceTouched, setPriceTouched] = useState({});
   const [mobilePanel, setMobilePanel] = useState('catalog');
   const [showBackConfirm, setShowBackConfirm] = useState(false);
+
+  const isMobileCheckout = useMatchMobile(900);
+  const paymentMode = receiveLater ? 'deferred' : 'integral';
 
   const idempotencyKeyRef = useRef('');
 
@@ -154,9 +165,49 @@ export default function StudentProductSaleStep({
   const totalFinalCents = useMemo(() => Math.max(0, Math.round(round2(totalCart) * 100)), [totalCart]);
 
   const paymentValid = useMemo(
-    () => paymentsUiValid(payments, totalFinalCents, { deferred: receiveLater }),
-    [payments, totalFinalCents, receiveLater]
+    () => paymentsUiValid(payments, totalFinalCents, { deferred: receiveLater, financeConfig }),
+    [payments, totalFinalCents, receiveLater, financeConfig]
   );
+
+  const missingPriceLabel = useMemo(() => {
+    const bad = cart.find((line) => !line.preco_unitario || Number(line.preco_unitario) <= 0);
+    if (!bad) return null;
+    return String(bad.display_label || bad.nome || 'item').trim() || 'item';
+  }, [cart]);
+
+  const paymentDiffCents = useMemo(() => {
+    if (receiveLater) return null;
+    const net = netPaidCentsFromRows(payments);
+    return Math.max(0, totalFinalCents - net);
+  }, [payments, totalFinalCents, receiveLater]);
+
+  const submitFooterHint = useMemo(() => {
+    if (creating) return null;
+    if (localError) return null;
+    const canSubmit =
+      cart.length > 0 &&
+      !missingPriceLabel &&
+      (receiveLater ? Boolean(String(dueDate || '').trim()) : paymentValid.ok);
+    if (canSubmit) return null;
+    return getSaleFooterHint({
+      cartLength: cart.length,
+      paymentValid,
+      receiveLater,
+      dueDate,
+      missingPriceLabel,
+      paymentDiffCents: !paymentValid.ok && !receiveLater ? paymentDiffCents : null,
+      busy: creating,
+    });
+  }, [
+    cart.length,
+    creating,
+    localError,
+    missingPriceLabel,
+    paymentValid,
+    receiveLater,
+    dueDate,
+    paymentDiffCents,
+  ]);
 
   const totalMasked = useMemo(() => formatBRL(round2(totalCart)), [totalCart]);
 
@@ -178,28 +229,27 @@ export default function StudentProductSaleStep({
   useEffect(() => {
     if (!onSubmitStateChange) return;
     const canSubmit =
-      cart.length > 0 && !creating && (receiveLater || paymentValid.ok);
+      cart.length > 0 &&
+      !creating &&
+      !missingPriceLabel &&
+      (receiveLater ? Boolean(String(dueDate || '').trim()) : paymentValid.ok);
     const footerError = localError ? friendlySaleError(localError) : null;
     onSubmitStateChange({
       canSubmit,
       busy: creating,
       label: creating ? 'Registrando…' : 'Confirmar venda',
-      footerHint: canSubmit || footerError
-        ? null
-        : getSaleFooterHint({
-            cartLength: cart.length,
-            paymentValid: paymentValid.ok,
-            receiveLater,
-            busy: creating,
-          }),
+      footerHint: canSubmit || footerError ? null : submitFooterHint,
       footerError,
     });
   }, [
     cart.length,
     creating,
     receiveLater,
-    paymentValid.ok,
+    paymentValid,
+    missingPriceLabel,
+    dueDate,
     localError,
+    submitFooterHint,
     onSubmitStateChange,
   ]);
 
@@ -218,6 +268,36 @@ export default function StudentProductSaleStep({
       return rebalancePaymentsForTotal(prev, totalFinalCents);
     });
   }, [totalFinalCents]);
+
+  const focusCashReceived = useCallback(() => {
+    setManualPaymentOpen(true);
+    window.setTimeout(() => {
+      const el = document.querySelector('.student-product-sale .sales-payment-row__cash input');
+      el?.focus();
+    }, 60);
+  }, []);
+
+  const applyQuickPay = useCallback((rows) => {
+    setReceiveLater(false);
+    setPayments(rows);
+    setManualPaymentOpen(true);
+  }, []);
+
+  const handlePaymentModeChange = useCallback((mode) => {
+    const deferred = mode === 'deferred';
+    setReceiveLater(deferred);
+    setLocalError('');
+    if (deferred) {
+      setPayments([]);
+      setManualPaymentOpen(false);
+    } else {
+      setManualPaymentOpen(true);
+    }
+  }, []);
+
+  const handlePriceBlur = useCallback((idx) => {
+    setPriceTouched((prev) => ({ ...prev, [idx]: true }));
+  }, []);
 
   const buildCartLine = useCallback((product, parent = null, lineKind = 'sale') => {
     const kind = normalizeLineKind(lineKind);
@@ -406,6 +486,7 @@ export default function StudentProductSaleStep({
   );
 
   const updateCartPrice = useCallback((idx, cents) => {
+    setPriceTouched((prev) => ({ ...prev, [idx]: true }));
     setCart((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], preco_unitario: cents > 0 ? cents / 100 : null };
@@ -595,6 +676,10 @@ export default function StudentProductSaleStep({
                   subtotalMasked={totalMasked}
                   descGeralMasked={formatBRL(0)}
                   totalMasked={totalMasked}
+                  inlineValidate
+                  priceTouched={priceTouched}
+                  onPriceBlur={handlePriceBlur}
+                  showPriceErrorsLive
                 />
               ) : (
                 <p className="text-small text-muted student-product-sale__empty-cart">
@@ -602,20 +687,43 @@ export default function StudentProductSaleStep({
                 </p>
               )}
 
-              <label className="sales-collab-toggle__label student-product-sale__defer">
-                <input
-                  type="checkbox"
-                  checked={receiveLater}
-                  disabled={creating || cart.length === 0}
-                  onChange={(e) => {
-                    setReceiveLater(e.target.checked);
-                    setLocalError('');
-                  }}
-                />
-                <span className="sales-collab-toggle__text">Receber depois</span>
-              </label>
+              <SalePaymentModeSelector
+                value={paymentMode}
+                onChange={handlePaymentModeChange}
+                disabled={creating || cart.length === 0}
+                modes={STUDENT_SALE_PAYMENT_MODES}
+              />
 
-              {receiveLater ? (
+              {!receiveLater ? (
+                <>
+                  <SalesQuickPayBar
+                    totalCents={totalFinalCents}
+                    disabled={creating || cart.length === 0}
+                    onApply={applyQuickPay}
+                    onFocusCashReceived={focusCashReceived}
+                    compact
+                    financeConfig={financeConfig}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ghost sales-manual-pay-toggle"
+                    onClick={() => setManualPaymentOpen((v) => !v)}
+                    disabled={cart.length === 0}
+                  >
+                    {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
+                  </button>
+                  {manualPaymentOpen ? (
+                    <SalesPaymentBlock
+                      totalCents={totalFinalCents}
+                      payments={payments}
+                      onChange={setPayments}
+                      disabled={creating || cart.length === 0}
+                      inlineValidate
+                      financeConfig={financeConfig}
+                    />
+                  ) : null}
+                </>
+              ) : (
                 <div className="form-group sales-checkout__field">
                   <label htmlFor="student-product-sale-due">
                     Data de vencimento <span className="sales-field-required">*</span>
@@ -629,29 +737,41 @@ export default function StudentProductSaleStep({
                     required
                   />
                 </div>
-              ) : (
-                <SalesPaymentBlock
-                  totalCents={totalFinalCents}
-                  payments={payments}
-                  onChange={setPayments}
-                  disabled={creating || cart.length === 0}
-                  inlineValidate
-                  financeConfig={financeConfig}
-                />
               )}
 
               {!hideSubmitButton ? (
-                <button
-                  type="submit"
-                  className="btn-primary sales-submit-btn"
-                  disabled={
-                    creating ||
-                    cart.length === 0 ||
-                    (!receiveLater && !paymentValid.ok)
-                  }
-                >
-                  {creating ? 'Registrando…' : 'Confirmar venda'}
-                </button>
+                <>
+                  {submitFooterHint ? (
+                    <p className="sales-checkout__hint sales-submit-btn--desktop-only" role="status">
+                      {submitFooterHint}
+                    </p>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className="btn-primary sales-submit-btn sales-submit-btn--desktop-only"
+                    disabled={
+                      creating ||
+                      cart.length === 0 ||
+                      Boolean(missingPriceLabel) ||
+                      (receiveLater ? !String(dueDate || '').trim() : !paymentValid.ok)
+                    }
+                  >
+                    {creating ? 'Registrando…' : 'Confirmar venda'}
+                  </button>
+                  <SalesCheckoutStickyBar
+                    visible={isMobileCheckout && mobilePanel === 'cart'}
+                    totalLabel={totalMasked}
+                    submitLabel="Confirmar venda"
+                    submitDisabled={
+                      creating ||
+                      cart.length === 0 ||
+                      Boolean(missingPriceLabel) ||
+                      (receiveLater ? !String(dueDate || '').trim() : !paymentValid.ok)
+                    }
+                    hint={submitFooterHint}
+                    creating={creating}
+                  />
+                </>
               ) : null}
             </div>
           </aside>

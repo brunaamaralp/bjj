@@ -14,6 +14,8 @@ import {
   salesSubtabNeedsNormalize,
   readSalesPdvPreference,
   writeSalesPdvPreference,
+  SALES_SUBTABS,
+  salesSubtabLabel,
 } from '../lib/lojaSalesTabs';
 import HubTabBar from '../components/shared/HubTabBar';
 
@@ -25,13 +27,7 @@ const Sales = () => {
   const configRef = useRef(null);
   const appliedPdvPrefRef = useRef(false);
   const navStateConsumedRef = useRef(false);
-  const tabs = useMemo(
-    () => [
-      { id: 'new', label: 'Nova venda' },
-      { id: 'history', label: 'Histórico' },
-    ],
-    []
-  );
+  const tabs = useMemo(() => SALES_SUBTABS, []);
   const subtab = resolveSalesSubtab(searchParams);
   const pdvMode = resolveSalesPdvMode(searchParams);
   const wantsConfig = String(searchParams.get('config') || '').trim() === '1';
@@ -149,7 +145,7 @@ const Sales = () => {
               onClick={() => setSubtab('history')}
             >
               <History size={16} aria-hidden />
-              Histórico
+              {salesSubtabLabel('history')}
             </button>
           </div>
         )}

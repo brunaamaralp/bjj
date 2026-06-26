@@ -1,0 +1,24 @@
+{
+  "academyId": "699f21b70006985daa90",
+  "at": "2026-06-26T02:14:38.127Z",
+  "rows": [
+    {
+      "student_id": "6a01abbf0006134a7f42",
+      "name": "Laura",
+      "plan_before": "",
+      "plan_after": "Plano Mensal Infantil"
+    },
+    {
+      "student_id": "6a0a5eff0012957aa096",
+      "name": "Valentina",
+      "plan_before": "",
+      "plan_after": "Plano Mensal Infantil"
+    },
+    {
+      "student_id": "6a3412da0021cd2f94e1",
+      "name": "Miguel",
+      "plan_before": "",
+      "plan_after": "Plano Anual Adulto"
+    }
+  ]
+}

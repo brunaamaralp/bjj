@@ -490,7 +490,7 @@ export default function StudentFinancialTimeline({
   extratoUnificado = null,
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
-  const [periodFilter, setPeriodFilter] = useState('12m');
+  const [periodFilter, setPeriodFilter] = useState('all');
 
   const allItems = useMemo(
     () => buildFinancialTimelineItems(payments, sales, planFreezes),

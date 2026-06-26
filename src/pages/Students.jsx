@@ -23,6 +23,7 @@ import FieldError from '../components/shared/FieldError.jsx';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import { useStudentsListFilters, STUDENTS_FILTERS_EXPANDED_KEY } from '../hooks/useStudentsListFilters.js';
+import { STUDENT_COBRANCA_FILTER } from '../lib/studentsListFilters.js';
 import { useStudentsListData } from '../hooks/useStudentsListData.js';
 import { useStudentsCreateForm } from '../hooks/useStudentsCreateForm.js';
 import StudentListCard from '../components/student/StudentListCard.jsx';
@@ -69,6 +70,9 @@ const Students = ({ embedded = false }) => {
         setFiltroTurma,
         filtroPlano,
         setFiltroPlano,
+        filtroCobranca,
+        setFiltroCobranca,
+        cobrancaCounts,
         ordenacao,
         setOrdenacao,
         showInactive,
@@ -92,6 +96,7 @@ const Students = ({ embedded = false }) => {
         serverSearchActive: filters.serverSearchActive,
         studentPlural,
         listScrollRef,
+        financeConfig,
     });
     const {
         studentCount,
@@ -264,10 +269,64 @@ const Students = ({ embedded = false }) => {
     const planFilterSelect = (
         <select value={filtroPlano} onChange={(e) => setFiltroPlano(e.target.value)}>
             <option value="Todos">Todos os planos</option>
-            {planOptions.map((p) => (
+            {planOptions.catalog.map((p) => (
                 <option key={p} value={p}>{p}</option>
             ))}
+            {planOptions.legacy.length > 0 ? (
+                <optgroup label="Planos legados (cadastro)">
+                    {planOptions.legacy.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                    ))}
+                </optgroup>
+            ) : null}
         </select>
+    );
+
+    const cobrancaFilterChips = (
+        <>
+            <span
+                className={`filter-chip${filtroCobranca === STUDENT_COBRANCA_FILTER.TODOS ? ' is-active' : ''}`}
+                onClick={() => setFiltroCobranca(STUDENT_COBRANCA_FILTER.TODOS)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setFiltroCobranca(STUDENT_COBRANCA_FILTER.TODOS);
+                    }
+                }}
+            >
+                Todos ({cobrancaCounts.todos})
+            </span>
+            <span
+                className={`filter-chip${filtroCobranca === STUDENT_COBRANCA_FILTER.PAGANTES ? ' is-active' : ''}`}
+                onClick={() => setFiltroCobranca(STUDENT_COBRANCA_FILTER.PAGANTES)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setFiltroCobranca(STUDENT_COBRANCA_FILTER.PAGANTES);
+                    }
+                }}
+            >
+                Pagantes ({cobrancaCounts.pagantes})
+            </span>
+            <span
+                className={`filter-chip${filtroCobranca === STUDENT_COBRANCA_FILTER.ISENTOS ? ' is-active' : ''}`}
+                onClick={() => setFiltroCobranca(STUDENT_COBRANCA_FILTER.ISENTOS)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setFiltroCobranca(STUDENT_COBRANCA_FILTER.ISENTOS);
+                    }
+                }}
+            >
+                Isentos ({cobrancaCounts.isentos})
+            </span>
+        </>
     );
 
     return (
@@ -294,6 +353,14 @@ const Students = ({ embedded = false }) => {
                                 {studentsHasMore
                                     ? ` (parcial — há mais ${studentPlural.toLowerCase()} no servidor)`
                                     : ''}
+                                {!studentsHasMore && cobrancaCounts.todos > 0 ? (
+                                    <>
+                                        {' · '}
+                                        <span className="navi-ui-count">{cobrancaCounts.pagantes}</span> pagantes
+                                        {' · '}
+                                        <span className="navi-ui-count">{cobrancaCounts.isentos}</span> isentos
+                                    </>
+                                ) : null}
                             </>
                             ) : null
                         }
@@ -433,6 +500,7 @@ const Students = ({ embedded = false }) => {
                             >
                                 Inativos
                             </span>
+                            {cobrancaFilterChips}
                         </div>
                         <div className="filter-group students-mobile-filter-group">
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
@@ -489,6 +557,7 @@ const Students = ({ embedded = false }) => {
                         >
                             Inativos
                         </span>
+                        {cobrancaFilterChips}
                         <div className="filter-group">
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
                                 <option value="Todas">Todas as origens</option>

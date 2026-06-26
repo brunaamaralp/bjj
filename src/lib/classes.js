@@ -91,6 +91,34 @@ export function formatCapacityLabel(value) {
   return `até ${n} alunos`;
 }
 
+const CLASS_DISPLAY_COLOR_PALETTE = [
+  '#6C47D8',
+  '#085041',
+  '#2563EB',
+  '#B45309',
+  '#BE185D',
+  '#0F766E',
+  '#7C3AED',
+  '#C2410C',
+  '#1D4ED8',
+  '#A21CAF',
+];
+
+/** Cor de exibição da turma na grade (persistida ou determinística por id). */
+export function resolveClassDisplayColor({ classId, color } = {}) {
+  const explicit = String(color || '').trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(explicit)) return explicit;
+
+  const key = String(classId || '').trim();
+  if (!key) return CLASS_DISPLAY_COLOR_PALETTE[0];
+
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return CLASS_DISPLAY_COLOR_PALETTE[hash % CLASS_DISPLAY_COLOR_PALETTE.length];
+}
+
 /**
  * Herda campos da turma no payload do horário quando aplicável.
  * @param {object} data

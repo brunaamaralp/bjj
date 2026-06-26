@@ -83,6 +83,7 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     emergencyPhone: String(d.emergencyPhone ?? d.emergency_phone ?? '').trim(),
     cpf: String(d.cpf || '').trim(),
     responsavel: String(d.responsavel || '').trim(),
+    email_responsavel: String(d.email_responsavel ?? d.emailResponsavel ?? '').trim().slice(0, 320),
     cpf_responsavel: String(d.cpf_responsavel ?? d.cpfResponsavel ?? '').trim(),
     preferred_payment_method: String(
       d.preferred_payment_method ?? d.preferredPaymentMethod ?? ''

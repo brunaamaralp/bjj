@@ -61,6 +61,7 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
     cash_received: '',
     formaTroco: 'pix',
     trocoAccount: '',
+    installments: 1,
   };
 }
 
@@ -136,6 +137,10 @@ export async function registerEnrollmentPayment({
     ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
     ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
   };
+
+  if (payForm.installments && Number(payForm.installments) >= 2) {
+    data.installments = Number(payForm.installments);
+  }
 
   if (paymentType === PAYMENT_CATEGORY.BUNDLE) {
     data.bundle_months = Number(payForm.bundle_months) || 12;

@@ -5,6 +5,20 @@ import AgendaCalendarWeek, { formatWeekRangeLabel } from '../AgendaCalendarWeek.
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import { LEAD_PROFILE_FROM_DASHBOARD } from '../../lib/pipelineSessionState.js';
 
+const AGENDA_EXPERIMENTAIS_TITLE = 'Agenda de experimentais';
+
+function AgendaExperimentaisTitle({ badgeCount, badgeTitle }) {
+  return (
+    <span className="agenda-week-title-with-badge">
+      <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
+      <span>{AGENDA_EXPERIMENTAIS_TITLE}</span>
+      <span className="badge reception-week-count-badge" title={badgeTitle}>
+        {badgeCount}
+      </span>
+    </span>
+  );
+}
+
 function DashboardAgendaWeekPanel({
   weekSectionRef,
   weekOffset,
@@ -70,17 +84,7 @@ function DashboardAgendaWeekPanel({
             <span className="agenda-week-section__toggle-label">
               <ReportSectionHeading
                 className="reception-report-heading reception-week-panel__title"
-                title={
-                  <>
-                    <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-                    Agenda da semana
-                  </>
-                }
-                action={
-                  <span className="badge reception-week-count-badge" title={badgeTitle}>
-                    {badgeCount}
-                  </span>
-                }
+                title={<AgendaExperimentaisTitle badgeCount={badgeCount} badgeTitle={badgeTitle} />}
               />
             </span>
             <ChevronDown
@@ -94,17 +98,7 @@ function DashboardAgendaWeekPanel({
           <div className="reception-week-panel__title-row">
             <ReportSectionHeading
               className="reception-report-heading reception-week-panel__title"
-              title={
-                <>
-                  <Calendar size={18} color="var(--color-primary)" strokeWidth={2} aria-hidden />
-                  {showWeekView ? 'Agenda da semana' : 'Hoje'}
-                </>
-              }
-              action={
-                <span className="badge reception-week-count-badge" title={badgeTitle}>
-                  {badgeCount}
-                </span>
-              }
+              title={<AgendaExperimentaisTitle badgeCount={badgeCount} badgeTitle={badgeTitle} />}
             />
             {isDashboardMobile && !showWeekView ? (
               <button

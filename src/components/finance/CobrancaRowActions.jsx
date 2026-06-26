@@ -9,6 +9,7 @@ import { buildCollectionTaskTitle, buildCollectionTaskDescription } from '../../
 import { formatBRL } from '../../lib/moneyBr.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import { buildWaMeUrl } from '../../lib/whatsappLinks.js';
 
 function endOfMonthLabel(ym) {
   const s = String(ym || '').trim().slice(0, 7);
@@ -19,11 +20,9 @@ function endOfMonthLabel(ym) {
   return last.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+/** @deprecated use buildWaMeUrl from whatsappLinks.js */
 export function waMeUrl(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (digits.length < 10) return null;
-  const n = digits.startsWith('55') ? digits : `55${digits}`;
-  return `https://wa.me/${n}`;
+  return buildWaMeUrl(phone) || null;
 }
 
 /**
@@ -49,7 +48,7 @@ export default function CobrancaRowActions({
   const [savingNegotiate, setSavingNegotiate] = useState(false);
   const [snoozeConfirmOpen, setSnoozeConfirmOpen] = useState(false);
 
-  const wa = waMeUrl(phone);
+  const wa = buildWaMeUrl(phone);
   const leadName = String(studentName || '').trim() || 'Aluno';
   const rule = stage || { label: 'Negociação', day: daysOverdue };
 

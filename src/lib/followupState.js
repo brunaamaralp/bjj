@@ -1,4 +1,5 @@
 import { LEAD_STATUS } from './leadStatus.js';
+import { isActiveStudent } from './studentStatus.js';
 import { WHATSAPP_TEMPLATE_LABELS } from '../../lib/whatsappTemplateDefaults.js';
 import {
   computeFallbackTemperature,
@@ -258,7 +259,39 @@ export function countFollowupsByTemperature(followUps) {
   return { on_track, cooling, critical };
 }
 
-export function isFollowUpLead(lead) {
+/**
+ * IDs de alunos ativos — leads com o mesmo $id já matriculados saem do follow-up.
+ * @param {object[]} students
+ * @returns {Set<string>}
+ */
+export function buildActiveStudentIdSet(students) {
+  const set = new Set();
+  for (const student of students || []) {
+    if (!isActiveStudent(student)) continue;
+    const id = String(student?.id || student?.$id || '').trim();
+    if (id) set.add(id);
+  }
+  return set;
+}
+
+/**
+ * @param {object} lead
+ * @param {{ enrolledStudentIds?: Set<string> }} [ctx]
+ */
+export function isFollowUpLead(lead, ctx = {}) {
   if (String(lead?.origin || '').trim() === 'Planilha') return false;
+  const status = String(lead?.status || '').trim();
+  if (status === LEAD_STATUS.CONVERTED) return false;
+  if (String(lead?.contact_type || '').trim() === 'student') return false;
+  const leadId = String(lead?.id || '').trim();
+  if (leadId && ctx.enrolledStudentIds?.has?.(leadId)) return false;
   return getFollowupKind(lead) !== null;
+}
+
+/**
+ * @param {object[]} leads
+ * @param {{ enrolledStudentIds?: Set<string> }} [ctx]
+ */
+export function filterFollowupLeadCandidates(leads, ctx = {}) {
+  return (leads || []).filter((lead) => isFollowUpLead(lead, ctx));
 }

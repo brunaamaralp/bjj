@@ -28,11 +28,13 @@ import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
 import SalesPaymentBlock from './SalesPaymentBlock';
 import SalesQuickPayBar from './SalesQuickPayBar';
+import SalePaymentModeSelector, { derivePaymentMode } from './SalePaymentModeSelector';
+import SalesCheckoutStickyBar from './SalesCheckoutStickyBar';
 import SalesPosHints from './SalesPosHints';
 import CashShiftBanner from './CashShiftBanner';
-import Hint from '../shared/Hint.jsx';
 import { DateInputField } from '../DateInput';
 import useSalesPosHotkeys from '../../hooks/useSalesPosHotkeys';
+import useMatchMobile from '../../hooks/useMatchMobile';
 import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
@@ -41,6 +43,7 @@ import {
   rebalancePaymentsForTotal,
   normalizePaymentForma,
   buildQuickPayment,
+  netPaidCentsFromRows,
 } from '../../lib/salePayments';
 import {
   listSuspendedCarts,
@@ -92,7 +95,6 @@ export default function SalesNewSaleTab({
   const [clienteNome, setClienteNome] = useState('');
   const [clienteTelefone, setClienteTelefone] = useState('');
 
-  const [vendaColaborador, setVendaColaborador] = useState(false);
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
 
   const [cart, setCart] = useState([]);
@@ -110,14 +112,20 @@ export default function SalesNewSaleTab({
   const [receipt, setReceipt] = useState(null);
 
   const [deferredSale, setDeferredSale] = useState(false);
+  const [partialSale, setPartialSale] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [manualPaymentOpen, setManualPaymentOpen] = useState(!pdvMode);
-  const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
   const [suspendedOpen, setSuspendedOpen] = useState(false);
   const [suspendedList, setSuspendedList] = useState([]);
   const [openCashShift, setOpenCashShift] = useState(null);
 
   const formRef = useRef(null);
+  const isMobileCheckout = useMatchMobile(900);
+
+  const paymentMode = useMemo(
+    () => derivePaymentMode({ partialSale, deferredSale }),
+    [partialSale, deferredSale]
+  );
 
   const handlePriceBlur = useCallback((idx) => {
     setPriceTouched((prev) => ({ ...prev, [idx]: true }));
@@ -238,43 +246,6 @@ export default function SalesNewSaleTab({
     };
   }, [academyId]);
 
-  useEffect(() => {
-    if (!vendaColaborador) return;
-    setCart((prev) => {
-      const warnings = [];
-      const next = prev.map((line) => {
-        const { price, warning } = suggestUnitPrice(
-          { sale_price: line.sale_price, cost_price: line.cost_price },
-          { collaborator: true }
-        );
-        if (warning) warnings.push(`${line.display_label}: ${warning}`);
-        return { ...line, preco_unitario: price != null ? price : line.preco_unitario };
-      });
-      if (warnings.length) {
-        addToast({ type: 'warning', message: warnings[0] });
-      }
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendaColaborador]);
-
-  useEffect(() => {
-    if (vendaColaborador) return;
-    setCart((prev) =>
-      prev.map((line) => {
-        const { price } = suggestUnitPrice(
-          { sale_price: line.sale_price, cost_price: line.cost_price },
-          { collaborator: false }
-        );
-        if (line.sale_price != null) {
-          return { ...line, preco_unitario: line.sale_price };
-        }
-        if (price != null) return { ...line, preco_unitario: price };
-        return line;
-      })
-    );
-  }, [vendaColaborador]);
-
   const totalCart = useMemo(
     () => cart.reduce((acc, it) => acc + Number(it.quantidade) * Number(it.preco_unitario || 0), 0),
     [cart]
@@ -313,12 +284,55 @@ export default function SalesNewSaleTab({
     () =>
       deferredSale
         ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
-        : paymentsUiValid(payments, totalFinalCents, { financeConfig }),
-    [payments, totalFinalCents, deferredSale, financeConfig]
+        : partialSale
+          ? paymentsUiValid(payments, totalFinalCents, { partial: true, financeConfig })
+          : paymentsUiValid(payments, totalFinalCents, { financeConfig }),
+    [payments, totalFinalCents, deferredSale, partialSale, financeConfig]
   );
+
+  const missingPriceLabel = useMemo(() => {
+    const bad = cart.find((line) => !line.preco_unitario || Number(line.preco_unitario) <= 0);
+    if (!bad) return null;
+    return String(bad.display_label || bad.nome || 'item').trim() || 'item';
+  }, [cart]);
+
+  const paymentDiffCents = useMemo(() => {
+    if (deferredSale || partialSale) return null;
+    const net = netPaidCentsFromRows(payments);
+    return Math.max(0, totalFinalCents - net);
+  }, [payments, totalFinalCents, deferredSale, partialSale]);
 
   const shiftBlocksSale =
     salesSettings.requireCashShift && !openCashShift && !modalMode;
+
+  const submitFooterHint = useMemo(() => {
+    if (creating) return null;
+    if (localError || error) return null;
+    const canSubmit = cart.length > 0 && paymentValid.ok && !shiftBlocksSale && !missingPriceLabel;
+    if (canSubmit) return null;
+    return getSaleFooterHint({
+      cartLength: cart.length,
+      paymentValid,
+      deferredSale,
+      partialSale,
+      busy: creating,
+      missingPriceLabel,
+      dueDate,
+      paymentDiffCents: !paymentValid.ok && !partialSale && !deferredSale ? paymentDiffCents : null,
+    });
+  }, [
+    cart.length,
+    paymentValid,
+    deferredSale,
+    partialSale,
+    creating,
+    missingPriceLabel,
+    dueDate,
+    paymentDiffCents,
+    localError,
+    error,
+    shiftBlocksSale,
+  ]);
 
   const checkoutDirty = useMemo(
     () =>
@@ -330,8 +344,10 @@ export default function SalesNewSaleTab({
         descGeralCents,
         descGeralPct,
         deferredSale,
+        partialSale,
+        payments,
       }),
-    [cart, alunoId, clienteNome, clienteTelefone, descGeralCents, descGeralPct, deferredSale]
+    [cart, alunoId, clienteNome, clienteTelefone, descGeralCents, descGeralPct, deferredSale, partialSale, payments]
   );
 
   useEffect(() => {
@@ -344,7 +360,8 @@ export default function SalesNewSaleTab({
 
   useEffect(() => {
     if (!onSubmitStateChange) return;
-    const canSubmit = cart.length > 0 && paymentValid.ok && !creating && !shiftBlocksSale;
+    const canSubmit =
+      cart.length > 0 && paymentValid.ok && !creating && !shiftBlocksSale && !missingPriceLabel;
     const footerError = localError || error ? friendlySaleError(localError || error) : null;
     onSubmitStateChange({
       canSubmit,
@@ -355,25 +372,19 @@ export default function SalesNewSaleTab({
           : cart.length === 0
             ? 'Concluir venda'
             : `Concluir venda — ${totalMasked}`,
-      footerHint: canSubmit || footerError
-        ? null
-        : getSaleFooterHint({
-            cartLength: cart.length,
-            paymentValid: paymentValid.ok,
-            deferredSale,
-            busy: creating,
-          }),
+      footerHint: canSubmit || footerError ? null : submitFooterHint,
       footerError,
     });
   }, [
     cart.length,
-    paymentValid.ok,
+    paymentValid,
     creating,
     shiftBlocksSale,
+    missingPriceLabel,
     totalMasked,
-    deferredSale,
     localError,
     error,
+    submitFooterHint,
     onSubmitStateChange,
   ]);
 
@@ -410,8 +421,8 @@ export default function SalesNewSaleTab({
       alunoSearchText,
       clienteNome,
       clienteTelefone,
-      vendaColaborador,
       deferredSale,
+      partialSale,
       dueDate,
     }),
     [
@@ -426,8 +437,8 @@ export default function SalesNewSaleTab({
       alunoSearchText,
       clienteNome,
       clienteTelefone,
-      vendaColaborador,
       deferredSale,
+      partialSale,
       dueDate,
     ]
   );
@@ -445,8 +456,8 @@ export default function SalesNewSaleTab({
     setAlunoSearchText(snap.alunoSearchText || '');
     setClienteNome(snap.clienteNome || '');
     setClienteTelefone(snap.clienteTelefone || '');
-    setVendaColaborador(Boolean(snap.vendaColaborador));
     setDeferredSale(Boolean(snap.deferredSale));
+    setPartialSale(Boolean(snap.partialSale));
     setDueDate(snap.dueDate || '');
     setLocalError('');
     setReceipt(null);
@@ -474,6 +485,7 @@ export default function SalesNewSaleTab({
     setDescGeralCents(0);
     setDescGeralPct(0);
     setDeferredSale(false);
+    setPartialSale(false);
     setDueDate('');
     setSuspendedList(listSuspendedCarts(academyId));
     setSuspendedOpen(true);
@@ -489,14 +501,28 @@ export default function SalesNewSaleTab({
     addToast({ type: 'success', message: 'Carrinho retomado' });
   };
 
-  const applyQuickPay = useCallback(
-    (rows) => {
+  const applyQuickPay = useCallback((rows) => {
+    setDeferredSale(false);
+    setPartialSale(false);
+    setPayments(rows);
+    setManualPaymentOpen(true);
+  }, []);
+
+  const handlePaymentModeChange = useCallback((mode) => {
+    if (mode === 'deferred') {
+      setDeferredSale(true);
+      setPartialSale(false);
+      setManualPaymentOpen(false);
+      setPayments([]);
+    } else if (mode === 'partial') {
+      setPartialSale(true);
       setDeferredSale(false);
-      setPayments(rows);
       setManualPaymentOpen(true);
-    },
-    []
-  );
+    } else {
+      setPartialSale(false);
+      setDeferredSale(false);
+    }
+  }, []);
 
   useEffect(() => {
     setPayments((prev) => {
@@ -530,7 +556,7 @@ export default function SalesNewSaleTab({
     (product, parent = null, lineKind = 'sale') => {
       const kind = normalizeLineKind(lineKind);
       const { price } = suggestUnitPrice(product, {
-        collaborator: vendaColaborador,
+        collaborator: false,
         lineKind: kind,
         parent,
       });
@@ -556,7 +582,7 @@ export default function SalesNewSaleTab({
         expected_quantity: avail,
       };
     },
-    [vendaColaborador]
+    []
   );
 
   const pickProduct = useCallback(
@@ -567,7 +593,7 @@ export default function SalesNewSaleTab({
         ? catalogLineAvailability(product, parent, kind)
         : catalogLineAvailability(product, { type: product.type || kind }, kind);
       const { price, warning } = suggestUnitPrice(product, {
-        collaborator: vendaColaborador,
+        collaborator: false,
         lineKind: kind,
         parent,
       });
@@ -619,7 +645,7 @@ export default function SalesNewSaleTab({
         setMobilePanel('cart');
       }
     },
-    [cart, vendaColaborador, salesSettings.lockPriceEdit, addToast, buildCartLine, modalMode]
+    [cart, salesSettings.lockPriceEdit, addToast, buildCartLine, modalMode]
   );
 
   const handleCatalogPick = useCallback(
@@ -663,7 +689,8 @@ export default function SalesNewSaleTab({
     onEscape: () => {
       setVariantPickerParent(null);
     },
-    canSubmit: paymentValid.ok && cart.length > 0 && !creating && !shiftBlocksSale,
+    canSubmit:
+      paymentValid.ok && cart.length > 0 && !creating && !shiftBlocksSale && !missingPriceLabel,
   });
 
   const changeCartVariant = useCallback(
@@ -701,7 +728,7 @@ export default function SalesNewSaleTab({
           (parent ? catalogLineAvailability(variant, parent, lineKind) : variant.current_quantity);
 
         const { price, warning } = suggestUnitPrice(variant, {
-          collaborator: vendaColaborador,
+          collaborator: false,
           lineKind,
           parent,
         });
@@ -728,7 +755,7 @@ export default function SalesNewSaleTab({
         return next;
       });
     },
-    [vendaColaborador, addToast, products]
+    [addToast, products]
   );
 
   const updateCartQty = (idx, val) => {
@@ -744,6 +771,7 @@ export default function SalesNewSaleTab({
   };
 
   const updateCartPrice = (idx, cents) => {
+    setPriceTouched((prev) => ({ ...prev, [idx]: true }));
     const next = [...cart];
     next[idx] = { ...next[idx], preco_unitario: cents > 0 ? cents / 100 : null };
     setCart(next);
@@ -872,6 +900,8 @@ export default function SalesNewSaleTab({
     } else if (!paymentValid.ok) {
       if (paymentValid.reason === 'capture_method' && paymentValid.message) {
         setLocalError(paymentValid.message);
+      } else if (partialSale) {
+        setLocalError('Informe um valor recebido agora menor que o total da venda.');
       } else {
         setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
       }
@@ -916,10 +946,11 @@ export default function SalesNewSaleTab({
       aluno_id: alunoId || null,
       pagamentos,
       deferred: deferredSale,
-      due_date: deferredSale ? dueDate : null,
+      partial: partialSale,
+      due_date: deferredSale || partialSale ? dueDate || null : null,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
-      venda_colaborador: vendaColaborador,
+      venda_colaborador: false,
       itens,
       idempotency_key: idempotencyKeyRef.current,
     });
@@ -945,7 +976,11 @@ export default function SalesNewSaleTab({
 
     addToast({
       type: 'success',
-      message: deferredSale ? 'Venda a prazo registrada' : 'Venda concluída',
+      message: deferredSale
+        ? 'Venda a prazo registrada'
+        : partialSale
+          ? 'Venda parcial registrada'
+          : 'Venda concluída',
     });
 
     const clearAfterSale = () => {
@@ -954,6 +989,7 @@ export default function SalesNewSaleTab({
       setDescGeralCents(0);
       setDescGeralPct(0);
       setDeferredSale(false);
+      setPartialSale(false);
       setDueDate('');
       setMobilePanel('catalog');
       resetSaleSession();
@@ -979,13 +1015,13 @@ export default function SalesNewSaleTab({
       vendaId,
       date: dateStr,
       time: timeStr,
-      status: deferredSale ? 'pendente' : 'concluida',
+      status: deferredSale ? 'pendente' : partialSale ? 'parcial' : 'concluida',
       clientName: clientDisplayName,
       clientPhone: clientPhone.trim(),
       forma: deferredSale ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
       pagamentos,
       trocoWarnings,
-      dueDate: deferredSale ? dueDate : null,
+      dueDate: deferredSale || partialSale ? dueDate : null,
       items: cart.map((it) => ({
         display_label: it.display_label,
         quantidade: Number(it.quantidade),
@@ -1071,6 +1107,7 @@ export default function SalesNewSaleTab({
               onPick={handleCatalogPick}
               flashProductId={flashProductId}
               onNavigateAway={onNavigateAway}
+              autoFocusSearch={pdvMode && !modalMode}
             />
           </div>
 
@@ -1226,6 +1263,7 @@ export default function SalesNewSaleTab({
                 inlineValidate
                 priceTouched={priceTouched}
                 onPriceBlur={handlePriceBlur}
+                showPriceErrorsLive
               />
 
               <div className="sales-checkout__discount">
@@ -1261,16 +1299,24 @@ export default function SalesNewSaleTab({
                 )}
               </div>
 
+              <SalePaymentModeSelector
+                value={paymentMode}
+                onChange={handlePaymentModeChange}
+                disabled={creating || cart.length === 0}
+              />
+
               {!deferredSale ? (
                 <>
-                  <SalesQuickPayBar
-                    totalCents={totalFinalCents}
-                    disabled={creating || cart.length === 0}
-                    onApply={applyQuickPay}
-                    onFocusCashReceived={focusCashReceived}
-                    compact={!pdvMode}
-                    financeConfig={financeConfig}
-                  />
+                  {!partialSale ? (
+                    <SalesQuickPayBar
+                      totalCents={totalFinalCents}
+                      disabled={creating || cart.length === 0}
+                      onApply={applyQuickPay}
+                      onFocusCashReceived={focusCashReceived}
+                      compact={!pdvMode}
+                      financeConfig={financeConfig}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     className="btn-ghost sales-manual-pay-toggle"
@@ -1279,7 +1325,7 @@ export default function SalesNewSaleTab({
                   >
                     {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
                   </button>
-                  {manualPaymentOpen ? (
+                  {manualPaymentOpen || partialSale ? (
                     <SalesPaymentBlock
                       totalCents={totalFinalCents}
                       payments={payments}
@@ -1287,7 +1333,14 @@ export default function SalesNewSaleTab({
                       disabled={creating || cart.length === 0}
                       inlineValidate
                       financeConfig={financeConfig}
+                      allowPartial={partialSale}
                     />
+                  ) : null}
+                  {partialSale ? (
+                    <div className="form-group sales-checkout__field">
+                      <label>Data para o restante (opcional)</label>
+                      <DateInputField value={dueDate} onChange={setDueDate} />
+                    </div>
                   ) : null}
                 </>
               ) : (
@@ -1296,49 +1349,6 @@ export default function SalesNewSaleTab({
                   <DateInputField value={dueDate} onChange={setDueDate} />
                 </div>
               )}
-
-              <details
-                className="sales-more-options"
-                open={moreOptionsOpen}
-                onToggle={(e) => setMoreOptionsOpen(e.target.open)}
-              >
-                <summary className="sales-more-options__summary">Mais opções</summary>
-                <div className="sales-more-options__body">
-                  <label className="sales-collab-toggle__label">
-                    <input
-                      type="checkbox"
-                      checked={deferredSale}
-                      onChange={(e) => {
-                        setDeferredSale(e.target.checked);
-                        if (e.target.checked) setManualPaymentOpen(false);
-                      }}
-                    />
-                    <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>
-                  </label>
-                </div>
-              </details>
-
-              <div className="sales-collab-toggle">
-                <label className="sales-collab-toggle__label">
-                  <input
-                    type="checkbox"
-                    className="sales-collab-toggle__input"
-                    checked={vendaColaborador}
-                    onChange={(e) => setVendaColaborador(e.target.checked)}
-                  />
-                  <span className="sales-collab-toggle__track" aria-hidden />
-                  <span className="sales-collab-toggle__text">Aplicar preço de custo (colaborador)</span>
-                  <Hint
-                    text="Vendas internas: substitui o preço de venda pelo custo cadastrado do produto."
-                    position="top"
-                  />
-                </label>
-                {vendaColaborador ? (
-                  <p className="sales-collab-toggle__hint">
-                    Os preços serão substituídos pelo preço de custo cadastrado.
-                  </p>
-                ) : null}
-              </div>
 
               {!modalMode ? <SalesPosHints pdvMode={pdvMode} /> : null}
 
@@ -1351,20 +1361,49 @@ export default function SalesNewSaleTab({
               ) : null}
 
               {!hideSubmitButton ? (
-                <button
-                  type="submit"
-                  className="btn-primary sales-submit-btn"
-                  disabled={creating || cart.length === 0 || !paymentValid.ok || shiftBlocksSale}
-                >
-                  <ShoppingCart size={18} aria-hidden />
-                  <span>
-                    {creating
-                      ? 'Registrando venda…'
-                      : cart.length === 0
-                        ? 'Concluir venda'
-                        : `Concluir venda — ${totalMasked}`}
-                  </span>
-                </button>
+                <>
+                  {submitFooterHint ? (
+                    <p className="sales-checkout__hint sales-submit-btn--desktop-only" role="status">
+                      {submitFooterHint}
+                    </p>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className="btn-primary sales-submit-btn sales-submit-btn--desktop-only"
+                    disabled={
+                      creating ||
+                      cart.length === 0 ||
+                      !paymentValid.ok ||
+                      shiftBlocksSale ||
+                      Boolean(missingPriceLabel)
+                    }
+                  >
+                    <ShoppingCart size={18} aria-hidden />
+                    <span>
+                      {creating
+                        ? 'Registrando venda…'
+                        : cart.length === 0
+                          ? 'Concluir venda'
+                          : `Concluir venda — ${totalMasked}`}
+                    </span>
+                  </button>
+                  <SalesCheckoutStickyBar
+                    visible={isMobileCheckout && mobilePanel === 'cart'}
+                    totalLabel={totalMasked}
+                    submitLabel={
+                      cart.length === 0 ? 'Concluir venda' : `Concluir — ${totalMasked}`
+                    }
+                    submitDisabled={
+                      creating ||
+                      cart.length === 0 ||
+                      !paymentValid.ok ||
+                      shiftBlocksSale ||
+                      Boolean(missingPriceLabel)
+                    }
+                    hint={submitFooterHint}
+                    creating={creating}
+                  />
+                </>
               ) : null}
             </div>
           </aside>
@@ -1403,6 +1442,7 @@ export default function SalesNewSaleTab({
           {'venda_id' in lastSale && <div>Venda: {lastSale.venda_id}</div>}
         </div>
       )}
+
     </>
   );
 }

@@ -56,7 +56,7 @@ import {
 } from '../lib/pipelineStagesStorage.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
 import { useSlaAlerts } from '../lib/useSlaAlerts.js';
-import { computeFollowupState, isFollowUpLead } from '../lib/followupState.js';
+import { computeFollowupState, isFollowUpLead, buildActiveStudentIdSet, filterFollowupLeadCandidates } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
@@ -170,7 +170,7 @@ function withNoDragTargets(listeners) {
     const shouldBlockDrag = (event) =>
         Boolean(
             event.target?.closest?.(
-                '[data-no-dnd], button, a, input, textarea, select, label, [role="button"], .inbox-triage-callout'
+                'button, a, input, textarea, select, label, [role="button"], .inbox-triage-callout, .pipeline-lead-triage-wrap'
             )
         );
     return Object.fromEntries(
@@ -687,22 +687,22 @@ const SortableLeadCard = React.memo(function SortableLeadCard({ lead, ...props }
         [isEnrolledCard, sortableListeners]
     );
 
-    const style = {
+    const wrapperStyle = {
         transform: CSS.Translate.toString(transform),
         transition,
         visibility: isDragging ? 'hidden' : undefined,
-        pointerEvents: isDragging ? 'none' : undefined,
     };
 
     return (
-        <LeadCard
+        <div
             ref={setNodeRef}
-            lead={lead}
-            style={style}
+            style={wrapperStyle}
+            className="pipeline-kanban-sortable-item"
             {...(isEnrolledCard ? {} : attributes)}
             {...(isEnrolledCard ? {} : listeners)}
-            {...props}
-        />
+        >
+            <LeadCard lead={lead} isDragging={isDragging} {...props} />
+        </div>
     );
 });
 
@@ -1462,7 +1462,12 @@ const Pipeline = () => {
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
+                distance: 6,
+            },
+            onActivation: ({ event }) => {
+                if (event.target.closest?.('button, a, input, textarea, select, label, [role="button"], .inbox-triage-callout, .pipeline-lead-triage-wrap')) {
+                    return false;
+                }
             },
         })
     );
@@ -2234,17 +2239,17 @@ const Pipeline = () => {
         applyBoardSearchFilter,
     ]);
 
+    const enrolledStudentIds = useMemo(() => buildActiveStudentIdSet(students), [students]);
+
     const leadsForBoardPreCooling = useMemo(() => {
         let list = leadsForBoardCore;
 
         if (followupKanbanFilter) {
-            list = list.filter(
-                (l) => l.status === LEAD_STATUS.COMPLETED || l.status === LEAD_STATUS.MISSED
-            );
+            list = filterFollowupLeadCandidates(list, { enrolledStudentIds });
         }
 
         return list;
-    }, [leadsForBoardCore, followupKanbanFilter]);
+    }, [leadsForBoardCore, followupKanbanFilter, enrolledStudentIds]);
 
     const {
         followupDoneByLead,
@@ -2268,7 +2273,7 @@ const Pipeline = () => {
         };
         const map = {};
         for (const lead of leadsForBoardPreCooling) {
-            if (!isFollowUpLead(lead)) continue;
+            if (!isFollowUpLead(lead, { enrolledStudentIds })) continue;
             const state = computeFollowupState(lead, ctx);
             if (state.doneForCurrentClass || state.isSnoozed) continue;
             if (state.temperature !== 'on_track') map[lead.id] = state.temperature;
@@ -2282,6 +2287,7 @@ const Pipeline = () => {
         followupSnoozeUntilByLead,
         inboundAfterByLead,
         inboundAfterByPhone,
+        enrolledStudentIds,
     ]);
 
     const leadsForBoard = leadsForBoardPreCooling;

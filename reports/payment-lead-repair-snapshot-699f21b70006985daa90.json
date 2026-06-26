@@ -1,0 +1,22 @@
+{
+  "academyId": "699f21b70006985daa90",
+  "at": "2026-06-26T03:21:30.324Z",
+  "payments": [],
+  "financial_tx": [],
+  "plan_name": [
+    {
+      "payment_id": "6a03960d0036a8dcae49",
+      "student_id": "6a0a5eff0012957aa096",
+      "student_name": "Valentina",
+      "plan_name_before": "",
+      "plan_name_after": "Plano Mensal Infantil"
+    },
+    {
+      "payment_id": "6a1823cd001f0d87a335",
+      "student_id": "6a01abbf0006134a7f42",
+      "student_name": "Laura",
+      "plan_name_before": "",
+      "plan_name_after": "Plano Mensal Infantil"
+    }
+  ]
+}

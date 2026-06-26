@@ -97,6 +97,13 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 | Conta e assinatura do Nave | [config/conta-assinatura.md](config/conta-assinatura.md) | revisado (código) |
 | Equipe — colaboradores | [config/equipe-colaboradores.md](config/equipe-colaboradores.md) | revisado (código) |
 
+### Portal do aluno
+
+| Fluxo | Arquivo | Status |
+|---|---|---|
+| Jornada MVP — convite, login, dashboard | [portal/aluno-portal.md](portal/aluno-portal.md) | revisado (código) |
+| Guias de orientação — staff e aluno | [portal/guias-orientacao.md](portal/guias-orientacao.md) | revisado (código) |
+
 ## Criar um novo fluxo
 
 1. Copie [`_template.md`](_template.md).

@@ -11,6 +11,7 @@ import { getPaymentRowStatus, openAmountForStudent } from './collectionOverdue.j
 import { isActiveStudent } from './studentStatus.js';
 import { buildClosingRows } from './monthlyClosing.js';
 import { isStudentOnExemptPlan } from './planBilling.js';
+import { effectiveStudentPlan } from './financeStudentRoster.js';
 
 export function currentMonthYm() {
   const d = new Date();
@@ -129,7 +130,7 @@ export function trimForecastForOverview(forecastBody, limit = OVERVIEW_FORECAST_
  */
 export function computeMensalidadesMonthKpis(students, payments, financeConfig, referenceMonth) {
   const active = (students || []).filter(
-    (s) => isActiveStudent(s) && String(s.plan || '').trim() && !isStudentOnExemptPlan(s, financeConfig)
+    (s) => isActiveStudent(s) && !isStudentOnExemptPlan(s, financeConfig)
   );
   const payByLead = {};
   for (const p of payments || []) {
@@ -145,7 +146,8 @@ export function computeMensalidadesMonthKpis(students, payments, financeConfig, 
 
   for (const s of active) {
     const p = payByLead[s.id];
-    const exp = expectedAmountForStudent(s, financeConfig, p);
+    const planName = effectiveStudentPlan(s, p);
+    const exp = planName ? expectedAmountForStudent(s, financeConfig, p) : 0;
     if (Number.isFinite(exp) && exp > 0) expectedTotal += exp;
     receivedTotal += receivedAmountForPayment(p) || 0;
 
@@ -157,7 +159,8 @@ export function computeMensalidadesMonthKpis(students, payments, financeConfig, 
   }
 
   return {
-    activeWithPlan: active.length,
+    activeWithPlan: active.filter((s) => effectiveStudentPlan(s, payByLead[s.id])).length,
+    activeTotal: active.length,
     expectedTotal: Math.round(expectedTotal * 100) / 100,
     receivedTotal: Math.round(receivedTotal * 100) / 100,
     overdueCount,

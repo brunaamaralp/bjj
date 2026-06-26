@@ -23,6 +23,7 @@ import {
 } from './studentPhoneDuplicate.js';
 import { useStudentStore } from '../store/useStudentStore.js';
 import { DISCOUNT_TYPES, normalizeDiscountType } from './planBilling.js';
+import { patchFollowupDoneCache } from './followupEventsCache.js';
 
 /**
  * Efeitos pós-matrícula compartilhados (funil e cadastro direto na lista).
@@ -192,6 +193,7 @@ export async function performEnrollment({
     const sessionUserId = String(userId || useLeadStore.getState().userId || '').trim();
     const perms = buildLeadDocumentPermissions({ teamId, userId: sessionUserId });
 
+    const enrolledAtIso = new Date().toISOString();
     try {
       student = await moveLeadToStudent({
         leadId,
@@ -201,7 +203,7 @@ export async function performEnrollment({
           plan: planName || lead.plan,
           discountAmount: normalizedDiscount,
           discountType: normalizedDiscountType,
-          convertedAt: new Date().toISOString(),
+          convertedAt: enrolledAtIso,
           studentStatus: 'active',
           ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),
           ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
@@ -241,6 +243,26 @@ export async function performEnrollment({
       payload: { plan: planName, source: 'funnel' },
       permissionContext,
     });
+
+    try {
+      await addLeadEvent({
+        academyId,
+        leadId,
+        type: 'followup_done',
+        text: 'Retorno concluído — matriculado',
+        createdBy: userId || 'user',
+        permissionContext,
+        payloadJson: {
+          source: 'enrollment',
+          status: lead.status || '',
+          scheduledDate: String(lead.scheduledDate || '').slice(0, 10),
+          outcome: 'enrolled',
+        },
+      });
+      patchFollowupDoneCache(academyId, leadId, enrolledAtIso);
+    } catch (followupErr) {
+      console.warn('[performEnrollment] followup_done:', followupErr?.message || followupErr);
+    }
   }
 
   await runEnrollmentSideEffects({

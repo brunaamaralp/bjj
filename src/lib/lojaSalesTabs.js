@@ -1,11 +1,21 @@
 const SALES_LEAF_TABS = new Set(['new', 'history']);
 
+/** Sub-abas visíveis em Loja → Vendas (rótulos de produto; IDs estáveis na URL). */
+export const SALES_SUBTABS = [
+  { id: 'new', label: 'Nova venda' },
+  { id: 'history', label: 'Todas as vendas' },
+];
+
+export function salesSubtabLabel(id) {
+  return SALES_SUBTABS.find((t) => t.id === id)?.label || String(id || '');
+}
+
 function normalizeLeafId(raw) {
   const id = String(raw || '').trim().toLowerCase();
   return id === 'historico' ? 'history' : id;
 }
 
-/** Aba interna de Vendas (Nova venda / Histórico) via ?subtab=; aceita legado ?tab=new|history. */
+/** Aba interna de Vendas (Nova venda / Todas as vendas) via ?subtab=; aceita legado ?tab=new|history. */
 export function resolveSalesSubtab(searchParams) {
   const params =
     searchParams instanceof URLSearchParams
