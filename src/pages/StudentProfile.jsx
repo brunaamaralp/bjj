@@ -60,7 +60,7 @@ import { formatBRLFromCents } from '../lib/moneyBr';
 import { DateInputField } from '../components/DateInput';
 import PlanSelect from '../components/shared/PlanSelect.jsx';
 import EnrollmentDiscountFields from '../components/shared/EnrollmentDiscountFields.jsx';
-import { findPlanByName } from '../lib/academyPlans.js';
+import { findPlanByName, resolveStudentPlanDisplayName } from '../lib/academyPlans.js';
 import {
     DISCOUNT_TYPES,
     formatDiscountAmountForInput,
@@ -521,9 +521,11 @@ export default function StudentProfile() {
 
     useEffect(() => {
         if (!id || !academyId) return;
+        let cancelled = false;
         profileBundleRef.current = null;
         void fetchStudentProfileBundle(id)
             .then((bundle) => {
+                if (cancelled) return;
                 profileBundleRef.current = bundle;
                 if (bundle?.student) mergeStudent(id, bundle.student);
                 if (bundle?.paymentStatus && bundle.paymentStatus.key) {
@@ -540,6 +542,9 @@ export default function StudentProfile() {
                 }
             })
             .catch((e) => console.warn('[StudentProfile] profile bundle:', e?.message || e));
+        return () => {
+            cancelled = true;
+        };
     }, [id, academyId, mergeStudent]);
 
     useEffect(() => {
@@ -619,6 +624,12 @@ export default function StudentProfile() {
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
     }, [student?.id]);
+
+    useEffect(() => {
+        if (!student?.id || editingData) return;
+        const nextPlan = String(student.plan || '').trim();
+        setDataForm((prev) => (prev.plan === nextPlan ? prev : { ...prev, plan: nextPlan }));
+    }, [student?.id, student?.plan, editingData]);
 
     useEffect(() => {
         if (!emergencySameAsRegistered || !editingData) return;
@@ -1734,6 +1745,7 @@ export default function StudentProfile() {
     const showRetentionInContactBanner = student?.retention_in_contact === true;
 
     const editPlanPrice = Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
+    const studentPlanDisplayName = resolveStudentPlanDisplayName(financeConfig, student.plan);
     const studentDiscountLabel =
         student?.discountAmount > 0
             ? formatDiscountSummaryLabel(student.discountType, student.discountAmount)
@@ -1797,6 +1809,9 @@ export default function StudentProfile() {
             return Number.isFinite(n) && n >= 1 && n <= 31 ? `Dia ${Math.trunc(n)}` : '';
         }
         if (key === 'sexo') return sexoDisplayLabel(raw);
+        if (key === 'plan') {
+            return resolveStudentPlanDisplayName(financeConfig, raw);
+        }
         if (key === 'turma') {
             const t = String(student?.turma || student?.className || raw || '').trim();
             return t;
@@ -1830,6 +1845,7 @@ export default function StudentProfile() {
         const empty = !shown;
         const editValue = studentFieldEditValue(field);
         const fieldDisabled = disabled || !canEditProfile || editingData;
+        const inlineFieldKey = `${leadId}-${field.key}`;
 
         const common = {
             key: field.key,
@@ -1845,6 +1861,7 @@ export default function StudentProfile() {
         if (field.type === 'sexo') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
@@ -1867,6 +1884,7 @@ export default function StudentProfile() {
             const turmaState = typeof editValue === 'object' ? editValue : resolveTurmaFormState('', academyTurmas);
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={turmaState}
                     renderEditor={({ draft, setDraft, onBlur, commitEdit, disabled: saving }) => (
@@ -1900,6 +1918,7 @@ export default function StudentProfile() {
             const readOnly = graduationReadOnly || field.readOnly;
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     canEdit={canEditProfile && !disabled && !readOnly}
                     editable={!fieldDisabled && !readOnly}
@@ -1925,13 +1944,16 @@ export default function StudentProfile() {
         if (field.type === 'plan') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
                         <PlanSelect
                             id={`student-inline-${field.key}`}
+                            academyId={academyId}
                             financeConfig={financeConfig}
                             value={draft}
+                            allowEmpty
                             onChange={(v) => {
                                 setDraft(v);
                                 void commitEdit(v);
@@ -1947,6 +1969,7 @@ export default function StudentProfile() {
         if (field.type === 'select' && Array.isArray(field.options)) {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     renderEditor={({ draft, setDraft, inputRef, onKeyDown, commitEdit, disabled: saving }) => (
@@ -1977,6 +2000,7 @@ export default function StudentProfile() {
         if (field.key === 'preferredPaymentAccount') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     displayValue={shown || String(student.preferredPaymentAccount || '').trim()}
                     empty={!String(student.preferredPaymentAccount || '').trim()}
@@ -2004,6 +2028,7 @@ export default function StudentProfile() {
         if (field.type === 'date') {
             return (
                 <ProfileInlineField
+                    key={inlineFieldKey}
                     {...common}
                     editValue={editValue}
                     inputType="date"
@@ -2029,6 +2054,7 @@ export default function StudentProfile() {
 
         return (
             <ProfileInlineField
+                key={`${leadId}-${field.key}`}
                 {...common}
                 editValue={editValue}
                 inputType={inputType}
@@ -2101,8 +2127,10 @@ export default function StudentProfile() {
             ) : field.type === 'plan' ? (
                 <PlanSelect
                     id={`student-data-${field.key}`}
+                    academyId={academyId}
                     financeConfig={financeConfig}
                     value={dataForm.plan}
+                    allowEmpty
                     onChange={(v) => setDataForm((p) => ({ ...p, plan: v }))}
                     className="student-profile-data-input"
                     disabled={savingData}
@@ -2493,8 +2521,8 @@ export default function StudentProfile() {
                     </div>
                     {/* Plano + vencimento */}
                     <div className="student-profile-hd__meta">
-                        {String(student.plan || '').trim() ? (
-                            <span className="student-profile-hd__plan">{student.plan}</span>
+                        {studentPlanDisplayName ? (
+                            <span className="student-profile-hd__plan">{studentPlanDisplayName}</span>
                         ) : null}
                         {studentPlanIsExempt ? (
                             <span className="badge-secondary">Plano isento</span>

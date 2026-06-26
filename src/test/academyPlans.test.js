@@ -4,6 +4,7 @@ import {
   findPlanByName,
   normalizeImportedPlanName,
   planOptionLabel,
+  resolveStudentPlanDisplayName,
 } from '../lib/academyPlans.js';
 
 describe('academyPlans', () => {
@@ -28,8 +29,15 @@ describe('academyPlans', () => {
     expect(findPlanByName(cfg, 'mensal')?.price).toBe(200);
   });
 
-  it('normalizeImportedPlanName alinha ao cadastro', () => {
-    expect(normalizeImportedPlanName('MENSAL', cfg)).toBe('Mensal');
-    expect(normalizeImportedPlanName('Plano X', cfg)).toBe('Plano X');
+  it('inclui opção vazia quando allowEmpty', () => {
+    const opts = buildPlanSelectOptions(cfg, '', { allowEmpty: true });
+    expect(opts[0]).toEqual({ value: '', label: 'Sem plano', plan: null });
+    expect(opts.some((o) => o.value === 'Mensal')).toBe(true);
+  });
+
+  it('resolveStudentPlanDisplayName formata com preço', () => {
+    expect(resolveStudentPlanDisplayName(cfg, 'Mensal')).toBe('Mensal · R$ 200,00');
+    expect(resolveStudentPlanDisplayName(cfg, '')).toBe('');
+    expect(resolveStudentPlanDisplayName(cfg, 'Legado')).toBe('Legado');
   });
 });

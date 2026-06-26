@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildLeadIdToPhoneMap,
   buildOrphanLeadRepairPlan,
+  buildPaymentPlanNameSyncPlan,
   buildPhoneToStudentIdMap,
   indexPaymentsByResolvedStudentId,
   parseOrphanLeadMapCsv,
+  paymentPlanMatchesStudentPlan,
   resolvePaymentToStudentId,
 } from '../lib/paymentStudentBridge.js';
 
@@ -73,5 +75,55 @@ describe('paymentStudentBridge', () => {
     expect(plan.mappings.find((m) => m.orphan_lead_id === 'orphan-1')?.student_id).toBe('s-laura');
     expect(plan.mappings.find((m) => m.orphan_lead_id === 'orphan-2')?.source).toBe('manual');
     expect(plan.stats.payments_to_repair).toBe(2);
+  });
+
+  it('paymentPlanMatchesStudentPlan usa plan do cadastro', () => {
+    const legacy = [
+      { legacy_name: 'Anual', student_type: 'adulto', canonical_plan: 'Anual adulto' },
+    ];
+    const student = { $id: 's1', plan: 'Anual adulto', student_type: 'adulto' };
+    expect(paymentPlanMatchesStudentPlan('Anual adulto', student, legacy)).toBe(true);
+    expect(paymentPlanMatchesStudentPlan('Anual', student, legacy)).toBe(true);
+    expect(paymentPlanMatchesStudentPlan('Mensal', student, legacy)).toBe(false);
+  });
+
+  it('buildOrphanLeadRepairPlan mapeia por plano + nome da conversa', () => {
+    const students = [
+      { $id: 's-ana', name: 'Ana Silva', plan: 'Mensal adulto', student_type: 'adulto' },
+      { $id: 's-bia', name: 'Bia Costa', plan: 'Anual infantil', student_type: 'infantil' },
+    ];
+    const plan = buildOrphanLeadRepairPlan({
+      students,
+      payments: [{ $id: 'p1', lead_id: 'orphan-plan', plan_name: 'Mensal adulto', amount: 289 }],
+      conversations: [{ lead_id: 'orphan-plan', lead_name: 'Ana Silva' }],
+      financialTx: [],
+      manualRows: [],
+    });
+    expect(plan.mappings.find((m) => m.orphan_lead_id === 'orphan-plan')?.student_id).toBe('s-ana');
+    expect(plan.mappings.find((m) => m.orphan_lead_id === 'orphan-plan')?.source).toBe('student_plan_and_name');
+  });
+
+  it('buildOrphanLeadRepairPlan não mapeia só por plano sem desambiguação', () => {
+    const students = [{ $id: 's-miguel', name: 'Miguel', plan: 'Plano Anual Adulto', student_type: 'adulto' }];
+    const plan = buildOrphanLeadRepairPlan({
+      students,
+      payments: [{ $id: 'p1', lead_id: 'orphan-only-plan', plan_name: 'Anual adulto', amount: 3468 }],
+      conversations: [],
+      financialTx: [],
+      manualRows: [],
+    });
+    expect(plan.mappings.find((m) => m.orphan_lead_id === 'orphan-only-plan')).toBeUndefined();
+  });
+
+  it('buildPaymentPlanNameSyncPlan copia plan do aluno para plan_name vazio', () => {
+    const students = [{ $id: 's1', name: 'João', plan: 'Mensal adulto' }];
+    const payments = [
+      { $id: 'p1', lead_id: 's1', plan_name: '' },
+      { $id: 'p2', lead_id: 's1', plan_name: 'Legado' },
+    ];
+    const rows = buildPaymentPlanNameSyncPlan(payments, students);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].payment_id).toBe('p1');
+    expect(rows[0].plan_name_after).toBe('Mensal adulto');
   });
 });

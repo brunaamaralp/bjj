@@ -8,7 +8,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import SearchableSelect from './SearchableSelect.jsx';
 
 export default function PlanSelect({
-  academyId,
+  academyId: academyIdProp,
   financeConfig,
   value,
   onChange,
@@ -17,12 +17,16 @@ export default function PlanSelect({
   className = '',
   style,
   disabled = false,
+  allowEmpty = false,
+  emptyOptionLabel = 'Sem plano',
   emptyLabel = 'Selecione o plano…',
   emptyMessage = 'Nenhum plano encontrado para essa busca.',
   showConfigHint = true,
   ...rest
 }) {
   const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
+  const storeAcademyId = useLeadStore((s) => s.academyId);
+  const academyId = academyIdProp || storeAcademyId;
   const storeFinanceConfig = useLeadStore((s) => s.financeConfig);
   const storeFinanceAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
   const storeMatch =
@@ -35,7 +39,10 @@ export default function PlanSelect({
     [fetchedConfig, storeMatch, financeConfig]
   );
 
-  const options = buildPlanSelectOptions(resolvedFinanceConfig, value);
+  const options = buildPlanSelectOptions(resolvedFinanceConfig, value, {
+    allowEmpty,
+    emptyOptionLabel,
+  });
   const hasConfigured = (resolvedFinanceConfig?.plans || []).some((p) =>
     String(p?.name || '').trim()
   );

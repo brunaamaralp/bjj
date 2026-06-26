@@ -29,19 +29,31 @@ export function findPlanByName(financeConfig, planName) {
 }
 
 /** Opções do select: planos cadastrados + valor atual se não estiver na lista. */
-export function buildPlanSelectOptions(financeConfig, currentValue = '') {
+export function buildPlanSelectOptions(financeConfig, currentValue = '', options = {}) {
+  const { allowEmpty = false, emptyOptionLabel = 'Sem plano' } = options;
   const configured = getConfiguredPlans(financeConfig);
   const current = String(currentValue || '').trim();
   const names = new Set(configured.map((p) => p.name.toLowerCase()));
-  const options = configured.map((p) => ({
+  const list = configured.map((p) => ({
     value: p.name,
     label: planOptionLabel(p),
     plan: p,
   }));
   if (current && !names.has(current.toLowerCase())) {
-    options.unshift({ value: current, label: `${current} (cadastro anterior)`, plan: null });
+    list.unshift({ value: current, label: `${current} (cadastro anterior)`, plan: null });
   }
-  return options;
+  if (allowEmpty) {
+    list.unshift({ value: '', label: emptyOptionLabel, plan: null });
+  }
+  return list;
+}
+
+/** Rótulo de exibição do plano do aluno (nome + preço quando cadastrado). */
+export function resolveStudentPlanDisplayName(financeConfig, planName) {
+  const name = String(planName || '').trim();
+  if (!name) return '';
+  const match = findPlanByName(financeConfig, name);
+  return match ? planOptionLabel(match) : name;
 }
 
 export function planPriceToPayAmountString(plan) {
