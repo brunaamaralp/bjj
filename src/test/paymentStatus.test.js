@@ -143,10 +143,14 @@ describe('paymentStatus', () => {
   });
 
   it('caixa mirror rules', () => {
-    expect(shouldMirrorPaymentToCaixa('awaiting')).toBe(false);
+    expect(shouldMirrorPaymentToCaixa('awaiting')).toBe(true);
+    expect(shouldMirrorPaymentToCaixa('pending')).toBe(true);
     expect(shouldMirrorPaymentToCaixa('paid')).toBe(true);
+    expect(shouldMirrorPaymentToCaixa('covered')).toBe(false);
+    expect(shouldMirrorPaymentToCaixa('frozen')).toBe(false);
     expect(mirrorGrossForPayment('partial', 80, 200)).toBe(80);
     expect(mirrorGrossForPayment('paid', 200, 200)).toBe(200);
+    expect(mirrorGrossForPayment('pending', 0, 200)).toBe(200);
   });
 
   it('mapDbStatusFromGridForm', () => {

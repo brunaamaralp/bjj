@@ -231,6 +231,18 @@ async function syncFinancialTxMirror({
   const paymentId = String(paymentDoc?.$id || data.id || '').trim();
   const now = new Date().toISOString();
   const financeCat = resolveMirrorFinanceCategory(data.payment_category);
+  const paymentStatus = String(data.status || '').toLowerCase();
+  let settledAt = data.paid_at || now;
+  let txStatus = 'settled';
+  let expectedSettlementAt = null;
+  if (paymentStatus === 'pending' || paymentStatus === 'awaiting') {
+    txStatus = 'pending';
+    settledAt = null;
+    const dueYmd = String(data.due_date || '').slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dueYmd)) {
+      expectedSettlementAt = `${dueYmd}T23:59:59.999Z`;
+    }
+  }
 
   const mirrorPayload = {
     academyId: data.academy_id,
@@ -250,8 +262,9 @@ async function syncFinancialTxMirror({
     fee,
     net,
     direction: 'in',
-    status: 'settled',
-    settledAt: data.paid_at || now,
+    status: txStatus,
+    settledAt,
+    ...(expectedSettlementAt ? { expected_settlement_at: expectedSettlementAt } : {}),
     note,
     origin_type: 'student_payment',
     origin_id: paymentId,
@@ -280,15 +293,17 @@ async function syncFinancialTxMirror({
         : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), mirrorPayload);
       mirrorId = mirror.$id;
     }
-    applyAccountingSideEffectsAuto(
-      {
-        ...mirrorPayload,
-        id: mirrorId,
-        type: financeCat.type,
-        category: financeCat.label,
-      },
-      data.academy_id
-    );
+    if (txStatus === 'settled') {
+      applyAccountingSideEffectsAuto(
+        {
+          ...mirrorPayload,
+          id: mirrorId,
+          type: financeCat.type,
+          category: financeCat.label,
+        },
+        data.academy_id
+      );
+    }
     await clearFinancialTxSyncPendingClient(paymentId);
     return { mirrorId };
   } catch (err) {
@@ -306,15 +321,17 @@ async function syncFinancialTxMirror({
             : await databases.createDocument(DB_ID, FINANCIAL_TX_COL, ID.unique(), lean);
           mirrorId = mirror.$id;
         }
-        applyAccountingSideEffectsAuto(
-          {
-            ...lean,
-            id: mirrorId,
-            type: financeCat.type,
-            category: financeCat.label,
-          },
-          data.academy_id
-        );
+        if (txStatus === 'settled') {
+          applyAccountingSideEffectsAuto(
+            {
+              ...lean,
+              id: mirrorId,
+              type: financeCat.type,
+              category: financeCat.label,
+            },
+            data.academy_id
+          );
+        }
         await clearFinancialTxSyncPendingClient(paymentId);
         return { mirrorId };
       } catch (e2) {

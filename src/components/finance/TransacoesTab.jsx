@@ -1331,7 +1331,7 @@ export default function TransacoesTab({
             <div
               className="finance-tx-period-balance-inline finance-hub-filters__meta"
               role="status"
-              title="Mensalidade paga gera entrada automática no Caixa; mensalidade pendente não cria lançamento pendente aqui."
+              title="Mensalidades pagas, parciais ou pendentes espelham no Caixa; meses cobertos por pacote não geram lançamento."
             >
               <span className="finance-tx-period-balance-inline__label">Saldo do período</span>
               <span className="finance-tx-period-balance-inline__value">{periodBalanceFormatted}</span>

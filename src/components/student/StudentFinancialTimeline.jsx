@@ -41,6 +41,7 @@ import {
 } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 import { paymentStatusLabelPt, paymentTimelineBadge } from '../../lib/paymentStatus.js';
+import { paymentCaixaMeta, saleCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.js';
 
 function fmtMoney(n) {
   try {
@@ -101,6 +102,7 @@ function TimelineRow({
   onEditPayment,
   onDeletePayment,
   receiptPdf,
+  caixaMeta,
 }) {
   const showActions = Boolean(payment && canManagePayments && onEditPayment && onDeletePayment);
   const showReceiptPdf = Boolean(receiptPdf?.enabled && receiptPdf?.onDownload);
@@ -145,6 +147,7 @@ function TimelineRow({
           {item.subtitle ? (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{item.subtitle}</div>
           ) : null}
+          <CaixaLinkBadge meta={caixaMeta} />
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>
             {fmtMoney(item.amount)}
           </div>
@@ -235,6 +238,7 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling, canManagePaymen
       onEditPayment={onEditPayment}
       onDeletePayment={onDeletePayment}
       receiptPdf={receiptPdf}
+      caixaMeta={paymentCaixaMeta(item.anchor)}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
         {[item.anchor, ...(item.children || [])]
@@ -312,6 +316,7 @@ function ProductTimelineRow({ item }) {
       item={item}
       expanded={expanded}
       onToggle={() => setExpanded((v) => !v)}
+      caixaMeta={saleCaixaMeta(sale)}
     >
       {(sale?.items || []).map((it) => (
         <div
@@ -679,6 +684,7 @@ export default function StudentFinancialTimeline({
                 onEditPayment={onEditPayment}
                 onDeletePayment={onDeletePayment}
                 receiptPdf={receiptPdf}
+                caixaMeta={payment ? paymentCaixaMeta(payment) : null}
               />
             );
           })}

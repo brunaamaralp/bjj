@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { paymentCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.js';
 import {
   groupStudentPaymentsForProfile,
   formatReferenceMonthLong,
@@ -16,50 +16,6 @@ function fmtMoney(n) {
   } catch {
     return `R$ ${Number(n || 0).toFixed(2)}`;
   }
-}
-
-function paymentCaixaMeta(payment) {
-  if (payment?.financial_tx_sync_pending) {
-    return { label: 'Caixa pendente', tone: 'warning', href: null };
-  }
-  const txId = String(payment?.financial_tx_id || '').trim();
-  const st = String(payment?.status || '').toLowerCase();
-  if (txId && (st === 'paid' || st === 'partial')) {
-    return {
-      label: 'No Caixa',
-      tone: 'success',
-      href: `/financeiro?tab=movimentacoes&tx=${encodeURIComponent(txId)}`,
-    };
-  }
-  return null;
-}
-
-function PaymentCaixaBadge({ payment }) {
-  const meta = paymentCaixaMeta(payment);
-  if (!meta) return null;
-  const style = {
-    display: 'inline-block',
-    marginTop: 4,
-    fontSize: 10,
-    fontWeight: 700,
-    padding: '2px 6px',
-    borderRadius: 4,
-    textDecoration: 'none',
-    background: meta.tone === 'warning' ? '#FEF3C7' : 'var(--v50, var(--azul-gelo))',
-    color: meta.tone === 'warning' ? '#B45309' : 'var(--v700, var(--petroleo))',
-  };
-  if (meta.href) {
-    return (
-      <Link to={meta.href} style={style}>
-        {meta.label}
-      </Link>
-    );
-  }
-  return (
-    <span style={style} title="Use Verificar espelhos na conciliação bancária">
-      {meta.label}
-    </span>
-  );
 }
 
 function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
@@ -106,7 +62,7 @@ function BundleGroupCard({ group, onCancelCoverage, cancelling }) {
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
               Cobre {formatReferenceMonthLong(startYm)} a {formatReferenceMonthLong(endYm)}
             </div>
-            <PaymentCaixaBadge payment={anchor} />
+            <CaixaLinkBadge meta={paymentCaixaMeta(anchor)} />
           </div>
         </div>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--success)', flexShrink: 0 }}>
@@ -246,7 +202,7 @@ function SinglePaymentRow({ payment, METHOD_PAYMENT_LABELS }) {
             ? `${METHOD_PAYMENT_LABELS[payment.method] || payment.method} · ${paymentStatusLabelPt(st)}`
             : paymentStatusLabelPt(st)}
         </div>
-        <PaymentCaixaBadge payment={payment} />
+        <CaixaLinkBadge meta={paymentCaixaMeta(payment)} />
       </div>
       <div style={{ fontSize: 14, fontWeight: 700, color: amountColor, flexShrink: 0 }}>
         {fmtMoney(payment.amount)}

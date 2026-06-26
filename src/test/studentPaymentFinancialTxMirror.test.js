@@ -54,10 +54,16 @@ vi.mock('../../src/lib/financeCategories.js', () => ({
 
 vi.mock('../../src/lib/paymentStatus.js', () => ({
   mirrorGrossForPayment: (status, paidAmount, expectedAmount) => {
-    if (String(status).toLowerCase() === 'partial') return Number(paidAmount) || 0;
+    const s = String(status).toLowerCase();
+    if (s === 'partial') return Number(paidAmount) || 0;
+    if (s === 'pending' || s === 'awaiting') return Number(expectedAmount) || Number(paidAmount) || 0;
     return Number(paidAmount) || Number(expectedAmount) || 0;
   },
-  shouldMirrorPaymentToCaixa: (status) => ['paid', 'partial'].includes(String(status).toLowerCase()),
+  shouldMirrorPaymentToCaixa: (status) => {
+    const s = String(status).toLowerCase();
+    if (s === 'covered' || s === 'frozen' || s === 'cancelled') return false;
+    return ['paid', 'partial', 'pending', 'awaiting'].includes(s);
+  },
   expectedAmountForStudent: (_studentDoc, _financeConfig, payment) => Number(payment?.expected_amount) || 0,
 }));
 
@@ -317,8 +323,9 @@ describe('studentPaymentFinancialTxMirror', () => {
     );
   });
 
-  it('pending cancela o main financial_tx encontrado por origin sem depender de financial_tx_id', async () => {
+  it('pending atualiza financial_tx existente com status pending', async () => {
     const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+    serverMocks.updateDocument.mockResolvedValue({ $id: 'tx-main-existing' });
     serverMocks.listDocuments.mockImplementation(async (_db, _col, queries) => {
       const originType = queries.find((q) => q.key === 'origin_type')?.value;
       if (originType === 'student_payment') {
@@ -334,6 +341,10 @@ describe('studentPaymentFinancialTxMirror', () => {
       paymentDoc: buildPaymentDoc({
         $id: 'pay-pending',
         status: 'pending',
+        expected_amount: 120,
+        paid_amount: 0,
+        amount: 120,
+        due_date: '2026-08-10',
         financial_tx_id: '',
       }),
       payload: {},
@@ -341,12 +352,16 @@ describe('studentPaymentFinancialTxMirror', () => {
       studentDoc: { name: 'Joao', plan: 'Adulto' },
     });
 
-    expect(result).toEqual({ mirrorId: null });
+    expect(result.mirrorId).toBe('tx-main-existing');
     expect(serverMocks.updateDocument).toHaveBeenCalledWith(
       'db-test',
       'financial-tx-col',
       'tx-main-existing',
-      { status: 'cancelled' }
+      expect.objectContaining({
+        status: 'pending',
+        settledAt: null,
+        expected_settlement_at: '2026-08-10T23:59:59.999Z',
+      })
     );
     expect(serverMocks.createDocument).not.toHaveBeenCalled();
   });

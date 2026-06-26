@@ -1,6 +1,39 @@
+import { Link } from 'react-router-dom';
 import { shouldMirrorPaymentToCaixa } from './paymentStatus.js';
 
 const FINANCEIRO_TX_PATH = '/financeiro?tab=movimentacoes';
+
+const CAIXA_BADGE_STYLE = {
+  display: 'inline-block',
+  marginTop: 4,
+  fontSize: 10,
+  fontWeight: 700,
+  padding: '2px 6px',
+  borderRadius: 4,
+  textDecoration: 'none',
+};
+
+/** Badge/link reutilizável (meta de paymentCaixaMeta / saleCaixaMeta). */
+export function CaixaLinkBadge({ meta }) {
+  if (!meta) return null;
+  const style = {
+    ...CAIXA_BADGE_STYLE,
+    background: meta.tone === 'warning' ? '#FEF3C7' : 'var(--v50, var(--azul-gelo))',
+    color: meta.tone === 'warning' ? '#B45309' : 'var(--v700, var(--petroleo))',
+  };
+  if (meta.href) {
+    return (
+      <Link to={meta.href} style={style}>
+        {meta.label}
+      </Link>
+    );
+  }
+  return (
+    <span style={style} title="Use Verificar espelhos na conciliação bancária">
+      {meta.label}
+    </span>
+  );
+}
 
 /** Badge/link Caixa para pagamento do aluno (nunca para status covered). */
 export function paymentCaixaMeta(payment) {

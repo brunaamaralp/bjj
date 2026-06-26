@@ -13,7 +13,7 @@ export function attendedButtonShort(vertical) {
 }
 
 export function attendedStatusLabel(vertical) {
-  return vertical === 'physio' ? 'Compareceu à avaliação' : 'Compareceu';
+  return vertical === 'physio' ? 'Compareceu à avaliação' : 'Veio';
 }
 
 export function missedStatusLabel() {
