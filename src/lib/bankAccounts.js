@@ -21,20 +21,29 @@ export function hasCustomAcquirerFees(acc) {
   return !usesDefaultAcquirerFees(acc) && hasAcquirerFeesConfigured(acc?.acquirerFees);
 }
 
+/** Converte rótulo exibido em objeto bruto (sem normalização completa). */
+function parseDisplayLabelToRaw(label) {
+  const s = String(label || '').trim();
+  if (!s) return null;
+  if (/^pix\s/i.test(s)) {
+    const pix = s.replace(/^pix\s+/i, '').trim();
+    return pix ? { pixKey: pix } : { bankName: s };
+  }
+  const sep = s.indexOf(' · ');
+  if (sep > 0) {
+    return { bankName: s.slice(0, sep).trim(), account: s.slice(sep + 3).trim() };
+  }
+  return { bankName: s };
+}
+
 /** Normaliza entrada de conta (cadastro + saldo inicial + taxas opcionais). */
 export function normalizeBankAccountEntry(raw) {
-  if (typeof raw === 'string') {
-    return bankAccountFromDisplayLabel(raw) || {
-      bankName: '',
-      branch: '',
-      account: '',
-      accountName: '',
-      pixKey: '',
-      openingBalance: 0,
-      openingBalanceDate: '',
-    };
-  }
-  const acc = raw && typeof raw === 'object' ? raw : {};
+  const acc =
+    typeof raw === 'string'
+      ? parseDisplayLabelToRaw(raw) || {}
+      : raw && typeof raw === 'object'
+        ? raw
+        : {};
   const openingRaw = Number(acc.openingBalance);
   const openingBalance = Number.isFinite(openingRaw) ? Math.round(openingRaw * 100) / 100 : 0;
   const base = {
@@ -58,20 +67,10 @@ export function normalizeBankAccountEntry(raw) {
 
 /** Converte rótulo exibido (ex. «Sicoob · 123») em entrada de conta. */
 export function bankAccountFromDisplayLabel(label) {
-  const s = String(label || '').trim();
-  if (!s) return null;
-  if (/^pix\s/i.test(s)) {
-    const pix = s.replace(/^pix\s+/i, '').trim();
-    return normalizeBankAccountEntry(pix ? { pixKey: pix } : { bankName: s });
-  }
-  const sep = s.indexOf(' · ');
-  if (sep > 0) {
-    return normalizeBankAccountEntry({
-      bankName: s.slice(0, sep).trim(),
-      account: s.slice(sep + 3).trim(),
-    });
-  }
-  return normalizeBankAccountEntry({ bankName: s });
+  const raw = parseDisplayLabelToRaw(label);
+  if (!raw) return null;
+  const n = normalizeBankAccountEntry(raw);
+  return isUsableBankAccount(n) ? n : null;
 }
 
 /**

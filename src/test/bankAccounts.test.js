@@ -6,6 +6,7 @@ import {
   normalizeBankAccountEntry,
   hasCustomAcquirerFees,
   usesDefaultAcquirerFees,
+  deriveBankAccountsFromPaymentLabels,
 } from '../lib/bankAccounts.js';
 import { pickInitialBankAccountForPayment } from '../lib/paymentMethodBankDefaults.js';
 
@@ -85,5 +86,24 @@ describe('bankAccounts — conta inicial no pagamento', () => {
     expect(n.account).toBe('12345-6');
     expect(n.pixKey).toBe('a@b.com');
     expect(isUsableBankAccount(n)).toBe(true);
+  });
+
+  it('normalizeBankAccountEntry aceita rótulo exibido em string', () => {
+    const n = normalizeBankAccountEntry('Sicoob · 12345-6');
+    expect(n.bankName).toBe('Sicoob');
+    expect(n.account).toBe('12345-6');
+    expect(isUsableBankAccount(n)).toBe(true);
+  });
+
+  it('deriveBankAccountsFromPaymentLabels recupera contas legadas', () => {
+    const cfg = {
+      bankAccounts: [],
+      defaultAccountByMethod: { pix: 'Asaas · 111' },
+      paymentMethodSettings: {
+        dinheiro: { active: true, defaultBankAccountLabel: 'Caixinha' },
+      },
+    };
+    const derived = deriveBankAccountsFromPaymentLabels(cfg);
+    expect(derived.map((a) => a.bankName).sort()).toEqual(['Asaas', 'Caixinha']);
   });
 });
