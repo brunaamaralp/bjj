@@ -30,6 +30,7 @@ import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
 import publicEnrollmentHandler from '../lib/server/publicEnrollmentHandler.js';
+import portalRouter from '../lib/server/portalRouter.js';
 import leadEventsListHandler from '../lib/server/leadEventsListHandler.js';
 import academyDocumentHandler from '../lib/server/academyDocumentHandler.js';
 import financeConfigHandler from '../lib/server/financeConfigHandler.js';
@@ -269,6 +270,9 @@ export default async function handler(req, res) {
 
   if (req.query.route === 'public-enrollment' || req.query.route === 'public-enrollment-config') {
     return publicEnrollmentHandler(req, res);
+  }
+  if (String(req.query.route || '').startsWith('portal')) {
+    return portalRouter(req, res);
   }
   if (req.query.route === 'inventory') return inventoryHandler(req, res);
   if (req.query.route === 'products') return productsHandler(req, res);

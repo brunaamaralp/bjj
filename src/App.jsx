@@ -11,6 +11,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { authService } from './lib/auth';
+import { probePortalOnlyUser, resolvePostLoginPath } from './lib/portalBootstrap.js';
 import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
 import { isBillingLive } from './lib/billingEnabled';
 import { Query } from 'appwrite';
@@ -71,6 +72,7 @@ const Attendance = lazyWithRetry(() => import('./pages/Attendance'));
 const Recepcao = lazyWithRetry(() => import('./pages/Recepcao'));
 const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
 const PublicStudentEnrollment = lazyWithRetry(() => import('./pages/PublicStudentEnrollment'));
+const PortalApp = lazyWithRetry(() => import('./pages/portal/PortalApp'));
 const NaviInboxShortcut = lazyWithRetry(() => import('./components/chat-widget/NaviInboxShortcut.jsx'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviBrandLockup from './components/NaviBrandLockup.jsx';
@@ -128,6 +130,7 @@ const App = () => {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [academyReady, setAcademyReady] = useState(false);
   const [bootstrapError, setBootstrapError] = useState(false);
+  const [portalOnlyUser, setPortalOnlyUser] = useState(false);
   const setAcademyId = useLeadStore((s) => s.setAcademyId);
   const labels = useLeadStore((s) => s.labels);
   const setLabels = useLeadStore((s) => s.setLabels);
@@ -606,6 +609,20 @@ const App = () => {
           setBootstrapError(false);
           try { useLeadStore.getState().setUserId(currentUser.$id); } catch (e) { void e; }
           try { await authService.refreshJwt(); } catch (e) { void e; }
+
+          const { portalOnly } = await probePortalOnlyUser(currentUser.$id);
+          if (portalOnly) {
+            setPortalOnlyUser(true);
+            setSessionChecking(false);
+            const path = window.location.pathname;
+            const search = window.location.search || '';
+            if (!/^\/portal(\/|$)/.test(path)) {
+              navigate(`/portal${search}`, { replace: true });
+            }
+            return;
+          }
+          setPortalOnlyUser(false);
+
           cancelBootstrap();
           const ac = new AbortController();
           bootstrapAbortRef.current = ac;
@@ -627,16 +644,18 @@ const App = () => {
           const search = window.location.search || '';
           const landingPaths = ['/', '/login', '/register', '/cadastro'];
           const publicEnrollmentPath = path.startsWith('/inscricao/');
-          if (landingPaths.includes(path) && !publicEnrollmentPath) {
+          const publicPortalPath = /^\/portal(\/|$)/.test(path);
+          if (landingPaths.includes(path) && !publicEnrollmentPath && !publicPortalPath) {
             navigate('/', { replace: true });
-          } else if (!publicEnrollmentPath) {
+          } else if (!publicEnrollmentPath && !publicPortalPath) {
             navigate(`${path}${search}`, { replace: true });
           }
         } else {
           const p = window.location.pathname;
           const authPaths = ['/login', '/register', '/cadastro'];
           const publicEnrollmentPath = p.startsWith('/inscricao/');
-          if (!authPaths.includes(p) && !publicEnrollmentPath) {
+          const publicPortalPath = /^\/portal(\/|$)/.test(p);
+          if (!authPaths.includes(p) && !publicEnrollmentPath && !publicPortalPath) {
             navigate('/', { replace: true });
           }
           setSessionChecking(false);
@@ -645,7 +664,8 @@ const App = () => {
         const p = window.location.pathname;
         const authPaths = ['/login', '/register', '/cadastro'];
         const publicEnrollmentPath = p.startsWith('/inscricao/');
-        if (!authPaths.includes(p) && !publicEnrollmentPath) {
+        const publicPortalPath = /^\/portal(\/|$)/.test(p);
+        if (!authPaths.includes(p) && !publicEnrollmentPath && !publicPortalPath) {
           navigate('/', { replace: true });
         }
         setSessionChecking(false);
@@ -889,6 +909,16 @@ const App = () => {
     try { useLeadStore.getState().setUserId(u.$id); } catch (e) { void e; }
     try { await authService.refreshJwt(); } catch (e) { void e; }
     cancelBootstrap();
+
+    const { portalOnly } = await probePortalOnlyUser(u.$id);
+    if (portalOnly) {
+      setPortalOnlyUser(true);
+      setSessionChecking(false);
+      navigate(resolvePostLoginPath({ portalOnly: true }), { replace: true });
+      return;
+    }
+    setPortalOnlyUser(false);
+
     const ac = new AbortController();
     bootstrapAbortRef.current = ac;
     await setupAcademyPhase1(u, ac.signal, opts);
@@ -907,6 +937,7 @@ const App = () => {
     }
     await authService.logout();
     setUser(null);
+    setPortalOnlyUser(false);
     cancelBootstrap();
     setAcademyReady(false);
     useLeadStore.getState().setDataReady(false);
@@ -1023,6 +1054,20 @@ const App = () => {
     );
   }
 
+  if (/^\/portal(\/|$)/.test(location.pathname)) {
+    return (
+      <>
+        <OfflineBanner />
+        <NaviToasts />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/portal/*" element={<PortalApp />} />
+          </Routes>
+        </Suspense>
+      </>
+    );
+  }
+
   if (/^\/inscricao\/[^/]+/.test(location.pathname)) {
     return (
       <>
@@ -1069,6 +1114,10 @@ const App = () => {
       </div>
       </>
     );
+  }
+
+  if (portalOnlyUser && !/^\/portal(\/|$)/.test(location.pathname)) {
+    return <Navigate to="/portal" replace />;
   }
 
   return (

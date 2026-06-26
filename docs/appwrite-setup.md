@@ -67,6 +67,7 @@ Coleções (Collections)
 Schema CRM (manifesto único)
 - `npm run verify-and-fix-schema-crm` — LEADS, STUDENTS, TASKS, LEAD_EVENTS, extrato bancário, ACCOUNTS, JOURNAL, etc.
 - **Agendamento (turmas + horários):** `npm run provision:booking-schema` — `classes`, `schedules`, `class_slots`, `bookings`, patch `attendance`
+- **Portal do aluno:** `npm run provision:portal` — `students.email_responsavel`, `student_portal_access`, `portal_invites`, `academy_portal_guides` (env: `APPWRITE_STUDENT_PORTAL_ACCESS_COL_ID`, `APPWRITE_PORTAL_INVITES_COL_ID`, `APPWRITE_ACADEMY_PORTAL_GUIDES_COL_ID`)
 - **Migração turmas legado:** `npm run migrate:academy-turmas-to-classes` — `settings.turmas[]` → docs em `classes` (idempotente)
 - Coleções com timestamps **datetime** no Appwrite (não `string`): ex. LEADS (`pipeline_stage_changed_at`, `attended_at`, …), TASKS (`updated_at`), LEAD_EVENTS (`at`), JOURNAL (`date`), BANK_STATEMENTS (`import_date`, `completed_at`).
 - Spec pagadores conhecidos: `docs/superpowers/specs/2026-06-16-conciliacao-pagadores-conhecidos-TECH.md`

@@ -121,6 +121,7 @@ import {
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
+import StudentPortalInvitePanel from '../components/student/StudentPortalInvitePanel.jsx';
 import StudentPayerAliasesSection from '../components/student/StudentPayerAliasesSection.jsx';
 import { resolveTurmaFormState, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { sexoDisplayLabel } from '../lib/leadSexo.js';
@@ -237,6 +238,13 @@ const STUDENT_DATA_FIELDS = [
     },
     { key: 'cpf', label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
     { key: 'responsavel', label: 'Responsável', type: 'text', placeholder: 'Nome do responsável' },
+    {
+        key: 'emailResponsavel',
+        label: 'E-mail do responsável',
+        type: 'email',
+        placeholder: 'responsavel@email.com',
+        minorOnly: true,
+    },
     { key: 'cpfResponsavel', label: 'CPF do responsável', type: 'text', placeholder: '000.000.000-00' },
 ];
 
@@ -390,6 +398,7 @@ export default function StudentProfile() {
         email: '',
         cpf: '',
         responsavel: '',
+        emailResponsavel: '',
         cpfResponsavel: '',
         emergencyContact: '',
         emergencyPhone: '',
@@ -492,16 +501,19 @@ export default function StudentProfile() {
         const base = STUDENT_DATA_FIELDS.map((f) =>
             f.key === 'plan' ? { ...f, label: terms.plan } : f
         );
-        if (!shouldShowStudentGraduation(academySettingsRaw, student?.belt)) return base;
-        const turmaIdx = base.findIndex((f) => f.key === 'turma');
+        const profileType = editingData ? dataForm.type : (student?.type || 'Adulto');
+        const minor = profileType === 'Criança' || profileType === 'Juniores';
+        const filtered = base.filter((f) => !f.minorOnly || minor);
+        if (!shouldShowStudentGraduation(academySettingsRaw, student?.belt)) return filtered;
+        const turmaIdx = filtered.findIndex((f) => f.key === 'turma');
         const gradField = { key: 'belt', label: terms.belt, type: 'graduation' };
         if (turmaIdx >= 0) {
-            const out = [...base];
+            const out = [...filtered];
             out.splice(turmaIdx + 1, 0, gradField);
             return out;
         }
-        return [...base, gradField];
-    }, [terms.plan, terms.belt, academySettingsRaw, student?.belt]);
+        return [...filtered, gradField];
+    }, [terms.plan, terms.belt, academySettingsRaw, student?.belt, student?.type, editingData, dataForm.type]);
 
     useEffect(() => {
         if (!id) return undefined;
@@ -596,6 +608,7 @@ export default function StudentProfile() {
             email: String(student.email || '').trim(),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
+            emailResponsavel: student.emailResponsavel || '',
             cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
@@ -1062,6 +1075,7 @@ export default function StudentProfile() {
             email: String(student.email || '').trim(),
             cpf: maskCPF(String(student.cpf || '')),
             responsavel: student.responsavel || '',
+            emailResponsavel: student.emailResponsavel || '',
             cpfResponsavel: maskCPF(String(student.cpfResponsavel || '')),
             emergencyContact: student.emergencyContact || '',
             emergencyPhone: maskPhone(String(student.emergencyPhone || '')),
@@ -1136,6 +1150,12 @@ export default function StudentProfile() {
                 setSavingData(false);
                 return;
             }
+            const emailRespTrim = String(dataForm.emailResponsavel || '').trim();
+            if (emailRespTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRespTrim)) {
+                toast.show({ type: 'error', message: 'E-mail do responsável inválido.' });
+                setSavingData(false);
+                return;
+            }
 
             if (isActiveStudent(student) && canViewFinance) {
                 const planMatch = findPlanByName(financeConfig, dataForm.plan);
@@ -1178,6 +1198,7 @@ export default function StudentProfile() {
                 enrollmentDate: dataForm.enrollmentDate,
                 birthDate: dataForm.birthDate,
                 responsavel: dataForm.responsavel,
+                emailResponsavel: emailRespTrim,
                 cpfResponsavel: String(dataForm.cpfResponsavel || '').replace(/\D/g, ''),
                 emergencyContact: dataForm.emergencyContact,
                 emergencyPhone: String(dataForm.emergencyPhone || '').replace(/\D/g, ''),
@@ -2722,6 +2743,8 @@ export default function StudentProfile() {
                 />
 
                 {renderOperationalActionsSection()}
+
+                <StudentPortalInvitePanel student={student} academyId={academyId} canEdit={canEditProfile} />
 
                 <div className="profile-section-block">
                     <div className="profile-section-heading-row">

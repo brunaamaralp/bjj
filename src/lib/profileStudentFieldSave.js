@@ -126,6 +126,16 @@ export async function saveStudentProfileField({
       auditLabel = key === 'responsavel' ? 'Responsável' : 'Contato de emergência';
       break;
     }
+    case 'emailResponsavel': {
+      const err = validateProfileEmail(draftValue);
+      if (err) throw new Error(err);
+      const emailResponsavel = String(draftValue || '').trim();
+      patch = { emailResponsavel };
+      auditFrom = displayForAudit(key, prev(key), student);
+      auditTo = emailResponsavel;
+      auditLabel = 'E-mail do responsável';
+      break;
+    }
     case 'emergencyPhone': {
       const err = validateProfilePhone(draftValue);
       if (err) throw new Error(err);

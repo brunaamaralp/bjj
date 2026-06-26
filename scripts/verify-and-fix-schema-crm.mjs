@@ -445,6 +445,7 @@ const STUDENTS_ATTRS = [
   { key: 'email', type: 'string', size: 128 },
   { key: 'cpf', type: 'string', size: 20 },
   { key: 'responsavel', type: 'string', size: 128 },
+  { key: 'email_responsavel', type: 'string', size: 320 },
   { key: 'cpf_responsavel', type: 'string', size: 20 },
   { key: 'payer_aliases_json', type: 'string', size: 4096 },
   { key: 'birth_date', type: 'string', size: 16 },

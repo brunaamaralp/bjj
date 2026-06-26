@@ -24,6 +24,7 @@ export const OPTIONAL_STUDENT_PATCH_ATTRS = [
   'sexo',
   'cpf',
   'responsavel',
+  'email_responsavel',
   'cpf_responsavel',
   'payer_aliases_json',
   'custom_answers_json',
