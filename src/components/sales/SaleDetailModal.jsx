@@ -13,13 +13,10 @@ import {
   createEmptyPaymentRow,
   serializePagamentosForApi,
   paymentsUiValid,
+  resolveSaleLiquidationContext,
 } from '../../lib/salePayments';
 import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
-
-function roundMoney(n) {
-  return Math.round(Number(n || 0) * 100) / 100;
-}
 
 function SaleDetailModalContent({
   sale,
@@ -38,18 +35,22 @@ function SaleDetailModalContent({
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
   const [liquidateError, setLiquidateError] = useState('');
 
-  const statusLower = String(sale.status).toLowerCase();
+  const liquidation = useMemo(() => resolveSaleLiquidationContext(sale), [sale]);
+  const {
+    statusLower,
+    saleTotal,
+    paidSoFar: paidAmount,
+    isPartialSale: isParcial,
+    isPendingDeferred: isPendente,
+    balanceDue,
+  } = liquidation;
   const isConcluida = statusLower === 'concluida';
   const isCancelada = statusLower === 'cancelada';
-  const isPendente = statusLower === 'pendente';
-  const isParcial = statusLower === 'parcial';
-  const paidAmount = roundMoney(Number(sale.paid_amount) || 0);
-  const saleTotal = roundMoney(Number(sale.total) || 0);
-  const balanceDue = isParcial ? roundMoney(saleTotal - paidAmount) : saleTotal;
+  const canLiquidate = isPendente || isParcial;
 
   const liquidateTotalCents = useMemo(
-    () => Math.max(0, Math.round((isParcial ? balanceDue : saleTotal) * 100)),
-    [isParcial, balanceDue, saleTotal]
+    () => Math.max(0, Math.round(balanceDue * 100)),
+    [balanceDue]
   );
 
   const openLiquidatePanel = useCallback(() => {
@@ -71,11 +72,17 @@ function SaleDetailModalContent({
   const handleLiquidate = async () => {
     setLiquidateError('');
     if (!paymentValid.ok) {
-      setLiquidateError(
-        isParcial
-          ? 'Ajuste os valores para quitar o saldo restante.'
-          : 'Ajuste os valores de pagamento para fechar o total da venda.'
-      );
+      if (paymentValid.reason === 'capture_method' && paymentValid.message) {
+        setLiquidateError(paymentValid.message);
+      } else if (isParcial) {
+        setLiquidateError(
+          `Ajuste os valores para quitar o saldo de ${formatBRL(balanceDue)}.`
+        );
+      } else {
+        setLiquidateError(
+          `Ajuste os valores de pagamento para fechar o total de ${formatBRL(saleTotal)}.`
+        );
+      }
       return;
     }
     const pagamentos = serializePagamentosForApi(payments);
@@ -209,6 +216,7 @@ function SaleDetailModalContent({
                   onChange={setPayments}
                   disabled={creating}
                   financeConfig={financeConfig}
+                  inlineValidate
                 />
                 <div className="sales-liquidate-panel__actions">
                   <button

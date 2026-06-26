@@ -1510,6 +1510,8 @@
 .sales-liquidate-panel__actions { display: flex; gap: 8px; }
 .sales-liquidate-panel__btn { flex: 1; }
 .sales-cancel-sale-btn { display: inline-flex; align-items: center; gap: 6px; }
+.sales-history-intro__title { margin: 0 0 4px; }
+.sales-history-intro__hint { margin: 0; }
 .sales-history-filters { flex-wrap: wrap; }
 .sales-history-filters .form-group { margin: 0; }
 .sales-history-filters .form-group--from,

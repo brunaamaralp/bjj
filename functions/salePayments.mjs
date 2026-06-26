@@ -106,3 +106,53 @@ export function buildFormaPagamentoResumo(pagamentos) {
   const uniq = [...new Set(labels)];
   return uniq.join(' + ').slice(0, 128) || '—';
 }
+
+/** Valor já recebido na venda (campo paid_amount ou soma de pagamentos_json). */
+export function deriveSalePaidAmount(saleOrDoc) {
+  const raw = saleOrDoc?.paid_amount ?? saleOrDoc?.paidAmount;
+  if (raw != null && Number.isFinite(Number(raw))) {
+    return roundMoney(Number(raw));
+  }
+  let list = [];
+  if (Array.isArray(saleOrDoc?.pagamentos) && saleOrDoc.pagamentos.length) {
+    list = normalizePagamentosInput(saleOrDoc.pagamentos);
+  } else if (saleOrDoc?.pagamentos_json) {
+    try {
+      const parsed =
+        typeof saleOrDoc.pagamentos_json === 'string'
+          ? JSON.parse(saleOrDoc.pagamentos_json)
+          : saleOrDoc.pagamentos_json;
+      list = normalizePagamentosInput(parsed);
+    } catch {
+      list = [];
+    }
+  }
+  return roundMoney(sumPagamentosNet(list));
+}
+
+/** Contexto para liquidar venda pendente (a prazo) ou saldo de entrada parcial. */
+export function resolveSaleLiquidationContext(saleOrDoc) {
+  const statusLower = String(saleOrDoc?.status || '').trim().toLowerCase();
+  const saleTotal = roundMoney(Number(saleOrDoc?.total) || 0);
+  const paidSoFar = deriveSalePaidAmount(saleOrDoc);
+  const hasOpenBalance =
+    saleTotal > 0.009 && paidSoFar > 0.009 && paidSoFar < saleTotal - 0.009;
+  const isPartialSale =
+    statusLower === 'parcial' ||
+    (hasOpenBalance && statusLower !== 'concluida' && statusLower !== 'cancelada');
+  const isPendingDeferred = statusLower === 'pendente' && !hasOpenBalance;
+  const balanceDue = isPartialSale
+    ? roundMoney(Math.max(0, saleTotal - paidSoFar))
+    : isPendingDeferred
+      ? saleTotal
+      : 0;
+  return {
+    statusLower,
+    saleTotal,
+    paidSoFar,
+    isPartialSale,
+    isPendingDeferred,
+    balanceDue,
+    hasOpenBalance,
+  };
+}

@@ -6,6 +6,7 @@ import {
   resolveSalesSubtab,
   resolveSalesPdvMode,
   salesSubtabNeedsNormalize,
+  salesSubtabLabel,
 } from '../lib/lojaSalesTabs';
 
 describe('lojaSalesTabs', () => {
@@ -44,5 +45,10 @@ describe('lojaSalesTabs', () => {
     expect(salesSubtabNeedsNormalize(new URLSearchParams('tab=new'))).toBe(true);
     expect(isLegacySalesLeafTab(new URLSearchParams('tab=new'))).toBe(true);
     expect(salesSubtabNeedsNormalize(new URLSearchParams('tab=vendas&subtab=new'))).toBe(false);
+  });
+
+  it('salesSubtabLabel exposes product labels', () => {
+    expect(salesSubtabLabel('history')).toBe('Todas as vendas');
+    expect(salesSubtabLabel('new')).toBe('Nova venda');
   });
 });

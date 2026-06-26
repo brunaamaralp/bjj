@@ -224,6 +224,45 @@ export function validatePagamentosAgainstTotal(pagamentos, totalVenda, opts = {}
   return { ok: true, net, total, partial: partial && net < total - 0.009 };
 }
 
+/** Valor já recebido na venda (campo paid_amount ou soma de pagamentos). */
+export function deriveSalePaidAmount(saleOrDoc) {
+  const raw = saleOrDoc?.paid_amount ?? saleOrDoc?.paidAmount;
+  if (raw != null && Number.isFinite(Number(raw))) {
+    return roundMoney(Number(raw));
+  }
+  const list = Array.isArray(saleOrDoc?.pagamentos) && saleOrDoc.pagamentos.length
+    ? normalizePagamentosInput(saleOrDoc.pagamentos)
+    : parsePagamentosJson(saleOrDoc?.pagamentos_json);
+  return roundMoney(sumPagamentosNet(list));
+}
+
+/** Contexto para liquidar venda pendente (a prazo) ou saldo de entrada parcial. */
+export function resolveSaleLiquidationContext(saleOrDoc) {
+  const statusLower = String(saleOrDoc?.status || '').trim().toLowerCase();
+  const saleTotal = roundMoney(Number(saleOrDoc?.total) || 0);
+  const paidSoFar = deriveSalePaidAmount(saleOrDoc);
+  const hasOpenBalance =
+    saleTotal > 0.009 && paidSoFar > 0.009 && paidSoFar < saleTotal - 0.009;
+  const isPartialSale =
+    statusLower === 'parcial' ||
+    (hasOpenBalance && statusLower !== 'concluida' && statusLower !== 'cancelada');
+  const isPendingDeferred = statusLower === 'pendente' && !hasOpenBalance;
+  const balanceDue = isPartialSale
+    ? roundMoney(Math.max(0, saleTotal - paidSoFar))
+    : isPendingDeferred
+      ? saleTotal
+      : 0;
+  return {
+    statusLower,
+    saleTotal,
+    paidSoFar,
+    isPartialSale,
+    isPendingDeferred,
+    balanceDue,
+    hasOpenBalance,
+  };
+}
+
 export function buildFormaPagamentoResumo(pagamentos) {
   const labels = (pagamentos || []).map((p) => paymentFormLabel(p.forma));
   const uniq = [...new Set(labels)];
@@ -299,6 +338,7 @@ export function paymentsUiValid(rows, totalCents, opts = {}) {
     if (net >= total) return { ok: false, reason: 'sum_partial_exceeds', net, total, diff: total - net };
     return { ok: true, net, total, partial: true };
   }
+  if (Math.abs(net - total) <= 1) return { ok: true, net, total };
   if (net !== total) return { ok: false, reason: 'sum', net, total, diff: total - net };
   return { ok: true, net, total };
 }

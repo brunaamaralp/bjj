@@ -9,6 +9,8 @@ vi.hoisted(() => {
 import {
   validatePagamentosAgainstTotal,
   sumPagamentosNet,
+  deriveSalePaidAmount,
+  resolveSaleLiquidationContext,
 } from '../functions/salePayments.mjs';
 
 const mirrorMocks = vi.hoisted(() => ({
@@ -141,6 +143,18 @@ describe('salesCreateHandler partial (unit)', () => {
     ];
     expect(sumPagamentosNet(pagamentos)).toBe(45);
   });
+
+  it('deriveSalePaidAmount usa pagamentos_json quando paid_amount ausente', () => {
+    const sale = {
+      status: 'parcial',
+      total: 100,
+      pagamentos_json: JSON.stringify([{ forma: 'pix', valor: 40 }]),
+    };
+    expect(deriveSalePaidAmount(sale)).toBe(40);
+    const ctx = resolveSaleLiquidationContext(sale);
+    expect(ctx.isPartialSale).toBe(true);
+    expect(ctx.balanceDue).toBe(60);
+  });
 });
 
 describe('salesLiquidateHandler (parcial)', () => {
@@ -154,6 +168,47 @@ describe('salesLiquidateHandler (parcial)', () => {
     mirrorMocks.updateDocument.mockReset();
     mirrorMocks.listDocuments.mockReset();
     mirrorMocks.createDocument.mockReset();
+  });
+
+  it('quita saldo sem paid_amount no documento (só pagamentos_json)', async () => {
+    const saleDoc = {
+      $id: 'sale-partial',
+      academyId: 'ac-1',
+      status: 'parcial',
+      total: 100,
+      pagamentos_json: JSON.stringify([{ forma: 'pix', valor: 40 }]),
+      itens_snapshot_json: JSON.stringify([{ label: 'Kimono', quantidade: 1 }]),
+      aluno_id: 'lead-1',
+    };
+    mirrorMocks.getDocument.mockResolvedValue(saleDoc);
+    mirrorMocks.updateDocument.mockResolvedValue({ ...saleDoc, status: 'concluida' });
+    mirrorMocks.listDocuments.mockResolvedValue({
+      documents: [
+        {
+          $id: 'tx-balance',
+          status: 'pending',
+          note: `${SALE_BALANCE_NOTE_PREFIX} — João`,
+          saleId: 'sale-partial',
+        },
+      ],
+    });
+    mirrorMocks.createDocument.mockResolvedValue({ $id: 'tx-settled', status: 'settled' });
+
+    const res = mockRes();
+    await salesLiquidateHandler(
+      {
+        method: 'PATCH',
+        body: {
+          id: 'sale-partial',
+          action: 'liquidar',
+          pagamentos: [{ forma: 'pix', valor: 60 }],
+        },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.status).toBe('concluida');
   });
 
   it('quita saldo e vira concluida', async () => {
