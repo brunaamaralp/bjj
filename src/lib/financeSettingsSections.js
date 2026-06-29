@@ -13,6 +13,10 @@ import {
   EXCEPTION_STATUS_KEYS,
   readExceptionStatusLabels,
 } from './paymentExceptions.js';
+import {
+  feeReceiversAcquirerConfigured,
+  feeReceiversSettingsSummary,
+} from './feeReceivers.js';
 
 /** Slugs em ?tab=financeiro&section= */
 export const FINANCE_SETTINGS_SECTIONS = {
@@ -90,8 +94,8 @@ export const FINANCE_SETTINGS_GROUPS = [
     items: [
       {
         id: FINANCE_SETTINGS_SECTIONS.TAXAS,
-        label: 'Taxas de cartão',
-        hint: 'Descontos em PIX, débito e crédito',
+        label: 'Taxas e recebedores',
+        hint: 'Repasse ao aluno e taxas por maquininha/bandeira',
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.REGUA,
@@ -172,6 +176,20 @@ export function feesConfigured(cardFees) {
   const parcelado = cardFees?.credito_parcelado || {};
   const hasParcel = Object.values(parcelado).some((v) => Number(v) > 0);
   return pix > 0 || deb > 0 || cre > 0 || hasParcel;
+}
+
+function taxasSectionDone(financeConfig) {
+  return feesConfigured(financeConfig?.cardFees) || feeReceiversAcquirerConfigured(financeConfig);
+}
+
+function taxasSectionSummary(financeConfig) {
+  const parts = [];
+  if (feesConfigured(financeConfig?.cardFees)) {
+    parts.push(`Repasse ${feesSummary(financeConfig.cardFees)}`);
+  }
+  const receiversPart = feeReceiversSettingsSummary(financeConfig);
+  if (receiversPart) parts.push(receiversPart);
+  return parts.length ? parts.join(' · ') : 'Nenhuma taxa configurada';
 }
 
 export function collectionRulesConfigured(collectionRules, financeConfig) {
@@ -262,10 +280,8 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
       hidden: !isOwner,
     },
     [FINANCE_SETTINGS_SECTIONS.TAXAS]: {
-      done: feesConfigured(financeConfig?.cardFees),
-      summary: feesConfigured(financeConfig?.cardFees)
-        ? feesSummary(financeConfig?.cardFees)
-        : 'Nenhuma taxa configurada',
+      done: taxasSectionDone(financeConfig),
+      summary: taxasSectionSummary(financeConfig),
     },
     [FINANCE_SETTINGS_SECTIONS.REGUA]: {
       done: reguaConfigured,

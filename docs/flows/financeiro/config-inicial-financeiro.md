@@ -8,7 +8,7 @@
 | **rotas** | `/empresa?tab=financeiro`, `/empresa?tab=financeiro&section=<slug>` |
 | **pré-requisitos** | Módulo `finance` ativo na academia; papel owner ou admin |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-06-28 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -17,9 +17,11 @@
 - [2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md](../../superpowers/specs/2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md)
 - [2026-06-17-formas-recebimento-meios-captura-PRODUCT.md](../../superpowers/specs/2026-06-17-formas-recebimento-meios-captura-PRODUCT.md) — formas ativas + meios de captura (Fase 2)
 
-**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation captureMethods resolveAcquirerFees`
+- [2026-06-28-taxas-recebedor-bandeira-PRODUCT.md](../../superpowers/specs/2026-06-28-taxas-recebedor-bandeira-PRODUCT.md) — recebedores (PagBank, Asaas…) e bandeira no pagamento
 
-**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/hooks/useFinanceConfigState.js`, `src/components/finance/settings/FinanceSettingsPaymentMethodsSection.jsx`, `src/components/finance/settings/FinanceSettingsCaptureMethodPanel.jsx`, `src/lib/captureMethods.js`, `src/lib/paymentMethodSettings.js`
+**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation captureMethods resolveAcquirerFees feeReceivers resolveFeeReceiver`
+
+**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/hooks/useFinanceConfigState.js`, `src/components/finance/settings/FinanceSettingsPaymentMethodsSection.jsx`, `src/components/finance/settings/FinanceSettingsCaptureMethodPanel.jsx`, `src/components/finance/settings/FinanceSettingsFeeReceiversSection.jsx`, `src/lib/captureMethods.js`, `src/lib/feeReceivers.js`, `src/lib/paymentMethodSettings.js`
 
 ---
 
@@ -63,10 +65,10 @@ flowchart TD
 |---|---|---|---|---|
 | 1 | `/empresa?tab=financeiro` | `AcademySettings` + `FinanceiroConfigTab` | Abrir **Minha academia → Financeiro** | Layout sidebar + painel da seção ativa |
 | 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço, repasse de taxas, contratos opcionais |
-| 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; taxas opcionais por conta |
+| 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; vínculo opcional a recebedor de taxas |
 | 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações; preview | `paymentMethodSettings` |
-| 3c | `&section=formas-recebimento` (crédito/débito) | `FinanceSettingsCaptureMethodPanel` | CRUD meios de captura; matriz taxa/prazo por parcela | `captureMethods[]` |
-| 4 | `&section=taxas` | `FinanceSettingsFeesSection` | Definir % PIX, débito, crédito, parcelas | `cardFees` atualizado |
+| 3c | `&section=formas-recebimento` (crédito/débito) | `FinanceSettingsCaptureMethodPanel` | CRUD meios de captura; vínculo a recebedor de taxas | `captureMethods[]` |
+| 4 | `&section=taxas` | `FinanceSettingsFeesSection` | Repasse ao aluno (`cardFees`) + recebedores com matriz por bandeira | `feeReceivers[]`, `acquirerFeePolicy` |
 | 5 | `&section=regua` (owner) | `FinanceSettingsCollectionSection` | Etapas e rótulo de atraso | `collectionRules` + `overdueLabel` |
 | 6 | `&section=lembretes-whatsapp` | `FinanceSettingsWhatsappRemindersSection` | Ativar lembretes antes/depois vencimento | `whatsappReminders` |
 | 7 | `&section=excecoes` | `FinanceSettingsExceptionsSection` | Personalizar rótulos de bolsa/cortesia | `exceptionStatusLabels` |

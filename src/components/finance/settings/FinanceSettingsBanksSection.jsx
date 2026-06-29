@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import ModalShell from '../../shared/ModalShell.jsx';
 import EmptyState from '../../shared/EmptyState.jsx';
 import { DateInputField } from '../../DateInput';
@@ -9,13 +9,9 @@ import { FINANCE_SETTINGS_SECTIONS } from '../../../lib/financeSettingsSections.
 import {
   isUsableBankAccount,
   normalizeBankAccountEntry,
-  hasCustomAcquirerFees,
-  usesDefaultAcquirerFees,
 } from '../../../lib/bankAccounts.js';
-import { defaultAcquirerFees, normalizeAcquirerFees } from '../../../lib/acquirerFees.js';
-import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
+import { listFeeReceiverOptions } from '../../../lib/feeReceivers.js';
 import FieldError from '../../shared/FieldError.jsx';
-import FinanceSettingsAcquirerFeesFields from './FinanceSettingsAcquirerFeesFields.jsx';
 
 const EMPTY_BANK = {
   bankName: '',
@@ -25,8 +21,7 @@ const EMPTY_BANK = {
   pixKey: '',
   openingBalance: '',
   openingBalanceDate: '',
-  useDefaultAcquirerFees: true,
-  acquirerFees: defaultAcquirerFees(),
+  feeReceiverId: '',
 };
 
 function bankCardLabel(acc) {
@@ -54,23 +49,19 @@ export default function FinanceSettingsBanksSection({
   const [editIdx, setEditIdx] = useState(null);
   const [draft, setDraft] = useState(EMPTY_BANK);
   const [draftError, setDraftError] = useState('');
-  const [feesPanelOpen, setFeesPanelOpen] = useState(true);
   const accounts = financeConfig.bankAccounts || [];
-  const usesDefaultFees = usesDefaultAcquirerFees(draft);
+  const receiverOptions = listFeeReceiverOptions(financeConfig);
+  const defaultReceiverId = String(financeConfig?.defaultFeeReceiverId || '').trim();
 
   const openEdit = (idx) => {
     setEditIdx(idx);
     setDraftError('');
-    setFeesPanelOpen(true);
     const acc = accounts[idx] || {};
     const ob = Number(acc.openingBalance);
     setDraft({
       ...EMPTY_BANK,
       ...acc,
-      useDefaultAcquirerFees: acc.useDefaultAcquirerFees !== false,
-      acquirerFees: normalizeAcquirerFees(
-        acc.useDefaultAcquirerFees === false ? acc.acquirerFees : financeConfig?.acquirerFees || defaultAcquirerFees()
-      ),
+      feeReceiverId: String(acc.feeReceiverId || defaultReceiverId || '').trim(),
       openingBalance:
         Number.isFinite(ob) && ob > 0
           ? maskCurrency(String(Math.round(ob * 100)))
@@ -82,12 +73,8 @@ export default function FinanceSettingsBanksSection({
 
   const openNew = () => {
     setEditIdx('new');
-    setDraft({
-      ...EMPTY_BANK,
-      acquirerFees: normalizeAcquirerFees(financeConfig?.acquirerFees || defaultAcquirerFees()),
-    });
+    setDraft({ ...EMPTY_BANK, feeReceiverId: defaultReceiverId });
     setDraftError('');
-    setFeesPanelOpen(false);
   };
 
   const closeModal = () => {
@@ -112,25 +99,18 @@ export default function FinanceSettingsBanksSection({
     setDraft((d) => ({ ...d, ...patch }));
   };
 
-  const toggleDefaultFees = (useDefault) => {
-    patchDraft({
-      useDefaultAcquirerFees: useDefault,
-      ...(useDefault
-        ? {}
-        : {
-            acquirerFees: normalizeAcquirerFees(
-              draft.acquirerFees || financeConfig?.acquirerFees || defaultAcquirerFees()
-            ),
-          }),
-    });
-    if (!useDefault) setFeesPanelOpen(true);
-  };
-
   return (
     <div id="contas" className="finance-settings-section-body">
       <p className="text-small text-muted">
-        Dados exibidos em comprovantes e no cálculo de saldo do Caixa (saldo inicial + movimentações
-        liquidadas). Se usar mais de uma maquininha, configure as taxas em cada conta.
+        Dados exibidos em comprovantes e no cálculo de saldo do Caixa. Taxas da maquininha são
+        configuradas em{' '}
+        <Link
+          to={`/empresa?tab=financeiro&section=${FINANCE_SETTINGS_SECTIONS.TAXAS}`}
+          className="finance-config-context-link"
+        >
+          Taxas e recebedores
+        </Link>
+        .
       </p>
 
       {accounts.length === 0 ? (
@@ -146,8 +126,8 @@ export default function FinanceSettingsBanksSection({
               <button type="button" className="finance-settings-bank-card__main" onClick={() => openEdit(idx)}>
                 <span className="finance-settings-bank-card__title-row">
                   <span className="finance-settings-bank-card__title">{bankCardLabel(acc)}</span>
-                  {hasCustomAcquirerFees(acc) ? (
-                    <span className="finance-settings-bank-card__badge">Taxas próprias</span>
+                  {acc.feeReceiverId && acc.feeReceiverId !== defaultReceiverId ? (
+                    <span className="finance-settings-bank-card__badge">Recebedor próprio</span>
                   ) : null}
                 </span>
                 <span className="finance-settings-bank-card__sub text-small text-muted">{bankCardSub(acc)}</span>
@@ -317,63 +297,24 @@ export default function FinanceSettingsBanksSection({
             </p>
           </div>
 
-          <div className="finance-bank-fees-panel card">
-            <button
-              type="button"
-              className="finance-bank-fees-panel__header"
-              aria-expanded={feesPanelOpen}
-              aria-controls="bank-draft-fees-body"
-              onClick={() => setFeesPanelOpen((v) => !v)}
+          <div className="form-group finance-bank-fees-panel">
+            <label htmlFor="bank-draft-receiver">Recebedor de taxas</label>
+            <select
+              id="bank-draft-receiver"
+              className="form-input"
+              value={draft.feeReceiverId || ''}
+              onChange={(e) => patchDraft({ feeReceiverId: e.target.value })}
             >
-              <span className="finance-bank-fees-panel__icon" aria-hidden>
-                <CreditCard size={18} />
-              </span>
-              <span className="finance-bank-fees-panel__titles">
-                <span className="finance-bank-fees-panel__title">Taxas desta conta / maquininha</span>
-                <span className="text-small text-muted finance-bank-fees-panel__lead">
-                  {FINANCE_TERM_HINTS.maquininhaPorConta}
-                </span>
-              </span>
-              <span className="finance-bank-fees-panel__chevron" aria-hidden>
-                {feesPanelOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </span>
-            </button>
-
-            {feesPanelOpen ? (
-              <div id="bank-draft-fees-body" className="finance-bank-fees-panel__body">
-                <label className="finance-bank-fees-toggle">
-                  <input
-                    type="checkbox"
-                    className="finance-bank-fees-toggle__input"
-                    checked={usesDefaultFees}
-                    onChange={(e) => toggleDefaultFees(e.target.checked)}
-                  />
-                  <span className="finance-bank-fees-toggle__track" aria-hidden />
-                  <span className="finance-bank-fees-toggle__label">Usar as taxas padrão da academia</span>
-                </label>
-
-                {!usesDefaultFees ? (
-                  <FinanceSettingsAcquirerFeesFields
-                    fees={draft.acquirerFees}
-                    onChange={(updater) =>
-                      patchDraft({
-                        acquirerFees: updater(
-                          normalizeAcquirerFees(draft.acquirerFees || defaultAcquirerFees())
-                        ),
-                      })
-                    }
-                    idPrefix="bank-draft-acquirer"
-                    showSummary
-                    showAnticipation
-                    compact
-                  />
-                ) : (
-                  <p className="text-small text-muted finance-bank-fees-panel__default-note">
-                    As taxas em Minha Academia → Taxas serão usadas para pagamentos nesta conta.
-                  </p>
-                )}
-              </div>
-            ) : null}
+              <option value="">Recebedor padrão da academia</option>
+              {receiverOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-small text-muted">
+              Vincula esta conta ao recebedor cujas taxas serão usadas nos pagamentos.
+            </p>
           </div>
         </div>
       </ModalShell>

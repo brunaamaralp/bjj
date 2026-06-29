@@ -13,6 +13,7 @@ import {
   whenPaymentMethodChangesWithCapture,
 } from '../../lib/captureMethodPaymentForm.js';
 import CaptureMethodSelect from './CaptureMethodSelect.jsx';
+import CardBrandSelect from './CardBrandSelect.jsx';
 import {
   normalizeMensalidadesPaymentMethod,
   validateMensalidadesPaymentForm,
@@ -51,6 +52,8 @@ export default function BankReconRegisterPaymentModal({
     amount: '',
     capture_method_id: '',
     capture_method_name: '',
+    fee_receiver_id: '',
+    card_brand: '',
   });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -98,6 +101,8 @@ export default function BankReconRegisterPaymentModal({
       status: 'paid',
       installments: 1,
       capture_method_id: form.capture_method_id,
+      card_brand: form.card_brand,
+      fee_receiver_id: form.fee_receiver_id,
     }),
     [form]
   );
@@ -132,6 +137,7 @@ export default function BankReconRegisterPaymentModal({
         method: normalizeMensalidadesPaymentMethod(form.method),
         bank_account_id: paymentAccount,
         ...resolveCaptureFieldsForPayment(financeConfig, form.method, form.capture_method_id),
+        ...(form.card_brand ? { card_brand: String(form.card_brand).trim() } : {}),
       });
       notifyPaymentSettlementAfterCreate(
         { status: result?.payment?.status },
@@ -261,10 +267,24 @@ export default function BankReconRegisterPaymentModal({
               financeConfig={financeConfig}
               value={form.account}
               disabled={isBusy}
-              onChange={(account) => setForm((f) => ({ ...f, account }))}
+              onChange={(account) => setForm((f) => ({ ...f, account, card_brand: '' }))}
             />
             {errors.account ? <FieldError message={errors.account} /> : null}
           </div>
+
+          <CardBrandSelect
+            financeConfig={financeConfig}
+            method={form.method}
+            installments={1}
+            captureMethodId={form.capture_method_id}
+            feeReceiverId={form.fee_receiver_id}
+            bankAccount={form.account}
+            value={form.card_brand}
+            id="bank-recon-reg-card-brand"
+            disabled={isBusy}
+            error={errors.card_brand}
+            onChange={(brand) => setForm((f) => ({ ...f, card_brand: brand }))}
+          />
 
           {fallbackPath ? (
             <p className="text-xs text-muted mt-3 mb-0">

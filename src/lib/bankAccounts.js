@@ -56,12 +56,18 @@ export function normalizeBankAccountEntry(raw) {
     openingBalanceDate: parseOpeningBalanceDate(acc.openingBalanceDate),
   };
   if (usesDefaultAcquirerFees(acc)) {
-    return { ...base, useDefaultAcquirerFees: true };
+    const feeReceiverId = String(acc.feeReceiverId || '').trim();
+    return feeReceiverId
+      ? { ...base, useDefaultAcquirerFees: true, feeReceiverId }
+      : { ...base, useDefaultAcquirerFees: true };
   }
   return {
     ...base,
     useDefaultAcquirerFees: false,
     acquirerFees: normalizeAcquirerFees(acc.acquirerFees || defaultAcquirerFees()),
+    ...(String(acc.feeReceiverId || '').trim()
+      ? { feeReceiverId: String(acc.feeReceiverId).trim() }
+      : {}),
   };
 }
 

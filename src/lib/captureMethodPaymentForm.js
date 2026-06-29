@@ -8,6 +8,9 @@ import {
   resolveBankAccountForCaptureMethod,
 } from './captureMethods.js';
 import { accountWhenPaymentMethodChanges } from './paymentMethodBankDefaults.js';
+import { normalizeCardBrand } from './cardBrands.js';
+import { requiresCardBrandForPayment } from './resolveFeeReceiver.js';
+import { resolveFeeReceiverForPayment } from './resolveFeeReceiver.js';
 
 const CARD_METHODS = new Set(['cartao_credito', 'cartao_debito']);
 
@@ -37,17 +40,18 @@ export function resolveCaptureFieldsForPayment(financeConfig, method, captureMet
   return {
     capture_method_id: id,
     capture_method_name: cap?.name || '',
+    fee_receiver_id: String(cap?.feeReceiverId || '').trim(),
   };
 }
 
 export function whenPaymentMethodChangesWithCapture(financeConfig, method) {
-  const { capture_method_id, capture_method_name } = resolveCaptureFieldsForPayment(
+  const { capture_method_id, capture_method_name, fee_receiver_id } = resolveCaptureFieldsForPayment(
     financeConfig,
     method
   );
   const capAccount = resolveBankAccountForCaptureMethod(financeConfig, capture_method_id);
   const account = capAccount || accountWhenPaymentMethodChanges(financeConfig, method) || '';
-  return { capture_method_id, capture_method_name, account };
+  return { capture_method_id, capture_method_name, fee_receiver_id, account, card_brand: '' };
 }
 
 export function whenCaptureMethodChanges(financeConfig, captureMethodId, method) {
@@ -57,6 +61,8 @@ export function whenCaptureMethodChanges(financeConfig, captureMethodId, method)
   return {
     capture_method_id: id,
     capture_method_name: cap?.name || '',
+    fee_receiver_id: String(cap?.feeReceiverId || '').trim(),
+    card_brand: '',
     ...(capAccount ? { account: capAccount } : {}),
   };
 }
@@ -69,4 +75,40 @@ export function validateCaptureMethodForSubmit(financeConfig, method, captureMet
     return 'Selecione por qual meio o pagamento foi recebido.';
   }
   return null;
+}
+
+export function validateCardBrandForSubmit(
+  financeConfig,
+  { method, installments = 1, cardBrand = '', captureMethodId = '', feeReceiverId = '', bankAccount = '' } = {}
+) {
+  if (!isCardPaymentMethod(method)) return null;
+  if (
+    !requiresCardBrandForPayment(financeConfig, {
+      method,
+      installments,
+      captureMethodId,
+      feeReceiverId,
+      bankAccount,
+    })
+  ) {
+    return null;
+  }
+  const brand = normalizeCardBrand(cardBrand);
+  if (brand === 'default') {
+    return 'Selecione a bandeira do cartão.';
+  }
+  return null;
+}
+
+export function resolveFeeReceiverIdForPayment(
+  financeConfig,
+  { captureMethodId = '', feeReceiverId = '', bankAccount = '', method = '' } = {}
+) {
+  const receiver = resolveFeeReceiverForPayment(financeConfig, {
+    feeReceiverId,
+    captureMethodId,
+    bankAccount,
+    method,
+  });
+  return receiver?.id || '';
 }

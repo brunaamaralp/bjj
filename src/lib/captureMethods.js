@@ -47,6 +47,7 @@ export function defaultCaptureMethod(paymentMethod = 'cartao_credito') {
     maxInstallments: key === 'cartao_debito' ? 1 : 12,
     active: true,
     useDefaultFees: true,
+    feeReceiverId: '',
     fees: emptyCaptureMethodFees(),
   };
 }
@@ -105,6 +106,7 @@ export function normalizeCaptureMethod(raw) {
     active: raw.active !== false,
     useDefaultFees: raw.useDefaultFees !== false,
     fees,
+    feeReceiverId: String(raw.feeReceiverId || '').trim(),
     ...(integration ? { integration } : {}),
   };
 }

@@ -12,7 +12,7 @@ import {
   parseCashReceivedAmount,
   defaultTrocoAccount,
 } from './studentPaymentTroco.js';
-import { validateCaptureMethodForSubmit } from './captureMethodPaymentForm.js';
+import { validateCaptureMethodForSubmit, validateCardBrandForSubmit } from './captureMethodPaymentForm.js';
 
 // Backwards-compatible re-export:
 // `MensalidadesPanel.jsx` (and older code) expects this symbol from this module.
@@ -49,6 +49,7 @@ export const MENSALIDADES_PAY_FIELD_IDS = {
   trocoAccount: 'mensal-pay-troco-account',
   account: 'mensal-pay-account',
   capture_method_id: 'mensal-pay-capture-method',
+  card_brand: 'mensal-pay-card-brand',
 };
 
 const MENSALIDADES_ERROR_FOCUS_ORDER = [
@@ -60,6 +61,7 @@ const MENSALIDADES_ERROR_FOCUS_ORDER = [
   'trocoAccount',
   'account',
   'capture_method_id',
+  'card_brand',
 ];
 
 /** Valor informado no formulário — sem ajuste automático pelo preço do plano. */
@@ -140,6 +142,16 @@ export function validateMensalidadesPaymentForm({
     payForm?.capture_method_id
   );
   if (captureErr) errors.capture_method_id = captureErr;
+
+  const brandErr = validateCardBrandForSubmit(financeConfig, {
+    method: payForm?.method,
+    installments: payForm?.installments,
+    captureMethodId: payForm?.capture_method_id,
+    feeReceiverId: payForm?.fee_receiver_id,
+    bankAccount: payForm?.account,
+    cardBrand: payForm?.card_brand,
+  });
+  if (brandErr) errors.card_brand = brandErr;
 
   return {
     errors,

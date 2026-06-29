@@ -15,9 +15,11 @@ import {
   whenCaptureMethodChanges,
   whenPaymentMethodChangesWithCapture,
   validateCaptureMethodForSubmit,
+  validateCardBrandForSubmit,
 } from '../../lib/captureMethodPaymentForm.js';
 import { findCaptureMethodById } from '../../lib/captureMethods.js';
 import CaptureMethodSelect from '../finance/CaptureMethodSelect.jsx';
+import CardBrandSelect from '../finance/CardBrandSelect.jsx';
 
 function rebalanceFirstRow(rows, totalCents) {
   if (rows.length < 2) return rows;
@@ -163,6 +165,7 @@ export default function SalesPaymentBlock({
           const formaKey = `forma-${idx}`;
           const valorKey = `valor-${idx}`;
           const captureKey = `capture-${idx}`;
+          const brandKey = `brand-${idx}`;
           const formaMissing = !String(row.forma || '').trim();
           const valorMissing = total > 0 && valorCents <= 0;
           const captureError = validateCaptureMethodForSubmit(
@@ -170,9 +173,18 @@ export default function SalesPaymentBlock({
             row.forma,
             row.capture_method_id
           );
+          const brandError = validateCardBrandForSubmit(financeConfig, {
+            method: row.forma,
+            installments,
+            captureMethodId: row.capture_method_id,
+            feeReceiverId: row.fee_receiver_id,
+            bankAccount: row.conta,
+            cardBrand: row.card_brand,
+          });
           const showFormaError = inlineValidate && touched[formaKey] && formaMissing;
           const showValorError = inlineValidate && touched[valorKey] && valorMissing;
           const showCaptureError = inlineValidate && touched[captureKey] && captureError;
+          const showBrandError = inlineValidate && touched[brandKey] && brandError;
 
           return (
             <div key={row.id} className="sales-payment-row card">
@@ -197,6 +209,8 @@ export default function SalesPaymentBlock({
                     } else {
                       patch.capture_method_id = patch.capture_method_id || '';
                       patch.capture_method_name = patch.capture_method_name || '';
+                      patch.fee_receiver_id = patch.fee_receiver_id || '';
+                      patch.card_brand = '';
                     }
                     patch.installments =
                       forma === 'cartao_credito'
@@ -296,6 +310,7 @@ export default function SalesPaymentBlock({
                               maxInstallments,
                               Math.max(1, Number(e.target.value) || 1)
                             ),
+                            card_brand: '',
                           })
                         }
                       >
@@ -307,6 +322,23 @@ export default function SalesPaymentBlock({
                       </select>
                     </div>
                   ) : null}
+
+                  <CardBrandSelect
+                    financeConfig={financeConfig}
+                    method={row.forma}
+                    installments={installments}
+                    captureMethodId={row.capture_method_id}
+                    feeReceiverId={row.fee_receiver_id}
+                    bankAccount={row.conta}
+                    value={row.card_brand}
+                    id={`sale-brand-${idx}`}
+                    className="form-input"
+                    variant="compact"
+                    disabled={disabled}
+                    error={showBrandError ? brandError : ''}
+                    onBlur={() => inlineValidate && markTouched(brandKey)}
+                    onChange={(brand) => updateRow(idx, { card_brand: brand })}
+                  />
                 </div>
               ) : null}
 

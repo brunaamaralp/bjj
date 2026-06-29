@@ -5652,3 +5652,139 @@
 .capture-method-fee-matrix__installment-label {
   font-weight: 600;
 }
+
+/* —— Recebedores de taxas (Taxas e recebedores) —— */
+.finance-fee-receivers {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.finance-fee-receivers__default {
+  padding: 1rem 1.125rem;
+}
+
+.finance-fee-receivers__default-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.finance-fee-receivers__default-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.finance-fee-receivers__default-name {
+  font-weight: 600;
+  margin: 0.15rem 0 0.25rem;
+}
+
+.finance-fee-receivers__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.finance-fee-receivers__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+}
+
+.finance-fee-receivers__item-name {
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+}
+
+.finance-fee-receivers__item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.finance-fee-receivers__badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(148, 163, 184, 0.12));
+  color: var(--text-muted, #64748b);
+}
+
+.finance-fee-receiver-modal__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.fee-receiver-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.fee-receiver-matrix__intro {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.fee-receiver-matrix__brand-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fee-receiver-matrix__table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-subtle, var(--border-light));
+  border-radius: 10px;
+}
+
+.fee-receiver-matrix__table {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.fee-receiver-matrix__table th,
+.fee-receiver-matrix__table td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--border-subtle, var(--border-light));
+  vertical-align: middle;
+}
+
+.fee-receiver-matrix__table thead th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted, #64748b);
+  background: var(--surface-2, rgba(148, 163, 184, 0.06));
+}
+
+.fee-receiver-matrix__table tbody th[scope='row'] {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.fee-receiver-matrix__copy {
+  align-self: flex-start;
+  margin-top: -0.35rem;
+}
+
+.fee-receiver-matrix__parcel-block {
+  padding-top: 0.25rem;
+  border-top: 1px dashed var(--border-subtle, var(--border-light));
+}
+
+.card-brand-select__hint {
+  margin: 0.35rem 0 0;
+}

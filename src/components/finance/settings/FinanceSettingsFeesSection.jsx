@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { INSTALLMENT_COUNTS, installmentSummary } from '../../../hooks/useFinanceConfigState.js';
 import StatusBanner from '../../shared/StatusBanner.jsx';
 import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
-import FinanceSettingsAcquirerFeesSection from './FinanceSettingsAcquirerFeesSection.jsx';
+import FinanceSettingsFeeReceiversSection from './FinanceSettingsFeeReceiversSection.jsx';
 
 export default function FinanceSettingsFeesSection({ financeConfig, setFinanceConfig }) {
   const [installmentsExpanded, setInstallmentsExpanded] = useState(false);
@@ -135,7 +135,7 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
         Ver lançamentos →
       </Link>
 
-      <FinanceSettingsAcquirerFeesSection
+      <FinanceSettingsFeeReceiversSection
         financeConfig={financeConfig}
         setFinanceConfig={setFinanceConfig}
       />

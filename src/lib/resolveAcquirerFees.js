@@ -19,6 +19,11 @@ import {
   findCaptureMethodById,
   resolveCaptureInstallmentFee,
 } from './captureMethods.js';
+import { readFeeReceivers } from './feeReceivers.js';
+import {
+  computeFeeReceiverFeeForPayment,
+  resolveLegacyAcquirerFeesForPayment,
+} from './resolveFeeReceiver.js';
 
 /** @param {object|null|undefined} financeConfig */
 export function findBankAccountByLabel(financeConfig, label) {
@@ -72,8 +77,18 @@ export function resolveAcquirerFeesForCaptureMethod(financeConfig, captureMethod
  */
 export function resolveAcquirerFeesForPayment(
   financeConfig,
-  { bankAccount = '', method = '', captureMethodId = '' } = {}
+  { bankAccount = '', method = '', captureMethodId = '', cardBrand = '', feeReceiverId = '' } = {}
 ) {
+  if (readFeeReceivers(financeConfig).length > 0 || financeConfig?.feeReceiversMigrated) {
+    return resolveLegacyAcquirerFeesForPayment(financeConfig, {
+      bankAccount,
+      method,
+      captureMethodId,
+      cardBrand,
+      feeReceiverId,
+    });
+  }
+
   const capId = String(captureMethodId || '').trim();
   if (capId) return resolveAcquirerFeesForCaptureMethod(financeConfig, capId);
 
@@ -88,11 +103,28 @@ export function computeAcquirerFeeForPayment({
   financeConfig,
   bankAccount = '',
   captureMethodId = '',
+  feeReceiverId = '',
+  cardBrand = '',
   gross,
   planBase,
   method,
   installments = 1,
 }) {
+  if (readFeeReceivers(financeConfig).length > 0 || financeConfig?.feeReceiversMigrated) {
+    return computeFeeReceiverFeeForPayment({
+      financeConfig,
+      bankAccount,
+      captureMethodId,
+      feeReceiverId,
+      cardBrand,
+      gross,
+      planBase,
+      policy: financeConfig?.acquirerFeePolicy,
+      method,
+      installments,
+    });
+  }
+
   const capId = String(captureMethodId || '').trim();
   const cap = capId ? findCaptureMethodById(financeConfig, capId) : null;
   if (cap && cap.useDefaultFees === false) {
@@ -124,6 +156,8 @@ export function mirrorAmountsForPaymentWithAccount({
   financeConfig,
   bankAccount = '',
   captureMethodId = '',
+  feeReceiverId = '',
+  cardBrand = '',
   gross,
   planBase,
   policy,
@@ -134,6 +168,8 @@ export function mirrorAmountsForPaymentWithAccount({
     financeConfig,
     bankAccount,
     captureMethodId,
+    feeReceiverId,
+    cardBrand,
     gross,
     planBase,
     method,
@@ -150,12 +186,16 @@ export function forecastInflowAmounts(
   financeConfig,
   planBase,
   bankAccount = '',
-  captureMethodId = ''
+  captureMethodId = '',
+  feeReceiverId = '',
+  cardBrand = ''
 ) {
   const acquirerFees = resolveAcquirerFeesForPayment(financeConfig, {
     bankAccount,
     method,
     captureMethodId,
+    feeReceiverId,
+    cardBrand,
   });
   return forecastInflowAmountsFromFees(
     gross,

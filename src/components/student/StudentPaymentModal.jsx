@@ -25,6 +25,7 @@ import {
   whenPaymentMethodChangesWithCapture,
 } from '../../lib/captureMethodPaymentForm.js';
 import CaptureMethodSelect from '../finance/CaptureMethodSelect.jsx';
+import CardBrandSelect from '../finance/CardBrandSelect.jsx';
 import { orderedActiveStorageDialectMethodsForModal } from '../../lib/paymentMethodSettings.js';
 import { formatBRLFromCents, numberToCents, parseMaskToCents, centsToNumber } from '../../lib/moneyBr';
 import CashTrocoFields from '../finance/CashTrocoFields.jsx';
@@ -64,6 +65,8 @@ export function paymentFormFromDoc(payment, student, financeConfig = null) {
     due_date: dueSlice,
     capture_method_id: payment.capture_method_id || base.capture_method_id,
     capture_method_name: payment.capture_method_name || base.capture_method_name,
+    fee_receiver_id: payment.fee_receiver_id || base.fee_receiver_id,
+    card_brand: payment.card_brand || base.card_brand,
     plan_name: payment.plan_name || base.plan_name,
     note: payment.note || '',
   };
@@ -96,6 +99,8 @@ export function buildDefaultPayForm(student, financeConfig = null) {
     note: '',
     capture_method_id: '',
     capture_method_name: '',
+    fee_receiver_id: '',
+    card_brand: '',
     cash_received: '',
     formaTroco: 'pix',
     trocoAccount: '',
@@ -586,6 +591,34 @@ export default function StudentPaymentModal({
                 }
               />
 
+              <BankAccountSelect
+                id={STUDENT_PAY_FIELD_IDS.account}
+                academyId={academyId}
+                financeConfig={effectiveFinanceConfig}
+                value={payForm.account}
+                onChange={(v) => setPayForm((p) => ({ ...p, account: v, card_brand: '' }))}
+                label="Conta"
+                required
+                className="form-input"
+                style={{ width: '100%' }}
+              />
+              <FieldError id="student-pay-account-error">{payFieldErrors.account}</FieldError>
+
+              <CardBrandSelect
+                financeConfig={effectiveFinanceConfig}
+                method={payForm.method}
+                installments={payForm.installments}
+                captureMethodId={payForm.capture_method_id}
+                feeReceiverId={payForm.fee_receiver_id}
+                bankAccount={payForm.account}
+                value={payForm.card_brand}
+                id={STUDENT_PAY_FIELD_IDS.card_brand}
+                style={{ ...inputStyle, width: '100%' }}
+                disabled={saving}
+                error={payFieldErrors?.card_brand}
+                onChange={(brand) => setPayForm((p) => ({ ...p, card_brand: brand }))}
+              />
+
               {showPaidDate && isCashPaymentMethod(payForm.method) ? (
                 <>
                   <CashTrocoFields
@@ -608,19 +641,6 @@ export default function StudentPaymentModal({
                   </FieldError>
                 </>
               ) : null}
-
-              <BankAccountSelect
-                id={STUDENT_PAY_FIELD_IDS.account}
-                academyId={academyId}
-                financeConfig={effectiveFinanceConfig}
-                value={payForm.account}
-                onChange={(v) => setPayForm((p) => ({ ...p, account: v }))}
-                label="Conta"
-                required
-                className="form-input"
-                style={{ width: '100%' }}
-              />
-              <FieldError id="student-pay-account-error">{payFieldErrors.account}</FieldError>
 
               {showPlanFields ? (
                 <div className="form-group">

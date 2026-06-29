@@ -2,7 +2,7 @@ import { paymentLabel } from './salesSettings.js';
 import { formatBRL } from './moneyBr.js';
 import { canonicalPaymentMethodKeyFromInput, PAYMENT_METHODS } from './paymentMethods.js';
 import { listActivePaymentMethods } from './paymentMethodSettings.js';
-import { validateCaptureMethodForSubmit } from './captureMethodPaymentForm.js';
+import { validateCaptureMethodForSubmit, validateCardBrandForSubmit } from './captureMethodPaymentForm.js';
 
 export const MAX_SALE_PAYMENTS = 3;
 
@@ -68,6 +68,8 @@ export function parsePagamentosJson(raw) {
         troco: roundMoney(p?.troco || 0),
         forma_troco: p?.forma_troco ? normalizePaymentForma(p.forma_troco) : '',
         capture_method_id: p?.capture_method_id ? String(p.capture_method_id) : '',
+        fee_receiver_id: p?.fee_receiver_id ? String(p.fee_receiver_id) : '',
+        card_brand: p?.card_brand ? String(p.card_brand) : '',
         installments: normalizePaymentInstallments(p?.forma, p?.installments),
       }))
       .filter((p) => p.forma && Number.isFinite(p.valor) && p.valor >= 0);
@@ -138,6 +140,9 @@ export function createEmptyPaymentRow(totalCents = 0) {
     recebidoCents: cents,
     formaTroco: 'pix',
     installments: 1,
+    capture_method_id: '',
+    fee_receiver_id: '',
+    card_brand: '',
   };
 }
 
@@ -155,6 +160,10 @@ export function serializePagamentosForApi(rows) {
     }
     const captureId = String(r.capture_method_id || '').trim();
     if (captureId) out.capture_method_id = captureId;
+    const feeReceiverId = String(r.fee_receiver_id || '').trim();
+    if (feeReceiverId) out.fee_receiver_id = feeReceiverId;
+    const cardBrand = String(r.card_brand || '').trim();
+    if (cardBrand) out.card_brand = cardBrand;
     out.installments = normalizePaymentInstallments(forma, r.installments);
     return out;
   });
@@ -179,6 +188,10 @@ export function normalizePagamentosInput(list) {
       }
       const captureId = String(p?.capture_method_id || '').trim();
       if (captureId) out.capture_method_id = captureId;
+      const feeReceiverId = String(p?.fee_receiver_id || '').trim();
+      if (feeReceiverId) out.fee_receiver_id = feeReceiverId;
+      const cardBrand = String(p?.card_brand || '').trim();
+      if (cardBrand) out.card_brand = cardBrand;
       return out;
     })
     .filter(Boolean)
@@ -270,6 +283,17 @@ export function paymentsUiValid(rows, totalCents, opts = {}) {
       );
       if (captureMsg) {
         return { ok: false, reason: 'capture_method', index: i, message: captureMsg };
+      }
+      const brandMsg = validateCardBrandForSubmit(opts.financeConfig, {
+        method: r.forma,
+        installments: r.installments,
+        captureMethodId: r.capture_method_id,
+        feeReceiverId: r.fee_receiver_id,
+        bankAccount: r.conta,
+        cardBrand: r.card_brand,
+      });
+      if (brandMsg) {
+        return { ok: false, reason: 'card_brand', index: i, message: brandMsg };
       }
     }
   }

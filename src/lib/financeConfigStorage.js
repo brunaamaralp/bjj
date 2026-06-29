@@ -24,6 +24,8 @@ import { normalizeAcquirerFees, normalizeAcquirerFeePolicy } from './acquirerFee
 import { normalizeEnrollmentDiscountPresets } from './enrollmentDiscountPresets.js';
 import { normalizePaymentMethodSettings } from './paymentMethodSettings.js';
 import { readCaptureMethods } from './captureMethods.js';
+import { readFeeReceivers } from './feeReceivers.js';
+import { migrateFinanceConfigToFeeReceivers } from './migrateFeeReceivers.js';
 
 /** Limite legado do atributo financeConfig (string) no Appwrite. */
 export const FINANCE_CONFIG_LEGACY_MAX_CHARS = 2500;
@@ -271,9 +273,19 @@ export function compactFinanceConfigForStorage(mergedCfg) {
   const base = mergedCfg && typeof mergedCfg === 'object' ? { ...mergedCfg } : {};
   const plans = (base.plans || []).map(compactPlanForStorage).filter(Boolean);
   const captureMethods = readCaptureMethods(base);
+  const feeReceivers = readFeeReceivers(base);
   const out = { ...base, plans };
   if (captureMethods.length) out.captureMethods = captureMethods;
   else delete out.captureMethods;
+  if (feeReceivers.length) {
+    out.feeReceivers = feeReceivers;
+    out.feeReceiversMigrated = true;
+    if (base.defaultFeeReceiverId) out.defaultFeeReceiverId = base.defaultFeeReceiverId;
+  } else {
+    delete out.feeReceivers;
+    delete out.defaultFeeReceiverId;
+    delete out.feeReceiversMigrated;
+  }
   return out;
 }
 
@@ -329,6 +341,8 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
     ...merged,
     enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(merged.enrollmentDiscountPresets),
   };
+
+  merged = migrateFinanceConfigToFeeReceivers(merged);
 
   return merged;
 }

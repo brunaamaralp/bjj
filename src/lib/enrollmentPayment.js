@@ -4,6 +4,7 @@ import { pickInitialBankAccountForPayment } from './paymentMethodBankDefaults.js
 import {
   resolveCaptureFieldsForPayment,
   validateCaptureMethodForSubmit,
+  validateCardBrandForSubmit,
   whenPaymentMethodChangesWithCapture,
 } from './captureMethodPaymentForm.js';
 import { centsToNumber, parseMaskToCents } from './moneyBr.js';
@@ -61,6 +62,9 @@ export function buildPayFormForEnrollment(lead, financeConfig, enrollmentDateYmd
     cash_received: '',
     formaTroco: 'pix',
     trocoAccount: '',
+    installments: 1,
+    card_brand: '',
+    fee_receiver_id: '',
   };
 }
 
@@ -107,6 +111,15 @@ export async function registerEnrollmentPayment({
     payForm.capture_method_id
   );
   if (captureErr) throw new Error(captureErr);
+  const brandErr = validateCardBrandForSubmit(financeConfig, {
+    method: payForm.method,
+    installments: payForm.installments,
+    captureMethodId: payForm.capture_method_id,
+    feeReceiverId: payForm.fee_receiver_id,
+    bankAccount: payForm.account,
+    cardBrand: payForm.card_brand,
+  });
+  if (brandErr) throw new Error(brandErr);
   const paymentAccount = accountCheck.account || payForm.account || '';
 
   const paidAtIso =
@@ -135,6 +148,7 @@ export async function registerEnrollmentPayment({
     note: String(payForm.note || '').trim(),
     ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
     ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
+    ...(payForm.card_brand ? { card_brand: String(payForm.card_brand).trim() } : {}),
   };
 
   if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

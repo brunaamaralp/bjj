@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { listBankAccountLabels } from '../../../lib/bankAccounts.js';
 import {
@@ -7,8 +8,9 @@ import {
   patchCaptureMethodsList,
   readCaptureMethods,
 } from '../../../lib/captureMethods.js';
+import { listFeeReceiverOptions } from '../../../lib/feeReceivers.js';
+import { FINANCE_SETTINGS_SECTIONS } from '../../../lib/financeSettingsSections.js';
 import ConfirmDialog from '../../shared/ConfirmDialog.jsx';
-import CaptureMethodFeeMatrix from './CaptureMethodFeeMatrix.jsx';
 
 function patchCapture(setFinanceConfig, updater) {
   setFinanceConfig((prev) => {
@@ -24,13 +26,18 @@ export default function FinanceSettingsCaptureMethodPanel({
 }) {
   const [removeTarget, setRemoveTarget] = useState(null);
   const accountLabels = listBankAccountLabels(financeConfig);
+  const receiverOptions = listFeeReceiverOptions(financeConfig);
+  const defaultReceiverId = String(financeConfig?.defaultFeeReceiverId || '').trim();
   const methods = useMemo(
     () => readCaptureMethods(financeConfig).filter((c) => c.paymentMethod === paymentMethod),
     [financeConfig, paymentMethod]
   );
 
   const addMethod = () => {
-    patchCapture(setFinanceConfig, (list) => [...list, defaultCaptureMethod(paymentMethod)]);
+    patchCapture(setFinanceConfig, (list) => [
+      ...list,
+      defaultCaptureMethod(paymentMethod),
+    ]);
   };
 
   const updateMethod = (id, patch) => {
@@ -53,8 +60,14 @@ export default function FinanceSettingsCaptureMethodPanel({
         <div>
           <h4 className="finance-settings-subtitle">{title}</h4>
           <p className="text-small text-muted finance-settings-hint">
-            Maquininhas, links ou integrações usadas nesta forma. Taxas e prazos por meio têm
-            prioridade sobre a conta e as taxas globais.
+            Maquininhas, links ou integrações usadas nesta forma. Configure taxas em{' '}
+            <Link
+              to={`/empresa?tab=financeiro&section=${FINANCE_SETTINGS_SECTIONS.TAXAS}`}
+              className="finance-config-context-link"
+            >
+              Taxas e recebedores
+            </Link>{' '}
+            e vincule o recebedor abaixo.
           </p>
         </div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={addMethod}>
@@ -65,14 +78,14 @@ export default function FinanceSettingsCaptureMethodPanel({
 
       {methods.length === 0 ? (
         <p className="text-small text-muted finance-capture-methods__empty">
-          Nenhum meio cadastrado — o sistema usa as taxas da conta ou globais (comportamento
-          atual).
+          Nenhum meio cadastrado — o sistema usa o recebedor da conta ou o padrão da academia.
         </p>
       ) : null}
 
       {methods.map((cap) => {
         const unnamedActive = cap.active !== false && !String(cap.name || '').trim();
-        const customFees = cap.useDefaultFees === false;
+        const customReceiver =
+          cap.feeReceiverId && cap.feeReceiverId !== defaultReceiverId;
         return (
           <div key={cap.id} className="finance-capture-methods__item finance-settings-inset">
             <div className="finance-capture-methods__item-top">
@@ -104,11 +117,11 @@ export default function FinanceSettingsCaptureMethodPanel({
             </div>
 
             <div className="finance-capture-methods__item-toolbar">
-              {customFees ? (
-                <span className="finance-capture-methods__badge">Taxas próprias</span>
+              {customReceiver ? (
+                <span className="finance-capture-methods__badge">Recebedor próprio</span>
               ) : (
                 <span className="finance-capture-methods__badge finance-capture-methods__badge--muted">
-                  Taxas da conta
+                  Recebedor padrão
                 </span>
               )}
               <label className="finance-capture-methods__active">
@@ -157,6 +170,31 @@ export default function FinanceSettingsCaptureMethodPanel({
                   ))}
                 </select>
               </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor={`cap-receiver-${cap.id}`}>
+                  Recebedor de taxas
+                </label>
+                <select
+                  id={`cap-receiver-${cap.id}`}
+                  className="form-input"
+                  value={cap.feeReceiverId || defaultReceiverId || ''}
+                  onChange={(e) => updateMethod(cap.id, { feeReceiverId: e.target.value })}
+                >
+                  {receiverOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-small text-muted mb-0">
+                  <Link
+                    to={`/empresa?tab=financeiro&section=${FINANCE_SETTINGS_SECTIONS.TAXAS}`}
+                    className="finance-config-context-link"
+                  >
+                    Editar taxas deste recebedor
+                  </Link>
+                </p>
+              </div>
               {paymentMethod === 'cartao_credito' ? (
                 <div className="form-group">
                   <label className="form-label" htmlFor={`cap-max-${cap.id}`}>
@@ -178,30 +216,6 @@ export default function FinanceSettingsCaptureMethodPanel({
                 </div>
               ) : null}
             </div>
-
-            <label className="finance-capture-methods__default-fees">
-              <input
-                type="checkbox"
-                checked={cap.useDefaultFees !== false}
-                onChange={(e) => updateMethod(cap.id, { useDefaultFees: e.target.checked })}
-              />
-              <span>Usar taxas da conta / globais (sem matriz própria)</span>
-            </label>
-
-            {cap.useDefaultFees === false ? (
-              <CaptureMethodFeeMatrix
-                fees={cap.fees}
-                paymentMethod={paymentMethod}
-                maxInstallments={cap.maxInstallments}
-                idPrefix={`cap-fee-${cap.id}`}
-                onChange={(fees) => updateMethod(cap.id, { fees })}
-              />
-            ) : (
-              <p className="text-small text-muted finance-capture-methods__default-hint">
-                As taxas serão resolvidas pela conta deste meio ou pelas taxas globais em Taxas de
-                cartão.
-              </p>
-            )}
           </div>
         );
       })}

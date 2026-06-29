@@ -81,6 +81,39 @@ describe('financeSettingsSections', () => {
     expect(summaries[FINANCE_SETTINGS_SECTIONS.TAXAS].summary).toContain('Nenhuma taxa');
   });
 
+  it('buildFinanceSettingsSummaries marks taxas done with fee receiver fees', () => {
+    const summaries = buildFinanceSettingsSummaries({
+      financeConfig: {
+        plans: [],
+        bankAccounts: [],
+        cardFees: { pix: { percent: 0 } },
+        defaultFeeReceiverId: 'recv_1',
+        feeReceivers: [
+          {
+            id: 'recv_1',
+            name: 'PagBank',
+            provider: 'pagbank',
+            active: true,
+            useDefaultFees: false,
+            fees: {
+              pix: { percent: 0, fixed: 0 },
+              debito: { default: { percent: 1.99, fixed: 0 } },
+              credito_avista: { default: { percent: 0, fixed: 0 } },
+              credito_parcelado: {},
+              antecipacao: { percent: 0, fixed: 0 },
+            },
+          },
+        ],
+      },
+      collectionRules: [],
+      accountsCount: 0,
+      isOwner: true,
+    });
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.TAXAS].done).toBe(true);
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.TAXAS].summary).toContain('PagBank');
+    expect(summaries[FINANCE_SETTINGS_SECTIONS.TAXAS].summary).toContain('Déb.');
+  });
+
   it('exceptionLabelsCustomized detects custom labels', () => {
     expect(exceptionLabelsCustomized({})).toBe(false);
     expect(

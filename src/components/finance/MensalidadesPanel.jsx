@@ -69,6 +69,7 @@ import {
   whenPaymentMethodChangesWithCapture,
 } from '../../lib/captureMethodPaymentForm.js';
 import CaptureMethodSelect from './CaptureMethodSelect.jsx';
+import CardBrandSelect from './CardBrandSelect.jsx';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import { useAcademyTurmas } from '../../hooks/useAcademyTurmas.js';
@@ -710,6 +711,7 @@ export default function MensalidadesPanel({
       formaTroco: 'pix',
       trocoAccount: '',
       installments: Math.min(12, Math.max(1, Number(preset.installments) || 1)),
+      card_brand: '',
     });
     setPayFormErrors({});
     setPaymentFormError('');
@@ -840,6 +842,7 @@ export default function MensalidadesPanel({
         account: paymentAccount,
         installments,
         ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
+        ...(payForm.card_brand ? { card_brand: String(payForm.card_brand).trim() } : {}),
         status: 'paid',
         paid_at: paidAtIso,
         due_date: null,
@@ -1822,6 +1825,7 @@ export default function MensalidadesPanel({
                           setPayForm((f) => ({
                             ...f,
                             installments: Number(e.target.value) || 1,
+                            card_brand: '',
                           }))
                         }
                       >
@@ -1881,7 +1885,7 @@ export default function MensalidadesPanel({
                         value={payForm.account}
                         onChange={(v) => {
                           clearPayFieldError('account');
-                          setPayForm((f) => ({ ...f, account: v }));
+                          setPayForm((f) => ({ ...f, account: v, card_brand: '' }));
                         }}
                         label="Conta"
                         required
@@ -1895,6 +1899,21 @@ export default function MensalidadesPanel({
                       <Link to={EMPRESA_FINANCE_ACCOUNTS_PATH}>Configurar agora →</Link>
                     </p>
                   )}
+                  <CardBrandSelect
+                    financeConfig={financeConfig}
+                    method={payForm.method}
+                    installments={normalizeMensalidadesInstallments(payForm.method, payForm.installments)}
+                    captureMethodId={payForm.capture_method_id}
+                    feeReceiverId={payForm.fee_receiver_id}
+                    bankAccount={payForm.account}
+                    value={payForm.card_brand}
+                    id={MENSALIDADES_PAY_FIELD_IDS.card_brand}
+                    className="form-input mensal-modal-in"
+                    labelClassName="mensal-modal-field-label"
+                    disabled={savingPayment}
+                    error={payFormErrors.card_brand}
+                    onChange={(brand) => setPayForm((f) => ({ ...f, card_brand: brand }))}
+                  />
                   <label className="mensal-modal-checkbox-row">
                     <input
                       type="checkbox"
