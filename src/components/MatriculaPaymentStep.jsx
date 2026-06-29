@@ -20,7 +20,7 @@ import { enrollmentPlanPricing } from '../lib/enrollmentPayment.js';
 /**
  * Pagamento opcional pós-matrícula (mensalidade ou pacote).
  */
-export default function MatriculaPaymentStep({
+function MatriculaPaymentStepForm({
   payForm,
   setPayForm,
   financeConfig,
@@ -34,8 +34,6 @@ export default function MatriculaPaymentStep({
   disabled = false,
   paymentError = '',
 }) {
-  if (!payForm) return null;
-
   const isPlan = payForm.payment_type === PAYMENT_CATEGORY.PLAN;
   const isBundle = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
   const showPaidDate = payForm.status === 'paid' || isBundle;
@@ -313,4 +311,9 @@ export default function MatriculaPaymentStep({
       </div>
     </div>
   );
+}
+
+export default function MatriculaPaymentStep(props) {
+  if (!props.payForm) return null;
+  return <MatriculaPaymentStepForm {...props} />;
 }

@@ -20,8 +20,9 @@ import {
   historyStatusForMonth,
   monthKeysBack,
   mapDbStatusFromGridForm,
+  receivedAmountForPayment,
 } from '../../lib/paymentStatus';
-import { dueDateInMonth } from '../../lib/collectionOverdue.js';
+import { dueDateInMonth, studentDueDay } from '../../lib/collectionOverdue.js';
 import {
   buildMensalidadesGridRows,
   filterSortMensalidadesRows,

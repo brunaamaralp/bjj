@@ -90,6 +90,7 @@ import { computeFollowupState, describePlaybookStep, isFollowUpLead } from '../l
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useCanEditProfile } from '../lib/profilePermissions.js';
 import { friendlyError } from '../lib/errorMessages.js';
+import { saveLeadProfileField } from '../lib/profileLeadFieldSave.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import { FOLLOWUP_OUTCOMES } from '../lib/followupOutcomes.js';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
@@ -1105,6 +1106,66 @@ const LeadProfile = () => {
         return { primary, secondary };
     }, [lead, terms.enrollment, openMatriculaModal, handleMatricularClick]);
 
+    const saveLeadFieldInline = useCallback(
+        async (fieldKey, draftValue) => {
+            try {
+                await saveLeadProfileField({
+                    fieldKey,
+                    draftValue,
+                    lead,
+                    leadId: id,
+                    updateLead,
+                    academyId,
+                    actorUserId: userId || 'user',
+                    permissionContext: permCtx,
+                });
+                await refreshTimeline();
+            } catch (e) {
+                throw new Error(friendlyError(e, 'save'));
+            }
+        },
+        [lead, id, updateLead, academyId, userId, permCtx, refreshTimeline]
+    );
+
+    const conversationTabLabel = useMemo(() => {
+        if (waOfflineUi) return 'Conversa (offline)';
+        if (conversationUnreadCount > 0) return `Conversa (${conversationUnreadCount})`;
+        return 'Conversa';
+    }, [waOfflineUi, conversationUnreadCount]);
+
+    const mobilePanelQuickActions = useMemo(() => {
+        if (!lead) return [];
+        const actions = [];
+        if (!lead.scheduledDate && lead.status !== LEAD_STATUS.LOST) {
+            actions.push({
+                key: 'schedule',
+                label: `Agendar ${terms.trialShort}`,
+                icon: Calendar,
+                onClick: () => setScheduleModalOpen(true),
+                disabled: updatingStatus,
+            });
+        }
+        if (nextActionCtas.primary) {
+            actions.push({
+                key: nextActionCtas.primary.key,
+                label: nextActionCtas.primary.label,
+                icon: nextActionCtas.primary.icon,
+                onClick: nextActionCtas.primary.onClick,
+                disabled: updatingStatus,
+            });
+        }
+        for (const cta of nextActionCtas.secondary.slice(0, 2)) {
+            actions.push({
+                key: cta.key,
+                label: cta.label,
+                icon: cta.icon,
+                onClick: cta.onClick,
+                disabled: updatingStatus,
+            });
+        }
+        return actions;
+    }, [lead, terms.trialShort, nextActionCtas, updatingStatus]);
+
     if ((loading || profileResolving) && !lead) {
         return (
             <div className="container lead-profile-loading">
@@ -1264,27 +1325,6 @@ const LeadProfile = () => {
         }
         await executeSaveLead(payload);
     };
-
-    const saveLeadFieldInline = useCallback(
-        async (fieldKey, draftValue) => {
-            try {
-                await saveLeadProfileField({
-                    fieldKey,
-                    draftValue,
-                    lead,
-                    leadId: id,
-                    updateLead,
-                    academyId,
-                    actorUserId: userId || 'user',
-                    permissionContext: permCtx,
-                });
-                await refreshTimeline();
-            } catch (e) {
-                throw new Error(friendlyError(e, 'save'));
-            }
-        },
-        [lead, id, updateLead, academyId, userId, permCtx, refreshTimeline]
-    );
 
     const handleUpdateStatus = async (newStatus) => {
         if (updatingStatus) return;
@@ -1784,45 +1824,6 @@ const LeadProfile = () => {
         </button>
         );
     };
-
-    const conversationTabLabel = useMemo(() => {
-        if (waOfflineUi) return 'Conversa (offline)';
-        if (conversationUnreadCount > 0) return `Conversa (${conversationUnreadCount})`;
-        return 'Conversa';
-    }, [waOfflineUi, conversationUnreadCount]);
-
-    const mobilePanelQuickActions = useMemo(() => {
-        if (!lead) return [];
-        const actions = [];
-        if (!lead.scheduledDate && lead.status !== LEAD_STATUS.LOST) {
-            actions.push({
-                key: 'schedule',
-                label: `Agendar ${terms.trialShort}`,
-                icon: Calendar,
-                onClick: () => setScheduleModalOpen(true),
-                disabled: updatingStatus,
-            });
-        }
-        if (nextActionCtas.primary) {
-            actions.push({
-                key: nextActionCtas.primary.key,
-                label: nextActionCtas.primary.label,
-                icon: nextActionCtas.primary.icon,
-                onClick: nextActionCtas.primary.onClick,
-                disabled: updatingStatus,
-            });
-        }
-        for (const cta of nextActionCtas.secondary.slice(0, 2)) {
-            actions.push({
-                key: cta.key,
-                label: cta.label,
-                icon: cta.icon,
-                onClick: cta.onClick,
-                disabled: updatingStatus,
-            });
-        }
-        return actions;
-    }, [lead, terms.trialShort, nextActionCtas, updatingStatus]);
 
     const heroOperationalStatusLabel = operationalStatusDisplayLabel(terms, lead.status);
     const heroShowOperationalStatusTag =

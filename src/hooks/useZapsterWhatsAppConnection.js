@@ -1129,7 +1129,7 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
       const rehydratePhone = String(options?.phone || '').trim();
       if (rehydratePhone) {
         try {
-          const reJwt = await getJwt();
+          const reJwt = await createSessionJwt();
           const { blocked, res: reResp } = await fetchWithBillingGuard(
             `/api/conversations/${encodeURIComponent(rehydratePhone)}`,
             {
