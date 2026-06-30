@@ -8,11 +8,13 @@ import { isBillingApiLive } from '../lib/server/billingApiEnabled.js';
 import { processAsaasWebhookPayload } from '../lib/billing/webhookHandlers.js';
 import { processAutentiqueWebhook } from '../lib/contracts/autentiqueWebhookHandler.js';
 import { runWebhookJobWithRetry } from '../lib/server/webhookQueue.js';
+import pagbankWebhookHandler from '../lib/server/pagbankWebhookHandler.js';
 
 export const config = {
   api: {
     bodyParser: false,
   },
+  maxDuration: 60,
 };
 
 const RATE_WINDOW_MS = 60_000;
@@ -57,10 +59,11 @@ async function readRawBody(req) {
 
 function webhookProvider(req) {
   const q = String(req.query?.provider || req.query?.route || '').trim().toLowerCase();
-  if (q === 'autentique' || q === 'asaas') return q;
+  if (q === 'autentique' || q === 'asaas' || q === 'pagbank') return q;
   const url = String(req.url || '').toLowerCase();
   if (url.includes('autentique')) return 'autentique';
   if (url.includes('asaas')) return 'asaas';
+  if (url.includes('pagbank')) return 'pagbank';
   return '';
 }
 
@@ -205,10 +208,24 @@ async function handleAutentique(req, res) {
   }
 }
 
+async function handlePagbank(req, res) {
+  let body = req.body;
+  if (!body || typeof body === 'string') {
+    try {
+      const raw = body || (await readRawBody(req)).toString('utf8');
+      body = raw ? JSON.parse(raw) : null;
+    } catch {
+      return res.status(400).json({ error: 'invalid_json' });
+    }
+  }
+  return pagbankWebhookHandler({ ...req, body }, res);
+}
+
 export default async function handler(req, res) {
   const provider = webhookProvider(req);
   if (provider === 'asaas') return handleAsaas(req, res);
   if (provider === 'autentique') return handleAutentique(req, res);
+  if (provider === 'pagbank') return handlePagbank(req, res);
 
   res.statusCode = 404;
   res.setHeader('Content-Type', 'application/json');

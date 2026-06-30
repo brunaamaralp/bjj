@@ -42,6 +42,7 @@
     { "source": "/api/leads/:id(.*)", "destination": "/api/leads.js?id=$1" },
     { "source": "/v1/webhooks/asaas", "destination": "/api/webhooks.js?provider=asaas" },
     { "source": "/api/webhooks/autentique", "destination": "/api/webhooks.js?provider=autentique" },
+    { "source": "/api/pagbank-webhook", "destination": "/api/webhooks.js?provider=pagbank" },
     { "source": "/api/contracts", "destination": "/api/contracts.js" },
     { "source": "/api/contracts/:id", "destination": "/api/contracts.js?id=$1" },
     { "source": "/api/contract-templates/:id(.*)", "destination": "/api/contracts.js?route=templates&id=$1" },
