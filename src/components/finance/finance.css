@@ -2821,6 +2821,22 @@
   background: var(--surface, #fff);
 }
 
+button.mensal-summary-card--static {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+button.mensal-summary-card--static.mensal-summary-card--filter-active {
+  border-color: var(--color-primary, var(--v700, #6c47d8));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #6c47d8) 18%, transparent);
+}
+
+button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hover {
+  border-color: var(--border-secondary, #c8c8d8);
+}
+
 .mensal-summary-metric-card {
   padding: 12px 14px;
 }

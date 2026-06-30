@@ -1,10 +1,13 @@
 import React from 'react';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
-import { formatDueDayLabel, GRID_STATUS_LABELS, HISTORY_BADGE, historyStatusForMonth } from '../../lib/paymentStatus';
+import { formatMensalidadeDueDateBr } from '../../lib/collectionOverdue.js';
+import { GRID_STATUS_LABELS, HISTORY_BADGE, historyStatusForMonth } from '../../lib/paymentStatus';
 import { GridStatusBadgeButton } from './gridStatusBadge.jsx';
 
 export default function MonthlyGridMobileCard({
   row,
+  currentMonth,
+  financeConfig,
   monthHistoryKeys,
   history,
   historyLoading,
@@ -34,7 +37,9 @@ export default function MonthlyGridMobileCard({
             {student.plan || payment?.plan_name || '—'}
             {display.key === 'exempt' ? ' · Isento' : expected > 0 ? ` · ${fmtMoney(expected)}` : ''}
             {' · '}
-            {display.key === 'exempt' ? '—' : formatDueDayLabel(student)}
+            {display.key === 'exempt'
+              ? '—'
+              : formatMensalidadeDueDateBr(student, payment, currentMonth, new Date(), financeConfig)}
           </div>
           {(student.preferredPaymentAccount || payment?.account) ? (
             <div className="mensal-mobile-card__platform text-small text-muted">

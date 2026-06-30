@@ -7,6 +7,13 @@ export function studentTurma(student) {
 }
 
 export const MENSALIDADES_FILTER_ALL = 'all';
+export const MENSALIDADES_FILTER_OPEN = 'open';
+
+/** Status que ainda representam saldo ou cobrança em aberto no mês. */
+export function isMensalidadeOpenStatus(statusKey) {
+  const k = String(statusKey || '').toLowerCase();
+  return !['paid', 'covered', 'exempt', 'frozen'].includes(k);
+}
 
 /** Filtros de prioridade do dia (recepção) — distintos dos status da grade. */
 export const MENSALIDADES_RECEPTION_FILTER_IDS = [
@@ -18,6 +25,7 @@ export const MENSALIDADES_RECEPTION_FILTER_IDS = [
 
 const URL_FILTRO_KEYS = new Set([
   MENSALIDADES_FILTER_ALL,
+  MENSALIDADES_FILTER_OPEN,
   'paid',
   'paid_in_month',
   'covered',
@@ -88,6 +96,10 @@ export function matchesMensalidadesStatusFilter({
     return statusKey === 'paid' || statusKey === 'covered';
   }
 
+  if (f === MENSALIDADES_FILTER_OPEN) {
+    return isMensalidadeOpenStatus(statusKey);
+  }
+
   return statusKey === f;
 }
 
@@ -108,6 +120,7 @@ export function matchesMensalidadesStudentFilters({
 export function buildMensalidadesFilterCounts(students, getStatusKey) {
   const c = {
     all: students.length,
+    open: 0,
     paid: 0,
     covered: 0,
     exempt: 0,
@@ -122,6 +135,7 @@ export function buildMensalidadesFilterCounts(students, getStatusKey) {
   for (const s of students) {
     const st = getStatusKey(s);
     if (Object.prototype.hasOwnProperty.call(c, st)) c[st] += 1;
+    if (isMensalidadeOpenStatus(st)) c.open += 1;
     if (st === 'paid' || st === 'covered') c.paid_in_month += 1;
   }
   return c;

@@ -54,7 +54,7 @@ import {
   resolveCollectionStage,
   readCollectionSettingsFromFinanceConfig,
 } from '../../lib/collectionRules.js';
-import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent } from '../../lib/collectionOverdue.js';
+import { getPaymentRowStatus, getReceptionDueBucket, openAmountForStudent, studentDueDay, dueDateInMonth, resolveMensalidadeDueDate } from '../../lib/collectionOverdue.js';
 import {
   hasConfiguredBankAccounts,
 } from '../../lib/bankAccounts.js';
@@ -139,47 +139,16 @@ function parseYmdLocal(ymd) {
   return Number.isNaN(t.getTime()) ? null : t;
 }
 
-function studentDueDay(student) {
-  const n = Number(student?.dueDay);
-  if (Number.isFinite(n) && n >= 1 && n <= 31) return Math.trunc(n);
-  return null;
-}
-
-function dueDateInMonth(currentMonth, dayOfMonth) {
-  if (!dayOfMonth || !currentMonth) return null;
-  const d = new Date(`${currentMonth}-${String(dayOfMonth).padStart(2, '0')}T12:00:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/** @returns {{ status: 'paid'|'pending'|'soon'|'none', dueDate: Date|null, paidAt: Date|null }} */
+/** @returns {{ status: string, dueDate: Date|null, paidAt: Date|null }} */
 function getRowStatus(student, payment, currentMonth, financeConfig) {
-  if (isStudentOnExemptPlan(student, financeConfig, payment)) {
-    return { status: 'exempt', dueDate: null, paidAt: null };
-  }
-  const today0 = startOfLocalDay(new Date());
-
-  if (payment && payment.status === 'paid') {
-    const paidAt = payment.paid_at ? parseYmdLocal(String(payment.paid_at).slice(0, 10)) : null;
-    return { status: 'paid', dueDate: null, paidAt };
-  }
-
-  if (payment && payment.status === 'pending') {
-    const dueRaw = payment.due_date ? parseYmdLocal(String(payment.due_date).slice(0, 10)) : null;
-    if (dueRaw && startOfLocalDay(dueRaw) < today0) {
-      return { status: 'pending', dueDate: dueRaw, paidAt: null };
-    }
-    return { status: 'soon', dueDate: dueRaw, paidAt: null };
-  }
-
-  const day = studentDueDay(student);
-  const defaultDue = dueDateInMonth(currentMonth, day);
-  if (defaultDue) {
-    const due0 = startOfLocalDay(defaultDue);
-    if (due0 < today0) return { status: 'pending', dueDate: defaultDue, paidAt: null };
-    const daysUntil = Math.ceil((due0 - today0) / 86400000);
-    if (daysUntil >= 0 && daysUntil <= 7) return { status: 'soon', dueDate: defaultDue, paidAt: null };
-  }
-  return { status: 'none', dueDate: defaultDue || null, paidAt: null };
+  const today = new Date();
+  const resolved = resolveGridDisplayStatus(student, payment, currentMonth, today, financeConfig);
+  const row = resolved.row || getPaymentRowStatus(student, payment, currentMonth, today, financeConfig);
+  return {
+    status: resolved.key,
+    dueDate: resolveMensalidadeDueDate(student, payment, currentMonth, today, financeConfig),
+    paidAt: row.paidAt || null,
+  };
 }
 
 function formatDdMm(d) {
@@ -1026,7 +995,7 @@ export default function MensalidadesPanel({
         financeConfig,
         studentOverdueMeta,
       });
-      const count = exportMensalidadesGridCsv(sorted, currentMonth);
+      const count = exportMensalidadesGridCsv(sorted, currentMonth, financeConfig);
       if (count === 0) {
         toast.warning('Nenhum aluno na grade com os filtros atuais.');
       } else {
@@ -1468,6 +1437,7 @@ export default function MensalidadesPanel({
         terms={terms}
         paymentMap={paymentMap}
         currentMonth={currentMonth}
+        financeConfig={financeConfig}
         getRowStatus={(student, payment, month) => getRowStatus(student, payment, month, financeConfig)}
         startOfLocalDay={startOfLocalDay}
         formatDdMm={formatDdMm}
@@ -1504,12 +1474,22 @@ export default function MensalidadesPanel({
                 </div>
                 <div className="mensal-summary-card__label">Recebido</div>
               </div>
-              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--pending">
+              <button
+                type="button"
+                className={[
+                  'mensal-summary-card mensal-summary-card--static mensal-summary-card--pending',
+                  filter === 'open' ? 'mensal-summary-card--filter-active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => setFilter((cur) => (cur === 'open' ? 'all' : 'open'))}
+                aria-pressed={filter === 'open'}
+              >
                 <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
                   {fmtMoney(monthOpenTotal)}
                 </div>
                 <div className="mensal-summary-card__label">Em aberto</div>
-              </div>
+              </button>
             </div>
           </section>
         </details>

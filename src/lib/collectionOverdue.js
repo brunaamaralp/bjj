@@ -134,6 +134,43 @@ export function isOverdueForCollection(student, payment, currentMonth, minDays =
   return row.status === 'pending' && row.daysOverdue >= minDays;
 }
 
+/** Data de vencimento exibível na grade/lista de mensalidades (pagamento → calendário → dia do aluno). */
+export function resolveMensalidadeDueDate(
+  student,
+  payment,
+  currentMonth,
+  today = new Date(),
+  financeConfig = null
+) {
+  if (isStudentOnExemptPlan(student, financeConfig, payment)) return null;
+
+  const paymentDueRaw = payment?.due_date ? String(payment.due_date).slice(0, 10) : '';
+  if (paymentDueRaw) {
+    const paymentDue = parseYmdLocal(paymentDueRaw);
+    if (paymentDue && !Number.isNaN(paymentDue.getTime())) return paymentDue;
+  }
+
+  const row = getPaymentRowStatus(student, payment, currentMonth, today, financeConfig);
+  if (row.dueDate && !Number.isNaN(row.dueDate.getTime())) return row.dueDate;
+
+  const defaultDue = dueDateInMonth(currentMonth, studentDueDay(student));
+  if (defaultDue && !Number.isNaN(defaultDue.getTime())) return defaultDue;
+
+  return null;
+}
+
+export function formatMensalidadeDueDateBr(
+  student,
+  payment,
+  currentMonth,
+  today = new Date(),
+  financeConfig = null
+) {
+  const d = resolveMensalidadeDueDate(student, payment, currentMonth, today, financeConfig);
+  if (!d || Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
 export function openAmountForStudent(student, payment, financeConfig) {
   if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
   const hasExplicitAmount = Object.prototype.hasOwnProperty.call(payment || {}, 'amount');

@@ -18,7 +18,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react';
-import { dueDateInMonth, getPaymentRowStatus, studentDueDay } from '../../lib/collectionOverdue.js';
+import { resolveMensalidadeDueDate } from '../../lib/collectionOverdue.js';
 import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -66,6 +66,7 @@ export default function MensalidadesListTable({
   terms,
   paymentMap,
   currentMonth,
+  financeConfig = null,
   getRowStatus,
   startOfLocalDay,
   formatDdMm,
@@ -117,16 +118,8 @@ export default function MensalidadesListTable({
     }
   };
 
-  const resolveDueDateForDisplay = (student, payment, rowMeta, calendar) => {
-    const paymentDueDate = payment?.due_date
-      ? parseYmdLocal(String(payment.due_date).slice(0, 10))
-      : null;
-    if (paymentDueDate && !Number.isNaN(paymentDueDate.getTime())) return paymentDueDate;
-    if (rowMeta?.dueDate && !Number.isNaN(rowMeta.dueDate.getTime())) return rowMeta.dueDate;
-    if (calendar?.dueDate && !Number.isNaN(calendar.dueDate.getTime())) return calendar.dueDate;
-    const defaultDueDate = dueDateInMonth(currentMonth, studentDueDay(student));
-    return defaultDueDate && !Number.isNaN(defaultDueDate.getTime()) ? defaultDueDate : null;
-  };
+  const resolveDueDateForDisplay = (student, payment) =>
+    resolveMensalidadeDueDate(student, payment, currentMonth, new Date(), financeConfig);
 
   const studentsByGroup = useMemo(() => {
     const map = new Map();
@@ -192,14 +185,13 @@ export default function MensalidadesListTable({
     const studentFrozen = String(student.freeze_status || '') === 'active';
     const rowMeta = getRowStatus(student, payment, currentMonth);
     const statusKey = rowMeta?.status || 'none';
-    const calendar = getPaymentRowStatus(student, payment, currentMonth);
     const dbStatus = String(payment?.status || '').toLowerCase();
     const isExempt = statusKey === 'exempt';
     const today0 = startOfLocalDay(new Date());
     let vencCell = '—';
     let vencIsEmpty = true;
     let vencClassName = '';
-    const venc = isExempt ? null : resolveDueDateForDisplay(student, payment, rowMeta, calendar);
+    const venc = isExempt ? null : resolveDueDateForDisplay(student, payment);
     if (venc && !Number.isNaN(venc.getTime())) {
       vencIsEmpty = false;
       if (statusKey === 'paid') {
@@ -364,7 +356,6 @@ export default function MensalidadesListTable({
     const dbStatus = String(payment?.status || '').toLowerCase();
     const rowMeta = getRowStatus(student, payment, currentMonth);
     const statusKey = rowMeta?.status || 'none';
-    const calendar = getPaymentRowStatus(student, payment, currentMonth);
     const isPaid = statusKey === 'paid' && payment?.status === 'paid';
     const isExempt = statusKey === 'exempt';
     const prefM = student.preferredPaymentMethod;
@@ -413,7 +404,7 @@ export default function MensalidadesListTable({
           }`
         : undefined;
     let vencLabel = '—';
-    const dueDate = isExempt ? null : resolveDueDateForDisplay(student, payment, rowMeta, calendar);
+    const dueDate = isExempt ? null : resolveDueDateForDisplay(student, payment);
     if (dueDate && !Number.isNaN(dueDate.getTime())) {
       vencLabel = formatDdMm(dueDate);
     }

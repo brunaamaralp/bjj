@@ -1,11 +1,10 @@
 import { downloadCsv } from './reportsExport.js';
 import {
   expectedAmountForStudent,
-  formatDueDayLabel,
   receivedAmountForPayment,
   resolveGridDisplayStatus,
 } from './paymentStatus.js';
-import { studentDueDay } from './collectionOverdue.js';
+import { formatMensalidadeDueDateBr, studentDueDay } from './collectionOverdue.js';
 import {
   matchesMensalidadesStatusFilter,
   matchesMensalidadesStudentFilters,
@@ -97,21 +96,21 @@ function planOrAccount(row) {
   return plan || account || '';
 }
 
-export function mensalidadesGridToCsvRows(sortedRows) {
+export function mensalidadesGridToCsvRows(sortedRows, currentMonth = '', financeConfig = null) {
   return sortedRows.map((row) => ({
     aluno: row.student.name || '',
     turma: studentTurma(row.student),
     status: row.display?.label || '',
     valor_esperado: formatAmountBr(row.expected),
     valor_recebido: formatAmountBr(row.received),
-    vencimento: formatDueDayLabel(row.student) || '',
+    vencimento: formatMensalidadeDueDateBr(row.student, row.payment, currentMonth, new Date(), financeConfig),
     plano_conta: planOrAccount(row),
     observacao: row.note || '',
   }));
 }
 
-export function exportMensalidadesGridCsv(sortedRows, currentMonth) {
-  const csvRows = mensalidadesGridToCsvRows(sortedRows);
+export function exportMensalidadesGridCsv(sortedRows, currentMonth, financeConfig = null) {
+  const csvRows = mensalidadesGridToCsvRows(sortedRows, currentMonth, financeConfig);
   const slug = String(currentMonth || 'mes').replace(/[^\d-]/g, '') || 'mes';
   if (!csvRows.length) {
     downloadCsv([{ mensagem: 'Nenhum aluno na grade com os filtros atuais' }], `mensalidades-${slug}-vazio.csv`);

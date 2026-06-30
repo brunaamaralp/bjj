@@ -13,7 +13,40 @@ vi.mock('../lib/collectionOverdue.js', () => ({
 import { getReceptionDueBucket } from '../lib/collectionOverdue.js';
 
 describe('mensalidadesFilters', () => {
+  it('open matches all unpaid statuses', () => {
+    expect(
+      matchesMensalidadesStatusFilter({
+        filter: 'open',
+        statusKey: 'awaiting',
+        student: { id: 'a' },
+      })
+    ).toBe(true);
+    expect(
+      matchesMensalidadesStatusFilter({
+        filter: 'open',
+        statusKey: 'paid',
+        student: { id: 'a' },
+      })
+    ).toBe(false);
+    expect(
+      matchesMensalidadesStatusFilter({
+        filter: 'open',
+        statusKey: 'soon',
+        student: { id: 'a' },
+      })
+    ).toBe(true);
+  });
+
+  it('buildMensalidadesFilterCounts includes open', () => {
+    const counts = buildMensalidadesFilterCounts(
+      [{ id: '1' }, { id: '2' }, { id: '3' }],
+      (s) => (s.id === '1' ? 'paid' : s.id === '2' ? 'awaiting' : 'soon')
+    );
+    expect(counts.open).toBe(2);
+  });
+
   it('parseMensalidadesFiltroParam accepts extended keys', () => {
+    expect(parseMensalidadesFiltroParam('open')).toBe('open');
     expect(parseMensalidadesFiltroParam('covered')).toBe('covered');
     expect(parseMensalidadesFiltroParam('frozen')).toBe('frozen');
     expect(parseMensalidadesFiltroParam('paid_in_month')).toBe('paid_in_month');

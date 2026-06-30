@@ -21,6 +21,7 @@ export default function MensalidadesStatusFilter({
   const primaryOptions = useMemo(
     () => [
       { id: 'all', label: 'Todos', count: filterCounts.all },
+      { id: 'open', label: 'Em aberto', count: filterCounts.open },
       { id: 'paid', label: GRID_STATUS_LABELS.paid, count: filterCounts.paid },
       { id: 'covered', label: GRID_STATUS_LABELS.covered, count: filterCounts.covered },
       { id: 'exempt', label: GRID_STATUS_LABELS.exempt, count: filterCounts.exempt },

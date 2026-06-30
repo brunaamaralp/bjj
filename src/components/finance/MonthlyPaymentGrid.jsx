@@ -14,7 +14,6 @@ import MonthlyGridMobileCard from './MonthlyGridMobileCard.jsx';
 import { GridStatusBadgeButton } from './gridStatusBadge.jsx';
 import { getStudentPayments, saveMonthlyPayment } from '../../lib/studentPayments';
 import {
-  formatDueDayLabel,
   GRID_STATUS_LABELS,
   HISTORY_BADGE,
   historyStatusForMonth,
@@ -22,7 +21,7 @@ import {
   mapDbStatusFromGridForm,
   receivedAmountForPayment,
 } from '../../lib/paymentStatus';
-import { dueDateInMonth, studentDueDay } from '../../lib/collectionOverdue.js';
+import { formatMensalidadeDueDateBr } from '../../lib/collectionOverdue.js';
 import {
   buildMensalidadesGridRows,
   filterSortMensalidadesRows,
@@ -390,7 +389,9 @@ export default function MonthlyPaymentGrid({
           <td className="monthly-grid-amount">{isExempt ? 'Isento' : expected > 0 ? fmtMoney(expected) : '—'}</td>
         ) : null}
         {visibleCols.due ? (
-          <td className="text-small">{isExempt ? '—' : formatDueDayLabel(student)}</td>
+          <td className="text-small">
+            {isExempt ? '—' : formatMensalidadeDueDateBr(student, payment, currentMonth, new Date(), financeConfig)}
+          </td>
         ) : null}
         {visibleCols.account ? (
           <td className="text-small">
@@ -497,6 +498,8 @@ export default function MonthlyPaymentGrid({
           <MonthlyGridMobileCard
             key={row.student.id}
             row={row}
+            currentMonth={currentMonth}
+            financeConfig={financeConfig}
             monthHistoryKeys={monthHistoryKeys}
             history={historyByLead[row.student.id]}
             historyLoading={historyLoading === row.student.id}

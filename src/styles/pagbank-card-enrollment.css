@@ -1,0 +1,184 @@
+/* Cadastro de cartão PagBank — portal do aluno */
+.pagbank-enrollment-page {
+  min-height: 100vh;
+  background: var(--bg-page, var(--azul-gelo));
+  display: flex;
+  flex-direction: column;
+}
+
+.pagbank-enrollment-page__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--navi-brand-img-bg-light);
+}
+
+.pagbank-enrollment-page__body {
+  flex: 1;
+  padding: 24px 20px 48px;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.pagbank-enrollment-title {
+  font-size: var(--font-3xl);
+  margin: 0 0 8px;
+}
+
+.pagbank-enrollment-subtitle {
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+  line-height: 1.45;
+}
+
+.pagbank-enrollment-card {
+  padding: 16px;
+}
+
+.pagbank-enrollment-card--success {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.pagbank-enrollment-card__alert-icon {
+  color: var(--warning);
+  margin-bottom: 8px;
+}
+
+.pagbank-enrollment-card__success-icon {
+  color: var(--success);
+  margin-bottom: 12px;
+}
+
+.pagbank-enrollment-card__message {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.pagbank-enrollment-card__protocol {
+  margin: 12px 0 0;
+}
+
+.pagbank-enrollment-card__retry {
+  margin-top: 12px;
+}
+
+.pagbank-enrollment-page__plan-card {
+  background: var(--color-primary-surface);
+  border: 1px solid var(--color-primary-light);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pagbank-enrollment-page__plan-name {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  font-size: 15px;
+}
+
+.pagbank-enrollment-page__plan-amount {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.pagbank-enrollment-page__plan-freq {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pagbank-enrollment-page__card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pagbank-enrollment-page__card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pagbank-enrollment-page__security-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.pagbank-enrollment-page__submit {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pagbank-enrollment-page__submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.pagbank-enrollment-page__progress {
+  padding: 24px 0;
+}
+
+.pagbank-enrollment-page__progress-label {
+  font-size: 14px;
+  color: var(--color-primary);
+  margin: 0 0 16px;
+  font-weight: 500;
+}
+
+.pagbank-enrollment-page__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.pagbank-enrollment-page__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pagbank-enrollment-page__step--done {
+  color: var(--color-accent-dark);
+}
+
+.pagbank-enrollment-page__step--active {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.pagbank-enrollment-page__step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--border-light);
+}
+
+.pagbank-enrollment-page__step--done .pagbank-enrollment-page__step-dot {
+  background: var(--color-accent);
+}
+
+.pagbank-enrollment-page__step--active .pagbank-enrollment-page__step-dot {
+  background: var(--color-primary);
+}
