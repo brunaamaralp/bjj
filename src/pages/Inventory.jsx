@@ -92,9 +92,7 @@ const Inventory = () => {
     void refresh();
   }, [academyId, refresh]);
 
-  useEffect(() => {
-    if (highlightMoveId) setMovesPanelTab('historico');
-  }, [highlightMoveId]);
+  const activeMovesPanelTab = highlightMoveId ? 'historico' : movesPanelTab;
 
   const handleRegisterEntry = (item) => {
     setEntryItem(item);
@@ -244,7 +242,7 @@ const Inventory = () => {
         />
       ) : (
         <InventoryMovesPanel
-          panelTab={movesPanelTab}
+          panelTab={activeMovesPanelTab}
           onPanelTabChange={setMovesPanelTab}
           highlightMoveId={highlightMoveId}
           modulesFinance={modules?.finance === true}

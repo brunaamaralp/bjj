@@ -13,7 +13,6 @@ import { buildClientDocumentPermissions } from './clientDocumentPermissions.js';
 import {
   mirrorGrossForPayment,
   shouldMirrorPaymentToCaixa,
-  expectedAmountWithCardFee,
   expectedAmountForStudent,
   normalizeProfilePaymentStatus,
 } from './paymentStatus.js';

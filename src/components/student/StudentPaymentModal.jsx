@@ -18,7 +18,6 @@ import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
 import { STUDENT_PAY_FIELD_IDS } from '../../lib/mensalidadesPaymentForm.js';
 import {
   pickInitialBankAccountForPayment,
-  accountWhenPaymentMethodChanges,
 } from '../../lib/paymentMethodBankDefaults.js';
 import {
   whenCaptureMethodChanges,

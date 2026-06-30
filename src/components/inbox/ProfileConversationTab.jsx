@@ -39,7 +39,7 @@ export default function ProfileConversationTab({
   const phoneDigits = primaryInboxPhone(rawPhone);
   const leadIdStr = String(leadId || '').trim();
   const aiModuleEnabled = useLeadStore((s) => s.modules?.aiEnabled !== false);
-  const { agentIaActive } = useInboxDeferredBoot(academyId, {});
+  const { agentIaActive } = useInboxDeferredBoot(academyId);
 
   const {
     messages,

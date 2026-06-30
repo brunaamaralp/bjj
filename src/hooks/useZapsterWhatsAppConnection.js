@@ -356,7 +356,6 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     isFetchingWaInfoRef.current = true;
     if (!silent) setConnectionError('');
     if (!quiet) setWaLoading(true);
-    let fetchConfirmed = false;
     try {
       const jwt = await createSessionJwt();
       const { blocked, res: resp } = await fetchWithBillingGuard('/api/zapster/instances', {
@@ -531,7 +530,6 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
         resolvedWaStatus,
         cachedWaInfo
       );
-      fetchConfirmed = true;
       if (hookMountedRef.current) setWaStatusChecked(true);
     } catch (e) {
       if (debugOn) {

@@ -26,6 +26,7 @@ import { parseCurrencyBRL } from '../../lib/masks.js';
 import FinanceSettingsCollectionSection from './settings/FinanceSettingsCollectionSection.jsx';
 import FinanceSettingsWhatsappRemindersSection from './settings/FinanceSettingsWhatsappRemindersSection.jsx';
 import FinanceSettingsExceptionsSection from './settings/FinanceSettingsExceptionsSection.jsx';
+import PagBankSetupSection from './PagBankSetupSection.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
@@ -39,7 +40,7 @@ const SECTION_META = Object.fromEntries(
 );
 
 /** Minha academia → Financeiro — sidebar + subpáginas (mesmo layout das demais abas). */
-export default function FinanceiroConfigTab({ academyId, isOwner }) {
+export default function FinanceiroConfigTab({ academyId, isOwner, academy, onPagbankSaved }) {
   const [searchParams] = useSearchParams();
   const defaultSection = useMemo(() => getFinanceDefaultSection(isOwner), [isOwner]);
   const state = useFinanceConfigState(academyId, { isOwner });
@@ -180,6 +181,10 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
           labels={state.exceptionLabels}
           onChange={state.setExceptionLabels}
         />
+      ) : null}
+
+      {activeSection === FINANCE_SETTINGS_SECTIONS.PAGBANK ? (
+        <PagBankSetupSection academy={academy} academyId={academyId} onSaved={onPagbankSaved} />
       ) : null}
 
       {activeSection === FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS && isOwner ? (

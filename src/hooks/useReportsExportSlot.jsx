@@ -28,7 +28,10 @@ export function useReportsExportSlot() {
 export function useRegisterReportsExport(config) {
   const ctx = useReportsExportSlot();
   const handlerRef = useRef(config?.onExport);
-  handlerRef.current = config?.onExport;
+
+  useEffect(() => {
+    handlerRef.current = config?.onExport;
+  }, [config?.onExport]);
 
   // Extrair as funções estáveis do contexto para evitar que `ctx` (objeto
   // inteiro) entre nos deps: cada ctx.register() troca `slot` → novo `ctx`

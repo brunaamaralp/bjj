@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import { computeAnticipationFee } from '../../lib/acquirerFees.js';
@@ -14,38 +14,16 @@ function fmtMoney(v) {
   }
 }
 
-export default function FinanceTxAnticipationDialog({
-  open,
-  tx,
-  financeConfig,
-  saving,
-  onClose,
-  onConfirm,
-}) {
-  const netBase = useMemo(() => Math.abs(Number(displayNet(tx)) || 0), [tx]);
-  const accountLabel = useMemo(
-    () => String(tx?.bankAccount || resolveTxBankAccount(tx) || '').trim(),
-    [tx]
-  );
-  const suggested = useMemo(() => {
-    const fees = resolveAcquirerFeesForAccount(financeConfig, accountLabel);
-    return computeAnticipationFee(netBase, fees);
-  }, [netBase, financeConfig, accountLabel]);
-  const [feeAmount, setFeeAmount] = useState('');
-
-  useEffect(() => {
-    if (!open) return;
-    setFeeAmount(suggested > 0 ? String(suggested) : '');
-  }, [open, suggested, tx?.id]);
-
-  if (!open || !tx) return null;
+function FinanceTxAnticipationForm({ tx, saving, suggested, onClose, onConfirm }) {
+  const [feeAmount, setFeeAmount] = useState(() => (suggested > 0 ? String(suggested) : ''));
 
   const feeNum = Number(String(feeAmount).replace(',', '.'));
-  const feeInvalid = !Number.isFinite(feeNum) || feeNum < 0.01 || feeNum > netBase;
+  const feeInvalid = !Number.isFinite(feeNum) || feeNum < 0.01 || feeNum > Math.abs(Number(displayNet(tx)) || 0);
+  const netBase = Math.abs(Number(displayNet(tx)) || 0);
 
   return (
     <ModalShell
-      open={open}
+      open
       title="Registrar antecipação"
       onClose={onClose}
       footer={
@@ -94,5 +72,39 @@ export default function FinanceTxAnticipationDialog({
         )}
       </div>
     </ModalShell>
+  );
+}
+
+export default function FinanceTxAnticipationDialog({
+  open,
+  tx,
+  financeConfig,
+  saving,
+  onClose,
+  onConfirm,
+}) {
+  const netBase = useMemo(() => Math.abs(Number(displayNet(tx)) || 0), [tx]);
+  const accountLabel = useMemo(
+    () => String(tx?.bankAccount || resolveTxBankAccount(tx) || '').trim(),
+    [tx]
+  );
+  const suggested = useMemo(() => {
+    const fees = resolveAcquirerFeesForAccount(financeConfig, accountLabel);
+    return computeAnticipationFee(netBase, fees);
+  }, [netBase, financeConfig, accountLabel]);
+
+  if (!open || !tx) return null;
+
+  const txId = String(tx?.id || tx?.$id || '').trim();
+
+  return (
+    <FinanceTxAnticipationForm
+      key={txId}
+      tx={tx}
+      saving={saving}
+      suggested={suggested}
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
   );
 }

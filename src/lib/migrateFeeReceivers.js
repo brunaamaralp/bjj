@@ -8,7 +8,6 @@ import {
   readCaptureMethods,
 } from './captureMethods.js';
 import {
-  defaultFeeReceiver,
   legacyAcquirerFeesToFeeTable,
   newFeeReceiverId,
   normalizeFeeReceiver,

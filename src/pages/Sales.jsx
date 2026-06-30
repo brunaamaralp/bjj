@@ -24,7 +24,6 @@ const Sales = () => {
   const academyId = useLeadStore((s) => s.academyId);
   const configRef = useRef(null);
   const appliedPdvPrefRef = useRef(false);
-  const navStateConsumedRef = useRef(false);
   const tabs = useMemo(
     () => [
       { id: 'new', label: 'Nova venda' },
@@ -38,13 +37,12 @@ const Sales = () => {
   const [salesConfigUserOpen, setSalesConfigUserOpen] = useState(false);
   const salesConfigOpen = salesConfigUserOpen || wantsConfig;
   const [historyPeriodFromNav, setHistoryPeriodFromNav] = useState(null);
-  const [navStateMarker, setNavStateMarker] = useState(location.state);
+  const [navConsumed, setNavConsumed] = useState(false);
 
-  if (location.state !== navStateMarker && !navStateConsumedRef.current) {
+  if (!navConsumed) {
     const st = location.state;
     if (st?.dateFrom && st?.dateTo) {
-      navStateConsumedRef.current = true;
-      setNavStateMarker(location.state);
+      setNavConsumed(true);
       setHistoryPeriodFromNav({
         from: st.dateFrom,
         to: st.dateTo,

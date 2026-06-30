@@ -22,15 +22,12 @@ function cancelIdleWork(id) {
  * Cargas adiadas do Inbox (idle): equipe e flag do agente IA.
  * Mantém o mount inicial focado na lista de conversas.
  */
-export function useInboxDeferredBoot(academyId, academyDoc) {
+export function useInboxDeferredBoot(academyId) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [agentIaActive, setAgentIaActive] = useState(false);
 
   useEffect(() => {
-    if (!academyId) {
-      setTeamMembers([]);
-      return undefined;
-    }
+    if (!academyId) return undefined;
 
     let cancelled = false;
     const loadTeamMembers = () => {
@@ -58,10 +55,7 @@ export function useInboxDeferredBoot(academyId, academyDoc) {
   }, [academyId]);
 
   useEffect(() => {
-    if (!academyId) {
-      setAgentIaActive(false);
-      return undefined;
-    }
+    if (!academyId) return undefined;
 
     let cancelled = false;
     const loadAgentFlag = async () => {
@@ -90,5 +84,8 @@ export function useInboxDeferredBoot(academyId, academyDoc) {
     };
   }, [academyId]);
 
-  return { teamMembers, agentIaActive };
+  return {
+    teamMembers: academyId ? teamMembers : [],
+    agentIaActive: academyId ? agentIaActive : false,
+  };
 }

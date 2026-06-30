@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ImportStatementModal from '../components/finance/ImportStatementModal.jsx';
 import * as bankApi from '../lib/bankReconciliationApi.js';
@@ -8,7 +8,7 @@ import * as parseXlsx from '../lib/bankStatementParseXlsx.js';
 import * as bankParse from '../lib/bankStatementParse.js';
 
 vi.mock('../components/finance/BankAccountSelect.jsx', () => ({
-  default: ({ id, label, onChange }) => (
+  default: ({ label, onChange }) => (
     <div data-testid="bank-account-select">
       {label}
       <button type="button" data-testid="bank-account-select-pick" onClick={() => onChange?.('Sicoob')}>

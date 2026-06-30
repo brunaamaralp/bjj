@@ -1,5 +1,5 @@
 import '../../styles/confirm-dialog.css';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DoorOpen } from 'lucide-react';
 import AsyncButton from '../shared/AsyncButton.jsx';
@@ -11,21 +11,9 @@ import {
   validateReleaseReason,
 } from '../../../lib/controlidRelease.js';
 
-/**
- * Confirma liberação manual da catraca com motivo obrigatório.
- */
-export default function ControlIdReleaseDialog({ open, loading = false, onClose, onConfirm }) {
+function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
   const [reason, setReason] = useState('');
   const [fieldError, setFieldError] = useState('');
-
-  useEffect(() => {
-    if (!open) {
-      setReason('');
-      setFieldError('');
-    }
-  }, [open]);
-
-  if (!open || typeof document === 'undefined') return null;
 
   const trimmed = normalizeReleaseReason(reason);
   const canConfirm = trimmed.length >= 3 && trimmed.length <= CONTROLID_RELEASE_REASON_MAX;
@@ -40,7 +28,7 @@ export default function ControlIdReleaseDialog({ open, loading = false, onClose,
     onConfirm?.(trimmed);
   };
 
-  return createPortal(
+  return (
     <div
       className="navi-confirm-overlay"
       role="presentation"
@@ -117,7 +105,18 @@ export default function ControlIdReleaseDialog({ open, loading = false, onClose,
           </AsyncButton>
         </div>
       </div>
-    </div>,
+    </div>
+  );
+}
+
+/**
+ * Confirma liberação manual da catraca com motivo obrigatório.
+ */
+export default function ControlIdReleaseDialog({ open, loading = false, onClose, onConfirm }) {
+  if (!open || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <ControlIdReleaseForm loading={loading} onClose={onClose} onConfirm={onConfirm} />,
     document.body
   );
 }

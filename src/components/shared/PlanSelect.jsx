@@ -7,9 +7,11 @@ import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConf
 import { useLeadStore } from '../../store/useLeadStore';
 import SearchableSelect from './SearchableSelect.jsx';
 
-export default function PlanSelect({
+function PlanSelectInner({
   academyId,
   financeConfig,
+  fetchedConfig,
+  loadingPlans,
   value,
   onChange,
   onPlanPick,
@@ -22,13 +24,10 @@ export default function PlanSelect({
   showConfigHint = true,
   ...rest
 }) {
-  const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
   const storeFinanceConfig = useLeadStore((s) => s.financeConfig);
   const storeFinanceAcademyId = useLeadStore((s) => s.financeConfigAcademyId);
   const storeMatch =
     storeFinanceAcademyId === academyId && storeFinanceConfig ? storeFinanceConfig : null;
-  const [fetchedConfig, setFetchedConfig] = useState(null);
-  const [loadingPlans, setLoadingPlans] = useState(false);
 
   const resolvedFinanceConfig = useMemo(
     () => pickFinanceConfigForPayments(fetchedConfig, storeMatch, financeConfig),
@@ -39,26 +38,6 @@ export default function PlanSelect({
   const hasConfigured = (resolvedFinanceConfig?.plans || []).some((p) =>
     String(p?.name || '').trim()
   );
-
-  useEffect(() => {
-    if (!academyId) return;
-    let cancelled = false;
-    setLoadingPlans(true);
-    void loadMergedFinanceConfigForAcademy(academyId, { force: true })
-      .then((cfg) => {
-        if (cancelled || !cfg) return;
-        setFetchedConfig(cfg);
-        if (useLeadStore.getState().academyId === academyId) {
-          setFinanceConfig(cfg, academyId);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingPlans(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [academyId, setFinanceConfig]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, ...style }}>
@@ -90,4 +69,44 @@ export default function PlanSelect({
       ) : null}
     </div>
   );
+}
+
+function PlanSelectWithFetch({ academyId, ...rest }) {
+  const setFinanceConfig = useLeadStore((s) => s.setFinanceConfig);
+  const [fetchedConfig, setFetchedConfig] = useState(null);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadMergedFinanceConfigForAcademy(academyId, { force: true })
+      .then((cfg) => {
+        if (cancelled || !cfg) return;
+        setFetchedConfig(cfg);
+        if (useLeadStore.getState().academyId === academyId) {
+          setFinanceConfig(cfg, academyId);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPlans(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId, setFinanceConfig]);
+
+  return (
+    <PlanSelectInner
+      academyId={academyId}
+      fetchedConfig={fetchedConfig}
+      loadingPlans={loadingPlans}
+      {...rest}
+    />
+  );
+}
+
+export default function PlanSelect({ academyId, ...rest }) {
+  if (!academyId) {
+    return <PlanSelectInner academyId={academyId} fetchedConfig={null} loadingPlans={false} {...rest} />;
+  }
+  return <PlanSelectWithFetch key={academyId} academyId={academyId} {...rest} />;
 }

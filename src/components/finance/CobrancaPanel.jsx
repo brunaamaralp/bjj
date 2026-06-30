@@ -3,10 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, CheckSquare } from 'lucide-react';
 import { fetchCollectionQueue } from '../../lib/collectionQueueApi.js';
 import { formatBRL } from '../../lib/moneyBr.js';
-import {
-  RECEIVABLES_SECTIONS,
-  buildReceivablesSearchParams,
-} from '../../lib/financeiroReceivablesSections.js';
+import { RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 import { FINANCE_SETTINGS_SECTIONS } from '../../lib/financeSettingsSections.js';
 import CobrancaRowActions from './CobrancaRowActions.jsx';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';

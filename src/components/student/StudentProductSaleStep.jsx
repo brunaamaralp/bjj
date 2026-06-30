@@ -114,58 +114,74 @@ export default function StudentProductSaleStep({
     };
   }, [academyId]);
 
-  useEffect(() => {
-    if (!products?.length) return;
-    setCart((prev) => {
-      let changed = false;
-      const next = prev.map((line) => {
-        if (!line.parent_id) return line;
-        const parent = products.find((p) => String(p.id) === String(line.parent_id));
-        if (!parent) return line;
-        const patch = patchCartLineFromCatalog(line, parent);
-        if (!patch) return line;
-        const enrichedOptions = cartVariantOptionsForLineKind(
-          parent,
-          normalizeLineKind(line.line_kind)
-        );
-        const fullPatch = {
-          ...patch,
-          variant_options: enrichedOptions ?? patch.variant_options,
-        };
-        if (
-          fullPatch.variant_options === line.variant_options &&
-          fullPatch.disponivel === line.disponivel &&
-          fullPatch.expected_quantity === line.expected_quantity
-        ) {
-          return line;
-        }
-        changed = true;
-        return { ...line, ...fullPatch };
-      });
-      return changed ? next : prev;
+  const catalogSyncedCart = useMemo(() => {
+    if (!products?.length || !cart.length) return cart;
+    let changed = false;
+    const next = cart.map((line) => {
+      if (!line.parent_id) return line;
+      const parent = products.find((p) => String(p.id) === String(line.parent_id));
+      if (!parent) return line;
+      const patch = patchCartLineFromCatalog(line, parent);
+      if (!patch) return line;
+      const enrichedOptions = cartVariantOptionsForLineKind(
+        parent,
+        normalizeLineKind(line.line_kind)
+      );
+      const fullPatch = {
+        ...patch,
+        variant_options: enrichedOptions ?? patch.variant_options,
+      };
+      if (
+        fullPatch.variant_options === line.variant_options &&
+        fullPatch.disponivel === line.disponivel &&
+        fullPatch.expected_quantity === line.expected_quantity
+      ) {
+        return line;
+      }
+      changed = true;
+      return { ...line, ...fullPatch };
     });
-  }, [products]);
+    return changed ? next : cart;
+  }, [cart, products]);
 
   const totalCart = useMemo(
-    () => cart.reduce((acc, it) => acc + Number(it.quantidade) * Number(it.preco_unitario || 0), 0),
-    [cart]
+    () =>
+      catalogSyncedCart.reduce(
+        (acc, it) => acc + Number(it.quantidade) * Number(it.preco_unitario || 0),
+        0
+      ),
+    [catalogSyncedCart]
   );
 
   const totalFinalCents = useMemo(() => Math.max(0, Math.round(round2(totalCart) * 100)), [totalCart]);
 
+  const effectivePayments = useMemo(() => {
+    if (payments.length === 1) {
+      const nextRow = { ...payments[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents };
+      if (
+        payments[0].valorCents === nextRow.valorCents &&
+        payments[0].recebidoCents === nextRow.recebidoCents
+      ) {
+        return payments;
+      }
+      return [nextRow];
+    }
+    return rebalancePaymentsForTotal(payments, totalFinalCents);
+  }, [payments, totalFinalCents]);
+
   const paymentValid = useMemo(
-    () => paymentsUiValid(payments, totalFinalCents, { deferred: receiveLater }),
-    [payments, totalFinalCents, receiveLater]
+    () => paymentsUiValid(effectivePayments, totalFinalCents, { deferred: receiveLater }),
+    [effectivePayments, totalFinalCents, receiveLater]
   );
 
   const totalMasked = useMemo(() => formatBRL(round2(totalCart)), [totalCart]);
 
   const cartCount = useMemo(
-    () => cart.reduce((n, it) => n + Number(it.quantidade || 0), 0),
-    [cart]
+    () => catalogSyncedCart.reduce((n, it) => n + Number(it.quantidade || 0), 0),
+    [catalogSyncedCart]
   );
 
-  const saleDirty = useMemo(() => isStudentProductSaleDirty(cart), [cart]);
+  const saleDirty = useMemo(() => isStudentProductSaleDirty(catalogSyncedCart), [catalogSyncedCart]);
 
   useEffect(() => {
     onVariantPickerChange?.(!!variantPickerParent);
@@ -202,22 +218,6 @@ export default function StudentProductSaleStep({
     localError,
     onSubmitStateChange,
   ]);
-
-  useEffect(() => {
-    setPayments((prev) => {
-      if (prev.length === 1) {
-        const nextRow = { ...prev[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents };
-        if (
-          prev[0].valorCents === nextRow.valorCents &&
-          prev[0].recebidoCents === nextRow.recebidoCents
-        ) {
-          return prev;
-        }
-        return [nextRow];
-      }
-      return rebalancePaymentsForTotal(prev, totalFinalCents);
-    });
-  }, [totalFinalCents]);
 
   const buildCartLine = useCallback((product, parent = null, lineKind = 'sale') => {
     const kind = normalizeLineKind(lineKind);
@@ -451,7 +451,7 @@ export default function StudentProductSaleStep({
       focusCartPanel();
       return;
     }
-    for (const it of cart) {
+    for (const it of catalogSyncedCart) {
       const unit = Number(it.preco_unitario);
       if (!Number.isFinite(unit) || unit <= 0) {
         setLocalError(`Informe o preço de "${cartLineLabel(it)}"`);
@@ -465,7 +465,7 @@ export default function StudentProductSaleStep({
       }
     }
 
-    const itens = cart.map((it) => ({
+    const itens = catalogSyncedCart.map((it) => ({
       item_estoque_id: it.product_variant_id || it.item_estoque_id,
       product_variant_id: it.product_variant_id || it.item_estoque_id,
       quantidade: Number(it.quantidade),
@@ -475,7 +475,7 @@ export default function StudentProductSaleStep({
         it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
     }));
 
-    const pagamentos = receiveLater ? [] : serializePagamentosForApi(payments);
+    const pagamentos = receiveLater ? [] : serializePagamentosForApi(effectivePayments);
 
     const salePayload = {
       aluno_id: studentId,
@@ -586,7 +586,7 @@ export default function StudentProductSaleStep({
             <div className="sales-checkout card student-product-sale__checkout">
               {cart.length > 0 ? (
                 <SalesCart
-                  cart={cart}
+                  cart={catalogSyncedCart}
                   lockPriceEdit={salesSettings.lockPriceEdit}
                   onQtyChange={updateCartQty}
                   onPriceChange={updateCartPrice}
@@ -632,7 +632,7 @@ export default function StudentProductSaleStep({
               ) : (
                 <SalesPaymentBlock
                   totalCents={totalFinalCents}
-                  payments={payments}
+                  payments={effectivePayments}
                   onChange={setPayments}
                   disabled={creating || cart.length === 0}
                   inlineValidate

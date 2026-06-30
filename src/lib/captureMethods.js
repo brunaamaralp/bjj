@@ -111,6 +111,29 @@ export function normalizeCaptureMethod(raw) {
   };
 }
 
+/** Versão enxuta para persistência (omite fees quando usa recebedor). */
+export function compactCaptureMethodForStorage(raw) {
+  const cap = normalizeCaptureMethod(raw);
+  if (!cap) return null;
+  const out = {
+    id: cap.id,
+    name: cap.name,
+    paymentMethod: cap.paymentMethod,
+    bankAccountLabel: cap.bankAccountLabel,
+    channel: cap.channel,
+    online: cap.online,
+    maxInstallments: cap.maxInstallments,
+    active: cap.active,
+    useDefaultFees: cap.useDefaultFees,
+  };
+  if (cap.feeReceiverId) out.feeReceiverId = cap.feeReceiverId;
+  if (cap.integration) out.integration = cap.integration;
+  if (!cap.useDefaultFees && hasCaptureFeesConfigured(cap.fees)) {
+    out.fees = cap.fees;
+  }
+  return out;
+}
+
 export function readCaptureMethods(financeConfig) {
   const raw = financeConfig?.captureMethods;
   if (!Array.isArray(raw)) return [];

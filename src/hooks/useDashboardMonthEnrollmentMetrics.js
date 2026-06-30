@@ -30,10 +30,7 @@ export function useDashboardMonthEnrollmentMetrics(students) {
   const prevRange = useMemo(() => previousMonthRange(), []);
 
   useEffect(() => {
-    if (!academyId) {
-      setServerMetrics(null);
-      return undefined;
-    }
+    if (!academyId) return undefined;
 
     let cancelled = false;
     const { from, to } = monthYmdBounds(monthRange);
@@ -60,11 +57,11 @@ export function useDashboardMonthEnrollmentMetrics(students) {
 
   return useMemo(() => {
     const enrolledInMonth =
-      serverMetrics?.newStudents != null
+      academyId && serverMetrics?.newStudents != null
         ? Number(serverMetrics.newStudents) || 0
         : clientMetrics.enrolledInMonth;
     const enrolledPrevMonth =
-      serverMetrics?.previous?.newStudents != null
+      academyId && serverMetrics?.previous?.newStudents != null
         ? Number(serverMetrics.previous.newStudents) || 0
         : clientMetrics.enrolledPrevMonth;
     const { leadsInMonth } = clientMetrics;
@@ -84,5 +81,5 @@ export function useDashboardMonthEnrollmentMetrics(students) {
     }
 
     return { enrolledInMonth, sub, subTone };
-  }, [serverMetrics, clientMetrics]);
+  }, [academyId, serverMetrics, clientMetrics]);
 }

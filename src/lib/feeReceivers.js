@@ -217,6 +217,7 @@ export function hasFeeReceiverFeesConfigured(receiver) {
 
 /** Converte tabela do recebedor para shape legado acquirerFees (usa bandeira informada). */
 export function feeReceiverTableToLegacyAcquirerFees(fees, method, installments = 1, cardBrand = '') {
+  void installments;
   const table = normalizeFeeReceiverFeeTable(fees);
   const brand = normalizeCardBrand(cardBrand);
   const pick = (byBrand) => normalizeFeeRow(byBrand?.[brand] ?? byBrand?.default);
@@ -314,6 +315,60 @@ export function canRemoveFeeReceiver(financeConfig, receiverId) {
     return { ok: false, reason: 'not_found' };
   }
   return { ok: true };
+}
+
+/** Omite bandeiras e faixas zeradas ao persistir (read-path normaliza de volta). */
+export function compactFeeByBrandForStorage(raw) {
+  const normalized = normalizeFeeByBrand(raw);
+  const out = {};
+  const def = normalized.default;
+  if (def.percent > 0 || def.fixed > 0) out.default = def;
+  for (const brand of CARD_BRANDS) {
+    if (brand === 'default') continue;
+    if (normalized[brand]) out[brand] = normalized[brand];
+  }
+  if (!out.default && Object.keys(out).length > 0) out.default = def;
+  return Object.keys(out).length ? out : null;
+}
+
+export function compactFeeReceiverFeeTableForStorage(raw) {
+  const table = normalizeFeeReceiverFeeTable(raw);
+  const out = {};
+  const pix = normalizeFeeRow(table.pix);
+  if (pix.percent > 0 || pix.fixed > 0) out.pix = pix;
+  const ant = normalizeFeeRow(table.antecipacao);
+  if (ant.percent > 0 || ant.fixed > 0) out.antecipacao = ant;
+  const debito = compactFeeByBrandForStorage(table.debito);
+  if (debito) out.debito = debito;
+  const avista = compactFeeByBrandForStorage(table.credito_avista);
+  if (avista) out.credito_avista = avista;
+  const parcelado = {};
+  for (const n of ACQUIRER_INSTALLMENT_COUNTS) {
+    const key = String(n);
+    const compact = compactFeeByBrandForStorage(table.credito_parcelado[key]);
+    if (compact) parcelado[key] = compact;
+  }
+  if (Object.keys(parcelado).length) out.credito_parcelado = parcelado;
+  return Object.keys(out).length ? out : null;
+}
+
+export function compactFeeReceiverForStorage(raw) {
+  const receiver = normalizeFeeReceiver(raw);
+  if (!receiver) return null;
+  const out = {
+    id: receiver.id,
+    name: receiver.name,
+    provider: receiver.provider,
+    active: receiver.active,
+  };
+  if (receiver.bankAccountLabel) out.bankAccountLabel = receiver.bankAccountLabel;
+  if (receiver.useDefaultFees) {
+    out.useDefaultFees = true;
+    return out;
+  }
+  const fees = compactFeeReceiverFeeTableForStorage(receiver.fees);
+  if (fees) out.fees = fees;
+  return out;
 }
 
 export function feeReceiversSettingsSummary(financeConfig) {

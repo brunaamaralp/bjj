@@ -26,7 +26,6 @@ import { dueDateInMonth, studentDueDay } from '../../lib/collectionOverdue.js';
 import {
   buildMensalidadesGridRows,
   filterSortMensalidadesRows,
-  studentTurma,
 } from '../../lib/mensalidadesExport.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import { studentPaymentFriendlyError } from '../../lib/errorMessages.js';
@@ -90,7 +89,6 @@ export default function MonthlyPaymentGrid({
   studentOverdueMeta = {},
   terms,
   addToast,
-  friendlyError,
   loading,
 }) {
   const [popover, setPopover] = useState(null);

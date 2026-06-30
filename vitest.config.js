@@ -12,6 +12,7 @@ export default defineConfig({
       'src/**/*.test.jsx',
       'src/**/*.test.ts',
       'lib/**/*.test.js',
+      'lib/**/__tests__/**/*.test.js',
     ],
     setupFiles: ['./src/test/setup.js'],
     coverage: {

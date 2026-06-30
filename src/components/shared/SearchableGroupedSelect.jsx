@@ -85,10 +85,7 @@ export default function SearchableGroupedSelect({
     () => findOptionLabel(groups, value, getOptionValue, getOptionLabel),
     [groups, value, getOptionValue, getOptionLabel]
   );
-
-  useEffect(() => {
-    if (!open) setQuery(selectedLabel);
-  }, [selectedLabel, open]);
+  const inputValue = open ? query : selectedLabel;
 
   const filterQuery = useMemo(() => {
     if (!open) return '';
@@ -265,7 +262,7 @@ export default function SearchableGroupedSelect({
           id={id}
           type="text"
           className="form-input searchable-grouped-select__input"
-          value={query}
+          value={inputValue}
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
@@ -280,6 +277,7 @@ export default function SearchableGroupedSelect({
             setActiveIndex(0);
           }}
           onFocus={() => {
+            setQuery(selectedLabel);
             setOpen(true);
             updatePanelPosition();
           }}

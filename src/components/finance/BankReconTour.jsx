@@ -10,11 +10,7 @@ function getTargetRect(targetKey) {
   return rect;
 }
 
-export default function BankReconTour({ open, onComplete, onSkip, hasConfirmAll = false }) {
-  const steps = useMemo(
-    () => RECON_TOUR_STEPS.filter((s) => !s.optional || (s.id === 'confirm-all' && hasConfirmAll)),
-    [hasConfirmAll]
-  );
+function BankReconTourActive({ steps, onComplete, onSkip }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
 
@@ -22,19 +18,22 @@ export default function BankReconTour({ open, onComplete, onSkip, hasConfirmAll 
   const isLast = index >= steps.length - 1;
 
   const refreshRect = useCallback(() => {
-    if (!open || !step) {
+    if (!step) {
       setRect(null);
       return;
     }
     setRect(getTargetRect(step.target));
-  }, [open, step]);
+  }, [step]);
 
   useLayoutEffect(() => {
-    refreshRect();
-  }, [refreshRect, index]);
+    if (!step) return undefined;
+    const frameId = requestAnimationFrame(() => {
+      setRect(getTargetRect(step.target));
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [step, index]);
 
   useEffect(() => {
-    if (!open) return undefined;
     const onResize = () => refreshRect();
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onResize, true);
@@ -42,22 +41,17 @@ export default function BankReconTour({ open, onComplete, onSkip, hasConfirmAll 
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize, true);
     };
-  }, [open, refreshRect]);
+  }, [refreshRect]);
 
   useEffect(() => {
-    if (!open) setIndex(0);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return undefined;
     const onKey = (e) => {
       if (e.key === 'Escape') onSkip?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onSkip]);
+  }, [onSkip]);
 
-  if (!open || !step) return null;
+  if (!step) return null;
 
   const pad = 8;
   const highlightStyle = rect
@@ -114,5 +108,23 @@ export default function BankReconTour({ open, onComplete, onSkip, hasConfirmAll 
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BankReconTour({ open, onComplete, onSkip, hasConfirmAll = false }) {
+  const steps = useMemo(
+    () => RECON_TOUR_STEPS.filter((s) => !s.optional || (s.id === 'confirm-all' && hasConfirmAll)),
+    [hasConfirmAll]
+  );
+
+  if (!open) return null;
+
+  return (
+    <BankReconTourActive
+      key="bank-recon-tour"
+      steps={steps}
+      onComplete={onComplete}
+      onSkip={onSkip}
+    />
   );
 }

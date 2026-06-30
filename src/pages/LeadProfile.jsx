@@ -75,7 +75,7 @@ import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppO
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
 import ProfileInlineField from '../components/profile/ProfileInlineField.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
-import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
+import { isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import {
     leadHistoryFilterFromUrlParam,
     leadHistoryFilterToUrlParam,
@@ -301,7 +301,6 @@ const LeadProfile = () => {
         statusPollWhileMounted: true,
         watchAcademyStatus: true,
     });
-    const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
     const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);

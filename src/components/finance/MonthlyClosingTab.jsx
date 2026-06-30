@@ -9,7 +9,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
 import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
-import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
+import { maskCurrency } from '../../lib/masks';
 import { isStudentRecord, isActiveStudent } from '../../lib/studentStatus.js';
 import useDebounce from '../../hooks/useDebounce.js';
 import useMatchMobile from '../../hooks/useMatchMobile.js';

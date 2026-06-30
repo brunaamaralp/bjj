@@ -31,7 +31,7 @@ export function useInboxThreadDerived({ selectedPhone, selected, msgFlags }) {
       list.push({ key: k, preview: content.length > 80 ? `${content.slice(0, 80)}…` : content });
     }
     return list;
-  }, [selected?.messages, selectedPhoneFlags]);
+  }, [selected, selectedPhoneFlags]);
 
   return { threadBlocks, selectedPhoneFlags, pinnedMessages };
 }

@@ -3,7 +3,6 @@ import {
   computeAcquirerFee,
   defaultAcquirerFees,
   enrichInstallmentScheduleWithAcquirerFees,
-  forecastInflowAmountsFromFees,
   hasAcquirerFeesConfigured,
   computeAnticipationFee,
   mirrorAmountsForPayment,

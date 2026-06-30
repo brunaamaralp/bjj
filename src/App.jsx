@@ -71,6 +71,7 @@ const Attendance = lazyWithRetry(() => import('./pages/Attendance'));
 const Recepcao = lazyWithRetry(() => import('./pages/Recepcao'));
 const Alunos = lazyWithRetry(() => import('./pages/Alunos'));
 const PublicStudentEnrollment = lazyWithRetry(() => import('./pages/PublicStudentEnrollment'));
+const PagBankCardEnrollment = lazyWithRetry(() => import('./pages/PagBankCardEnrollment'));
 const NaviInboxShortcut = lazyWithRetry(() => import('./components/chat-widget/NaviInboxShortcut.jsx'));
 import NaviLogo from './components/NaviLogo.jsx';
 import NaviBrandLockup from './components/NaviBrandLockup.jsx';
@@ -626,7 +627,7 @@ const App = () => {
           const path = window.location.pathname;
           const search = window.location.search || '';
           const landingPaths = ['/', '/login', '/register', '/cadastro'];
-          const publicEnrollmentPath = path.startsWith('/inscricao/');
+          const publicEnrollmentPath = path.startsWith('/inscricao/') || path.startsWith('/cartao/');
           if (landingPaths.includes(path) && !publicEnrollmentPath) {
             navigate('/', { replace: true });
           } else if (!publicEnrollmentPath) {
@@ -635,7 +636,7 @@ const App = () => {
         } else {
           const p = window.location.pathname;
           const authPaths = ['/login', '/register', '/cadastro'];
-          const publicEnrollmentPath = p.startsWith('/inscricao/');
+          const publicEnrollmentPath = p.startsWith('/inscricao/') || p.startsWith('/cartao/');
           if (!authPaths.includes(p) && !publicEnrollmentPath) {
             navigate('/', { replace: true });
           }
@@ -644,7 +645,7 @@ const App = () => {
       } catch {
         const p = window.location.pathname;
         const authPaths = ['/login', '/register', '/cadastro'];
-        const publicEnrollmentPath = p.startsWith('/inscricao/');
+        const publicEnrollmentPath = p.startsWith('/inscricao/') || p.startsWith('/cartao/');
         if (!authPaths.includes(p) && !publicEnrollmentPath) {
           navigate('/', { replace: true });
         }
@@ -1031,6 +1032,20 @@ const App = () => {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/inscricao/:token" element={<PublicStudentEnrollment />} />
+          </Routes>
+        </Suspense>
+      </>
+    );
+  }
+
+  if (/^\/cartao\/[^/]+/.test(location.pathname)) {
+    return (
+      <>
+        <OfflineBanner />
+        <NaviToasts />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/cartao/:token" element={<PagBankCardEnrollment />} />
           </Routes>
         </Suspense>
       </>

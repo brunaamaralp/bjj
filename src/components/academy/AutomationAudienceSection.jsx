@@ -145,7 +145,6 @@ export default function AutomationAudienceSection({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(() => sanitizeAudience(savedAudience));
-  const [estimate, setEstimate] = useState(0);
   const [confirmZeroOpen, setConfirmZeroOpen] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -180,20 +179,14 @@ export default function AutomationAudienceSection({
     [savedSanitized, activeStudents]
   );
 
+  const estimate = useMemo(
+    () => (expanded ? estimateAudienceCount(draft, activeStudents) : savedEstimate),
+    [expanded, draft, activeStudents, savedEstimate]
+  );
+
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    setEstimate(estimateAudienceCount(draft, activeStudents));
-  }, [draft, activeStudents, expanded]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    setDraft(sanitizeAudience(savedAudience));
-    setDirty(false);
-  }, [expanded, savedAudience]);
 
   const updateDraft = (patch) => {
     setDraft((prev) => sanitizeAudience({ ...prev, ...patch }));
@@ -221,6 +214,10 @@ export default function AutomationAudienceSection({
     if (expanded && dirty) {
       setConfirmDiscardOpen(true);
       return;
+    }
+    if (!expanded) {
+      setDraft(sanitizeAudience(savedAudience));
+      setDirty(false);
     }
     setExpanded((v) => !v);
   };

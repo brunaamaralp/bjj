@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import './SearchableGroupedSelect.css';
 
 function filterOptions(options, query) {
@@ -51,10 +51,7 @@ export default function SearchableSelect({
   const [query, setQuery] = useState(() => findOptionLabel(options, value));
 
   const selectedLabel = useMemo(() => findOptionLabel(options, value), [options, value]);
-
-  useEffect(() => {
-    if (!open) setQuery(selectedLabel);
-  }, [selectedLabel, open]);
+  const inputValue = open ? query : selectedLabel;
 
   const filterQuery = useMemo(() => {
     if (!open) return '';
@@ -92,7 +89,7 @@ export default function SearchableSelect({
         id={id}
         type="text"
         className={['form-input', 'searchable-grouped-select__input', inputClassName].filter(Boolean).join(' ')}
-        value={query}
+        value={inputValue}
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="off"
@@ -104,7 +101,10 @@ export default function SearchableSelect({
           setQuery(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setQuery(selectedLabel);
+          setOpen(true);
+        }}
         onBlur={handleBlur}
         {...rest}
       />

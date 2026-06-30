@@ -10,14 +10,15 @@ export default function ReportsPanelSection({
   action,
   children,
   className = '',
-  as: Tag = 'section',
+  as = 'section',
   ...rest
 }) {
+  const SectionTag = as;
   const hasHeading = Boolean(title || subtitle || action);
   return (
-    <Tag className={['reports-panel-section card', className].filter(Boolean).join(' ')} {...rest}>
+    <SectionTag className={['reports-panel-section card', className].filter(Boolean).join(' ')} {...rest}>
       {hasHeading ? <ReportSectionHeading title={title} subtitle={subtitle} action={action} /> : null}
       {children}
-    </Tag>
+    </SectionTag>
   );
 }

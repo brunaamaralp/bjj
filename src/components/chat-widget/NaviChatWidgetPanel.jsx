@@ -48,7 +48,7 @@ export default function NaviChatWidgetPanel({
   const switchConversation = useChatWidgetStore((s) => s.switchConversation);
   const setLeadName = useChatWidgetStore((s) => s.setLeadName);
   const aiModuleEnabled = useLeadStore((s) => s.modules?.aiEnabled !== false);
-  const { agentIaActive } = useInboxDeferredBoot(academyId, {});
+  const { agentIaActive } = useInboxDeferredBoot(academyId);
   const panelRef = useRef(null);
 
   const phoneDigits = primaryInboxPhone(activePhone);

@@ -5,7 +5,6 @@ import {
   isBundleChildPayment,
 } from './paymentCategories.js';
 import {
-  bundlePlanShortLabel,
   formatReferenceMonthLong,
   formatReferenceMonthShort,
   coverageEndMonth,
@@ -295,7 +294,6 @@ export function buildFinancialSummary({
   // Detect any payment (plan, bundle, fee, etc.) that covers the current month
   const currentYm = new Date().toISOString().slice(0, 7);
   const currentMonthPayment = (payments || []).find((p) => {
-    const cat = normalizePaymentCategory(p);
     const month = String(p.reference_month || '').slice(0, 7);
     return month === currentYm && ['paid', 'covered', 'pending', 'partial'].includes(String(p.status || '').toLowerCase());
   });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import {
@@ -8,17 +8,7 @@ import {
 } from '../../../lib/attendanceRetentionCore.js';
 import './attendance-at-risk.css';
 
-/**
- * @param {{
- *   open: boolean;
- *   studentName?: string;
- *   busy?: boolean;
- *   onConfirm: (payload: { reason: string; notes: string; snoozeDays: number }) => void;
- *   onCancel: () => void;
- * }} props
- */
-export default function AttendanceAbsenceReasonModal({
-  open,
+function AttendanceAbsenceReasonForm({
   studentName = '',
   busy = false,
   onConfirm,
@@ -28,15 +18,6 @@ export default function AttendanceAbsenceReasonModal({
   const [notes, setNotes] = useState('');
   const [snoozeDays, setSnoozeDays] = useState(DEFAULT_ATTENDANCE_ABSENCE_SNOOZE_DAYS);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (open) {
-      setReason('');
-      setNotes('');
-      setSnoozeDays(DEFAULT_ATTENDANCE_ABSENCE_SNOOZE_DAYS);
-      setError('');
-    }
-  }, [open]);
 
   const handleClose = useCallback(() => {
     if (busy) return;
@@ -51,8 +32,6 @@ export default function AttendanceAbsenceReasonModal({
     setError('');
     onConfirm({ reason, notes: String(notes || '').trim(), snoozeDays });
   };
-
-  if (!open) return null;
 
   return (
     <ModalShell
@@ -132,5 +111,33 @@ export default function AttendanceAbsenceReasonModal({
         />
       </label>
     </ModalShell>
+  );
+}
+
+/**
+ * @param {{
+ *   open: boolean;
+ *   studentName?: string;
+ *   busy?: boolean;
+ *   onConfirm: (payload: { reason: string; notes: string; snoozeDays: number }) => void;
+ *   onCancel: () => void;
+ * }} props
+ */
+export default function AttendanceAbsenceReasonModal({
+  open,
+  studentName = '',
+  busy = false,
+  onConfirm,
+  onCancel,
+}) {
+  if (!open) return null;
+
+  return (
+    <AttendanceAbsenceReasonForm
+      studentName={studentName}
+      busy={busy}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   );
 }

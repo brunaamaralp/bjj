@@ -6,7 +6,6 @@ import { friendlyError } from '../../lib/errorMessages';
 import {
   listBankAccountLabels,
   resolveBankAccountForPayment,
-  hasConfiguredBankAccounts,
 } from '../../lib/bankAccounts.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { pickFinanceConfigForPayments } from '../../lib/financeConfigForPayments.js';
@@ -52,8 +51,6 @@ export default function BankAccountSelect({
     () => listBankAccountLabels(resolvedFinanceConfig),
     [resolvedFinanceConfig]
   );
-  const hasBanks = hasConfiguredBankAccounts(resolvedFinanceConfig);
-
   const selectOptions = useMemo(() => {
     const current = String(value || '').trim();
     const items = options.map((lbl) => ({ value: lbl, label: lbl }));

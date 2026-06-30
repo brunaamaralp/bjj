@@ -23,8 +23,8 @@ import { normalizeFinanceVendors } from './financeVendors.js';
 import { normalizeAcquirerFees, normalizeAcquirerFeePolicy } from './acquirerFees.js';
 import { normalizeEnrollmentDiscountPresets } from './enrollmentDiscountPresets.js';
 import { normalizePaymentMethodSettings } from './paymentMethodSettings.js';
-import { readCaptureMethods } from './captureMethods.js';
-import { readFeeReceivers } from './feeReceivers.js';
+import { readCaptureMethods, compactCaptureMethodForStorage } from './captureMethods.js';
+import { readFeeReceivers, compactFeeReceiverForStorage } from './feeReceivers.js';
 import { migrateFinanceConfigToFeeReceivers } from './migrateFeeReceivers.js';
 
 /** Limite legado do atributo financeConfig (string) no Appwrite. */
@@ -43,6 +43,8 @@ const SETTINGS_COLLECTION_KEY = 'financeCollection';
 const SETTINGS_COLLECTION_OFFLOAD_FLAG = 'financeCollectionOffloaded';
 const SETTINGS_WHATSAPP_KEY = 'financeWhatsappReminders';
 const SETTINGS_WHATSAPP_OFFLOAD_FLAG = 'financeWhatsappRemindersOffloaded';
+const SETTINGS_FEE_RECEIVERS_KEY = 'financeFeeReceivers';
+const SETTINGS_FEE_RECEIVERS_OFFLOAD_FLAG = 'financeFeeReceiversOffloaded';
 /** Chaves legadas/alternativas em academy.settings. */
 const SETTINGS_BANK_ACCOUNTS_ALIASES = ['financeBankAccounts', 'bankAccounts'];
 const SETTINGS_PLANS_ALIASES = ['financePlans', 'plans'];
@@ -125,6 +127,33 @@ function extractWhatsappFromSettings(settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
   if (!Object.prototype.hasOwnProperty.call(settings, SETTINGS_WHATSAPP_KEY)) return null;
   return normalizeWhatsappRemindersConfig(settings[SETTINGS_WHATSAPP_KEY]);
+}
+
+function extractFeeReceiversFromSettings(settingsRaw) {
+  const settings = parseAcademySettings(settingsRaw);
+  const raw = settings[SETTINGS_FEE_RECEIVERS_KEY];
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'object') {
+    const receivers = raw.receivers ?? raw.feeReceivers;
+    if (Array.isArray(receivers)) {
+      return {
+        feeReceivers: receivers,
+        defaultFeeReceiverId: String(raw.defaultFeeReceiverId || '').trim(),
+      };
+    }
+  }
+  return null;
+}
+
+function compactBankAccountForStorage(acc, { stripLegacyFees = false } = {}) {
+  if (!acc || typeof acc !== 'object') return null;
+  const out = { ...acc };
+  if (stripLegacyFees) {
+    delete out.acquirerFees;
+    delete out.useDefaultAcquirerFees;
+  }
+  return out;
 }
 
 /** Lê contas do atributo raiz academy.financeBankAccounts (legado Appwrite). */
@@ -268,24 +297,40 @@ export function compactPlanForStorage(plan) {
   return out;
 }
 
-/** Compacta financeConfig antes de persistir (planos sem campos vazios). */
+/** Compacta financeConfig antes de persistir (planos sem campos vazios, recebedores sparse). */
 export function compactFinanceConfigForStorage(mergedCfg) {
   const base = mergedCfg && typeof mergedCfg === 'object' ? { ...mergedCfg } : {};
   const plans = (base.plans || []).map(compactPlanForStorage).filter(Boolean);
-  const captureMethods = readCaptureMethods(base);
   const feeReceivers = readFeeReceivers(base);
-  const out = { ...base, plans };
+  const migrated = feeReceivers.length > 0 || base.feeReceiversMigrated === true;
+  const stripLegacyFees = migrated;
+
+  const captureMethods = readCaptureMethods(base)
+    .map((cap) => compactCaptureMethodForStorage(cap))
+    .filter(Boolean);
+  const compactReceivers = feeReceivers
+    .map((r) => compactFeeReceiverForStorage(r))
+    .filter(Boolean);
+
+  const bankAccounts = filterBankAccountsWithBank(base.bankAccounts).map((acc) =>
+    compactBankAccountForStorage(acc, { stripLegacyFees })
+  );
+
+  const out = { ...base, plans, bankAccounts };
   if (captureMethods.length) out.captureMethods = captureMethods;
   else delete out.captureMethods;
-  if (feeReceivers.length) {
-    out.feeReceivers = feeReceivers;
+
+  if (compactReceivers.length) {
+    out.feeReceivers = compactReceivers;
     out.feeReceiversMigrated = true;
     if (base.defaultFeeReceiverId) out.defaultFeeReceiverId = base.defaultFeeReceiverId;
+    delete out.acquirerFees;
   } else {
     delete out.feeReceivers;
     delete out.defaultFeeReceiverId;
     delete out.feeReceiversMigrated;
   }
+
   return out;
 }
 
@@ -324,6 +369,21 @@ export function mergeFinanceConfigFromAcademyDoc(academyDoc) {
 
   if (settings[SETTINGS_WHATSAPP_OFFLOAD_FLAG] && whatsappFromSettings) {
     merged = { ...merged, whatsappReminders: whatsappFromSettings };
+  }
+
+  const feeReceiversFromSettings = extractFeeReceiversFromSettings(academyDoc?.settings);
+  if (settings[SETTINGS_FEE_RECEIVERS_OFFLOAD_FLAG] && feeReceiversFromSettings) {
+    if (Array.isArray(feeReceiversFromSettings)) {
+      merged = { ...merged, feeReceivers: feeReceiversFromSettings, feeReceiversMigrated: true };
+    } else {
+      merged = {
+        ...merged,
+        feeReceivers: feeReceiversFromSettings.feeReceivers,
+        defaultFeeReceiverId:
+          feeReceiversFromSettings.defaultFeeReceiverId || merged.defaultFeeReceiverId,
+        feeReceiversMigrated: true,
+      };
+    }
   }
 
   merged = { ...merged, vendors: normalizeFinanceVendors(merged.vendors) };
@@ -379,7 +439,7 @@ export function auditBankAccountsFromAcademyDoc(academyDoc) {
 }
 
 function fitsFinanceConfigLimit(json) {
-  return json.length <= FINANCE_CONFIG_LEGACY_MAX_CHARS - SAVE_BUFFER_CHARS;
+  return json.length <= FINANCE_CONFIG_TARGET_MAX_CHARS - SAVE_BUFFER_CHARS;
 }
 
 function fitsSettingsLimit(json) {
@@ -394,7 +454,7 @@ function buildOnboardingOverflowPayload(academyDoc, banks) {
   });
 }
 
-function makeFinanceCore(compacted, { stripBanks, stripPlans, stripCollection, stripWhatsapp }) {
+function makeFinanceCore(compacted, { stripBanks, stripPlans, stripCollection, stripWhatsapp, stripFeeReceivers }) {
   const core = { ...compacted };
   if (stripBanks) core.bankAccounts = [];
   if (stripPlans) core.plans = [];
@@ -405,15 +465,21 @@ function makeFinanceCore(compacted, { stripBanks, stripPlans, stripCollection, s
     delete core.overdue_label;
   }
   if (stripWhatsapp) delete core.whatsappReminders;
+  if (stripFeeReceivers) {
+    delete core.feeReceivers;
+    delete core.defaultFeeReceiverId;
+  }
   return core;
 }
 
 const OFFLOAD_LEVELS = [
-  { stripBanks: false, stripPlans: false, stripCollection: false, stripWhatsapp: false },
-  { stripBanks: true, stripPlans: false, stripCollection: false, stripWhatsapp: false },
-  { stripBanks: true, stripPlans: true, stripCollection: false, stripWhatsapp: false },
-  { stripBanks: true, stripPlans: true, stripCollection: true, stripWhatsapp: false },
-  { stripBanks: true, stripPlans: true, stripCollection: true, stripWhatsapp: true },
+  { stripBanks: false, stripPlans: false, stripCollection: false, stripWhatsapp: false, stripFeeReceivers: false },
+  { stripBanks: false, stripPlans: false, stripCollection: false, stripWhatsapp: false, stripFeeReceivers: true },
+  { stripBanks: true, stripPlans: false, stripCollection: false, stripWhatsapp: false, stripFeeReceivers: false },
+  { stripBanks: true, stripPlans: true, stripCollection: false, stripWhatsapp: false, stripFeeReceivers: false },
+  { stripBanks: true, stripPlans: true, stripCollection: true, stripWhatsapp: false, stripFeeReceivers: false },
+  { stripBanks: true, stripPlans: true, stripCollection: true, stripWhatsapp: true, stripFeeReceivers: false },
+  { stripBanks: true, stripPlans: true, stripCollection: true, stripWhatsapp: true, stripFeeReceivers: true },
 ];
 
 function pickOffloadLevel(compacted) {
@@ -434,6 +500,8 @@ function clearFinanceOverflowKeys(settings) {
   delete next[SETTINGS_COLLECTION_OFFLOAD_FLAG];
   delete next[SETTINGS_WHATSAPP_KEY];
   delete next[SETTINGS_WHATSAPP_OFFLOAD_FLAG];
+  delete next[SETTINGS_FEE_RECEIVERS_KEY];
+  delete next[SETTINGS_FEE_RECEIVERS_OFFLOAD_FLAG];
   return next;
 }
 
@@ -454,6 +522,8 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
     overdueLabel: parseOverdueLabel(compacted.overdueLabel ?? compacted.overdue_label),
   };
   const whatsappPayload = normalizeWhatsappRemindersConfig(compacted.whatsappReminders);
+  const feeReceiversPayload = readFeeReceivers(compacted);
+  const defaultFeeReceiverId = String(compacted.defaultFeeReceiverId || '').trim();
 
   const level = pickOffloadLevel(compacted);
   if (!level) {
@@ -466,7 +536,10 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
 
   const financeStr = JSON.stringify(makeFinanceCore(compacted, level));
   const needsSettingsOverflow =
-    level.stripPlans || level.stripCollection || level.stripWhatsapp;
+    level.stripPlans ||
+    level.stripCollection ||
+    level.stripWhatsapp ||
+    level.stripFeeReceivers;
 
   if (!level.stripBanks && !needsSettingsOverflow) {
     const nextSettings = clearFinanceOverflowKeys(settings);
@@ -511,6 +584,15 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
       ...(level.stripWhatsapp
         ? { [SETTINGS_WHATSAPP_KEY]: whatsappPayload, [SETTINGS_WHATSAPP_OFFLOAD_FLAG]: true }
         : {}),
+      ...(level.stripFeeReceivers
+        ? {
+            [SETTINGS_FEE_RECEIVERS_KEY]: {
+              receivers: feeReceiversPayload,
+              defaultFeeReceiverId,
+            },
+            [SETTINGS_FEE_RECEIVERS_OFFLOAD_FLAG]: true,
+          }
+        : {}),
     };
     const settingsStr = JSON.stringify(nextSettings);
     if (fitsSettingsLimit(settingsStr)) {
@@ -521,6 +603,7 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
         plansOffloaded: level.stripPlans,
         collectionOffloaded: level.stripCollection,
         whatsappOffloaded: level.stripWhatsapp,
+        feeReceiversOffloaded: level.stripFeeReceivers,
       };
     }
     throw new FinanceConfigTooLargeError({

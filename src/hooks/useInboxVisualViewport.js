@@ -8,12 +8,7 @@ export function useInboxVisualViewport(isMobile) {
   const [inboxSlashMaxHeight, setInboxSlashMaxHeight] = useState(288);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    if (!isMobile) {
-      setInboxVvInset(0);
-      setInboxSlashMaxHeight(288);
-      return;
-    }
+    if (!isMobile || typeof window === 'undefined' || !window.visualViewport) return undefined;
     const vv = window.visualViewport;
     const upd = () => {
       const inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
@@ -29,5 +24,8 @@ export function useInboxVisualViewport(isMobile) {
     };
   }, [isMobile]);
 
-  return { inboxVvInset, inboxSlashMaxHeight };
+  return {
+    inboxVvInset: isMobile ? inboxVvInset : 0,
+    inboxSlashMaxHeight: isMobile ? inboxSlashMaxHeight : 288,
+  };
 }

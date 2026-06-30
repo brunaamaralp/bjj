@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { createSessionJwt } from '../lib/appwrite.js';
 import { authedFetch } from '../lib/authInterceptor.js';
-import { friendlyError } from '../lib/errorMessages.js';
 import { useLeadStore } from './useLeadStore.js';
 
 async function bookingsFetch(path, options = {}, academyIdOverride = '') {

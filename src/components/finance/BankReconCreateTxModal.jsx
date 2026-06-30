@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
 import FieldError from '../shared/FieldError.jsx';
@@ -8,24 +8,10 @@ import {
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
 
-export default function BankReconCreateTxModal({
-  open,
-  item,
-  chartAccounts = [],
-  busy = false,
-  onClose,
-  onConfirm,
-}) {
+function BankReconCreateTxForm({ item, chartAccounts, busy, onClose, onConfirm }) {
   const direction = item?.direction === 'credit' ? 'in' : 'out';
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(() => defaultCategoryForDirection(direction).label);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!open) return;
-    const cat = defaultCategoryForDirection(direction);
-    setCategory(cat.label);
-    setError('');
-  }, [open, direction, item?.id]);
 
   const categoryOptionGroups = useMemo(
     () => getCategoryOptionsByNature(direction === 'out' ? 'out' : 'in', chartAccounts),
@@ -50,7 +36,7 @@ export default function BankReconCreateTxModal({
 
   return (
     <ModalShell
-      open={open}
+      open
       onClose={onClose}
       title="Criar lançamento"
       description={`Classifique a movimentação do extrato antes de conciliar.${amountLabel ? ` Valor: ${amountLabel}.` : ''}`}
@@ -88,5 +74,27 @@ export default function BankReconCreateTxModal({
         <FieldError id="bank-recon-create-category-error">{error}</FieldError>
       </div>
     </ModalShell>
+  );
+}
+
+export default function BankReconCreateTxModal({
+  open,
+  item,
+  chartAccounts = [],
+  busy = false,
+  onClose,
+  onConfirm,
+}) {
+  if (!open || !item) return null;
+
+  return (
+    <BankReconCreateTxForm
+      key={item.id}
+      item={item}
+      chartAccounts={chartAccounts}
+      busy={busy}
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
   );
 }

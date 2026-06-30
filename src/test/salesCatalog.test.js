@@ -10,7 +10,6 @@ import {
   cartVariantOptions,
   cartVariantOptionsForLineKind,
   catalogLineAvailability,
-  variantCanAddForLineKind,
   parentShowsDualPickActions,
   defaultLineKindForParent,
   suggestUnitPrice,

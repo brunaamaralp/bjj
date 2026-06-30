@@ -30,7 +30,6 @@ export default function ReportsTabPanels({
   hasSales,
   hasInventory,
   loading,
-  showInitialLoad,
   showFunilChartSkeleton,
   chartMetric,
   onChartMetricChange,

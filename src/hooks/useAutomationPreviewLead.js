@@ -86,14 +86,16 @@ export function useAutomationPreviewLead() {
     return { ...AUTOMATION_PREVIEW_FALLBACK_STUDENT };
   }, [activeStudents]);
 
-  const [sampleLeadId, setSampleLeadIdState] = useState('');
-  const [sampleManual, setSampleManualState] = useState(DEFAULT_MANUAL);
+  const [sampleLeadId, setSampleLeadIdState] = useState(() => loadStoredPreview(academyId).sampleLeadId);
+  const [sampleManual, setSampleManualState] = useState(() => loadStoredPreview(academyId).sampleManual);
+  const [loadedAcademyId, setLoadedAcademyId] = useState(academyId);
 
-  useEffect(() => {
+  if (academyId !== loadedAcademyId) {
+    setLoadedAcademyId(academyId);
     const stored = loadStoredPreview(academyId);
     setSampleLeadIdState(stored.sampleLeadId);
     setSampleManualState(stored.sampleManual);
-  }, [academyId]);
+  }
 
   useEffect(() => {
     saveStoredPreview(academyId, { sampleLeadId, sampleManual });

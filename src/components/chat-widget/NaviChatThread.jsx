@@ -106,7 +106,6 @@ export default function NaviChatThread({
   displayName = 'o contato',
   phoneDigits = '',
   inboxHref = '/inbox',
-  waConnected = true,
   waOfflineUi = false,
   hideInboxLink = false,
   suppressEmpty = false,

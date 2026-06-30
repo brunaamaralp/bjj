@@ -51,7 +51,6 @@ import '../styles/profile-shared.css';
 import { useToast } from '../hooks/useToast';
 import { friendlyError, studentPaymentFriendlyError } from '../lib/errorMessages.js';
 import { maskCPF, maskPhone } from '../lib/masks.js';
-import { centsToNumber, parseMaskToCents } from '../lib/moneyBr';
 import { PIPELINE_STAGES } from '../constants/pipeline.js';
 import { useTerms, contactLabelSingular, operationalStatusDisplayLabel, pipelineStageDisplayLabel } from '../lib/terminology.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
@@ -1869,7 +1868,7 @@ export default function StudentProfile() {
                 <ProfileInlineField
                     {...common}
                     editValue={turmaState}
-                    renderEditor={({ draft, setDraft, onBlur, commitEdit, disabled: saving }) => (
+                    renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
                         <div
                             className="profile-inline-field__turma-wrap"
                             onBlur={(e) => {

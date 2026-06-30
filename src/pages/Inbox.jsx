@@ -16,7 +16,6 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
-import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
 import { isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import { INTEGRACOES_WHATSAPP_PATH } from '../lib/integracoesRoutes.js';
@@ -177,7 +176,7 @@ export default function Inbox() {
   const studentsLoading = useStudentStore((s) => s.loading);
   const academyList = Array.isArray(academyListRaw) ? academyListRaw : EMPTY_ACADEMY_LIST;
   const academyDoc = useMemo(() => academyList.find((a) => a.id === academyId) || { ownerId: '', teamId: '' }, [academyList, academyId]);
-  const { teamMembers, agentIaActive } = useInboxDeferredBoot(academyId, academyDoc);
+  const { teamMembers, agentIaActive } = useInboxDeferredBoot(academyId);
   const role = useUserRole(academyDoc);
   const canConfigureAgenteIa = role === 'owner' || role === 'member';
   const fetchWaInfoDeferredRef = useRef(null);
@@ -376,12 +375,14 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
-  // Sincroniza no render para efeitos/hooks na mesma passagem verem o academyId atual.
-  academyIdRef.current = String(academyId || '').trim();
   const handleSelectConversationRef = useRef(() => {});
   const markSeenRef = useRef(null);
   const messageFlagsMigrationDoneRef = useRef(false);
   const inboxAutoSelectDoneRef = useRef(false);
+
+  useEffect(() => {
+    academyIdRef.current = String(academyId || '').trim();
+  }, [academyId]);
 
   const threadMessageCount = Array.isArray(selected?.messages) ? selected.messages.length : 0;
   const handleThreadPhoneChange = useCallback(() => {
@@ -416,7 +417,6 @@ export default function Inbox() {
   });
   const {
     desktopNotify,
-    desktopNotifyRef,
     toggleDesktopNotifyPreference,
     tryDesktopNotify,
     playNotificationSound,
@@ -564,7 +564,6 @@ export default function Inbox() {
     leadTypeDraft,
     selected,
     contactLabel,
-    updateLead,
     fetchLeads,
   });
 
@@ -979,12 +978,6 @@ export default function Inbox() {
     void loadThread(phone, { conversationId });
   }, [selectedPhone, loadThread]);
 
-  useEffect(() => {
-    setEditingContactName(false);
-    setSavingContactName(false);
-    setContactNameDraft('');
-  }, [selectedPhone]);
-
   const {
     studentCandidates,
     executeDismissTriage,
@@ -1041,6 +1034,9 @@ export default function Inbox() {
     setSelected((prev) => buildSelectedFromListItem(it, prev, cached));
 
     setSelectedPhone(phone);
+    setEditingContactName(false);
+    setSavingContactName(false);
+    setContactNameDraft('');
 
     const unreadCount = Number(it?._unreadCount ?? it?.unread_count ?? 0);
     if (unreadCount > 0) {
@@ -1057,7 +1053,9 @@ export default function Inbox() {
     void loadThreadRef.current?.(phone, { prefetch: true, conversationId: convId });
   }, [loadThreadRef]);
 
-  handleSelectConversationRef.current = handleSelectConversation;
+  useEffect(() => {
+    handleSelectConversationRef.current = handleSelectConversation;
+  }, [handleSelectConversation]);
 
   useInboxAutoSelectConversation({
     academyId,
@@ -1165,7 +1163,7 @@ export default function Inbox() {
     setListFilter('all');
     setExtraFiltersMenuOpen(false);
     setSearch('');
-  }, []);
+  }, [setListFilter, setExtraFiltersMenuOpen, setSearch]);
 
   const waChatConnected = useMemo(
     () => !waStatusChecked || String(waStatus || '').trim() === 'connected',

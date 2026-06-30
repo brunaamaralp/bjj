@@ -5,7 +5,6 @@ import {
   computeAcquirerFee,
   defaultAcquirerFees,
   forecastInflowAmountsFromFees,
-  mirrorAmountsForPayment,
   normalizeAcquirerFees,
 } from './acquirerFees.js';
 import {

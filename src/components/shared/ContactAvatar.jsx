@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { contactInitials } from '../../lib/contactInitials.js';
 import './contact-avatar.css';
 
@@ -13,13 +13,10 @@ import './contact-avatar.css';
  * @param {string} [className]
  */
 export default function ContactAvatar({ contact, size = 34, fill = false, priority = false, className = '' }) {
-  const [imgError, setImgError] = useState(false);
+  const [imgErrorUrl, setImgErrorUrl] = useState('');
   const name = String(contact?.name || '').trim();
   const avatarUrl = String(contact?.avatar_url || '').trim();
-
-  useEffect(() => {
-    setImgError(false);
-  }, [avatarUrl]);
+  const imgError = Boolean(avatarUrl) && imgErrorUrl === avatarUrl;
   const initials = contactInitials(name);
   const rootClass = ['contact-avatar', fill ? 'contact-avatar--fill' : '', className].filter(Boolean).join(' ');
   const boxStyle = fill ? undefined : { width: size, height: size };
@@ -37,7 +34,7 @@ export default function ContactAvatar({ contact, size = 34, fill = false, priori
           decoding="async"
           fetchPriority={priority ? 'high' : 'auto'}
           referrerPolicy="no-referrer"
-          onError={() => setImgError(true)}
+          onError={() => setImgErrorUrl(avatarUrl)}
         />
       </span>
     );

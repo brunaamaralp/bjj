@@ -24,6 +24,12 @@ import academySettingsHandler from '../lib/server/academySettingsHandler.js';
 import followupCopilotHandler from '../lib/server/followupCopilotHandler.js';
 import followupInboundHandler from '../lib/server/followupInboundHandler.js';
 import followupEventsHandler from '../lib/server/followupEventsHandler.js';
+import pagbankEncryptHandler from '../lib/server/pagbankEncryptHandler.js';
+import pagbankSubscriberHandler from '../lib/server/pagbankSubscriberHandler.js';
+import pagbankSubscriptionHandler from '../lib/server/pagbankSubscriptionHandler.js';
+import pagbankSetupHandler from '../lib/server/pagbankSetupHandler.js';
+import pagbankPortalTokenHandler from '../lib/server/pagbankPortalTokenHandler.js';
+import pagbankPortalInfoHandler from '../lib/server/pagbankPortalInfoHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -76,6 +82,12 @@ export default async function handler(req, res) {
     if (route === 'import-bank-statement') return importBankStatementHandler(req, res);
     if (route === 'settle-finance-tx') return settleFinanceTxHandler(req, res);
     if (route === 'cancel-finance-tx') return cancelFinanceTxHandler(req, res);
+    if (route === 'pagbank-encrypt') return pagbankEncryptHandler(req, res);
+    if (route === 'pagbank-subscriber') return pagbankSubscriberHandler(req, res);
+    if (route === 'pagbank-subscription') return pagbankSubscriptionHandler(req, res);
+    if (route === 'pagbank-setup') return pagbankSetupHandler(req, res);
+    if (route === 'pagbank-portal-token') return pagbankPortalTokenHandler(req, res);
+    if (route === 'pagbank-portal-info') return pagbankPortalInfoHandler(req, res);
     if (route === 'academy-create') return academyCreateHandler(req, res);
     if (route === 'team-members') return teamMembersHandler(req, res);
     if (route === 'whatsapp-templates' || url.includes('/whatsapp-templates')) {

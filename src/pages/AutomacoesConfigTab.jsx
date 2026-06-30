@@ -79,7 +79,7 @@ export default function AutomacoesConfigTab({
   const [automationsConfig, setAutomationsConfig] = useState(() => parseAutomationsConfig(null));
   const [savingAutomations, setSavingAutomations] = useState(false);
   const [lastSaveFailed, setLastSaveFailed] = useState(false);
-  const [academyDataVersion, setAcademyDataVersion] = useState(0);
+  const [, setAcademyDataVersion] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

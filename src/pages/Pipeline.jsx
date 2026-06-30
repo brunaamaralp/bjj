@@ -1238,6 +1238,9 @@ const Pipeline = () => {
     const loadingMore = useLeadStore((s) => s.loadingMore);
     const getLeadById = useLeadStore((s) => s.getLeadById);
     const kanbanWrapperRef = useRef(null);
+    const kanbanTopScrollRef = useRef(null);
+    const kanbanScrollSpacerRef = useRef(null);
+    const kanbanScrollSyncLockRef = useRef(false);
     const [pageScrollEl, setPageScrollEl] = useState(null);
 
     useEffect(() => {
@@ -2332,6 +2335,47 @@ const Pipeline = () => {
     }, [leadsForBoard]);
 
     useEffect(() => {
+        if (isMobile) return undefined;
+        const main = kanbanWrapperRef.current;
+        const top = kanbanTopScrollRef.current;
+        const spacer = kanbanScrollSpacerRef.current;
+        if (!main || !top || !spacer) return undefined;
+
+        const updateSpacer = () => {
+            spacer.style.width = `${main.scrollWidth}px`;
+            const hasOverflow = main.scrollWidth > main.clientWidth + 1;
+            top.classList.toggle('kanban-scroll-top--hidden', !hasOverflow);
+        };
+
+        const syncFromMain = () => {
+            if (kanbanScrollSyncLockRef.current) return;
+            kanbanScrollSyncLockRef.current = true;
+            top.scrollLeft = main.scrollLeft;
+            kanbanScrollSyncLockRef.current = false;
+        };
+
+        const syncFromTop = () => {
+            if (kanbanScrollSyncLockRef.current) return;
+            kanbanScrollSyncLockRef.current = true;
+            main.scrollLeft = top.scrollLeft;
+            kanbanScrollSyncLockRef.current = false;
+        };
+
+        updateSpacer();
+        syncFromMain();
+        main.addEventListener('scroll', syncFromMain, { passive: true });
+        top.addEventListener('scroll', syncFromTop, { passive: true });
+        const ro = new ResizeObserver(updateSpacer);
+        ro.observe(main);
+
+        return () => {
+            main.removeEventListener('scroll', syncFromMain);
+            top.removeEventListener('scroll', syncFromTop);
+            ro.disconnect();
+        };
+    }, [isMobile, showKanbanInitialLoading, displayStages.length, leadsForBoard.length, enrolledForBoard.length]);
+
+    useEffect(() => {
         const saved = pendingScrollRestoreRef.current;
         if (!saved || showKanbanInitialLoading || isMobile) return;
 
@@ -2342,6 +2386,9 @@ const Pipeline = () => {
                 const wrapper = kanbanWrapperRef.current;
                 if (wrapper && Number.isFinite(saved.scrollX)) {
                     wrapper.scrollLeft = saved.scrollX;
+                    if (kanbanTopScrollRef.current) {
+                        kanbanTopScrollRef.current.scrollLeft = saved.scrollX;
+                    }
                 }
                 const mainEl = document.querySelector('.main-content');
                 if (mainEl && Number.isFinite(saved.scrollY)) {
@@ -3168,13 +3215,21 @@ const Pipeline = () => {
                 onDragEnd={handleDragEnd}
                 onDragCancel={clearDragUiState}
             >
-                <div
-                    ref={kanbanWrapperRef}
-                    className="kanban-wrapper"
-                    onDragOverCapture={showKanbanInitialLoading ? undefined : onKanbanWrapperDragOverCapture}
-                    aria-busy={showKanbanInitialLoading || undefined}
-                    aria-label={showKanbanInitialLoading ? 'Carregando funil' : undefined}
-                >
+                <div className="pipeline-kanban-scroll-stack">
+                    <div
+                        ref={kanbanTopScrollRef}
+                        className="kanban-scroll-top kanban-scroll-top--hidden"
+                        aria-hidden="true"
+                    >
+                        <div ref={kanbanScrollSpacerRef} className="kanban-scroll-top-spacer" />
+                    </div>
+                    <div
+                        ref={kanbanWrapperRef}
+                        className="kanban-wrapper"
+                        onDragOverCapture={showKanbanInitialLoading ? undefined : onKanbanWrapperDragOverCapture}
+                        aria-busy={showKanbanInitialLoading || undefined}
+                        aria-label={showKanbanInitialLoading ? 'Carregando funil' : undefined}
+                    >
                     {kanbanLoadingStages.map((col, idx) => {
                         const color = getPipelineStageColor(col.id, idx);
                         if (showKanbanInitialLoading) {
@@ -3266,6 +3321,7 @@ const Pipeline = () => {
                             </Column>
                         );
                     })}
+                    </div>
                 </div>
 
                 <DragOverlay dropAnimation={dropAnimation}>

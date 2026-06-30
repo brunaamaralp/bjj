@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useState } from 'react';
 import { Calendar, ChevronDown, RefreshCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AgendaCalendarWeek, { formatWeekRangeLabel } from '../AgendaCalendarWeek.jsx';
@@ -27,19 +27,7 @@ function DashboardAgendaWeekPanel({
   const navigate = useNavigate();
   const [weekExpanded, setWeekExpanded] = useState(() => !isDashboardMobile);
 
-  useEffect(() => {
-    if (!isDashboardMobile) {
-      setWeekExpanded(true);
-    }
-  }, [isDashboardMobile]);
-
-  useEffect(() => {
-    if (expandWeekSignal > 0 && isDashboardMobile) {
-      setWeekExpanded(true);
-    }
-  }, [expandWeekSignal, isDashboardMobile]);
-
-  const showWeekView = !isDashboardMobile || weekExpanded;
+  const showWeekView = !isDashboardMobile || weekExpanded || expandWeekSignal > 0;
   const badgeCount = showWeekView ? visibleWeekCount : todayCount;
   const badgeTitle = showWeekView
     ? `${trialSeriesPlural} na semana exibida`

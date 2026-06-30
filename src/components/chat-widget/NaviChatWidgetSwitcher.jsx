@@ -80,6 +80,7 @@ export default function NaviChatWidgetSwitcher({
     gap: 6,
     maxHeight: 280,
     minWidth: 260,
+    matchTriggerWidth: true,
     zIndex: 'calc(var(--z-chat-widget, 8000) + 5)',
   });
 
@@ -107,10 +108,6 @@ export default function NaviChatWidgetSwitcher({
   const displayName = String(leadName || '').trim() || 'Conversa';
   const avatarUrl = inboxProfileImageUrl({ whatsapp_profile_image_url: profileImageUrl });
 
-  const triggerWidth = open && triggerRef.current
-    ? Math.max(260, Math.round(triggerRef.current.getBoundingClientRect().width))
-    : undefined;
-
   const switcherPanel =
     open && menuStyle ? (
       <DropdownMenuPanel
@@ -122,7 +119,6 @@ export default function NaviChatWidgetSwitcher({
         data-chat-widget-switcher-menu
         style={{
           ...menuStyle,
-          ...(triggerWidth ? { width: triggerWidth, minWidth: triggerWidth } : null),
         }}
       >
         <DropdownMenuLabel>Conversas recentes</DropdownMenuLabel>

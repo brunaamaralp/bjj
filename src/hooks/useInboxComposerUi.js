@@ -11,21 +11,33 @@ export function useInboxComposerUi({ selectedPhone }) {
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
-  const [composerExpanded, setComposerExpanded] = useState(false);
+  const [composerExpanded, setComposerExpandedState] = useState(false);
+  const [boundPhone, setBoundPhone] = useState(selectedPhone);
 
   const textareaRef = useRef(null);
   const slashPopupRef = useRef(null);
   const slashActiveItemRef = useRef(null);
 
-  useEffect(() => {
+  if (selectedPhone !== boundPhone) {
+    setBoundPhone(selectedPhone);
     setSlashOpen(false);
     setSlashQuery('');
-  }, [selectedPhone]);
-
-  useEffect(() => {
-    if (!slashOpen) return;
     setSlashIndex(0);
-  }, [slashQuery, slashOpen]);
+  }
+
+  const setSlashQuerySafe = (value) => {
+    setSlashQuery(value);
+    setSlashIndex(0);
+  };
+
+  const setComposerExpanded = (value) => {
+    const next = typeof value === 'function' ? value(composerExpanded) : value;
+    setComposerExpandedState(next);
+    if (!next) {
+      setTemplatesOpen(false);
+      setEmojiOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (!slashOpen) return;
@@ -37,6 +49,7 @@ export function useInboxComposerUi({ selectedPhone }) {
       if (ta && ta.contains(t)) return;
       setSlashOpen(false);
       setSlashQuery('');
+      setSlashIndex(0);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -50,12 +63,6 @@ export function useInboxComposerUi({ selectedPhone }) {
     }
   }, [composerExpanded]);
 
-  useEffect(() => {
-    if (composerExpanded) return;
-    setTemplatesOpen(false);
-    setEmojiOpen(false);
-  }, [composerExpanded]);
-
   return {
     emojiOpen,
     setEmojiOpen,
@@ -64,7 +71,7 @@ export function useInboxComposerUi({ selectedPhone }) {
     slashOpen,
     setSlashOpen,
     slashQuery,
-    setSlashQuery,
+    setSlashQuery: setSlashQuerySafe,
     slashIndex,
     setSlashIndex,
     composerExpanded,

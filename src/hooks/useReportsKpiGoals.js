@@ -6,10 +6,7 @@ export function useReportsKpiGoals(academyId) {
   const [goals, setGoals] = useState({});
 
   useEffect(() => {
-    if (!academyId) {
-      setGoals({});
-      return undefined;
-    }
+    if (!academyId) return undefined;
     let alive = true;
     getAcademyDocument(academyId)
       .then((doc) => {
@@ -23,5 +20,5 @@ export function useReportsKpiGoals(academyId) {
     };
   }, [academyId]);
 
-  return goals;
+  return academyId ? goals : {};
 }

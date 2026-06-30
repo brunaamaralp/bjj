@@ -28,20 +28,13 @@ function formatDate(iso) {
   }
 }
 
-export default function InvoiceHistoryTable({ storeId, billingLive, refreshKey = 0 }) {
+function InvoiceHistoryBody({ storeId, refreshKey }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!storeId || !billingLive) {
-      setLoading(false);
-      setPayments([]);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
-    setError('');
     fetchBillingPayments(storeId)
       .then((d) => {
         if (!cancelled) setPayments(Array.isArray(d.payments) ? d.payments : []);
@@ -52,58 +45,79 @@ export default function InvoiceHistoryTable({ storeId, billingLive, refreshKey =
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [storeId, billingLive, refreshKey]);
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, refreshKey]);
+
+  if (loading) {
+    return (
+      <div className="billing-invoices-skeleton" aria-hidden>
+        <div />
+        <div />
+        <div />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <p className="navi-subtitle" style={{ color: 'var(--danger)' }}>{error}</p>;
+  }
+
+  if (payments.length === 0) {
+    return <p className="navi-subtitle">Nenhuma fatura ainda.</p>;
+  }
+
+  return (
+    <div className="billing-invoices-table-wrap">
+      <table className="billing-invoices-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Valor</th>
+            <th>Forma</th>
+            <th>Status</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {payments.map((p) => (
+            <tr key={p.id}>
+              <td>{formatDate(p.paidAt || p.dueDate)}</td>
+              <td>{formatMoney(p.value)}</td>
+              <td>{BILLING_LABEL[p.billingType] || p.billingType}</td>
+              <td>{STATUS_LABEL[p.status] || p.status}</td>
+              <td>
+                {p.invoiceUrl ? (
+                  <a href={p.invoiceUrl} target="_blank" rel="noopener noreferrer" className="edit-link">
+                    Ver fatura
+                  </a>
+                ) : (
+                  '—'
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function InvoiceHistoryTable({ storeId, billingLive, refreshKey = 0 }) {
+  const shouldFetch = Boolean(storeId && billingLive);
 
   if (!billingLive) return null;
 
   return (
     <section className="billing-invoices" style={{ marginTop: 28 }}>
-      <h3 className="navi-section-title" style={{ fontSize: '1rem', marginBottom: 12 }}>Histórico de faturas</h3>
-      {loading && (
-        <div className="billing-invoices-skeleton" aria-hidden>
-          <div /><div /><div />
-        </div>
-      )}
-      {!loading && error && (
-        <p className="navi-subtitle" style={{ color: 'var(--danger)' }}>{error}</p>
-      )}
-      {!loading && !error && payments.length === 0 && (
+      <h3 className="navi-section-title" style={{ fontSize: '1rem', marginBottom: 12 }}>
+        Histórico de faturas
+      </h3>
+      {shouldFetch ? (
+        <InvoiceHistoryBody key={`${storeId}-${refreshKey}`} storeId={storeId} refreshKey={refreshKey} />
+      ) : (
         <p className="navi-subtitle">Nenhuma fatura ainda.</p>
-      )}
-      {!loading && payments.length > 0 && (
-        <div className="billing-invoices-table-wrap">
-          <table className="billing-invoices-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Valor</th>
-                <th>Forma</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id}>
-                  <td>{formatDate(p.paidAt || p.dueDate)}</td>
-                  <td>{formatMoney(p.value)}</td>
-                  <td>{BILLING_LABEL[p.billingType] || p.billingType}</td>
-                  <td>{STATUS_LABEL[p.status] || p.status}</td>
-                  <td>
-                    {p.invoiceUrl ? (
-                      <a href={p.invoiceUrl} target="_blank" rel="noopener noreferrer" className="edit-link">
-                        Ver fatura
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
     </section>
   );

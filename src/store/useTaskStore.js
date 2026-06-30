@@ -227,7 +227,7 @@ export const useTaskStore = create((set, get) => ({
     }
 
     const generation = get().fetchGeneration + 1;
-    set((state) => ({
+    set(() => ({
       fetchGeneration: generation,
       ...(reset
         ? opts.silent !== true
@@ -300,7 +300,7 @@ export const useTaskStore = create((set, get) => ({
     }
 
     const generation = get().fetchGeneration + 1;
-    set((state) => ({
+    set(() => ({
       fetchGeneration: generation,
       ...(opts.silent !== true ? { loading: true, error: null } : { error: null }),
     }));

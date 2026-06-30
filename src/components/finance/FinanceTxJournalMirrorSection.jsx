@@ -87,11 +87,32 @@ export default function FinanceTxJournalMirrorSection({
   chartAccounts,
   journalEntries = [],
 }) {
-  const [fetchedEntry, setFetchedEntry] = useState(null);
-  const [fetching, setFetching] = useState(false);
-
   const txId = String(tx?.id || tx?.$id || '').trim();
   const status = String(tx?.status || '').toLowerCase();
+
+  return (
+    <JournalMirrorBody
+      key={txId}
+      tx={tx}
+      txId={txId}
+      status={status}
+      academyId={academyId}
+      chartAccounts={chartAccounts}
+      journalEntries={journalEntries}
+    />
+  );
+}
+
+function JournalMirrorBody({ tx, txId, status, academyId, chartAccounts, journalEntries }) {
+  const needsFetch = Boolean(
+    txId &&
+      status === 'settled' &&
+      academyId &&
+      JOURNAL_COL &&
+      !findJournalEntryForTx(journalEntries, txId)
+  );
+  const [fetchedEntry, setFetchedEntry] = useState(null);
+  const [fetching, setFetching] = useState(needsFetch);
 
   const mergedEntries = useMemo(() => {
     const list = [...(journalEntries || [])];
@@ -102,15 +123,9 @@ export default function FinanceTxJournalMirrorSection({
   }, [journalEntries, fetchedEntry]);
 
   useEffect(() => {
-    setFetchedEntry(null);
-  }, [txId]);
-
-  useEffect(() => {
-    if (!txId || status !== 'settled' || !academyId || !JOURNAL_COL) return undefined;
-    if (findJournalEntryForTx(journalEntries, txId)) return undefined;
+    if (!needsFetch) return undefined;
 
     let active = true;
-    setFetching(true);
     databases
       .listDocuments(DB_ID, JOURNAL_COL, [
         Query.equal('academyId', academyId),
@@ -132,7 +147,7 @@ export default function FinanceTxJournalMirrorSection({
     return () => {
       active = false;
     };
-  }, [txId, status, academyId, journalEntries]);
+  }, [needsFetch, txId, academyId]);
 
   const mirror = useMemo(
     () =>

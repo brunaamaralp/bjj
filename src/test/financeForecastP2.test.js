@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   buildEqualInstallmentSchedule,
   buildForecastInstallmentItems,
-  parseInstallmentScheduleJson,
   resolvePaymentInstallmentSchedule,
   resolveSaleInstallmentSchedule,
 } from '../lib/installmentSchedule.js';

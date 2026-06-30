@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BankReconOrphanList, { formatSourceLabel, isOrphanCandidateForItem } from '../components/finance/BankReconOrphanList.jsx';
 import BankReconKpiRow from '../components/finance/BankReconKpiRow.jsx';

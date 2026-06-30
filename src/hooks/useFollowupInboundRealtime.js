@@ -22,15 +22,9 @@ export function useFollowupInboundRealtime(academyId, { enabled = true } = {}) {
   }, [academyId]);
 
   useEffect(() => {
-    if (!enabled || typeof window === 'undefined') {
-      setRealtimeOn(false);
-      return undefined;
-    }
+    if (!enabled || typeof window === 'undefined') return undefined;
     const aid = String(academyId || '').trim();
-    if (!aid || !DB_ID || !CONVERSATIONS_COL) {
-      setRealtimeOn(false);
-      return undefined;
-    }
+    if (!aid || !DB_ID || !CONVERSATIONS_COL) return undefined;
 
     const channel = buildConversationsChannel(DB_ID, CONVERSATIONS_COL);
     const sub = subscribeConversationsRealtime({
@@ -57,9 +51,16 @@ export function useFollowupInboundRealtime(academyId, { enabled = true } = {}) {
 
     return () => {
       sub.close();
-      setRealtimeOn(false);
     };
   }, [academyId, enabled]);
 
-  return { realtimeOn };
+  const active = Boolean(
+    enabled &&
+      typeof window !== 'undefined' &&
+      String(academyId || '').trim() &&
+      DB_ID &&
+      CONVERSATIONS_COL
+  );
+
+  return { realtimeOn: active ? realtimeOn : false };
 }

@@ -33,15 +33,31 @@ export function useInboxUrlState({
   normalizePhone,
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [listFilter, setListFilter] = useState(() => {
+  const [listFilterInternal, setListFilterInternal] = useState(() => {
     if (typeof window !== 'undefined') {
       const fromUrl = inboxFilterFromUrlParam(new URLSearchParams(window.location.search).get('filter'));
-      if (fromUrl) return fromUrl;
+      if (fromUrl) return fromUrl === 'my_queue' ? 'needs_me' : fromUrl;
     }
-    return readInitialInboxListFilter();
+    const initial = readInitialInboxListFilter();
+    return initial === 'my_queue' ? 'needs_me' : initial;
   });
+  const listFilter = listFilterInternal === 'my_queue' ? 'needs_me' : listFilterInternal;
   const listFilterRef = useRef(listFilter);
-  listFilterRef.current = listFilter;
+
+  const urlFilter = inboxFilterFromUrlParam(searchParams.get('filter'));
+  const normalizedUrlFilter = urlFilter === 'my_queue' ? 'needs_me' : urlFilter;
+  if (normalizedUrlFilter && normalizedUrlFilter !== listFilter) {
+    setListFilterInternal(normalizedUrlFilter);
+  }
+
+  const setListFilter = (next) => {
+    const normalized = next === 'my_queue' ? 'needs_me' : next;
+    setListFilterInternal(normalized);
+  };
+
+  useEffect(() => {
+    listFilterRef.current = listFilter;
+  }, [listFilter]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -52,12 +68,6 @@ export function useInboxUrlState({
     setSelectedPhone(digits);
   }, [location.search, normalizePhone, selectedPhoneRef, setSelectedPhone]);
 
-  useEffect(() => {
-    const fromUrl = inboxFilterFromUrlParam(searchParams.get('filter'));
-    if (fromUrl && fromUrl !== listFilterRef.current) {
-      setListFilter(fromUrl);
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     setSearchParams(
@@ -105,10 +115,6 @@ export function useInboxUrlState({
     } catch {
       void 0;
     }
-  }, [listFilter]);
-
-  useEffect(() => {
-    if (listFilter === 'my_queue') setListFilter('needs_me');
   }, [listFilter]);
 
   return { listFilter, setListFilter, listFilterRef };

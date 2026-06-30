@@ -109,7 +109,6 @@ import useDebounce from '../../hooks/useDebounce.js';
 import {
   buildLeadNameById,
   formatTxLeadCell,
-  leadNameForExport,
   resolveTxLeadName,
 } from '../../lib/financeTxLeadNames.js';
 import {

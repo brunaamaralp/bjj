@@ -42,7 +42,7 @@ import './reports.css';
 
 
 
-function OperationalFinanceReport({ academyId, from, to, periodQuery, kpiGoals = {} }) {
+function OperationalFinanceReport({ academyId, from, to, kpiGoals = {} }) {
 
   const [data, setData] = useState(null);
 
@@ -534,10 +534,6 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, k
 
 
 
-  const periodQuery = from && to ? `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` : '';
-
-
-
   return (
 
     <ReportsPanelShell>
@@ -549,8 +545,6 @@ export default function ReportsFinancePanel({ academyId, from, to, hasFinance, k
         from={from}
 
         to={to}
-
-        periodQuery={periodQuery}
 
         kpiGoals={kpiGoals}
 

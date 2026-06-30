@@ -107,6 +107,7 @@ const AcademySettings = () => {
         settings: '',
         teamId: '',
         ownerId: '',
+        pagbank_enabled: false,
     });
     const focus = searchParams.get('focus');
     const autoEditTax = focus === 'tax';
@@ -273,6 +274,7 @@ const AcademySettings = () => {
                     studentExitReasons: readStudentExitReasonsFromAcademyDoc(doc),
                     studentFreezeReasons: readStudentFreezeReasonsFromAcademyDoc(doc),
                     settings: doc.settings || '',
+                    pagbank_enabled: doc.pagbank_enabled === true,
                 });
                 try {
                     useLeadStore.getState().setVertical(vertical);
@@ -499,7 +501,15 @@ const AcademySettings = () => {
 
             {activeTab === 'financeiro' && academyId && (
                 <div className="empresa-section">
-                    <FinanceiroConfigTab academyId={academyId} isOwner={role === 'owner'} />
+                    <FinanceiroConfigTab
+                        academyId={academyId}
+                        isOwner={role === 'owner'}
+                        academy={academy}
+                        onPagbankSaved={() => {
+                            invalidateAcademyDocumentCache(academyId);
+                            setAcademyReloadNonce((n) => n + 1);
+                        }}
+                    />
                 </div>
             )}
                 </Suspense>

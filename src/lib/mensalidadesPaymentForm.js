@@ -4,7 +4,7 @@ import {
   normalizeToStorageDialect,
   STORAGE_CREDIT_METHOD,
 } from './paymentMethods.js';
-import { PAYMENT_CATEGORY, normalizePaymentCategory } from './studentPayments.js';
+import { PAYMENT_CATEGORY } from './studentPayments.js';
 import { validateBankAccountForPayment, hasConfiguredBankAccounts } from './bankAccounts.js';
 import {
   computeTrocoFromPayForm,

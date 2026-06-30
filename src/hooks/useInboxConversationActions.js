@@ -43,7 +43,6 @@ export function useInboxConversationActions({
   leadTypeDraft,
   selected,
   contactLabel,
-  updateLead,
   fetchLeads,
 }) {
   const navigate = useNavigate();

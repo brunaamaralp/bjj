@@ -46,7 +46,6 @@ export default function PaymentExceptionsView({
   onlyWithDiff = false,
   sortBy = 'difference',
   addToast,
-  friendlyError,
   loading,
 }) {
   const statusLabels = useMemo(

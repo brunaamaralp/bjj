@@ -31,6 +31,7 @@ export const FINANCE_SETTINGS_SECTIONS = {
   PLANO_CONTAS: 'plano-contas',
   RAZAO: 'razao-contabil',
   CONTRATOS: 'contratos',
+  PAGBANK: 'pagbank',
 };
 
 const VALID = new Set(Object.values(FINANCE_SETTINGS_SECTIONS));
@@ -107,6 +108,11 @@ export const FINANCE_SETTINGS_GROUPS = [
         id: FINANCE_SETTINGS_SECTIONS.WHATSAPP,
         label: 'Lembretes WhatsApp',
         hint: 'Aviso automático antes e depois do vencimento',
+      },
+      {
+        id: FINANCE_SETTINGS_SECTIONS.PAGBANK,
+        label: 'PagBank Recorrente',
+        hint: 'Cobrança automática de mensalidades via cartão de crédito',
       },
       {
         id: FINANCE_SETTINGS_SECTIONS.CONTRATOS,

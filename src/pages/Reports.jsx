@@ -150,6 +150,9 @@ export default function Reports() {
     );
 
     const activeTab = resolveHubTab(searchParams.get('tab'), allowedReportTabIds, defaultReportTab);
+    const operatorFilterApplies = activeTab === 'loja' || activeTab === 'atividade';
+    const effectiveOperatorFilter = operatorFilterApplies ? operatorFilter : '';
+    const effectiveSalesTeam = operatorFilterApplies && academyId ? salesTeam : [];
     const { isLeadReportTab, needsFunnelReport, needsStudentMetrics, isPeriodTab } =
       getReportsTabFlags(activeTab);
 
@@ -230,14 +233,7 @@ export default function Reports() {
     }, []);
 
     useEffect(() => {
-        if (activeTab !== 'loja' && activeTab !== 'atividade') setOperatorFilter('');
-    }, [activeTab]);
-
-    useEffect(() => {
-        if ((activeTab !== 'loja' && activeTab !== 'atividade') || !academyId) {
-            setSalesTeam([]);
-            return undefined;
-        }
+        if (!operatorFilterApplies || !academyId) return undefined;
         // Cache: re-usar dados já carregados ao alternar entre abas da mesma academia.
         if (salesTeamCacheRef.current.academyId === academyId) {
             setSalesTeam(salesTeamCacheRef.current.data);
@@ -257,7 +253,7 @@ export default function Reports() {
         return () => {
             alive = false;
         };
-    }, [activeTab, academyId]);
+    }, [operatorFilterApplies, academyId]);
 
     const showNoLeadsEmpty =
         isLeadReportTab && !error && !showInitialLoad && leadsReady && leadsCount === 0 && !leadsLoading;
@@ -343,9 +339,9 @@ export default function Reports() {
                             hasSales={hasSales}
                             profileFilter={profileFilter}
                             onProfileFilterChange={setProfileFilter}
-                            operatorFilter={operatorFilter}
+                            operatorFilter={effectiveOperatorFilter}
                             onOperatorFilterChange={setOperatorFilter}
-                            operatorTeam={salesTeam}
+                            operatorTeam={effectiveSalesTeam}
                             exportOpen={exportOpen}
                             onExportOpenChange={setExportOpen}
                             leadExportDisabled={exportDisabled}
@@ -397,10 +393,10 @@ export default function Reports() {
                     range={range}
                     periodLabel={prettyRange}
                     academyId={academyId}
-                    operatorFilter={operatorFilter}
+                    operatorFilter={effectiveOperatorFilter}
                     onOperatorFilterChange={setOperatorFilter}
                     isOwner={isOwner}
-                    operatorTeam={salesTeam}
+                    operatorTeam={effectiveSalesTeam}
                     onDrill={setDrillKey}
                         />
                     </ReportsExportSlotProvider>

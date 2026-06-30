@@ -114,7 +114,7 @@ function StudentSearchDropdown({ academyId, onSelect, onClose }) {
   );
 }
 
-function SlotBookingRow({ booking, slotId, academyId, isMutating, onCheckin, onCancel }) {
+function SlotBookingRow({ booking, slotId, isMutating, onCheckin, onCancel }) {
   const badge = statusBadge(booking.status);
   const busy = isMutating(booking.id);
   return (
@@ -284,7 +284,6 @@ function SlotCard({ slot, academyId }) {
                       key={b.id}
                       booking={b}
                       slotId={slot.id}
-                      academyId={academyId}
                       isMutating={isMutating}
                       onCheckin={handleCheckin}
                       onCancel={handleCancel}

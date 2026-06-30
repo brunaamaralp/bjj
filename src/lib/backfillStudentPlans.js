@@ -6,7 +6,6 @@ import { findPlanByName } from './academyPlans.js';
 import {
   STUDENT_PLAN_CONFIDENCE,
   buildStudentPlanAuditRow,
-  indexPaymentsByStudentId,
   inferPlanFromPayments,
   readStudentPlan,
   registeredPlanNameKeys,

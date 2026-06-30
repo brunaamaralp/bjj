@@ -8,8 +8,11 @@ import {
   coerceBankAccountList,
   FinanceConfigTooLargeError,
   FINANCE_CONFIG_LEGACY_MAX_CHARS,
+  FINANCE_CONFIG_TARGET_MAX_CHARS,
+  compactFinanceConfigForStorage,
   unionFinanceConfigForPersist,
 } from '../lib/financeConfigStorage.js';
+import { defaultFeeReceiver, emptyFeeReceiverFeeTable, readFeeReceivers } from '../lib/feeReceivers.js';
 
 describe('financeConfigStorage', () => {
   it('compactPlanForStorage omits legacy durationDays', () => {
@@ -30,6 +33,7 @@ describe('financeConfigStorage', () => {
       plans: [{ name: 'Mensal', price: 200 }],
       bankAccounts: [{ bankName: 'Nubank', account: '123', pixKey: '' }],
       cardFees: { pix: { percent: 0, fixed: 0 } },
+      legacyBlob: 'x'.repeat(12000),
     };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged);
     expect(built.bankAccountsOffloaded).toBe(false);
@@ -37,7 +41,7 @@ describe('financeConfigStorage', () => {
     expect(parsed.bankAccounts).toHaveLength(1);
   });
 
-  it('offloads bank accounts to settings when financeConfig exceeds legacy limit', () => {
+  it('offloads bank accounts to settings when financeConfig exceeds target limit', () => {
     const plans = [{ name: 'Mensal', price: 200 }];
     const banks = Array.from({ length: 30 }, (_, i) => ({
       bankName: `Banco ${i}`,
@@ -45,12 +49,12 @@ describe('financeConfigStorage', () => {
       branch: String(i),
       pixKey: `pix-${i}@mail.com`,
     }));
-    const merged = { plans, bankAccounts: banks, cardFees: { pix: { percent: 0, fixed: 0 } } };
-    const fullLen = JSON.stringify(merged).length;
-    const leanLen = JSON.stringify({ ...merged, bankAccounts: [] }).length;
-    expect(fullLen).toBeGreaterThan(FINANCE_CONFIG_LEGACY_MAX_CHARS);
-    expect(leanLen).toBeLessThan(FINANCE_CONFIG_LEGACY_MAX_CHARS - 48);
-
+    const merged = {
+      plans,
+      bankAccounts: banks,
+      cardFees: { pix: { percent: 0, fixed: 0 } },
+      legacyBlob: 'z'.repeat(15000),
+    };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
       hasSettingsAttribute: true,
     });
@@ -72,7 +76,7 @@ describe('financeConfigStorage', () => {
       plans,
       bankAccounts: banks,
       cardFees: { pix: { percent: 0, fixed: 0 } },
-      legacyBlob: 'z'.repeat(2100),
+      legacyBlob: 'z'.repeat(16100),
     };
     const built = buildAcademyFinanceConfigUpdate(
       { settings: '{}', onboardingChecklist: '[]' },
@@ -174,11 +178,11 @@ describe('financeConfigStorage', () => {
     expect(cfg.bankAccounts[0].bankName).toBe('PIX');
   });
 
-  it('offloads plans to settings when financeConfig exceeds legacy limit even without banks', () => {
-    const plans = Array.from({ length: 12 }, (_, i) => ({
+  it('offloads plans to settings when financeConfig exceeds target limit even without banks', () => {
+    const plans = Array.from({ length: 8 }, (_, i) => ({
       name: `Plano longo ${i}`,
       price: 100 + i,
-      description: 'd'.repeat(120),
+      description: 'd'.repeat(800),
       applyCardFee: true,
     }));
     const merged = {
@@ -186,6 +190,7 @@ describe('financeConfigStorage', () => {
       bankAccounts: [],
       cardFees: { pix: { percent: 0, fixed: 0 } },
       collectionRules: [{ day: 1, label: '1ª', defaultMessage: 'm'.repeat(200), escalate: false }],
+      legacyBlob: 'z'.repeat(12000),
     };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
       hasSettingsAttribute: true,
@@ -193,12 +198,12 @@ describe('financeConfigStorage', () => {
     expect(built.plansOffloaded).toBe(true);
     expect(JSON.parse(built.financeConfig).plans).toEqual([]);
     const settings = JSON.parse(built.settings);
-    expect(settings.financePlans).toHaveLength(12);
+    expect(settings.financePlans).toHaveLength(8);
     const cfg = mergeFinanceConfigFromAcademyDoc({
       financeConfig: built.financeConfig,
       settings: built.settings,
     });
-    expect(cfg.plans).toHaveLength(12);
+    expect(cfg.plans).toHaveLength(8);
     expect(cfg.plans[0].name).toBe('Plano longo 0');
   });
 
@@ -302,7 +307,96 @@ describe('financeConfigStorage', () => {
   });
 
   it('throws when lean financeConfig still exceeds limit', () => {
-    const merged = { plans: [], bankAccounts: [], extraPayload: 'y'.repeat(3000) };
+    const merged = { plans: [], bankAccounts: [], extraPayload: 'y'.repeat(17000) };
     expect(() => buildAcademyFinanceConfigUpdate({}, merged)).toThrow(FinanceConfigTooLargeError);
+  });
+
+  it('compactFinanceConfigForStorage strips legacy acquirerFees when feeReceivers exist', () => {
+    const receiver = defaultFeeReceiver({
+      name: 'PagBank',
+      fees: {
+        ...emptyFeeReceiverFeeTable(),
+        pix: { percent: 1, fixed: 0 },
+      },
+    });
+    const compact = compactFinanceConfigForStorage({
+      acquirerFees: { pix: { percent: 99, fixed: 0 } },
+      feeReceivers: [receiver],
+      defaultFeeReceiverId: receiver.id,
+      feeReceiversMigrated: true,
+      bankAccounts: [
+        {
+          bankName: 'Nubank',
+          account: '1',
+          useDefaultAcquirerFees: false,
+          acquirerFees: { pix: { percent: 50, fixed: 0 } },
+          feeReceiverId: receiver.id,
+        },
+      ],
+    });
+    expect(compact).not.toHaveProperty('acquirerFees');
+    expect(compact.bankAccounts[0]).not.toHaveProperty('acquirerFees');
+    expect(compact.feeReceivers).toHaveLength(1);
+    expect(JSON.stringify(compact).length).toBeLessThan(FINANCE_CONFIG_LEGACY_MAX_CHARS);
+  });
+
+  it('keeps feeReceivers inline when under target limit', () => {
+    const receivers = Array.from({ length: 4 }, (_, i) =>
+      defaultFeeReceiver({
+        name: `Recebedor ${i}`,
+        fees: {
+          ...emptyFeeReceiverFeeTable(),
+          pix: { percent: 1 + i * 0.1, fixed: 0 },
+          debito: { default: { percent: 2, fixed: 0 }, visa: { percent: 2.1, fixed: 0 } },
+        },
+      })
+    );
+    const merged = {
+      plans: [{ name: 'Mensal', price: 100 }],
+      bankAccounts: [],
+      feeReceivers: receivers,
+      defaultFeeReceiverId: receivers[0].id,
+      feeReceiversMigrated: true,
+    };
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+    });
+    expect(built.feeReceiversOffloaded).toBeFalsy();
+    expect(JSON.parse(built.financeConfig).feeReceivers).toHaveLength(4);
+    expect(built.financeConfig.length).toBeLessThan(FINANCE_CONFIG_TARGET_MAX_CHARS);
+  });
+
+  it('offloads feeReceivers to settings when config exceeds limit', () => {
+    const receivers = Array.from({ length: 4 }, (_, i) =>
+      defaultFeeReceiver({
+        name: `Recebedor ${i}`,
+        fees: {
+          ...emptyFeeReceiverFeeTable(),
+          pix: { percent: 1 + i * 0.1, fixed: 0 },
+          debito: { default: { percent: 2, fixed: 0 }, visa: { percent: 2.1, fixed: 0 } },
+        },
+      })
+    );
+    const merged = {
+      plans: [{ name: 'Mensal', price: 100 }],
+      bankAccounts: [],
+      feeReceivers: receivers,
+      defaultFeeReceiverId: receivers[0].id,
+      feeReceiversMigrated: true,
+      legacyBlob: 'x'.repeat(15800),
+    };
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+    });
+    expect(built.feeReceiversOffloaded).toBe(true);
+    const parsed = JSON.parse(built.financeConfig);
+    expect(parsed.feeReceivers || []).toHaveLength(0);
+    const settings = JSON.parse(built.settings);
+    expect(settings.financeFeeReceivers.receivers).toHaveLength(4);
+    const cfg = mergeFinanceConfigFromAcademyDoc({
+      financeConfig: built.financeConfig,
+      settings: built.settings,
+    });
+    expect(readFeeReceivers(cfg)).toHaveLength(4);
   });
 });

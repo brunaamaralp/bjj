@@ -26,17 +26,13 @@ export default function JournalTab({
   const [date, setDate] = useState('');
   const [memo, setMemo] = useState('');
   const [search, setSearch] = useState('');
+  const linkedSearch = String(linkedTxId || '').trim();
+  const effectiveSearch = linkedSearch || search;
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [direction, setDirection] = useState('all');
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState(null);
   const [lines, setLines] = useState([{ accountId: '', debit: '', credit: '', cash: false, counterCode: '' }]);
-
-  useEffect(() => {
-    const id = String(linkedTxId || '').trim();
-    if (!id) return;
-    setSearch(id);
-  }, [linkedTxId]);
 
   const sortedAccounts = useMemo(() => {
     const copy = Array.isArray(accounts) ? [...accounts] : [];
@@ -139,7 +135,7 @@ export default function JournalTab({
   };
 
   const filteredJournal = useMemo(() => {
-    const q = String(search || '').trim().toLowerCase();
+    const q = String(effectiveSearch || '').trim().toLowerCase();
     const hasDateFilter = Boolean(fromDate || toDate);
     const dir = String(direction || 'all');
     return (journal || []).filter((entry) => {
@@ -166,9 +162,9 @@ export default function JournalTab({
       }
       return true;
     });
-  }, [journal, search, accountById, direction, fromDate, toDate]);
+  }, [journal, effectiveSearch, accountById, direction, fromDate, toDate]);
 
-  const hasActiveFilters = Boolean(search || fromDate || toDate || direction !== 'all');
+  const hasActiveFilters = Boolean(effectiveSearch || fromDate || toDate || direction !== 'all');
 
   const Wrapper = embedded ? 'div' : 'section';
   const wrapperClass = embedded ? 'finance-journal-embedded' : 'finance-tab-panel animate-in';
@@ -336,8 +332,10 @@ export default function JournalTab({
         <FinanceFiltersBar panel className="finance-journal-filters">
           <SearchField
             className="finance-filters-bar__search finance-journal-filters__search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={effectiveSearch}
+            onChange={(e) => {
+              if (!linkedSearch) setSearch(e.target.value);
+            }}
             placeholder="Buscar por conta ou descrição"
             aria-label="Buscar no histórico contábil"
           />

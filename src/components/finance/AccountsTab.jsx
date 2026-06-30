@@ -220,11 +220,6 @@ function AccountsAccountDrawer({
   const [accountingOpen, setAccountingOpen] = useState(mode !== 'create');
 
   useEffect(() => {
-    setForm({ ...EMPTY_FORM, ...initialForm });
-    setAccountingOpen(mode !== 'create');
-  }, [initialForm, mode]);
-
-  useEffect(() => {
     if (!open || typeof document === 'undefined') return undefined;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';

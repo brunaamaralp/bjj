@@ -2,7 +2,7 @@
  * Validação e sugestões do drawer de plano de contas.
  */
 
-import { isProtectedAccountCode, PROTECTED_CODES } from './protectedAccountCodes.js';
+import { PROTECTED_CODES } from './protectedAccountCodes.js';
 import { isKnownDreGroup } from './financeCategories.js';
 
 const RESULT_ACCOUNT_TYPES = new Set(['receita', 'custo', 'despesa']);

@@ -58,7 +58,6 @@ export default function ReportsStudentsPanel({
       : Math.max(0, 100 - churn);
 
   const pm = prevMetrics || {};
-  const prevActive = activeStudentsCount(pm);
   const prevNovo = Number(pm.newStudents) || 0;
   const prevOff = Number(pm.deactivations) || 0;
   const prevChurn = Number(pm.churnRate) || 0;

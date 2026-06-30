@@ -1,8 +1,6 @@
 import React from 'react';
 import { LEAD_ORIGIN } from '../../store/useLeadStore';
 import { DateInputField } from '../DateInput';
-import { currentMonthYm } from '../../lib/pipelineSessionState.js';
-
 /**
  * Filtros avançados do funil — aplicam imediatamente ao alterar (sem rascunho).
  */

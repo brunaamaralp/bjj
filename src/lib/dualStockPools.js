@@ -267,7 +267,7 @@ export function formatStockPoolsSummary(item, parentType) {
 
 /** Agrega pools de variantes para linha pai. */
 export function aggregatePoolTotals(variants, parentType) {
-  const type = normalizeProductType(parentType);
+  void parentType;
   let sale = 0;
   let rentalAvail = 0;
   let rentalLoaned = 0;

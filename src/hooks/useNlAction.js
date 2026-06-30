@@ -9,7 +9,6 @@ import { createPayment, updatePayment } from '../lib/studentPayments';
 import { useSalesCatalog } from './useSalesCatalog';
 import { catalogProductsForNl } from '../../lib/nlStockMatch.js';
 import {
-  canonicalPaymentMethodKey,
   canonicalPaymentMethodKeyFromInput,
   normalizePaymentMethodInput,
   toStorageDialectMethod,

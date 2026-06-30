@@ -31,6 +31,7 @@ export function computeAnchoredMenuStyle(
     maxHeight = 520,
     minWidth = 280,
     zIndex = 'var(--menu-z-elevated, 9000)',
+    matchTriggerWidth = false,
   } = {},
 ) {
   const panelMaxH = Math.min(maxHeight, Math.floor(viewportH * 0.72));
@@ -39,6 +40,7 @@ export function computeAnchoredMenuStyle(
   const preferAbove = spaceBelow < FLIP_BELOW_THRESHOLD && spaceAbove > spaceBelow;
 
   const panelMinWidth = Math.max(120, Number(minWidth) || 280);
+  const triggerWidth = matchTriggerWidth ? Math.max(panelMinWidth, Math.round(rect.width)) : null;
   const next = {
     position: 'fixed',
     overflowY: 'auto',
@@ -46,6 +48,11 @@ export function computeAnchoredMenuStyle(
     zIndex,
     minWidth: panelMinWidth,
   };
+
+  if (triggerWidth != null) {
+    next.width = triggerWidth;
+    next.minWidth = triggerWidth;
+  }
 
   if (preferAbove && spaceAbove >= MIN_PANEL_HEIGHT) {
     next.bottom = viewportH - rect.top + gap;
@@ -76,7 +83,14 @@ export function computeAnchoredMenuStyle(
 export function useAnchoredMenuPosition(
   triggerRef,
   open,
-  { align = 'end', gap = 8, maxHeight = 520, minWidth = 280, zIndex = 'var(--menu-z-elevated, 9000)' } = {},
+  {
+    align = 'end',
+    gap = 8,
+    maxHeight = 520,
+    minWidth = 280,
+    zIndex = 'var(--menu-z-elevated, 9000)',
+    matchTriggerWidth = false,
+  } = {},
 ) {
   const [style, setStyle] = useState(null);
 
@@ -96,7 +110,7 @@ export function useAnchoredMenuPosition(
         computeAnchoredMenuStyle(
           rect,
           { viewportW: window.innerWidth, viewportH: window.innerHeight },
-          { align, gap, maxHeight, minWidth, zIndex },
+          { align, gap, maxHeight, minWidth, zIndex, matchTriggerWidth },
         ),
       );
     };
@@ -115,7 +129,7 @@ export function useAnchoredMenuPosition(
         node.removeEventListener('scroll', update);
       }
     };
-  }, [open, align, gap, maxHeight, minWidth, zIndex, triggerRef]);
+  }, [open, align, gap, maxHeight, minWidth, zIndex, matchTriggerWidth, triggerRef]);
 
   return open ? style : null;
 }

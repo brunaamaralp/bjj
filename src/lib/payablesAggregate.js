@@ -251,7 +251,7 @@ export function buildPayablesSummaryItems(pending = [], templates = [], projecte
 }
 
 export function summarizePayables(items = [], { today = todayYmdLocal() } = {}) {
-  const todayYmd = String(today || todayYmdLocal()).slice(0, 10);
+  void today;
   let totalOpen = 0;
   let overdueCount = 0;
   let overdueAmount = 0;

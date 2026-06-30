@@ -32,7 +32,6 @@ const emptyItem = (order) => ({
 export default function TaskTemplatesSection({
   embeddedInLayout = false,
   academyId,
-  teamId = '',
   onTemplatesMetaChange,
 }) {
   const addToast = useUiStore((s) => s.addToast);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ModalShell from '../shared/ModalShell.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
@@ -32,7 +32,14 @@ function formatMoney(value) {
   }
 }
 
-export default function StockEntryCorrectionWizard({
+export default function StockEntryCorrectionWizard(props) {
+  const { open, move } = props;
+  if (!open || !move) return null;
+  const moveKey = String(move.id || move.$id || '').trim() || 'move';
+  return <StockEntryCorrectionForm key={moveKey} {...props} />;
+}
+
+function StockEntryCorrectionForm({
   open,
   move,
   modulesFinance,
@@ -41,31 +48,22 @@ export default function StockEntryCorrectionWizard({
   onClose,
   onSubmit,
 }) {
-  const [mode, setMode] = useState('finance_only');
-  const [newPurchasePrice, setNewPurchasePrice] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('pix');
-  const [newQuantity, setNewQuantity] = useState('');
-  const [note, setNote] = useState('');
-  const [error, setError] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
   const storedQty = useMemo(() => {
     const q = Math.abs(Math.trunc(Number(move?.quantidade) || 0));
     return Number.isFinite(q) ? q : 0;
   }, [move]);
 
-  useEffect(() => {
-    if (!open || !move) return;
-    setMode(modulesFinance ? 'finance_only' : 'quantity_only');
-    setNewPurchasePrice(
-      move.purchase_price != null && Number(move.purchase_price) > 0 ? String(move.purchase_price) : ''
-    );
-    setPaymentMethod(String(move.payment_method || 'pix').trim() || 'pix');
-    setNewQuantity(String(storedQty || ''));
-    setNote('');
-    setError('');
-    setConfirmOpen(false);
-  }, [open, move, modulesFinance, storedQty]);
+  const [mode, setMode] = useState(() => (modulesFinance ? 'finance_only' : 'quantity_only'));
+  const [newPurchasePrice, setNewPurchasePrice] = useState(() =>
+    move.purchase_price != null && Number(move.purchase_price) > 0 ? String(move.purchase_price) : ''
+  );
+  const [paymentMethod, setPaymentMethod] = useState(
+    () => String(move.payment_method || 'pix').trim() || 'pix'
+  );
+  const [newQuantity, setNewQuantity] = useState(() => String(storedQty || ''));
+  const [note, setNote] = useState('');
+  const [error, setError] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const requestClose = useCallback(() => {
     if (loading) return;

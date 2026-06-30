@@ -10,7 +10,6 @@ import { reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments, createPayment, updatePayment, PAYMENT_CATEGORY } from '../../lib/studentPayments';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
-import { findPlanByName, planPriceToPayAmountString } from '../../lib/academyPlans.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
@@ -61,7 +60,6 @@ import {
 } from '../../lib/bankAccounts.js';
 import {
   pickInitialBankAccountForPayment,
-  accountWhenPaymentMethodChanges,
 } from '../../lib/paymentMethodBankDefaults.js';
 import {
   resolveCaptureFieldsForPayment,
@@ -677,7 +675,6 @@ export default function MensalidadesPanel({
     const method = preset.method || student.preferredPaymentMethod || 'pix';
     const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
     const planName = preset.plan_name || student.plan || '';
-    const plan = findPlanByName(financeConfig, planName);
     const planAmount = openAmountForStudent(student, { plan_name: planName }, financeConfig);
     const bundleStart = String(preset.bundle_start_month || refMonth).trim() || refMonth;
     const coverageYm = isBundle ? bundleStart : refMonth;
@@ -1319,7 +1316,6 @@ export default function MensalidadesPanel({
           studentOverdueMeta={studentOverdueMeta}
           terms={terms}
           addToast={toast.addToast}
-          friendlyError={friendlyError}
           loading={gridLoading}
         />
       ) : null}

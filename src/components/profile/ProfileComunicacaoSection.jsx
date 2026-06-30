@@ -5,7 +5,6 @@ import ProfileWhatsAppOfflineEmptyActions from './ProfileWhatsAppOfflineEmptyAct
  * Seção Comunicação no perfil — canal integrado na aba Conversa (paridade lead/aluno).
  */
 export default function ProfileComunicacaoSection({
-  waConnected,
   waOfflineUi = false,
   waStatusChecked,
   phoneDigits,

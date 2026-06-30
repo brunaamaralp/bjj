@@ -3,7 +3,6 @@ import {
   readAcademyTurmas,
   readExplicitAcademyTurmas,
   resolveAcademyTurmaLabels,
-  classDocsToTurmaLabels,
   legacyTurmaKeyFromLabel,
   inferModalityFromTurmaLabel,
   turmaValueFromForm,
