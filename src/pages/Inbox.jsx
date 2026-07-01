@@ -202,7 +202,7 @@ export default function Inbox() {
   const labels = useLeadStore((s) => s.labels);
   const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(() =>
@@ -454,7 +454,7 @@ export default function Inbox() {
     waDeferredOnceRef.current = false;
   }, [academyId]);
 
-  const { loadList, loadListRef } = useInboxConversationList({
+  const { loadList, loadListRef, listFetchedOnce } = useInboxConversationList({
     academyId,
     academyIdRef,
     debouncedSearchQuery,
@@ -657,10 +657,17 @@ export default function Inbox() {
     setItems,
     setListCapped,
     setMsgFlags,
+    setLoading,
     messageFlagsMigrationDoneRef,
     notifiedOnceRef,
     inboxAutoSelectDoneRef,
   });
+
+  useEffect(() => {
+    if (!String(academyId || '').trim()) {
+      setLoading(false);
+    }
+  }, [academyId]);
 
   useInboxAutoRefresh({
     autoRefresh,
@@ -1200,6 +1207,7 @@ export default function Inbox() {
     onConversationListScroll,
     groupedFilteredItems,
     loading,
+    listFetchedOnce,
     itemsLength: items.length,
     waChatConnected,
     loadingMore,

@@ -20,6 +20,7 @@ export default function InboxListPanel({
   onConversationListScroll,
   groupedFilteredItems,
   loading,
+  listFetchedOnce = false,
   itemsLength,
   waChatConnected,
   loadingMore,
@@ -285,6 +286,7 @@ export default function InboxListPanel({
           listScrollRef={listScrollRef}
           groupedItems={groupedFilteredItems}
           loading={loading}
+          listFetchedOnce={listFetchedOnce}
           totalItems={itemsLength}
           whatsAppConnected={waChatConnected}
           loadingMore={loadingMore}

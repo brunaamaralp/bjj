@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Sparkles, WifiOff } from 'lucide-react';
 import { useInboxConversation } from '../../hooks/useInboxConversation';
 import { useInboxDeferredBoot } from '../../hooks/useInboxDeferredBoot';
@@ -6,6 +6,7 @@ import { useZapsterWhatsAppConnection } from '../../hooks/useZapsterWhatsAppConn
 import { useLeadStore } from '../../store/useLeadStore';
 import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
 import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../../lib/whatsappIntegrationState.js';
+import { useProfileInboxComposer } from '../../hooks/useProfileInboxComposer.js';
 import InboxComposer from './InboxComposer';
 import NaviChatThread from '../chat-widget/NaviChatThread';
 import ProfileConversationEmpty from './ProfileConversationEmpty.jsx';
@@ -51,7 +52,7 @@ export default function ProfileConversationTab({
     sendError,
     hasMore,
     loadMore,
-    sendMessage,
+    sendOutbound,
     retryFailedMessage,
     markRead,
     refresh,
@@ -69,31 +70,34 @@ export default function ProfileConversationTab({
   const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
   const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
-  const [composerState, setComposerState] = useState({
+  const [handoffState, setHandoffState] = useState({
     key: phoneDigits,
-    draft: '',
-    handoffBannerDismissed: false,
+    dismissed: false,
   });
-  const draft = composerState.key === phoneDigits ? composerState.draft : '';
   const handoffBannerDismissed =
-    composerState.key === phoneDigits ? composerState.handoffBannerDismissed : false;
-  const setDraft = useCallback((value) => {
-    setComposerState((prev) => ({
-      key: phoneDigits,
-      draft: typeof value === 'function' ? value(prev.key === phoneDigits ? prev.draft : '') : value,
-      handoffBannerDismissed: prev.key === phoneDigits ? prev.handoffBannerDismissed : false,
-    }));
-  }, [phoneDigits]);
+    handoffState.key === phoneDigits ? handoffState.dismissed : false;
   const setHandoffBannerDismissed = (value) => {
-    setComposerState((prev) => ({
+    setHandoffState((prev) => ({
       key: phoneDigits,
-      draft: prev.key === phoneDigits ? prev.draft : '',
-      handoffBannerDismissed: typeof value === 'function'
-        ? value(prev.key === phoneDigits ? prev.handoffBannerDismissed : false)
-        : value,
+      dismissed:
+        typeof value === 'function'
+          ? value(prev.key === phoneDigits ? prev.dismissed : false)
+          : value,
     }));
   };
-  const textareaRef = useRef(null);
+
+  const { composerProps, composerDisabled, composerPlaceholder } = useProfileInboxComposer({
+    academyId,
+    phone: rawPhone,
+    leadId: leadIdStr,
+    leadName,
+    summary,
+    isMobile: false,
+    waConnected,
+    sendOutbound,
+    sending,
+  });
+
   const markedReadRef = useRef(false);
   const markedReadPhoneRef = useRef(phoneDigits);
 
@@ -122,17 +126,6 @@ export default function ProfileConversationTab({
     Boolean(summary?.handoff) &&
     !handoffBannerDismissed;
   const inboxHref = phoneDigits ? `/inbox?phone=${encodeURIComponent(phoneDigits)}` : '/inbox';
-
-  const handleSend = useCallback(async () => {
-    const text = String(draft || '').trim();
-    if (!text) return;
-    const ok = await sendMessage(text);
-    if (ok) setDraft('');
-  }, [draft, sendMessage, setDraft]);
-
-  const handleDraftChange = useCallback((e) => {
-    setDraft(e.target.value);
-  }, [setDraft]);
 
   if (!phoneDigits && !leadIdStr) {
     return (
@@ -201,20 +194,9 @@ export default function ProfileConversationTab({
       ) : null}
 
       <InboxComposer
-        mode="compact"
-        compactDisabled={!waConnected}
-        compactPlaceholder={
-          waConnected ? 'Digite uma mensagem…' : 'Conecte o WhatsApp para enviar mensagens'
-        }
-        draft={draft}
-        setDraft={setDraft}
-        handleDraftChange={handleDraftChange}
-        sendManual={handleSend}
-        sending={sending}
-        selectedPhone={phoneDigits}
-        textareaRef={textareaRef}
-        inboxVvInset={0}
-        isMobile={false}
+        {...composerProps}
+        compactDisabled={composerDisabled}
+        compactPlaceholder={composerPlaceholder}
       />
     </div>
   );

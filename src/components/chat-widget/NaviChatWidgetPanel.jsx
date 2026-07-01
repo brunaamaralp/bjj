@@ -10,6 +10,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { isAgentAutoReplyEnabled } from '../../../lib/inboxHandoffPresentation.js';
 import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../../lib/whatsappIntegrationState.js';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
+import { useProfileInboxComposer } from '../../hooks/useProfileInboxComposer.js';
 import InboxComposer from '../inbox/InboxComposer';
 import ProfileConversationEmpty from '../inbox/ProfileConversationEmpty.jsx';
 import ProfileWhatsAppOfflineEmptyActions from '../profile/ProfileWhatsAppOfflineEmptyActions.jsx';
@@ -66,6 +67,7 @@ export default function NaviChatWidgetPanel({
     hasMore,
     loadMore,
     sendMessage,
+    sendOutbound,
     retryFailedMessage,
     markRead,
     refresh,
@@ -86,35 +88,44 @@ export default function NaviChatWidgetPanel({
   const showWaStatusLoading = !waStatusChecked;
   const showOfflineEmpty = waOfflineUi && !loading && !hasMessages;
   const showComposer = waStatusChecked && !showOfflineEmpty;
-  const composerPlaceholder = waConnected
-    ? 'Digite uma mensagem…'
-    : 'Conecte o WhatsApp para enviar mensagens';
 
-  const [composerState, setComposerState] = useState({
+  const [handoffState, setHandoffState] = useState({
     key: phoneDigits,
-    draft: '',
-    handoffBannerDismissed: false,
+    dismissed: false,
   });
-  const draft = composerState.key === phoneDigits ? composerState.draft : '';
   const handoffBannerDismissed =
-    composerState.key === phoneDigits ? composerState.handoffBannerDismissed : false;
-  const setDraft = useCallback((value) => {
-    setComposerState((prev) => ({
-      key: phoneDigits,
-      draft: typeof value === 'function' ? value(prev.key === phoneDigits ? prev.draft : '') : value,
-      handoffBannerDismissed: prev.key === phoneDigits ? prev.handoffBannerDismissed : false,
-    }));
-  }, [phoneDigits]);
+    handoffState.key === phoneDigits ? handoffState.dismissed : false;
   const setHandoffBannerDismissed = (value) => {
-    setComposerState((prev) => ({
+    setHandoffState((prev) => ({
       key: phoneDigits,
-      draft: prev.key === phoneDigits ? prev.draft : '',
-      handoffBannerDismissed: typeof value === 'function'
-        ? value(prev.key === phoneDigits ? prev.handoffBannerDismissed : false)
-        : value,
+      dismissed:
+        typeof value === 'function'
+          ? value(prev.key === phoneDigits ? prev.dismissed : false)
+          : value,
     }));
   };
-  const textareaRef = useRef(null);
+
+  const [compactDraftState, setCompactDraftState] = useState({ key: phoneDigits, draft: '' });
+  const compactDraft = compactDraftState.key === phoneDigits ? compactDraftState.draft : '';
+  const setCompactDraft = useCallback((value) => {
+    setCompactDraftState((prev) => ({
+      key: phoneDigits,
+      draft: typeof value === 'function' ? value(prev.key === phoneDigits ? prev.draft : '') : value,
+    }));
+  }, [phoneDigits]);
+  const compactTextareaRef = useRef(null);
+
+  const { composerProps, composerDisabled, composerPlaceholder } = useProfileInboxComposer({
+    academyId,
+    phone: activePhone,
+    leadId: leadIdStr,
+    leadName,
+    summary,
+    isMobile,
+    waConnected,
+    sendOutbound,
+    sending,
+  });
   const markedReadRef = useRef(false);
   const markedReadPhoneRef = useRef(phoneDigits);
 
@@ -171,16 +182,16 @@ export default function NaviChatWidgetPanel({
     ? `/lead/${encodeURIComponent(String(summary?.lead_id || leadIdStr))}`
     : null;
 
-  const handleSend = useCallback(async () => {
-    const text = String(draft || '').trim();
+  const handleCompactSend = useCallback(async () => {
+    const text = String(compactDraft || '').trim();
     if (!text) return;
     const ok = await sendMessage(text);
-    if (ok) setDraft('');
-  }, [draft, sendMessage, setDraft]);
+    if (ok) setCompactDraft('');
+  }, [compactDraft, sendMessage, setCompactDraft]);
 
-  const handleDraftChange = useCallback((e) => {
-    setDraft(e.target.value);
-  }, [setDraft]);
+  const handleCompactDraftChange = useCallback((e) => {
+    setCompactDraft(e.target.value);
+  }, [setCompactDraft]);
 
   const handleSwitch = useCallback(
     (next) => {
@@ -351,20 +362,28 @@ export default function NaviChatWidgetPanel({
 
       {showComposer ? (
         <div className="navi-chat-widget__composer">
-          <InboxComposer
-            mode="compact"
-            compactDisabled={!waConnected}
-            compactPlaceholder={composerPlaceholder}
-            draft={draft}
-            setDraft={setDraft}
-            handleDraftChange={handleDraftChange}
-            sendManual={handleSend}
-            sending={sending}
-            selectedPhone={phoneDigits}
-            textareaRef={textareaRef}
-            inboxVvInset={0}
-            isMobile={isMobile}
-          />
+          {embedded ? (
+            <InboxComposer
+              {...composerProps}
+              compactDisabled={composerDisabled}
+              compactPlaceholder={composerPlaceholder}
+            />
+          ) : (
+            <InboxComposer
+              mode="compact"
+              compactDisabled={!waConnected}
+              compactPlaceholder={composerPlaceholder}
+              draft={compactDraft}
+              setDraft={setCompactDraft}
+              handleDraftChange={handleCompactDraftChange}
+              sendManual={handleCompactSend}
+              sending={sending}
+              selectedPhone={phoneDigits}
+              textareaRef={compactTextareaRef}
+              inboxVvInset={0}
+              isMobile={isMobile}
+            />
+          )}
         </div>
       ) : null}
     </div>

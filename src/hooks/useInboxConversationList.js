@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { capInboxListItems } from '../lib/inboxListCap.js';
@@ -46,6 +46,7 @@ export function useInboxConversationList({
   const debouncedSearchRef = useRef(debouncedSearchQuery);
   const listRequestSeqRef = useRef(0);
   const listBootstrapKeyRef = useRef('');
+  const [listFetchedOnce, setListFetchedOnce] = useState(false);
 
   nextCursorRef.current = nextCursor;
   hasMoreRef.current = hasMore;
@@ -185,8 +186,12 @@ export function useInboxConversationList({
     } finally {
       if (requestId === listRequestSeqRef.current) {
         loadingListRef.current = false;
-        if (reset && !silent) setLoading(false);
-        else if (!reset) setLoadingMore(false);
+        if (reset) {
+          setListFetchedOnce(true);
+          if (!silent) setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
       }
     }
   }, [
@@ -223,9 +228,11 @@ export function useInboxConversationList({
     const key = `${aid}|${filter}|${search}`;
     if (listBootstrapKeyRef.current === key) return;
     listBootstrapKeyRef.current = key;
+    setListFetchedOnce(false);
+    setLoading(true);
 
     void loadList({ reset: true, includeStats: false });
-  }, [academyId, debouncedSearchQuery, listFilter, loadList, academyIdRef, listFilterRef]);
+  }, [academyId, debouncedSearchQuery, listFilter, loadList, academyIdRef, listFilterRef, setLoading]);
 
-  return { loadList, loadListRef };
+  return { loadList, loadListRef, listFetchedOnce };
 }

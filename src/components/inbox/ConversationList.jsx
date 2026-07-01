@@ -80,6 +80,7 @@ export default function ConversationList(props) {
   const {
     groupedItems,
     loading,
+    listFetchedOnce = false,
     totalItems,
     whatsAppConnected = true,
     loadingMore,
@@ -158,7 +159,9 @@ export default function ConversationList(props) {
     });
   }, []);
 
-  const showSkeleton = Boolean(loading && groups.every((g) => g.items.length === 0) && totalItems === 0);
+  const showSkeleton = Boolean(
+    (loading || !listFetchedOnce) && groups.every((g) => g.items.length === 0) && totalItems === 0
+  );
 
   const renderRow = (row, rowIndex = 0) => {
     if (row.type === 'header') {
@@ -248,7 +251,7 @@ export default function ConversationList(props) {
       ) : (
         rows.map((row, idx) => renderRow(row, idx))
       )}
-      {!loading && totalItems === 0 && !whatsAppConnected && (
+      {!loading && listFetchedOnce && totalItems === 0 && !whatsAppConnected && (
         <div style={{ padding: 12 }}>
           <EmptyState
             variant="default"
@@ -263,7 +266,7 @@ export default function ConversationList(props) {
           />
         </div>
       )}
-      {!loading && totalItems === 0 && whatsAppConnected && (
+      {!loading && listFetchedOnce && totalItems === 0 && whatsAppConnected && (
         <div style={{ padding: 12 }}>
           <EmptyState
             variant="compact"
@@ -274,7 +277,7 @@ export default function ConversationList(props) {
           />
         </div>
       )}
-      {!loading && totalItems > 0 && flatCount === 0 && (
+      {!loading && listFetchedOnce && totalItems > 0 && flatCount === 0 && (
         <div style={{ padding: 12 }}>
           <EmptyState
             variant="compact"

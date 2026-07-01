@@ -23,6 +23,7 @@ export function useInboxInitialLoad({
   setItems,
   setListCapped,
   setMsgFlags,
+  setLoading,
   messageFlagsMigrationDoneRef,
   notifiedOnceRef,
   inboxAutoSelectDoneRef,
@@ -42,6 +43,7 @@ export function useInboxInitialLoad({
       setItems([]);
       setListCapped(false);
       setMsgFlags({});
+      setLoading?.(true);
       messageFlagsMigrationDoneRef.current = false;
       notifiedOnceRef.current = false;
       inboxAutoSelectDoneRef.current = false;
@@ -55,6 +57,7 @@ export function useInboxInitialLoad({
     setItems,
     setListCapped,
     setMsgFlags,
+    setLoading,
     messageFlagsMigrationDoneRef,
     notifiedOnceRef,
     inboxAutoSelectDoneRef,

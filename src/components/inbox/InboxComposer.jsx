@@ -159,7 +159,8 @@ export default function InboxComposer(props) {
     sendManual();
   }
 
-  const canSend = Boolean(selectedPhone) && (String(draft || '').trim() || attachment?.file);
+  const canSend =
+    Boolean(selectedPhone) && !compactDisabled && (String(draft || '').trim() || attachment?.file);
   const showImageCaption = attachment?.kind === 'image';
   const isCompact = mode === 'compact';
 
@@ -664,14 +665,17 @@ export default function InboxComposer(props) {
               }
             }}
             placeholder={
-              selected?.need_human
-                ? 'Responder manualmente…'
-                : aiAutoReply
-                  ? 'Agente IA ativo — responda para assumir o atendimento'
-                  : 'Escreva uma mensagem…'
+              compactDisabled
+                ? compactPlaceholder
+                : selected?.need_human
+                  ? 'Responder manualmente…'
+                  : aiAutoReply
+                    ? 'Agente IA ativo — responda para assumir o atendimento'
+                    : 'Escreva uma mensagem…'
             }
             className="inbox-composer-wa-textarea"
             rows={1}
+            disabled={sending || compactDisabled || !selectedPhone}
             onFocus={(e) => {
               if (isMobile) {
                 const el = e.currentTarget;

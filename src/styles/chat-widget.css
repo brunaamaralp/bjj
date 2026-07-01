@@ -373,6 +373,17 @@
   border-radius: 0;
 }
 
+.student-profile-conversation-panel .navi-chat-widget__composer,
+.lead-profile-conversation-panel .navi-chat-widget__composer {
+  overflow: visible;
+}
+
+.student-profile-conversation-panel .navi-chat-widget__composer .inbox-thread-composer,
+.lead-profile-conversation-panel .navi-chat-widget__composer .inbox-thread-composer {
+  border: none;
+  border-radius: 0;
+}
+
 .lead-profile-conversation-panel .navi-chat-widget__header,
 .student-profile-conversation-panel .navi-chat-widget__header {
   min-width: 0;

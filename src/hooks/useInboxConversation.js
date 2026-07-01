@@ -4,6 +4,11 @@ import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { inboxPhonesMatch, primaryInboxPhone } from '../lib/normalizeInboxPhone';
 import { AGENT_HISTORY_WINDOW } from '../../lib/constants.js';
+import {
+  buildOutboundDisplayContent,
+  toIsoFromLocalDatetime,
+} from '../lib/inboxOutboundUtils.js';
+import { uploadInboxMedia, InboxMediaUploadError } from '../lib/uploadInboxMedia.js';
 
 const PAGE_LIMIT = 30;
 const POLL_ACTIVE_MS = 30_000;
@@ -274,30 +279,112 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
     }
   }, []);
 
-  const sendMessage = useCallback(
-    async (text) => {
+  const sendOutbound = useCallback(
+    async ({
+      file,
+      mediaUrl: mediaUrlArg,
+      mimeType: mimeTypeArg,
+      caption: captionArg,
+      fileName: fileNameArg,
+      text: textArg,
+      sendAtLocal,
+    } = {}) => {
       const p = phoneRef.current;
       const aid = academyIdRef.current;
-      const body = String(text || '').trim();
-      if (!p || !aid || !body || sending) return false;
+      const text = String(textArg ?? '').trim();
+      const caption = String(captionArg ?? '').trim();
+      let mediaUrl = String(mediaUrlArg || '').trim();
+      let mimeType = String(mimeTypeArg || '').trim();
+      let fileName = String(fileNameArg || '').trim();
+
+      if (!p || !aid || sending) return false;
+      if (!text && !caption && !mediaUrl && !file) return false;
 
       setSendError(null);
       setSending(true);
 
-      const tempId = `opt-${Date.now()}`;
-      const nowIso = new Date().toISOString();
-      const optimistic = {
-        role: 'assistant',
-        content: body,
-        timestamp: nowIso,
-        sender: 'human',
-        message_id: tempId,
-        _optimistic: true,
-      };
-
-      setMessages((prev) => dedupeMessages([...(Array.isArray(prev) ? prev : []), optimistic]));
+      let outboundTempId = '';
 
       try {
+        if (file) {
+          try {
+            const uploaded = await uploadInboxMedia(file);
+            mediaUrl = uploaded.mediaUrl;
+            mimeType = uploaded.mimeType;
+            fileName = uploaded.fileName;
+          } catch (e) {
+            if (e instanceof InboxMediaUploadError) {
+              if (e.code === 'too_large') {
+                setSendError('Arquivo muito grande. Máximo: 16MB.');
+              } else if (e.code === 'unsupported') {
+                setSendError('Tipo de arquivo não suportado.');
+              } else {
+                setSendError(friendlyError(e, 'send'));
+              }
+            } else {
+              setSendError('Erro ao enviar arquivo. Tente novamente.');
+            }
+            return false;
+          }
+        }
+
+        const sendAtIso = sendAtLocal ? toIsoFromLocalDatetime(sendAtLocal) : '';
+        if (sendAtLocal && !mediaUrl && !sendAtIso) {
+          setSendError('Escolha data e hora para agendar');
+          return false;
+        }
+        if (sendAtLocal && !mediaUrl && sendAtIso) {
+          const sendMs = new Date(sendAtIso).getTime();
+          if (!Number.isFinite(sendMs) || sendMs <= Date.now()) {
+            setSendError('Selecione um horário posterior ao atual para agendar.');
+            return false;
+          }
+        }
+
+        const mime = mimeType || '';
+        const mediaType = mime.startsWith('image/')
+          ? 'image'
+          : mime.startsWith('audio/')
+            ? 'audio'
+            : mediaUrl
+              ? 'document'
+              : '';
+        const displayContent = buildOutboundDisplayContent({ caption, text, mediaType });
+        const apiBody = mediaUrl
+          ? {
+              phone: p,
+              mediaUrl,
+              mimeType: mimeType || 'image/jpeg',
+              caption: caption || text,
+              ...(fileName ? { fileName } : {}),
+            }
+          : { phone: p, text, ...(sendAtIso ? { send_at: sendAtIso } : {}) };
+        const mediaFields = mediaUrl
+          ? {
+              type: mediaType,
+              mediaUrl,
+              mimeType: mime || null,
+              media_stored: true,
+              ...(mediaType === 'document' && fileName ? { fileName } : {}),
+            }
+          : {};
+
+        const tempId = `opt-${Date.now()}`;
+        outboundTempId = tempId;
+        const nowIso = new Date().toISOString();
+        const optimistic = {
+          role: 'assistant',
+          content: displayContent,
+          timestamp: nowIso,
+          sender: 'human',
+          message_id: tempId,
+          _optimistic: true,
+          _retryPayload: { apiBody, displayContent, mediaFields },
+          ...mediaFields,
+        };
+
+        setMessages((prev) => dedupeMessages([...(Array.isArray(prev) ? prev : []), optimistic]));
+
         const cur = summaryRef.current;
         if (cur && !cur.need_human) {
           await assumeHandoff();
@@ -311,7 +398,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
             'x-academy-id': aid,
             'content-type': 'application/json',
           },
-          body: JSON.stringify({ phone: p, text: body }),
+          body: JSON.stringify(apiBody),
         });
         const raw = await resp.text();
         if (!resp.ok) throw new Error(parseApiError(raw, 'Falha ao enviar'));
@@ -328,15 +415,17 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
         const sendAt = typeof data?.send_at === 'string' ? data.send_at : null;
 
         setMessages((prev) => {
-          const arr = (Array.isArray(prev) ? prev : []).filter((m) => String(m?.message_id || '') !== tempId);
-          arr.push({
-            role: 'assistant',
-            content: body,
-            timestamp: nowIso,
-            sender: 'human',
-            ...(status ? { status } : {}),
-            ...(sendAt ? { send_at: sendAt } : {}),
-            ...(msgId ? { message_id: msgId } : { message_id: tempId }),
+          const arr = (Array.isArray(prev) ? prev : []).map((m) => {
+            if (String(m?.message_id || '') !== tempId) return m;
+            const { _optimistic, _sendFailed, _retryPayload, ...rest } = m;
+            return {
+              ...rest,
+              content: displayContent,
+              ...(status ? { status } : {}),
+              ...(sendAt ? { send_at: sendAt } : {}),
+              ...(msgId ? { message_id: msgId } : { message_id: tempId }),
+              ...mediaFields,
+            };
           });
           return dedupeMessages(arr).slice(-AGENT_HISTORY_WINDOW);
         });
@@ -344,13 +433,15 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
         void markRead();
         return true;
       } catch (e) {
-        setMessages((prev) =>
-          (Array.isArray(prev) ? prev : []).map((m) =>
-            String(m?.message_id || '') === tempId
-              ? { ...m, _optimistic: false, _sendFailed: true }
-              : m
-          )
-        );
+        if (outboundTempId) {
+          setMessages((prev) =>
+            (Array.isArray(prev) ? prev : []).map((m) =>
+              String(m?.message_id || '') === outboundTempId
+                ? { ...m, _optimistic: false, _sendFailed: true }
+                : m
+            )
+          );
+        }
         setSendError(friendlyError(e, 'action'));
         return false;
       } finally {
@@ -358,6 +449,11 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
       }
     },
     [assumeHandoff, markRead, sending]
+  );
+
+  const sendMessage = useCallback(
+    async (text) => sendOutbound({ text }),
+    [sendOutbound]
   );
 
   const retryFailedMessage = useCallback(
@@ -575,6 +671,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
     hasMore,
     loadMore,
     sendMessage,
+    sendOutbound,
     retryFailedMessage,
     markRead,
     refresh,

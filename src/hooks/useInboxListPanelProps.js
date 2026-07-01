@@ -3,6 +3,7 @@ import { inboxFilterLabel } from '../lib/inboxUrlState.js';
 
 function useInboxListTopbarMeta({
   loading,
+  listFetchedOnce,
   searchPending,
   listMetaShowsFiltered,
   visibleConversationCount,
@@ -10,8 +11,9 @@ function useInboxListTopbarMeta({
   lastUpdatedAt,
 }) {
   return useMemo(() => {
-    if (loading || searchPending) {
-      return searchPending ? 'Buscando…' : 'Carregando…';
+    if (loading || searchPending || !listFetchedOnce) {
+      if (searchPending) return 'Buscando…';
+      return 'Carregando…';
     }
     if (listMetaShowsFiltered) {
       return `${visibleConversationCount} exibidas · ${itemsLength} carregadas`;
@@ -22,6 +24,7 @@ function useInboxListTopbarMeta({
     return `${itemsLength} conversas${updatedSuffix}`;
   }, [
     loading,
+    listFetchedOnce,
     searchPending,
     listMetaShowsFiltered,
     visibleConversationCount,
@@ -48,6 +51,7 @@ export function useInboxListPanelProps(params) {
     onConversationListScroll,
     groupedFilteredItems,
     loading,
+    listFetchedOnce = false,
     itemsLength,
     waChatConnected,
     loadingMore,
@@ -75,6 +79,7 @@ export function useInboxListPanelProps(params) {
 
   const listTopbarMeta = useInboxListTopbarMeta({
     loading,
+    listFetchedOnce,
     searchPending,
     listMetaShowsFiltered,
     visibleConversationCount,
@@ -99,6 +104,7 @@ export function useInboxListPanelProps(params) {
       onConversationListScroll,
       groupedFilteredItems,
       loading,
+      listFetchedOnce,
       itemsLength,
       waChatConnected,
       loadingMore,
@@ -137,6 +143,7 @@ export function useInboxListPanelProps(params) {
       onConversationListScroll,
       groupedFilteredItems,
       loading,
+      listFetchedOnce,
       itemsLength,
       waChatConnected,
       loadingMore,
