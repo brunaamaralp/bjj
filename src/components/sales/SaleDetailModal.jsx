@@ -23,6 +23,8 @@ function SaleDetailModalContent({
   onClose,
   onCancelClick,
   canCancelSale = false,
+  canEditSale = false,
+  onEditItemClick,
   onLiquidated,
 }) {
   const liquidateSale = useSalesStore((s) => s.liquidateSale);
@@ -139,15 +141,27 @@ function SaleDetailModalContent({
                   <th>Qtd</th>
                   <th>Unit.</th>
                   <th>Subtotal</th>
+                  {isConcluida && canEditSale ? <th aria-label="Ações" /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(sale.items || []).map((it, i) => (
-                  <tr key={i}>
+                  <tr key={it.id || i}>
                     <td>{it.display_label}</td>
                     <td>{it.quantidade}</td>
                     <td>{formatBRL(it.preco_unitario)}</td>
                     <td>{formatBRL(it.subtotal)}</td>
+                    {isConcluida && canEditSale ? (
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm"
+                          onClick={() => onEditItemClick?.(it)}
+                        >
+                          Trocar
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -236,6 +250,8 @@ export default function SaleDetailModal({
   onClose,
   onCancelClick,
   canCancelSale = false,
+  canEditSale = false,
+  onEditItemClick,
   onLiquidated,
 }) {
   if (!open || !sale) return null;
@@ -247,6 +263,8 @@ export default function SaleDetailModal({
       onClose={onClose}
       onCancelClick={onCancelClick}
       canCancelSale={canCancelSale}
+      canEditSale={canEditSale}
+      onEditItemClick={onEditItemClick}
       onLiquidated={onLiquidated}
     />
   );

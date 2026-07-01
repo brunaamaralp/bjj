@@ -25,6 +25,7 @@ import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesCreateHandler from '../lib/server/salesCreateHandler.js';
 import salesReconcileHandler from '../lib/server/salesReconcileHandler.js';
 import salesLiquidateHandler from '../lib/server/salesLiquidateHandler.js';
+import salesUpdateItemHandler from '../lib/server/salesUpdateItemHandler.js';
 import cashShiftHandler from '../lib/server/cashShiftHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
@@ -261,7 +262,19 @@ export default async function handler(req, res) {
       return cashShiftHandler(req, res);
     }
     if (req.method === 'POST') return salesCreateHandler(req, res);
-    if (req.method === 'PATCH') return salesLiquidateHandler(req, res);
+    if (req.method === 'PATCH') {
+      let patchBody = req.body;
+      if (typeof patchBody === 'string') {
+        try {
+          patchBody = JSON.parse(patchBody);
+        } catch {
+          patchBody = {};
+        }
+      }
+      const patchAction = String(patchBody?.action || '').trim().toLowerCase();
+      if (patchAction === 'alterar_item') return salesUpdateItemHandler(req, res);
+      return salesLiquidateHandler(req, res);
+    }
     if (req.method === 'GET') return salesHistoryHandler(req, res);
     res.setHeader('Allow', 'GET, POST, PATCH');
     return res.status(405).json({ ok: false, error: 'method_not_allowed' });

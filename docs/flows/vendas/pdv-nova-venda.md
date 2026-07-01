@@ -43,6 +43,7 @@ flowchart TD
   pay --> submit[createSale]
   submit --> receipt[Comprovante / toast]
   hist --> detail[Detalhe da venda]
+  detail --> edit[Trocar produto — owner/admin]
   detail --> cancel[Cancelar — owner/admin]
 ```
 
@@ -66,8 +67,9 @@ flowchart TD
 | 12 | Sidebar | **Nova venda** | `NovaVendaModal` | Mesmo `SalesNewSaleTab` em modal |
 | 13 | `&subtab=history` | `SalesHistoryTab` | Filtrar período/status | Lista paginada |
 | 14 | Histórico | Abrir venda | `SaleDetailModal` | Detalhe itens + pagamentos |
-| 15 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `cancelSale`; comprovante cancelamento |
-| 16 | Vendas | **Configurações** | `?config=1` ou botão | `SalesSettingsSection` inline |
+| 15 | Histórico | Trocar produto (owner/admin) | `SalesEditItemModal` | Estoque revertido + novo item; ajuste no Caixa se preço mudar |
+| 16 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `cancelSale`; comprovante cancelamento |
+| 17 | Vendas | **Configurações** | `?config=1` ou botão | `SalesSettingsSection` inline |
 
 ---
 
@@ -102,6 +104,7 @@ flowchart TD
 9. [ ] Atalho sidebar **Nova venda** abre modal; dirty → `ConfirmDialog` ao fechar
 10. [ ] Histórico: filtros período, status, canal, busca
 11. [ ] Cancelamento só owner/admin; member não vê ação
+11b. [ ] Trocar produto em venda concluída (owner/admin) → estoque + total + Caixa ajustados
 12. [ ] Legacy `/vendas` → redirect para `/loja?tab=vendas`
 13. [ ] Legacy `?tab=new` → normaliza para `?tab=vendas&subtab=new`
 14. [ ] Trocar academia → catálogo e histórico da academia atual

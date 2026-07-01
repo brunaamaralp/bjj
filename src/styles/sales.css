@@ -1778,3 +1778,49 @@ body[data-sales-pdv='1'] .main-content {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.sales-edit-item-modal__intro {
+  margin: 0;
+}
+
+.sales-edit-item-modal__current {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.sales-edit-item-modal__swap {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.sales-edit-item-modal__swap-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sales-edit-item-modal__swap-icon {
+  color: var(--text-muted, #64748b);
+  justify-self: center;
+}
+
+.sales-edit-item-modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.sales-edit-item-modal__error {
+  color: var(--danger, #b91c1c);
+  font-size: var(--font-sm, 0.875rem);
+}
+
+.sales-edit-item-modal__delta {
+  color: var(--text-muted, #64748b);
+}

@@ -6,6 +6,7 @@ import { friendlySaleError } from '../lib/errorMessages.js';
 
 export const useSalesStore = create((set) => ({
   creating: false,
+  updating: false,
   cancelling: false,
   lastSale: null,
   error: null,
@@ -97,6 +98,32 @@ export const useSalesStore = create((set) => ({
     } catch (e) {
       const code = e instanceof SalesApiError ? e.code : String(e?.message || e);
       set({ error: code, creating: false });
+      return null;
+    }
+  },
+
+  updateSaleItem: async ({ venda_id, sale_item_id, novo_item, motivo }) => {
+    set({ updating: true, error: null, errorDetail: null });
+    try {
+      const academyId = useLeadStore.getState().academyId || null;
+      const body = await salesFetch('/api/sales', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: venda_id,
+          action: 'alterar_item',
+          sale_item_id,
+          novo_item,
+          motivo,
+          academy_id: academyId,
+        }),
+      });
+      set({ updating: false, error: null, errorDetail: null, lastSale: body });
+      return body;
+    } catch (e) {
+      const code = e instanceof SalesApiError ? e.code : String(e?.message || e);
+      const detail =
+        e instanceof SalesApiError ? String(e.body?.detail || e.body?.erro || '').trim() : '';
+      set({ error: code, errorDetail: detail || null, updating: false });
       return null;
     }
   },

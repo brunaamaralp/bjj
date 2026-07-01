@@ -216,6 +216,11 @@ const SALE_ERROR_CODES = {
   shift_required: 'Abra o caixa antes de registrar vendas.',
   due_date_required: 'Informe a data de vencimento da venda a prazo.',
   cash_shift_not_configured: 'Turno de caixa não configurado. Execute o script de provisionamento.',
+  sale_not_concluded: 'Só é possível trocar produto em vendas concluídas.',
+  sale_item_not_found: 'Item da venda não encontrado.',
+  same_item: 'Selecione um produto diferente do atual.',
+  invalid_price: 'Preço inválido para o novo produto.',
+  forbidden: 'Sem permissão para alterar esta venda.',
 };
 
 /**

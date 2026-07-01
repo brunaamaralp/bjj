@@ -24,6 +24,7 @@ import { formatBRL } from '../../lib/moneyBr';
 import { friendlyError } from '../../lib/errorMessages';
 import SaleDetailModal from './SaleDetailModal';
 import SalesCancelModal from './SalesCancelModal';
+import SalesEditItemModal from './SalesEditItemModal';
 import CancelReceiptPanel from './CancelReceiptPanel';
 
 export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
@@ -37,6 +38,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   }, [academyList, academyId]);
   const navRole = useUserRole(academyDoc);
   const canCancelSale = navRole === 'owner' || navRole === 'admin';
+  const canEditSale = canCancelSale;
 
   const addToast = useUiStore((s) => s.addToast);
   const fetchSalesList = useSalesStore((s) => s.fetchSalesList);
@@ -62,6 +64,9 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReceipt, setCancelReceipt] = useState(null);
+
+  const [editItemOpen, setEditItemOpen] = useState(false);
+  const [editSaleItem, setEditSaleItem] = useState(null);
 
   const [salesSettings, setSalesSettings] = useState(() => readSalesSettings(null));
   const [academyName, setAcademyName] = useState('');
@@ -395,7 +400,33 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
         onClose={() => setDetailOpen(false)}
         onCancelClick={() => setCancelOpen(true)}
         canCancelSale={canCancelSale}
+        canEditSale={canEditSale}
+        onEditItemClick={(item) => {
+          setEditSaleItem(item);
+          setEditItemOpen(true);
+        }}
         onLiquidated={() => void loadSales()}
+      />
+
+      <SalesEditItemModal
+        open={editItemOpen}
+        sale={detailSale}
+        saleItem={editSaleItem}
+        onClose={() => {
+          setEditItemOpen(false);
+          setEditSaleItem(null);
+        }}
+        onSuccess={async () => {
+          if (detailSale?.id) {
+            try {
+              const full = await fetchSaleDetail(detailSale.id);
+              if (full) setDetailSale(full);
+            } catch (e) {
+              addToast({ type: 'error', message: friendlyError(e, 'load') });
+            }
+          }
+          void loadSales();
+        }}
       />
 
       <SalesCancelModal
