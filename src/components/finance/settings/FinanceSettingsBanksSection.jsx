@@ -177,6 +177,7 @@ export default function FinanceSettingsBanksSection({
         open={editIdx != null}
         title={editIdx === 'new' ? 'Nova conta' : 'Editar conta'}
         onClose={closeModal}
+        closeOnOverlay={false}
         maxWidth={600}
         dialogClassName="navi-modal-shell--scroll-body finance-bank-account-modal"
         footer={

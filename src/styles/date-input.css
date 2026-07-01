@@ -185,12 +185,16 @@ input.navi-typable-date--picker {
 
 .navi-native-date-picker {
   position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 40px;
   opacity: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
   border: 0;
   padding: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 2;
 }
 
 .navi-date-picker-btn {
@@ -209,6 +213,8 @@ input.navi-typable-date--picker {
   cursor: pointer;
   border-radius: 6px;
   padding: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .navi-date-picker-btn:hover:not(:disabled) {

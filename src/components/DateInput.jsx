@@ -108,10 +108,12 @@ export const DateInputField = forwardRef(function DateInputField(
     const el = nativePickerRef.current;
     if (!el || disabled) return;
     try {
-      if (typeof el.showPicker === 'function') el.showPicker();
-      else el.click();
+      el.focus({ preventScroll: true });
+      if (typeof el.showPicker === 'function') {
+        el.showPicker();
+      }
     } catch {
-      el.click();
+      // Browser may still open the native picker on focus for type=date.
     }
   }, [disabled]);
 
@@ -177,16 +179,18 @@ export const DateInputField = forwardRef(function DateInputField(
             type={type}
             value={value ?? ''}
             onChange={handleNativePickerChange}
+            onClick={openNativePicker}
             min={min}
             max={max}
             tabIndex={-1}
             aria-hidden="true"
+            disabled={disabled}
             className="navi-native-date-picker"
           />
           <button
             type="button"
             className="navi-date-picker-btn"
-            onClick={openNativePicker}
+            tabIndex={-1}
             disabled={disabled}
             aria-label={pickerLabel}
             title={pickerLabel}
