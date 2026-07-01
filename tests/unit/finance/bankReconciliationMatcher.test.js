@@ -17,8 +17,21 @@ function fakeTx({
   settledAt = '2025-06-01',
   bankAccount = 'Sicoob',
   reconciled = false,
+  gateway_provider = '',
+  gateway_charge_id = '',
 } = {}) {
-  return { id, gross, net, type, status, settledAt, bankAccount, reconciled };
+  return {
+    id,
+    gross,
+    net,
+    type,
+    status,
+    settledAt,
+    bankAccount,
+    reconciled,
+    gateway_provider,
+    gateway_charge_id,
+  };
 }
 
 function fakeItem({
@@ -26,8 +39,9 @@ function fakeItem({
   amount = 100,
   direction = 'credit',
   bank_account = 'Sicoob',
+  gateway_charge_id = '',
 } = {}) {
-  return { date, amount, direction, bank_account };
+  return { date, amount, direction, bank_account, gateway_charge_id };
 }
 
 describe('bankReconciliationMatcher', () => {
@@ -114,6 +128,14 @@ describe('bankReconciliationMatcher', () => {
       );
       expect(score).toBeLessThanOrEqual(50);
       expect(score).toBeGreaterThan(0);
+    });
+
+    it('gateway_charge_id match → score 100', () => {
+      const score = scoreBankItemToTx(
+        fakeItem({ gateway_charge_id: 'CHAR_X', amount: 1 }),
+        fakeTx({ gateway_provider: 'pagbank', gateway_charge_id: 'CHAR_X', gross: 999, net: 999 })
+      );
+      expect(score).toBe(100);
     });
   });
 

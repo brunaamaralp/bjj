@@ -11,6 +11,7 @@ describe('integracoesSettingsSections', () => {
     expect(isIntegracoesSettingsSection('whatsapp')).toBe('whatsapp');
     expect(isIntegracoesSettingsSection('catraca')).toBe('catraca');
     expect(isIntegracoesSettingsSection('autentique')).toBe('autentique');
+    expect(isIntegracoesSettingsSection('pagbank')).toBe('pagbank');
     expect(isIntegracoesSettingsSection('invalid')).toBeNull();
   });
 
@@ -28,5 +29,11 @@ describe('integracoesSettingsSections', () => {
     const state = resolveIntegracoesNavState('autentique');
     expect(state.section).toBe('autentique');
     expect(state.meta.panelTitle).toContain('Autentique');
+  });
+
+  it('resolveIntegracoesNavState pagbank', () => {
+    const state = resolveIntegracoesNavState('pagbank');
+    expect(state.section).toBe('pagbank');
+    expect(state.meta.panelTitle).toContain('PagBank');
   });
 });

@@ -107,5 +107,7 @@ export function matchTierLabel(tier) {
   if (tier === 'amount_date_name') return 'Alta (valor + data + nome)';
   if (tier === 'amount_date') return 'Média (valor + data)';
   if (tier === 'amount_approx') return 'Baixa (valor aproximado)';
+  if (tier === 'client_match') return 'Match sugerido (valor + data + descrição)';
+  if (tier === 'client_match_multi') return 'Várias correspondências possíveis';
   return '';
 }

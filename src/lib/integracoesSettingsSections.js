@@ -3,6 +3,7 @@ export const INTEGRACOES_SETTINGS_SECTIONS = {
   WHATSAPP: 'whatsapp',
   CATRACA: 'catraca',
   AUTENTIQUE: 'autentique',
+  PAGBANK: 'pagbank',
 };
 
 const VALID = new Set(Object.values(INTEGRACOES_SETTINGS_SECTIONS));
@@ -30,6 +31,12 @@ export const INTEGRACOES_SETTINGS_ITEMS = [
     label: 'Autentique',
     panelTitle: 'Autentique — contratos digitais',
     hint: 'Token, webhook e conta para assinatura digital. Configuração opcional fora do fluxo principal do Nave.',
+  },
+  {
+    id: INTEGRACOES_SETTINGS_SECTIONS.PAGBANK,
+    label: 'PagBank',
+    panelTitle: 'PagBank — cobrança recorrente',
+    hint: 'Token, webhook e planos para mensalidades automáticas no cartão de crédito.',
   },
 ];
 

@@ -64,6 +64,8 @@
     { "source": "/api/cron/attendance-retention", "destination": "/api/cron/reset-usage.js?action=attendance-retention" },
     { "source": "/api/cron/generate-class-slots", "destination": "/api/cron/reset-usage.js?action=generate-class-slots" },
     { "source": "/api/cron/mark-booking-no-shows", "destination": "/api/cron/reset-usage.js?action=mark-booking-no-shows" },
+    { "source": "/api/cron/pagbank-reconcile", "destination": "/api/cron/reset-usage.js?action=pagbank-reconcile" },
+    { "source": "/api/cron/recon-stale-orphans", "destination": "/api/cron/reset-usage.js?action=recon-stale-orphans" },
     { "source": "/api/students/freeze", "destination": "/api/leads.js?route=students&action=freeze" },
     { "source": "/api/students/deactivate", "destination": "/api/leads.js?route=students&action=deactivate" },
     { "source": "/api/students/collection-snooze", "destination": "/api/leads.js?route=students&action=collection-snooze" },
@@ -168,6 +170,14 @@
     {
       "path": "/api/cron/mark-booking-no-shows",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/pagbank-reconcile",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage?action=recon-stale-orphans",
+      "schedule": "30 7 * * *"
     }
   ]
 }

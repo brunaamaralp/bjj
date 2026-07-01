@@ -1,7 +1,7 @@
 import '../styles/settings-pages.css';
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
-import { resolveEmpresaLegacyTabRedirect } from '../lib/empresaLegacyRedirects.js';
+import { resolveEmpresaLegacyTabRedirect, resolveEmpresaLegacyFinanceSectionRedirect } from '../lib/empresaLegacyRedirects.js';
 import { canAccessEmpresaFinanceSettings } from '../lib/financeSettingsSections.js';
 import { friendlyError } from '../lib/errorMessages';
 import { useLeadStore } from '../store/useLeadStore';
@@ -401,6 +401,12 @@ const AcademySettings = () => {
         return <Navigate to={legacyEmpresaRedirect} replace />;
     }
 
+    const legacyFinanceSectionRedirect =
+        rawTab === 'financeiro' ? resolveEmpresaLegacyFinanceSectionRedirect(searchParams.get('section')) : null;
+    if (legacyFinanceSectionRedirect) {
+        return <Navigate to={legacyFinanceSectionRedirect} replace />;
+    }
+
     return (
         <div className="container navi-hub-page academy-settings-page">
             <PageHeader
@@ -504,11 +510,6 @@ const AcademySettings = () => {
                     <FinanceiroConfigTab
                         academyId={academyId}
                         isOwner={role === 'owner'}
-                        academy={academy}
-                        onPagbankSaved={() => {
-                            invalidateAcademyDocumentCache(academyId);
-                            setAcademyReloadNonce((n) => n + 1);
-                        }}
                     />
                 </div>
             )}

@@ -38,7 +38,7 @@ Confirmar na **Vercel** (Production / Preview) e alinhar com [`.env`](../.env) /
 
 | Tipo | Variáveis (exemplos no código) | Notas |
 |------|--------------------------------|--------|
-| **Só servidor** | `APPWRITE_API_KEY`, `ANTHROPIC_API_KEY`, `ASAAS_WEBHOOK_SECRET`, `CRON_SECRET`, `INTERNAL_API_SECRET`, `ZAPSTER_WEBHOOK_TOKEN`, `ZAPSTER_API_TOKEN` / `ZAPSTER_TOKEN` | Nunca usar prefixo `VITE_*`. |
+| **Só servidor** | `APPWRITE_API_KEY`, `ANTHROPIC_API_KEY`, `ASAAS_WEBHOOK_SECRET`, `AUTENTIQUE_ENCRYPTION_KEY`, `PAGBANK_ENCRYPTION_KEY`, `CRON_SECRET`, `INTERNAL_API_SECRET`, `ZAPSTER_WEBHOOK_TOKEN`, `ZAPSTER_API_TOKEN` / `ZAPSTER_TOKEN` | Nunca usar prefixo `VITE_*`. `AUTENTIQUE_ENCRYPTION_KEY` e `PAGBANK_ENCRYPTION_KEY`: AES-256-GCM para tokens de integração em `academies.settings` (mín. 32 caracteres cada; chaves distintas). |
 | **Cliente (bundle)** | `VITE_APPWRITE_*`, `VITE_INBOX_DEBUG`, `VITE_BILLING_ENABLED`, `VITE_ENABLE_*`, `VITE_ASAAS_LINK_*`, `VITE_CONTROLID_PROXY_BASE`, etc. | Tudo `VITE_*` é público no browser. |
 | **Crons** | `CRON_SECRET` | Com `CRON_SECRET` definido no projeto Vercel, a plataforma envia `Authorization: Bearer <valor>` nas invocações agendadas — alinhar com [`api/cron/reset-usage.js`](../api/cron/reset-usage.js) (`timingSafeEqual`). |
 

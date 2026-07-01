@@ -31,10 +31,11 @@ describe('financeiroHubTabs', () => {
     expect(getFinanceiroDefaultTab('admin')).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
   });
 
-  it('buildFinanceiroAllowedLeafTabs — member sem previsão nem fechamento', () => {
+  it('buildFinanceiroAllowedLeafTabs — member com a pagar, sem previsão nem fechamento', () => {
     const allowed = new Set(
       buildFinanceiroAllowedLeafTabs({ navRole: 'member', financeModule: true })
     );
+    expect(allowed.has(FINANCEIRO_SECTIONS.A_PAGAR)).toBe(true);
     expect(allowed.has('previsao')).toBe(false);
     expect(allowed.has('fechamento')).toBe(false);
     expect(allowed.has('conciliacao')).toBe(false);
@@ -91,6 +92,7 @@ describe('financeiroHubTabs', () => {
     const tabs = buildFinanceiroHubTabItems({ navRole: 'member', financeModule: true });
     expect(tabs.map((t) => t.id)).toEqual([
       FINANCEIRO_SECTIONS.A_RECEBER,
+      FINANCEIRO_SECTIONS.A_PAGAR,
       'movimentacoes',
       FINANCEIRO_SECTIONS.OVERVIEW,
     ]);

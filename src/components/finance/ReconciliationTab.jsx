@@ -29,6 +29,7 @@ import { friendlyError } from '../../lib/errorMessages';
 import { useToast } from '../../hooks/useToast';
 import useMediaQuery from '../../hooks/useMediaQuery.js';
 import { useBankReconTour } from '../../hooks/useBankReconTour.js';
+import useBankReconciliationClientMatch from '../../hooks/useBankReconciliationClientMatch.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -43,7 +44,7 @@ import BankReconCreateTxModal from './BankReconCreateTxModal.jsx';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
 import { buildLeadNameById } from '../../lib/financeTxLeadNames.js';
-import { formatReconTxSelectLabel } from '../../lib/financeReconTxLabel.js';
+import { formatReconTxSelectLabel, formatReconTxShortTitle } from '../../lib/financeReconTxLabel.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../../lib/financeTermHints.js';
 
 function closingHandoffDismissKey(statementId) {
@@ -102,6 +103,9 @@ const FORMAT_ICONS = {
   xlsx: FileSpreadsheet,
   pdf: Upload,
 };
+
+/** Referência estável — evita loop de re-render no hook de matching client-side. */
+const EMPTY_UNMATCHED_TX = [];
 
 function txLabel(tx, options) {
   const fromOpts = options?.find((o) => o.value === tx?.id);
@@ -246,9 +250,40 @@ export default function ReconciliationTab({ academyId }) {
     setShowAllOrphans(false);
   }, [selectedId, detail?.items?.length]);
 
+  const pendingExtratoItems = useMemo(() => {
+    if (!detail?.items) return [];
+    return detail.items.filter(
+      (item) =>
+        item.status !== 'matched' &&
+        item.status !== 'ignored' &&
+        item.status !== 'duplicate'
+    );
+  }, [detail?.items]);
+
+  const {
+    resultsByItemId: clientMatchByItemId,
+    isProcessing: clientMatchProcessing,
+    progress: clientMatchProgress,
+    removeTxFromIndex,
+  } = useBankReconciliationClientMatch({
+    extratoItems: pendingExtratoItems,
+    unmatchedTx: detail?.navi_unmatched ?? EMPTY_UNMATCHED_TX,
+    enabled: Boolean(detail?.items?.length),
+  });
+
+  const mapClientCandidates = useCallback((clientMatch) => {
+    return (clientMatch?.candidates || []).map((c) => ({
+      tx_id: c.txId,
+      score: Math.round(Number(c.score) || 0),
+      lead_name: c.tx?.lead_name || formatReconTxShortTitle(c.tx),
+    }));
+  }, []);
+
   const grouped = useMemo(() => {
     if (!detail?.items) return { auto: [], suggested: [], unmatched: [], ignored: [] };
-    const txById = new Map((detail.navi_transactions || []).map((t) => [t.id, t]));
+    const txById = new Map(
+      [...(detail.navi_transactions || []), ...(detail.navi_unmatched || [])].map((t) => [t.id, t])
+    );
     const auto = [];
     const suggested = [];
     const unmatched = [];
@@ -271,10 +306,38 @@ export default function ReconciliationTab({ academyId }) {
         suggested.push({ item, tx: txById.get(item.suggested_tx_id) });
         continue;
       }
+
+      const clientMatch = clientMatchByItemId[item.id];
+      if (clientMatch?.displayMode === 'single' && clientMatch.suggestedTxId) {
+        suggested.push({
+          item: {
+            ...item,
+            match_score: Math.round(clientMatch.candidates[0]?.score || 0),
+            match_tier: 'client_match',
+          },
+          tx: txById.get(clientMatch.suggestedTxId) || clientMatch.candidates[0]?.tx,
+          candidates: null,
+          fromClientMatcher: true,
+        });
+        continue;
+      }
+      if (clientMatch?.displayMode === 'multi' && clientMatch.candidates?.length) {
+        suggested.push({
+          item: {
+            ...item,
+            match_tier: 'client_match_multi',
+          },
+          tx: null,
+          candidates: mapClientCandidates(clientMatch),
+          fromClientMatcher: true,
+        });
+        continue;
+      }
+
       unmatched.push({ item, tx: null });
     }
     return { auto, suggested, unmatched, ignored };
-  }, [detail]);
+  }, [detail, clientMatchByItemId, mapClientCandidates]);
 
   const manualTxOptions = useMemo(
     () =>
@@ -356,6 +419,7 @@ export default function ReconciliationTab({ academyId }) {
     setBusy(true);
     try {
       const result = await confirmBankMatch(academyId, { item_id: itemId, transaction_id: txId });
+      removeTxFromIndex(txId);
       await refresh();
       toast.success(`Linha conciliada com ${txLabel(tx, manualTxOptions)}`);
       maybePromptLearnPayer(result.learn_payer);
@@ -668,6 +732,12 @@ export default function ReconciliationTab({ academyId }) {
               {focusPendingOnly ? 'Mostrar conciliados' : 'Focar pendências'}
             </button>
           </div>
+
+          {clientMatchProcessing ? (
+            <StatusBanner variant="info" className="mb-3">
+              Analisando correspondências… {clientMatchProgress.processed}/{clientMatchProgress.total}
+            </StatusBanner>
+          ) : null}
 
           <BankReconSelectionBar
             item={selectedBankItem}

@@ -30,6 +30,7 @@ import pagbankSubscriptionHandler from '../lib/server/pagbankSubscriptionHandler
 import pagbankSetupHandler from '../lib/server/pagbankSetupHandler.js';
 import pagbankPortalTokenHandler from '../lib/server/pagbankPortalTokenHandler.js';
 import pagbankPortalInfoHandler from '../lib/server/pagbankPortalInfoHandler.js';
+import pagbankManageHandler from '../lib/server/pagbankManageHandler.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -88,6 +89,7 @@ export default async function handler(req, res) {
     if (route === 'pagbank-setup') return pagbankSetupHandler(req, res);
     if (route === 'pagbank-portal-token') return pagbankPortalTokenHandler(req, res);
     if (route === 'pagbank-portal-info') return pagbankPortalInfoHandler(req, res);
+    if (route === 'pagbank-manage') return pagbankManageHandler(req, res);
     if (route === 'academy-create') return academyCreateHandler(req, res);
     if (route === 'team-members') return teamMembersHandler(req, res);
     if (route === 'whatsapp-templates' || url.includes('/whatsapp-templates')) {

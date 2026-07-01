@@ -51,12 +51,12 @@ describe('payablesHandler', () => {
     expect(res.statusCode).toBe(405);
   });
 
-  it('forbids member without owner/admin role', async () => {
+  it('allows any academy member with finance access', async () => {
     mocks.isAcademyOwnerOrAdminUser.mockResolvedValue(false);
     const res = mockRes();
     await payablesHandler({ method: 'GET', query: { route: 'payables', section: 'visao' } }, res);
-    expect(res.statusCode).toBe(403);
-    expect(res.body.error).toBe('forbidden');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 
   it('returns payables payload with catalog', async () => {

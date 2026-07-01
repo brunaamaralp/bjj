@@ -33,6 +33,8 @@ import { dueDateForRecurrenceMonth } from '../../lib/financeRecurrenceDedup.js';
 import { todayYmdLocal } from '../../lib/financeForecastCore.js';
 import { txSettlementSubtitle } from '../../lib/financeTxSettlementDisplay.js';
 import { useToast } from '../../hooks/useToast';
+import useFinanceCategorySuggestion from '../../hooks/useFinanceCategorySuggestion.js';
+import FinanceCategorySuggestionChip from './FinanceCategorySuggestionChip.jsx';
 import { financeTxFriendlyError } from '../../lib/errorMessages';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
 import { applySettleAccountingSideEffects } from '../../lib/financeTxSettle.js';
@@ -695,6 +697,32 @@ export default function TransacoesTab({
       ),
     [txForm.direction, txForm.category, chartAccounts]
   );
+
+  const txCategoryType = useMemo(
+    () => resolveFinanceCategory(txForm.category, chartAccounts)?.type,
+    [txForm.category, chartAccounts]
+  );
+
+  const categorySuggestionEnabled =
+    showTxModal &&
+    !editingTxId &&
+    !editingRecurrenceOnly &&
+    txCategoryType !== 'plan';
+
+  const categorySuggestion = useFinanceCategorySuggestion({
+    transactions,
+    direction: txForm.direction === 'out' ? 'out' : 'in',
+    description: txForm.planName,
+    enabled: categorySuggestionEnabled,
+  });
+
+  const visibleCategorySuggestion = useMemo(() => {
+    if (!categorySuggestion?.category) return null;
+    const current = String(txForm.category || '').trim();
+    const suggested = String(categorySuggestion.category || '').trim();
+    if (!suggested || current === suggested) return null;
+    return categorySuggestion;
+  }, [categorySuggestion, txForm.category]);
 
   const loadTransactions = useCallback(
     async (cursor = null, append = false) => {
@@ -1925,6 +1953,13 @@ export default function TransacoesTab({
                   onChange={applyTxCategory}
                 />
                 <FieldError id="finance-tx-category-error">{txFormErrors.category}</FieldError>
+                {visibleCategorySuggestion ? (
+                  <FinanceCategorySuggestionChip
+                    category={visibleCategorySuggestion.category}
+                    confidence={visibleCategorySuggestion.confidence}
+                    onApply={() => applyTxCategory(visibleCategorySuggestion.category)}
+                  />
+                ) : null}
               </div>
               {resolveFinanceCategory(txForm.category, chartAccounts)?.type === 'plan' ? (
                 <div className="form-group">

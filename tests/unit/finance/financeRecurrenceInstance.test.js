@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   shouldCreateInitialPayableInstance,
   shouldRunRecurrenceToday,
+  resolvePayableInstanceForSettle,
 } from '../../../lib/server/financeRecurrenceInstance.js';
 
 describe('financeRecurrenceInstance', () => {
@@ -19,5 +20,45 @@ describe('financeRecurrenceInstance', () => {
     };
     expect(shouldCreateInitialPayableInstance(template, '2026-06-16')).toBe(true);
     expect(shouldCreateInitialPayableInstance(template, '2026-05-01')).toBe(false);
+  });
+
+  it('resolvePayableInstanceForSettle reutiliza instância pending existente', async () => {
+    const pendingDoc = {
+      $id: 'inst-1',
+      status: 'pending',
+      academyId: 'acad-1',
+      recurrence_origin_id: 'tpl-1',
+      competence_month: '2026-07',
+    };
+    const databases = {
+      listDocuments: vi.fn().mockResolvedValue({ documents: [pendingDoc] }),
+      getDocument: vi.fn(),
+    };
+    const template = {
+      $id: 'tpl-1',
+      is_recurrence_template: true,
+      academyId: 'acad-1',
+      recurrence_type: 'monthly',
+      recurrence_day: 10,
+      gross: 450,
+      type: 'expense_operational',
+      direction: 'out',
+    };
+    const result = await resolvePayableInstanceForSettle(
+      databases,
+      'db',
+      'col',
+      template,
+      '2026-07-10'
+    );
+    expect(result).toBe(pendingDoc);
+    expect(databases.getDocument).not.toHaveBeenCalled();
+  });
+
+  it('resolvePayableInstanceForSettle rejeita data inválida', async () => {
+    const template = { $id: 'tpl-1', is_recurrence_template: true, academyId: 'acad-1' };
+    await expect(
+      resolvePayableInstanceForSettle({}, 'db', 'col', template, 'invalid')
+    ).rejects.toThrow('invalid_due_date');
   });
 });

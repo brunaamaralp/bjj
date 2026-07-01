@@ -73,6 +73,24 @@ async function ensureStringAttr(databases, key, size, required = false) {
   }
 }
 
+async function ensureIntegerAttr(databases, key, required = false, defaultValue = null) {
+  try {
+    await databases.createIntegerAttribute(DB_ID, ACADEMIES_COL, key, required, 1, 10, defaultValue);
+    console.log(`✅ Criado: ${key} (integer, default=${defaultValue})`);
+    await sleep(1500);
+  } catch (e) {
+    const msg = String(e?.message || '');
+    if (e.type === 'attribute_limit_exceeded' || msg.includes('attribute_limit')) {
+      console.log(`⚠️  Limite de atributos — não foi possível criar ${key}.`);
+    } else if (e.code === 409 || msg.includes('already exists')) {
+      console.log(`⏭️  ${key} já existe`);
+    } else {
+      console.error(`❌ ${key}: ${e.message}`);
+      throw e;
+    }
+  }
+}
+
 async function ensureBooleanAttr(databases, key, required = false, defaultValue = false) {
   try {
     await databases.createBooleanAttribute(DB_ID, ACADEMIES_COL, key, required, defaultValue);
@@ -110,10 +128,13 @@ async function main() {
   await ensureStringAttr(databases, 'financeBankAccounts', 8192, false);
   await ensureStringAttr(databases, 'onboardingChecklist', 512, false);
   console.log('\nPagBank (multi-tenant):');
+  // Credenciais criptografadas em settings.pagbank (limite 56 atributos na coleção).
+  // Débito técnico / rota de fuga: docs/data-model.md §4.1 «PagBank Assinaturas».
   await ensureStringAttr(databases, 'pagbank_token', 512, false);
   await ensureStringAttr(databases, 'pagbank_public_key', 512, false);
   await ensureStringAttr(databases, 'pagbank_webhook_secret', 256, false);
   await ensureBooleanAttr(databases, 'pagbank_enabled', false, false);
+  await ensureIntegerAttr(databases, 'pagbank_max_retries', false, 3);
   console.log('\n✅ Concluído.');
   console.log('Se financeConfig já existir com limite menor (ex.: 2500), aumente manualmente no console Appwrite ou via verify-and-fix-schema-crm.');
   console.log('Motivos de trancamento/desligamento: gravados em settings.student_freeze_reasons / student_exit_reasons (JSON).');

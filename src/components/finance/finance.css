@@ -827,6 +827,42 @@
 .finance-tx-form-section__body {
   padding-bottom: 4px;
 }
+.finance-category-suggestion {
+  margin-top: 8px;
+}
+.finance-category-suggestion__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--finance-recon-suggested-border, color-mix(in srgb, var(--accent) 22%, transparent));
+  background: var(--finance-recon-suggested-bg, color-mix(in srgb, var(--accent) 10%, var(--surface)));
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  cursor: pointer;
+  text-align: left;
+}
+.finance-category-suggestion__chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.finance-category-suggestion__icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.finance-category-suggestion__label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.finance-category-suggestion__category {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .finance-tx-student-group { position: relative; }
 .finance-tx-student-group__hint { color: var(--text-secondary); margin-top: 6px; }
 .finance-tx-student-dropdown {

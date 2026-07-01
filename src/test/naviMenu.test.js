@@ -237,6 +237,7 @@ describe('naviMenu', () => {
     const financeiro = model.accordions.find((a) => a.id === NAV_ACCORDION_IDS.FINANCEIRO);
     expect(financeiro.children.some((c) => c.id === 'novo-lancamento')).toBe(true);
     expect(financeiro.children.some((c) => c.id === 'visao-geral')).toBe(false);
+    expect(financeiro.children.some((c) => c.id === 'a-pagar')).toBe(true);
     expect(financeiro.children.some((c) => c.id === 'conciliacao')).toBe(false);
     expect(financeiro.children.some((c) => c.id === 'extrato')).toBe(false);
   });

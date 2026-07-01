@@ -51,7 +51,7 @@ Configuração e listas ficam em strings JSON dentro de documentos:
 
 | Documento | Campo | Conteúdo |
 |-----------|-------|----------|
-| `academies` | `settings`, `financeConfig` | Control iD, estoque, Zapster, taxas, contas bancárias; **`settings.turmas[]` legado** (ver §4.6) |
+| `academies` | `settings`, `financeConfig` | Control iD, estoque, Zapster, taxas, contas bancárias; **`settings.autentique`** e **`settings.pagbank`** (credenciais criptografadas); **`settings.turmas[]` legado** (ver §4.6) |
 | `academies` | `onboardingChecklist` | Checklist de onboarding |
 | `students` | `payer_aliases_json` | Pagadores conhecidos (conciliação) |
 | `students` | `custom_answers_json` | Respostas de formulário / matrícula |
@@ -223,11 +223,30 @@ Separado do financeiro da academia. Provisionar: `npm run provision:billing`.
 ```
 Appwrite Teams (teamId) ←→ academies.ownerId / teamId
 academies.$id ──► academyId / academy_id em todas as coleções filhas
-academies.settings ──► JSON (Control iD, estoque, automações, Zapster)
-academies.financeConfig ──► JSON (contas, taxas, PagBank, regua cobrança)
+academies.settings ──► JSON (Control iD, estoque, automações, Zapster, autentique, pagbank)
+academies.financeConfig ──► JSON (contas, taxas, PagBank conciliação/EDI legado, regua cobrança)
 academies.zapsterInstanceId ──► instância WhatsApp
 ```
 
+#### PagBank Assinaturas — credenciais e limite de schema
+
+O schema de `academies` está no **limite (56/56 atributos)**. Por isso, as credenciais PagBank Recorrente (`token`, `webhook_secret`) ficam em **`settings.pagbank`** (AES-256-GCM, chave `PAGBANK_ENCRYPTION_KEY`), no mesmo padrão de **`settings.autentique`**.
+
+| Onde | Campos |
+|------|--------|
+| `settings.pagbank` (JSON) | `token_encrypted`, `webhook_secret_encrypted` |
+| Top-level (fora de `settings`) | `pagbank_enabled`, `pagbank_max_retries` |
+
+Atributos top-level legados (`pagbank_token`, `pagbank_webhook_secret`, `pagbank_public_key`) permanecem no schema por compatibilidade, mas **não são mais gravados** pelo setup atual.
+
+**Débito técnico conhecido (não é ação necessária hoje):**
+
+- **Rota de fuga se o schema voltar a ficar pressionado:** migrar `pagbank_enabled` e `pagbank_max_retries` para `settings.pagbank` (ex.: `enabled`, `max_retries`) e remover os atributos top-level `pagbank_enabled`, `pagbank_max_retries` e `pagbank_webhook_secret` (este último existe no schema mas nunca foi populado). Isso liberaria **3 slots** no limite de 56 atributos.
+- **Monitorar tamanho de `settings`:** string única (limite **16 384** caracteres) compartilhada entre `autentique`, `pagbank` e futuras integrações. Conforme mais integrações adotarem esse padrão, acompanhar o tamanho agregado do JSON.
+
+Implementação: `lib/pagbankSettings.js`, `lib/server/pagbankCrypto.js`, `lib/server/pagbankSetupHandler.js`, `lib/server/getPagbankCredentials.js`. Ver também [SECURITY_DIAGNOSTIC.md](SECURITY_DIAGNOSTIC.md) (`PAGBANK_ENCRYPTION_KEY`).
+
+```
 **Espelho billing:** `academies.asaasCustomerId` ↔ `store_subscriptions.storeId` (= `$id` academia).
 
 ### 4.2 Funil e alunos
@@ -519,4 +538,4 @@ Atualize **`docs/data-model.md` no mesmo PR** quando:
 
 ---
 
-*Última revisão estrutural: 2026-06-19 — turmas/horários (`classes` + `schedules`), migração `settings.turmas`, `resolveAcademyTurmaLabels`.*
+*Última revisão estrutural: 2026-06-29 — PagBank Assinaturas em `settings.pagbank` (limite 56 atributos); turmas/horários (`classes` + `schedules`), migração `settings.turmas`, `resolveAcademyTurmaLabels`.*

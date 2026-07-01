@@ -191,10 +191,8 @@ export function buildFinanceiroAllowedLeafTabs({ navRole, financeModule, isOwner
   const base = [
     FINANCEIRO_SECTIONS.OVERVIEW,
     FINANCEIRO_SECTIONS.A_RECEBER,
+    FINANCEIRO_SECTIONS.A_PAGAR,
   ];
-  if (role === 'owner' || role === 'admin') {
-    base.push(FINANCEIRO_SECTIONS.A_PAGAR);
-  }
   const operational = buildFinanceiroOperationalLeafTabs(role, financeModule);
   return [...base, ...operational];
 }
@@ -208,6 +206,7 @@ function orderFinanceiroHubTabIds(navRole, tabIds) {
   if (navRole === 'member') {
     const memberOrder = [
       FINANCEIRO_SECTIONS.A_RECEBER,
+      FINANCEIRO_SECTIONS.A_PAGAR,
       'movimentacoes',
       FINANCEIRO_SECTIONS.OVERVIEW,
     ];

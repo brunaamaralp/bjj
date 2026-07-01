@@ -308,7 +308,15 @@ export default function PayablesTab({
   }, [summary.totalOpen, summary.overdueCount]);
 
   function openSettle(item) {
-    if (!item?.tx_id || item.source === PAYABLE_SOURCE.TEMPLATE) return;
+    const txId = String(item?.tx_id || '').trim();
+    const templateId = String(item?.template_id || '').trim();
+    const canSettle =
+      item?.source === PAYABLE_SOURCE.LANCAMENTO
+        ? Boolean(txId)
+        : item?.source === PAYABLE_SOURCE.TEMPLATE || item?.source === PAYABLE_SOURCE.RECORRENCIA
+          ? Boolean(templateId)
+          : false;
+    if (!canSettle) return;
     setSettleItem(item);
     setSettleGross(String(item.amount || ''));
     setSettleAccount('');
@@ -316,6 +324,12 @@ export default function PayablesTab({
     setSettlePaidAt(todayYmdLocal());
     setSettleError('');
     setShowValueConfirm(false);
+  }
+
+  function settleTargetId(item) {
+    if (!item) return '';
+    if (item.source === PAYABLE_SOURCE.LANCAMENTO) return String(item.tx_id || '').trim();
+    return String(item.template_id || item.tx_id || '').trim();
   }
 
   function openEdit(item) {
@@ -416,7 +430,8 @@ export default function PayablesTab({
   }
 
   async function submitSettle({ skipValueCheck = false } = {}) {
-    if (!settleItem?.tx_id) return;
+    const targetId = settleTargetId(settleItem);
+    if (!targetId) return;
     const accountCheck = validateBankAccountForPayment(settleAccount, financeConfig);
     if (!accountCheck.ok) {
       setSettleError(accountCheck.message || 'Selecione a conta bancária.');
@@ -445,17 +460,25 @@ export default function PayablesTab({
     setShowValueConfirm(false);
     try {
       const paidIso = new Date(`${paidYmd}T12:00:00`).toISOString();
+      const dueYmd = String(settleItem.due_date || '').slice(0, 10);
+      const payload = {
+        action: 'settle',
+        gross: grossNum,
+        method: settleMethod,
+        bank_account: accountCheck.account,
+        direction: 'out',
+        settledAt: paidIso,
+      };
+      if (
+        settleItem.source !== PAYABLE_SOURCE.LANCAMENTO &&
+        /^\d{4}-\d{2}-\d{2}$/.test(dueYmd)
+      ) {
+        payload.payable_due_date = dueYmd;
+      }
       const row = await patchFinanceTx({
         academyId,
-        id: settleItem.tx_id,
-        payload: {
-          action: 'settle',
-          gross: grossNum,
-          method: settleMethod,
-          bank_account: accountCheck.account,
-          direction: 'out',
-          settledAt: paidIso,
-        },
+        id: targetId,
+        payload,
       });
       if (row) applyAccountingSideEffectsAuto(row, academyId);
       toast.success('Pagamento registrado.');
@@ -716,7 +739,9 @@ export default function PayablesTab({
                     </td>
                     <td className="text-right">
                       <div className="finance-table__actions">
-                        {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
+                        {item.source === PAYABLE_SOURCE.LANCAMENTO ||
+                        item.source === PAYABLE_SOURCE.TEMPLATE ||
+                        item.source === PAYABLE_SOURCE.RECORRENCIA ? (
                           <>
                             <button
                               type="button"
@@ -725,43 +750,45 @@ export default function PayablesTab({
                             >
                               Pagar
                             </button>
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm"
-                              onClick={() => openEdit(item)}
-                              aria-label={`Editar ${item.vendor_label}`}
-                            >
-                              <Pencil size={14} aria-hidden />
-                            </button>
-                            <Link
-                              to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
-                              className="btn-ghost btn-sm"
-                              aria-label={`Ver lançamento ${item.vendor_label}`}
-                            >
-                              <ExternalLink size={14} aria-hidden />
-                            </Link>
-                            {canManageAdvanced ? (
+                            {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn-ghost btn-sm"
+                                  onClick={() => openEdit(item)}
+                                  aria-label={`Editar ${item.vendor_label}`}
+                                >
+                                  <Pencil size={14} aria-hidden />
+                                </button>
+                                <Link
+                                  to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
+                                  className="btn-ghost btn-sm"
+                                  aria-label={`Ver lançamento ${item.vendor_label}`}
+                                >
+                                  <ExternalLink size={14} aria-hidden />
+                                </Link>
+                                {canManageAdvanced ? (
+                                  <button
+                                    type="button"
+                                    className="btn-ghost btn-sm text-muted"
+                                    onClick={() => openCancelPayable(item)}
+                                    aria-label={`Excluir ${item.vendor_label}`}
+                                    title="Excluir conta"
+                                  >
+                                    <Trash2 size={14} aria-hidden />
+                                  </button>
+                                ) : null}
+                              </>
+                            ) : item.source === PAYABLE_SOURCE.TEMPLATE && canManageAdvanced ? (
                               <button
                                 type="button"
                                 className="btn-ghost btn-sm text-muted"
-                                onClick={() => openCancelPayable(item)}
-                                aria-label={`Excluir ${item.vendor_label}`}
-                                title="Excluir conta"
+                                onClick={() => setCancelTemplateId(item.template_id)}
                               >
-                                <Trash2 size={14} aria-hidden />
+                                Cancelar
                               </button>
                             ) : null}
                           </>
-                        ) : item.source === PAYABLE_SOURCE.TEMPLATE ? (
-                          canManageAdvanced ? (
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm text-muted"
-                              onClick={() => setCancelTemplateId(item.template_id)}
-                            >
-                              Cancelar
-                            </button>
-                          ) : null
                         ) : null}
                       </div>
                     </td>

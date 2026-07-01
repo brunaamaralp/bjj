@@ -299,19 +299,16 @@ export function buildFinanceiroAccordion({
         section: RECEIVABLES_SECTIONS.MENSALIDADES,
       }).toString()}`,
       iconKey: 'aReceber',
-    }
-  );
-
-  if (isFinanceiroManagerNavRole(role)) {
-    children.push({
+    },
+    {
       id: 'a-pagar',
       label: 'A pagar',
       to: `${FINANCEIRO_HUB_PATH}?${buildPayablesSearchParams({
         section: PAYABLES_SECTIONS.CONTAS_FIXAS,
       }).toString()}`,
       iconKey: 'aPagar',
-    });
-  }
+    }
+  );
 
   children.push({
     id: 'movimentacoes',

@@ -21,6 +21,8 @@ import { runTasksDue } from '../../lib/server/runTasksDueCron.js';
 import { runAttendanceRetentionCron } from '../../lib/server/runAttendanceRetentionCron.js';
 import { runClassSlotsCron } from '../../lib/server/runClassSlotsCron.js';
 import { runBookingNoShowCron } from '../../lib/server/runBookingNoShowCron.js';
+import { runPagbankReconcileCron } from '../../lib/server/pagbankReconcileHandler.js';
+import { runStaleOrphanMetricsCron } from '../../lib/server/bankReconciliationMetricsStore.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -254,6 +256,16 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runBookingNoShowCron(databases, DB_ID);
     return res.status(200).json({ mode: 'mark-booking-no-shows', ...out });
+  }
+  if (action === 'pagbank-reconcile') {
+    const out = await runPagbankReconcileCron();
+    return res.status(200).json({ mode: 'pagbank-reconcile', ...out });
+  }
+  if (action === 'recon-stale-orphans') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const out = await runStaleOrphanMetricsCron(databases, DB_ID);
+    return res.status(200).json({ mode: 'recon-stale-orphans', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

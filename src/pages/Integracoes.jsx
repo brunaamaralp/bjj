@@ -10,6 +10,7 @@ import {
 } from '../lib/integracoesSettingsSections.js';
 import ControlIdCatracaSection from '../components/academy/ControlIdCatracaSection.jsx';
 import ContractsAutentiqueSection from '../components/academy/ContractsAutentiqueSection.jsx';
+import IntegracoesPagBankSection from '../components/academy/IntegracoesPagBankSection.jsx';
 import IntegracoesWhatsAppSection from '../components/academy/IntegracoesWhatsAppSection.jsx';
 import AcademyTabSettingsLayout from '../components/academy/settings/AcademyTabSettingsLayout.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -44,13 +45,15 @@ export default function Integracoes() {
     sectionBody = <ControlIdCatracaSection embeddedInLayout academyId={academyId} />;
   } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.AUTENTIQUE) {
     sectionBody = <ContractsAutentiqueSection embeddedInLayout academyId={academyId} />;
+  } else if (activeTab === INTEGRACOES_SETTINGS_SECTIONS.PAGBANK) {
+    sectionBody = <IntegracoesPagBankSection embeddedInLayout academyId={academyId} />;
   }
 
   return (
     <div className="container navi-hub-page integracoes-hub-page">
       <PageHeader
         title="Integrações"
-        subtitle="WhatsApp, catraca Control iD e assinatura digital Autentique."
+        subtitle="WhatsApp, catraca Control iD, assinatura digital Autentique e cobrança recorrente PagBank."
       />
 
       <section className="integracoes-settings-section animate-in mt-3">
