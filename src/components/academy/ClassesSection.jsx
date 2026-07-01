@@ -1,8 +1,9 @@
 import '../../styles/schedules.css';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { GraduationCap, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
 import AsyncButton from '../shared/AsyncButton.jsx';
 import { useUiStore } from '../../store/useUiStore';
 import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
@@ -104,15 +105,8 @@ export default function ClassesSection({ academyId, embeddedInLayout = false }) 
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const editorRef = useRef(null);
 
   const configured = isClassesConfigured();
-
-  useEffect(() => {
-    if (editorOpen && editorRef.current) {
-      editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [editorOpen]);
 
   const load = useCallback(async () => {
     if (!academyId || !configured) return;
@@ -266,7 +260,12 @@ export default function ClassesSection({ academyId, embeddedInLayout = false }) 
         <ul className="schedules-list">
           {classes.map((item) => (
             <li key={item.id} className="schedules-list__item">
-              <div className="schedules-list__main">
+              <button
+                type="button"
+                className="schedules-list__main-btn"
+                onClick={() => openEdit(item)}
+                disabled={isMutating(item.id)}
+              >
                 <div className="schedules-list__name-row">
                   <span className="schedules-list__name">{item.name}</span>
                   <span className={`badge ${item.is_active ? 'badge-success' : 'badge-secondary'}`}>
@@ -278,7 +277,7 @@ export default function ClassesSection({ academyId, embeddedInLayout = false }) 
                   {item.instructor ? ` · ${item.instructor}` : ''}
                   {` · ${formatCapacityLabel(item.max_capacity)}`}
                 </p>
-              </div>
+              </button>
               <div className="schedules-list__actions">
                 <button
                   type="button"
@@ -316,20 +315,25 @@ export default function ClassesSection({ academyId, embeddedInLayout = false }) 
         </ul>
       )}
 
-      {editorOpen ? (
-        <div className="schedules-editor card" ref={editorRef}>
-          <h3 className="schedules-editor__title">{editingId ? 'Editar turma' : 'Nova turma'}</h3>
-          <ClassFormFields form={form} setForm={setForm} errors={formErrors} />
-          <div className="schedules-editor__actions">
+      <ModalShell
+        open={editorOpen}
+        title={editingId ? 'Editar turma' : 'Nova turma'}
+        onClose={closeEditor}
+        maxWidth={640}
+        dialogClassName="navi-modal-shell--scroll-body"
+        footer={
+          <>
             <button type="button" className="btn-outline" onClick={closeEditor} disabled={saving}>
               Cancelar
             </button>
             <AsyncButton variant="primary" loading={saving} onClick={() => void handleSave()}>
               Salvar
             </AsyncButton>
-          </div>
-        </div>
-      ) : null}
+          </>
+        }
+      >
+        <ClassFormFields form={form} setForm={setForm} errors={formErrors} />
+      </ModalShell>
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

@@ -3793,15 +3793,6 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   margin: calc(-1 * var(--space-1)) 0 0;
 }
 
-.finance-bank-account-modal .navi-typable-date-field {
-  position: relative;
-  z-index: 0;
-}
-
-.finance-bank-account-modal .navi-native-date-picker:disabled {
-  cursor: not-allowed;
-}
-
 .finance-bank-modal-footer {
   display: flex;
   flex-wrap: wrap;

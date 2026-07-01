@@ -1,4 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar } from 'lucide-react';
 import {
   DATE_INPUT_PLACEHOLDERS,
@@ -18,6 +19,32 @@ const ICONS = {
 };
 
 const TYPABLE_TYPES = new Set(['date', 'month', 'datetime-local']);
+
+function hidePortaledNativePicker(el) {
+  if (!el) return;
+  el.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;margin:0;z-index:100001;';
+}
+
+function positionPortaledNativePicker(el, fieldEl) {
+  if (!el || !fieldEl) return;
+  const rect = fieldEl.getBoundingClientRect();
+  const width = 44;
+  el.style.cssText = [
+    'position:fixed',
+    `top:${rect.top}px`,
+    `left:${rect.right - width}px`,
+    `width:${width}px`,
+    `height:${Math.max(rect.height, 36)}px`,
+    'opacity:0.01',
+    'pointer-events:auto',
+    'border:0',
+    'padding:0',
+    'margin:0',
+    'cursor:pointer',
+    'z-index:100001',
+  ].join(';');
+}
 
 function useTypableDateField({ type, value, onChange }) {
   const [display, setDisplay] = useState(() => isoValueToDisplay(type, value));
@@ -101,28 +128,56 @@ export const DateInputField = forwardRef(function DateInputField(
     [handleBlurInternal, onBlurProp]
   );
 
+  const fieldRef = useRef(null);
   const nativePickerRef = useRef(null);
   const hasNativePicker = typable && PICKER_TYPES.has(type);
 
-  const openNativePicker = useCallback(() => {
-    const el = nativePickerRef.current;
-    if (!el || disabled) return;
-    try {
-      el.focus({ preventScroll: true });
-      if (typeof el.showPicker === 'function') {
-        el.showPicker();
+  const hideNativePicker = useCallback(() => {
+    hidePortaledNativePicker(nativePickerRef.current);
+  }, []);
+
+  const openNativePicker = useCallback(
+    (event) => {
+      if (disabled) return;
+      const el = nativePickerRef.current;
+      const field = fieldRef.current;
+      if (!el || !field) return;
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      positionPortaledNativePicker(el, field);
+      try {
+        el.focus({ preventScroll: true });
+        if (typeof el.showPicker === 'function') {
+          el.showPicker();
+        } else {
+          el.click();
+        }
+      } catch {
+        el.click();
       }
-    } catch {
-      // Browser may still open the native picker on focus for type=date.
-    }
-  }, [disabled]);
+    },
+    [disabled]
+  );
 
   const handleNativePickerChange = useCallback(
     (e) => {
       onChange?.(e);
+      hideNativePicker();
     },
-    [onChange]
+    [onChange, hideNativePicker]
   );
+
+  useEffect(() => {
+    const el = nativePickerRef.current;
+    if (!el || !hasNativePicker) return undefined;
+    hidePortaledNativePicker(el);
+    const onCancel = () => hideNativePicker();
+    el.addEventListener('cancel', onCancel);
+    return () => {
+      el.removeEventListener('cancel', onCancel);
+      hidePortaledNativePicker(el);
+    };
+  }, [hasNativePicker, hideNativePicker]);
 
   if (!typable) {
     return (
@@ -152,8 +207,28 @@ export const DateInputField = forwardRef(function DateInputField(
   const pickerLabel =
     type === 'month' ? 'Abrir seletor de mês' : type === 'datetime-local' ? 'Abrir calendário e horário' : 'Abrir calendário';
 
+  const nativePicker =
+    hasNativePicker && typeof document !== 'undefined'
+      ? createPortal(
+          <input
+            ref={nativePickerRef}
+            type={type}
+            value={value ?? ''}
+            onChange={handleNativePickerChange}
+            onMouseDown={openNativePicker}
+            min={min}
+            max={max}
+            tabIndex={-1}
+            aria-hidden="true"
+            disabled={disabled}
+            className="navi-native-date-picker navi-native-date-picker--portal"
+          />,
+          document.body
+        )
+      : null;
+
   return (
-    <div className="navi-typable-date-field">
+    <div ref={fieldRef} className="navi-typable-date-field">
       <input
         ref={ref}
         id={id}
@@ -174,23 +249,11 @@ export const DateInputField = forwardRef(function DateInputField(
       />
       {hasNativePicker ? (
         <>
-          <input
-            ref={nativePickerRef}
-            type={type}
-            value={value ?? ''}
-            onChange={handleNativePickerChange}
-            onClick={openNativePicker}
-            min={min}
-            max={max}
-            tabIndex={-1}
-            aria-hidden="true"
-            disabled={disabled}
-            className="navi-native-date-picker"
-          />
+          {nativePicker}
           <button
             type="button"
             className="navi-date-picker-btn"
-            tabIndex={-1}
+            onMouseDown={openNativePicker}
             disabled={disabled}
             aria-label={pickerLabel}
             title={pickerLabel}

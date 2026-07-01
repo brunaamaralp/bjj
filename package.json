@@ -35,6 +35,7 @@
     "recover:bank-accounts": "node scripts/recover-bank-accounts.mjs",
     "audit:sale-finance-mirror": "node --env-file=.env scripts/audit-sale-financial-mirror.mjs",
     "unify:bank-labels": "node scripts/unify-bank-account-labels.mjs",
+    "merge:turmas": "node scripts/merge-academy-turmas.mjs",
     "restore:bank-definitions": "node scripts/restore-bank-account-definitions.mjs",
     "restore:plan-definitions": "node scripts/restore-plan-definitions.mjs",
     "audit:finance-plans": "node scripts/audit-finance-plans.mjs",

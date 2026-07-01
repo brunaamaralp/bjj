@@ -1,8 +1,9 @@
 import '../../styles/schedules.css';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
+import ModalShell from '../shared/ModalShell.jsx';
 import AsyncButton from '../shared/AsyncButton.jsx';
 import { useUiStore } from '../../store/useUiStore';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
@@ -217,15 +218,8 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const editorRef = useRef(null);
 
   const configured = isSchedulesConfigured();
-
-  useEffect(() => {
-    if (editorOpen && editorRef.current) {
-      editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [editorOpen]);
 
   const load = useCallback(async () => {
     if (!academyId || !configured) return;
@@ -442,7 +436,12 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
               const classLabel = linkedClass?.name || (schedule.class_id ? 'Turma removida' : '');
               return (
               <li key={schedule.id} className="schedules-list__item">
-                <div className="schedules-list__main">
+                <button
+                  type="button"
+                  className="schedules-list__main-btn"
+                  onClick={() => openEdit(schedule)}
+                  disabled={isMutating(schedule.id)}
+                >
                   <div className="schedules-list__name-row">
                     <span className="schedules-list__name">{schedule.name}</span>
                     <span
@@ -459,7 +458,7 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
                     {schedule.level ? ` · ${schedule.level}` : ''}
                     {` · ${formatCapacityLabel(schedule.max_capacity ?? linkedClass?.max_capacity)}`}
                   </p>
-                </div>
+                </button>
                 <div className="schedules-list__actions">
                   <button
                     type="button"
@@ -499,28 +498,31 @@ export default function SchedulesSection({ academyId, embeddedInLayout = false }
         </div>
       ))}
 
-      {editorOpen ? (
-        <div className="schedules-editor card" ref={editorRef}>
-          <h3 className="schedules-editor__title">
-            {editingId ? 'Editar horário' : 'Novo horário'}
-          </h3>
-          <ScheduleFormFields
-            form={form}
-            setForm={setForm}
-            errors={formErrors}
-            modalitySuggestions={modalitySuggestions}
-            classOptions={classOptionsForForm}
-          />
-          <div className="schedules-editor__actions">
+      <ModalShell
+        open={editorOpen}
+        title={editingId ? 'Editar horário' : 'Novo horário'}
+        onClose={closeEditor}
+        maxWidth={640}
+        dialogClassName="navi-modal-shell--scroll-body"
+        footer={
+          <>
             <button type="button" className="btn-outline" onClick={closeEditor} disabled={saving}>
               Cancelar
             </button>
             <AsyncButton variant="primary" loading={saving} onClick={() => void handleSave()}>
               Salvar
             </AsyncButton>
-          </div>
-        </div>
-      ) : null}
+          </>
+        }
+      >
+        <ScheduleFormFields
+          form={form}
+          setForm={setForm}
+          errors={formErrors}
+          modalitySuggestions={modalitySuggestions}
+          classOptions={classOptionsForForm}
+        />
+      </ModalShell>
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

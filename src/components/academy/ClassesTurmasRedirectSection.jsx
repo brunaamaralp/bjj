@@ -14,7 +14,7 @@ export default function ClassesTurmasRedirectSection({ academyId }) {
       <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
         As opções do campo Turma em cadastros e perfis vêm do catálogo de turmas. Gerencie nomes,
         capacidade e status em{' '}
-        <Link to="/empresa?tab=horarios" className="edit-link">
+        <Link to="/empresa?tab=horarios&section=turmas" className="edit-link">
           Minha academia → Horários
         </Link>
         .
