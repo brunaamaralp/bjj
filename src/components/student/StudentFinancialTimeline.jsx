@@ -42,6 +42,12 @@ import {
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 import { paymentStatusLabelPt, paymentTimelineBadge } from '../../lib/paymentStatus.js';
 import { paymentCaixaMeta, saleCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
+import '../../styles/sales.css';
+import SaleDetailModal from '../sales/SaleDetailModal.jsx';
+import SalesEditItemModal from '../sales/SalesEditItemModal.jsx';
+import { useSalesStore } from '../../store/useSalesStore.js';
+import { useUiStore } from '../../store/useUiStore.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 function fmtMoney(n) {
   try {
@@ -306,9 +312,10 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling, canManagePaymen
   );
 }
 
-function ProductTimelineRow({ item }) {
+function ProductTimelineRow({ item, onOpenDetail }) {
   const [expanded, setExpanded] = useState(false);
   const sale = item.sale;
+  const canOpenDetail = Boolean(sale?.id && onOpenDetail);
   return (
     <TimelineRow
       icon={ShoppingBag}
@@ -320,7 +327,7 @@ function ProductTimelineRow({ item }) {
     >
       {(sale?.items || []).map((it) => (
         <div
-          key={`${it.item_estoque_id}-${it.quantidade}`}
+          key={`${it.id || it.item_estoque_id}-${it.quantidade}`}
           style={{
             fontSize: 12,
             display: 'flex',
@@ -335,14 +342,19 @@ function ProductTimelineRow({ item }) {
           <span>{fmtMoney(it.subtotal)}</span>
         </div>
       ))}
-      {sale && canDownloadSaleReceipt(sale) ? (
-        <div style={{ marginTop: 10 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+        {canOpenDetail ? (
+          <button type="button" className="btn-outline btn-sm" onClick={() => onOpenDetail(sale)}>
+            Ver detalhes
+          </button>
+        ) : null}
+        {sale && canDownloadSaleReceipt(sale) ? (
           <ReceiptPdfButton
             onDownload={() => downloadSaleReceiptPdf(sale.id)}
             variant="outline"
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </TimelineRow>
   );
 }
@@ -488,9 +500,43 @@ export default function StudentFinancialTimeline({
   onEditPayment,
   onDeletePayment,
   extratoUnificado = null,
+  canEditSale = false,
+  onSalesRefresh,
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('12m');
+
+  const fetchSaleDetail = useSalesStore((s) => s.fetchSaleDetail);
+  const addToast = useUiStore((s) => s.addToast);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailSale, setDetailSale] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [editItemOpen, setEditItemOpen] = useState(false);
+  const [editSaleItem, setEditSaleItem] = useState(null);
+
+  const openSaleDetail = async (sale) => {
+    if (!sale?.id) return;
+    setDetailOpen(true);
+    setDetailSale({
+      ...sale,
+      client_name: sale.client_name || student?.name || sale.cliente_nome || '—',
+    });
+    setDetailLoading(true);
+    try {
+      const full = await fetchSaleDetail(sale.id);
+      if (full) {
+        setDetailSale({
+          ...full,
+          client_name: full.client_name || student?.name || full.cliente_nome || '—',
+        });
+      }
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const allItems = useMemo(
     () => buildFinancialTimelineItems(payments, sales, planFreezes),
@@ -658,7 +704,9 @@ export default function StudentFinancialTimeline({
               );
             }
             if (item.kind === 'product') {
-              return <ProductTimelineRow key={item.id} item={item} />;
+              return (
+                <ProductTimelineRow key={item.id} item={item} onOpenDetail={openSaleDetail} />
+              );
             }
             if (item.kind === 'freeze') {
               return <TimelineRow key={item.id} icon={Lock} iconColor="#64748b" item={item} />;
@@ -732,6 +780,44 @@ export default function StudentFinancialTimeline({
           ) : null}
         </div>
       </div>
+
+      <SaleDetailModal
+        open={detailOpen}
+        sale={detailSale}
+        loading={detailLoading}
+        onClose={() => setDetailOpen(false)}
+        canEditSale={canEditSale}
+        onEditItemClick={(saleItemRow) => {
+          setEditSaleItem(saleItemRow);
+          setEditItemOpen(true);
+        }}
+      />
+
+      <SalesEditItemModal
+        open={editItemOpen}
+        sale={detailSale}
+        saleItem={editSaleItem}
+        onClose={() => {
+          setEditItemOpen(false);
+          setEditSaleItem(null);
+        }}
+        onSuccess={async () => {
+          if (detailSale?.id) {
+            try {
+              const full = await fetchSaleDetail(detailSale.id);
+              if (full) {
+                setDetailSale({
+                  ...full,
+                  client_name: full.client_name || student?.name || full.cliente_nome || '—',
+                });
+              }
+            } catch (e) {
+              addToast({ type: 'error', message: friendlyError(e, 'load') });
+            }
+          }
+          onSalesRefresh?.();
+        }}
+      />
     </div>
   );
 }

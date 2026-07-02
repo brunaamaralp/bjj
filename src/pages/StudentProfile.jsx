@@ -3140,6 +3140,8 @@ export default function StudentProfile() {
                         onEditPayment={openEditPaymentModal}
                         onDeletePayment={setDeletePaymentTarget}
                         extratoUnificado={extratoUnificado}
+                        canEditSale={navRole === 'owner' || navRole === 'admin'}
+                        onSalesRefresh={() => void loadPayments()}
                     />
                 ) : null}
 

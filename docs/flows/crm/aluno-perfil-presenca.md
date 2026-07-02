@@ -95,6 +95,7 @@ flowchart TD
 7b. [ ] *Nota:* `/students?view=presenca` e `/presenca` **não** ativam modo presença no hub embutido (`Students embedded`) — usar `/recepcao`
 8. [ ] Com finance: tab **Contratos** visível; sem finance: tab oculta
 9. [ ] Registrar pagamento no perfil — modal valida valor, método e meio de captura (cartão, 2+ meios)
+9b. [ ] Venda de produto na timeline — **Ver detalhes** abre modal; owner/admin pode **Trocar** item (venda concluída)
 9b. [ ] Pagamento **pago/parcial** espelha em Financeiro → Lançamentos; badge **No Caixa** no perfil (link) ou **Caixa pendente** se falhar
 9c. [ ] Taxa/avulso **pago** classificado como **Outras receitas** no Caixa (não Mensalidade)
 9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
