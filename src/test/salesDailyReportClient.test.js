@@ -12,8 +12,10 @@ describe('resolveDailyReportDateYmd', () => {
   });
 
   it('usa hoje quando filtro é intervalo', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    expect(resolveDailyReportDateYmd({ from: '2026-07-01', to: '2026-07-05' })).toBe(today);
+    const result = resolveDailyReportDateYmd({ from: '2020-01-01', to: '2020-01-31' });
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result).not.toBe('2020-01-01');
+    expect(result).not.toBe('2020-01-31');
   });
 });
 

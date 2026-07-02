@@ -70,7 +70,7 @@ flowchart TD
 | 15 | Histórico | Trocar produto (owner/admin) | `SalesEditItemModal` | Estoque revertido + novo item; ajuste no Caixa se preço mudar |
 | 16 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `cancelSale`; comprovante cancelamento |
 | 17 | Vendas | **Configurações** | `?config=1` ou botão | `SalesSettingsSection` inline |
-| 18 | `&subtab=history` | **Resumo do dia** | Botão na toolbar | `SalesDailyReportModal` — copiar / CSV / imprimir |
+| 18 | `&subtab=history` | **Resumo do dia** | Botão na toolbar ou deep link `?report=1&date=YYYY-MM-DD` | `SalesDailyReportModal` — copiar / CSV / PDF / imprimir |
 
 ---
 
@@ -80,7 +80,7 @@ Independente de **turno de caixa** (`CashShiftBanner`). Agrega vendas do **dia c
 
 1. **Loja → Vendas → Histórico**
 2. Opcional: **Hoje** (filtro de um dia)
-3. **Resumo do dia** → preview, **Copiar resumo**, **Exportar CSV**, **Imprimir**
+3. **Resumo do dia** → preview, **Copiar resumo**, **Exportar CSV**, **Baixar PDF**, **Imprimir** (vendas + mensalidades recebidas no balcão)
 
 Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-07-01-relatorio-vendas-dia-PRODUCT.md)
 
@@ -177,7 +177,7 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 - **NL command bar:** `register_sale` via `useNlAction` → `createSale`
 - **Produtos:** pré-requisito em `/loja?tab=produtos`; estoque em `/loja?tab=estoque` quando `modules.inventory`
 - **Aliases:** `/vendas`, `/produtos`, `/estoque` → redirects para `/loja?tab=…`
-- **Resumo do dia:** Histórico → `SalesDailyReportModal`; API `GET /api/sales?action=daily_report&date=`
+- **Resumo do dia:** Histórico → `SalesDailyReportModal`; API `GET /api/sales?action=daily_report&date=` (+ `&format=pdf`); deep link `?tab=vendas&subtab=history&report=1&date=YYYY-MM-DD`
 
 ---
 
