@@ -221,6 +221,8 @@ const SALE_ERROR_CODES = {
   same_item: 'Selecione um produto diferente do atual.',
   invalid_price: 'Preço inválido para o novo produto.',
   forbidden: 'Sem permissão para alterar esta venda.',
+  forbidden_role: 'Apenas titular ou administrador pode trocar produtos na venda.',
+  forbidden_sale_academy: 'Esta venda pertence a outra academia. Abra em Loja → Vendas.',
 };
 
 /**

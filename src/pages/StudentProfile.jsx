@@ -39,7 +39,7 @@ import ProfileInlineField from '../components/profile/ProfileInlineField.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
 import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import FieldError from '../components/shared/FieldError.jsx';
-import { useCanManageStudentPayments } from '../lib/canManageStudentPayments.js';
+import { useCanManageStudentPayments, useCanManageAcademySales } from '../lib/canManageStudentPayments.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { fetchReportsByStudent } from '../lib/reportsByStudentApi.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
@@ -471,6 +471,7 @@ export default function StudentProfile() {
     const canEditProfile = useCanEditProfile(academyDocForRole);
     const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
+    const canManageSales = useCanManageAcademySales(academyDocForRole);
 
     const academySettingsRaw = useMemo(
         () => academySettingsDoc?.settings ?? academyDocForRole?.settings ?? null,
@@ -3140,7 +3141,7 @@ export default function StudentProfile() {
                         onEditPayment={openEditPaymentModal}
                         onDeletePayment={setDeletePaymentTarget}
                         extratoUnificado={extratoUnificado}
-                        canEditSale={navRole === 'owner' || navRole === 'admin'}
+                        canEditSale={canManageSales}
                         onSalesRefresh={() => void loadPayments()}
                     />
                 ) : null}

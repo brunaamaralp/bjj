@@ -41,3 +41,7 @@ export function useCanManageStudentPayments(academyDoc) {
 
   return canManageStudentPayments(userId, academyDoc, membership);
 }
+
+/** Mesma regra do servidor em alterar_item / cancelar venda (titular ou admin do time). */
+export const canManageAcademySales = canManageStudentPayments;
+export const useCanManageAcademySales = useCanManageStudentPayments;

@@ -9,7 +9,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
-import { useUserRole } from '../../lib/useUserRole';
+import { useCanManageAcademySales } from '../../lib/canManageStudentPayments.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { readSalesSettings, SALES_CHANNEL_OPTIONS } from '../../lib/salesSettings';
 import {
@@ -47,9 +47,9 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
     if (!a) return null;
     return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
   }, [academyList, academyId]);
-  const navRole = useUserRole(academyDoc);
-  const canCancelSale = navRole === 'owner' || navRole === 'admin';
-  const canEditSale = canCancelSale;
+  const canManageSales = useCanManageAcademySales(academyDoc);
+  const canCancelSale = canManageSales;
+  const canEditSale = canManageSales;
 
   const addToast = useUiStore((s) => s.addToast);
   const fetchSalesList = useSalesStore((s) => s.fetchSalesList);
