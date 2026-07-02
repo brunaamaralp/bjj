@@ -87,3 +87,26 @@ export function buildFormaPagamentoResumo(pagamentos) {
   const uniq = [...new Set(labels)];
   return uniq.join(' + ').slice(0, 128) || '—';
 }
+
+/** Parse `pagamentos_json` da venda (server-safe, sem deps de src/). */
+export function parsePagamentosJson(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((p) => ({
+        forma: normalizePaymentForma(p?.forma),
+        valor: roundMoney(p?.valor),
+        troco: roundMoney(p?.troco || 0),
+        forma_troco: p?.forma_troco ? normalizePaymentForma(p.forma_troco) : '',
+        capture_method_id: p?.capture_method_id ? String(p.capture_method_id) : '',
+        fee_receiver_id: p?.fee_receiver_id ? String(p.fee_receiver_id) : '',
+        card_brand: p?.card_brand ? String(p.card_brand) : '',
+        installments: normalizePaymentInstallments(p?.forma, p?.installments),
+      }))
+      .filter((p) => p.forma && Number.isFinite(p.valor) && p.valor >= 0);
+  } catch {
+    return [];
+  }
+}
