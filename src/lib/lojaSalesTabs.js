@@ -84,3 +84,30 @@ export function salesSubtabNeedsNormalize(searchParams) {
   const subOk = currentSub === resolved;
   return !hubOk || !subOk || isLegacySalesLeafTab(params);
 }
+
+/** Deep link: ?report=1&date=YYYY-MM-DD */
+export function resolveSalesDailyReportDeepLink(searchParams) {
+  const params =
+    searchParams instanceof URLSearchParams
+      ? searchParams
+      : new URLSearchParams(searchParams);
+  const open = String(params.get('report') || '').trim() === '1';
+  const dateRaw = String(params.get('date') || '').trim();
+  const dateYmd = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null;
+  return { open, dateYmd };
+}
+
+export function lojaVendasDailyReportParams(dateYmd, prev) {
+  const next = lojaVendasTabParams('history', prev);
+  next.set('report', '1');
+  if (dateYmd) next.set('date', dateYmd);
+  else next.delete('date');
+  return next;
+}
+
+export function clearSalesDailyReportDeepLink(prev) {
+  const next = new URLSearchParams(prev);
+  next.delete('report');
+  next.delete('date');
+  return next;
+}

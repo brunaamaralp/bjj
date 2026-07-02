@@ -1824,3 +1824,61 @@ body[data-sales-pdv='1'] .main-content {
 .sales-edit-item-modal__delta {
   color: var(--text-muted, #64748b);
 }
+
+/* —— Relatório diário de vendas —— */
+.sales-daily-report-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.sales-daily-report-kpi {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sales-daily-report-kpi__label {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.sales-daily-report-payments__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.sales-daily-report-preview {
+  white-space: pre-wrap;
+  background: var(--surface-2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 0;
+  max-height: min(50vh, 420px);
+  overflow: auto;
+}
+.sales-daily-report-modal__footer {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .sales-daily-report__print-area,
+  .sales-daily-report__print-area * {
+    visibility: visible;
+  }
+  .sales-daily-report__print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 16px;
+  }
+  .sales-daily-report-modal__footer,
+  .navi-modal-shell__close,
+  .sales-daily-report-kpis {
+    display: none !important;
+  }
+}

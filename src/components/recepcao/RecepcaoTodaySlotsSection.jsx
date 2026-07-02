@@ -5,14 +5,15 @@ import {
   CalendarDays, Users, CheckCircle2, X, ChevronDown, ChevronRight, UserPlus, Loader2,
 } from 'lucide-react';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
-import { useClassSlotsStore } from '../../store/classSlotsStore.js';
+import { useClassSlotsStore, isClassSlotsConfigured } from '../../store/classSlotsStore.js';
+import {
+  classifyScheduleTimeStatus,
+  scheduleTimeStatusLabel,
+  todayYmd,
+} from '../../lib/recepcaoScheduleGrid.js';
 import { useBookingsStore } from '../../store/bookingsStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { searchStudentsForSale } from '../../lib/studentSaleSearch.js';
-
-function todayYmd() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-}
 
 function fmtTime(hhmm) {
   return String(hhmm || '').slice(0, 5);
@@ -240,14 +241,28 @@ function SlotCard({ slot, academyId }) {
     ? `${slot.booked_count ?? 0} inscritos`
     : `${slot.booked_count ?? 0} / ${slot.max_capacity}`;
 
+  const timeStatus = classifyScheduleTimeStatus(slot.time_start, slot.time_end, new Date());
+  const timeStatusLabel = scheduleTimeStatusLabel(timeStatus);
+
   return (
-    <div className={`slot-card card${isFull ? ' slot-card--full' : ''}`}>
+    <div
+      className={`slot-card card${isFull ? ' slot-card--full' : ''}${
+        timeStatus === 'ongoing' ? ' slot-card--ongoing' : ''
+      }${timeStatus === 'soon' ? ' slot-card--soon' : ''}`}
+    >
       <div className="slot-card__head">
         <div className="slot-card__info">
           <span className="slot-card__time text-small text-muted">
             {fmtTime(slot.time_start)}–{fmtTime(slot.time_end)}
           </span>
-          <span className="slot-card__name">{slot.name}</span>
+          <span className="slot-card__name-row">
+            <span className="slot-card__name">{slot.name}</span>
+            {timeStatusLabel ? (
+              <span className={`slot-card__time-status slot-card__time-status--${timeStatus}`}>
+                {timeStatusLabel}
+              </span>
+            ) : null}
+          </span>
           {slot.instructor ? (
             <span className="slot-card__instructor text-small text-muted">{slot.instructor}</span>
           ) : null}
@@ -324,6 +339,15 @@ function SlotCard({ slot, academyId }) {
   );
 }
 
+function SlotsTodaySkeleton() {
+  return (
+    <div className="slots-today-skeleton" role="status" aria-label="Carregando aulas de hoje">
+      <div className="slots-today-skeleton__bar" />
+      <div className="slots-today-skeleton__bar slots-today-skeleton__bar--medium" />
+    </div>
+  );
+}
+
 export default function RecepcaoTodaySlotsSection({ academyId }) {
   const slots = useClassSlotsStore((s) => s.slots);
   const loading = useClassSlotsStore((s) => s.loading);
@@ -337,7 +361,7 @@ export default function RecepcaoTodaySlotsSection({ academyId }) {
     void fetchSlotsForDate(academyId, today, { silent: false });
   }, [academyId, today, fetchSlotsForDate]);
 
-  if (!academyId) return null;
+  if (!academyId || !isClassSlotsConfigured()) return null;
 
   return (
     <section className="reception-section slots-today-section animate-in" aria-labelledby="slots-today-title">
@@ -358,9 +382,7 @@ export default function RecepcaoTodaySlotsSection({ academyId }) {
       </div>
 
       {loading ? (
-        <p className="text-small text-muted slots-today-status" role="status">
-          <Loader2 size={14} className="spin" aria-hidden /> Carregando aulas…
-        </p>
+        <SlotsTodaySkeleton />
       ) : error ? (
         <p className="text-small text-muted slots-today-status" role="alert">{error}</p>
       ) : slots.length === 0 ? (

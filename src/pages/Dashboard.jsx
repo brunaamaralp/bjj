@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { shouldSkipLeadsListFetch, shouldSkipStudentsListFetch } from '../lib/bootstrapRoutePrefetch.js';
@@ -32,6 +32,7 @@ import {
     Loader2,
     Users,
     CheckSquare,
+    ShoppingBag,
 } from 'lucide-react';
 import { addRipple } from '../lib/addRipple.js';
 import { dispatchOpenNewLeadModal } from '../lib/newLeadModal.js';
@@ -95,6 +96,7 @@ import { getBirthMonthDay, getTodayMonthDay } from '../lib/birthDate.js';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import '../styles/dashboard.css';
 import '../styles/followup-shared.css';
+import '../styles/sales.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
 import { buildLeadPresenceUndoPatch } from '../lib/leadPresenceActions.js';
@@ -113,7 +115,13 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
+import RecepcaoTodaySlotsSection from '../components/recepcao/RecepcaoTodaySlotsSection.jsx';
+import { isClassSlotsConfigured } from '../store/classSlotsStore.js';
+import SalesDailyReportModal from '../components/sales/SalesDailyReportModal.jsx';
 import { useUserRole } from '../lib/useUserRole.js';
+import { fetchSalesDailyReport } from '../lib/salesDailyReportApi.js';
+import { formatBRL } from '../lib/moneyBr';
+import { todayYmdLocal } from '../lib/financeForecastCore.js';
 import {
     buildRecepcaoHubTabItems,
     RECEPCAO_CATRACA_SECTION_LIVE,
@@ -167,6 +175,14 @@ function buildTasksKpiFootnote(overdueCount, dueTodayCount) {
     return { footnote: 'Vencidas ou hoje', footnoteTone: 'neutral' };
 }
 
+function buildSalesKpiFootnote({ loading, concludedCount, concludedTotal }) {
+    if (loading) return { footnote: 'Carregando…', footnoteTone: 'neutral' };
+    if ((concludedCount || 0) > 0) {
+        return { footnote: formatBRL(concludedTotal), footnoteTone: 'positive' };
+    }
+    return { footnote: 'Ver resumo do dia', footnoteTone: 'neutral' };
+}
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -179,6 +195,7 @@ const Dashboard = () => {
         fetchLeads,
         academyId,
         academyList,
+        modules,
         leadsError,
         leadsLastFetchedAt,
         vertical,
@@ -191,6 +208,7 @@ const Dashboard = () => {
             fetchLeads: s.fetchLeads,
             academyId: s.academyId,
             academyList: s.academyList,
+            modules: s.modules,
             leadsError: s.leadsError,
             leadsLastFetchedAt: s.leadsLastFetchedAt,
             vertical: s.vertical,
@@ -279,6 +297,11 @@ const Dashboard = () => {
     const [followupStreak, setFollowupStreak] = useState(0);
     const [sendingBirthdayWa, setSendingBirthdayWa] = useState('');
     const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+    const [salesReportModalOpen, setSalesReportModalOpen] = useState(false);
+    const [salesDailySummary, setSalesDailySummary] = useState(null);
+    const [salesDailyLoading, setSalesDailyLoading] = useState(false);
+    const salesEnabled = modules?.sales === true;
+    const salesTodayYmd = useMemo(() => todayYmdLocal(), []);
     useEffect(() => {
         if (typeof window === 'undefined' || !window.matchMedia) return;
         const mq = window.matchMedia('(max-width: 767px)');
@@ -410,6 +433,26 @@ const Dashboard = () => {
         });
     }, [dashWaTemplates, dashWaName, dashWaZap, dashWaError]);
 
+    const loadSalesDailySummary = useCallback(async () => {
+        if (!salesEnabled || !academyId) {
+            setSalesDailySummary(null);
+            return;
+        }
+        setSalesDailyLoading(true);
+        try {
+            const body = await fetchSalesDailyReport(salesTodayYmd);
+            setSalesDailySummary(body?.summary || null);
+        } catch {
+            setSalesDailySummary(null);
+        } finally {
+            setSalesDailyLoading(false);
+        }
+    }, [salesEnabled, academyId, salesTodayYmd]);
+
+    useEffect(() => {
+        void loadSalesDailySummary();
+    }, [loadSalesDailySummary]);
+
     const handleRefresh = async () => {
         if (isRefreshing) return;
         setIsRefreshing(true);
@@ -419,6 +462,7 @@ const Dashboard = () => {
                 fetchStudents({ reset: true }),
                 fetchDashboardKpiTasks(academyId, { silent: true }),
                 refreshFollowupEvents({ force: true }),
+                salesEnabled ? loadSalesDailySummary() : Promise.resolve(),
             ]);
         } finally {
             setTimeout(() => setIsRefreshing(false), 300);
@@ -601,6 +645,10 @@ const Dashboard = () => {
             scrollToWeekSection();
             return;
         }
+        if (cardKey === 'sales') {
+            setSalesReportModalOpen(true);
+            return;
+        }
         setListModalType(cardKey);
     };
 
@@ -719,8 +767,14 @@ const Dashboard = () => {
             tasksDueHubCounts.overdue,
             tasksDueHubCounts.dueToday
         );
+        const salesConcludedCount = salesDailySummary?.concluded_count ?? 0;
+        const salesFootnote = buildSalesKpiFootnote({
+            loading: salesDailyLoading,
+            concludedCount: salesConcludedCount,
+            concludedTotal: salesDailySummary?.concluded_total,
+        });
 
-        return [
+        const stats = [
             {
                 key: 'today',
                 label: `${trialSeriesPlural} hoje`,
@@ -759,6 +813,19 @@ const Dashboard = () => {
                 ...tasksFootnote,
             },
         ];
+
+        if (salesEnabled) {
+            stats.push({
+                key: 'sales',
+                label: 'Vendas do dia',
+                count: salesDailyLoading ? '—' : salesConcludedCount,
+                tone: salesConcludedCount > 0 ? 'success' : 'muted',
+                icon: <ShoppingBag {...HERO_KPI_ICON_PROPS} aria-hidden />,
+                ...salesFootnote,
+            });
+        }
+
+        return stats;
     }, [
         trialSeriesPlural,
         todayScheduled.length,
@@ -769,6 +836,9 @@ const Dashboard = () => {
         tasksDueHubCounts.dueToday,
         followupTemperatureCounts.cooling,
         followupTemperatureCounts.critical,
+        salesEnabled,
+        salesDailyLoading,
+        salesDailySummary,
     ]);
 
     const modalListItems =
@@ -1363,7 +1433,11 @@ const Dashboard = () => {
                 <div className="dashboard-day-hero__metrics" aria-label="Indicadores do dia">
                     <div className="dashboard-day-hero__stats" role="list">
                         {loading ? (
-                            <SkeletonCard variant="hero-kpi" count={4} className="dashboard-day-hero__skeletons" />
+                            <SkeletonCard
+                                variant="hero-kpi"
+                                count={salesEnabled ? 5 : 4}
+                                className="dashboard-day-hero__skeletons"
+                            />
                         ) : (
                             heroStats.map((stat) => (
                                 <div key={stat.key} role="listitem" className="dashboard-day-hero__stat-cell">
@@ -1429,6 +1503,10 @@ const Dashboard = () => {
             ) : null}
 
 
+
+            {isClassSlotsConfigured() ? (
+                <RecepcaoTodaySlotsSection academyId={academyId} />
+            ) : null}
 
             <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
 
@@ -1719,6 +1797,14 @@ const Dashboard = () => {
                 canSendWa={Boolean(String(academyWa.zapster_instance_id || '').trim())}
                 onSendWhatsApp={(student) => void handleBirthdayWhatsApp(student)}
             />
+
+            {salesEnabled ? (
+                <SalesDailyReportModal
+                    open={salesReportModalOpen}
+                    onClose={() => setSalesReportModalOpen(false)}
+                    dateYmd={salesTodayYmd}
+                />
+            ) : null}
 </div>
         </div>
     );

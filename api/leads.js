@@ -27,6 +27,7 @@ import salesReconcileHandler from '../lib/server/salesReconcileHandler.js';
 import salesLiquidateHandler from '../lib/server/salesLiquidateHandler.js';
 import salesUpdateItemHandler from '../lib/server/salesUpdateItemHandler.js';
 import cashShiftHandler from '../lib/server/cashShiftHandler.js';
+import salesDailyReportHandler from '../lib/server/salesDailyReportHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
@@ -253,6 +254,9 @@ export default async function handler(req, res) {
   if (req.query.hub === 'sales') {
     const action = String(req.query?.action || '').trim();
     if (action === 'reconcile') return salesReconcileHandler(req, res);
+    if (action === 'daily_report' && req.method === 'GET') {
+      return salesDailyReportHandler(req, res);
+    }
     if (
       action === 'shift' ||
       action === 'shift_open' ||

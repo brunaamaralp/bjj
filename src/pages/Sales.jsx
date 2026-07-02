@@ -9,6 +9,8 @@ import { useLeadStore } from '../store/useLeadStore';
 import {
   lojaVendasTabParams,
   lojaVendasPdvParams,
+  lojaVendasDailyReportParams,
+  resolveSalesDailyReportDeepLink,
   resolveSalesSubtab,
   resolveSalesPdvMode,
   salesSubtabNeedsNormalize,
@@ -50,6 +52,13 @@ const Sales = () => {
       });
     }
   }
+
+  useEffect(() => {
+    const { open } = resolveSalesDailyReportDeepLink(searchParams);
+    if (!open || subtab === 'history') return;
+    const { dateYmd } = resolveSalesDailyReportDeepLink(searchParams);
+    setSearchParams(lojaVendasDailyReportParams(dateYmd, searchParams), { replace: true });
+  }, [searchParams, setSearchParams, subtab]);
 
   useEffect(() => {
     if (!historyPeriodFromNav) return undefined;

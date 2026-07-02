@@ -172,8 +172,9 @@ export function groupSchedulesByModality(schedules) {
 /**
  * Grade semanal: colunas = dias, linhas = horários de início.
  * @param {object[]} schedules
+ * @param {{ columns?: { id: string, label: string }[] }} [options]
  */
-export function buildWeeklyScheduleGrid(schedules) {
+export function buildWeeklyScheduleGrid(schedules, options = {}) {
   const active = (schedules || []).filter((s) => s?.is_active !== false);
   const timeSet = new Set();
   for (const s of active) {
@@ -181,14 +182,18 @@ export function buildWeeklyScheduleGrid(schedules) {
     if (t) timeSet.add(t);
   }
   const times = [...timeSet].sort(compareTimeHHMM);
-  const columns = SCHEDULE_WEEKDAYS.map((id) => ({
-    id,
-    label: SCHEDULE_WEEKDAY_LABELS[id],
-  }));
+  const columns =
+    options.columns?.length
+      ? options.columns
+      : SCHEDULE_WEEKDAYS.map((id) => ({
+          id,
+          label: SCHEDULE_WEEKDAY_LABELS[id],
+        }));
+  const columnIds = columns.map((c) => c.id);
   const rows = times.map((timeStart) => {
     /** @type {Record<string, object[]>} */
     const cells = {};
-    for (const day of SCHEDULE_WEEKDAYS) {
+    for (const day of columnIds) {
       cells[day] = active.filter(
         (s) =>
           normalizeScheduleTime(s.time_start) === timeStart &&

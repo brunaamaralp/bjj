@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, ShoppingBag, ChevronRight } from 'lucide-react';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -18,7 +19,15 @@ import {
   formatDateTimeBr,
   formatSaleIdShort,
   SALE_STATUS_BADGE_MAP,
+  toDateInput,
 } from '../../lib/salesHistory';
+import { resolveDailyReportDateYmd } from '../../lib/salesDailyReport.js';
+import {
+  clearSalesDailyReportDeepLink,
+  lojaVendasDailyReportParams,
+  resolveSalesDailyReportDeepLink,
+} from '../../lib/lojaSalesTabs.js';
+import SalesDailyReportModal from './SalesDailyReportModal';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import { formatBRL } from '../../lib/moneyBr';
 import { friendlyError } from '../../lib/errorMessages';
@@ -28,6 +37,8 @@ import SalesEditItemModal from './SalesEditItemModal';
 import CancelReceiptPanel from './CancelReceiptPanel';
 
 export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkAppliedRef = useRef(false);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
   const academyDoc = useMemo(() => {
@@ -70,6 +81,8 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
 
   const [salesSettings, setSalesSettings] = useState(() => readSalesSettings(null));
   const [academyName, setAcademyName] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDateYmd, setReportDateYmd] = useState(() => toDateInput(new Date()));
   const isMobile = useMatchMobile();
 
   useEffect(() => {
@@ -192,6 +205,42 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
     }
   };
 
+  const setPeriodToday = () => {
+    const today = toDateInput(new Date());
+    setPeriod({ from: today, to: today });
+  };
+
+  const openDailyReport = (dateOverride = null) => {
+    const dateYmd = dateOverride || resolveDailyReportDateYmd(period);
+    setReportDateYmd(dateYmd);
+    setReportOpen(true);
+    setSearchParams(lojaVendasDailyReportParams(dateYmd, searchParams), { replace: true });
+  };
+
+  const closeDailyReport = () => {
+    setReportOpen(false);
+    if (resolveSalesDailyReportDeepLink(searchParams).open) {
+      setSearchParams(clearSalesDailyReportDeepLink(searchParams), { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    const { open, dateYmd } = resolveSalesDailyReportDeepLink(searchParams);
+    if (!open) {
+      deepLinkAppliedRef.current = false;
+      return;
+    }
+    if (deepLinkAppliedRef.current) return;
+    deepLinkAppliedRef.current = true;
+    const resolvedDate = dateYmd || resolveDailyReportDateYmd(period);
+    setReportDateYmd(resolvedDate);
+    setReportOpen(true);
+    if (dateYmd && dateYmd === period.from && dateYmd === period.to) return;
+    if (dateYmd) {
+      setPeriod({ from: dateYmd, to: dateYmd });
+    }
+  }, [period.from, period.to, searchParams]);
+
   return (
   <>
       <div className="card mt-4">
@@ -245,6 +294,20 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
               />
             </div>
           </div>
+        </div>
+
+        <div className="sales-history-toolbar flex gap-2 mt-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" className="btn-outline btn-sm" onClick={setPeriodToday}>
+            Hoje
+          </button>
+          <button type="button" className="btn-primary btn-sm" onClick={() => openDailyReport()}>
+            Resumo do dia
+          </button>
+          {period.from !== period.to ? (
+            <span className="text-small text-muted">
+              Resumo usa a data de hoje — filtre um único dia para o dia selecionado.
+            </span>
+          ) : null}
         </div>
 
         <div className="sales-history-totals mt-3">
@@ -442,6 +505,12 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
         settings={salesSettings}
         academyName={academyName}
         onCopy={copyReceipt}
+      />
+
+      <SalesDailyReportModal
+        open={reportOpen}
+        dateYmd={reportDateYmd}
+        onClose={closeDailyReport}
       />
 
     </>

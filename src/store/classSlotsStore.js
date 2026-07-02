@@ -1,8 +1,12 @@
 import { create } from 'zustand';
-import { createSessionJwt } from '../lib/appwrite.js';
+import { createSessionJwt, CLASS_SLOTS_COL } from '../lib/appwrite.js';
 import { authedFetch } from '../lib/authInterceptor.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { useLeadStore } from './useLeadStore.js';
+
+export function isClassSlotsConfigured() {
+  return Boolean(String(CLASS_SLOTS_COL || '').trim());
+}
 
 async function slotsFetch(path, options = {}, academyIdOverride = '') {
   const jwt = await createSessionJwt();

@@ -70,6 +70,19 @@ flowchart TD
 | 15 | Histórico | Trocar produto (owner/admin) | `SalesEditItemModal` | Estoque revertido + novo item; ajuste no Caixa se preço mudar |
 | 16 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `cancelSale`; comprovante cancelamento |
 | 17 | Vendas | **Configurações** | `?config=1` ou botão | `SalesSettingsSection` inline |
+| 18 | `&subtab=history` | **Resumo do dia** | Botão na toolbar | `SalesDailyReportModal` — copiar / CSV / imprimir |
+
+---
+
+## Fechamento operacional do dia (relatório)
+
+Independente de **turno de caixa** (`CashShiftBanner`). Agrega vendas do **dia calendário** (Loja, perfil do aluno, modal Nova venda).
+
+1. **Loja → Vendas → Histórico**
+2. Opcional: **Hoje** (filtro de um dia)
+3. **Resumo do dia** → preview, **Copiar resumo**, **Exportar CSV**, **Imprimir**
+
+Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-07-01-relatorio-vendas-dia-PRODUCT.md)
 
 ---
 
@@ -105,6 +118,7 @@ flowchart TD
 10. [ ] Histórico: filtros período, status, canal, busca
 11. [ ] Cancelamento só owner/admin; member não vê ação
 11b. [ ] Trocar produto em venda concluída (owner/admin) → estoque + total + Caixa ajustados
+11c. [ ] **Resumo do dia** no Histórico → copiar e CSV com vendas do dia (incl. perfil aluno)
 12. [ ] Legacy `/vendas` → redirect para `/loja?tab=vendas`
 13. [ ] Legacy `?tab=new` → normaliza para `?tab=vendas&subtab=new`
 14. [ ] Trocar academia → catálogo e histórico da academia atual
@@ -163,6 +177,7 @@ flowchart TD
 - **NL command bar:** `register_sale` via `useNlAction` → `createSale`
 - **Produtos:** pré-requisito em `/loja?tab=produtos`; estoque em `/loja?tab=estoque` quando `modules.inventory`
 - **Aliases:** `/vendas`, `/produtos`, `/estoque` → redirects para `/loja?tab=…`
+- **Resumo do dia:** Histórico → `SalesDailyReportModal`; API `GET /api/sales?action=daily_report&date=`
 
 ---
 
@@ -172,3 +187,4 @@ flowchart TD
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 3 |
 | 2026-06-17 | — | Checkout: «Recebido via» em cartão (`SalesPaymentBlock`) |
+| 2026-07-01 | — | Relatório diário de vendas (Histórico → Resumo do dia) |

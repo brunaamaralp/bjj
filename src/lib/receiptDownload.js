@@ -90,3 +90,16 @@ export function canDownloadSaleReceipt(sale) {
 export function canDownloadPaymentReceipt(payment) {
   return isPaymentReceiptEligible(payment).ok;
 }
+
+/** @param {string} dateYmd — YYYY-MM-DD */
+export async function downloadSalesDailyReportPdf(dateYmd) {
+  const date = String(dateYmd || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new ReceiptDownloadError('invalid_date');
+  }
+
+  const blob = await receiptPdfFetch(
+    `/api/sales?action=daily_report&date=${encodeURIComponent(date)}&format=pdf`
+  );
+  triggerBrowserDownload(blob, `fechamento-dia-${date}.pdf`);
+}
