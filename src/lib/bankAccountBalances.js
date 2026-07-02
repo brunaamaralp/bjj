@@ -4,6 +4,7 @@
 
 import { formatBankAccountLabel, filterBankAccountsWithBank } from './bankAccounts.js';
 import { txDirection } from './financeTxDisplay.js';
+import { isAccrualLedgerTx } from './financeLedgerRegime.js';
 
 export const UNALLOCATED_BANK_LABEL = 'Não alocado';
 
@@ -226,7 +227,8 @@ export function computeBankAccountBalances({
   for (const tx of transactions) {
     const st = String(tx?.status || '').toLowerCase();
     if (st === 'cancelled' || st !== 'settled') continue;
-    if (String(tx?.origin_type || tx?.originType || '').toLowerCase() === 'sale_cmv') continue;
+    // Competência (ex.: CMV automático) não movimenta caixa nem "Não alocado"
+    if (isAccrualLedgerTx(tx)) continue;
 
     const settledYmd = txSettledYmd(tx);
     if (settledYmd && settledYmd > asOf) continue;

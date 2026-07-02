@@ -434,7 +434,14 @@ function CaixaPage() {
 
 
 
-  const setTab = (id) => setSearchParams({ tab: id }, { replace: false });
+  const setTab = useCallback(
+    (id) => {
+      const next = new URLSearchParams(searchParams);
+      next.set('tab', id);
+      setSearchParams(next, { replace: false });
+    },
+    [searchParams, setSearchParams]
+  );
   const setReceivablesSection = useCallback(
     (section, opts = {}) => {
       const nextSection = section || RECEIVABLES_SECTIONS.VISAO;

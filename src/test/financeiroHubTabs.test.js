@@ -11,7 +11,10 @@ import {
   financeiroExtratoLegacyRedirect,
   EMPRESA_FINANCE_RAZAO_PATH,
   buildEmpresaFinanceRazaoPath,
+  buildFinanceLancamentosPath,
+  FINANCE_STATEMENT_VIEWS,
 } from '../lib/financeiroHubTabs.js';
+import { FINANCE_REGIME } from '../lib/financeCompetence.js';
 
 describe('financeiroHubTabs', () => {
   it('hasExplicitFinanceiroTabParam', () => {
@@ -112,5 +115,24 @@ describe('financeiroHubTabs', () => {
     const fechamento = tabs.find((t) => t.id === 'fechamento');
     expect(fechamento?.label).toBe('Conferência do mês');
     expect(fechamento?.shortLabel).toBe('Conferência');
+  });
+
+  it('buildFinanceLancamentosPath — deep link com categoria, mês e regime', () => {
+    expect(
+      buildFinanceLancamentosPath({
+        month: '2026-03',
+        category: 'Mensalidade',
+        regime: FINANCE_REGIME.COMPETENCE,
+      })
+    ).toBe('/financeiro?tab=movimentacoes&month=2026-03&q=Mensalidade&regime=competence');
+
+    expect(buildFinanceLancamentosPath({ month: '2026-03', regime: FINANCE_REGIME.CASH })).toBe(
+      '/financeiro?tab=movimentacoes&month=2026-03&regime=cash'
+    );
+  });
+
+  it('FINANCE_STATEMENT_VIEWS expõe dre e dfc', () => {
+    expect(FINANCE_STATEMENT_VIEWS.DRE).toBe('dre');
+    expect(FINANCE_STATEMENT_VIEWS.DFC).toBe('dfc');
   });
 });

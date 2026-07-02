@@ -3,6 +3,13 @@
  * Slugs de conteúdo legados (movimentacoes, plano, …) permanecem em ?tab= onde aplicável.
  */
 
+import { FINANCE_REGIME } from './financeCompetence.js';
+
+export const FINANCE_STATEMENT_VIEWS = {
+  DRE: 'dre',
+  DFC: 'dfc',
+};
+
 export const FINANCEIRO_SECTIONS = {
   OVERVIEW: 'visao-geral',
   A_RECEBER: 'a-receber',
@@ -246,4 +253,19 @@ export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner, ta
             : undefined,
     };
   });
+}
+
+/** Deep link para Lançamentos a partir de DRE/DFC (categoria + mês + regime). */
+export function buildFinanceLancamentosPath({ month, category, regime } = {}) {
+  const params = new URLSearchParams();
+  params.set('tab', 'movimentacoes');
+  const ym = String(month || '').trim();
+  if (/^\d{4}-\d{2}$/.test(ym)) params.set('month', ym);
+  const cat = String(category || '').trim();
+  if (cat) params.set('q', cat);
+  const r = String(regime || '').trim().toLowerCase();
+  if (r === FINANCE_REGIME.COMPETENCE || r === FINANCE_REGIME.CASH) {
+    params.set('regime', r);
+  }
+  return `/financeiro?${params.toString()}`;
 }

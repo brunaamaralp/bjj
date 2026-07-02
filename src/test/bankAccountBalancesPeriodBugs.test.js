@@ -463,3 +463,85 @@ describe('casos de borda', () => {
     assertPeriodInvariant(row);
   });
 });
+
+describe('CMV automático (competência) fora dos saldos', () => {
+  it('sale_cmv não entra em não alocado nem no total', () => {
+    const result = computeBankAccountBalances({
+      accounts: ACCOUNTS_ZERO_OPENING,
+      transactions: [
+        {
+          status: 'settled',
+          settledAt: '2026-07-01T12:00:00.000Z',
+          type: 'stock_purchase',
+          gross: 120,
+          net: -120,
+          origin_type: 'sale_cmv',
+          ledger_regime: 'accrual',
+          method: 'interno',
+          bank_account: '',
+        },
+        {
+          status: 'settled',
+          settledAt: '2026-07-01T12:00:00.000Z',
+          type: 'plan',
+          gross: 500,
+          net: 500,
+          bank_account: '',
+        },
+      ],
+      asOfYmd: '2026-07-02',
+      periodFrom: '2026-07-01',
+      periodTo: '2026-07-02',
+    });
+
+    expect(result.unallocated.count).toBe(1);
+    expect(result.unallocated.balance).toBe(500);
+    expect(result.unallocated.periodOutflow).toBe(0);
+    expect(result.totalBalance).toBe(500);
+  });
+
+  it('CMV legado sem origin_type também é ignorado', () => {
+    const result = computeBankAccountBalances({
+      accounts: ACCOUNTS_ZERO_OPENING,
+      transactions: [
+        {
+          status: 'settled',
+          settledAt: '2026-07-01T12:00:00.000Z',
+          type: 'stock_purchase',
+          method: 'interno',
+          planName: 'CMV — Rashguard',
+          gross: 45,
+          net: -45,
+          bank_account: '',
+        },
+      ],
+      asOfYmd: '2026-07-02',
+    });
+
+    expect(result.unallocated.count).toBe(0);
+    expect(result.unallocated.balance).toBe(0);
+    expect(result.totalBalance).toBe(0);
+  });
+
+  it('compra de estoque com caixa real continua em não alocado', () => {
+    const result = computeBankAccountBalances({
+      accounts: ACCOUNTS_ZERO_OPENING,
+      transactions: [
+        {
+          status: 'settled',
+          settledAt: '2026-07-01T12:00:00.000Z',
+          type: 'stock_purchase',
+          method: 'pix',
+          origin_type: 'stock_entry',
+          gross: 200,
+          net: -200,
+          bank_account: '',
+        },
+      ],
+      asOfYmd: '2026-07-02',
+    });
+
+    expect(result.unallocated.count).toBe(1);
+    expect(result.unallocated.balance).toBe(-200);
+  });
+});

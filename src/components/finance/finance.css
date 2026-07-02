@@ -5873,6 +5873,10 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   gap: 6px;
 }
 
+.finance-statements-actions__btn .spin {
+  animation: finance-statements-spin 0.8s linear infinite;
+}
+
 .finance-statements-kpis .finance-kpi--hero {
   border-color: var(--border-violet, var(--finance-card-border));
 }
@@ -5947,6 +5951,23 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   line-height: 1.45;
 }
 
+.finance-statements-panel__sign-note {
+  margin: -4px 0 12px;
+  line-height: 1.4;
+}
+
+.finance-statements-category__link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.finance-statements-category__link:hover {
+  color: var(--color-primary, var(--accent));
+  text-decoration-color: currentColor;
+}
+
 .finance-statements-panel__banner {
   margin-bottom: 12px;
 }
@@ -5986,6 +6007,18 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   border-radius: var(--radius-sm, 8px);
   margin-top: 4px;
   border-bottom: none;
+}
+
+.finance-statements-row--group-header {
+  font-weight: 600;
+  background: var(--surface-2, rgba(148, 163, 184, 0.08));
+  padding: 6px 8px;
+  border-radius: var(--radius-sm, 8px);
+  margin-top: 2px;
+}
+
+.finance-statements-group--dfc + .finance-statements-group--dfc {
+  margin-top: 4px;
 }
 
 .finance-statements-row__label {
@@ -6058,6 +6091,17 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   padding: 0 0 0 22px;
 }
 
+.finance-statements-categories--open {
+  margin-top: 2px;
+  margin-bottom: 10px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-light, var(--color-border));
+}
+
+.finance-statements-categories--open .finance-statements-category {
+  padding: 5px 0 5px 8px;
+}
+
 .finance-statements-category {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 7.5rem) 2.5rem;
@@ -6116,19 +6160,61 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   .finance-statements-table__head,
   .finance-statements-row,
   .finance-statements-details > summary,
-  .finance-statements-category,
-  .finance-statements-table--dfc .finance-statements-table__head--dfc,
-  .finance-statements-table--dfc .finance-statements-row--dfc,
-  .finance-statements-table--dfc .finance-statements-details--dfc > summary,
-  .finance-statements-categories--dfc .finance-statements-category {
+  .finance-statements-category {
     min-width: 320px;
   }
 
-  .finance-statements-table--dfc .finance-statements-table__head--dfc,
+  .finance-statements-table--dfc {
+    overflow-x: visible;
+  }
+
+  .finance-statements-table--dfc .finance-statements-table__head--dfc {
+    display: none;
+  }
+
   .finance-statements-table--dfc .finance-statements-row--dfc,
-  .finance-statements-table--dfc .finance-statements-details--dfc > summary,
+  .finance-statements-table--dfc .finance-statements-details--dfc > summary {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    gap: 0.35rem;
+    padding: 10px 0;
+  }
+
+  .finance-statements-table--dfc .finance-statements-row--dfc .finance-statements-row__label,
+  .finance-statements-table--dfc .finance-statements-details--dfc .finance-statements-row__label {
+    font-weight: 600;
+  }
+
+  .finance-statements-table--dfc .finance-statements-row__metric {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    text-align: right;
+  }
+
+  .finance-statements-table--dfc .finance-statements-row__metric::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: var(--font-xs, 0.75rem);
+    font-weight: 500;
+    color: var(--text-secondary, var(--color-text-secondary));
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-align: left;
+  }
+
   .finance-statements-categories--dfc .finance-statements-category {
-    min-width: 420px;
+    grid-template-columns: 1fr;
+    min-width: 0;
+    padding: 8px 0 8px 12px;
+    border-top: 0.5px dashed var(--border-light, var(--color-border));
+  }
+
+  .finance-statements-categories--dfc .finance-statements-category__label {
+    margin-bottom: 4px;
+    font-weight: 500;
+    color: var(--text-primary, var(--color-text));
   }
 
   .finance-statements-tab__period {

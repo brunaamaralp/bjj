@@ -46,6 +46,7 @@ import {
   competenceMonthMissing,
   currentCompetenceMonth,
   txTemporalIso,
+  setFinanceRegime,
 } from '../../lib/financeCompetence.js';
 import {
   FINANCE_CATEGORIES,
@@ -355,8 +356,20 @@ export default function TransacoesTab({
   const highlightDrawerOpenedRef = useRef('');
 
   useEffect(() => {
-    if (academyId) setRegime(getFinanceRegime(academyId, { actorRole }));
-  }, [academyId, actorRole]);
+    if (!academyId) return;
+    const urlRegime = String(searchParams.get('regime') || '').trim().toLowerCase();
+    if (urlRegime === FINANCE_REGIME.COMPETENCE) {
+      setRegime(FINANCE_REGIME.COMPETENCE);
+      setFinanceRegime(academyId, FINANCE_REGIME.COMPETENCE, { actorRole });
+      return;
+    }
+    if (urlRegime === FINANCE_REGIME.CASH) {
+      setRegime(FINANCE_REGIME.CASH);
+      setFinanceRegime(academyId, FINANCE_REGIME.CASH, { actorRole });
+      return;
+    }
+    setRegime(getFinanceRegime(academyId, { actorRole }));
+  }, [academyId, actorRole, searchParams]);
 
   useEffect(() => {
     onRegimeChange?.(regime);

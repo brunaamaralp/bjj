@@ -118,6 +118,60 @@ describe('computeDfc', () => {
     expect(dfc.groups.Financiamento.net).toBe(1000);
   });
 
+  it('Operacional detalha categorias (mensalidades, matrículas, despesas)', () => {
+    const dfc = computeDfc(PERIOD, [
+      {
+        status: 'settled',
+        type: 'plan',
+        category: FINANCE_CATEGORIES.MENSALIDADE.label,
+        settledAt: '2026-03-05T12:00:00.000Z',
+        gross: 300,
+        net: 300,
+        direction: 'in',
+      },
+      {
+        status: 'settled',
+        type: 'enrollment',
+        category: FINANCE_CATEGORIES.MATRICULA.label,
+        settledAt: '2026-03-06T12:00:00.000Z',
+        gross: 150,
+        net: 150,
+        direction: 'in',
+      },
+      {
+        status: 'settled',
+        type: 'expense_operational',
+        category: FINANCE_CATEGORIES.MANUTENCAO.label,
+        settledAt: '2026-03-10T12:00:00.000Z',
+        gross: 80,
+        net: 80,
+        direction: 'out',
+      },
+    ]);
+
+    const cats = dfc.groups.Operacional.categories.map((c) => c.label);
+    expect(cats).toContain(FINANCE_CATEGORIES.MENSALIDADE.label);
+    expect(cats).toContain(FINANCE_CATEGORIES.MATRICULA.label);
+    expect(cats).toContain(FINANCE_CATEGORIES.MANUTENCAO.label);
+    expect(dfc.groups.Operacional.net).toBe(370);
+  });
+
+  it('inferência por type quando category vazia', () => {
+    const dfc = computeDfc(PERIOD, [
+      {
+        status: 'settled',
+        type: 'plan',
+        category: '',
+        settledAt: '2026-03-05T12:00:00.000Z',
+        gross: 200,
+        net: 200,
+        direction: 'in',
+      },
+    ]);
+
+    expect(dfc.groups.Operacional.categories[0]?.label).toBe(FINANCE_CATEGORIES.MENSALIDADE.label);
+  });
+
   it('invariante saldoInicial + fluxo = saldoFinal (cards)', () => {
     const rawDocs = [
       settledDoc({

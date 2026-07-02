@@ -7,6 +7,7 @@ import React from 'react';
  * @param {React.ReactNode} [badge] — badge ao lado do título
  * @param {React.ReactNode} [actions] — botões no canto direito do header
  * @param {React.ReactNode} [kpiStrip] — faixa de KPIs abaixo do header
+ * @param {boolean} [kpiStripBare] — kpiStrip já inclui .finance-kpi-strip (não envolver de novo)
  * @param {React.ReactNode} [subNav] — HubTabBar secondary ou filtros de seção
  */
 export default function FinanceTabShell({
@@ -15,6 +16,7 @@ export default function FinanceTabShell({
   badge,
   actions,
   kpiStrip,
+  kpiStripBare = false,
   subNav,
   children,
   className = '',
@@ -38,7 +40,9 @@ export default function FinanceTabShell({
         </header>
       ) : null}
 
-      {kpiStrip ? <div className="finance-kpi-strip">{kpiStrip}</div> : null}
+      {kpiStrip ? (
+        kpiStripBare ? kpiStrip : <div className="finance-kpi-strip">{kpiStrip}</div>
+      ) : null}
       {subNav ? <div className="finance-tab-shell__subnav">{subNav}</div> : null}
 
       <div className={['finance-tab-shell__body', className].filter(Boolean).join(' ')}>{children}</div>

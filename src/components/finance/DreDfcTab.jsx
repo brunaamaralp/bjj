@@ -1,8 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, ChevronDown, Download, RefreshCw } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { BarChart3, Download, RefreshCw } from 'lucide-react';
 import { fetchFinanceDfc, fetchFinanceDre } from '../../lib/financeTxApi.js';
 import { DRE_DISPLAY_GROUPS, UNCLASSIFIED_DRE_GROUP } from '../../lib/financeCategories.js';
 import { DFC_GROUP_ORDER } from '../../lib/financeDfcMapping.js';
+import { FINANCE_REGIME } from '../../lib/financeCompetence.js';
+import {
+  buildFinanceLancamentosPath,
+  FINANCE_STATEMENT_VIEWS,
+} from '../../lib/financeiroHubTabs.js';
 import {
   formatMonthTitleCapitalized,
   formatPeriodRangeBr,
@@ -11,6 +17,7 @@ import {
 } from '../../lib/financeiroOverview.js';
 import { buildDfcCsvMatrix, buildDreCsvMatrix } from '../../lib/financeStatementsExport.js';
 import { downloadCsvMatrix } from '../../lib/reportsExport.js';
+import { useToast } from '../../hooks/useToast.js';
 import { fmt } from './financeFmt.js';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
@@ -20,10 +27,7 @@ import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 
-const STATEMENT_VIEWS = {
-  DRE: 'dre',
-  DFC: 'dfc',
-};
+const STATEMENT_VIEWS = FINANCE_STATEMENT_VIEWS;
 
 const STATEMENT_TABS = [
   { id: STATEMENT_VIEWS.DRE, label: 'DRE', shortLabel: 'DRE' },
@@ -112,6 +116,26 @@ function hasDfcGroupMovement(group) {
   );
 }
 
+function parseStatementViewParam(raw) {
+  const v = String(raw || '').trim().toLowerCase();
+  return v === STATEMENT_VIEWS.DFC ? STATEMENT_VIEWS.DFC : STATEMENT_VIEWS.DRE;
+}
+
+function CategoryLancamentosLink({ label, month, statementView, className = '' }) {
+  const regime =
+    statementView === STATEMENT_VIEWS.DRE ? FINANCE_REGIME.COMPETENCE : FINANCE_REGIME.CASH;
+  const to = buildFinanceLancamentosPath({ month, category: label, regime });
+  return (
+    <Link
+      to={to}
+      className={['finance-statements-category__link', className].filter(Boolean).join(' ')}
+      title={`Ver lançamentos: ${label}`}
+    >
+      {label}
+    </Link>
+  );
+}
+
 function StatementRow({
   label,
   amount,
@@ -120,13 +144,15 @@ function StatementRow({
   isTotal = false,
   warn = false,
   categories = [],
+  referenceMonth = '',
+  statementView = STATEMENT_VIEWS.DRE,
 }) {
   const visibleCats = visibleDreCategories(categories);
   const hasChildren = visibleCats.length > 0;
   const rowClass = [
     'finance-statements-row',
     isTotal ? 'finance-statements-row--total' : '',
-    hasChildren ? 'finance-statements-row--expandable' : '',
+    hasChildren ? 'finance-statements-row--group-header' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -147,99 +173,114 @@ function StatementRow({
 
   return (
     <div className="finance-statements-group">
+      <div className={rowClass}>
+        {labelNode}
+        <span className="finance-statements-row__value">{fmt(amount)}</span>
+        <span className={`finance-statements-row__delta ${deltaClass(label, delta, deltaMode)}`}>
+          {fmtDelta(delta)}
+        </span>
+      </div>
       {hasChildren ? (
-        <details className="finance-statements-details">
-          <summary className={rowClass}>
-            <span className="finance-statements-row__toggle">
-              <ChevronDown size={16} className="finance-statements-row__chevron" aria-hidden />
-              {labelNode}
-            </span>
-            <span className="finance-statements-row__value">{fmt(amount)}</span>
-            <span className={`finance-statements-row__delta ${deltaClass(label, delta, deltaMode)}`}>
-              {fmtDelta(delta)}
-            </span>
-          </summary>
-          <ul className="finance-statements-categories">
-            {visibleCats.map((cat) => (
-              <li key={cat.key || cat.label} className="finance-statements-category">
-                <span className="finance-statements-category__label">{cat.label}</span>
-                <span className="finance-statements-category__value">{fmt(cat.amount)}</span>
-                {cat.pctOfRevenue != null ? (
-                  <span className="finance-statements-category__pct" title="% da receita bruta">
-                    {Number(cat.pctOfRevenue).toFixed(1)}%
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : (
-        <div className={rowClass}>
-          {labelNode}
-          <span className="finance-statements-row__value">{fmt(amount)}</span>
-          <span className={`finance-statements-row__delta ${deltaClass(label, delta, deltaMode)}`}>
-            {fmtDelta(delta)}
-          </span>
-        </div>
-      )}
+        <ul className="finance-statements-categories finance-statements-categories--open">
+          {visibleCats.map((cat) => (
+            <li key={cat.key || cat.label} className="finance-statements-category">
+              <span className="finance-statements-category__label">
+                <CategoryLancamentosLink
+                  label={cat.label}
+                  month={referenceMonth}
+                  statementView={statementView}
+                />
+              </span>
+              <span className="finance-statements-category__value">{fmt(cat.amount)}</span>
+              {cat.pctOfRevenue != null ? (
+                <span className="finance-statements-category__pct" title="% da receita bruta">
+                  {Number(cat.pctOfRevenue).toFixed(1)}%
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
 
-function DfcGroupRow({ label, group, delta }) {
+function DfcGroupRow({ label, group, delta, referenceMonth = '' }) {
   const visibleCats = visibleDfcCategories(group?.categories);
   const hasChildren = visibleCats.length > 0;
   const rowClass = [
     'finance-statements-row',
     'finance-statements-row--dfc',
-    hasChildren ? 'finance-statements-row--expandable' : '',
+    hasChildren ? 'finance-statements-row--group-header' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   const cells = (
     <>
-      <span className="finance-statements-row__inflow finance-value-positive">{fmt(group.inflow)}</span>
-      <span className="finance-statements-row__outflow finance-value-negative">{fmt(group.outflow)}</span>
-      <span className="finance-statements-row__value">{fmt(group.net)}</span>
-      <span className={`finance-statements-row__delta ${deltaClass(label, delta, 'neutral')}`}>
+      <span
+        className="finance-statements-row__inflow finance-statements-row__metric finance-value-positive"
+        data-label="Entradas"
+      >
+        {fmt(group.inflow)}
+      </span>
+      <span
+        className="finance-statements-row__outflow finance-statements-row__metric finance-value-negative"
+        data-label="Saídas"
+      >
+        {fmt(group.outflow)}
+      </span>
+      <span className="finance-statements-row__value finance-statements-row__metric" data-label="Líquido">
+        {fmt(group.net)}
+      </span>
+      <span
+        className={`finance-statements-row__delta finance-statements-row__metric ${deltaClass(label, delta, 'neutral')}`}
+        data-label="vs mês ant."
+      >
         {fmtDelta(delta)}
       </span>
     </>
   );
 
-  if (hasChildren) {
-    return (
-      <details className="finance-statements-details finance-statements-details--dfc">
-        <summary className={rowClass}>
-          <span className="finance-statements-row__toggle">
-            <ChevronDown size={16} className="finance-statements-row__chevron" aria-hidden />
-            <span className="finance-statements-row__label">{label}</span>
-          </span>
-          {cells}
-        </summary>
-        <ul className="finance-statements-categories finance-statements-categories--dfc">
+  return (
+    <div className="finance-statements-group finance-statements-group--dfc">
+      <div className={rowClass}>
+        <span className="finance-statements-row__label">{label}</span>
+        {cells}
+      </div>
+      {hasChildren ? (
+        <ul className="finance-statements-categories finance-statements-categories--dfc finance-statements-categories--open">
           {visibleCats.map((cat) => (
             <li key={cat.key || cat.label} className="finance-statements-category">
-              <span className="finance-statements-category__label">{cat.label}</span>
-              <span className="finance-statements-category__inflow finance-value-positive">
+              <span className="finance-statements-category__label">
+                <CategoryLancamentosLink
+                  label={cat.label}
+                  month={referenceMonth}
+                  statementView={STATEMENT_VIEWS.DFC}
+                />
+              </span>
+              <span
+                className="finance-statements-category__inflow finance-statements-row__metric finance-value-positive"
+                data-label="Entradas"
+              >
                 {fmt(cat.inflow)}
               </span>
-              <span className="finance-statements-category__outflow finance-value-negative">
+              <span
+                className="finance-statements-category__outflow finance-statements-row__metric finance-value-negative"
+                data-label="Saídas"
+              >
                 {fmt(cat.outflow)}
               </span>
-              <span className="finance-statements-category__value">{fmt(cat.net)}</span>
+              <span
+                className="finance-statements-category__value finance-statements-row__metric"
+                data-label="Líquido"
+              >
+                {fmt(cat.net)}
+              </span>
             </li>
           ))}
         </ul>
-      </details>
-    );
-  }
-
-  return (
-    <div className={rowClass}>
-      <span className="finance-statements-row__label">{label}</span>
-      {cells}
+      ) : null}
     </div>
   );
 }
@@ -315,7 +356,7 @@ function StatementsKpiStrip({ dreData, dfcData, loadingDfc, onOpenDfc }) {
   );
 }
 
-function DrePanel({ data, compareMonth, periodLabel }) {
+function DrePanel({ data, compareMonth, periodLabel, referenceMonth }) {
   const statement = data?.statement;
   const delta = data?.delta;
 
@@ -360,6 +401,11 @@ function DrePanel({ data, compareMonth, periodLabel }) {
         {periodLabel} · regime de competência · receita bruta com taxas de cartão como despesa
         financeira implícita.
         {compareMonth ? ` Comparativo com ${formatMonthTitleCapitalized(compareMonth)}.` : null}
+        {' '}
+        Detalhamento por categoria (Mensalidades, Matrículas, despesas…) logo abaixo de cada linha.
+      </p>
+      <p className="finance-statements-panel__sign-note text-muted text-xs" role="note">
+        Despesas e custos aparecem com sinal negativo; receitas e resultados permanecem positivos.
       </p>
       {statement.meta?.competenceFallbackCount > 0 ? (
         <StatusBanner variant="info" className="finance-statements-panel__banner">
@@ -369,7 +415,7 @@ function DrePanel({ data, compareMonth, periodLabel }) {
       ) : null}
       <div className="finance-statements-table" aria-label="Demonstração do resultado">
         <div className="finance-statements-table__head">
-          <span>Conta</span>
+          <span>Conta / categoria</span>
           <span>Valor</span>
           <span>
             <FinanceLabelWithHint hint="Diferença absoluta em reais em relação ao mês anterior.">
@@ -387,6 +433,8 @@ function DrePanel({ data, compareMonth, periodLabel }) {
             isTotal={row.isTotal}
             warn={row.warn}
             categories={row.categories}
+            referenceMonth={referenceMonth}
+            statementView={STATEMENT_VIEWS.DRE}
           />
         ))}
       </div>
@@ -394,7 +442,7 @@ function DrePanel({ data, compareMonth, periodLabel }) {
   );
 }
 
-function DfcPanel({ data, compareMonth, periodLabel }) {
+function DfcPanel({ data, compareMonth, periodLabel, referenceMonth }) {
   const statement = data?.statement;
   const delta = data?.delta;
 
@@ -413,13 +461,15 @@ function DfcPanel({ data, compareMonth, periodLabel }) {
       <p className="finance-statements-panel__hint text-muted text-sm" role="note">
         {periodLabel} · método direto · caixa por data de liquidação · valores líquidos (após taxas).
         {compareMonth ? ` Comparativo com ${formatMonthTitleCapitalized(compareMonth)}.` : null}
+        {' '}
+        Categorias (Mensalidades, Matrículas, despesas…) aparecem indentadas sob cada grupo de fluxo.
       </p>
       <div
         className="finance-statements-table finance-statements-table--dfc"
         aria-label="Fluxo de caixa"
       >
         <div className="finance-statements-table__head finance-statements-table__head--dfc">
-          <span>Grupo</span>
+          <span>Grupo / categoria</span>
           <span>Entradas</span>
           <span>Saídas</span>
           <span>Líquido</span>
@@ -438,6 +488,7 @@ function DfcPanel({ data, compareMonth, periodLabel }) {
               label={groupName}
               group={group}
               delta={delta?.groups?.[groupName]?.net}
+              referenceMonth={referenceMonth}
             />
           );
         })}
@@ -504,7 +555,10 @@ function hasDfcMovement(data) {
 }
 
 export default function DreDfcTab({ academyId, referenceMonth }) {
-  const [view, setView] = useState(STATEMENT_VIEWS.DRE);
+  const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
+  const [view, setView] = useState(() => parseStatementViewParam(viewParam));
   const [dreData, setDreData] = useState(null);
   const [dfcData, setDfcData] = useState(null);
   const [loadingDre, setLoadingDre] = useState(false);
@@ -512,6 +566,27 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
   const [errorDre, setErrorDre] = useState('');
   const [errorDfc, setErrorDfc] = useState('');
   const dfcLoadedMonthRef = useRef('');
+
+  useEffect(() => {
+    setView(parseStatementViewParam(viewParam));
+  }, [viewParam]);
+
+  const handleViewChange = useCallback(
+    (nextView) => {
+      const normalized = parseStatementViewParam(nextView);
+      setView(normalized);
+      const next = new URLSearchParams(searchParams);
+      if (normalized === STATEMENT_VIEWS.DRE) {
+        next.delete('view');
+      } else {
+        next.set('view', normalized);
+      }
+      if (next.toString() !== searchParams.toString()) {
+        setSearchParams(next, { replace: true });
+      }
+    },
+    [searchParams, setSearchParams]
+  );
 
   const periodLabel = useMemo(() => {
     const ctx = overviewPeriodContext(referenceMonth);
@@ -558,14 +633,20 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
   }, [academyId, referenceMonth, loadDre]);
 
   useEffect(() => {
+    if (!dreData?.statement || !academyId || !referenceMonth) return;
+    if (dfcLoadedMonthRef.current === referenceMonth && dfcData?.month === referenceMonth) return;
+    void loadDfc();
+  }, [dreData?.statement, academyId, referenceMonth, dfcData?.month, loadDfc]);
+
+  useEffect(() => {
     if (view !== STATEMENT_VIEWS.DFC) return;
     if (dfcLoadedMonthRef.current === referenceMonth && dfcData?.month === referenceMonth) return;
     void loadDfc();
   }, [view, referenceMonth, dfcData?.month, loadDfc]);
 
   const handleOpenDfc = useCallback(() => {
-    setView(STATEMENT_VIEWS.DFC);
-  }, []);
+    handleViewChange(STATEMENT_VIEWS.DFC);
+  }, [handleViewChange]);
 
   const loadActive = useCallback(async () => {
     if (view === STATEMENT_VIEWS.DRE) {
@@ -587,12 +668,14 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
       if (!dreData?.statement) return;
       const { headers, rows, filename } = buildDreCsvMatrix(dreData);
       downloadCsvMatrix(headers, rows, filename);
+      toast.success('DRE exportada em CSV.');
       return;
     }
     if (!dfcData?.statement) return;
     const { headers, rows, filename } = buildDfcCsvMatrix(dfcData);
     downloadCsvMatrix(headers, rows, filename);
-  }, [view, dreData, dfcData]);
+    toast.success('DFC exportada em CSV.');
+  }, [view, dreData, dfcData, toast]);
 
   const activeData = view === STATEMENT_VIEWS.DRE ? dreData : dfcData;
   const activeError = view === STATEMENT_VIEWS.DRE ? errorDre : errorDfc;
@@ -606,7 +689,8 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
   return (
     <FinanceTabShell
       panelClassName="finance-statements-tab"
-      title="Demonstrativos"
+      title="DRE e DFC"
+      kpiStripBare
       badge={
         intro ? (
           <span className="finance-statements-tab__period text-small text-muted">{intro}</span>
@@ -649,7 +733,7 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
         <HubTabBar
           tabs={STATEMENT_TABS}
           activeId={view}
-          onChange={setView}
+          onChange={handleViewChange}
           ariaLabel="Tipo de demonstrativo"
           variant="secondary"
           size="sm"
@@ -674,13 +758,27 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
           tone="dashed"
           icon={BarChart3}
           title="Sem movimentação no período"
-          description="Não há lançamentos classificados para este mês neste demonstrativo."
+          description={
+            view === STATEMENT_VIEWS.DRE
+              ? 'Não há lançamentos de competência classificados neste mês na DRE.'
+              : 'Não há movimentação de caixa classificada neste mês na DFC.'
+          }
           role="status"
         />
       ) : view === STATEMENT_VIEWS.DRE ? (
-        <DrePanel data={dreData} compareMonth={dreData?.compareMonth} periodLabel={periodLabel} />
+        <DrePanel
+          data={dreData}
+          compareMonth={dreData?.compareMonth}
+          periodLabel={periodLabel}
+          referenceMonth={referenceMonth}
+        />
       ) : (
-        <DfcPanel data={dfcData} compareMonth={dfcData?.compareMonth} periodLabel={periodLabel} />
+        <DfcPanel
+          data={dfcData}
+          compareMonth={dfcData?.compareMonth}
+          periodLabel={periodLabel}
+          referenceMonth={referenceMonth}
+        />
       )}
     </FinanceTabShell>
   );

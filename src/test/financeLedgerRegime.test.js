@@ -39,4 +39,15 @@ describe('financeLedgerRegime', () => {
       classifyLedgerRegimeForMigration({ origin_type: 'sale_cmv', ledger_regime: '' })
     ).toBe(FINANCE_LEDGER_REGIME.ACCRUAL);
   });
+
+  it('CMV legado sem origin_type infere accrual (method interno + stock_purchase)', () => {
+    const doc = {
+      type: 'stock_purchase',
+      method: 'interno',
+      planName: 'CMV — Kimono infantil',
+      gross: 80,
+    };
+    expect(inferLedgerRegimeFromDoc(doc)).toBe(FINANCE_LEDGER_REGIME.ACCRUAL);
+    expect(isAccrualLedgerTx(doc)).toBe(true);
+  });
 });

@@ -32,6 +32,13 @@ export function inferLedgerRegimeFromDoc(doc) {
   const origin = String(doc?.origin_type ?? doc?.originType ?? '').toLowerCase();
   if (origin === 'sale_cmv') return FINANCE_LEDGER_REGIME.ACCRUAL;
 
+  // CMV automático legado (antes de origin_type / ledger_regime no schema)
+  const method = String(doc?.method || '').trim().toLowerCase();
+  const type = String(doc?.type || '').trim().toLowerCase();
+  if (method === 'interno' && type === 'stock_purchase') {
+    return FINANCE_LEDGER_REGIME.ACCRUAL;
+  }
+
   return FINANCE_LEDGER_REGIME.CASH;
 }
 

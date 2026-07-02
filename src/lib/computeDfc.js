@@ -27,7 +27,9 @@ function emptyCategoryMap() {
 function categoryLabelForTx(tx, accounts) {
   const raw = String(tx?.category || '').trim();
   if (raw) {
-    const resolved = resolveFinanceCategory(raw, accounts);
+    const resolved = resolveFinanceCategory(raw, accounts, {
+      direction: txDirection(tx) === 'out' ? 'out' : 'in',
+    });
     if (resolved?.label) return resolved.isAccountCategory ? raw : resolved.label;
     return raw;
   }
@@ -114,9 +116,11 @@ export function computeDfc(period, txs = [], accounts = null, bankBalances = nul
     const amount = cashMovementAmount(tx);
     const signed = dir === 'out' ? -amount : amount;
     const catKey = categoryLabelForTx(tx, accounts);
-    const catLabel = resolveFinanceCategory(catKey, accounts)?.label || catKey;
+    const resolved = resolveFinanceCategory(catKey, accounts);
+    const catLabel = resolved?.label || catKey;
+    const flowKey = resolved?.isAccountCategory ? catKey : catLabel;
 
-    addFlow(groups[dfcGroup], catKey, catLabel, signed);
+    addFlow(groups[dfcGroup], flowKey, catLabel, signed);
   }
 
   const built = {};
