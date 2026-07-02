@@ -71,6 +71,32 @@ export async function fetchBankBalances({ academyId, asOf } = {}) {
   return body;
 }
 
+export async function fetchFinanceDre({ academyId, month, from, to }) {
+  const params = new URLSearchParams({ route: 'dre' });
+  if (month) params.set('month', month);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar DRE');
+  return body;
+}
+
+export async function fetchFinanceDfc({ academyId, month, from, to }) {
+  const params = new URLSearchParams({ route: 'dfc' });
+  if (month) params.set('month', month);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar DFC');
+  return body;
+}
+
 export async function fetchFinanceOverview({
   academyId,
   month,

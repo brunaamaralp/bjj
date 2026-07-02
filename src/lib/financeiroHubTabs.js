@@ -49,6 +49,7 @@ export const FINANCEIRO_MEMBER_RESTRICTED_TABS = new Set([
   'previsao',
   'fechamento',
   'conciliacao',
+  'dre',
   FINANCEIRO_EXTRATO_TAB,
 ]);
 
@@ -84,6 +85,7 @@ const HUB_TAB_LABELS = {
   previsao: 'Previsão',
   fechamento: 'Conferência do mês',
   conciliacao: 'Conciliação',
+  dre: 'DRE e DFC',
   [FINANCEIRO_EXTRATO_TAB]: 'Extrato contábil',
 };
 
@@ -95,6 +97,7 @@ const HUB_TAB_SHORT_LABELS = {
   previsao: 'Previsão',
   fechamento: 'Conferência',
   conciliacao: 'Conciliação',
+  dre: 'DRE/DFC',
   [FINANCEIRO_EXTRATO_TAB]: 'Extrato',
 };
 
@@ -125,9 +128,9 @@ export function isFinanceiroConfigTabSlug(tab) {
   return REDIRECT_TO_EMPRESA_CONFIG.has(t);
 }
 
-/** DRE legado — redirecionado para Relatórios → Financeiro. */
+/** @deprecated Use aba ?tab=dre no hub Financeiro. */
 export function isFinanceiroDreLegacyTab(tab) {
-  return String(tab || '').trim().toLowerCase() === 'dre';
+  return false;
 }
 
 /** Mapeia /finance legado — redirecionado para Minha academia → Financeiro. */
@@ -166,7 +169,7 @@ export function buildFinanceiroMemberLeafTabs() {
 
 export function buildFinanceiroAdminLeafTabs({ financeModule }) {
   const tabs = buildFinanceiroMemberLeafTabs();
-  if (financeModule) tabs.push('previsao', 'fechamento');
+  if (financeModule) tabs.push('previsao', 'fechamento', 'dre');
   return tabs;
 }
 

@@ -45,12 +45,13 @@ describe('financeiroHubTabs', () => {
     expect(allowed.has(FINANCEIRO_SECTIONS.A_RECEBER)).toBe(true);
   });
 
-  it('buildFinanceiroAllowedLeafTabs — admin com previsão, sem conciliação', () => {
+  it('buildFinanceiroAllowedLeafTabs — admin com previsão e DRE, sem conciliação', () => {
     const allowed = new Set(
       buildFinanceiroAllowedLeafTabs({ navRole: 'admin', financeModule: true })
     );
     expect(allowed.has('previsao')).toBe(true);
     expect(allowed.has('fechamento')).toBe(true);
+    expect(allowed.has('dre')).toBe(true);
     expect(allowed.has('conciliacao')).toBe(false);
     expect(allowed.has(FINANCEIRO_EXTRATO_TAB)).toBe(false);
   });
@@ -102,6 +103,7 @@ describe('financeiroHubTabs', () => {
     const tabs = buildFinanceiroHubTabItems({ navRole: 'owner', financeModule: true });
     expect(tabs[0].id).toBe(FINANCEIRO_SECTIONS.OVERVIEW);
     expect(tabs.some((t) => t.id === 'conciliacao')).toBe(true);
+    expect(tabs.some((t) => t.id === 'dre')).toBe(true);
     expect(tabs.some((t) => t.id === FINANCEIRO_EXTRATO_TAB)).toBe(false);
   });
 

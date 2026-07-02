@@ -27,8 +27,6 @@ import {
 
   isFinanceiroConfigTabSlug,
 
-  isFinanceiroDreLegacyTab,
-
   EMPRESA_FINANCE_CONFIG_PATH,
 
   isFinanceiroExtratoLegacyTab,
@@ -65,6 +63,7 @@ const TransacoesTab = lazyWithRetry(() => import('../components/finance/Transaco
 const ForecastTab = lazyWithRetry(() => import('../components/finance/ForecastTab.jsx'));
 const ReconciliationTab = lazyWithRetry(() => import('../components/finance/ReconciliationTab.jsx'));
 const MonthlyClosingTab = lazyWithRetry(() => import('../components/finance/MonthlyClosingTab.jsx'));
+const DreDfcTab = lazyWithRetry(() => import('../components/finance/DreDfcTab.jsx'));
 
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -109,10 +108,6 @@ export default function Caixa() {
     return <Navigate to={EMPRESA_FINANCE_CONFIG_PATH} replace />;
   }
 
-  if (isFinanceiroDreLegacyTab(rawTab)) {
-    return <Navigate to="/reports?tab=financeiro" replace />;
-  }
-
   if (isFinanceiroExtratoLegacyTab(rawTab)) {
     return <Navigate to={financeiroExtratoLegacyRedirect()} replace />;
   }
@@ -145,6 +140,21 @@ function CaixaPage() {
   const [movimentacoesRegime, setMovimentacoesRegime] = useState(FINANCE_REGIME.CASH);
   const summaryReqRef = useRef(0);
   const [conferredMonths, setConferredMonths] = useState(() => new Set());
+
+  const handleReferenceMonthChange = useCallback(
+    (ym) => {
+      const month = String(ym || '').trim();
+      if (!month) return;
+      setReferenceMonth(month);
+      const next = new URLSearchParams(searchParams);
+      next.set('month', month);
+      const nextQs = next.toString();
+      if (nextQs !== searchParams.toString()) {
+        setSearchParams(next, { replace: true });
+      }
+    },
+    [searchParams, setSearchParams]
+  );
 
   const monthParam = searchParams.get('month');
 
@@ -553,7 +563,7 @@ function CaixaPage() {
           actions={
             <FinanceMonthPicker
               value={referenceMonth}
-              onChange={setReferenceMonth}
+              onChange={handleReferenceMonthChange}
               isConferred={conferredMonths.has(referenceMonth)}
             />
           }
@@ -611,7 +621,7 @@ function CaixaPage() {
               defaultSection={defaultReceivablesSection}
               navRole={navRole}
               onSectionChange={setReceivablesSection}
-              onReferenceMonthChange={setReferenceMonth}
+              onReferenceMonthChange={handleReferenceMonthChange}
             />
           </div>
         ) : null}
@@ -698,8 +708,20 @@ function CaixaPage() {
               financeConfig={financeConfig}
               modules={modules}
               referenceMonth={referenceMonth}
-              onReferenceMonthChange={setReferenceMonth}
+              onReferenceMonthChange={handleReferenceMonthChange}
             />
+          </div>
+        ) : null}
+
+        {academyId && visitedLeafTabs.has('dre') && financeModule && navRole !== 'member' ? (
+          <div
+            role="tabpanel"
+            id="finance-tabpanel-dre"
+            aria-labelledby="finance-tabpanel-tab-dre"
+            hidden={activeTab !== 'dre'}
+            aria-hidden={activeTab !== 'dre'}
+          >
+            <DreDfcTab academyId={academyId} referenceMonth={referenceMonth} />
           </div>
         ) : null}
         </Suspense>

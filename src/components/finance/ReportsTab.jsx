@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateInputField } from '../DateInput';
+import { Link } from 'react-router-dom';
 import { databases, DB_ID, JOURNAL_COL } from '../../lib/appwrite';
 import { Query } from 'appwrite';
 import { useAccountingStore } from '../../store/useAccountingStore';
 import { fmt } from './financeFmt.js';
 import { BarChart3 } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import FinanceRegimeToggle from './FinanceRegimeToggle.jsx';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { buildDreDisplayRows } from '../../lib/financeCategories.js';
@@ -114,6 +116,11 @@ export default function ReportsTab({
       }
     >
       {!embedded ? <h3 className="navi-section-heading mb-2">Relatórios</h3> : null}
+      <StatusBanner variant="info" className="mb-3">
+        Estes relatórios usam o diário contábil (espelho parcial dos lançamentos) e podem estar
+        incompletos. Para DRE e DFC completos por categoria, abra{' '}
+        <Link to="/financeiro?tab=dre">Financeiro → DRE e DFC</Link>.
+      </StatusBanner>
       {journal.length === 0 && typeof onGoToLancamentos === 'function' ? (
         <div className="finance-reports-hint" role="status">
           <span>Para ver os relatórios com dados do diário, abra a aba Lançamentos primeiro ou aguarde a sincronização automática.</span>
