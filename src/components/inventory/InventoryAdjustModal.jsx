@@ -22,11 +22,13 @@ function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
   const [saldoCorreto, setSaldoCorreto] = useState(() => String(saldoAtual));
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const busy = loading || submitting;
 
   const requestClose = useCallback(() => {
-    if (loading) return;
+    if (busy) return;
     onClose();
-  }, [loading, onClose]);
+  }, [busy, onClose]);
 
   const previewOpts = useMemo(() => {
     if (inputMode === 'target') {
@@ -44,22 +46,9 @@ function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
 
   const preview = useMemo(() => previewBalanceAfterAdjustment(previewOpts), [previewOpts]);
 
-  if (!item) return null;
+  const runSubmit = useCallback(async () => {
+    if (!item?.id) return;
 
-  const label =
-    item.display_label ||
-    (item.parent_nome || item.nome
-      ? `${item.parent_nome || item.nome}${variantInventoryLabel(item) !== 'Único' ? ` · ${variantInventoryLabel(item)}` : ''}`
-      : item.nome);
-
-  const handleSubtypeChange = (next) => {
-    setSubtype(next);
-    setError('');
-    if (subtypeSuggestsRemoval(next)) setDirection('remove');
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
     const quantity_change = quantityChangeFromAdjustment(
       inputMode === 'target'
         ? { currentQuantity: saldoAtual, targetQuantity: saldoCorreto }
@@ -82,12 +71,46 @@ function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
     }
 
     setError('');
-    onSubmit({
-      variant_id: item.id,
-      quantity_change,
-      subtype,
-      note: note.trim(),
-    });
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        variant_id: item.id,
+        quantity_change,
+        subtype,
+        note: note.trim(),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    direction,
+    inputMode,
+    item?.id,
+    note,
+    onSubmit,
+    quantidade,
+    saldoAtual,
+    saldoCorreto,
+    subtype,
+  ]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    void runSubmit();
+  };
+
+  if (!item) return null;
+
+  const label =
+    item.display_label ||
+    (item.parent_nome || item.nome
+      ? `${item.parent_nome || item.nome}${variantInventoryLabel(item) !== 'Único' ? ` · ${variantInventoryLabel(item)}` : ''}`
+      : item.nome);
+
+  const handleSubtypeChange = (next) => {
+    setSubtype(next);
+    setError('');
+    if (subtypeSuggestsRemoval(next)) setDirection('remove');
   };
 
   const submitLabel = (() => {
@@ -103,8 +126,8 @@ function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
       open={open && Boolean(item)}
       title="Ajustar saldo"
       onClose={requestClose}
-      closeOnOverlay={!loading}
-      closeOnEsc={!loading}
+      closeOnOverlay={!busy}
+      closeOnEsc={!busy}
       overlayCloseSuppressMs={400}
       maxWidth={420}
       className="navi-modal-overlay--form"
@@ -112,16 +135,16 @@ function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
       ariaLabelledBy="inventory-adjust-title"
       footer={
         <div className="flex gap-2 justify-end inventory-adjust-form__actions" style={{ width: '100%' }}>
-          <button type="button" className="btn-outline" onClick={onClose} disabled={loading}>
+          <button type="button" className="btn-outline" onClick={requestClose} disabled={busy}>
             Cancelar
           </button>
           <button
-            type="submit"
-            form="inventory-adjust-form"
+            type="button"
             className={`btn-action-primary${preview?.change < 0 ? ' inventory-adjust-submit--remove' : ''}`}
-            disabled={loading || !preview || preview.change === 0}
+            disabled={busy || !preview || preview.change === 0}
+            onClick={() => void runSubmit()}
           >
-            {loading ? 'Registrando…' : submitLabel}
+            {busy ? 'Registrando…' : submitLabel}
           </button>
         </div>
       }
@@ -139,7 +162,12 @@ function InventoryAdjustModalForm({ open, item, loading, onClose, onSubmit }) {
           ) : null}
         </p>
 
-        <form id="inventory-adjust-form" onSubmit={handleSubmit} className="inventory-adjust-form">
+        <form
+          id="inventory-adjust-form"
+          onSubmit={handleSubmit}
+          className="inventory-adjust-form"
+          noValidate
+        >
           <div className="form-group">
             <label htmlFor="adjust-subtype">O que aconteceu?</label>
             <select

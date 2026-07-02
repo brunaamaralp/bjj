@@ -127,8 +127,6 @@
 }
 
 .attendance-at-risk-toolbar {
-  display: flex;
-  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px 16px;
   margin-bottom: 14px;
@@ -140,29 +138,31 @@
 
 .attendance-at-risk-toolbar__hint {
   margin: 0;
-  flex: 1 1 180px;
+  flex: 1 1 100%;
   font-size: 12px;
-  color: var(--text-muted);
-  align-self: center;
+  color: var(--color-text-secondary, var(--text-muted));
+  line-height: 1.4;
 }
 
 .attendance-at-risk-filter {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 280px;
+}
+
+.attendance-at-risk-filter__label {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  min-width: 148px;
+  color: var(--color-text-secondary, var(--text-secondary));
 }
 
-.attendance-at-risk-filter select {
-  font-size: 13px;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: normal;
+.attendance-at-risk-filter__select {
+  width: 100%;
 }
 
 .attendance-at-risk-loading {
@@ -473,6 +473,11 @@
 
   .attendance-at-risk-kpi--featured .attendance-at-risk-kpi__value {
     font-size: 22px;
+  }
+
+  .attendance-at-risk-filter {
+    flex: 1 1 100%;
+    max-width: none;
   }
 
   .attendance-at-risk-actions .wa-btn,

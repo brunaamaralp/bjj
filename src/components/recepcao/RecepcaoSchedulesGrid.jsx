@@ -1,12 +1,10 @@
 import '../../styles/schedules.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Clock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Clock } from 'lucide-react';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ScheduleGridCard from './ScheduleGridCard.jsx';
 import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
-import { isClassSlotsConfigured, useClassSlotsStore } from '../../store/classSlotsStore.js';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
 import {
   buildWeeklyScheduleGrid,
@@ -14,13 +12,10 @@ import {
   filterSchedulesByModality,
 } from '../../lib/schedules.js';
 import {
-  flattenTodaySchedules,
+  classifyScheduleTimeStatus,
   getTodayWeekdayId,
   readModalityFilter,
-  resolveScheduleCardContext,
   resolveScheduleGridColumns,
-  slotByScheduleIdForDate,
-  todayYmd,
   writeModalityFilter,
 } from '../../lib/recepcaoScheduleGrid.js';
 
@@ -34,14 +29,7 @@ function SchedulesGridSkeleton() {
   );
 }
 
-function SchedulesWeekTable({
-  grid,
-  todayId,
-  classById,
-  slotByScheduleId,
-  gridWrapRef,
-  todayColRef,
-}) {
+function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef }) {
   const now = useMemo(() => new Date(), []);
 
   return (
@@ -51,6 +39,9 @@ function SchedulesWeekTable({
       tabIndex={0}
       aria-label="Grade semanal — deslize horizontalmente para ver todos os dias"
     >
+      <p className="schedules-week-grid__scroll-hint text-small text-muted" aria-hidden>
+        Deslize para ver todos os dias
+      </p>
       <table className="schedules-week-grid">
         <thead>
           <tr>
@@ -97,11 +88,9 @@ function SchedulesWeekTable({
                     {items.length ? (
                       <ul className="schedules-week-grid__cell-list">
                         {items.map((item) => {
-                          const { timeStatus, occupancy } = resolveScheduleCardContext(item, {
-                            isToday,
-                            slotByScheduleId,
-                            nowDate: now,
-                          });
+                          const timeStatus = isToday
+                            ? classifyScheduleTimeStatus(item.time_start, item.time_end, now)
+                            : null;
                           return (
                             <ScheduleGridCard
                               key={item.id}
@@ -109,7 +98,6 @@ function SchedulesWeekTable({
                               classDoc={classById.get(item.class_id) || null}
                               variant="table"
                               timeStatus={timeStatus}
-                              occupancy={occupancy}
                             />
                           );
                         })}
@@ -136,23 +124,15 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const fetchSchedules = useSchedulesStore((s) => s.fetchSchedules);
   const classes = useClassesStore((s) => s.classes);
   const fetchClasses = useClassesStore((s) => s.fetchClasses);
-  const slots = useClassSlotsStore((s) => s.slots);
-  const fetchSlotsForDate = useClassSlotsStore((s) => s.fetchSlotsForDate);
 
   const [modalityFilter, setModalityFilter] = useState(() => readModalityFilter());
-  const [mobileExpanded, setMobileExpanded] = useState(false);
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches
-  );
 
   const gridWrapRef = useRef(null);
   const todayColRef = useRef(null);
   const didScrollToTodayRef = useRef(false);
 
   const todayId = getTodayWeekdayId();
-  const todayDate = todayYmd();
   const configured = isSchedulesConfigured();
-  const slotsConfigured = isClassSlotsConfigured();
 
   useEffect(() => {
     if (!academyId || !configured) return;
@@ -160,25 +140,13 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
     if (isClassesConfigured()) {
       void fetchClasses(academyId, { activeOnly: true, silent: true });
     }
-    if (slotsConfigured) {
-      void fetchSlotsForDate(academyId, todayDate, { silent: true });
-    }
-  }, [academyId, configured, slotsConfigured, todayDate, fetchSchedules, fetchClasses, fetchSlotsForDate]);
+  }, [academyId, configured, fetchSchedules, fetchClasses]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(max-width: 720px)');
-    const onChange = () => setIsMobile(mq.matches);
-    onChange();
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  useEffect(() => {
-    if (isMobile || !gridWrapRef.current || !todayColRef.current || didScrollToTodayRef.current) return;
+    if (!gridWrapRef.current || !todayColRef.current || didScrollToTodayRef.current) return;
     didScrollToTodayRef.current = true;
     todayColRef.current.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  }, [isMobile, schedules.length]);
+  }, [schedules.length]);
 
   const handleModalityFilter = useCallback((value) => {
     setModalityFilter(value);
@@ -188,11 +156,6 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const classById = useMemo(
     () => new Map(classes.map((c) => [c.id, c])),
     [classes]
-  );
-
-  const slotByScheduleId = useMemo(
-    () => slotByScheduleIdForDate(slots, todayDate),
-    [slots, todayDate]
   );
 
   const filtered = useMemo(
@@ -205,8 +168,6 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
     () => buildWeeklyScheduleGrid(filtered, { columns }),
     [filtered, columns]
   );
-  const todayItems = useMemo(() => flattenTodaySchedules(grid, todayId), [grid, todayId]);
-  const now = useMemo(() => new Date(), []);
 
   if (!configured) return null;
 
@@ -215,12 +176,7 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
     : 'Peça ao titular da academia para configurar em Minha academia → Horários.';
 
   return (
-    <section
-      className={`reception-section schedules-grid-section animate-in${
-        isMobile && !mobileExpanded ? ' schedules-grid-section--collapsed' : ''
-      }`}
-      aria-labelledby="schedules-grid-title"
-    >
+    <section className="reception-section schedules-grid-section animate-in" aria-labelledby="schedules-grid-title">
       <div className="reception-section-head schedules-grid-section__head">
         <ReportSectionHeading
           id="schedules-grid-title"
@@ -232,11 +188,6 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
             </>
           }
         />
-        {isOwner ? (
-          <Link to="/empresa?tab=horarios" className="edit-link schedules-grid-section__edit">
-            Editar horários
-          </Link>
-        ) : null}
       </div>
 
       {modalities.length > 1 ? (
@@ -280,61 +231,11 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
         />
       ) : null}
 
-      {grid.hasAny && isMobile ? (
-        <>
-          <button
-            type="button"
-            className="schedules-grid-collapse__toggle"
-            aria-expanded={mobileExpanded}
-            aria-controls="schedules-grid-mobile-panel"
-            onClick={() => setMobileExpanded((v) => !v)}
-          >
-            {mobileExpanded ? (
-              <ChevronDown size={16} strokeWidth={2} aria-hidden />
-            ) : (
-              <ChevronRight size={16} strokeWidth={2} aria-hidden />
-            )}
-            {mobileExpanded ? 'Ocultar grade da semana' : 'Ver grade da semana'}
-          </button>
-          {mobileExpanded ? (
-            <div id="schedules-grid-mobile-panel" className="schedules-grid-collapse__panel">
-              <p className="text-small text-muted schedules-today-list__lead">
-                Aulas de {grid.columns.find((c) => c.id === todayId)?.label || 'hoje'}:
-              </p>
-              {todayItems.length ? (
-                <ul className="schedules-today-list">
-                  {todayItems.map((item) => {
-                    const { timeStatus, occupancy } = resolveScheduleCardContext(item, {
-                      isToday: true,
-                      slotByScheduleId,
-                      nowDate: now,
-                    });
-                    return (
-                      <ScheduleGridCard
-                        key={item.id}
-                        item={item}
-                        classDoc={classById.get(item.class_id) || null}
-                        variant="list"
-                        timeStatus={timeStatus}
-                        occupancy={occupancy}
-                      />
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="text-small text-muted">Nenhuma aula cadastrada para hoje.</p>
-              )}
-            </div>
-          ) : null}
-        </>
-      ) : null}
-
-      {grid.hasAny && !isMobile ? (
+      {grid.hasAny ? (
         <SchedulesWeekTable
           grid={grid}
           todayId={todayId}
           classById={classById}
-          slotByScheduleId={slotByScheduleId}
           gridWrapRef={gridWrapRef}
           todayColRef={todayColRef}
         />

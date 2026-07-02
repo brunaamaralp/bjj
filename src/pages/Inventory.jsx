@@ -50,6 +50,7 @@ const Inventory = () => {
   const [entryItem, setEntryItem] = useState(null);
   const [checkTarget, setCheckTarget] = useState(null);
   const [adjustItem, setAdjustItem] = useState(null);
+  const [adjustSaving, setAdjustSaving] = useState(false);
   const [movesPanelTab, setMovesPanelTab] = useState('historico');
 
   const openAdjustItem = useCallback((item) => {
@@ -99,16 +100,21 @@ const Inventory = () => {
   };
 
   const submitAdjust = async (payload) => {
-    const result = await adjustStock(payload);
-    if (!result?.sucesso) {
-      addToast({ type: 'error', message: useInventoryStore.getState().error || 'Erro no ajuste' });
-      return;
+    setAdjustSaving(true);
+    try {
+      const result = await adjustStock(payload);
+      if (!result?.sucesso) {
+        addToast({ type: 'error', message: useInventoryStore.getState().error || 'Erro no ajuste' });
+        return;
+      }
+      const before = result.quantity_before ?? 0;
+      const after = result.quantity_after ?? 0;
+      addToast({ type: 'success', message: formatAdjustToast(before, after) });
+      setAdjustItem(null);
+      await refreshStockStores();
+    } finally {
+      setAdjustSaving(false);
     }
-    const before = result.quantity_before ?? 0;
-    const after = result.quantity_after ?? 0;
-    addToast({ type: 'success', message: formatAdjustToast(before, after) });
-    setAdjustItem(null);
-    await refreshStockStores();
   };
 
   const submitEntry = async (payload) => {
@@ -290,7 +296,7 @@ const Inventory = () => {
       <InventoryAdjustModal
         open={Boolean(adjustItem)}
         item={adjustItem}
-        loading={loading}
+        loading={adjustSaving}
         onClose={() => setAdjustItem(null)}
         onSubmit={submitAdjust}
       />

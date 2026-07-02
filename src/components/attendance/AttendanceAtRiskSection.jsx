@@ -398,10 +398,14 @@ export default function AttendanceAtRiskSection({ className = '' }) {
       ) : null}
 
       {data ? (
-        <div className="attendance-at-risk-toolbar">
+        <div className="attendance-at-risk-toolbar navi-toolbar">
           <label className="attendance-at-risk-filter">
-            <span>Turma</span>
-            <select value={turma} onChange={(e) => setTurmaFilter(e.target.value)}>
+            <span className="attendance-at-risk-filter__label">Turma</span>
+            <select
+              className="form-input navi-control--toolbar attendance-at-risk-filter__select"
+              value={turma}
+              onChange={(e) => setTurmaFilter(e.target.value)}
+            >
               <option value="">Todas</option>
               {turma && !turmaOptions.includes(turma) ? (
                 <option value={turma}>{turma}</option>
@@ -414,8 +418,12 @@ export default function AttendanceAtRiskSection({ className = '' }) {
             </select>
           </label>
           <label className="attendance-at-risk-filter">
-            <span>{terms.belt}</span>
-            <select value={belt} onChange={(e) => setBeltFilter(e.target.value)}>
+            <span className="attendance-at-risk-filter__label">{terms.belt}</span>
+            <select
+              className="form-input navi-control--toolbar attendance-at-risk-filter__select"
+              value={belt}
+              onChange={(e) => setBeltFilter(e.target.value)}
+            >
               <option value="">Todas</option>
               {belt && !beltOptions.includes(belt) ? (
                 <option value={belt}>{belt}</option>

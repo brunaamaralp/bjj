@@ -546,7 +546,6 @@ Harness: `teamPermissions.test.js`, `teamMembershipLabel.test.js`.
 | 9 | Matrícula pública | ✅ Código | `publicEnrollmentHandler.js`, `buildPublicEnrollmentFormConfig` |
 | 10 | Automações audiência turma | ✅ Código | `AutomationAudienceSection` + hook |
 | 11 | Recepção grade semanal | ✅ Código | `RecepcaoSchedulesGrid.jsx`, `ScheduleGridCard.jsx` |
-| 11b | Recepção aulas de hoje | ✅ Código | `RecepcaoTodaySlotsSection.jsx` montado em `Dashboard.jsx` |
 | 12 | Provision schema | ✅ Código | `provision-booking-schema.mjs` |
 | 13 | Migração legado | ✅ Código | `migrate-academy-turmas-to-classes.mjs` |
 

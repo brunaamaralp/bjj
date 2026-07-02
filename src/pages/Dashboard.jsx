@@ -115,8 +115,6 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
-import RecepcaoTodaySlotsSection from '../components/recepcao/RecepcaoTodaySlotsSection.jsx';
-import { isClassSlotsConfigured } from '../store/classSlotsStore.js';
 import SalesDailyReportModal from '../components/sales/SalesDailyReportModal.jsx';
 import { useUserRole } from '../lib/useUserRole.js';
 import { fetchSalesDailyReport } from '../lib/salesDailyReportApi.js';
@@ -1503,10 +1501,6 @@ const Dashboard = () => {
             ) : null}
 
 
-
-            {isClassSlotsConfigured() ? (
-                <RecepcaoTodaySlotsSection academyId={academyId} />
-            ) : null}
 
             <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
 
