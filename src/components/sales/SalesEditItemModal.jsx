@@ -21,7 +21,7 @@ function buildNovoItem(product, parent, lineKind, lockPriceEdit) {
   const kind = normalizeLineKind(lineKind);
   const { price } = suggestUnitPrice(product, { lineKind: kind, parent });
   const unit =
-    lockPriceEdit && price != null ? price : (price ?? Number(product.sale_price) || 0);
+    lockPriceEdit && price != null ? price : (price ?? (Number(product.sale_price) || 0));
   return {
     item_estoque_id: product.id,
     preco_unitario: unit,
