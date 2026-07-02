@@ -20,7 +20,7 @@ const fcMocks = vi.hoisted(() => {
     envSnapshot,
     listDocuments: vi.fn(),
     getDocument: vi.fn(),
-    listPaymentsForMonth: vi.fn().mockResolvedValue([]),
+    listPaymentsForMonth: vi.fn().mockResolvedValue({ rows: [], truncated: false }),
   };
 });
 
@@ -107,7 +107,7 @@ describe('financeClosingData integration', () => {
     vi.resetAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-06-01T12:00:00Z'));
-    fcMocks.listPaymentsForMonth.mockResolvedValue([]);
+    fcMocks.listPaymentsForMonth.mockResolvedValue({ rows: [], truncated: false });
   });
 
   afterEach(() => {

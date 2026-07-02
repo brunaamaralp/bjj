@@ -21,7 +21,7 @@ import FinanceSettingsFeesSection from './settings/FinanceSettingsFeesSection.js
 import FinanceSettingsBanksSection from './settings/FinanceSettingsBanksSection.jsx';
 import FinanceSettingsPaymentMethodsSection from './settings/FinanceSettingsPaymentMethodsSection.jsx';
 import FinanceSettingsVendorsSection from './settings/FinanceSettingsVendorsSection.jsx';
-import { normalizeBankAccountEntry } from '../../lib/bankAccounts.js';
+import { normalizeBankAccountEntry, applyBankDraftToFinanceConfig, isUsableBankAccount } from '../../lib/bankAccounts.js';
 import { parseCurrencyBRL } from '../../lib/masks.js';
 import FinanceSettingsCollectionSection from './settings/FinanceSettingsCollectionSection.jsx';
 import FinanceSettingsWhatsappRemindersSection from './settings/FinanceSettingsWhatsappRemindersSection.jsx';
@@ -100,6 +100,33 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
     state.updateBankAccount(idx, normalized);
   };
 
+  const saveBankAndPersist = async (idx, data) => {
+    const openingRaw = data.openingBalance;
+    const openingParsed =
+      typeof openingRaw === 'number'
+        ? openingRaw
+        : parseCurrencyBRL(String(openingRaw ?? ''));
+    const draftWithBalance = {
+      ...data,
+      openingBalance: Number.isFinite(openingParsed) ? openingParsed : 0,
+    };
+    if (!isUsableBankAccount(normalizeBankAccountEntry(draftWithBalance))) {
+      return false;
+    }
+    const nextFinanceConfig = applyBankDraftToFinanceConfig(
+      state.financeConfig,
+      idx,
+      draftWithBalance
+    );
+    state.setFinanceConfig(nextFinanceConfig);
+    return state.persistAll({ financeConfigOverride: nextFinanceConfig });
+  };
+
+  const persistFinanceConfig = async (nextFinanceConfig) => {
+    state.setFinanceConfig(nextFinanceConfig);
+    return state.persistAll({ financeConfigOverride: nextFinanceConfig });
+  };
+
   if (!academyId) {
     return <p className="text-small text-muted">Selecione uma academia para configurar o financeiro.</p>;
   }
@@ -132,6 +159,8 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         <FinanceSettingsFeesSection
           financeConfig={state.financeConfig}
           setFinanceConfig={state.setFinanceConfig}
+          onPersistFinanceConfig={persistFinanceConfig}
+          saving={state.saving}
         />
       ) : null}
 
@@ -139,6 +168,8 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         <FinanceSettingsBanksSection
           financeConfig={state.financeConfig}
           onSaveBank={saveBank}
+          onSaveBankAndPersist={saveBankAndPersist}
+          saving={state.saving}
           onRemoveRequest={state.setPendingRemoveBank}
         />
       ) : null}
@@ -224,23 +255,23 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         title={meta?.label || 'Financeiro'}
         subtitle={meta?.hint}
       >
+        <FinanceSettingsStickySave
+          visible={state.hasDirty}
+          saving={state.saving}
+          onSave={state.persistAll}
+          onDiscard={state.discardChanges}
+          saveHint={state.saveValidationHint}
+          saveIssueSectionId={state.saveValidationSection}
+          saveIssueSectionLabel={
+            state.saveValidationSection
+              ? financeSettingsSectionLabel(state.saveValidationSection)
+              : ''
+          }
+          onGoToIssueSection={goSection}
+          placement="top"
+        />
         {sectionBody}
       </AcademyTabSettingsLayout>
-
-      <FinanceSettingsStickySave
-        visible={state.hasDirty}
-        saving={state.saving}
-        onSave={state.persistAll}
-        onDiscard={state.discardChanges}
-        saveHint={state.saveValidationHint}
-        saveIssueSectionId={state.saveValidationSection}
-        saveIssueSectionLabel={
-          state.saveValidationSection
-            ? financeSettingsSectionLabel(state.saveValidationSection)
-            : ''
-        }
-        onGoToIssueSection={goSection}
-      />
 
       <ConfirmDialog
         open={typeof state.pendingRemovePlan === 'number'}

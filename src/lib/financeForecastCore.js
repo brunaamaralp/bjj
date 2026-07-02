@@ -43,6 +43,26 @@ export function todayYmdLocal() {
   return todayYmdFinance();
 }
 
+/** Início do dia civil em America/Sao_Paulo como ISO UTC. */
+export function startOfDayIsoFinance(ymd) {
+  const s = String(ymd || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return new Date(`${s}T00:00:00-03:00`).toISOString();
+}
+
+/** Fim do dia civil em America/Sao_Paulo como ISO UTC. */
+export function endOfDayIsoFinance(ymd) {
+  const s = String(ymd || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return new Date(`${s}T23:59:59.999-03:00`).toISOString();
+}
+
+export function formatDateBrYmd(ymd) {
+  const p = String(ymd || '').slice(0, 10).split('-');
+  if (p.length !== 3) return ymd || '—';
+  return `${p[2]}/${p[1]}/${p[0]}`;
+}
+
 export function parseYmd(s) {
   const raw = String(s || '').trim().slice(0, 10);
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);

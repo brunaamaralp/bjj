@@ -6,7 +6,7 @@ export default function SettingsStickySave({ visible, saving, onSave, onDiscard,
   if (!visible) return null;
 
   return (
-    <div className="finance-settings-sticky-save" role="region" aria-label="Alterações pendentes">
+    <div className="finance-settings-sticky-save finance-settings-sticky-save--bottom" role="region" aria-label="Alterações pendentes">
       <div className="finance-settings-sticky-save__inner">
         <span className="finance-settings-sticky-save__label">{label}</span>
         <div className="finance-settings-sticky-save__actions">

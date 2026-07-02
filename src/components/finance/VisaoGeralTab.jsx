@@ -12,6 +12,7 @@ import { useLeadStore } from '../../store/useLeadStore';
 import {
   fetchFinanceOverviewCached,
 } from '../../lib/financeTxApi.js';
+import { invalidateFinanceHubCache } from '../../lib/financeHubCache.js';
 import './visao-geral.css';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
@@ -20,9 +21,11 @@ import FinanceTabShell from './FinanceTabShell.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import { buildReceivablesPath, RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 import {
+  buildMovimentacoesPeriodPath,
   formatBalanceDelta,
   formatMonthTitleCapitalized,
   monthEndYmd,
+  overviewPeriodContext,
   previousMonthYm,
 } from '../../lib/financeiroOverview.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -103,8 +106,13 @@ export default function VisaoGeralTab({
   const financeConfig = useLeadStore((s) => s.financeConfig);
 
   const ym = String(referenceMonth || '').trim();
+  const periodCtx = useMemo(() => overviewPeriodContext(ym), [ym]);
   const prevMonth = useMemo(() => previousMonthYm(ym), [ym]);
   const bankCompareAsOf = useMemo(() => monthEndYmd(prevMonth), [prevMonth]);
+  const movimentacoesPeriodPath = useMemo(
+    () => buildMovimentacoesPeriodPath({ from: periodCtx.from, to: periodCtx.to }),
+    [periodCtx.from, periodCtx.to]
+  );
 
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
@@ -132,7 +140,7 @@ export default function VisaoGeralTab({
     [academyId]
   );
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forceRefresh = false) => {
     if (!academyId) return;
     setLoading(true);
     setError('');
@@ -152,7 +160,7 @@ export default function VisaoGeralTab({
         includeContracts: Boolean(modules?.finance),
         includePayables: showPayablesPreview,
         bankCompareAsOf,
-        force: refreshToken > 0,
+        force: forceRefresh || refreshToken > 0,
       });
 
       setSummary(overview.summary ?? null);
@@ -226,8 +234,13 @@ export default function VisaoGeralTab({
     refreshToken,
   ]);
 
+  const handleRefresh = useCallback(() => {
+    if (academyId) invalidateFinanceHubCache(academyId);
+    setRefreshToken((t) => t + 1);
+  }, [academyId]);
+
   useEffect(() => {
-    void load();
+    void load(refreshToken > 0);
   }, [load, refreshToken]);
 
   useEffect(() => {
@@ -296,7 +309,7 @@ export default function VisaoGeralTab({
   if (error) {
     return (
       <div className="mt-2">
-        <ErrorBanner message={error} onRetry={() => void load()} />
+        <ErrorBanner message={error} onRetry={handleRefresh} />
       </div>
     );
   }
@@ -305,7 +318,7 @@ export default function VisaoGeralTab({
     <button
       type="button"
       className="btn-outline btn-sm financeiro-overview-refresh"
-      onClick={() => void load()}
+      onClick={handleRefresh}
       disabled={loading}
       aria-busy={loading}
       aria-label="Atualizar resumo"
@@ -331,7 +344,7 @@ export default function VisaoGeralTab({
 
   return (
     <FinanceTabShell
-      panelClassName="financeiro-overview"
+      panelClassName={`financeiro-overview${loading && loadedOnce ? ' financeiro-overview--refreshing' : ''}`}
       badge={regimeBadge}
       actions={refreshBtn}
       intro={
@@ -343,6 +356,10 @@ export default function VisaoGeralTab({
       }
     >
 
+      <StatusBanner variant="info" className="financeiro-overview-period-banner mb-3" role="status">
+        <strong>Referência:</strong> {periodCtx.monthTitle} · {periodCtx.labelFromToBr}
+      </StatusBanner>
+
       {summary?.truncated ? (
         <StatusBanner variant="warning" className="mb-3">
           Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
@@ -352,7 +369,7 @@ export default function VisaoGeralTab({
       <div className="financeiro-overview-grid financeiro-overview-grid--dashboard">
         <OverviewCard
           title="Saldo e movimentações"
-          eyebrow="Caixa · mês atual"
+          eyebrow={`Caixa · ${periodCtx.monthTitle}`}
           className="financeiro-overview-card--period"
         >
           {summaryFailed ? (
@@ -361,7 +378,11 @@ export default function VisaoGeralTab({
           <div className="financeiro-overview-hero">
             <Wallet size={22} aria-hidden />
             <div>
-              <p className="financeiro-overview-hero__label">Saldo do período</p>
+              <p className="financeiro-overview-hero__label">
+                <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.saldoPeriodoVisaoGeral}>
+                  Saldo do período
+                </FinanceLabelWithHint>
+              </p>
               <p className="financeiro-overview-hero__value">
                 {fmtMoneyOrUnavailable(summary?.periodBalance, summaryFailed)}
               </p>
@@ -375,20 +396,21 @@ export default function VisaoGeralTab({
             outflow={summary?.settledOut}
             failed={summaryFailed}
           />
-          <Link to="/financeiro?tab=movimentacoes" className="btn-outline btn-sm financeiro-overview-cta">
+          <Link to={movimentacoesPeriodPath} className="btn-outline btn-sm financeiro-overview-cta">
             Ver lançamentos <ArrowRight size={14} />
           </Link>
         </OverviewCard>
 
         <OverviewCard
           title="Saldos por conta"
-          eyebrow="Caixa · posição atual"
+          eyebrow={`Posição em ${periodCtx.labelFromToBr.split(' (')[0]}`}
           className="financeiro-overview-card--banks"
         >
           <div className="financeiro-overview-banks-intro">
             <Landmark size={20} className="financeiro-overview-banks-intro__icon" aria-hidden />
             <p className="text-small text-muted financeiro-overview-banks-intro__text">
-              Valores liquidados em cada conta bancária. Para filtrar lançamentos, use o link em cada conta.
+              Saldos liquidados na data final do intervalo ({periodCtx.labelFromToBr}). Entradas e
+              saídas nos detalhes referem-se ao movimento dentro desse período.
             </p>
           </div>
           <BankBalancesOverview
@@ -398,6 +420,9 @@ export default function VisaoGeralTab({
             refreshKey={refreshToken}
             compareAsOf={bankCompareAsOf}
             showTotalDelta
+            periodFrom={periodCtx.from}
+            periodTo={periodCtx.to}
+            periodLabel={periodCtx.labelFromToBr}
             prefetchedData={bankBalancesData}
             prefetchedCompareData={bankBalancesCompare}
           />
@@ -476,7 +501,7 @@ export default function VisaoGeralTab({
                 <span>
                   <strong>{pendingTxCount}</strong> lançamento(s) pendente(s)
                 </span>
-                <Link to="/financeiro?tab=movimentacoes">Ver</Link>
+                <Link to={movimentacoesPeriodPath}>Ver</Link>
               </li>
             ) : null}
             {showPayablesPreview && !payablesFailed && payablesOverdueCount > 0 ? (
@@ -513,7 +538,7 @@ export default function VisaoGeralTab({
         </OverviewCard>
 
         {financeModule ? (
-          <OverviewCard title="Previsão · 30 dias" eyebrow="Entradas futuras" className="financeiro-overview-card--pair">
+          <OverviewCard title="Previsão · 30 dias" eyebrow="Próximos 30 dias · independente do mês" className="financeiro-overview-card--pair">
             {forecastFailed ? (
               <CardLoadError message="Não foi possível carregar a previsão. Tente atualizar." />
             ) : null}

@@ -7,7 +7,17 @@ export const FINANCE_TERM_HINTS = {
     'Valor esperado com base em mensalidades e lançamentos recorrentes ainda não recebidos.',
   realizado: 'Valor efetivamente recebido ou pago até hoje.',
   saldoAtualBancario:
-    'Saldo consolidado das contas bancárias cadastradas (mesma base da Visão Geral).',
+    'Saldo consolidado das contas bancárias cadastradas na data de referência do mês selecionado.',
+  saldoPeriodoVisaoGeral:
+    'Entradas menos saídas liquidadas no intervalo do mês selecionado (1º dia até hoje ou fim do mês).',
+  saldoContaNaData:
+    'Posição liquidada da conta na data final do intervalo visível — não é necessariamente o saldo de hoje se você consultar um mês passado.',
+  entradasSaidasPeriodoConta:
+    'Movimentação liquidada apenas dentro do intervalo do mês selecionado, não o histórico acumulado da conta.',
+  aReceberIndependeMes:
+    'Valores a receber refletem o snapshot global da academia — não são filtrados pelo mês do seletor.',
+  previsaoIndependeMes:
+    'Previsão de 30 dias olha para frente a partir de hoje — independe do mês selecionado na Visão Geral.',
   saldoAtualLedger:
     'Saldo do caixa contábil (lançamentos liquidados). Cadastre contas bancárias em Minha Academia para alinhar com o extrato.',
   inadimplentes: 'Alunos com mensalidade em aberto após o vencimento.',

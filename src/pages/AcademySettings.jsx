@@ -29,6 +29,7 @@ import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConf
 import { isBillingLive } from '../lib/billingEnabled';
 import { validateCpfCnpj } from '../../lib/billing/validation.js';
 import { mergeNaviWizardIntoModulesPayload } from '../../lib/naviWizardData.js';
+import { academyModulesForSave, DEFAULT_ACADEMY_MODULES, normalizeAcademyModules } from '../lib/academyModules.js';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms } from '../lib/terminology.js';
 
@@ -100,7 +101,7 @@ const AcademySettings = () => {
         quickTimes: '',
         vertical: 'fitness',
         uiLabels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
-        modules: { sales: false, inventory: false, finance: false },
+        modules: { ...DEFAULT_ACADEMY_MODULES },
         customLeadQuestions: [],
         studentExitReasons: [],
         studentFreezeReasons: [],
@@ -238,7 +239,7 @@ const AcademySettings = () => {
                 const doc = await getAcademyDocument(academyId);
                 if (cancelled) return;
                 let labels = { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' };
-                let mods = { sales: false, inventory: false, finance: false };
+                let mods = { ...DEFAULT_ACADEMY_MODULES };
                 try {
                     if (doc.uiLabels) {
                         const parsed = typeof doc.uiLabels === 'string' ? JSON.parse(doc.uiLabels) : doc.uiLabels;
@@ -249,7 +250,7 @@ const AcademySettings = () => {
                     if (doc.modules) {
                         const parsedMods = typeof doc.modules === 'string' ? JSON.parse(doc.modules) : doc.modules;
                         if (parsedMods && typeof parsedMods === 'object') {
-                            mods = { ...mods, ...parsedMods };
+                            mods = normalizeAcademyModules({ ...mods, ...parsedMods });
                         }
                     }
                 } catch (e) {
@@ -347,10 +348,12 @@ const AcademySettings = () => {
                 }
             }
 
-            let modulesPayload = academy.modules || {};
+            let modulesPayload = academyModulesForSave(academy.modules || {});
             try {
                 const curDoc = await databases.getDocument(DB_ID, ACADEMIES_COL, academyId);
-                modulesPayload = mergeNaviWizardIntoModulesPayload(academy.modules || {}, curDoc?.modules);
+                modulesPayload = academyModulesForSave(
+                    mergeNaviWizardIntoModulesPayload(academy.modules || {}, curDoc?.modules)
+                );
             } catch {
                 void 0;
             }
@@ -368,7 +371,7 @@ const AcademySettings = () => {
             invalidateAcademyDocumentCache(academyId);
             try {
                 useLeadStore.getState().setLabels(academy.uiLabels || {});
-                useLeadStore.getState().setModules(academy.modules || {});
+                useLeadStore.getState().setModules(normalizeAcademyModules(academy.modules || {}));
                 useLeadStore.getState().setVertical(vertical);
             } catch (e) {
                 console.error('[AcademySettings] erro:', e);

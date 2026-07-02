@@ -154,8 +154,21 @@ export async function fetchMonthlyClosing({ academyId, month, regime }) {
   return body;
 }
 
-export async function fetchReceivables({ academyId, month }) {
+export async function fetchReceivables({
+  academyId,
+  month,
+  section,
+  limit,
+  offset,
+  includeCobranca = false,
+  refresh = false,
+}) {
   const params = new URLSearchParams({ route: 'receivables', month });
+  if (section) params.set('section', section);
+  if (limit != null && Number.isFinite(Number(limit))) params.set('limit', String(Math.floor(Number(limit))));
+  if (offset != null && Number.isFinite(Number(offset))) params.set('offset', String(Math.floor(Number(offset))));
+  if (includeCobranca) params.set('includeCobranca', '1');
+  if (refresh) params.set('refresh', '1');
   const res = await authedFetch(`/api/finance?${params}`, {
     headers: await financeHeaders(academyId),
   });
@@ -164,11 +177,36 @@ export async function fetchReceivables({ academyId, month }) {
   return body;
 }
 
-export function fetchReceivablesCached({ academyId, month, force = false }) {
-  const key = financeHubCacheKey(['receivables', academyId, month]);
+export function fetchReceivablesCached({
+  academyId,
+  month,
+  section,
+  limit,
+  offset,
+  includeCobranca = false,
+  force = false,
+}) {
+  const key = financeHubCacheKey([
+    'receivables',
+    academyId,
+    month,
+    section || '',
+    limit ?? '',
+    offset ?? '',
+    includeCobranca ? 'cobranca' : '',
+  ]);
   return fetchFinanceHubCached(
     key,
-    () => fetchReceivables({ academyId, month }),
+    () =>
+      fetchReceivables({
+        academyId,
+        month,
+        section,
+        limit,
+        offset,
+        includeCobranca,
+        refresh: force,
+      }),
     { force }
   );
 }

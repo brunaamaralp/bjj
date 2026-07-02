@@ -195,6 +195,23 @@ export function validatePreferredPaymentAccount(account, financeConfig) {
   return { ok: true };
 }
 
+/**
+ * Aplica rascunho de conta bancária ao financeConfig (sem persistir).
+ * @param {Record<string, unknown>} financeConfig
+ * @param {number | 'new'} idx
+ * @param {unknown} draft
+ */
+export function applyBankDraftToFinanceConfig(financeConfig, idx, draft) {
+  const normalized = normalizeBankAccountEntry(draft);
+  const prev = financeConfig && typeof financeConfig === 'object' ? financeConfig : {};
+  if (idx === 'new') {
+    return { ...prev, bankAccounts: [...(prev.bankAccounts || []), normalized] };
+  }
+  const arr = [...(prev.bankAccounts || [])];
+  arr[idx] = normalized;
+  return { ...prev, bankAccounts: arr };
+}
+
 export function validateBankAccountForPayment(account, financeConfig) {
   const labels = listBankAccountLabels(financeConfig);
   if (!labels.length) {

@@ -20,6 +20,7 @@ import {
   getAcademyDocument,
   applyAcademyDocToLeadStore,
 } from './lib/getAcademyDocument.js';
+import { DEFAULT_ACADEMY_MODULES } from './lib/academyModules.js';
 import { cleanOldAccountingCache } from './store/useAccountingStore';
 import { resetStoresForAcademyChange } from './lib/resetStoresForAcademyChange.js';
 import { useUiStore } from './store/useUiStore';
@@ -304,7 +305,7 @@ const App = () => {
   const mobileMoreItems = useMemo(
     () =>
       buildMobileMoreItems({
-        modules: academyReady ? modules : { sales: false, inventory: false, finance: false },
+        modules: academyReady ? modules : { ...DEFAULT_ACADEMY_MODULES },
         isOwner: navRole === 'owner',
         canConfigureAgenteIa,
         pipelineLabel: labels.pipeline || 'Funil',
@@ -319,7 +320,7 @@ const App = () => {
   const mobileDrawerSections = useMemo(
     () =>
       buildMobileDrawerSections({
-        modules: academyReady ? modules : { sales: false, inventory: false, finance: false },
+        modules: academyReady ? modules : { ...DEFAULT_ACADEMY_MODULES },
         canConfigureAgenteIa,
         pipelineLabel: labels.pipeline || 'Funil',
         navStudentsLabel,

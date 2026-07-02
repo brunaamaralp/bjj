@@ -8,6 +8,7 @@ import { assertClientBillingMutationsAllowed } from '../lib/billingGateClient.js
 import { stripUnknownLeadPatch } from '../lib/leadAppwritePatch.js';
 import { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 import { mapAppwriteDocToLead } from '../lib/mapAppwriteLeadDoc.js';
+import { DEFAULT_ACADEMY_MODULES, normalizeAcademyModules } from '../lib/academyModules.js';
 import {
   mergeOnboardingStepIdsDone,
   normalizeOnboardingChecklistList,
@@ -190,7 +191,7 @@ export const useLeadStore = create(
   labels: { leads: 'Leads', students: 'Alunos', classes: 'Aulas', pipeline: 'Funil' },
   /** Vertical de terminologia: 'fitness' (padrão) | 'physio'. */
   vertical: 'fitness',
-  modules: { sales: false, inventory: false, finance: false, aiEnabled: true },
+  modules: { ...DEFAULT_ACADEMY_MODULES },
   inboxUnreadConversations: 0,
   onboardingChecklist: null,
   billingAccess: null,
@@ -295,7 +296,8 @@ export const useLeadStore = create(
   setLabels: (labels) => set({ labels: { ...get().labels, ...(labels || {}) } }),
   setVertical: (v) =>
     set({ vertical: String(v || '').trim() === 'physio' ? 'physio' : 'fitness' }),
-  setModules: (mods) => set({ modules: { ...get().modules, ...(mods || {}) } }),
+  setModules: (mods) =>
+    set({ modules: normalizeAcademyModules({ ...get().modules, ...(mods || {}) }) }),
 
   fetchLeads: async (opts = {}) => {
     const reset = opts.reset !== false;

@@ -27,7 +27,7 @@
 
 ## Resumo
 
-O titular (ou admin, em escopo limitado) configura o financeiro em **Minha academia → Financeiro**: planos de mensalidade, contas para recebimento, **formas de recebimento** (PIX, cartão, etc.), **meios de captura** por maquininha/link, taxas de cartão, régua de cobrança, lembretes WhatsApp e opcionalmente contratos. Alterações ficam pendentes até **Salvar** na barra fixa inferior.
+O titular (ou admin, em escopo limitado) configura o financeiro em **Minha academia → Financeiro**: planos de mensalidade, contas para recebimento, **formas de recebimento** (PIX, cartão, etc.), **meios de captura** por maquininha/link, taxas de cartão, régua de cobrança, lembretes WhatsApp e opcionalmente contratos. Alterações em campos inline ficam pendentes até **Salvar** na barra fixa **no topo do painel**; modais de conta bancária e recebedor de taxas gravam direto ao clicar **Salvar** no modal.
 
 O passo de onboarding `setup_finance` aponta para esta tela e considera concluído quando existe ao menos um plano nomeado.
 
@@ -65,7 +65,7 @@ flowchart TD
 |---|---|---|---|---|
 | 1 | `/empresa?tab=financeiro` | `AcademySettings` + `FinanceiroConfigTab` | Abrir **Minha academia → Financeiro** | Layout sidebar + painel da seção ativa |
 | 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço, repasse de taxas, contratos opcionais |
-| 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; vínculo opcional a recebedor de taxas |
+| 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; **Salvar** no modal persiste na academia |
 | 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações; preview | `paymentMethodSettings` |
 | 3c | `&section=formas-recebimento` (crédito/débito) | `FinanceSettingsCaptureMethodPanel` | CRUD meios de captura; vínculo a recebedor de taxas | `captureMethods[]` |
 | 4 | `&section=taxas` | `FinanceSettingsFeesSection` | Repasse ao aluno (`cardFees`) + recebedores com matriz por bandeira | `feeReceivers[]`, `acquirerFeePolicy` |
@@ -73,7 +73,7 @@ flowchart TD
 | 6 | `&section=lembretes-whatsapp` | `FinanceSettingsWhatsappRemindersSection` | Ativar lembretes antes/depois vencimento | `whatsappReminders` |
 | 7 | `&section=excecoes` | `FinanceSettingsExceptionsSection` | Personalizar rótulos de bolsa/cortesia | `exceptionStatusLabels` |
 | 8 | `&section=contratos` (owner) | `ContractTemplatesPage` (embedded) | Modelos de contrato | Vínculo com planos na matrícula |
-| 9 | Qualquer seção editável | `FinanceSettingsStickySave` | **Salvar** ou **Descartar** | `persistAll` grava em `financeConfig`; validação pré-save com hint + link para seção |
+| 9 | Qualquer seção editável (campos inline) | `FinanceSettingsStickySave` | **Salvar** ou **Descartar** | `persistAll` grava em `financeConfig`; barra sticky no topo do painel |
 | 10 | Onboarding | Checklist inicial | Clicar passo financeiro | Navega para `/empresa?tab=financeiro` |
 
 ### Seções da sidebar (grupos)

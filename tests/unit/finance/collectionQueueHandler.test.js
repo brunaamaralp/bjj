@@ -55,7 +55,7 @@ describe('collectionQueueHandler', () => {
       plans: [{ name: 'Mensal', price: 200 }],
     });
     mocks.listAcademyStudentsMapped.mockResolvedValue([]);
-    mocks.listGridPaymentsForAcademy.mockResolvedValue([]);
+    mocks.listGridPaymentsForAcademy.mockResolvedValue({ rows: [], truncated: false });
   });
 
   it('rejects non-GET', async () => {

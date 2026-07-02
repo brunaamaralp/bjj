@@ -367,36 +367,41 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     return firstFinanceConfigIssueSection(saveValidation.issues);
   }, [saveValidation, hasDirty]);
 
-  const buildMergedConfig = useCallback(() => {
-    let mergedCfg = mergeCollectionIntoFinanceConfig(financeConfig, {
-      collectionRules,
-      overdueLabel,
-    });
-    mergedCfg = mergeExceptionLabelsIntoFinanceConfig(mergedCfg, exceptionLabels);
-    mergedCfg = mergeWhatsappRemindersIntoFinanceConfig({
-      ...mergedCfg,
-      bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
-    });
-    mergedCfg = {
-      ...mergedCfg,
-      paymentMethodSettings: normalizePaymentMethodSettings(mergedCfg),
-      captureMethods: readCaptureMethods(mergedCfg),
-      defaultAccountByMethod: normalizeDefaultAccountByMethodMap(
-        readDefaultAccountByMethod(mergedCfg),
-        mergedCfg
-      ),
-      vendors: normalizeFinanceVendors(mergedCfg.vendors),
-      enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(
-        mergedCfg.enrollmentDiscountPresets
-      ),
-    };
-    return mergedCfg;
-  }, [financeConfig, collectionRules, overdueLabel, exceptionLabels]);
+  const buildMergedConfig = useCallback(
+    (baseFinanceConfig = financeConfig) => {
+      let mergedCfg = mergeCollectionIntoFinanceConfig(baseFinanceConfig, {
+        collectionRules,
+        overdueLabel,
+      });
+      mergedCfg = mergeExceptionLabelsIntoFinanceConfig(mergedCfg, exceptionLabels);
+      mergedCfg = mergeWhatsappRemindersIntoFinanceConfig({
+        ...mergedCfg,
+        bankAccounts: filterBankAccountsWithBank(mergedCfg.bankAccounts),
+      });
+      mergedCfg = {
+        ...mergedCfg,
+        paymentMethodSettings: normalizePaymentMethodSettings(mergedCfg),
+        captureMethods: readCaptureMethods(mergedCfg),
+        defaultAccountByMethod: normalizeDefaultAccountByMethodMap(
+          readDefaultAccountByMethod(mergedCfg),
+          mergedCfg
+        ),
+        vendors: normalizeFinanceVendors(mergedCfg.vendors),
+        enrollmentDiscountPresets: normalizeEnrollmentDiscountPresets(
+          mergedCfg.enrollmentDiscountPresets
+        ),
+      };
+      return mergedCfg;
+    },
+    [financeConfig, collectionRules, overdueLabel, exceptionLabels]
+  );
 
-  const persistAll = useCallback(async () => {
+  const persistAll = useCallback(
+    async (options = {}) => {
     if (!academyId) return false;
 
-    const validation = validateFinanceConfigBeforeSave({ financeConfig, isOwner });
+    const baseFinanceConfig = options.financeConfigOverride ?? financeConfig;
+    const validation = validateFinanceConfigBeforeSave({ financeConfig: baseFinanceConfig, isOwner });
     if (!validation.ok) {
       const message = formatFinanceConfigSaveError(validation.issues);
       addToast({ type: 'error', message });
@@ -405,7 +410,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
 
     setSaving(true);
     try {
-      const mergedCfg = buildMergedConfig();
+      const mergedCfg = buildMergedConfig(baseFinanceConfig);
       const savedCfg = await persistAcademyFinanceConfig(academyId, mergedCfg, {
         databases,
         DB_ID,
@@ -443,7 +448,9 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     } finally {
       setSaving(false);
     }
-  }, [academyId, financeConfig, isOwner, buildMergedConfig, addToast]);
+  },
+    [academyId, financeConfig, isOwner, buildMergedConfig, addToast]
+  );
 
   const discardChanges = useCallback(() => {
     void reloadFromServer();

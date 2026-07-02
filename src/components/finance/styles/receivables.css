@@ -55,6 +55,16 @@
   white-space: nowrap;
 }
 
+.receivables-tab__load-more-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--finance-space-3);
+}
+
+.receivables-tab__load-more-wrap .btn-outline {
+  min-width: 10rem;
+}
+
 .receivables-tab__action {
   display: inline-flex;
   align-items: center;
@@ -90,4 +100,14 @@
   .receivables-tab__total-kpi {
     max-width: none;
   }
+}
+
+.receivables-tab__load-more-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--finance-space-3);
+}
+
+.receivables-tab__load-more-wrap .btn-outline {
+  min-width: 10rem;
 }

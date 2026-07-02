@@ -44,6 +44,8 @@ function bankCardSub(acc) {
 export default function FinanceSettingsBanksSection({
   financeConfig,
   onSaveBank,
+  onSaveBankAndPersist,
+  saving = false,
   onRemoveRequest,
 }) {
   const [editIdx, setEditIdx] = useState(null);
@@ -92,6 +94,21 @@ export default function FinanceSettingsBanksSection({
     setDraftError('');
     onSaveBank(editIdx, draft);
     closeModal();
+  };
+
+  const saveDraftAndPersist = async () => {
+    if (editIdx == null) return;
+    if (!isUsableBankAccount(normalizeBankAccountEntry(draft))) {
+      setDraftError('Informe o banco, número da conta ou chave PIX.');
+      return;
+    }
+    if (typeof onSaveBankAndPersist !== 'function') {
+      saveDraft();
+      return;
+    }
+    setDraftError('');
+    const ok = await onSaveBankAndPersist(editIdx, draft);
+    if (ok) closeModal();
   };
 
   const patchDraft = (patch) => {
@@ -182,11 +199,16 @@ export default function FinanceSettingsBanksSection({
         dialogClassName="navi-modal-shell--scroll-body finance-bank-account-modal"
         footer={
           <div className="finance-bank-modal-footer">
-            <button type="button" className="btn-outline" onClick={closeModal}>
+            <button type="button" className="btn-outline" onClick={closeModal} disabled={saving}>
               Cancelar
             </button>
-            <button type="button" className="btn-primary" onClick={saveDraft}>
-              Aplicar
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={saving}
+              onClick={() => void saveDraftAndPersist()}
+            >
+              {saving ? 'Salvando…' : 'Salvar'}
             </button>
           </div>
         }
@@ -293,9 +315,10 @@ export default function FinanceSettingsBanksSection({
                 />
               </div>
             </div>
-            <p className="text-small text-muted finance-bank-modal-form__hint">
-              Se vazio, o saldo inicial vale para todo o histórico no Caixa.
-            </p>
+          <p className="text-small text-muted finance-bank-modal-form__hint">
+            Se vazio, o saldo inicial vale para todo o histórico no Caixa. Ao salvar, a conta e o saldo
+            ficam gravados na academia.
+          </p>
           </div>
 
           <div className="form-group finance-bank-fees-panel">

@@ -40,6 +40,7 @@ import FinanceTabShell from './FinanceTabShell.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
@@ -642,9 +643,9 @@ export default function PayablesTab({
         {error ? <ErrorBanner message={error} onRetry={() => setRefreshToken((t) => t + 1)} /> : null}
 
         {summary.pendingTruncated ? (
-          <p className="text-small text-muted mb-2" role="status">
-            Exibindo as {300} contas pendentes mais recentes. Regularize ou liquide itens antigos em Lançamentos.
-          </p>
+          <StatusBanner variant="warning" className="mb-3">
+            Exibindo as 300 contas pendentes mais recentes. Regularize ou liquide itens antigos em Lançamentos.
+          </StatusBanner>
         ) : null}
 
         {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS ? (

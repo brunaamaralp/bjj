@@ -137,6 +137,38 @@ export function readFeeReceivers(financeConfig) {
   return raw.map(normalizeFeeReceiver).filter(Boolean);
 }
 
+/**
+ * Aplica rascunho de recebedor de taxas ao financeConfig (sem persistir).
+ * @param {Record<string, unknown>} financeConfig
+ * @param {string | 'new'} editId
+ * @param {Record<string, unknown>} draft
+ */
+export function applyFeeReceiverDraftToFinanceConfig(financeConfig, editId, draft) {
+  const name = String(draft?.name || '').trim();
+  const normalized = normalizeFeeReceiver({ ...draft, name });
+  if (!normalized) return financeConfig;
+
+  const prev = financeConfig && typeof financeConfig === 'object' ? financeConfig : {};
+  const list = readFeeReceivers(prev);
+  const nextList =
+    editId === 'new'
+      ? [...list, normalized]
+      : list.map((r) => (r.id === normalized.id ? normalized : r));
+  const next = nextList.map(normalizeFeeReceiver).filter(Boolean);
+  const defaultId =
+    String(prev.defaultFeeReceiverId || '').trim() ||
+    next.find((r) => r.name === 'Padrão academia')?.id ||
+    next[0]?.id ||
+    '';
+
+  return {
+    ...prev,
+    feeReceivers: next,
+    defaultFeeReceiverId: defaultId,
+    feeReceiversMigrated: true,
+  };
+}
+
 export function findFeeReceiverById(financeConfig, id) {
   const target = String(id || '').trim();
   if (!target) return null;

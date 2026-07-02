@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw } from 'lucide-react';
 import { fetchBankBalances } from '../../lib/financeTxApi.js';
-import { formatBalanceDelta } from '../../lib/financeiroOverview.js';
+import { buildMovimentacoesPeriodPath, formatBalanceDelta } from '../../lib/financeiroOverview.js';
+import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
+import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
 import { EMPRESA_FINANCE_CONFIG_PATH } from '../../lib/financeiroHubTabs.js';
 import { UNALLOCATED_BANK_LABEL } from '../../lib/bankAccountBalances.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -19,14 +21,12 @@ function fmtMoney(v) {
   }
 }
 
-function buildLancamentosAccountPath(label, unallocated) {
-  const params = new URLSearchParams({ tab: 'movimentacoes' });
-  if (unallocated) {
-    params.set('conta', UNALLOCATED_BANK_LABEL);
-  } else if (label) {
-    params.set('conta', label);
-  }
-  return `/financeiro?${params.toString()}`;
+function buildLancamentosAccountPath(label, unallocated, periodFrom, periodTo) {
+  return buildMovimentacoesPeriodPath({
+    from: periodFrom,
+    to: periodTo,
+    conta: unallocated ? UNALLOCATED_BANK_LABEL : label || undefined,
+  });
 }
 
 function BankBalanceCard({
@@ -39,6 +39,8 @@ function BankBalanceCard({
   onClick,
   compactLayout = false,
   accountLinks = false,
+  periodFrom = '',
+  periodTo = '',
   children,
 }) {
   const cardClass = [
@@ -54,7 +56,9 @@ function BankBalanceCard({
     .filter(Boolean)
     .join('');
 
-  const accountLink = accountLinks ? buildLancamentosAccountPath(label, unallocated) : null;
+  const accountLink = accountLinks
+    ? buildLancamentosAccountPath(label, unallocated, periodFrom, periodTo)
+    : null;
 
   if (compactLayout) {
     const HeroTag = selectable ? 'button' : 'div';
@@ -103,7 +107,13 @@ function BankBalanceCard({
   );
 }
 
-function AccountBreakdown({ openingBalance, inflow, outflow, movementCount }) {
+function AccountBreakdown({
+  openingBalance,
+  inflow,
+  outflow,
+  movementCount,
+  periodMode = false,
+}) {
   return (
     <dl className="finance-bank-balances__card-breakdown">
       <div>
@@ -111,16 +121,16 @@ function AccountBreakdown({ openingBalance, inflow, outflow, movementCount }) {
         <dd>{fmtMoney(openingBalance)}</dd>
       </div>
       <div>
-        <dt>Entradas</dt>
+        <dt>{periodMode ? 'Entradas no período' : 'Entradas'}</dt>
         <dd className="finance-bank-balances__card-breakdown--in">+{fmtMoney(inflow)}</dd>
       </div>
       <div>
-        <dt>Saídas</dt>
+        <dt>{periodMode ? 'Saídas no período' : 'Saídas'}</dt>
         <dd className="finance-bank-balances__card-breakdown--out">−{fmtMoney(outflow)}</dd>
       </div>
       {movementCount > 0 ? (
         <div>
-          <dt>Movimentações</dt>
+          <dt>{periodMode ? 'Movimentações no período' : 'Movimentações'}</dt>
           <dd>{movementCount}</dd>
         </div>
       ) : null}
@@ -135,6 +145,9 @@ export default function BankBalancesOverview({
   compactLayout = false,
   embedded = false,
   accountLinks = false,
+  periodFrom = '',
+  periodTo = '',
+  periodLabel = '',
   refreshKey = 0,
   compareAsOf = '',
   showTotalDelta = false,
@@ -213,7 +226,12 @@ export default function BankBalancesOverview({
 
   const selectable = Boolean(onSelectAccount);
   const showUnallocated = compactLayout || (unallocated?.count > 0);
-  const asOfLabel = String(data?.asOf || '').split('-').reverse().join('/') || 'hoje';
+  const resolvedPeriodFrom = periodFrom || data?.periodFrom || '';
+  const resolvedPeriodTo = periodTo || data?.periodTo || '';
+  const periodMode = Boolean(resolvedPeriodFrom && resolvedPeriodTo);
+  const asOfLabel = periodLabel
+    ? periodLabel
+    : String(data?.asOf || '').split('-').reverse().join('/') || 'hoje';
   const totalDelta = showTotalDelta
     ? formatBalanceDelta(data?.totalBalance, prevTotalBalance)
     : null;
@@ -247,7 +265,9 @@ export default function BankBalancesOverview({
         </div>
       ) : (
         <p className="text-small text-muted finance-bank-balances__as-of" role="status">
-          Saldos liquidados até {asOfLabel}
+          <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.saldoContaNaData}>
+            Saldos liquidados em {asOfLabel}
+          </FinanceLabelWithHint>
         </p>
       )}
       <div
@@ -255,6 +275,9 @@ export default function BankBalancesOverview({
       >
         {accounts.map((row) => {
           const selected = selectedAccountLabel && selectedAccountLabel === row.label;
+          const breakdownInflow = periodMode ? row.periodInflow : row.inflow;
+          const breakdownOutflow = periodMode ? row.periodOutflow : row.outflow;
+          const breakdownCount = periodMode ? row.periodMovementCount : row.movementCount;
           return (
             <BankBalanceCard
               key={row.label}
@@ -264,15 +287,18 @@ export default function BankBalancesOverview({
               selectable={selectable}
               compactLayout={compactLayout}
               accountLinks={accountLinks}
+              periodFrom={resolvedPeriodFrom}
+              periodTo={resolvedPeriodTo}
               onClick={
                 selectable ? () => onSelectAccount(selected ? '' : row.label) : undefined
               }
             >
               <AccountBreakdown
                 openingBalance={row.openingBalance}
-                inflow={row.inflow}
-                outflow={row.outflow}
-                movementCount={row.movementCount}
+                inflow={breakdownInflow}
+                outflow={breakdownOutflow}
+                movementCount={breakdownCount}
+                periodMode={periodMode}
               />
             </BankBalanceCard>
           );
@@ -286,6 +312,8 @@ export default function BankBalancesOverview({
             selectable={selectable}
             compactLayout={compactLayout}
             accountLinks={accountLinks}
+            periodFrom={resolvedPeriodFrom}
+            periodTo={resolvedPeriodTo}
             onClick={
               selectable
                 ? () =>
@@ -317,7 +345,10 @@ export default function BankBalancesOverview({
       ) : null}
       <div className="text-small text-muted finance-bank-balances__total">
         <span>
-          Total (contas + não alocado): <strong>{fmtMoney(data?.totalBalance)}</strong>
+          <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.saldoAtualBancario}>
+            Total (contas + não alocado)
+          </FinanceLabelWithHint>
+          : <strong>{fmtMoney(data?.totalBalance)}</strong>
         </span>
         {totalDelta ? (
           <BalanceDeltaBadge

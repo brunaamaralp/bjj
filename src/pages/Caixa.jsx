@@ -469,10 +469,18 @@ function CaixaPage() {
 
   useEffect(() => {
     if (activeTab !== 'movimentacoes') return;
+    const urlFrom = String(searchParams.get('from') || '').trim().slice(0, 10);
+    const urlTo = String(searchParams.get('to') || '').trim().slice(0, 10);
+    const hasUrlPeriod = /^\d{4}-\d{2}-\d{2}$/.test(urlFrom) && /^\d{4}-\d{2}-\d{2}$/.test(urlTo);
+    if (hasUrlPeriod) {
+      setPeriodFrom((prev) => (prev === urlFrom ? prev : urlFrom));
+      setPeriodTo((prev) => (prev === urlTo ? prev : urlTo));
+      return;
+    }
     const { from, to } = monthPeriodBounds(referenceMonth);
     setPeriodFrom((prev) => (prev === from ? prev : from));
     setPeriodTo((prev) => (prev === to ? prev : to));
-  }, [activeTab, referenceMonth]);
+  }, [activeTab, referenceMonth, searchParams]);
 
   const handlePeriodFiltersChange = useCallback((from, to) => {
     setPeriodFrom((prev) => (prev === from ? prev : from));

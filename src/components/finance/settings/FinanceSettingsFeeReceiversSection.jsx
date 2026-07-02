@@ -17,6 +17,7 @@ import {
   findFeeReceiverById,
   normalizeFeeReceiver,
   readFeeReceivers,
+  applyFeeReceiverDraftToFinanceConfig,
 } from '../../../lib/feeReceivers.js';
 import { FINANCE_SETTINGS_SECTIONS } from '../../../lib/financeSettingsSections.js';
 import FeeReceiverMatrix from './FeeReceiverMatrix.jsx';
@@ -39,7 +40,12 @@ function patchReceivers(setFinanceConfig, updater) {
   });
 }
 
-export default function FinanceSettingsFeeReceiversSection({ financeConfig, setFinanceConfig }) {
+export default function FinanceSettingsFeeReceiversSection({
+  financeConfig,
+  setFinanceConfig,
+  onPersistFinanceConfig,
+  saving = false,
+}) {
   const [editId, setEditId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [draftError, setDraftError] = useState('');
@@ -95,6 +101,26 @@ export default function FinanceSettingsFeeReceiversSection({ financeConfig, setF
       return list.map((r) => (r.id === normalized.id ? normalized : r));
     });
     closeModal();
+  };
+
+  const saveDraftAndPersist = async () => {
+    if (!draft) return;
+    const name = String(draft.name || '').trim();
+    if (!name) {
+      setDraftError('Informe o nome do recebedor.');
+      return;
+    }
+    if (typeof onPersistFinanceConfig !== 'function') {
+      saveDraft();
+      return;
+    }
+    setDraftError('');
+    const nextFinanceConfig = applyFeeReceiverDraftToFinanceConfig(financeConfig, editId, {
+      ...draft,
+      name,
+    });
+    const ok = await onPersistFinanceConfig(nextFinanceConfig);
+    if (ok) closeModal();
   };
 
   const setAsDefault = (id) => {
@@ -289,11 +315,16 @@ export default function FinanceSettingsFeeReceiversSection({ financeConfig, setF
         dialogClassName="navi-modal-shell--scroll-body"
         footer={
           <div className="finance-bank-modal-footer">
-            <button type="button" className="btn-outline" onClick={closeModal}>
+            <button type="button" className="btn-outline" onClick={closeModal} disabled={saving}>
               Cancelar
             </button>
-            <button type="button" className="btn-primary" onClick={saveDraft}>
-              Aplicar
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={saving}
+              onClick={() => void saveDraftAndPersist()}
+            >
+              {saving ? 'Salvando…' : 'Salvar'}
             </button>
           </div>
         }

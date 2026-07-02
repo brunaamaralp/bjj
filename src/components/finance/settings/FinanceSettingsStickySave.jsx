@@ -9,6 +9,7 @@ export default function FinanceSettingsStickySave({
   saveIssueSectionId = null,
   saveIssueSectionLabel = '',
   onGoToIssueSection,
+  placement = 'top',
 }) {
   if (!visible) return null;
 
@@ -17,8 +18,17 @@ export default function FinanceSettingsStickySave({
     saveIssueSectionId &&
     typeof onGoToIssueSection === 'function';
 
+  const placementClass =
+    placement === 'bottom'
+      ? 'finance-settings-sticky-save--bottom'
+      : 'finance-settings-sticky-save--top';
+
   return (
-    <div className="finance-settings-sticky-save" role="region" aria-label="Alterações pendentes">
+    <div
+      className={`finance-settings-sticky-save ${placementClass}`}
+      role="region"
+      aria-label="Alterações pendentes"
+    >
       <div className="finance-settings-sticky-save__inner">
         <div className="finance-settings-sticky-save__copy">
           <span className="finance-settings-sticky-save__label">Alterações não salvas</span>

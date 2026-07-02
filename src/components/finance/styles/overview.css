@@ -20,6 +20,20 @@
   );
 }
 
+.financeiro-overview-period-banner {
+  line-height: 1.45;
+}
+
+.financeiro-overview--refreshing .financeiro-overview-grid {
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.financeiro-overview--refreshing .financeiro-overview-refresh {
+  pointer-events: auto;
+}
+
 .financeiro-overview-card--period .financeiro-overview-hero {
   background: color-mix(in srgb, var(--color-card-bg) 72%, transparent);
   border-color: color-mix(in srgb, var(--color-primary) 16%, var(--border-light));

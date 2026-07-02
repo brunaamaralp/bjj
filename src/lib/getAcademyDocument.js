@@ -3,6 +3,7 @@ import { authedFetch } from './authInterceptor.js';
 import { useLeadStore } from '../store/useLeadStore';
 import { parseOnboardingChecklist } from './onboardingChecklist.js';
 import { patchAcademyEmailInList } from './academyContactEmail.js';
+import { DEFAULT_ACADEMY_MODULES, normalizeAcademyModules } from './academyModules.js';
 
 const TTL_MS = 60_000;
 
@@ -149,14 +150,9 @@ export function applyAcademyDocToLeadStore(doc, setters = {}) {
   }
 
   if (mods && typeof mods === 'object' && setModules) {
-    setModules({
-      sales: Boolean(mods.sales),
-      inventory: Boolean(mods.inventory),
-      finance: Boolean(mods.finance),
-      aiEnabled: mods.ai?.enabled !== false,
-    });
+    setModules(normalizeAcademyModules(mods));
   } else if (setModules) {
-    setModules({ sales: false, inventory: false, finance: false, aiEnabled: true });
+    setModules({ ...DEFAULT_ACADEMY_MODULES });
   }
 
   try {

@@ -1,7 +1,12 @@
 /**
  * Helpers para a aba Visão Geral do hub Financeiro (somente agregação no cliente).
  */
-import { forecast30DaysRange, todayYmdLocal } from './financeForecastCore.js';
+import {
+  currentYmFinance,
+  forecast30DaysRange,
+  formatDateBrYmd,
+  todayYmdLocal,
+} from './financeForecastCore.js';
 import { PAYABLE_SOURCE } from './payablesAggregate.js';
 import {
   expectedAmountForStudent,
@@ -55,8 +60,46 @@ export function monthPeriodBounds(ym) {
   const lastDay = new Date(y, mo, 0).getDate();
   const monthEnd = `${ref}-${String(lastDay).padStart(2, '0')}`;
   const today = todayYmdLocal();
-  const to = ref === today.slice(0, 7) ? today : monthEnd;
+  const to = ref === currentYmFinance() ? today : monthEnd;
   return { from, to };
+}
+
+/** Rótulo legível do intervalo (ex.: 01/07/2026 – 15/07/2026 (até hoje)). */
+export function formatPeriodRangeBr(from, to, isCurrentMonth = false) {
+  const f = formatDateBrYmd(from);
+  const t = formatDateBrYmd(to);
+  if (!from || !to) return '—';
+  const range = from === to ? f : `${f} – ${t}`;
+  if (isCurrentMonth) return `${range} (até hoje)`;
+  return range;
+}
+
+/**
+ * Contexto de período único para Visão Geral (client + server).
+ * @param {string} referenceMonth YYYY-MM
+ */
+export function overviewPeriodContext(referenceMonth) {
+  const referenceMonthNorm = String(referenceMonth || currentMonthYm()).trim();
+  const { from, to } = monthPeriodBounds(referenceMonthNorm);
+  const isCurrentMonth = referenceMonthNorm === currentYmFinance();
+  return {
+    referenceMonth: referenceMonthNorm,
+    from,
+    to,
+    asOf: to,
+    isCurrentMonth,
+    monthTitle: formatMonthTitleCapitalized(referenceMonthNorm),
+    labelFromToBr: formatPeriodRangeBr(from, to, isCurrentMonth),
+  };
+}
+
+/** Deep link para Lançamentos com período e conta opcional. */
+export function buildMovimentacoesPeriodPath({ from, to, conta } = {}) {
+  const params = new URLSearchParams({ tab: 'movimentacoes' });
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  if (conta) params.set('conta', conta);
+  return `/financeiro?${params.toString()}`;
 }
 
 /** Último dia civil do mês YYYY-MM como YYYY-MM-DD. */

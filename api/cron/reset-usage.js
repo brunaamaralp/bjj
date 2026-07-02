@@ -22,6 +22,7 @@ import { runAttendanceRetentionCron } from '../../lib/server/runAttendanceRetent
 import { runClassSlotsCron } from '../../lib/server/runClassSlotsCron.js';
 import { runBookingNoShowCron } from '../../lib/server/runBookingNoShowCron.js';
 import { runPagbankReconcileCron } from '../../lib/server/pagbankReconcileHandler.js';
+import { runFinanceReceivablesWarmCron } from '../../lib/server/runFinanceReceivablesWarmCron.js';
 import { runStaleOrphanMetricsCron } from '../../lib/server/bankReconciliationMetricsStore.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -238,6 +239,10 @@ export default async function handler(req, res) {
   if (action === 'finance-settle-scheduled') {
     const out = await runFinanceSettleScheduledCron();
     return res.status(200).json({ mode: 'finance-settle-scheduled', ...out });
+  }
+  if (action === 'finance-receivables-warm') {
+    const out = await runFinanceReceivablesWarmCron();
+    return res.status(200).json({ mode: 'finance-receivables-warm', ...out });
   }
   if (action === 'attendance-retention') {
     const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);

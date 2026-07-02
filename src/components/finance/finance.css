@@ -3128,7 +3128,7 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
 }
 
 .financeiro-config-tab--dirty {
-  padding-bottom: calc(var(--space-12) + 56px);
+  /* barra de save fica no topo do painel (sticky), sem padding inferior extra */
 }
 
 .finance-settings-group__sep {
@@ -3959,18 +3959,38 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
 }
 
 .finance-settings-sticky-save {
+  z-index: var(--z-sticky);
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  border: 0.5px solid var(--border-light);
+  box-shadow: 0 2px 16px rgba(108, 71, 216, 0.08);
+}
+
+.finance-settings-sticky-save--top {
+  position: sticky;
+  top: 0;
+  margin: 0 0 var(--space-4);
+  border-radius: var(--radius-md, 12px);
+}
+
+.finance-settings-sticky-save--bottom {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: var(--z-sticky);
-  padding: var(--space-3) var(--space-4);
   padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
   border-top: 0.5px solid var(--border-light);
+  border-bottom: none;
+  border-radius: 0;
   box-shadow: 0 -2px 16px rgba(108, 71, 216, 0.06);
+}
+
+@media (min-width: 901px) {
+  .finance-settings-sticky-save--bottom {
+    left: var(--sidebar-width, 240px);
+  }
 }
 
 .finance-settings-sticky-save__inner {
@@ -4031,12 +4051,6 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
 .finance-settings-sticky-save__actions {
   display: flex;
   gap: var(--space-2);
-}
-
-@media (min-width: 901px) {
-  .finance-settings-sticky-save {
-    left: var(--sidebar-width, 240px);
-  }
 }
 
 /* —— Finance Settings: layout sidebar estilo System Preferences —— */

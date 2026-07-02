@@ -6,7 +6,12 @@ import StatusBanner from '../../shared/StatusBanner.jsx';
 import { FINANCE_TERM_HINTS } from '../../../lib/financeTermHints.js';
 import FinanceSettingsFeeReceiversSection from './FinanceSettingsFeeReceiversSection.jsx';
 
-export default function FinanceSettingsFeesSection({ financeConfig, setFinanceConfig }) {
+export default function FinanceSettingsFeesSection({
+  financeConfig,
+  setFinanceConfig,
+  onPersistFinanceConfig,
+  saving = false,
+}) {
   const [installmentsExpanded, setInstallmentsExpanded] = useState(false);
   const parcelado = financeConfig.cardFees?.credito_parcelado || {};
 
@@ -138,6 +143,8 @@ export default function FinanceSettingsFeesSection({ financeConfig, setFinanceCo
       <FinanceSettingsFeeReceiversSection
         financeConfig={financeConfig}
         setFinanceConfig={setFinanceConfig}
+        onPersistFinanceConfig={onPersistFinanceConfig}
+        saving={saving}
       />
     </div>
   );

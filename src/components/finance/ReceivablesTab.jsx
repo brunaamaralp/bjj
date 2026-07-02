@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
+import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 import './finance.css';
 import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Wallet } from 'lucide-react';
@@ -8,18 +9,20 @@ import { RECEIVABLE_SOURCE } from '../../lib/receivablesAggregate.js';
 import {
   RECEIVABLES_SECTIONS,
   RECEIVABLES_SECTION_LABELS,
-  filterReceivablesForSection,
 } from '../../lib/financeiroReceivablesSections.js';
 import { formatMonthTitleCapitalized } from '../../lib/financeiroOverview.js';
 import FinanceLabelWithHint from './FinanceLabelWithHint.jsx';
-import MensalidadesPanel from './MensalidadesPanel.jsx';
 import CobrancaPanel from './CobrancaPanel.jsx';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
-import { fetchCollectionQueueCached } from '../../lib/collectionQueueApi.js';
+import StatusBanner from '../shared/StatusBanner.jsx';
+
+const MensalidadesPanel = lazyWithRetry(() => import('./MensalidadesPanel.jsx'));
+
+const RECEIVABLES_PAGE_SIZE = 80;
 
 function fmtMoney(v) {
   try {
@@ -63,6 +66,17 @@ function statusLabel(status) {
   return 'Em aberto';
 }
 
+function receivablesDataWarningMessage(warnings) {
+  if (!warnings || typeof warnings !== 'object') return null;
+  const parts = [];
+  if (warnings.pendingInflowTruncated) parts.push('lançamentos de entrada pendentes');
+  if (warnings.deferredSalesTruncated) parts.push('vendas parceladas em aberto');
+  if (warnings.paymentsMonthTruncated) parts.push('mensalidades do mês');
+  if (warnings.cobrancaPaymentsTruncated) parts.push('pagamentos da fila de cobrança');
+  if (parts.length === 0) return null;
+  return `Dados parciais: limite de leitura atingido em ${parts.join(', ')}. Totais podem estar incompletos.`;
+}
+
 const VALID_SECTIONS = new Set(Object.values(RECEIVABLES_SECTIONS));
 
 const SOURCE_BADGE_CLASS = {
@@ -94,67 +108,60 @@ export default function ReceivablesTab({
   const [data, setData] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [cobrancaSummary, setCobrancaSummary] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!academyId || !ym) return;
-    setLoading(true);
-    setError('');
-    try {
-      const body = await fetchReceivablesCached({
-        academyId,
-        month: ym,
-        force: refreshToken > 0,
-      });
-      setData(body);
-    } catch (e) {
-      console.error('[ReceivablesTab]', e);
-      setData(null);
-      setError('Não foi possível carregar as contas a receber.');
-    } finally {
-      setLoading(false);
-      setLoadedOnce(true);
-    }
-  }, [academyId, ym, refreshToken]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!academyId || !loadedOnce) return undefined;
-    if (resolvedSection === RECEIVABLES_SECTIONS.COBRANCA) return undefined;
-
-    let cancelled = false;
-    let idleId;
-    const run = () => {
-      if (cancelled) return;
-      void fetchCollectionQueueCached({
-        academyId,
-        force: refreshToken > 0,
-      })
-        .then((body) => {
-          if (!cancelled) setCobrancaSummary(body?.summary || null);
-        })
-        .catch(() => {
-          if (!cancelled) setCobrancaSummary(null);
-        });
-    };
-
-    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
-      idleId = window.requestIdleCallback(run, { timeout: 2500 });
-    } else {
-      idleId = window.setTimeout(run, 400);
-    }
-
-    return () => {
-      cancelled = true;
-      if (typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
-        window.cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
+  const load = useCallback(
+    async (append = false) => {
+      if (!academyId || !ym) return;
+      const offset = append ? (data?.items?.length || 0) : 0;
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+        setError('');
       }
-    };
-  }, [academyId, loadedOnce, refreshToken, resolvedSection]);
+      try {
+        const body = await fetchReceivablesCached({
+          academyId,
+          month: ym,
+          section: resolvedSection,
+          limit: RECEIVABLES_PAGE_SIZE,
+          offset,
+          includeCobranca: true,
+          force: refreshToken > 0 && !append,
+        });
+        setHasMore(Boolean(body?.pagination?.hasMore));
+        if (body?.cobrancaSummary != null) {
+          setCobrancaSummary(body.cobrancaSummary);
+        }
+        if (append) {
+          setData((prev) => ({
+            ...body,
+            items: [...(prev?.items || []), ...(body?.items || [])],
+          }));
+        } else {
+          setData(body);
+        }
+      } catch (e) {
+        console.error('[ReceivablesTab]', e);
+        if (!append) {
+          setData(null);
+          setError('Não foi possível carregar as contas a receber.');
+        }
+      } finally {
+        if (append) setLoadingMore(false);
+        else {
+          setLoading(false);
+          setLoadedOnce(true);
+        }
+      }
+    },
+    [academyId, ym, resolvedSection, refreshToken, data?.items?.length]
+  );
+
+  useEffect(() => {
+    void load(false);
+  }, [academyId, ym, resolvedSection, refreshToken]);
 
   useEffect(() => {
     const bump = () => setRefreshToken((t) => t + 1);
@@ -206,9 +213,10 @@ export default function ReceivablesTab({
     ];
   }, [summary.total, bySource, cobrancaSummary?.students]);
 
-  const items = useMemo(
-    () => filterReceivablesForSection(resolvedSection, data?.items || []),
-    [resolvedSection, data?.items]
+  const items = useMemo(() => data?.items || [], [data?.items]);
+  const dataWarningMessage = useMemo(
+    () => receivablesDataWarningMessage(data?.dataWarnings),
+    [data?.dataWarnings]
   );
 
   if (!academyId) {
@@ -298,13 +306,21 @@ export default function ReceivablesTab({
       kpiStrip={kpiStrip}
       subNav={subNav}
     >
+      {dataWarningMessage ? (
+        <StatusBanner variant="warning" className="mb-3">
+          {dataWarningMessage}
+        </StatusBanner>
+      ) : null}
+
       {resolvedSection === RECEIVABLES_SECTIONS.MENSALIDADES ? (
-        <MensalidadesPanel
-          embedded
-          sectionMode
-          referenceMonth={referenceMonth}
-          onReferenceMonthChange={onReferenceMonthChange}
-        />
+        <Suspense fallback={<PageSkeleton variant="table" rows={8} />}>
+          <MensalidadesPanel
+            embedded
+            sectionMode
+            referenceMonth={referenceMonth}
+            onReferenceMonthChange={onReferenceMonthChange}
+          />
+        </Suspense>
       ) : resolvedSection === RECEIVABLES_SECTIONS.COBRANCA ? (
         <CobrancaPanel
           academyId={academyId}
@@ -379,6 +395,19 @@ export default function ReceivablesTab({
               })}
             </tbody>
           </table>
+          {hasMore ? (
+            <div className="receivables-tab__load-more-wrap">
+              <button
+                type="button"
+                className="btn-outline btn-sm"
+                onClick={() => void load(true)}
+                disabled={loadingMore}
+                aria-busy={loadingMore}
+              >
+                {loadingMore ? 'Carregando…' : 'Carregar mais'}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </FinanceTabShell>

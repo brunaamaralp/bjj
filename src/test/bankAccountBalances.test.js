@@ -88,4 +88,51 @@ describe('bankAccountBalances', () => {
     expect(result.unallocated.count).toBe(1);
     expect(result.totalBalance).toBe(1140 + 500 + 100);
   });
+
+  it('computes periodInflow/outflow only inside interval', () => {
+    const transactions = [
+      {
+        status: 'settled',
+        settledAt: '2026-06-01T12:00:00.000Z',
+        type: 'plan',
+        gross: 200,
+        net: 200,
+        bank_account: 'Sicoob · 1',
+      },
+      {
+        status: 'settled',
+        settledAt: '2026-06-20T12:00:00.000Z',
+        type: 'expense',
+        gross: 80,
+        net: -80,
+        bank_account: 'Sicoob · 1',
+      },
+      {
+        status: 'settled',
+        settledAt: '2026-07-05T12:00:00.000Z',
+        type: 'plan',
+        gross: 300,
+        net: 300,
+        bank_account: 'Sicoob · 1',
+      },
+    ];
+
+    const result = computeBankAccountBalances({
+      accounts,
+      transactions,
+      asOfYmd: '2026-07-31',
+      periodFrom: '2026-06-01',
+      periodTo: '2026-06-30',
+    });
+
+    const sicoob = result.accounts.find((a) => a.label === 'Sicoob · 1');
+    expect(sicoob.balance).toBe(1420);
+    expect(sicoob.inflow).toBe(500);
+    expect(sicoob.outflow).toBe(80);
+    expect(sicoob.periodInflow).toBe(200);
+    expect(sicoob.periodOutflow).toBe(80);
+    expect(sicoob.periodMovementCount).toBe(2);
+    expect(result.periodFrom).toBe('2026-06-01');
+    expect(result.periodTo).toBe('2026-06-30');
+  });
 });

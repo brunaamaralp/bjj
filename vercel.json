@@ -152,6 +152,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/reset-usage?action=finance-receivables-warm",
+      "schedule": "0 5,11,17 * * *"
+    },
+    {
       "path": "/api/cron/reset-usage?action=finance-whatsapp-alerts",
       "schedule": "45 11 * * *"
     },
