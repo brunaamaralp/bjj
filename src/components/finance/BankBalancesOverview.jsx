@@ -323,16 +323,26 @@ export default function BankBalancesOverview({
                 : undefined
             }
           >
-            <dl className="finance-bank-balances__card-breakdown">
-              <div>
-                <dt>Lançamentos</dt>
-                <dd>{unallocated?.count ?? 0}</dd>
-              </div>
-              <div>
-                <dt>Vínculo</dt>
-                <dd>Sem conta bancária</dd>
-              </div>
-            </dl>
+            {periodMode ? (
+              <AccountBreakdown
+                openingBalance={unallocated?.openingBalance ?? 0}
+                inflow={unallocated?.periodInflow ?? 0}
+                outflow={unallocated?.periodOutflow ?? 0}
+                movementCount={unallocated?.periodMovementCount ?? 0}
+                periodMode
+              />
+            ) : (
+              <dl className="finance-bank-balances__card-breakdown">
+                <div>
+                  <dt>Lançamentos</dt>
+                  <dd>{unallocated?.count ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Vínculo</dt>
+                  <dd>Sem conta bancária</dd>
+                </div>
+              </dl>
+            )}
           </BankBalanceCard>
         ) : null}
       </div>

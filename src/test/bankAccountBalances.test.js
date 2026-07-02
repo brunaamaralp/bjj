@@ -126,12 +126,14 @@ describe('bankAccountBalances', () => {
     });
 
     const sicoob = result.accounts.find((a) => a.label === 'Sicoob · 1');
-    expect(sicoob.balance).toBe(1420);
+    expect(sicoob.balance).toBe(1120);
     expect(sicoob.inflow).toBe(500);
     expect(sicoob.outflow).toBe(80);
+    expect(sicoob.openingBalance).toBe(1000);
     expect(sicoob.periodInflow).toBe(200);
     expect(sicoob.periodOutflow).toBe(80);
     expect(sicoob.periodMovementCount).toBe(2);
+    expect(sicoob.openingBalance + sicoob.periodInflow - sicoob.periodOutflow).toBe(1120);
     expect(result.periodFrom).toBe('2026-06-01');
     expect(result.periodTo).toBe('2026-06-30');
   });

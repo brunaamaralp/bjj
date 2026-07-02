@@ -5,12 +5,14 @@ const handlerMocks = vi.hoisted(() => ({
   updateDocument: vi.fn(),
   getDocument: vi.fn(),
   createDocument: vi.fn(),
+  deleteDocument: vi.fn(),
   recordFinancialAudit: vi.fn(),
   mirrorStudentPaymentToFinancialTx: vi.fn(),
   assertOrRepairStudentInAcademy: vi.fn(),
   syncStudentOverdueAfterPayment: vi.fn(),
   scheduleControlIdOverdueReconcile: vi.fn(),
   isAcademyOwnerOrAdminUser: vi.fn(),
+  cancelFinancialTxMirrorsForPayment: vi.fn(),
 }));
 
 vi.mock('node-appwrite', () => ({
@@ -33,7 +35,7 @@ vi.mock('../../lib/server/academyAccess.js', () => ({
   logApiError: vi.fn(),
   ensureAuth: vi.fn(),
   ensureAcademyAccess: vi.fn(),
-  ensureAcademyOwnerOrAdmin: vi.fn(),
+  ensureAcademyOwnerOrAdmin: vi.fn().mockResolvedValue(true),
   isAcademyOwnerOrAdminUser: handlerMocks.isAcademyOwnerOrAdminUser,
   DB_ID: 'db-test',
   databases: {
@@ -41,6 +43,7 @@ vi.mock('../../lib/server/academyAccess.js', () => ({
     updateDocument: handlerMocks.updateDocument,
     getDocument: handlerMocks.getDocument,
     createDocument: handlerMocks.createDocument,
+    deleteDocument: handlerMocks.deleteDocument,
   },
 }));
 
@@ -51,6 +54,10 @@ vi.mock('../../lib/server/friendlyError.js', () => ({
 
 vi.mock('../../lib/server/financialAuditLog.js', () => ({
   recordFinancialAudit: handlerMocks.recordFinancialAudit,
+}));
+
+vi.mock('../../lib/server/studentPaymentMirrorCancel.js', () => ({
+  cancelFinancialTxMirrorsForPayment: handlerMocks.cancelFinancialTxMirrorsForPayment,
 }));
 
 vi.mock('../../lib/server/studentPaymentFinancialTxMirror.js', () => ({
@@ -102,6 +109,7 @@ describe('studentPaymentsHandler', () => {
       due_day: 10,
     });
     handlerMocks.mirrorStudentPaymentToFinancialTx.mockResolvedValue({ mirrorId: null, warning: null });
+    handlerMocks.cancelFinancialTxMirrorsForPayment.mockResolvedValue({ cancelledIds: [], errors: [] });
     handlerMocks.syncStudentOverdueAfterPayment.mockResolvedValue({ updated: false });
     handlerMocks.isAcademyOwnerOrAdminUser.mockResolvedValue(true);
   });
@@ -373,5 +381,82 @@ describe('studentPaymentsHandler', () => {
       })
     );
     expect(handlerMocks.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('cancela espelhos (principal + troco) ao estornar sem financial_tx_id', async () => {
+    const prev = {
+      $id: 'pay-reverse',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 200,
+      status: 'paid',
+      payment_category: 'plan',
+      financial_tx_id: '',
+    };
+    handlerMocks.getDocument
+      .mockResolvedValueOnce(prev)
+      .mockResolvedValueOnce({ ...prev, status: 'cancelled' });
+    handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    handlerMocks.updateDocument.mockImplementation(async (_db, _col, id, payload) => ({
+      ...prev,
+      ...payload,
+      $id: id,
+    }));
+    handlerMocks.cancelFinancialTxMirrorsForPayment.mockResolvedValue({
+      cancelledIds: ['tx-main', 'tx-troco'],
+      errors: [],
+    });
+
+    const { handlePatchStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handlePatchStudentPayment(
+      { query: { id: 'pay-reverse' }, body: { action: 'reverse' } },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      { financeConfig: '{}' }
+    );
+
+    expect(handlerMocks.cancelFinancialTxMirrorsForPayment).toHaveBeenCalledWith('pay-reverse', {
+      explicitTxId: '',
+    });
+    expect(handlerMocks.mirrorStudentPaymentToFinancialTx).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('cancela espelhos antes de excluir pagamento', async () => {
+    const prev = {
+      $id: 'pay-del',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 150,
+      status: 'paid',
+      payment_category: 'fee',
+      financial_tx_id: 'tx-fee',
+    };
+    handlerMocks.getDocument.mockResolvedValueOnce(prev);
+    handlerMocks.deleteDocument.mockResolvedValueOnce({});
+    handlerMocks.cancelFinancialTxMirrorsForPayment.mockResolvedValue({
+      cancelledIds: ['tx-fee', 'tx-troco'],
+      errors: [],
+    });
+
+    const { handleDeleteStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handleDeleteStudentPayment(
+      { query: { id: 'pay-del' } },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      {}
+    );
+
+    expect(handlerMocks.cancelFinancialTxMirrorsForPayment).toHaveBeenCalledWith('pay-del', {
+      explicitTxId: 'tx-fee',
+    });
+    expect(handlerMocks.deleteDocument).toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
   });
 });
