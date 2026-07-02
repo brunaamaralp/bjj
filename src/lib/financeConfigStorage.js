@@ -291,6 +291,10 @@ export function compactPlanForStorage(plan) {
     applyCardFee: plan.applyCardFee !== false,
   };
   if (plan.isExempt === true) out.isExempt = true;
+  const weekly = Number(plan.weeklyCheckinsExpected);
+  if (Number.isFinite(weekly) && weekly >= 1) {
+    out.weeklyCheckinsExpected = Math.min(7, Math.max(1, Math.round(weekly)));
+  }
   const description = String(plan.description ?? '').trim();
   if (description) out.description = description;
   const enrollId = String(plan.contractTemplateId ?? '').trim();

@@ -6,7 +6,6 @@ import {
   CalendarDays,
   Loader2,
   RefreshCw,
-  Sparkles,
   UserCheck,
   UserX,
 } from 'lucide-react';
@@ -18,6 +17,7 @@ import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportKpiCard from './shared/ReportKpiCard.jsx';
+import { attendanceRetentionKpiTooltips } from '../../lib/attendanceRetentionKpiTooltips.js';
 import { buildRecepcaoRetencaoPath } from '../../lib/recepcaoHubTabs.js';
 import { useTerms } from '../../lib/terminology.js';
 import './reports.css';
@@ -296,24 +296,21 @@ export default function ReportsFrequenciaPanel({
                 value={summary.active ?? 0}
                 highlight="success"
                 icon={<UserCheck size={20} strokeWidth={2.25} />}
+                tooltip={attendanceRetentionKpiTooltips().active}
               />
               <ReportKpiCard
                 label="Em risco"
                 value={summary.at_risk ?? 0}
                 highlight="warning"
                 icon={<AlertTriangle size={20} strokeWidth={2.25} />}
+                tooltip={attendanceRetentionKpiTooltips().at_risk}
               />
               <ReportKpiCard
                 label="Sumidos"
                 value={summary.absent ?? 0}
                 highlight="danger"
                 icon={<UserX size={20} strokeWidth={2.25} />}
-              />
-              <ReportKpiCard
-                label="Novatos em risco"
-                value={summary.newcomer_at_risk ?? 0}
-                highlight="attention"
-                icon={<Sparkles size={20} strokeWidth={2.25} />}
+                tooltip={attendanceRetentionKpiTooltips().absent}
               />
               <ReportKpiCard
                 label="Check-ins no período"

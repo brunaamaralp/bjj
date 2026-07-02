@@ -3032,6 +3032,9 @@ export default function StudentProfile() {
                                             {attendanceRisk.lastCheckinAt
                                                 ? `Último treino: ${formatCheckinAt(attendanceRisk.lastCheckinAt)}`
                                                 : 'Nenhum check-in registrado'}
+                                            {attendanceRisk.checkinsLast7Days != null
+                                                ? ` · ${attendanceRisk.checkinsLast7Days}/${attendanceRisk.weeklyCheckinsExpected ?? 2} na semana`
+                                                : ''}
                                             {attendanceRisk.daysWithoutCheckin != null
                                                 ? ` · ${attendanceRisk.daysWithoutCheckin} dia(s) sem treinar`
                                                 : ''}

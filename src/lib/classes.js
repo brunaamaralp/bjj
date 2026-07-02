@@ -17,6 +17,11 @@ export function mapClassDoc(doc) {
     is_active: doc.is_active !== false,
     max_capacity:
       maxCapacity == null || maxCapacity === '' ? null : Math.max(0, Number(maxCapacity) || 0) || null,
+    weeklyCheckinsExpected: (() => {
+      const n = Number(doc.weekly_checkins_expected ?? doc.weeklyCheckinsExpected);
+      if (!Number.isFinite(n) || n < 1) return null;
+      return Math.min(7, Math.max(1, Math.round(n)));
+    })(),
     legacy_turma_key: String(doc.legacy_turma_key || '').trim(),
     color: String(doc.color || '').trim(),
     sort_order: Number(doc.sort_order ?? 0) || 0,
@@ -36,7 +41,14 @@ export function buildClassPayload(data, academyId) {
       ? null
       : Math.max(1, Math.min(200, Number(maxRaw) || 0)) || null;
 
-  return {
+  const weeklyRaw = data.weeklyCheckinsExpected ?? data.weekly_checkins_expected;
+  const weeklyN = Number(weeklyRaw);
+  const weeklyCheckins =
+    weeklyRaw === '' || weeklyRaw == null || weeklyRaw === undefined || !Number.isFinite(weeklyN) || weeklyN < 1
+      ? null
+      : Math.min(7, Math.max(1, Math.round(weeklyN)));
+
+  const payload = {
     academy_id: String(academyId || data.academy_id || '').trim(),
     name: String(data.name || '').trim(),
     modality: String(data.modality || '').trim(),
@@ -49,6 +61,8 @@ export function buildClassPayload(data, academyId) {
     color: String(data.color || '').trim(),
     sort_order: Number(data.sort_order ?? 0) || 0,
   };
+  if (weeklyCheckins != null) payload.weekly_checkins_expected = weeklyCheckins;
+  return payload;
 }
 
 /**
@@ -67,6 +81,13 @@ export function validateClassForm(data) {
       errors.max_capacity = 'Capacidade deve ser entre 1 e 200.';
     }
   }
+  const weekly = data?.weeklyCheckinsExpected ?? data?.weekly_checkins_expected;
+  if (weekly !== '' && weekly != null && weekly !== undefined) {
+    const w = Number(weekly);
+    if (!Number.isFinite(w) || w < 1 || w > 7) {
+      errors.weeklyCheckinsExpected = 'Meta semanal deve ser entre 1 e 7 check-ins.';
+    }
+  }
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
@@ -79,6 +100,7 @@ export function emptyClassForm() {
     description: '',
     is_active: true,
     max_capacity: '',
+    weeklyCheckinsExpected: '',
     legacy_turma_key: '',
     color: '',
   };

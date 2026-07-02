@@ -61,6 +61,25 @@ function ClassFormFields({ form, setForm, errors }) {
         {errors.max_capacity ? <span className="field-error">{errors.max_capacity}</span> : null}
       </label>
 
+      <label className="form-field">
+        <span className="form-label">Meta semanal de check-ins</span>
+        <input
+          className="form-input"
+          type="number"
+          min={1}
+          max={7}
+          value={form.weeklyCheckinsExpected}
+          onChange={(e) => setForm((p) => ({ ...p, weeklyCheckinsExpected: e.target.value }))}
+          placeholder="Padrão da academia (2)"
+        />
+        <span className="text-small text-muted">
+          Usada na retenção por frequência quando o plano do aluno não define meta própria.
+        </span>
+        {errors.weeklyCheckinsExpected ? (
+          <span className="field-error">{errors.weeklyCheckinsExpected}</span>
+        ) : null}
+      </label>
+
       <label className="form-field schedules-form-grid__full">
         <span className="form-label">Descrição</span>
         <textarea
@@ -148,6 +167,7 @@ export default function ClassesSection({ academyId, embeddedInLayout = false }) 
       description: item.description,
       is_active: item.is_active !== false,
       max_capacity: item.max_capacity ?? '',
+      weeklyCheckinsExpected: item.weeklyCheckinsExpected ?? '',
       legacy_turma_key: item.legacy_turma_key,
       color: item.color,
     });

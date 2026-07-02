@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { RefreshCw, Users } from 'lucide-react';
+import { Info, RefreshCw, Users } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLeadStore } from '../../store/useLeadStore.js';
@@ -9,7 +9,8 @@ import { useWhatsappTemplates } from '../../lib/useWhatsappTemplates.js';
 import { fetchAttendanceRetention, postAttendanceRetentionAction } from '../../lib/attendanceRetentionApi.js';
 import { sendWhatsappTemplateOutbound } from '../../lib/outboundWhatsappTemplate.js';
 import { addLeadEvent } from '../../lib/leadEvents.js';
-import { ATTENDANCE_RETENTION_EVENT_TYPES } from '../../../lib/attendanceRetentionCore.js';
+import { ATTENDANCE_RETENTION_EVENT_TYPES, normalizeAttendanceRiskStatus } from '../../../lib/attendanceRetentionCore.js';
+import { attendanceRetentionKpiTooltips } from '../../lib/attendanceRetentionKpiTooltips.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import { deactivateStudent } from '../../lib/deactivateStudent.js';
 import { getAcademyDocument } from '../../lib/getAcademyDocument.js';
@@ -49,13 +50,26 @@ function formatLastCheckin(iso) {
   }
 }
 
-function KpiPill({ label, value, tone, featured = false }) {
+function KpiPill({ label, value, tone, featured = false, tooltip = null }) {
   return (
     <div
       className={`attendance-at-risk-kpi attendance-at-risk-kpi--${tone}${featured ? ' attendance-at-risk-kpi--featured' : ''}`}
     >
       <span className="attendance-at-risk-kpi__value">{value}</span>
-      <span className="attendance-at-risk-kpi__label">{label}</span>
+      <span className="attendance-at-risk-kpi__label">
+        {label}
+        {tooltip ? (
+          <button
+            type="button"
+            className="attendance-at-risk-kpi__info"
+            aria-label={`Definição: ${label}`}
+            title={tooltip}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Info size={12} aria-hidden />
+          </button>
+        ) : null}
+      </span>
     </div>
   );
 }
@@ -64,6 +78,14 @@ function daysTone(days) {
   const n = Number(days);
   if (!Number.isFinite(n) || n < 8) return 'ok';
   if (n <= 14) return 'warn';
+  return 'danger';
+}
+
+function weeklyTone(row) {
+  const expected = Number(row.weeklyCheckinsExpected) || 2;
+  const count = Number(row.checkinsLast7Days) || 0;
+  if (count >= expected) return 'ok';
+  if (count > 0) return 'warn';
   return 'danger';
 }
 
@@ -164,6 +186,7 @@ export default function AttendanceAtRiskSection({ className = '' }) {
   const beltOptions = filterOptions.belts || [];
   const queueCount = rows.length;
   const activeCount = summary?.active ?? 0;
+  const kpiTooltips = useMemo(() => attendanceRetentionKpiTooltips(), []);
 
   const handleWhatsApp = async (row) => {
     const studentId = String(row?.studentId || '').trim();
@@ -302,8 +325,23 @@ export default function AttendanceAtRiskSection({ className = '' }) {
         render: (row) => <StudentCell row={row} />,
       },
       {
+        key: 'checkinsLast7Days',
+        label: 'Semana',
+        align: 'center',
+        render: (row) => {
+          const expected = row.weeklyCheckinsExpected ?? 2;
+          const count = row.checkinsLast7Days ?? 0;
+          const tone = weeklyTone(row);
+          return (
+            <span className={`attendance-at-risk-days attendance-at-risk-days--${tone}`} title={`Meta: ${expected}/sem`}>
+              {count}/{expected}
+            </span>
+          );
+        },
+      },
+      {
         key: 'daysWithoutCheckin',
-        label: 'Dias sem treino',
+        label: 'Dias s/ treino',
         align: 'center',
         render: (row) => {
           const days = row.daysWithoutCheckin ?? '—';
@@ -369,7 +407,7 @@ export default function AttendanceAtRiskSection({ className = '' }) {
         subtitle={
           queueCount > 0
             ? `${queueCount} ${queueCount === 1 ? 'aluno precisa' : 'alunos precisam'} de contato de reativação`
-            : 'Alunos em risco por ausência de check-in na catraca'
+            : 'Classificação por meta semanal de check-ins (plano ou turma)'
         }
         action={
           <button
@@ -387,13 +425,24 @@ export default function AttendanceAtRiskSection({ className = '' }) {
 
       {summary ? (
         <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
-          {queueCount > 0 ? (
-            <KpiPill label="Na fila" value={queueCount} tone="queue" featured />
-          ) : null}
-          <KpiPill label="Em risco" value={summary.at_risk ?? 0} tone="at-risk" />
-          <KpiPill label="Sumidos" value={summary.absent ?? 0} tone="absent" />
-          <KpiPill label="Novatos" value={summary.newcomer_at_risk ?? 0} tone="newcomer" />
-          <KpiPill label="Ativos" value={activeCount} tone="active" />
+          <KpiPill
+            label="Em risco"
+            value={summary.at_risk ?? 0}
+            tone="at-risk"
+            tooltip={kpiTooltips.at_risk}
+          />
+          <KpiPill
+            label="Sumidos"
+            value={summary.absent ?? 0}
+            tone="absent"
+            tooltip={kpiTooltips.absent}
+          />
+          <KpiPill
+            label="Ativos"
+            value={activeCount}
+            tone="active"
+            tooltip={kpiTooltips.active}
+          />
         </div>
       ) : null}
 
@@ -455,7 +504,7 @@ export default function AttendanceAtRiskSection({ className = '' }) {
           variant="compact"
           tone="dashed"
           title="Nenhum aluno em risco agora"
-          description="Quando alguém ficar 8+ dias sem treinar, aparece aqui."
+          description="Quando alguém ficar abaixo da meta semanal ou sumir por 15+ dias, aparece aqui."
         />
       ) : null}
 
@@ -465,7 +514,9 @@ export default function AttendanceAtRiskSection({ className = '' }) {
           rows={rows}
           loading={loading}
           emptyMessage="Nenhum aluno em risco."
-          getRowClassName={(row) => `attendance-at-risk-row attendance-at-risk-row--${row.status}`}
+          getRowClassName={(row) =>
+            `attendance-at-risk-row attendance-at-risk-row--${normalizeAttendanceRiskStatus(row.status)}`
+          }
           wrapClassName="attendance-at-risk-table-wrap"
         />
       ) : null}

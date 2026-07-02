@@ -1,181 +1,138 @@
 import { describe, expect, it } from 'vitest';
 import {
   ATTENDANCE_RISK_STATUS,
-  ATTENDANCE_RETENTION_EVENT_TYPES,
-  aggregateLastCheckinByStudent,
+  aggregateCheckinsInWindowByStudent,
   buildStudentRetentionMetrics,
-  classifyAttendanceRisk,
-  daysSinceDate,
+  buildWeeklyGoalsContext,
+  classifyWeeklyAttendanceRisk,
   isAtRiskTableStatus,
-  isRetentionEligibleStudent,
+  resolveWeeklyCheckinsExpected,
   summarizeAttendanceRetention,
-  retentionSnoozeUntilYmd,
-  DEFAULT_ATTENDANCE_ABSENCE_SNOOZE_DAYS,
 } from '../../../lib/attendanceRetentionCore.js';
 
 const TODAY = new Date('2026-06-17T15:00:00');
 
-describe('attendanceRetentionCore', () => {
-  describe('classifyAttendanceRisk', () => {
-    it('classifica ativo até 7 dias', () => {
-      expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 0, daysSinceEnrollment: 120 })
-      ).toBe(ATTENDANCE_RISK_STATUS.ACTIVE);
-      expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 7, daysSinceEnrollment: 120 })
-      ).toBe(ATTENDANCE_RISK_STATUS.ACTIVE);
-    });
+describe('attendanceWeeklyGoalCore via attendanceRetentionCore', () => {
+  const goalsContext = buildWeeklyGoalsContext(
+    {
+      plans: [
+        { name: '2x Semana', price: 200, weeklyCheckinsExpected: 2 },
+        { name: 'Ilimitado', price: 300, weeklyCheckinsExpected: 4 },
+      ],
+    },
+    [{ name: 'Kids', weeklyCheckinsExpected: 3, is_active: true }]
+  );
 
-    it('classifica em risco entre 8 e 14 dias', () => {
+  describe('resolveWeeklyCheckinsExpected', () => {
+    it('prioriza plano, depois turma, depois padrão', () => {
       expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 8, daysSinceEnrollment: 120 })
-      ).toBe(ATTENDANCE_RISK_STATUS.AT_RISK);
+        resolveWeeklyCheckinsExpected({ plan: '2x Semana' }, goalsContext)
+      ).toBe(2);
       expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 14, daysSinceEnrollment: 120 })
-      ).toBe(ATTENDANCE_RISK_STATUS.AT_RISK);
-    });
-
-    it('classifica sumido a partir de 15 dias', () => {
-      expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 15, daysSinceEnrollment: 120 })
-      ).toBe(ATTENDANCE_RISK_STATUS.ABSENT);
-    });
-
-    it('prioriza novato em risco (< 60 dias matrícula, 7+ sem treino)', () => {
-      expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 10, daysSinceEnrollment: 30 })
-      ).toBe(ATTENDANCE_RISK_STATUS.NEWCOMER_AT_RISK);
-      expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 20, daysSinceEnrollment: 30 })
-      ).toBe(ATTENDANCE_RISK_STATUS.NEWCOMER_AT_RISK);
-    });
-
-    it('não marca novato em risco após 60 dias de matrícula', () => {
-      expect(
-        classifyAttendanceRisk({ daysWithoutCheckin: 10, daysSinceEnrollment: 60 })
-      ).toBe(ATTENDANCE_RISK_STATUS.AT_RISK);
+        resolveWeeklyCheckinsExpected({ plan: 'Outro', turma: 'Kids' }, goalsContext)
+      ).toBe(3);
+      expect(resolveWeeklyCheckinsExpected({ turma: 'Adultos' }, goalsContext)).toBe(2);
     });
   });
 
-  describe('daysSinceDate', () => {
-    it('conta dias desde ISO', () => {
-      expect(daysSinceDate('2026-06-10T18:00:00.000Z', TODAY)).toBe(7);
+  describe('classifyWeeklyAttendanceRisk', () => {
+    it('marca ativo quando atinge meta semanal', () => {
+      expect(
+        classifyWeeklyAttendanceRisk({
+          checkinsLast7Days: 2,
+          daysWithoutCheckin: 1,
+          weeklyExpected: 2,
+        })
+      ).toBe(ATTENDANCE_RISK_STATUS.ACTIVE);
     });
 
-    it('conta dias desde YYYY-MM-DD', () => {
-      expect(daysSinceDate('2026-06-10', TODAY)).toBe(7);
+    it('marca em risco quando abaixo da meta mas com algum check-in', () => {
+      expect(
+        classifyWeeklyAttendanceRisk({
+          checkinsLast7Days: 1,
+          daysWithoutCheckin: 2,
+          weeklyExpected: 2,
+        })
+      ).toBe(ATTENDANCE_RISK_STATUS.AT_RISK);
+    });
+
+    it('marca sumido após 15 dias sem treino e zero na semana', () => {
+      expect(
+        classifyWeeklyAttendanceRisk({
+          checkinsLast7Days: 0,
+          daysWithoutCheckin: 15,
+          weeklyExpected: 2,
+        })
+      ).toBe(ATTENDANCE_RISK_STATUS.ABSENT);
+    });
+
+    it('dá carência de 7 dias para matrícula recente sem check-in', () => {
+      expect(
+        classifyWeeklyAttendanceRisk({
+          checkinsLast7Days: 0,
+          daysWithoutCheckin: 5,
+          weeklyExpected: 2,
+        })
+      ).toBe(ATTENDANCE_RISK_STATUS.ACTIVE);
     });
   });
 
   describe('buildStudentRetentionMetrics', () => {
-    it('usa matrícula quando não há check-in', () => {
-      const student = { enrollmentDate: '2026-01-01' };
-      const metrics = buildStudentRetentionMetrics(student, null, TODAY);
-      expect(metrics?.daysWithoutCheckin).toBeGreaterThanOrEqual(15);
-      expect(metrics?.status).toBe(ATTENDANCE_RISK_STATUS.ABSENT);
-    });
-
-    it('usa último check-in quando existe', () => {
-      const student = { enrollmentDate: '2026-01-01', converted_at: '2026-01-01' };
-      const metrics = buildStudentRetentionMetrics(student, '2026-06-15T12:00:00.000Z', TODAY);
-      expect(metrics?.daysWithoutCheckin).toBe(2);
-      expect(metrics?.status).toBe(ATTENDANCE_RISK_STATUS.ACTIVE);
-    });
-
-    it('retorna null sem matrícula nem check-in', () => {
-      expect(buildStudentRetentionMetrics({}, null, TODAY)).toBeNull();
+    it('usa contagem semanal e meta do plano', () => {
+      const student = { plan: '2x Semana', enrollmentDate: '2026-01-01' };
+      const metrics = buildStudentRetentionMetrics(student, '2026-06-15T12:00:00.000Z', TODAY, {
+        checkinsLast7Days: 1,
+        goalsContext,
+      });
+      expect(metrics?.weeklyCheckinsExpected).toBe(2);
+      expect(metrics?.checkinsLast7Days).toBe(1);
+      expect(metrics?.status).toBe(ATTENDANCE_RISK_STATUS.AT_RISK);
     });
   });
 
-  describe('isRetentionEligibleStudent', () => {
-    it('exclui trancado', () => {
-      const student = {
-        studentStatus: 'active',
-        contact_type: 'student',
-        freeze_status: 'active',
-      };
-      expect(isRetentionEligibleStudent(student, TODAY)).toBe(false);
-    });
-
-    it('exclui snooze em contato', () => {
-      const student = {
-        studentStatus: 'active',
-        contact_type: 'student',
-        retention_snoozed_until: '2026-06-20',
-      };
-      expect(isRetentionEligibleStudent(student, TODAY)).toBe(false);
-    });
-
-    it('exclui flag retention_in_contact', () => {
-      const student = {
-        studentStatus: 'active',
-        contact_type: 'student',
-        retention_in_contact: true,
-      };
-      expect(isRetentionEligibleStudent(student, TODAY)).toBe(false);
-    });
-
-    it('inclui ativo sem trancamento', () => {
-      const student = {
-        studentStatus: 'active',
-        contact_type: 'student',
-      };
-      expect(isRetentionEligibleStudent(student, TODAY)).toBe(true);
-    });
-  });
-
-  describe('aggregateLastCheckinByStudent', () => {
-    it('mantém o check-in mais recente por aluno', () => {
-      const map = aggregateLastCheckinByStudent([
-        { student_id: 's1', checked_in_at: '2026-06-01T10:00:00.000Z' },
-        { student_id: 's1', checked_in_at: '2026-06-10T10:00:00.000Z' },
-        { lead_id: 's2', checked_in_at: '2026-06-05T10:00:00.000Z' },
-      ]);
-      expect(map.get('s1')).toBe('2026-06-10T10:00:00.000Z');
-      expect(map.get('s2')).toBe('2026-06-05T10:00:00.000Z');
+  describe('aggregateCheckinsInWindowByStudent', () => {
+    it('conta check-ins na janela rolante de 7 dias', () => {
+      const map = aggregateCheckinsInWindowByStudent(
+        [
+          { student_id: 's1', checked_in_at: '2026-06-16T10:00:00.000Z' },
+          { student_id: 's1', checked_in_at: '2026-06-10T10:00:00.000Z' },
+        ],
+        7,
+        TODAY
+      );
+      expect(map.get('s1')).toBe(1);
     });
   });
 
   describe('summarizeAttendanceRetention', () => {
-    it('ordena at_risk por dias sem check-in decrescente', () => {
+    it('ordena fila por gap semanal e status', () => {
       const students = [
-        { id: 'a', name: 'Ana', enrollmentDate: '2026-01-01' },
-        { id: 'b', name: 'Bob', enrollmentDate: '2026-01-01' },
+        { id: 'a', name: 'Ana', plan: '2x Semana', enrollmentDate: '2026-01-01' },
+        { id: 'b', name: 'Bob', plan: '2x Semana', enrollmentDate: '2026-01-01' },
       ];
       const last = new Map([
         ['a', '2026-06-01T10:00:00.000Z'],
         ['b', '2026-05-20T10:00:00.000Z'],
       ]);
-      const { summary, atRisk } = summarizeAttendanceRetention(students, last, TODAY);
+      const count7 = new Map([
+        ['a', 0],
+        ['b', 0],
+      ]);
+      const { summary, atRisk } = summarizeAttendanceRetention(students, last, TODAY, {
+        checkinsLast7DaysByStudent: count7,
+        goalsContext,
+      });
       expect(summary.absent).toBe(2);
       expect(atRisk[0].studentId).toBe('b');
-      expect(atRisk[1].studentId).toBe('a');
     });
   });
 
   describe('isAtRiskTableStatus', () => {
-    it('inclui em risco, sumido e novato', () => {
+    it('inclui apenas em risco e sumido', () => {
       expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.AT_RISK)).toBe(true);
       expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.ABSENT)).toBe(true);
-      expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.NEWCOMER_AT_RISK)).toBe(true);
+      expect(isAtRiskTableStatus('newcomer_at_risk')).toBe(true);
       expect(isAtRiskTableStatus(ATTENDANCE_RISK_STATUS.ACTIVE)).toBe(false);
-    });
-  });
-
-  describe('retentionSnoozeUntilYmd', () => {
-    it('usa 14 dias por padrão', () => {
-      expect(retentionSnoozeUntilYmd(undefined, TODAY)).toBe('2026-07-01');
-    });
-
-    it('respeita duração informada', () => {
-      expect(retentionSnoozeUntilYmd(7, TODAY)).toBe('2026-06-24');
-      expect(retentionSnoozeUntilYmd(30, TODAY)).toBe('2026-07-17');
-    });
-  });
-
-  describe('ATTENDANCE_RETENTION_EVENT_TYPES', () => {
-    it('inclui snooze rápido sem motivo', () => {
-      expect(ATTENDANCE_RETENTION_EVENT_TYPES.SNOOZE).toBe('attendance_snooze');
     });
   });
 });

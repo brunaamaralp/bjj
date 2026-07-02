@@ -50,6 +50,27 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
             />
           </div>
           <div className="form-group">
+            <label>Meta semanal de check-ins</label>
+            <input
+              className="form-input"
+              type="number"
+              min={1}
+              max={7}
+              value={pl.weeklyCheckinsExpected ?? ''}
+              onChange={(e) => {
+                const raw = String(e.target.value || '').trim();
+                onUpdate(idx, {
+                  weeklyCheckinsExpected: raw === '' ? null : Number(raw),
+                });
+              }}
+              placeholder="2 (padrão)"
+            />
+            <p className="text-small text-muted">
+              Quantos treinos por semana o aluno deste plano deveria fazer. Usada na aba Retenção da
+              catraca; turma pode sobrescrever se o plano não tiver meta.
+            </p>
+          </div>
+          <div className="form-group">
             <label>Descrição</label>
             <input
               className="form-input"
