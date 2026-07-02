@@ -7,6 +7,7 @@ import {
   scoreBankItemToTxBase,
   txDirectionForReconciliation,
 } from './bankReconciliationScore.js';
+import { txEligibleForBankReconciliation } from './financeLedgerRegime.js';
 
 export {
   BANK_MATCH_SUGGEST_SCORE,
@@ -80,6 +81,7 @@ export function buildReconciliationIndex(lancamentosNaoConciliados) {
   for (const tx of lancamentosNaoConciliados || []) {
     const id = String(tx?.id || '').trim();
     if (!id) continue;
+    if (!txEligibleForBankReconciliation(tx)) continue;
     if (tx?.reconciled === true) continue;
     if (String(tx?.status || '').toLowerCase() !== 'settled') continue;
 

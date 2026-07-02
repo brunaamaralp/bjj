@@ -46,6 +46,8 @@ scripts/*
 !scripts/ensure-inbox-media-bucket.mjs
 !scripts/backfill-conversation-team-perms.mjs
 !scripts/backfill-finance-tx-description.mjs
+!scripts/provision-financial-tx-ledger-regime.mjs
+!scripts/backfill-financial-tx-ledger-regime.mjs
 
 # Editor directories and files
 .vscode/*

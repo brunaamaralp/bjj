@@ -341,6 +341,7 @@ const FINANCIAL_TX_ATTRS = [
   { key: 'reconciled_at', type: 'datetime' },
   { key: 'reconciled_by', type: 'string', size: 64 },
   { key: 'bank_statement_id', type: 'string', size: 64 },
+  { key: 'ledger_regime', type: 'string', size: 16 },
 ];
 
 const STUDENT_PAYMENTS_ATTRS = [

@@ -256,12 +256,14 @@ export default function TransacoesTab({
   onTxMutated,
   periodBalance = null,
   periodBalanceLoading = false,
+  onRegimeChange,
 }) {
   const leads = useStudentStore((s) => s.students);
   const chartAccounts = useAccountingStore((s) => s.accounts);
   const journalEntries = useAccountingStore((s) => s.journal);
   const toast = useToast();
   const navigate = useNavigate();
+  const actorRole = isOwner || isAdmin ? (isOwner ? 'owner' : 'admin') : 'receptionist';
 
   useEffect(() => {
     if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
@@ -307,7 +309,9 @@ export default function TransacoesTab({
   const [editingTxId, setEditingTxId] = useState('');
   const [editPreservedSaleId, setEditPreservedSaleId] = useState('');
   const [studentDisplayName, setStudentDisplayName] = useState('');
-  const [regime, setRegime] = useState(() => (academyId ? getFinanceRegime(academyId) : FINANCE_REGIME.CASH));
+  const [regime, setRegime] = useState(() =>
+    academyId ? getFinanceRegime(academyId, { actorRole }) : FINANCE_REGIME.CASH
+  );
   const [loadError, setLoadError] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState(null);
@@ -351,8 +355,12 @@ export default function TransacoesTab({
   const highlightDrawerOpenedRef = useRef('');
 
   useEffect(() => {
-    if (academyId) setRegime(getFinanceRegime(academyId));
-  }, [academyId]);
+    if (academyId) setRegime(getFinanceRegime(academyId, { actorRole }));
+  }, [academyId, actorRole]);
+
+  useEffect(() => {
+    onRegimeChange?.(regime);
+  }, [regime, onRegimeChange]);
 
   useEffect(() => {
     if (!academyId) return;
@@ -1281,6 +1289,7 @@ export default function TransacoesTab({
                 academyId={academyId}
                 value={regime}
                 onChange={setRegime}
+                actorRole={actorRole}
                 hintStyle="tooltip"
                 className="finance-regime-toggle--inline"
               />

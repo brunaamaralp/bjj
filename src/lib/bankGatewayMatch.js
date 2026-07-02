@@ -7,6 +7,8 @@
  * `source_format=pagbank_edi`) ou quando o lançamento Nave já tem `gateway_charge_id`
  * e o extrato foi enriquecido na importação. Ver docs/finance/pagbank-gateway-deterministic-match.md.
  */
+import { txEligibleForBankReconciliation } from './financeLedgerRegime.js';
+
 export const GATEWAY_PROVIDER_PAGBANK = 'pagbank';
 
 export const RECONCILIATION_METHOD_GATEWAY = 'gateway_deterministic';
@@ -70,6 +72,7 @@ export function financialTxGatewayProvider(tx) {
 }
 
 export function isDeterministicGatewayMatch(item, tx) {
+  if (!txEligibleForBankReconciliation(tx)) return false;
   const itemId = extractGatewayChargeIdFromBankItem(item);
   const txId = financialTxGatewayChargeId(tx);
   if (!itemId || !txId || itemId !== txId) return false;

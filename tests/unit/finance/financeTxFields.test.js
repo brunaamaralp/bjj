@@ -471,6 +471,11 @@ describe('financeTxFields', () => {
 
       expect(payload.created_by).toBe('user-x');
     });
+
+    it('manual create defaults ledger_regime to cash', () => {
+      const payload = buildFinanceTxPayload(baseInput());
+      expect(payload.ledger_regime).toBe('cash');
+    });
   });
 
   describe('validateManualFinanceTxIdentity', () => {

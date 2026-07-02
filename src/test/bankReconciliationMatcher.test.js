@@ -61,4 +61,28 @@ describe('bankReconciliationMatcher', () => {
       )
     ).toBe(50);
   });
+
+  it('ignora lançamento accrual (CMV) mesmo com valor e data iguais', () => {
+    const cmvTx = {
+      id: 'tx-cmv',
+      status: 'settled',
+      type: 'stock_purchase',
+      direction: 'out',
+      gross: 100,
+      net: -100,
+      settledAt: '2026-05-10',
+      reconciled: false,
+      origin_type: 'sale_cmv',
+      ledger_regime: 'accrual',
+    };
+    expect(
+      scoreBankItemToTx({ date: '2026-05-10', amount: 100, direction: 'debit' }, cmvTx)
+    ).toBe(0);
+    const results = matchBankItemsToTransactions(
+      [{ date: '2026-05-10', amount: 100, direction: 'credit', description: 'Pix' }],
+      [cmvTx, tx]
+    );
+    expect(results[0].suggested_tx_id).toBe('tx1');
+    expect(results[0].suggested_tx_id).not.toBe('tx-cmv');
+  });
 });

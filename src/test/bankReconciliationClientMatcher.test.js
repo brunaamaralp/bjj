@@ -56,6 +56,19 @@ describe('bankReconciliationClientMatcher', () => {
       expect(lookupCandidatesByAmount(index, 15001)).toHaveLength(2);
       expect(lookupCandidatesByAmount(index, 20000)).toHaveLength(0);
     });
+
+    it('excludes accrual CMV from index', () => {
+      const index = buildReconciliationIndex([
+        fakeTx({ id: 'cash', gross: 100 }),
+        {
+          ...fakeTx({ id: 'cmv', gross: 100, direction: 'out', type: 'stock_purchase' }),
+          origin_type: 'sale_cmv',
+          ledger_regime: 'accrual',
+        },
+      ]);
+      expect(index.txById.size).toBe(1);
+      expect(index.txById.has('cmv')).toBe(false);
+    });
   });
 
   describe('matchReconciliationItem', () => {

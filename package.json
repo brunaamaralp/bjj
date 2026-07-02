@@ -58,6 +58,8 @@
     "provision:finance-recurrence": "node scripts/provision-finance-recurrence-schema.mjs",
     "provision:finance-features": "node scripts/provision-finance-features-schema.mjs",
     "provision:financial-tx-category": "node --env-file=.env scripts/provision-financial-tx-category.mjs",
+    "provision:financial-tx-ledger-regime": "node --env-file=.env --env-file=.env.local scripts/provision-financial-tx-ledger-regime.mjs",
+    "backfill:financial-tx-ledger-regime": "node --env-file=.env --env-file=.env.local scripts/backfill-financial-tx-ledger-regime.mjs",
     "provision:plan-freeze": "node --env-file=.env scripts/provision-plan-freeze-schema.mjs",
     "cleanup:conversation-unused-attrs": "node --env-file=.env scripts/delete-conversation-unused-attrs.mjs",
     "provision:conversation-agent-state": "node --env-file=.env scripts/provision-conversation-agent-state.mjs",

@@ -4,7 +4,7 @@ import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 import { fetchFinanceSummary, fetchMonthlyClosing, fetchPayablesCached } from '../lib/financeTxApi.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../lib/financeTermHints.js';
 
-import { getFinanceRegime } from '../lib/financeCompetence.js';
+import { getFinanceRegime, FINANCE_REGIME } from '../lib/financeCompetence.js';
 
 import { useSearchParams, Navigate } from 'react-router-dom';
 
@@ -142,6 +142,7 @@ function CaixaPage() {
   const [periodBalance, setPeriodBalance] = useState(null);
 
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [movimentacoesRegime, setMovimentacoesRegime] = useState(FINANCE_REGIME.CASH);
   const summaryReqRef = useRef(0);
   const [conferredMonths, setConferredMonths] = useState(() => new Set());
 
@@ -506,34 +507,28 @@ function CaixaPage() {
     setSummaryLoading(true);
 
     try {
+      const regime =
+        movimentacoesRegime ||
+        getFinanceRegime(academyId, {
+          actorRole: isOwner || isAdmin ? (isOwner ? 'owner' : 'admin') : 'receptionist',
+        });
 
       const s = await fetchFinanceSummary({
-
         academyId,
-
         from: periodFrom,
-
         to: periodTo,
-
-        regime: getFinanceRegime(academyId),
-
+        regime,
       });
 
       if (reqId !== summaryReqRef.current) return;
       setPeriodBalance(s);
-
     } catch {
-
       if (reqId !== summaryReqRef.current) return;
       setPeriodBalance(null);
-
     } finally {
-
       if (reqId === summaryReqRef.current) setSummaryLoading(false);
-
     }
-
-  }, [academyId, periodFrom, periodTo]);
+  }, [academyId, periodFrom, periodTo, movimentacoesRegime, isOwner, isAdmin]);
 
 
 
@@ -541,7 +536,7 @@ function CaixaPage() {
 
     if (activeTab === 'movimentacoes' && academyId) void loadPeriodSummary();
 
-  }, [activeTab, academyId, loadPeriodSummary]);
+  }, [activeTab, academyId, loadPeriodSummary, movimentacoesRegime]);
 
 
 
@@ -664,6 +659,7 @@ function CaixaPage() {
               periodTo={periodTo}
               onPeriodFiltersChange={handlePeriodFiltersChange}
               onTxMutated={loadPeriodSummary}
+              onRegimeChange={setMovimentacoesRegime}
               periodBalance={periodBalance}
               periodBalanceLoading={summaryLoading}
             />

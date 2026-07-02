@@ -36,7 +36,8 @@ export function competenceMonthMissing(tx) {
   return !parseCompetenceMonth(tx?.competence_month);
 }
 
-export function getFinanceRegime(academyId) {
+export function getFinanceRegime(academyId, options = {}) {
+  if (options.forceCash || options.actorRole === 'receptionist') return FINANCE_REGIME.CASH;
   if (!academyId || typeof localStorage === 'undefined') return FINANCE_REGIME.CASH;
   try {
     const v = localStorage.getItem(`${LS_PREFIX}${academyId}`);
@@ -46,7 +47,8 @@ export function getFinanceRegime(academyId) {
   }
 }
 
-export function setFinanceRegime(academyId, regime) {
+export function setFinanceRegime(academyId, regime, options = {}) {
+  if (options.actorRole === 'receptionist') return;
   if (!academyId || typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(
