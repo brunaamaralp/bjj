@@ -23,7 +23,7 @@ export default function PeriodFlowMiniChart({ inflow, outflow, failed = false })
     <div
       className="financeiro-overview-flow-chart"
       role="img"
-      aria-label={`Entradas liquidadas ${fmtMoney(inVal)}, saídas liquidadas ${fmtMoney(outVal)}`}
+      aria-label={`Entradas recebidas ${fmtMoney(inVal)}, saídas liquidadas ${fmtMoney(outVal)}`}
     >
       <div className="financeiro-overview-flow-chart__row">
         <span className="financeiro-overview-flow-chart__label">Entradas</span>
