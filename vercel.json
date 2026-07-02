@@ -153,7 +153,7 @@
     },
     {
       "path": "/api/cron/reset-usage?action=finance-receivables-warm",
-      "schedule": "0 5,11,17 * * *"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/reset-usage?action=finance-whatsapp-alerts",
