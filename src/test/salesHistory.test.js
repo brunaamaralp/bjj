@@ -5,6 +5,7 @@ import {
   formatCancelMotivo,
   formatSaleIdShort,
   buildCancelReceiptText,
+  itemsSummaryFromSnapshot,
 } from '../lib/salesHistory.js';
 
 describe('salesHistory', () => {
@@ -50,5 +51,17 @@ describe('salesHistory', () => {
     expect(text).toContain('Academia');
     expect(text).toContain('Kimono');
     expect(text).toContain('80');
+  });
+
+  it('itemsSummaryFromSnapshot uses stored labels', () => {
+    const doc = {
+      itens_snapshot_json: JSON.stringify([
+        { label: 'Kimono M', quantidade: 1 },
+        { label: 'Faixa', quantidade: 1 },
+      ]),
+    };
+    expect(itemsSummaryFromSnapshot(doc)).toBe('Kimono M + 1 outro');
+    expect(itemsSummaryFromSnapshot({ itens_snapshot_json: '[]' })).toBeNull();
+    expect(itemsSummaryFromSnapshot({})).toBeNull();
   });
 });

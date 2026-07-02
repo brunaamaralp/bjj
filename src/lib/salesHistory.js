@@ -76,6 +76,22 @@ export function formatItemsSummary(items, firstLabel) {
   return `${label} + ${list.length - 1} outro${list.length - 1 > 1 ? 's' : ''}`;
 }
 
+/** Resumo de itens a partir do snapshot gravado na venda (evita N+1 na listagem). */
+export function itemsSummaryFromSnapshot(doc) {
+  try {
+    const raw = doc?.itens_snapshot_json;
+    if (!raw) return null;
+    const snap = JSON.parse(raw);
+    if (!Array.isArray(snap) || !snap.length) return null;
+    const first = String(snap[0]?.label || '').trim() || 'Item';
+    if (snap.length === 1) return first;
+    const rest = snap.length - 1;
+    return `${first} + ${rest} outro${rest > 1 ? 's' : ''}`;
+  } catch {
+    return null;
+  }
+}
+
 export function computeHistoryTotals(sales) {
   let concludedCount = 0;
   let concludedTotal = 0;
