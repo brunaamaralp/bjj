@@ -13,9 +13,10 @@ import {
 
 export const UNCLASSIFIED_DRE_GROUP = 'Não classificado';
 
-/** Classificação gerencial para relatório operacional e DFC. */
+/** Classificação gerencial (legado interno). Para DFC use `financeDfcMapping.js`. */
 export const OPERATIONAL_BUCKETS = {
   OPERATIONAL: 'operational',
+  /** @deprecated Use operational; na DFC mapeia para Operacional via financeDfcMapping */
   FINANCIAL: 'financial',
   FINANCING: 'financing',
   NEUTRAL: 'neutral',
@@ -65,7 +66,7 @@ export const FINANCE_CATEGORIES = {
     type: 'financial_revenue',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.2',
-    operationalBucket: 'financial',
+    operationalBucket: 'operational',
   },
   APORTE_CAPITAL: {
     label: 'Aporte de capital',
@@ -212,21 +213,21 @@ export const FINANCE_CATEGORIES = {
     type: 'expense_financial',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
-    operationalBucket: 'financial',
+    operationalBucket: 'operational',
   },
   JUROS: {
     label: 'Juros',
     type: 'expense_financial',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
-    operationalBucket: 'financial',
+    operationalBucket: 'operational',
   },
   TAXA_CARTAO: {
     label: 'Taxas de cartão',
     type: 'card_fee',
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
-    operationalBucket: 'financial',
+    operationalBucket: 'operational',
   },
 };
 
@@ -334,9 +335,6 @@ function sortCategoryGroupMap(map, nature) {
 const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'rental', 'other']);
 
 const TYPE_TO_OPERATIONAL_BUCKET = {
-  financial_revenue: 'financial',
-  expense_financial: 'financial',
-  card_fee: 'financial',
   equity_injection: 'financing',
   loan_proceeds: 'financing',
   loan_repayment: 'financing',
@@ -404,7 +402,9 @@ export function operationalBucketForCategory(value, accounts = null) {
   if (cat?.type && TYPE_TO_OPERATIONAL_BUCKET[cat.type]) return TYPE_TO_OPERATIONAL_BUCKET[cat.type];
   if (cat?.type && REVENUE_TYPES.has(cat.type)) return 'operational';
   if (cat?.type === 'refund') return 'operational';
-  if (cat?.type === 'expense_financial' || cat?.type === 'card_fee') return 'financial';
+  if (cat?.type === 'expense_financial' || cat?.type === 'card_fee' || cat?.type === 'financial_revenue') {
+    return 'operational';
+  }
   if (cat?.type === 'expense_operational' || cat?.type === 'stock_purchase') return 'operational';
   return 'operational';
 }
@@ -418,7 +418,9 @@ export function operationalBucketForTx(doc, accounts = null) {
   const type = String(doc?.type || '').toLowerCase();
   if (TYPE_TO_OPERATIONAL_BUCKET[type]) return TYPE_TO_OPERATIONAL_BUCKET[type];
   if (REVENUE_TYPES.has(type) || type === 'refund') return 'operational';
-  if (type === 'expense_financial' || type === 'card_fee') return 'financial';
+  if (type === 'expense_financial' || type === 'card_fee' || type === 'financial_revenue') {
+    return 'operational';
+  }
   if (['expense_operational', 'expense', 'stock_purchase'].includes(type)) return 'operational';
   return 'operational';
 }

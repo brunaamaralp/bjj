@@ -78,11 +78,7 @@ export function accountToFinanceCategory(account, nature = 'in') {
   const accountType = String(account.type || '').trim().toLowerCase();
   const dreGroup = String(account.dreGrupo || '').trim() || UNCLASSIFIED_DRE_GROUP;
   const isBalanceSheet = BALANCE_SHEET_ACCOUNT_TYPES.has(accountType);
-  const operationalBucket = isBalanceSheet
-    ? 'financing'
-    : accountType === 'receita' && dreGroup === 'Resultado Financeiro'
-      ? 'financial'
-      : 'operational';
+  const operationalBucket = isBalanceSheet ? 'financing' : 'operational';
   return {
     label: accountCategoryLabel(account),
     type: accountTypeToTxType(accountType, dreGroup, nature),

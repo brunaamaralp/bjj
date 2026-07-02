@@ -39,6 +39,8 @@
     "restore:bank-definitions": "node scripts/restore-bank-account-definitions.mjs",
     "restore:plan-definitions": "node scripts/restore-plan-definitions.mjs",
     "audit:finance-plans": "node scripts/audit-finance-plans.mjs",
+    "audit:finance-dre-dfc": "node --env-file=.env.local scripts/audit-finance-dre-dfc.mjs",
+    "backfill:account-dre-dfc-mapping": "node --env-file=.env.local scripts/backfill-account-dre-dfc-mapping.mjs",
     "audit:student-plans": "node scripts/audit-student-plans.mjs",
     "backfill:student-plans": "node scripts/backfill-student-plans.mjs",
     "repair:payment-lead-ids": "node scripts/repair-payment-lead-ids.mjs",
