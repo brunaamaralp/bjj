@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef, Suspense } from 'react';
 import { lazyWithRetry } from '../lib/lazyWithRetry.js';
 
-import { fetchFinanceSummary, fetchMonthlyClosing, fetchPayables } from '../lib/financeTxApi.js';
+import { fetchFinanceSummary, fetchMonthlyClosing, fetchPayablesCached } from '../lib/financeTxApi.js';
 import { CASH_CLOSING_UPDATED_EVENT } from '../lib/financeTermHints.js';
 
 import { getFinanceRegime } from '../lib/financeCompetence.js';
@@ -9,6 +9,7 @@ import { getFinanceRegime } from '../lib/financeCompetence.js';
 import { useSearchParams, Navigate } from 'react-router-dom';
 
 import { loadMergedFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
+import { registerFinanceHubCacheInvalidation } from '../lib/financeHubCache.js';
 
 import { useLeadStore } from '../store/useLeadStore';
 
@@ -268,7 +269,7 @@ function CaixaPage() {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const today = todayYmdLocal();
-        void fetchPayables({
+        void fetchPayablesCached({
           academyId,
           from: today,
           to: addDaysYmd(today, 90),
@@ -401,6 +402,10 @@ function CaixaPage() {
   }, [academyId]);
 
 
+
+  useEffect(() => {
+    registerFinanceHubCacheInvalidation();
+  }, []);
 
   useEffect(() => {
     if (!academyId) return;
@@ -567,11 +572,13 @@ function CaixaPage() {
 
         <div className="navi-hub-page__body">
         <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
-        {activeTab === FINANCEIRO_SECTIONS.OVERVIEW && academyId ? (
+        {academyId && visitedLeafTabs.has(FINANCEIRO_SECTIONS.OVERVIEW) ? (
           <div
             role="tabpanel"
             id={`finance-tabpanel-${FINANCEIRO_SECTIONS.OVERVIEW}`}
             aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.OVERVIEW}`}
+            hidden={activeTab !== FINANCEIRO_SECTIONS.OVERVIEW}
+            aria-hidden={activeTab !== FINANCEIRO_SECTIONS.OVERVIEW}
           >
             <VisaoGeralTab
               academyId={academyId}
@@ -586,11 +593,13 @@ function CaixaPage() {
           </div>
         ) : null}
 
-        {activeTab === FINANCEIRO_SECTIONS.A_RECEBER && academyId ? (
+        {academyId && visitedLeafTabs.has(FINANCEIRO_SECTIONS.A_RECEBER) ? (
           <div
             role="tabpanel"
             id={`finance-tabpanel-${FINANCEIRO_SECTIONS.A_RECEBER}`}
             aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.A_RECEBER}`}
+            hidden={activeTab !== FINANCEIRO_SECTIONS.A_RECEBER}
+            aria-hidden={activeTab !== FINANCEIRO_SECTIONS.A_RECEBER}
           >
             <ReceivablesTab
               academyId={academyId}
@@ -604,11 +613,13 @@ function CaixaPage() {
           </div>
         ) : null}
 
-        {activeTab === FINANCEIRO_SECTIONS.A_PAGAR && academyId ? (
+        {academyId && visitedLeafTabs.has(FINANCEIRO_SECTIONS.A_PAGAR) ? (
           <div
             role="tabpanel"
             id={`finance-tabpanel-${FINANCEIRO_SECTIONS.A_PAGAR}`}
             aria-labelledby={`finance-tabpanel-tab-${FINANCEIRO_SECTIONS.A_PAGAR}`}
+            hidden={activeTab !== FINANCEIRO_SECTIONS.A_PAGAR}
+            aria-hidden={activeTab !== FINANCEIRO_SECTIONS.A_PAGAR}
           >
             <PayablesTab
               academyId={academyId}

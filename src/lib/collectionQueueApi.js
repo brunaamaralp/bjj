@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite.js';
 import { authedFetch } from './authInterceptor.js';
+import { fetchFinanceHubCached, financeHubCacheKey } from './financeHubCache.js';
 
 async function financeHeaders(academyId) {
   const jwt = await createSessionJwt();
@@ -19,4 +20,13 @@ export async function fetchCollectionQueue({ academyId }) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Erro ao carregar fila de cobrança');
   return body;
+}
+
+export function fetchCollectionQueueCached({ academyId, force = false }) {
+  const key = financeHubCacheKey(['collection-queue', academyId]);
+  return fetchFinanceHubCached(
+    key,
+    () => fetchCollectionQueue({ academyId }),
+    { force }
+  );
 }

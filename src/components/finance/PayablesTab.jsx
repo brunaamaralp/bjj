@@ -15,7 +15,7 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
-import { fetchPayables, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
+import { fetchPayablesCached, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
 import { PAYABLE_SOURCE, selectPayablesItems, filterPayablesSearch } from '../../lib/payablesAggregate.js';
 import {
   PAYABLES_SECTIONS,
@@ -217,11 +217,11 @@ export default function PayablesTab({
     setLoading(true);
     setError('');
     try {
-      const body = await fetchPayables({
+      const body = await fetchPayablesCached({
         academyId,
         from: range.from,
         to: range.to,
-        refresh: refreshToken > 0,
+        force: refreshToken > 0,
       });
       setData(body);
       onPayablesSummaryChange?.(Number(body?.summary?.overdueCount) || 0);

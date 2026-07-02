@@ -1,5 +1,6 @@
 import { createSessionJwt } from './appwrite.js';
 import { authedFetch } from './authInterceptor.js';
+import { fetchFinanceHubCached, financeHubCacheKey } from './financeHubCache.js';
 
 async function financeHeaders(academyId) {
   const jwt = await createSessionJwt();
@@ -93,6 +94,42 @@ export async function fetchFinanceOverview({
   return body;
 }
 
+export function fetchFinanceOverviewCached({
+  academyId,
+  month,
+  regime,
+  includeForecast = false,
+  includeContracts = false,
+  includePayables = false,
+  bankCompareAsOf,
+  force = false,
+}) {
+  const key = financeHubCacheKey([
+    'overview',
+    academyId,
+    month,
+    regime,
+    includeForecast ? 'forecast' : '',
+    includeContracts ? 'contracts' : '',
+    includePayables ? 'payables' : '',
+    bankCompareAsOf || '',
+  ]);
+  return fetchFinanceHubCached(
+    key,
+    () =>
+      fetchFinanceOverview({
+        academyId,
+        month,
+        regime,
+        includeForecast,
+        includeContracts,
+        includePayables,
+        bankCompareAsOf,
+      }),
+    { force }
+  );
+}
+
 export async function fetchFinanceSummary({ academyId, from, to, regime }) {
   const params = new URLSearchParams({ route: 'summary' });
   if (from) params.set('from', from);
@@ -127,6 +164,15 @@ export async function fetchReceivables({ academyId, month }) {
   return body;
 }
 
+export function fetchReceivablesCached({ academyId, month, force = false }) {
+  const key = financeHubCacheKey(['receivables', academyId, month]);
+  return fetchFinanceHubCached(
+    key,
+    () => fetchReceivables({ academyId, month }),
+    { force }
+  );
+}
+
 export async function fetchPayables({ academyId, from, to, section, search, category, refresh = false }) {
   const params = new URLSearchParams({ route: 'payables' });
   if (from) params.set('from', from);
@@ -141,6 +187,40 @@ export async function fetchPayables({ academyId, from, to, section, search, cate
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || 'Erro ao carregar contas a pagar');
   return body;
+}
+
+export function fetchPayablesCached({
+  academyId,
+  from,
+  to,
+  section,
+  search,
+  category,
+  force = false,
+}) {
+  const key = financeHubCacheKey([
+    'payables',
+    academyId,
+    from,
+    to,
+    section || '',
+    search || '',
+    category || '',
+  ]);
+  return fetchFinanceHubCached(
+    key,
+    () =>
+      fetchPayables({
+        academyId,
+        from,
+        to,
+        section,
+        search,
+        category,
+        refresh: force,
+      }),
+    { force }
+  );
 }
 
 export async function fetchFinanceForecast({ academyId, from, to, refresh = false }) {

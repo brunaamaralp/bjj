@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, CheckSquare } from 'lucide-react';
-import { fetchCollectionQueue } from '../../lib/collectionQueueApi.js';
+import { fetchCollectionQueueCached } from '../../lib/collectionQueueApi.js';
 import { formatBRL } from '../../lib/moneyBr.js';
 import { RECEIVABLES_SECTIONS } from '../../lib/financeiroReceivablesSections.js';
 import { FINANCE_SETTINGS_SECTIONS } from '../../lib/financeSettingsSections.js';
@@ -27,7 +27,12 @@ function fmtMonthShort(ym) {
   }
 }
 
-export default function CobrancaPanel({ academyId, onSectionChange, refreshToken = 0 }) {
+export default function CobrancaPanel({
+  academyId,
+  onSectionChange,
+  refreshToken = 0,
+  onSummaryChange,
+}) {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
@@ -38,25 +43,29 @@ export default function CobrancaPanel({ academyId, onSectionChange, refreshToken
   const [stageFilter, setStageFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [paymentBump, setPaymentBump] = useState(0);
 
   const load = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
     setError('');
     try {
-      const body = await fetchCollectionQueue({ academyId });
+      const body = await fetchCollectionQueueCached({
+        academyId,
+        force: refreshToken > 0,
+      });
       setData(body);
+      onSummaryChange?.(body?.summary || null);
     } catch (e) {
       console.error('[CobrancaPanel]', e);
       setData(null);
       setError('Não foi possível carregar a fila de cobrança.');
+      onSummaryChange?.(null);
     } finally {
       setLoading(false);
       setLoadedOnce(true);
     }
-  }, [academyId]);
-
-  const [paymentBump, setPaymentBump] = useState(0);
+  }, [academyId, refreshToken, onSummaryChange]);
 
   useEffect(() => {
     const bump = () => setPaymentBump((t) => t + 1);
@@ -66,7 +75,7 @@ export default function CobrancaPanel({ academyId, onSectionChange, refreshToken
 
   useEffect(() => {
     void load();
-  }, [load, refreshToken, paymentBump]);
+  }, [load, paymentBump]);
 
   const summary = data?.summary || { students: 0, totalOpen: 0, byStage: {} };
   const collectionRules = data?.collectionRules || [];

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './finance.css';
 import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Wallet } from 'lucide-react';
-import { fetchReceivables } from '../../lib/financeTxApi.js';
+import { fetchReceivablesCached } from '../../lib/financeTxApi.js';
 import { FINANCE_TERM_HINTS } from '../../lib/financeTermHints.js';
 import { RECEIVABLE_SOURCE } from '../../lib/receivablesAggregate.js';
 import {
@@ -19,7 +19,7 @@ import HubTabBar from '../shared/HubTabBar.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
-import { fetchCollectionQueue } from '../../lib/collectionQueueApi.js';
+import { fetchCollectionQueueCached } from '../../lib/collectionQueueApi.js';
 
 function fmtMoney(v) {
   try {
@@ -100,7 +100,11 @@ export default function ReceivablesTab({
     setLoading(true);
     setError('');
     try {
-      const body = await fetchReceivables({ academyId, month: ym });
+      const body = await fetchReceivablesCached({
+        academyId,
+        month: ym,
+        force: refreshToken > 0,
+      });
       setData(body);
     } catch (e) {
       console.error('[ReceivablesTab]', e);
@@ -110,26 +114,47 @@ export default function ReceivablesTab({
       setLoading(false);
       setLoadedOnce(true);
     }
-  }, [academyId, ym]);
+  }, [academyId, ym, refreshToken]);
 
   useEffect(() => {
     void load();
-  }, [load, refreshToken]);
+  }, [load]);
 
   useEffect(() => {
-    if (!academyId) return;
-    let active = true;
-    void fetchCollectionQueue({ academyId })
-      .then((body) => {
-        if (active) setCobrancaSummary(body?.summary || null);
+    if (!academyId || !loadedOnce) return undefined;
+    if (resolvedSection === RECEIVABLES_SECTIONS.COBRANCA) return undefined;
+
+    let cancelled = false;
+    let idleId;
+    const run = () => {
+      if (cancelled) return;
+      void fetchCollectionQueueCached({
+        academyId,
+        force: refreshToken > 0,
       })
-      .catch(() => {
-        if (active) setCobrancaSummary(null);
-      });
-    return () => {
-      active = false;
+        .then((body) => {
+          if (!cancelled) setCobrancaSummary(body?.summary || null);
+        })
+        .catch(() => {
+          if (!cancelled) setCobrancaSummary(null);
+        });
     };
-  }, [academyId, refreshToken]);
+
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      idleId = window.setTimeout(run, 400);
+    }
+
+    return () => {
+      cancelled = true;
+      if (typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [academyId, loadedOnce, refreshToken, resolvedSection]);
 
   useEffect(() => {
     const bump = () => setRefreshToken((t) => t + 1);
@@ -285,6 +310,7 @@ export default function ReceivablesTab({
           academyId={academyId}
           onSectionChange={handleSectionChange}
           refreshToken={refreshToken}
+          onSummaryChange={setCobrancaSummary}
         />
       ) : items.length === 0 ? (
         <EmptyState

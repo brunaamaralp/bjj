@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore';
 import {
-  fetchFinanceOverview,
+  fetchFinanceOverviewCached,
 } from '../../lib/financeTxApi.js';
 import './visao-geral.css';
 import { getFinanceRegime, financeRegimeLabel, FINANCE_REGIME } from '../../lib/financeCompetence.js';
@@ -144,7 +144,7 @@ export default function VisaoGeralTab({
     try {
       const regimeVal = getFinanceRegime(academyId);
 
-      const overview = await fetchFinanceOverview({
+      const overview = await fetchFinanceOverviewCached({
         academyId,
         month: ym,
         regime: regimeVal,
@@ -152,6 +152,7 @@ export default function VisaoGeralTab({
         includeContracts: Boolean(modules?.finance),
         includePayables: showPayablesPreview,
         bankCompareAsOf,
+        force: refreshToken > 0,
       });
 
       setSummary(overview.summary ?? null);
@@ -222,6 +223,7 @@ export default function VisaoGeralTab({
     showPayablesPreview,
     onPayablesSummaryChange,
     onMonthConferred,
+    refreshToken,
   ]);
 
   useEffect(() => {

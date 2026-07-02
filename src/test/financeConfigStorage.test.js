@@ -28,22 +28,23 @@ describe('financeConfigStorage', () => {
     expect(compact.price).toBe(150);
   });
 
-  it('keeps bank accounts in financeConfig when under limit', () => {
+  it('keeps bank accounts in financeConfig when under legacy limit', () => {
     const merged = {
       plans: [{ name: 'Mensal', price: 200 }],
       bankAccounts: [{ bankName: 'Nubank', account: '123', pixKey: '' }],
       cardFees: { pix: { percent: 0, fixed: 0 } },
-      legacyBlob: 'x'.repeat(12000),
     };
-    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged);
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+    });
     expect(built.bankAccountsOffloaded).toBe(false);
     const parsed = JSON.parse(built.financeConfig);
     expect(parsed.bankAccounts).toHaveLength(1);
   });
 
-  it('offloads bank accounts to settings when financeConfig exceeds target limit', () => {
+  it('offloads bank accounts to root attribute when financeConfig exceeds legacy limit', () => {
     const plans = [{ name: 'Mensal', price: 200 }];
-    const banks = Array.from({ length: 30 }, (_, i) => ({
+    const banks = Array.from({ length: 4 }, (_, i) => ({
       bankName: `Banco ${i}`,
       account: String(1000 + i),
       branch: String(i),
@@ -53,18 +54,18 @@ describe('financeConfigStorage', () => {
       plans,
       bankAccounts: banks,
       cardFees: { pix: { percent: 0, fixed: 0 } },
-      legacyBlob: 'z'.repeat(15000),
+      legacyBlob: 'z'.repeat(1800),
     };
-    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+    const built = buildAcademyFinanceConfigUpdate({}, merged, {
       hasSettingsAttribute: true,
     });
     expect(built.bankAccountsOffloaded).toBe(true);
+    expect(built.bankAccountsOffloadVia).toBe('root');
     expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
-    const settings = JSON.parse(built.settings);
-    expect(settings.financeBankAccounts).toHaveLength(30);
+    expect(JSON.parse(built.financeBankAccounts)).toHaveLength(4);
   });
 
-  it('offloads bank accounts to onboardingChecklist when settings is unavailable', () => {
+  it('offloads bank accounts to root attribute when settings is unavailable', () => {
     const plans = [{ name: 'Mensal', price: 200 }];
     const banks = Array.from({ length: 6 }, (_, i) => ({
       bankName: `Banco ${i}`,
@@ -76,7 +77,7 @@ describe('financeConfigStorage', () => {
       plans,
       bankAccounts: banks,
       cardFees: { pix: { percent: 0, fixed: 0 } },
-      legacyBlob: 'z'.repeat(16100),
+      legacyBlob: 'z'.repeat(2000),
     };
     const built = buildAcademyFinanceConfigUpdate(
       { settings: '{}', onboardingChecklist: '[]' },
@@ -84,9 +85,9 @@ describe('financeConfigStorage', () => {
       { hasSettingsAttribute: false }
     );
     expect(built.bankAccountsOffloaded).toBe(true);
+    expect(built.bankAccountsOffloadVia).toBe('root');
     expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
-    const onboarding = JSON.parse(built.onboardingChecklist);
-    expect(onboarding.fba).toHaveLength(6);
+    expect(JSON.parse(built.financeBankAccounts)).toHaveLength(6);
   });
 
   it('mergeFinanceConfigFromAcademyDoc reads offloaded banks from settings', () => {
@@ -190,7 +191,7 @@ describe('financeConfigStorage', () => {
       bankAccounts: [],
       cardFees: { pix: { percent: 0, fixed: 0 } },
       collectionRules: [{ day: 1, label: '1ª', defaultMessage: 'm'.repeat(200), escalate: false }],
-      legacyBlob: 'z'.repeat(12000),
+      legacyBlob: 'z'.repeat(2000),
     };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
       hasSettingsAttribute: true,
@@ -363,10 +364,10 @@ describe('financeConfigStorage', () => {
     });
     expect(built.feeReceiversOffloaded).toBeFalsy();
     expect(JSON.parse(built.financeConfig).feeReceivers).toHaveLength(4);
-    expect(built.financeConfig.length).toBeLessThan(FINANCE_CONFIG_TARGET_MAX_CHARS);
+    expect(built.financeConfig.length).toBeLessThan(FINANCE_CONFIG_LEGACY_MAX_CHARS);
   });
 
-  it('offloads feeReceivers to settings when config exceeds limit', () => {
+  it('offloads feeReceivers to settings when config exceeds legacy limit', () => {
     const receivers = Array.from({ length: 4 }, (_, i) =>
       defaultFeeReceiver({
         name: `Recebedor ${i}`,
@@ -383,7 +384,7 @@ describe('financeConfigStorage', () => {
       feeReceivers: receivers,
       defaultFeeReceiverId: receivers[0].id,
       feeReceiversMigrated: true,
-      legacyBlob: 'x'.repeat(15800),
+      legacyBlob: 'x'.repeat(1800),
     };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
       hasSettingsAttribute: true,
@@ -398,5 +399,28 @@ describe('financeConfigStorage', () => {
       settings: built.settings,
     });
     expect(readFeeReceivers(cfg)).toHaveLength(4);
+  });
+
+  it('offloads feeReceivers to settings even when academy doc has no settings key yet', () => {
+    const receivers = Array.from({ length: 3 }, (_, i) =>
+      defaultFeeReceiver({
+        name: `Recebedor ${i}`,
+        fees: {
+          ...emptyFeeReceiverFeeTable(),
+          pix: { percent: 1 + i * 0.1, fixed: 0 },
+        },
+      })
+    );
+    const merged = {
+      plans: [{ name: 'Mensal', price: 100 }],
+      bankAccounts: [{ bankName: 'Nubank', account: '1', pixKey: '' }],
+      feeReceivers: receivers,
+      defaultFeeReceiverId: receivers[0].id,
+      feeReceiversMigrated: true,
+      legacyBlob: 'x'.repeat(1800),
+    };
+    const built = buildAcademyFinanceConfigUpdate({}, merged);
+    expect(built.feeReceiversOffloaded).toBe(true);
+    expect(built.settings).toBeTruthy();
   });
 });

@@ -35,6 +35,9 @@ export const FINANCE_CONFIG_TARGET_MAX_CHARS = 16384;
 
 export const ACADEMY_SETTINGS_MAX_CHARS = 16384;
 
+/** Atributo dedicado `financeBankAccounts` na coleção academies (provision:academy-attrs). */
+export const FINANCE_BANK_ACCOUNTS_MAX_CHARS = 8192;
+
 const SETTINGS_BANK_ACCOUNTS_KEY = 'financeBankAccounts';
 const SETTINGS_BANK_OFFLOAD_FLAG = 'financeBankAccountsOffloaded';
 const SETTINGS_PLANS_KEY = 'financePlans';
@@ -325,6 +328,7 @@ export function compactFinanceConfigForStorage(mergedCfg) {
     out.feeReceiversMigrated = true;
     if (base.defaultFeeReceiverId) out.defaultFeeReceiverId = base.defaultFeeReceiverId;
     delete out.acquirerFees;
+    delete out.cardFees;
   } else {
     delete out.feeReceivers;
     delete out.defaultFeeReceiverId;
@@ -337,7 +341,9 @@ export function compactFinanceConfigForStorage(mergedCfg) {
 /** Indica se o projeto tem atributo `settings` na coleção (evita update com campo desconhecido). */
 export function academyDocSupportsSettings(academyDoc, { hasSettingsAttribute } = {}) {
   if (typeof hasSettingsAttribute === 'boolean') return hasSettingsAttribute;
-  return Object.prototype.hasOwnProperty.call(academyDoc || {}, 'settings');
+  if (Object.prototype.hasOwnProperty.call(academyDoc || {}, 'settings')) return true;
+  // Provisionado em academies; documentos antigos podem não ter a chave até o primeiro overflow.
+  return true;
 }
 
 /**
@@ -439,7 +445,12 @@ export function auditBankAccountsFromAcademyDoc(academyDoc) {
 }
 
 function fitsFinanceConfigLimit(json) {
-  return json.length <= FINANCE_CONFIG_TARGET_MAX_CHARS - SAVE_BUFFER_CHARS;
+  // Limite efetivo no Appwrite costuma ser 2500 até provision:academy-attrs ampliar o atributo.
+  return json.length <= FINANCE_CONFIG_LEGACY_MAX_CHARS - SAVE_BUFFER_CHARS;
+}
+
+function fitsBankAccountsRootLimit(json) {
+  return json.length <= FINANCE_BANK_ACCOUNTS_MAX_CHARS - SAVE_BUFFER_CHARS;
 }
 
 function fitsSettingsLimit(json) {
@@ -555,6 +566,24 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
     };
   }
 
+  const banksStr = JSON.stringify(banks);
+
+  if (level.stripBanks && !needsSettingsOverflow && fitsBankAccountsRootLimit(banksStr)) {
+    const nextSettings = clearFinanceOverflowKeys(settings);
+    const onboardingStr = serializeOnboardingChecklistForDb(
+      parseOnboardingChecklist(academyDoc?.onboardingChecklist),
+      { preserveRaw: academyDoc?.onboardingChecklist, clearFinanceBankAccounts: true }
+    );
+    return {
+      financeConfig: financeStr,
+      financeBankAccounts: banksStr,
+      settings: supportsSettings ? JSON.stringify(nextSettings) : undefined,
+      onboardingChecklist: onboardingStr,
+      bankAccountsOffloaded: true,
+      bankAccountsOffloadVia: 'root',
+    };
+  }
+
   if (level.stripBanks && supportsSettings && !needsSettingsOverflow) {
     const nextSettings = {
       ...clearFinanceOverflowKeys(settings),
@@ -566,15 +595,17 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
       return {
         financeConfig: financeStr,
         settings: settingsStr,
+        financeBankAccounts: '',
         bankAccountsOffloaded: true,
       };
     }
   }
 
   if (needsSettingsOverflow && supportsSettings) {
+    const banksInRoot = level.stripBanks && fitsBankAccountsRootLimit(banksStr);
     const nextSettings = {
       ...clearFinanceOverflowKeys(settings),
-      ...(level.stripBanks
+      ...(level.stripBanks && !banksInRoot
         ? { [SETTINGS_BANK_ACCOUNTS_KEY]: banks, [SETTINGS_BANK_OFFLOAD_FLAG]: true }
         : {}),
       ...(level.stripPlans ? { [SETTINGS_PLANS_KEY]: plans, [SETTINGS_PLANS_OFFLOAD_FLAG]: true } : {}),
@@ -599,6 +630,7 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
       return {
         financeConfig: financeStr,
         settings: settingsStr,
+        ...(banksInRoot ? { financeBankAccounts: banksStr, bankAccountsOffloadVia: 'root' } : {}),
         bankAccountsOffloaded: level.stripBanks,
         plansOffloaded: level.stripPlans,
         collectionOffloaded: level.stripCollection,
@@ -653,6 +685,9 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
   });
   const payload = { financeConfig: built.financeConfig };
   if (built.settings !== undefined) payload.settings = built.settings;
+  if (built.financeBankAccounts !== undefined) {
+    payload.financeBankAccounts = built.financeBankAccounts;
+  }
   if (built.onboardingChecklist !== undefined) {
     payload.onboardingChecklist = built.onboardingChecklist;
   }
@@ -670,6 +705,7 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
     ...doc,
     financeConfig: built.financeConfig,
     settings: built.settings ?? doc.settings,
+    financeBankAccounts: built.financeBankAccounts ?? doc.financeBankAccounts,
     onboardingChecklist: built.onboardingChecklist ?? doc.onboardingChecklist,
   });
 }
