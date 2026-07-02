@@ -1,13 +1,19 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, ChevronRight } from 'lucide-react';
+import { MessageCircle, ChevronRight, UserCheck } from 'lucide-react';
 import { maskPhone } from '../../lib/masks.js';
 import ControlIdSyncBadge from './ControlIdSyncBadge.jsx';
 import StudentStatusBadge from './StudentStatusBadge.jsx';
 import StudentOverdueBadge from './StudentOverdueBadge.jsx';
 import { resolveStudentListStatus } from '../../lib/studentDisplayStatus.js';
 import { useStudentStore } from '../../store/useStudentStore.js';
+import { useLeadStore } from '../../store/useLeadStore.js';
 import { preloadStudentProfile } from '../../lib/preloadRoutes.js';
+import { createCheckin, isAttendanceConfigured } from '../../lib/attendance.js';
+import { useTerms } from '../../lib/terminology.js';
+import { useToast } from '../../hooks/useToast.js';
+import { emitLeadAttendanceChanged } from '../../lib/leadTimelineEvents.js';
+import { friendlyError } from '../../lib/errorMessages.js';
 
 function StudentListCard({
   student,
@@ -17,12 +23,59 @@ function StudentListCard({
   studentSingular,
   financeConfig,
   onOpenProfile,
+  sessionUserName = '',
   showGraduation = false,
   style,
 }) {
   const digits = String(student.phone || '').replace(/\D/g, '');
   const paymentHint = useStudentStore((s) => s.paymentStatusByStudentId[student.id]);
   const displayStatus = resolveStudentListStatus(student, paymentHint);
+  const userId = useLeadStore((s) => s.userId);
+  const academyList = useLeadStore((s) => s.academyList);
+  const terms = useTerms();
+  const toast = useToast();
+  const [checkingIn, setCheckingIn] = useState(false);
+  const attendanceReady = isAttendanceConfigured();
+
+  const permCtx = useMemo(() => {
+    const acad = (academyList || []).find((a) => a.id === academyId) || {};
+    return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
+  }, [academyList, academyId, userId]);
+
+  const handleCheckin = useCallback(async () => {
+    if (checkingIn || !student?.id || !academyId || !attendanceReady) return;
+    setCheckingIn(true);
+    try {
+      await createCheckin(
+        {
+          lead_id: student.id,
+          academy_id: academyId,
+          checked_in_by: userId || 'user',
+          checked_in_by_name: sessionUserName || 'Usuário',
+        },
+        permCtx
+      );
+      toast.success(`${terms.attendance} registrada!`);
+      emitLeadAttendanceChanged(student.id);
+    } catch (e) {
+      toast.show({
+        type: 'error',
+        message: friendlyError(e, 'save') || `Não foi possível registrar a ${terms.attendance.toLowerCase()}.`,
+      });
+    } finally {
+      setCheckingIn(false);
+    }
+  }, [
+    academyId,
+    attendanceReady,
+    checkingIn,
+    permCtx,
+    sessionUserName,
+    student?.id,
+    terms.attendance,
+    toast,
+    userId,
+  ]);
 
   return (
     <div className="card student-card animate-in" style={style}>
@@ -90,28 +143,33 @@ function StudentListCard({
           </p>
         </div>
         <div className="flex items-center gap-2 student-card-actions">
+          {attendanceReady ? (
+            <button
+              type="button"
+              className="quick-action-btn students-touch-hit"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleCheckin();
+              }}
+              disabled={checkingIn}
+              title={checkingIn ? 'Registrando…' : `Registrar ${terms.attendance.toLowerCase()}`}
+              aria-label={checkingIn ? 'Registrando presença' : `Registrar ${terms.attendance.toLowerCase()}`}
+            >
+              <UserCheck size={16} color="var(--accent)" />
+            </button>
+          ) : null}
           {digits ? (
             <Link
               to={`/inbox?phone=${encodeURIComponent(digits)}`}
-              className="student-inbox-link students-touch-hit"
+              className="quick-action-btn students-touch-hit"
               draggable={false}
               onClick={(e) => e.stopPropagation()}
+              title="Atendimento"
+              aria-label="Abrir atendimento"
             >
-              Atendimento
+              <MessageCircle size={16} color="var(--text-muted)" />
             </Link>
           ) : null}
-          <button
-            type="button"
-            className="quick-action-btn students-touch-hit"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(`https://wa.me/55${digits}`, '_blank');
-            }}
-            disabled={!digits}
-            title="WhatsApp"
-          >
-            <MessageCircle size={16} color="#25D366" />
-          </button>
           <Link
             to={`/student/${student.id}`}
             className="student-profile-chevron students-touch-hit"

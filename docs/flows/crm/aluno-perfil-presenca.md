@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-06-23 |
+| **última revisão** | 2026-07-01 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -57,6 +57,7 @@ flowchart TD
 | 1 | `/students` | `Alunos.jsx` + `Students.jsx` | Abrir **Alunos** na sidebar | Hub com tab **Lista** ativa |
 | 2 | `/students` | Barra de filtros | Buscar nome, filtrar status/plano/turma | Lista paginada atualiza |
 | 3 | `/students` | `StudentListCard` | Clicar no aluno | Navega para `/student/:id` |
+| 3b | `/students` | `StudentListCard` — ações rápidas | Ícone presença / conversa / perfil | Presença manual (se coleção configurada); atendimento no inbox; abrir perfil |
 | 4 | `/students` | Toolbar | Importar / exportar planilha | Planilha processada; toasts de progresso |
 | 5 | `/recepcao` | `Recepcao.jsx` | Abrir recepção (link interno ou menu) | Painel ao vivo + histórico Control iD |
 | 6 | `/students?tab=contratos` | `ContractsPageContent` | Tab Contratos (módulo finance) | Lista de contratos da academia |

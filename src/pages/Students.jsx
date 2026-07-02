@@ -25,6 +25,7 @@ import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import { useStudentsListFilters, STUDENTS_FILTERS_EXPANDED_KEY } from '../hooks/useStudentsListFilters.js';
 import { useStudentsListData } from '../hooks/useStudentsListData.js';
 import { useStudentsCreateForm } from '../hooks/useStudentsCreateForm.js';
+import { useSessionUser } from '../hooks/useSessionUser.js';
 import StudentListCard from '../components/student/StudentListCard.jsx';
 import { maskCpfForExport } from '../lib/maskCpf.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
@@ -135,6 +136,7 @@ const Students = ({ embedded = false }) => {
         (studentId) => navigate(`/student/${studentId}`),
         [navigate]
     );
+    const { firstName: sessionUserName } = useSessionUser();
 
     useEffect(() => {
         try {
@@ -256,6 +258,7 @@ const Students = ({ embedded = false }) => {
             studentSingular={studentSingular}
             financeConfig={financeConfig}
             onOpenProfile={openProfile}
+            sessionUserName={sessionUserName}
             showGraduation={showGraduationField}
             style={shouldVirtualizeStudents ? undefined : { animationDelay: `${0.03 * animIndex}s` }}
         />
