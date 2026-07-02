@@ -25,9 +25,7 @@ import salesHistoryHandler from '../lib/server/salesHistoryHandler.js';
 import salesCreateHandler from '../lib/server/salesCreateHandler.js';
 import salesReconcileHandler from '../lib/server/salesReconcileHandler.js';
 import salesLiquidateHandler from '../lib/server/salesLiquidateHandler.js';
-import salesUpdateItemHandler from '../lib/server/salesUpdateItemHandler.js';
 import cashShiftHandler from '../lib/server/cashShiftHandler.js';
-import salesDailyReportHandler from '../lib/server/salesDailyReportHandler.js';
 import salesByStudentHandler from '../lib/server/salesByStudentHandler.js';
 import studentsHandler from '../lib/server/studentsHandler.js';
 import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
@@ -255,6 +253,7 @@ export default async function handler(req, res) {
     const action = String(req.query?.action || '').trim();
     if (action === 'reconcile') return salesReconcileHandler(req, res);
     if (action === 'daily_report' && req.method === 'GET') {
+      const { default: salesDailyReportHandler } = await import('../lib/server/salesDailyReportHandler.js');
       return salesDailyReportHandler(req, res);
     }
     if (
@@ -276,7 +275,10 @@ export default async function handler(req, res) {
         }
       }
       const patchAction = String(patchBody?.action || '').trim().toLowerCase();
-      if (patchAction === 'alterar_item') return salesUpdateItemHandler(req, res);
+      if (patchAction === 'alterar_item') {
+        const { default: salesUpdateItemHandler } = await import('../lib/server/salesUpdateItemHandler.js');
+        return salesUpdateItemHandler(req, res);
+      }
       return salesLiquidateHandler(req, res);
     }
     if (req.method === 'GET') return salesHistoryHandler(req, res);
