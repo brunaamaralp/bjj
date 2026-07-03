@@ -41,6 +41,7 @@ scripts/*
 !scripts/unify-bank-account-labels.mjs
 !scripts/audit-sale-financial-mirror.mjs
 !scripts/audit-finance-dre-dfc.mjs
+!scripts/audit-finance-reversal-orphans.mjs
 !scripts/backfill-account-dre-dfc-mapping.mjs
 !scripts/restore-bank-account-definitions.mjs
 !scripts/ensure-inbox-media-bucket.mjs

@@ -211,13 +211,23 @@ export default async function (req, res) {
           sdk.Query.limit(20),
         ]);
         const docs = txList.documents || [];
-        const original = docs.find((d) => String(d.type || "").toLowerCase() !== "refund");
+        const original = docs.find((d) => {
+          const type = String(d.type || "").toLowerCase();
+          const origin = String(d.origin_type || "").toLowerCase();
+          return type !== "refund" && origin !== "reversal";
+        });
         if (original) {
           await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, original.$id, {
             status: "cancelled",
+            settledAt: "",
           });
         }
-        if (totalVenda > 0 && !docs.some((d) => String(d.type || "").toLowerCase() === "refund")) {
+        const hasRefund = docs.some((d) => {
+          const type = String(d.type || "").toLowerCase();
+          const origin = String(d.origin_type || "").toLowerCase();
+          return type === "refund" || origin === "reversal";
+        });
+        if (totalVenda > 0 && original && !hasRefund) {
           const refundSettledAt = new Date().toISOString();
           const refundPayload = {
             academyId: academyId || venda.academyId || "",
@@ -231,9 +241,13 @@ export default async function (req, res) {
             gross: totalVenda,
             fee: 0,
             net: totalVenda,
+            direction: "out",
             status: "settled",
             settledAt: refundSettledAt,
             note: estornoNote,
+            origin_type: "reversal",
+            origin_id: original.$id,
+            reverses_id: original.$id,
           };
           try {
             await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), refundPayload);

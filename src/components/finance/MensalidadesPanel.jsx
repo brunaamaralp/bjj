@@ -6,7 +6,6 @@ import PaymentModalFooterHint from '../shared/PaymentModalFooterHint.jsx';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useToast } from '../../hooks/useToast';
 import { account } from '../../lib/appwrite';
-import { reverseFinanceTx } from '../../lib/financeTxApi.js';
 import { getMonthlyPayments, createPayment, updatePayment, PAYMENT_CATEGORY } from '../../lib/studentPayments';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
@@ -894,18 +893,6 @@ export default function MensalidadesPanel({
     setPayments((prev) => prev.map((p) => (p.$id === id ? { ...p, status: 'cancelled' } : p)));
     try {
       await updatePayment(id, { status: 'cancelled', academy_id: payment.academy_id });
-      const txId = String(payment?.financial_tx_id || '').trim();
-      const aid = String(payment?.academy_id || academyId || '').trim();
-      if (txId && aid) {
-        try {
-          await reverseFinanceTx({ academyId: aid, id: txId, reason: 'Estorno mensalidade' });
-        } catch (err) {
-          console.error('Falha no sync financeiro após estorno:', err);
-          setEstornoCaixaWarning(
-            'Mensalidade estornada, mas o estorno no caixa pode não ter sido concluído. Verifique em Financeiro → Lançamentos.'
-          );
-        }
-      }
       toast.success('Pagamento estornado.');
     } catch (e) {
       setPayments(previousPayments);

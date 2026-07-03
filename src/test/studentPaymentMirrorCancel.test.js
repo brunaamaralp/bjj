@@ -34,6 +34,9 @@ describe('studentPaymentMirrorCancel', () => {
       if (q.includes('student_payment')) {
         return { documents: [{ $id: 'tx-main', status: 'settled' }] };
       }
+      if (q.includes('reversal')) {
+        return { documents: [{ $id: 'tx-rev', status: 'settled', origin_type: 'reversal', origin_id: 'tx-main' }] };
+      }
       return { documents: [] };
     });
     mocks.getDocument.mockImplementation(async (_db, _col, id) => ({
@@ -50,7 +53,7 @@ describe('studentPaymentMirrorCancel', () => {
 
     const out = await cancelFinancialTxMirrorsForPayment('pay-1', { explicitTxId: 'tx-explicit' });
 
-    expect(out.cancelledIds.sort()).toEqual(['tx-explicit', 'tx-main', 'tx-troco'].sort());
-    expect(mocks.updateDocument).toHaveBeenCalledTimes(3);
+    expect(out.cancelledIds.sort()).toEqual(['tx-explicit', 'tx-main', 'tx-rev', 'tx-troco'].sort());
+    expect(mocks.updateDocument).toHaveBeenCalledTimes(4);
   });
 });

@@ -43,6 +43,7 @@
     "backfill:account-dre-dfc-mapping": "node --env-file=.env.local scripts/backfill-account-dre-dfc-mapping.mjs",
     "audit:student-plans": "node scripts/audit-student-plans.mjs",
     "audit:stock-balance": "node scripts/audit-stock-balance.mjs",
+    "audit:finance-reversals": "node scripts/audit-finance-reversal-orphans.mjs",
     "backfill:stock-moves-remap-legacy": "node scripts/backfill-stock-moves-remap-legacy.mjs",
     "backfill:stock-moves-remap-secondary": "node scripts/backfill-stock-moves-remap-secondary.mjs",
     "backfill:stock-opening-balance": "node scripts/backfill-stock-opening-balance.mjs",

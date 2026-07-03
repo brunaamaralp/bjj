@@ -13,6 +13,7 @@ const handlerMocks = vi.hoisted(() => ({
   scheduleControlIdOverdueReconcile: vi.fn(),
   isAcademyOwnerOrAdminUser: vi.fn(),
   cancelFinancialTxMirrorsForPayment: vi.fn(),
+  reverseSettledFinanceTx: vi.fn(),
 }));
 
 vi.mock('node-appwrite', () => ({
@@ -60,6 +61,10 @@ vi.mock('../../lib/server/studentPaymentMirrorCancel.js', () => ({
   cancelFinancialTxMirrorsForPayment: handlerMocks.cancelFinancialTxMirrorsForPayment,
 }));
 
+vi.mock('../../lib/server/financeTxReverse.js', () => ({
+  reverseSettledFinanceTx: handlerMocks.reverseSettledFinanceTx,
+}));
+
 vi.mock('../../lib/server/studentPaymentFinancialTxMirror.js', () => ({
   mirrorStudentPaymentToFinancialTx: handlerMocks.mirrorStudentPaymentToFinancialTx,
 }));
@@ -99,6 +104,7 @@ function mockRes() {
 describe('studentPaymentsHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID = 'financial-tx-col';
     handlerMocks.listDocuments.mockReset();
     handlerMocks.updateDocument.mockReset();
     handlerMocks.getDocument.mockReset();
@@ -110,6 +116,7 @@ describe('studentPaymentsHandler', () => {
     });
     handlerMocks.mirrorStudentPaymentToFinancialTx.mockResolvedValue({ mirrorId: null, warning: null });
     handlerMocks.cancelFinancialTxMirrorsForPayment.mockResolvedValue({ cancelledIds: [], errors: [] });
+    handlerMocks.reverseSettledFinanceTx.mockResolvedValue({ original: {}, reversal: {} });
     handlerMocks.syncStudentOverdueAfterPayment.mockResolvedValue({ updated: false });
     handlerMocks.isAcademyOwnerOrAdminUser.mockResolvedValue(true);
   });
@@ -381,6 +388,52 @@ describe('studentPaymentsHandler', () => {
       })
     );
     expect(handlerMocks.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('estorna via reverseSettledFinanceTx quando financial_tx liquidado', async () => {
+    const prev = {
+      $id: 'pay-reverse-settled',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 319,
+      status: 'paid',
+      payment_category: 'plan',
+      financial_tx_id: 'tx-settled',
+    };
+    handlerMocks.getDocument
+      .mockResolvedValueOnce(prev)
+      .mockResolvedValueOnce({ $id: 'tx-settled', status: 'settled', gross: 319 })
+      .mockResolvedValueOnce({ ...prev, status: 'cancelled', financial_tx_id: 'tx-settled' });
+    handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    handlerMocks.updateDocument.mockImplementation(async (_db, _col, id, payload) => ({
+      ...prev,
+      ...payload,
+      $id: id,
+    }));
+    handlerMocks.reverseSettledFinanceTx.mockResolvedValue({
+      original: { id: 'tx-settled' },
+      reversal: { id: 'tx-rev' },
+    });
+
+    const { handlePatchStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handlePatchStudentPayment(
+      { query: { id: 'pay-reverse-settled' }, body: { action: 'reverse' } },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      { financeConfig: '{}' }
+    );
+
+    expect(handlerMocks.reverseSettledFinanceTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        academyId: 'acad-1',
+        reason: 'Estorno mensalidade',
+      })
+    );
+    expect(handlerMocks.cancelFinancialTxMirrorsForPayment).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
   });
 
   it('cancela espelhos (principal + troco) ao estornar sem financial_tx_id', async () => {

@@ -403,7 +403,7 @@ describe('studentPaymentFinancialTxMirror', () => {
       'db-test',
       'financial-tx-col',
       'tx-a',
-      { status: 'cancelled' }
+      { status: 'cancelled', settledAt: '' }
     );
     expect(serverMocks.createDocument).not.toHaveBeenCalled();
   });
