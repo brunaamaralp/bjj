@@ -170,7 +170,10 @@ export default function StudentProductSaleStep({
   }, [payments, totalFinalCents]);
 
   const paymentValid = useMemo(
-    () => paymentsUiValid(effectivePayments, totalFinalCents, { deferred: receiveLater }),
+    () =>
+      receiveLater
+        ? paymentsUiValid(effectivePayments, totalFinalCents, { deferred: true })
+        : paymentsUiValid(effectivePayments, totalFinalCents, { allowPartial: true }),
     [effectivePayments, totalFinalCents, receiveLater]
   );
 
@@ -447,7 +450,7 @@ export default function StudentProductSaleStep({
         return;
       }
     } else if (!paymentValid.ok) {
-      setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+      setLocalError('Informe um valor de pagamento válido.');
       focusCartPanel();
       return;
     }
@@ -637,6 +640,7 @@ export default function StudentProductSaleStep({
                   disabled={creating || cart.length === 0}
                   inlineValidate
                   financeConfig={financeConfig}
+                  allowPartial
                 />
               )}
 

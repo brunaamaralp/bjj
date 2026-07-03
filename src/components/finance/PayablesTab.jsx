@@ -36,6 +36,7 @@ import { EMPRESA_FINANCE_ACCOUNTS_PATH, EMPRESA_FINANCE_VENDORS_PATH } from '../
 import { applyAccountingSideEffectsAuto } from '../../lib/financeJournal.js';
 import { useToast } from '../../hooks/useToast.js';
 import { financeTxFriendlyError } from '../../lib/errorMessages.js';
+import { FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE } from '../../../lib/constants.js';
 import FinanceTabShell from './FinanceTabShell.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -308,16 +309,17 @@ export default function PayablesTab({
     ];
   }, [summary.totalOpen, summary.overdueCount]);
 
+  function canPayPayableItem(item) {
+    if (!item) return false;
+    if (item.source === PAYABLE_SOURCE.LANCAMENTO) return Boolean(String(item.tx_id || '').trim());
+    if (item.source === PAYABLE_SOURCE.TEMPLATE || item.source === PAYABLE_SOURCE.RECORRENCIA) {
+      return Boolean(String(item.template_id || '').trim());
+    }
+    return false;
+  }
+
   function openSettle(item) {
-    const txId = String(item?.tx_id || '').trim();
-    const templateId = String(item?.template_id || '').trim();
-    const canSettle =
-      item?.source === PAYABLE_SOURCE.LANCAMENTO
-        ? Boolean(txId)
-        : item?.source === PAYABLE_SOURCE.TEMPLATE || item?.source === PAYABLE_SOURCE.RECORRENCIA
-          ? Boolean(templateId)
-          : false;
-    if (!canSettle) return;
+    if (!canPayPayableItem(item)) return;
     setSettleItem(item);
     setSettleGross(String(item.amount || ''));
     setSettleAccount('');
@@ -330,7 +332,12 @@ export default function PayablesTab({
   function settleTargetId(item) {
     if (!item) return '';
     if (item.source === PAYABLE_SOURCE.LANCAMENTO) return String(item.tx_id || '').trim();
-    return String(item.template_id || item.tx_id || '').trim();
+    return String(item.template_id || '').trim();
+  }
+
+  function settleActionForItem(item) {
+    if (item?.source === PAYABLE_SOURCE.LANCAMENTO) return 'settle';
+    return 'settle_payable_from_template';
   }
 
   function openEdit(item) {
@@ -463,7 +470,7 @@ export default function PayablesTab({
       const paidIso = new Date(`${paidYmd}T12:00:00`).toISOString();
       const dueYmd = String(settleItem.due_date || '').slice(0, 10);
       const payload = {
-        action: 'settle',
+        action: settleActionForItem(settleItem),
         gross: grossNum,
         method: settleMethod,
         bank_account: accountCheck.account,
@@ -748,6 +755,12 @@ export default function PayablesTab({
                               type="button"
                               className="btn-outline btn-sm"
                               onClick={() => openSettle(item)}
+                              disabled={!canPayPayableItem(item)}
+                              title={
+                                canPayPayableItem(item)
+                                  ? 'Registrar pagamento'
+                                  : FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE
+                              }
                             >
                               Pagar
                             </button>

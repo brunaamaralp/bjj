@@ -89,9 +89,9 @@ const Inventory = () => {
   );
 
   useEffect(() => {
-    if (!academyId) return;
+    if (!academyId || tab !== 'saldo') return;
     void refresh();
-  }, [academyId, refresh]);
+  }, [academyId, tab, refresh]);
 
   const activeMovesPanelTab = highlightMoveId ? 'historico' : movesPanelTab;
 

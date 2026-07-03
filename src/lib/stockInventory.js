@@ -193,6 +193,7 @@ export function quantityDeltaForMoveType(tipo, quantidade) {
       return q;
     case 'saida_venda':
     case 'saida_aluguel':
+    case 'saida':
       return q > 0 ? -q : 0;
     default:
       return 0;

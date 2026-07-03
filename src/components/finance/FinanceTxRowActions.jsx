@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuDivider,
 } from '../shared/menu';
+import { FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE } from '../../../lib/constants.js';
 
 const EXPENSE_EDIT_TITLE = 'Despesas só podem ser editadas por titular ou administrador.';
 
@@ -39,6 +40,7 @@ export default function FinanceTxRowActions({
   onMenuOpenChange,
   onEdit,
   onSettle,
+  canSettle = true,
   onCancel,
   onReverse,
   onAssignBank,
@@ -75,9 +77,19 @@ export default function FinanceTxRowActions({
               <Pencil size={16} aria-hidden />
             </TxIconButton>
           ) : null}
-          <TxIconButton label="Liquidar" onClick={onSettle} disabled={rowBusy} title="Liquidar">
-            <CheckCircle2 size={16} aria-hidden />
-          </TxIconButton>
+          {canSettle ? (
+            <TxIconButton label="Liquidar" onClick={onSettle} disabled={rowBusy} title="Liquidar">
+              <CheckCircle2 size={16} aria-hidden />
+            </TxIconButton>
+          ) : (
+            <TxIconButton
+              label="Liquidar"
+              disabled
+              title={FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE}
+            >
+              <CheckCircle2 size={16} aria-hidden />
+            </TxIconButton>
+          )}
         </>
       ) : null}
 

@@ -31,6 +31,15 @@ export default async function (req, res) {
     if (action === "settle") {
       const { id } = body;
       if (!id) return res.json({ error: "invalid_payload" }, 400);
+      let doc;
+      try {
+        doc = await databases.getDocument(DB_ID, FINANCIAL_TX_COL, id);
+      } catch {
+        return res.json({ error: "not_found" }, 404);
+      }
+      if (doc.is_recurrence_template === true) {
+        return res.json({ error: "cannot_settle_recurrence_template" }, 400);
+      }
       await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, id, {
         status: "settled",
         settledAt: new Date().toISOString()

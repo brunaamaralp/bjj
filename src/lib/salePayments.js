@@ -205,17 +205,73 @@ export function sumPagamentosNet(pagamentos) {
 }
 
 export function validatePagamentosAgainstTotal(pagamentos, totalVenda) {
+  return validatePagamentosForSettlement(pagamentos, totalVenda, { allowPartial: false });
+}
+
+/** Valor já recebido a partir de `pagamentos_json` ou lista normalizada. */
+export function salePaidAmountNet(pagamentosOrJson) {
+  const list = Array.isArray(pagamentosOrJson)
+    ? pagamentosOrJson
+    : parsePagamentosJson(pagamentosOrJson);
+  return sumPagamentosNet(list);
+}
+
+export function saleRemainingAmount(totalVenda, paidNet = 0) {
   const total = roundMoney(totalVenda);
+  const paid = roundMoney(paidNet);
+  return roundMoney(Math.max(0, total - paid));
+}
+
+export function mergePagamentosLists(existing, incoming) {
+  const base = Array.isArray(existing) ? existing : parsePagamentosJson(existing);
+  const next = normalizePagamentosInput(incoming);
+  const merged = [...base, ...next].slice(0, MAX_SALE_PAYMENTS * 10);
+  return merged;
+}
+
+/**
+ * Valida pagamento na liquidação ou checkout.
+ * `allowPartial`: net > 0 e alreadyPaid + net <= total (fecha quando igual).
+ */
+export function validatePagamentosForSettlement(pagamentos, totalVenda, opts = {}) {
+  const total = roundMoney(totalVenda);
+  const prior = roundMoney(opts?.alreadyPaid ?? 0);
   const net = sumPagamentosNet(pagamentos);
-  if (Math.abs(net - total) > 0.009) {
-    return { ok: false, net, total };
-  }
-  for (const p of pagamentos) {
+  for (const p of pagamentos || []) {
     if (p.forma === 'dinheiro' && Number(p.troco) > Number(p.valor)) {
-      return { ok: false, reason: 'troco_exceeds_valor' };
+      return { ok: false, reason: 'troco_exceeds_valor', net, total, prior };
     }
   }
-  return { ok: true, net, total };
+  if (opts?.allowPartial === true) {
+    if (net <= 0.009) {
+      return { ok: false, reason: 'zero_payment', net, total, prior };
+    }
+    const newPaid = roundMoney(prior + net);
+    if (newPaid > total + 0.009) {
+      return {
+        ok: false,
+        reason: 'exceeds_remaining',
+        net,
+        total,
+        prior,
+        remaining: saleRemainingAmount(total, prior),
+      };
+    }
+    const isComplete = Math.abs(newPaid - total) <= 0.009;
+    return {
+      ok: true,
+      net,
+      total,
+      prior,
+      newPaid,
+      isComplete,
+      remaining: saleRemainingAmount(total, newPaid),
+    };
+  }
+  if (Math.abs(net - total) > 0.009) {
+    return { ok: false, net, total, prior };
+  }
+  return { ok: true, net, total, prior, newPaid: net, isComplete: true, remaining: 0 };
 }
 
 export function buildFormaPagamentoResumo(pagamentos) {
@@ -263,6 +319,7 @@ export function buildReceiptPaymentsText(pagamentos, totalVenda) {
 export function paymentsUiValid(rows, totalCents, opts = {}) {
   if (opts?.deferred === true) return { ok: true, deferred: true };
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
+  const allowPartial = opts?.allowPartial === true;
   if (!rows?.length) return { ok: false, reason: 'empty' };
   if (rows.length > MAX_SALE_PAYMENTS) return { ok: false, reason: 'max' };
 
@@ -299,6 +356,11 @@ export function paymentsUiValid(rows, totalCents, opts = {}) {
   }
 
   const net = netPaidCentsFromRows(rows);
+  if (allowPartial) {
+    if (net <= 0) return { ok: false, reason: 'valor', net, total };
+    if (net > total) return { ok: false, reason: 'sum', net, total, diff: total - net };
+    return { ok: true, net, total, partial: net < total };
+  }
   if (net !== total) return { ok: false, reason: 'sum', net, total, diff: total - net };
   return { ok: true, net, total };
 }

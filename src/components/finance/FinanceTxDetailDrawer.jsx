@@ -288,6 +288,7 @@ export default function FinanceTxDetailDrawer({
               onMenuOpenChange={onMenuOpenChange}
               onEdit={onEdit}
               onSettle={onSettle}
+              canSettle={tx.is_recurrence_template !== true}
               onCancel={onCancel}
               onReverse={onReverse}
               onAssignBank={onAssignBank}

@@ -150,7 +150,6 @@ export function buildTemplatePayableItems(templates = [], { today = todayYmdLoca
       amount,
       due_date: nextDue,
       status: classifyPayableStatus(nextDue, todayYmd),
-      tx_id: templateId,
       template_id: templateId,
       recurrence: {
         active: true,

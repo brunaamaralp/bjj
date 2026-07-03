@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   validatePagamentosAgainstTotal,
+  validatePagamentosForSettlement,
+  salePaidAmountNet,
+  saleRemainingAmount,
+  mergePagamentosLists,
   buildFormaPagamentoResumo,
   formatSalePaymentHistoryLabel,
   serializePagamentosForApi,
@@ -120,5 +124,41 @@ describe('salePayments', () => {
     ];
     expect(paymentsUiValid(rows, 20000).ok).toBe(false);
     expect(netPaidCentsFromRows(rows)).toBe(10000);
+  });
+
+  it('UI aceita pagamento parcial quando allowPartial', () => {
+    const rows = [
+      { id: '1', forma: 'pix', valorCents: 5000, recebidoCents: 5000, formaTroco: 'pix' },
+    ];
+    const r = paymentsUiValid(rows, 20000, { allowPartial: true });
+    expect(r.ok).toBe(true);
+    expect(r.partial).toBe(true);
+  });
+
+  it('validatePagamentosForSettlement permite parcial e fecha quando completo', () => {
+    const partial = validatePagamentosForSettlement([{ forma: 'pix', valor: 50 }], 200, {
+      allowPartial: true,
+    });
+    expect(partial.ok).toBe(true);
+    expect(partial.isComplete).toBe(false);
+    expect(partial.remaining).toBe(150);
+
+    const complete = validatePagamentosForSettlement([{ forma: 'pix', valor: 150 }], 200, {
+      allowPartial: true,
+      alreadyPaid: 50,
+    });
+    expect(complete.ok).toBe(true);
+    expect(complete.isComplete).toBe(true);
+    expect(complete.remaining).toBe(0);
+  });
+
+  it('mergePagamentosLists acumula recebimentos', () => {
+    const merged = mergePagamentosLists(
+      [{ forma: 'pix', valor: 50 }],
+      [{ forma: 'dinheiro', valor: 30 }]
+    );
+    expect(merged).toHaveLength(2);
+    expect(salePaidAmountNet(merged)).toBe(80);
+    expect(saleRemainingAmount(200, salePaidAmountNet(merged))).toBe(120);
   });
 });

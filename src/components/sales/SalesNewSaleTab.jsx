@@ -313,7 +313,7 @@ export default function SalesNewSaleTab({
     () =>
       deferredSale
         ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
-        : paymentsUiValid(payments, totalFinalCents, { financeConfig }),
+        : paymentsUiValid(payments, totalFinalCents, { financeConfig, allowPartial: true }),
     [payments, totalFinalCents, deferredSale, financeConfig]
   );
 
@@ -872,8 +872,10 @@ export default function SalesNewSaleTab({
     } else if (!paymentValid.ok) {
       if (paymentValid.reason === 'capture_method' && paymentValid.message) {
         setLocalError(paymentValid.message);
+      } else if (paymentValid.reason === 'sum' && paymentValid.net > totalFinalCents) {
+        setLocalError('O valor informado excede o total da venda.');
       } else {
-        setLocalError('Ajuste os valores de pagamento para fechar o total da venda.');
+        setLocalError('Informe um valor de pagamento válido.');
       }
       focusCheckoutPanel();
       return;
@@ -979,7 +981,7 @@ export default function SalesNewSaleTab({
       vendaId,
       date: dateStr,
       time: timeStr,
-      status: deferredSale ? 'pendente' : 'concluida',
+      status: st.lastSale?.status || (deferredSale ? 'pendente' : paymentValid.partial ? 'parcial' : 'concluida'),
       clientName: clientDisplayName,
       clientPhone: clientPhone.trim(),
       forma: deferredSale ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
@@ -1287,6 +1289,7 @@ export default function SalesNewSaleTab({
                       disabled={creating || cart.length === 0}
                       inlineValidate
                       financeConfig={financeConfig}
+                      allowPartial
                     />
                   ) : null}
                 </>

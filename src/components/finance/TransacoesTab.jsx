@@ -1610,6 +1610,7 @@ export default function TransacoesTab({
                               openEditModal(tx);
                             }}
                             onSettle={() => void settle(tx.id)}
+                            canSettle={tx.is_recurrence_template !== true}
                             onCancel={() => requestCancelTx(tx.id)}
                             onReverse={() => requestReverseTx(tx.id)}
                             onAssignBank={() => openAssignBankModal(tx)}
@@ -1847,6 +1848,7 @@ export default function TransacoesTab({
                             openEditModal(tx);
                           }}
                           onSettle={() => void settle(tx.id)}
+                          canSettle={tx.is_recurrence_template !== true}
                           onCancel={() => requestCancelTx(tx.id)}
                           onReverse={() => requestReverseTx(tx.id)}
                           onAssignBank={() => openAssignBankModal(tx)}

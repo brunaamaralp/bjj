@@ -38,8 +38,11 @@ export default function SalesPaymentBlock({
   disabled,
   inlineValidate = false,
   financeConfig = null,
+  allowPartial = false,
+  saleTotalCents = null,
 }) {
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
+  const saleTotal = saleTotalCents != null ? Math.max(0, Math.round(Number(saleTotalCents) || 0)) : total;
   const [touched, setTouched] = useState({});
 
   const paymentFormOptions = useMemo(
@@ -56,8 +59,12 @@ export default function SalesPaymentBlock({
   }, []);
 
   const validation = useMemo(
-    () => paymentsUiValid(payments, total, { financeConfig: financeConfig || undefined }),
-    [payments, total, financeConfig]
+    () =>
+      paymentsUiValid(payments, total, {
+        financeConfig: financeConfig || undefined,
+        allowPartial,
+      }),
+    [payments, total, financeConfig, allowPartial]
   );
   const netCents = useMemo(() => netPaidCentsFromRows(payments), [payments]);
   const diffCents = total - netCents;
@@ -399,10 +406,22 @@ export default function SalesPaymentBlock({
       >
         {validation.ok ? (
           <>
-            Total informado: <strong>{sumLabel}</strong> ✓ (venda {totalLabel})
+            Total informado: <strong>{sumLabel}</strong> ✓
+            {allowPartial && validation.partial ? (
+              <> (parcial — saldo {totalLabel})</>
+            ) : allowPartial && saleTotal > total ? (
+              <> (quita saldo de {totalLabel})</>
+            ) : (
+              <> (venda {formatBRLFromCents(saleTotal)})</>
+            )}
           </>
         ) : validation.reason === 'troco_negativo' ? (
           <>Corrija o valor recebido em dinheiro (insuficiente).</>
+        ) : allowPartial && diffCents > 0 ? (
+          <>
+            Total informado: {sumLabel} — <strong>Parcial</strong> (saldo {totalLabel}
+            {diffCents < total ? `, faltam ${formatBRLFromCents(diffCents)} para quitar` : ''})
+          </>
         ) : diffCents > 0 ? (
           <>
             Total informado: {sumLabel} — <strong>Faltam {formatBRLFromCents(diffCents)}</strong>

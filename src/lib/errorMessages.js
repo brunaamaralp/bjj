@@ -105,6 +105,8 @@ const FINANCE_TX_CODES = {
   already_reversed: 'Este lançamento já foi estornado.',
   cannot_reverse_reversal: 'Não é possível estornar um lançamento de estorno.',
   cannot_reverse_recurrence_template: 'Não é possível estornar o modelo de recorrência.',
+  cannot_settle_recurrence_template:
+    'Não é possível liquidar um template de recorrência. Liquide a instância do mês.',
   only_settled_can_assign_bank: 'Só é possível atribuir conta em lançamentos liquidados.',
   create_failed: 'Não foi possível criar o lançamento. Tente novamente.',
   save_failed: 'Não foi possível salvar o lançamento. Tente novamente.',
