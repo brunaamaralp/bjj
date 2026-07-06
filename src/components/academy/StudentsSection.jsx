@@ -26,6 +26,7 @@ import {
 import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import ClassesTurmasRedirectSection from './ClassesTurmasRedirectSection.jsx';
 import PublicEnrollmentSection from './PublicEnrollmentSection.jsx';
+import PublicExperimentalSection from './PublicExperimentalSection.jsx';
 import BeltGradesSection from './BeltGradesSection.jsx';
 import AcademyTabSettingsLayout from './settings/AcademyTabSettingsLayout.jsx';
 import '../finance/finance.css';
@@ -339,6 +340,13 @@ const StudentsSection = ({ academy, setAcademy, academyId, academyDataVersion = 
     sectionBody = (
       <>
         <PublicEnrollmentSection
+          academyId={academyId}
+          academy={academy}
+          setAcademy={setAcademy}
+          canEdit={canEdit}
+          embedded
+        />
+        <PublicExperimentalSection
           academyId={academyId}
           academy={academy}
           setAcademy={setAcademy}

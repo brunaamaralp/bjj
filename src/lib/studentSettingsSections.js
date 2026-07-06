@@ -1,6 +1,7 @@
 import { parseStudentExitReasons } from './studentExitConfig.js';
 import { parseStudentFreezeReasons } from './studentFreezeConfig.js';
 import { readPublicEnrollment } from './publicEnrollmentSettings.js';
+import { readPublicExperimental } from './publicExperimentalSettings.js';
 import { resolveAcademyTurmaLabels } from './academyTurmas.js';
 import { parseBeltGradesFromSettings } from './beltGradesConfig.js';
 
@@ -40,7 +41,7 @@ export const STUDENT_SETTINGS_ITEMS = [
   {
     id: STUDENT_SETTINGS_SECTIONS.MATRICULA,
     label: 'Configurações de matrícula',
-    hint: 'Matrícula online e tarefas após a conversão.',
+    hint: 'Matrícula online, link de experimental e tarefas após a conversão.',
   },
 ];
 
@@ -50,6 +51,7 @@ export function buildStudentSettingsSummaries({ academy, turmasCount = null, cla
   const reasons = parseStudentExitReasons(academy?.studentExitReasons);
   const freezeReasons = parseStudentFreezeReasons(academy?.studentFreezeReasons);
   const enrollment = readPublicEnrollment(academy?.settings);
+  const experimental = readPublicExperimental(academy?.settings);
   const belts = parseBeltGradesFromSettings(academy?.settings);
 
   const turmas =
@@ -70,8 +72,15 @@ export function buildStudentSettingsSummaries({ academy, turmasCount = null, cla
       done: belts.length > 0,
     },
     [STUDENT_SETTINGS_SECTIONS.MATRICULA]: {
-      summary: enrollment.enabled ? 'Matrícula online ativa' : 'Somente interna',
-      done: enrollment.enabled,
+      summary:
+        enrollment.enabled && experimental.enabled
+          ? 'Matrícula + experimental online'
+          : enrollment.enabled
+            ? 'Matrícula online ativa'
+            : experimental.enabled
+              ? 'Experimental online ativa'
+              : 'Somente interna',
+      done: enrollment.enabled || experimental.enabled,
     },
   };
 }

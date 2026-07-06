@@ -5,10 +5,10 @@
 | **id** | `crm.funil.lead-matricula` |
 | **módulo** | CRM |
 | **personas** | recepcionista, owner |
-| **rotas** | `/pipeline`, `/lead/:id`, modal **Novo lead** (global) |
+| **rotas** | `/pipeline`, `/lead/:id`, `/experimental/:token` (público), modal **Novo lead** (global) |
 | **pré-requisitos** | Usuário autenticado; estágios do funil configurados em Minha academia |
 | **status** | revisado |
-| **última revisão** | 2026-06-23 |
+| **última revisão** | 2026-07-06 |
 
 **Specs relacionadas:**
 
@@ -16,17 +16,20 @@
 - [2026-06-10-followup-experimental-design.md](../superpowers/specs/2026-06-10-followup-experimental-design.md) — ações pós-experimental
 - [2026-06-12-lead-history-summary-cache-design.md](../superpowers/specs/2026-06-12-lead-history-summary-cache-design.md) — resumo IA no perfil
 - [2026-06-11-conversa-cadastro-lead-ia-design.md](../superpowers/specs/2026-06-11-conversa-cadastro-lead-ia-design.md) — cadastro via conversa
+- [2026-07-06-public-experimental-booking-PRODUCT.md](../superpowers/specs/2026-07-06-public-experimental-booking-PRODUCT.md) — agendamento público de experimental (reagendamento por telefone)
 - [2026-06-17-lead-child-display-names.md](../superpowers/plans/2026-06-17-lead-child-display-names.md) — exibição aluno vs responsável no funil e perfil
 
-**Harness relacionado:** `npm test -- enrollmentFlow performEnrollment`
+**Harness relacionado:** `npm test -- enrollmentFlow performEnrollment publicExperimental`
 
-**Arquivos-chave:** `src/pages/Pipeline.jsx`, `src/pages/LeadProfile.jsx`, `src/components/leads/NewLeadModal.jsx`, `src/lib/performEnrollment.js`
+**Arquivos-chave:** `src/pages/Pipeline.jsx`, `src/pages/LeadProfile.jsx`, `src/components/leads/NewLeadModal.jsx`, `src/lib/performEnrollment.js`, `src/pages/PublicExperimentalBooking.jsx`, `lib/server/publicExperimentalBook.js`
 
 ---
 
 ## Resumo
 
 O operador captura um novo contato, acompanha o lead no **Funil** (kanban ou lista), abre o perfil para histórico e comunicação, move entre estágios conforme o playbook e conclui com **matrícula** — criando o registro de aluno e encerrando o ciclo comercial no CRM.
+
+Interessados também podem **agendar aula experimental** pelo link público (`/experimental/:token`): o sistema cria lead em **Aula experimental** ou **reagenda** o lead existente (mesmo telefone + nome compatível), sem duplicar.
 
 ---
 
@@ -36,6 +39,8 @@ O operador captura um novo contato, acompanha o lead no **Funil** (kanban ou lis
 flowchart TD
   start[Novo lead] --> modal[NewLeadModal]
   modal --> pipeline["/pipeline"]
+  publicLink["/experimental/:token"] --> publicForm[Formulário público]
+  publicForm --> pipeline
   pipeline --> stage[Mover estágio / ações rápidas]
   stage --> profile["/lead/:id"]
   profile --> whatsapp[WhatsApp template]
@@ -55,6 +60,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | (global) | `NewLeadModal` | Sidebar **Novo lead** ou FAB mobile | Modal com nome, telefone, origem, estágio inicial |
+| 1b | `/experimental/:token` | `PublicExperimentalBooking` | Preencher nome, telefone, nascimento, horário | Lead criado ou reagendado em **Aula experimental**; origem **Experimental online** |
 | 2 | `/pipeline` | `Pipeline.jsx` | Salvar novo lead | Lead aparece na coluna do estágio escolhido; perfil **Criança/Juniores**: card mostra **nome do aluno** + subtítulo `resp. {responsável}`; busca inclui responsável |
 | 3 | `/pipeline` | Kanban / lista | Arrastar card ou menu de estágio | Estágio atualizado; automações disparam se configuradas |
 | 3b | `/pipeline` (kanban desktop) | `InboxTriageCard` no card | Confirmar / Vincular aluno / Não é lead | Triagem concluída **sem** abrir perfil; mover para etapa ≠ Novo confirma triagem implicitamente |
@@ -80,10 +86,13 @@ flowchart TD
 - [ ] Planos de mensalidade (se matrícula com plano financeiro) em `/empresa?tab=financeiro`
 - [ ] Templates WhatsApp configurados para mensagens de estágio
 - [ ] Lead de teste em estágio aberto (não matriculado)
+- [ ] Link de experimental ativo em Empresa → Alunos → Configurações de matrícula (`PublicExperimentalSection`)
 
 ### Checklist passo a passo
 
 1. [ ] Abrir **Novo lead** — modal visível e campos obrigatórios validados
+1b. [ ] Abrir `/experimental/:token` — slots filtrados por faixa etária; menor exige responsável
+1c. [ ] Reenviar com mesmo telefone e outro horário — **um** lead no funil, horário atualizado (reagendamento)
 2. [ ] Criar lead "Teste Fluxo" — aparece em `/pipeline` no estágio correto
 3. [ ] Alternar kanban ↔ lista **(desktop; largura > 1023px)** — mesmo lead visível em ambas
 3b. [ ] Lead inbound em **Novo** (desktop) — callout triagem: Confirmar / Vincular / Não é lead **sem** navegar ao perfil
@@ -106,6 +115,9 @@ flowchart TD
 | Situação | Feedback esperado | Referência |
 |---|---|---|
 | Telefone duplicado | Validação no modal / toast | `NewLeadModal` |
+| Telefone já matriculado (link público) | Erro `student_already_exists` | `publicExperimentalBook` |
+| Lead já convertido (link público) | Erro `lead_converted` | `publicExperimentalBook` |
+| Slot lotado (link público) | Erro `slot_full` | `publicExperimentalBook` |
 | Matrícula sem plano obrigatório | Erro no modal de matrícula | `performEnrollment` |
 | Desconto maior ou igual ao plano | Validação inline no modal de matrícula | `MatriculaModal` |
 | WhatsApp desconectado no perfil | Banner warning + empty na aba Conversa (Configurar + wa.me) + tab “Conversa (offline)” + Reconectar com histórico | Spec [2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md](../superpowers/specs/2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md) |
@@ -160,6 +172,7 @@ flowchart TD
 ## Variações e atalhos
 
 - **Entrada alternativa:** lead criado a partir do **Inbox** ao associar conversa (`docs/flows/crm/conversas-inbox.md`)
+- **Experimental online:** link público em Empresa → Alunos → **Configurações de matrícula** (`PublicExperimentalSection`); formulário em `/experimental/:token`; reagenda lead existente pelo telefone (não duplica); bloqueia se já matriculado ou lead convertido
 - **Matrícula pelo funil:** menu rápido no card sem abrir perfil
 - **Matrícula online:** link público em Empresa → Alunos → **Cadastro online** (`PublicEnrollmentSection`); toggle **Pedir graduação no formulário online** (default off) só aparece com graduações salvas; formulário em `/inscricao/:token` envia `belt` quando toggle ativo
 - **Automações:** ao mudar estágio, processos em `/automacoes?tab=processos` podem enviar mensagens
@@ -172,5 +185,6 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-06 | — | Link público `/experimental/:token` para agendar experimental; reagendamento por telefone |
 | 2026-06-23 | — | Matrícula passa a aceitar desconto individual recorrente com preview do valor final |
 | 2026-06-19 | — | Matrícula online: toggle askBelt + campo graduação no formulário público |
