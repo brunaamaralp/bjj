@@ -281,6 +281,65 @@ describe('studentPaymentsHandler', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it('permite dois meses de competência distintos com mesmo valor e paid_at', async () => {
+    const existingMonth = {
+      $id: 'pay-aug',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 200,
+      paid_amount: 200,
+      status: 'paid',
+      method: 'pix',
+      paid_at: '2026-07-08T15:00:00.000Z',
+      reference_month: '2026-08',
+      payment_category: 'plan',
+    };
+    handlerMocks.listDocuments
+      .mockResolvedValueOnce({ documents: [] })
+      .mockResolvedValueOnce({ documents: [existingMonth] });
+    handlerMocks.createDocument.mockImplementation(async (_db, _col, id, payload) => ({
+      ...payload,
+      $id: id,
+    }));
+    handlerMocks.getDocument.mockResolvedValue({
+      $id: 'pay-sep',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      amount: 200,
+      paid_amount: 200,
+      status: 'paid',
+      reference_month: '2026-09',
+      payment_category: 'plan',
+      financial_tx_id: '',
+    });
+
+    const { handleCreateStudentPayment } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handleCreateStudentPayment(
+      {
+        body: {
+          lead_id: 'lead-1',
+          amount: 200,
+          paid_amount: 200,
+          method: 'pix',
+          status: 'paid',
+          paid_at: '2026-07-08T15:00:00.000Z',
+          reference_month: '2026-09',
+          payment_category: 'plan',
+        },
+      },
+      res,
+      'acad-1',
+      { $id: 'user-1' },
+      { financeConfig: '{}' }
+    );
+
+    expect(handlerMocks.createDocument).toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
   it('cria taxa avulsa sem upsert por reference_month', async () => {
     handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
     handlerMocks.createDocument.mockImplementation(async (_db, _col, id, payload) => ({
