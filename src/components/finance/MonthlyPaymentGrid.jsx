@@ -21,7 +21,7 @@ import {
   mapDbStatusFromGridForm,
   receivedAmountForPayment,
 } from '../../lib/paymentStatus';
-import { formatMensalidadeDueDateBr } from '../../lib/collectionOverdue.js';
+import { formatMensalidadeDueDateBr, dueDateInMonth, studentDueDay } from '../../lib/collectionOverdue.js';
 import {
   buildMensalidadesGridRows,
   filterSortMensalidadesRows,

@@ -28,6 +28,10 @@ describe('financeConfigStorage', () => {
     expect(compact.price).toBe(150);
   });
 
+  it('compactPlanForStorage ignora plano embutido Isento', () => {
+    expect(compactPlanForStorage({ name: 'Isento', price: 0, isExempt: true, builtin: true })).toBeNull();
+  });
+
   it('keeps bank accounts in financeConfig when under legacy limit', () => {
     const merged = {
       plans: [{ name: 'Mensal', price: 200 }],
@@ -204,7 +208,8 @@ describe('financeConfigStorage', () => {
       financeConfig: built.financeConfig,
       settings: built.settings,
     });
-    expect(cfg.plans).toHaveLength(8);
+    expect(cfg.plans).toHaveLength(9);
+    expect(cfg.plans.some((p) => p.name === 'Isento' && p.isExempt === true)).toBe(true);
     expect(cfg.plans[0].name).toBe('Plano longo 0');
   });
 
@@ -217,7 +222,12 @@ describe('financeConfigStorage', () => {
       }),
     };
     const cfg = mergeFinanceConfigFromAcademyDoc(doc);
-    expect(cfg.plans).toEqual([expect.objectContaining({ name: 'Mensal', price: 150 })]);
+    expect(cfg.plans).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Mensal', price: 150 }),
+        expect.objectContaining({ name: 'Isento', isExempt: true }),
+      ])
+    );
   });
 
   it('mergeFinanceConfigFromAcademyDoc falls back to financeConfig plans when offload flag is set but settings list is empty', () => {
@@ -229,7 +239,12 @@ describe('financeConfigStorage', () => {
       }),
     };
     const cfg = mergeFinanceConfigFromAcademyDoc(doc);
-    expect(cfg.plans).toEqual([expect.objectContaining({ name: 'Mensal', price: 150 })]);
+    expect(cfg.plans).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Mensal', price: 150 }),
+        expect.objectContaining({ name: 'Isento', isExempt: true }),
+      ])
+    );
   });
 
   it('mergeFinanceConfigFromAcademyDoc unions plans from inline financeConfig and settings overflow', () => {
@@ -244,7 +259,7 @@ describe('financeConfigStorage', () => {
       }),
     };
     const cfg = mergeFinanceConfigFromAcademyDoc(doc);
-    expect(cfg.plans.map((p) => p.name).sort()).toEqual(['Plano antigo', 'Plano novo']);
+    expect(cfg.plans.map((p) => p.name).sort()).toEqual(['Isento', 'Plano antigo', 'Plano novo']);
   });
 
   it('unionFinanceConfigForPersist keeps legacy plans and banks from server when client payload is partial', () => {

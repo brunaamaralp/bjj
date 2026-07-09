@@ -26,6 +26,7 @@ import { normalizePaymentMethodSettings } from './paymentMethodSettings.js';
 import { readCaptureMethods, compactCaptureMethodForStorage } from './captureMethods.js';
 import { readFeeReceivers, compactFeeReceiverForStorage } from './feeReceivers.js';
 import { migrateFinanceConfigToFeeReceivers } from './migrateFeeReceivers.js';
+import { ensureBuiltinExemptPlan } from './academyPlans.js';
 
 /** Limite legado do atributo financeConfig (string) no Appwrite. */
 export const FINANCE_CONFIG_LEGACY_MAX_CHARS = 2500;
@@ -262,7 +263,7 @@ function mergePlansFromAcademyDoc(academyDoc) {
   const cfg = parseFinanceConfigRaw(academyDoc?.financeConfig) || {};
   const fromCfgList = coercePlanList(cfg.plans);
   const fromSettings = extractPlansFromSettings(academyDoc?.settings);
-  return mergePlanLists(fromCfgList, fromSettings);
+  return ensureBuiltinExemptPlan(mergePlanLists(fromCfgList, fromSettings));
 }
 
 /**
@@ -283,6 +284,7 @@ export function unionFinanceConfigForPersist(serverMerged, clientCfg) {
 /** Remove campos vazios dos planos para reduzir o JSON salvo. */
 export function compactPlanForStorage(plan) {
   if (!plan || typeof plan !== 'object') return null;
+  if (plan.builtin === true) return null;
   const name = String(plan.name ?? '').trim();
   if (!name) return null;
   const out = {

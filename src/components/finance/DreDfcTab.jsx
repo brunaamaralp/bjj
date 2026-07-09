@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BarChart3, Download, RefreshCw } from 'lucide-react';
-import { fetchFinanceDfc, fetchFinanceDre } from '../../lib/financeTxApi.js';
+import { fetchFinanceCascade, fetchFinanceDfc, fetchFinanceDre } from '../../lib/financeTxApi.js';
 import { DRE_DISPLAY_GROUPS, UNCLASSIFIED_DRE_GROUP } from '../../lib/financeCategories.js';
 import { DFC_GROUP_ORDER } from '../../lib/financeDfcMapping.js';
 import { FINANCE_REGIME } from '../../lib/financeCompetence.js';
@@ -15,7 +15,12 @@ import {
   monthPeriodBounds,
   overviewPeriodContext,
 } from '../../lib/financeiroOverview.js';
-import { buildDfcCsvMatrix, buildDreCsvMatrix } from '../../lib/financeStatementsExport.js';
+import { buildCascadeCsvMatrix, buildDfcCsvMatrix, buildDreCsvMatrix } from '../../lib/financeStatementsExport.js';
+import {
+  CASCADE_DISPLAY_ROWS,
+  cascadeRowAmount,
+  cascadeRowCategories,
+} from '../../lib/financeCascadeDisplay.js';
 import { downloadCsvMatrix } from '../../lib/reportsExport.js';
 import { useToast } from '../../hooks/useToast.js';
 import { fmt } from './financeFmt.js';
@@ -32,6 +37,7 @@ const STATEMENT_VIEWS = FINANCE_STATEMENT_VIEWS;
 const STATEMENT_TABS = [
   { id: STATEMENT_VIEWS.DRE, label: 'DRE', shortLabel: 'DRE' },
   { id: STATEMENT_VIEWS.DFC, label: 'DFC', shortLabel: 'DFC' },
+  { id: STATEMENT_VIEWS.CASCADE, label: 'Cascata', shortLabel: 'Cascata' },
 ];
 
 const DRE_TOTAL_LINES = new Set([
@@ -118,7 +124,9 @@ function hasDfcGroupMovement(group) {
 
 function parseStatementViewParam(raw) {
   const v = String(raw || '').trim().toLowerCase();
-  return v === STATEMENT_VIEWS.DFC ? STATEMENT_VIEWS.DFC : STATEMENT_VIEWS.DRE;
+  if (v === STATEMENT_VIEWS.DFC) return STATEMENT_VIEWS.DFC;
+  if (v === STATEMENT_VIEWS.CASCADE) return STATEMENT_VIEWS.CASCADE;
+  return STATEMENT_VIEWS.DRE;
 }
 
 function CategoryLancamentosLink({ label, month, statementView, className = '' }) {
@@ -542,6 +550,113 @@ function DfcPanel({ data, compareMonth, periodLabel, referenceMonth }) {
   );
 }
 
+function CascadePanel({ data, compareMonth, periodLabel, referenceMonth }) {
+  const statement = data?.statement;
+  const delta = data?.delta;
+
+  if (!statement) return null;
+
+  const recon = statement.bankReconciliation || {};
+  const unclassified = Number(statement.cascadeData?.nao_classificado || 0);
+
+  const rows = CASCADE_DISPLAY_ROWS.map((row) => {
+    const amount = cascadeRowAmount(statement, row);
+    const categories = cascadeRowCategories(statement, row);
+    const visibleCats = categories.filter((cat) => Math.abs(Number(cat.net ?? 0)) > 0.009);
+    return {
+      ...row,
+      amount,
+      delta: delta?.lines?.[row.key],
+      categories: visibleCats,
+      warn: row.warn && Math.abs(Number(amount || 0)) > 0.009,
+    };
+  }).filter((row) => {
+    if (row.kind === 'total' || row.kind === 'recon') return true;
+    if (Math.abs(Number(row.amount || 0)) > 0.009) return true;
+    return row.categories.length > 0;
+  });
+
+  return (
+    <div
+      className="finance-reports-block finance-statements-panel"
+      role="tabpanel"
+      id="finance-statements-panel-cascade"
+      aria-labelledby="finance-statements-panel-tab-cascade"
+    >
+      <h4 className="finance-statements-panel__title">Fluxo de Caixa Gerencial (cascata)</h4>
+      <p className="finance-statements-panel__hint text-muted text-sm" role="note">
+        {periodLabel} · regime de caixa · valores líquidos · receitas agregadas splitadas pela
+        proporção serviço/produto do período.
+        {compareMonth ? ` Comparativo com ${formatMonthTitleCapitalized(compareMonth)}.` : null}
+      </p>
+      {Math.abs(unclassified) > 0.009 ? (
+        <StatusBanner variant="warning" className="finance-statements-panel__banner">
+          Há lançamentos não classificados ({fmt(unclassified)}) — revise categorias ou o plano de
+          contas.
+        </StatusBanner>
+      ) : null}
+      <div className="finance-statements-table" aria-label="Fluxo de caixa gerencial">
+        <div className="finance-statements-table__head">
+          <span>Linha / categoria</span>
+          <span>Valor</span>
+          <span>
+            <FinanceLabelWithHint hint="Diferença absoluta em reais em relação ao mês anterior.">
+              vs mês ant.
+            </FinanceLabelWithHint>
+          </span>
+        </div>
+        {rows.map((row) => (
+          <StatementRow
+            key={row.key}
+            label={row.label}
+            amount={Number(row.amount || 0)}
+            delta={row.delta}
+            deltaMode={row.kind === 'total' ? 'profit' : 'neutral'}
+            isTotal={row.kind === 'total' || row.kind === 'recon'}
+            warn={row.warn}
+            categories={row.categories.map((cat) => ({
+              ...cat,
+              amount: cat.net,
+            }))}
+            referenceMonth={referenceMonth}
+            statementView={STATEMENT_VIEWS.CASCADE}
+          />
+        ))}
+      </div>
+      {recon.saldoInicial != null ? (
+        <div className="finance-statements-recon">
+          <h5 className="finance-statements-recon__title">Conciliação bancária</h5>
+          <dl className="finance-statements-recon__grid">
+            <div>
+              <dt>Saldo inicial</dt>
+              <dd>{fmt(recon.saldoInicial)}</dd>
+            </div>
+            <div>
+              <dt>Variação (contas)</dt>
+              <dd>{fmt(recon.variacaoSaldo)}</dd>
+            </div>
+            <div>
+              <dt>Saldo final</dt>
+              <dd>{fmt(recon.saldoFinal)}</dd>
+            </div>
+          </dl>
+          {recon.matches === true ? (
+            <p className="finance-statements-recon__ok text-small text-muted" role="status">
+              Variação classificada confere com variação das contas.
+            </p>
+          ) : null}
+          {recon.matches === false ? (
+            <StatusBanner variant="warning" className="finance-statements-panel__banner">
+              Gap de {fmt(recon.gap)} entre fluxo classificado e variação das contas — verifique
+              lançamentos não classificados ou exclusões (transferências).
+            </StatusBanner>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function hasDreMovement(data) {
   const dreData = data?.statement?.dreData || {};
   return Object.values(dreData).some((v) => Math.abs(Number(v)) > 0.009);
@@ -554,6 +669,16 @@ function hasDfcMovement(data) {
   return DFC_GROUP_ORDER.some((g) => hasDfcGroupMovement(statement.groups?.[g]));
 }
 
+function hasCascadeMovement(data) {
+  const statement = data?.statement;
+  if (!statement?.cascadeData) return false;
+  if (Math.abs(Number(statement.cascadeData.variacao_classificada || 0)) > 0.009) return true;
+  return CASCADE_DISPLAY_ROWS.some((row) => {
+    const amount = cascadeRowAmount(statement, row);
+    return Math.abs(Number(amount || 0)) > 0.009;
+  });
+}
+
 export default function DreDfcTab({ academyId, referenceMonth }) {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -561,11 +686,15 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
   const [view, setView] = useState(() => parseStatementViewParam(viewParam));
   const [dreData, setDreData] = useState(null);
   const [dfcData, setDfcData] = useState(null);
+  const [cascadeData, setCascadeData] = useState(null);
   const [loadingDre, setLoadingDre] = useState(false);
   const [loadingDfc, setLoadingDfc] = useState(false);
+  const [loadingCascade, setLoadingCascade] = useState(false);
   const [errorDre, setErrorDre] = useState('');
   const [errorDfc, setErrorDfc] = useState('');
+  const [errorCascade, setErrorCascade] = useState('');
   const dfcLoadedMonthRef = useRef('');
+  const cascadeLoadedMonthRef = useRef('');
 
   useEffect(() => {
     setView(parseStatementViewParam(viewParam));
@@ -625,10 +754,29 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
     }
   }, [academyId, referenceMonth]);
 
+  const loadCascade = useCallback(async () => {
+    if (!academyId || !referenceMonth) return;
+    setLoadingCascade(true);
+    setErrorCascade('');
+    try {
+      const res = await fetchFinanceCascade({ academyId, month: referenceMonth });
+      setCascadeData(res);
+      cascadeLoadedMonthRef.current = referenceMonth;
+    } catch (e) {
+      setCascadeData(null);
+      cascadeLoadedMonthRef.current = '';
+      setErrorCascade(e?.message || 'Erro ao carregar cascata');
+    } finally {
+      setLoadingCascade(false);
+    }
+  }, [academyId, referenceMonth]);
+
   useEffect(() => {
     dfcLoadedMonthRef.current = '';
+    cascadeLoadedMonthRef.current = '';
     setDreData(null);
     setDfcData(null);
+    setCascadeData(null);
     void loadDre();
   }, [academyId, referenceMonth, loadDre]);
 
@@ -644,6 +792,14 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
     void loadDfc();
   }, [view, referenceMonth, dfcData?.month, loadDfc]);
 
+  useEffect(() => {
+    if (view !== STATEMENT_VIEWS.CASCADE) return;
+    if (cascadeLoadedMonthRef.current === referenceMonth && cascadeData?.month === referenceMonth) {
+      return;
+    }
+    void loadCascade();
+  }, [view, referenceMonth, cascadeData?.month, loadCascade]);
+
   const handleOpenDfc = useCallback(() => {
     handleViewChange(STATEMENT_VIEWS.DFC);
   }, [handleViewChange]);
@@ -653,17 +809,24 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
       await loadDre();
       return;
     }
-    await loadDfc();
-  }, [view, loadDre, loadDfc]);
+    if (view === STATEMENT_VIEWS.DFC) {
+      await loadDfc();
+      return;
+    }
+    await loadCascade();
+  }, [view, loadDre, loadDfc, loadCascade]);
 
   const loadAll = useCallback(async () => {
     await loadDre();
     if (view === STATEMENT_VIEWS.DFC || dfcLoadedMonthRef.current === referenceMonth) {
       await loadDfc();
     }
-  }, [loadDre, loadDfc, view, referenceMonth]);
+    if (view === STATEMENT_VIEWS.CASCADE || cascadeLoadedMonthRef.current === referenceMonth) {
+      await loadCascade();
+    }
+  }, [loadDre, loadDfc, loadCascade, view, referenceMonth]);
 
-  const handleExport = useCallback(() => {
+  const handleExportCsv = useCallback(() => {
     if (view === STATEMENT_VIEWS.DRE) {
       if (!dreData?.statement) return;
       const { headers, rows, filename } = buildDreCsvMatrix(dreData);
@@ -671,25 +834,77 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
       toast.success('DRE exportada em CSV.');
       return;
     }
-    if (!dfcData?.statement) return;
-    const { headers, rows, filename } = buildDfcCsvMatrix(dfcData);
+    if (view === STATEMENT_VIEWS.DFC) {
+      if (!dfcData?.statement) return;
+      const { headers, rows, filename } = buildDfcCsvMatrix(dfcData);
+      downloadCsvMatrix(headers, rows, filename);
+      toast.success('DFC exportada em CSV.');
+      return;
+    }
+    if (!cascadeData?.statement) return;
+    const { headers, rows, filename } = buildCascadeCsvMatrix(cascadeData);
     downloadCsvMatrix(headers, rows, filename);
-    toast.success('DFC exportada em CSV.');
-  }, [view, dreData, dfcData, toast]);
+    toast.success('Cascata exportada em CSV.');
+  }, [view, dreData, dfcData, cascadeData, toast]);
 
-  const activeData = view === STATEMENT_VIEWS.DRE ? dreData : dfcData;
-  const activeError = view === STATEMENT_VIEWS.DRE ? errorDre : errorDfc;
-  const activeLoading = view === STATEMENT_VIEWS.DRE ? loadingDre : loadingDfc;
+  const handleExportPdf = useCallback(async () => {
+    if (view !== STATEMENT_VIEWS.CASCADE || !academyId || !referenceMonth) return;
+    try {
+      const blob = await fetchFinanceCascade({
+        academyId,
+        month: referenceMonth,
+        format: 'pdf',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fluxo-caixa-cascata-${referenceMonth}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Cascata exportada em PDF.');
+    } catch (e) {
+      toast.error(e?.message || 'Erro ao exportar PDF');
+    }
+  }, [view, academyId, referenceMonth, toast]);
+
+  const activeData =
+    view === STATEMENT_VIEWS.DRE
+      ? dreData
+      : view === STATEMENT_VIEWS.DFC
+        ? dfcData
+        : cascadeData;
+  const activeError =
+    view === STATEMENT_VIEWS.DRE
+      ? errorDre
+      : view === STATEMENT_VIEWS.DFC
+        ? errorDfc
+        : errorCascade;
+  const activeLoading =
+    view === STATEMENT_VIEWS.DRE
+      ? loadingDre
+      : view === STATEMENT_VIEWS.DFC
+        ? loadingDfc
+        : loadingCascade;
   const hasMovement =
-    view === STATEMENT_VIEWS.DRE ? hasDreMovement(dreData) : hasDfcMovement(dfcData);
-  const canExport = view === STATEMENT_VIEWS.DRE ? Boolean(dreData?.statement) : Boolean(dfcData?.statement);
+    view === STATEMENT_VIEWS.DRE
+      ? hasDreMovement(dreData)
+      : view === STATEMENT_VIEWS.DFC
+        ? hasDfcMovement(dfcData)
+        : hasCascadeMovement(cascadeData);
+  const canExport =
+    view === STATEMENT_VIEWS.DRE
+      ? Boolean(dreData?.statement)
+      : view === STATEMENT_VIEWS.DFC
+        ? Boolean(dfcData?.statement)
+        : Boolean(cascadeData?.statement);
+  const canExportPdf = view === STATEMENT_VIEWS.CASCADE && Boolean(cascadeData?.statement);
   const intro = compareMonthLabel(dreData?.compareMonth || dfcData?.compareMonth);
   const showKpis = Boolean(dreData?.statement) && !loadingDre && !errorDre;
 
   return (
     <FinanceTabShell
       panelClassName="finance-statements-tab"
-      title="DRE e DFC"
+      title="DRE, DFC e Cascata"
       kpiStripBare
       badge={
         intro ? (
@@ -701,20 +916,35 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
           <button
             type="button"
             className="btn-action-ghost finance-statements-actions__btn"
-            onClick={handleExport}
+            onClick={handleExportCsv}
             disabled={!canExport || activeLoading}
           >
             <Download size={16} aria-hidden />
             Exportar CSV
           </button>
+          {canExportPdf ? (
+            <button
+              type="button"
+              className="btn-action-ghost finance-statements-actions__btn"
+              onClick={() => void handleExportPdf()}
+              disabled={activeLoading}
+            >
+              <Download size={16} aria-hidden />
+              Exportar PDF
+            </button>
+          ) : null}
           <button
             type="button"
             className="btn-action-ghost finance-statements-actions__btn"
             onClick={() => void loadAll()}
-            disabled={loadingDre || loadingDfc}
-            aria-busy={loadingDre || loadingDfc}
+            disabled={loadingDre || loadingDfc || loadingCascade}
+            aria-busy={loadingDre || loadingDfc || loadingCascade}
           >
-            <RefreshCw size={16} aria-hidden className={loadingDre || loadingDfc ? 'spin' : ''} />
+            <RefreshCw
+              size={16}
+              aria-hidden
+              className={loadingDre || loadingDfc || loadingCascade ? 'spin' : ''}
+            />
             Atualizar
           </button>
         </div>
@@ -761,7 +991,9 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
           description={
             view === STATEMENT_VIEWS.DRE
               ? 'Não há lançamentos de competência classificados neste mês na DRE.'
-              : 'Não há movimentação de caixa classificada neste mês na DFC.'
+              : view === STATEMENT_VIEWS.DFC
+                ? 'Não há movimentação de caixa classificada neste mês na DFC.'
+                : 'Não há movimentação de caixa classificada neste mês na cascata gerencial.'
           }
           role="status"
         />
@@ -772,10 +1004,17 @@ export default function DreDfcTab({ academyId, referenceMonth }) {
           periodLabel={periodLabel}
           referenceMonth={referenceMonth}
         />
-      ) : (
+      ) : view === STATEMENT_VIEWS.DFC ? (
         <DfcPanel
           data={dfcData}
           compareMonth={dfcData?.compareMonth}
+          periodLabel={periodLabel}
+          referenceMonth={referenceMonth}
+        />
+      ) : (
+        <CascadePanel
+          data={cascadeData}
+          compareMonth={cascadeData?.compareMonth}
           periodLabel={periodLabel}
           referenceMonth={referenceMonth}
         />

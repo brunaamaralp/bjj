@@ -8,6 +8,7 @@ import { FINANCE_REGIME } from './financeCompetence.js';
 export const FINANCE_STATEMENT_VIEWS = {
   DRE: 'dre',
   DFC: 'dfc',
+  CASCADE: 'cascade',
 };
 
 export const FINANCEIRO_SECTIONS = {
@@ -136,7 +137,7 @@ export function isFinanceiroConfigTabSlug(tab) {
 }
 
 /** @deprecated Use aba ?tab=dre no hub Financeiro. */
-export function isFinanceiroDreLegacyTab(tab) {
+export function isFinanceiroDreLegacyTab(_tab) {
   return false;
 }
 

@@ -105,7 +105,6 @@ import PaymentReceiptDateBanner from './PaymentReceiptDateBanner.jsx';
 import { computeMensalidadesMonthKpis } from '../../lib/financeiroOverview.js';
 import CashTrocoFields from './CashTrocoFields.jsx';
 import { isCashPaymentMethod, trocoFieldsForPaymentPayload } from '../../lib/studentPaymentTroco.js';
-import { isStudentOnExemptPlan } from '../../lib/planBilling.js';
 
 const METHOD_LABELS = storageDialectMethodLabelsMap();
 
