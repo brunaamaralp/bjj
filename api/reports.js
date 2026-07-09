@@ -1,6 +1,11 @@
 import { Client, Databases } from 'node-appwrite';
 import { ensureAuth, ensureAcademyAccess } from '../lib/server/academyAccess.js';
 import { aggregateLeadsReport, aggregateStudentMetricsOnly } from '../lib/server/reportsAggregate.js';
+import {
+  aggregateStudentPaymentsTicketMedio,
+  listStudentPaymentsReceivedInPeriod,
+} from '../lib/server/dailyReportStudentPayments.js';
+import { toYmd } from '../lib/planFreezeCore.js';
 import { fetchAllReportPeople, LEADS_COL } from '../lib/server/reportsPeople.js';
 import { loadReportSnapshot, saveReportSnapshot } from '../lib/server/reportSnapshots.js';
 import reportsLightHandler from '../lib/server/reportsLightHandler.js';
@@ -127,16 +132,52 @@ export default async function handler(req, res) {
       }
     }
 
-    const allPeople = await fetchAllReportPeople(
+    const fromYmd = toYmd(new Date(from));
+    const toYmdStr = toYmd(new Date(to));
+    const prevFromYmd = toYmd(new Date(prevFrom));
+    const prevToYmd = toYmd(new Date(prevTo));
+
+    const peoplePromise = fetchAllReportPeople(
       reportsDb,
       DB_ID,
       academyId,
       filters,
       controller.signal
     );
+    const paymentsPromise =
+      reportSlice === 'students'
+        ? Promise.all([
+            listStudentPaymentsReceivedInPeriod(academyId, fromYmd, toYmdStr),
+            listStudentPaymentsReceivedInPeriod(academyId, prevFromYmd, prevToYmd),
+          ])
+        : null;
+
+    let allPeople;
+    let paymentsResults = null;
+    if (reportSlice === 'students') {
+      [allPeople, paymentsResults] = await Promise.all([peoplePromise, paymentsPromise]);
+    } else {
+      allPeople = await peoplePromise;
+    }
 
     if (reportSlice === 'students') {
       const aggregated = aggregateStudentMetricsOnly(allPeople, { from, to, prevFrom, prevTo });
+      const [currentPaymentsResult, prevPaymentsResult] = paymentsResults || [{ docs: [] }, { docs: [] }];
+      const currentTicket = aggregateStudentPaymentsTicketMedio(currentPaymentsResult.docs);
+      const prevTicket = aggregateStudentPaymentsTicketMedio(prevPaymentsResult.docs);
+      aggregated.studentMetrics = {
+        ...aggregated.studentMetrics,
+        ticketMedio: currentTicket.ticketMedio,
+        paymentsCount: currentTicket.paymentsCount,
+        paymentsTotal: currentTicket.paymentsTotal,
+        paymentsTruncated: Boolean(currentPaymentsResult.truncated),
+        previous: {
+          ...aggregated.studentMetrics.previous,
+          ticketMedio: prevTicket.ticketMedio,
+          paymentsCount: prevTicket.paymentsCount,
+          paymentsTotal: prevTicket.paymentsTotal,
+        },
+      };
       const payload = {
         slice: 'students',
         period: { from, to },

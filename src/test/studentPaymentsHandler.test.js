@@ -20,6 +20,9 @@ vi.mock('node-appwrite', () => ({
   Query: {
     equal: (k, v) => ({ op: 'eq', k, v }),
     limit: (n) => ({ op: 'limit', n }),
+    orderDesc: (k) => ({ op: 'orderDesc', k }),
+    cursorAfter: (id) => ({ op: 'cursorAfter', id }),
+    offset: (n) => ({ op: 'offset', n }),
   },
   ID: { unique: () => 'id-new' },
   Permission: {
@@ -83,7 +86,7 @@ vi.mock('../../lib/server/controlidOverdueAccess.js', () => ({
 
 vi.mock('../../lib/server/studentPaymentBundleCreate.js', () => ({
   createBundlePaymentServer: vi.fn(),
-  repairBundleCoverageForMonth: vi.fn(),
+  repairBundleCoverageForMonth: vi.fn().mockResolvedValue({ repaired: [] }),
 }));
 
 function mockRes() {
@@ -569,6 +572,67 @@ describe('studentPaymentsHandler', () => {
       explicitTxId: 'tx-fee',
     });
     expect(handlerMocks.deleteDocument).toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+describe('handleListStudentPayments — repair de pacote', () => {
+  it('repara cobertura só na primeira página da listagem', async () => {
+    process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'payments-col';
+    handlerMocks.listDocuments.mockResolvedValue({
+      documents: [{ $id: 'p1', payment_category: 'plan', status: 'paid', lead_id: 's1' }],
+      total: 1,
+    });
+
+    const bundleCreate = await import('../../lib/server/studentPaymentBundleCreate.js');
+    const { handleListStudentPayments } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    await handleListStudentPayments(
+      { query: { reference_month: '2026-07', page: '1', limit: '100' } },
+      res,
+      'acad-1'
+    );
+
+    expect(bundleCreate.repairBundleCoverageForMonth).toHaveBeenCalledTimes(1);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.payments).toHaveLength(1);
+
+    vi.mocked(bundleCreate.repairBundleCoverageForMonth).mockClear();
+    handlerMocks.listDocuments.mockResolvedValue({
+      documents: [{ $id: 'p2', payment_category: 'plan', status: 'paid', lead_id: 's2' }],
+      total: 2,
+    });
+
+    await handleListStudentPayments(
+      { query: { reference_month: '2026-07', page: '2', limit: '100' } },
+      res,
+      'acad-1'
+    );
+
+    expect(bundleCreate.repairBundleCoverageForMonth).not.toHaveBeenCalled();
+  });
+
+  it('não repara cobertura quando usa cursor de paginação', async () => {
+    process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'payments-col';
+    handlerMocks.listDocuments.mockResolvedValue({
+      documents: [{ $id: 'p3', payment_category: 'plan', status: 'paid', lead_id: 's3' }],
+      total: 3,
+    });
+
+    const bundleCreate = await import('../../lib/server/studentPaymentBundleCreate.js');
+    const { handleListStudentPayments } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = mockRes();
+
+    vi.mocked(bundleCreate.repairBundleCoverageForMonth).mockClear();
+
+    await handleListStudentPayments(
+      { query: { reference_month: '2026-07', page: '1', limit: '100', cursor: 'p2' } },
+      res,
+      'acad-1'
+    );
+
+    expect(bundleCreate.repairBundleCoverageForMonth).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(200);
   });
 });

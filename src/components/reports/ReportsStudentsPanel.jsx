@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
 import ReportsChart, { REPORTS_CHART_AXIS_TICK, ReportsChartTooltip } from './shared/ReportsChart.jsx';
-import { UserPlus, UserMinus, TrendingDown, TrendingUp } from 'lucide-react';
+import { DollarSign, UserPlus, UserMinus, TrendingDown, TrendingUp } from 'lucide-react';
+import { formatBRL } from '../../lib/moneyBr.js';
 import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
 import {
@@ -56,6 +57,7 @@ export default function ReportsStudentsPanel({
     m.retentionRate != null && m.retentionRate !== ''
       ? Number(m.retentionRate) || 0
       : Math.max(0, 100 - churn);
+  const ticketMedio = Number(m.ticketMedio) || 0;
 
   const pm = prevMetrics || {};
   const prevNovo = Number(pm.newStudents) || 0;
@@ -65,6 +67,7 @@ export default function ReportsStudentsPanel({
     pm.retentionRate != null && pm.retentionRate !== ''
       ? Number(pm.retentionRate) || 0
       : Math.max(0, 100 - prevChurn);
+  const prevTicketMedio = Number(pm.ticketMedio) || 0;
 
   useEffect(() => {
     if (!prevFetchKey) return undefined;
@@ -117,7 +120,7 @@ export default function ReportsStudentsPanel({
       <ReportsPanelShell>
         <ReportsPanelSection aria-busy="true">
           <div className="reports-kpi-grid">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <ReportKpiCardSkeleton key={i} />
             ))}
           </div>
@@ -185,6 +188,14 @@ export default function ReportsStudentsPanel({
           tooltip={reportKpiTooltip('retentionRate', { preset })}
           icon={<TrendingUp size={20} strokeWidth={2.25} />}
           {...kpiRagProps('retentionRate', retention, kpiGoals)}
+        />
+        <ReportKpiCard
+          label="Ticket médio"
+          value={formatBRL(ticketMedio)}
+          trend={pctVar(ticketMedio, prevTicketMedio)}
+          trendLabel="vs. período anterior"
+          tooltip={reportKpiTooltip('studentTicketMedio', { preset })}
+          icon={<DollarSign size={20} strokeWidth={2.25} />}
         />
         </div>
       </ReportsPanelSection>

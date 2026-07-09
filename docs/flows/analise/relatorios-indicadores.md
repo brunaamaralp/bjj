@@ -54,7 +54,7 @@ flowchart TD
 | 5 | Funil | Clique em KPI | `ReportsDrillDialog` | Lista de leads do bucket |
 | 6 | Funil | Exportar | Menu export | CSV; contato só para owner |
 | 7 | Funil | Filtro perfil | `profileFilter` | Recarrega relatório |
-| 8 | Alunos | `ReportsStudentsPanel` | Métricas matrícula/churn | `useStudentMetricsReport` |
+| 8 | Alunos | `ReportsStudentsPanel` | Métricas matrícula/churn/ticket médio | `useStudentMetricsReport` |
 | 9 | Financeiro | `ReportsFinancePanel` | KPIs caixa | Requer `modules.finance` |
 | 10 | Loja | `ReportsLojaPanel` | Vendas no período | Requer `modules.sales`; filtro operador |
 | 11 | Estoque | `ReportsEstoquePanel` | Movimentações/resumo | Requer `modules.inventory` |

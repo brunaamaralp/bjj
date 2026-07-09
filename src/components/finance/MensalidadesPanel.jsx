@@ -269,16 +269,14 @@ export default function MensalidadesPanel({
     [allStudents]
   );
 
-  const gridLoading = loading || !studentsBootstrapDone;
+  const gridLoading = loading || (allStudents.length === 0 && !studentsBootstrapDone);
 
   const recarregarMes = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
     setLoadingError(false);
     try {
-      const docs = await getMonthlyPayments(academyId, currentMonth, {
-        activeStudentCount: students.length,
-      });
+      const docs = await getMonthlyPayments(academyId, currentMonth);
       setPayments(docs);
     } catch (err) {
       console.error('getMonthlyPayments error:', err);
@@ -287,7 +285,7 @@ export default function MensalidadesPanel({
     } finally {
       setLoading(false);
     }
-  }, [academyId, currentMonth, students.length]);
+  }, [academyId, currentMonth]);
 
   const { collectionRules } = useMemo(
     () => readCollectionSettingsFromFinanceConfig(financeConfig),
@@ -346,9 +344,7 @@ export default function MensalidadesPanel({
     setLoadingError(false);
     (async () => {
       try {
-        const docs = await getMonthlyPayments(academyId, currentMonth, {
-        activeStudentCount: students.length,
-      });
+        const docs = await getMonthlyPayments(academyId, currentMonth);
         if (!active) return;
         setPayments(docs);
       } catch (err) {
@@ -363,7 +359,7 @@ export default function MensalidadesPanel({
     return () => {
       active = false;
     };
-  }, [academyId, currentMonth, students.length]);
+  }, [academyId, currentMonth]);
 
   useEffect(() => {
     function onStudentPaymentUpdated(e) {
