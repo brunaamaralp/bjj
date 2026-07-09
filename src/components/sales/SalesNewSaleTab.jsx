@@ -57,12 +57,6 @@ import {
 } from '../../lib/saleGeneralDiscount';
 import { refreshStockStores } from '../../lib/syncStockStores.js';
 import { getSaleFooterHint, isSaleCheckoutDirty } from '../../lib/saleModalDirty.js';
-import SalesGeneralDiscountFields from './SalesGeneralDiscountFields';
-import {
-  applySaleGeneralDiscountToUnitPrice,
-  computeSaleGeneralDiscount,
-  roundSaleMoney,
-} from '../../lib/saleGeneralDiscount';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
 const SALE_ALUNO_SEARCH_ID = 'sale-aluno-search';
