@@ -173,6 +173,20 @@ export function resolveMensalidadeDueDate(
   return null;
 }
 
+/** Forma de pagamento exibível na lista de mensalidades (pagamento → preferência do aluno). */
+export function resolveMensalidadePaymentMethod(student, payment) {
+  const fromPayment = String(payment?.method || '').trim();
+  if (fromPayment) return fromPayment;
+  return String(student?.preferredPaymentMethod ?? student?.preferred_payment_method ?? '').trim();
+}
+
+/** Conta/plataforma exibível na lista de mensalidades (pagamento → preferência do aluno). */
+export function resolveMensalidadePaymentAccount(student, payment) {
+  const fromPayment = String(payment?.account || '').trim();
+  if (fromPayment) return fromPayment;
+  return String(student?.preferredPaymentAccount ?? student?.preferred_payment_account ?? '').trim();
+}
+
 export function formatMensalidadeDueDateBr(
   student,
   payment,

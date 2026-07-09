@@ -18,7 +18,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react';
-import { resolveMensalidadeDueDate } from '../../lib/collectionOverdue.js';
+import { resolveMensalidadeDueDate, resolveMensalidadePaymentMethod, resolveMensalidadePaymentAccount } from '../../lib/collectionOverdue.js';
 import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurmas.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
@@ -215,8 +215,8 @@ export default function MensalidadesListTable({
     const hasValor = !isExempt && amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
     const valorCell = isExempt ? 'Isento' : hasValor ? fmtMoney(amountNum) : '—';
 
-    const prefM = student.preferredPaymentMethod;
-    const prefA = student.preferredPaymentAccount;
+    const prefM = resolveMensalidadePaymentMethod(student, payment);
+    const prefA = resolveMensalidadePaymentAccount(student, payment);
 
     let badgeVariant = 'none';
     let badgeLabel = 'Não registrado';
@@ -289,9 +289,9 @@ export default function MensalidadesListTable({
           {valorCell}
         </td>
         <td>
-          {prefM ? (
+          {prefM || prefA ? (
             <div className="mensal-cell-pref">
-              <span>{METHOD_LABELS[prefM] || prefM}</span>
+              {prefM ? <span>{METHOD_LABELS[prefM] || prefM}</span> : null}
               {prefA ? <span className="mensal-cell-pref__sub">{prefA}</span> : null}
             </div>
           ) : (
@@ -358,8 +358,8 @@ export default function MensalidadesListTable({
     const statusKey = rowMeta?.status || 'none';
     const isPaid = statusKey === 'paid' && payment?.status === 'paid';
     const isExempt = statusKey === 'exempt';
-    const prefM = student.preferredPaymentMethod;
-    const prefA = student.preferredPaymentAccount;
+    const prefM = resolveMensalidadePaymentMethod(student, payment);
+    const prefA = resolveMensalidadePaymentAccount(student, payment);
 
     let badgeVariant = 'none';
     let badgeLabel = 'Não registrado';
@@ -422,10 +422,10 @@ export default function MensalidadesListTable({
               {student.plan || '—'} · {vencLabel}
             </div>
             <div className="mensal-mobile-card__platform">
-              {prefM ? (
+              {prefM || prefA ? (
                 <>
-                  {METHOD_LABELS[prefM] || prefM}
-                  {prefA ? ` · ${prefA}` : ''}
+                  {prefM ? METHOD_LABELS[prefM] || prefM : null}
+                  {prefA ? `${prefM ? ' · ' : ''}${prefA}` : null}
                 </>
               ) : (
                 <span className="mensal-cell-faint">—</span>
