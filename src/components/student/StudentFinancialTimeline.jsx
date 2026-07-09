@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   Calendar,
   CalendarRange,
@@ -45,6 +45,8 @@ import { paymentCaixaMeta, saleCaixaMeta, CaixaLinkBadge } from '../../lib/stude
 import '../../styles/sales.css';
 import SaleDetailModal from '../sales/SaleDetailModal.jsx';
 import SalesEditItemModal from '../sales/SalesEditItemModal.jsx';
+import SalesCancelModal from '../sales/SalesCancelModal.jsx';
+import { formatSaleIdShort } from '../../lib/salesHistory.js';
 import { useSalesStore } from '../../store/useSalesStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { friendlyError } from '../../lib/errorMessages.js';
@@ -507,6 +509,8 @@ export default function StudentFinancialTimeline({
   const [periodFilter, setPeriodFilter] = useState('12m');
 
   const fetchSaleDetail = useSalesStore((s) => s.fetchSaleDetail);
+  const cancelSale = useSalesStore((s) => s.cancelSale);
+  const cancellingSale = useSalesStore((s) => s.cancelling);
   const addToast = useUiStore((s) => s.addToast);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -514,28 +518,52 @@ export default function StudentFinancialTimeline({
   const [detailLoading, setDetailLoading] = useState(false);
   const [editItemOpen, setEditItemOpen] = useState(false);
   const [editSaleItem, setEditSaleItem] = useState(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+
+  const enrichSaleForModal = useCallback(
+    (sale) => {
+      if (!sale) return sale;
+      return {
+        ...sale,
+        id_short: sale.id_short || formatSaleIdShort(sale.id),
+        client_name: sale.client_name || student?.name || sale.cliente_nome || '—',
+      };
+    },
+    [student]
+  );
 
   const openSaleDetail = async (sale) => {
     if (!sale?.id) return;
     setDetailOpen(true);
-    setDetailSale({
-      ...sale,
-      client_name: sale.client_name || student?.name || sale.cliente_nome || '—',
-    });
+    setDetailSale(enrichSaleForModal(sale));
     setDetailLoading(true);
     try {
       const full = await fetchSaleDetail(sale.id);
       if (full) {
-        setDetailSale({
-          ...full,
-          client_name: full.client_name || student?.name || full.cliente_nome || '—',
-        });
+        setDetailSale(enrichSaleForModal(full));
       }
     } catch (e) {
       addToast({ type: 'error', message: friendlyError(e, 'action') });
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const handleCancelConfirm = async (motivo) => {
+    if (!detailSale?.id) return;
+    const result = await cancelSale({ venda_id: detailSale.id, motivo });
+    if (!result?.ok) {
+      addToast({
+        type: 'error',
+        message: 'Não foi possível cancelar a venda. Tente novamente.',
+      });
+      return;
+    }
+    addToast({ type: 'success', message: 'Venda cancelada.' });
+    setCancelOpen(false);
+    setDetailOpen(false);
+    setDetailSale(null);
+    onSalesRefresh?.();
   };
 
   const allItems = useMemo(
@@ -786,11 +814,22 @@ export default function StudentFinancialTimeline({
         sale={detailSale}
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}
+        onCancelClick={() => setCancelOpen(true)}
+        canCancelSale={canEditSale}
         canEditSale={canEditSale}
         onEditItemClick={(saleItemRow) => {
           setEditSaleItem(saleItemRow);
           setEditItemOpen(true);
         }}
+        onLiquidated={() => onSalesRefresh?.()}
+      />
+
+      <SalesCancelModal
+        open={cancelOpen}
+        sale={detailSale}
+        loading={cancellingSale}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={handleCancelConfirm}
       />
 
       <SalesEditItemModal
@@ -806,10 +845,7 @@ export default function StudentFinancialTimeline({
             try {
               const full = await fetchSaleDetail(detailSale.id);
               if (full) {
-                setDetailSale({
-                  ...full,
-                  client_name: full.client_name || student?.name || full.cliente_nome || '—',
-                });
+                setDetailSale(enrichSaleForModal(full));
               }
             } catch (e) {
               addToast({ type: 'error', message: friendlyError(e, 'load') });
