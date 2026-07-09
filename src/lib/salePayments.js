@@ -95,24 +95,45 @@ export function netPaidCentsFromRows(rows) {
   return sum;
 }
 
+/** Valor da 1ª linha (flex) para fechar o total com troco de dinheiro. */
+function flexFirstRowValorCents(rows, totalCents) {
+  const total = Math.max(0, Math.round(Number(totalCents) || 0));
+  const row0 = rows[0];
+  const restVal = rows.slice(1).reduce((s, r) => s + Math.max(0, Math.round(Number(r.valorCents) || 0)), 0);
+  const otherTroco = rows.slice(1).reduce((s, r) => s + rowTrocoCents(r), 0);
+  if (normalizePaymentForma(row0?.forma) === 'dinheiro') {
+    const recebido = Math.max(0, Math.round(Number(row0.recebidoCents ?? row0.valorCents) || 0));
+    if (recebido > 0) {
+      // net₀ = 2·valor₀ − recebido₀; total = net₀ + restVal − otherTroco
+      return Math.max(0, Math.round((total + recebido - restVal + otherTroco) / 2));
+    }
+  }
+  const allTroco = rows.reduce((s, r) => s + rowTrocoCents(r), 0);
+  return Math.max(0, Math.round(total - restVal + allTroco));
+}
+
 /** Recalcula a 1ª forma quando há 2+ linhas (total = soma valores − trocos). */
 export function rebalancePaymentsForTotal(rows, totalCents) {
   if (!rows?.length) return [createEmptyPaymentRow(totalCents)];
+  const total = Math.max(0, Math.round(Number(totalCents) || 0));
   if (rows.length === 1) {
     const r = rows[0];
-    return [
-      {
-        ...r,
-        valorCents: totalCents,
-        recebidoCents: normalizePaymentForma(r.forma) === 'dinheiro' ? Math.max(r.recebidoCents ?? 0, totalCents) : r.recebidoCents,
-      },
-    ];
+    const isCash = normalizePaymentForma(r.forma) === 'dinheiro';
+    const recebido = Math.max(0, Math.round(Number(r.recebidoCents ?? r.valorCents) || 0));
+    if (isCash) {
+      let valorCents = total;
+      let recebidoCents = Math.max(recebido, total);
+      if (recebidoCents > total) {
+        // net = valor − troco = valor − (recebido − valor) = 2·valor − recebido
+        valorCents = Math.round((total + recebidoCents) / 2);
+        recebidoCents = Math.max(recebidoCents, valorCents);
+      }
+      return [{ ...r, valorCents, recebidoCents }];
+    }
+    return [{ ...r, valorCents: total, recebidoCents: r.recebidoCents }];
   }
   const next = rows.map((r) => ({ ...r }));
-  const restVal = next.slice(1).reduce((s, r) => s + Math.max(0, Math.round(Number(r.valorCents) || 0)), 0);
-  const allTroco = next.reduce((s, r) => s + rowTrocoCents(r), 0);
-  const v0 = Math.max(0, Math.round(Number(totalCents) || 0) - restVal + allTroco);
-  next[0] = { ...next[0], valorCents: v0 };
+  next[0] = { ...next[0], valorCents: flexFirstRowValorCents(next, total) };
   return next;
 }
 

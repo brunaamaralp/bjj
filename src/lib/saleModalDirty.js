@@ -20,9 +20,16 @@ export function isSaleCheckoutDirty({
   return false;
 }
 
-/** Fluxo aluno: carrinho com itens. */
-export function isStudentProductSaleDirty(cart = []) {
-  return cart.length > 0;
+/** Fluxo aluno: carrinho com itens ou desconto/receber depois configurado. */
+export function isStudentProductSaleDirty(
+  cart = [],
+  { descGeralCents = 0, descGeralPct = 0, receiveLater = false } = {}
+) {
+  if (cart.length > 0) return true;
+  if (Number(descGeralCents) > 0) return true;
+  if (Number(descGeralPct) > 0) return true;
+  if (receiveLater) return true;
+  return false;
 }
 
 /**

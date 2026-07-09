@@ -31,6 +31,8 @@ describe('isStudentProductSaleDirty', () => {
   it('returns true only when cart has items', () => {
     expect(isStudentProductSaleDirty([])).toBe(false);
     expect(isStudentProductSaleDirty([{ id: 1 }])).toBe(true);
+    expect(isStudentProductSaleDirty([], { descGeralCents: 100 })).toBe(true);
+    expect(isStudentProductSaleDirty([], { descGeralPct: 5 })).toBe(true);
   });
 });
 

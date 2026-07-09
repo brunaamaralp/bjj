@@ -10,7 +10,7 @@ import { getMonthlyPayments, createPayment, updatePayment, PAYMENT_CATEGORY } fr
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
 import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
-import { resolveGridDisplayStatus } from '../../lib/paymentStatus';
+import { expectedAmountForStudent, resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
 import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
@@ -655,7 +655,7 @@ export default function MensalidadesPanel({
       amount:
         hasPresetAmount && preset.amount != null && Number.isFinite(amountNum) && amountNum >= 0
           ? maskCurrency(String(Math.round(amountNum * 100)))
-          : isBundle && planAmount > 0
+          : planAmount > 0
             ? maskCurrency(String(Math.round(planAmount * 100)))
             : '',
       method,
@@ -762,6 +762,17 @@ export default function MensalidadesPanel({
     skipPaidAtDivergenceRef.current = false;
 
     const student = selectedStudent;
+    const existingPayment = paymentMap[student.id];
+    const expectedAmount = isBundle
+      ? amountNum
+      : expectedAmountForStudent(student, financeConfig, existingPayment);
+    const launchStatus =
+      !isBundle &&
+      amountNum > 0 &&
+      expectedAmount > 0 &&
+      amountNum + 0.004 < expectedAmount
+        ? 'partial'
+        : 'paid';
     const payFormSnapshot = { ...payForm };
     const previousPayments = payments;
     const optimisticId = `optimistic-${student.id}-${Date.now()}`;
@@ -774,10 +785,11 @@ export default function MensalidadesPanel({
       team_id: teamIdForPayments,
       amount: amountNum,
       paid_amount: amountNum,
+      expected_amount: expectedAmount,
       method: payForm.method,
       account: paymentAccount,
       installments,
-      status: 'paid',
+      status: launchStatus,
       payment_category: isBundle ? PAYMENT_CATEGORY.BUNDLE : PAYMENT_CATEGORY.PLAN,
       bundle_months: isBundle ? bundleMonths : null,
       reference_month: refMonth,
@@ -803,12 +815,14 @@ export default function MensalidadesPanel({
         academy_id: academyId,
         team_id: teamIdForPayments,
         amount: amountNum,
+        paid_amount: amountNum,
+        expected_amount: expectedAmount,
         method: payForm.method,
         account: paymentAccount,
         installments,
         ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
         ...(payForm.card_brand ? { card_brand: String(payForm.card_brand).trim() } : {}),
-        status: 'paid',
+        status: launchStatus,
         paid_at: paidAtIso,
         due_date: null,
         registered_by: userId || '',

@@ -12,6 +12,7 @@ import {
   paymentsUiValid,
   rowTrocoCents,
   netPaidCentsFromRows,
+  rebalancePaymentsForTotal,
 } from '../lib/salePayments.js';
 
 describe('salePayments', () => {
@@ -59,6 +60,48 @@ describe('salePayments', () => {
     const api = serializePagamentosForApi(rows);
     expect(api[0].troco).toBe(71);
     expect(api[0].forma_troco).toBe('pix');
+  });
+
+  it('rebalancePaymentsForTotal preserva valor recebido acima do total em dinheiro', () => {
+    const rows = [
+      {
+        id: '1',
+        forma: 'dinheiro',
+        valorCents: 72900,
+        recebidoCents: 80000,
+        formaTroco: 'pix',
+      },
+    ];
+    const balanced = rebalancePaymentsForTotal(rows, 72900);
+    expect(balanced[0].valorCents).toBe(76450);
+    expect(balanced[0].recebidoCents).toBe(80000);
+    expect(rowTrocoCents(balanced[0])).toBe(3550);
+    expect(netPaidCentsFromRows(balanced)).toBe(72900);
+    expect(paymentsUiValid(balanced, 72900).ok).toBe(true);
+  });
+
+  it('rebalancePaymentsForTotal ajusta 1a forma quando dinheiro na 1a linha tem troco', () => {
+    const rows = [
+      {
+        id: '1',
+        forma: 'dinheiro',
+        valorCents: 40000,
+        recebidoCents: 47100,
+        formaTroco: 'pix',
+      },
+      {
+        id: '2',
+        forma: 'cartao_credito',
+        valorCents: 32900,
+        recebidoCents: 32900,
+        formaTroco: 'pix',
+        installments: 1,
+      },
+    ];
+    const balanced = rebalancePaymentsForTotal(rows, 72900);
+    expect(balanced[0].valorCents).toBe(43550);
+    expect(netPaidCentsFromRows(balanced)).toBe(72900);
+    expect(paymentsUiValid(balanced, 72900).ok).toBe(true);
   });
 
   it('serializa cartao de credito com installments e capture_method_id', () => {

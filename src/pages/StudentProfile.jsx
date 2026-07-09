@@ -103,6 +103,7 @@ import {
     validateMensalidadesPaymentForm,
     focusFirstStudentPaymentError,
 } from '../lib/mensalidadesPaymentForm.js';
+import { expectedAmountForStudent } from '../lib/paymentStatus.js';
 import { useUserRole } from '../lib/useUserRole.js';
 import { useCanEditProfile } from '../lib/profilePermissions.js';
 import { saveStudentProfileField } from '../lib/profileStudentFieldSave.js';
@@ -1532,15 +1533,31 @@ export default function StudentProfile() {
         }
         skipPaidAtDivergenceRef.current = false;
 
+        const isPlanPayment = paymentType === PAYMENT_CATEGORY.PLAN;
+        const expectedAmount = isPlanPayment
+            ? expectedAmountForStudent(student, financeConfig, existingPayment)
+            : amountNum;
+        let launchStatus = payForm.status;
+        if (
+            isPlanPayment &&
+            launchStatus === 'paid' &&
+            amountNum > 0 &&
+            expectedAmount > 0 &&
+            amountNum + 0.004 < expectedAmount
+        ) {
+            launchStatus = 'partial';
+        }
+
         const data = {
             lead_id: student.id,
             academy_id: academyId,
             amount: amountNum,
             paid_amount: amountNum,
+            expected_amount: isPlanPayment ? expectedAmount : undefined,
             method: payForm.method,
             account: paymentAccount,
             plan_name: payForm.plan_name || student.plan || '',
-            status: payForm.status,
+            status: launchStatus,
             payment_category: paymentType,
             due_date:
                 payForm.status === 'pending' && payForm.due_date

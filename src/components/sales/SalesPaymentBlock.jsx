@@ -7,6 +7,8 @@ import {
   netPaidCentsFromRows,
   paymentsUiValid,
   normalizePaymentInstallments,
+  normalizePaymentForma,
+  rebalancePaymentsForTotal,
   salePaymentFormOptionsForFinance,
   trocoFormOptionsForFinance,
 } from '../../lib/salePayments';
@@ -23,12 +25,7 @@ import CardBrandSelect from '../finance/CardBrandSelect.jsx';
 
 function rebalanceFirstRow(rows, totalCents) {
   if (rows.length < 2) return rows;
-  const next = rows.map((r) => ({ ...r }));
-  const restVal = next.slice(1).reduce((s, r) => s + Math.max(0, Math.round(Number(r.valorCents) || 0)), 0);
-  const allTroco = next.reduce((s, r) => s + rowTrocoCents(r), 0);
-  const v0 = Math.max(0, Math.round(Number(totalCents) || 0) - restVal + allTroco);
-  next[0] = { ...next[0], valorCents: v0 };
-  return next;
+  return rebalancePaymentsForTotal(rows, totalCents);
 }
 
 export default function SalesPaymentBlock({
@@ -91,8 +88,14 @@ export default function SalesPaymentBlock({
             : normalizePaymentInstallments(merged.forma, merged.installments),
       };
     });
-    if (idx > 0 && next.length >= 2) {
-      next = rebalanceFirstRow(next, total);
+    if (next.length >= 2) {
+      const cashTrocoOnFirstRow =
+        idx === 0 &&
+        patch.recebidoCents != null &&
+        normalizePaymentForma(next[0]?.forma) === 'dinheiro';
+      if (idx > 0 || cashTrocoOnFirstRow) {
+        next = rebalanceFirstRow(next, total);
+      }
     }
     onChange(next);
   };

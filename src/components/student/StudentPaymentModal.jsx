@@ -76,17 +76,17 @@ export function buildDefaultPayForm(student, financeConfig = null) {
   const preferredAccount = student?.preferredPaymentAccount || '';
   const method = student?.preferredPaymentMethod || 'pix';
   const defaultPlanAmount = resolveStudentPlanFinalPrice(student, financeConfig);
+  const fallbackPlanPrice =
+    student?.plan_price != null && student.plan_price !== ''
+      ? centsToNumber(numberToCents(student.plan_price) ?? 0)
+      : 0;
+  const launchAmount = defaultPlanAmount > 0 ? defaultPlanAmount : fallbackPlanPrice;
   return {
     payment_type: PAYMENT_CATEGORY.PLAN,
     reference_month: ym,
     bundle_start_month: ym,
     bundle_months: 12,
-    amount:
-      student?.plan_price != null && student.plan_price !== ''
-        ? formatBRLFromCents(numberToCents(student.plan_price) ?? 0)
-        : defaultPlanAmount > 0
-          ? formatBRLFromCents(numberToCents(defaultPlanAmount) ?? 0)
-        : '',
+    amount: launchAmount > 0 ? formatBRLFromCents(numberToCents(launchAmount) ?? 0) : '',
     method,
     account: financeConfig
       ? pickInitialBankAccountForPayment(financeConfig, preferredAccount, method)

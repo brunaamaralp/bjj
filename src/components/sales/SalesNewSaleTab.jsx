@@ -20,7 +20,7 @@ import {
 } from '../../lib/salesCatalog';
 import { normalizeLineKind } from '../../lib/saleLineKind';
 import { readSalesSettings } from '../../lib/salesSettings';
-import { parseMaskToCents, formatBRLFromCents } from '../../lib/moneyBr';
+import { formatBRLFromCents } from '../../lib/moneyBr';
 import { maskPhone } from '../../lib/masks.js';
 import SalesCatalogPicker from './SalesCatalogPicker';
 import SalesVariantPicker from './SalesVariantPicker';
@@ -49,8 +49,20 @@ import {
 } from '../../lib/salesSuspendedCart';
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
 import { friendlySaleError } from '../../lib/errorMessages.js';
+import SalesGeneralDiscountFields from './SalesGeneralDiscountFields';
+import {
+  applySaleGeneralDiscountToUnitPrice,
+  computeSaleGeneralDiscount,
+  roundSaleMoney,
+} from '../../lib/saleGeneralDiscount';
 import { refreshStockStores } from '../../lib/syncStockStores.js';
 import { getSaleFooterHint, isSaleCheckoutDirty } from '../../lib/saleModalDirty.js';
+import SalesGeneralDiscountFields from './SalesGeneralDiscountFields';
+import {
+  applySaleGeneralDiscountToUnitPrice,
+  computeSaleGeneralDiscount,
+  roundSaleMoney,
+} from '../../lib/saleGeneralDiscount';
 import StatusBanner from '../shared/StatusBanner.jsx';
 
 const SALE_ALUNO_SEARCH_ID = 'sale-aluno-search';
@@ -135,8 +147,6 @@ export default function SalesNewSaleTab({
         ? crypto.randomUUID()
         : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
   }, []);
-
-  const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
   useEffect(() => {
     const onNlPrefill = (ev) => {
@@ -280,33 +290,19 @@ export default function SalesNewSaleTab({
     [cart]
   );
 
-  const descontoGeralValor = useMemo(() => {
-    if (totalCart <= 0) return 0;
-    if (descGeralTipo === 'percent') {
-      const pct = Math.max(0, Math.min(100, Number(descGeralPct) || 0));
-      return round2(totalCart * pct / 100);
-    }
-    return Math.min((Number(descGeralCents) || 0) / 100, totalCart);
-  }, [descGeralTipo, descGeralCents, descGeralPct, totalCart]);
-
-  const fatorGeral = useMemo(() => {
-    if (totalCart <= 0) return 1;
-    const rest = totalCart - descontoGeralValor;
-    return rest > 0 ? rest / totalCart : 0;
-  }, [descontoGeralValor, totalCart]);
-
-  const totalMasked = useMemo(() => {
-    const val = round2(totalCart * fatorGeral);
-    try {
-      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${val.toFixed(2)}`.replace('.', ',');
-    }
-  }, [totalCart, fatorGeral]);
-
-  const totalFinalCents = useMemo(
-    () => Math.max(0, Math.round(round2(totalCart * fatorGeral) * 100)),
-    [totalCart, fatorGeral]
+  const {
+    fatorGeral,
+    totalFinal,
+    totalFinalCents,
+    discountDisplayValue,
+  } = useMemo(
+    () =>
+      computeSaleGeneralDiscount(totalCart, {
+        tipo: descGeralTipo,
+        cents: descGeralCents,
+        pct: descGeralPct,
+      }),
+    [totalCart, descGeralTipo, descGeralCents, descGeralPct]
   );
 
   const paymentValid = useMemo(
@@ -499,12 +495,7 @@ export default function SalesNewSaleTab({
   );
 
   useEffect(() => {
-    setPayments((prev) => {
-      if (prev.length === 1) {
-        return [{ ...prev[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents }];
-      }
-      return rebalancePaymentsForTotal(prev, totalFinalCents);
-    });
+    setPayments((prev) => rebalancePaymentsForTotal(prev, totalFinalCents));
   }, [totalFinalCents]);
 
   const subtotalMasked = useMemo(() => {
@@ -516,13 +507,21 @@ export default function SalesNewSaleTab({
   }, [totalCart]);
 
   const descGeralMaskedOut = useMemo(() => {
-    const v = round2(totalCart - totalCart * fatorGeral);
+    const v = discountDisplayValue;
     try {
       return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     } catch {
       return `R$ ${v.toFixed(2)}`.replace('.', ',');
     }
-  }, [totalCart, fatorGeral]);
+  }, [discountDisplayValue]);
+
+  const totalMasked = useMemo(() => {
+    try {
+      return totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch {
+      return `R$ ${totalFinal.toFixed(2)}`.replace('.', ',');
+    }
+  }, [totalFinal]);
 
   const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
@@ -894,22 +893,15 @@ export default function SalesNewSaleTab({
       }
     }
 
-    const itens = cart.map((it) => {
-      let unit = Number(it.preco_unitario);
-      if (fatorGeral < 1) {
-        unit = round2(unit * fatorGeral);
-        if (unit < 0) unit = 0;
-      }
-      return {
-        item_estoque_id: it.product_variant_id || it.item_estoque_id,
-        product_variant_id: it.product_variant_id || it.item_estoque_id,
-        quantidade: Number(it.quantidade),
-        preco_unitario: unit,
-        line_kind: normalizeLineKind(it.line_kind),
-        expected_quantity:
-          it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
-      };
-    });
+    const itens = cart.map((it) => ({
+      item_estoque_id: it.product_variant_id || it.item_estoque_id,
+      product_variant_id: it.product_variant_id || it.item_estoque_id,
+      quantidade: Number(it.quantidade),
+      preco_unitario: applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral),
+      line_kind: normalizeLineKind(it.line_kind),
+      expected_quantity:
+        it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
+    }));
 
     const now = new Date();
     const pagamentos = deferredSale ? [] : serializePagamentosForApi(payments);
@@ -970,7 +962,6 @@ export default function SalesNewSaleTab({
     }
 
     const vendaId = st.lastSale?.venda_id || '';
-    const totalFinal = round2(totalCart * fatorGeral);
     const dateStr = now.toLocaleDateString('pt-BR');
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const trocoWarnings = Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [];
@@ -991,8 +982,11 @@ export default function SalesNewSaleTab({
       items: cart.map((it) => ({
         display_label: it.display_label,
         quantidade: Number(it.quantidade),
-        preco_unitario: round2(Number(it.preco_unitario) * fatorGeral),
-        subtotal: round2(Number(it.quantidade) * Number(it.preco_unitario) * fatorGeral),
+        preco_unitario: applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral),
+        subtotal: roundSaleMoney(
+          Number(it.quantidade) *
+            applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral)
+        ),
       })),
       total: totalFinal,
     });
@@ -1230,38 +1224,14 @@ export default function SalesNewSaleTab({
                 onPriceBlur={handlePriceBlur}
               />
 
-              <div className="sales-checkout__discount">
-                <div className="form-group sales-checkout__field">
-                  <label className="text-xs">Desconto geral</label>
-                  <select className="form-input" value={descGeralTipo} onChange={(e) => setDescGeralTipo(e.target.value)}>
-                    <option value="valor">R$</option>
-                    <option value="percent">%</option>
-                  </select>
-                </div>
-                {descGeralTipo === 'valor' ? (
-                  <div className="form-group sales-checkout__field">
-                    <label className="text-xs">Valor</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={descGeralMasked}
-                      onChange={(e) => setDescGeralCents(parseMaskToCents(e.target.value))}
-                    />
-                  </div>
-                ) : (
-                  <div className="form-group sales-checkout__field">
-                    <label className="text-xs">%</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      className="form-input"
-                      value={descGeralPct}
-                      onChange={(e) => setDescGeralPct(e.target.value)}
-                    />
-                  </div>
-                )}
-              </div>
+              <SalesGeneralDiscountFields
+                descGeralTipo={descGeralTipo}
+                onTipoChange={(e) => setDescGeralTipo(e.target.value)}
+                descGeralMasked={descGeralMasked}
+                onCentsChange={setDescGeralCents}
+                descGeralPct={descGeralPct}
+                onPctChange={(e) => setDescGeralPct(e.target.value)}
+              />
 
               {!deferredSale ? (
                 <>

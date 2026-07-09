@@ -1,5 +1,6 @@
 /** Cálculo de inadimplência / dias de atraso (mensalidades). */
 import { isStudentOnExemptPlan, resolveStudentPlan, resolveStudentPlanFinalPrice } from './planBilling.js';
+import { isStudentFreezeCacheCoveringMonth } from '../../lib/planFreezeCore.js';
 
 function startOfLocalDay(d) {
   const x = new Date(d);
@@ -46,7 +47,20 @@ export function getPaymentRowStatus(student, payment, currentMonth, today = new 
     return { status: dbStatus === 'frozen' ? 'frozen' : 'paid', dueDate: null, paidAt, daysOverdue: 0 };
   }
 
-  if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') {
+  if (
+    isStudentFreezeCacheCoveringMonth(student, currentMonth, {
+      onLegacyNoDates: (s) => {
+        if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+          console.warn(
+            JSON.stringify({
+              event: 'freeze_cache_legacy_no_dates',
+              lead_id: String(s?.$id || s?.id || s?.lead_id || ''),
+            })
+          );
+        }
+      },
+    })
+  ) {
     return { status: 'frozen', dueDate: null, paidAt: null, daysOverdue: 0 };
   }
 
@@ -175,7 +189,13 @@ export function openAmountForStudent(student, payment, financeConfig) {
   if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
   const hasExplicitAmount = Object.prototype.hasOwnProperty.call(payment || {}, 'amount');
   const payAmt = Number(payment?.amount);
-  if (hasExplicitAmount && payment?.amount != null && Number.isFinite(payAmt) && payAmt >= 0) return payAmt;
+  if (hasExplicitAmount && payment?.amount != null && Number.isFinite(payAmt) && payAmt > 0) {
+    return payAmt;
+  }
+  const expectedFromPayment = Number(payment?.expected_amount);
+  if (Number.isFinite(expectedFromPayment) && expectedFromPayment > 0) {
+    return expectedFromPayment;
+  }
   const finalPrice = resolveStudentPlanFinalPrice(student, financeConfig, payment);
   if (Number.isFinite(finalPrice) && finalPrice > 0) return finalPrice;
   const match = resolveStudentPlan(student, financeConfig, payment);

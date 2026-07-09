@@ -16,7 +16,7 @@ import {
 } from '../../lib/salesCatalog';
 import { normalizeLineKind } from '../../lib/saleLineKind';
 import { readSalesSettings } from '../../lib/salesSettings';
-import { formatBRL } from '../../lib/moneyBr';
+import { formatBRL, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { DateInput } from '../DateInput';
 import SalesCatalogPicker from '../sales/SalesCatalogPicker';
@@ -32,11 +32,15 @@ import {
   rebalancePaymentsForTotal,
 } from '../../lib/salePayments';
 import { friendlySaleError } from '../../lib/errorMessages.js';
+import SalesGeneralDiscountFields from '../sales/SalesGeneralDiscountFields';
+import {
+  applySaleGeneralDiscountToUnitPrice,
+  computeSaleGeneralDiscount,
+  roundSaleMoney,
+} from '../../lib/saleGeneralDiscount';
 import { getSaleFooterHint, isStudentProductSaleDirty } from '../../lib/saleModalDirty.js';
 
 export const STUDENT_PRODUCT_SALE_FORM_ID = 'student-product-sale-form';
-
-const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
 function createSaleIdempotencyKey() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -75,6 +79,9 @@ export default function StudentProductSaleStep({
   const [variantPickerLineKind, setVariantPickerLineKind] = useState('sale');
   const [receiveLater, setReceiveLater] = useState(false);
   const [dueDate, setDueDate] = useState('');
+  const [descGeralTipo, setDescGeralTipo] = useState('valor');
+  const [descGeralCents, setDescGeralCents] = useState(0);
+  const [descGeralPct, setDescGeralPct] = useState(0);
   const [mobilePanel, setMobilePanel] = useState('catalog');
   const [showBackConfirm, setShowBackConfirm] = useState(false);
 
@@ -92,6 +99,9 @@ export default function StudentProductSaleStep({
     setPayments([createEmptyPaymentRow(0)]);
     setReceiveLater(false);
     setDueDate('');
+    setDescGeralTipo('valor');
+    setDescGeralCents(0);
+    setDescGeralPct(0);
     setLocalError('');
     setVariantPickerParent(null);
     setMobilePanel('catalog');
@@ -153,21 +163,25 @@ export default function StudentProductSaleStep({
     [catalogSyncedCart]
   );
 
-  const totalFinalCents = useMemo(() => Math.max(0, Math.round(round2(totalCart) * 100)), [totalCart]);
+  const {
+    fatorGeral,
+    totalFinal,
+    totalFinalCents,
+    discountDisplayValue,
+  } = useMemo(
+    () =>
+      computeSaleGeneralDiscount(totalCart, {
+        tipo: descGeralTipo,
+        cents: descGeralCents,
+        pct: descGeralPct,
+      }),
+    [totalCart, descGeralTipo, descGeralCents, descGeralPct]
+  );
 
-  const effectivePayments = useMemo(() => {
-    if (payments.length === 1) {
-      const nextRow = { ...payments[0], valorCents: totalFinalCents, recebidoCents: totalFinalCents };
-      if (
-        payments[0].valorCents === nextRow.valorCents &&
-        payments[0].recebidoCents === nextRow.recebidoCents
-      ) {
-        return payments;
-      }
-      return [nextRow];
-    }
-    return rebalancePaymentsForTotal(payments, totalFinalCents);
-  }, [payments, totalFinalCents]);
+  const effectivePayments = useMemo(
+    () => rebalancePaymentsForTotal(payments, totalFinalCents),
+    [payments, totalFinalCents]
+  );
 
   const paymentValid = useMemo(
     () =>
@@ -177,14 +191,28 @@ export default function StudentProductSaleStep({
     [effectivePayments, totalFinalCents, receiveLater]
   );
 
-  const totalMasked = useMemo(() => formatBRL(round2(totalCart)), [totalCart]);
+  const subtotalMasked = useMemo(() => formatBRL(roundSaleMoney(totalCart)), [totalCart]);
+  const descGeralMaskedOut = useMemo(
+    () => formatBRL(discountDisplayValue),
+    [discountDisplayValue]
+  );
+  const totalMasked = useMemo(() => formatBRL(totalFinal), [totalFinal]);
+  const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
   const cartCount = useMemo(
     () => catalogSyncedCart.reduce((n, it) => n + Number(it.quantidade || 0), 0),
     [catalogSyncedCart]
   );
 
-  const saleDirty = useMemo(() => isStudentProductSaleDirty(catalogSyncedCart), [catalogSyncedCart]);
+  const saleDirty = useMemo(
+    () =>
+      isStudentProductSaleDirty(catalogSyncedCart, {
+        descGeralCents,
+        descGeralPct,
+        receiveLater,
+      }),
+    [catalogSyncedCart, descGeralCents, descGeralPct, receiveLater]
+  );
 
   useEffect(() => {
     onVariantPickerChange?.(!!variantPickerParent);
@@ -450,7 +478,11 @@ export default function StudentProductSaleStep({
         return;
       }
     } else if (!paymentValid.ok) {
-      setLocalError('Informe um valor de pagamento válido.');
+      if (paymentValid.reason === 'sum' && paymentValid.net > totalFinalCents) {
+        setLocalError('O valor informado excede o total da venda.');
+      } else {
+        setLocalError('Informe um valor de pagamento válido.');
+      }
       focusCartPanel();
       return;
     }
@@ -472,7 +504,7 @@ export default function StudentProductSaleStep({
       item_estoque_id: it.product_variant_id || it.item_estoque_id,
       product_variant_id: it.product_variant_id || it.item_estoque_id,
       quantidade: Number(it.quantidade),
-      preco_unitario: round2(Number(it.preco_unitario)),
+      preco_unitario: applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral),
       line_kind: normalizeLineKind(it.line_kind),
       expected_quantity:
         it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
@@ -595,8 +627,8 @@ export default function StudentProductSaleStep({
                   onPriceChange={updateCartPrice}
                   onVariantChange={changeCartVariant}
                   onRemove={removeFromCart}
-                  subtotalMasked={totalMasked}
-                  descGeralMasked={formatBRL(0)}
+                  subtotalMasked={subtotalMasked}
+                  descGeralMasked={descGeralMaskedOut}
                   totalMasked={totalMasked}
                 />
               ) : (
@@ -604,6 +636,15 @@ export default function StudentProductSaleStep({
                   Adicione produtos pelo catálogo.
                 </p>
               )}
+
+              <SalesGeneralDiscountFields
+                descGeralTipo={descGeralTipo}
+                onTipoChange={(e) => setDescGeralTipo(e.target.value)}
+                descGeralMasked={descGeralMasked}
+                onCentsChange={setDescGeralCents}
+                descGeralPct={descGeralPct}
+                onPctChange={(e) => setDescGeralPct(e.target.value)}
+              />
 
               <label className="sales-collab-toggle__label student-product-sale__defer">
                 <input

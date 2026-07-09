@@ -89,9 +89,11 @@ describe('paymentStatus', () => {
     expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(180);
   });
 
-  it('openAmountForStudent respects explicit payment.amount zero', () => {
+  it('openAmountForStudent uses expected_amount when payment amount is zero (materialized pending)', () => {
     const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
-    expect(openAmountForStudent(discountedStudent, { amount: 0 }, financeConfig)).toBe(0);
+    expect(
+      openAmountForStudent(discountedStudent, { amount: 0, expected_amount: 170, status: 'pending' }, financeConfig)
+    ).toBe(170);
   });
 
   it('expectedAmountForStudent keeps explicit expected_amount precedence over discount', () => {
