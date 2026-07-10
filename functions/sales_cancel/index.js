@@ -121,7 +121,8 @@ export default async function (req, res) {
       }, 200);
     }
 
-    if (venda.status !== "concluida") {
+    const st = String(venda.status || "").toLowerCase();
+    if (!["concluida", "pendente", "parcial"].includes(st)) {
       return res.json({ error: "invalid_status" }, 400);
     }
 
@@ -200,7 +201,6 @@ export default async function (req, res) {
     }
 
     let refund_total = 0;
-    const totalVenda = Number(venda.total || 0);
     const shortId = String(venda_id).slice(-4).toUpperCase();
     const estornoNote = `Estorno venda #${shortId}`;
 
@@ -211,23 +211,35 @@ export default async function (req, res) {
           sdk.Query.limit(20),
         ]);
         const docs = txList.documents || [];
-        const original = docs.find((d) => {
-          const type = String(d.type || "").toLowerCase();
-          const origin = String(d.origin_type || "").toLowerCase();
-          return type !== "refund" && origin !== "reversal";
-        });
-        if (original) {
-          await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, original.$id, {
-            status: "cancelled",
-            settledAt: "",
-          });
-        }
         const hasRefund = docs.some((d) => {
           const type = String(d.type || "").toLowerCase();
           const origin = String(d.origin_type || "").toLowerCase();
           return type === "refund" || origin === "reversal";
         });
-        if (totalVenda > 0 && original && !hasRefund) {
+
+        let primarySettledId = null;
+        let settledRefundTotal = 0;
+
+        for (const tx of docs) {
+          const type = String(tx.type || "").toLowerCase();
+          const origin = String(tx.origin_type || "").toLowerCase();
+          if (type === "refund" || origin === "reversal") continue;
+          if (String(tx.status || "").toLowerCase() === "cancelled") continue;
+
+          const txStatus = String(tx.status || "").toLowerCase();
+          if (txStatus === "settled") {
+            settledRefundTotal += roundMoney(Number(tx.net) || Number(tx.gross) || 0);
+            if (!primarySettledId) primarySettledId = tx.$id;
+          }
+
+          await databases.updateDocument(DB_ID, FINANCIAL_TX_COL, tx.$id, {
+            status: "cancelled",
+            settledAt: "",
+          });
+        }
+
+        settledRefundTotal = roundMoney(settledRefundTotal);
+        if (settledRefundTotal > 0 && primarySettledId && !hasRefund) {
           const refundSettledAt = new Date().toISOString();
           const refundPayload = {
             academyId: academyId || venda.academyId || "",
@@ -238,16 +250,16 @@ export default async function (req, res) {
             category: "Cancelamentos",
             competence_month: refundSettledAt.slice(0, 7),
             planName: estornoNote,
-            gross: totalVenda,
+            gross: settledRefundTotal,
             fee: 0,
-            net: totalVenda,
+            net: settledRefundTotal,
             direction: "out",
             status: "settled",
             settledAt: refundSettledAt,
             note: estornoNote,
             origin_type: "reversal",
-            origin_id: original.$id,
-            reverses_id: original.$id,
+            origin_id: primarySettledId,
+            reverses_id: primarySettledId,
           };
           try {
             await databases.createDocument(DB_ID, FINANCIAL_TX_COL, sdk.ID.unique(), refundPayload);
@@ -260,7 +272,7 @@ export default async function (req, res) {
               throw e;
             }
           }
-          refund_total = totalVenda;
+          refund_total = settledRefundTotal;
         }
       } catch (e) {
         console.error(JSON.stringify({

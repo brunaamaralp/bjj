@@ -117,7 +117,7 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 9. [ ] Atalho sidebar **Nova venda** abre modal; dirty → `ConfirmDialog` ao fechar
 10. [ ] Histórico: filtros período, status, canal, busca
 11. [ ] Cancelamento só owner/admin; member não vê ação
-11b. [ ] Trocar produto em venda concluída (owner/admin) → estoque + total + Caixa ajustados
+11b. [ ] Trocar produto ou cancelar venda concluída, pendente ou parcial (owner/admin) → estoque + total + Caixa ajustados
 11c. [ ] **Resumo do dia** no Histórico → copiar e CSV com vendas do dia (incl. perfil aluno)
 12. [ ] Legacy `/vendas` → redirect para `/loja?tab=vendas`
 13. [ ] Legacy `?tab=new` → normaliza para `?tab=vendas&subtab=new`

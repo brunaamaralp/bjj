@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
-import { formatDateTimeBr, SALE_STATUS_BADGE_MAP } from '../../lib/salesHistory';
+import { formatDateTimeBr, SALE_STATUS_BADGE_MAP, saleAllowsCancelOrEdit } from '../../lib/salesHistory';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
@@ -64,6 +64,7 @@ function SaleDetailModalContent({
   const isPendente = statusLower === 'pendente';
   const isParcial = statusLower === 'parcial';
   const canReceivePayment = isPendente || isParcial;
+  const canModifySale = saleAllowsCancelOrEdit(sale.status);
 
   const paymentValid = paymentsUiValid(payments, remainingCents, { allowPartial: true });
 
@@ -167,7 +168,7 @@ function SaleDetailModalContent({
                   <th>Qtd</th>
                   <th>Unit.</th>
                   <th>Subtotal</th>
-                  {isConcluida && canEditSale ? <th aria-label="Ações" /> : null}
+                  {canModifySale && canEditSale ? <th aria-label="Ações" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -177,7 +178,7 @@ function SaleDetailModalContent({
                     <td>{it.quantidade}</td>
                     <td>{formatBRL(it.preco_unitario)}</td>
                     <td>{formatBRL(it.subtotal)}</td>
-                    {isConcluida && canEditSale ? (
+                    {canModifySale && canEditSale ? (
                       <td>
                         <button
                           type="button"
@@ -266,7 +267,7 @@ function SaleDetailModalContent({
               </div>
             ) : null}
 
-            {isConcluida && canCancelSale ? (
+            {canModifySale && canCancelSale ? (
               <button type="button" className="btn-outline mt-4 sales-cancel-sale-btn" onClick={onCancelClick}>
                 <XCircle size={16} aria-hidden />
                 Cancelar venda

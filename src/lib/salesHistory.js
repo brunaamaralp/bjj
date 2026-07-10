@@ -210,6 +210,12 @@ export const SALE_STATUS_BADGE_MAP = {
   parcial: { label: 'Parcial', tone: 'warning' },
 };
 
+/** Vendas em que owner/admin pode cancelar ou trocar produto (histórico / detalhe). */
+export function saleAllowsCancelOrEdit(status) {
+  const st = String(status || '').toLowerCase();
+  return st === 'concluida' || st === 'pendente' || st === 'parcial';
+}
+
 /** @deprecated Use StatusBadge + SALE_STATUS_BADGE_MAP */
 export function saleStatusBadgeClass(status) {
   const st = String(status || '').toLowerCase();

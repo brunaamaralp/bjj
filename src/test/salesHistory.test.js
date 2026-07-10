@@ -6,6 +6,7 @@ import {
   formatSaleIdShort,
   buildCancelReceiptText,
   itemsSummaryFromSnapshot,
+  saleAllowsCancelOrEdit,
 } from '../lib/salesHistory.js';
 
 describe('salesHistory', () => {
@@ -16,6 +17,14 @@ describe('salesHistory', () => {
 
   it('formatSaleIdShort', () => {
     expect(formatSaleIdShort('abc12345')).toBe('#2345');
+  });
+
+  it('saleAllowsCancelOrEdit', () => {
+    expect(saleAllowsCancelOrEdit('concluida')).toBe(true);
+    expect(saleAllowsCancelOrEdit('pendente')).toBe(true);
+    expect(saleAllowsCancelOrEdit('parcial')).toBe(true);
+    expect(saleAllowsCancelOrEdit('cancelada')).toBe(false);
+    expect(saleAllowsCancelOrEdit('rascunho')).toBe(false);
   });
 
   it('filterSalesList by status and search', () => {
