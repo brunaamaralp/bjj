@@ -6,6 +6,7 @@ import { useStudentStore } from '../../store/useStudentStore';
 import { profilePathForLinkablePerson } from '../../lib/taskLinkablePeople.js';
 import { useTerms, contactLabelSingular, pipelineStageDisplayLabel } from '../../lib/terminology.js';
 import { resolveTaskOrigin } from '../../lib/taskOrigin.js';
+import { resolveTaskTemplateName } from '../../lib/taskTemplates.js';
 import { formatTaskDueDate, formatTaskDueRelative, isTaskOverdue } from '../../lib/taskDue.js';
 import StageBadge from './StageBadge.jsx';
 import StatusBadge from './StatusBadge.jsx';
@@ -17,12 +18,19 @@ const TASK_ORIGIN_BADGE_ICONS = {
 };
 import './task-card.css';
 
-function OriginBadge({ origin }) {
+function OriginBadge({ origin, processName }) {
   if (origin === 'manual') return null;
+  const map =
+    origin === 'process' && processName
+      ? {
+          ...TASK_ORIGIN_BADGE_MAP,
+          process: { ...TASK_ORIGIN_BADGE_MAP.process, label: processName },
+        }
+      : TASK_ORIGIN_BADGE_MAP;
   return (
     <StatusBadge
       status={origin}
-      map={TASK_ORIGIN_BADGE_MAP}
+      map={map}
       icon={TASK_ORIGIN_BADGE_ICONS[origin]}
       size="sm"
     />
@@ -42,6 +50,7 @@ const TaskCard = React.memo(function TaskCard({
   isUpdating = false,
   assigneeLabel = null,
   assigneeInitials = null,
+  templateNameById = null,
   isOverlay = false,
   style = undefined,
 }) {
@@ -79,6 +88,7 @@ const TaskCard = React.memo(function TaskCard({
   const overdue = isTaskOverdue(dueRaw) && !isDone;
   const dueRelative = formatTaskDueRelative(dueRaw);
   const origin = resolveTaskOrigin(task);
+  const processName = resolveTaskTemplateName(task, templateNameById);
 
   const leadName = String(task.lead_name || linkedLead?.name || '').trim() || terms.student;
   const stageId = String(linkedLead?.pipelineStage || linkedLead?.stage || '').trim();
@@ -129,7 +139,7 @@ const TaskCard = React.memo(function TaskCard({
     </span>
   );
 
-  const originBadge = <OriginBadge origin={origin} />;
+  const originBadge = <OriginBadge origin={origin} processName={processName} />;
 
   const dueBadgeFull = dueRaw ? (
     <span

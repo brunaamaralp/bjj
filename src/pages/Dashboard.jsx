@@ -61,7 +61,8 @@ import {
     followupPendingCountLabel,
     followupEmptyHint,
     followupCompleteActionLabel,
-    receptionDaySubtitle,
+    receptionCommercialSubtitle,
+    receptionPresenceSubtitle,
     toastAttendedSuccess,
     toastMissedSuccess,
     undoPresenceLabel,
@@ -115,11 +116,14 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
+import DashboardTasksTodaySection from '../components/dashboard/DashboardTasksTodaySection.jsx';
 import KimonoLoanPanel from '../components/recepcao/KimonoLoanPanel.jsx';
 import SalesDailyReportModal from '../components/sales/SalesDailyReportModal.jsx';
 import { useUserRole } from '../lib/useUserRole.js';
 import { fetchSalesDailyReport } from '../lib/salesDailyReportApi.js';
 import { formatBRL } from '../lib/moneyBr';
+import { isAttendanceConfigured } from '../lib/attendance.js';
+import { fetchAttendanceRetention } from '../lib/attendanceRetentionApi.js';
 import { todayYmdLocal } from '../lib/financeForecastCore.js';
 import {
     buildRecepcaoHubTabItems,
@@ -225,7 +229,7 @@ const Dashboard = () => {
     const isOwner = navRole === 'owner';
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const trialSeriesPlural = vertical === 'physio' ? 'Avaliações' : 'Aulas experimentais';
-    const receptionSubtitle = receptionDaySubtitle();
+    const receptionSubtitle = isCatracaTab ? receptionPresenceSubtitle() : receptionCommercialSubtitle();
     const tasks = useTaskStore((s) => s.tasks);
     const fetchDashboardKpiTasks = useTaskStore((s) => s.fetchDashboardKpiTasks);
     const updateTask = useTaskStore((s) => s.updateTask);
@@ -288,9 +292,12 @@ const Dashboard = () => {
         () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     );
     const [followUpsPanelOpen, setFollowUpsPanelOpen] = useState(true);
+    const [tasksPanelOpen, setTasksPanelOpen] = useState(true);
+    const [presenceAtRiskCount, setPresenceAtRiskCount] = useState(0);
     const [mobileWeekExpandSignal, setMobileWeekExpandSignal] = useState(0);
     const hiddenAtRef = useRef(null);
     const followUpsSectionRef = useRef(null);
+    const tasksSectionRef = useRef(null);
     const retornosRowRef = useRef(null);
     const weekSectionRef = useRef(null);
     const [followupStreak, setFollowupStreak] = useState(0);
@@ -530,6 +537,34 @@ const Dashboard = () => {
         });
     };
 
+    const scrollToTasksToday = () => {
+        setTasksPanelOpen(true);
+        requestAnimationFrame(() => {
+            tasksSectionRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        });
+    };
+
+    useEffect(() => {
+        if (!academyId || !isAttendanceConfigured()) {
+            setPresenceAtRiskCount(0);
+            return undefined;
+        }
+        let cancelled = false;
+        void fetchAttendanceRetention({ academyId })
+            .then((data) => {
+                if (!cancelled) setPresenceAtRiskCount(Number(data?.summary?.at_risk) || 0);
+            })
+            .catch(() => {
+                if (!cancelled) setPresenceAtRiskCount(0);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [academyId, hubTab, isRefreshing]);
+
     useEffect(() => {
         const tabParam = searchParams.get('tab');
         const legacyRetornos = searchParams.get('retornos') === '1' || tabParam === 'retornos';
@@ -627,6 +662,10 @@ const Dashboard = () => {
             return;
         }
         if (cardKey === 'tasks') {
+            if (tasksDueHubCounts.total > 0) {
+                scrollToTasksToday();
+                return;
+            }
             navigate(tasksDueHubHref(tasksDueHubCounts.overdue, tasksDueHubCounts.dueToday));
             return;
         }
@@ -652,8 +691,12 @@ const Dashboard = () => {
     };
 
     const recepcaoHubTabs = useMemo(
-        () => buildRecepcaoHubTabItems({ followUpCount: followUps.length }),
-        [followUps.length]
+        () =>
+            buildRecepcaoHubTabItems({
+                followUpCount: followUps.length,
+                atRiskCount: presenceAtRiskCount,
+            }),
+        [followUps.length, presenceAtRiskCount]
     );
 
     const handleRecepcaoHubTabChange = (tabId) => {
@@ -783,14 +826,6 @@ const Dashboard = () => {
                 ...todayFootnote,
             },
             {
-                key: 'enrollments',
-                label: 'Matrículas no mês',
-                count: monthEnrollmentMetrics.enrolledInMonth,
-                tone: monthEnrollmentMetrics.enrolledInMonth > 0 ? 'success' : 'muted',
-                icon: <Users {...HERO_KPI_ICON_PROPS} aria-hidden />,
-                ...enrollmentFootnote,
-            },
-            {
                 key: 'followup',
                 label: followupKpiLabel(),
                 count: followUpsAwaitingContact.length,
@@ -823,6 +858,15 @@ const Dashboard = () => {
                 ...salesFootnote,
             });
         }
+
+        stats.push({
+            key: 'enrollments',
+            label: 'Matrículas no mês',
+            count: monthEnrollmentMetrics.enrolledInMonth,
+            tone: monthEnrollmentMetrics.enrolledInMonth > 0 ? 'success' : 'muted',
+            icon: <Users {...HERO_KPI_ICON_PROPS} aria-hidden />,
+            ...enrollmentFootnote,
+        });
 
         return stats;
     }, [
@@ -1501,12 +1545,9 @@ const Dashboard = () => {
                 />
             ) : null}
 
-
-
             <KimonoLoanPanel academyId={academyId} modules={modules} />
 
-            <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
-
+            <div className="agenda-commercial-block">
             {isDashboardMobile && !loading && followUps.length > 0 ? (
                 <button
                     type="button"
@@ -1643,6 +1684,31 @@ const Dashboard = () => {
                     className="agenda-bottom-row__health"
                 />
             ) : null}
+            </div>
+            </div>
+
+            <div ref={tasksSectionRef}>
+                <DashboardTasksTodaySection
+                    tasks={pendingTasksDueHub}
+                    totalCount={tasksDueHubCounts.total}
+                    overdueCount={tasksDueHubCounts.overdue}
+                    dueTodayCount={tasksDueHubCounts.dueToday}
+                    isDashboardMobile={isDashboardMobile}
+                    panelOpen={tasksPanelOpen}
+                    onTogglePanel={() => setTasksPanelOpen((open) => !open)}
+                    onCompleteTask={markTaskAsDone}
+                    isUpdatingTask={isUpdatingTask}
+                    onOpenTask={(task) => {
+                        const leadId = String(task?.lead_id || '').trim();
+                        if (leadId) {
+                            navigate(`/lead/${leadId}`, { state: { from: LEAD_PROFILE_FROM_DASHBOARD } });
+                        }
+                    }}
+                />
+            </div>
+
+            <div className="agenda-ops-stack" aria-label="Consulta e referência">
+                <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
             </div>
             </div>
             </>

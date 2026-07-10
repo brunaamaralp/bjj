@@ -1716,8 +1716,95 @@
           max-width: 100%;
           min-width: 0;
         }
+        .agenda-commercial-block {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          width: 100%;
+          min-width: 0;
+        }
+        .agenda-ops-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 22px;
+          width: 100%;
+          min-width: 0;
+          padding-top: 18px;
+          margin-top: 2px;
+          border-top: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+        }
+        .agenda-ops-stack .schedules-grid-section,
+        .agenda-ops-stack .kimono-loan-panel {
+          margin-top: 0;
+          margin-bottom: 0;
+        }
+        .dashboard-tasks-today {
+          width: 100%;
+        }
+        .dashboard-tasks-today__list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .dashboard-tasks-today__more {
+          display: inline-block;
+          margin-top: 10px;
+        }
+        .dashboard-tasks-today__toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 8px;
+          background: none;
+          border: none;
+          padding: 0;
+          text-align: left;
+          cursor: pointer;
+        }
+        .dashboard-tasks-today__toggle--static {
+          cursor: default;
+        }
+        .dashboard-tasks-today__chevron {
+          flex-shrink: 0;
+          transition: transform 0.2s ease;
+        }
+        .dashboard-tasks-today__chevron--open {
+          transform: rotate(180deg);
+        }
+        .dashboard-tasks-today--collapsed .dashboard-tasks-today__panel {
+          display: none;
+        }
+        .recepcao-presence-hero {
+          margin-bottom: 16px;
+        }
+        .recepcao-presence-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+          gap: 20px;
+          align-items: start;
+          width: 100%;
+        }
+        .recepcao-presence-grid__live,
+        .recepcao-presence-grid__retention {
+          min-width: 0;
+        }
+        .recepcao-presence-historico-link {
+          margin-top: 12px;
+        }
+        .attendance-at-risk--sidebar .attendance-at-risk-table-wrap {
+          max-height: min(62vh, 640px);
+          overflow: auto;
+        }
+        @media (max-width: 959px) {
+          .recepcao-presence-grid {
+            grid-template-columns: 1fr;
+          }
+        }
         .agenda-bottom-row {
-          order: 1;
           display: grid;
           grid-template-columns: minmax(320px, 1.45fr) minmax(220px, 0.55fr);
           gap: 20px;

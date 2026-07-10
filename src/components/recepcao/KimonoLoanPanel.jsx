@@ -255,11 +255,12 @@ export default function KimonoLoanPanel({ academyId, modules }) {
   const [returningId, setReturningId] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(String(DEFAULT_KIMONO_LOAN_OVERDUE_HOURS));
+  const [collectionMissing, setCollectionMissing] = useState(false);
 
   const enabled = modules?.inventory === true || modules?.sales === true;
 
   const refresh = useCallback(async () => {
-    if (!academyId || !enabled) return;
+    if (!academyId || !enabled || collectionMissing) return;
     setLoading(true);
     setError('');
     try {
@@ -269,25 +270,26 @@ export default function KimonoLoanPanel({ academyId, modules }) {
       setOverdueHours(data.settings?.overdueHours ?? DEFAULT_KIMONO_LOAN_OVERDUE_HOURS);
       setSettingsDraft(String(data.settings?.overdueHours ?? DEFAULT_KIMONO_LOAN_OVERDUE_HOURS));
       setOverdueCount(Number(data.overdueCount) || 0);
+      setCollectionMissing(false);
     } catch (e) {
-      setError(friendlyError(e, 'load'));
       if (e?.code === 'kimono_loans_collection_missing') {
-        setError('Empréstimos ainda não provisionados no banco (coleção kimono_loans).');
+        setCollectionMissing(true);
       }
+      setError(friendlyError(e, 'load'));
     } finally {
       setLoading(false);
     }
-  }, [academyId, enabled]);
+  }, [academyId, enabled, collectionMissing]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   useEffect(() => {
-    if (!enabled || !academyId) return undefined;
+    if (!enabled || !academyId || collectionMissing) return undefined;
     const t = setInterval(() => void refresh(), 60_000);
     return () => clearInterval(t);
-  }, [enabled, academyId, refresh]);
+  }, [enabled, academyId, collectionMissing, refresh]);
 
   const handleLend = async (payload) => {
     setSubmitting(true);

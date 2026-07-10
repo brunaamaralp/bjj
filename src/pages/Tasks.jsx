@@ -49,7 +49,15 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { progressLabelForLead } from '../lib/taskTemplates.js';
+import { createSessionJwt } from '../lib/appwrite';
+import {
+  progressLabelForLead,
+  isTemplateTask,
+  parseTemplateTaskMeta,
+  buildTemplateTaskDescription,
+  taskDescriptionForDisplay,
+  resolveTaskTemplateName,
+} from '../lib/taskTemplates.js';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
@@ -201,6 +209,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   isUpdating,
   assigneeLabel,
   assigneeInitials,
+  templateNameById,
   onComplete,
   onEdit,
   onDelete,
@@ -230,6 +239,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         isUpdating={isUpdating}
         assigneeLabel={assigneeLabel}
         assigneeInitials={assigneeInitials}
+        templateNameById={templateNameById}
         onComplete={onComplete}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -413,6 +423,7 @@ export default function Tasks() {
   const [members, setMembers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState(false);
+  const [templateNameById, setTemplateNameById] = useState(() => new Map());
 
   const effectiveTeamId = useMemo(() => {
     const acad = (academyList || []).find((a) => a.id === academyId);
@@ -561,6 +572,42 @@ export default function Tasks() {
       cancelled = true;
     };
   }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId || isProcessosHub) {
+      setTemplateNameById(new Map());
+      return undefined;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const jwt = await createSessionJwt();
+        if (!jwt || cancelled) return;
+        const res = await fetch('/api/task-templates?include_disabled=1', {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            'x-academy-id': academyId,
+          },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.sucesso || cancelled) return;
+        const map = new Map();
+        for (const template of data.templates || []) {
+          const id = String(template.id || '').trim();
+          const name = String(template.name || '').trim();
+          if (id && name) map.set(id, name);
+        }
+        setTemplateNameById(map);
+      } catch (e) {
+        console.warn('[Tasks] Falha ao carregar nomes de processos:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId, isProcessosHub]);
 
   const filterLeadId = filters.lead_id;
   const filterAssigned = filters.assigned_to;
@@ -851,8 +898,23 @@ export default function Tasks() {
       if (form.lead_id) {
         leadName = linkableById.get(form.lead_id)?.name || '';
       }
-      
-      const payload = { ...form, lead_name: leadName };
+
+      let description = String(form.description || '');
+      if (editingTask && isTemplateTask(editingTask)) {
+        const meta = parseTemplateTaskMeta(editingTask.description);
+        if (meta) {
+          description = buildTemplateTaskDescription({
+            templateId: meta.templateId,
+            batchId: meta.batchId,
+            templateName:
+              resolveTaskTemplateName(editingTask, templateNameById) || meta.templateName,
+            itemOrder: meta.itemOrder,
+            notes: description,
+          });
+        }
+      }
+
+      const payload = { ...form, lead_name: leadName, description };
       
       if (editingTask) {
         await updateTask(editingTask.id, payload);
@@ -873,7 +935,7 @@ export default function Tasks() {
     setEditingTask(t);
     setForm({
       title: t.title || '',
-      description: t.description || '',
+      description: isTemplateTask(t) ? taskDescriptionForDisplay(t) : (t.description || ''),
       due_date: t.due_date || '',
       assigned_to: t.assigned_to || '',
       lead_id: t.lead_id || ''
@@ -1013,6 +1075,7 @@ export default function Tasks() {
         isUpdating={isUpdating(t.id)}
         assigneeLabel={label}
         assigneeInitials={initials}
+        templateNameById={templateNameById}
         onComplete={() => void toggleDone(t)}
         onEdit={openEdit}
         onDelete={handleDelete}
@@ -1030,13 +1093,14 @@ export default function Tasks() {
         isUpdating={isUpdating(t.id)}
         assigneeLabel={label}
         assigneeInitials={initials}
+        templateNameById={templateNameById}
         onComplete={() => void toggleDone(t)}
         onEdit={openEdit}
         onDelete={handleDelete}
         onOpen={() => setDetailTask(t)}
       />
     );
-  }, [assigneeForTask, isUpdating, toggleDone, openEdit, handleDelete]);
+  }, [assigneeForTask, isUpdating, toggleDone, openEdit, handleDelete, templateNameById]);
 
   const clearKanbanDragUi = useCallback(() => {
     setKanbanActiveId(null);
@@ -1336,6 +1400,16 @@ export default function Tasks() {
     const member = members.find((m) => String(m.userId) === raw || String(m.id) === raw);
     return member ? membershipPrimaryLabel(member) : raw;
   }
+
+  const detailProcessName = detailTask
+    ? resolveTaskTemplateName(detailTask, templateNameById)
+    : '';
+  const detailDescription = detailTask ? taskDescriptionForDisplay(detailTask) : '';
+  const detailLinkedName = detailTask?.lead_id
+    ? detailTask.lead_name ||
+      linkableById.get(detailTask.lead_id)?.name ||
+      'Aluno'
+    : '';
 
   return (
     <div className="container navi-hub-page tasks-page--padded">
@@ -1692,6 +1766,7 @@ export default function Tasks() {
                   isUpdating={isUpdating(activeKanbanTask.id)}
                   assigneeLabel={assigneeForTask(activeKanbanTask).label}
                   assigneeInitials={assigneeForTask(activeKanbanTask).initials}
+                  templateNameById={templateNameById}
                   style={{ opacity: 0.75, transform: 'scale(1.02)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
                 />
               ) : null}
@@ -1969,9 +2044,15 @@ export default function Tasks() {
               <div className="task-drawer-field">
                 <span className="task-drawer-label">Descrição</span>
                 <p className="task-drawer-value task-drawer-value--multiline">
-                  {String(detailTask.description || '').trim() ? detailTask.description : 'Sem descrição'}
+                  {detailDescription ? detailDescription : 'Sem descrição'}
                 </p>
               </div>
+              {detailProcessName ? (
+                <div className="task-drawer-field">
+                  <span className="task-drawer-label">Processo</span>
+                  <p className="task-drawer-value">{detailProcessName}</p>
+                </div>
+              ) : null}
               <div className="task-drawer-field">
                 <span className="task-drawer-label">Status</span>
                 <div>
@@ -2012,7 +2093,7 @@ export default function Tasks() {
                       navigate(path);
                     }}
                   >
-                    {detailTask.lead_name || linkableById.get(detailTask.lead_id)?.name || detailTask.lead_id}
+                    {detailLinkedName}
                   </button>
                 ) : (
                   <p className="task-drawer-value">—</p>

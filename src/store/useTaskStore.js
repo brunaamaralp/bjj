@@ -3,6 +3,7 @@ import { createSessionJwt } from '../lib/appwrite';
 import { useLeadStore } from './useLeadStore';
 import { friendlyError } from '../lib/errorMessages.js';
 import { isTaskDueToday, isTaskOverdue } from '../lib/taskDue.js';
+import { normalizeTaskTemplateFields } from '../lib/taskTemplates.js';
 
 /** Mapeia chip de filtro da UI → parâmetros da API. */
 export function uiFilterToApiParams(statusRaw, userId = '') {
@@ -178,6 +179,10 @@ function patchTaskInList(list, taskId, patch) {
   return (list || []).map((t) => (t.id === taskId ? { ...t, ...patch } : t));
 }
 
+function normalizeTasks(list, templateNameById = null) {
+  return (list || []).map((task) => normalizeTaskTemplateFields(task, templateNameById));
+}
+
 export const NOTIFICATION_TASKS_REFRESH_MS = 5 * 60 * 1000;
 
 export const useTaskStore = create((set, get) => ({
@@ -244,7 +249,7 @@ export const useTaskStore = create((set, get) => ({
 
       if (get().fetchGeneration !== generation) return;
 
-      const incoming = data.tasks || [];
+      const incoming = normalizeTasks(data.tasks || []);
       const nextCursor = data.next_cursor ? String(data.next_cursor) : null;
       const hasMore = Boolean(data.has_more);
 
@@ -402,7 +407,7 @@ export const useTaskStore = create((set, get) => ({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) throw new Error(data?.erro || `HTTP ${res.status}`);
 
-      const created = data.task;
+      const created = data.task ? normalizeTaskTemplateFields(data.task) : data.task;
       set((state) => ({
         tasks: created ? [created, ...(state.tasks || [])] : state.tasks,
         loading: false,
@@ -446,7 +451,7 @@ export const useTaskStore = create((set, get) => ({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.sucesso) throw new Error(data?.erro || `HTTP ${res.status}`);
 
-      const updated = data.task;
+      const updated = data.task ? normalizeTaskTemplateFields(data.task) : data.task;
       set((state) => ({
         tasks: (state.tasks || []).map((t) => (t.id === taskId ? updated : t)),
         notificationTasks: (state.notificationTasks || []).map((t) =>

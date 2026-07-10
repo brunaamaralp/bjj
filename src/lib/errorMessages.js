@@ -94,6 +94,10 @@ const ERROR_MAP = {
   receivables_failed: 'Não foi possível carregar as contas a receber. Tente novamente.',
   payables_failed: 'Não foi possível carregar as contas a pagar. Tente novamente.',
   reconcile_failed: 'Não foi possível verificar os lançamentos. Tente novamente.',
+
+  // Empréstimo de kimono (recepção)
+  kimono_loans_collection_missing:
+    'Empréstimos de kimono ainda não estão ativos no banco. Rode o script de schema (verify-and-fix-schema).',
 };
 
 const FINANCE_TX_CODES = {

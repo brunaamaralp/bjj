@@ -47,7 +47,15 @@ export function followupCompleteActionLabel() {
 }
 
 export function receptionDaySubtitle() {
-  return 'Recepção e follow-ups do dia';
+  return receptionCommercialSubtitle();
+}
+
+export function receptionCommercialSubtitle() {
+  return 'Experimentais, follow-ups e conversão';
+}
+
+export function receptionPresenceSubtitle() {
+  return 'Catraca ao vivo e retenção por frequência';
 }
 
 export function toastAttendedSuccess(isFirstOfDay) {

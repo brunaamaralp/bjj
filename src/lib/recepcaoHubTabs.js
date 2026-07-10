@@ -10,8 +10,8 @@ export const RECEPCAO_CATRACA_SECTION_HISTORICO = 'historico';
 export const RECEPCAO_CATRACA_SECTION_RETENCAO = 'retencao';
 
 export const RECEPCAO_HUB_TABS = [
-  { id: RECEPCAO_TAB_EXPERIMENTAIS, label: 'Agenda' },
-  { id: RECEPCAO_TAB_CATRACA, label: 'Catraca' },
+  { id: RECEPCAO_TAB_EXPERIMENTAIS, label: 'Comercial' },
+  { id: RECEPCAO_TAB_CATRACA, label: 'Presença' },
 ];
 
 const LEGACY_TAB_ALIASES = {
@@ -45,22 +45,32 @@ export function isRecepcaoCatracaRetencaoSection(section) {
   return resolveRecepcaoCatracaSection(section) === RECEPCAO_CATRACA_SECTION_RETENCAO;
 }
 
+function presenceAtRiskBadgeLabel(count) {
+  const n = Number(count) || 0;
+  return `${n} aluno${n === 1 ? '' : 's'} em risco`;
+}
+
 /**
- * @param {{ followUpCount?: number }} [opts]
+ * @param {{ followUpCount?: number; atRiskCount?: number }} [opts]
  */
-export function buildRecepcaoHubTabItems({ followUpCount = 0 } = {}) {
-  const count = Number(followUpCount) > 0 ? Number(followUpCount) : 0;
+export function buildRecepcaoHubTabItems({ followUpCount = 0, atRiskCount = 0 } = {}) {
+  const followCount = Number(followUpCount) > 0 ? Number(followUpCount) : 0;
+  const riskCount = Number(atRiskCount) > 0 ? Number(atRiskCount) : 0;
   return RECEPCAO_HUB_TABS.map((tab) => {
-    const badgeCount =
-      tab.id === RECEPCAO_TAB_EXPERIMENTAIS && count > 0 ? count : undefined;
+    let badgeCount;
+    let badgeAriaLabel;
+    if (tab.id === RECEPCAO_TAB_EXPERIMENTAIS && followCount > 0) {
+      badgeCount = followCount;
+      badgeAriaLabel = followupPendingCountLabel(followCount);
+    } else if (tab.id === RECEPCAO_TAB_CATRACA && riskCount > 0) {
+      badgeCount = riskCount;
+      badgeAriaLabel = presenceAtRiskBadgeLabel(riskCount);
+    }
     return {
       id: tab.id,
       label: tab.label,
       badgeCount,
-      badgeAriaLabel:
-        badgeCount && tab.id === RECEPCAO_TAB_EXPERIMENTAIS
-          ? followupPendingCountLabel(badgeCount)
-          : undefined,
+      badgeAriaLabel,
     };
   });
 }

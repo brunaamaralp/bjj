@@ -18,6 +18,8 @@
     "provision:sales": "node scripts/provision_sales_schema.js",
     "deploy:function:sales-cancel": "node --env-file=.env --env-file=.env.local scripts/deploy-appwrite-function.mjs sales_cancel",
     "provision:core": "node scripts/setup-appwrite.mjs",
+    "verify-and-fix-schema": "node scripts/verify-and-fix-schema.mjs",
+    "provision:kimono-loans": "node scripts/provision-kimono-loans-schema.mjs",
     "verify-and-fix-schema-crm": "node --env-file=.env scripts/verify-and-fix-schema-crm.mjs",
     "audit:students-attrs": "node --env-file=.env scripts/audit-students-collection-attrs.mjs",
     "audit:students-attrs:sample": "node --env-file=.env scripts/audit-students-collection-attrs.mjs --sample",

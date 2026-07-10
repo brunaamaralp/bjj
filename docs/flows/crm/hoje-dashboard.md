@@ -5,7 +5,7 @@
 | **id** | `crm.recepcao.mesa` |
 | **módulo** | CRM |
 | **personas** | recepcionista, owner, instrutor |
-| **rotas** | `/` (default = aba Experimentais), `/?tab=catraca`, `/?tab=catraca&section=historico`, `/?tab=catraca&section=retencao` |
+| **rotas** | `/` (default = aba Comercial), `/?tab=catraca`, `/?tab=catraca&section=historico`, `/?tab=catraca&section=retencao` |
 | **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico`; `?retornos=1` ou `?tab=retornos` → Experimentais + scroll para follow-ups; `#follow-ups` → scroll na aba Experimentais |
 | **pré-requisitos** | Usuário autenticado; academia selecionada; módulo CRM ativo |
 | **status** | revisado (código); staging pendente |
@@ -30,8 +30,8 @@
 
 A página **Recepção** (`/`) é a mesa do dia com duas abas via `HubTabBar`:
 
-1. **Experimentais** (default, sem `?tab`) — hero com 4 KPIs, **alerta de retenção** (quando há alunos em risco), agenda da semana, lista **Follow-ups pendentes**, painel **Saúde dos follow-ups** (quando há dados), aniversários.
-2. **Catraca** (`?tab=catraca`) — sub-abas Ao vivo, Histórico (`?section=historico`) e **Retenção** (`?section=retencao`). Ver [recepcao-controlid.md](recepcao-controlid.md).
+1. **Comercial** (default, sem `?tab`) — hero com KPIs (hoje, follow-ups, tarefas, vendas*, matrículas), **agenda da semana** em destaque, kimonos emprestados, follow-ups, tarefas de hoje, grade de horários.
+2. **Presença** (`?tab=catraca`) — hero com KPIs de presença/retenção; no desktop, feed ao vivo e fila de retenção lado a lado; sub-abas Ao vivo, Histórico e Retenção no mobile. Ver [recepcao-controlid.md](recepcao-controlid.md).
 
 Rotas legadas redirecionam para os destinos canônicos acima.
 

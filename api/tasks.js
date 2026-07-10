@@ -8,6 +8,7 @@ import { updateDocumentResilient } from '../lib/server/appwriteSchemaResilient.j
 import { actorDisplayName, applyTaskCompletionFields } from '../lib/server/taskCompletionFields.js';
 import { recordAuditEvent, actorFromMe } from '../lib/server/auditLog.js';
 import { AUDIT_EVENTS } from '../lib/server/auditEventTypes.js';
+import { parseTemplateTaskMeta } from '../src/lib/taskTemplates.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -55,11 +56,22 @@ function taskIdFromRequest(req) {
 }
 
 function mapTask(d) {
+  const description = String(d.description || '');
+  const meta = parseTemplateTaskMeta(description);
+  const template_id = d.template_id
+    ? String(d.template_id)
+    : String(meta?.templateId || '').trim();
+  const template_batch_id = d.template_batch_id
+    ? String(d.template_batch_id)
+    : String(meta?.batchId || '').trim();
+  const template_name = d.template_name
+    ? String(d.template_name)
+    : String(meta?.templateName || '').trim();
   return {
     id: d.$id,
     academy_id: String(d.academy_id || ''),
     title: String(d.title || ''),
-    description: String(d.description || ''),
+    description,
     status: String(d.status || ''),
     due_date: d.due_date ? String(d.due_date) : '',
     assigned_to: d.assigned_to ? String(d.assigned_to) : '',
@@ -68,9 +80,9 @@ function mapTask(d) {
     created_by: d.created_by ? String(d.created_by) : '',
     created_at: String(d.created_at || d.$createdAt || ''),
     updated_at: String(d.updated_at || d.$updatedAt || ''),
-    template_id: d.template_id ? String(d.template_id) : '',
-    template_batch_id: d.template_batch_id ? String(d.template_batch_id) : '',
-    template_name: d.template_name ? String(d.template_name) : '',
+    template_id,
+    template_batch_id,
+    template_name,
     completed_by: d.completed_by ? String(d.completed_by) : '',
     completed_by_name: d.completed_by_name ? String(d.completed_by_name) : '',
   };

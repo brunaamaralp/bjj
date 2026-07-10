@@ -205,13 +205,68 @@ export function buildTemplateTaskDescription({
 export function parseTemplateTaskMeta(description) {
   const text = String(description || '');
   if (!text.includes(TEMPLATE_MARKER)) return null;
-  const templateId = (text.match(/^template_id:\s*(.+)$/m) || [])[1]?.trim() || '';
-  const batchId = (text.match(/^batch_id:\s*(.+)$/m) || [])[1]?.trim() || '';
-  const templateName = (text.match(/^template_name:\s*(.+)$/m) || [])[1]?.trim() || '';
-  const itemOrder = Math.trunc(Number((text.match(/^item_order:\s*(\d+)/m) || [])[1] || 0));
+  const header = text.split(/\n---\n/)[0];
+  const lines = header.split('\n');
+  const read = (key) => {
+    const prefix = `${key}: `;
+    const line = lines.find((l) => l.startsWith(prefix));
+    return line ? line.slice(prefix.length).trim() : '';
+  };
+  const templateId = read('template_id');
+  const batchId = read('batch_id');
+  const templateName = read('template_name');
+  const itemOrder = Math.trunc(Number(read('item_order') || 0));
   const parts = text.split(/\n---\n/);
   const notes = parts.length > 1 ? parts.slice(1).join('\n---\n').trim() : '';
   return { templateId, batchId, templateName, itemOrder, notes };
+}
+
+export function resolveTaskTemplateId(task) {
+  const meta = parseTemplateTaskMeta(task?.description);
+  return String(task?.template_id || task?.templateId || meta?.templateId || '').trim();
+}
+
+/** Nome legível do processo/template (não o ID). */
+export function resolveTaskTemplateName(task, templateNameById = null) {
+  const meta = parseTemplateTaskMeta(task?.description);
+  const fromDoc = String(task?.template_name || task?.templateName || meta?.templateName || '').trim();
+  if (fromDoc) return fromDoc;
+  const templateId = resolveTaskTemplateId(task);
+  if (templateId && templateNameById) {
+    const fromMap = String(templateNameById.get(templateId) || '').trim();
+    if (fromMap) return fromMap;
+  }
+  return '';
+}
+
+/** Descrição visível ao usuário (sem metadados internos do template). */
+export function taskDescriptionForDisplay(task) {
+  const meta = parseTemplateTaskMeta(task?.description);
+  if (!meta) return String(task?.description || '').trim();
+  return String(meta.notes || '').trim();
+}
+
+export function normalizeTaskTemplateFields(task, templateNameById = null) {
+  if (!task || typeof task !== 'object') return task;
+  const meta = parseTemplateTaskMeta(task.description);
+  const template_id = resolveTaskTemplateId(task);
+  const template_batch_id = String(
+    task.template_batch_id || task.templateBatchId || meta?.batchId || ''
+  ).trim();
+  const template_name = resolveTaskTemplateName(
+    {
+      ...task,
+      template_id,
+      template_batch_id,
+    },
+    templateNameById
+  );
+  return {
+    ...task,
+    template_id,
+    template_batch_id,
+    template_name,
+  };
 }
 
 export function isTemplateTask(task) {

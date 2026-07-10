@@ -104,7 +104,7 @@ function StudentCell({ row }) {
 /**
  * Tabela operacional de alunos em risco por frequência (Recepção → Catraca).
  */
-export default function AttendanceAtRiskSection({ className = '' }) {
+export default function AttendanceAtRiskSection({ className = '', layout = 'full', onDataLoaded }) {
   const terms = useTerms();
   const [searchParams, setSearchParams] = useSearchParams();
   const turma = String(searchParams.get(URL_RET_TURMA) || '').trim();
@@ -146,13 +146,14 @@ export default function AttendanceAtRiskSection({ className = '' }) {
         belt: belt || undefined,
       });
       setData(body);
+      onDataLoaded?.(body);
     } catch (e) {
       setError(friendlyError(e, 'load'));
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [academyId, turma, belt]);
+  }, [academyId, turma, belt, onDataLoaded]);
 
   const setTurmaFilter = useCallback(
     (value) => {
@@ -394,7 +395,9 @@ export default function AttendanceAtRiskSection({ className = '' }) {
   return (
     <section
       id="retencao"
-      className={`attendance-at-risk card reception-section${className ? ` ${className}` : ''}`}
+      className={`attendance-at-risk card reception-section${
+        layout === 'sidebar' ? ' attendance-at-risk--sidebar' : ''
+      }${className ? ` ${className}` : ''}`}
     >
       <ReportSectionHeading
         className="attendance-at-risk__heading"
@@ -423,7 +426,7 @@ export default function AttendanceAtRiskSection({ className = '' }) {
         }
       />
 
-      {summary ? (
+      {summary && layout !== 'sidebar' ? (
         <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
           <KpiPill
             label="Em risco"

@@ -8,6 +8,8 @@ import {
   progressLabelForLead,
   buildTemplateTaskDescription,
   parseTemplateTaskMeta,
+  resolveTaskTemplateName,
+  taskDescriptionForDisplay,
 } from '../lib/taskTemplates.js';
 
 describe('taskTemplates', () => {
@@ -81,5 +83,42 @@ describe('taskTemplates', () => {
     const m = parseTemplateTaskMeta(d);
     expect(m.templateId).toBe('x');
     expect(m.notes).toBe('instr');
+  });
+
+  it('resolveTaskTemplateName reads from description when doc fields are empty', () => {
+    const desc = buildTemplateTaskDescription({
+      templateId: 'tpl-99',
+      batchId: 'batch-1',
+      templateName: 'Onboarding',
+      itemOrder: 0,
+      notes: '',
+    });
+    const task = { description: desc, template_id: '', template_name: '' };
+    expect(resolveTaskTemplateName(task)).toBe('Onboarding');
+  });
+
+  it('resolveTaskTemplateName falls back to template map by id', () => {
+    const map = new Map([['tpl-99', 'Matrícula']]);
+    const task = {
+      description: buildTemplateTaskDescription({
+        templateId: 'tpl-99',
+        batchId: 'batch-1',
+        templateName: '',
+        itemOrder: 0,
+        notes: '',
+      }),
+    };
+    expect(resolveTaskTemplateName(task, map)).toBe('Matrícula');
+  });
+
+  it('taskDescriptionForDisplay hides template metadata block', () => {
+    const desc = buildTemplateTaskDescription({
+      templateId: 'tpl-1',
+      batchId: 'batch-1',
+      templateName: 'Processo X',
+      itemOrder: 0,
+      notes: 'Ligar para o aluno',
+    });
+    expect(taskDescriptionForDisplay({ description: desc })).toBe('Ligar para o aluno');
   });
 });

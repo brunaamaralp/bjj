@@ -25,11 +25,14 @@ describe('recepcaoHubTabs', () => {
     expect(resolveRecepcaoHubTab('retornos')).toBe(RECEPCAO_TAB_EXPERIMENTAIS);
   });
 
-  it('buildRecepcaoHubTabItems — badge em experimentais', () => {
-    const items = buildRecepcaoHubTabItems({ followUpCount: 3 });
-    const exp = items.find((i) => i.id === RECEPCAO_TAB_EXPERIMENTAIS);
-    expect(exp?.badgeCount).toBe(3);
-    expect(items.find((i) => i.id === RECEPCAO_TAB_CATRACA)?.badgeCount).toBeUndefined();
+  it('buildRecepcaoHubTabItems — badges comercial e presença', () => {
+    const items = buildRecepcaoHubTabItems({ followUpCount: 3, atRiskCount: 2 });
+    const commercial = items.find((i) => i.id === RECEPCAO_TAB_EXPERIMENTAIS);
+    const presence = items.find((i) => i.id === RECEPCAO_TAB_CATRACA);
+    expect(commercial?.label).toBe('Comercial');
+    expect(presence?.label).toBe('Presença');
+    expect(commercial?.badgeCount).toBe(3);
+    expect(presence?.badgeCount).toBe(2);
   });
 
   it('buildRecepcaoLegacyRedirectPath', () => {
