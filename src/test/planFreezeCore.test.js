@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  isFrozenInMonth,
+  isStudentFreezeCacheCoveringMonth,
+  referenceMonthsInRange,
   isAnnualPlanStudent,
   effectiveFreezeDaysUsed,
   validateFreezeRequest,
@@ -13,7 +16,7 @@ import {
   minRetroactiveStartYmd,
 } from '../../lib/planFreezeCore.js';
 
-describe('planFreezeCore', () => {
+describe('planFreezeCore (validação e cota)', () => {
   it('detects annual plan by name', () => {
     expect(isAnnualPlanStudent({ plan: 'Plano Anual' })).toBe(true);
     expect(isAnnualPlanStudent({ plan: 'Mensal' })).toBe(false);
@@ -159,5 +162,74 @@ describe('planFreezeCore', () => {
     };
     const used = effectiveFreezeDaysUsed(student, new Date('2026-04-01T12:00:00'));
     expect(used).toBe(0);
+  });
+});
+
+describe('isFrozenInMonth', () => {
+  const boundedFreeze = {
+    start_date: '2026-01-15T12:00:00.000Z',
+    end_date: '2026-02-10T12:00:00.000Z',
+    indefinite: false,
+  };
+
+  it('intervalo 15/jan–10/fev toca jan e fev', () => {
+    expect(referenceMonthsInRange('2026-01-15', '2026-02-10')).toEqual(['2026-01', '2026-02']);
+    expect(isFrozenInMonth([boundedFreeze], '2026-01').frozen).toBe(true);
+    expect(isFrozenInMonth([boundedFreeze], '2026-02').frozen).toBe(true);
+    expect(isFrozenInMonth([boundedFreeze], '2026-03').frozen).toBe(false);
+  });
+
+  it('mês anterior ao start não é frozen', () => {
+    expect(isFrozenInMonth([boundedFreeze], '2025-12').frozen).toBe(false);
+  });
+
+  it('mês posterior ao end não é frozen', () => {
+    expect(isFrozenInMonth([boundedFreeze], '2026-03').frozen).toBe(false);
+  });
+
+  it('indefinite cobre meses >= mês de start', () => {
+    const indefinite = {
+      start_date: '2026-03-01T12:00:00.000Z',
+      indefinite: true,
+    };
+    expect(isFrozenInMonth([indefinite], '2026-02').frozen).toBe(false);
+    expect(isFrozenInMonth([indefinite], '2026-03').frozen).toBe(true);
+    expect(isFrozenInMonth([indefinite], '2026-12').frozen).toBe(true);
+  });
+
+  it('múltiplos freezes: só o vigente conta', () => {
+    const old = {
+      start_date: '2025-06-01T12:00:00.000Z',
+      end_date: '2025-08-31T12:00:00.000Z',
+    };
+    const current = {
+      start_date: '2026-01-15T12:00:00.000Z',
+      end_date: '2026-02-10T12:00:00.000Z',
+    };
+    expect(isFrozenInMonth([old, current], '2026-01').frozen).toBe(true);
+    expect(isFrozenInMonth([old, current], '2025-07').frozen).toBe(true);
+    expect(isFrozenInMonth([old, current], '2025-10').frozen).toBe(false);
+  });
+
+  it('freeze cancelado é ignorado', () => {
+    const cancelled = { ...boundedFreeze, status: 'cancelled' };
+    expect(isFrozenInMonth([cancelled], '2026-01').frozen).toBe(false);
+  });
+});
+
+describe('isStudentFreezeCacheCoveringMonth', () => {
+  it('cache ativo fora do intervalo não cobre o mês avaliado', () => {
+    const student = {
+      freeze_status: 'active',
+      freeze_start: '2026-04-01T12:00:00.000Z',
+      freeze_end: '2026-06-30T12:00:00.000Z',
+    };
+    expect(isStudentFreezeCacheCoveringMonth(student, '2026-03')).toBe(false);
+    expect(isStudentFreezeCacheCoveringMonth(student, '2026-05')).toBe(true);
+  });
+
+  it('cache legado sem datas preserva comportamento (frozen)', () => {
+    const student = { freeze_status: 'active' };
+    expect(isStudentFreezeCacheCoveringMonth(student, '2026-01')).toBe(true);
   });
 });
